@@ -1,0 +1,115 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+env = BuildEnv.Clone()
+
+env.AppendUnique(CCFLAGS='-fno-exceptions')
+
+# Generate the source files
+SandeshGenFiles  = env.SandeshGenCpp('bgp_peer.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('bgp_log.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'] + '/bgp'])
+
+SandeshPeerFiles = env.SandeshGenCpp('peer_info.sandesh')
+SandeshPeerGenSrcs = env.ExtractCpp(SandeshPeerFiles)
+libpeer_sandesh = env.Library('peer_sandesh', SandeshPeerGenSrcs);
+
+libbgp = env.Library('bgp',
+                     SandeshGenSrcs +
+                     ['bgp_af.cc',
+                      'bgp_aspath.cc',
+                      'bgp_attr.cc',
+                      'bgp_condition_listener.cc',
+                      'bgp_config.cc',
+                      'bgp_config_listener.cc',
+                      'bgp_config_parser.cc',
+                      'bgp_debug.cc',
+                      'bgp_export.cc',
+                      'bgp_factory.cc',
+                      'bgp_log.cc',
+                      'bgp_message_builder.cc',
+                      'bgp_multicast.cc',
+                      'bgp_origin_vn.cc',
+                      'bgp_path.cc',
+                      'bgp_peer.cc',
+                      'bgp_peer_close.cc',
+                      'bgp_peer_key.cc',
+                      'bgp_peer_membership.cc',
+                      'bgp_proto.cc',
+                      'bgp_ribout.cc',
+                      'bgp_ribout_updates.cc',
+                      'bgp_sandesh.cc',
+                      'bgp_server.cc',
+                      'bgp_session_manager.cc',
+                      'bgp_session.cc',
+                      'bgp_route.cc',
+                      'bgp_table.cc',
+                      'bgp_update.cc',
+                      'bgp_update_monitor.cc',
+                      'bgp_update_queue.cc',
+                      'bgp_xmpp_channel.cc',
+                      'community.cc',
+                      'message_builder.cc',
+                      'scheduling_group.cc',
+                      'state_machine.cc',
+                      'xmpp_message_builder.cc'
+                      ])
+
+env.SConscript('enet/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('evpn/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('inetmcast/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('l3vpn/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('routing-instance/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('rtarget/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('security_group/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('tunnel_encap/SConscript', exports='BuildEnv', duplicate = 0)
+
+test_suite = env.SConscript('test/SConscript',
+                            exports='BuildEnv', duplicate = 0)
+
+def code_coverage(target, source, env):
+    # rm -rf bgp/test_coverage
+    import shutil
+    shutil.rmtree(target[0].path, ignore_errors = True)
+
+    # lcov --base-directory $ROOT -- directory . --zerocounters -q
+    import os
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' --zerocounters -q')
+    # execute tests
+    import subprocess
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    for test in test_suite:
+        cmd = test[0].path
+        logfile = open(cmd + '.log', 'w')
+        subprocess.call([cmd], stdout=logfile, env=ShEnv)
+
+    # lcov --base-directory $ROOT -- directory . -c -o bgp_test.info
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' -c -o bgp_test.info')
+
+    # genhtml -o bgp/test_coverage bgp_test.info
+    os.system('genhtml -o ' + target[0].path +
+              ' -t "test coverage" --num-spaces 4 bgp_test.info')
+
+
+if env['OPT'] == 'coverage':
+    test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
+    env.AlwaysBuild(test_coverage)
+    env.Alias('src/bgp:test_coverage', test_coverage)

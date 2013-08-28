@@ -1,0 +1,52 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    except_env.Replace(CCFLAGS = cflags)
+
+import sys
+
+SandeshGenFiles = env.SandeshGenCpp('cfg.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = []
+for src in SandeshGenSrcs:                    
+    objname = src.replace('.cpp', '.o')
+    obj = except_env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+except_files = [
+                'init_config.cc'
+                ]
+
+except_objs = []
+for except_src in except_files:
+    objname = except_src.replace('.cc', '.o')
+    obj = except_env.Object(objname, except_src)
+    except_objs.append(obj)
+
+libcfg = env.Library('cfg',
+                     except_objs +
+                     sandesh_objs +
+                     ['cfg_listener.cc',
+                      'cfg_filter.cc',
+                      'interface_cfg.cc',
+                      'interface_cfg_listener.cc',
+                      'mirror_cfg.cc',
+                      'discovery_agent.cc',
+                      ])
+
+libcfg_int = env.Library('cfg_int',
+                         ['interface_cfg.cc',
+                          ])
+

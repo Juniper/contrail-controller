@@ -1,0 +1,224 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct KComponentNH {
+    1: i32 nh_id (link = "KNHReq");
+    2: i32 label (link = "KMplsInfo");
+}
+
+struct KNHInfo {
+    1: i32             id;
+    2: string          type;
+    3: string          family;
+    4: i32             rid;
+    5: i32             vrf (link = "KRouteReq");
+    6: string          flags;
+    7: i32             ref_cnt;
+    8: optional string encap_family;
+    9: optional i32    encap_oif_id (link = "KInterfaceReq");
+   10: optional i32    encap_len;
+   11: optional string tun_sip;
+   12: optional string tun_dip;
+   13: optional i32    tun_sport;
+   14: optional i32    tun_dport;
+   15: optional string encap;
+   16: optional list<KComponentNH> component_nh;
+}
+
+struct KInterfaceInfo {
+    1: i32          idx;
+    2: string       type;
+    3: string       flags;
+    4: i32          vrf (link = "KRouteReq");
+    5: i32          rid;
+    6: i32          os_idx;
+    7: i32          mtu;
+    8: string       name;
+    9: i64          ibytes;
+   10: i64          ipackets;
+   11: i64          ierrors;
+   12: i64          obytes;
+   13: i64          opackets;
+   14: i64          oerrors;
+   15: i32          ref_cnt;
+   16: string       mac;
+   17: string       ip;
+   18: byte         mirror_id;
+   19: i32          speed;
+   20: i32          duplexity;
+}
+
+struct KRouteInfo {
+    1:  i32         vrf_id;
+    2:  string      family;
+    3:  string      prefix;
+    4:  i32         prefix_len;
+    5:  i16         rid;
+    6:  string      label_flags;
+    7:  i32         label;
+    8:  i32         nh_id (link = "KNHReq");
+}
+
+struct KMplsInfo {
+    1: i16          label;
+    2: i16          rid;
+    3: i32          nhid (link = "KNHReq");
+}
+
+struct KMirrorInfo {
+    1: i32  mirr_index;
+    2: i16  mirr_rid;
+    3: string mirr_flags;
+    4: i32  mirr_users;
+    5: i32  mirr_nhid (link = "KNHReq");
+}
+
+struct KFlowInfo {
+    1: i32           index;
+    2: i32           rflow;
+    3: string        sip; 
+    4: i32           sport;
+    5: string        dip;
+    6: i32           dport;
+    7: byte          proto;
+    8: i16           vrf_id;
+    9: string        action;
+   10: string        flags;
+   11: i16           d_vrf_id;
+   12: i32           bytes;
+   13: i32           pkts;
+   14: i32           insight;
+   15: optional byte mirror_id (link = "KMirrorReq");
+   16: optional byte sec_mirror_id (link = "KMirrorReq");
+   17: optional i16  ecmp_index;
+}
+
+request sandesh KInterfaceReq {
+    1: i32 if_id = -1             // send data for given if-id, send all if -1
+}
+
+response sandesh KInterfaceResp {
+    1: list<KInterfaceInfo> if_list;
+}
+
+request sandesh KRouteReq {
+    1: i32 vrf_id = 0            // Send routes of vrf 0 if not specified
+}
+
+response sandesh KRouteResp {
+    1: list<KRouteInfo> rt_list;
+}
+
+request sandesh KNHReq {
+    1: i32 nh_id = -1;           // send data for given nh, send all if -1
+}
+
+response sandesh KNHResp {
+    1: list<KNHInfo> nh_list;
+}
+
+request sandesh KMplsReq {
+    1: i16 mpls_label = -1;      // send data for given mpls label, send all if -1
+}
+
+response sandesh KMplsResp {
+    1: list<KMplsInfo> mpls_list;
+}
+
+request sandesh KMirrorReq {
+        1: i32 mirror_id = -1;
+}
+
+response sandesh KMirrorResp { 1: list<KMirrorInfo> mirror_list;
+}
+
+request sandesh KFlowReq {
+    1: i32 flow_idx = -1;        // send data for given flow index, send all if -1
+}
+
+response sandesh KFlowResp {
+    1: list<KFlowInfo> flow_list;
+}
+
+response sandesh ErrResp {
+    1: string resp = "   Invalid Input !!!   ";
+}
+
+struct KVrfAssignInfo {
+    1: i16          vif_index;
+    2: i16          vlan_id;
+    3: i16          vif_vrf;
+}
+
+request sandesh KVrfAssignReq {
+    1: i32 vif_index = -1;      // send vrf assign rules for an index. Send all if -1
+}
+
+response sandesh KVrfAssignResp {
+    1: list<KVrfAssignInfo> vrf_assign_list;
+}
+
+struct KVrfStatsInfo {
+    1: i16      vrf_id;
+    2: string   vrf_family;
+    3: string   vrf_type;
+    4: i16      vrf_rid;
+    5: i64      vrf_discards;
+    6: i64      vrf_resolves;
+    7: i64      vrf_receives;
+    8: i64      vrf_tunnels;
+    9: i64      vrf_composites;
+   10: i64      vrf_encaps;
+}
+
+request sandesh KVrfStatsReq {
+    1: i32 vrf_index = -1;      // send vrf stats for an index. Send all if -1
+}
+
+response sandesh KVrfStatsResp {
+    1: list<KVrfStatsInfo> vrf_stats_list;
+}
+
+request sandesh KDropStatsReq {
+}
+
+response sandesh KDropStatsResp {
+    1:  u16             ds_rid;  
+    2:  u64             ds_discard;
+    3:  u64             ds_pull;
+    4:  u64             ds_invalid_if;
+    5:  u64             ds_arp_not_me;
+    6:  u64             ds_garp_from_vm;
+    7:  u64             ds_invalid_arp;
+    8:  u64             ds_trap_no_if;
+    9:  u64             ds_nowhere_to_go;
+    10: u64             ds_flow_queue_limit_exceeded;
+    11: u64             ds_flow_no_memory;
+    12: u64             ds_flow_invalid_protocol;
+    13: u64             ds_flow_nat_no_rflow;
+    14: u64             ds_flow_action_drop;
+    15: u64             ds_flow_action_invalid;
+    16: u64             ds_flow_unusable;
+    17: u64             ds_flow_table_full;
+    18: u64             ds_interface_tx_discard;
+    19: u64             ds_interface_drop;
+    20: u64             ds_duplicated;
+    21: u64             ds_push;
+    22: u64             ds_ttl_exceeded;
+    23: u64             ds_invalid_nh;
+    24: u64             ds_invalid_label;
+    25: u64             ds_invalid_protocol;
+    26: u64             ds_interface_rx_discard;
+    27: u64             ds_invalid_mcast_source;
+    28: u64             ds_head_alloc_fail;
+    29: u64             ds_head_space_reserve_fail;
+    30: u64             ds_pcow_fail;
+    31: u64             ds_flood;
+    32: u64             ds_mcast_clone_fail;
+    33: u64             ds_composite_invalid_interface;
+    34: u64             ds_rewrite_fail;
+    35: u64             ds_misc;
+    36: u64             ds_invalid_packet;
+    37: u64             ds_cksum_err;
+}

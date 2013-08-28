@@ -1,0 +1,129 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('AnalyticsEnv')
+
+env = AnalyticsEnv.Clone()
+
+env.Append(LIBS=['libsandeshflow', 'gunit', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
+env.Append(CPPPATH = ['#/'+Dir('.').path ,
+                      "#/build/debug/",
+                      env['TOP'],
+                      env['TOP'] + '/base/sandesh/'])
+
+env_noWerror = env.Clone()
+while env_noWerror['CCFLAGS'].count('-Werror') > 0:
+    env_noWerror['CCFLAGS'].remove('-Werror')
+
+env_noWerror_excep = env_noWerror.Clone()
+while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+
+SandeshGenFiles  = env.SandeshGenCpp('viz_collector_test.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('vizd_test.sandesh')
+SandeshGenSrcs   = env.ExtractCpp(SandeshGenFiles)
+SandeshGenObjs   = env.Object(SandeshGenSrcs)
+
+vizd_collector_test = env.Program('vizd_collector_test',
+                                  SandeshGenObjs +
+                                  ['viz_collector_test.cc']
+                                  )
+env.Alias('src/analytics:vizd_collector_test', vizd_collector_test)
+
+viz_flow_test_obj = env_noWerror_excep.Object('viz_flow_test.o', 'viz_flow_test.cc')
+vizd_flow_test = env.Program('vizd_flow_test',
+                             SandeshGenObjs +
+                             [viz_flow_test_obj]
+                             )
+env.Alias('src/analytics:vizd_flow_test', vizd_flow_test)
+
+viz_redis_test_obj = env_noWerror_excep.Object('viz_redis_test.o', 'viz_redis_test.cc')
+viz_redis_test = env.UnitTest('viz_redis_test',
+        [
+        SandeshGenObjs,
+        env['ANALYTICS_SANDESH_GEN_OBJS'],
+        '../viz_message.o',
+        '../viz_collector.o',
+        '../collector.o',
+        '../ruleeng.o',
+        '../db_handler.o',
+        '../vizd_table_desc.o',
+        '../OpServerProxy.o',
+        '../generator.o',
+        '../redis_connection.o',
+        '../redis_processor_vizd.o',
+        viz_redis_test_obj]
+        )
+env.Alias('src/analytics:viz_redis_test', viz_redis_test)
+
+viz_message_test = env.UnitTest('viz_message_test',
+                              ['viz_message_test.cc',
+                              '../viz_message.o']
+                              )
+env.Alias('src/analytics:viz_message_test', viz_message_test)
+
+#ruleeng_test = env.UnitTest('ruleeng_test',
+#                              AnalyticsEnv['ANALYTICS_SANDESH_GEN_OBJS'] + 
+#                              ['ruleeng_test.cc',
+#                              '../ruleeng.o',
+#                              '../viz_message.o',
+#                              '../viz_collector.o',
+#                              '../collector.o',
+#                              '../db_handler.o',
+#                              '../OpServerProxy.o',
+#                              ]
+#                              )
+#env.Alias('src/analytics:ruleeng_test', ruleeng_test)
+
+#db_handler_test_obj = env_noWerror_excep.Object('db_handler_test.o', 'db_handler_test.cc')
+#db_handler_test = env.UnitTest('db_handler_test',
+#                              AnalyticsEnv['ANALYTICS_SANDESH_GEN_OBJS'] + 
+#                              [db_handler_test_obj,
+#                              '../db_handler.o',
+#                              '../vizd_table_desc.o',
+#                              '../viz_message.o',
+#                              '../generator.o',
+#                              env['TOP'] + '/analytics/viz_request_skeleton.o'
+#                              ]
+#                              )
+#env.Alias('src/analytics:db_handler_test', db_handler_test)
+
+#vizd_test_obj = env_noWerror_excep.Object('vizd_test.o', 'vizd_test.cc')
+#vizd_test = env.UnitTest('vizd_test',
+#        [
+#       SandeshGenObjs,
+#       env['ANALYTICS_SANDESH_GEN_OBJS'],
+#       '../viz_message.o',
+#       '../viz_collector.o',
+#       '../collector.o',
+#       '../ruleeng.o',
+#       '../db_handler.o',
+#       '../vizd_table_desc.o',
+#       '../OpServerProxy.o',
+#       '../generator.o',
+#       '../redis_connection.o',
+#       '../redis_processor_vizd.o',
+#       vizd_test_obj]
+#       )
+#env.Alias('src/analytics:vizd_test', vizd_test)
+
+import sys
+test_suite = []
+if sys.platform == 'darwin':
+    test_suite = [ viz_message_test,
+                   viz_redis_test,
+                   ]
+else:
+    test_suite = [ viz_message_test,
+                   #viz_redis_test,
+                   ]
+
+test = env.TestSuite('analytics-test', test_suite)
+
+env.Alias('src/analytics:test', test)
+
+Return('test_suite')

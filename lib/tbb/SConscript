@@ -1,0 +1,67 @@
+# -*- mode: python; -*-
+
+import os
+import re
+import subprocess
+import sys
+
+vpath = '#/third_party/tbb40_20111130oss'
+
+env = DefaultEnvironment()
+
+#make =  env['ENV']['DEVELOPER_BIN_DIR'] + '/make'
+make = 'make'
+
+cmd = make + ' -f ' + '$SOURCE'
+
+BUILD_ENV = {'PATH': env['ENV']['PATH'],
+              'tbb_build_dir': Dir('.').abspath,
+              'tbb_root': Dir(vpath).abspath,
+#             'INCLUDES' :
+#                 '-I' + env['ENV']['SDKROOT'] + '/usr/include ' +
+#                 '-I' + env['ENV']['SDKROOT'] + '/usr/include/c++/4.2.1',
+            }
+
+proc = subprocess.Popen([make, '-f', Dir(vpath).abspath + '/Makefile', 'info'],
+                        stdout = subprocess.PIPE,
+                        env = BUILD_ENV)
+(output, _) = proc.communicate()
+
+for line in output.split('\n'):
+    m = re.match('tbb_build_prefix=(.*)$', line)
+    if m:
+        tbb_build_prefix = m.group(1)
+
+def MapPrefix(prefix, list):
+    return map(lambda x: prefix + x, list)
+
+targets = MapPrefix('#/' + Dir('.').path + '/' + tbb_build_prefix,
+                    ['_debug/libtbb_debug' + env['SHLIBSUFFIX'],
+                     '_release/libtbb' + env['SHLIBSUFFIX']])
+
+if sys.platform != 'darwin':
+    impl = []
+    for tgt in targets:
+        dot2 = tgt + '.2'
+        impl.append(dot2)
+        libname = tgt.rsplit('/', 1)[1]
+        env.Depends('#/build/lib/' + libname, '#/build/lib/' + libname + '.2')
+    targets.extend(impl)
+
+libtask = env.Command(targets,
+                      vpath + '/Makefile',
+                      cmd,
+                      ENV = BUILD_ENV)
+
+for tgt in targets:
+    env.Install('#/build/lib', tgt)
+
+def Symlink(target, source):
+    parent = os.path.dirname(target[0].abspath)
+    if not os.path.exists(parent):
+        os.makedirs(parent)
+
+    if not os.path.exists(target[0].abspath):
+        os.symlink(source[0].abspath, target[0].abspath)
+
+Symlink([Dir('#/build/include/tbb')], [Dir(vpath + '/include/tbb')])

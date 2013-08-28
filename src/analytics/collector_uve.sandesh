@@ -1,0 +1,118 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  collector_uve.sandesh
+//
+
+
+struct SandeshStats {
+    1: string                              message_type
+    2: i64                                 messages
+    3: i64                                 bytes
+    4: u64                                 last_msg_timestamp
+}
+
+struct SandeshLogLevelStats {
+    1: string     level 
+    2: u64        messages
+    3: u64        bytes
+    4: u64        last_msg_timestamp
+}
+
+struct SandeshStatsInfo {
+    1: string                          hostname
+    2: list<SandeshStats>              msgtype_stats
+    3: list<SandeshLogLevelStats>      log_level_stats 
+
+}
+struct GeneratorInfoAttr {
+    1: u32                                 connects
+    5: u64                                 connect_time
+    2: u32                                 resets
+    6: u64                                 reset_time
+    4: bool                                in_clear
+}
+struct GeneratorInfo {
+    1: string                              hostname
+    3: GeneratorInfoAttr                   gen_attr
+}
+
+
+// This struct is part of the Generator UVE (key is <source>:<module>)
+//
+// - Vizd will update the msg_stats attribute periodically
+// - The GeneratorInfo attribute will be updated when a Generator is registered
+//   or deregistered with Vizd
+//
+struct ModuleServerState {
+    1: string                              name (key="ObjectGeneratorInfo")
+    2: optional bool                       deleted
+    3: optional list<SandeshStatsInfo>     msg_stats (aggtype="union")
+    4: optional list<GeneratorInfo>        generator_info (aggtype="union")
+}
+uve sandesh SandeshModuleServerTrace {
+    1: ModuleServerState                   data
+}
+
+
+
+struct GeneratorSummaryInfo {
+    1: string                              source
+    2: string                              module_id    
+}
+request sandesh GeneratorListReq {
+}
+
+response sandesh GeneratorListResp {
+    1: list<GeneratorSummaryInfo>          genlist
+}
+
+// This struct is part of the CollectorInfo UVE. (key is hostname on which this
+// instance of Vizd is running)
+// This part of the UVE externally refers to all generator attached to this instance
+// of Vizd.
+//
+// - Vizd will update the generator_infos attribute periodically
+//
+struct CollectorState {
+    1: string                              name (key="ObjectCollectorInfo")
+    2: optional bool                       deleted
+    4: optional list<GeneratorSummaryInfo> generator_infos
+    5: optional string                     build_info
+    6: optional list<string>               self_ip_list
+    7: optional list<string>               core_files_list
+}
+uve sandesh CollectorInfo {
+    1: CollectorState                      data
+}
+
+trace sandesh publish_uve_update {
+    1: string source
+    2: string mdule
+    3: string type
+    4: string key
+    5: string attr
+    6: bool success
+}
+
+trace sandesh publish_uve_delete {
+    1: string source
+    2: string mdule
+    3: string type
+    4: string key
+    5: u32 seq
+    6: bool success
+}
+
+trace sandesh generator_getseq {
+    1: string source
+    2: string mdule
+    3: bool success
+}
+trace sandesh generator_deluves {
+    1: string source
+    2: string mdule
+    3: bool success    
+}

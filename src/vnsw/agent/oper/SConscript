@@ -1,0 +1,48 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('agent.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+ 
+except_env = AgentEnv.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    except_env.Replace(CCFLAGS = cflags)
+
+sandesh_objs = []
+for src in SandeshGenSrcs:                    
+    objname = src.replace('.cpp', '.o')
+    obj = except_env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+vnswoperdb = env.Library('vnswoperdb',
+                         sandesh_objs +
+                         ['inet4_route.cc', 
+                          'inet4_ucroute.cc',
+                          'inet4_mcroute.cc',
+                          'interface.cc',
+                          'mirror_table.cc',
+                          'mpls.cc',
+                          'nexthop.cc',
+                          'operdb_init.cc',
+                          'peer.cc',
+                          'vm.cc',
+                          'vm_path.cc',
+                          'vn.cc',
+                          'vrf.cc',
+                          'vrf_assign.cc',
+                          'multicast.cc',
+                          'agent_sandesh.cc',
+                          'sg.cc'
+                         ])
+subdirs = ['test']
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)

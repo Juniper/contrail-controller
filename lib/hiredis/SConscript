@@ -1,0 +1,39 @@
+# -*- mode: python; -*-
+
+default = DefaultEnvironment()
+env = default.Clone()
+
+third_party_path = '#/third_party'
+hiredis_path = '#/third_party/hiredis-0.11.0'
+hiredis_asio_adapter_path = '#/third_party/hiredis-boostasio-adapter'
+
+include = [ third_party_path, hiredis_path, hiredis_path + '/adapters',
+        '#/build/include', '#/third_party/tbb40_20111130oss/include' ]
+
+env.Append(CPPPATH = include)
+#env.Append(CCFLAGS = ['-g'])
+
+env.VariantDir('#/' + Dir('.').path + '/src', hiredis_path)
+hiredis_buildpath = Dir('.').abspath + '/src'
+
+env.VariantDir('#/' + Dir('.').path + '/hiredis-boostasio-adapter', hiredis_asio_adapter_path)
+hiredis_asio_adapter_buildpath = Dir('.').abspath + '/hiredis-boostasio-adapter'
+
+boostasio_obj = env.Object(hiredis_asio_adapter_buildpath + '/boostasio.cpp')
+
+lib = env.Library('hiredis',
+                  [hiredis_buildpath + '/net.c',
+                   hiredis_buildpath + '/hiredis.c',
+                   hiredis_buildpath + '/sds.c',
+                   hiredis_buildpath + '/async.c',
+                   hiredis_buildpath + '/dict.c',
+                   boostasio_obj,
+                   'base64.cpp']
+                  )
+env.Depends(lib, '#/build/include/boost')
+
+env.Install('#/build/lib/', 'libhiredis.a')
+env.Install('#/build/include/hiredis', hiredis_path + '/hiredis.h')
+env.Install('#/build/include/hiredis', hiredis_path + '/async.h')
+env.Install('#/build/include/hiredis', 'base64.h')
+env.Install('#/build/include/hiredis', hiredis_asio_adapter_path + '/boostasio.hpp')

@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = env['TOP'])
+
+env.Append(LIBPATH = env['TOP'] + '/routing-policy')
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/xml')
+env.Append(LIBPATH = env['TOP'] + '/schema')
+
+env.Prepend(LIBS = [
+                    'base',
+                    'routing_policy_schema',
+                    'gunit',
+                    'ifmap_common',
+                    'routing_policy',
+                    'pugixml',
+                    'xml',
+                    ])
+
+policy_parse_test = env.Program('policy_parse_test',
+                                 ['policy_parse_test.cc'])
+env.Alias('src/routing-policy:policy_parse_test', policy_parse_test)

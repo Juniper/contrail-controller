@@ -1,0 +1,32 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+// Show all the nodes in the IFMap db
+request sandesh ShowIFMapAgentReq {
+    1: string table_name;
+}
+
+response sandesh ShowIFMapAgentResp {
+    1: list<string> table_data;
+}
+
+//Show deferred list
+request sandesh ShowIFMapAgentDefLinkReq {
+}
+
+struct IFMapAgentDefLink {
+    1: i64 seq_num;
+    2: string left_node;
+    3: string right_node;
+}
+
+response sandesh ShowIFMapAgentDefLinkResp {
+    1: list<IFMapAgentDefLink> def_list;
+}
+
+traceobject sandesh IFMapAgentTrace{
+    1: i64 seq;
+    2: string event;
+}
+

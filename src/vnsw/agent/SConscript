@@ -1,0 +1,229 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import re
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+import sys
+if sys.platform == 'darwin':
+    Return()
+
+def MapBuildDir(list):
+    return map(lambda x: Dir('../../' + x).abspath, list)
+
+env.Prepend(CPPPATH = '#/vrouter/include')
+env.Prepend(CPPPATH = env['TOP'] + '/base/sandesh')
+env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
+env.Prepend(CPPPATH = env['TOP'] + '/dns')
+env.Prepend(CPPPATH = env['TOP'] + '/http/client')
+env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
+env.Prepend(CPPPATH = env['TOP'] + '/schema')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/uve')
+env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
+env.Prepend(CPPPATH = env['TOP'])
+env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
+
+env.Prepend(
+    LIBS=[
+        'nova_ins',
+        'nova_ins_thrift',
+        'thriftasio',
+        'thrift',
+        'xmpp',
+        'peer_sandesh',
+        'bgp_l3vpn_unicast',
+        'bgp_l3vpn_multicast',
+        'bgp_l3vpn_multicast_msg',
+        'ds',
+        'xml',
+        'pugixml',
+        'route',
+        'curl',
+        'bind_interface',
+        'bgp_schema',
+        'ifmap_vnc',
+        'ifmap_agent',
+        'ifmap_common', 
+        'sandeshvns',
+        'sandeshmirror',
+        'sandeshflow',
+        'kstate',
+        'sandesh',
+        'httpc',
+        'http',
+        'http_parser',
+        'db',
+        'net',
+        'cpuinfo',
+        'io',
+        'sandeshvns',
+        'base',
+        'boost_regex',
+        'boost_filesystem',
+        'boost_program_options'
+])
+
+if sys.platform == 'darwin':
+    kstate_lib =  Dir('./kstate').path + '/libkstate.a'
+    env.Prepend(LINKFLAGS =
+                ['-Wl,-force_load,' + kstate_lib])
+else:
+    env.Prepend(LINKFLAGS =
+                ['-Wl,--whole-archive',
+                 '-rdynamic',
+                 '-lkstate',
+                 '-lcpuinfo',
+                 '-Wl,--no-whole-archive'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['pkt', 'rt'])
+    env.Prepend(LIBS=['agent_services'])
+    env.Prepend(LIBS=['diag'])
+    env.Prepend(LIBS=['ksync', 'vnswksync', 'vrutil','agentuve'])
+
+env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter',])
+
+libs = MapBuildDir(
+    [
+     'base',
+     'bgp',
+     'db',
+     'discovery/client',
+     'dns/bind',
+     'http/client',
+     'ifmap',
+     'io',
+     'ksync',
+     'net',
+     'route',
+     'schema',
+     'vnsw/agent',
+     'vnsw/agent/cfg',
+     'vnsw/agent/cmn',
+     'vnsw/agent/controller',
+     'vnsw/agent/diag',
+     'vnsw/agent/filter',
+     'vnsw/agent/kstate', 
+     'vnsw/agent/ksync',
+     'vnsw/agent/openstack',
+     'vnsw/agent/oper',
+     'vnsw/agent/pkt',
+     'vnsw/agent/services',
+     'vnsw/agent/uve',
+     'vrouter/utils',
+     'xml',
+     'xmpp'
+])
+
+env.Append(LIBPATH=libs)
+
+#Add -Wno-return-type to ignore errors from thrift generated code in 
+#InstanceService.h
+cflags = env['CCFLAGS']
+cflags.append('-Wno-return-type')
+vnswad = env.Program(target = 'vnswad', source = ['main.cc'])
+env.Alias('src/vnsw/agent:vnswad', vnswad)
+env.Default(vnswad)
+
+AgentEnv = env.Clone()
+AgentEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+cflags = AgentEnv['CCFLAGS']
+cflags.remove('-Wno-return-type')
+AgentEnv.Replace(CCFLAGS = cflags)
+Export('AgentEnv')
+
+subdirs = ['cmn',
+           'cfg',
+           'controller',
+           'filter',
+           'ksync',
+           'openstack',
+           'oper',
+           'pkt',
+           'services',
+           'uve',
+           'kstate',
+           'diag',
+           'test'
+           ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)
+
+
+def valgrind_run(target, source, env):
+    #import pdb; pdb.set_trace()
+
+    #execute tests with valgrind
+    import subprocess
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    import os
+    # Get test alias from agent-test test suite
+    for test in env.ans['agent-test'].sources:
+        cmd = test.sources[0].path
+        logfile = open(cmd + '.log', 'w')
+        valgrindfile = '--log-file=' + cmd + '.valgrind'
+        supp_file = '--suppressions=' + 'src/vnsw/agent/test/valgrind.supp'
+        print cmd + ' logfile=' + cmd + '.log' + ' valgrind_file=' + cmd + '.valgrind '
+        code = subprocess.call(['valgrind', '-v', '--track-origins=yes',
+                                '--leak-check=full', '--error-exitcode=1',
+                                '--show-reachable=yes', supp_file, valgrindfile,
+                                cmd], stdout=logfile, stderr=logfile, env=ShEnv)
+        if code == 0:
+            print cmd + '\033[94m' + " PASS" + '\033[0m'
+        else:
+            if code < 0:
+                logfile.write('Terminated by signal: ' + str(-code) + '\n')
+            print cmd + '\033[91m' + " FAIL" + '\033[0m'
+
+#test_valgrind = env.Command(Dir('test_valgrind'), '', valgrind_run)
+#env.Alias('src/vnsw/agent:test_valgrind', test_valgrind)
+
+def code_coverage(target, source, env):
+    # rm -rf vnsw/agent/test_coverage
+    import shutil
+    #import pdb; pdb.set_trace()
+    shutil.rmtree(target[0].path, ignore_errors = True)
+
+    # lcov --base-directory $ROOT -- directory . --zerocounters -q
+    import os
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' --zerocounters -q')
+    # execute tests
+    import subprocess
+    #import pdb; pdb.set_trace()
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    # Get test alias from agent-test test suite 
+    for test in env.ans['agent-test'].sources:
+        cmd = test.sources[0].path
+        print cmd
+        logfile = open(cmd + '.log', 'w')
+        subprocess.call([cmd], stdout=logfile, stderr=logfile, env=ShEnv)
+
+    # lcov --base-directory $ROOT -- directory . -c -o bgp_test.info
+    #import pdb; pdb.set_trace()
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' -c --compat split_crc=on --ignore-errors gcov -o agent_test.info')
+
+    # genhtml -o bgp/test_coverage bgp_test.info
+    os.system('genhtml -o ' + target[0].path +
+              ' -t "test coverage" --num-spaces 4 agent_test.info')
+
+
+if env['OPT'] == 'coverage':
+    #import pdb; pdb.set_trace()
+    test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
+    env.AlwaysBuild(test_coverage)
+    env.Alias('src/vnsw/agent:test_coverage', test_coverage)
+
+# Local Variables:
+# mode: python
+# End:

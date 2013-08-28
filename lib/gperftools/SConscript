@@ -1,0 +1,19 @@
+# -*- mode: python; -*-
+
+env = DefaultEnvironment()
+
+vpath = '#/third_party/gperftools-2.0'
+
+#VariantDir(Dir('.').abspath + '/.libs', vpath + '/.libs')
+
+config_opts = '--prefix=' + str(Dir('#/build'))
+config_opts += ' --enable-frame-pointers'
+# + ' enable_heap_checker=yes'
+cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+gperftools_make = env.Command('config.status', str(Dir(vpath)), cmd)
+
+products = [ str(File('#/build/lib/libtcmalloc' + env['LIBSUFFIX'])) ]
+
+env.SideEffect(products, gperftools_make)

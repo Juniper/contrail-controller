@@ -1,0 +1,89 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = ['#/' + Dir('..').path,
+                      '../../base',
+                      '../../base/test',
+                      '../../bgp',
+                      '../../control-node',
+                      '../../db',
+                      '../../ifmap',
+                      '../../io',
+                      '../../xml',
+                      '../../schema'
+		      ])
+
+env.Prepend(LIBS = ['task_test', 'gunit', 'xmpp', 'xml', 'pugixml', 'sandesh', 
+                    'http', 'http_parser', 'curl', 'io', 'sandeshvns', 'base', 'peer_sandesh',
+                    'boost_regex', 'control_node'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+xmpp_server_test = env.Program('xmpp_server_test',
+                              ['xmpp_sample_peer.cc', 'xmpp_server_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_server_test', xmpp_server_test)
+
+xmpp_regex_test = env.Program('xmpp_regex_test',
+                              ['xmpp_regex_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_regex_test', xmpp_regex_test)
+
+xmpp_pubsub_test = env.Program('xmpp_pubsub_test',
+                              ['xmpp_sample_peer.cc', 'xmpp_pubsub_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_pubsub_test', xmpp_pubsub_test)
+
+xmpp_pubsub_client = env.Program('xmpp_pubsub_client',
+                               ['xmpp_sample_peer.cc', 'xmpp_pubsub_client.cc'],
+                               )
+env.Alias('src/xmpp:xmpp_pubsub_client', xmpp_pubsub_client)
+
+xmpp_session_test = env.Program('xmpp_session_test',
+                              ['xmpp_sample_peer.cc', 'xmpp_session_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_session_test', xmpp_session_test)
+
+
+xmpp_client_standalone_test = env.Program('xmpp_client_standalone_test',
+                              ['xmpp_sample_peer.cc', 'xmpp_client_standalone.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_client_standalone_test', xmpp_client_standalone_test)
+
+xmpp_server_standalone_test = env.Program('xmpp_server_standalone_test',
+                              ['xmpp_sample_peer.cc', 'xmpp_server_standalone.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_server_standalone_test', xmpp_server_standalone_test)
+
+xmpp_server_sm_test = env.Program('xmpp_server_sm_test',
+                              ['xmpp_server_sm_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_server_sm_test', xmpp_server_sm_test)
+
+
+xmpp_client_sm_test = env.Program('xmpp_client_sm_test',
+                              ['xmpp_client_sm_test.cc'],
+                              )
+env.Alias('src/xmpp:xmpp_client_sm_test', xmpp_client_sm_test)
+
+xmpp_test_suite = [
+     xmpp_server_test,
+     xmpp_pubsub_test,
+     xmpp_session_test,
+     xmpp_regex_test,
+     xmpp_server_sm_test,
+     xmpp_client_sm_test
+     ]
+
+test = env.TestSuite('xmpp-test', xmpp_test_suite)
+env.Alias('src/xmpp:test', test)
+ 
+Return('xmpp_test_suite')

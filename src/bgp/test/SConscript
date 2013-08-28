@@ -1,0 +1,323 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import os
+import sys
+
+env = BuildEnv.Clone()
+
+env.AppendUnique(CCFLAGS='-fno-exceptions')
+
+env.Append(CPPPATH = env['TOP'])
+env.Append(LIBPATH = ['#/' + Dir('..').path,
+                      '../../base',
+                      '../../bgp/inet',
+                      '../../bgp/inetmcast',
+                      '../../bgp/enet',
+                      '../../bgp/evpn',
+                      '../../bgp/l3vpn',
+                      '../../control-node',
+                      '../../db',
+                      '../../io',
+                      '../../ifmap',
+                      '../../net',
+                      '../rtarget',
+                      '../routing-instance',
+                      '../../route',
+                      '../security_group',
+                      '../tunnel_encap',
+                      '../../xmpp',
+                      '../../schema',
+                      '../../xml',
+                      '.'
+                     ])
+
+libbgptest = env.Library('bgptest',
+                         ['bgp_server_test_util.cc',
+                          'bgp_test_util.cc'])
+
+env.Alias('src/bgp:libbgptest', libbgptest)
+
+env.Append(LIBPATH = env['TOP'] + '/schema')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/db/test')
+env.Append(LIBPATH = env['TOP'] + '/ifmap/test')
+env.Append(LIBPATH = env['TOP'] + '/control-node/test')
+
+env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+                    'bgp_schema', 'control_node', 'dbtest',
+                    'ifmap_vnc', 'task_test',
+                    'pugixml', 'curl',
+                    'ifmap_test_util', 'ifmap_server', 'ifmap_common',
+                    'ifmapio', 'crypto', 'ssl',
+                    'sandesh', 'http', 'http_parser',
+                    'db', 'sandeshvns', 'io', 'base', 'gunit'])
+
+
+if sys.platform == 'darwin':
+    bgp_inet = Dir('../inet').path + '/libbgp_inet.a'
+    bgp_inetmcast = Dir('../inetmcast').path + '/libbgp_inetmcast.a'
+    bgp_enet = Dir('../enet').path + '/libbgp_enet.a'
+    bgp_evpn = Dir('../evpn').path + '/libbgp_evpn.a'
+    bgp_l3vpn = Dir('../l3vpn').path + '/libbgp_l3vpn.a'
+    env.Prepend(LINKFLAGS =
+                ['-Wl,-force_load,' + bgp_inet,
+                 '-Wl,-force_load,' + bgp_inetmcast,
+                 '-Wl,-force_load,' + bgp_enet,
+                 '-Wl,-force_load,' + bgp_evpn,
+                 '-Wl,-force_load,' + bgp_l3vpn])
+else:
+    env.Prepend(LINKFLAGS =
+                ['-Wl,--whole-archive',
+                 '-rdynamic',
+                 '-lbgp_inet',
+                 '-lbgp_inetmcast',
+                 '-lbgp_enet',
+                 '-lbgp_evpn',
+                 '-lbgp_l3vpn',
+                 '-Wl,--no-whole-archive'])
+
+env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])
+env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast', 'bgp_l3vpn'])
+env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
+env.Append(LIBS = ['security_group', 'tunnel_encap'])
+env.Append(LIBS = ['xmpp', 'bgp_l3vpn_unicast', 'bgp_l3vpn_multicast',
+                   'bgp_l3vpn_multicast_msg', 'xmpp_enet', 'xml', 'pugixml',
+                   'boost_regex', 'boost_program_options'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+except_env = env.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+
+config_test_env = env.Clone()
+config_test_env.Append(LIBPATH = ['../../ifmap/test'])
+config_test_env.Prepend(LIBS = ['ifmap_test_util'])
+
+bgp_attr_test = env.UnitTest('bgp_attr_test',
+                            ['bgp_attr_test.cc'])
+env.Alias('src/bgp:bgp_attr_test', bgp_attr_test)
+
+bgp_condition_listener_test = env.UnitTest('bgp_condition_listener_test',
+                                     ['bgp_condition_listener_test.cc'])
+env.Alias('src/bgp:bgp_condition_listener_test', bgp_condition_listener_test)
+
+bgp_config_test = config_test_env.UnitTest('bgp_config_test',
+                                           ['bgp_config_test.cc'])
+env.Alias('src/bgp:bgp_config_test', bgp_config_test)
+
+bgp_export_nostate_test = env.UnitTest('bgp_export_nostate_test',
+                                       ['bgp_export_nostate_test.cc'])
+env.Alias('src/bgp:bgp_export_nostate_test', bgp_export_nostate_test)
+
+bgp_export_rstate_test = env.UnitTest('bgp_export_rstate_test',
+                                      ['bgp_export_rstate_test.cc'])
+env.Alias('src/bgp:bgp_export_rstate_test', bgp_export_rstate_test)
+
+bgp_export_rtupdate_test = env.UnitTest('bgp_export_rtupdate_test',
+                                        ['bgp_export_rtupdate_test.cc'])
+env.Alias('src/bgp:bgp_export_rtupdate_test', bgp_export_rtupdate_test)
+
+bgp_export_uplist_test = env.UnitTest('bgp_export_uplist_test',
+                                      ['bgp_export_uplist_test.cc'])
+env.Alias('src/bgp:bgp_export_uplist_test', bgp_export_uplist_test)
+
+bgp_msg_builder_test = env.UnitTest('bgp_msg_builder_test',
+                                   ['bgp_msg_builder_test.cc'])
+env.Alias('src/bgp:bgp_msg_builder_test', bgp_msg_builder_test)
+
+bgp_multicast_test = env.UnitTest('bgp_multicast_test',
+                                  ['bgp_multicast_test.cc'])
+env.Alias('src/bgp:bgp_multicast_test', bgp_multicast_test)
+
+bgp_peer_close_test = except_env.UnitTest('bgp_peer_close_test',
+                                          ['bgp_peer_close_test.cc'])
+env.Alias('src/bgp:bgp_peer_close_test', bgp_peer_close_test)
+
+bgp_peer_membership_test = env.UnitTest('bgp_peer_membership_test',
+                                        ['bgp_peer_membership_test.cc'])
+env.Alias('src/bgp:bgp_membership_test', bgp_peer_membership_test)
+
+bgp_proto_test = env.UnitTest('bgp_proto_test',
+                            ['bgp_proto_test.cc'])
+env.Alias('src/bgp:bgp_proto_test', bgp_proto_test)
+
+bgp_ribout_updates_test = env.UnitTest('bgp_ribout_updates_test',
+                                       ['bgp_ribout_updates_test.cc'])
+env.Alias('src/bgp:bgp_ribout_updates_test', bgp_ribout_updates_test)
+
+bgp_route_test = env.UnitTest('bgp_route_test',
+                             ['bgp_route_test.cc'])
+env.Alias('src/bgp:bgp_route_test', bgp_route_test)
+
+bgp_server_test = env.UnitTest('bgp_server_test',
+                               ['bgp_server_test.cc'])
+env.Alias('src/bgp:bgp_server_test', bgp_server_test)
+
+bgp_session_test = env.UnitTest('bgp_session_test',
+                               ['bgp_session_test.cc'])
+env.Alias('src/bgp:bgp_session_test', bgp_session_test)
+
+bgp_sg_test = env.UnitTest('bgp_sg_test',
+                           ['bgp_sg_test.cc'])
+env.Alias('src/bgp:bgp_sg_test', bgp_sg_test)
+
+bgp_stress_test = env.UnitTest('bgp_stress_test',
+                               ['bgp_stress_test.cc'])
+env.Alias('src/bgp:bgp_stress_test', bgp_stress_test)
+
+bgp_table_export_test = env.UnitTest('bgp_table_export_test',
+                                     ['bgp_table_export_test.cc'])
+env.Alias('src/bgp:bgp_table_export_test', bgp_table_export_test)
+
+bgp_table_test = env.UnitTest('bgp_table_test',
+                              ['bgp_table_test.cc'])
+env.Alias('src/bgp:bgp_table_test', bgp_table_test)
+
+bgp_update_rx_test = env.UnitTest('bgp_update_rx_test',
+                                 ['bgp_update_rx_test.cc'])
+env.Alias('src/bgp:bgp_update_rx_test', bgp_update_rx_test)
+
+bgp_update_test = env.UnitTest('bgp_update_test',
+                                 ['bgp_update_test.cc'])
+env.Alias('src/bgp:bgp_update_test', bgp_update_test)
+
+bgp_xmpp_channel_test = env.UnitTest('bgp_xmpp_channel_test',
+                                     ['bgp_xmpp_channel_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_channel_test', bgp_xmpp_channel_test)
+
+bgp_xmpp_deferq_test = env.UnitTest('bgp_xmpp_deferq_test',
+                             ['bgp_xmpp_deferq_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_deferq_test', bgp_xmpp_deferq_test)
+
+bgp_xmpp_evpn_test = env.UnitTest('bgp_xmpp_evpn_test',
+                                  ['bgp_xmpp_evpn_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_evpn_test', bgp_xmpp_evpn_test)
+
+bgp_xmpp_mcast_test = env.UnitTest('bgp_xmpp_mcast_test',
+                                   ['bgp_xmpp_mcast_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_mcast_test', bgp_xmpp_mcast_test)
+
+bgp_xmpp_test = env.UnitTest('bgp_xmpp_test',
+                             ['bgp_xmpp_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_test', bgp_xmpp_test)
+
+bgp_xmpp_wready_test = env.UnitTest('bgp_xmpp_wready_test',
+                             ['bgp_xmpp_wready_test.cc'])
+env.Alias('src/bgp:bgp_xmpp_wready_test', bgp_xmpp_wready_test)
+
+ribout_attributes_test = env.UnitTest('ribout_attributes_test',
+                              ['ribout_attributes_test.cc'])
+env.Alias('src/bgp:ribout_attributes_test', ribout_attributes_test)
+
+routepath_replicator_random_test = env.UnitTest('routepath_replicator_random_test',
+                              ['routepath_replicator_random_test.cc'])
+env.Alias('src/bgp:routepath_replicator_random_test', routepath_replicator_random_test)
+
+routepath_replicator_test = env.UnitTest('routepath_replicator_test',
+                              ['routepath_replicator_test.cc'])
+env.Alias('src/bgp:routepath_replicator_test', routepath_replicator_test)
+
+routing_instance_test = env.UnitTest('routing_instance_test',
+                                     ['routing_instance_test.cc'])
+env.Alias('src/bgp:routing_instance_test', routing_instance_test)
+
+rt_network_attr_test = env.UnitTest('rt_network_attr_test',
+                                    ['rt_network_attr_test.cc'])
+env.Alias('src/bgp:rt_network_attr_test', rt_network_attr_test)
+
+rt_unicast_test = env.UnitTest('rt_unicast_test',
+                              ['rt_unicast_test.cc'])
+env.Alias('src/bgp:rt_unicast_test', rt_unicast_test)
+
+scheduling_group_test = env.UnitTest('scheduling_group_test',
+                                    ['scheduling_group_test.cc'])
+env.Alias('src/bgp:scheduling_group_test', scheduling_group_test)
+
+service_chain_test = env.UnitTest('service_chain_test',
+                                     ['service_chain_test.cc'])
+env.Alias('src/bgp:service_chain_test', service_chain_test)
+
+show_route_test = env.UnitTest('show_route_test',
+                             ['show_route_test.cc'])
+env.Alias('src/bgp:show_route_test', show_route_test)
+
+state_machine_test = env.UnitTest('state_machine_test',
+                                 ['state_machine_test.cc'])
+env.Alias('src/bgp:state_machine_test', state_machine_test)
+
+static_route_test = env.UnitTest('static_route_test',
+                                 ['static_route_test.cc'])
+env.Alias('src/bgp:static_route_test', static_route_test)
+
+
+xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
+                             ['xmpp_sess_toggle_test.cc'])
+env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
+
+test_suite = [
+    bgp_attr_test,
+    bgp_condition_listener_test,
+    bgp_config_test,
+    bgp_export_nostate_test,
+    bgp_export_rstate_test,
+    bgp_export_rtupdate_test,
+    bgp_export_uplist_test,
+    bgp_msg_builder_test,
+    bgp_multicast_test,
+    bgp_peer_close_test,
+    bgp_peer_membership_test,
+    bgp_proto_test,
+    bgp_ribout_updates_test,
+    bgp_route_test,
+    bgp_server_test,
+    bgp_session_test,
+    bgp_sg_test,
+    bgp_stress_test,
+    bgp_table_export_test,
+    bgp_table_test,
+    bgp_update_rx_test,
+    bgp_update_test,
+    bgp_xmpp_channel_test,
+    bgp_xmpp_deferq_test,
+    bgp_xmpp_evpn_test,
+    bgp_xmpp_mcast_test,
+    bgp_xmpp_test,
+    bgp_xmpp_wready_test,
+    ribout_attributes_test,
+    routepath_replicator_random_test,
+    routepath_replicator_test,
+    routing_instance_test,
+    rt_network_attr_test,
+    scheduling_group_test,
+    service_chain_test,
+    show_route_test,
+    state_machine_test,
+    static_route_test,
+    xmpp_sess_toggle_test,
+]
+
+test = env.TestSuite('bgp-test', test_suite)
+env.Alias('src/bgp:test', test)
+
+if 'BGP_STRESS_TEST_SUITE' in os.environ and \
+        os.environ['BGP_STRESS_TEST_SUITE'] != "0":
+    env.Alias('src/bgp:bgp_stress_test_suite', env.TestSuite('bgp-stress-test',
+              [
+                  env.UnitTest('bgp_stress_test1', ['bgp_stress_test1.cc']),
+                  env.UnitTest('bgp_stress_test2', ['bgp_stress_test2.cc']),
+                  env.UnitTest('bgp_stress_test3', ['bgp_stress_test3.cc']),
+                  env.UnitTest('bgp_stress_test4', ['bgp_stress_test4.cc']),
+                  env.UnitTest('bgp_stress_test5', ['bgp_stress_test5.cc']),
+                  env.UnitTest('bgp_stress_test6', ['bgp_stress_test6.cc']),
+              ]))
+
+Return('test_suite')

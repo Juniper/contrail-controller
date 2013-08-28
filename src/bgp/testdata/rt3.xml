@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp>
+        <neighbor name="test2">
+            <ip-address>10.1.1.3</ip-address>
+            <remote-as>100</remote-as>
+            <family>inet-vpn</family>
+        </neighbor>
+    </bgp>
+    <routing-instance name="blue">
+        <vrf-target> xxxxxxxxx </vrf-target> 
+        <bgp>
+            <neighbor name="test1">
+                <ip-address>1.1.1.3</ip-address>
+                <family>inet</family>
+                <remote-as>100</remote-as>
+            </neighbor>
+        </bgp>
+    </routing-instance>
+</config>

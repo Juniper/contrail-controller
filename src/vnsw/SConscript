@@ -1,0 +1,16 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+
+import sys
+
+env = BuildEnv.Clone()
+
+subdirs = [
+            'agent'
+          ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)

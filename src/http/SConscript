@@ -1,0 +1,44 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+
+env = BuildEnv.Clone()
+
+# Generate the source files
+SandeshGenFiles  = env.SandeshGenCpp('http_message_test.sandesh')
+SandeshGenFiles  += env.SandeshGenCpp('route_test.sandesh')
+SandeshGenFiles  += env.SandeshGenCpp('http_log.sandesh')
+SandeshGenFiles  += env.SandeshGenCpp('../config/uve/virtual_network.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenObjs = env.Object(SandeshGenSrcs)
+env.Append(CPPPATH = env['TOP'])
+
+libhttp = env.Library('http',
+                      ['http_server.cc',
+                       'http_session.cc',
+                       'http_request.cc',
+                       'http_log_types.cpp',
+                       ])
+
+env.Prepend(LIBS=['http', 'http_parser', 'curl', 'sandesh', 'io', 'sandeshvns', 'base'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+def SrcBuildDir(x):
+    return '#/' + Dir('.').path + '/../' + x;
+
+env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('io')])
+
+source = ['httpd.cc']
+
+httpd = env.Program(target = 'httpd', 
+        source = ['httpd.cc'] + SandeshGenObjs)
+
+env.Install(env['TOP_LIB'], libhttp)                                  
+env.SConscript('client/SConscript', exports='BuildEnv', duplicate = 0)

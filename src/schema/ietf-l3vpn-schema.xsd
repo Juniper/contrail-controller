@@ -1,0 +1,119 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" 
+xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2" 
+targetNamespace="http://www.contrailsystems.com/2012/BGP-CONFIG/0">
+
+<!-- Group of customer attachment points with the same connectivity policies -->
+<xsd:element name="routing-instance" type="ifmap:IdentityType"/>
+
+<!-- Route Target extended community -->
+<xsd:element name="route-target"       type="ifmap:IdentityType"/>
+
+<!-- VPN attachment interface on Customer Edge -->
+<xsd:element name="customer-attachment" type="ifmap:IdentityType"/>
+
+<!-- VPN attachment interface on Provider Edge -->
+<xsd:element name="provider-attachment" type="ifmap:IdentityType"/>
+
+<!-- BGP types -->
+<xsd:complexType name="ProtocolBgpType">
+    <xsd:sequence>
+        <!-- customer autonomous-system -->
+        <element name="autonomous-system" type="xsd:integer"/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="ProtocolOspfType">
+    <xsd:sequence>
+        <xsd:element name="area" type="xsd:integer"/>
+    </xsd:sequence>
+</xsd:complexType>
+	
+<xsd:complexType name="ProtocolStaticType">
+    <xsd:sequence>
+        <xsd:element name="route" type="IpPrefixType" maxOccurs="unbounded"/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="ConnectionType">
+    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
+    </xsd:attributeGroup>
+</xsd:complexType>
+<!-- connectivity between routing-instances -->
+<xsd:element name="connection" type="ConnectionType"/>
+
+<xsd:simpleType name="ImportExportType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="import"/>
+        <xsd:enumeration value="export"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="InstanceTargetType">
+    <xsd:element name="import-export" type="ImportExportType"/>
+</xsd:complexType>
+
+<!-- link metadata that associates a routing-instance identifier with a 
+     route-target identifier -->
+<xsd:element name="instance-target" type="InstanceTargetType"/>
+
+<!-- Default PE-CE protocol used by attachment circuits to this routing 
+     table -->
+<xsd:complexType name="DefaultProtocolType">
+    <xsd:choice>
+        <xsd:element name="bgp"  type="ProtocolBgpType"/>
+        <xsd:element name="ospf" type="ProtocolOspfType"/>
+    </xsd:choice>
+    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
+    </xsd:attributeGroup>
+</xsd:complexType>
+
+<xsd:element name="default-ce-protocol" type="DefaultProtocolType"/>
+
+<!-- link metadata that associates a customer attachment with a 
+     routing-instance -->
+
+<xsd:complexType name="BindingType">
+    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
+    </xsd:attributeGroup>
+</xsd:complexType>
+
+<xsd:element name="binding" type="BindingType"/>
+
+<!-- link metadata that associates an attachment with an IP address -->
+<xsd:complexType name="AttachmentAddressType">
+    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
+    </xsd:attributeGroup>
+</xsd:complexType>
+
+<xsd:element name="attachment-address" type="AttachmentAddressType"/>
+
+<!-- link metadata that associates a customer to a provider attachment
+     may include parameters specific to a particular customer attachment -->
+<xsd:complexType  name="AttachmentInfoType">
+    <xsd:sequence>
+        <xsd:choice>
+            <xsd:element name="static" type="ProtocolStaticType"/>
+            <xsd:element name="bgp" type="ProtocolBgpType"/>
+            <xsd:element name="ospf" type="ProtocolOspfType"/>
+        </xsd:choice>
+        <xsd:element name="state">
+            <xsd:simpleType>
+                <xsd:restriction base="xsd:string">
+                    <enumeration value="up"/>
+                    <enumeration value="down"/>
+                    <enumeration value="adminDown"/> 
+                </xsd:restriction>
+             </xsd:simpleType>
+         </xsd:element>
+    </xsd:sequence>
+    <xsd:attributeGroup ref="ifmap:singleValueMetadataAttributes">
+    </xsd:attributeGroup>
+</xsd:complexType>
+
+<xsd:element name="attachment-info" type="AttachmentInfoType"/>
+    
+</xsd:schema>

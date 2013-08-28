@@ -1,0 +1,118 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+import sys
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/bgp')
+env.Append(LIBPATH = env['TOP'] + '/control-node')
+env.Append(LIBPATH = env['TOP'] + '/db')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/ifmap/client')
+env.Append(LIBPATH = env['TOP'] + '/xml')
+env.Append(LIBPATH = env['TOP'] + '/xmpp')
+
+env.Prepend(LIBS = ['ifmap_server', 'ifmapio', 'xmpp', 'peer_sandesh', 'sandesh', 'http',
+                    'http_parser', 'curl', 'sandeshvns', 'io', 'control_node',
+                    'ifmap_common', 'pugixml', 'xml', 'db', 'base', 'gunit',
+                    'crypto', 'ssl', 'boost_regex'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+env.Library('ifmap_test_util',
+            ['ifmap_client_mock.cc', 'ifmap_test_util.cc'])
+
+env.Append(LIBPATH = '.')
+env.Prepend(LIBS = ['ifmap_test_util'])
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Prepend(LIBS = ['task_test'])
+
+ifmap_server_table_test = env.Program(
+    'ifmap_server_table_test',
+    ['ifmap_server_table_test.cc'])
+env.Alias('src/ifmap:ifmap_server_table_test', ifmap_server_table_test)
+
+env.Append(CPPPATH = [env['TOP']])
+
+vnc_cfg_env = env.Clone()
+vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/schema')
+vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/xmpp')
+vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/io')
+vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/xml')
+
+vnc_cfg_env.Prepend(LIBS = ['ifmap_vnc', 'xmpp',
+                            'xml', 'boost_regex'])
+
+test_suite = []
+
+def AddLibraries(env, libs):
+    for lib in libs:
+        (path, libname) = lib.rsplit('/', 1)
+        env.Append(LIBPATH = env['TOP'] + '/' + path)
+        env.Append(LIBS = libname)
+
+def BuildTest(env, testname, sources, libs):
+    build_env = env.Clone()
+    AddLibraries(build_env, libs)
+    target = build_env.Program(testname, sources)
+    test_suite.append(target)
+    env.Alias('src/ifmap:' + testname, target)
+    return target
+
+ifmap_exporter_test = vnc_cfg_env.Program(
+    'ifmap_exporter_test',
+    ['ifmap_exporter_test.cc'])
+env.Alias('src/ifmap:ifmap_exporter_test', ifmap_exporter_test)
+
+BuildTest(env, 'ifmap_graph_walker_test',
+          ['ifmap_graph_walker_test.cc'],
+          ['schema/ifmap_vnc',
+           'schema/bgp_schema'])
+
+BuildTest(env, 'ifmap_server_test',
+          ['ifmap_server_test.cc'],
+          ['schema/ifmap_vnc'])
+
+BuildTest(env, 'ifmap_server_parser_test',
+          ['ifmap_server_parser_test.cc'],
+          ['schema/ifmap_vnc'])
+
+BuildTest(env, 'ifmap_uuid_mapper_test',
+          ['ifmap_uuid_mapper_test.cc'],
+          ['schema/ifmap_vnc',
+           'schema/bgp_schema'])
+
+ifmap_update_queue_test = vnc_cfg_env.Program(
+    'ifmap_update_queue_test',
+    ['ifmap_update_queue_test.cc'])
+env.Alias('src/ifmap:ifmap_update_queue_test', ifmap_update_queue_test)
+
+ifmap_update_sender_test = vnc_cfg_env.Program(
+    'ifmap_update_sender_test',
+    ['ifmap_update_sender_test.cc'])
+env.Alias('src/ifmap:ifmap_update_sender_test', ifmap_update_sender_test)
+
+ifmap_xmpp_test = vnc_cfg_env.Program('ifmap_xmpp_test', ['ifmap_xmpp_test.cc'])
+env.Alias('src/ifmap:ifmap_xmpp_test', ifmap_xmpp_test)
+
+ifmap_restart_test = vnc_cfg_env.Program('ifmap_restart_test',
+                                         ['ifmap_restart_test.cc'])
+env.Alias('src/ifmap:ifmap_restart_test', ifmap_restart_test)
+
+test = env.TestSuite('ifmap-test',
+                     test_suite +
+                     [ifmap_server_table_test,
+                      ifmap_exporter_test,
+                      ifmap_update_queue_test,
+                      ifmap_update_sender_test,
+                      ifmap_xmpp_test,
+                      ifmap_restart_test,
+                      ])
+env.Alias('src/ifmap:test', test)

@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+/**
+ * Rule Rule1 definition is below
+ */
+Rule Rule1 : 
+For ((msgtype eq SYSLOG_MSG) and (context eq 123456)) match
+        (field1 = 94827) and
+        (field3 in [10, 20, 30]) and
+        (field2 in [0 - 5000, 5500, 6000-7000])
+action request_message Tracemessage10
+action raise_alarm Alarm1
+
+/**
+ * Rule Rule2 definition is below
+ */
+Rule Rule2 : 
+For msgtype eq STATS_MSG
+action add_to_table stats_table
+

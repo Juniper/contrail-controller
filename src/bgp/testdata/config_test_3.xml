@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp-router name='local'>
+	<address>192.168.1.1</address>
+	<autonomous-system>1</autonomous-system>
+    </bgp-router>
+    <routing-instance name="test">
+        <vrf-target>target:1:1</vrf-target>
+	<bgp-router name='local'>
+	  <address>10.0.0.1</address>
+	  <session to='ce'/>
+	</bgp-router>
+	<bgp-router name='ce'>
+	  <address>10.0.0.2</address>
+	  <autonomous-system>2</autonomous-system>
+	  <session to='local'/>
+	</bgp-router>
+    </routing-instance>
+</config>

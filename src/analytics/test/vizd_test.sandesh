@@ -1,0 +1,125 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+// vizd_test.sandesh
+//
+// UVE Trace Testing
+//
+// This is for Unit Testing only.
+// Cannot coexist with virtual_network.sandesh in the same program
+//
+
+struct VnPolicy {
+    1: i32 vnp_major;
+    2: i32 vnp_minor;
+    3: string vnp_name (aggtype="listkey")
+}
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Config state of the UVE on this app instance.
+//
+struct UveVirtualNetworkConfig {
+    1: string                           name (key="ObjectVNTable")
+    2: optional bool                    deleted
+    3: optional list<VnPolicy>          attached_policies;
+    4: optional list<string>            connected_networks (aggtype="union")
+    5: optional list<string>            partially_connected_networks (aggtype="union")
+    6: optional list<string>            routing_instance_list (aggtype="union")
+    7: optional i32                     total_interfaces (aggtype="sum")
+    8: optional i32                     total_virtual_machines (aggtype="sum")
+    9: optional i32                     total_acl_rules;
+    // Add additional items here as needed
+} (type = "object")
+
+uve sandesh UveVirtualNetworkConfigTrace {
+    1: UveVirtualNetworkConfig              data
+}
+response sandesh UveVirtualNetworkConfigResp {
+    1: UveVirtualNetworkConfig              data;
+}
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Control Plane state of the UVE on this app instance.
+//
+struct UveVirtualNetworkCtrl {  // Control plane view of the virtual network
+    1: string                               name (key="ObjectVNTable")
+    2: optional bool                        deleted
+    // Add additional items here
+} (type = "object")
+
+uve sandesh UveVirtualNetworkCtrlTrace {
+    1: UveVirtualNetworkCtrl                data;
+}
+
+struct UveInterVnStats {
+    1: string                               other_vn (aggtype="listkey")
+    2: i64                                  tpkts;
+    3: i64                                  bytes;
+}
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Data Plane state of the UVE on this app instance.
+//
+struct UveVirtualNetworkAgent {
+    1: string                              name (key="ObjectVNTable")
+    2: optional bool                       deleted
+    3: optional i32                        total_acl_rules; 
+    4: optional list<string>               interface_list (aggtype="union")
+    5: optional i64                        in_tpkts  (aggtype="counter")
+    6: optional i64                        in_bytes  (aggtype="counter")
+    7: optional i64                        out_tpkts (aggtype="counter")
+    8: optional i64                        out_bytes (aggtype="counter")
+    9: optional list<UveInterVnStats>      in_stats  (aggtype="append")
+    10: optional list<UveInterVnStats>     out_stats (aggtype="append")
+    11: optional list<string>               virtualmachine_list (aggtype="union")
+} (type = "object")
+
+uve sandesh UveVirtualNetworkAgentTrace {
+    1: UveVirtualNetworkAgent               data;
+}
+
+
+
+struct VmInterfaceConfig {
+    1: string name 
+    2: optional string ip_address;
+    3: optional string virtual_network  (aggtype="listkey")
+    4: optional list<string> floating_ips;
+}
+
+struct UveVirtualMachineConfig {
+    1: string                name (key="ObjectVMTable")
+    2: optional bool         deleted
+    3: optional list<string> attached_groups; 
+    4: optional list<VmInterfaceConfig> interface_list;
+    5: optional string       vrouter; 
+}
+
+uve sandesh UveVirtualMachineConfigTrace {
+    1: UveVirtualMachineConfig data
+}
+
+struct VmInterfaceAgent {
+    1: string name 
+    2: optional string ip_address;
+    3: optional string virtual_network  (aggtype="listkey")
+    4: optional list<string> floating_ips;
+    5: optional i64 in_pkts (aggtype="counter")
+    6: optional i64 in_bytes (aggtype="counter")
+    7: optional i64 out_pkts (aggtype="counter")
+    8: optional i64 out_bytes (aggtype="counter")
+}
+
+struct UveVirtualMachineAgent {
+    1: string                name (key="ObjectVMTable")
+    2: optional bool         deleted
+    3: optional list<string> attached_groups; 
+    4: optional list<VmInterfaceAgent> interface_list;
+    5: optional string       vrouter; 
+}
+
+uve sandesh UveVirtualMachineAgentTrace {
+    1: UveVirtualMachineAgent data;
+}

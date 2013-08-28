@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+libnet = env.Library('net',
+                     ['address.cc',
+                      'mac_address.cc',
+                      'rd.cc',
+                      'tunnel_encap_type.cc',
+                     ])
+                     
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

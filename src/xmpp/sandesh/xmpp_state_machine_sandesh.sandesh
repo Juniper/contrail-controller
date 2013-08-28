@@ -1,0 +1,162 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct XmppConnectionInfo {
+    1: string ip_address (key="ObjectXmppConnection");          // Agent/BGP peer address
+    2: optional string state;      // current state
+    3: optional string next_state; // next state
+    4: optional string event;      // state machine event
+    5: optional string identifier; // peer xmpp address
+    6: optional u32 local_port;
+    7: optional u32 remote_port;
+    8: optional string error;
+    12: optional string close_reason;
+}
+
+objectlog sandesh XmppConnectionLog {
+    1: XmppConnectionInfo connection;
+}
+
+systemlog sandesh XmppStateMachineDebug {
+    1: string f1;
+    2: string f2;
+}
+
+systemlog sandesh XmppEventLog {
+    1: string f1;
+    2: string f2;
+    3: " peer: ";
+    4: string f3;
+}
+
+systemlog sandesh XmppOpen {
+    1: "Send Xmpp Open: ";
+    2: i32 f1;
+    3: " bytes from: ";
+    4: string f2;
+    5: " To: ";
+    6: string f3;
+}
+
+systemlog sandesh XmppOpenConfirm {
+    1: "Send Xmpp Open Confirm: ";
+    2: i32 f1;
+    3: " bytes from: ";
+    4: string f2;
+    5: " To: ";
+    6: string f3;
+}
+
+systemlog sandesh XmppSendSubscription {
+    1: "Send Subscription: ";
+    2: i32 f1;
+    3: " bytes on node";
+    4: string f2;
+    5: " From: ";
+    6: string f3;
+    7: " To: ";
+    8: string f4;
+}
+
+systemlog sandesh XmppSendPubSubPublish {
+    1: "Send Publish Message: ";
+    2: i32 f1;
+    3: " bytes on node";
+    4: string f2;
+    5: " From: ";
+    6: string f3;
+    7: " To: ";
+    8: string f4;
+}
+
+systemlog sandesh XmmpSendChatMessage {
+    1: "Send Chat Message to: ";
+    2: string f1;
+    3: "From: ";
+    4: string f2;
+}
+
+systemlog sandesh XmppKeepaliveTimeError {
+    1: "Xmpp Keepalive timer error: ";
+    2: string f1;
+    3: "  ";
+    4: string f2;
+}
+
+systemlog sandesh XmppClose {
+    1: "Send Close: ";
+    2: i32 f1;
+    3: " bytes from: ";
+    4: string f2;
+    5: " To: ";
+    6: string f3;
+}
+
+systemlog sandesh XmppConnectionDelete {
+    1: "Deleted Xmpp ";
+    2: string f1;
+    3: " connection from ";
+    4: string f2;
+    5: " To : ";
+    6: string f3;
+}
+
+systemlog sandesh XmppStateMachineConnectTimerError {
+    1: string f1;
+    2: "Connect Timer error: ";
+    3: string f2;
+    4: " ";
+    5: string f3;
+}
+
+systemlog sandesh XmppStateMachineOpenTimerError {
+    1: string f1;
+    2: "Open Timer error: ";
+    3: string f2;
+    4: " ";
+    5: string f3;
+}
+
+systemlog sandesh XmppStateMachineHoldTimerError {
+    1: string f1;
+    2: "Hold Timer error: ";
+    3: string f2;
+    4: " ";
+    5: string f3;
+}
+
+systemlog sandesh XmppUnknownEvent {
+    1: string f1;
+    2: "Event :";
+    3: i32 f3;
+}
+
+systemlog sandesh XmppUnconsumedEvent {
+    1: string f1; 
+    2: "Unconsumed Event";
+    3: string f2; 
+    4: " in state ";
+    5: string f3;
+}
+systemlog sandesh XmppStateMachineUnsupportedMessage {
+   1: "Xmpp message decode error ";
+   2: string f1;
+   3: i32 f2;
+}
+
+systemlog sandesh XmppStateMachineTimerExpire {
+    1: string f1;
+    2: string f2;
+    3: "Expired in state: "
+    4: string f3;
+}
+
+systemlog sandesh XmppStateMachineDequeueEvent {
+   1: "RECV Processing ";
+   2: string f1;
+   3: " In State ";
+   4: string f2;
+   5: "from ";
+   6: string f3;
+}

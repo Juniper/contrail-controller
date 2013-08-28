@@ -1,0 +1,135 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:bgp="http://www.contrailsystems.com/2012/BGP-CONFIG/0"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:include schemaLocation='ietf-l3vpn-schema.xsd'/>
+<xsd:include schemaLocation='smi-base.xsd'/>
+        
+<!-- routing-instance: group of customer attachment points with the same
+     connectivity policies -->
+<!-- Route Target extended community:"bgp:route-target"  -->
+<!-- VPN attachment interface on Customer Edge:"customer-attachment" -->
+<!-- VPN attachment interface on Provider Edge:"provider-attachment" --> 
+
+<!--#IFMAP-SEMANTICS-IDL
+    Link('connection', 'routing-instance', 'routing-instance', ['ref']) -->
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('instance-target', 'routing-instance', 'route-target', ['ref']) -->
+<!--#IFMAP-SEMANTICS-IDL 
+    Property('default-ce-protocol', 'routing-instance') -->
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('binding', 'customer-attachment', 'routing-instance', []) -->
+<!--#IFMAP-SEMANTICS-IDL 
+    Property('attachment-address', 'customer-attachment') -->
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('attachment-info', 'customer-attachment', 'provider-attachment', []) -->
+
+<xsd:element name='bgp-router' type='IdentityType'/>
+<xsd:element name='bgp-router-parameters' type='BgpRouterParams'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Property('bgp-router-parameters', 'bgp-router') -->
+
+<xsd:complexType name='BgpRouterParams'>
+    <xsd:sequence>
+	<xsd:element name='vendor' type='xsd:string'/>
+	<xsd:element name='vnc-managed' type='xsd:boolean'/>
+	<xsd:element name='autonomous-system' type='xsd:integer'/>
+        <xsd:element name='identifier' type='smi:IpAddress'/>
+        <xsd:element name='address' type='smi:IpAddress'/>
+	<xsd:element name='port' type='xsd:integer'/>
+	<xsd:element name='address-families' type='AddressFamilies'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='instance-bgp-router'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('instance-bgp-router', 'routing-instance',
+          'bgp-router', ['has']) -->
+
+<xsd:element name='bgp-peering' type='BgpPeeringAttributes'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('bgp-peering',
+          'bgp-router',  'bgp-router', ['ref']) -->
+
+<!--
+	The BgpPeering link defines the attributes for 1 (typically) or more
+	sessions between 2 bgp-routers.
+  -->
+<xsd:complexType name='BgpPeeringAttributes'>
+    <xsd:sequence>
+        <xsd:element name='session' type='BgpSession' maxOccurs='unbounded'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<!--
+	When multiple sessions are present, each session must have an unique id.
+  -->
+<xsd:complexType name='BgpSession'>
+    <xsd:sequence>
+	<xsd:element name='uuid' type='xsd:string'/>
+	<xsd:element name='attributes' type='BgpSessionAttributes'
+		     maxOccurs='3'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name='BgpSessionAttributes'>
+    <xsd:sequence>
+	<!-- When the parameters are uni-directional the bgp-router element
+	     specifies to which node the configuration applies. If missing
+	     the attributes apply to both ends of the session.
+	 -->
+        <xsd:element name='bgp-router' type='xsd:string'/>
+	<xsd:element name='address-families' type='AddressFamilies'/>
+	<!-- Configuration items such as import and export policy -->
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:simpleType name='AddressFamily'>
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="inet"/>
+        <xsd:enumeration value="inet-vpn"/>
+        <xsd:enumeration value="e-vpn"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='AddressFamilies'>
+    <xsd:sequence>
+        <xsd:element name='family' type='AddressFamily' maxOccurs='unbounded'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='service-chain-information' type='ServiceChainInfo'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Property('service-chain-information', 'routing-instance') -->
+
+<xsd:complexType name="ServiceChainInfo">
+    <xsd:all>
+        <xsd:element name='routing-instance' type='xsd:string'/>
+        <xsd:element name='prefix' type='xsd:string' maxOccurs='unbounded'/>
+        <xsd:element name='service-chain-address' type='smi:IpAddress'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name='StaticRouteType'>
+    <xsd:all>
+        <xsd:element name='prefix' type='xsd:string'/>
+        <xsd:element name='next-hop' type='xsd:string'/>
+        <xsd:element name='route-target' type='xsd:string' maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="StaticRouteEntriesType">
+    <xsd:all>
+        <xsd:element name="route" type="StaticRouteType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="static-route-entries" type="StaticRouteEntriesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('static-route-entries', 'routing-instance') -->
+
+</xsd:schema>

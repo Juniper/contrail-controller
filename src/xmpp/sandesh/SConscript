@@ -1,0 +1,16 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+XmppSandeshFiles  = env.SandeshGenCpp('xmpp_client_server_sandesh.sandesh')
+XmppSandeshFiles  += env.SandeshGenCpp('xmpp_state_machine_sandesh.sandesh')
+XmppSandeshFiles  += env.SandeshGenCpp('xmpp_trace_sandesh.sandesh')
+XmppSandeshFiles  += env.SandeshGenCpp('xmpp_message_sandesh.sandesh')
+XmppSandeshFiles  += env.SandeshGenCpp('xmpp_peer_info.sandesh')
+
+XmppSandeshFilesSrc = env.ExtractCpp(XmppSandeshFiles)
+
+Return('XmppSandeshFilesSrc')

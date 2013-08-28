@@ -1,0 +1,50 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('QueryEnv')
+
+env = QueryEnv.Clone()
+
+env.Append(LIBS=['libsandeshflow', 'gunit', 'hiredis', 'thrift', 'task_test'])
+env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
+env.Append(CPPPATH = ['#/'+Dir('.').path ,
+                      "#/build/debug/",
+                      env['TOP'],
+                      env['TOP'] + '/base/sandesh/'])
+
+env_noWerror = env.Clone()
+while env_noWerror['CCFLAGS'].count('-Werror') > 0:
+    env_noWerror['CCFLAGS'].remove('-Werror')
+
+env_noWerror_excep = env_noWerror.Clone()
+while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+
+RedisConn_obj = env.Object('redis_connection.o', '../../analytics/redis_connection.cc')
+
+query_test_obj = env_noWerror_excep.Object('query_test.o', 'query_test.cc');
+
+query_test = env.UnitTest('query_test',
+                              [ query_test_obj,
+                              RedisConn_obj,
+                              '../query.o',
+                              '../set_operation.o',
+                              '../where_query.o',
+                              '../db_query.o',
+                              '../select_fs_query.o',
+                              '../select.o',
+                              '../post_processing.o',
+                              '../QEOpServerProxy.o',
+                              "../qe_types.o",
+                              "../qe_constants.o",
+                              "../qe_html.o",
+                              '../../analytics/vizd_table_desc.o'
+                              ]
+                              )
+
+test = env.TestSuite('query-test', [query_test])
+env.Alias('src/query_engine:query_test', query_test)
+

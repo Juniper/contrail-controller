@@ -1,0 +1,34 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct AclRuleToFlowCount {
+    1: i32 acl_major;
+    2: i32 acl_minor;
+    5: i64 flows;
+}
+
+struct UveAclAgent {  // Agent
+    1: optional list<AclRuleToFlowCount> acl_rule_flow_hits; 
+}
+
+struct UveAclVirtualNetworkAgent {
+    1: string name (key="ObjectVNTable")  
+    2: optional bool deleted;
+    3: optional UveAclAgent  agent;
+}
+
+struct UveAclVirtualMachineAgent {
+    1: string name (key="ObjectVMTable")
+    2: optional bool deleted;
+    3: optional UveAclAgent  agent;
+}
+
+uve sandesh UveAclVirtualNetworkAgentTrace {
+    1: UveAclVirtualNetworkAgent data;
+}
+
+uve sandesh UveAclVirtualMachineAgentTrace {
+    1: UveAclVirtualMachineAgent data;
+}
+

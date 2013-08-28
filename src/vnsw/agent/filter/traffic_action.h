@@ -1,0 +1,87 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#ifndef __AGENT_TRAFFIC_ACTION_H__
+#define __AGENT_TRAFFIC_ACTION_H__
+
+#include <vector>
+#include <string>
+#include <base/util.h>
+#include <net/address.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <oper/agent_types.h>
+
+class TrafficAction {
+public:
+    enum TrafficActionType {
+      SIMPLE_ACTION = 1,
+      MIRROR_ACTION = 2,
+    };
+    // Don't go beyond 31
+    enum Action {
+        ALERT = 1,
+        DROP = 2,
+        DENY = 3,
+        LOG = 4,
+        PASS = 5,
+        REJECT = 6,
+        MIRROR = 7,
+        TRAP = 28,
+        IMPLICIT_DENY = 29,
+        RESERVED = 30,
+        UNKNOWN = 31,
+    };
+    static const uint32_t DROP_FLAGS = ((1 << DROP) | (1 << DENY) | 
+                                        (1 << REJECT));
+
+    TrafficAction() {};
+    virtual ~TrafficAction() {};
+
+    virtual Action GetAction() {return action_;};
+    virtual TrafficActionType GetActionType() {return tact_type;};
+    static std::string ActionToString(enum Action at);
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+
+    TrafficActionType tact_type;
+    Action action_;
+};
+
+class SimpleAction : public TrafficAction {
+public:
+    SimpleAction(Action action) {action_ = action; tact_type = SIMPLE_ACTION;};
+    ~SimpleAction() {};
+    Action GetAction() const {return action_;};
+private:
+    DISALLOW_COPY_AND_ASSIGN(SimpleAction);
+};
+
+class MirrorAction : public TrafficAction {
+public:
+    MirrorAction(std::string analyzer_name, std::string vrf_name, 
+                 IpAddress ip, uint16_t port, std::string encap) : 
+                                            analyzer_name_(analyzer_name),
+                                            vrf_name_(vrf_name), m_ip_(ip), 
+                                            port_(port), encap_(encap) {
+                                    tact_type = MIRROR_ACTION; 
+                                    action_ = MIRROR;};
+    ~MirrorAction();
+                                    // {};
+    IpAddress GetIp() {return m_ip_;};
+    uint32_t  GetPort() {return port_;};
+    std::string GetVrfName() {return vrf_name_;};
+    std::string GetAnalyzerName() {return analyzer_name_;};
+    std::string GetEncap() {return encap_;};
+    virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 
+private:
+    std::string analyzer_name_;
+    std::string vrf_name_;
+    //Action action_;
+    IpAddress m_ip_;
+    uint16_t port_;
+    std::string encap_;
+    DISALLOW_COPY_AND_ASSIGN(MirrorAction);
+};
+
+#endif

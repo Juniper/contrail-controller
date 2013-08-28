@@ -1,0 +1,18 @@
+# -*- mode: python; -*-
+#
+#Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# cfg directory
+
+import os
+import sys
+
+Import('DnsEnv')
+env = DnsEnv.Clone()
+
+dns_cfg = env.Library('dns_cfg',
+                     ['config_listener.cc',
+                      'dns_config.cc',
+                      'dns_config_parser.cc',
+                     ])
+

@@ -1,0 +1,11 @@
+$ORIGIN .
+$TTL 60
+2.1.1.in-addr.arpa.           IN  SOA ns.contrail.juniper.net  mx.contrail.juniper.net (
+                                      54        
+                                      10800     
+                                      900       
+                                      604800    
+                                      86400     
+                                      )
+                                  NS  ns.contrail.juniper.net       
+$ORIGIN 2.1.1.in-addr.arpa.

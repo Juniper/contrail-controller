@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//  Sandesh definitions for IO TCP and EventManager log and trace messages
+
+trace sandesh EventManagerMessageTrace {
+    1: string Message;
+}
+
+systemlog sandesh EventManagerMessageLog {
+    1: string Message;
+}
+
+trace sandesh TcpMessageTrace {
+    1: string Direction;
+    2: string Message;
+}
+
+systemlog sandesh TcpMessageLog {
+    1: string Direction;
+    2: string Message;
+}
+
+trace sandesh TcpServerMessageTrace {
+    1: "Server";
+    2: string ServerName;
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh TcpServerMessageLog {
+    1: "Server";
+    2: string ServerName;
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh TcpSessionMessageTrace {
+    1: "Session";
+    2: string SessionName;
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh TcpSessionMessageLog {
+    1: "Session";
+    2: string SessionName;
+    3: string Direction;
+    4: string Message;
+}
+

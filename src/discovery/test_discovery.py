@@ -1,0 +1,135 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import gevent
+import argparse
+import os, sys
+import discovery.services as services
+import discovery.client as client
+import uuid
+
+class TestDiscService():
+    def __init__(self, args_str = None):
+        self.args = None
+        if not args_str:
+            args_str = ' '.join(sys.argv[1:])
+        self._parse_args(args_str)
+    #end __init__
+
+    def _parse_args(self, args_str):
+
+        defaults = {
+            'server_ip'   : '127.0.0.1',
+            'server_port' : '5998',
+            'service_type': None,
+            'count'       : 1,
+            'ip_addr'     : None,
+            'port'        : None,
+            'service_id'  : None,
+            'admin_state' : None,
+            'prov_state'  : None,
+            'subscribe_type'    : None,
+        }
+
+        # override with CLI options
+        parser = argparse.ArgumentParser(description = "Test Discovery Service")
+        parser.add_argument('oper', choices=['publish', 'subscribe', 'pubtest', 'update_service'], 
+            help = "Operation: publish/subscribe/pubtest")
+        parser.add_argument('--server_ip', help = "Discovery Server IP (default: 127.0.0.1)")
+        parser.add_argument('--server_port', help = "Discovery Server Port (default: 5998)")
+        parser.add_argument('--service_type', help = "Service type")
+        parser.add_argument('--service_data', help = "Service data to publish state of service)")
+        parser.add_argument('--count', type=int, help = "Number of instances. Default is 1")
+        parser.add_argument('--ip_addr', help = "IP address service to publish")
+        parser.add_argument('--port', help = "Port of service to publish)")
+        parser.add_argument('--service_id', help = "Service ID of service)")
+        parser.add_argument('--admin_state', help = "Admin state of service)")
+        parser.add_argument('--prov_state', help = "Provision state of service)")
+        parser.add_argument('--subscribe_type', help = "sync or async")
+
+        parser.set_defaults(**defaults)
+        self.args = parser.parse_args(args_str.split())
+
+        if self.args.oper == 'subscribe':
+            if self.args.subscribe_type is None:
+                print 'Subscribe type (sync or async) must be specified'
+                sys.exit()
+
+        if self.args.oper == 'publish':
+            if self.args.service_data is None or self.args.service_type is None:
+                print 'Service name and data required for publish operation'
+                sys.exit()
+
+        print 'Discovery server = %s:%s' %(self.args.server_ip, self.args.server_port)
+        print 'Service type = ', self.args.service_type
+        print 'Instance count = ', self.args.count
+    #end _parse_args
+
+def info_callback(info):
+    print 'In subscribe callback handler'
+    print '%s' %(info)
+
+def main(args_str = None):
+    x = TestDiscService(args_str)
+    _uuid = str(uuid.uuid4())
+    myid = 'test_disc:%s' % (_uuid[:8])
+    disc = client.DiscoveryClient(x.args.server_ip, x.args.server_port, id = myid)
+    if x.args.oper == 'subscribe':
+        print 'subscribe: service-type = %s, count = %d, myid = %s, subscribe type: %s' \
+            %(x.args.service_type, x.args.count, myid, x.args.subscribe_type)
+        """
+        try:
+            cls = client.str_to_class(x.args.service_type)
+            s = cls()
+        except AttributeError:
+            print 'Failed to find service_type "%s" in service definitions. Continuing ...' %(x.args.service_type)
+        """
+
+        # sync
+        if x.args.subscribe_type == 'sync':
+            obj = disc.subscribe(x.args.service_type, x.args.count)
+            print obj.info
+        else:
+        # async
+            obj = disc.subscribe(x.args.service_type, x.args.count, info_callback)
+            gevent.joinall([obj.task])
+    elif x.args.oper == 'publish':
+        print 'Publish: service-type %s info %s' \
+            %(x.args.service_type, x.args.service_data)
+        task = disc.publish(x.args.service_type, x.args.service_data)
+        gevent.joinall([task])
+    elif x.args.oper == 'pubtest':
+        tasks = []
+        for i in range(2):
+            ip = '1.1.1.%d' %(i)
+            port = '11%02d' %(i)
+            s = services.Ifmapservice(ip, port)
+            print 'Publish: service-type %s at %s:%s' \
+                %(s.service_type, s.ip_addr, s.port)
+            task = disc.publish_obj(s)
+            tasks.append(task)
+        gevent.joinall(tasks)
+    elif x.args.oper == 'update_service':
+        if x.args.service_id is None:
+            print 'Error: Missing service ID'
+            sys.exit(1)
+        elif x.args.admin_state is None and x.args.prov_state is None:
+            print 'Error: Admin state of Provison state must be specified'
+            sys.exit(1)
+        print 'Update service %s, admin state "%s", prov state "%s"' \
+            %(x.args.service_id, x.args.admin_state or '', x.args.prov_state or '')
+        entry = disc.get_service(x.args.service_id)
+        if entry is None:
+            print 'Error: Service info not found!'
+            sys.exit(1)
+        print 'Entry = ', entry
+        if x.args.admin_state:
+            entry['admin_state'] = x.args.admin_state
+        if x.args.prov_state:
+            entry['prov_state'] = x.args.prov_state
+        rv = disc.update_service(x.args.service_id, entry)
+        print 'Update srevice rv = ', rv
+
+if __name__ == "__main__":
+    main()

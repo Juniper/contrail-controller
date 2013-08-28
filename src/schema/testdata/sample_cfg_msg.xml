@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<env:Envelope
+xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
+xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" 
+xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2"
+xmlns:ct="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
+    <env:Body>
+        <ifmap:response>
+            <notifyResult name="sub1">
+
+<!-- Tenant message -->
+                <resultItem>
+                <ifmap:identity  name="ct:vnc-cfg-root:root" type="other" />
+                <ifmap:identity  name="ct:tenant:mytenant" type="other"/>
+                <meta:metadata>
+                    <ct:vnc-cfg-root-tenant/>
+                </meta:metadata>
+                </resultItem>
+
+<!-- VPC message -->
+                <resultItem>
+                    <ifmap:identity name="ct:tenant::mytenant" type="other"/>
+                    <ifmap:identity name="ct:virtual-network:mytenant:myvpc" 
+                                                              type="other"/>
+                    <meta:metadata>
+                        <ct:tenant-network-group/>
+                    </meta:metadata>
+                </resultItem>
+                
+<!-- Virtual Network message -->
+                <resultItem>
+                    <ifmap:identity name="ct:network-group:mytenant:myvpc"
+                                                              type="other"/>
+                    <ifmap:identity name="ct:virtual-network:mytenant:myvpc:myvn" 
+                                                              type="other"/>
+                    <meta:metadata>
+                        <ct:network-group-virtual-network/>
+                    </meta:metadata>
+                </resultItem>
+
+<!-- Virtual Network subnet message -->
+                <resultItem>
+                    <ifmap:identity name="ct:virtual-network:mytenant:myvpc:myvn" 
+                                                              type="other"/>
+                    <ifmap:identity name="ct:network-ipam:mytenant:myvpc:myipam" 
+                                                              type="other"/>
+                    <meta:metadata>
+                        <ct:virtual-network-network-ipam>
+                             <ct:subnet>
+                                 <ct:ip-prefix>
+                                     10.10.10.0
+                                 </ct:ip-prefix>
+                                 <ct:ip-prefix-len>
+                                     24
+                                 </ct:ip-prefix-len>
+                             </ct:subnet>
+                        </ct:virtual-network-network-ipam>
+                    </meta:metadata>
+                </resultItem>
+            </notifyResult>
+        </ifmap:response>
+    </env:Body>
+</env:Envelope>
+

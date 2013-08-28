@@ -1,0 +1,204 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+trace sandesh BgpMessageTrace {
+    1: string Message;
+}
+
+systemlog sandesh BgpMessageLog {
+    1: string Message;
+}
+
+trace sandesh BgpMessageBuilderTrace {
+    1: string Message;
+    2: "in message of size";
+    3: i32 Length;
+    4: "bytes for route";
+    5: string Route;
+}
+
+systemlog sandesh BgpMessageBuilderLog {
+    1: string Message;
+    2: "in message of size";
+    3: i32 Length;
+    4: "bytes for route";
+    5: string Route;
+}
+
+trace sandesh BgpNotificationMessageTrace {
+    1 : "Bgp Peer";
+    2 : string BgpPeer;
+    3 : string Direction;
+    4 : "BGP Notification message(";
+    5 : i32 Length;
+    6 : "Bytes";
+    7 : ") event with";
+    8 : "Code";
+    9 : i32 ErrorCode;
+    10: "and SubCode"
+    11: i32 ErrorSubCode;
+    12: "(";
+    13: string Message;
+    14: ")";
+}
+
+systemlog sandesh BgpNotificationMessageLog {
+    1 : "Bgp Peer";
+    2 : string BgpPeer;
+    3 : string Direction;
+    4 : "BGP Notification message(";
+    5 : i32 Length;
+    6 : "Bytes";
+    7 : ") event with";
+    8 : "Code";
+    9 : i32 ErrorCode;
+    10: "and SubCode"
+    11: i32 ErrorSubCode;
+    12: "(";
+    13: string Message;
+    14: ")";
+}
+
+trace sandesh BgpPeerMessageTrace {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: string Direction;
+    5: string Message;
+}
+
+systemlog sandesh BgpPeerMessageLog {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: string Direction;
+    5: string Message;
+}
+
+trace sandesh BgpPeerTableMessageTrace {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: "in table";
+    5: string Table;
+    6: "in instance";
+    7: string Instance;
+    8: ":";
+    9: string Message;
+}
+
+systemlog sandesh BgpPeerTableMessageLog {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: "in table";
+    5: string Table;
+    6: "in instance";
+    7: string Instance;
+    8: ":";
+    9: string Message;
+}
+
+trace sandesh BgpXmppMessageTrace {
+    1: "Xmpp Peer"
+    2: string Peer;
+    3: string Message;
+}
+
+systemlog sandesh BgpXmppMessageLog {
+    1: "Xmpp Peer"
+    2: string Peer;
+    3: string Message;
+}
+
+trace sandesh BgpXmppInstanceMessageTrace {
+    1: "Xmpp Peer"
+    2: string Peer;
+    3: "in instance";
+    4: string Instance;
+    5: ":";
+    6: string Message;
+}
+
+systemlog sandesh BgpXmppInstanceMessageLog {
+    1: "Xmpp Peer"
+    2: string Peer;
+    3: "in instance";
+    4: string Instance;
+    5: ":";
+    6: string Message;
+}
+
+trace sandesh BgpTableMessageTrace {
+    1: string Table;
+    2: ":";
+    3: string Message;
+}
+
+systemlog sandesh BgpTableMessageLog {
+    1: string Table;
+    2: ":";
+    3: string Message;
+}
+
+trace sandesh BgpSchedulingGroupMessageTrace {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: ":";
+    5: string Message;
+}
+
+systemlog sandesh BgpSchedulingGroupMessageLog {
+    1: string PeerType;
+    2: "Peer"
+    3: string Peer;
+    4: ":";
+    5: string Message;
+}
+
+trace sandesh BgpStateMachineMessageTrace {
+    1: string Message;
+}
+
+systemlog sandesh BgpStateMachineMessageLog {
+    1: string Message;
+}
+
+trace sandesh BgpStateMachineSessionMessageTrace {
+    1: "Bgp Peer";
+    2: string Peer;
+    3: ":";
+    4: string Message;
+}
+
+systemlog sandesh BgpStateMachineSessionMessageLog {
+    1: "Bgp Peer";
+    2: string Peer;
+    3: ":";
+    4: string Message;
+}
+
+trace sandesh BgpRouteMessageTrace {
+    1: string Message;
+    2: string Route;
+    3: "from";
+    4: string PeerType;
+    5: "Peer";
+    6: string Peer;
+    7: "in table"
+    8: string Table;
+}
+
+systemlog sandesh BgpRouteMessageLog {
+    1: string Message;
+    2: string Route;
+    3: "from";
+    4: string PeerType;
+    5: "Peer";
+    6: string Peer;
+    7: "in table"
+    8: string Table;
+}
+

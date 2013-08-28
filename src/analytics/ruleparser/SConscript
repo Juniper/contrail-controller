@@ -1,0 +1,55 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# ruleeng directory
+
+import os
+Import('AnalyticsEnv')
+
+env = AnalyticsEnv.Clone()
+while env['CCFLAGS'].count('-Werror') > 0:
+    env['CCFLAGS'].remove('-Werror')
+
+env.Append(CPPPATH = ['#src/analytics/ruleparser', '#/'+Dir('.').path+'/../../analytics/ruleparser'])
+
+# Lex and Yacc
+env.Append(YACCFLAGS = '-d')
+env['YACCHXXFILESUFFIX'] = '.hh'
+env.CXXFile(target = 'ruleparsery.cc', source = 'ruleparsery.yy')
+
+buildpath = Dir('.').abspath
+lexhdrfile = buildpath + '/ruleparserl.h'
+lexflags = '--header-file=' + lexhdrfile
+env.Append(LEXFLAGS = lexflags)
+env.CXXFile(target = 'ruleparserl.cc', source = 'ruleparserl.ll')
+
+env_excep = env.Clone()
+while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    env_excep['CCFLAGS'].remove('-fno-exceptions')
+
+t_ruleparser_obj = env_excep.Object('t_ruleparser.o', 't_ruleparser.cc')
+env.Library(target = 'ruleparser',
+            source = [
+                      'ruleutil.cc',
+                      'ruleparsery.cc',
+                      'ruleparserl.cc',
+                      t_ruleparser_obj,
+                     ])
+import sys
+if sys.platform != 'darwin':
+    env['LIBS'] = []
+ruleparserpy_obj = env_excep.SharedObject('ruleparserpy.os', 'ruleparserpy.cc')
+ruleengpy = env.SharedLibrary(target = 'ruleparserpy',
+            source = [
+                      ruleparserpy_obj,
+                      'ruleutil.cc',
+                      'ruleparsery.cc',
+                      'ruleparserl.cc',
+                      '../viz_message.cc',
+                     ], SHLIBPREFIX='', SHLIBSUFFIX='.so')
+
+env.Depends(ruleengpy, '#/build/lib/' + 'libtbb_debug' + env['SHLIBSUFFIX'])
+
+env.SConscript('test/SConscript', exports='AnalyticsEnv', duplicate = 0)

@@ -1,0 +1,265 @@
+<?xml version=\"1.0\"?>
+ <config>
+  <update>
+   <node type="access-control-list">
+    <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    <access-control-list-entries>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>1</start-port> <end-port>1</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>1</start-port> <end-port>1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>2</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>2</start-port> <end-port>2</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>2</start-port> <end-port>2</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>3</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>3</start-port> <end-port>3</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>3</start-port> <end-port>3</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>4</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>4</start-port> <end-port>4</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>4</start-port> <end-port>4</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>5</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>5</start-port> <end-port>5</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>5</start-port> <end-port>5</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>6</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>6</start-port> <end-port>6</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>6</start-port> <end-port>6</end-port> </dst-port>
+      </match-condition> 
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>7</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>7</start-port> <end-port>7</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>7</start-port> <end-port>7</end-port> </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action> <gateway-name />
+      </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>8</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>8</start-port> <end-port>8</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>8</start-port> <end-port>8</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>9</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>9</start-port> <end-port>9</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>9</start-port> <end-port>9</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>10</protocol>
+       <src-address> <virtual-network> vn11 </virtual-network> </src-address>
+       <src-port> <start-port>100</start-port> <end-port>200</end-port> </src-port>
+       <dst-address> <virtual-network> vn21 </virtual-network> </dst-address>
+       <dst-port> <start-port>100</start-port> <end-port>100</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>deny</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn1 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn2 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> any </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> any </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+    </access-control-list-entries>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>7330381381287759171</uuid-mslong>
+      <uuid-lslong>13339871223965880614</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <node type="access-control-list">
+    <name>default-domain:b859ddbabe3d4c4dba8402084831e123:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e123:vn1</name>
+    <access-control-list-entries>
+     <acl-rule>
+      <match-condition>
+       <protocol>10</protocol>
+       <src-address> <virtual-network> vn11 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn21 </virtual-network> </dst-address>
+       <dst-port> <start-port>100</start-port> <end-port>100</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>deny</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn11 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn21 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> any </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> any </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+    </access-control-list-entries>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>7330381381287759160</uuid-mslong>
+      <uuid-lslong>13339871223965880614</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <node type="access-control-list">
+    <name>default-domain:b859ddbabe3d4c4dba8402084831e123:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e123:xyz</name>
+    <access-control-list-entries>
+     <acl-rule>
+      <match-condition>
+       <protocol>10</protocol>
+       <src-address> <virtual-network> vn11 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn21 </virtual-network> </dst-address>
+       <dst-port> <start-port>100</start-port> <end-port>100</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>deny</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address> <virtual-network> vn11 </virtual-network> </src-address>
+       <src-port> <start-port>-1</start-port> <end-port>-1</end-port> </src-port>
+       <dst-address> <virtual-network> vn21 </virtual-network> </dst-address>
+       <dst-port> <start-port>-1</start-port> <end-port>-1</end-port> </dst-port>
+      </match-condition>
+      <action-list> <simple-action>pass</simple-action> <gateway-name /> </action-list>
+     </acl-rule>
+    </access-control-list-entries>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>7330381381287759172</uuid-mslong>
+      <uuid-lslong>13339871223965880614</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>

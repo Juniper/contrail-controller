@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+request sandesh CpuLoadInfoReq {
+}
+
+struct CpuLoadAvg {
+    1: double one_min_avg;
+    2: double five_min_avg;
+    3: double fifteen_min_avg;
+}
+
+struct MemInfo {
+    1: u32 virt;
+    2: u32 peakvirt;
+    3: u32 res;
+}
+
+struct SysMemInfo {
+    1: u32 total;
+    2: u32 used;
+    3: u32 free;
+    4: u32 buffers;
+}
+
+struct CpuLoadInfo {
+    1: u32 num_cpu;
+    5: optional SysMemInfo sys_mem_info;
+    2: MemInfo meminfo;
+    3: optional CpuLoadAvg cpuload;
+    4: double cpu_share;
+}
+
+response sandesh CpuLoadInfoResp {
+    1: CpuLoadInfo cpu_info;
+}

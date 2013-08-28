@@ -1,0 +1,2 @@
+recursive-include svc_monitor/uve *.html *.xml *.css
+recursive-include svc_monitor/sandesh *.html *.xml *.css

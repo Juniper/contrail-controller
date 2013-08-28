@@ -1,0 +1,11 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:bgp="http://www.contrailsystems.com/2012/BGP-CONFIG/0"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:include schemaLocation='vnc_cfg.xsd'/>
+<xsd:include schemaLocation='bgp_schema.xsd'/>
+</xsd:schema>

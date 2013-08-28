@@ -1,0 +1,115 @@
+# -*- mode: python; -*-
+
+import os
+import sys
+
+cpu_count = 1
+try:
+    import multiprocessing
+    cpu_count = multiprocessing.cpu_count()
+except ImportError:
+    pass
+    
+vpath = '#/third_party/boost_1_48_0'
+engine = vpath + '/tools/build/v2/engine'
+version = '1.48.0'
+
+def MapPath(xpath, list):
+    return map(lambda x: '#/' + Dir('.').path + '/tools/' + x, list)
+
+VariantDir('#/' + Dir('.').path + '/tools', engine, duplicate=0)
+
+env = DefaultEnvironment()
+
+yyacc = env.Program('yyacc0', MapPath(engine, ['yyacc.c']))
+
+gram = env.Command(['jamgram.y', 'jamgram.h'], MapPath(engine, ['jamgram.yy']),
+                   Dir('.').path + '/yyacc0 $TARGETS $SOURCE')
+
+env.Depends(gram, yyacc)
+
+mkjambase = env.Program('mkjambase0', MapPath(engine, ['mkjambase.c']))
+
+jambase = env.Command('jambase.c', MapPath(engine, ['Jambase']),
+                      Dir('.').path + '/mkjambase0 $TARGET $SOURCE')
+env.Depends(jambase, mkjambase)
+
+sources = [ 'command.c', 'compile.c', 'debug.c', 'expand.c', 'glob.c', 'hash.c',
+            'hdrmacro.c', 'headers.c', 'jam.c', 'jamgram.c',
+            'lists.c', 'make.c', 'make1.c', 'newstr.c', 'option.c', 'output.c',
+            'parse.c', 'pathunix.c', 'pathvms.c', 'regexp.c',
+            'rules.c', 'scan.c', 'search.c', 'subst.c', 'timestamp.c',
+            'variable.c', 'modules.c', 'strings.c', 'filesys.c', 'builtins.c',
+            'pwd.c', 'class.c', 'native.c', 'md5.c', 'w32_getreg.c',
+            'modules/set.c', 'modules/path.c', 'modules/regex.c',
+            'modules/property-set.c', 'modules/sequence.c', 'modules/order.c',
+            'execunix.c', 'fileunix.c']
+
+srcs = MapPath(engine, sources)
+srcs.append('jambase.c')
+stage0 = env.Program('jam0', srcs)
+
+if sys.platform == 'darwin':
+    toolset = '--toolset=darwin'
+else:
+    toolset = '--toolset=gcc'
+
+cmd = ('(cd ' + Dir(engine).abspath +
+       '; ' + Dir('.').abspath + '/jam0 -f build.jam ' + toolset + ')')
+
+#--toolset=darwin
+#    '--extra-include=' + env['ENV']['SDKROOT'] + '/usr/include )')
+
+bjam = env.Command('tools/bjam', engine + '/build.jam', cmd,
+                   ENV={'PATH': env['ENV']['PATH'],
+                        'LOCATE_TARGET': Dir('.').abspath + '/tools',
+#                       'SDKROOT': env['ENV']['SDKROOT']
+                       })
+
+env.Depends(bjam, stage0)
+
+boost_libs = [
+    'system', 'thread', 'date_time', 'regex', 'python', 'program_options',
+    'filesystem'
+]
+
+jam_libs = ''
+for xlib in boost_libs:
+    if jam_libs:
+        jam_libs += ' '
+    jam_libs += '--with-' + xlib
+
+
+#
+# Use '--cxxflags=-option' to pass options to the compiler
+#
+build_cmd = ('(cd ' + Dir(vpath).abspath + '; ' +
+             Dir('.').abspath + '/tools/bjam ' +
+             '-j' + str(cpu_count) + ' ' +
+             '--build-dir=' + Dir('.').abspath + ' ' +
+             '--prefix=' + Dir('#/build').abspath + ' ' +
+             '--stagedir=' + Dir('#/build').abspath + ' ' +
+             jam_libs + ' stage )')
+
+generated_libs = map(lambda x: '#/build/lib/libboost_' + x + '.a', boost_libs)
+generated_libs += map(lambda x: '#/build/lib/libboost_' + x + '.so' + '.' + version, boost_libs)
+libs = env.Command(generated_libs, bjam, build_cmd,
+                   ENV={'PATH': env['ENV']['PATH']})
+
+env.Depends(libs, bjam);
+
+for lib in boost_libs:
+    solib = '#/build/lib/libboost_' + lib + '.so' + '.' + version
+    solink = '#/build/lib/libboost_' + lib + '.so'
+    env.Depends(solink, solib)
+
+
+def Symlink(target, source):
+    parent = os.path.dirname(target[0].abspath)
+    if not os.path.exists(parent):
+        os.makedirs(parent)
+
+    if not os.path.exists(target[0].abspath):
+        os.symlink(source[0].abspath, target[0].abspath)
+
+Symlink([Dir('#/build/include/boost')], [Dir(vpath + '/boost')])

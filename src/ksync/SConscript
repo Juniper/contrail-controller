@@ -1,0 +1,31 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.Append(CPPPATH = '#vrouter/include')
+env.Append(CPPPATH = env['TOP'] + '/vrouter/sandesh')
+env.Append(CPPPATH = env['TOP'] + '/vnsw/agent')
+env.Append(CPPPATH = env['TOP'] + '/sandesh')
+env.Append(CPPPATH = env['TOP'] + '/ksync')
+
+cflags = env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+# Generate the source files
+SandeshGenFiles = env.SandeshGenCpp('ksync.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+libksync = env.Library('ksync',
+                    SandeshGenSrcs + 
+                    ['ksync_object.cc',
+                     'ksync_sock.cc',
+                     'ksync_sock_user.cc'])
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

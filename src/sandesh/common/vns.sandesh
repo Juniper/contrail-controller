@@ -1,0 +1,111 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ * vns.sandesh
+ *
+ * VNS Definitions
+ */
+
+enum Module {
+    CONTROL_NODE,
+    VROUTER_AGENT,
+    API_SERVER,
+    SCHEMA_TRANSFORMER,
+    OPSERVER,
+    COLLECTOR,
+    QUERY_ENGINE,
+    SVC_MONITOR,
+    DNS,
+    MAX_MODULE,
+    DISCOVERY_SERVICE,
+}
+
+const map<Module, string> ModuleNames = {
+    Module.CONTROL_NODE       : "ControlNode",
+    Module.VROUTER_AGENT      : "VRouterAgent",
+    Module.API_SERVER         : "ApiServer",
+    Module.SCHEMA_TRANSFORMER : "Schema",
+    Module.OPSERVER           : "OpServer",
+    Module.COLLECTOR          : "Collector",
+    Module.QUERY_ENGINE       : "QueryEngine",
+    Module.SVC_MONITOR        : "ServiceMonitor"
+    Module.DNS                : "DnsAgent",
+    Module.DISCOVERY_SERVICE  : "DiscoveryService"
+}
+
+const map<string, Module> ModuleIds = {
+    "ControlNode"           : Module.CONTROL_NODE,
+    "VRouterAgent"          : Module.VROUTER_AGENT,
+    "ApiServer"             : Module.API_SERVER,
+    "Schema"                : Module.SCHEMA_TRANSFORMER,
+    "OpServer"              : Module.OPSERVER,
+    "Collector"             : Module.COLLECTOR,
+    "QueryEngine"           : Module.QUERY_ENGINE,
+    "ServiceMonitor"        : Module.SVC_MONITOR,
+    "DnsAgent"              : Module.DNS,
+    "DiscoveryService"      : Module.DISCOVERY_SERVICE
+}
+
+enum Category {
+    DEFAULT,
+    BGP,
+    XMPP,
+    BGP_PEER,
+    IFMAP,
+    TCP,
+    ROUTING_INSTANCE,
+    VROUTER,
+    DISCOVERY,
+    DNSAGENT,
+}
+
+const map<Category, string> CategoryNames = {
+    Category.DEFAULT          : "",
+    Category.BGP              : "BGP",
+    Category.XMPP             : "XMPP",
+    Category.BGP_PEER         : "BGP Peer",
+    Category.IFMAP            : "IFMap",
+    Category.TCP              : "TCP",
+    Category.ROUTING_INSTANCE : "RoutingInstance"
+    Category.VROUTER          : "VRouter",
+    Category.DISCOVERY        : "Discovery",
+    Category.DNSAGENT         : "DnsAgent"
+}
+    
+const map<Module, list<Category>> ModuleCategoryMap = {
+    Module.CONTROL_NODE       : [Category.DEFAULT,
+                                 Category.BGP,
+                                 Category.XMPP,
+                                 Category.BGP_PEER,
+                                 Category.IFMAP,
+                                 Category.TCP,
+                                 Category.ROUTING_INSTANCE,
+                                ],
+    Module.VROUTER_AGENT      : [Category.DEFAULT,
+                                 Category.XMPP,
+                                 Category.IFMAP,
+                                 Category.TCP,
+                                 Category.VROUTER,
+                                ],
+    Module.API_SERVER         : [Category.DEFAULT,
+                                ],
+    Module.SCHEMA_TRANSFORMER : [Category.DEFAULT,
+                                ],
+    Module.OPSERVER           : [Category.DEFAULT,
+                                ],
+    Module.COLLECTOR          : [Category.DEFAULT,
+                                 Category.TCP,
+                                ],
+    Module.QUERY_ENGINE       : [Category.DEFAULT,
+                                ],
+    Module.SVC_MONITOR        : [Category.DEFAULT,
+                                ], 
+    Module.DNS                : [Category.DEFAULT,
+                                 Category.DNSAGENT,
+                                ], 
+    Module.DISCOVERY_SERVICE  : [Category.DEFAULT,
+                                 Category.DISCOVERY,
+                                ], 
+}

@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# Gets yum data and displays the name, version & build-id
+# build-id could be one of:
+# build number - if the package was installed from an ISO
+# repo name - if the package was installed/updated from an RPM repository
+# RPM name - if the package was intalled locally (rpm install or yum localinstall)
+# Example output
+# contrail-analytics                     1-1304082216        148                 
+# openstack-dashboard.noarch             2012.1.3-1.fc17     updates             
+# contrail-agent                         1-1304091654        contrail-agent-1-1304091654.x86_64
+
+TMPFILE=/tmp/yl.${BASHPID}
+CONTRAILRPMS=/etc/contrail/rpm_list.txt
+
+/bin/rm -f $TMPFILE
+/usr/bin/yum list installed > $TMPFILE
+
+echo "Package                                Version                 Build-ID | Repo | RPM Name"
+echo "-------------------------------------- ----------------------- ----------------------------------"
+for i in `cat $CONTRAILRPMS`; do
+  #j=$i; v="N/A"; r="N/A"
+  read j v r <<< `grep "^$i\." $TMPFILE`
+  rr=`echo $r|cut -f2 -d/`
+  printf "%-39s%-24s%-20s\n" $i $v $rr
+done
+
+/bin/rm -f $TMPFILE

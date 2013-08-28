@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+librtarget = env.Library('rtarget', ['rtarget_address.cc'])
+                     
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

@@ -1,0 +1,8 @@
+<iq type='set'
+    from='agent@vnsw.contrailsystems.com'
+    to='bgp.contrail.com/bgp-peer' 
+    id='sub1'>
+    <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+        <unsubscribe node='blue'/>
+    </pubsub>
+</iq>

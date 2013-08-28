@@ -1,0 +1,17 @@
+# -*- mode: python; -*-
+
+import os
+
+env = DefaultEnvironment()
+rapidjson_path = '#/third_party/rapidjson'
+
+def Symlink(target, source):
+    parent = os.path.dirname(target[0].abspath)
+    if not os.path.exists(parent):
+        os.makedirs(parent)
+
+    if not os.path.exists(target[0].abspath):
+        os.symlink(source[0].abspath, target[0].abspath)
+
+Symlink([Dir('#/build/include/rapidjson')],
+        [Dir(rapidjson_path + '/include/rapidjson')])

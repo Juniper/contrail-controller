@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+systemlog sandesh ClientOpenFail {
+    1: "Xmpp Client : open failed"
+    2: string f1
+}
+
+systemlog sandesh SetSockOptFail {
+    1: "Xmpp Client: set_option: "
+    2: string f1
+}
+
+systemlog sandesh BindFailure {
+    1: "Xmpp Client: Bind failure: "
+    2: string f1
+    3: " Port "
+    4: i32 f2
+}
+
+systemlog sandesh ServerOpenFail {
+    1: "Xmpp Server : open failed"
+    2: string f1
+}
+
+systemlog sandesh ServerBindFailure {
+    1: "Bind failure: ";
+    2: string f1;
+}
+
+systemlog sandesh XmppAcceptAndCreate {
+    1: "Xmpp Accept And Create ";
+    2: string f1;
+    3: ": ";
+    4: i32 f2;
+}
+
+systemlog sandesh XmppCreateConnection {
+    1: "Xmpp creating dynamic channel"
+    2: string f1;
+}

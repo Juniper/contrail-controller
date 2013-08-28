@@ -1,0 +1,35 @@
+<policy name="Test_1">
+    <term name="t1">
+        <from>
+            <community>20:20</community>
+            <prefix>10.1.0.0/16</prefix>
+        </from>
+        <then>
+            <update>
+                <community>
+                    <add>target:1:2</add>
+                </community>
+            </update>
+            <action>next</action>
+        </then>
+    </term>
+
+    <term name="t2">
+        <from>
+            <community>target:1:30</community>
+            <prefix>10.1.0.0/16</prefix>
+        </from>
+        <then>
+            <action>reject</action>
+        </then>
+    </term>
+
+    <term name="default">
+        <then>
+            <update>
+                <local-pref>25</local-pref>
+            </update>
+            <action>accept</action>
+        </then>
+    </term>
+</policy>

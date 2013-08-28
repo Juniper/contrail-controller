@@ -1,0 +1,293 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "testing/gunit.h"
+
+#include <netinet/if_ether.h>
+#include <netinet/in.h>
+#include <netinet/ip_icmp.h>
+#include <boost/uuid/string_generator.hpp>
+#include <boost/scoped_array.hpp>
+#include <base/logging.h>
+
+#include <io/event_manager.h>
+#include <cmn/agent_cmn.h>
+#include <cfg/init_config.h>
+#include <oper/operdb_init.h>
+#include <controller/controller_init.h>
+#include <controller/controller_vrf_export.h>
+#include <pkt/pkt_init.h>
+#include <services/services_init.h>
+#include <ksync/ksync_init.h>
+#include <openstack/instance_service_server.h>
+#include <oper/vrf.h>
+#include <pugixml/pugixml.hpp>
+#include <services/icmp_proto.h>
+#include <vr_interface.h>
+#include "uve/uve_init.h"
+#include <test/test_cmn_util.h>
+#include <test/pkt_gen.h>
+#include <services/services_sandesh.h>
+#include "vr_types.h"
+
+#define MAC_LEN 6
+#define MAX_WAIT_COUNT 60
+#define BUF_SIZE 8192
+char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
+char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+
+class IcmpTest : public ::testing::Test {
+public:
+    IcmpTest() : itf_count_(0), icmp_seq_(0) {
+        rid_ = Agent::GetInterfaceTable()->Register(
+                boost::bind(&IcmpTest::ItfUpdate, this, _2));
+    }
+
+    ~IcmpTest() {
+        Agent::GetInterfaceTable()->Unregister(rid_);
+    }
+
+    void ItfUpdate(DBEntryBase *entry) {
+        Interface *itf = static_cast<Interface *>(entry);
+        tbb::mutex::scoped_lock lock(mutex_);
+        unsigned int i;
+        for (i = 0; i < itf_id_.size(); ++i)
+            if (itf_id_[i] == itf->GetInterfaceId())
+                break;
+        if (entry->IsDeleted()) {
+            if (itf_count_ && i < itf_id_.size()) {
+                itf_count_--;
+                LOG(DEBUG, "Icmp test : interface deleted " << itf_id_[0]);
+                itf_id_.erase(itf_id_.begin()); // we delete in create order
+            }
+        } else {
+            if (i == itf_id_.size()) {
+                itf_count_++;
+                itf_id_.push_back(itf->GetInterfaceId());
+                LOG(DEBUG, "Icmp test : interface added " << itf->GetInterfaceId());
+            }
+        }
+    }
+
+    uint32_t GetItfCount() { 
+        tbb::mutex::scoped_lock lock(mutex_);
+        return itf_count_; 
+    }
+
+    std::size_t GetItfId(int index) { 
+        tbb::mutex::scoped_lock lock(mutex_);
+        return itf_id_[index]; 
+    }
+
+    void CheckSandeshResponse(Sandesh *sandesh) {
+    }
+
+    void SendIcmp(short ifindex, uint32_t dest_ip) {
+        int len = 512;
+        boost::scoped_array<uint8_t> buf(new uint8_t[len]);
+        memset(buf.get(), 0, len);
+
+        ethhdr *eth = (ethhdr *)buf.get();
+        eth->h_dest[5] = 1;
+        eth->h_source[5] = 2;
+        eth->h_proto = htons(0x800);
+
+        agent_hdr *agent = (agent_hdr *)(eth + 1);
+        agent->hdr_ifindex = htons(ifindex);
+        agent->hdr_vrf = htons(0);
+        agent->hdr_cmd = htons(AGENT_TRAP_NEXTHOP);
+
+        eth = (ethhdr *) (agent + 1);
+        memcpy(eth->h_dest, dest_mac, MAC_LEN);
+        memcpy(eth->h_source, src_mac, MAC_LEN);
+        eth->h_proto = htons(0x800);
+
+        iphdr *ip = (iphdr *) (eth + 1);
+        ip->ihl = 5;
+        ip->version = 4;
+        ip->tos = 0;
+        ip->id = 0;
+        ip->frag_off = 0;
+        ip->ttl = 16;
+        ip->protocol = IPPROTO_ICMP;
+        ip->check = 0;
+        ip->saddr = 0;
+        ip->daddr = htonl(dest_ip);
+
+        icmphdr *icmp = (icmphdr *) (ip + 1);
+        icmp->type = ICMP_ECHO;
+        icmp->code = 0;
+        icmp->checksum = 0;
+        icmp->un.echo.id = 0x1234;
+        icmp->un.echo.sequence = icmp_seq_++;
+        icmp->checksum = IpUtils::IPChecksum((uint16_t *)icmp, 64);
+        len = 64;
+
+        ip->tot_len = htons(len + sizeof(iphdr));
+        len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
+        TestTapInterface *tap = (TestTapInterface *)
+            (PktHandler::GetPktHandler()->GetTapInterface());
+        tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
+    }
+
+private:
+    DBTableBase::ListenerId rid_;
+    uint32_t itf_count_;
+    std::vector<std::size_t> itf_id_;
+    tbb::mutex mutex_;
+    int icmp_seq_;
+};
+
+class AsioRunEvent : public Task {
+public:
+    AsioRunEvent() : Task(75) { };
+    virtual  ~AsioRunEvent() { };
+    bool Run() { Agent::GetEventManager()->Run();};
+};
+
+TEST_F(IcmpTest, IcmpPingTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "7.8.9.2", "00:00:00:02:02:02", 1, 2},
+    };
+    IcmpHandler::IcmpStats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    IpamInfo ipam_updated_info[] = {
+        {"4.2.3.128", 24, "4.2.3.254"},
+        {"1.1.1.0", 24, "1.1.1.254"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+    };
+
+    CreateVmportEnv(input, 2, 0); 
+    client->WaitForIdle();
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 3); 
+    client->WaitForIdle();
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[1].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[0].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[1].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[2].gw)));
+    int count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = IcmpHandler::GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_gw_ping < 2);
+    client->WaitForIdle();
+    EXPECT_EQ(2, stats.icmp_gw_ping);
+    EXPECT_EQ(0, stats.icmp_drop);
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[1].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[0].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[1].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = IcmpHandler::GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_gw_ping < 3);
+    client->WaitForIdle();
+    EXPECT_EQ(3, stats.icmp_gw_ping);
+    EXPECT_EQ(0, stats.icmp_drop);
+    IcmpHandler::ClearStats();
+
+    // Send updated Ipam
+    char buf[BUF_SIZE];
+    int len = 0;
+
+    memset(buf, 0, BUF_SIZE);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "virtual-network", "vn1", 1);
+    AddNodeString(buf, len, "virtual-network-network-ipam", "default-network-ipam,vn1", ipam_updated_info, 3);
+    AddLinkString(buf, len, "virtual-network", "vn1", "virtual-network-network-ipam", "default-network-ipam,vn1");
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+    client->WaitForIdle();
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[0].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[1].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[0].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[1].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_info[2].gw)));
+    count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = IcmpHandler::GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_gw_ping < 1);
+    client->WaitForIdle();
+    EXPECT_EQ(1, stats.icmp_gw_ping);
+    EXPECT_EQ(0, stats.icmp_drop);
+
+    IcmpInfo *sand = new IcmpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&IcmpTest::CheckSandeshResponse, this, _1));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[1].gw)));
+    SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[0].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[1].gw)));
+    SendIcmp(GetItfId(1), ntohl(inet_addr(ipam_updated_info[2].gw)));
+    count = 0;
+    do {
+        usleep(1000);
+        client->WaitForIdle();
+        stats = IcmpHandler::GetStats();
+        if (++count == MAX_WAIT_COUNT)
+            assert(0);
+    } while (stats.icmp_gw_ping < 3);
+    client->WaitForIdle();
+    EXPECT_EQ(3, stats.icmp_gw_ping);
+    EXPECT_EQ(0, stats.icmp_drop);
+    IcmpHandler::ClearStats();
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+}
+
+void RouterIdDepInit() {
+    InstanceInfoServiceServerInit(*(Agent::GetEventManager()), Agent::GetDB());
+
+    // Parse config and then connect
+    VNController::Connect();
+    LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
+}
+
+int main(int argc, char *argv[]) {
+    GETUSERARGS();
+
+    client = TestInit(init_file, ksync_init, true, true);
+    usleep(100000);
+    client->WaitForIdle();
+
+    return RUN_ALL_TESTS();
+}

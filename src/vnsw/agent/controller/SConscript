@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+import sys
+SandeshGenFiles = env.SandeshGenCpp('controller.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+sandesh_objs = []
+for src in SandeshGenSrcs:                    
+    objname = src.replace('.cpp', '.o')
+    obj = env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+vnswoperdb = env.Library('vnswctrl',
+                         sandesh_objs +
+                         [ 
+                          'controller_init.cc',
+                          'controller_export.cc',
+                          'controller_ifmap.cc',
+                          'controller_peer.cc',
+                          'controller_vrf_export.cc',
+                          'controller_dns.cc',
+                          'controller_sandesh.cc'
+                         ])

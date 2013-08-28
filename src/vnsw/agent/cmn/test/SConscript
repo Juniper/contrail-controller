@@ -1,0 +1,19 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Prepend(LIBS=['gunit'])
+cflags = env['CCFLAGS']
+cflags.append('-Wno-return-type')
+
+import sys
+test = env.Program(target = 'test', source = ['test.cc'])
+env.Alias('src/vnsw/agent/cmn/test:test', test)
+
+test_subop = env.Program(target = 'test_subop', source = ['test_subop.cc'])
+env.Alias('src/vnsw/agent/cmn/test:test_subop', test_subop)

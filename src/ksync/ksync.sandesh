@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+traceobject sandesh KSyncEvent {
+    1: string object;
+    2: string state;
+    3: string event;
+}
+
+systemlog sandesh VRouterError {
+    1: string str1;
+    2: u32 error;
+    3: string str2;
+    4: string error_msg;
+    5: string str3;
+    6: string obj_str;
+    7: string str4;
+    8: string state_str;
+    9: string str5;
+    10: u64 msg_no;
+}

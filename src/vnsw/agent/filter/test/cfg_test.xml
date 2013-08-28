@@ -1,0 +1,178 @@
+<iq type="set" from="network-control@contrailsystems.com/config" to="phys-host-1">
+ <config>
+  <update>
+   <node type="virtual-router">
+    <name>phys-host-1</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>18069416507517521380</uuid-mslong>
+      <uuid-lslong>11437837980610426006</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <node type="virtual-machine">
+    <name>75f503eb-bd18-48fe-bfdc-c3309670e315</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>8499704182756362494</uuid-mslong>
+      <uuid-lslong>13825139569570407189</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <link>
+    <node type="virtual-router">
+     <name>phys-host-1</name>
+    </node>
+    <node type="virtual-machine">
+     <name>75f503eb-bd18-48fe-bfdc-c3309670e315</name>
+    </node>
+   </link>
+   <node type="virtual-machine-interface">
+    <name>75f503eb-bd18-48fe-bfdc-c3309670e315:e434713c-417d-47e9-8d7a-a8c345a10c88</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>16443892643047229417</uuid-mslong>
+      <uuid-lslong>10194646263146810504</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <link>
+    <node type="virtual-machine">
+     <name>75f503eb-bd18-48fe-bfdc-c3309670e315</name>
+    </node>
+    <node type="virtual-machine-interface">
+     <name>75f503eb-bd18-48fe-bfdc-c3309670e315:e434713c-417d-47e9-8d7a-a8c345a10c88</name>
+    </node>
+   </link>
+   <node type="virtual-network">
+    <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>8651302129362421227</uuid-mslong>
+      <uuid-lslong>12872854482561154771</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <link>
+    <node type="virtual-machine-interface">
+     <name>75f503eb-bd18-48fe-bfdc-c3309670e315:e434713c-417d-47e9-8d7a-a8c345a10c88</name>
+    </node>
+    <node type="virtual-network">
+     <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    </node>
+   </link>
+   <node type="virtual-network-network-policy">
+    <name>attr(default-domain:b859ddbabe3d4c4dba8402084831e6fe:pol1, default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1)</name>
+    <value>
+     <major>0</major>
+     <minor>0</minor>
+    </value>
+   </node>
+   <link>
+    <node type="virtual-network">
+     <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    </node>
+    <node type="virtual-network-network-policy">
+     <name>attr(default-domain:b859ddbabe3d4c4dba8402084831e6fe:pol1, default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1)</name>
+    </node>
+   </link>
+   <node type="access-control-list">
+    <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    <access-control-list-entries>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address />
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address />
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+      </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address />
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address />
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+      </action-list>
+     </acl-rule>
+    </access-control-list-entries>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>7330381381287759160</uuid-mslong>
+      <uuid-lslong>13339871223965880614</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+    </id-perms>
+   </node>
+   <link>
+    <node type="virtual-network">
+     <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    </node>
+    <node type="access-control-list">
+     <name>default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1:access-control-list:default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1</name>
+    </node>
+   </link>
+  </update>
+ </config>
+</iq>

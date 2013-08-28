@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp>
+        <neighbor name="test1">
+            <ip-address>10.1.1.1</ip-address>
+            <remote-as>101</remote-as>
+        </neighbor>
+        <neighbor name="test2">
+            <ip-address>baz</ip-address>
+            <remote-as>101</remote-as>
+        </neighbor>
+    </bgp>
+</config>

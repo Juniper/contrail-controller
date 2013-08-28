@@ -1,0 +1,177 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# analytics directory
+
+import os
+import sys
+
+Import('BuildEnv')
+AnalyticsEnv = BuildEnv.Clone()
+AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
+if sys.platform != 'darwin':
+    AnalyticsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+
+# get appropriate python lib
+import subprocess
+output,error = subprocess.Popen(["python","-V"],stdout = subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+full_version = error.split()[1].split('.')
+python = 'python'+full_version[0]+'.'+full_version[1]
+
+AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+python])
+AnalyticsEnv.Append(LIBS=['boost_python', python])
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+AnalyticsEnv.Prepend(LIBS=['cpuinfo',                   
+        'ds', 
+        'sandesh',
+        'httpc',
+        'http',
+        'http_parser',
+        'curl',
+        'gendb',
+        'thrift',
+        'cdb',
+        'ruleparser',
+        'xml',
+        'base',
+        'io',
+        'sandeshvns',
+        'pugixml',
+        'hiredis',
+        'boost_filesystem',
+        'boost_program_options'])
+
+if sys.platform != 'darwin':
+    AnalyticsEnv.Append(LIBS=['rt'])
+
+libs = MapBuildDir(['sandesh',
+        'gendb',
+        'cdb',
+        'analytics/ruleparser',
+        'discovery/client',
+        'http/client',
+        'xml',
+        'base',
+        'io'])
+AnalyticsEnv.Append(LIBPATH=libs)
+
+includes = MapBuildDir(['http/client', 'discovery/client', 'gendb', 'cdb', 'analytics'])
+AnalyticsEnv.Append(CPPPATH = ['#controller/src/gendb',
+                               '#/build/include/thrift',
+                               includes,
+                               AnalyticsEnv['TOP'],
+                               AnalyticsEnv['TOP'] + '/base/sandesh/'])
+
+
+AnalyticsEnv_excep = AnalyticsEnv.Clone()
+while AnalyticsEnv_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    AnalyticsEnv_excep['CCFLAGS'].remove('-fno-exceptions')
+
+# Generate the source files
+SandeshGenPyFiles  = AnalyticsEnv.SandeshGenPy('viz.sandesh')
+AnalyticsVizSandeshGenFiles = AnalyticsEnv.SandeshGenOnlyCpp('viz.sandesh')
+AnalyticsSandeshGenFiles  = AnalyticsEnv.SandeshGenCpp('collector_uve.sandesh')
+AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+AnalyticsVizSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsVizSandeshGenFiles)
+AnalyticsSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsSandeshGenFiles)
+AnalyticsSandeshGenSrcs += AnalyticsVizSandeshGenSrcs
+
+AnalyticsEnv['ANALYTICS_SANDESH_GEN_OBJS'] = AnalyticsEnv.Object(AnalyticsSandeshGenSrcs)
+AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] = AnalyticsEnv.Object(AnalyticsVizSandeshGenSrcs)
+
+OpServerProxy_obj = AnalyticsEnv.Object('OpServerProxy.o', 'OpServerProxy.cc')
+db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
+main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
+#AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
+
+buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a', 
+                      '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a', 
+                      '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a', 
+                      '../../lib/libsandeshvns.a', '../../lib/libpugixml.a', '../../lib/libhiredis.a', 
+                      '../../lib/libboost_program_options.a', '../../lib/libboost_system.a',
+                      '../../lib/liblog4cplus.a', '../../lib/libboost_python.a']
+
+if sys.platform != 'darwin':
+    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
+
+
+def RedisLuaBuild(env, scr_name):
+  env.Command('%s_lua.cpp' % scr_name ,'%s.lua' % scr_name,\
+                  '(cd %s ; xxd -i %s.lua > ../../../%s/%s_lua.cpp)' %
+              (Dir('#controller/src/analytics').path,
+               scr_name, Dir('.').path, scr_name))
+  env.Depends('redis_processor_vizd.cc','%s_lua.cpp' % scr_name)
+
+vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc', 
+                'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc']
+
+RedisLuaBuild(AnalyticsEnv, 'seqnum')
+RedisLuaBuild(AnalyticsEnv, 'delrequest')
+RedisLuaBuild(AnalyticsEnv, 'uveupdate')
+RedisLuaBuild(AnalyticsEnv, 'uveupdate_st')
+RedisLuaBuild(AnalyticsEnv, 'uvedelete')
+RedisLuaBuild(AnalyticsEnv, 'expiredgens')
+RedisLuaBuild(AnalyticsEnv, 'withdrawgen')
+
+
+AnalyticsEnv.GenerateBuildInfoCode(
+    target=['buildinfo.h', 'buildinfo.cc'], 
+    source = AnalyticsSandeshGenSrcs + vizd_sources +
+    ['OpServerProxy.cc',
+     'db_handler.cc',
+     'main.cc'],
+    path=str(Dir('.').abspath))
+
+vizd = AnalyticsEnv.Program(target = 'vizd',
+        source = AnalyticsSandeshGenSrcs + vizd_sources +
+        [main_obj,
+        'buildinfo.cc',
+        db_handler_obj,
+        OpServerProxy_obj,
+        ])
+AnalyticsEnv.Alias('src/analytics:vizd', vizd)
+AnalyticsEnv.Default(vizd)
+
+AnalyticsEnv.Requires(OpServerProxy_obj, '#/build/include/rapidjson')
+AnalyticsEnv.Requires(vizd, '#/build/include/boost')
+AnalyticsEnv.Requires(vizd, '#/build/include/thrift/Thrift.h')
+
+AnalyticsEnv.SConscript('ruleparser/SConscript', exports='AnalyticsEnv', duplicate = 0)
+
+test_suite = AnalyticsEnv.SConscript('test/SConscript', exports='AnalyticsEnv', duplicate = 0)
+
+def code_coverage(target, source, env):
+    import shutil
+    shutil.rmtree(target[0].path, ignore_errors = True)
+
+    # lcov --base-directory $ROOT -- directory . --zerocounters -q
+    import os
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' --zerocounters -q')
+    # execute tests
+    import subprocess
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    for test in test_suite:
+        cmd = test[0].path
+        logfile = open(cmd + '.log', 'w')
+        subprocess.call([cmd], stdout=logfile, env=ShEnv)
+
+    # lcov --base-directory $ROOT -- directory . -c -o analytics_test.info
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' -c -o analytics_test.info')
+
+    # genhtml -o analytics/test_coverage analytics_test.info
+    os.system('genhtml -o ' + target[0].path +
+              ' -t "test coverage" --num-spaces 4 analytics_test.info')
+
+
+if AnalyticsEnv.get('OPT') == 'coverage':
+    test_coverage = AnalyticsEnv.Command(Dir('test_coverage'), '', code_coverage)
+    AnalyticsEnv.AlwaysBuild(test_coverage)
+    AnalyticsEnv.Alias('src/analytics:test_coverage', test_coverage)

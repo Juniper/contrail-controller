@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+cflags = env['CCFLAGS']
+cflags.remove('-Werror')
+env['CCFLAGS'] = cflags
+
+GenDbSandeshGenFiles = env.SandeshGenCpp('gendb.sandesh')
+GenDbSandeshGenSrcs = env.ExtractCpp(GenDbSandeshGenFiles)
+
+GenDbSandeshGenFiles = env.SandeshGenCpp('analytics_db.sandesh')
+GenDbSandeshGenSrcs += env.ExtractCpp(GenDbSandeshGenFiles)
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+libgendb = env.Library('gendb',
+                       source = GenDbSandeshGenSrcs +
+                       [
+                       'gendb_if.cc',
+                       'cdb_if.cc',
+                       ])
+
+env.Requires(libgendb, '#/build/debug/cdb/libcdb.a')
+
+env.Append(CPPPATH = ['#/build/include/thrift'])
+includes = ['cdb', 'gendb']
+env.Append(CPPPATH = [MapBuildDir(includes)])
+
+#env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+

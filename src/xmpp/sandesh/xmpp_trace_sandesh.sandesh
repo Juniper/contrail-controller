@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+trace sandesh XmppPayloadRead {
+    1: "Read ";
+    2: i32 f1;
+    3: " bytes on: ";
+    4: string f2;
+}
+
+trace sandesh XmppTxStream {
+    1: "Sent xmpp message to: ";
+    2: string IPaddress; 
+    3: "Port";
+    4: i32 port;
+    5: "Size: ";
+    6: i32 size;
+    7: "Packet: ";
+    8: string packet;
+    9: "$";
+}
+
+trace sandesh XmppRxStream {
+    1: "Received xmpp message from: ";
+    2: string IPaddress; 
+    3: "Port";
+    4: i32 port;
+    5: "Size: ";
+    6: i32 size;
+    7: "Packet: ";
+    8: string packet;
+    9: "$";
+}
+
+trace sandesh XmppSendChatMessage {
+    1: "Chat message create to: "; 
+    2: string f1;
+    3: " From: ";
+    4: string f2;
+}
+
+trace sandesh XmppRxChatMessageClient {
+    1: "Processing Xmpp chat on Client received from ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+}
+
+trace sandesh XmppRxChatMessageServer {
+    1: "Processing Xmpp chat on Server received from ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+    5: string f3;
+}

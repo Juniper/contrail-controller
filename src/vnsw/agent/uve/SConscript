@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+# Generate the C++ source files
+SandeshGenFiles  = env.SandeshGenCpp('port_bmap.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
+
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenObjs = env.Object(SandeshGenSrcs)
+
+libagentuve = env.Library('agentuve',
+                         SandeshGenObjs +
+                         ['agent_stats.cc',
+                          'inter_vn_stats.cc',
+                          'flow_stats.cc',
+                          'flow_uve.cc',
+                          'uve_client.cc',
+                          'uve_init.cc',
+                          'vrouter_stats.cc'
+                          ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

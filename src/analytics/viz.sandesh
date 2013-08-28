@@ -1,0 +1,353 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  viz.sandesh
+//
+//  Collector definitions
+//
+
+const string COLLECTOR_KEYSPACE     = "ContrailAnalytics"
+const string COLLECTOR_GLOBAL_TABLE = "MessageTable"
+const string UUID_KEY               = "UuidKey"
+const string SOURCE                 = "Source"
+const string NAMESPACE              = "Namespace"
+const string MODULE                 = "ModuleId"
+const string TIMESTAMP              = "MessageTS"
+const string SANDESH_TYPE           = "Type"
+const string CATEGORY               = "Category"
+const string LEVEL                  = "Level"
+const string MESSAGE_TYPE           = "Messagetype"
+const string DATA                   = "Xmlmessage"
+const string CONTEXT                = "Context"
+const string SEQUENCE_NUM           = "SequenceNum"
+const string VERSION                = "VersionSig"
+const string MESSAGE_TABLE_SOURCE  = "MessageTableSource"
+const string MESSAGE_TABLE_MODULE_ID  = "MessageTableModuleId"
+const string MESSAGE_TABLE_MESSAGE_TYPE  = "MessageTableMessageType"
+const string MESSAGE_TABLE_CATEGORY = "MessageTableCategory"
+const string MESSAGE_TABLE_LEVEL    = "MessageTableLevel"
+const string MESSAGE_TABLE_TIMESTAMP = "MessageTableTimestamp"
+const string OBJECT_ID              = "ObjectId"
+
+const string ROWTIMESTAMP           = "RowTimeStamp"
+
+const string OBJECT_VALUE_TABLE     = "ObjectValueTable"
+
+const string SYSTEM_OBJECT_TABLE    = "SystemObjectTable"
+const string SYSTEM_OBJECT_ANALYTICS = "SystemObjectAnalytics"
+const string SYSTEM_OBJECT_START_TIME = "SystemObjectStartTime"
+
+//The following are the object tables and some of them are UVEs
+const string VN_TABLE               = "ObjectVNTable"
+const string VM_TABLE               = "ObjectVMTable"
+const string SI_TABLE               = "ObjectSITable"
+const string VROUTER_TABLE          = "ObjectVRouter"
+const string BGP_PEER_TABLE         = "ObjectBgpPeer"
+const string BGP_ROUTER_TABLE       = "ObjectBgpRouter"
+const string XMPP_PEER_INFO_TABLE   = "ObjectXmppPeerInfo"
+const string ROUTING_INSTANCE_TABLE = "ObjectRoutingInstance"
+const string XMPP_CONNECTION_TABLE  = "ObjectXmppConnection"
+const string COLLECTOR_INFO_TABLE   = "ObjectCollectorInfo"
+const string GENERATOR_INFO_TABLE   = "ObjectGeneratorInfo"
+const string MODULE_INFO_TABLE      = "ObjectModuleInfo"
+const string CONFIG_NODE_TABLE      = "ObjectConfigNode"
+const string SERVICE_CHAIN          = "ServiceChain"
+const string DNS_TABLE              = "ObjectDns"
+const string QUERY_TABLE_OBJECT     = "ObjectQueryTable"
+const string QUERY_QID_OBJECT       = "ObjectQueryQid"
+
+const string VN_DISPLAY_NAME        = "Virtual Network"
+const string VM_DISPLAY_NAME        = "Virtual Machine"
+const string SI_DISPLAY_NAME        = "Service Instance"
+const string VROUTER_DISPLAY_NAME   = "VRouter"
+const string BGP_PEER_DISPLAY_NAME  = "BGP Peer"
+const string ROUTING_INSTANCE_DISPLAY_NAME = "Routing Instance"
+const string BGP_ROUTER_DISPLAY_NAME       = "BGP Router"
+const string XMPP_PEER_INFO_DISPLAY_NAME   = "XMPP Peer Info"
+const string XMPP_CONNECTION_DISPLAY_NAME  = "XMPP Connection"
+const string COLLECTOR_INFO_DISPLAY_NAME   = "Collector Info"
+const string GENERATOR_INFO_DISPLAY_NAME   = "Generator Info"
+const string MODULE_INFO_DISPLAY_NAME      = "Module Info"
+const string CONFIG_NODE_DISPLAY_NAME      = "Config Node"
+const string SERVICE_CHAIN_DISPLAY_NAME = "Service Chain"
+const string DNS_DISPLAY_NAME              = "DNS Node"
+const string QUERY_TABLE_DISPLAY_NAME      = "Query Object Table"
+const string QUERY_QID_DISPLAY_NAME        = "Query Object Qid"
+
+const string SYSTEM_LOG             = "SystemLog"
+const string OBJECT_LOG             = "ObjectLog"
+
+const string FLOW_TABLE             = "FlowRecordTable"
+const string FLOW_TABLE_VN2VN       = "FlowTableVNtoVN"
+const string FLOW_TABLE_VN          = "FlowTableVN"
+const string FLOW_TABLE_VN_AND_IP   = "FlowTableVNandIP"
+const string FLOW_TABLE_SVN_SIP     = "FlowTableSvnSip"
+const string FLOW_TABLE_DVN_DIP     = "FlowTableDvnDip"
+const string FLOW_TABLE_PROT_SP     = "FlowTableProtSp"
+const string FLOW_TABLE_PROT_DP     = "FlowTableProtDp"
+const string FLOW_TABLE_ALL_FIELDS  = "FlowTableAllFields"
+const string FLOW_TABLE_VROUTER     = "FlowTableVRouter"
+const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
+
+enum FlowRecordFields {
+   FLOWREC_FLOWUUID,
+   FLOWREC_DIRECTION_ING,
+   FLOWREC_SOURCEVN,
+   FLOWREC_SOURCEIP,
+   FLOWREC_DESTVN,
+   FLOWREC_DESTIP,
+   FLOWREC_PROTOCOL,
+   FLOWREC_SPORT,
+   FLOWREC_DPORT,
+   FLOWREC_TOS,
+   FLOWREC_TCP_FLAGS,
+   FLOWREC_VM,
+   FLOWREC_INPUT_INTERFACE,
+   FLOWREC_OUTPUT_INTERFACE,
+   FLOWREC_MPLS_LABEL,
+   FLOWREC_REVERSE_UUID,
+   FLOWREC_SETUP_TIME,
+   FLOWREC_TEARDOWN_TIME,
+   FLOWREC_MIN_INTERARRIVAL,
+   FLOWREC_MAX_INTERARRIVAL,
+   FLOWREC_MEAN_INTERARRIVAL,
+   FLOWREC_STDDEV_INTERARRIVAL,
+   FLOWREC_BYTES,
+   FLOWREC_PACKETS,
+   FLOWREC_DATA_SAMPLE,
+   FLOWREC_VROUTER,
+   FLOWREC_DIFF_BYTES,
+   FLOWREC_DIFF_PACKETS,
+}
+
+const map<FlowRecordFields, string> FlowRecordNames = {
+    FlowRecordFields.FLOWREC_FLOWUUID              : "flowuuid",
+    FlowRecordFields.FLOWREC_DIRECTION_ING         : "direction_ing",
+    FlowRecordFields.FLOWREC_SOURCEVN              : "sourcevn",
+    FlowRecordFields.FLOWREC_SOURCEIP              : "sourceip",
+    FlowRecordFields.FLOWREC_DESTVN                : "destvn",
+    FlowRecordFields.FLOWREC_DESTIP                : "destip",
+    FlowRecordFields.FLOWREC_PROTOCOL              : "protocol",
+    FlowRecordFields.FLOWREC_SPORT                 : "sport",
+    FlowRecordFields.FLOWREC_DPORT                 : "dport",
+    FlowRecordFields.FLOWREC_TOS                   : "tos",
+    FlowRecordFields.FLOWREC_TCP_FLAGS             : "tcp_flags",
+    FlowRecordFields.FLOWREC_VM                    : "vm",
+    FlowRecordFields.FLOWREC_INPUT_INTERFACE       : "input_interface",
+    FlowRecordFields.FLOWREC_OUTPUT_INTERFACE      : "output_interface",
+    FlowRecordFields.FLOWREC_MPLS_LABEL            : "mpls_label",
+    FlowRecordFields.FLOWREC_REVERSE_UUID          : "reverse_uuid",
+    FlowRecordFields.FLOWREC_SETUP_TIME            : "setup_time",
+    FlowRecordFields.FLOWREC_TEARDOWN_TIME         : "teardown_time",
+    FlowRecordFields.FLOWREC_MIN_INTERARRIVAL      : "min_interarrival",
+    FlowRecordFields.FLOWREC_MAX_INTERARRIVAL      : "max_interarrival",
+    FlowRecordFields.FLOWREC_MEAN_INTERARRIVAL     : "mean_interarrival",
+    FlowRecordFields.FLOWREC_STDDEV_INTERARRIVAL   : "stddev_interarrival",
+    FlowRecordFields.FLOWREC_BYTES                 : "bytes",
+    FlowRecordFields.FLOWREC_PACKETS               : "packets",
+    FlowRecordFields.FLOWREC_DATA_SAMPLE           : "data_sample",
+    FlowRecordFields.FLOWREC_VROUTER               : "vrouter",
+    FlowRecordFields.FLOWREC_DIFF_BYTES            : "diff_bytes",
+    FlowRecordFields.FLOWREC_DIFF_PACKETS          : "diff_packets",
+}
+
+/* REDIS RELATED NAMES/CONSTANTS */
+
+const string GENERATORS_SET         = "GENERATORS"
+const string ANALYTICS_START        = "ANALYTICS_START_TIME"
+
+// each row will have equivalent of 2^23 = 8388608 usec
+const i32 RowTimeInBits             = 23
+const i32 RowTimeInMask             = 0x7fffff
+
+// analytics data ttl in the db in days
+const i32 AnalyticsTTL              = 0x7
+
+const map<string, string> UVE_MAP = {
+    "virtual-network" : VN_TABLE,
+    "virtual-machine" : VM_TABLE,
+    "service-instance" : SI_TABLE,
+    "vrouter" : VROUTER_TABLE,
+    "bgp-router" : BGP_ROUTER_TABLE,
+    "bgp-peer" : BGP_PEER_TABLE,
+    "xmpp-peer" : XMPP_PEER_INFO_TABLE,
+    "collector" : COLLECTOR_INFO_TABLE,
+    "generator" : GENERATOR_INFO_TABLE
+    "module" : MODULE_INFO_TABLE,
+    "config-node" : CONFIG_NODE_TABLE,
+    "service-chain" : SERVICE_CHAIN,
+    "dns-node" : DNS_TABLE
+}
+
+struct objtable_info {
+    1: string objtable_display_name;
+}
+
+const map<string, objtable_info> _OBJECT_TABLES = {
+    VN_TABLE               : {
+        'objtable_display_name' : VN_DISPLAY_NAME
+    }
+    VM_TABLE               : {
+        'objtable_display_name' : VM_DISPLAY_NAME
+    }
+    SI_TABLE               : {
+        'objtable_display_name' : SI_DISPLAY_NAME
+    }
+    VROUTER_TABLE          : {
+        'objtable_display_name' : VROUTER_DISPLAY_NAME
+    }
+    BGP_PEER_TABLE         : {
+        'objtable_display_name' : BGP_PEER_DISPLAY_NAME
+    }
+    BGP_ROUTER_TABLE       : {
+        'objtable_display_name' : BGP_ROUTER_DISPLAY_NAME
+    }
+    ROUTING_INSTANCE_TABLE : {
+        'objtable_display_name' : ROUTING_INSTANCE_DISPLAY_NAME
+    }
+    XMPP_CONNECTION_TABLE  : {
+        'objtable_display_name' : XMPP_CONNECTION_DISPLAY_NAME
+    }
+    XMPP_PEER_INFO_TABLE  : {
+        'objtable_display_name' : XMPP_PEER_INFO_DISPLAY_NAME
+    }
+    COLLECTOR_INFO_TABLE   : {
+        'objtable_display_name' : COLLECTOR_INFO_DISPLAY_NAME
+    }
+    GENERATOR_INFO_TABLE   : {
+        'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
+    }
+    MODULE_INFO_TABLE      : {
+        'objtable_display_name' : MODULE_INFO_DISPLAY_NAME
+    }
+    CONFIG_NODE_TABLE      : {
+        'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
+    }
+    SERVICE_CHAIN          : {
+        'objtable_display_name' : SERVICE_CHAIN_DISPLAY_NAME
+    }
+    DNS_TABLE       : {
+        'objtable_display_name' : DNS_DISPLAY_NAME
+    }
+    QUERY_TABLE_OBJECT       : {
+        'objtable_display_name' : QUERY_TABLE_DISPLAY_NAME
+    }
+    QUERY_QID_OBJECT       : {
+        'objtable_display_name' : QUERY_QID_DISPLAY_NAME
+    }
+}
+
+// Analytics table schema defination
+
+// Description of the column
+struct query_column
+{
+    1: string name;
+    2: string datatype;
+    3: bool index;
+}
+
+struct query_schema_type
+{
+    1: string type;
+    2: list<query_column> columns;
+}
+
+struct query_table
+{
+    1: string name;
+    2: query_schema_type schema;
+    3: list<string> columnvalues;
+    4: string display_name;
+}
+
+const list<query_table> _TABLES = [
+    {
+         'name' : COLLECTOR_GLOBAL_TABLE,
+         'schema' : {
+             'type' : 'LOG',
+             'columns' :  [
+               { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false},
+               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
+               ]
+              },
+          'columnvalues' : [ 'ModuleId', 'Source', 'Category', 'Level' ],
+    },
+    {
+         'name' : FLOW_TABLE,
+         'schema' : {
+             'type' : 'FLOW',
+             'columns' :  [
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'sourcevn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'sourceip', 'datatype' : 'ipv4', 'index' : true },
+               { 'name' : 'destvn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'destip', 'datatype' : 'ipv4', 'index' : true },
+               { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'sport', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'dport', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'direction_ing', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'UuidKey', 'datatype' : 'uuid', 'index' : false },
+               { 'name' : 'setup_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'teardown_time', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'agg-packets', 'datatype' : 'long', 'index' : false },
+               { 'name' : 'agg-bytes', 'datatype' : 'long', 'index' : false },
+               ]
+         },
+         'columnvalues' : [ ],
+    },
+    {
+         'name' : 'FlowSeriesTable',
+         'schema' : {
+             'type' : 'FLOW',
+             'columns' :  [
+               { 'name' : 'vrouter', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'sourcevn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'sourceip', 'datatype' : 'ipv4', 'index' : true },
+               { 'name' : 'destvn', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'destip', 'datatype' : 'ipv4', 'index' : true },
+               { 'name' : 'protocol', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'sport', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'dport', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'direction_ing', 'datatype' : 'int', 'index' : true },
+               { 'name' : 'flow_class_id', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'T', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'T=', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'packets', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'bytes', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(packets)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'sum(bytes)', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'flow_count', 'datatype' : 'int', 'index' : false },
+               ]
+         },
+         'columnvalues' : [ ],
+    },
+]
+
+// all object tables have the same schema and same query-able columns
+// as below
+const query_schema_type _OBJECT_TABLE_SCHEMA = 
+        {
+             'type' : 'OBJECT',
+             'columns' :  [
+               { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'ObjectId', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
+               { 'name' : 'ObjectLog', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'SystemLog', 'datatype' : 'string', 'index' : false },
+               ]
+        }
+const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ 'ModuleId', 'Source', 'Category', 'Level' ]
+

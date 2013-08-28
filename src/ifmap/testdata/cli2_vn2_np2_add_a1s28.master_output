@@ -1,0 +1,533 @@
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="virtual-router">
+    <name>default-global-system-config:a1s28.contrail.juniper.net</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>15093482427448116749</uuid-mslong>
+      <uuid-lslong>9780123687593591066</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="virtual-machine">
+    <name>39ed8f81-cf9c-4789-a118-e71f53abdf85</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>4174150217338996617</uuid-mslong>
+      <uuid-lslong>11608282161281228677</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-router">
+     <name>default-global-system-config:a1s28.contrail.juniper.net</name>
+    </node>
+    <node type="virtual-machine">
+     <name>39ed8f81-cf9c-4789-a118-e71f53abdf85</name>
+    </node>
+    <metadata type="virtual-router-virtual-machine" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="global-system-config">
+    <name>default-global-system-config</name>
+    <autonomous-system>0</autonomous-system>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>7379628046403977308</uuid-mslong>
+      <uuid-lslong>13450346141865579819</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="global-system-config">
+     <name>default-global-system-config</name>
+    </node>
+    <node type="virtual-router">
+     <name>default-global-system-config:a1s28.contrail.juniper.net</name>
+    </node>
+    <metadata type="global-system-config-virtual-router" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="virtual-machine-interface">
+    <name>39ed8f81-cf9c-4789-a118-e71f53abdf85:ce8c700c-0023-4164-a8df-52afeb1c414a</name>
+    <virtual-machine-interface-mac-addresses>
+     <mac-address>02:ce:8c:70:0c:00</mac-address>
+    </virtual-machine-interface-mac-addresses>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>14883394065396875620</uuid-mslong>
+      <uuid-lslong>12168535633695621450</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-machine">
+     <name>39ed8f81-cf9c-4789-a118-e71f53abdf85</name>
+    </node>
+    <node type="virtual-machine-interface">
+     <name>39ed8f81-cf9c-4789-a118-e71f53abdf85:ce8c700c-0023-4164-a8df-52afeb1c414a</name>
+    </node>
+    <metadata type="virtual-machine-virtual-machine-interface" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="instance-ip">
+    <name>ba221067-5da6-4f68-992f-db2603be8799</name>
+    <instance-ip-address>28.1.1.253</instance-ip-address>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>13412300676401614696</uuid-mslong>
+      <uuid-lslong>11038282168026433433</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="instance-ip">
+     <name>ba221067-5da6-4f68-992f-db2603be8799</name>
+    </node>
+    <node type="virtual-machine-interface">
+     <name>39ed8f81-cf9c-4789-a118-e71f53abdf85:ce8c700c-0023-4164-a8df-52afeb1c414a</name>
+    </node>
+    <metadata type="instance-ip-virtual-machine-interface" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="virtual-network">
+    <name>default-domain:demo:vn28</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>14633604715886952674</uuid-mslong>
+      <uuid-lslong>12478914979708134911</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-machine-interface">
+     <name>39ed8f81-cf9c-4789-a118-e71f53abdf85:ce8c700c-0023-4164-a8df-52afeb1c414a</name>
+    </node>
+    <node type="virtual-network">
+     <name>default-domain:demo:vn28</name>
+    </node>
+    <metadata type="virtual-machine-interface-virtual-network" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="access-control-list">
+    <name>default-domain:demo:vn28:vn28</name>
+    <access-control-list-entries>
+     <dynamic>false</dynamic>
+     <acl-rule>
+      <match-condition>
+       <protocol>1</protocol>
+       <src-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn27</virtual-network>
+        <security-group />
+       </src-address>
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn28</virtual-network>
+        <security-group />
+       </dst-address>
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+       <service-chain-type />
+       <mirror-to>
+        <analyzer-name />
+        <encapsulation />
+        <analyzer-ip-address />
+        <routing-instance />
+        <udp-port>0</udp-port>
+       </mirror-to>
+      </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>1</protocol>
+       <src-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn28</virtual-network>
+        <security-group />
+       </src-address>
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn27</virtual-network>
+        <security-group />
+       </dst-address>
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+       <service-chain-type />
+       <mirror-to>
+        <analyzer-name />
+        <encapsulation />
+        <analyzer-ip-address />
+        <routing-instance />
+        <udp-port>0</udp-port>
+       </mirror-to>
+      </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>17</protocol>
+       <src-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn28</virtual-network>
+        <security-group />
+       </src-address>
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn27</virtual-network>
+        <security-group />
+       </dst-address>
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+       <service-chain-type />
+       <mirror-to>
+        <analyzer-name />
+        <encapsulation />
+        <analyzer-ip-address />
+        <routing-instance />
+        <udp-port>0</udp-port>
+       </mirror-to>
+      </action-list>
+     </acl-rule>
+     <acl-rule>
+      <match-condition>
+       <protocol>any</protocol>
+       <src-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn28</virtual-network>
+        <security-group />
+       </src-address>
+       <src-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </src-port>
+       <dst-address>
+        <subnet>
+         <ip-prefix />
+         <ip-prefix-len>0</ip-prefix-len>
+        </subnet>
+        <virtual-network>default-domain:demo:vn28</virtual-network>
+        <security-group />
+       </dst-address>
+       <dst-port>
+        <start-port>-1</start-port>
+        <end-port>-1</end-port>
+       </dst-port>
+      </match-condition>
+      <action-list>
+       <simple-action>pass</simple-action>
+       <gateway-name />
+       <service-chain-type />
+       <mirror-to>
+        <analyzer-name />
+        <encapsulation />
+        <analyzer-ip-address />
+        <routing-instance />
+        <udp-port>0</udp-port>
+       </mirror-to>
+      </action-list>
+     </acl-rule>
+    </access-control-list-entries>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>10563343763093933190</uuid-mslong>
+      <uuid-lslong>13770361196780085728</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-network">
+     <name>default-domain:demo:vn28</name>
+    </node>
+    <node type="access-control-list">
+     <name>default-domain:demo:vn28:vn28</name>
+    </node>
+    <metadata type="virtual-network-access-control-list" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="virtual-network-network-ipam">
+    <name>attr(default-domain:demo:default-network-ipam,default-domain:demo:vn28)</name>
+    <value>
+     <ipam-subnets>
+      <subnet>
+       <ip-prefix>28.1.1.0</ip-prefix>
+       <ip-prefix-len>24</ip-prefix-len>
+      </subnet>
+      <default-gateway>28.1.1.254</default-gateway>
+     </ipam-subnets>
+    </value>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-network">
+     <name>default-domain:demo:vn28</name>
+    </node>
+    <node type="virtual-network-network-ipam">
+     <name>attr(default-domain:demo:default-network-ipam,default-domain:demo:vn28)</name>
+    </node>
+    <metadata type="virtual-network-network-ipam" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="instance-ip">
+     <name>ba221067-5da6-4f68-992f-db2603be8799</name>
+    </node>
+    <node type="virtual-network">
+     <name>default-domain:demo:vn28</name>
+    </node>
+    <metadata type="instance-ip-virtual-network" />
+   </link>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <node type="network-ipam">
+    <name>default-domain:demo:default-network-ipam</name>
+    <id-perms>
+     <permissions>
+      <owner>cloud-admin</owner>
+      <owner-access>7</owner-access>
+      <group>cloud-admin-group</group>
+      <group-access>7</group-access>
+      <other-access>7</other-access>
+     </permissions>
+     <uuid>
+      <uuid-mslong>8689084622810792871</uuid-mslong>
+      <uuid-lslong>13153706213654297658</uuid-lslong>
+     </uuid>
+     <enable>true</enable>
+     <created>1970-01-01T00:00:00</created>
+     <last-modified>1970-01-01T00:00:00</last-modified>
+     <description />
+    </id-perms>
+   </node>
+  </update>
+ </config>
+</iq>
+<iq type="set" from="network-control@contrailsystems.com" to="default-global-system-config:a1s28.contrail.juniper.net/config">
+ <config>
+  <update>
+   <link>
+    <node type="virtual-network-network-ipam">
+     <name>attr(default-domain:demo:default-network-ipam,default-domain:demo:vn28)</name>
+    </node>
+    <node type="network-ipam">
+     <name>default-domain:demo:default-network-ipam</name>
+    </node>
+    <metadata type="virtual-network-network-ipam" />
+   </link>
+  </update>
+ </config>
+</iq>

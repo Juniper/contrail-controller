@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct NexthopRouteInfo {
+    1: string nexthop;
+    2: string nexthop_rt;
+}
+
+struct StaticRouteInfo {
+    1: string prefix;
+    2: bool static_rt;
+    3: NexthopRouteInfo nexthop;
+}
+
+struct StaticRouteEntriesInfo {
+    1: string ri_name;
+    2: list<StaticRouteInfo> static_route_list;
+}
+
+response sandesh ShowStaticRouteResp {
+    1: list<StaticRouteEntriesInfo> static_route_entries;
+}
+
+request sandesh ShowStaticRouteReq {
+    1: string ri_name;
+}

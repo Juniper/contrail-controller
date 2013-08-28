@@ -1,0 +1,197 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#ifndef __TCPSERVER_H__
+#define __TCPSERVER_H__
+
+#include <map>
+#include <set>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/intrusive_ptr.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <tbb/mutex.h>
+#ifndef _LIBCPP_VERSION
+#include <tbb/compat/condition_variable>
+#endif
+
+#include "base/util.h"
+
+class EventManager;
+class TcpSession;
+
+class TcpServer {
+  public:
+    typedef boost::asio::ip::tcp::endpoint Endpoint;
+    typedef boost::asio::ip::tcp::socket Socket;
+
+    explicit TcpServer(EventManager *evm);
+    virtual ~TcpServer();
+
+    // Bind a listening socket and register it with the event manager.
+    virtual void Initialize(short port);
+
+    const std::string ToString() const { return name_; }
+    void SetAcceptor();
+    void ResetAcceptor();
+
+    // shutdown the listening socket.
+    void Shutdown();
+
+    // close all existing sessions and delete them.
+    void ClearSessions();
+
+    // Helper function that allocates a socket and calls the virtual method
+    // AllocSession. The session object is owned by the TcpServer and must
+    // be deallocated via DeleteSession.
+    virtual TcpSession *CreateSession();
+
+    // Delete a session object.
+    virtual void DeleteSession(TcpSession *session);
+
+    virtual void Connect(TcpSession *session, Endpoint remote);
+
+    virtual bool DisableSandeshLogMessages() { return false; }
+
+    int GetPort() const;
+
+    struct SocketStats {
+        SocketStats() {
+            read_calls = 0;
+            read_bytes = 0;
+            write_calls = 0;
+            write_bytes = 0;
+            write_blocked = 0;
+            write_blocked_duration_usecs = 0;
+        }
+
+        tbb::atomic<uint64_t> read_calls;
+        tbb::atomic<uint64_t> read_bytes;
+        tbb::atomic<uint64_t> write_calls;
+        tbb::atomic<uint64_t> write_bytes;
+        tbb::atomic<uint64_t> write_blocked;
+        tbb::atomic<uint64_t> write_blocked_duration_usecs;
+    };
+    const SocketStats &GetSocketStats() const { return stats_; }
+
+    //
+    // Return the number of tcp sessions in the map
+    //
+    size_t GetSessionCount() const {
+        return session_ref_.size();
+    }
+
+    EventManager *event_manager() { return evm_; }
+
+    // Returns true if any of the sessions on this server has read available
+    // data.
+    bool HasSessionReadAvailable() const;
+    bool HasSessions() const;
+
+    TcpSession *GetSession(Endpoint remote);
+
+    // wait until the server has deleted all sessions.
+    void WaitForEmpty();
+
+  protected:
+    // Create a session object.
+    virtual TcpSession *AllocSession(Socket *socket) = 0;
+    
+    //
+    // Passively accepted a new session. Returns true if the session is
+    // accepted, false otherwise.
+    //
+    // XXX If the session is not accepted, tcp_server.cc shall delete the
+    // newly created session.
+    //
+    virtual bool AcceptSession(TcpSession *session);
+
+    Endpoint LocalEndpoint() const;
+
+  private:
+    friend class TcpSession;
+    friend class TcpMessageWriter;
+    friend void intrusive_ptr_add_ref(TcpServer *server);
+    friend void intrusive_ptr_release(TcpServer *server);
+    typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
+    typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;
+    struct TcpSessionPtrCmp {
+        bool operator()(const TcpSessionPtr &lhs,
+                        const TcpSessionPtr &rhs) const {
+            return lhs.get() < rhs.get();
+        }
+    };
+    typedef std::set<TcpSessionPtr, TcpSessionPtrCmp> SessionSet;
+    typedef std::multimap<Endpoint, TcpSession *> SessionMap;
+
+    // Called by the asio service.
+    void AcceptHandlerInternal(TcpServerPtr server,
+             const boost::system::error_code &error);
+
+    void ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
+                        const boost::system::error_code &error);
+
+    // Trigger the async accept operation.
+    void AsyncAccept();
+
+    void OnSessionClose(TcpSession *session);
+    void SetName(Endpoint local_endpoint);
+
+    SocketStats stats_;
+    EventManager *evm_;
+    // mutex protects the session maps
+    mutable tbb::mutex mutex_;
+    std::condition_variable cond_var_;
+    SessionSet session_ref_;
+    SessionMap session_map_;
+    std::auto_ptr<Socket> so_accept_;      // socket used in async_accept
+    boost::scoped_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
+    tbb::atomic<int> refcount_;
+    std::string name_;
+    
+    DISALLOW_COPY_AND_ASSIGN(TcpServer);
+};
+
+inline void intrusive_ptr_add_ref(TcpServer *server) {
+    server->refcount_.fetch_and_increment();
+}
+
+inline void intrusive_ptr_release(TcpServer *server) {
+    int prev = server->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        delete server;
+    }
+}
+
+//
+// TcpServerManager is the place holder for all the TcpServer objects
+// instantiated in the life time of a process
+//
+// TcpServer objects are help in ServerSet until all the cleanup is complete
+// and only then should they be deleted via DeleteServer() API
+//
+// Since TcpServer objects are also held by boost::asio routines, they are
+// protected using intrusive pointers
+// 
+// This is similar to how TcpSession objects are managed via TcpSessionPtr
+//
+class TcpServerManager {
+public:
+    static void AddServer(TcpServer *server);
+    static void DeleteServer(TcpServer *server);
+
+private:
+    typedef boost::intrusive_ptr<TcpServer> TcpServerPtr;
+    struct TcpServerPtrCmp {
+        bool operator()(const TcpServerPtr &lhs,
+                        const TcpServerPtr &rhs) const {
+            return lhs.get() < rhs.get();
+        }
+    };
+    typedef std::set<TcpServerPtr, TcpServerPtrCmp> ServerSet;
+
+    static tbb::mutex mutex_;
+    static ServerSet server_ref_;
+};
+
+#endif // __TCPSERVER_H__

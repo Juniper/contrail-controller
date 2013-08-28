@@ -1,0 +1,74 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.AppendUnique(CCFLAGS='-fno-exceptions')
+
+env.Append(CPPPATH = env['TOP'])
+env.Prepend(LIBS=['sandesh', 'http', 'http_parser', 'curl', 'io', 'base'])
+
+except_env = BuildEnv.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+except_env.Append(CPPPATH = env['TOP'])
+
+SandeshGenFiles = env.SandeshGenCpp('ifmap_server_show.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('ifmap_syslog.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+sandesh_objs = []
+for src in SandeshGenSrcs:
+    objname = src.replace('.cpp', '.o')
+    obj = except_env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+ifmap_server = except_env.Object('ifmap_server.o', 'ifmap_server.cc')
+ifmap_server_show = except_env.Object('ifmap_server_show.o', 'ifmap_server_show.cc')
+ifmap_xmpp = except_env.Object('ifmap_xmpp.o', 'ifmap_xmpp.cc')
+ifmap_xmpp_client_show = except_env.Object('ifmap_xmpp_client_show.o', 'ifmap_xmpp_client_show.cc')
+AgentSandeshGenFiles  = env.SandeshGenCpp('ifmap_agent.sandesh')
+AgentSandeshGenSrcs = env.ExtractCpp(AgentSandeshGenFiles)
+
+libifmap_common = env.Library('ifmap_common',
+                              ['ifmap_table.cc',
+                               'ifmap_link.cc',
+                               'ifmap_link_table.cc',
+                               'ifmap_node.cc',
+                               'ifmap_object.cc'])
+
+# control-node
+libifmap = env.Library('ifmap_server',
+                       ['ifmap_client.cc',
+                        'ifmap_encoder.cc',
+                        'ifmap_exporter.cc',
+                        'ifmap_graph_walker.cc',
+                        'ifmap_node_proxy.cc',
+                        ifmap_server_show,
+                        ifmap_server,
+                        'ifmap_server_parser.cc',
+                        'ifmap_server_table.cc',
+                        'ifmap_update.cc',
+                        'ifmap_update_queue.cc',
+                        'ifmap_update_sender.cc',
+                        'ifmap_util.cc',
+                        'ifmap_uuid_mapper.cc',
+                        'ifmap_whitelist.cc',
+                        ifmap_xmpp,
+                        ifmap_xmpp_client_show,
+                        ] + sandesh_objs)
+
+# agent-module
+libifmap_agent = env.Library('ifmap_agent',
+                       [ 'ifmap_agent_parser.cc',
+                        'ifmap_agent_table.cc',
+                        'ifmap_agent_sandesh.cc',
+                        ] + AgentSandeshGenSrcs)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('client/SConscript', exports='BuildEnv', duplicate = 0)

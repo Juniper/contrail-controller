@@ -1,0 +1,219 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+request sandesh AgentStatsReq {
+}
+
+response sandesh IpcStatsResp {
+    1:  i64 ipc_in_msgs;
+    2:  i64 ipc_out_msgs;
+}
+
+response sandesh PktTrapStatsResp {
+    1:  i64 exceptions;
+    2:  i64 invalid_agent_hdr;
+    3:  i64 invalid_interface;
+    4:  i64 no_handler;
+    5:  i64 pkt_dropped;
+}
+
+response sandesh FlowStatsResp {
+    1: u64 flow_active;
+    2: u64 flow_created;
+    3: u64 flow_aged;
+}
+
+struct XmppStatsInfo {
+    1: string ip
+    2: u64 in_msgs;
+    3: u64 out_msgs;
+    4: u16 reconnect;
+}
+
+response sandesh XmppStatsResp {
+    1: list <XmppStatsInfo> xmpp_list;
+}
+
+response sandesh SandeshStatsResp {
+    1: i64 sandesh_in_msgs;
+    2: i64 sandesh_out_msgs;
+    3: i16 sandesh_http_sessions;
+    4: i16 sandesh_reconnects;
+}
+
+struct MirrorInfo {
+    1: optional string mirror_destination;
+    2: optional u16 mirror_port; 
+    3: optional string mirror_vrf;
+    4: optional string encap;
+    5: optional string analyzer;
+}
+
+struct FlowAclUuid {
+    1: string uuid (link="AclReq");
+}
+
+struct FlowAclInfo {
+    1: i32 action;
+    2: list<FlowAclUuid> acl;
+}
+
+struct SandeshFlowData {
+    1: i32 vrf;
+    2: string sip;
+    3: string dip;
+    4: i32 src_port;
+    5: i32 dst_port;
+    6: byte protocol;
+    7: i16 dest_vrf;
+    8: i32 action;
+    9: list<MirrorInfo> mirror_l;
+    11: optional string direction;
+    12: i64 stats_bytes;
+    13: i64 stats_packets;
+    14: string uuid;
+    15: string nat;
+    16: i32 flow_handle;
+    17: i32 interface_idx;
+    18: string setup_time;
+    19: i32 refcount;
+    20: string implicit_deny;
+    21: optional string short_flow;
+    22: optional u64 setup_time_utc;
+    23: optional u16 ecmp_index;
+    24: optional string local_flow;
+    25: optional string egress_uuid;
+    26: optional string src_vn;
+    27: optional string dst_vn;
+    28: string reverse_flow;
+    29: FlowAclInfo policy;
+    30: FlowAclInfo out_policy;
+    31: FlowAclInfo sg;
+    32: FlowAclInfo out_sg;
+}
+
+request sandesh FetchFlowRecord {
+    1: i32 vrf;
+    2: string sip;
+    3: string dip;
+    4: i32 src_port;
+    5: i32 dst_port;
+    6: byte protocol;
+}
+
+response sandesh FlowRecordResp {
+    1: SandeshFlowData record;
+}
+
+response sandesh FlowErrorResp {
+    1: string resp = "No Flow Record for specified key ";
+}
+
+request sandesh NextFlowRecordsSet {
+    1: string flow_key;
+}
+
+request sandesh FetchAllFlowRecords {
+}
+
+response sandesh FlowRecordsResp {
+    1: list<SandeshFlowData> flow_list;
+    2: string flow_key (link="NextFlowRecordsSet");
+}
+
+trace sandesh TapErr {
+    1: string err;
+}
+
+trace sandesh PktErr {
+    1: string err;
+}
+
+struct FlowInfo {
+    1: u32 flow_index;
+    2: optional string source_ip;
+    3: optional u16    source_port;
+    4: optional string destination_ip;
+    5: optional u16    destination_port;
+    6: optional u16    protocol;
+    7: optional u32    vrf;
+    8: optional string action;
+    9: optional string intf;
+   10: optional string nat_source_ip;
+   11: optional string nat_destination_ip;
+   12: optional u16 nat_source_port;
+   13: optional u16 nat_destination_port;
+   14: optional u16 nat_protocol;
+   15: optional u32 nat_vrf;
+   16: optional u16 nat_mirror_vrf;
+   17: list<MirrorInfo> mirror_l;
+   18: optional u16 mirror_vrf;
+   19: optional u32 reverse_index; 
+   20: optional string implicit_deny;
+   21: optional string short_flow;
+   22: optional u16 ecmp_index;
+}
+
+traceobject sandesh FlowTrace {
+    1: string operation;
+    2: FlowInfo info;
+}
+
+trace sandesh FlowDetailErr {
+    1: u32 flow_index;
+    2: u16 ifindex;
+    3: u16 vrf;
+    4: u32 sip;
+    5: u32 dip;
+    6: string error;
+}
+
+trace sandesh FlowErr {
+    1: u32 flow_index;
+    2: string error;
+}
+
+trace sandesh FlowModuleInfo {
+    1: string info;
+}
+
+struct FlowHandlerFlow {
+    1: optional u32 vrf;
+    2: optional string src_ip;
+    3: optional string dst_ip;
+    4: optional u16 src_port;
+    5: optional u16 dst_port;
+    6: optional u16 proto;
+    7: optional string src_vn;
+    8: optional u32 src_vrf;
+    9: optional string dst_vn;
+    10: optional u32 dst_vrf;
+    11: optional list <i32> src_sg_id_l;
+    12: optional list <i32> dst_sg_id_l;
+    13: optional i32 num_acls;
+    14: optional i32 num_sgs;
+    15: optional bool ingress;
+    16: optional bool implicit_deny;
+    17: optional bool short_flow;
+}
+
+traceobject sandesh PktFlowTrace {
+    1: string operation;
+    2: FlowHandlerFlow finfo;
+}
+
+trace sandesh PktFlowErr {
+    1: string error;
+}
+
+traceobject sandesh FlowRouteUpdate {
+   1: string vrf;
+   2: string ip;
+   3: u16 plen;
+   4: string vn;
+   5: bool deleted;
+   6: bool marked_delete;
+   7: u32 num_sg;
+   8: list <i32> sg_list;
+}

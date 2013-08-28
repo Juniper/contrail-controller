@@ -1,0 +1,18 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+namespace cpp GenDb
+
+enum DbDataType {
+    AsciiType         = 1, // string
+    LexicalUUIDType   = 2, // boost::uuids::uuid
+    TimeUUIDType      = 3, // boost::uuids::uuid
+
+    /* following are gendb supported and translated */
+    Unsigned8Type     = 4, // uint8_t
+    Unsigned16Type    = 5, // uint16_t
+    Unsigned32Type    = 6, // uint32_t
+    Unsigned64Type    = 7, // uint64_t
+}
+

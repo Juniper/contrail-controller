@@ -1,0 +1,67 @@
+# -*- mode: python; -*-
+#
+#Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+import sys
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+env = BuildEnv.Clone()
+
+env.Prepend(CPPPATH = env['TOP'] + '/dns')
+env.Prepend(CPPPATH = env['TOP'] + '/dns/cmn')
+env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
+env.Prepend(CPPPATH = env['TOP'] + '/schema')
+env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
+env.Prepend(CPPPATH = env['TOP'] + '/bgp')
+env.Prepend(CPPPATH = env['TOP'] + '/../../third_party/bind-9.9.2-P1/bin/rndc/')
+env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
+env.Prepend(CPPPATH = env['TOP'] + '/http/client')
+
+env.Prepend(LIBS=['rndc', 'isccc', 'dns', 'isccfg', 'bind9','isc',
+                  'ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
+                  'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh',
+                  'httpc', 'http', 'http_parser', 'curl',
+                  'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',
+                  'boost_regex', 'boost_program_options', 'crypto', 'ssl',
+                  'boost_filesystem'])
+
+env.Prepend(LIBS=['dns_cfg', 'cmn', 'mgr', 'agent_xmpp', 'bind_interface', 'dns_uve'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+libs = MapBuildDir(['base', 'db', 'ifmap', 'io', 'net', 'xml', 'schema', 'xmpp', 'bgp',
+                    'dns/bind', 'dns/cfg', 'dns/cmn', 'dns/mgr', 'dns/agent', 'dns/uve',
+                    'discovery/client', 'http/client'])
+env.Append(LIBPATH=libs)
+
+if sys.platform != 'darwin':
+    env.Prepend(LINKFLAGS =
+                     ['-Wl,--whole-archive',
+                      '-lifmap_server', '-rdynamic',
+                      '-Wl,--no-whole-archive'])
+
+dnsd = env.Program(target = 'dnsd', source = ['main.cc'])
+env.Alias('src/dns:dnsd', dnsd)
+env.Default(dnsd)
+
+DnsEnv = env.Clone()
+DnsEnv.AppendUnique(CCFLAGS='-fno-exceptions')
+Export('DnsEnv')
+
+subdirs = [
+           'agent',
+           'bind',
+           'cfg',
+           'cmn',
+           'mgr',
+           'uve',
+           'test',
+          ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='DnsEnv', duplicate=0)

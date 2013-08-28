@@ -1,0 +1,33 @@
+# -*- mode: python; -*-
+
+# path to the sources
+vpath = '#/third_party/libxml2-2.8.0'
+
+env = DefaultEnvironment().Clone()
+
+# use 'configure' first to set things up
+cfg_opts = '--prefix=' + str(Dir('#/build')) + ' ' + \
+           '--disable-dependency-tracking '
+cfg_cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+           '/configure' + ' ' + cfg_opts + ' )')
+
+# API is Command(self, target, source, action, **kw)
+do_cfg = env.Command('config.status', "", cfg_cmd,
+                     ENV = {'PATH' : env['ENV']['PATH'], })
+
+make = 'make'
+
+libs = ['libxml2.la',
+        '.libs/libxml2.a',
+        '.libs/libxml2' + env['SHLIBSUFFIX'] ]
+
+do_lib = env.Command(libs, 'config.status',
+                     '(cd ' + Dir('.').abspath + '; ' + make + ')')
+
+hdrnames = ['SAX.h', 'SAX2.h', 'parser.h', 'tree.h']
+headers = map(lambda x: "#/build/include/libxml2/libxml/" + x, hdrnames)
+
+products = ['#/build/lib/libxml2.a'] + headers
+do_install = env.Command(products, libs,
+                         '(cd ' + Dir('.').abspath + '; ' + make + ' install)')
+

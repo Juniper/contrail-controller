@@ -1,0 +1,36 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# nova/test directory
+
+import sys
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+cflags = env['CCFLAGS']
+cflags.append(['-Wno-reorder', '-Wno-return-type', '-Wno-unused-variable'])
+
+cflags = env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+    env.Prepend(LIBS = ['cfg'])
+    env.Prepend(LIBS = ['nova_ins'])
+    env.Append(LIBS = ['gunit'])
+
+
+    nova_info_server_test = env.Program('nova_info_server_test',
+                                        source = ['instance_service_test.cc'])
+    env.Alias('src/vnsw/agent/nova:nova_info_server_test', nova_info_server_test)
+
+    nova_inc = env.Program(target = 'nova_inc',
+                           source = ['instance_service_client.cc'])
+
+#test = env.TestSuite('agent-test', test_suite)
+#env.Alias('src/vnsw/agent:test', test)
+#Return('test_suite')

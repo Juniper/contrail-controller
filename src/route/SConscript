@@ -1,0 +1,12 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+libroute = env.Library('route',
+                       ['route.cc', 'table.cc'])

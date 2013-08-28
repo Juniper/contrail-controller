@@ -1,0 +1,777 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include <vector>
+#include "vnsw/agent/filter/acl.h"
+#include <base/parse_object.h>
+#include <ifmap/ifmap_link.h>
+#include <ifmap/ifmap_table.h>
+#include <vnc_cfg_types.h>
+#include <cfg/init_config.h>
+#include <base/logging.h>
+
+#include <cmn/agent_cmn.h>
+#include <oper/vn.h>
+#include <oper/sg.h>
+#include <oper/vrf.h>
+#include <oper/agent_sandesh.h>
+#include <oper/nexthop.h>
+#include <oper/mirror_table.h>
+#include <pkt/flowtable.h>
+
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/uuid/string_generator.hpp>
+
+static AclTable *acl_table_;
+
+using namespace autogen;
+
+SandeshTraceBufferPtr AclTraceBuf(SandeshTraceBufferCreate("Acl", 32000));
+
+bool AclDBEntry::IsLess(const DBEntry &rhs) const {
+    const AclDBEntry &a = static_cast<const AclDBEntry &>(rhs);
+    return (uuid_ < a.uuid_);
+}
+
+std::string AclDBEntry::ToString() const {
+    std::string str = "ACL DB Entry:";
+    str.insert(str.end(), name_.begin(), name_.end());
+    return str;
+}
+
+DBEntryBase::KeyPtr AclDBEntry::GetDBRequestKey() const {
+    AclKey *key = new AclKey(uuid_);
+    return DBEntryBase::KeyPtr(key);
+}
+
+void AclDBEntry::SetKey(const DBRequestKey *key) { 
+    const AclKey *k = static_cast<const AclKey *>(key);
+    uuid_ = k->uuid_;
+}
+
+bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
+    AclResp *resp = static_cast<AclResp *>(sresp);
+
+    std::string str_uuid = boost::lexical_cast<std::string>(GetUuid());
+
+    // request uuid is null, then display upto size given by sandesh req
+    // request uuid is not null, then disply the ACL that matches the uuid.
+    if ((uuid.empty()) ||
+        (str_uuid.find(uuid) != std::string::npos)) {
+        AclSandeshData data;
+        SetAclSandeshData(data);
+        std::vector<AclSandeshData> &list =
+                const_cast<std::vector<AclSandeshData>&>(resp->get_acl_list());
+        data.uuid = boost::lexical_cast<std::string>(GetUuid());
+        data.set_dynamic_acl(GetDynamicAcl());
+        data.name = name_;
+        list.push_back(data);
+        return true;
+    }
+    return false;
+}
+
+void AclDBEntry::SetAclSandeshData(AclSandeshData &data) const {
+    AclEntries::const_iterator iter;
+    for (iter = acl_entries_.begin();
+         iter != acl_entries_.end(); ++iter) {
+        AclEntrySandeshData acl_entry_sdata;
+        // Get ACL entry oper data and add it to the list
+        iter->SetAclEntrySandeshData(acl_entry_sdata);
+        data.entries.push_back(acl_entry_sdata);
+    }
+    return;
+}
+
+AgentDBTable *AclDBEntry::DBToTable() const {
+    return acl_table_;
+}
+
+std::auto_ptr<DBEntry> AclTable::AllocEntry(const DBRequestKey *k) const {
+    const AclKey *key = static_cast<const AclKey *>(k);
+    AclDBEntry *acl = new AclDBEntry(key->uuid_);
+    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(acl));
+}
+
+DBEntry *AclTable::Add(const DBRequest *req) {
+    AclKey *key = static_cast<AclKey *>(req->key.get());
+    AclData *data = static_cast<AclData *>(req->data.get());
+    AclDBEntry *acl = new AclDBEntry(key->uuid_);
+    acl->SetName(data->cfg_name_);
+    acl->SetDynamicAcl(data->acl_spec_.dynamic_acl);
+    std::vector<AclEntrySpec>::iterator it;
+    std::vector<AclEntrySpec> *acl_spec_ptr = &(data->acl_spec_.acl_entry_specs_);
+    for (it = acl_spec_ptr->begin(); it != acl_spec_ptr->end();
+         ++it) {
+        acl->AddAclEntry(*it, acl->acl_entries_);
+    }
+    return acl;
+}
+
+bool AclTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
+    AclData *data = static_cast<AclData *>(req->data.get());
+
+    if (data->ace_id_to_del_) {
+        acl->DeleteAclEntry(data->ace_id_to_del_);
+        return true;
+    }
+
+    AclDBEntry::AclEntries entries;
+    std::vector<AclEntrySpec>::iterator it;
+    std::vector<AclEntrySpec> *acl_spec_ptr = &(data->acl_spec_.acl_entry_specs_);
+    for (it = acl_spec_ptr->begin(); it != acl_spec_ptr->end();
+         ++it) {
+        if (!data->ace_add) { //Replace existing aces
+            acl->AddAclEntry(*it, entries);
+        } else { // Add to the existing entries
+            acl->AddAclEntry(*it, acl->acl_entries_);
+        }
+    }
+
+    // Replace the existing aces, ace_add is to add to the existing
+    // entries
+    if (!data->ace_add) {
+        // Delete All acl entries for now and set newly created one.
+        acl->DeleteAllAclEntries();
+        acl->SetAclEntries(entries);
+    }
+    return true;
+}
+
+void AclTable::Delete(DBEntry *entry, const DBRequest *req) {
+    AclDBEntry *acl = static_cast<AclDBEntry *>(entry);
+    ACL_TRACE(Info, "Delete " + UuidToString(acl->GetUuid()));
+    acl->DeleteAllAclEntries();
+}
+
+void AclTable::ActionInit() {
+    ta_map_["alert"] = TrafficAction::ALERT;
+    ta_map_["drop"] = TrafficAction::DROP;
+    ta_map_["deny"] = TrafficAction::DENY;
+    ta_map_["log"] = TrafficAction::LOG;
+    ta_map_["pass"] = TrafficAction::PASS;
+    ta_map_["reject"] = TrafficAction::REJECT;
+    ta_map_["mirror"] = TrafficAction::MIRROR;
+}
+
+TrafficAction::Action AclTable::ConvertActionString(std::string action_str) {
+    TrafficActionMap::iterator it;
+    it = ta_map_.find(action_str);
+    if (it != ta_map_.end()) {
+        return it->second;
+    } else {
+        return TrafficAction::UNKNOWN;
+    }
+}
+
+DBTableBase *AclTable::CreateTable(DB *db, const std::string &name) {
+    acl_table_ = new AclTable(db, name);
+    acl_table_->Init();
+    acl_table_->ActionInit();
+    return acl_table_;
+}
+
+static inline IpAddress MaskToPrefix(int prefix_len) {
+    if (prefix_len == 0 )
+        return (IpAddress(Ip4Address(~((unsigned int) -1))));
+    else
+        return (IpAddress(Ip4Address(~((1 << (32 - prefix_len)) - 1))));
+}
+
+static void AclEntryObjectTrace(AclEntrySandeshData &ace_sandesh, AclEntrySpec &ace_spec)
+{
+    ace_sandesh.set_ace_id(integerToString(ace_spec.id));
+    if (ace_spec.terminal) {
+        ace_sandesh.set_rule_type("T");
+    } else {
+        ace_sandesh.set_rule_type("NT");
+    }
+
+    std::string src;
+    if (ace_spec.src_addr_type == AddressMatch::NETWORK_ID) {
+        src = ace_spec.src_policy_id_str;
+    } else if (ace_spec.src_addr_type == AddressMatch::IP_ADDR) {
+        src = ace_spec.src_ip_addr.to_string() + " " + ace_spec.src_ip_mask.to_string();
+    } else if (ace_spec.src_addr_type == AddressMatch::SG) {
+        src = integerToString(ace_spec.src_sg_id);
+    } else {
+        src = "UnKnown Adresss";
+    }
+    ace_sandesh.set_src(src);
+
+    std::string dst;
+    if (ace_spec.dst_addr_type == AddressMatch::NETWORK_ID) {
+        dst = ace_spec.dst_policy_id_str;
+    } else if (ace_spec.dst_addr_type == AddressMatch::IP_ADDR) {
+        dst = ace_spec.dst_ip_addr.to_string() + " " + ace_spec.dst_ip_mask.to_string();
+    } else if (ace_spec.dst_addr_type == AddressMatch::SG) {
+        dst = integerToString(ace_spec.dst_sg_id);
+    } else {
+        dst = "UnKnown Adresss";
+    }
+    ace_sandesh.set_dst(dst);
+
+    std::vector<SandeshRange> sr_l;
+    std::vector<RangeSpec>::iterator it;
+    for (it = ace_spec.protocol.begin(); it != ace_spec.protocol.end(); ++it) {
+        SandeshRange sr;
+        sr.min = (*it).min;
+        sr.max = (*it).max;
+        sr_l.push_back(sr);
+    }
+    ace_sandesh.set_proto_l(sr_l);
+    sr_l.clear();
+
+    for (it = ace_spec.src_port.begin(); it != ace_spec.src_port.end(); ++it) {
+        SandeshRange sr;
+        sr.min = (*it).min;
+        sr.max = (*it).max;
+        sr_l.push_back(sr);
+    }
+    ace_sandesh.set_src_port_l(sr_l);
+    sr_l.clear();
+
+    for (it = ace_spec.dst_port.begin(); it != ace_spec.dst_port.end(); ++it) {
+        SandeshRange sr;
+        sr.min = (*it).min;
+        sr.max = (*it).max;
+        sr_l.push_back(sr);
+    }
+    ace_sandesh.set_dst_port_l(sr_l);
+    sr_l.clear();
+
+    std::vector<ActionStr> astr_l;
+    std::vector<ActionSpec>::iterator action_it;
+    for (action_it = ace_spec.action_l.begin(); action_it != ace_spec.action_l.end();
+         ++ action_it) {
+        ActionSpec action = *action_it;
+        ActionStr astr;
+        if (action.ta_type == TrafficAction::SIMPLE_ACTION) {
+            astr.action = TrafficAction::ActionToString(action.simple_action);
+        } else if (action.ta_type == TrafficAction::MIRROR_ACTION) {
+            astr.action = action.ma.vrf_name + " " + 
+                    action.ma.analyzer_name + " " +
+                    action.ma.ip.to_string() + " " +
+                    integerToString(action.ma.port);
+        }
+        if (astr.action.size()) {
+            astr_l.push_back(astr);
+        }
+    }
+    ace_sandesh.set_action_l(astr_l);
+}
+
+static void AclObjectTrace(AgentLogEvent::type event, AclSpec &acl_spec)
+{
+    AclSandeshData acl;
+    acl.set_uuid(UuidToString(acl_spec.acl_id));
+    acl.set_dynamic_acl(acl_spec.dynamic_acl);
+    if (event == AgentLogEvent::ADD || event == AgentLogEvent::CHANGE) {
+        std::vector<AclEntrySpec>::iterator it;
+        std::vector<AclEntrySandeshData> acl_entries;
+        for (it = acl_spec.acl_entry_specs_.begin(); 
+             it != acl_spec.acl_entry_specs_.end(); ++it) {
+            AclEntrySandeshData ae_sandesh;
+            AclEntrySpec ae_spec = *it;
+            AclEntryObjectTrace(ae_sandesh, ae_spec);
+            acl_entries.push_back(ae_sandesh);
+        }
+        acl.set_entries(acl_entries);
+        ACL_TRACE(AclTrace, "Add", "", acl);
+    } else if (event == AgentLogEvent::DELETE) {
+        ACL_TRACE(AclTrace, "Delete", UuidToString(acl_spec.acl_id), acl);
+    }
+    switch (event) {
+        case AgentLogEvent::ADD:
+        case AgentLogEvent::CHANGE:
+            break;
+        case AgentLogEvent::DELETE:
+            break;
+        default:
+            break;
+    }
+}
+
+bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
+    AccessControlList *cfg_acl = static_cast <AccessControlList *> (node->GetObject());
+    autogen::IdPermsType id_perms = cfg_acl->id_perms();
+    boost::uuids::uuid u;
+    CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
+
+    // Delete ACL
+    if (req.oper == DBRequest::DB_ENTRY_DELETE) {
+        AclSpec acl_spec;
+        AclKey *key = new AclKey(u);
+        req.key.reset(key);
+        req.data.reset(NULL);
+	Agent::GetAclTable()->Enqueue(&req);
+        acl_spec.acl_id = u;
+        AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
+        return false;
+    }
+
+    // Add ACL
+    const std::vector<AclRuleType> &entrs = cfg_acl->entries().acl_rule;
+
+    AclSpec acl_spec;
+    acl_spec.acl_id = u;
+    acl_spec.dynamic_acl = cfg_acl->entries().dynamic;
+    
+    //AclEntrySpec *ace_spec;
+    std::vector<AclRuleType>::const_iterator ir;
+    uint32_t id = 1;
+    for(ir = entrs.begin(); ir != entrs.end(); ++ir) {
+        // ACE clean up
+        AclEntrySpec ace_spec;
+        ace_spec.id = id++;
+        RangeSpec rs;
+
+        // Protocol
+        if (ir->match_condition.protocol.compare("any") == 0) {
+            rs.min = 0x0;
+            rs.max = 0xff;
+        } else {
+            std::stringstream ss;
+            ss<<ir->match_condition.protocol;
+            ss>>rs.min;
+            ss.clear();
+            rs.max = rs.min;
+        }
+        ace_spec.protocol.push_back(rs);
+
+        // src port, check for not icmp
+        if (ir->match_condition.protocol.compare("1") != 0) {
+            PortType sp;
+            sp = ir->match_condition.src_port;
+            rs.min = sp.start_port;
+            rs.max = sp.end_port;
+            if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+                rs.min = 0;
+            }
+            ace_spec.src_port.push_back(rs);
+        }
+
+        // dst port, check for not icmp
+        if (ir->match_condition.protocol.compare("1") != 0) {
+            PortType dp;
+            dp = ir->match_condition.dst_port;
+            rs.min = dp.start_port;
+            rs.max = dp.end_port;
+            if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+                rs.min = 0;
+            }
+            ace_spec.dst_port.push_back(rs);
+        }
+
+        if (ir->match_condition.src_address.subnet.ip_prefix.size()) {
+            SubnetType st;
+            st = ir->match_condition.src_address.subnet;
+            boost::system::error_code ec;
+            ace_spec.src_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
+            if (ec.value() != 0) {
+                ACL_TRACE(Err, "Invalid source ip prefix");
+                continue;
+            }
+            if (!ace_spec.src_ip_addr.is_v4()) {
+                ACL_TRACE(Err, "Only ipv4 supported");
+                continue;
+            }
+            ace_spec.src_ip_plen = st.ip_prefix_len;
+            ace_spec.src_ip_mask = MaskToPrefix(st.ip_prefix_len);
+            ace_spec.src_addr_type = AddressMatch::IP_ADDR;
+        } else if (ir->match_condition.src_address.virtual_network.size()) {
+            std::string nt;
+            nt = ir->match_condition.src_address.virtual_network;
+            ace_spec.src_addr_type = AddressMatch::NETWORK_ID;
+            ace_spec.src_policy_id_str = nt;
+        } else if (ir->match_condition.src_address.security_group.size()) {
+            std::stringstream ss;
+            ss<<ir->match_condition.src_address.security_group;
+            ss>>ace_spec.src_sg_id;
+            ace_spec.src_addr_type = AddressMatch::SG;
+        }
+
+        if (ir->match_condition.dst_address.subnet.ip_prefix.size()) {
+            SubnetType st;
+            st = ir->match_condition.dst_address.subnet;
+            boost::system::error_code ec;
+            ace_spec.dst_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
+            if (ec.value() != 0) {
+                ACL_TRACE(Err, "Invalid destination ip prefix");
+                continue;
+            }
+            if (!ace_spec.dst_ip_addr.is_v4()) {
+                ACL_TRACE(Err, "Only ipv4 supported");
+                continue;
+            }
+            ace_spec.dst_ip_plen = st.ip_prefix_len;
+            ace_spec.dst_ip_mask = MaskToPrefix(st.ip_prefix_len);
+            ace_spec.dst_addr_type = AddressMatch::IP_ADDR;
+        } else if (ir->match_condition.dst_address.virtual_network.size()) {
+            std::string nt;
+            nt = ir->match_condition.dst_address.virtual_network;
+            ace_spec.dst_addr_type = AddressMatch::NETWORK_ID;
+            ace_spec.dst_policy_id_str = nt;
+        } else if (ir->match_condition.dst_address.security_group.size()) {
+            std::stringstream ss;
+            ss<<ir->match_condition.dst_address.security_group;
+            ss>>ace_spec.dst_sg_id;
+            ace_spec.dst_addr_type = AddressMatch::SG;
+        }
+        
+        // Make default as terminal rule, 
+        // all the dynamic acl have non-terminal rules
+        if (cfg_acl->entries().dynamic) {
+            ace_spec.terminal = false;
+        } else {
+            ace_spec.terminal = true;
+        }
+        
+        // action list
+        if (!ir->action_list.simple_action.empty()) {
+            ActionSpec saction;
+            saction.ta_type = TrafficAction::SIMPLE_ACTION;
+            saction.simple_action = ConvertActionString(ir->action_list.simple_action);
+            ace_spec.action_l.push_back(saction);
+        }
+
+        if (!ir->action_list.mirror_to.analyzer_name.empty()) {
+            ActionSpec maction;
+            maction.ta_type = TrafficAction::MIRROR_ACTION;
+            maction.simple_action = TrafficAction::MIRROR;
+            boost::system::error_code ec;
+            maction.ma.vrf_name = std::string();
+            maction.ma.analyzer_name = ir->action_list.mirror_to.analyzer_name;
+            maction.ma.ip = IpAddress::from_string(ir->action_list.mirror_to.analyzer_ip_address,
+                                                     ec);
+            if (ec.value() != 0) {
+                ACL_TRACE(Err, "Invalid analyzer ip address " + ir->action_list.mirror_to.analyzer_ip_address); 
+                continue;
+            }
+            if (ir->action_list.mirror_to.udp_port) {
+                maction.ma.port = ir->action_list.mirror_to.udp_port;
+            } else {
+                // Adding default port
+                maction.ma.port = ContrailPorts::AnalyzerUdpPort;
+            }
+            ace_spec.action_l.push_back(maction);
+            AddMirrorTableEntry(ace_spec);
+        }
+        // Add the Ace to the acl
+        acl_spec.acl_entry_specs_.push_back(ace_spec);
+
+        // Trace acl entry object
+        AclEntrySandeshData ae_spec;
+        AclEntryObjectTrace(ae_spec, ace_spec);
+        ACL_TRACE(EntryTrace, ae_spec);
+    }
+
+    AclKey *key = new AclKey(acl_spec.acl_id);
+    AclData *data = new AclData(acl_spec);
+    data->cfg_name_ = node->name();
+    req.key.reset(key);
+    req.data.reset(data);
+    Agent::GetAclTable()->Enqueue(&req);
+
+    // Its possible that VN got notified before ACL are created.
+    // Invoke change on VN linked to this ACL
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+         node->begin(table->GetGraph());
+         iter != node->end(table->GetGraph()); ++iter) {
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (adj_node->table() == AgentConfig::GetVnTable()) {
+            VirtualNetwork *vn_cfg = static_cast<VirtualNetwork *>
+                (adj_node->GetObject());
+            assert(vn_cfg);
+            if (adj_node->IsDeleted() == false) {
+                req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+                Agent::GetVnTable()->IFNodeToReq(adj_node, req);
+            }
+        }
+        if (adj_node->table() == AgentConfig::GetSgTable()) {
+            SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
+                    ( adj_node->GetObject());
+            assert(sg_cfg);
+            if (adj_node->IsDeleted() == false) {
+                req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+                Agent::GetSgTable()->IFNodeToReq(adj_node, req);
+            }
+        }
+    }
+    AclObjectTrace(AgentLogEvent::ADD, acl_spec);
+    return false;
+}
+
+
+void AclTable::AddMirrorTableEntry (AclEntrySpec &ace_spec)
+{
+    std::vector<ActionSpec>::iterator it;
+    for (it = ace_spec.action_l.begin(); it != ace_spec.action_l.end(); ++it) {
+        ActionSpec action = *it;
+        if (action.ta_type != TrafficAction::MIRROR_ACTION) {
+            continue;
+        }
+        
+        Ip4Address sip;
+        if (Agent::GetRouterId() == action.ma.ip) {
+            sip = Ip4Address(METADATA_IP_ADDR);
+        } else {
+            sip = Agent::GetRouterId();
+        }
+        Agent::GetMirrorTable()->AddMirrorEntry(action.ma.analyzer_name,
+                                                action.ma.vrf_name,
+                                                sip, Agent::GetMirrorPort(),
+                                                action.ma.ip.to_v4(), action.ma.port);
+    }
+    return;
+}
+
+// ACL methods
+void AclDBEntry::SetAclEntries(AclEntries &entries)
+{
+    AclEntries::iterator it, tmp;
+    it = entries.begin();
+    while (it != entries.end()) {
+        AclEntry *ae = it.operator->();
+        tmp = it++;
+        entries.erase(tmp);
+        acl_entries_.insert(acl_entries_.end(), *ae);
+    }
+}
+
+AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries &entries)
+{
+    AclEntries::iterator iter;
+
+    if (acl_entry_spec.id < 0) {
+        ACL_TRACE(Err, "acl entry id is negative value");
+        return NULL;
+    }
+    for (iter = entries.begin();
+         iter != entries.end(); ++iter) {
+        if (acl_entry_spec.id == iter->id()) {
+            ACL_TRACE(Err, "acl entry id " + integerToString(acl_entry_spec.id) + 
+                " already exists");
+            return NULL;
+        } else if (iter->id() > acl_entry_spec.id) {
+            // Insert
+            break;
+        }
+    }
+    
+    AclEntry *entry = new AclEntry();
+    entry->PopulateAclEntry(acl_entry_spec);
+    
+    std::vector<ActionSpec>::const_iterator it;
+    for (it = acl_entry_spec.action_l.begin(); it != acl_entry_spec.action_l.end();
+         ++it) {
+        if ((*it).ta_type == TrafficAction::MIRROR_ACTION) {
+            Ip4Address sip;
+            if (Agent::GetRouterId() == (*it).ma.ip) {
+                sip = Ip4Address(METADATA_IP_ADDR);
+            } else {
+                sip = Agent::GetRouterId();
+            }
+            MirrorEntryKey mirr_key((*it).ma.analyzer_name);
+            MirrorEntry *mirr_entry = static_cast<MirrorEntry *>
+                    (Agent::GetMirrorTable()->FindActiveEntry(&mirr_key));
+            assert(mirr_entry);
+            // Store the mirror entry
+            entry->SetMirrorEntry(mirr_entry);
+        }
+    }
+    entries.insert(iter, *entry);
+    ACL_TRACE(Info, "acl entry " + integerToString(acl_entry_spec.id) + " added");
+    return entry;
+}
+
+bool AclDBEntry::DeleteAclEntry(const uint32_t acl_entry_id)
+{
+    AclEntries::iterator iter;
+    for (iter = acl_entries_.begin();
+         iter != acl_entries_.end(); ++iter) {
+        if (acl_entry_id == iter->id()) {
+            AclEntry *ae = iter.operator->();
+            acl_entries_.erase(acl_entries_.iterator_to(*iter));
+            ACL_TRACE(Info, "acl entry " + integerToString(acl_entry_id) + " deleted");
+            delete ae;
+            return true;
+        }
+    }
+    ACL_TRACE(Err, "acl entry " + integerToString(acl_entry_id) + " doesn't exist");
+    return false;
+}
+
+void AclDBEntry::DeleteAllAclEntries()
+{
+    AclEntries::iterator iter;
+    iter = acl_entries_.begin();
+    while (iter != acl_entries_.end()) {
+        AclEntry *ae = iter.operator->();
+        acl_entries_.erase(iter++);
+        delete ae;
+    }
+    return;
+}
+
+bool AclDBEntry::PacketMatch(const PacketHeader &packet_header, 
+			     MatchAclParams &m_acl) const
+{
+    AclEntries::const_iterator iter;
+    bool ret_val = false;
+    m_acl.terminal_rule = false;
+	m_acl.action_info.action = 0;
+    for (iter = acl_entries_.begin();
+         iter != acl_entries_.end();
+         ++iter) {
+        const AclEntry::ActionList &al = iter->PacketMatch(packet_header);
+	AclEntry::ActionList::const_iterator al_it;
+	for (al_it = al.begin(); al_it != al.end(); ++al_it) {
+	     TrafficAction *ta = static_cast<TrafficAction *>(*al_it.operator->());
+	     m_acl.action_info.action |= 1 << ta->GetAction();
+	     if (ta->GetActionType() == TrafficAction::MIRROR_ACTION) {
+	         MirrorAction *a = static_cast<MirrorAction *>(*al_it.operator->());
+                 MirrorActionSpec as;
+		 as.ip = a->GetIp();
+		 as.port = a->GetPort();
+                 as.vrf_name = a->GetVrfName();
+                 as.analyzer_name = a->GetAnalyzerName();
+                 as.encap = a->GetEncap();
+                 m_acl.action_info.mirror_l.push_back(as);
+	     }
+	}
+        if (!(al.empty())) {
+            ret_val = true;
+            m_acl.ace_id_list.push_back((int32_t)(iter->id()));
+            if (iter->IsTerminal()) {
+	        m_acl.terminal_rule = true;
+                return ret_val;
+            }
+        }
+    }
+    return ret_val;
+}
+
+const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str, 
+                                          const string ctx, 
+                                          SandeshResponse *resp) {
+    if (acl_uuid_str.empty()) {
+        return NULL;
+    }
+
+    // Get acl entry from acl uuid string
+    AclTable *table = Agent::GetAclTable();
+    boost::uuids::string_generator gen;
+    boost::uuids::uuid acl_id = gen(acl_uuid_str);
+    AclKey key(acl_id);
+    AclDBEntry *acl_entry = static_cast<AclDBEntry *>(table->FindActiveEntry(&key));
+
+    return acl_entry;
+}
+
+void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
+                               const FlowKey &key) {
+    AclFlowResp *resp = new AclFlowResp();
+    const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
+
+    if (acl_entry) {
+        FlowTable::GetFlowTableObject()->SetAclFlowSandeshData(acl_entry, 
+                                                               *resp, key);
+    }
+    resp->set_context(ctx);
+    resp->Response();
+}
+
+void AclTable::AclFlowCountResponse(const string acl_uuid_str, 
+                                    const string ctx, int ace_id) {
+    AclFlowCountResp *resp = new AclFlowCountResp();
+    const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
+
+    if (acl_entry) {
+        FlowTable::GetFlowTableObject()->SetAceSandeshData(acl_entry, 
+                                                           *resp, ace_id);
+    }
+    resp->set_context(ctx);
+    resp->Response();
+}
+
+void AclReq::HandleRequest() const {
+    AgentAclSandesh *sand =
+        new AgentAclSandesh(context(), get_uuid());
+    sand->DoSandesh();
+}
+
+void NextAclFlowReq::HandleRequest() const {
+    string key = get_iteration_key();
+    size_t n = std::count(key.begin(), key.end(), ':');
+    if (n != 6) {
+        AclFlowCountResp *resp = new AclFlowCountResp();
+        resp->set_context(context());
+        resp->Response();
+    }
+    stringstream ss(key);
+    FlowKey fkey;
+    string item, sip, dip, uuid;
+    uint32_t proto;
+    if (getline(ss, item, ':')) {
+        uuid = item;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> fkey.vrf;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> fkey.src_port;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> fkey.dst_port;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> proto;
+    }
+    if (getline(ss, item, ':')) {
+        sip = item;
+    }
+    if (getline(ss, item, ':')) {
+        dip = item;
+    }
+
+    fkey.src.ipv4 = ntohl(inet_addr(sip.c_str()));
+    fkey.dst.ipv4 = ntohl(inet_addr(dip.c_str()));
+    fkey.protocol = proto;
+
+    AclTable::AclFlowResponse(uuid, context(), fkey);
+}
+
+void AclFlowReq::HandleRequest() const {
+    FlowKey key; //key with all 0's
+    AclTable::AclFlowResponse(get_uuid(), context(), key); 
+}
+
+void AclFlowCountReq::HandleRequest() const { 
+    AclTable::AclFlowCountResponse(get_uuid(), context(), 0);
+}
+
+void NextAclFlowCountReq::HandleRequest() const { 
+    string key = get_iteration_key();
+    size_t n = std::count(key.begin(), key.end(), ':');
+    if (n != 1) {
+        AclFlowCountResp *resp = new AclFlowCountResp();
+        resp->set_context(context());
+        resp->Response();
+    }
+    stringstream ss(key);
+    string uuid_str, item;
+    int ace_id = 0;
+    if (getline(ss, item, ':')) {
+        uuid_str = item;
+    }
+    if (getline(ss, item, ':')) {
+        istringstream(item) >> ace_id;
+    }
+
+    AclTable::AclFlowCountResponse(uuid_str, context(), ace_id);
+}

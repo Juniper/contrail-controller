@@ -1,0 +1,2 @@
+recursive-include schema_transformer/uve *.html *.xml *.css
+recursive-include schema_transformer/sandesh *.html *.xml *.css

@@ -1,0 +1,54 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# services directory
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('pkt.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+ 
+import sys
+if sys.platform != 'darwin':
+    env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
+    exception_files = [
+                       'tap_itf.cc'
+                       ]
+
+    except_env = AgentEnv.Clone()
+    cflags = except_env['CCFLAGS']
+    if '-fno-exceptions' in cflags:
+        cflags.remove('-fno-exceptions')
+        except_env.Replace(CCFLAGS = cflags)
+
+    exceptions_objs = []
+    for exception_src in exception_files:
+        objname = exception_src.replace('.cc', '.o')
+        obj = except_env.Object(objname, exception_src)
+        exceptions_objs.append(obj)
+
+    sandesh_objs = []
+    for src in SandeshGenSrcs:                    
+        objname = src.replace('.cpp', '.o')
+        obj = except_env.Object(objname, src)
+        sandesh_objs.append(obj)
+
+    pkt_srcs = [
+                'flowtable.cc',
+                'pkt_init.cc',
+                'pkt_init.cc',
+                'pkt_handler.cc',
+                'pkt_flow.cc',
+                'pkt_sandesh_flow.cc',
+                'proto.cc'
+                ]
+
+    libservices = env.Library('pkt',
+                     sandesh_objs +
+                     exceptions_objs +
+                     pkt_srcs)
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

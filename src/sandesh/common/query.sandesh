@@ -1,0 +1,24 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/* 
+ * query.sandesh
+ *
+ * query sandesh definitions
+ */
+
+struct QueryObjectData {
+    1: string qid (key = "ObjectQueryQid")
+    2: optional string table (key = "ObjectQueryTable")
+    3: optional u64 ops_start_ts
+    4: optional u64 qed_start_ts
+    5: optional u64 qed_end_ts
+    6: optional u64 flow_query_rows
+    7: optional string error_string
+}
+
+objectlog sandesh QueryObject {
+    1: QueryObjectData data;
+}
+

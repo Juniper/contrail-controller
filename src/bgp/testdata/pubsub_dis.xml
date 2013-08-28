@@ -1,0 +1,34 @@
+<iq type='set'
+    from='agent@vnsw.contrailsystems.com'
+    to='bgp.contrail.com/bgp-peer' 
+    id='request1'>
+    <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+        <publish node='01020304abcd:vpn-ip-address/32'>
+            <item>
+                <entry>
+                    <nlri>
+                        <af>1</af>
+                        <address>10.1.2.1/32</address>
+                    </nlri>
+                    <next-hop>     
+                        <af>1</af>
+                        <address>20.1.2.1</address>
+                    </next-hop>     
+                    <version>1</version>
+                    <label>10000</label>      <!-- 24 bit number -->
+                    <tunnel-encapsulation>gre</tunnel-encapsulation>      <!-- 24 bit number -->
+                </entry>  
+            </item>
+        </publish>
+    </pubsub>
+</iq>
+<iq type='set'
+    from='agent@vnsw.contrailsystems.com'
+    to='bgp.contrail.com/bgp-peer'
+    id='request2'>
+    <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+        <collection node='blue'>   <!-- vpn-customer-name --->
+            <dissociate node='01020304abcd:vpn-ip-address/32'/>
+        </collection>
+    </pubsub>
+</iq>

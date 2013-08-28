@@ -1,0 +1,20 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = env['TOP'])
+
+librouting_policy = env.Library('routing_policy',
+                    ['policy_graph.cc',
+                     'policy_edge.cc',
+                     'policy_config_parser.cc',
+                     'policy_vertex.cc'])
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

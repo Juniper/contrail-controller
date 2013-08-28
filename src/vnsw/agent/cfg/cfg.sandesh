@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+traceobject sandesh CfgIntfTrace {
+    1: string intf;
+    2: string vm_name;
+    3: string vm;
+    4: string vn;
+    5: string ip;
+    6: string op;
+}
+
+// Similar to thrift request for adding and delete ports
+request sandesh AddPortReq {
+    1: string port_uuid;
+    2: string instance_uuid;
+    3: string tap_name;
+    4: string ip_address;
+    5: string vn_uuid;
+    6: string mac_address;
+    7: optional string vm_name;
+}
+
+response sandesh PortResp {
+    1: string resp;
+}
+
+request sandesh DeletePortReq {
+    1: string port_uuid;
+}

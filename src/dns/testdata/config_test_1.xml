@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <virtual-DNS name='test-DNS' domain='default-domain'>
+        <domain-name>contrail.juniper.net</domain-name>
+        <dynamic-records-from-client>0</dynamic-records-from-client>
+        <record-order>random</record-order>
+        <default-ttl-seconds>60</default-ttl-seconds>
+        <next-virtual-DNS>juniper.net</next-virtual-DNS>
+    </virtual-DNS>
+
+    <network-ipam name='ipam1'>
+        <ipam-method>dhcp</ipam-method>
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method>
+        <ipam-dns-server>
+            <virtual-dns-server-name>test-DNS</virtual-dns-server-name>
+        </ipam-dns-server>
+        <dhcp-option-list></dhcp-option-list>
+    </network-ipam>
+    <virtual-network-network-ipam name='ipam1,vn1' ipam='ipam1' vn='vn1'>
+        <ipam-subnets> 
+            <subnet>
+                <ip-prefix>1.2.3.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>1.2.3.254</default-gateway>
+        </ipam-subnets>
+        <ipam-subnets> 
+            <subnet>
+                <ip-prefix>4.5.6.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>4.5.6.254</default-gateway>
+        </ipam-subnets>
+    </virtual-network-network-ipam>
+    <virtual-network-network-ipam name='ipam1,vn2' ipam='ipam1' vn='vn2'>
+        <ipam-subnets> 
+            <subnet>
+                <ip-prefix>1.1.2.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>1.1.2.254</default-gateway>
+        </ipam-subnets>
+    </virtual-network-network-ipam>
+
+    <virtual-DNS-record name='record1' dns='test-DNS'>
+        <record-name>host1</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>1.2.3.4</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='record2' dns='test-DNS'>
+        <record-name>host2</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>1.2.3.5</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='record3' dns='test-DNS'>
+        <record-name>host3</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>1.2.3.6</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+
+    <virtual-DNS name='new-DNS' domain='new-domain'>
+        <domain-name>test.example.com</domain-name>
+        <dynamic-records-from-client>0</dynamic-records-from-client>
+        <record-order>random</record-order>
+        <default-ttl-seconds>60</default-ttl-seconds>
+        <next-virtual-DNS>example.com</next-virtual-DNS>
+    </virtual-DNS>
+
+    <network-ipam name='ipam2'>
+        <ipam-method>dhcp</ipam-method>
+        <ipam-dns-method>virtual-dns-server</ipam-dns-method>
+        <ipam-dns-server>
+            <virtual-dns-server-name>new-DNS</virtual-dns-server-name>
+        </ipam-dns-server>
+        <dhcp-option-list></dhcp-option-list>
+    </network-ipam>
+    <virtual-network-network-ipam name='ipam2,vn3' ipam='ipam2' vn='vn3'>
+        <ipam-subnets> 
+            <subnet>
+                <ip-prefix>2.2.3.0</ip-prefix>
+                <ip-prefix-len>24</ip-prefix-len>
+            </subnet>
+            <default-gateway>2.2.3.254</default-gateway>
+        </ipam-subnets>
+    </virtual-network-network-ipam>
+
+    <virtual-DNS-record name='rec1' dns='new-DNS'>
+        <record-name>host1</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>6.2.3.4</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+    <virtual-DNS-record name='rec2' dns='new-DNS'>
+        <record-name>host2</record-name>
+        <record-type>A</record-type>
+        <record-class>IN</record-class>
+        <record-data>6.2.3.5</record-data>
+        <record-ttl-seconds>25</record-ttl-seconds>
+    </virtual-DNS-record>
+</config>

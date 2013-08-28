@@ -1,0 +1,7 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+Import('BuildEnv')
+SConscript(dirs=['common'], exports='BuildEnv', duplicate=0)

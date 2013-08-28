@@ -1,0 +1,43 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+Import('BuildEnv')
+import sys
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../../' + x, list)
+
+env = BuildEnv.Clone()
+
+env.Append(CCFLAGS = '-fPIC')
+libhttpc = env.Library('httpc',
+                    ['http_client.cc',
+                     'http_curl.cc'])
+
+env.Prepend(LIBS=['sandesh', 'curl', 'io'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+libs = MapBuildDir(['io'])
+env.Append(LIBPATH=libs)
+
+httpc_include = ['#/' + Dir('.').path, '#/third_party/curl-7.22.0/include']
+env.Prepend(CPPPATH=httpc_include)
+
+env.Append(LIBPATH = ['#/' + Dir('..').path,
+                      '../../base',
+                      '../../base/test',
+                      '../../debug/httpc',
+                      '../../debug/curl'
+                     ])
+
+env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'sandeshvns', 'base'])
+
+httpcd = env.Program(target = 'httpcd',
+                   source = ['main.cc'])
+
+#env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+env.Install(env['TOP_LIB'], libhttpc)                                  

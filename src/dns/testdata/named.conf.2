@@ -1,0 +1,77 @@
+options {
+    directory "./";
+    managed-keys-directory "./";
+    empty-zones-enable no;
+    pid-file "./named.pid";
+};
+
+key "rndc-key" {
+    algorithm hmac-md5;
+    secret "xvysmOR8lnUQRBcunkC6vg==";
+};
+
+controls {
+    inet 127.0.0.1 port 8094
+    allow { 127.0.0.1; }  keys { "rndc-key"; };
+};
+
+logging {
+    channel debug_log {
+        file "/var/log/named/bind.log" versions 3 size 5m;
+        severity debug;
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+    category default {
+        debug_log;
+    };
+    category queries {
+        debug_log;
+    };
+};
+
+view "_default_view_" {
+    match-clients {any;};
+    match-destinations {any;};
+    match-recursive-only no;
+};
+
+view "new-DNS" {
+    rrset-order {order random;};
+    zone "3.2.2.in-addr.arpa." IN {
+        type master;
+        file "./3.2.2.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "test.example.com" IN {
+        type master;
+        file "./test.example.com.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+
+view "test-DNS" {
+    rrset-order {order fixed;};
+    zone "2.1.1.in-addr.arpa." IN {
+        type master;
+        file "./2.1.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "3.2.1.in-addr.arpa." IN {
+        type master;
+        file "./3.2.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "6.5.4.in-addr.arpa." IN {
+        type master;
+        file "./6.5.4.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "contrail.juniper.com" IN {
+        type master;
+        file "./contrail.juniper.com.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+

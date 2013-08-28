@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+#
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+cflags = env['CCFLAGS']
+cflags.remove('-Werror')
+env['CCFLAGS'] = cflags
+
+VariantDir('#/' + Dir('.').path + '/gen-cpp',
+           '#/src/cdb/gen-cpp')
+
+env.Append(CPPPATH = ['#/build/include/thrift',
+        env['TOP'] + '/cdb/gen-cpp'])
+
+# Generate the source files
+targets = env.ThriftGenCpp('cassandra.thrift', False)
+
+lib_srcs = env.ExtractCpp(targets)
+
+lib = env.Library('cdb', lib_srcs)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

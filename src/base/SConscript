@@ -1,0 +1,52 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+except_env = BuildEnv.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+
+CpuInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/cpuinfo.sandesh')
+CpuInfoSandeshGenSrcs = env.ExtractCpp(CpuInfoSandeshGenFiles)
+
+cpuinfo_sandesh_files_ = []
+for src in CpuInfoSandeshGenSrcs:
+    objname = src.replace('.cpp', '.o')
+    obj = env.Object(objname, src)
+    cpuinfo_sandesh_files_.append(obj)
+
+env.Append(CPPPATH = env['TOP'])
+
+libcpuinfo = env.Library('cpuinfo', ['cpuinfo.cc'] + cpuinfo_sandesh_files_)
+
+task = except_env.Object('task.o', 'task.cc')
+
+VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
+VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)
+
+libbase = env.Library('base',
+                      [VersionInfoSandeshGenSrcs +
+                      ['backtrace.cc',
+                       'misc_utils.cc',
+                       'bitset.cc',
+                       'label_block.cc',
+                       'lifetime.cc',
+                       'logging.cc',
+                       'proto.cc',
+                       task,
+                       'task_annotations.cc',
+                       'task_trigger.cc',
+                       'timer.cc'
+                       ]])
+env.Requires(libbase, '#/build/lib/liblog4cplus.a')
+env.Requires(libbase, '#/build/include/boost')
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

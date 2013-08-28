@@ -1,0 +1,19 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  http_message_test.sandesh
+//
+//  Sandesh definitions for message test
+//
+
+request sandesh HttpRequestTest {
+    1: i32                          i32Elem;
+    2: string                       descString;
+}
+
+response sandesh HttpRequestTestResp {
+    1: string      name;
+    2: i32         num;
+}

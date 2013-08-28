@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+trace sandesh DnsBindError {
+    1: string error;
+}
+
+trace sandesh DnsBindTrace {
+    1: string message;
+}
+
+trace sandesh DnsXmppTrace {
+    1: string message;
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+-->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2">
+
+<xsd:element name="val" type="xsd:integer"/>
+<xsd:element name="foo" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('val', 'foo') -->
+<xsd:element name="bar" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('val', 'bar') -->
+<xsd:element name="test" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('val', 'test') -->
+
+<xsd:element name="foo-bar"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('foo-bar', 'foo', 'bar', ['has']) -->
+<xsd:element name="foo-test"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('foo-test', 'foo', 'test', ['has']) -->
+
+<xsd:complexType name="DataType">
+    <xsd:all>
+        <xsd:element name="val1" type="xsd:integer"/>
+        <xsd:element name="val2" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="A" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('val', 'A') -->
+<xsd:element name="B" type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('val', 'B') -->
+
+<xsd:element name="A-B-data" type="DataType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('A-B-data',
+          'A', 'B', ['ref']) -->
+
+</xsd:schema>

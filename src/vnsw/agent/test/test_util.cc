@@ -1,0 +1,1951 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "test/test_cmn_util.h"
+#include "test/test_init.h"
+#include "oper/mirror_table.h"
+
+#define MAX_TESTNAME_LEN 80
+
+using namespace std;
+
+Peer *bgp_peer_;
+TestClient *client;
+
+uuid MakeUuid(int id) {
+    char str[50];
+    boost::uuids::string_generator gen;
+    sprintf(str, "000000000000000000000000000000%02x", id);
+    boost::uuids::uuid u1 = gen(std::string(str));
+
+    return u1;
+}
+
+void DelXmlHdr(char *buff, int &len) {
+    len = 0;
+    sprintf(buff + len, "<?xml version=\"1.0\"?>\n"
+                        "    <config>\n"
+                        "         <delete>\n");
+    len = strlen(buff);
+}
+
+void DelXmlTail(char *buff, int &len) {
+    sprintf(buff + len, "        </delete>\n"
+                        "    </config>\n");
+    len = strlen(buff);
+}
+
+void AddXmlHdr(char *buff, int &len) {
+    len = 0;
+    sprintf(buff + len, "<?xml version=\"1.0\"?>\n"
+                        "    <config>\n"
+                        "         <update>\n");
+    len = strlen(buff);
+}
+
+void AddXmlTail(char *buff, int &len) {
+    sprintf(buff + len, "        </update>\n"
+                        "    </config>\n");
+    len = strlen(buff);
+}
+
+void AddLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2,
+                   const char *name2) {
+    sprintf(buff + len, 
+            "       <link>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2);
+
+    len = strlen(buff);
+}
+
+void DelLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2,
+                   const char *name2) {
+    sprintf(buff + len, 
+            "       <link>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "           <node type=\"%s\">\n"
+            "               <name>%s</name>\n"
+            "           </node>\n"
+            "       </link>\n", node_name1, name1, node_name2, name2);
+    len = strlen(buff);
+}
+
+void AddNodeString(char *buff, int &len, const char *node_name,
+                   const char *name, int id, const char *attr) {
+    sprintf(buff + len, 
+            "       <node type=\"%s\">\n"
+            "           <name>%s</name>\n"
+            "           <id-perms>\n"
+            "               <permissions>\n"
+            "                   <owner></owner>\n"
+            "                   <owner_access>0</owner_access>\n"
+            "                   <group></group>\n"
+            "                   <group_access>0</group_access>\n"
+            "                   <other_access>0</other_access>\n"
+            "               </permissions>\n"
+            "               <uuid>\n"
+            "                   <uuid-mslong>0</uuid-mslong>\n"
+            "                   <uuid-lslong>%d</uuid-lslong>\n"
+            "               </uuid>\n"
+            "           </id-perms>\n"
+            "           %s\n"
+            "       </node>\n", node_name, name, id, attr);
+    len = strlen(buff);
+}
+
+void AddNodeString(char *buff, int &len, const char *node_name,
+                   const char *name, int id) {
+    sprintf(buff + len, 
+            "       <node type=\"%s\">\n"
+            "           <name>%s</name>\n"
+            "           <id-perms>\n"
+            "               <permissions>\n"
+            "                   <owner></owner>\n"
+            "                   <owner_access>0</owner_access>\n"
+            "                   <group></group>\n"
+            "                   <group_access>0</group_access>\n"
+            "                   <other_access>0</other_access>\n"
+            "               </permissions>\n"
+            "               <uuid>\n"
+            "                   <uuid-mslong>0</uuid-mslong>\n"
+            "                   <uuid-lslong>%d</uuid-lslong>\n"
+            "               </uuid>\n"
+            "           </id-perms>\n"
+            "       </node>\n", node_name, name, id);
+    len = strlen(buff);
+}
+
+void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
+                   IpamInfo *ipam, int count) {
+    std::stringstream str;
+    str << "       <node type=\"" << nodename << "\">\n";
+    str << "           <name>" << name << "</name>\n";
+    str << "           <value>\n";
+    for (int i = 0; i < count; i++) {
+        str << "               <ipam-subnets>\n";
+        str << "                   <subnet>\n";
+        str << "                       <ip-prefix>" << ipam[i].ip_prefix << "</ip-prefix>\n";
+        str << "                       <ip-prefix-len>" << ipam[i].plen << "</ip-prefix-len>\n";
+        str << "                   </subnet>\n";
+        str << "                   <default-gateway>" << ipam[i].gw << "</default-gateway>\n";
+        str << "               </ipam-subnets>\n";
+    }
+    str << "           </value>\n";
+    str << "       </node>\n";
+    std::string final_str = str.str();
+    memcpy(buff + len, final_str.data(), final_str.size());
+    len += final_str.size();
+}
+
+void AddLinkNodeString(char *buff, int &len, const char *nodename, const char *name,
+                       const char *attr) {
+    std::stringstream str;
+    str << "       <node type=\"" << nodename << "\">\n";
+    str << "           <name>" << name << "</name>\n";
+    str << "           <value>\n";
+    str << "               " << attr << "\n";
+    str << "           </value>\n";
+    str << "       </node>\n";
+    std::string final_str = str.str();
+    memcpy(buff + len, final_str.data(), final_str.size());
+    len += final_str.size();
+}
+
+void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id) {
+    AddLinkNodeString(buff, len, "virtual-machine-interface-routing-instance",
+                  name, "<direction>both</direction>");
+                  //<vlan-tag>1</vlan-tag> <service-chain-address></service-chain-address>");
+}
+
+void DelNodeString(char *buff, int &len, const char *node_name,
+                   const char *name) {
+    sprintf(buff + len, 
+            "       <node type=\"%s\">\n"
+            "           <name>%s</name>\n"
+            "       </node>\n", node_name, name);
+
+    len = strlen(buff);
+}
+
+void ApplyXmlString(const char *buff) {
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddLink(const char *node_name1, const char *name1,
+             const char *node_name2, const char *name2) {
+    char buff[1024];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddLinkString(buff, len, node_name1, name1, node_name2, name2);
+    AddXmlTail(buff, len);
+    //LOG(DEBUG, buff);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void DelLink(const char *node_name1, const char *name1,
+             const char *node_name2, const char *name2) {
+    char buff[1024];
+    int len = 0;
+
+    DelXmlHdr(buff, len);
+    DelLinkString(buff, len, node_name1, name1, node_name2, name2);
+    DelXmlTail(buff, len);
+    //LOG(DEBUG, buff);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddNode(const char *node_name, const char *name, int id) {
+    char buff[1024];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, node_name, name, id);
+    AddXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddNode(const char *node_name, const char *name, int id, 
+                    const char *attr) {
+    char buff[1024];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, node_name, name, id, attr);
+    AddXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddLinkNode(const char *node_name, const char *name, const char *attr) {
+    char buff[1024];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddLinkNodeString(buff, len, node_name, name, attr);
+    AddXmlTail(buff, len);
+    LOG(DEBUG, buff);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void DelNode(const char *node_name, const char *name) {
+    char buff[1024];
+    int len = 0;
+
+    DelXmlHdr(buff, len);
+    DelNodeString(buff, len, node_name, name);
+    DelXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void IntfSyncMsg(PortInfo *input, int id) {
+    VmPortInterfaceKey *key = new VmPortInterfaceKey(MakeUuid(input[id].intf_id), "");
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(NULL);
+    Agent::GetInterfaceTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
+                int vm_id, int vn_id, const string &mac) {
+    CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
+    CfgIntData *data = new CfgIntData();
+    boost::system::error_code ec;
+    IpAddress ip = Ip4Address::from_string(ipaddr, ec);
+    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "");
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(data);
+    Agent::GetIntfCfgTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+void IntfCfgAdd(PortInfo *input, int id) {
+    IntfCfgAdd(input[id].intf_id, input[id].name, input[id].addr,
+               input[id].vm_id, input[id].vn_id, input[id].mac);
+}
+
+void IntfCfgDel(PortInfo *input, int id) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    CfgIntKey *key = new CfgIntKey(MakeUuid(input[id].intf_id));
+    req.key.reset(key);
+    req.data.reset(NULL);
+    Agent::GetIntfCfgTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+bool VrfFind(const char *name) {
+    VrfEntry *vrf;
+    VrfKey key(name);
+    vrf = static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&key));
+    return (vrf != NULL);
+}
+
+VrfEntry *VrfGet(const char *name) {
+    VrfKey key(name);
+    return static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&key));
+}
+
+bool VnFind(int id) {
+    VnEntry *vn;
+    VnKey key(MakeUuid(id));
+    vn = static_cast<VnEntry *>(Agent::GetVnTable()->FindActiveEntry(&key));
+    return (vn != NULL);
+}
+
+VnEntry *VnGet(int id) {
+    VnKey key(MakeUuid(id));
+    return static_cast<VnEntry *>(Agent::GetVnTable()->FindActiveEntry(&key));
+}
+
+bool AclFind(int id) {
+    AclDBEntry *acl;
+    AclKey key(MakeUuid(id));
+    acl = static_cast<AclDBEntry *>(Agent::GetAclTable()->FindActiveEntry(&key));
+    return (acl != NULL);
+}
+
+AclDBEntry *AclGet(int id) {
+    AclKey key(MakeUuid(id));
+    return static_cast<AclDBEntry *>(Agent::GetAclTable()->FindActiveEntry(&key));
+}
+
+VmEntry *VmGet(int id) {
+    VmKey key(MakeUuid(id));
+    return static_cast<VmEntry *>(Agent::GetVmTable()->FindActiveEntry(&key));
+}
+
+bool VmFind(int id) {
+    VmEntry *vm;
+    VmKey key(MakeUuid(id));
+    vm = static_cast<VmEntry *>(Agent::GetVmTable()->FindActiveEntry(&key));
+    return (vm != NULL);
+}
+
+bool VmPortFind(int id) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    return (intf != NULL ? !intf->IsDeleted() : false);
+}
+
+uint32_t VmPortGetId(int id) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf) {
+        return intf->GetInterfaceId();
+    }
+
+    return 0;
+}
+
+bool VmPortFind(PortInfo *input, int id) {
+    return VmPortFind(input[id].intf_id);
+}
+
+bool VmPortActive(int id) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->GetActiveState() == true);
+}
+
+bool VmPortActive(PortInfo *input, int id) {
+    return VmPortActive(input[id].intf_id);
+}
+
+bool VmPortPolicyEnabled(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>
+        (Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->IsPolicyEnabled());
+}
+
+bool VmPortPolicyEnabled(PortInfo *input, int id) {
+    return VmPortPolicyEnabled(input[id].intf_id);
+}
+
+Interface *VmPortGet(int id) {
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    return static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+}
+
+bool VmPortFloatingIpCount(int id, unsigned int count) {
+    VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(id));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL)
+        return false;
+
+    EXPECT_EQ(intf->GetFloatingIpList().size(), count);
+    if (intf->GetFloatingIpList().size() != count)
+        return false;
+
+    return true;
+}
+
+bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    intf=static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    const AgentStatsCollector::IfStats *st = AgentUve::GetStatsCollector()->GetIfStats(intf);
+    if (st == NULL)
+        return false;
+
+    bytes = st->in_bytes;
+    pkts = st->in_pkts;
+    return true;
+}
+
+bool VrfStatsMatch(int vrf_id, string vrf_name, uint64_t discards, 
+                   uint64_t resolves, uint64_t receives, uint64_t tunnels, 
+                   int64_t composites, uint64_t encaps) {
+    const AgentStatsCollector::VrfStats *st = 
+                        AgentUve::GetStatsCollector()->GetVrfStats(vrf_id);
+    if (st == NULL) {
+        return false;
+    }
+
+    if (vrf_name.compare(st->name) != 0) {
+        return false;
+    }
+   
+    if (st->discards == discards && st->resolves == resolves && 
+        st->receives == receives && st->tunnels == tunnels && 
+        st->composites == composites && st->encaps == encaps) {
+        return true;
+    }
+    LOG(DEBUG, "discards " << st->discards << " resolves " << st->resolves <<
+        " receives " << st->receives << " tunnels " << st->tunnels << 
+        " composites " << st->composites << " encaps " << st->encaps);
+    return false;
+}
+
+bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    intf=static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    const AgentStatsCollector::IfStats *st = AgentUve::GetStatsCollector()->GetIfStats(intf);
+    if (st == NULL)
+        return false;
+
+    if (st->in_pkts == pkts && st->in_bytes == bytes)
+        return true;
+    return false;
+}
+
+bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
+                      uint32_t obytes, uint32_t opkts) {
+    const AgentStatsCollector::IfStats *st = AgentUve::GetStatsCollector()->GetIfStats(intf);
+    EXPECT_TRUE(st != NULL);
+    if (st == NULL)
+        return false;
+
+    if (st->in_pkts == ipkts && st->in_bytes == ibytes && 
+        st->out_pkts == opkts && st->out_bytes == obytes) {
+        return true;
+    }
+    LOG(DEBUG, "ipkts " << st->in_pkts << " ibytes " << st->in_bytes <<
+               " opkts " << st->out_pkts << " obytes " << st->out_bytes);
+    return false;
+}
+
+bool VmPortInactive(int id) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf=static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+    return (intf->GetActiveState() == false);
+}
+
+bool VmPortInactive(PortInfo *input, int id) {
+    Interface *intf;
+    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    intf=static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->GetActiveState() == false);
+}
+
+EthInterface *EthInterfaceGet(const char *name) {
+    EthInterface *intf;
+    EthInterfaceKey key(MakeUuid(0), name);
+    intf=static_cast<EthInterface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    return intf;
+}
+
+VmPortInterface *VmPortInterfaceGet(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    return intf;
+}
+
+bool VmPortPolicyEnable(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->IsPolicyEnabled() == true);
+}
+
+bool VmPortPolicyEnable(PortInfo *input, int id) {
+    return VmPortPolicyEnable(input[id].intf_id);
+}
+
+bool VmPortPolicyDisable(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->IsPolicyEnabled() == false);
+}
+bool VmPortPolicyDisable(PortInfo *input, int id) {
+    return VmPortPolicyDisable(input[id].intf_id);
+}
+
+bool DBTableFind(const string &table_name) {
+   return (Agent::GetDB()->FindTable(table_name) != NULL);
+}
+
+void DeleteTap(int fd) {
+    if (ioctl(fd, TUNSETPERSIST, 0) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> making tap interface persistent");
+        assert(0);
+    }
+}
+
+void DeleteTapIntf(const int fd[], int count) {
+    for (int i = 0; i < count; i++) {
+        DeleteTap(fd[i]);
+    }
+}
+
+int CreateTap(const char *name) {
+    int fd;
+    struct ifreq ifr;
+
+    if ((fd = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> opening tap-device");
+        assert(0);
+    }
+
+    memset(&ifr, 0, sizeof(ifr));
+    ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
+    strncpy(ifr.ifr_name, name, IF_NAMESIZE);
+    if (ioctl(fd, TUNSETIFF, (void *)&ifr) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> creating " << name << "tap-device");
+        assert(0);
+    }
+
+    if (ioctl(fd, TUNSETPERSIST, 1) < 0) {
+        LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+            "> making tap interface persistent");
+        assert(0);
+    }
+    return fd;
+}
+
+void CreateTapIntf(const char *name, int count) {
+    char ifname[IF_NAMESIZE];
+
+    for (int i = 0; i < count; i++) {
+        snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
+        CreateTap(ifname);
+    }
+}
+
+void CreateTapInterfaces(const char *name, int count, int *fd) {
+    char ifname[IF_NAMESIZE];
+    int raw;
+    struct ifreq ifr;
+
+    for (int i = 0; i < count; i++) {
+        snprintf(ifname, IF_NAMESIZE, "%s%d", name, i);
+        fd[i] = CreateTap(ifname);
+        
+        if ((raw = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                                "> creating socket");
+                assert(0);
+        }
+
+        memset(&ifr, 0, sizeof(ifr));
+        strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
+        if (ioctl(raw, SIOCGIFINDEX, (void *)&ifr) < 0) {
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+                                "> getting ifindex of the tap interface");
+                assert(0);
+        }
+
+        struct sockaddr_ll sll;
+        memset(&sll, 0, sizeof(struct sockaddr_ll));
+        sll.sll_family = AF_PACKET;
+        sll.sll_ifindex = ifr.ifr_ifindex;
+        sll.sll_protocol = htons(ETH_P_ALL);
+        if (bind(raw, (struct sockaddr *)&sll, sizeof(struct sockaddr_ll)) < 0) {
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+                                "> binding the socket to the tap interface");
+                assert(0);
+        }
+
+        memset(&ifr, 0, sizeof(ifr));
+        strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
+        if (ioctl(raw, SIOCGIFFLAGS, (void *)&ifr) < 0) {
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                                "> getting socket flags");
+                assert(0);
+        }
+
+        ifr.ifr_flags |= IFF_UP;
+        if (ioctl(raw, SIOCSIFFLAGS, (void *)&ifr) < 0) {
+                LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
+                                "> setting socket flags");
+                assert(0);
+        }
+    }
+
+}
+
+void VnAddReq(int id, const char *name) {
+    std::vector<VnIpam> ipam;
+    Agent::GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), name, ipam);
+    usleep(1000);
+}
+
+void VnAddReq(int id, const char *name, int acl_id) {
+    std::vector<VnIpam> ipam;
+    Agent::GetVnTable()->AddVn(MakeUuid(id), name, MakeUuid(acl_id), name, ipam);
+    usleep(1000);
+}
+
+void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
+    std::vector<VnIpam> ipam;
+    Agent::GetVnTable()->AddVn(MakeUuid(id), name, MakeUuid(acl_id), vrf_name, ipam);
+    usleep(1000);
+}
+
+void VnAddReq(int id, const char *name, const char *vrf_name) {
+    std::vector<VnIpam> ipam;
+    Agent::GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), vrf_name, ipam);
+    usleep(1000);
+}
+
+void VnDelReq(int id) {
+    Agent::GetVnTable()->DelVn(MakeUuid(id));
+    usleep(1000);
+}
+
+void VrfAddReq(const char *name) {
+    Agent::GetVrfTable()->CreateVrf(name);
+    usleep(1000);
+}
+
+void VrfDelReq(const char *name) {
+    Agent::GetVrfTable()->DeleteVrf(name);
+    usleep(1000);
+}
+
+void VmAddReq(int id) {
+    char vm_name[80];
+    VmKey *key = new VmKey(MakeUuid(id));
+    VmData::SGUuidList sg_list(0);
+    sprintf(vm_name, "vm%d", id);
+    VmData *data = new VmData(string(vm_name), sg_list);
+    DBRequest req;
+
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    req.key.reset(key);
+    req.data.reset(data);
+
+    Agent::GetVmTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+void VmDelReq(int id) {
+    VmKey *key = new VmKey(MakeUuid(id));
+    DBRequest req;
+
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    req.key.reset(key);
+    req.data.reset(NULL);
+
+    Agent::GetVmTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+void AclAddReq(int id) {
+    AclSpec *acl_spec = new AclSpec();
+    AclEntrySpec *entry_spec = new AclEntrySpec();
+    entry_spec->id = id;
+    entry_spec->terminal = false;
+    acl_spec->acl_entry_specs_.push_back(*entry_spec);
+    delete entry_spec;
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    AclKey *key = new AclKey(MakeUuid(id));
+    req.key.reset(key);
+
+    AclData *data = new AclData(*acl_spec);
+    req.data.reset(data);
+    Agent::GetAclTable()->Enqueue(&req);
+    delete acl_spec;
+    usleep(1000);
+}
+
+void AclDelReq(int id) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    AclKey *key = new AclKey(MakeUuid(id));
+    req.key.reset(key);
+    req.data.reset(NULL);
+    Agent::GetAclTable()->Enqueue(&req);
+    usleep(1000);
+}
+
+void AclAddReq(int id, int ace_id, bool drop) {
+    AclSpec *acl_spec = new AclSpec();
+    acl_spec->acl_id = MakeUuid(id);
+
+    AclEntrySpec *ae_spec = new AclEntrySpec();
+    ae_spec->id = ace_id;
+    ae_spec->terminal = true;
+    ActionSpec action;
+    action.ta_type = TrafficAction::SIMPLE_ACTION;
+    if (drop) {
+        action.simple_action = TrafficAction::DROP;
+    } else {
+        action.simple_action = TrafficAction::PASS;
+    }
+    ae_spec->action_l.push_back(action);
+    acl_spec->acl_entry_specs_.push_back(*ae_spec);
+    delete ae_spec;
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    AclKey *key = new AclKey(MakeUuid(id));
+    AclData *data = new AclData(*acl_spec);
+
+    req.key.reset(key);
+    req.data.reset(data);
+    Agent::GetAclTable()->Enqueue(&req);
+    delete acl_spec;
+    usleep(1000);
+}
+
+bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    return (route != NULL);
+}
+
+bool RouteFind(const string &vrf_name, const string &addr, int plen) {
+    return RouteFind(vrf_name, Ip4Address::from_string(addr), plen);
+}
+
+bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
+                 const Ip4Address &src_addr) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Inet4McRouteKey key(vrf_name, src_addr, grp_addr);
+    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    return (route != NULL);
+}
+
+bool MCRouteFind(const string &vrf_name, const string &grp_addr,
+                 const string &src_addr) {
+    return MCRouteFind(vrf_name, Ip4Address::from_string(grp_addr),
+                       Ip4Address::from_string(src_addr));
+}
+
+bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Inet4McRouteKey key(vrf_name, grp_addr, 32);
+    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    return (route != NULL);
+}
+
+bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
+    return MCRouteFind(vrf_name, Ip4Address::from_string(grp_addr));
+
+}
+
+Inet4UcRoute *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    return route;
+}
+
+Inet4McRoute *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet4McRouteKey key(vrf_name, grp_addr, 32);
+    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    return route;
+}
+
+Inet4McRoute *MCRouteGet(const string &vrf_name, const string &grp_addr) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet4McRouteKey key(vrf_name, Ip4Address::from_string(grp_addr), 32);
+    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    return route;
+}
+
+bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type) {
+    TunnelNHKey key(Agent::GetDefaultVrf(), Agent::GetRouterId(), server_ip,
+                    policy, type);
+    NextHop *nh = static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+    return (nh != NULL);
+}
+
+bool TunnelNHFind(const Ip4Address &server_ip) {
+    return TunnelNHFind(server_ip, false, TunnelType::MPLS_GRE);
+}
+
+bool VlanNhFind(int id, uint16_t tag) {
+    VlanNHKey key(MakeUuid(id), tag);
+    NextHop *nh = static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+    return (nh != NULL);
+}
+
+bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
+                    int label, const char *vn, TunnelType::TypeBmap bmap) {
+    boost::system::error_code ec;
+    Inet4UcRouteTable::AddRemoteVmRoute(bgp_peer_, vm_vrf,
+                                        Ip4Address::from_string(vmip, ec),
+                                        32, Ip4Address::from_string(server, ec),
+                                        bmap, label, vn);
+}
+
+bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
+                    int label, const char *vn) {
+    TunnelRouteAdd(server, vmip, vm_vrf, label, vn, TunnelType::AllType());
+}
+
+bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
+    struct ether_addr mac = *ether_aton(mac_str);
+    Interface *intf;
+    EthInterfaceKey key(nil_uuid(), ifname);
+    intf = static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    boost::system::error_code ec;
+    Inet4UcRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
+                              Ip4Address::from_string(ip, ec), mac, 
+                              Agent::GetDefaultVrf(),
+                              *intf, true, 32);
+}
+
+bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
+    struct ether_addr mac = *ether_aton(mac_str);
+    Interface *intf;
+    EthInterfaceKey key(nil_uuid(), ifname);
+    intf = static_cast<Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    boost::system::error_code ec;
+    Inet4UcRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
+                              Ip4Address::from_string(ip, ec),
+                              mac, Agent::GetDefaultVrf(), *intf, false, 32);
+}
+
+void AddVm(const char *name, int id) {
+    AddNode("virtual-machine", name, id);
+}
+
+void DelVm(const char *name) {
+    DelNode("virtual-machine", name);
+}
+
+void AddVrf(const char *name, int id) {
+    AddNode("routing-instance", name, id);
+}
+
+void DelVrf(const char *name) {
+    DelNode("routing-instance", name);
+}
+
+void AddVn(const char *name, int id) {
+    AddNode("virtual-network", name, id);
+}
+
+void DelVn(const char *name) {
+    DelNode("virtual-network", name);
+}
+
+void AddPort(const char *name, int id) {
+    AddNode("virtual-machine-interface", name, id);
+}
+
+void DelPort(const char *name) {
+    DelNode("virtual-machine-interface", name);
+}
+
+void AddAcl(const char *name, int id) {
+    AddNode("access-control-list", name, id);
+}
+
+void AddFloatingIp(const char *name, int id, const char *addr) {
+    char buff[128];
+
+    sprintf(buff, "<floating-ip-address>%s</floating-ip-address>", addr);
+    AddNode("floating-ip", name, id, buff);
+}
+
+void DelFloatingIp(const char *name) {
+    DelNode("floating-ip", name);
+}
+
+void AddFloatingIpPool(const char *name, int id) {
+    AddNode("floating-ip-pool", name, id);
+}
+
+void DelFloatingIpPool(const char *name) {
+    DelNode("floating-ip-pool", name);
+}
+
+void AddInstanceIp(const char *name, int id, const char *addr) {
+    char buf[128];
+
+    sprintf(buf, "<instance-ip-address>%s</instance-ip-address>", addr);
+    AddNode("instance-ip", name, id, buf);
+}
+
+void DelInstanceIp(const char *name) {
+    DelNode("instance-ip", name);
+}
+
+void AddVmPortVrf(const char *name, const string &ip, uint16_t tag) {
+    char buff[256];
+    int len = 0;
+
+    len += sprintf(buff + len,   "<direction>both</direction>");
+    len += sprintf(buff + len,   "<vlan-tag>%d</vlan-tag>", tag);
+    len += sprintf(buff + len,   "<src-mac>02:00:00:00:00:02</src-mac>");
+    len += sprintf(buff + len,   "<dst-mac>02:00:00:00:00:01</dst-mac>");
+    len += sprintf(buff + len,   "<service-chain-address>%s</service-chain-address>", ip.c_str());
+    AddLinkNode("virtual-machine-interface-routing-instance", name, buff);
+}
+
+void DelVmPortVrf(const char *name) {
+    DelNode("virtual-machine-interface-routing-instance", name);
+}
+
+void AddIPAM(const char *name, IpamInfo *ipam, int ipam_size, const char *ipam_attr,
+             const char *vdns_name) {
+    char buff[4096];
+    char node_name[128];
+    char ipam_name[128];
+    int len = 0;
+
+    sprintf(node_name, "default-network-ipam,%s", name); 
+    sprintf(ipam_name, "default-network-ipam"); 
+    AddXmlHdr(buff, len);
+    if (ipam_attr) {
+        AddNodeString(buff, len, "network-ipam", ipam_name, 1, ipam_attr);
+    } else {
+        AddNodeString(buff, len, "network-ipam", ipam_name, 1);
+    }
+    AddNodeString(buff, len, "virtual-network-network-ipam", node_name,
+                            ipam, ipam_size);
+    AddLinkString(buff, len, "virtual-network", name,
+                  "virtual-network-network-ipam", node_name);
+    AddLinkString(buff, len, "network-ipam", ipam_name,
+                  "virtual-network-network-ipam", node_name);
+    if (vdns_name) {
+        AddLinkString(buff, len, "network-ipam", ipam_name,
+                      "virtual-DNS", vdns_name);
+    }
+    AddXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+}
+
+void DelIPAM(const char *name, const char *vdns_name) {
+    char buff[2048];
+    char node_name[128];
+    char ipam_name[128];
+    int len = 0;
+
+    sprintf(node_name, "default-network-ipam,%s", name); 
+    sprintf(ipam_name, "default-network-ipam"); 
+    DelXmlHdr(buff, len);
+    DelLinkString(buff, len, "virtual-network", name,
+                 "virtual-network-network-ipam", node_name);
+    DelLinkString(buff, len, "network-ipam", ipam_name,
+                 "virtual-network-network-ipam", node_name);
+    if (vdns_name) {
+        DelLinkString(buff, len, "network-ipam", ipam_name,
+                      "virtual-DNS", vdns_name);
+    }
+    DelNodeString(buff, len, "virtual-network-network-ipam", node_name);
+    DelNodeString(buff, len, "network-ipam", ipam_name);
+    DelXmlTail(buff, len);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    return;
+}
+
+void AddVDNS(const char *vdns_name, const char *vdns_attr) {
+    char buff[4096];
+    int len = 0;
+
+    AddXmlHdr(buff, len);
+    AddNodeString(buff, len, "virtual-DNS", vdns_name, 1, vdns_attr);
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+}
+
+void DelVDNS(const char *vdns_name) {
+    char buff[2048];
+    int len = 0;
+
+    DelXmlHdr(buff, len);
+    DelNodeString(buff, len, "virtual-DNS", vdns_name);
+    DelXmlTail(buff, len);
+    ApplyXmlString(buff);
+}
+
+void AddEncapList(const char *encap1, const char *encap2, const char *encap3) {
+    std::stringstream str;
+    str << "<encapsulation-priorities>" << endl;
+    if (encap1) {
+        str << "    <encapsulation>" << encap1 << "</encapsulation>";
+    }
+
+    if (encap2) {
+        str << "    <encapsulation>" << encap2 << "</encapsulation>";
+    }
+
+    if (encap3) {
+        str << "    <encapsulation>" << encap3 << "</encapsulation>";
+    }
+    str << "</encapsulation-priorities>";
+
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+}
+
+void DelEncapList() {
+    DelNode("global-vrouter-config", "vrouter-config");
+}
+
+void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip) {
+    uint8_t dummy_dmac[6], dummy_smac[6];
+	memset(dummy_dmac, 0, sizeof(dummy_dmac));
+	memset(dummy_smac, 0, sizeof(dummy_dmac));
+	dummy_dmac[5] = dmac;
+	dummy_smac[5] = smac;
+
+    IcmpPacket icmp(dummy_smac, dummy_dmac, sip, dip);
+    int ret = write(fd, icmp.GetPacket(), sizeof(icmp_packet));
+    LOG(DEBUG, "Written " << ret << " bytes to fd " << fd);
+    if (ret < 0) 
+	{
+	    LOG(ERROR, "Error <" << errno << ": " << strerror(errno) <<
+	        "> writing");
+	}
+    usleep(3*1000);
+}
+
+bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
+    VrfEntry *vrf;
+    VrfKey vrf_key(input[id].vrf);
+    vrf = static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&vrf_key));
+    LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->GetVrfId());
+
+    FlowKey key;
+
+    key.src_port = 0;
+    key.dst_port = 0;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = input[id].sip;
+    key.dst.ipv4 = input[id].dip;
+    key.protocol = IPPROTO_ICMP; 
+
+    FlowEntry *fe = FlowTable::GetFlowTableObject()->Find(key);
+    if (fe == NULL) {
+        LOG(DEBUG, "Flow not found");
+        return false;
+    }
+
+    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
+    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+        return true;
+    }
+
+    return false;
+}
+
+void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
+                     const char *vn, const char *vrf) {
+    char vn_name[80];
+    char vm_name[80];
+    char vrf_name[80];
+    char acl_name[80];
+    char instance_ip[80];
+
+    if (acl_id) {
+        sprintf(acl_name, "acl%d", acl_id);
+    }
+   
+    for (int i = 0; i < count; i++) {
+        if (vn)
+            strncpy(vn_name, vn, MAX_TESTNAME_LEN);
+        else
+            sprintf(vn_name, "vn%d", input[i].vn_id);
+        if (vrf)
+            strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
+        else
+            sprintf(vrf_name, "vrf%d", input[i].vn_id);
+        sprintf(vm_name, "vm%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        boost::system::error_code ec;
+        DelLink("virtual-machine-interface-routing-instance", input[i].name,
+                "routing-instance", vrf_name);
+        DelLink("virtual-machine-interface-routing-instance", input[i].name,
+                "virtual-machine-interface", input[i].name);
+        DelLink("virtual-machine", vm_name, "virtual-machine-interface",
+                input[i].name);
+        DelLink("virtual-machine-interface", input[i].name, "instance-ip",
+                instance_ip);
+        DelLink("virtual-network", vn_name, "virtual-machine-interface",
+                input[i].name);
+        DelNode("virtual-machine-interface", input[i].name);
+        DelNode("virtual-machine-interface-routing-instance", input[i].name);
+        IntfCfgDel(input, i);
+
+        DelNode("virtual-machine", vm_name);
+    }
+
+    if (del_vn) {
+        for (int i = 0; i < count; i++) {
+            int j = 0;
+            for (; j < i; j++) {
+                if (input[i].vn_id == input[j].vn_id) {
+                    break;
+                }
+            }
+
+            if (j < i) {
+                break;
+            }
+            if (vn)
+                sprintf(vn_name, "%s", vn);
+            else
+                sprintf(vn_name, "vn%d", input[i].vn_id);
+            if (vrf)
+                sprintf(vrf_name, "%s", vrf);
+            else
+                sprintf(vrf_name, "vrf%d", input[i].vn_id);
+            sprintf(vm_name, "vm%d", input[i].vm_id);
+            DelLink("virtual-network", vn_name, "routing-instance", vrf_name);
+            if (acl_id) {
+                DelLink("virtual-network", vn_name, "access-control-list", acl_name);
+            }
+
+            DelNode("virtual-network", vn_name);
+            DelNode("routing-instance", vrf_name);
+        }
+    }
+
+    if (acl_id) {
+        DelNode("access-control-list", acl_name);
+    }
+}
+
+void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
+                     const char *vn, const char *vrf) {
+    char vn_name[MAX_TESTNAME_LEN];
+    char vm_name[MAX_TESTNAME_LEN];
+    char vrf_name[MAX_TESTNAME_LEN];
+    char acl_name[MAX_TESTNAME_LEN];
+    char instance_ip[MAX_TESTNAME_LEN];
+
+    if (acl_id) {
+        sprintf(acl_name, "acl%d", acl_id);
+        AddAcl(acl_name, acl_id);
+    }
+ 
+    for (int i = 0; i < count; i++) {
+        if (vn)
+            strncpy(vn_name, vn, MAX_TESTNAME_LEN);
+        else
+            sprintf(vn_name, "vn%d", input[i].vn_id);
+        if (vrf)
+            strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
+        else
+            sprintf(vrf_name, "vrf%d", input[i].vn_id);
+        sprintf(vm_name, "vm%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        AddVn(vn_name, input[i].vn_id);
+        AddVrf(vrf_name);
+        AddVm(vm_name, input[i].vm_id);
+        AddVmPortVrf(input[i].name, "", 0);
+
+        //AddNode("virtual-machine-interface-routing-instance", input[i].name, 
+        //        input[i].intf_id);
+        IntfCfgAdd(input, i);
+        AddPort(input[i].name, input[i].intf_id);
+        AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
+        AddLink("virtual-machine", vm_name, "virtual-machine-interface",
+                input[i].name);
+        AddLink("virtual-network", vn_name, "virtual-machine-interface",
+                input[i].name);
+        AddLink("virtual-machine-interface-routing-instance", input[i].name,
+                "routing-instance", vrf_name);
+        AddLink("virtual-machine-interface-routing-instance", input[i].name,
+                "virtual-machine-interface", input[i].name);
+        AddLink("virtual-machine-interface", input[i].name,
+                "instance-ip", instance_ip);
+
+        if (acl_id) {
+            AddLink("virtual-network", vn_name, "access-control-list", acl_name);
+        }
+    }
+}
+
+void FlushFlowTable() {
+    FlowTable::GetFlowTableObject()->DeleteAll();
+    TestClient::WaitForIdle();
+    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+}
+
+bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
+                uint8_t proto, uint16_t sport, uint16_t dport) {
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    if (table->Find(key) == NULL) {
+        return false;
+    }
+
+    table->DeleteNatFlow(key, true);
+    return true;
+}
+
+bool FlowFail(int vrf_id, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport) {
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowKey key;
+    key.vrf = vrf_id;
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    EXPECT_TRUE(table->Find(key) == NULL);
+    return table->Find(key) == NULL ;
+}
+
+bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport) {
+
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    return FlowFail(vrf->GetVrfId(), sip, dip, proto, sport, dport);
+}
+
+bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
+                uint8_t proto, uint16_t sport, uint16_t dport,
+                std::string svn, std::string dvn, uint32_t hash_id,
+                const char *nat_vrf, const char *nat_sip,
+                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport) {
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL) {
+        return false;
+    }
+
+    EXPECT_TRUE(entry->nat);
+    if (!entry->nat) {
+        return false;
+    }
+
+    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
+    if (svn.compare(entry->data.source_vn) != 0) {
+        return false;
+    }
+
+    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
+    if (dvn.compare(entry->data.dest_vn) != 0) {
+        return false;
+    }
+
+    if ((int)hash_id >= 0) {
+        EXPECT_TRUE(entry->flow_handle == hash_id);
+        if (entry->flow_handle != hash_id) {
+            return false;
+        }
+    }
+
+    vrf = Agent::GetVrfTable()->FindVrfFromName(nat_vrf);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(nat_dip));
+    key.dst.ipv4 = ntohl(inet_addr(nat_sip));
+    key.src_port = nat_dport;
+    key.dst_port = nat_sport;
+    FlowEntry * rentry = table->Find(key);
+    EXPECT_TRUE(rentry != NULL);
+    if (rentry == NULL) {
+        return false;
+    }
+
+    EXPECT_TRUE(rentry->nat);
+    if (!rentry->nat) {
+        return false;
+    }
+
+    EXPECT_TRUE(entry->data.reverse_flow == rentry);
+    EXPECT_TRUE(rentry->data.reverse_flow == entry);
+    if (entry->data.reverse_flow != rentry)
+        return false;
+    if (rentry->data.reverse_flow != entry)
+        return false;
+
+    return true;
+}
+
+FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport) {
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowKey key;
+    key.vrf = vrf_id;
+    key.src.ipv4 = ntohl(inet_addr(sip.c_str()));
+    key.dst.ipv4 = ntohl(inet_addr(dip.c_str()));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    return entry;
+}
+
+bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
+             uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
+             int reverse_hash_id) {
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowKey key;
+    key.vrf = vrf_id;
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL) {
+        return false;
+    }
+
+    if (hash_id >= 0) {
+        EXPECT_EQ(entry->flow_handle, hash_id);
+        if (entry->flow_handle != hash_id) {
+            return false;
+        }
+    }
+
+    EXPECT_EQ(entry->short_flow, short_flow);
+    if (entry->short_flow != short_flow) {
+        return false;
+    }
+
+    if (reverse_hash_id == 0) {
+        bool ret = true;
+        FlowEntry *rev = entry->data.reverse_flow.get();
+
+        EXPECT_TRUE(entry->nat == false);
+        if (entry->nat == true)
+            ret = false;
+
+        EXPECT_EQ(entry->key.vrf, rev->key.vrf);
+        if (entry->key.vrf != rev->key.vrf)
+            ret = false;
+
+        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
+        if (entry->key.protocol != rev->key.protocol)
+            ret = false;
+
+        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
+        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+            ret = false;
+
+        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
+        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+            ret = false;
+
+        return ret;
+    }
+
+    if (reverse_hash_id > 0) {
+        FlowEntry *rev = entry->data.reverse_flow.get();
+        EXPECT_TRUE(rev != NULL);
+        if (rev == NULL) {
+            return false;
+        }
+
+        EXPECT_EQ(rev->flow_handle, reverse_hash_id);
+        if (rev->flow_handle != reverse_hash_id) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
+             uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
+             std::string svn, std::string dvn, uint32_t hash_id) {
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL) {
+        return false;
+    }
+
+    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
+    if (svn.compare(entry->data.source_vn) != 0) {
+        return false;
+    }
+
+    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
+    if (dvn.compare(entry->data.dest_vn) != 0) {
+        return false;
+    }
+
+    if (hash_id >= 0) {
+        EXPECT_EQ(entry->flow_handle, hash_id);
+        if (entry->flow_handle != hash_id) {
+            return false;
+        }
+    }
+
+    if (rflow) {
+        key.src.ipv4 = ntohl(inet_addr(dip));
+        key.dst.ipv4 = ntohl(inet_addr(sip));
+        key.src_port = dport;
+        key.dst_port = sport;
+        FlowEntry * rentry = table->Find(key);
+        EXPECT_TRUE(rentry != NULL);
+        if (rentry == NULL) {
+            return false;
+        }
+        EXPECT_TRUE(entry->data.reverse_flow == rentry);
+        EXPECT_TRUE(rentry->data.reverse_flow == entry);
+        if (entry->data.reverse_flow != rentry)
+            return false;
+        if (rentry->data.reverse_flow != entry)
+            return false;
+    } else {
+        bool ret = true;
+        FlowEntry *rev = entry->data.reverse_flow.get();
+
+        EXPECT_TRUE(entry->nat == false);
+        if (entry->nat == true)
+            ret = false;
+
+        EXPECT_EQ(entry->key.vrf, rev->key.vrf);
+        if (entry->key.vrf != rev->key.vrf)
+            ret = false;
+
+        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
+        if (entry->key.protocol != rev->key.protocol)
+            ret = false;
+
+        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
+        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+            ret = false;
+
+        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
+        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+            ret = false;
+
+        return ret;
+    }
+    return true;
+}
+
+bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
+             uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
+             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, bool nat) {
+
+    bool flow_fwd = false;
+    bool ret = FlowGet(vrf_name, sip, dip, proto, sport, dport, rflow,
+                    svn, dvn, hash_id);
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL) {
+        return false;
+    }
+
+    EXPECT_EQ(entry->nat, nat);
+    if (entry->nat != nat) {
+        ret = false;
+    }
+
+    if (entry->data.match_p.action_info.action & (1 << SimpleAction::PASS)) {
+        flow_fwd = true;
+    }
+    EXPECT_EQ(flow_fwd, fwd);
+    if (flow_fwd != fwd) {
+        ret = false;
+    }
+
+    return ret;
+}
+
+bool FlowStatsMatch(const string &vrf_name, const char *sip,
+                    const char *dip, uint8_t proto, uint16_t sport, 
+                    uint16_t dport, uint16_t pkts, uint16_t bytes) {
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *fe = table->Find(key);
+    EXPECT_TRUE(fe != NULL);
+    if (fe == NULL) {
+        return false;
+    }
+    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
+    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+        return true;
+    }
+
+    return false;
+}
+
+bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
+              const string &nat_vrf_name, const char *nat_sip,
+              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport) {
+
+    FlowTable *table = FlowTable::GetFlowTableObject();
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    EXPECT_TRUE(vrf != NULL);
+    if (vrf == NULL)
+        return false;
+
+    FlowKey key;
+    key.vrf = vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(sip));
+    key.dst.ipv4 = ntohl(inet_addr(dip));
+    key.src_port = sport;
+    key.dst_port = dport;
+    key.protocol = proto;
+
+    FlowEntry *entry = table->Find(key);
+    EXPECT_TRUE(entry != NULL);
+    if (entry == NULL) {
+        return false;
+    }
+
+    if (nat == false) {
+        EXPECT_TRUE(entry->data.reverse_flow == NULL);
+        if (entry->data.reverse_flow == NULL)
+            return true;
+
+        return false;
+    }
+
+    VrfEntry *nat_vrf = Agent::GetVrfTable()->FindVrfFromName(nat_vrf_name);
+    EXPECT_TRUE(nat_vrf != NULL);
+    if (nat_vrf == NULL)
+        return false;
+
+    key.vrf = nat_vrf->GetVrfId();
+    key.src.ipv4 = ntohl(inet_addr(nat_dip));
+    key.dst.ipv4 = ntohl(inet_addr(nat_sip));
+    key.src_port = nat_dport;
+    key.dst_port = nat_sport;
+    key.protocol = proto;
+
+    FlowEntry *nat_entry = table->Find(key);
+    EXPECT_TRUE(nat_entry != NULL);
+    if (nat_entry == NULL) {
+        return false;
+    }
+
+    EXPECT_EQ(entry->data.reverse_flow, nat_entry);
+    EXPECT_EQ(nat_entry->data.reverse_flow, entry);
+
+    if ((entry->data.reverse_flow == nat_entry) &&
+        (nat_entry->data.reverse_flow == entry)) {
+        return true;
+    }
+
+    return false;
+}
+
+PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
+                        int sport, int dport, uint32_t hash_idx) {
+    PktGen *pkt = new PktGen();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
+    pkt->AddTcpHdr(sport, dport, 64);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    delete pkt;
+}
+
+PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
+                       int proto, int hash_id) {
+    PktGen *pkt = new PktGen();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id);
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr(sip, dip, proto);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    delete pkt;
+}
+
+int MplsToVrfId(int label) {
+    int vrf = 0;
+    MplsLabel *mpls = Agent::GetMplsTable()->FindMplsLabel(label);
+    if (mpls) {
+        const NextHop *nh = mpls->GetNextHop();
+        if (nh->GetType() == NextHop::INTERFACE) {
+            const InterfaceNH *nh1 = static_cast<const InterfaceNH *>(nh);
+            const VmPortInterface *intf = 
+                static_cast<const VmPortInterface *>(nh1->GetInterface());
+            if (intf && intf->GetVrf()) {
+                vrf = intf->GetVrf()->GetVrfId();
+            }
+        } else if (nh->GetType() == NextHop::COMPOSITE) {
+            const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
+            vrf = nh1->GetVrf()->GetVrfId();
+        } else if (nh->GetType() == NextHop::VLAN) {
+            const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
+            const VmPortInterface *intf =
+                static_cast<const VmPortInterface *>(nh1->GetInterface());
+            if (intf && intf->GetServiceVlanVrf(nh1->GetVlanTag())) {
+                vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->GetVrfId();
+            }
+        } else {
+            assert(0);
+        }
+    }
+    return vrf;
+}
+
+PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
+                            const char *out_dip, uint32_t label, 
+                            const char *sip, const char *dip, 
+                            int proto, int hash_idx) {
+    PktGen *pkt = new PktGen();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label));
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
+    pkt->AddGreHdr();
+    pkt->AddMplsHdr(label, true);
+    pkt->AddIpHdr(sip, dip, proto);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    delete pkt;
+}
+
+PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
+                            const char *out_dip, uint32_t label, 
+                            const char *sip, const char *dip, 
+                            int sport, int dport, int hash_idx) {
+    PktGen *pkt = new PktGen();
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_idx, MplsToVrfId(label));
+    pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
+    pkt->AddIpHdr(out_sip, out_dip, IPPROTO_GRE);
+    pkt->AddGreHdr();
+    pkt->AddMplsHdr(label, true);
+    pkt->AddIpHdr(sip, dip, IPPROTO_TCP);
+    pkt->AddTcpHdr(sport, dport, 64);
+
+    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
+    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
+    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    delete pkt;
+}
+
+bool RouterIdMatch(Ip4Address rid2) {
+    Ip4Address rid1 = Agent::GetRouterId();
+    int ret = rid1.to_string().compare(rid2.to_string());
+    EXPECT_TRUE(ret == 0);
+    if (ret) {
+        return false;
+    }
+    return true;
+}
+
+bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL) {
+        LOG(DEBUG, "VRF not found " << vrf_name);
+        return false;
+    }
+
+    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    if (route == NULL) {
+        LOG(DEBUG, "Resolve route not found");
+        return false;
+    }
+
+    const NextHop *nh = route->GetActiveNextHop();
+    if (nh == NULL) {
+        LOG(DEBUG, "NH not found for Resolve route");
+        return false;
+    }
+
+    EXPECT_TRUE(nh->GetType() == NextHop::RESOLVE);
+    if (nh->GetType() != NextHop::RESOLVE) {
+        LOG(DEBUG, "NH type is not resolve " << nh->GetType());
+        return false;
+    }
+    return true;
+}
+
+bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
+                        int plen) {
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL) {
+        LOG(DEBUG, "VRF not found " << vrf_name);
+        return false;
+    }
+
+    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    if (route == NULL) {
+        LOG(DEBUG, "Vhost Receive route not found");
+        return false;
+    }
+
+    const NextHop *nh = route->GetActiveNextHop();
+    if (nh == NULL) {
+        LOG(DEBUG, "NH not found for Vhost Receive route");
+        return false;
+    }
+
+    EXPECT_TRUE(nh->GetType() == NextHop::RECEIVE);
+    if (nh->GetType() != NextHop::RECEIVE) {
+        LOG(DEBUG, "NH type is not receive " << nh->GetType());
+        return false;
+    }
+
+    return true;
+}
+
+uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
+
+    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+
+    Inet4UcRoute *route = static_cast<Inet4UcRoute *>
+                            (vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    if (route == NULL) {
+        return 0;
+    }
+
+    return route->GetPathList().size();
+}
+
+bool FindMplsLabel(MplsLabel::Type type, uint32_t label) {
+    MplsLabelKey key(type, label);
+    MplsLabel *mpls = static_cast<MplsLabel *>(Agent::GetMplsTable()->FindActiveEntry(&key));
+    return (mpls != NULL);
+}
+
+MplsLabel* GetMplsLabel(MplsLabel::Type type, uint32_t label) {
+    MplsLabelKey key(type, label);
+    return static_cast<MplsLabel *>(Agent::GetMplsTable()->FindActiveEntry(&key));
+}
+
+bool FindNH(NextHopKey *key) {
+    return (Agent::GetNextHopTable()->FindActiveEntry(key) != NULL);
+}
+
+NextHop *GetNH(NextHopKey *key) {
+    return static_cast<NextHop *>
+        (Agent::GetNextHopTable()->FindActiveEntry(key));
+}
+
+bool VmPortServiceVlanCount(int id, unsigned int count) {
+    VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(id));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL) {
+        return false;
+    }
+
+    EXPECT_EQ(intf->GetServiceVlanList().size(), count);
+    if (intf->GetServiceVlanList().size() != count) {
+        return false;
+    }
+    return true;
+}

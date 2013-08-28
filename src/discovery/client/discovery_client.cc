@@ -1,0 +1,584 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "base/util.h"
+#include "base/logging.h"
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_types.h>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/bind.hpp>
+#include <boost/functional/hash.hpp>
+#include <discovery/client/discovery_client_types.h>
+
+#include "discovery_client.h"
+#include "xml/xml_base.h"                                                                         
+#include "xml/xml_pugi.h"                                                                              
+
+using namespace std; 
+namespace ip = boost::asio::ip;
+
+const char *DiscoveryServiceClient::IFMapService = "ifmap-server";
+const char *DiscoveryServiceClient::XmppService = "xmpp-server";
+const char *DiscoveryServiceClient::CollectorService = "collector-server";
+const char *DiscoveryServiceClient::DNSService = "dns-server";
+
+SandeshTraceBufferPtr DiscoveryClientTraceBuf(SandeshTraceBufferCreate(
+    "DiscoveryClient", 1000));
+
+/*************** Discovery Service Subscribe Response Message Header **********/
+DSResponseHeader::DSResponseHeader(std::string serviceName, uint8_t numbOfInstances, 
+                                   EventManager *evm,
+                                   DiscoveryServiceClient *ds_client) 
+    : serviceName_(serviceName), numbOfInstances_(numbOfInstances),
+      chksum_(0),
+      subscribe_timer_(TimerManager::CreateTimer(*evm->io_service(), "Subscribe Timer",
+                       TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
+      ds_client_(ds_client), subscribe_msg_(""), attempts_(0),
+      sub_sent_(0), sub_rcvd_(0), sub_ttl_sent_(0) {
+}
+
+DSResponseHeader::~DSResponseHeader() {
+    service_list_.clear();
+    TimerManager::DeleteTimer(subscribe_timer_);
+}
+
+int DSResponseHeader::GetConnectTime() const {
+    int backoff = min(attempts_, 6);
+    // kConnectInterval = 30secs 
+    return std::min(backoff ? 1 << (backoff - 1) : 0, 30);
+}
+
+bool DSResponseHeader::SubscribeTimerExpired() {
+    // Resend subscription request
+    ds_client_->Subscribe(serviceName_, numbOfInstances_); 
+    return false;
+}
+
+void DSResponseHeader::StartSubscribeTimer(int seconds) {
+    subscribe_timer_->Cancel(); 
+    subscribe_timer_->Start(seconds * 1000,
+        boost::bind(&DSResponseHeader::SubscribeTimerExpired, this));
+}
+
+/**************** Discovery Service Publish Response Message ******************/
+DSPublishResponse::DSPublishResponse(std::string serviceName, 
+                                     EventManager *evm,
+                                     DiscoveryServiceClient *ds_client)
+    : serviceName_(serviceName), 
+      publish_hb_timer_(TimerManager::CreateTimer(*evm->io_service(), "Publish Timer",
+                        TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
+      publish_conn_timer_(TimerManager::CreateTimer(*evm->io_service(), "Publish Conn Timer",
+                          TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
+      socket_(*evm->io_service()), ds_client_(ds_client), publish_msg_(""), attempts_(0),
+      pub_sent_(0), pub_rcvd_(0), pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0) {
+
+    socket_.open(ip::udp::v4());
+    socket_.async_receive(boost::asio::buffer(recv_buf, MAX_HB_SIZE),
+                          boost::bind(&DSPublishResponse::DSPublishHeartBeatResponse, this,
+                                      boost::asio::placeholders::error,
+                                      boost::asio::placeholders::bytes_transferred));
+}
+
+DSPublishResponse::~DSPublishResponse() {
+    assert(publish_conn_timer_->cancelled() == true);
+    assert(publish_hb_timer_->cancelled() == true);
+
+    TimerManager::DeleteTimer(publish_hb_timer_);
+    TimerManager::DeleteTimer(publish_conn_timer_);
+    socket_.cancel();
+    socket_.close();
+}
+
+void DSPublishResponse::DSPublishHeartBeatResponse(const boost::system::error_code &error,
+                                                   size_t bytes_transferred) {
+    pub_hb_rcvd_++;
+    std::string resp_code;
+    if (!error) {
+        resp_code.clear();
+        resp_code.assign(recv_buf, recv_buf + bytes_transferred);
+        if (resp_code.find("200 OK") == std::string::npos) {
+            //response is not OK, resend publish
+            StopHeartBeatTimer(); 
+            ds_client_->Publish(serviceName_); 
+        }
+
+        socket_.async_receive(boost::asio::buffer(recv_buf, MAX_HB_SIZE),
+                              boost::bind(&DSPublishResponse::DSPublishHeartBeatResponse, this,
+                                          boost::asio::placeholders::error,
+                                          boost::asio::placeholders::bytes_transferred));
+    }
+}
+
+bool DSPublishResponse::HeartBeatTimerExpired() {
+
+    boost::system::error_code ec;
+    // Send publisher cookie generated by DSS in HeartBeat 
+#ifdef BUILD_DOM_TREE
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    impl->LoadDoc(""); 
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi->AddNode("cookie", cookie_);
+    uint8_t send_buf[1024];
+    int len = impl->WriteRawDoc(send_buf);
+    socket_.send_to(boost::asio::buffer(send_buf,len), dss_ep_, 0, ec);
+#else 
+    stringstream hb;
+    hb << "<cookie>" << cookie_ << "</cookie>" ;
+    uint8_t send_buf[1024];
+    bzero(send_buf, 1024);
+    memcpy(send_buf, hb.str().c_str(), hb.str().size());
+    socket_.send_to(boost::asio::buffer(send_buf, hb.str().size()), dss_ep_, 0, ec);
+#endif
+    if (ec) {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "HeartBeat Send Failed",
+                               publish_msg_, ec.message());
+        pub_hb_fail_++;
+    } else {
+        pub_hb_sent_++;
+    }
+
+    //
+    // Start the timer again, by returning true
+    //
+    return true;
+}
+
+void DSPublishResponse::StartHeartBeatTimer(int seconds) {
+    // TODO lock needed??
+    publish_hb_timer_->Start(seconds * 1000,
+        boost::bind(&DSPublishResponse::HeartBeatTimerExpired, this));
+}
+
+void DSPublishResponse::StopHeartBeatTimer() {
+    publish_hb_timer_->Cancel();
+}
+
+int DSPublishResponse::GetConnectTime() const {
+    int backoff = min(attempts_, 6);
+    // kConnectInterval = 30secs 
+    return std::min(backoff ? 1 << (backoff - 1) : 0, 30);
+}
+
+bool DSPublishResponse::PublishConnectTimerExpired() {
+    // Resend subscription request
+    ds_client_->Publish(serviceName_); 
+    return false;
+}
+
+void DSPublishResponse::StopPublishConnectTimer() {
+    publish_conn_timer_->Cancel();
+}
+
+void DSPublishResponse::StartPublishConnectTimer(int seconds) {
+    // TODO lock needed??
+    StopPublishConnectTimer();
+    publish_conn_timer_->Start(seconds * 1000,
+        boost::bind(&DSPublishResponse::PublishConnectTimerExpired, this));
+}
+
+/******************* DiscoveryServiceClient ************************************/
+DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
+                                               boost::asio::ip::tcp::endpoint ep) 
+    : http_client_(new HttpClient(evm)),
+      evm_(evm), ds_endpoint_(ep), 
+      work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
+                  boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)) {
+}
+
+void DiscoveryServiceClient::Init() {
+    http_client_->Init();
+}
+
+void DiscoveryServiceClient::Shutdown() {
+    // Cleanup subscribed services
+    for (ServiceResponseMap::const_iterator iter = service_response_map_.begin(), next = iter;
+         iter != service_response_map_.end(); iter = next)  {
+         next++;
+         Unsubscribe(iter->first);
+    }
+         
+    // Cleanup published services 
+    for (PublishResponseMap::const_iterator iter = publish_response_map_.begin(), next = iter;
+         iter != publish_response_map_.end(); iter = next)  {
+         next++;
+         WithdrawPublish(iter->first);
+    }
+
+    http_client_->Shutdown();
+}
+
+DiscoveryServiceClient::~DiscoveryServiceClient() {
+    TcpServerManager::DeleteServer(http_client_);
+} 
+
+bool DiscoveryServiceClient::DequeueEvent(EnqueuedCb cb) {
+    cb();
+    return true;
+}
+
+/*
+ * The client code needs to add the following based on the service(eg:IFMapService)
+ *
+ *  1) IFMapService ifmap_svc;
+ *     ifmap_svc.ip_addr = "127.0.0.1"
+ *     ifmap_svc.port = "5678"
+ *
+ *  2) DiscoverService ds(ep);
+ *     ds.Publish(DiscoveryServiceClient::IFMapService, ifmap_svc)
+ *
+ * int BuildPublishXmlMessage(std:string ServiceName, AutogenProperty &ServiceObj, uint8_t *buf) {
+ *
+ *   ServiceName obj = static_cast<ServiceName>(ServiceObj);
+ *   std:string service_tag = service_name_map_.find(ServiceName)->second;
+ *
+ *    //Build the DOM tree                                 
+ *   auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl()); 
+ *   XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+ *   pugi->AddNode(service_tag);
+ *   pugi::xml_node node = pugi->FindNode(service_tag)
+ *   obj.Encode(&node);
+ *   
+ *   return (impl->WriteRawDoc(buf));
+ * }
+ *
+ */
+
+/*
+void Publish(std::string ServiceName, AutogenProperty &ServiceObj) {
+    uint8_t buf[4096];
+
+    stringstream ss;
+    bzero(buf, sizeof(buf));
+    int buflen = BuildPublishXmlMessage(ServiceName, ServiceObj, buf);
+    if (buflen) {
+        stringstream url;
+        url << "http://" << ds_endpoint_.address().to_string() << "/" <<
+                            ds_endpoint_.port() << "/publish";
+        SendHttpMessage(url, buf);
+    }
+   
+    //Start periodic heartbeat, timer per service 
+}
+*/
+
+void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls, 
+                                                    boost::system::error_code ec, 
+                                                    std::string serviceName,
+                                                    HttpConnection *conn) {
+
+    // Delete the connection
+    // Revisit Connection deletion for error cases  
+    //       i.e, no response from DSS
+    // handled in http client libarary
+    if (conn) { 
+        http_client_->RemoveConnection(conn);
+    }
+
+    // Get Response Header
+    DSPublishResponse *resp = NULL;
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        resp = loc->second;
+    } else {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler", 
+                               serviceName, "serviceName not in PublishResponseMap");
+        LOG(ERROR, "Stray Publish Response serviceName:" << serviceName);
+        return;
+    }
+
+    resp->pub_rcvd_++;
+    if (xmls.empty()) {
+        // No response from DSS
+       
+        if (ec.value() > 0) {
+            // exponential back-off and retry
+            resp->attempts_++; 
+            resp->StartPublishConnectTimer(resp->GetConnectTime());
+        }
+        return;
+    }
+
+    //Parse the xml string and build DSResponse
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(xmls) == -1) {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler", 
+                               serviceName, "Loading Xml Doc failed!");
+        return;
+    }
+
+    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler",
+                           serviceName, xmls);
+    //Extract cookie from message
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi::xml_node node = pugi->FindNode("cookie");
+    resp->cookie_ = node.child_value();
+    //Start periodic heartbeat, timer per service 
+    resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+
+}
+
+void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) {
+    //TODO save message for replay
+    DSPublishResponse *pub_msg = new DSPublishResponse(serviceName, evm_, this);
+    pub_msg->dss_ep_.address(ds_endpoint_.address());
+    pub_msg->dss_ep_.port(ds_endpoint_.port());
+    pub_msg->publish_msg_ = msg;
+    pub_msg->pub_sent_++;
+
+    //save it in a map
+    publish_response_map_.insert(make_pair(serviceName, pub_msg)); 
+     
+    SendHttpPostMessage("publish", serviceName, msg); 
+}
+
+void DiscoveryServiceClient::Publish(std::string serviceName) {
+
+    // Get Response Header
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+
+        DSPublishResponse *resp = loc->second;
+        SendHttpPostMessage("publish", serviceName, resp->publish_msg_);
+    }
+}
+
+void DiscoveryServiceClient::WithdrawPublishInternal(std::string serviceName) {
+
+    PublishResponseMap::iterator loc = publish_response_map_.find(serviceName);
+    if (loc != publish_response_map_.end()) {
+        DSPublishResponse *resp = loc->second;    
+
+        resp->StopPublishConnectTimer();
+        resp->StopHeartBeatTimer();
+       
+        publish_response_map_.erase(loc);
+        delete resp;
+    }
+}
+
+void DiscoveryServiceClient::WithdrawPublish(std::string serviceName) {
+    work_queue_.Enqueue(boost::bind(&DiscoveryServiceClient::WithdrawPublishInternal,
+                                    this, serviceName));
+}
+
+// Register application specific Response cb
+void DiscoveryServiceClient::RegisterSubscribeResponseHandler(std::string serviceName,
+                                                              ServiceHandler cb) {
+    subscribe_map_.insert(make_pair(serviceName, cb));
+}
+
+void DiscoveryServiceClient::UnRegisterSubscribeResponseHandler(std::string serviceName) {
+    subscribe_map_.erase(serviceName);
+}
+
+void DiscoveryServiceClient::Subscribe(std::string subscriber_name,
+                                       std::string serviceName, uint8_t numbOfInstances, 
+                                       ServiceHandler cb) {
+    //Register the callback handler
+    RegisterSubscribeResponseHandler(serviceName, cb); 
+
+    //Build the DOM tree                                 
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    impl->LoadDoc(""); 
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    pugi->AddNode(serviceName, "");
+
+    stringstream inst;
+    inst << static_cast<int>(numbOfInstances);
+    pugi->AddChildNode("instances", inst.str());
+
+    pugi->ReadNode(serviceName); //Reset parent
+
+    boost::uuids::uuid u = boost::uuids::random_generator()();
+    std::string uuid_str = to_string(u);
+    if (!subscriber_name.empty())
+        uuid_str = uuid_str + subscriber_name;
+    pugi->AddChildNode("client", uuid_str);
+        
+    stringstream ss; 
+    impl->PrintDoc(ss);
+
+    // Create Response Header
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc == service_response_map_.end()) {
+        DSResponseHeader *resp = new DSResponseHeader(serviceName, numbOfInstances,
+                                                      evm_, this);
+        //cache the request
+        resp->subscribe_msg_ = ss.str();
+        resp->sub_sent_++;
+        service_response_map_.insert(make_pair(serviceName, resp));
+    }
+
+    SendHttpPostMessage("subscribe", serviceName, ss.str()); 
+}
+
+void DiscoveryServiceClient::Subscribe(std::string serviceName, uint8_t numbOfInstances) {
+    // Get Response Header
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc != service_response_map_.end()) {
+
+        DSResponseHeader *resp = loc->second;
+        resp->sub_ttl_sent_++;
+        SendHttpPostMessage("subscribe", serviceName, resp->subscribe_msg_);
+    }
+}
+
+void DiscoveryServiceClient::UnsubscribeInternal(std::string serviceName) {
+
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc != service_response_map_.end()) {
+        DSResponseHeader *resp = loc->second;
+
+        service_response_map_.erase(loc);
+        delete resp;
+
+        /* Remove registered subscribe callback handler */
+        UnRegisterSubscribeResponseHandler(serviceName);
+    }
+}
+
+
+void DiscoveryServiceClient::Unsubscribe(std::string serviceName) {
+    work_queue_.Enqueue(boost::bind(&DiscoveryServiceClient::UnsubscribeInternal, 
+                                    this, serviceName));
+}
+
+void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
+                                                      boost::system::error_code &ec,
+                                                      std::string serviceName,
+                                                      HttpConnection *conn)
+{
+
+    // Delete the connection
+    // Revisit Connection deletion for error cases  
+    //       i.e, no response from DSS
+    // handled in http client libarary
+    if (conn) { 
+        http_client_->RemoveConnection(conn);
+    } 
+
+    // Get Response Header
+    DSResponseHeader *hdr = NULL; 
+    ServiceResponseMap::iterator loc = service_response_map_.find(serviceName);
+    if (loc != service_response_map_.end()) {
+        hdr = loc->second;
+    } else {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
+                               serviceName, "serviceName not in ServiceResponseMap");
+        LOG(ERROR, "Stray Subscribe Response serviceName:" << serviceName);
+        return;
+    }
+
+    hdr->sub_rcvd_++;
+    if (xmls.empty()) {
+        // No response from DSS
+        if (ec.value() > 0) {
+            hdr->attempts_++;
+            //Use subscribe timer as connect timer 
+            hdr->StartSubscribeTimer(hdr->GetConnectTime());
+        }
+        return;
+    }
+
+    //Parse the xml string and build DSResponse
+    auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+    if (impl->LoadDoc(xmls) == -1) {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg,  "SubscribeResponseHandler",
+                               serviceName, "Loading Xml Doc failed!!");
+        return;
+    }
+
+    DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
+                           serviceName, xmls);
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+    //Extract ttl
+    uint32_t ttl = 0;
+    stringstream docs;
+    pugi::xml_node node_ttl = pugi->FindNode("ttl");
+    if (!pugi->IsNull(node_ttl)) {
+        string value(node_ttl.child_value());
+        boost::trim(value);
+        stringstream ss(value);
+        ss >> ttl; 
+
+        // Delete ttl for checksum calculation
+        pugi->DeleteNode("ttl");
+        impl->PrintDoc(docs);
+    }
+
+    pugi::xml_node node = pugi->FindNode("response");
+    std::vector<DSResponse> ds_response;
+    if (!pugi->IsNull(node)) {
+        std::string serviceTag = node.first_child().name();
+        for (node = node.first_child(); node; node = node.next_sibling()) {
+       
+            DSResponse resp;
+            /* TODO: autogenerate with <choice> support */
+            for (pugi::xml_node subnode = node.first_child(); subnode; 
+                 subnode = subnode.next_sibling()) {
+                string value(subnode.child_value());
+                boost::trim(value);
+                if (strcmp(subnode.name(), "ip-address") == 0) {
+                    resp.ep.address(ip::address::from_string(value));
+                } else  if (strcmp(subnode.name(), "port") == 0) {
+                    uint32_t port; 
+                    stringstream sport(value);
+                    sport >> port; 
+                    resp.ep.port(port);
+                }
+            } 
+            ds_response.push_back(resp);
+        }
+
+
+        // generate hash of the message
+        boost::hash<std::string> string_hash;
+        uint32_t gen_chksum = string_hash(docs.str());
+
+        if ((hdr->chksum_ == gen_chksum) || (ds_response.size() == 0)) {
+            //Restart Subscribe Timer
+            hdr->StartSubscribeTimer(ttl);
+            return; //No change in message, ignore
+        }
+
+        // Update DSResponseHeader for first response or change in response
+        hdr->chksum_ = gen_chksum;
+
+        hdr->service_list_.clear();
+        hdr->service_list_ = ds_response;
+
+        //Start Subscribe Timer
+        hdr->StartSubscribeTimer(ttl);
+
+        // Call the Registered Handler building DSResponse from xml-string
+        SubscribeResponseHandlerMap::iterator it = subscribe_map_.find(serviceName);
+        if (it != subscribe_map_.end()) {
+            ServiceHandler cb = it->second;
+            cb(ds_response); 
+        } 
+    }
+}
+
+void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type, 
+                                                 std::string serviceName,
+                                                 std::string msg) {
+
+    HttpConnection *conn = http_client_->CreateConnection(ds_endpoint_);
+    if (msg_type.compare("subscribe") == 0) {
+        conn->HttpPut(msg, msg_type,
+            boost::bind(&DiscoveryServiceClient::SubscribeResponseHandler,
+                        this, _1, _2, serviceName, conn));
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
+                               msg_type, serviceName, msg);
+    } else if (msg_type.compare("publish") == 0) {
+        conn->HttpPut(msg, msg_type,
+            boost::bind(&DiscoveryServiceClient::PublishResponseHandler,
+                        this, _1, _2, serviceName, conn));
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
+                               msg_type, serviceName, msg);
+    }
+
+}

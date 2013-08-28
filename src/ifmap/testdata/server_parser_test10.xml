@@ -1,0 +1,65 @@
+<ns3:Envelope xmlns:ns2="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:ns3="http://www.w3.org/2003/05/soap-envelope">
+  <ns3:Body>
+    <ns2:response>
+      <pollResult>
+        <updateResult name="root">
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-router:vr1"/>
+            <metadata>
+              <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00">
+                <uuid>
+                  <uuid-mslong>10114780778358916900</uuid-mslong>
+                  <uuid-lslong>13060168454144086900</uuid-lslong>
+                </uuid>
+                <created/>
+                <last-modified/>
+              </contrail:id-perms>
+            </metadata>
+          </resultItem>
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-machine:vm1"/>
+            <metadata>
+              <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00">
+                <uuid>
+                  <uuid-mslong>10114780778358916901</uuid-mslong>
+                  <uuid-lslong>13060168454144086901</uuid-lslong>
+                </uuid>
+                <created/>
+                <last-modified/>
+              </contrail:id-perms>
+            </metadata>
+          </resultItem>
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-router:vr1"/>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-machine:vm1"/>
+            <metadata>
+              <contrail:virtual-router-virtual-machine xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00"/>
+            </metadata>
+          </resultItem>
+        </updateResult>
+	<deleteResult name="root">
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-router:vr1"/>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-machine:vm1"/>
+            <metadata>
+              <contrail:virtual-router-virtual-machine xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00"/>
+            </metadata>
+          </resultItem>
+          <resultItem>
+            <identity other-type-definition="extended" type="other" name="contrail:virtual-router:vr1"/>
+            <metadata>
+              <contrail:id-perms xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" ifmap-cardinality="singleValue" ifmap-publisher-id="test--1870931913-1" ifmap-timestamp="2012-11-03T20:33:33+00:00">
+                <uuid>
+                  <uuid-mslong>10114780778358916900</uuid-mslong>
+                  <uuid-lslong>13060168454144086900</uuid-lslong>
+                </uuid>
+                <created/>
+                <last-modified/>
+              </contrail:id-perms>
+            </metadata>
+          </resultItem>
+	</deleteResult>
+      </pollResult>
+    </ns2:response>
+  </ns3:Body>
+</ns3:Envelope>

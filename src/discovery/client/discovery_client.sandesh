@@ -1,0 +1,9 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+trace sandesh DiscoveryClientMsg {
+    1: string type;
+    2: string serviceName;
+    3: string msg;
+}

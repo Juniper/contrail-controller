@@ -1,0 +1,98 @@
+#!/bin/bash
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+usage () {
+  echo "usage: $0 [-h|start|stop|restart|status] <service-name>"
+  echo " Starts/Stops/Restarts a contrail service"
+}
+
+while getopts ':h?' OPTION
+do
+  case $OPTION in
+  h) usage
+     exit 2
+     ;;
+  ?) usage
+     exit 2
+     ;;
+  esac
+done
+
+if [ "$#" -ne 2 ]; then
+    usage
+	#echo "Error: Expects 2 arguments"
+	exit 1
+fi
+
+case $1 in 
+	"start" | "stop" | "restart" | "status")
+		;;
+	*)
+		echo "Error: Unknown service operation:" $1
+		exit 1
+		;;
+esac
+	
+case $2 in
+	"contrail-collector"| "contrail-opserver"| "contrail-qe"| "contrail-analytics-nodemgr"| "redis-query"| "redis-sentinel"| "redis-uve")
+        	export supervisor_port=9002
+		;;
+        "contrail-control")
+                if [ -e /etc/init.d/contrail-control ]; then
+                    service contrail-control $1
+                    exit 0   
+                else 
+        	    export supervisor_port=9003
+                fi
+		;;
+        "contrail-api"|"contrail-schema"|"contrail-svc-monitor"|"contrail-discovery"|"ifmap")
+        	export supervisor_port=9004
+		;;
+        "contrail-vrouter")
+                if [ -e /etc/init.d/contrail-vrouter ]; then
+                    service $2 $1
+                    exit 0   
+                else 
+        	    export supervisor_port=9005
+                fi
+		;;
+        "contrail-dns"|"contrail-name")
+                if [ -e /etc/init.d/contrail-dns ]; then
+                    service $2 $1
+                    exit 0   
+                else 
+        	    export supervisor_port=9006
+                fi
+		;;
+
+        "all-config")
+		if [ $1 == "status" ]; then
+			supervisorctl -s http://localhost:9004 $1
+		else		
+			supervisorctl -s http://localhost:9004 $1 all
+		fi
+		exit 0
+		;;
+	*)
+		echo "Error: Unknown service:" $2
+		exit 1
+		;;
+esac
+
+case $1 in 
+	"start" | "stop" | "restart")
+		supervisorctl -s http://localhost:$supervisor_port $1 $2
+		;;
+
+    "status")
+        supervisorctl -s http://localhost:$supervisor_port status $2| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+        ;;
+
+	*)
+		echo "Error: Unknown service operation:" $1
+		exit 1
+		;;
+esac
+	

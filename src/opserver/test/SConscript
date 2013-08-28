@@ -1,0 +1,45 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('OpEnv')
+
+env = OpEnv.Clone()
+
+local_sources = [
+                 'uveserver_test.py',
+                 'analytics_systest.py',
+                 ]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install('.', '#controller/src/opserver/test/' + file))
+
+local_dirs = ['utils']
+local_dirs_rules = []
+for dir in local_dirs:
+    files = Glob('#controller/src/opserver/test/' + dir + '/*.py')  
+    local_dirs_rules.append(env.Install(dir, files))    
+          
+generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh') 
+generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
+generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
+
+generator_sandesh_dirs = ['virtual_machine', 'flow']
+generator_sandesh_srcs = ['gen_py/' + src for src in generator_sandesh_dirs]
+generator_sandesh_rules = []
+for file in generator_sandesh_srcs:
+    generator_sandesh_rules.append(env.Install('sandesh', file))
+
+generator_inc_dirs = ['port_bmap'] 
+generator_inc_srcs = ['gen_py/' + src for src in generator_inc_dirs]
+for file in generator_inc_srcs:
+    generator_sandesh_rules.append(env.Install('opserver', file))
+
+env.Depends(generator_sandesh_rules, generator_sandesh_files)
+env.Depends(local_sources_rules, [generator_sandesh_rules, local_dirs_rules])
+
+test = env.PyTestSuite('opserver-test', local_sources)
+
+env.Alias('src/opserver:test', test)

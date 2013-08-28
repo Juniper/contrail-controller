@@ -1,0 +1,35 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+import sys
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = env['TOP'])
+
+env.Append(LIBPATH = env['TOP'] + '/io')
+env.Append(LIBPATH = env['TOP'] + '/db')
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/bgp')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/xml')
+env.Append(LIBPATH = env['TOP'] + '/xmpp')
+env.Append(LIBPATH = env['TOP'] + '/schema')
+
+env.Prepend(LIBS = [
+                    'ifmapio', 'ifmap_server', 'xmpp', 'peer_sandesh', 'sandesh', 'http',
+                    'http_parser', 'sandeshvns', 'io', 'ifmap_common', 
+                    'ifmap_vnc', 'ifmap_server', 'pugixml', 'xml', 'task_test',
+                    'db', 'curl', 'base', 'gunit', 'crypto', 'ssl',
+                    'boost_regex'
+                   ])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+ifmap_state_machine_test = env.Program('ifmap_state_machine_test',
+                                       ['ifmap_state_machine_test.cc'])
+env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)

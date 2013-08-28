@@ -1,0 +1,269 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+/** Definitions for showing 'type' tables - IFMapNode/IFMapObject **/
+
+struct IFMapObjectShowInfo {
+    1: i64 sequence_number;
+    2: string origin;
+    3: string data;
+}
+
+struct IFMapNodeShowInfo {
+    1: string node_name;
+    2: string interests;
+    3: string advertised;
+    4: string dbentryflags;
+    5: list<IFMapObjectShowInfo> obj_info;
+    6: list<string> neighbors;
+    7: string last_modified;
+}
+
+// Show all the nodes in the IFMap db
+request sandesh IFMapTableShowReq {
+    1: string table_name;
+}
+
+response sandesh IFMapTableShowResp {
+    1: list<IFMapNodeShowInfo> ifmap_db;
+}
+
+/** Definitions for showing link table - IFMapLink **/
+
+struct IFMapLinkShowInfo {
+    1: string metadata;
+    2: string left (link="IFMapNodeShowReq")
+    3: string right (link="IFMapNodeShowReq")
+    4: string interests;
+    5: string advertised;
+    6: string dbentryflags;
+    7: string last_modified;
+}
+
+// Show all the nodes in the IFMap link table
+request sandesh IFMapLinkTableShowReq {
+}
+
+response sandesh IFMapLinkTableShowResp {
+    1: list<IFMapLinkShowInfo> ifmap_db;
+}
+
+/** Definitions for showing the internal Update Queue **/
+
+struct UpdateQueueShowEntry {
+    1: string node_name;
+    2: string qe_type;
+    3: string qe_bitset;
+}
+
+request sandesh IFMapUpdateQueueShowReq {
+}
+
+response sandesh IFMapUpdateQueueShowResp {
+    1: list<UpdateQueueShowEntry> queue;
+}
+
+/** Definitions for showing XMPP client details **/
+
+struct VmRegInfo {
+    1: i32 vm_count;
+    2: list<string> vm_list;
+}
+
+struct IFMapXmppClientInfo {
+    1: string client_name;
+    2: i32 client_index;
+    3: u64 msgs_sent;
+    4: u64 msgs_blocked;
+    5: bool is_blocked;
+    6: VmRegInfo vm_reg_info;
+}
+
+request sandesh IFMapXmppClientInfoShowReq {
+}
+
+response sandesh IFMapXmppClientInfoShowResp {
+    1: list<IFMapXmppClientInfo> client_stats;
+}
+
+/** Definitions for showing client_map_ and index_map_ in IFMapServer **/
+
+struct IFMapServerClientMapShowEntry {
+    1: string client_name;
+}
+
+struct IFMapServerShowClientMap {
+    1: i32 count;
+    2: list<IFMapServerClientMapShowEntry> clients;
+}
+
+struct IFMapServerIndexMapShowEntry {
+    1: i32 client_index;
+    2: string client_name;
+}
+
+struct IFMapServerShowIndexMap {
+    1: i32 count;
+    2: list<IFMapServerIndexMapShowEntry> clients;
+}
+
+request sandesh IFMapServerClientShowReq {
+}
+
+response sandesh IFMapServerClientShowResp {
+    1: IFMapServerShowClientMap name_list;
+    2: IFMapServerShowIndexMap index_list;
+}
+
+/** Definitions for showing all the nodes that should have gone to a client **/
+
+struct IFMapPerClientNodesShowInfo {
+    1: string node_name (link="IFMapNodeShowReq")
+    2: string sent;
+}
+
+request sandesh IFMapPerClientNodesShowReq {
+    1: i32 client_index;
+}
+
+response sandesh IFMapPerClientNodesShowResp {
+    1: list<IFMapPerClientNodesShowInfo> node_db;
+}
+
+/** Definitions for showing all the links that should have gone to a client **/
+
+struct IFMapPerClientLinksShowInfo {
+    1: string metadata;
+    2: string left (link="IFMapNodeShowReq")
+    3: string right (link="IFMapNodeShowReq")
+    4: string sent;
+}
+
+request sandesh IFMapPerClientLinksShowReq {
+    1: i32 client_index;
+}
+
+response sandesh IFMapPerClientLinksShowResp {
+    1: list<IFMapPerClientLinksShowInfo> link_db;
+}
+
+/** Definitions for showing a single IFMapNode/IFMapObject **/
+
+request sandesh IFMapNodeShowReq {
+    1: string fq_node_name;
+}
+
+response sandesh IFMapNodeShowResp {
+    1: IFMapNodeShowInfo node_info;
+}
+
+/** Definitions for showing ChannelManager stats (xmpp) **/
+
+struct IFMapChannelManagerStats {
+    1: u64 unknown_subscribe_messages;
+    2: u64 unknown_unsubscribe_messages;
+    3: u64 duplicate_channel_ready_messages;
+    4: u64 invalid_channel_not_ready_messages;
+    5: u64 invalid_channel_state_messages;
+    6: u64 invalid_vm_subscribe_messages;
+}
+
+struct IFMapXmppChannelMapEntry {
+    1: string client_name;
+    2: bool client_added;
+}
+
+struct IFMapXmppChannelMapList {
+    1: i32 channel_count;
+    2: list<IFMapXmppChannelMapEntry> channel_list;
+}
+
+struct IFMapChannelManagerInfo {
+    1: IFMapChannelManagerStats channel_manager_stats;
+    2: IFMapXmppChannelMapList channel_manager_map;
+}
+
+request sandesh IFMapXmppShowReq {
+}
+
+response sandesh IFMapXmppShowResp {
+    1: IFMapChannelManagerInfo channel_manager_info;
+}
+
+/** Definitions for showing ifmap-server state and stats **/
+
+request sandesh IFMapPeerServerInfoReq {
+}
+
+struct IFMapPeerServerInfo {
+    1: string url;
+    2: string connection_status;
+}
+
+struct IFMapPeerServerConnInfo {
+    1: string publisher_id;
+    2: string session_id;
+    3: u64 sequence_number;
+}
+
+struct IFMapPeerServerStatsInfo {
+    1: u64 rx_msgs;
+    2: u64 tx_msgs;
+    3: u64 reconnect_attempts;
+}
+
+struct IFMapStateMachineInfo {
+    1: string state;
+    2: string last_state;
+    3: string last_state_change_at;
+    4: string last_event;
+    5: string last_event_at;
+}
+
+response sandesh IFMapPeerServerInfoResp {
+    1: IFMapPeerServerInfo server_info;
+    2: IFMapPeerServerConnInfo server_conn_info;
+    3: IFMapPeerServerStatsInfo stats_info;
+    4: IFMapStateMachineInfo sm_info;
+}
+
+request sandesh IFMapUuidToNodeMappingReq {
+}
+
+struct IFMapUuidToNodeMappingEntry {
+    1: string uuid;
+    2: string node_name;
+}
+
+response sandesh IFMapUuidToNodeMappingResp {
+    1: i32 map_count;
+    2: list<IFMapUuidToNodeMappingEntry> uuid_to_node_map;
+}
+
+request sandesh IFMapNodeToUuidMappingReq {
+}
+
+struct IFMapNodeToUuidMappingEntry {
+    1: string node_name;
+    2: string uuid;
+}
+
+response sandesh IFMapNodeToUuidMappingResp {
+    1: i32 map_count;
+    2: list<IFMapNodeToUuidMappingEntry> node_to_uuid_map;
+}
+
+request sandesh IFMapPendingVmRegReq {
+}
+
+struct IFMapPendingVmRegEntry {
+    1: string vm_uuid;
+    2: string vr_name;
+}
+
+response sandesh IFMapPendingVmRegResp {
+    1: i32 map_count;
+    2: list<IFMapPendingVmRegEntry> vm_reg_map;
+}
+

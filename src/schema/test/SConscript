@@ -1,0 +1,58 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+import re
+import sys
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/ifmap')
+env.Append(LIBPATH = env['TOP'] + '/db')
+env.Append(LIBPATH = env['TOP'] + '/io')
+
+env.Prepend(LIBS = ['sandesh', 'http', 'http_parser', 'curl', 'db', 'sandeshvns', 'io', 'base', 'gunit', 'pugixml'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+env.Append(CPPPATH = [env['TOP']])
+
+def CCMapTest(env, testname):
+    targets = env.IFMapAutogen(testname + '.xsd')
+    cc_files = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+    cc_files.append(File(testname + '_test.cc'))
+    test = env.Program(testname,  cc_files)
+    return test
+
+test_list = []
+map_env = env.Clone()
+map_env.Prepend(LIBS = ['ifmap_agent', 'ifmap_server', 'ifmap_common'])
+test_list.append(CCMapTest(map_env, 'ifmap_link_attr'))
+test_list.append(CCMapTest(map_env, 'ifmap_deep_property'))
+test_list.append(CCMapTest(map_env, 'ifmap_identity_property'))
+
+bgp_l3vpn_env = env.Clone()
+bgp_l3vpn_env.Append(LIBPATH = env['TOP'] + '/schema')
+bgp_l3vpn_env.Prepend(LIBS = ['bgp_l3vpn_unicast'])
+test_list.append(
+    bgp_l3vpn_env.Program('bgp_l3vpn_unicast', ['bgp_l3vpn_unicast_test.cc']))
+
+vnc_cfg_env = env.Clone()
+vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/schema')
+vnc_cfg_env.Prepend(LIBS = ['ifmap_vnc', 'ifmap_server', 'ifmap_common'])
+
+env.Alias('src/schema:id_perms_test',
+          vnc_cfg_env.UnitTest('id_perms_test', ['id_perms_test.cc']))
+
+#vnc_cfg_env.Append(LIBPATH = '#/build/lib')
+#vnc_cfg_env.Append(LIBS = ['ifmapio', 'ifmapclient', 'curl', 'libxml2'])
+#vnc_cfg_test = vnc_cfg_env.Program('vnc_cfg_test', ['vnc_cfg_test.cc'])
+#env.Alias('src/schema:vnc_cfg_test', vnc_cfg_test)
+
+test = env.TestSuite('schema-test', test_list)
+
+env.Alias('src/schema:test', test)

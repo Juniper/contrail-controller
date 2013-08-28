@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct ConnecteRouteInfo {
+    1: string service_chain_addr;
+    2: string connected_rt;
+}
+
+struct PrefixToRouteListInfo {
+    1: string prefix;
+    2: bool   aggregate;
+    3: list<string> more_specific_list;
+}
+ 
+struct ExtConnectRouteInfo {
+    1: string ext_rt_prefix;
+    2: string ext_rt_svc_rt;
+}
+
+struct ShowServicechainInfo {
+    1: string src_rt_instance;
+    2: string dest_rt_instance;
+    3: ConnecteRouteInfo connected_route;
+    4: list<PrefixToRouteListInfo> more_specifics;
+    5: list<ExtConnectRouteInfo> ext_connecting_rt_info_list;
+    6: bool aggregate_enable;
+}
+
+response sandesh ShowServiceChainResp {
+    1: list<ShowServicechainInfo> service_chain_list;
+}
+
+request sandesh ShowServiceChainReq {
+}
+
+
+response sandesh ShowPendingServiceChainResp {
+    1: list<string> pending_chains;
+}
+
+request sandesh ShowPendingServiceChainReq {
+}

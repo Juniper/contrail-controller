@@ -1,0 +1,33 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
+env.Prepend(LIBS=['gunit'])
+env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
+
+import sys
+if sys.platform != 'darwin':
+    env.Append(LIBPATH=['../../test'])
+    env.Prepend(LIBS=['agent_test']);
+
+    test_vn_vmlist = env.Program(target = 'test_vn_vmlist', source = ['test_vn_vmlist.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_vn_vmlist', test_vn_vmlist)
+
+    test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_port_bitmap', test_port_bitmap)
+
+    uve_test_suite = [
+                      test_vn_vmlist,
+                      test_port_bitmap
+                      ]
+    test = env.TestSuite('agent-test', uve_test_suite)
+    env.Alias('src/vnsw/agent:test', test)
+    Return('uve_test_suite')

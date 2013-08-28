@@ -1,0 +1,75 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema 
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:smi="urn:ietf:params:xml:ns:opsawg:smi:base:1.0">
+
+<xsd:include schemaLocation='smi-base.xsd'/>
+<xsd:element name='routing-policy' type='ifmap::IdentityType'/>
+<xsd:element name='routing-policy-entries' type='PolicyStatement'/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('routing-policy-entries', 'routing-policy') -->
+
+<xsd:complexType name='PolicyStatement'> 
+    <xsd:sequence>
+        <xsd:element name='term' type='PolicyTerm' maxOccurs='unbounded'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:simpleType name='ActionType'> 
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="reject"/>
+        <xsd:enumeration value="accept"/>
+        <xsd:enumeration value="next"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="ActionCommunity">
+    <xsd:sequence>
+        <xsd:element name='add' type='xsd:string'/>
+        <xsd:element name='remove' type='xsd:string'/>
+        <xsd:element name='set' type='xsd:string'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="ActionUpdate">
+    <xsd:sequence>
+        <xsd:element name="community"   type="ActionCommunity"/>
+        <xsd:element name="local-pref"  type="xsd:integer"/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name='PolicyAction'>
+    <xsd:all>
+        <xsd:element name='update'     type='ActionUpdate'/>        
+        <xsd:element name='action'  type='ActionType'/>        
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="ProtocolType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="bgp"/>
+        <xsd:enumeration value="direct"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="PolicyMatch">
+    <xsd:sequence>
+        <xsd:element name="as-path"     type="xsd:string"/>
+        <xsd:element name="community"   type="xsd:string"/>
+        <xsd:element name="local-pref"  type="xsd:integer"/>
+        <xsd:element name="neighbor"    type="smi:IpAddress"/>
+        <xsd:element name="prefix"      type="xsd:string"/>
+        <xsd:element name="next-hop"    type="smi:IpAddress"/>
+        <xsd:element name="protocol"    type="ProtocolType"/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name='PolicyTerm'> 
+    <xsd:sequence>
+        <xsd:element name='from' type='PolicyMatch'/>
+        <xsd:element name='then' type='PolicyAction'/> 
+    </xsd:sequence>
+</xsd:complexType>
+</xsd:schema>

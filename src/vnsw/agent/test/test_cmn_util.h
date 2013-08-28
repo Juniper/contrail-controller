@@ -1,0 +1,196 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#ifndef vnsw_agent_test_cmn_util_h
+#define vnsw_agent_test_cmn_util_h
+
+#include "test/test_init.h"
+
+uuid MakeUuid(int id);
+void DelXmlHdr(char *buff, int &len);
+void DelXmlTail(char *buff, int &len);
+void AddXmlHdr(char *buff, int &len);
+void AddXmlTail(char *buff, int &len);
+void AddLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2, const char *name2);
+void DelLinkString(char *buff, int &len, const char *node_name1,
+                   const char *name1, const char *node_name2, const char *name2);
+void AddNodeString(char *buff, int &len, const char *node_name, const char *name,
+                   int id, const char *attr);
+void AddNodeString(char *buff, int &len, const char *node_name,
+                   const char *name, int id);
+void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
+                   IpamInfo *ipam, int count);
+void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
+void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
+void ApplyXmlString(const char *buff); 
+void AddLink(const char *node_name1, const char *name1, const char *node_name2,
+             const char *name2);
+void DelLink(const char *node_name1, const char *name1, const char *node_name2,
+             const char *name2);
+void AddNode(const char *node_name, const char *name, int id);
+void AddNode(const char *node_name, const char *name, int id, const char *attr);
+void DelNode(const char *node_name, const char *name);
+void IntfSyncMsg(PortInfo *input, int id);
+void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
+                int vm_id, int vn_id, const string &mac);
+void IntfCfgAdd(PortInfo *input, int id);
+void IntfCfgDel(PortInfo *input, int id);
+bool VrfFind(const char *name);
+VrfEntry *VrfGet(const char *name);
+bool VnFind(int id);
+VnEntry *VnGet(int id);
+bool AclFind(int id);
+AclDBEntry *AclGet(int id);
+VmEntry *VmGet(int id);
+bool VmFind(int id);
+bool VmPortFind(int id);
+uint32_t VmPortGetId(int id);
+bool VmPortFind(PortInfo *input, int id);
+bool VmPortActive(int id);
+bool VmPortActive(PortInfo *input, int id);
+bool VmPortPolicyEnabled(int id);
+bool VmPortPolicyEnabled(PortInfo *input, int id);
+Interface *VmPortGet(int id);
+bool VmPortFloatingIpCount(int id, unsigned int count);
+bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
+bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
+bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
+                             uint32_t obytes, uint32_t opkts);
+bool VmPortInactive(int id);
+bool VmPortInactive(PortInfo *input, int id);
+EthInterface *EthInterfaceGet(const char *name);
+VmPortInterface *VmPortInterfaceGet(int id);
+bool VmPortPolicyEnable(int id);
+bool VmPortPolicyEnable(PortInfo *input, int id);
+bool VmPortPolicyDisable(int id);
+bool VmPortPolicyDisable(PortInfo *input, int id);
+bool DBTableFind(const string &table_name);
+void DeleteTap(int fd);
+void DeleteTapIntf(const int fd[], int count);
+int CreateTap(const char *name);
+void CreateTapIntf(const char *name, int count);
+void CreateTapInterfaces(const char *name, int count, int *fd);
+void VnAddReq(int id, const char *name);
+void VnAddReq(int id, const char *name, int acl_id);
+void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name);
+void VnAddReq(int id, const char *name, const char *vrf_name);
+void VnDelReq(int id);
+void VrfAddReq(const char *name);
+void VrfDelReq(const char *name);
+void VmAddReq(int id);
+void VmDelReq(int id);
+void AclAddReq(int id);
+void AclDelReq(int id);
+void AclAddReq(int id, int ace_id, bool drop);
+bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
+bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool MCRouteFind(const string &vrf_name, const Ip4Address &saddr,
+                 const Ip4Address &daddr);
+bool MCRouteFind(const string &vrf_name, const Ip4Address &addr);
+bool MCRouteFind(const string &vrf_name, const string &saddr,
+                 const string &daddr);
+bool MCRouteFind(const string &vrf_name, const string &addr);
+Inet4UcRoute *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+Inet4McRoute *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
+Inet4McRoute *MCRouteGet(const string &vrf_name, const string &grp_addr);
+bool TunnelNHFind(const Ip4Address &server_ip);
+bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
+bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
+                    int label, const char *vn);
+bool AddArp(const char *ip, const char *mac_str, const char *ifname);
+bool DelArp(const string &ip, const char *mac_str, const string &ifname);
+void *asio_poll(void *arg);
+void AsioRun();
+void AsioStop();
+void AddVm(const char *name, int id);
+void DelVm(const char *name);
+void AddVrf(const char *name, int id = 0);
+void DelVrf(const char *name);
+void AddVn(const char *name, int id);
+void DelVn(const char *name);
+void AddPort(const char *name, int id);
+void DelPort(const char *name);
+void AddAcl(const char *name, int id);
+void AddFloatingIp(const char *name, int id, const char *addr);
+void DelFloatingIp(const char *name);
+void AddFloatingIpPool(const char *name, int id);
+void DelFloatingIpPool(const char *name);
+void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr = NULL,
+             const char *vdns_name = NULL);
+void DelIPAM(const char *name, const char *vdns_name = NULL);
+void AddVDNS(const char *vdns_name, const char *vdns_attr);
+void DelVDNS(const char *vdns_name);
+TestClient *StatsTestInit();
+void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
+bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
+void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void FlushFlowTable();
+bool FlowDelete(const string &vrf_name, const char *sip,
+                const char *dip, uint8_t proto, uint16_t sport, uint16_t dport);
+bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport);
+bool FlowFail(int vrf_id, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport);
+bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
+                uint8_t proto, uint16_t sport, uint16_t dport,
+                std::string svn, std::string dvn, uint32_t hash_id,
+                const char *nat_vrf, const char *nat_sip,
+                const char *nat_dip, uint16_t nat_sport, int16_t nat_dport);
+bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
+             uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
+             std::string svn, std::string dvn, uint32_t hash_id);
+bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
+             uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
+             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
+             bool nat);
+bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
+             uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
+             int reverse_hash_id);
+FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
+                   uint16_t sport, uint16_t dport);
+bool FlowStatsMatch(const string &vrf_name, const char *sip, const char *dip,
+                    uint8_t proto, uint16_t sport, uint16_t dport,
+                    uint16_t pkts, uint16_t bytes);
+bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
+              uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
+              const string &nat_vrf_name, const char *nat_sip,
+              const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport);
+PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
+                        int sport, int dport, uint32_t hash_idx);
+PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip, int proto,
+                       int hash_id = 0);
+PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip, const char *out_dip,
+                         uint32_t label, const char *sip, const char *dip,
+                         int proto, int hash_idx = 0);
+PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
+                            const char *out_dip, uint32_t label, 
+                            const char *sip, const char *dip, 
+                            int sport, int dport, int hash_idx = 0);
+
+bool VrfStatsMatch(int vrf_id, std::string vrf_name, uint64_t discards, 
+                   uint64_t resolves, uint64_t receives, uint64_t tunnels, 
+                   int64_t composites, uint64_t encaps);
+bool RouterIdMatch(Ip4Address rid2);
+bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
+bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
+void AddVmPortVrf(const char *name, const string &ip, uint16_t tag);
+void DelVmPortVrf(const char *name);
+uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen);
+bool VlanNhFind(int id, uint16_t tag);
+void AddInstanceIp(const char *name, int id, const char* addr);
+void DelInstanceIp(const char *name);
+extern Peer *bgp_peer_;
+bool FindMplsLabel(MplsLabel::Type type, uint32_t label);
+MplsLabel *GetMplsLabel(MplsLabel::Type type, uint32_t label);
+bool FindNH(NextHopKey *key);
+NextHop *GetNH(NextHopKey *key);
+bool VmPortServiceVlanCount(int id, unsigned int count);
+void AddEncapList(const char *encap1, const char *encap2, const char *encap3);
+void DelEncapList();
+int MplsToVrfId(int label);
+#endif // vnsw_agent_test_cmn_util_h

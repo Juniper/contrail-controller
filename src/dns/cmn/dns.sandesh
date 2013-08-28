@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct VirtualDnsTraceData {
+    1: string name;
+    2: string dns_name;
+    3: bool dns_dyn_rec;
+    4: string dns_order;
+    5: i32 dns_ttl;
+    6: string dns_next;
+}
+
+struct VirtualDnsRecordTraceData {
+    1: string name;
+    2: string rec_name;
+    3: string rec_type;
+    4: string rec_class;
+    5: string rec_data;
+    6: i32 rec_ttl;
+    7: string installed;
+}
+
+trace sandesh IpamTrace {
+    1: string operation;
+    2: string virtual_dns;
+    3: string subnet;
+}
+
+trace sandesh VirtualDnsTrace {
+    1: string operation;
+    2: VirtualDnsTraceData data;
+}
+
+trace sandesh VirtualDnsRecordTrace {
+    1: string operation;
+    2: string virtual_dns;
+    3: VirtualDnsRecordTraceData data;
+}
+
+trace sandesh DnsError {
+    1: string err;
+}
+
+struct VirtualDnsSandesh {
+    1: VirtualDnsTraceData virtual_dns;
+    2: list<VirtualDnsRecordTraceData> records;
+    3: list<string> subnets;
+}
+
+struct AgentData {
+    1: string peer;             // Peer name
+    2: string peer_address;     // ip address and port
+    3: string local_address;    // local ip address and port
+    4: string state;
+    5: string last_event;
+    6: string last_state;
+    7: string last_state_at;
+}
+
+struct AgentDnsDataItem {
+    1: string virtual_dns;
+    2: string zone;
+    3: list<VirtualDnsRecordTraceData> records;
+}
+
+struct AgentDnsData {
+    1: string agent;
+    2: list<AgentDnsDataItem> agent_data;
+}
+
+request sandesh ShowDnsConfig {
+}
+
+response sandesh DnsConfigResponse {
+    1: list<VirtualDnsSandesh> virtual_dns;
+}
+
+request sandesh ShowAgentList {
+}
+
+response sandesh DnsAgentListResponse {
+    1: list<AgentData> agent;
+}
+
+request sandesh ShowAgentXmppDnsData {
+}
+
+response sandesh AgentXmppDnsDataResponse {
+    1: list<AgentDnsData> data;
+}

@@ -1,0 +1,75 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/base')
+env.Append(LIBPATH = env['TOP'] + '/base/test')
+env.Append(LIBPATH = env['TOP'] + '/io')
+
+env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'io', 'sandeshvns', 'base', 'http',
+                    'http_parser', 'curl', 'boost_program_options'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS = ['rt'])
+
+libtask_test = env.Library('task_test',
+                           ['task_test_util.cc',
+                            'addr_test_util.cc'])
+env.Alias('src/base:libtask_test', libtask_test)
+
+bitset_test = env.UnitTest('bitset_test', ['bitset_test.cc'])
+env.Alias('src/base:bitset_test', bitset_test)
+
+dependency_test = env.UnitTest('dependency_test', ['dependency_test.cc'])
+env.Alias('src/base:dependency_test', dependency_test)
+
+label_block_test = env.UnitTest('label_block_test', ['label_block_test.cc'])
+env.Alias('src/base:label_block_test', label_block_test)
+
+proto_test = env.Program('proto_test', ['proto_test.cc'])
+env.Alias('src/base:proto_test', proto_test)
+
+subset_test = env.Program('subset_test', ['subset_test.cc'])
+env.Alias('src/base:subset_test', subset_test)
+
+task_test = env.Program('task_test', ['task_test.cc'])
+env.Alias('src/base:task_test', task_test)
+
+timer_test = env.Program('timer_test', ['timer_test.cc'])
+env.Alias('src/base:timer_test', timer_test)
+
+patricia_test = env.Program('patricia_test', ['patricia_test.cc'])
+env.Alias('src/base:patricia_test', patricia_test)
+
+def AddLibraries(env, libs):
+    for lib in libs:
+        components =  lib.rsplit('/', 1)
+        if len(components) > 1:
+            env.Append(LIBPATH = env['TOP'] + '/' + components[0])
+            components.pop(0)
+        env.Append(LIBS = components[0])
+
+def BuildTest(env, testname, sources, libs):
+    build_env = env.Clone()
+    AddLibraries(build_env, libs)
+    target = build_env.Program(testname, sources)
+    env.Alias('src/base:' + testname, target)
+    return target
+
+BuildTest(env, 'task_annotations_test',
+     ['task_annotations_test.cc'],
+     ['base/test/task_test',
+      'io/io',
+      'boost_system'])
+
+BuildTest(env, 'factory_test',
+          ['factory_test.cc'], [])
+
+BuildTest(env, 'trace_test',
+          ['trace_test.cc'], [])

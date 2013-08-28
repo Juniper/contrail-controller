@@ -1,0 +1,102 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+import sys
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+env = BuildEnv.Clone()
+
+sandesh_files = env.SConscript('sandesh/SConscript', exports='BuildEnv', duplicate = 0)
+
+env.AppendUnique(CCFLAGS='-fno-exceptions')
+
+except_env = env.Clone()
+except_env.Prepend(CPPPATH = Dir('.').abspath)
+
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+
+sandesh_files_ = []
+for src in sandesh_files:
+    objname = src.replace('.cpp', '.o')
+    obj = env.Object(objname, 'sandesh/' + src)
+    sandesh_files_.append(obj)
+
+xmpp_session = except_env.Object('xmpp_session.o', 'xmpp_session.cc')
+xmpp_init = except_env.Object('xmpp_init.o', 'xmpp_init.cc')
+
+libxmpp = env.Library('xmpp',
+
+                     [
+                      'xmpp_config.cc',
+                      'xmpp_connection.cc',
+                      'xmpp_factory.cc',
+                      xmpp_session,
+                      'xmpp_state_machine.cc',
+                      'xmpp_server.cc',
+                      'xmpp_client.cc',
+                      'xmpp_proto.cc',
+                      xmpp_init,
+                      'xmpp_channel_mux.cc',
+                      ] + sandesh_files_ )
+
+env.Prepend(LIBS=['sandesh', 'http_parser', 'curl', 'http', 'io', 'pugixml', 'xml', 'boost_regex'])
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+libs = MapBuildDir(['io'])
+env.Append(LIBPATH=libs)
+libs = MapBuildDir(['xml'])
+env.Append(LIBPATH=libs)
+libs = MapBuildDir(['schema'])
+env.Append(LIBPATH=libs)
+
+xmpp_include = '#/' + Dir('.').path
+env.Append(CPPPATH=xmpp_include)
+env.Append(CPPPATH = [env['TOP'] + '/bgp'])
+
+xmppd = env.Program(target = 'xmppd',
+                   source = ['main.cc'])
+
+xmpp_test_suite = env.SConscript('test/SConscript',
+                                 exports='BuildEnv', duplicate = 0)
+
+def code_coverage(target, source, env):
+    import shutil
+    shutil.rmtree(target[0].path, ignore_errors = True)
+
+    # lcov --base-directory $ROOT -- directory . --zerocounters -q
+    import os
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' --zerocounters -q')
+    # execute tests
+    import subprocess
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    for test in xmpp_test_suite:
+        cmd = test[0].path
+        logfile = open(cmd + '.log', 'w')
+        subprocess.call([cmd], stdout=logfile, env=ShEnv)
+
+    # lcov --base-directory $ROOT -- directory . -c -o bgp_test.info
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' -c -o xmpp_test.info')
+
+    # genhtml -o xmpp/test_coverage xmpp_test.info
+    os.system('genhtml -o ' + target[0].path +
+              ' -t "test coverage" --num-spaces 4 xmpp_test.info')
+
+
+if env['OPT'] == 'coverage':
+    test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
+    env.AlwaysBuild(test_coverage)
+    env.Alias('src/xmpp:test_coverage', test_coverage)

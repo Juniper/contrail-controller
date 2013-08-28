@@ -1,0 +1,144 @@
+options {
+    directory "./";
+    managed-keys-directory "./";
+    empty-zones-enable no;
+    pid-file "./named.pid";
+};
+
+key "rndc-key" {
+    algorithm hmac-md5;
+    secret "xvysmOR8lnUQRBcunkC6vg==";
+};
+
+controls {
+    inet 127.0.0.1 port 8094
+    allow { 127.0.0.1; }  keys { "rndc-key"; };
+};
+
+logging {
+    channel debug_log {
+        file "/var/log/named/bind.log" versions 3 size 5m;
+        severity debug;
+        print-time yes;
+        print-severity yes;
+        print-category yes;
+    };
+    category default {
+        debug_log;
+    };
+    category queries {
+        debug_log;
+    };
+};
+
+view "_default_view_" {
+    match-clients {any;};
+    match-destinations {any;};
+    match-recursive-only no;
+};
+
+view "last-DNS" {
+    rrset-order {order cyclic;};
+    virtual-forwarder "juniper.net";
+    zone "test.juniper.net" IN {
+        type master;
+        file "./test.juniper.net.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+
+view "last-DNS1" {
+    rrset-order {order fixed;};
+    virtual-forwarder "juniper.net";
+    zone "0.3.13.in-addr.arpa." IN {
+        type master;
+        file "./0.3.13.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "1.3.13.in-addr.arpa." IN {
+        type master;
+        file "./1.3.13.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "13.2.12.in-addr.arpa." IN {
+        type master;
+        file "./13.2.12.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "2.3.13.in-addr.arpa." IN {
+        type master;
+        file "./2.3.13.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "3.3.13.in-addr.arpa." IN {
+        type master;
+        file "./3.3.13.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "test1.juniper.net" IN {
+        type master;
+        file "./test1.juniper.net.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+
+view "new-DNS" {
+    rrset-order {order random;};
+    virtual-forwarder "example.com";
+    zone "192.1.1.in-addr.arpa." IN {
+        type master;
+        file "./192.1.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "193.1.1.in-addr.arpa." IN {
+        type master;
+        file "./193.1.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "3.2.1.in-addr.arpa." IN {
+        type master;
+        file "./3.2.1.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "6.5.4.in-addr.arpa." IN {
+        type master;
+        file "./6.5.4.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "64.3.2.2.in-addr.arpa." IN {
+        type master;
+        file "./64.3.2.2.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "65.3.2.2.in-addr.arpa." IN {
+        type master;
+        file "./65.3.2.2.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "66.3.2.2.in-addr.arpa." IN {
+        type master;
+        file "./66.3.2.2.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "67.3.2.2.in-addr.arpa." IN {
+        type master;
+        file "./67.3.2.2.in-addr.arpa.zone";
+        allow-update {127.0.0.1;};
+    };
+    zone "test.example.com" IN {
+        type master;
+        file "./test.example.com.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+
+view "test-DNS" {
+    rrset-order {order random;};
+    virtual-forwarder "juniper.net";
+    zone "contrail.juniper.net" IN {
+        type master;
+        file "./contrail.juniper.net.zone";
+        allow-update {127.0.0.1;};
+    };
+};
+

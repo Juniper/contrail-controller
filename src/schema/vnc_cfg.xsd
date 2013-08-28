@@ -1,0 +1,909 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema 
+xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" 
+xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2" 
+targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
+
+<!-- Definition of IFMAP-SEMANTICS-IDL 
+     It describes relationship and properties of meta data elements with 
+     respect to identifier. It appears in comment after the referenced 
+     elements. All statements are "element = some property"
+
+     Start the contains of comment with #IFMAP-SEMANTICS-IDL
+
+     #IFMAP-SEMANTICS-IDL list-of-statements
+     list-of-statements := list-of-statements, statement
+     statement  := Link('element', 'identifier', 'identifier', [ref-type-list])|
+                   Type('element', [type-list])|
+                   Property(element-name identifier-name)|
+                   Exclude('element', [generator-list])
+     element    := metadata element name
+     identifier := identifier element name | "any" | "all"
+     ref-type-list:= ref-type-list 'has' |
+                  := ref-type-list 'ref' |
+                  := 
+     ref-type-list:= ref-type-list 'string-enum' |
+                  := 
+     string-enum  := This command will convert string type restriction to 
+                   enum type
+     generator-list:= generator-list 'backend'|
+                   := generator-list 'frontend'|
+                   := 
+ -->
+
+<!--Common types-->
+
+
+<xsd:complexType name="MacAddressesType">
+    <xsd:element name="mac-address" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:simpleType name="IpAddressType">
+    <xsd:restriction base="xsd:string"/>
+</xsd:simpleType>
+
+<xsd:complexType name="IpAddressesType">
+    <xsd:all>
+        <xsd:element name="ip-address" type="IpAddressType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="SubnetType">
+    <xsd:all>
+        <xsd:element name="ip-prefix" type="xsd:string"/>
+        <xsd:element name="ip-prefix-len" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="UuidType">
+    <xsd:all>
+        <xsd:element name="uuid-mslong" type="xsd:unsignedLong"/>
+        <xsd:element name="uuid-lslong" type="xsd:unsignedLong"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<!-- ACL type definition -->
+
+<xsd:complexType name="SequenceType">
+    <xsd:all>
+        <xsd:element name="major" type="xsd:integer"/>
+        <xsd:element name="minor" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="TimerType">
+    <xsd:all>
+        <xsd:element name="start-time" type="xsd:dateTime"/>
+        <xsd:element name="on-interval" type="xsd:time"/>
+        <xsd:element name="off-interval" type="xsd:time"/>
+        <xsd:element name="end-time" type="xsd:dateTime"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="VirtualNetworkPolicyType">
+    <xsd:all>
+        <xsd:element name="sequence" type="SequenceType"/>
+        <xsd:element name="timer" type="TimerType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="ProtocolType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="tcp"/>
+        <xsd:enumeration value="udp"/>
+        <xsd:enumeration value="icmp"/>
+        <xsd:enumeration value="any"/>
+    </xsd:restriction>
+</xsd:simpleType>
+<!--#IFMAP-SEMANTICS-IDL 
+     Type('ProtocolType', ['string-enum']) -->
+
+<xsd:complexType name="AddressType">
+    <xsd:choice>
+        <xsd:element name="subnet" type="SubnetType"/>
+        <xsd:element name="virtual-network" type="xsd:string" />
+        <xsd:element name="security-group" type="xsd:string" />
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="PortType">
+    <xsd:sequence>
+        <xsd:element name="start-port" type="xsd:integer"/>
+        <xsd:element name="end-port" type="xsd:integer"/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name="MatchConditionType">
+    <xsd:sequence>
+        <xsd:element name="protocol"    type="ProtocolType"/>
+        <xsd:element name="src-address" type="AddressType"/>
+        <xsd:element name="src-port"    type="PortType" />
+        <xsd:element name="dst-address" type="AddressType"/>
+        <xsd:element name="dst-port"    type="PortType" />
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:simpleType name="SimpleActionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="alert"/>
+        <xsd:enumeration value="drop"/>
+        <xsd:enumeration value="deny"/>
+        <xsd:enumeration value="log"/>
+        <xsd:enumeration value="pass"/>
+        <xsd:enumeration value="reject"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="MirrorActionType">
+    <xsd:all>
+        <xsd:element name="analyzer-name" type="xsd:string"/>
+        <xsd:element name="encapsulation" type="xsd:string"/>
+        <xsd:element name="analyzer-ip-address" type="smi:IpAddress"/>
+        <xsd:element name="routing-instance" type="xsd:string"/>
+        <xsd:element name="udp-port" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ActionListType">
+    <xsd:all>
+        <xsd:element name="simple-action" type="SimpleActionType"/>
+        <xsd:element name="gateway-name" type="xsd:string"/>
+        <xsd:element name="service-chain-type" type="ServiceModeType"/>
+        <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
+        <xsd:element name="mirror-to" type="MirrorActionType"/>
+        <!-- More actions can come here. e.g. policer, QOS etc-->
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AclRuleType">
+    <xsd:all>
+        <xsd:element name="match-condition" type="MatchConditionType"/>
+        <xsd:element name="action-list" type="ActionListType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="AclEntriesType">
+    <xsd:all>
+       <xsd:element name="dynamic" type="xsd:boolean"/>
+       <xsd:element name="acl-rule" type="AclRuleType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+
+<xsd:simpleType name="DirectionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="&gt;"/>
+        <xsd:enumeration value="&lt;&gt;"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="PolicyRuleType">
+    <xsd:all>
+        <xsd:element name="rule-sequence"    type="SequenceType"/> <!-- dummy till ui etc. remove it -->
+        <xsd:element name="rule-uuid"        type="xsd:string"/>
+        <xsd:element name="direction"        type="DirectionType"/>
+        <xsd:element name="simple-action"    type="SimpleActionType"/>
+        <xsd:element name="protocol"         type="ProtocolType"/>
+        <xsd:element name="src-addresses"      type="AddressType"
+                                             maxOccurs="unbounded"/>
+        <xsd:element name="src-ports"         type="PortType"
+                                             maxOccurs="unbounded"/>
+        <xsd:element name="application"      type="xsd:string"
+                                             maxOccurs="unbounded"/>
+        <xsd:element name="dst-addresses"      type="AddressType"
+                                             maxOccurs="unbounded"/>
+        <xsd:element name="dst-ports"         type="PortType"
+                                             maxOccurs="unbounded"/>
+        <xsd:element name="action-list"      type="ActionListType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="PolicyEntriesType">
+    <xsd:all>
+       <xsd:element name="policy-rule" type="PolicyRuleType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<!-- ACL type definition End -->
+
+<!-- API access list type -->
+<xsd:complexType name="ApiAccessType">
+    <xsd:all>
+        <xsd:element name="api-name"      type="xsd:string"/>
+        <xsd:element name="permissions"   type="PermType"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="ApiAccessListType">
+    <xsd:all>
+        <xsd:element name="api-access" type="ApiAccessType" 
+                                                       maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType> 
+<!-- API access list type End -->
+
+<!-- Ip address mngmt type -->
+
+<xsd:complexType name="DhcpOptionType">
+    <xsd:all>
+        <xsd:element name="dhcp-option-name" type="xsd:string"/>
+        <xsd:element name="dhcp-option-value" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="DhcpOptionsListType">
+    <xsd:all>
+        <xsd:element name="dhcp-option" type="DhcpOptionType" 
+                                                    maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="IpamMethodType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="dhcp"/>
+        <xsd:enumeration value="fixed"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="IpamDnsMethodType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="none"/>
+        <xsd:enumeration value="default-dns-server"/>
+        <xsd:enumeration value="tenant-dns-server"/>
+        <xsd:enumeration value="virtual-dns-server"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="IpamDnsAddressType">
+    <xsd:choice>
+        <xsd:element name="tenant-dns-server-address" type="IpAddressesType"/>
+        <xsd:element name="virtual-dns-server-name" type="xsd:string"/>
+    </xsd:choice>
+</xsd:complexType>
+
+<xsd:complexType name="IpamType">
+    <xsd:all>
+        <xsd:element name="ipam-method"      type="IpamMethodType"/>
+        <xsd:element name="ipam-dns-method"  type="IpamDnsMethodType"/>
+        <xsd:element name="ipam-dns-server"  type="IpamDnsAddressType"/>
+        <xsd:element name="dhcp-option-list" type="DhcpOptionsListType"/>
+        <xsd:element name="cidr-block"       type="SubnetType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="EncapsulationType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="MPLSoGRE"/>
+        <xsd:enumeration value="MPLSoUDP"/>
+        <xsd:enumeration value="VXLAN"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="EncapsulationPrioritiesType">
+    <xsd:all>
+        <xsd:element name="encapsulation" type="EncapsulationType" 
+                                              maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="LinklocalServiceEntryType">
+    <xsd:all>
+        <xsd:element name="linklocal-service-name" type="xsd:string"/>
+        <xsd:element name="linklocal-service-ip"   type="smi:IpAddress"/>
+        <xsd:element name="linklocal-service-port" type="xsd:integer"/>
+        <xsd:element name="ip-fabric-DNS-service-name" type="xsd:string"/>
+        <xsd:element name="ip-fabric-service-port" type="xsd:integer"/>
+        <xsd:element name="ip-fabric-service-ip"   type="smi:IpAddress" 
+                                                   maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="LinklocalServicesTypes">
+    <xsd:all>
+        <xsd:element name="linklocal-service-entry" 
+                   type="LinklocalServiceEntryType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="DnsRecordOrderType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="fixed"/>
+        <xsd:enumeration value="random"/>
+        <xsd:enumeration value="round-robin"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="VirtualDnsType">
+    <xsd:all>
+        <xsd:element name="domain-name"         type="xsd:string"/>
+        <xsd:element name="dynamic-records-from-client" type="xsd:boolean"/>
+        <xsd:element name="record-order"        type="DnsRecordOrderType"/>
+        <xsd:element name="default-ttl-seconds" type="xsd:integer"/>
+        <xsd:element name="next-virtual-DNS"    type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="DnsRecordTypeType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="A"/>
+        <xsd:enumeration value="AAAA"/>
+        <xsd:enumeration value="CNAME"/>
+        <xsd:enumeration value="PTR"/>
+        <xsd:enumeration value="NS"/>
+        <!-- Add more record types as support is added -->
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:simpleType name="DnsRecordClassType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="IN"/>
+        <!-- Add more record classes as support is added -->
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="VirtualDnsRecordType">
+    <xsd:all>
+        <xsd:element name="record-name"        type="xsd:string"/>
+        <xsd:element name="record-type"        type="DnsRecordTypeType"/>
+        <xsd:element name="record-class"       type="DnsRecordClassType"/>
+        <xsd:element name="record-data"        type="xsd:string"/>
+        <xsd:element name="record-ttl-seconds" type="xsd:integer"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="FloatingIpPoolType">
+    <xsd:all>
+        <xsd:element name="subnet" type="SubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="IpamSubnetType">
+    <xsd:all>
+        <xsd:element name="subnet" type="SubnetType"/>
+        <xsd:element name="default-gateway" type="IpAddressType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="VnSubnetsType">
+    <xsd:all>
+        <xsd:element name="ipam-subnets" type="IpamSubnetType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+<!-- Ip address mngmt type End -->
+
+<!-- domain limits type -->
+<xsd:complexType name="DomainLimitsType">
+    <xsd:all>
+    <xsd:element name="project-limit"   type="xsd:integer"/>
+    <xsd:element name="virtual-network-limit" type="xsd:integer"/>
+    <xsd:element name="security-group-limit"  type="xsd:integer"/>
+    <!-- More limits to come here -->
+    </xsd:all>
+</xsd:complexType> 
+<!-- domain limits type end -->
+
+<xsd:simpleType name="AutonomousSystemType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="1"/>
+         <xsd:maxInclusive value="65534"/>
+     </xsd:restriction>
+</xsd:simpleType> 
+
+<xsd:simpleType name="AccessType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="7"/>
+     </xsd:restriction>
+</xsd:simpleType> 
+
+<xsd:complexType name="PermType">
+    <xsd:all>
+        <xsd:element name="owner"        type="xsd:string"/>
+        <xsd:element name="owner-access" type="AccessType"/>
+        <xsd:element name="group"        type="xsd:string"/>
+        <xsd:element name="group-access" type="AccessType"/>
+        <xsd:element name="other-access" type="AccessType"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:complexType name="IdPermsType">
+    <xsd:all>
+        <xsd:element name="permissions"   type="PermType"/>
+        <xsd:element name="uuid"          type="UuidType"/>
+        <xsd:element name="enable"        type="xsd:boolean"/>
+        <xsd:element name="created"       type="xsd:dateTime"/>
+        <xsd:element name="last-modified" type="xsd:dateTime"/>
+        <xsd:element name="description"   type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType> 
+
+<xsd:element name="id-perms" type="IdPermsType"/>
+<!--#IFMAP-SEMANTICS-IDL Property('id-perms', 'all') -->
+
+<!--Identifier "config-root" is used start config tree traversal for
+    Entire config of the VNC, 
+    Its value will always be "contrail:config-root:root"
+  -->
+<xsd:element name="config-root"  type="ifmap:IdentityType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Exclude('config-root', ['backend']) -->
+
+<xsd:element name="global-system-config"        type="ifmap:IdentityType"/>
+<!--Identifier "global-system-config" is used to hang global properties.
+    Its value will always be "contrail:global-system-config:default-global-system-config"
+  -->
+<xsd:element name="config-root-global-system-config"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('config-root-global-system-config', 
+             'config-root', 'global-system-config', ['has']) -->
+<xsd:element name="autonomous-system" type="AutonomousSystemType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('autonomous-system', 'global-system-config') -->
+
+<xsd:element name="global-system-config-bgp-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-bgp-router', 
+             'global-system-config', 'bgp-router', ['ref']) -->
+
+<xsd:element name="global-vrouter-config"        type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-global-vrouter-config"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-global-vrouter-config', 
+             'global-system-config', 'global-vrouter-config', ['has']) -->
+
+<xsd:element name="linklocal-services" type="LinklocalServicesTypes"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('linklocal-services', 'global-vrouter-config') -->
+
+<xsd:element name="encapsulation-priorities" 
+                                  type="EncapsulationPrioritiesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('encapsulation-priorities', 'global-vrouter-config') -->
+
+<xsd:element name="domain"        type="ifmap:IdentityType"/>
+<xsd:element name="config-root-domain"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('config-root-domain', 'config-root', 'domain', ['has']) -->
+<xsd:element name="domain-limits" type="DomainLimitsType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('domain-limits', ['backend']);
+     Property('domain-limits', 'domain') -->
+
+<xsd:element name="api-access-list" type="ApiAccessListType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('api-access-list', ['backend']);
+     Property('api-access-list', 'config-root');
+     Property('api-access-list', 'domain') -->
+
+<xsd:element name="project"   type="ifmap:IdentityType"/>
+<xsd:element name="domain-project"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('domain-project', 'domain', 'project', ['has']) -->
+
+<xsd:element name="namespace" type="ifmap:IdentityType"/>
+<!--project-namespace is identifies namespace and also CIDR block -->
+
+<xsd:element name="namespace-cidr" type="SubnetType"/>
+<!--#IFMAP-SEMANTICS-IDL Property('namespace-cidr', 'namespace') -->
+
+<xsd:element name="domain-namespace"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('domain-namespace', 'domain', 'namespace', ['has']) -->
+
+<xsd:element name="project-namespace" type="SubnetType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-namespace', 'project', 'namespace', ['ref']) -->
+
+<xsd:element name="security-group" type="ifmap:IdentityType"/>
+<xsd:element name="security-group-id" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('security-group-id', 'security-group') -->
+
+
+<xsd:element name="project-security-group"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-security-group',
+          'project', 'security-group', ['has']) -->
+
+<xsd:element name="virtual-network" type="ifmap:IdentityType"/>
+<xsd:element name="project-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-virtual-network',
+          'project', 'virtual-network', ['has']) -->
+     
+<xsd:complexType name='VirtualNetworkType'>
+    <xsd:all>
+        <!-- This indicates whether this virtual-network will be extended to
+             non-contrail bgp routers -->
+        <xsd:element name='extend-to-external-routers' type="xsd:boolean"/>
+        <!-- A unique id for the network -->
+        <xsd:element name='network-id' type='xsd:integer'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-network-properties', 'virtual-network') -->
+     
+<xsd:complexType name="RouteTargetList">
+    <xsd:all>
+        <xsd:element name="route-target" type="xsd:string" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+  
+<xsd:element name="route-target-list" type="RouteTargetList"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('route-target-list', 'virtual-network') -->
+
+<xsd:element name="network-ipam" type="ifmap:IdentityType"/>
+<xsd:element name="network-ipam-mgmt" type="IpamType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('network-ipam-mgmt', 'network-ipam') -->
+<xsd:element name="project-network-ipam"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-network-ipam',
+          'project', 'network-ipam', ['has']) -->
+<xsd:element name="virtual-network-network-ipam" type="VnSubnetsType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-network-ipam',
+          'virtual-network', 'network-ipam', ['ref']) -->
+
+<xsd:element name="network-policy" type="ifmap:IdentityType"/>
+<xsd:element name="project-network-policy"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-network-policy',
+          'project', 'network-policy', ['has']) -->
+<xsd:element name="virtual-network-network-policy" type="VirtualNetworkPolicyType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-network-policy',
+          'virtual-network', 'network-policy', ['ref']) -->
+
+<xsd:element name="network-policy-entries" type="PolicyEntriesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('network-policy-entries', 'network-policy') -->
+<xsd:element name="security-group-entries" type="PolicyEntriesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('security-group-entries', 'security-group') -->
+<xsd:element name="access-control-list" type="ifmap:IdentityType"/>
+<xsd:element name="access-control-list-entries" type="AclEntriesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('access-control-list-entries', 'access-control-list') -->
+
+<xsd:element name="virtual-network-access-control-list"/>
+<xsd:element name="security-group-access-control-list"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('security-group-access-control-list',
+          'security-group', 'access-control-list', ['has', 'derived']);
+     Link('virtual-network-access-control-list',
+          'virtual-network', 'access-control-list', ['has', 'derived'])
+    -->
+
+<xsd:element name="virtual-machine" type="ifmap:IdentityType"/>
+
+<xsd:element name="virtual-machine-interface-security-group"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-security-group',
+          'virtual-machine-interface', 'security-group', ['ref']) -->
+
+<xsd:element name="virtual-machine-interface" type="ifmap:IdentityType"/>
+<xsd:element name="virtual-machine-interface-mac-addresses" 
+                                                type="MacAddressesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-machine-interface-mac-addresses',
+             'virtual-machine-interface') -->
+
+<xsd:simpleType name="ServiceInterfaceType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="management"/>
+        <xsd:enumeration value="left"/>
+        <xsd:enumeration value="right"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='InterfaceMirrorType'>
+    <xsd:all>
+        <xsd:element name="traffic-dirrection" type="TrafficDirectionType"/>
+        <xsd:element name="mirror-to" type="MirrorActionType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name='VirtualMachineInterfacePropertiesType'>
+    <xsd:all>
+        <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
+        <xsd:element name='interface-mirror'  type="InterfaceMirrorType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name='ServiceTemplateInterfaceType'>
+    <xsd:all>
+        <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
+        <xsd:element name='shared-ip' type='xsd:boolean' default='false'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="virtual-machine-interface-properties" 
+             type="VirtualMachineInterfacePropertiesType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-machine-interface-properties',
+             'virtual-machine-interface') -->
+
+
+<xsd:element name="virtual-machine-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-virtual-machine-interface',
+          'virtual-machine', 'virtual-machine-interface', ['has']) -->
+<xsd:element name="virtual-machine-interface-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-virtual-network',
+          'virtual-machine-interface', 'virtual-network', ['ref']) -->
+
+<xsd:simpleType name="TrafficDirectionType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="ingress"/>
+        <xsd:enumeration value="egress"/>
+        <xsd:enumeration value="both"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="PolicyBasedForwardingRuleType">
+    <xsd:all>
+        <xsd:element name="direction" type="TrafficDirectionType"/>
+        <xsd:element name="vlan-tag" type="xsd:integer"/>
+        <xsd:element name="src-mac" type="xsd:string"/>
+        <xsd:element name="dst-mac" type="xsd:string"/>
+        <xsd:element name="mpls-label" type="xsd:integer"/>
+        <xsd:element name="service-chain-address" type="smi:IpAddress"/>
+        <xsd:element name="protocol" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:element name="virtual-machine-interface-routing-instance"
+             type="PolicyBasedForwardingRuleType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-routing-instance',
+          'virtual-machine-interface', 'bgp:routing-instance', ['ref']) -->
+
+<xsd:element name="instance-ip" type="ifmap:IdentityType"/>
+<xsd:element name="instance-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('instance-ip-address', 'instance-ip') -->
+
+<xsd:element name="instance-ip-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('instance-ip-virtual-network',
+          'instance-ip', 'virtual-network', ['ref']) -->
+<xsd:element name="instance-ip-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('instance-ip-virtual-machine-interface',
+          'instance-ip', 'virtual-machine-interface', ['ref']) -->
+
+<xsd:element name="floating-ip-pool" type="ifmap:IdentityType"/>
+<xsd:element name="floating-ip-pool-prefixes" type="FloatingIpPoolType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('floating-ip-pool-prefixes', ['backend']);
+     Property('floating-ip-pool-prefixes', 'floating-ip-pool') -->
+<xsd:element name="virtual-network-floating-ip-pool"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('virtual-network-floating-ip-pool', ['backend']);
+     Link('virtual-network-floating-ip-pool',
+          'virtual-network', 'floating-ip-pool', ['has']) -->
+<xsd:element name="project-floating-ip-pool"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('project-floating-ip-pool', ['backend']);
+     Link('project-floating-ip-pool',
+          'project', 'floating-ip-pool', ['ref']) -->
+
+
+<xsd:element name="floating-ip" type="ifmap:IdentityType"/>
+<xsd:element name="floating-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('floating-ip-address', 'floating-ip') -->
+<xsd:element name="floating-ip-is-virtual-ip" type="xsd:boolean"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('floating-ip-is-virtual-ip', ['backend']);
+     Property('floating-ip-is-virtual-ip', 'floating-ip') -->
+<xsd:element name="floating-ip-project"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('floating-ip-project',
+          'floating-ip', 'project', ['ref']) -->
+<xsd:element name="floating-ip-pool-floating-ip"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('floating-ip-pool-floating-ip', ['backend']);
+     Link('floating-ip-pool-floating-ip',
+          'floating-ip-pool', 'floating-ip', ['has']) -->
+<xsd:element name="floating-ip-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('floating-ip-virtual-machine-interface', ['backend']);
+     Link('floating-ip-virtual-machine-interface',
+          'floating-ip', 'virtual-machine-interface', ['ref']) -->
+
+<xsd:element name="physical-router" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-physical-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-physical-router', 
+             'global-system-config', 'physical-router', ['has']) -->
+
+<xsd:element name="physical-router-bgp-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('physical-router-bgp-router',
+         'physical-router', 'bgp-router', ['ref']) -->
+
+<xsd:element name="physical-interface" type="ifmap:IdentityType"/>
+<xsd:element name="physical-router-physical-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('physical-router-physical-interface',
+          'physical-router', 'physical-interface', ['has']) -->
+          
+<xsd:element name="logical-interface" type="ifmap:IdentityType"/>
+<xsd:element name="physical-interface-logical-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('physical-interface-logical-interface',
+          'physical-interface', 'logical-interface', ['has']) -->
+<xsd:element name="logical-interface-virtual-network"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('logical-interface-virtual-network',
+          'logical-interface', 'virtual-network', ['ref']) -->
+
+<xsd:element name="virtual-router" type="ifmap:IdentityType"/>
+<xsd:element name="global-system-config-virtual-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('global-system-config-virtual-router', 
+             'global-system-config', 'virtual-router', ['has']) -->
+<xsd:element name="virtual-router-ip-address" type="IpAddressType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-router-ip-address', 'virtual-router') -->
+
+<xsd:element name="virtual-router-bgp-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('virtual-router-bgp-router',
+         'virtual-router', 'bgp-router', ['ref']) -->
+
+<xsd:element name="virtual-router-virtual-machine"/>
+<!--#IFMAP-SEMANTICS-IDL 
+    Link('virtual-router-virtual-machine',
+         'virtual-router', 'virtual-machine', ['ref']) -->
+
+<xsd:element name="virtual-network-routing-instance"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('virtual-network-routing-instance', ['backend']);
+     Link('virtual-network-routing-instance',
+          'virtual-network', 'bgp:routing-instance', ['has', 'derived']) -->
+<xsd:element name="customer-attachment-virtual-machine-interface"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('customer-attachment-virtual-machine-interface',
+             ['backend', 'frontend']);
+     Link('customer-attachment-virtual-machine-interface',
+          'bgp:customer-attachment', 'virtual-machine-interface', ['ref']) -->
+<xsd:element name="customer-attachment-floating-ip"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('customer-attachment-floating-ip',
+             ['backend', 'frontend']);
+     Link('customer-attachment-floating-ip',
+          'bgp:customer-attachment', 'floating-ip', ['ref']) -->
+<xsd:element name="provider-attachment-virtual-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Exclude('provider-attachment-virtual-router',
+             ['backend', 'frontend']);
+     Link('provider-attachment-virtual-router',
+          'bgp:provider-attachment', 'virtual-router', ['ref']) -->
+
+<xsd:simpleType name='ServiceType'>
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='firewall'/>
+        <xsd:enumeration value='analyzer'/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='ServiceScaleOutType'>
+    <xsd:all>
+        <xsd:element name='max-instances' type='xsd:integer' default='1'/>
+        <xsd:element name='auto-scale' type='xsd:boolean' default='false'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:simpleType name="ServiceModeType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="transparent"/>
+        <xsd:enumeration value="in-network"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name='ServiceTemplateType'> 
+    <xsd:sequence>
+        <xsd:element name='service-mode' type='ServiceModeType'/>
+        <xsd:element name='service-type' type='ServiceType'/>
+        <xsd:element name='image-name' type='xsd:string'/>
+        <xsd:element name='service-scaling' type='xsd:boolean' default='false'/>
+        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='3'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:complexType name='ServiceInstanceType'> 
+    <xsd:sequence>
+        <xsd:element name='auto-policy' type="xsd:boolean" default='false'/>
+        <xsd:element name='management-virtual-network' type='xsd:string'/>
+        <xsd:element name='left-virtual-network' type='xsd:string'/>
+        <xsd:element name='left-ip-address' type='IpAddressType'/>
+        <xsd:element name='right-virtual-network' type='xsd:string'/>
+        <xsd:element name='right-ip-address' type='IpAddressType'/>
+        <xsd:element name='scale-out' type='ServiceScaleOutType'/>
+    </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='service-instance' type='ifmap:IdentityType'/>
+<xsd:element name='service-instance-properties' type='ServiceInstanceType'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Property('service-instance-properties', 'service-instance')-->
+<xsd:element name="project-service-instance"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-service-instance', 'project', 
+             'service-instance', ['has']) -->
+<xsd:element name='service-template-properties' type='ServiceTemplateType'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Property('service-template-properties', 'service-template')-->
+<xsd:element name='service-template' type='ifmap:IdentityType'/>
+<xsd:element name='domain-service-template'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('domain-service-template', 'domain',
+          'service-template', ['has']) -->
+<xsd:element name='service-instance-service-template'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('service-instance-service-template', 'service-instance',
+          'service-template', ['ref']) -->
+<xsd:element name='virtual-machine-service-instance'/>
+<!-- #IFMAP-SEMANTICS-IDL
+     Link('virtual-machine-service-instance', 'virtual-machine',
+          'service-instance', ['ref', 'derived']) -->
+
+<xsd:element name="virtual-DNS"        type="ifmap:IdentityType"/>
+<xsd:element name="domain-virtual-DNS"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('domain-virtual-DNS', 'domain', 'virtual-DNS',  ['has']) -->
+
+<xsd:element name="virtual-DNS-data" type="VirtualDnsType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-DNS-data', 'virtual-DNS') -->
+
+<xsd:element name="virtual-DNS-record"     type="ifmap:IdentityType"/>
+<xsd:element name="virtual-DNS-virtual-DNS-record"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-DNS-virtual-DNS-record', 
+                'virtual-DNS', 'virtual-DNS-record',  ['has']) -->
+
+<xsd:element name="virtual-DNS-record-data" type="VirtualDnsRecordType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('virtual-DNS-record-data', 'virtual-DNS-record') -->
+
+<xsd:element name="network-ipam-virtual-DNS"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('network-ipam-virtual-DNS', 'network-ipam', 'virtual-DNS', ['ref']) -->
+
+<xsd:complexType name='RouteType'>
+    <xsd:all>
+        <xsd:element name='prefix' type='xsd:string'/>
+        <xsd:element name='next-hop' type='xsd:string'/>
+        <xsd:element name='next-hop-type' type='xsd:string'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="RouteTableType">
+    <xsd:all>
+        <xsd:element name="route" type="RouteType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="route-table" type="ifmap:IdentityType"/>
+<xsd:element name="project-route-table"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-route-table',
+          'project', 'route-table', ['has']) -->
+<xsd:element name="virtual-network-route-table"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-route-table',
+          'virtual-network', 'route-table', ['ref']) -->
+<xsd:element name="routes" type="RouteTableType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('routes', 'route-table') -->
+</xsd:schema>

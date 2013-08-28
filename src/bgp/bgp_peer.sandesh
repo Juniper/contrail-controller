@@ -1,0 +1,344 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "bgp/peer_info.sandesh"
+
+struct address_family {
+    1: u32 afi;            // address family identifier
+    2: u32 safi;           // sub-address family
+}
+
+struct BgpPeerInfo {
+    1: string domain
+    2: string ip_address
+    3: optional string packet_data; // Packet data byte string
+}
+
+traceobject sandesh BgpPeerObjectTrace {
+    1: BgpPeerInfo peer;
+}
+
+request sandesh BgpNeighborReq {
+    1: string ip_address;
+    2: string domain;
+}
+
+struct BgpNeighborRoutingTable {
+    1: string name;
+    2: string rib_state;
+    5: u32 active_prefixes;
+    6: u32 received_prefixes;
+    7: u32 accepted_prefixes;
+}
+
+struct BgpNeighborResp {
+    1: string peer;             // Peer name
+    2: string peer_address (link="BgpNeighborReq");
+    3: u32 peer_asn;
+    4: string local_address;    // local ip address and port
+    5: u32 local_asn;
+    6: string encoding;         // BGP/XMPP
+    7: string peer_type         // internal/external
+    8: string state;
+    9: string send_state;       // in sync/not in sync
+    10: string last_event;
+    11: string last_state;
+    12: string last_state_at;
+    13: string last_error;
+    15: string export_policy;
+    16: string import_policy;
+    17: string options;
+    18: string path_attrib_dropped;
+    19: string path_attrib_ignored;
+    20: list<string> address_families_configured;
+    21: u32 hold_time;
+    22: u32 preference;
+    23: u32 flap_count;
+    24: string flap_time;
+    25: u32 peer_id;
+    26: u32 local_id;
+    27: string local_interface;
+    28: u32 active_holdtime;
+    29: list<BgpNeighborRoutingTable> routing_tables;
+    30: peer_info.PeerProtoStats rx_proto_stats;
+    31: peer_info.PeerProtoStats tx_proto_stats;
+    32: peer_info.PeerUpdateStats rx_update_stats;
+    33: peer_info.PeerUpdateStats tx_update_stats;
+    34: peer_info.PeerSocketStats rx_socket_stats;
+    35: peer_info.PeerSocketStats tx_socket_stats;
+}
+
+response sandesh BgpNeighborListResp {
+    1: list<BgpNeighborResp> neighbors;
+}
+
+request sandesh ShowNeighborStatisticsReq {
+    1: string bgp_or_xmpp; // BGP or XMPP
+    2: string up_or_down; // "UP" for Established, "DOWN" for not-Established
+    3: string domain; // Name of the routing-instance
+}
+
+response sandesh ShowNeighborStatisticsResp {
+    1: string bgp_or_xmpp; // BGP or XMPP
+    2: string up_or_down; // "UP" for Established, "DOWN" for not-Established
+    3: string domain; // Name of the routing-instance
+    4: u32 count;
+}
+
+struct ShowRoutePath {
+    1: string protocol;
+    2: u32 preference;
+    3: string last_modified;
+    4: u32 metric;
+    5: u32 local_preference;
+    6: u32 local_as;
+    7: u32 peer_as;
+    8: string peer_router_id;           // neighbor neighbor route id
+    9: string source;                   // neighbor ip address
+    10: string as_path;
+    11: string next_hop;
+    18: list<string> tunnel_encap;
+    12: u32 label;
+    13: bool replicated;
+    14: string primary_table (link="ShowRouteReq");
+    15: list<string> communities;
+    16: string origin_vn;
+    17: u32 flags;
+}
+
+struct ShowRoute {
+    1: string prefix;
+    2: string last_modified;
+    3: list<ShowRoutePath> paths;
+}
+
+struct ShowRouteTable {
+    1: string routing_instance (link="ShowRoutingInstanceReq");
+    2: string routing_table_name (link="ShowRouteReq");
+    3: u64 prefixes;
+    4: u64 paths;
+    5: u64 primary_paths;
+    6: u64 secondary_paths;
+    7: u64 infeasible_paths;
+    8: list<ShowRoute> routes;
+}
+
+response sandesh ShowRouteResp {
+    1: list<ShowRouteTable> tables;
+}
+
+request sandesh ShowRouteReq {
+    // Show routes matching the fields below
+    1: string routing_table;
+    2: string routing_instance;
+    3: string prefix;
+
+    // Start at the route below
+    4: string start_routing_instance;
+    5: string start_routing_table;
+    6: string start_prefix;
+
+    // Only return this number of results. 0 implies unlimited
+    7: u32 count;
+}
+
+//
+// show route x.x.x.x/x vrf <name>
+//
+request sandesh ShowRouteVrfReq {
+    1: string vrf;
+    2: string prefix;
+}
+
+response sandesh ShowRouteVrfResp {
+    1: ShowRoute route;
+}
+
+struct ShowRoutingInstanceTable {
+    1: string name (link="ShowRouteReq"); // routing table name
+    2: list<string> peers;
+    3: u64 prefixes;
+    4: u64 paths;
+    5: u64 primary_paths;
+    6: u64 secondary_paths;
+    7: u64 infeasible_paths;
+    8: u64 walk_requests;
+    9: u64 walk_completes;
+    10: u64 walk_cancels;
+    11: u64 pending_updates;
+    12: u64 markers;
+}
+
+struct ShowRoutingInstance {
+    1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
+    3: string virtual_network;                      // Virtual network
+    4: list<string> import_target;                  // Import Route targets
+    5: list<string> export_target;                  // Export Route targets
+    2: list<ShowRoutingInstanceTable> tables;
+}
+
+response sandesh ShowRoutingInstanceResp {
+    1: list<ShowRoutingInstance> instances;
+}
+request sandesh ShowRoutingInstanceReq {
+    1: string name;
+}
+
+struct ShowMulticastManager {
+    1: string name (link="ShowMulticastManagerDetailReq");
+    2: u32 total_trees;
+}
+
+response sandesh ShowMulticastManagerResp {
+    1: list<ShowMulticastManager> managers;
+}
+
+request sandesh ShowMulticastManagerReq {
+}
+
+struct ShowMulticastTreeLink {
+    1: string address;
+    2: u32 label;
+}
+
+struct ShowMulticastForwarder {
+    1: string address;
+    2: string label_block;
+    3: u32 label;
+    4: list<ShowMulticastTreeLink> links;
+}
+
+struct ShowMulticastTree {
+    1: string group;
+    2: string source;
+    3: list<ShowMulticastForwarder> forwarders;
+}
+
+response sandesh ShowMulticastManagerDetailResp {
+    1: list<ShowMulticastTree> trees;
+}
+
+request sandesh ShowMulticastManagerDetailReq {
+    1: string name;
+}
+
+struct ShowBgpServiceChainConfig {
+    1: string routing_instance;
+    2: string chain_address;
+    3: list<string> prefixes;
+}
+
+struct ShowBgpStaticRouteConfig {
+    1: string prefix;
+    2: list<string> targets;
+    3: string nexthop;
+}
+
+struct ShowBgpInstanceConfig {
+    1: string name;
+    2: string virtual_network;
+    3: list<string> import_target;
+    4: list<string> export_target;
+    5: ShowBgpServiceChainConfig service_chain_info;
+    6: list<ShowBgpStaticRouteConfig> static_routes;
+}
+
+response sandesh ShowBgpInstanceConfigResp {
+    1: list<ShowBgpInstanceConfig> instances;
+}
+
+request sandesh ShowBgpInstanceConfigReq {
+}
+
+struct ShowBgpSessionAttributesConfig {
+    1: string bgp_router;
+    2: list<string> address_families;
+}
+
+struct ShowBgpSessionConfig {
+    1: string uuid;
+    2: list<ShowBgpSessionAttributesConfig> attributes;
+}
+
+struct ShowBgpPeeringConfig {
+    1: string instance_name;
+    2: string name;
+    3: u32 neighbor_count;
+    4: list<ShowBgpSessionConfig> sessions;
+}
+
+response sandesh ShowBgpPeeringConfigResp {
+    1: list<ShowBgpPeeringConfig> peerings;
+}
+
+request sandesh ShowBgpPeeringConfigReq {
+}
+
+struct ShowBgpNeighborConfig {
+    1: string instance_name;
+    2: string name;
+    3: string vendor;
+    4: i32 autonomous_system;
+    5: string identifier;
+    6: string address;
+    7: list<string> address_families;
+}
+
+response sandesh ShowBgpNeighborConfigResp {
+    1: list<ShowBgpNeighborConfig> neighbors;
+}
+
+request sandesh ShowBgpNeighborConfigReq {
+}
+
+struct BgpPeerInfoData {
+    1: string name (key="ObjectBgpPeer"); // RoutingInstance:RemoteEnd:LocalEnd
+    2: optional bool                deleted
+    3: optional string peer_type;         // internal/external
+    4: optional u32 local_asn;
+    5: optional u32 peer_asn;
+    6: optional u32 hold_time;
+    7: optional string notification_in;
+    8: optional u64 notification_in_at;
+    9: optional string notification_out;
+   10: optional u64 notification_out_at;
+   11: optional u32 local_id;
+   12: optional u32 peer_id;
+   13: optional string send_state;       // in sync/not in sync
+   14: optional list<string> families;
+   15: optional peer_info.PeerFlapInfo flap_info;
+   16: optional peer_info.PeerStateInfo state_info;
+   17: optional peer_info.PeerEventInfo event_info;
+   18: optional string close_reason;
+   19: optional peer_info.PeerStatsInfo peer_stats_info;
+}
+
+uve sandesh BGPPeerInfo {
+    1: BgpPeerInfoData data;
+}
+
+struct TcpServerSocketStats {
+    1: u64 bytes;
+    2: u64 calls;
+    3: double average_bytes;
+    4: string blocked_duration;
+    5: u64 blocked_count;
+    6: string average_blocked_duration;
+}
+
+request sandesh ShowBgpServerReq {
+}
+
+response sandesh ShowBgpServerResp {
+    1: TcpServerSocketStats rx_socket_stats;
+    2: TcpServerSocketStats tx_socket_stats;
+}
+
+request sandesh ShowXmppServerReq {
+}
+
+response sandesh ShowXmppServerResp {
+    1: TcpServerSocketStats rx_socket_stats;
+    2: TcpServerSocketStats tx_socket_stats;
+}

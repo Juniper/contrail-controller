@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<config>
+    <group>
+        <nova>
+            <uuid>1</uuid>
+            <vn-uuid>2</vn-uuid>
+            <vm-uuid>3</vm-uuid>
+            <tap-interface>vnet8</tap-interface>
+            <ip>2.2.2.10</ip>
+            <mac>00:00:00:01:01:02</mac>
+        </nova>
+        <virtual-router uuid="4">vr1</virtual-router>
+        <virtual-machine uuid="3">vm1</virtual-machine>
+        <link>
+            <virtual-router>vr1</virtual-router>
+            <virtual-machine>vm1</virtual-machine>
+        </link>
+        <virtual-machine-interface uuid="1">
+            intf1
+            <mtu>1000</mtu>
+        </virtual-machine-interface>
+        <link>
+            <virtual-machine>vm1</virtual-machine>
+            <virtual-machine-interface>intf1</virtual-machine-interface>
+        </link>
+        <virtual-network uuid="2">vn1</virtual-network>
+        <routing-instance uuid="5">vrf1</routing-instance>
+        <virtual-machine-interface-routing-instance>
+            vmvrf1
+            <value>
+                <direction>both</direction>
+            </value>
+        </virtual-machine-interface-routing-instance>
+        <link>
+            <routing-instance>vrf1</routing-instance>
+            <virtual-network>vn1</virtual-network>
+        </link>
+        <link>
+            <virtual-machine-interface-routing-instance>vmvrf1</virtual-machine-interface-routing-instance>
+            <routing-instance>vrf1</routing-instance>
+        </link>
+        <link>
+            <virtual-machine-interface-routing-instance>vmvrf1</virtual-machine-interface-routing-instance>
+            <virtual-machine-interface>intf1</virtual-machine-interface>
+        </link>
+        <link>
+            <virtual-machine-interface>intf1</virtual-machine-interface>
+            <virtual-network>vn1</virtual-network>
+        </link>
+        <virtual-network-network-ipam>vipam1</virtual-network-network-ipam>
+        <link>
+            <virtual-network>vn1</virtual-network>
+            <virtual-network-network-ipam>vipam1</virtual-network-network-ipam>
+        </link>
+        <network-ipam>ipam1</network-ipam>
+        <link>
+            <virtual-network-network-ipam>vipam1</virtual-network-network-ipam>
+            <network-ipam>ipam1</network-ipam>
+        </link>
+        <expect type="interface-table">
+            <intf>
+                <name>vnet8</name>
+                <mac>00:01:00:5e:00:00</mac>
+                <type>VIRTUAL</type>
+                <mtu>1000</mtu>
+            </intf>
+        </expect>
+        <expect type="route-table" vrf="vrf1">
+            <route>
+                <prefix>2.2.2.10</prefix>
+                <len>32</len>
+                <nh type="ENCAP"></nh>
+            </route>
+        </expect>
+    </group>
+    <group>
+        <network-ipam>ipam2</network-ipam>
+        <virtual-network uuid="7">vn2</virtual-network>
+        <virtual-network-network-ipam>vipam2</virtual-network-network-ipam>
+        <link>
+            <virtual-network-network-ipam>vipam2</virtual-network-network-ipam>
+            <network-ipam>ipam2</network-ipam>
+        </link>
+        <virtual-machine-interface uuid="8">intf2</virtual-machine-interface>
+        <link>
+            <virtual-machine-interface>intf2</virtual-machine-interface>
+            <virtual-network>vn2</virtual-network>
+        </link>
+        <link>
+            <virtual-network>vn2</virtual-network>
+            <virtual-network-network-ipam>vipam2</virtual-network-network-ipam>
+        </link>
+        <virtual-machine uuid="9">vm2</virtual-machine>
+        <link>
+            <virtual-machine>vm2</virtual-machine>
+            <virtual-machine-interface>intf2</virtual-machine-interface>
+        </link>
+        <virtual-router uuid="10">vr2</virtual-router>
+        <link>
+            <virtual-router>vr2</virtual-router>
+            <virtual-machine>vm2</virtual-machine>
+        </link>
+    </group>
+	<expect type="interface-table">
+		<intf>
+			<name>vnet8</name>
+			<mac>00:01:00:5e:00:00</mac>
+			<type>VIRTUAL</type>
+            <mtu>1000</mtu>
+		</intf>
+	</expect>
+	<expect type="route-table" vrf="vrf1">
+		<route>
+            <prefix>2.2.2.10</prefix>
+            <len>32</len>
+		</route>
+	</expect>
+</config>

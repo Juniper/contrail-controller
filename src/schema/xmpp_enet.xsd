@@ -1,0 +1,77 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:ct="http://www.contrailsystems.com/xmpp-enet-cfg.xsd"
+xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
+
+<!-- iq from agent to control-node  -->
+
+<xsd:complexType name="EnetNextHopType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="address" type="xsd:string"/>
+    <xsd:element name="label" type="xsd:integer"/>
+</xsd:complexType>
+
+<xsd:complexType name="EnetNextHopListType">
+    <xsd:element name="next-hop" type="EnetNextHopType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:complexType name="EnetAddressType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="safi" type="xsd:integer"/>
+    <xsd:element name="mac" type="xsd:string"/>
+    <xsd:element name="address" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="EnetEntryType">
+    <xsd:all>
+        <xsd:element name="nlri" type="EnetAddressType"/>
+        <xsd:element name="next-hops" type="EnetNextHopListType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="EnetItemType">
+    <xsd:element name="entry" type="EnetEntryType"/>
+</xsd:complexType>
+
+<xsd:complexType name="EnetItemsType">
+    <xsd:all>
+        <xsd:element name="item" type="EnetItemType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="items" type="EnetItemsType"/>
+
+</xsd:schema>
+
+<!--
+
+<iq type='set'
+    from='agent@domain.org'  
+    to='network-control.domain.org'
+    id='request1'>
+  <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+    <publish node='25/242/01:02:03:04:05:06,10.1.1.1>
+      <item> 
+        <entry xmlns='http://ietf.org/protocol/bgpvpn'>
+          <nlri>
+            <af>25</af>
+            <safi>242</safi>
+            <mac>01:02:03:04:05:06</mac>
+            <address>10.1.1.1</address>
+          </nlri>  
+          <next-hops-list>
+          <next-hop>
+            <af>1</af>
+            <address>192.168.1.1</address>
+            <label>32</label>
+          </next-hop>
+          </next-hops-list>
+        </entry>
+      </item>
+    </publish>
+  </pubsub>  
+</iq> 
+
+-->

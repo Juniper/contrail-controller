@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<static-route-entries>
+    <route>
+        <prefix>192.168.2.0/24</prefix>
+        <next-hop>192.168.3.1</next-hop>
+        <route-target>target:64496:3</route-target>
+    </route>
+    <route>
+        <prefix>192.168.3.0/24</prefix>
+        <next-hop>192.168.4.1</next-hop>
+        <route-target>target:64496:1</route-target>
+    </route>
+    <route>
+        <prefix>192.168.4.0/24</prefix>
+        <next-hop>192.168.4.1</next-hop>
+        <route-target>target:64496:1</route-target>
+    </route>
+</static-route-entries>

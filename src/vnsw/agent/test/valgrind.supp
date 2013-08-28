@@ -1,0 +1,208 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+{
+   <UUID-1>
+   Memcheck:Cond
+   fun:_ZN5boost5uuids6detail7to_charEm
+   fun:_ZN5boost5uuids9to_stringERKNS0_4uuidE
+   fun:_ZN18FlowStatsCollector10FlowExportEP9FlowEntry
+   fun:_ZN18FlowStatsCollector3RunEv
+   fun:_ZN7FlowAge3RunEv
+   fun:_ZN8TaskImpl7executeEv
+   fun:_ZN3tbb8internal16custom_schedulerINS0_20IntelSchedulerTraitsEE18local_wait_for_allERNS_4taskEPS4_
+   fun:_ZN3tbb8internal5arena7processERNS0_17generic_schedulerE
+   fun:_ZN3tbb8internal6market7processERN3rml3jobE
+   fun:_ZN3tbb8internal3rml14private_worker3runEv
+   fun:_ZN3tbb8internal3rml14private_worker14thread_routineEPv
+   fun:start_thread
+}
+
+{
+   <UUID-2>
+   Memcheck:Cond
+   fun:_ZN5boost6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EE4seedINS_5uuids6detail18generator_iteratorINS5_8seed_rngEEEEEvRT_S9_
+   fun:_ZN5boost5uuids6detail4seedINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEEvRT_
+   fun:_ZN5boost5uuids22basic_random_generatorINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEC1Ev
+   fun:_ZN9FlowTable5AllocEPK7PktInfob
+   fun:_ZN9FlowTable11AddInternalEPK7PktInfoP9FlowEntryS4_b
+   fun:_ZN9FlowTable13AddNonNatFlowEP7PktInfo
+   fun:_ZN9FlowTable3AddEP7PktInfo
+   fun:_ZN11FlowHandler3RunEv
+   fun:_ZN5ProtoI11FlowHandlerE12ProcessProtoEP7PktInfo
+   fun:_ZNK5boost4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEclEPS4_S6_
+   fun:_ZN5boost3_bi5list2INS0_5valueIP5ProtoI11FlowHandlerEEENS_3argILi1EEEEclIbNS_4_mfi3mf1IbS5_P7PktInfoEENS0_5list1IRSF_EEEET_NS0_4typeISK_EERT0_RT1_l
+   fun:_ZN5boost3_bi6bind_tIbNS_4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEENS0_5list2INS0_5valueIPS6_EENS_3argILi1EEEEEEclIS8_EEbRT_
+}
+{
+   <UUID-3>
+   Memcheck:Cond
+   fun:_ZN5boost5uuids6detail7to_charEm
+   fun:_ZN5boost5uuids9to_stringERKNS0_4uuidE
+   fun:_ZN18FlowStatsCollector10FlowExportEP9FlowEntry
+   fun:_ZN9FlowEntry10ExportFlowEv
+   fun:_ZN9FlowTable11AddInternalEPK7PktInfoP9FlowEntryS4_b
+   fun:_ZN9FlowTable13AddNonNatFlowEP7PktInfo
+   fun:_ZN9FlowTable3AddEP7PktInfo
+   fun:_ZN11FlowHandler3RunEv
+   fun:_ZN5ProtoI11FlowHandlerE12ProcessProtoEP7PktInfo
+   fun:_ZNK5boost4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEclEPS4_S6_
+   fun:_ZN5boost3_bi5list2INS0_5valueIP5ProtoI11FlowHandlerEEENS_3argILi1EEEEclIbNS_4_mfi3mf1IbS5_P7PktInfoEENS0_5list1IRSF_EEEET_NS0_4typeISK_EERT0_RT1_l
+   fun:_ZN5boost3_bi6bind_tIbNS_4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEENS0_5list2INS0_5valueIPS6_EENS_3argILi1EEEEEEclIS8_EEbRT_
+}
+{
+   <UUID-4>
+   Memcheck:Cond
+   fun:_ZN5boost5uuids6detail7to_charEm
+   fun:_ZN5boost5uuids9to_stringERKNS0_4uuidE
+   fun:_ZN18FlowStatsCollector10FlowExportEP9FlowEntry
+   fun:_ZN9FlowEntry10ExportFlowEv
+   fun:_ZN9FlowTable11AddInternalEPK7PktInfoP9FlowEntryS4_b
+   fun:_ZN9FlowTable13AddNonNatFlowEP7PktInfo
+   fun:_ZN9FlowTable3AddEP7PktInfo
+   fun:_ZN11FlowHandler3RunEv
+   fun:_ZN5ProtoI11FlowHandlerE12ProcessProtoEP7PktInfo
+   fun:_ZNK5boost4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEclEPS4_S6_
+   fun:_ZN5boost3_bi5list2INS0_5valueIP5ProtoI11FlowHandlerEEENS_3argILi1EEEEclIbNS_4_mfi3mf1IbS5_P7PktInfoEENS0_5list1IRSF_EEEET_NS0_4typeISK_EERT0_RT1_l
+   fun:_ZN5boost3_bi6bind_tIbNS_4_mfi3mf1Ib5ProtoI11FlowHandlerEP7PktInfoEENS0_5list2INS0_5valueIPS6_EENS_3argILi1EEEEEEclIS8_EEbRT_
+}
+{
+   <UUID-5>
+   Memcheck:Cond
+   fun:_ZN5boost5uuids6detail7to_charEm
+   fun:_ZN5boost5uuids9to_stringERKNS0_4uuidE
+}
+{
+   <LOG-1>
+   Memcheck:Cond
+   fun:_IO_file_xsputn@@GLIBC_2.2.5
+   fun:fwrite
+   fun:_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l
+   fun:_ZN9log4cplus7pattern16PatternConverter15formatAndAppendERSoRKNS_3spi20InternalLoggingEventE
+}
+{
+   <LOG-2>
+   Memcheck:Param
+   write(buf)
+   obj:/usr/lib64/libc-2.15.so
+   fun:_IO_file_write@@GLIBC_2.2.5
+   fun:new_do_write
+   fun:_IO_do_write@@GLIBC_2.2.5
+   fun:_IO_file_xsputn@@GLIBC_2.2.5
+   fun:fwrite
+   fun:_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l
+   fun:_ZN9log4cplus7pattern16PatternConverter15formatAndAppendERSoRKNS_3spi20InternalLoggingEventE
+}
+
+{
+    <STRING-1>
+    Memcheck:Leak
+    fun:_Znwm
+    fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+    fun:_ZNSs12_S_constructIPKcEEPcT_S3_RKSaIcESt20forward_iterator_tag
+    fun:_ZNSsC1EPKcRKSaIcE
+}
+{
+   <LOG-3>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEm
+   fun:_ZNSs7reserveEm
+   fun:_ZN9log4cplus7pattern13PatternParser5parseEv
+}
+{
+   <LOG-4>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs12_S_constructIPcEES0_T_S1_RKSaIcESt20forward_iterator_tag
+   fun:_ZNSsC1ERKSsmm
+   fun:_ZNK9log4cplus7helpers10Properties17getPropertySubsetERKSs
+}
+{
+   <LOG-5>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSsC1IPcEET_S1_RKSaIcE
+   fun:_ZNKSt18basic_stringstreamIcSt11char_traitsIcESaIcEE3strEv
+}
+{
+   <LOG-6>
+   Memcheck:Leak
+   fun:_Znwm
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs9_M_mutateEmmm
+   fun:_ZNSs15_M_replace_safeEmmPKcm
+   fun:_ZN9log4cplus7pattern13PatternParser17finalizeConverterEc
+   fun:_ZN9log4cplus7pattern13PatternParser5parseEv
+}
+{
+   <TBB-1>
+   Memcheck:Leak
+   fun:malloc
+   fun:_ZN3tbb8internalL15padded_allocateEmm
+}
+{
+   <TBB-2>
+   Memcheck:Leak
+   fun:malloc
+   fun:_ZN3tbb8internal23allocate_via_handler_v3Em
+}
+{
+   <TBB-3>
+   Memcheck:Leak
+   fun:_Znam
+   fun:_ZN3tbb8internal11task_stream10initializeEj
+}
+{
+   <IO-1>
+   Memcheck:Param
+   sendmsg(msg.msg_iov[0])
+   obj:/usr/lib64/libpthread-2.15.so
+   fun:_ZN5boost4asio6detail10socket_ops6sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail10socket_ops11sync_sendtoEihPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail23reactive_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS5_19implementation_typeERKT_RKNS3_14basic_endpointIS4_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio23datagram_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS0_6detail23reactive_socket_serviceIS3_E19implementation_typeERKT_RKNS2_14basic_endpointIS3_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio21basic_datagram_socketINS0_2ip3udpENS0_23datagram_socket_serviceIS3_EEE7send_toINS0_17mutable_buffers_1EEEmRKT_RKNS2_14basic_endpointIS3_EE
+   fun:_ZN16KSyncSockTypeMap18SendNetlinkDoneMsgEi
+}
+{
+   <boost_rand>
+   Memcheck:Cond
+   fun:_ZN5boost6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EE4seedINS_5uuids6detail18generator_iteratorINS5_8seed_rngEEEEEvRT_S9_
+   fun:_ZN5boost5uuids6detail4seedINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEEvRT_
+   fun:_ZN5boost5uuids22basic_random_generatorINS_6random23mersenne_twister_engineIjLm32ELm624ELm397ELm31ELj2567483615ELm11ELj4294967295ELm7ELj2636928640ELm15ELj4022730752ELm18ELj1812433253EEEEC1Ev
+   fun:_Z41__static_initialization_and_destruction_0ii
+}
+{
+   <ksyncsock_maptype_sendto>
+   Memcheck:Param
+   socketcall.sendmsg(msg.msg_iov[i])
+   obj:/usr/lib64/libpthread-2.15.so
+   fun:_ZN5boost4asio6detail10socket_ops6sendtoEiPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail10socket_ops11sync_sendtoEihPK5iovecmiPK8sockaddrmRNS_6system10error_codeE
+   fun:_ZN5boost4asio6detail23reactive_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS5_19implementation_typeERKT_RKNS3_14basic_endpointIS4_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio23datagram_socket_serviceINS0_2ip3udpEE7send_toINS0_17mutable_buffers_1EEEmRNS0_6detail23reactive_socket_serviceIS3_E19implementation_typeERKT_RKNS2_14basic_endpointIS3_EEiRNS_6system10error_codeE
+   fun:_ZN5boost4asio21basic_datagram_socketINS0_2ip3udpENS0_23datagram_socket_serviceIS3_EEE7send_toINS0_17mutable_buffers_1EEEmRKT_RKNS2_14basic_endpointIS3_EE
+   fun:_ZN16KSyncSockTypeMap18SendNetlinkDoneMsgEi
+}
+{
+   <timer_destruct>
+   Memcheck:Addr8
+   ...
+   fun:_ZN5TimerD1Ev
+   fun:_ZN5TimerD0Ev
+   ...
+}
+{
+   <timer_destruct-1>
+   Memcheck:Addr4
+   ...
+   fun:_ZN5TimerD1Ev
+   fun:_ZN5TimerD0Ev
+   ...
+}
+

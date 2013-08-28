@@ -1,0 +1,45 @@
+<!-- 
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2">
+
+<xsd:element name="foo" type="ifmap:IdentityType"/>
+
+<xsd:element name="foo-property" type="AttributeType"/>
+<!-- #IFMAP-SEMANTICS-IDL Property('foo-property', 'foo') -->
+
+<xsd:complexType name="AttributeType">
+    <xsd:all>
+        <xsd:element name="attr1" type="xsd:integer"/>
+        <xsd:element name="attr2" type="xsd:string"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name='simple-list' type='SimpleListType'/>
+<!-- #IFMAP-SEMANTICS-IDL Property('simple-list', 'foo') -->
+
+<xsd:complexType name='SimpleListType'>
+     <xsd:sequence>
+        <xsd:element name='simple' type='xsd:integer'
+                minOccurs='0' maxOccurs='unbounded'/>
+     </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='complex-list' type='ComplexListType'/>
+<!-- #IFMAP-SEMANTICS-IDL Property('complex-list', 'foo') -->
+<xsd:complexType name='ComplexListType'>
+     <xsd:sequence>
+        <xsd:element name='attr' type='AttributeType'
+                minOccurs='0' maxOccurs='unbounded'/>
+     </xsd:sequence>
+</xsd:complexType>
+
+<xsd:element name='value' type='xsd:string'/>
+<!-- #IFMAP-SEMANTICS-IDL Property('value', 'foo') -->
+
+<xsd:element name='long-value' type='xsd:unsignedLong'/>
+<!-- #IFMAP-SEMANTICS-IDL Property('long-value', 'foo') -->
+
+</xsd:schema>

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config>
+    <delete> 
+        <link>
+            <node type="foo">
+                <name>testfoo</name>
+            </node>
+            <node type="bar">
+                <name>testbar</name>
+            </node>
+        </link>
+    </delete>
+</config>

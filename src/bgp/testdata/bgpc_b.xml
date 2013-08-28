@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <bgp>
+        <bgp-identifier> 192.168.1.2</bgp-identifier>
+        <asn> 100 </asn>
+        <neighbor name="_A_Peer">
+            <ip-address>127.0.0.1</ip-address>
+            <family>inet-vpn</family>
+            <port>%(port)d</port>
+	    <peer-id>1</peer-id>
+            <remote-as>100</remote-as>
+        </neighbor>
+    </bgp>
+
+    <routing-instance name="blue">
+        <vrf-target> target:1:3 </vrf-target> 
+    </routing-instance>
+
+    <routing-instance name="red">
+        <vrf-target> target:1:2 </vrf-target> 
+    </routing-instance>
+</config>

@@ -1,0 +1,18 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.Append(CPPPATH = env['TOP'])
+
+libbgp_l3vpn = env.Library('bgp_l3vpn',
+                           ['inetvpn_address.cc',
+                            'inetvpn_table.cc',
+                            'inetvpn_route.cc'
+                            ])
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

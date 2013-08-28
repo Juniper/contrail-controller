@@ -1,0 +1,82 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+env = Environment()
+
+autogen_infra_sources = [
+                 '#/tools/generateds/generateDS.py',
+                 '#/tools/generateds/TypeGenerator.py',
+                 '#/tools/generateds/ccmap.py',
+                 '#/tools/generateds/idl_parser.py',
+                 '#/tools/generateds/ifmap_global.py',
+                 '#/tools/generateds/ifmap_model.py',
+                 '#/tools/generateds/ifmap_frontend.py',
+                ]
+
+autogen_sources = [
+                 '#controller/src/schema/all_cfg.xsd',
+                 '#controller/src/schema/vnc_cfg.xsd',
+                 '#controller/src/schema/bgp_schema.xsd',
+                 '#controller/src/schema/ietf-l3vpn-schema.xsd',
+                 '#controller/src/schema/smi-base.xsd',
+                ]
+
+autogen_script = '#tools/generateds/generateDS.py'
+autogen_cmd = '%s -f -o  %s/vnc_api/gen/resourcre -g -ifmap-frontend' % (autogen_script, Dir('../api-lib').path)
+
+generated_files = [ 
+                  'vnc_api/gen/__init__.py',
+                  'vnc_api/gen/resource_xsd.py',
+                  'vnc_api/gen/resource_common.py',
+                  'vnc_api/gen/resource_client.py',
+                  'vnc_api/gen/vnc_api_client_gen.py',
+                ]
+generated_rule = env.Command(generated_files,
+                             '#controller/src/schema/all_cfg.xsd',
+                             autogen_cmd + ' $SOURCE')
+
+setup_sources = [
+           'setup.py',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(env.Install("", "#/controller/src/api-lib/" + file))
+
+local_sources = [
+           '__init__.py',
+           'vnc_api.py',
+           'vnc_api_lib.ini',
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install("vnc_api", "#/controller/src/api-lib/" + file))
+
+common_sources = [
+                  '__init__.py',
+                  'rest.py',
+                  'exceptions.py'
+                 ]
+
+common_sources_rules = []
+for file in common_sources:
+    common_sources_rules.append(env.Install("vnc_api/common", "#/controller/src/config/common/" + file))
+
+generateds_rule = env.Install("vnc_api/gen", "#/controller/src/config/common/generatedssuper.py")
+cfixture_rule = env.Install("vnc_api/gen", "#/controller/src/config/common/cfixture.py")
+
+sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(common_sources_rules)
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Default(sdist_gen)
+
+# generated files depend on autogeneration infra parts
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(local_sources_rules, autogen_infra_sources)
+
+# install everything before building distribution
+env.Depends(sdist_gen, sdist_depends)

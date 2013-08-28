@@ -1,0 +1,12 @@
+# -*- mode: python; -*-
+#
+#Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('DnsEnv')
+env = DnsEnv.Clone()
+
+dns_mgr = env.Library('mgr',
+                      ['dns_mgr.cc',
+                      ])

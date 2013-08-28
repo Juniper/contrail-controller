@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+
+    <routing-instance name='default-domain:default-project:ip-fabric:__default__'>
+        <bgp-router name='A'>
+            <autonomous-system>%(as_a)d</autonomous-system>
+            <identifier>192.168.1.101</identifier>
+            <address>127.0.0.1</address>
+            <port>%(port_a)d</port>
+                <address-families>
+                    <family>inet-vpn</family>
+                </address-families>
+        </bgp-router>
+        <bgp-router name='B'>
+            <autonomous-system>%(as_b)d</autonomous-system>
+            <identifier>192.168.1.102</identifier>
+            <address>127.0.0.1</address>
+            <port>%(port_b)d</port>
+                <address-families>
+                    <family>inet-vpn</family>
+                </address-families>
+        </bgp-router>
+    </routing-instance>
+
+    <routing-instance name="blue">
+        <vrf-target>target:1:3</vrf-target>
+    </routing-instance>
+
+    <routing-instance name="red">
+        <vrf-target>target:1:2</vrf-target>
+    </routing-instance>
+</config>

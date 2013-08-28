@@ -1,0 +1,19 @@
+# -*- mode: python; -*-
+
+vpath = '#/third_party/log4cplus-1.0.4'
+
+env = DefaultEnvironment()
+
+config_opts = '--prefix=' + str(Dir('#/build'))
+
+cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+products = [ str(File('#/build/lib/liblog4cplus' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/liblog4cplus' + env['SHLIBSUFFIX'])),
+             str(File('#/build/include/log4cplus/logger.h')) ]
+
+log4cplus_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, log4cplus_cfg)
+

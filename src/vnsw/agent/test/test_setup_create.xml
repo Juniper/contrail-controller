@@ -1,0 +1,44 @@
+<?xml version="1.0" encodinkkg="utf-8"?>
+<config>
+    <create-config>
+       <vn>
+	 <vn-name>vn1</vn-name>
+	 <vrf-name>vrf1</vrf-name>
+	 <vm>vm1 100.1.1.10</vm>
+	 <vm>vm2 100.1.1.20</vm>
+	 <vm>vm3 100.1.1.30</vm>
+	 <vm>vm4 100.1.1.40</vm>
+	 <acl-id>1</acl-id>
+       </vn>
+       <vn>
+	 <vn-name>vn2</vn-name>
+	 <vrf-name>vrf2</vrf-name>
+	 <vm>vm5 200.1.1.10</vm>
+	 <vm>vm6 200.1.1.20</vm>
+	 <vm>vm7 200.1.1.30</vm>
+	 <vm>vm8 200.1.1.40</vm>
+	 <acl-id>2</acl-id>
+       </vn>
+    </create-config>
+    <acl>
+       <name>acl1</name>
+       <id>1</id>
+       <ace>vn1 vn2 -1 -1 -1 -1 any pass</ace>
+       <ace>vn2 vn1 -1 -1 -1 -1 any deny</ace>
+       <ace>vn1 vn1 -1 -1 -1 -1 any pass</ace>
+    </acl>
+    <acl>
+       <name>acl2</name>
+       <id>2</id>
+       <ace>vn1 vn2 10 10 100 100 any pass</ace>
+       <ace>vn2 vn1 100 100 10 10 any deny</ace>
+       <ace>vn2 vn2 -1  -1  -1 -1 any pass</ace>
+    </acl>
+    <exception-packet>
+       <!--
+       <packet>vn vm source-ip dest-ip src-port dst-port protocol action</packet>
+       -->
+       <packet>vn1 vm1 10.1.1.2   10.1.1.3   10  10 1 deny</packet>
+       <packet>vn1 vm1 100.1.1.10 100.1.1.20 4   4  1 pass</packet>
+    </exception-packet>
+</config>

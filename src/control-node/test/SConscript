@@ -1,0 +1,13 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.Prepend(CPPPATH = env['TOP'])
+
+libcontrol_test = env.Library('control_test',
+                              ['control_node_test.cc',
+                               'network_agent_mock.cc'])

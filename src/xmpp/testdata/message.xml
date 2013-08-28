@@ -1,0 +1,21 @@
+<message to='agent@vnsw.contrailsystems.com'
+         from='bgp.contrail.com/bgp-peer'>
+    <event xmlns='http://jabber.org/protocol/pubsub#event'>
+        <items node='vpn-customer-name'>
+            <item id='ae890ac52d0df67ed7cfdf51b644e901'> <!-- TODO id -->
+                <entry>
+                    <nlri>
+                        <af>1</af>
+                        <address>10.1.2.1/32</address>
+                    </nlri>
+                    <next-hop>     
+                        <af>1</af>
+                        <address>20.1.2.1</address>
+                    </next-hop>     
+                    <version>1</version>
+                    <label>10000</label>      <!-- 24 bit number -->
+                </entry>  
+            </item>
+        </items>
+    </events>
+</message>

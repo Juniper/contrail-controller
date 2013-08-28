@@ -1,0 +1,45 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+def SrcBuildDir(x):
+    return '#/' + Dir('.').path + '/../../' + x;
+
+env.Prepend(LIBS=['io', 'base', 'sandesh'])
+env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('io')])
+env.Append(CPPPATH = env['TOP'])
+
+# libsandeshmirror
+SandeshGenFiles = env.SandeshGenCpp('mirror.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenHdrs = env.ExtractHeader(SandeshGenFiles)
+libsandeshmirror = env.Library(target = 'sandeshmirror', source = SandeshGenSrcs)
+env.Install(env['TOP_LIB'], libsandeshmirror)
+env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
+
+# libsandeshflow
+SandeshGenFiles = env.SandeshGenCpp('flow.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenHdrs = env.ExtractHeader(SandeshGenFiles)
+libsandeshflow = env.Library(target = 'sandeshflow', source = SandeshGenSrcs)
+env.Install(env['TOP_LIB'], libsandeshflow)
+env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
+
+#libsandeshvns
+SandeshGenFiles = env.SandeshGenCpp('vns.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+SandeshGenHdrs = env.ExtractHeader(SandeshGenFiles)
+libsandeshvns = env.Library(target = 'sandeshvns', source = SandeshGenSrcs)
+env.Install(env['TOP_LIB'], libsandeshvns)
+env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
+
+# Generate the Python source files
+SandeshGenPyFiles  = env.SandeshGenPy('mirror.sandesh')
+SandeshGenPyFiles += env.SandeshGenPy('flow.sandesh')
+SandeshGenPyFiles += env.SandeshGenPy('vns.sandesh')
+  

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<env:Envelope
+    xmlns:env="http://www.w3.org/2003/05/soap-envelope" 
+    xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" 
+    xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2"
+    xmlns:cntr="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
+  <env:Body>
+    <ifmap:response>
+      <searchResult name="sub1">
+	<resultItem>
+	  <ifmap:identity name="cntr:foo:a" type="other"/>
+	  <ifmap:identity name="cntr:bar:b" type="other"/>
+	  <meta:metadata>
+	    <cntr:foo-bar-link/>
+	  </meta:metadata>
+	</resultItem>
+      </searchResult>
+    </ifmap:response>
+  </env:Body>
+</env:Envelope>

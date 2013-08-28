@@ -1,0 +1,22 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+libdb = env.Library('db',
+                    ['db.cc',
+                     'db_entry.cc',
+                     'db_graph.cc',
+                     'db_graph_edge.cc',
+                     'db_graph_vertex.cc',
+                     'db_partition.cc',
+                     'db_table.cc',
+                     'db_table_partition.cc',
+                     'db_table_walker.cc'])
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

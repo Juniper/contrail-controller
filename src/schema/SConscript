@@ -1,0 +1,49 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+import re
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+# Versions of gcc < 4.4 do not support 'pragma diagnostic'
+if env['CC'] == 'gcc':
+    version = env['CCVERSION'].split('.')
+    gcc_major = int(version[0])
+    gcc_minor = int(version[1])
+    if gcc_major < 4 or (gcc_major == 4 and gcc_minor < 4):
+        cflags = env['CCFLAGS']
+        cflags.append('-Wno-unused-function')
+# end
+
+targets = env.IFMapAutogen('vnc_cfg.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('ifmap_vnc', lib_srcs)
+
+targets = env.IFMapAutogen('bgp_schema.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('bgp_schema', lib_srcs)
+
+targets = env.TypeAutogen('bgp_l3vpn_unicast.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('bgp_l3vpn_unicast', lib_srcs)
+
+targets = env.TypeAutogen('bgp_l3vpn_multicast.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('bgp_l3vpn_multicast', lib_srcs)
+
+targets = env.TypeAutogen('bgp_l3vpn_multicast_msg.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('bgp_l3vpn_multicast_msg', lib_srcs)
+
+targets = env.TypeAutogen('xmpp_enet.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('xmpp_enet', lib_srcs)
+
+targets = env.TypeAutogen('services.xsd')
+lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
+lib = env.Library('services', lib_srcs)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

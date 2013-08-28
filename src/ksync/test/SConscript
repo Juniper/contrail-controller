@@ -1,0 +1,59 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+import sys
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
+
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/include')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
+env.Prepend(CPPPATH = env['TOP'] + '/../include/thrift')
+env.Prepend(CPPPATH = env['TOP'] + '/schema')
+env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
+env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
+env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
+env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
+env.Prepend(CPPPATH = env['TOP'] + '/http/client')
+
+env.Prepend(LIBS=['nova_ins', 'nova_ins_thrift', 'thriftasio',
+                  'thrift','xmpp', 'peer_sandesh', 'bgp_l3vpn_unicast', 'bgp_l3vpn_multicast',
+                  'bgp_l3vpn_multicast_msg',  'ds', 'services', 
+                  'xml', 'pugixml', 'route', 'curl',
+                  'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common', 
+                  'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser',
+                  'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
+                  'gunit', 'boost_regex', 'boost_filesystem',
+                  'bind_interface', 'cpuinfo'])
+
+if sys.platform != 'darwin':
+    env.Prepend(LIBS=['agent_services'])
+
+env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter',])
+if sys.platform != 'darwin':
+    env.Append(LIBS=['pkt'])
+    env.Prepend(LIBS=['rt', 'ksync', 'vnswksync', 'vrutil','agentuve',])
+
+libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
+                    'base', 'base/test', 'boost_regex', 'route', 'schema',
+                    'ifmap', 'net', 'net', 'discovery/client', 'http/client',
+                    'vnsw/dp/utils', 'vnsw/agent',
+                    'vnsw/agent/openstack',
+                    'vnsw/agent/cfg', 'vnsw/agent/oper', 'vnsw/agent/pkt', 
+                    'vnsw/agent/services', 'vnsw/agent/cmn',
+                    'vnsw/agent/controller', 'vnsw/agent/ksync', 
+                    'vnsw/agent/filter', 'vnsw/agent/uve', 'dns/bind'])
+
+env.Append(LIBPATH=libs)
+
+ksync_test = env.Program('ksync_test', ['ksync_test.cc'])
+env.Alias('src/ksync:ksync_test', ksync_test)
+
+ksync_db_test = env.Program('ksync_db_test', ['ksync_db_test.cc'])
+env.Alias('src/ksync:ksync_db_test', ksync_db_test)

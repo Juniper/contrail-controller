@@ -1,0 +1,53 @@
+# -*- mode: python; -*-
+#
+#Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('DnsEnv')
+env = DnsEnv.Clone()
+
+SandeshGenFiles = env.SandeshGenCpp('dns.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '../../dns/agent/libagent_xmpp.a', 
+                      '../../dns/bind/libbind_interface.a', '../../../lib/librndc.a', '../../../lib/libisccc.a', 
+                      '../../../lib/libdns.a', '../../../lib/libisccfg.a', '../../../lib/libbind9.a', '../../../lib/libisc.a', 
+                      '../../schema/libifmap_vnc.a', '../../ifmap/libifmap_server.a', '../../ifmap/libifmap_common.a', 
+                      '../../net/libnet.a', '../../../lib/libifmapio.a', '../../xmpp/libxmpp.a', '../../../lib/libsandeshvns.a',
+                      '../../../lib/libsandesh.a', '../../../lib/libhttp.a', '../../../lib/libhttp_parser.a', 
+                      '../../../lib/libcurl.a', '../../db/libdb.a', '../../io/libio.a', '../../base/libbase.a', 
+                      '../../xml/libxml.a', '../../../lib/libpugixml.a', '../../../lib/libxml2.a', 
+                      '../../../lib/libboost_regex.a', '../../../lib/libboost_program_options.a', '../../dns/uve/libdns_uve.a',
+                      '../../../lib/libboost_system.a', '../../../lib/liblog4cplus.a']
+
+if sys.platform != 'darwin':
+    buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
+
+cmn_sources = ['dns.cc']
+rel_path = Dir('.').path
+def BuildInfoAction(target, source, env):
+    env.GenerateBuildInfoCode(path=rel_path)
+
+env.Command(target='buildinfo.cc', source = [buildinfo_dep_libs + 
+                                             cmn_sources +
+                                             ['../main.cc']],
+                                   action=BuildInfoAction)
+
+env.Depends('dns.o', 'buildinfo.cc')
+except_env = DnsEnv.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    except_env.Replace(CCFLAGS = cflags)
+
+sandesh_objs = []
+for src in SandeshGenSrcs:
+    objname = src.replace('.cpp', '.o')
+    obj = except_env.Object(objname, src)
+    sandesh_objs.append(obj)
+
+dns_cmn = env.Library('cmn',
+                      sandesh_objs + cmn_sources +
+                      ['buildinfo.cc',
+                      ])

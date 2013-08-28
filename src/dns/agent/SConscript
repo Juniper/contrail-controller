@@ -1,0 +1,13 @@
+# -*- mode: python; -*-
+#
+#Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+Import('DnsEnv')
+env = DnsEnv.Clone()
+
+agent_xmpp = env.Library('agent_xmpp',
+                         ['agent_xmpp_init.cc',
+                          'agent_xmpp_channel.cc',
+                         ])

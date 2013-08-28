@@ -1,0 +1,191 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "base/sandesh/cpuinfo.sandesh"
+
+struct AgentXenConfig {
+    1: string            xen_ll_port;
+    2: string            xen_ll_ip;
+    3: i32               xen_ll_prefix_len;
+}
+
+struct AgentVhostConfig {
+    1: string    name;
+    2: string    ip;
+    3: i32       ip_prefix_len;
+    4: string    gateway;
+}
+
+struct AgentXmppPeer {
+    1: string        ip (aggtype="listkey")
+    2: bool          status;
+    3: string        setup_time;
+    4: bool          primary;
+}
+
+struct AgentInterface {
+    1: string name (aggtype="listkey")
+    2: string mac_address;
+}
+
+struct VrouterAgent {  // Agent info
+    1: string name (key="ObjectVRouter")
+    2: optional bool                deleted
+    3: optional list<string> connected_networks; 
+    4: optional list<string> interface_list; 
+    5: optional list<string> virtual_machine_list; 
+    6: optional list<AgentXmppPeer> xmpp_peer_list;
+    7: optional string collector;
+    8: optional list<string> self_ip_list;
+    9: optional string build_info;
+   10: optional list<string> core_files_list; 
+   11: optional list<string> error_intf_list; 
+   12: optional list<AgentInterface> phy_if;
+   13: optional AgentInterface vhost_if;
+   14: optional i32 collector_port;
+   15: optional string log_file;
+   16: optional string config_file;
+   17: optional bool  log_local;
+   18: optional string log_level;
+   19: optional string log_category;
+   20: optional i32 sandesh_http_port;
+   21: optional list<string> dns_servers;
+   22: optional AgentVhostConfig vhost_cfg;
+   23: optional string eth_name;
+   24: optional string tunnel_type;
+   25: optional string hypervisor;
+   26: optional AgentXenConfig xen_cfg;
+   27: optional string ds_addr;
+   28: optional i32 ds_xs_instances;
+}
+
+uve sandesh UveVrouterAgent {
+    1: VrouterAgent data;
+}
+
+struct AgentDropStats {
+    1:  u64   ds_discard;
+    2:  u64   ds_pull;
+    3:  u64   ds_invalid_if;
+    4:  u64   ds_arp_not_me;
+    5:  u64   ds_garp_from_vm;
+    6:  u64   ds_invalid_arp;
+    7:  u64   ds_trap_no_if;
+    8:  u64   ds_nowhere_to_go;
+    9:  u64   ds_flow_queue_limit_exceeded;
+    10: u64   ds_flow_no_memory;
+    11: u64   ds_flow_invalid_protocol;
+    12: u64   ds_flow_nat_no_rflow;
+    13: u64   ds_flow_action_drop;
+    14: u64   ds_flow_action_invalid;
+    15: u64   ds_flow_unusable;
+    16: u64   ds_flow_table_full;
+    17: u64   ds_interface_tx_discard;
+    18: u64   ds_interface_drop;
+    19: u64   ds_duplicated;
+    20: u64   ds_push;
+    21: u64   ds_ttl_exceeded;
+    22: u64   ds_invalid_nh;
+    23: u64   ds_invalid_label;
+    24: u64   ds_invalid_protocol;
+    25: u64   ds_interface_rx_discard;
+    26: u64   ds_invalid_mcast_source;
+    27: u64   ds_head_alloc_fail;
+    28: u64   ds_head_space_reserve_fail;
+    29: u64   ds_pcow_fail;
+    30: u64   ds_flood;
+    31: u64   ds_mcast_clone_fail;
+    32: u64   ds_composite_invalid_interface;
+    33: u64   ds_rewrite_fail;
+    34: u64   ds_misc;
+    35: u64   ds_invalid_packet;
+    36: u64   ds_cksum_err;
+}
+
+struct AgentXmppStats {
+    1: string   ip (aggtype="listkey")
+    2: optional u16 reconnects; 
+    3: optional u64 in_msgs; 
+    4: optional u64 out_msgs; 
+}
+
+struct AgentIfStats {
+    1: string name (aggtype="listkey")
+    2: u64 in_pkts;
+    3: u64 in_bytes; 
+    4: u64 out_pkts; 
+    5: u64 out_bytes; 
+    6: i32 speed;
+    7: i32 duplexity;
+}
+
+struct AgentIfBandwidth {
+    1: string name (aggtype="listkey")
+    2: byte in_bandwidth_usage;
+    3: byte out_bandwidth_usage;
+}
+
+struct VrouterStatsAgent {  // Agent stats
+    1: string name (key="ObjectVRouter")
+    2: optional bool                deleted
+
+       //traffic stats
+    3: optional u64 in_tpkts; 
+    4: optional u64 in_bytes; 
+    5: optional u64 out_tpkts;
+    6: optional u64 out_bytes; 
+
+       //xmpp stats
+    7: optional list<AgentXmppStats> xmpp_stats_list;
+
+       //Sandesh stats
+    8: optional u16 collector_reconnects; 
+    9: optional u64 in_sandesh_msgs; 
+    10: optional u64 out_sandesh_msgs; 
+    11: optional u16 sandesh_http_sessions; 
+
+        //Process stats
+    12: optional cpuinfo.CpuLoadInfo cpu_info;
+    13: optional double cpu_share (aggtype="stats")
+
+        //Nexthop stats
+    14: optional u32 nexthops; 
+
+        //Flow stats
+    15: optional u64 exception_packets; 
+    16: optional u64 exception_packets_dropped; 
+    17: optional u64 exception_packets_no_route; 
+    18: optional u64 exception_packets_denied; 
+    19: optional u64 exception_packets_allowed; 
+    20: optional u64 total_flows; 
+    21: optional u64 active_flows; 
+    22: optional u64 aged_flows; 
+    23: optional u64 aged_flows_dp; 
+    24: optional u64 active_flows_dp; 
+
+        //Dataplane stats
+    25: optional u64 in_kernel_ipc_msgs; 
+    26: optional u64 out_kernel_ipc_msgs; 
+    27: optional u64 hash_collisions_dp; 
+    28: optional u64 packets_denied_dp; 
+    29: optional u64 packets_no_route_dp; 
+    30: optional u64 packets_no_mpls_dp; 
+    31: optional u64 packets_no_flow_dp; 
+    32: optional u64 uptime;
+    33: optional list<AgentIfStats> phy_if_stats_list;
+    34: optional AgentIfStats vhost_stats;
+    35: optional list<AgentIfBandwidth> phy_if_1min_usage;
+    36: optional list<AgentIfBandwidth> phy_if_5min_usage; 
+    37: optional list<AgentIfBandwidth> phy_if_10min_usage; 
+    38: optional list<u32>   udp_sport_bitmap;
+    39: optional list<u32>   udp_dport_bitmap;
+    40: optional list<u32>   tcp_sport_bitmap;
+    41: optional list<u32>   tcp_dport_bitmap;
+    42: optional AgentDropStats drop_stats;
+}
+
+uve sandesh VrouterStats {
+    1: VrouterStatsAgent data;
+}
+

@@ -1,0 +1,32 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# ruleeng/test directory
+
+Import('AnalyticsEnv')
+
+env = AnalyticsEnv.Clone()
+
+env.Append(LIBS=['gunit'])
+
+AnalyticsEnv_excep = env.Clone()
+while AnalyticsEnv_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    AnalyticsEnv_excep['CCFLAGS'].remove('-fno-exceptions')
+
+ruleparser_test_obj = AnalyticsEnv_excep.Object(source="ruleparser_test.cc")
+ruleparser_test = env.UnitTest('ruleparser_test',
+                               AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
+                               ['../../viz_message.o',
+                                ruleparser_test_obj,
+                                env['TOP'] + '/analytics/viz_request_skeleton.cpp',
+                               ]
+                              )
+
+env.Alias('src/analytics/ruleeng:ruleparser_test', ruleparser_test)
+
+test = env.TestSuite('ruleparser-test',
+        [ruleparser_test,])
+
+env.Alias('src/analytics/ruleparser:test', test)

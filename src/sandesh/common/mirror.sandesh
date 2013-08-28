@@ -1,0 +1,51 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/*
+ * mirror.sandesh
+ *
+ * Mirror/analyzer sandesh definitions 
+ */
+
+request sandesh MirrorCreateReq {
+    // Handle
+    1: string handle;
+
+    // Apply VN
+    2: string apply_vn;
+
+    // Source
+    3: string src_vn = 'any';
+    4: string src_ip_prefix;
+    5: i32 src_ip_prefix_len;
+
+    // Destination
+    6: string dst_vn = 'any';
+    7: string dst_ip_prefix;
+    8: i32 dst_ip_prefix_len;
+
+    // Source port, -1 means any
+    // if there is no end_src_port, end_src_port will be same as start_src_port
+    9: i32 start_src_port = 0;
+    10: i32 end_src_port = -1;
+
+    // Dest port, -1 means any
+    // if there is no end_dst_port, end_dst_port will be same as start_dst_port
+    11: i32 start_dst_port = 0;
+    12: i32 end_dst_port = -1;
+
+    // Protocol, -1 means any
+    13: i32 protocol = -1;
+
+    // Mirror destination
+    14: string ip;   
+    15: i32 udp_port;
+    // Time period for mirroring in seconds
+    16: i32 time_period;
+}
+
+request sandesh MirrorDeleteReq {
+    // Handle
+    1: string handle;
+}

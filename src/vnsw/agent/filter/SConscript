@@ -1,0 +1,20 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# filter directory
+
+import os
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+libfilter = env.Library('filter',
+                     [
+                      'traffic_action.cc',
+                      'acl_entry.cc',
+                      'acl.cc',
+                      #'policy.cc',
+                      ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

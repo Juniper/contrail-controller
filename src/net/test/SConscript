@@ -1,0 +1,28 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/net')
+
+env.Prepend(LIBS = ['gunit', 'net'])
+
+mac_address_test = env.UnitTest('mac_address_test', ['mac_address_test.cc'])
+env.Alias('src/net:mac_address_test', mac_address_test)
+
+rd_test = env.UnitTest('rd_test', ['rd_test.cc'])
+env.Alias('src/net:rd_test', rd_test)
+
+test_suite = [
+    mac_address_test,
+    rd_test
+]
+
+test = env.TestSuite('net-test', test_suite)
+env.Alias('src/net:test', test)
+
+Return('test_suite')

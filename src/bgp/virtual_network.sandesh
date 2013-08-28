@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+// This is the structure sent by an application to the Collector to represent
+// all or part of the Control Plane state of the UVE on this app instance.
+//
+struct UveVirtualNetworkCtrl {  // Control plane view of the virtual network
+    1: string                               name (key="ObjectVNTable")
+    2: optional bool                        deleted
+    // Add additional items here
+}
+
+uve sandesh UveVirtualNetworkCtrlTrace {
+    1: UveVirtualNetworkCtrl                data;
+}
+

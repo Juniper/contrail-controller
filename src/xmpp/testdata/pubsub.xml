@@ -1,0 +1,17 @@
+<iq type='set'
+       from='agent@vnsw.contrailsystems.com/other-peer'
+       to='bgp.contrail.com' 
+       id='request1'>
+    <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+      <publish node='01020304abcd:vpn-ip-address/32'>
+        <item>
+          <entry xmlns='http://ietf.org/protocol/bgpvpn'>
+            <nlri af='1'>10.1.2.1/32</nlri>
+            <next-hop af='1'>'infrastructure-ip-address'</next-hop>
+            <version id='1'/>      <!-- non-decreasing VM version # -->
+            <label>10000</label>      <!-- 24 bit number -->
+          </entry>  
+        </item>
+      </publish>
+    </pubsub>
+</iq>

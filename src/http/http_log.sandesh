@@ -1,0 +1,13 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  http_log.sandesh
+//
+//  Sandesh definitions for HTTP Logging
+//
+
+systemlog sandesh HttpSys {
+    1: string                       text;
+}

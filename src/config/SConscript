@@ -1,0 +1,14 @@
+# -*- mode: python; -*-
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# src directory
+
+import os
+import re
+import sys
+
+Import('BuildEnv')
+
+CfgmEnv = BuildEnv.Clone()
+CfgmEnv.SConscript(dirs=['uve', 'common', 'api-server', 'schema-transformer', 'svc-monitor'], exports='CfgmEnv', duplicate = 0)

@@ -1,0 +1,27 @@
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+// svc_mon_introspect.sandesh
+// Introspect structs for Service Monitor
+
+struct ServiceInstance {
+    1: string name;
+    2: string instance_name;
+    3: string vm_uuid;
+    4: string mgmt_shared_iip;
+    5: string left_shared_iip;
+    6: string right_shared_iip;
+}
+
+request sandesh ServiceInstanceList {
+    1: string si_name;
+}
+
+response sandesh ServiceInstanceListResp {
+    1: list<ServiceInstance> si_names;
+}
+
+systemlog sandesh SvcMonitorLog {
+    1: string log_msg;
+}

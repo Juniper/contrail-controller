@@ -1,0 +1,174 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import os
+import sys
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/base/sandesh/',
+                     ])
+
+env.Prepend(LIBS=[  'gendb',
+                    'cdb',
+                    'cpuinfo',
+                    'ds',
+                    'sandesh',
+                    'http',
+                    'httpc',
+                    'http_parser',
+                    'pugixml',
+                    'xml',
+                    'curl',
+                    'thrift',
+                    'hiredis',
+                    'io',
+                    'base',
+                    'sandeshvns',
+                    'boost_regex',
+                    'boost_filesystem',
+                    'boost_program_options'])
+
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+'''
+if sys.platform != 'darwin':
+    env.Prepend(LINKFLAGS =
+                     ['-Wl,--whole-archive','-lsandesh'])
+else:
+    snh_lib = Dir('../../lib').path + '/libsandesh.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + snh_lib])
+'''
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
+
+
+def SrcBuildDir(x):
+    return '#/' + Dir('.').path + '/../' + x;
+
+libs = MapBuildDir([ 'gendb',
+        'cdb',
+        'xml',
+        'base',
+        'io',
+        'http', 
+        'http/client',
+        'sandesh'])
+
+env.Append(LIBPATH=libs)
+env.Append(LIBPATH=['.', SrcBuildDir('base'), SrcBuildDir('cdb'), SrcBuildDir('discovery/client'),
+    SrcBuildDir('gendb'), SrcBuildDir('io'), SrcBuildDir('sandesh')])
+
+includes = MapBuildDir(['gendb', 'cdb', 'analytics', 'query_engine'])
+env.Append(CPPPATH = includes)
+env.Append(CPPPATH = ['#/src/gendb', '#/src/analytics', '#/build/include/thrift'])
+
+RedisConn_obj = env.Object('redis_connection.o', '../analytics/redis_connection.cc')
+
+# copied from analytics SConscript
+env_excep = env.Clone()
+while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+        env_excep['CCFLAGS'].remove('-fno-exceptions')
+
+env_noWerror = env.Clone()
+while env_noWerror['CCFLAGS'].count('-Werror') > 0:
+    env_noWerror['CCFLAGS'].remove('-Werror')
+
+env_noWerror_excep = env_noWerror.Clone()
+while env_noWerror_excep['CCFLAGS'].count('-fno-exceptions') > 0:
+    env_noWerror_excep['CCFLAGS'].remove('-fno-exceptions')
+
+query_obj = env_excep.Object('query.o', 'query.cc');
+set_operation_obj = env_excep.Object('set_operation.o', 'set_operation.cc');
+where_query_obj = env_excep.Object('where_query.o', 'where_query.cc');
+db_query_obj = env_excep.Object('db_query.o', 'db_query.cc');
+select_fs_query_obj = env_excep.Object('select_fs_query.o', 'select_fs_query.cc');
+select_obj = env_excep.Object('select.o', 'select.cc');
+post_processing_obj = env_excep.Object('post_processing.o', 'post_processing.cc');
+
+env.Install('', '../analytics/analytics_cpuinfo.sandesh') 
+# Generate the source files
+SandeshGenFiles  = env.SandeshGenCpp('qe.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+SandeshGenFiles += env.SandeshGenOnlyCpp('../sandesh/common/query.sandesh')
+SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+SandeshGenObjs = env.Object(SandeshGenSrcs)
+#
+buildinfo_dep_libs = ['../gendb/libgendb.a', '../cdb/libcdb.a', '../base/libcpuinfo.a', '../../lib/libsandesh.a', 
+                      '../../lib/libhttp.a', '../../lib/libhttp_parser.a', '../../lib/libcurl.a', '../../lib/libthrift.a', 
+                      '../../lib/libhiredis.a', '../io/libio.a', '../base/libbase.a', '../../lib/libsandeshvns.a', 
+                      '../../lib/libboost_regex.a', '../../lib/libboost_program_options.a', '../../lib/libboost_system.a', 
+                      '../../lib/liblog4cplus.a']
+
+if sys.platform != 'darwin':
+    buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
+
+qed_sources = ['qed.cc', 'QEOpServerProxy.cc']
+rel_path = Dir('.').path
+def BuildInfoAction(target, source, env):
+    env.GenerateBuildInfoCode(path=rel_path)
+
+env.Command(target='buildinfo.cc', source = [buildinfo_dep_libs + qed_sources +
+                                             [SandeshGenSrcs,
+                                             'query.cc',
+                                             'set_operation.cc',
+                                             'where_query.cc',
+                                             'db_query.cc',
+                                             '../analytics/redis_connection.cc',
+                                             'select_fs_query.cc',
+                                             'select.cc',
+                                             'post_processing.cc',
+                                             '../analytics/vizd_table_desc.cc']],
+                                             action=BuildInfoAction)
+bi_obj = env.Object('buildinfo.o','buildinfo.cc')
+qe_obj = env.Object(qed_sources)
+rac_obj = env.Object('rac_alloc_test.cc')
+
+qed = env.Program(target = 'qed', 
+        source = [ qe_obj +
+          [bi_obj, 
+          SandeshGenObjs,
+          'rac_alloc.cc',
+          query_obj,
+          set_operation_obj,
+          where_query_obj,
+          db_query_obj,
+          RedisConn_obj,
+          select_fs_query_obj,
+          select_obj,
+          post_processing_obj,
+          '../analytics/vizd_table_desc.o',
+        ]])
+qedt = env.UnitTest(target = 'qedt', 
+        source = [ qe_obj +
+          [bi_obj, 
+          SandeshGenObjs,
+          rac_obj,
+          query_obj,
+          set_operation_obj,
+          where_query_obj,
+          db_query_obj,
+          RedisConn_obj,
+          select_fs_query_obj,
+          select_obj,
+          post_processing_obj,
+          '../analytics/vizd_table_desc.o',
+        ]])
+
+env.Alias("src/query_engine:qed", qed)
+env.Alias("src/query_engine:qedt", qedt)
+env.Depends('qed.o', 'buildinfo.cc')
+env.Depends(qed, '#/build/include/hiredis/hiredis.h')
+env.Depends(qedt, '#/build/include/hiredis/hiredis.h')
+env.Depends(rac_obj, '#/build/lib/libtcmalloc' + env['LIBSUFFIX'])
+QueryEnv = env.Clone()
+env.Default(qed)

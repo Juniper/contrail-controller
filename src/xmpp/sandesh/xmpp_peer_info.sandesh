@@ -1,0 +1,23 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+include "bgp/peer_info.sandesh"
+
+struct XmppPeerInfoData {
+     1: string name (key="ObjectXmppPeerInfo");                // Control-node-ip:Agent-ip
+     2: optional bool                deleted
+     3: optional string send_state;       // in sync/not in sync
+     4: optional list<string> routing_tables;    
+     5: optional peer_info.PeerFlapInfo flap_info;
+     6: optional peer_info.PeerStateInfo state_info;
+     7: optional peer_info.PeerEventInfo event_info;
+     8: optional peer_info.PeerStatsInfo peer_stats_info;
+     9: optional string close_reason;
+     10: optional string identifier;
+
+}
+
+uve sandesh XMPPPeerInfo {
+    1: XmppPeerInfoData data;
+}

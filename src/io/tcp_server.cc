@@ -1,0 +1,400 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "tcp_server.h"
+
+#include <boost/asio/connect.hpp>
+#include <boost/asio/placeholders.hpp>
+#include <boost/bind.hpp>
+
+#include "base/logging.h"
+#include "io/event_manager.h"
+#include "io/tcp_session.h"
+#include "io/io_log.h"
+
+using namespace boost::asio::ip;
+using boost::system::error_code;
+using namespace std;
+using namespace tbb;
+
+TcpServer::TcpServer(EventManager *evm)
+    : evm_(evm) {
+    refcount_ = 0;
+    TcpServerManager::AddServer(this);
+}
+
+// TcpServer delete procedure:
+// 1. Shutdown() to stop accepting incoming sessions.
+// 2. Close and terminate current sessions. ASIO callbacks maybe in-flight.
+// 3. Optionally: WaitForEmpty().
+// 4. Destroy TcpServer.
+TcpServer::~TcpServer() {
+    assert(acceptor_ == NULL);
+    assert(session_ref_.empty());
+}
+
+void TcpServer::SetName(Endpoint local_endpoint) {
+    ostringstream out;
+    out << local_endpoint;
+    name_ = out.str();
+}
+
+void TcpServer::ResetAcceptor() {
+    acceptor_.reset();
+    name_ = "";
+}
+
+void TcpServer::Initialize(short port) {
+    acceptor_.reset(new tcp::acceptor(*evm_->io_service()));
+    if (!acceptor_) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Cannot create acceptor");
+        return;
+    }
+
+    tcp::endpoint localaddr(tcp::v4(), port);
+    error_code ec;
+    acceptor_->open(localaddr.protocol(), ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP open: " << ec.message());
+        ResetAcceptor();
+        return;
+    }
+
+    acceptor_->set_option(boost::asio::socket_base::reuse_address(true), ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP reuse_address: "
+                                                   << ec.message());
+        ResetAcceptor();
+        return;
+    }
+
+    acceptor_->bind(localaddr, ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP bind(" << port << "): "
+                                               << ec.message());
+        ResetAcceptor();
+        return;
+    }
+
+    tcp::endpoint local_endpoint = acceptor_->local_endpoint(ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                             "Cannot retrieve acceptor local-endpont");
+        ResetAcceptor();
+        return;
+    }
+
+    //
+    // Server name can be set after local-endpoint information is available.
+    //
+    SetName(local_endpoint);
+
+    acceptor_->listen(boost::asio::socket_base::max_connections, ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP listen(" << port << "): "
+                                                   << ec.message());
+        ResetAcceptor();
+        return;
+    }
+
+    TCP_SERVER_LOG_DEBUG(this, TCP_DIR_NA, "Initialization complete");
+    AsyncAccept();
+}
+
+void TcpServer::Shutdown() {
+    mutex::scoped_lock lock(mutex_);
+    error_code ec;
+
+    if (acceptor_) {
+        acceptor_->close(ec);
+        if (ec) {
+            TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "Error during shutdown: "
+                                                       << ec.message());
+        }
+        ResetAcceptor();
+    }
+}
+
+// Close and remove references from all sessions. The application code must
+// make sure it no longer holds any references to these sessions.
+void TcpServer::ClearSessions() {
+    mutex::scoped_lock lock(mutex_);
+    SessionSet refs;
+    session_map_.clear();
+    refs.swap(session_ref_);
+    lock.release();
+
+    for (SessionSet::iterator iter = refs.begin(), next = iter;
+         iter != refs.end(); iter = next) {
+        ++next;
+        TcpSession *session = iter->get();
+        session->Close();
+    }
+    refs.clear();
+    cond_var_.notify_all();
+}
+
+TcpSession *TcpServer::CreateSession() {
+    Socket *socket = new Socket(*evm_->io_service());
+    TcpSession *session = AllocSession(socket);
+    {
+        mutex::scoped_lock lock(mutex_);
+        session_ref_.insert(TcpSessionPtr(session));
+    }
+    return session;
+}
+
+void TcpServer::OnSessionClose(TcpSession *session) {
+    mutex::scoped_lock lock(mutex_);
+    // CloseSessions removes all the sessions from the map and calls close on
+    // each individually.
+    if (session_map_.empty()) {
+        return;
+    }
+    for (SessionMap::iterator iter =
+            session_map_.find(session->remote_endpoint());
+         iter != session_map_.end(); ++iter) {
+        if (iter->first != session->remote_endpoint()) {
+            break;
+        }
+        if (iter->second == session) {
+            session_map_.erase(iter);
+            return;
+        }
+    }
+    assert(false);
+}
+
+void TcpServer::DeleteSession(TcpSession *session) {
+    // The caller will typically close the socket before deleting the
+    // session.
+    session->Close();
+    {
+        mutex::scoped_lock lock(mutex_);
+        assert(session->refcount_);
+        session_ref_.erase(TcpSessionPtr(session));
+        if (session_ref_.empty()) {
+            cond_var_.notify_all();
+        }
+    }
+}
+
+// This method ensures that the application code requested the session to be
+// deleted (which may be a delayed action). It does not guarantee that the
+// session object has actually been freed yet as ASIO callbacks can be in
+// progress.
+void TcpServer::WaitForEmpty() {
+    std::unique_lock<tbb::mutex> lock(mutex_);
+    while (!session_ref_.empty()) {
+        cond_var_.wait(lock);
+    }
+}
+
+void TcpServer::AsyncAccept() {
+    mutex::scoped_lock lock(mutex_);
+    if (acceptor_ == NULL) {
+        return;
+    }
+    so_accept_.reset(new Socket(*evm_->io_service()));
+    acceptor_->async_accept(*so_accept_.get(),
+        boost::bind(&TcpServer::AcceptHandlerInternal, this,
+            TcpServerPtr(this), boost::asio::placeholders::error));
+}
+
+int TcpServer::GetPort() const {
+    mutex::scoped_lock lock(mutex_);
+    if (acceptor_.get() == NULL) {
+        return -1;
+    }
+    error_code ec;
+    tcp::endpoint ep = acceptor_->local_endpoint(ec);
+    if (ec) {
+        return -1;
+    }
+    return ep.port();
+}
+
+bool TcpServer::HasSessions() const {
+    mutex::scoped_lock lock(mutex_);
+    return !session_map_.empty();
+}
+
+bool TcpServer::HasSessionReadAvailable() const {
+    mutex::scoped_lock lock(mutex_);
+    error_code error;
+    if (so_accept_->available(error) > 0) {
+        return  true;
+    }
+    for (SessionMap::const_iterator iter = session_map_.begin(); 
+         iter != session_map_.end();
+         ++iter) {
+        if (iter->second->socket()->available(error) > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+TcpServer::Endpoint TcpServer::LocalEndpoint() const {
+    mutex::scoped_lock lock(mutex_);
+    if (acceptor_.get() == NULL) {
+        return Endpoint();
+    }
+    error_code ec;
+    Endpoint local = acceptor_->local_endpoint(ec);
+    if (ec) {
+        return Endpoint();
+    }
+    return local;
+}
+
+bool TcpServer::AcceptSession(TcpSession *session) {
+    return true;
+}
+
+//
+// concurrency: called from the event_manager thread.
+//
+// accept() tcp connections. Once done, must register with boost again
+// via AsyncAccept() in order to process future accept calls
+//
+void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
+        const boost::system::error_code& error) {
+    tcp::endpoint remote;
+    error_code ec;
+    TcpSessionPtr session;
+    auto_ptr<Socket> socket;
+
+    if (error) {
+        goto done;
+    }
+
+    socket.reset(so_accept_.release());
+    remote = socket->remote_endpoint(ec);
+    if (ec) {
+        TCP_SERVER_LOG_ERROR(this, TCP_DIR_IN,
+                             "Accept: No remote endpoint: " << ec.message());
+        goto done;
+    }
+
+    session.reset(AllocSession(socket.get()));
+    if (session == NULL) {
+        TCP_SERVER_LOG_DEBUG(this, TCP_DIR_IN, "Session not created");
+        goto done;
+    }
+    socket.release();
+
+    ec = session->SetSocketOptions();
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(session, TCP_DIR_IN,
+                              "Accept: Non-blocking error: " << ec.message());
+        goto done;
+    }
+
+    session->SessionEstablished(remote, TcpSession::PASSIVE);
+    TCP_SESSION_LOG_UT_DEBUG(session, TCP_DIR_IN,
+                             "Accepted session from "
+                                 << remote.address().to_string()
+                                 << ":" << remote.port());
+
+    if (acceptor_ == NULL) {
+        TCP_SESSION_LOG_DEBUG(session, TCP_DIR_IN,
+                              "Session accepted after server shutdown: "
+                                  << remote.address().to_string()
+                                  << ":" << remote.port());
+        goto done;
+    }
+
+    {
+        mutex::scoped_lock lock(mutex_);
+        session_ref_.insert(session);
+        session_map_.insert(make_pair(remote, session.get()));
+    }
+
+    if (!AcceptSession(session.get())) {
+        DeleteSession(session.get());
+        goto done;
+    }
+    
+    if (session->read_on_connect_) {
+        session->AsyncReadStart();
+    }
+
+done:
+    AsyncAccept();
+}
+
+TcpSession *TcpServer::GetSession(Endpoint remote) {
+    mutex::scoped_lock lock(mutex_);
+    SessionMap::const_iterator iter = session_map_.find(remote);
+    if (iter != session_map_.end()) {
+        return iter->second;
+    }
+    return NULL;
+}
+
+void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
+                               const boost::system::error_code &error) {
+    if (error) {
+        TCP_SERVER_LOG_UT_DEBUG(server, TCP_DIR_OUT,
+                                "Connect failure: " << error.message());
+        session->ConnectFailed();
+        return;
+    }
+
+    error_code ec;
+    Endpoint remote = session->socket()->remote_endpoint(ec);
+    if (ec) {
+        TCP_SERVER_LOG_INFO(server, TCP_DIR_OUT,
+                            "Connect getsockaddr: " << ec.message());
+        session->ConnectFailed();
+        return;
+    }
+
+    SessionMap::iterator loc;
+    {
+        mutex::scoped_lock lock(mutex_);
+        loc = session_map_.insert(make_pair(remote, session.get()));
+    }
+
+    // Connected verifies whether the session has been closed or is still
+    // active.
+    if (!session->Connected(remote)) {
+        mutex::scoped_lock lock(mutex_);
+        session_map_.erase(loc);
+        return;
+    }
+}
+
+void TcpServer::Connect(TcpSession *session, Endpoint remote) {
+    assert(session->refcount_);
+    Socket *socket = session->socket();
+    socket->async_connect(remote,
+        boost::bind(&TcpServer::ConnectHandler, this, TcpServerPtr(this),
+                    TcpSessionPtr(session), boost::asio::placeholders::error));
+}
+
+//
+// TcpServerManager class routines
+//
+TcpServerManager::ServerSet TcpServerManager::server_ref_;
+tbb::mutex TcpServerManager::mutex_;
+
+//
+// Add a server object to the data base, by creating an intrusive reference
+//
+void TcpServerManager::AddServer(TcpServer *server) {
+    mutex::scoped_lock lock(mutex_);
+    server_ref_.insert(TcpServerPtr(server));
+}
+
+//
+// Delete a server object from the data base, by removing the intrusive
+// reference. If any other objects has a reference to this server such as
+// boost::asio, the server object deletion is automatically deferred
+//
+void TcpServerManager::DeleteServer(TcpServer *server) {
+    mutex::scoped_lock lock(mutex_);
+    server_ref_.erase(TcpServerPtr(server));
+}

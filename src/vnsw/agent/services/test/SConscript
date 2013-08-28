@@ -1,0 +1,45 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Prepend(LIBS=['gunit'])
+cflags = env['CCFLAGS']
+cflags.append(['-Wno-return-type', '-Wno-unused-function'])
+
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+import sys
+if sys.platform != 'darwin':
+    env.Append(LIBPATH=['../../test'])
+    env.Prepend(LIBS=['agent_test']);
+
+    dhcp_test = env.Program(target = 'dhcp_test', source = ['dhcp_test.cc'])
+    env.Alias('src/vnsw/agent:dhcp_test', dhcp_test)
+
+    dns_test = env.Program(target = 'dns_test', source = ['dns_test.cc'])
+    env.Alias('src/vnsw/agent:dns_test', dns_test)
+
+    arp_test = env.Program(target = 'arp_test', source = ['arp_test.cc'])
+    env.Alias('src/vnsw/agent:arp_test', arp_test)
+
+    icmp_test = env.Program(target = 'icmp_test', source = ['icmp_test.cc'])
+    env.Alias('src/vnsw/agent:icmp_test', icmp_test)
+
+    srv_test_suite = [
+                  dhcp_test,
+                  arp_test,
+                  dns_test,
+                  icmp_test,
+                 ]
+    test = env.TestSuite('agent-test', srv_test_suite)
+    env.Alias('src/vnsw/agent:test', test)
+    Return('srv_test_suite')
+

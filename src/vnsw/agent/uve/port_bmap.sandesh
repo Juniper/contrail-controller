@@ -1,0 +1,10 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct PortBucketBitmap {
+    1: list<u32>   udp_sport_bitmap;
+    2: list<u32>   udp_dport_bitmap;
+    3: list<u32>   tcp_sport_bitmap;
+    4: list<u32>   tcp_dport_bitmap;
+}

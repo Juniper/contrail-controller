@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+env.Append(CPPPATH = env['TOP'])
+env.Prepend(LIBS=['io', 'base'])
+
+except_env = BuildEnv.Clone()
+cflags = except_env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+except_env.Replace(CCFLAGS = cflags)
+except_env.Append(CPPPATH = env['TOP'])
+
+libifmapio = env.Library('ifmapio',
+                         ['ifmap_manager.cc',
+                          'ifmap_state_machine.cc',
+                          'ifmap_channel.cc'
+                         ])
+
+env.Install(env['TOP_LIB'], libifmapio)
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

@@ -1,0 +1,73 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+/*
+ *  query_rest.idl
+ *
+ *  IDL definitions for query engine REST API 
+ *
+ *  PLEASE NOTE: After updating this file, do update json_parse.h
+ *
+ */
+
+enum match_op {
+    EQUAL = 1,
+    NOT_EQUAL = 2,
+    IN_RANGE = 3,
+    NOT_IN_RANGE = 4,   // not supported currently
+    // following are only for numerical column fields
+    LEQ = 5, // column value is less than or equal to filter value
+    GEQ = 6, // column value is greater than or equal to filter value
+    PREFIX = 7, // column value has the "value" field as prefix
+    REGEX_MATCH = 8 // for filters only
+}
+
+enum sort_op {
+    ASCENDING = 1,
+    DESCENDING = 2,
+}     
+     
+struct match {
+    1: string name;
+    2: string value;
+    3: match_op op;
+    4: optional string value2;   // this is for only RANGE match
+}
+
+typedef list<match> term; (AND of match)
+
+enum flow_dir_t {
+    EGRESS = 0,
+    INGRESS = 1
+}
+
+struct query {
+    1: string table; // Table to query (FlowSeriesTable, MessageTable, ObjectVNTable, ObjectVMTable, FlowRecordTable)
+    2: i64 start_time; // Microseconds in UTC since Epoch
+    3: i64 end_time; // Microseconds in UTC since Epoch
+    4: list<string> select_fields; // List of SELECT fields
+    5: list<term> where; // WHERE (OR of terms)
+    6: optional sort_op sort; 
+    7: optional list<string> sort_fields;
+    8: optional i32 limit;
+    9: optional flow_dir_t dir; // direction of flows being queried 
+    10: optional list<match> filter; // filter the processed result by value
+} 
+
+struct flow_series_result_entry {
+    1: optional i64 T;  // Timestamp of the flow record
+    2: optional string sourcevn;
+    3: optional string sourceip;
+    4: optional string destvn;
+    5: optional string destip;
+    6: optional i32 protocol;
+    7: optional i32 sport;
+    8: optional i32 dport;
+    9: optional flow_dir_t direction_ing;
+    10: optional i64 packets;  // mutually exclusive to 12,13
+    11: optional i64 bytes; // mutually exclusive to 12,13
+    12: optional i64 sum_packets; // represented as "sum(packets)" in JSON
+    13: optional i64 sum_bytes; // represented as "sum(bytes)" in JSON 
+};
+typedef list<flow_series_result_entry> flow_seriest_result;

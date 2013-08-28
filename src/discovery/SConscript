@@ -1,0 +1,107 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+autogen_infra_sources = [
+                 '#/tools/generateds/generateDS.py',
+                 '#/tools/generateds/TypeGenerator.py',
+                 '#/tools/generateds/ccsvc.py',
+                 '#/tools/generateds/idl_parser.py',
+                 '#/tools/generateds/ServiceGenerator.py',
+                ]
+
+autogen_sources = [
+                 '#controller/src/schema/services.xsd',
+                ]
+
+autogen_script = '#tools/generateds/generateDS.py'
+autogen_cmd = '%s -f -l py -o %s -g service' % (autogen_script, Dir('.').path)
+
+generated_files = [ 
+                  'discovery/services.py',
+                ]
+generated_rule = env.Command(generated_files,
+                             '#controller/src/schema/services.xsd',
+                             autogen_cmd + ' $SOURCE')
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), '#controller/src/discovery/' + file))
+
+local_sources = [
+           '__init__.py',
+           'disc_server.py',
+           'disc_server_zk.py',
+           'disc_utils.py',
+           'disc_consts.py',
+           'client.py',
+           'disc_zk.py',
+           'output.py',
+           'cassdb.py'
+          ]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("discovery", '#controller/src/discovery/' + file))
+
+bottle_sources_rules = []
+bottle_sources_rules.append(env.Install("discovery", '#/third_party/bottle-0.11.6/bottle.py'))
+
+sandesh_common_dirs = [ 'vns' ]
+
+sandesh_common_files = sandesh_common_dirs # + ['__init__.py'] 
+sandesh_common_sources = ['gen_py/' + ssrc for ssrc in sandesh_common_files]
+sandesh_common_sources_rules = []
+for file in sandesh_common_sources:
+    sandesh_common_sources_rules.append(
+        env.Install("discovery/sandesh", "../sandesh/common/" + file))
+        
+env.Depends(sandesh_common_sources_rules, Dir('../sandesh/common/gen_py/'))
+
+sandesh_gen_py_gfiles = env.SandeshGenPy('discovery_introspect.sandesh')
+sandesh_gen_py_dirs = ['discovery_introspect']
+for file in sandesh_gen_py_dirs:
+    Dir('#/build/debug/discovery/gen_py/' + file)
+sandesh_gen_py_files = sandesh_gen_py_dirs 
+sandesh_gen_py_sources = ['gen_py/' + ssrc for ssrc in sandesh_gen_py_files]
+sandesh_gen_py_rules = []
+for file in sandesh_gen_py_sources:
+    sandesh_gen_py_rules.append(env.Install("discovery/sandesh", file))
+env.Depends(sandesh_gen_py_rules, sandesh_gen_py_gfiles)
+
+sdist_depends = [generated_rule]
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(bottle_sources_rules)
+sdist_depends.extend(sandesh_common_sources_rules)
+sdist_depends.extend(sandesh_gen_py_rules)
+
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Default(sdist_gen)
+
+# generated files depend on autogeneration infra parts
+
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(local_sources_rules, autogen_infra_sources)
+
+# install everything before building distribution
+env.Depends(sdist_gen, sdist_depends)
+
+subdirs = [
+           'client'
+          ]
+
+for dir in subdirs:
+    env.SConscript(dir + '/SConscript', exports='BuildEnv', duplicate=0)

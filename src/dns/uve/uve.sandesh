@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct DnsState {
+    1: string name (key="ObjectDns")
+    2: optional bool deleted;
+    3: optional u64 start_time;
+    4: optional string build_info;
+    5: optional string collector;
+    6: optional list<string> self_ip_list;
+    7: optional list<string> core_files_list;
+}
+
+uve sandesh UveDnsInfo {
+    1: DnsState data;
+}

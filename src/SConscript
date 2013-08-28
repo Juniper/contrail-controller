@@ -1,0 +1,70 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+# src directory
+
+import sys
+
+subdirs = [
+           'analytics',
+           'api-lib',
+           'base',
+           'bgp',
+           'cdb',
+           'config',
+           'control-node',
+           'db',
+           'discovery',
+           'dns',
+           'gendb',
+           'http',
+           'io',
+           'ifmap',
+           'net',
+           'opserver',
+           'query_engine',
+           'route',
+           'sandesh',
+           'schema',
+           'vnsw',
+           'xml',
+           'xmpp'
+           ]
+
+if sys.platform != 'darwin':
+    subdirs += ['ksync']
+
+if sys.platform != 'darwin':
+    subdirs += ['docs']
+
+include = ['#/controller/src', '#/build/include', '#controller/lib' ]
+
+libpath = ['#/build/lib']
+
+libs = ['boost_system', 'tbb_debug', 'log4cplus', 'pthread']
+
+
+common = DefaultEnvironment().Clone()
+
+common.Append(LIBPATH = libpath)
+common.Prepend(LIBS = libs)
+common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+common.Append(CPPPATH = include)
+
+BuildEnv = common.Clone()
+
+# Disable exceptions
+# BuildEnv.Append(CCFLAGS = '-fno-exceptions')
+
+if sys.platform.startswith('linux'):
+    BuildEnv.Append(CCFLAGS = ['-DLINUX'])
+elif sys.platform.startswith('darwin'):
+    BuildEnv.Append(CCFLAGS = ['-DDARWIN'])
+
+for dir in subdirs:
+    BuildEnv.SConscript(dir + '/SConscript',
+                         exports='BuildEnv',
+                         variant_dir=BuildEnv['TOP'] + '/' + dir,
+                         duplicate=0)

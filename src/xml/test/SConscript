@@ -1,0 +1,23 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = ['#/' + Dir('..').path,
+                      '../../base',
+		      '../../io',
+		      ])
+
+env.Prepend(LIBS = ['base', 'gunit', 'pugixml'])
+env.Prepend(LIBS = ['xml'])
+
+xml_test = env.Program('xml_test', 
+                       ['xml_test.cc'],
+                       )
+
+env.Alias('src/xml:xml_test', xml_test)

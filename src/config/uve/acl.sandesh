@@ -1,0 +1,43 @@
+//
+// acl.sandesh
+//
+// UVE network_policy
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+
+struct AclRuleToVnPolicyRule {
+    1: i32 acl_major;
+    2: i32 acl_minor;
+    3: string policy_or_group_name;
+    4: i32 policy_major;
+    5: i32 policy_minor;
+}
+
+struct UveAclConfig {  // Config view
+    1: optional string virtual_network; 
+    2: optional list<string> attached_policies; 
+    3: optional list<AclRuleToVnPolicyRule> acl_rule_to_policy; 
+}
+
+struct UveAclVirtualNetworkConfig {
+    1: string name (key="ObjectVNTable")  
+    2: optional bool deleted;
+    3: optional UveAclConfig config;
+}
+
+struct UveAclVirtualMachineConfig {
+    1: string name (key="ObjectVMTable")
+    2: optional bool deleted;
+    3: optional UveAclConfig config;
+}
+
+uve sandesh UveAclVirtualNetworkConfigTrace {
+    1: UveAclVirtualNetworkConfig data;
+}
+
+uve sandesh UveAclVirtualMachineConfigTrace {
+    1: UveAclVirtualMachineConfig data;
+}
+

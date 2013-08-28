@@ -1,0 +1,130 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:ct="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd"
+xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
+
+<!--
+<xsd:complexType name="NexthopType">
+    <xsd:attribute name="af" type="xsd:integer"/>
+    <xsd:element name="next-hop" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="NlriType">
+    <xsd:attribute name="af" type="xsd:integer"/>
+    <xsd:element name="nlri" type="xsd:string"/>
+</xsd:complexType>
+-->
+
+<xsd:simpleType name="TunnelEncapsulationType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="gre"/>
+        <xsd:enumeration value="udp"/>
+        <xsd:enumeration value="vxlan"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="TunnelEncapsulationListType">
+    <xsd:element name="tunnel-encapsulation" type="TunnelEncapsulationType" maxOccurs="unbounded"/>
+</xsd:complexType> 
+
+<xsd:complexType name="NextHopType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="address" type="xsd:string"/>
+    <xsd:element name="label" type="xsd:integer"/>
+    <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
+</xsd:complexType>
+
+<xsd:complexType name="NextHopListType">
+    <xsd:element name="next-hop" type="NextHopType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:complexType name="IPAddressType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="address" type="xsd:string"/>
+</xsd:complexType>
+
+<xsd:complexType name="SecurityGroupListType">
+     <xsd:element name="security-group" type="xsd:integer" maxOccurs="unbounded"/>
+</xsd:complexType> 
+
+<xsd:complexType name="EntryType">
+    <xsd:all>
+        <xsd:element name="nlri" type="IPAddressType"/>
+        <xsd:element name="next-hops" type="NextHopListType"/>
+        <xsd:element name="version" type="xsd:integer"/>
+        <xsd:element name="virtual-network" type="xsd:string"/>
+        <xsd:element name="security-group-list" type="SecurityGroupListType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="ItemType">
+    <xsd:element name="entry" type="EntryType"/>
+</xsd:complexType>
+
+<xsd:complexType name="ItemsType">
+    <xsd:all>
+        <xsd:element name="item" type="ItemType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="items" type="ItemsType"/>
+</xsd:schema>
+
+<!--
+
+<iq type='set'
+    from='01020304abcd@domain.org'
+    to='network-control.domain.org'
+    id='request1'>
+  <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+    <publish node='01020304abcd:vpn-ip-address/32'>
+      <item>
+        <entry xmlns='http://ietf.org/protocol/bgpvpn'>
+          <version>1</version>
+          <nlri>
+            <af>1</af
+            <address>10.1.2.1/32</address>
+          </nlri>
+          <next-hops-list>
+            <next-hop>
+              <af>1</af>
+              <address>'infrastructure-ip-address'</address>
+              <label>10000</label>
+            </next-hop>
+          </next-hops-list>
+        </entry>
+      </item>
+    </publish>
+  </pubsub>
+</iq>
+
+-->
+
+<!--
+
+<iq type='set'
+    from='01020304abcd@domain.org'
+    to='network-control.domain.org'
+    id='request1'>
+  <pubsub xmlns='http://jabber.org/protocol/pubsub'>
+    <publish node='01020304abcd:vpn-ip-address/32'>
+      <item>
+        <entry xmlns='http://ietf.org/protocol/bgpvpn'>
+          <nlri af='1'>10.1.2.1/32</nlri>
+          <version>1</version>
+          <next-hops-list>
+            <next-hop>
+              <af>1</af>
+              <address>10.1.1.1</address>
+              <label>10000</label>
+            </next-hop>
+          </next-hops-list>
+        </entry>
+      </item>
+    </publish>
+  </pubsub>
+</iq>
+
+-->

@@ -1,0 +1,96 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+autogen_infra_sources = [
+                 '#/tools/generateds/generateDS.py',
+                 '#/tools/generateds/TypeGenerator.py',
+                 '#/tools/generateds/ccmap.py',
+                 '#/tools/generateds/idl_parser.py',
+                 '#/tools/generateds/ifmap_global.py',
+                 '#/tools/generateds/ifmap_model.py',
+                 '#/tools/generateds/ifmap_frontend.py',
+                ]
+
+autogen_sources = [
+                 '#controller/src/schema/all_cfg.xsd',
+                 '#controller/src/schema/vnc_cfg.xsd',
+                 '#controller/src/schema/bgp_schema.xsd',
+                 '#controller/src/schema/ietf-l3vpn-schema.xsd',
+                 '#controller/src/schema/smi-base.xsd',
+                ]
+
+autogen_script = '#tools/generateds/generateDS.py'
+autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, 'vnc_cfg_api_server/gen/resource')
+
+generated_files = [ 
+                  'vnc_cfg_api_server/gen/__init__.py',
+                  'vnc_cfg_api_server/gen/resource_xsd.py',
+                  'vnc_cfg_api_server/gen/resource_common.py',
+                  'vnc_cfg_api_server/gen/resource_server.py',
+                  'vnc_cfg_api_server/gen/resource_test.py',
+                  'vnc_cfg_api_server/gen/vnc_api_server_gen.py',
+                  'vnc_cfg_api_server/gen/vnc_ifmap_client_gen.py',
+                  'vnc_cfg_api_server/gen/vnc_cassandra_client_gen.py',
+                ]
+generated_rule = env.Command(generated_files,
+                             '#/controller/src/schema/all_cfg.xsd',
+                             autogen_cmd + ' $SOURCE')
+
+setup_sources = [
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+setup_sources_rules = []
+for file in setup_sources:
+    setup_sources_rules.append(
+        env.Install(Dir('.'), "#controller/src/config/api-server/" + file))
+
+local_sources = [
+           '__init__.py',
+           'vnc_cfg_api_server.py',
+           'vnc_cfg_ifmap.py',
+           'vnc_cfg_types.py',
+           'vnc_auth.py',
+           'vnc_auth_keystone.py',
+           'vnc_perms.py',
+           'vnc_addr_mgmt.py',
+           'provision_defaults.py'
+          ]
+
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(
+        env.Install("vnc_cfg_api_server", "#controller/src/config/api-server/" + file))
+
+bottle_sources_rules = []
+bottle_sources_rules.append(env.Install("vnc_cfg_api_server", '#/third_party/bottle-0.11.6/bottle.py'))
+
+generateds_rule = env.Install("vnc_cfg_api_server/gen", "../common/generatedssuper.py")
+cfixture_rule = env.Install("vnc_cfg_api_server/gen", "../common/cfixture.py")
+
+doc_sources_rules = SConscript(dirs=['doc'], exports = 'CfgmEnv')
+
+sdist_depends = [generated_rule, generateds_rule, cfixture_rule]
+sdist_depends.extend(setup_sources_rules)
+sdist_depends.extend(local_sources_rules)
+sdist_depends.extend(bottle_sources_rules)
+sdist_depends.extend(doc_sources_rules)
+
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Default(sdist_gen)
+
+# generated files depend on autogeneration infra parts
+
+env.Depends(generated_rule, [autogen_infra_sources, autogen_sources])
+env.Depends(local_sources_rules, autogen_infra_sources)
+
+# install everything before building distribution
+env.Depends(sdist_gen, sdist_depends)

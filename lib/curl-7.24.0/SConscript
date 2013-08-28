@@ -1,0 +1,40 @@
+# -*- mode: python; -*-
+
+# path to the sources
+vpath = '#/third_party/curl-7.24.0'
+
+env = DefaultEnvironment().Clone()
+
+VariantDir(vpath + '/src', '#/' + Dir('.').path + '/src')
+
+# use 'configure' first to set things up
+cfg_opts = '--prefix=' + str(Dir('#/build')) + ' ' + \
+           '--disable-dependency-tracking --enable-debug --disable-dict ' + \
+           '--disable-ftp --disable-imap --disable-ldap --disable-ldaps ' + \
+           '--disable-pop3 --disable-proxy --disable-rtsp --disable-shared ' + \
+           '--disable-smtp --disable-telnet --disable-tftp --disable-zlib ' + \
+           '--without-ca-bundle --without-gnutls --without-libidn ' + \
+           '--without-librtmp --without-libssh2 --without-nss --without-ssl ' + \
+           '--without-zlib'
+
+config_cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+           '/configure' + ' ' + cfg_opts + ')')
+
+config_products = [Dir('.').abspath + '/lib/curl_config.h', 'Makefile']
+
+curl_cfg = env.Command('config.status', File(vpath + '/configure'), config_cmd)
+
+env.SideEffect(config_products, curl_cfg)
+
+libs = ['lib/.libs/libcurl.a']
+
+make_cmd = ('(cd ' + Dir('.').abspath + '; ' + 
+            'make clean; make; make install)')
+
+make_products = ['#/build/lib/libcurl.a', '#/build/include/curl/curl.h']
+
+curl_make = env.Command(libs, 'Makefile', make_cmd)
+
+env.SideEffect(make_products, curl_make)
+env.Depends(curl_make, curl_cfg)
+

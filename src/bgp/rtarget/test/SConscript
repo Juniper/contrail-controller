@@ -1,0 +1,24 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
+
+env.Prepend(LIBS = ['gunit', 'rtarget'])
+
+rtarget_address_test = env.UnitTest('rtarget_address_test', ['rtarget_address_test.cc'])
+env.Alias('src/bgp/rtarget:rtarget_address_test', rtarget_address_test)
+
+test_suite = [
+    rtarget_address_test,
+]
+
+test = env.TestSuite('rtarget-test', test_suite)
+env.Alias('src/bgp/rtarget:test', test)
+
+Return('test_suite')

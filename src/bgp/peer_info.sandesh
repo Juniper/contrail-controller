@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct PeerProtoStats {
+    1: u32 total;
+    2: u32 open;
+    3: u32 keepalive;
+    4: u32 notification;
+    5: u32 update;
+    6: u32 close;
+}
+
+struct PeerUpdateStats {
+    1: u32 total;
+    2: u32 reach;
+    3: u32 unreach;
+}
+
+struct PeerSocketStats {
+    1: u64 bytes;
+    2: u64 calls;
+    3: double average_bytes;
+    4: string blocked_duration;
+    5: u64 blocked_count;
+    6: string average_blocked_duration;
+}
+
+struct PeerEventInfo {
+    1: optional string last_event;
+    2: optional u64 last_event_at;
+}
+
+struct PeerStateInfo {
+    1: optional string state;
+    2: optional string last_state;
+    3: optional u64 last_state_at;
+}
+
+struct PeerFlapInfo {
+    1: optional u32 flap_count;
+    2: optional u64 flap_time;
+}
+
+struct PeerStatsInfo {
+    1: optional PeerProtoStats rx_proto_stats;
+    2: optional PeerProtoStats tx_proto_stats;
+    3: optional PeerUpdateStats rx_update_stats;
+    4: optional PeerUpdateStats tx_update_stats;
+    5: optional PeerSocketStats rx_socket_stats;
+    6: optional PeerSocketStats tx_socket_stats;
+}

@@ -1,0 +1,31 @@
+//
+// vnc_api.sandesh
+//
+// VNC API Object Log
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+struct VncApiCommon {
+    1: string identifier_uuid; // object identifier
+    2: string identifier_name; // object name
+    3: string url;             // The object URL
+    4: string operation;       // get/post/update/delete
+    5: optional string params;
+    6: optional string body;
+    7: optional string user;
+    8: optional string domain;
+    9: optional string error;
+}
+
+traceobject sandesh VncApiReadLog {
+    1: VncApiCommon api_log;
+}
+
+objectlog sandesh VncApiConfigLog {
+    1: VncApiCommon api_log;
+}
+
+systemlog sandesh VncApiError {
+    1: string api_error_msg;
+}

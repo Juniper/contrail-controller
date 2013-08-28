@@ -1,0 +1,12 @@
+$ORIGIN .
+$TTL 60
+test.example.com              IN  SOA ns.test.example.com  mx.test.example.com (
+                                      54        
+                                      10800     
+                                      900       
+                                      604800    
+                                      86400     
+                                      )
+                                  NS  ns.test.example.com           
+$ORIGIN test.example.com
+ns                            IN  A   127.0.0.1

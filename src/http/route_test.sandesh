@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  route_test.sandesh
+//
+//  Sandesh definitions for route test
+//
+
+struct VNSRoute {
+        1: i32                           prefix;
+        2: string                        desc;
+}
+
+struct VNSContained {
+        1: i32                          magic;
+        2: i32                          magic1;
+}
+
+struct VNSContainer {
+        1: i32                          magic2;
+        2: VNSContained                 vnCon;
+        3: list<VNSContained>           vnLc;
+}
+  
+response sandesh VNSwitchRouteResp {        
+       1: i32                           vnSwitchId;
+       2: i32                           vnId (link="HttpRequestTest")
+       3: list<VNSRoute>                vnRoutes;
+       4: VNSRoute                      vnMarkerRoute;
+       5: list<string>                  names;
+} 
+
+response sandesh VNSContainTestResp {
+        1: string                       desc;
+        2: VNSContainer                 vnC;
+        3: list<VNSContainer>           vnL;
+}
+
+request sandesh VNSwitchRouteReq {
+       1: i32                          startRoutePrefix;
+       2: i32                          endRoutePrefix;
+       3: i32                          numRoutes;
+} 

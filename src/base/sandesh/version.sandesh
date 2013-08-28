@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+systemlog sandesh VersionInfoLog {
+        1: string message;
+}
+
+trace sandesh VersionInfoTrace {
+        1: string str;
+}
+

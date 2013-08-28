@@ -1,0 +1,15 @@
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+
+env = BuildEnv.Clone()
+
+env.Append(CCFLAGS = '-fPIC')
+libdb = env.Library('xml',
+                    ['xml_base.cc',
+                     'xml_pugi.cc'])
+
+env.Prepend(LIBS=['pugixml'])
+
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

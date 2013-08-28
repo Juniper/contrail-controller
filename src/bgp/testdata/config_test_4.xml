@@ -1,0 +1,15 @@
+<config>
+    <routing-instance name="test">
+        <vrf-target>target:1:1</vrf-target>
+	<bgp-router name='ce'>
+	  <address>10.0.0.2</address>
+	  <autonomous-system>3</autonomous-system>
+	  <session to='local'/>
+	</bgp-router>
+	<bgp-router name='ce-prime'>
+	  <address>10.0.0.3</address>
+	  <autonomous-system>3</autonomous-system>
+	  <session to='local'/>
+	</bgp-router>
+    </routing-instance>
+</config>

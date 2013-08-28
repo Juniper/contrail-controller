@@ -1,0 +1,28 @@
+# -*- mode: python; -*-
+import os
+import subprocess
+import sys
+
+vpath = '#/third_party/thrift-0.8.0'
+
+env = DefaultEnvironment()
+
+config_opts = '--prefix=' + str(Dir('#/build')) + ' ' + '--disable-dependency-tracking ' + '--with-boost=' + str(Dir('#/build')) + ' ' + '--without-csharp --without-java --without-erlang --without-python ' + '--without-perl --without-php --without-ruby --without-haskell  --without-go'
+
+cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+products = [ str(File('#build/bin/thrift')),
+             str(File('#build/lib/libthrift.a')),
+             str(File('#build/lib/libthriftasio.a')),
+             str(File('#build/include/thrift/Thrift.h')) ]
+
+thrift_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, thrift_cfg)
+env.Requires(thrift_cfg, '#/build/include/boost')
+
+async_files = ['TAsioAsync.h', 'TAsync.h', 'TFuture.h']
+for file in async_files:
+    env.Install('#build/include/thrift/async',
+                vpath + '/lib/cpp/src/async/' + file)

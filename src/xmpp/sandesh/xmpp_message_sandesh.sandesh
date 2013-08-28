@@ -1,0 +1,89 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+systemlog sandesh XmppIQPublish {
+    1: "Received IQ publish ";
+    2: "From: ";
+    3: string f1;
+    4: "To: ";
+    5: string f2;
+}
+
+systemlog sandesh XmppIQCollection {
+    1: "Received IQ collection ";
+    2: "From: ";
+    3: string f1;
+    4: "To: ";
+    5: string f2;
+}
+
+systemlog sandesh XmppChatMessage {
+    1: "Received chat message ";
+    2: "From: ";
+    3: string f1;
+    4: "To: ";
+    5: string f2;
+}
+
+systemlog sandesh XmppConnectionCreate {
+    1: "Created Xmpp ";
+    2: string f1;
+    3: " connection from ";
+    4: string f2;
+    5: " To : ";
+    6: string f3;
+}
+
+systemlog sandesh XmppIqMessageInvalid {
+    1: "Error: Mismatch in associated previous message"
+}
+
+systemlog sandesh XmppIqMessageParseFail {
+    1: "Iq message parse failed" 
+}
+
+systemlog sandesh XmppChatMessageParseFail {
+    1: "Chat message parse failed" 
+}
+
+systemlog sandesh XmppBadMessage {
+    1: string f1;
+}
+
+systemlog sandesh XmppIqCollectionError {
+    1: "Error: no associated previous IQ message for this collection"
+}
+
+systemlog sandesh XmppIqMessageProcess {
+    1: "Received IQ message for node:";
+    2: string f1;
+    3: "Action: ";
+    4: string f2;
+    5: "From: ";
+    6: string f3;
+    7: "To: ";
+    8: string f4;
+    9: "ID: ";
+    10: string f5;
+    11: "SubType: ";
+    12: string f6;
+}
+
+systemlog sandesh XmppChatMessageProcess {
+    1: "Received Chat message of type: "
+    2: i32 f1;
+    3: "From ";
+    4: string f2;
+    5: "To ";
+    6: string f3;
+}
+
+systemlog sandesh XmppRxOpenMessage {
+    1: "Received open message From: ";
+    2: string f1;
+    3: " To: ";
+    4: string f2;
+}
+
+

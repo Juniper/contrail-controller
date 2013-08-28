@@ -1,0 +1,43 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+// qe.sandesh
+// Sandesh definitions for Query Engine
+
+trace sandesh query_trace {
+    1: string query_id;
+    2: string trace_message;
+}
+
+struct final_result_col
+{
+    1: "[";
+    2: string col;
+    3: "]";
+    4: string value;
+}
+
+trace sandesh final_result_row
+{
+    1: string query_id;
+    2: "::";
+    3: "{";
+    4: list<final_result_col> row;
+    5: "}";
+}
+
+systemlog sandesh QEQueryLog {
+    1: string query_id (key = "ObjectQueryQid")
+    3: string table (key = "ObjectQueryTable")
+    2: string Message;
+}
+
+systemlog sandesh QELog {
+    1: string message;
+}
+
+request sandesh TraceEnable {
+    1: bool enable;
+    2: string TraceType;
+}

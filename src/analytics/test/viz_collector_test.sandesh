@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  viz_collector_test.sandesh
+//
+//  Sandesh definitions for
+//
+
+systemlog sandesh SandeshAsyncTest1 {
+    1: "Const static string is",
+    2: i32 f2,
+    3: string f3,
+}
+
+struct SAT2_struct {
+    1: string f1,
+    2: i32 f2,
+}
+
+objectlog sandesh SandeshAsyncTest2 {
+    1: SAT2_struct f1,
+    2: i32 f2,
+}
+
+struct SAT3_struct {
+    1: string f1 (key="ObjectVNTable")
+    2: i32 f2 (format="%x")
+}
+
+objectlog sandesh SandeshAsyncTest3 {
+    1: SAT3_struct f1
+    2: i32 f2 (key="ObjectIPTable", format="%i")
+}

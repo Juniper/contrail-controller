@@ -1,0 +1,45 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+/* 
+ * flow.sandesh
+ *
+ * Flow sandesh definitions
+ */
+
+struct FlowDataIpv4 {
+    1: string             flowuuid;
+    2: byte               direction_ing;
+    3: optional string    sourcevn;
+    4: optional i32       sourceip;
+    5: optional string    destvn;
+    6: optional i32       destip;
+    7: optional byte      protocol;
+    8: optional i16       sport;
+    9: optional i16       dport;
+    10: optional byte     tos;
+    11: optional byte     tcp_flags;
+    12: optional string    vm;
+    13: optional string    input_interface;
+    14: optional string    output_interface;
+    15: optional i32       mpls_label;
+    16: optional string    reverse_uuid;
+    17: optional i64       setup_time;
+    18: optional i64       teardown_time;
+  
+    19: optional i32       min_interarrival;
+    20: optional i32       max_interarrival;
+    21: optional i32       mean_interarrival;
+    22: optional i32       stddev_interarrival;
+  
+    23: optional i64       bytes;
+    24: optional i64       packets;
+    25: optional binary    data_sample;
+    26: optional i64       diff_bytes;
+    27: optional i64       diff_packets;
+}
+
+flowlog sandesh FlowDataIpv4Object {
+    1: FlowDataIpv4       flowdata;
+}

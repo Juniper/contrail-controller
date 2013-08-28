@@ -1,0 +1,98 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+KSync implements logic to SYNC the state of runtime objects in VNSwitch agent
+to Kernel.
+
+KSync provides following functionality,
+- Infrastructure to sync objects from Agent to Kernel
+- Each entry in kernel is represented as a one KSyncEntry in Agent space
+  Ex: Each interface (like eth0, eth1...) has corresponding KSyncEntry in Agent
+- Each KSyncEntry implements a state-machine to,
+    - Optimize number of writes to kernel
+        - Notification to kernel are implemented as requests
+        - Only one outstanding request is pending with kernel at any time
+        - When request is pending, subsequent requests are deferred
+        - On getting ACK for a request, KSyncEntry is re-evaluated to see if 
+          any further changes must be sent to kernel
+    - Support object dependencies
+        - State machine helps implement dependency constraints
+        - This is best explained by an example,
+            - If Object-A refers to Object-B, Object-A cannot be sent to 
+              Kernel till Object-B is sent.
+            - When Object-A is to be sent to Kernel, it checks if Object-B is 
+              already in kernel. If not, it informs infrastrcture of failed
+              dependency 
+            - KSync infrastructure maintains back-reference tree. Object-A is 
+              put in back-ref tree for Object-B
+            - After Object-B is sent to Kernel, it will notify to state-machine
+            - State machine will re-evaluate if Object-A can be sent to Kernel.
+              If all constraints are met, then Object-A will be sent to Kernel
+        - If Object-B is not yet created, then a KSyncEntry will be created
+          with TEMP state.
+
+- Each entry is optionally allocated an index. The index can be used for cross 
+  referencing of objects
+    - Example, Route entries point to nexthop in Agent. In config message from 
+      agent to kernel, route entry will refer to a nexthop using the index
+    - The index is managed within KSync module and the Route processing logic
+      will not be aware of it
+    - The index for entries can be allocated by either KSync or by Kernel.
+        - The index for interfaces can be allocated by kernel
+        - Index for route entries can be allocated by KSync
+- Reference couting
+    - Each KSyncEntry has a ref-count.
+    - The KSyncEntry delete message is sent to kernel only when all its 
+      reference are gone
+
+KSync functionality given above are implemented by following classes,
+
+KSyncEntry : 
+------------
+This is basic class implementing the state-machine. It invokes following
+virtual functions,
+    - Add       : Invoked when an object must be added to Kernel. 
+                  If the function returns false, it means Add is not complete.
+                  On completion of operation, a ADD_ACK event must be notified 
+                  to state machine. Till then state-machine gets into a 
+                  wait-state
+
+                  If the function returns true, it means the operation is 
+                  complete and state-machine moves without waiting for any 
+                  further events
+
+    - Change    : Invoked when an object must be changed in Kernel
+    - Delete    : Invoked when an object is to be deleted from Kernel
+    - UnresolvedReference : Must implement dependency check for the object. 
+                  Must return NULL if constraints met and object can be added.
+                  Must return object if constraint is not met. State-machine 
+                  will wait till the returned object is Added
+
+KSyncObject:
+------------
+Each table or object in Kernel is represented as KSyncObject in agent. It acts
+as a container of helper functions.
+
+Additionally, KSync module provides helper implementation for most common 
+cases
+
+KSyncDBEntry:
+-------------
+Implementation of KSyncEntry associated with a DBEntry. The infrastructure will
+register to the DBTable as a client. The events to state-machine are automatically triggerred based on Notification from DBTable.
+
+KSyncNetlinkDBEntry:
+--------------------
+Implementation of KSyncDBEntry associated with a DBEntry. Messages to kernel are
+sent using asynchronous Netlink sockets. 
+
+It overrides the Add/Change/Delete methods. Instead, it expects implementations
+for AddMsg/ChangeMsg/DeleteMsg to generate message for Add/Change/Delete on
+Netlink sockets
+
+KSyncNetlinkEntry : 
+-------------------
+Implementation of KSyncEntry where objects are written to kernel using Netlink
+ASIO sockets. It does not work on DBTable notifications. It is responsibility
+of application to trigger events to the state-machine.

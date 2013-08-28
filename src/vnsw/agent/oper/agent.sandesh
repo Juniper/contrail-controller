@@ -1,0 +1,760 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+enum AgentConsts {
+    MAX_SANDESH_COUNT = 256
+}
+
+struct ServiceVlanSandeshList {
+   1: i16 tag;
+   2: string vrf_name (link="VrfListReq"); // VRF name
+   3: string ip_addr;
+   4: i16 label;
+   5: string installed;
+}
+
+struct FloatingIpSandeshList {
+   1: string ip_addr;
+   2: string vrf_name (link="VrfListReq"); // VRF name
+   3: string installed;
+}
+
+struct VmIntfSgUuid {
+    1: string sg_uuid (link="SgListReq");
+}
+
+struct ItfSandeshData {
+    1: i32 index;
+    2: string name;                  // interface name
+    3: string uuid;                  // intf uuid
+    4: string vrf_name (link="VrfListReq"); // VRF name
+    5: string active;
+    6: string dhcp_service;
+    7: string dns_service;
+    8: string type;                  // interface type : eth / vport / host
+    9: i32 label;                    // interface mpls label
+   10: string vn_name (link="VnListReq");  // VN uuid
+   11: string vm_uuid (link="VmListReq");  // VM uuid, in case of vport itf
+   12: string vm_name;
+   13: string ip_addr;      // interface ip address
+   14: string mac_addr;     // interface mac address
+   15: string policy;       // policy enabled?
+   16: list<FloatingIpSandeshList> fip_list;// Floating IP List
+   17: string mdata_ip_addr;// meta-data ip address for interface
+   18: list<ServiceVlanSandeshList> service_vlan_list;// Service VLAN List
+   19: i32 os_ifindex;
+   20: string fabric_port;
+   21: string alloc_linklocal_ip;
+   22: string analyzer_name; 
+   23: string config_name;
+   24: list<VmIntfSgUuid> sg_uuid_list;
+}
+
+struct VnIpamData {
+    1: string ip_prefix;
+    2: i32 prefix_len;
+    3: string gateway;
+    4: string ipam_name;
+}
+
+struct VnSandeshData {
+    1: string name;                   // vn name
+    2: string uuid;                   // vn uuid
+    3: string acl_uuid (link="AclReq"); // acl uuid
+    4: string mirror_acl_uuid (link="AclReq"); // mirror acl uuid
+    5: string mirror_cfg_acl_uuid (link="AclReq"); // mirror cfg acl uuid
+    6: string vrf_name (link="VrfListReq"); // VRF name
+    7: list<VnIpamData> ipam_data;
+}
+
+struct SgSandeshData {
+    1: i32 ref_count;
+    2: i32 sg_id;
+    3: string sg_uuid;
+    4: string acl_uuid (link="AclReq");
+}
+
+struct VmSgUuid {
+    1: string sg_uuid (link="SgListReq");
+}
+
+struct VmSandeshData {
+    1: string uuid;                   // VM uuid
+    2: optional list<VmSgUuid> sg_uuid_list;
+}
+
+struct McastData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional i32 label;
+    5: optional string itf (link="ItfReq");
+    6: optional i16 vlan_tag
+}
+
+struct NhSandeshData {
+    1: string type;                   // type : tunnel / interface / ...
+    2: i32 ref_count;                 // count of NH references
+    3: optional string valid;         // Is Nexthop valid ???
+    4: optional string policy;        // Policy enabled/disabled
+    5: optional string sip;           // source IP, in case of tunnel NH 
+    6: optional string dip;           // dest IP, in case of tunnel NH 
+    7: optional string vrf (link="VrfListReq"); // VRF, in case of tunnel NH
+    8: optional string itf (link="ItfReq"); // interface name, in case of itf NH
+    9: optional string mac;           // mac, in case of itf NH
+   10: optional i32 sport;            // Source port for Mirror NH
+   11: optional i32 dport;            // Destination port for Mirror NH    
+   12: optional string mcast;      // Is multicast nh or not
+   13: optional i32 label;
+   14: optional list <McastData> mc_list;  //Multicast sub nh list
+   15: optional i16 vlan_tag;         // VLAN Tag for the interface
+   16: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
+   17: optional string local_ecmp;    //Is Nexthop for local ecmp 
+}
+
+struct PathSandeshData {
+    1: NhSandeshData nh;              // next hop info
+    2: i32 label;                     // mpls label
+    3: string peer;                   // peer originating the path 
+    4: string dest_vn (link="VnListReq"); // destination VN
+    5: string unresolved;             // true or false
+    6: optional string gw_ip;         // GW IP
+    7: optional string vrf (link="VrfListReq"); // Vrf
+    8: string proxy_arp;              // Proxy ARP for this path
+    9: optional list<i32> sg_list;
+}
+
+struct RouteUcSandeshData {
+    1: string src_ip;                   // IP addr
+    2: i32 src_plen;                    // prefix length
+    3: string src_vrf (link="VrfListReq"); // VRF
+    4: list<PathSandeshData> path_list; // paths
+}
+
+struct RouteMcSandeshData {
+    1: string src;                   // S
+    2: string grp;                   // G
+    3: NhSandeshData nh;                // The NH
+}
+
+struct VrfSandeshData {
+    1: string name;                       // VRF name
+    2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index UC Table
+    3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index MC Table
+}
+
+struct MplsSandeshData {
+    1: i32 label;                     // mpls label
+    2: string type;                   // type - invalid or vport_nh or mcast_nh
+    3: NhSandeshData nh;              // next hop info
+}
+
+struct MirrorEntrySandeshData {
+    1: i32 ref_count;                 // count of Flow's referring to Mirror entry
+    2: string analyzer_name;          // Analyzer name
+    3: optional string sip;           // source IP
+    4: optional string dip;           // dest IP of Analytics server
+    5: optional string vrf (link="VrfListReq"); // VRF
+    6: optional i32 sport;            // Source port for Mirror NH
+    7: optional i32 dport;            // Destination port for Mirror NH
+    8: NhSandeshData nh;              // next hop info
+}
+
+request sandesh AgentInitStateReq {
+}
+
+response sandesh AgentInitState {
+    1: string state;                   // Agent's state
+}
+
+struct SgObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: u32 id;
+    4: string acl_uuid;
+    5: u32 ref_count;
+}
+
+objectlog sandesh SgObjectLog {
+    1: SgObjectLogInfo sg;
+}
+
+request sandesh SgListReq {
+    1: string name;
+}
+
+response sandesh SgListResp {
+    1: list<SgSandeshData> sg_list;
+}
+
+request sandesh VnListReq {
+    1: string name;                   // send data for given name substring
+}
+
+response sandesh VnListResp {
+    1: list<VnSandeshData> vn_list;
+}
+
+request sandesh VmListReq {
+    1: string uuid;                   // send data for given name substring
+}
+
+response sandesh VmListResp {
+    1: list<VmSandeshData> vm_list;
+}
+
+request sandesh NhListReq {
+}
+
+response sandesh NhListResp {
+    1: list<NhSandeshData> nh_list;
+}
+
+request sandesh VrfListReq {
+    1: string name;                   // send data for given name substring
+}
+
+response sandesh VrfListResp {
+    1: list<VrfSandeshData> vrf_list;
+}
+
+request sandesh Inet4UcRouteReq {
+    1: i32 vrf_index = 0;             // send route entries for the VRF index
+    2: string src_ip;
+    3: u16 prefix_len;
+}
+
+response sandesh Inet4UcRouteResp {
+    1: list<RouteUcSandeshData> route_list; // routes
+}
+
+request sandesh Inet4McRouteReq {
+    1: i32 vrf_index = 0;             // send route entries for the VRF index
+}
+
+response sandesh Inet4McRouteResp {
+    1: list<RouteMcSandeshData> route_list; // routes
+}
+
+request sandesh ItfReq {
+    1: string name;                   // send data for given name substring
+}
+
+response sandesh ItfResp {
+    1: list<ItfSandeshData> itf_list;
+}
+
+request sandesh MplsReq {
+}
+
+response sandesh MplsResp {
+    1: list<MplsSandeshData> mpls_list;
+}
+
+struct VrfAssignSandeshData {
+    1: string type;
+    2: u16 vlan_tag;
+    3: string itf (link="ItfReq"); // interface name
+    4: string vrf (link="VrfListReq");  // VRF
+}
+
+request sandesh VrfAssignReq {
+    1: string uuid;                   // send data for given interface
+}
+
+response sandesh VrfAssignResp {
+    1: list<VrfAssignSandeshData> vrf_assign_list;
+}
+
+request sandesh MirrorEntryReq {
+}
+
+response sandesh MirrorEntryResp {
+    1: list<MirrorEntrySandeshData> mirror_entry_list;
+}
+
+response sandesh ErrorResp {
+    1: string resp = "   Invalid Input !!!   ";
+}
+
+
+// ACL Sandesh
+struct SandeshRange {
+    1: i32 min;
+    2: i32 max;   
+}
+
+struct ActionStr {
+    1: string action;
+}
+
+struct AclAction {
+    1: string acl_id;
+    2: bool sg;
+    3: list<ActionStr> action_l;
+}
+
+struct AceId {
+    1: i32 id;
+}
+
+struct AclEntrySandeshData {
+    1: string ace_id;
+    2: string rule_type;
+    3: string src;
+    4: string dst;
+    5: list <SandeshRange> src_port_l;
+    6: list <SandeshRange> dst_port_l;
+    7: list <SandeshRange> proto_l;
+    8: list <ActionStr> action_l;
+}
+
+// ACL to Flow mapping Sandesh
+struct FlowSandeshData {
+    1: list <AceId> ace_l;
+    // Flow Key
+    2: string vrf;
+    3: string src;
+    4: string dst;
+    5: i32 src_port;
+    6: i32 dst_port;
+    7: i16 protocol;
+
+    // Flow Data
+    8: bool ingress;
+    9: list <ActionStr> action_l;
+    10: list <AclAction> acl_action_l;
+    11: string flow_uuid;
+    12: string flow_handle;
+    13: string dest_vrf;
+    14: string source_vn;
+    15: string dest_vn;
+    16: list<u32> source_sg_id_l;
+    17: list<u32> dest_sg_id_l;
+    18: string bytes;
+    19: string packets;
+    20: string setup_time;
+    21: string current_time;
+    22: string teardown_time;
+    23: string reverse_flow;
+    24: string nat;
+    25: string implicit_deny;
+    26: optional string short_flow;
+    27: optional u64 setup_time_utc;
+}
+
+struct AceIdFlowCnt {
+    1: i32 ace_id;
+    2: i32 flow_cnt;
+}
+
+struct AclSandeshData {
+    1: string uuid (link="AclFlowReq");
+    2: bool dynamic_acl;
+    3: list<AclEntrySandeshData> entries;
+    4: string name;
+}
+
+request sandesh AclReq {
+    1: string uuid;
+}
+
+response sandesh AclResp {
+    1: list<AclSandeshData> acl_list;
+}
+
+request sandesh AclFlowReq {
+    1: string uuid;
+}
+
+request sandesh NextAclFlowReq {
+    1: string iteration_key;
+}
+
+response sandesh AclFlowResp {
+    1: i32 flow_count;
+    2: i32 flow_miss;
+    3: list <FlowSandeshData> flow_entries;
+    4: string iteration_key (link="NextAclFlowReq");
+}
+
+request sandesh AclFlowCountReq {
+    1: string uuid;
+}
+
+request sandesh NextAclFlowCountReq {
+    1: string iteration_key;
+}
+
+response sandesh AclFlowCountResp {
+    1: i32 flow_count;
+    2: i32 flow_miss;
+    3: list<AceIdFlowCnt> aceid_cnt_list;
+    4: string iteration_key (link="NextAclFlowCountReq");
+}
+
+// ACL Traces
+trace sandesh AclErr {
+    1: string err;
+}
+
+trace sandesh AclInfo {
+    1: string str;
+}
+
+traceobject sandesh AclAclTrace {
+    1: string info;
+    2: string uuid;
+    3: AclSandeshData acl;
+}
+
+traceobject sandesh AclEntryTrace {
+    1: AclEntrySandeshData acl_entry;
+}
+
+request sandesh MirrorCreateReq {
+    // Handle
+    1: string handle;
+
+    // Apply VN
+    2: string apply_vn;
+
+    // Source
+    3: string src_vn;
+    4: string src_ip_prefix;
+    5: i32 src_ip_prefix_len;
+
+    // Destination
+    6: string dst_vn;
+    7: string dst_ip_prefix;
+    8: i32 dst_ip_prefix_len;
+
+    // Source port, -1 means any
+    // if there is no end_src_port, end_src_port will be same as start_src_port
+    9: i32 start_src_port;
+    10: i32 end_src_port;
+
+    // Dest port, -1 means any
+    // if there is no end_dst_port, end_dst_port will be same as start_dst_port
+    11: i32 start_dst_port;
+    12: i32 end_dst_port;
+
+    // Protocol, -1 means any
+    13: i32 protocol;
+
+    // Mirror destination
+    14: string ip;   
+    15: i32 udp_port;
+    // Time period for mirroring in seconds
+    16: i32 time_period;
+    17: string mirror_vrf;
+}
+
+response sandesh MirrorCfgResp {
+    1: string resp = "  Success  ";
+}
+
+request sandesh MirrorDeleteReq {
+    // Handle
+    1: string handle;
+}
+
+// Mirror cfg display
+request sandesh MirrorCfgDisplayReq {
+    // Handle
+    1: string handle;
+}
+
+struct MirrorCfgSandesh {
+    // Handle
+    1: string handle;
+
+    // Apply VN
+    2: string apply_vn (link="MirrorCfgVnInfoReq");
+
+    // Source
+    3: string src_vn;
+    4: string src_ip_prefix;
+    5: i32 src_ip_prefix_len;
+
+    // Destination
+    6: string dst_vn;
+    7: string dst_ip_prefix;
+    8: i32 dst_ip_prefix_len;
+
+    // Source port, -1 means any
+    // if there is no end_src_port, end_src_port will be same as start_src_port
+    9: i32 start_src_port;
+    10: i32 end_src_port;
+
+    // Dest port, -1 means any
+    // if there is no end_dst_port, end_dst_port will be same as start_dst_port
+    11: i32 start_dst_port;
+    12: i32 end_dst_port;
+
+    // Protocol, -1 means any
+    13: i32 protocol;
+
+    // Mirror destination
+    14: string ip;   
+    15: i32 udp_port;
+    // Time period for mirroring in seconds
+    16: i32 time_period;
+    17: string mirror_vrf;
+}
+
+response sandesh MirrorCfgDisplayResp {
+    1: list<MirrorCfgSandesh> mcfg_l;
+}
+
+request sandesh MirrorCfgVnInfoReq {
+    1: string vn_name;
+}
+
+struct VnAclInfo {
+    1: string vn_name;
+    2: string vn_uuid;
+    3: string dyn_acl_uuid;
+    4: i32 num_of_entries;
+}
+
+response sandesh MirrorCfgVnInfoResp {
+    1: list <VnAclInfo> vn_acl_info_l;
+}
+
+struct IntfMirrorCfgSandesh {
+    1: string handle;
+    2: optional string intf_uuid;
+    3: optional string intf_name;
+    4: optional string ip;
+    5: optional i32 udp_port;
+    6: optional i32 time_period;
+    7: optional string mirror_vrf;
+}
+
+request sandesh IntfMirrorCreateReq {
+    1: string handle;
+    2: optional string intf_uuid;
+    3: optional string intf_name;
+    4: optional string ip;
+    5: optional i32 udp_port;
+    6: optional i32 time_period;
+    7: optional string mirror_vrf;
+}
+
+request sandesh IntfMirrorDeleteReq {
+    1: string handle;
+}
+
+request sandesh IntfMirrorCfgDisplayReq {
+    1: string handle;
+}
+
+response sandesh IntfMirrorCfgDisplayResp {
+    1: list <IntfMirrorCfgSandesh> imcfg_l;
+}
+
+traceobject sandesh IntfMirror {
+    1: string operation;
+    2: IntfMirrorCfgSandesh ms;
+}
+
+response sandesh UnresolvedNHResp {
+    1: list<NhSandeshData> nh_list;
+}
+
+response sandesh UnresolvedRouteResp {
+    1: list<RouteUcSandeshData> route_list;
+}
+
+request sandesh UnresolvedNH {
+}
+
+request sandesh UnresolvedRoute {
+}
+
+enum AgentLogEvent {
+    ADD,
+    DELETE,
+    CHANGE,
+    DELETE_TRIGGER,
+    RESYNC
+}
+
+struct VmObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: optional list<string> sg_uuid_list;
+    4: i32 ref_count;
+}
+
+objectlog sandesh VmObjectLog {
+    1: VmObjectLogInfo vm;
+}
+
+struct VnObjectLogIpam {
+    1: string ip_prefix;
+    2: i32    prefix_len;
+    3: optional string gateway_ip;
+    4: string ipam_name;
+}
+
+struct VnObjectLogInfo {
+    1: string event;
+    2: string uuid;
+    3: string name;
+    4: optional string acl_uuid;
+    5: optional string mirror_acl_uuid;
+    6: optional string mirror_cfg_acl_uuid;
+    7: optional string vrf;
+    8: optional list <VnObjectLogIpam> ipam_list;
+}
+
+objectlog sandesh VnObjectLog {
+    1: VnObjectLogInfo vn;
+}
+
+struct VrfObjectLogInfo {
+    1: string event;
+    2: string name;
+    4: optional i32 index;
+}
+
+objectlog sandesh VrfObjectLog {
+    1: VrfObjectLogInfo vrf;
+}
+
+struct FloatingIPInfo {
+    1:string vrf_name;
+    2:string ip_address;
+}
+
+struct InterfaceInfo {
+    1: string name;
+    2: i32 index;
+    3: string op;
+    4: optional string vm;
+    5: optional string vn;
+    6: optional string vrf;
+    7: optional string ip_address;
+    8: optional string mac;
+    9: optional list<FloatingIPInfo> fip;
+}
+
+struct RouteInfo {
+    1: string ip;
+    2: string vrf;
+    3: string op;
+    4: optional string nh_type;
+    5: optional string peer;
+    6: optional string dest_server;
+    7: optional string dest_server_vrf;
+    8: optional string intf;
+    9: optional string mac;
+}
+
+traceobject sandesh OperInterface {
+    1: InterfaceInfo intf_info;
+}
+
+traceobject sandesh OperRoute {
+    1: RouteInfo route_info;
+}
+
+struct MplsObjectLogInfo {
+    1: string event;
+    2: string type;
+    3: i32 label;
+    4: optional string nh_type;
+    5: optional string intf_type;
+    6: optional string intf_uuid;
+    7: optional string intf_name;
+    8: optional string policy;
+    9: optional i16 vlan_tag;
+}
+
+traceobject sandesh OperMpls {
+    1: MplsObjectLogInfo mpls;
+}
+
+struct ComponentNHLogInfo {
+    1: string type;
+    2: i32    label; 
+    3: optional string intf_name;
+    4: optional string server_ip;
+}
+
+struct NextHopObjectLogInfo {
+    1: string event;
+    2: string type;
+    3: string policy;
+    4: string valid;
+    5: optional string source_ip;
+    6: optional string dest_ip;
+    7: optional string vrf;
+    8: optional i16 source_port;
+    9: optional i16 dest_port;
+    10: optional string intf_type;
+    11: optional string intf_uuid;
+    12: optional string intf_name;
+    13: optional i16 vlan_tag;
+    14: optional string resolved;
+    15: optional string mac;   //ArpNH MAC/VLAN NH DMAC/INTF NH DMAC
+    16: optional list<ComponentNHLogInfo> nh_list;
+    17: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
+}
+
+traceobject sandesh OperNextHop {
+    1: NextHopObjectLogInfo nh;
+}
+
+systemlog sandesh AgentRouteLog {
+    1: string message;
+    2: string ip;
+    3: "in VRF";
+    4: string vrf;
+    5: string peer;
+}
+
+trace sandesh MulticastInfo {
+    1: string message;
+    2: string info;
+}
+
+trace sandesh MulticastLog {
+    1: string message;
+    2: string vrf_name;
+    3: string dst_ip;
+    4: i32 label;   
+}
+
+trace sandesh OperVrf {
+    1: string message;
+    2: string vrf_name;
+}
+
+trace sandesh AgentDBWalkLog {
+    1: string message;
+    2: string table_name;
+    3: "walkid:"
+    4: i32 walk_id;
+    5: "peer:"
+    6: string peer;
+    7: string add_del_route; 
+}
+
+systemlog sandesh InterfaceConfiguration {
+    1: string f1;
+    2: string interface_uuid;
+    3: string f2
+    4: string config_uuid;
+    5: string f3
+    6: string compute_uuid;
+}
+
+systemlog sandesh FlowLog {
+    1: u32 flow_id;
+    2: string message;
+}
+

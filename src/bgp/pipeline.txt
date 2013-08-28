@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+BgpPeer (IPeer)
+    + config
+    + state_machine
+    + session
+
+XmppPeer (IPeer)
+    + [ ... ]
+    
+1. Input processing                 (concurrency: peer)
+    - Decoding update
+    - [ Input Policy ]
+    - Prefix + BgpAttrPtr
+    [ +decoding, +encoding: proto ]
+
+
+2. Rib-in                           (concurrency: db-partition)
+    - Create/Modify/Delete Path
+        classes: BgpPath
+    - Secondary paths [l3vpn] [vrf-import processing]
+
+3. DB change notification (src/db)
+    - DBTable, DBEntry, ...
+
+4. BgpExport
+    - Calculates the desired output attributes.
+    - Generates an update as delta between last advertised and desired state.
+
+5. bgp_update.h / bgp_ribout.h
+    - Enqueue
+
+6. bgp_update.h                     (concurrency: scheduling-group)
+    - Dequeue
+    - Encoding (bgp_message_builder.h)

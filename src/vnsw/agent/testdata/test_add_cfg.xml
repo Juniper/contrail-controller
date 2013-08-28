@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<config>
+    <update> 
+        <node type="foo">
+            <name>testfoo</name>
+        </node>
+        <node type="bar">
+            <name>testbar</name>
+        </node>
+    </update>
+</config>

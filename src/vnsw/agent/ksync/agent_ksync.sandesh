@@ -1,0 +1,71 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct KSyncIntfInfo {
+    1: u32 idx;
+    2: string name;
+    3: string operation;
+    4: optional u32 os_idx;
+    5: optional u32 vrf_id;
+    6: optional u32 active;
+    7: optional u32 policy_enabled;
+    8: optional u32 service_enabled;
+    9: optional string analyzer_name;
+}
+
+traceobject sandesh KSyncIntf {
+    1: KSyncIntfInfo info;
+}
+
+struct KSyncRouteInfo {
+    1: string ip;
+    2: u32    vrf;
+    3: string operation;
+    4: optional u32 nh_idx;
+    5: optional u32 label;  
+}
+
+traceobject sandesh KSyncRoute {
+    1: KSyncRouteInfo info;
+}
+
+struct KSyncMplsInfo {
+    1: u32 label;
+    2: string operation;
+    3: u32 nh;
+}
+
+traceobject sandesh KSyncMpls {
+    1: KSyncMplsInfo info;
+}
+
+struct KSyncComponentNHLog {
+    u32 nh_idx;
+    u32 label;
+}
+
+struct KSyncNhInfo {
+    1: u32  index;
+    2: string operation;
+    3: string type;
+    4: u32    vrf;
+    5: string intf_name;
+    6: optional string sip;
+    7: optional string dip;
+    8: optional u32 sport;
+    9: optional u32 dport;
+   10: optional bool valid;
+   11: optional bool policy;
+   12: optional bool vlan_tag;
+   13: optional u32 sub_nh_count;
+   14: optional list<KSyncComponentNHLog> sub_nh_list;
+}
+
+traceobject sandesh KSyncNH {
+    1:KSyncNhInfo info;
+}
+
+trace sandesh KSyncTrace {
+    1: string message;
+}

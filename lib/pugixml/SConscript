@@ -1,0 +1,15 @@
+# -*- mode: python; -*-
+
+env = DefaultEnvironment().Clone()
+env.Append(CCFLAGS = '-fPIC')
+
+vpath = '#/third_party/pugixml/src'
+
+env.VariantDir('#/' + Dir('.').path + '/src', vpath)
+pugixml_buildpath = Dir('.').abspath + '/src'
+
+lib = env.Library('pugixml', pugixml_buildpath + '/pugixml.cpp')
+
+env.Install('#/build/lib/', 'libpugixml.a')
+env.Install('#/build/include/pugixml', vpath + '/pugixml.hpp')
+env.Install('#/build/include/pugixml', vpath + '/pugiconfig.hpp')

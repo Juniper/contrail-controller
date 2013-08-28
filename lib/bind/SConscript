@@ -1,0 +1,19 @@
+# -*- mode: python; -*-
+
+vpath = '#/third_party/bind-9.9.2-P1/'
+env = DefaultEnvironment()
+
+config_opts = '--prefix=' + str(Dir('#/build')) + ' --enable-threads' + ' --enable-fixed-rrset'
+cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
+       '/configure' + ' ' + config_opts + '; make clean; make; make install)')
+
+products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/libisc' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/libisccc' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/libisccfg' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/libbind9' + env['LIBSUFFIX'])),
+             str(File('#/build/lib/libdns' + env['LIBSUFFIX'])) ]
+
+bind_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
+env.SideEffect(products, bind_cfg)
+

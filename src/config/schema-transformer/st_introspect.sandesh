@@ -1,0 +1,44 @@
+//
+// schema-transformer.sandesh
+//
+// Introspect structs for Schema Transformer
+//
+// Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+//
+
+struct Acl {
+    1: string name;
+    2: bool dynamic_acl;
+}
+
+struct VirtualNetwork {
+    1: string name;
+    2: list<string> policies;
+    3: list<string> connections;
+    4: list<string> routing_instances;
+    5: string acl;
+    6: string dynamic_acl;
+}
+
+request sandesh VnList {
+    1: string vn_name;
+}
+
+response sandesh VnListResp {
+    1: list<VirtualNetwork> vn_names;
+}
+
+struct RoutingInstance {
+    1: string name;
+    2: string service_chain;
+    3: list<string> connections;
+}
+
+response sandesh RoutingInstanceListResp {
+    1: list<RoutingInstance> routing_instances;
+}
+
+request sandesh RoutintInstanceList {
+    1: string vn_name;
+    2: string ri_name;
+}

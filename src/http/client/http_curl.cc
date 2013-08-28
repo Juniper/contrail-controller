@@ -1,0 +1,451 @@
+/***************************************************************************
+ *                                  _   _ ____  _
+ * Copyright (C) 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+#include "http_client.h"
+#include "http_curl.h"
+#include <curl/curl.h>
+#include <boost/asio.hpp>
+#include <boost/bind.hpp>
+#include <boost/intrusive_ptr.hpp>
+#include <tbb/mutex.h>
+
+#define MSG_OUT stdout /* Send info to stdout, change to stderr if you want */
+
+using tbb::mutex;
+
+/* boost::asio related objects
+ * using global variables for simplicity
+ */
+std::map<curl_socket_t, HttpClientSession *> socket_map;
+
+
+/* Update the event timer after curl_multi library calls */
+static int multi_timer_cb(CURLM *multi, long timeout_ms, HttpClient *client)
+{
+  fprintf(MSG_OUT, "\nmulti_timer_cb: timeout_ms %ld", timeout_ms);
+
+  if ( timeout_ms > 0 )
+  {
+    client->StartTimer(timeout_ms);
+  }
+  else
+  {
+    client->CancelTimer();
+    timer_cb(client->GlobalInfo());
+  }
+
+  return 0;
+}
+
+/* Die if we get a bad CURLMcode somewhere */
+static void mcode_or_die(const char *where, CURLMcode code)
+{
+  if ( CURLM_OK != code )
+  {
+    const char *s;
+    switch ( code )
+    {
+    case CURLM_CALL_MULTI_PERFORM: s="CURLM_CALL_MULTI_PERFORM"; break;
+    case CURLM_BAD_HANDLE:         s="CURLM_BAD_HANDLE";         break;
+    case CURLM_BAD_EASY_HANDLE:    s="CURLM_BAD_EASY_HANDLE";    break;
+    case CURLM_OUT_OF_MEMORY:      s="CURLM_OUT_OF_MEMORY";      break;
+    case CURLM_INTERNAL_ERROR:     s="CURLM_INTERNAL_ERROR";     break;
+    case CURLM_UNKNOWN_OPTION:     s="CURLM_UNKNOWN_OPTION";     break;
+    case CURLM_LAST:               s="CURLM_LAST";               break;
+    default: s="CURLM_unknown";
+      break;
+    case     CURLM_BAD_SOCKET:         s="CURLM_BAD_SOCKET";
+      fprintf(MSG_OUT, "\nERROR: %s returns %s", where, s);
+      /* ignore this error */
+      return;
+    }
+    fprintf(MSG_OUT, "\nERROR: %s returns %s", where, s);
+    exit(code);
+  }
+}
+
+/* Check for completed transfers, and remove their easy handles */
+static void check_multi_info(GlobalInfo *g)
+{
+  char *eff_url;
+  CURLMsg *msg;
+  int msgs_left;
+  ConnInfo *conn;
+  CURL *easy;
+  CURLcode res;
+
+  fprintf(MSG_OUT, "\nREMAINING: %d", g->still_running);
+
+  while ((msg = curl_multi_info_read(g->multi, &msgs_left)))
+  {
+    if (msg->msg == CURLMSG_DONE)
+    {
+      easy = msg->easy_handle;
+      res = msg->data.result;
+      curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
+      curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
+      fprintf(MSG_OUT, "\nDONE: %s => (%d) %s", eff_url, res, conn->error);
+      if (res != CURLE_OK) {
+          boost::system::error_code error(res, boost::system::system_category());
+          std::string empty_str("");
+          conn->connection->HttpClientCb()(empty_str, error);
+      }
+      if (conn->connection->curl_handle()) {
+          curl_multi_remove_handle(g->multi, easy);
+          free(conn->url);
+          curl_easy_cleanup(easy);
+          conn->connection->set_curl_handle(NULL);
+          free(conn);
+      }
+    }
+  }
+}
+
+typedef boost::intrusive_ptr<HttpClientSession> TcpSessionPtr;
+
+static void event_cb_impl(GlobalInfo *g, TcpSessionPtr session, int action,
+                          const boost::system::error_code &error, 
+                          std::size_t bytes_transferred)
+{
+  fprintf(MSG_OUT, "\nevent_cb: action=%d", action);
+
+  if (session->IsClosed()) return;
+
+  if (g->client->IsErrorHard(error)) return;
+
+  CURLMcode rc;
+  rc = curl_multi_socket_action(g->multi, session->socket()->native_handle(), action, &g->still_running);
+
+  mcode_or_die("event_cb: curl_multi_socket_action", rc);
+  check_multi_info(g);
+
+  if ( g->still_running <= 0 )
+  {
+    fprintf(MSG_OUT, "\nlast transfer done, kill timeout");
+    g->client->CancelTimer();
+  }
+}
+
+/* Called by asio when there is an action on a socket */
+static void event_cb(GlobalInfo *g, TcpSessionPtr session, int action,
+                     const boost::system::error_code &error, std::size_t bytes_transferred)
+{
+  tbb::mutex::scoped_lock lock(session->mutex());
+
+  // Ignore if the connection is already deleted.
+  if (!session->Connection()) return;
+
+  HttpClient *client = session->Connection()->client();
+  client->ProcessEvent(boost::bind(&event_cb_impl, g, session, action, error, 
+                                   bytes_transferred));
+}
+
+/* Called by asio when our timeout expires */
+void timer_cb(GlobalInfo *g)
+{
+    CURLMcode rc;
+    rc = curl_multi_socket_action(g->multi, CURL_SOCKET_TIMEOUT, 0, &g->still_running);
+
+    mcode_or_die("timer_cb: curl_multi_socket_action", rc);
+    check_multi_info(g);
+}
+
+/* Clean up any data */
+static void remsock(int *f, GlobalInfo *g)
+{
+  fprintf(MSG_OUT, "\nremsock: ");
+
+  if ( f )
+  {
+    free(f);
+  }
+}
+
+static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
+{
+  fprintf(MSG_OUT, "\nsetsock: socket=%d, act=%d, fdp=%p", s, act, fdp);
+
+  std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(s);
+
+  if ( it == socket_map.end() )
+  {
+    fprintf(MSG_OUT, "\nsocket %d is a c-ares socket, ignoring", s);
+    return;
+  }
+
+  HttpClientSession *session = it->second;
+  if (session->IsClosed()) return;
+
+  boost::asio::ip::tcp::socket * tcp_socket = session->socket();
+
+  *fdp = act;
+
+  if ( act == CURL_POLL_IN )
+  {
+    tcp_socket->async_read_some(boost::asio::null_buffers(),
+                                boost::bind(&event_cb, g, TcpSessionPtr(session), 
+                                act, _1, _2));
+  }
+  else if ( act == CURL_POLL_OUT )
+  {
+    tcp_socket->async_write_some(boost::asio::null_buffers(),
+                                 boost::bind(&event_cb, g, TcpSessionPtr(session), 
+                                 act, _1, _2));
+  }
+  else if ( act == CURL_POLL_INOUT )
+  {
+    tcp_socket->async_read_some(boost::asio::null_buffers(),
+                                boost::bind(&event_cb, g, TcpSessionPtr(session),
+                                act, _1, _2));
+    tcp_socket->async_write_some(boost::asio::null_buffers(),
+                                 boost::bind(&event_cb, g, TcpSessionPtr(session),
+                                 act, _1, _2));
+  }
+}
+
+
+static void addsock(curl_socket_t s, CURL *easy, int action, GlobalInfo *g)
+{
+  int *fdp = (int *)calloc(sizeof(int), 1); /* fdp is used to store current action */
+
+  setsock(fdp, s, easy, action, g);
+  curl_multi_assign(g->multi, s, fdp);
+}
+
+/* CURLMOPT_SOCKETFUNCTION */
+static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp)
+{
+  fprintf(MSG_OUT, "\nsock_cb: socket=%d, what=%d, sockp=%p", s, what, sockp);
+
+  GlobalInfo *g = (GlobalInfo*) cbp;
+  int *actionp = (int*) sockp;
+  const char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE"};
+
+  fprintf(MSG_OUT,
+          "\nsocket callback: s=%d e=%p what=%s ", s, e, whatstr[what]);
+
+  if ( what == CURL_POLL_REMOVE )
+  {
+    fprintf(MSG_OUT, "\n");
+    remsock(actionp, g);
+  }
+  else
+  {
+    if ( !actionp )
+    {
+      fprintf(MSG_OUT, "\nAdding data: %s", whatstr[what]);
+      addsock(s, e, what, g);
+    }
+    else
+    {
+      fprintf(MSG_OUT,
+              "\nChanging action from %s to %s",
+              whatstr[*actionp], whatstr[what]);
+      setsock(actionp, s, e, what, g);
+    }
+  }
+  return 0;
+}
+
+
+/* CURLOPT_WRITEFUNCTION */
+static size_t write_cb(void *ptr, size_t size, size_t nmemb, void *data)
+{
+  size_t written = size * nmemb;
+
+  HttpConnection *conn = static_cast<HttpConnection *>(data);
+  conn->AssignData((char *)ptr, written);
+  return written;
+}
+
+static size_t read_cb(void *ptr, size_t size, size_t nmemb, void *data)
+{
+  HttpConnection *conn = static_cast<HttpConnection *>(data);
+  const std::string str = conn->GetData();
+
+  size_t maxb = size*nmemb;
+  size_t offset = conn->GetOffset();
+  size_t datasize = str.length() - offset;
+
+  if (maxb >= datasize) {
+      memcpy(ptr, str.data() + offset, datasize);
+      conn->UpdateOffset(datasize);
+      return str.length();
+  } else {
+      memcpy(ptr, str.data() + offset, maxb);
+      conn->UpdateOffset(maxb);
+      return maxb;
+  }
+
+  return 0;
+}
+
+
+/* CURLOPT_PROGRESSFUNCTION */
+static int prog_cb (void *p, double dltotal, double dlnow, double ult,
+                    double uln)
+{
+  ConnInfo *conn = (ConnInfo *)p;
+  (void)ult;
+  (void)uln;
+
+  fprintf(MSG_OUT, "\nProgress: %s (%g/%g)", conn->url, dlnow, dltotal);
+  fprintf(MSG_OUT, "\nProgress: %s (%g)", conn->url, ult);
+
+  return 0;
+}
+
+/* CURLOPT_OPENSOCKETFUNCTION */
+static curl_socket_t opensocket(void *data,
+                                curlsocktype purpose,
+                                struct curl_sockaddr *address)
+{
+  fprintf(MSG_OUT, "\nopensocket :");
+
+  HttpConnection *conn = static_cast<HttpConnection *>(data);
+ 
+  curl_socket_t sockfd = CURL_SOCKET_BAD;
+
+  /* restrict to ipv4 */
+  if (purpose == CURLSOCKTYPE_IPCXN && address->family == AF_INET)
+  {
+      HttpClientSession *session = conn->CreateSession();
+      sockfd = session->socket()->native_handle();
+      socket_map.insert(std::pair<curl_socket_t, HttpClientSession *>(sockfd, 
+                  static_cast<HttpClientSession *>(session)));
+      conn->set_session(session);
+  }
+
+
+  return sockfd;
+}
+
+/* CURLOPT_CLOSESOCKETFUNCTION */
+static int closesocket(void *clientp, curl_socket_t item)
+{
+  fprintf(MSG_OUT, "\nclosesocket : %d", item);
+
+  std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(item);
+  if ( it != socket_map.end() ) {
+      socket_map.erase(it);
+  }
+
+  return 0;
+}
+
+void del_conn(HttpConnection *connection, GlobalInfo *g) {
+
+    if (connection->session()) {
+        tbb::mutex::scoped_lock lock(connection->session()->mutex());
+        closesocket(NULL, connection->session()->socket()->native_handle());
+        connection->session()->SetConnection(NULL);
+    }
+
+    struct _ConnInfo *curl_handle = connection->curl_handle();
+    if (curl_handle) {
+        curl_multi_remove_handle(g->multi, curl_handle->easy);
+        free(curl_handle->url);
+        curl_easy_cleanup(curl_handle->easy);
+        connection->set_curl_handle(NULL);
+        free(curl_handle);
+    }   
+}
+
+/* Create a new easy handle, and add it to the global curl_multi */
+ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
+{
+  ConnInfo *conn = (ConnInfo *)calloc(1, sizeof(ConnInfo));
+  memset(conn, 0, sizeof(ConnInfo));
+  conn->error[CURL_ERROR_SIZE]='\0';
+
+  conn->easy = curl_easy_init();
+
+  if ( !conn->easy )
+  {
+    fprintf(MSG_OUT, "\ncurl_easy_init() failed, exiting!");
+    exit(2);
+  }
+  conn->global = g;
+  curl_easy_setopt(conn->easy, CURLOPT_FOLLOWLOCATION, 1L);
+  curl_easy_setopt(conn->easy, CURLOPT_WRITEFUNCTION, write_cb);
+  curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, connection);
+  curl_easy_setopt(conn->easy, CURLOPT_READFUNCTION, read_cb);
+  curl_easy_setopt(conn->easy, CURLOPT_READDATA, connection);
+  curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, 1L);
+  curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
+  curl_easy_setopt(conn->easy, CURLOPT_PRIVATE, conn);
+  curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 1L);
+  curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
+  curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
+  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
+  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+  curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+
+  /* call this function to get a socket */
+  curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETFUNCTION, opensocket);
+  curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETDATA, connection);
+
+  /* call this function to close a socket */
+  curl_easy_setopt(conn->easy, CURLOPT_CLOSESOCKETFUNCTION, closesocket);
+
+  return conn;
+}
+
+void set_url(ConnInfo *conn, const char *url) {
+  conn->url = strdup(url);
+  curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
+}
+
+void set_put_string(ConnInfo *conn, const char *post) { 
+    struct curl_slist *headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/xml");
+    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, headers);
+
+    conn->post = strdup(post);
+    curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
+}
+
+int http_get(ConnInfo *conn, GlobalInfo *g) {
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
+int http_put(ConnInfo *conn, GlobalInfo *g) {
+    CURLMcode rc = curl_multi_add_handle(g->multi, conn->easy);
+    return (int)rc;
+}
+
+int curl_init(HttpClient *client)
+{
+  
+  struct _GlobalInfo *g = client->GlobalInfo();
+
+  memset(g, 0, sizeof(GlobalInfo));
+  g->multi = curl_multi_init();
+  g->client = client;
+
+  curl_multi_setopt(g->multi, CURLMOPT_SOCKETFUNCTION, sock_cb);
+  curl_multi_setopt(g->multi, CURLMOPT_SOCKETDATA, g);
+  curl_multi_setopt(g->multi, CURLMOPT_TIMERFUNCTION, multi_timer_cb);
+  curl_multi_setopt(g->multi, CURLMOPT_TIMERDATA, client);
+
+  return 0;
+}

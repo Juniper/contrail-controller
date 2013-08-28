@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('..').path + '/../../' + x, list)
+
+# test specific modifications
+env.Append(LIBPATH = MapBuildDir(['agent/test']))
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
+env.Prepend(LIBS=['gunit'])
+
+cflags = env['CCFLAGS']
+cflags.append(['-Wno-return-type', '-Wno-unused-function'])
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+
+import sys
+if sys.platform != 'darwin':
+    env.Prepend(LIBS=['agent_test']);
+
+    test_intf = env.Program(target = 'test_intf', source = ['test_intf.cc'])
+    env.Alias('src/vnsw/agent/oper/test:test_intf', test_intf)
+
+    test_vrf_assign = env.Program(target = 'test_vrf_assign', source = ['test_vrf_assign.cc'])
+    env.Alias('src/vnsw/agent/oper/test:test_vrf_assign', test_vrf_assign)
+
+    oper_test_suite = [
+                       test_intf,
+                       test_vrf_assign,
+                       ]
+    test = env.TestSuite('agent`-test', oper_test_suite)
+    env.Alias('src/vnsw/agent:test', test)
+    Return('oper_test_suite')
+
