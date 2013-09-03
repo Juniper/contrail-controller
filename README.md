@@ -5,7 +5,7 @@ Contrail Virtual Network Controller
 
 The Contrail Controller repository contains the code for the configuration management, analytics and control-plane components of the Contrail network virtualization solution.
 
-The data-plane component (aka vrouter) is avaialable in a separate code repository (http://github.com/Juniper/contrail-router).
+The data-plane component (aka vrouter) is avaialable in a separate code repository (http://github.com/Juniper/contrail-vrouter).
 
 The configuration management component is located under 'src/config'. It provides a REST API to an orchestration system and translates the system configuration as an [IF-MAP](http://www.trustedcomputinggroup.org/files/resource_files/2888CAD9-1A4B-B294-D0ED95712B121FEF/TNC_IFMAP_v2_1r15.pdf) database.
 
