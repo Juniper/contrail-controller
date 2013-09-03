@@ -37,11 +37,11 @@ bottle_sources_rules = []
 bottle_sources_rules.append(OpEnv.Install('opserver', '#/third_party/bottle-0.11.6/bottle.py'))    
 
 sandesh_dirs = ['mirror', 'vns']
-sandesh_files = sandesh_dirs
-sandesh_sources = ['gen_py/' + ssrc for ssrc in sandesh_files]
+sandesh_sources = ['gen_py/' + ssrc for ssrc in sandesh_dirs]
 sandesh_sources_rules = []
-for file in sandesh_sources:
-    sandesh_sources_rules.append(OpEnv.Install("opserver/sandesh", "../sandesh/common/" + file))
+for sdir in sandesh_sources:
+    sandesh_sources_rules.append(
+        OpEnv.Install("opserver/sandesh", Dir("../sandesh/common/" + sdir)))
 
 viz_sandesh_gen_files = OpEnv.SandeshGenPy('#controller/src/analytics/viz.sandesh')
 viz_sandesh_gen_files += OpEnv.SandeshGenPy('#controller/src/analytics/analytics_cpuinfo.sandesh') 
