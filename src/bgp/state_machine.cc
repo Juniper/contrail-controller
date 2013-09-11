@@ -130,6 +130,8 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
     bool validate(StateMachine *state_machine) const {
         if (timer_->cancelled()) {
             return false;
+        } else if (state_machine->get_state() == StateMachine::OPENSENT) {
+            return true;
         } else {
             return (state_machine->peer()->session() != NULL);
         }
@@ -414,6 +416,7 @@ struct Active : sc::state<Active, StateMachine> {
     Active(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_state(StateMachine::ACTIVE);
+        state_machine->CancelHoldTimer();
         if (state_machine->passive_session() == NULL)
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
     }
@@ -498,6 +501,7 @@ struct Connect : sc::state<Connect, StateMachine> {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->connect_attempts_inc();
         state_machine->set_state(StateMachine::CONNECT);
+        state_machine->CancelHoldTimer();
         state_machine->StartConnectTimer(state_machine->GetConnectTime());
         if (!StartSession(state_machine)) {
             return;
@@ -609,6 +613,7 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
+        TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
         IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
         IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
         IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
@@ -621,6 +626,8 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
     OpenSent(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_state(StateMachine::OPENSENT);
+        state_machine->set_hold_time(StateMachine::kOpenSentHoldTime);
+        state_machine->StartHoldTimer();
     }
 
     sc::result react(const EvBgpNotification &event) {
@@ -754,6 +761,7 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
             state_machine->AssignSession(true);
         }
 
+        state_machine->set_hold_time(event.msg->holdtime);
         peer->SetCapabilities(event.msg.get());
         peer->SendKeepalive(false);
         peer->StartKeepaliveTimer();
