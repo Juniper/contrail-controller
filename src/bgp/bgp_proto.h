@@ -86,7 +86,7 @@ public:
             FSMErr = 5,
             Cease = 6
         };
-        static const char * CodeToString(
+        static const char *CodeToString(
                 BgpProto::Notification::Code code) {
             switch (code) {
             case MsgHdrErr:
@@ -110,7 +110,7 @@ public:
             BadMsgLength = 2,
             BadMsgType = 3,
         };
-        static const char * MsgHdrSubcodeToString(
+        static const char *MsgHdrSubcodeToString(
                 BgpProto::Notification::MsgHdrSubCode sub_code) {
             switch (sub_code) {
             case ConnNotSync:
@@ -131,7 +131,7 @@ public:
             UnacceptableHoldTime = 6,
             UnsupportedCapability = 7
         };
-        static const char * OpenMsgSubcodeToString(
+        static const char *OpenMsgSubcodeToString(
                 BgpProto::Notification::OpenMsgSubCode sub_code) {
             switch (sub_code) {
             case UnsupportedVersion:
@@ -162,7 +162,7 @@ public:
             InvalidNetworkField = 10,
             MalformedASPath = 11
         };
-        static const char * UpdateMsgSubCodeToString(
+        static const char *UpdateMsgSubCodeToString(
                 BgpProto::Notification::UpdateMsgSubCode sub_code) {
             switch (sub_code) {
             case MalformedAttributeList:
@@ -195,7 +195,7 @@ public:
             OpenConfirmError = 2,
             EstablishedError = 3
         };
-        static const char * FsmSubcodeToString(
+        static const char *FsmSubcodeToString(
                 BgpProto::Notification::FsmSubcode sub_code) {
             switch (sub_code) {
             case UnspecifiedError:
@@ -222,7 +222,7 @@ public:
             OutOfResources = 8
         };
 
-        static const char * CeaseSubcodeToString(
+        static const char *CeaseSubcodeToString(
                         BgpProto::Notification::CeaseSubCode sub_code) {
             switch (sub_code) {
             case Unknown:
@@ -245,6 +245,9 @@ public:
 
             case OtherConfigChange:
                 return "Peer configuration has changed";
+
+            case ConnectionCollision:
+                return "Connection collision";
 
             case OutOfResources:
                 return "Unable handle peer due to resource limit";
