@@ -80,9 +80,9 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     peer2 = new BgpPeer("BGP Peer 2", NULL, -1);
 
     //Vrf-Table Listeners
-    int id_peer1 = Agent::GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
+    int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
                                                   this, _1, _2, peer1));
-    int id_peer2 = Agent::GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
+    int id_peer2 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
                                                   this, _1, _2, peer2));
     peer1->SetVrfListenerId(id_peer1);
     peer2->SetVrfListenerId(id_peer2);
@@ -125,8 +125,8 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     DelVrf("test_vrf2");
     client->WaitForIdle();
 
-    Agent::GetVrfTable()->Unregister(id_peer1);
-    Agent::GetVrfTable()->Unregister(id_peer2);
+    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer1);
+    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer2);
     client->WaitForIdle();
 
     delete static_cast<Peer *>(peer1);
@@ -155,9 +155,9 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     peer2 = new BgpPeer("BGP Peer 2", NULL, -1);
 
     //Vrf-Table Listeners
-    int id_peer1 = Agent::GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
+    int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
                                                   this, _1, _2, peer1));
-    int id_peer2 = Agent::GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
+    int id_peer2 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
                                                   this, _1, _2, peer2));
     peer1->SetVrfListenerId(id_peer1);
     peer2->SetVrfListenerId(id_peer2);
@@ -181,8 +181,8 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
                          this));
     client->WaitForIdle();
 
-    Agent::GetVrfTable()->Unregister(id_peer1);
-    Agent::GetVrfTable()->Unregister(id_peer2);
+    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer1);
+    Agent::GetInstance()->GetVrfTable()->Unregister(id_peer2);
     client->WaitForIdle();
 
     delete static_cast<Peer *>(peer1);

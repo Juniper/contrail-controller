@@ -21,7 +21,6 @@
 #include <pkt/flowtable.h>
 
 #include <boost/uuid/uuid_io.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/string_generator.hpp>
 
 static AclTable *acl_table_;
@@ -54,7 +53,7 @@ void AclDBEntry::SetKey(const DBRequestKey *key) {
 bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
     AclResp *resp = static_cast<AclResp *>(sresp);
 
-    std::string str_uuid = boost::lexical_cast<std::string>(GetUuid());
+    std::string str_uuid = UuidToString(GetUuid());
 
     // request uuid is null, then display upto size given by sandesh req
     // request uuid is not null, then disply the ACL that matches the uuid.
@@ -64,7 +63,7 @@ bool AclDBEntry::DBEntrySandesh(Sandesh *sresp, std::string &uuid) const {
         SetAclSandeshData(data);
         std::vector<AclSandeshData> &list =
                 const_cast<std::vector<AclSandeshData>&>(resp->get_acl_list());
-        data.uuid = boost::lexical_cast<std::string>(GetUuid());
+        data.uuid = UuidToString(GetUuid());
         data.set_dynamic_acl(GetDynamicAcl());
         data.name = name_;
         list.push_back(data);
@@ -307,7 +306,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         AclKey *key = new AclKey(u);
         req.key.reset(key);
         req.data.reset(NULL);
-	Agent::GetAclTable()->Enqueue(&req);
+	Agent::GetInstance()->GetAclTable()->Enqueue(&req);
         acl_spec.acl_id = u;
         AclObjectTrace(AgentLogEvent::DELETE, acl_spec);
         return false;
@@ -474,7 +473,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     data->cfg_name_ = node->name();
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetAclTable()->Enqueue(&req);
+    Agent::GetInstance()->GetAclTable()->Enqueue(&req);
 
     // Its possible that VN got notified before ACL are created.
     // Invoke change on VN linked to this ACL
@@ -489,7 +488,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(vn_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetVnTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
             }
         }
         if (adj_node->table() == AgentConfig::GetSgTable()) {
@@ -498,7 +497,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             assert(sg_cfg);
             if (adj_node->IsDeleted() == false) {
                 req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-                Agent::GetSgTable()->IFNodeToReq(adj_node, req);
+                Agent::GetInstance()->GetSgTable()->IFNodeToReq(adj_node, req);
             }
         }
     }
@@ -517,14 +516,14 @@ void AclTable::AddMirrorTableEntry (AclEntrySpec &ace_spec)
         }
         
         Ip4Address sip;
-        if (Agent::GetRouterId() == action.ma.ip) {
+        if (Agent::GetInstance()->GetRouterId() == action.ma.ip) {
             sip = Ip4Address(METADATA_IP_ADDR);
         } else {
-            sip = Agent::GetRouterId();
+            sip = Agent::GetInstance()->GetRouterId();
         }
-        Agent::GetMirrorTable()->AddMirrorEntry(action.ma.analyzer_name,
+        Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(action.ma.analyzer_name,
                                                 action.ma.vrf_name,
-                                                sip, Agent::GetMirrorPort(),
+                                                sip, Agent::GetInstance()->GetMirrorPort(),
                                                 action.ma.ip.to_v4(), action.ma.port);
     }
     return;
@@ -571,14 +570,14 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
          ++it) {
         if ((*it).ta_type == TrafficAction::MIRROR_ACTION) {
             Ip4Address sip;
-            if (Agent::GetRouterId() == (*it).ma.ip) {
+            if (Agent::GetInstance()->GetRouterId() == (*it).ma.ip) {
                 sip = Ip4Address(METADATA_IP_ADDR);
             } else {
-                sip = Agent::GetRouterId();
+                sip = Agent::GetInstance()->GetRouterId();
             }
             MirrorEntryKey mirr_key((*it).ma.analyzer_name);
             MirrorEntry *mirr_entry = static_cast<MirrorEntry *>
-                    (Agent::GetMirrorTable()->FindActiveEntry(&mirr_key));
+                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirr_key));
             assert(mirr_entry);
             // Store the mirror entry
             entry->SetMirrorEntry(mirr_entry);
@@ -664,7 +663,7 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
     }
 
     // Get acl entry from acl uuid string
-    AclTable *table = Agent::GetAclTable();
+    AclTable *table = Agent::GetInstance()->GetAclTable();
     boost::uuids::string_generator gen;
     boost::uuids::uuid acl_id = gen(acl_uuid_str);
     AclKey key(acl_id);

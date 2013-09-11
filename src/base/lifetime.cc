@@ -14,7 +14,10 @@ LifetimeRefBase::~LifetimeRefBase() {
 }
 
 LifetimeActor::LifetimeActor(LifetimeManager *manager)
-        : manager_(manager), refcount_(0), shutdown_invoked_(false) {
+        : manager_(manager), refcount_(0), shutdown_invoked_(false),
+          delete_paused_(false),
+          create_time_stamp_usecs_(UTCTimestampUsec()),
+          delete_time_stamp_usecs_(0) {
     deleted_ = false;
 }
 
@@ -39,6 +42,7 @@ void LifetimeActor::Delete() {
         return;
     }
     tbb::mutex::scoped_lock lock(mutex_);
+    delete_time_stamp_usecs_ = UTCTimestampUsec();
     for (Dependents::iterator iter = dependents_.begin();
          iter != dependents_.end(); ++iter) {
         iter->Delete();
@@ -58,12 +62,38 @@ void LifetimeActor::DeleteComplete() {
 //
 // Concurrency: called in the context of the LifetimeManager's Task.
 //
-// Can be called multiple times - when the manged object is initially deleted
+// Can be called multiple times - when the managed object is initially deleted
 // and whenever a delete event is enqueued to the Lifetime Manager. The latter
 // happens when the list of dependents becomes empty or the refcount of the
 // lightweight dependents goes to 0.
 //
 void LifetimeActor::Shutdown() {
+}
+
+//
+// Concurrency: called in the context of main thread.
+// TaskScheduler should be stopped prior to invoking this method.
+//
+// Prevent object from getting destroyed - testing only.
+//
+void LifetimeActor::PauseDelete() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    assert(!deleted_);
+    delete_paused_ = true;
+}
+
+//
+// Concurrency: called in the context of main thread.
+// TaskScheduler should be stopped prior to invoking this method.
+//
+// Allow object to get destroyed - testing only.
+//
+void LifetimeActor::ResumeDelete() {
+    tbb::mutex::scoped_lock lock(mutex_);
+    assert(deleted_);
+    delete_paused_ = false;
+    refcount_++;
+    manager_->EnqueueNoIncrement(this);
 }
 
 //
@@ -106,7 +136,8 @@ void LifetimeActor::ReferenceIncrement() {
 bool LifetimeActor::ReferenceDecrementAndTest()  {
     tbb::mutex::scoped_lock lock(mutex_);
     refcount_--;
-    return (refcount_ == 0 && dependents_.empty() && MayDelete());
+    return (refcount_ == 0 && dependents_.empty() && !delete_paused_ &&
+            MayDelete());
 }
 
 LifetimeManager::LifetimeManager(int task_id, TaskEntryCallback on_entry_cb)
@@ -140,7 +171,7 @@ void LifetimeManager::EnqueueNoIncrement(LifetimeActor *actor) {
 //
 // Concurrency: called in the context of the LifetimeManager's Task.
 //
-// Ask the manged object to shut itself i.e. take care of cleaning up any
+// Ask the managed object to shut itself i.e. take care of cleaning up any
 // state that's not represented as an explicit LifetimeRef dependent. Then
 // go ahead and destroy the object if all conditions are satisfied.
 //

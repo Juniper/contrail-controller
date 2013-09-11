@@ -311,6 +311,24 @@ class OpServer(object):
         return obj
     #end __new__
 
+    def disc_publish(self):
+        try:
+            import discovery.client as client
+        except:
+            raise Exception('Could not get Discovery Client')
+        else:
+            data = {
+                'ip-address' : self._hostname,
+                'port'       : self._args.rest_api_port,
+            }
+            disc = client.DiscoveryClient(self._args.disc_server_ip,
+                    self._args.disc_server_port, ModuleNames[Module.OPSERVER])
+            self._logger.info("Disc Publish to %s : %d" % \
+                              (self._args.disc_server_ip,
+                              self._args.disc_server_port))
+            disc.publish(self._moduleid, data)
+    #end
+
     def __init__(self):
         self._args = None
         self._parse_args()
@@ -322,9 +340,12 @@ class OpServer(object):
         super(OpServer, self).__init__()
         self._moduleid = ModuleNames[Module.OPSERVER] 
         self._hostname = socket.gethostname()
+        collectors = None
+        if self._args.collector and self._args.collector_port:
+            collectors = [(self._args.collector, int(self._args.collector_port))]
         sandesh_global.init_generator(self._moduleid, self._hostname, 
-            (self._args.collector, int(self._args.collector_port)),
-            'opserver_context', int(self._args.http_server_port), ['sandesh'])
+            collectors, 'opserver_context', 
+            int(self._args.http_server_port), ['sandesh'])
         sandesh_global.set_logging_params(enable_local_log = self._args.log_local,
                                           category = self._args.log_category,
                                           level = self._args.log_level,
@@ -346,6 +367,9 @@ class OpServer(object):
                 d[k] = SandeshLevel._VALUES_TO_NAMES[k]
                 self._LEVEL_LIST.append(d)
         self._CATEGORY_MAP = dict((ModuleNames[k] , [CategoryNames[ce] for ce in v]) for k,v in ModuleCategoryMap.iteritems())
+
+        if self._args.disc_server_ip:
+            self.disc_publish()
 
         self._analytics_links = ['uves', 'tables', 'queries']
 
@@ -464,6 +488,14 @@ class OpServer(object):
         parser.add_argument("--log_file",
                             default = Sandesh._DEFAULT_LOG_FILE,
                             help = "Filename for the logs to be written to")        
+        parser.add_argument("--disc_server_ip",
+                            default = None,
+                            help = "Discovery Server IP address")
+        parser.add_argument("--disc_server_port",
+                            type = int,
+                            default = 5998,
+                            help = "Discovery Server port")
+
         self._args = parser.parse_args()
     #end _parse_args
 
@@ -771,6 +803,7 @@ class OpServer(object):
         except Exception as e:
             yield {}
         else:
+            bottle.response.set_header('Content-Type', 'application/json')
             uve_name = uve_tbl+':'+name
             req = bottle.request.query
 
@@ -820,6 +853,7 @@ class OpServer(object):
         except Exception as e:
             return {}
         else:
+            bottle.response.set_header('Content-Type', 'application/json')
             req = bottle.request.query
 
             _, sfilter, mfilter, tfilter, afilter = OpServer._uve_filter_set(req)
@@ -1262,6 +1296,7 @@ class OpServer(object):
             mod_cpu_state.name = self._hostname
             mod_cpu_state.module_cpu_info = [mod_cpu_info]
             mod_cpu_state.opserver_cpu_share = mod_cpu_info.cpu_info.cpu_share
+            mod_cpu_state.opserver_mem_virt = mod_cpu_info.cpu_info.meminfo.virt
             opserver_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
             opserver_cpu_state_trace.send()
             gevent.sleep(60)

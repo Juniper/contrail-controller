@@ -2,8 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_config.h"
-
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
@@ -12,6 +10,7 @@
 #include "base/util.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/bgp_config.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
 
@@ -318,7 +317,7 @@ const string &BgpProtocolConfig::InstanceName() const {
 }
 
 BgpInstanceConfig::BgpInstanceConfig(const string &name)
-    : name_(name), bgp_router_(NULL) {
+    : name_(name), bgp_router_(NULL), virtual_network_index_(0) {
 }
 
 BgpInstanceConfig::~BgpInstanceConfig() {
@@ -372,6 +371,14 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
     }
 }
 
+static int GetVirtualNetworkIndex(DBGraph *graph, IFMapNode *node) {
+    const autogen::VirtualNetwork *vn =
+        static_cast<autogen::VirtualNetwork *>(node->GetObject());
+    if (vn && vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES))
+        return vn->properties().network_id;
+    return 0;
+}
+
 void BgpInstanceConfig::Update(BgpConfigManager *manager,
                                const autogen::RoutingInstance *config) {
     import_list_.clear();
@@ -406,6 +413,7 @@ void BgpInstanceConfig::Update(BgpConfigManager *manager,
             }
         } else if (strcmp(adj->table()->Typename(), "virtual-network") == 0) {
             virtual_network_ = adj->name();
+            virtual_network_index_ = GetVirtualNetworkIndex(graph, adj);
         }
     }
 
@@ -433,14 +441,21 @@ void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
+
 void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
+
 void BgpInstanceConfig::NeighborDelete(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     manager->Notify(neighbor, BgpConfigManager::CFG_DELETE);
     neighbors_.erase(neighbor->name());
+}
+
+const BgpNeighborConfig *BgpInstanceConfig::NeighborFind(string name) const {
+    NeighborMap::const_iterator loc = neighbors_.find(name);
+    return loc != neighbors_.end() ? loc->second : NULL;
 }
 
 BgpConfigData::BgpConfigData() {
@@ -450,8 +465,8 @@ BgpConfigData::~BgpConfigData() {
     STLDeleteElements(&peering_map_);
 }
 
-BgpInstanceConfig *BgpConfigData::Locate(const string &name) {
-    BgpInstanceConfig *rti = Find(name);
+BgpInstanceConfig *BgpConfigData::LocateInstance(const string &name) {
+    BgpInstanceConfig *rti = FindInstance(name);
     if (rti == NULL) {
         auto_ptr<BgpInstanceConfig> instance(new BgpInstanceConfig(name));
         rti = instance.get();
@@ -460,12 +475,12 @@ BgpInstanceConfig *BgpConfigData::Locate(const string &name) {
     return rti;
 }
 
-void BgpConfigData::Delete(BgpInstanceConfig *rti) {
+void BgpConfigData::DeleteInstance(BgpInstanceConfig *rti) {
     string name(rti->name());
     instances_.erase(name);
 }
 
-BgpInstanceConfig *BgpConfigData::Find(const string &name) {
+BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) {
     BgpInstanceMap::iterator loc = instances_.find(name);
     if (loc != instances_.end()) {
         return loc->second;
@@ -473,7 +488,7 @@ BgpInstanceConfig *BgpConfigData::Find(const string &name) {
     return NULL;
 }
 
-const BgpInstanceConfig *BgpConfigData::Find(const string &name) const {
+const BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) const {
     BgpInstanceMap::const_iterator loc = instances_.find(name);
     if (loc != instances_.end()) {
         return loc->second;
@@ -537,7 +552,7 @@ void BgpConfigManager::DefaultBgpRouterParams(autogen::BgpRouterParams &param) {
 }
 
 void BgpConfigManager::DefaultConfig() {
-    BgpInstanceConfig *rti = config_->Locate(kMasterInstance);
+    BgpInstanceConfig *rti = config_->LocateInstance(kMasterInstance);
     auto_ptr<autogen::BgpRouter> bgp_config(
         new autogen::BgpRouter());
     autogen::BgpRouterParams param;
@@ -560,7 +575,7 @@ void BgpConfigManager::IdentifierMapInit() {
 void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
     string instance_name = delta.id_name;
     BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
-    BgpInstanceConfig *rti = config_->Find(instance_name);
+    BgpInstanceConfig *rti = config_->FindInstance(instance_name);
     if (rti == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
         if (proxy == NULL) {
@@ -572,7 +587,7 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
             return;
         }
         event = BgpConfigManager::CFG_ADD;
-        rti = config_->Locate(instance_name);
+        rti = config_->LocateInstance(instance_name);
         rti->SetNodeProxy(proxy);
     } else {
         IFMapNode *node = rti->node();
@@ -581,7 +596,7 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
         } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
             rti->ResetConfig();
             if (rti->DeleteIfEmpty(this)) {
-                config_->Delete(rti);
+                config_->DeleteInstance(rti);
             }
             return;
         }
@@ -597,7 +612,7 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
 
     string instance_name(IdentifierParent(delta.id_name));
-    BgpInstanceConfig *rti = config_->Find(instance_name);
+    BgpInstanceConfig *rti = config_->FindInstance(instance_name);
     BgpProtocolConfig *bgp_config = NULL;
     if (rti != NULL) {
         bgp_config = rti->bgp_config_mutable();
@@ -619,7 +634,7 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
         }
         event = BgpConfigManager::CFG_ADD;
         if (rti == NULL) {
-            rti = config_->Locate(instance_name);
+            rti = config_->LocateInstance(instance_name);
         }
         bgp_config = rti->BgpConfigLocate();
         bgp_config->SetNodeProxy(proxy);
@@ -636,7 +651,7 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             bgp_config->Delete(this);
             rti->BgpConfigReset();
             if (rti->DeleteIfEmpty(this)) {
-                config_->Delete(rti);
+                config_->DeleteInstance(rti);
             }
             return;
         }
@@ -690,7 +705,7 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
         }
 
         string instance_name(IdentifierParent(routers.first->name()));
-        BgpInstanceConfig *rti = config_->Find(instance_name);
+        BgpInstanceConfig *rti = config_->FindInstance(instance_name);
         assert(rti != NULL);
         peer = config_->CreatePeering(rti, proxy);
     } else {
@@ -706,7 +721,7 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
             //
             config_->DeletePeering(peer);
             if (rti->DeleteIfEmpty(this)) {
-                config_->Delete(rti);
+                config_->DeleteInstance(rti);
             }
             return;
         }

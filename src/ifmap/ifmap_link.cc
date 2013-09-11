@@ -11,7 +11,7 @@
 using namespace std;
 
 IFMapLink::IFMapLink(DBGraphBase::edge_descriptor edge_id)
-    : DBGraphEdge(edge_id), sequence_number_(0) {
+    : DBGraphEdge(edge_id) {
 }
 
 void IFMapLink::SetProperties(IFMapNode *left, IFMapNode *right,
@@ -22,12 +22,19 @@ void IFMapLink::SetProperties(IFMapNode *left, IFMapNode *right,
     right_node_ = right;
     right_id_ = make_pair(right->table()->Typename(), right->name());
     metadata_ = metadata;
-    sequence_number_ = sequence_number;
-    origins_.push_back(origin);
+    LinkOriginInfo origin_info(origin, sequence_number);
+    origin_info_.push_back(origin_info);
 }
 
-void IFMapLink::UpdateProperties(uint64_t sequence_number) {
-    sequence_number_ = sequence_number;
+void IFMapLink::UpdateProperties(const IFMapOrigin &in_origin,
+                                 uint64_t sequence_number) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin == in_origin) {
+            origin_info->sequence_number = sequence_number;
+        }
+    }
 }
 
 void IFMapLink::ClearNodes() {
@@ -83,37 +90,69 @@ bool IFMapLink::IsLess(const DBEntry &rgen) const {
     return edge_id() < rhs.edge_id();
 }
 
-void IFMapLink::AddOrigin(const IFMapOrigin &in_origin) {
-    for (std::vector<IFMapOrigin>::iterator iter = origins_.begin();
-         iter != origins_.end(); ++iter) {
-        IFMapOrigin *origin = iter.operator->();
-        if ((*origin) == in_origin) {
+void IFMapLink::AddOriginInfo(const IFMapOrigin &in_origin, uint64_t seq_num) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin == in_origin) {
+            origin_info->sequence_number = seq_num;
             return;
         }
     }
-    origins_.push_back(in_origin);
+    LinkOriginInfo origin_info(in_origin, seq_num);
+    origin_info_.push_back(origin_info);
 }
 
-void IFMapLink::RemoveOrigin(const IFMapOrigin &in_origin) {
-    for (std::vector<IFMapOrigin>::iterator iter = origins_.begin();
-         iter != origins_.end(); ++iter) {
-        IFMapOrigin *origin = iter.operator->();
-        if ((*origin) == in_origin) {
-            origins_.erase(iter);
+void IFMapLink::RemoveOriginInfo(IFMapOrigin::Origin in_origin) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin.origin == in_origin) {
+            origin_info_.erase(iter);
             break;
         }
     }
 }
 
+IFMapLink::LinkOriginInfo IFMapLink::GetOriginInfo(
+        IFMapOrigin::Origin in_origin, bool *exists) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin.origin == in_origin) {
+            *exists = true;
+            return *origin_info;
+        }
+    }
+
+    LinkOriginInfo origin_info;
+    *exists = false;
+    return origin_info;
+}
+
 bool IFMapLink::HasOrigin(IFMapOrigin::Origin in_origin) {
-    for (std::vector<IFMapOrigin>::iterator iter = origins_.begin();
-         iter != origins_.end(); ++iter) {
-        IFMapOrigin *origin = iter.operator->();
-        if (origin->origin == in_origin) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin.origin == in_origin) {
             return true;
         }
     }
     return false;
+}
+
+uint64_t IFMapLink::sequence_number(IFMapOrigin::Origin in_origin,
+                                    bool *exists) {
+    for (std::vector<LinkOriginInfo>::iterator iter = origin_info_.begin();
+         iter != origin_info_.end(); ++iter) {
+        LinkOriginInfo *origin_info = iter.operator->();
+        if (origin_info->origin.origin == in_origin) {
+            *exists = true;
+            return origin_info->sequence_number;
+        }
+    }
+    *exists = false;
+    return 0;
 }
 
 void IFMapLink::EncodeLinkInfo(pugi::xml_node *parent) const {

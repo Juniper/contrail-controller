@@ -221,7 +221,6 @@ public:
             thread_->Join();
         }
         task_util::WaitForIdle();
-
         analytics_.reset(NULL);
         StopRedis(redis_port_);
 
@@ -235,19 +234,11 @@ public:
     }
 
     virtual void TearDown() {
+        task_util::WaitForIdle();
         analytics_->Shutdown();
         task_util::WaitForIdle();
-
-        if (collector_) {
-            collector_->Shutdown();
-            collector_->ClearSessions();            
-            TcpServerManager::DeleteServer(collector_);
-            collector_ = NULL;
-        }
-
-        SandeshHttp::Uninit();
+        Sandesh::Uninit();
         task_util::WaitForIdle();
-
     }
 
     unsigned short collector_port_;

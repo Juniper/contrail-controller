@@ -17,7 +17,7 @@ public:
         Task((TaskScheduler::GetInstance()->GetTaskId("Agent::PktFlowResponder")),
               0), resp_obj_(obj), resp_data_(resp_ctx), 
         flow_iteration_key_(), key_valid_(false) {
-        if (key != Agent::NullString()) {
+        if (key != Agent::GetInstance()->NullString()) {
             if (SetFlowKey(key)) {
                 key_valid_ = true;
             }

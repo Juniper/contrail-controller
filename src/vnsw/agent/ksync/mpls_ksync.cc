@@ -23,8 +23,6 @@
 #include "ksync/nexthop_ksync.h"
 #include "ksync/mpls_ksync.h"
 
-#include "nl_util.h"
-
 #include "ksync_init.h"
 
 void vr_mpls_req::Process(SandeshContext *context) {
@@ -81,29 +79,17 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
     return ret;
 };
 
-char *MplsKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mpls_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
     NHKSyncEntry *nh = GetNH();
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating mpls message. Error : " << ret);
-        return NULL;
-    }
 
     encoder.set_h_op(op);
     encoder.set_mr_label(label_);
     encoder.set_mr_rid(0);
     encoder.set_mr_nhid(nh->GetIndex());
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    return encode_len;
 }
 
 void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) {
@@ -117,28 +103,28 @@ void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) {
     }
 }
 
-char *MplsKSyncEntry::AddMsg(int &len) {
+int MplsKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Mpls, info);
 
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *MplsKSyncEntry::ChangeMsg(int &len){
+int MplsKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Mpls, info);
  
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *MplsKSyncEntry::DeleteMsg(int &len) {
+int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncMplsInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Mpls, info);
  
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 KSyncEntry *MplsKSyncEntry::UnresolvedReference() {

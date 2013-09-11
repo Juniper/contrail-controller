@@ -550,7 +550,7 @@ struct EthInterfaceKey : public InterfaceKey {
     Interface *AllocEntry(const InterfaceData *data) const {
         VrfKey key(data->vrf_name_);
         VrfEntry *vrf =
-           static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&key));
+           static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
         if (vrf == NULL) {
             LOG(DEBUG, "Interface : VRF not found");
             return NULL;
@@ -653,7 +653,7 @@ struct VirtualHostInterfaceKey : public InterfaceKey {
         const VirtualHostInterfaceData *vhost_data = static_cast<const VirtualHostInterfaceData *>(data);
         VrfKey key(data->vrf_name_);
         VrfEntry *vrf =
-           static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&key));
+           static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
         assert(vrf);
         return new VirtualHostInterface(name_, vrf, vhost_data->link_local_);
     };

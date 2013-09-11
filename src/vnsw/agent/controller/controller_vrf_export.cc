@@ -25,7 +25,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
             return;
         }
 
-        if (vrf->GetName().compare(Agent::GetDefaultVrf()) != 0) {
+        if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
             state->inet4_multicast_export_->Unregister();
             state->inet4_unicast_export_->Unregister();
         }
@@ -52,7 +52,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         state->exported_ = false;
         vrf->SetState(partition->parent(), id, state);
 
-        if (vrf->GetName().compare(Agent::GetDefaultVrf()) != 0) {
+        if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
             // Dont export routes belonging to Fabric VRF table
             state->inet4_unicast_export_ =  
                 Inet4RouteExport::UnicastInit(vrf->GetInet4UcRouteTable(), bgp_xmpp_peer);
@@ -69,7 +69,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
 
             state->exported_ = true; 
             if (state->force_chg_ == true) {
-                if (vrf->GetName().compare(Agent::GetDefaultVrf()) != 0) {
+                if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
                     bool associate = true;
                     bool subnet_only = false;
                     Inet4UcRouteTable *table = vrf->GetInet4UcRouteTable();

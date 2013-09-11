@@ -36,7 +36,7 @@ public:
     bool InterVnStatsMatch(string svn, string dvn, uint32_t pkts, 
                                   uint32_t bytes, bool out) {
         InterVnStatsCollector::VnStatsSet *stats_set = 
-                AgentUve::GetInterVnStatsCollector()->Find(svn);
+                AgentUve::GetInstance()->GetInterVnStatsCollector()->Find(svn);
 
         if (!stats_set) {
             return false;
@@ -68,10 +68,10 @@ public:
         EXPECT_TRUE(VmPortActive(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
-        EXPECT_EQ(5U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(2U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
-        EXPECT_EQ(2U, Agent::GetIntfCfgTable()->Size());
+        EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
         flow0 = VmPortInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -89,9 +89,9 @@ public:
 
         EXPECT_TRUE(VmPortActive(stats_if, 0));
         EXPECT_TRUE(VmPortActive(stats_if, 1));
-        EXPECT_EQ(4U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
-        EXPECT_EQ(4U, Agent::GetIntfCfgTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
         test0 = VmPortInterfaceGet(stats_if[0].intf_id);
         assert(test0);
@@ -99,7 +99,7 @@ public:
         assert(test1);
 
         //To disable flow aging set the flow age time to high value
-        AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(1000000 * 60 * 10);
+        AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(1000000 * 60 * 10);
 
         client->SetFlowFlushExclusionPolicy();
     }
@@ -137,7 +137,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(2);
 
     //Verify flow stats
@@ -153,7 +153,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(2);
 
     //Verify the updated flow stats
@@ -168,7 +168,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
-    AgentUve::GetStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
@@ -179,7 +179,7 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     KSyncSockTypeMap::IfStatsUpdate(test1->GetInterfaceId(), 1, 50, 0, 1, 20, 0);
 
     //Wait for stats to be updated
-    AgentUve::GetStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     //Verify the updated flow stats
@@ -203,7 +203,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                         "vn5", "vn5", hash_id++));
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(2);
 
     //Verify flow stats
@@ -222,7 +222,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                         "vn5", "vn5", hash_id++));
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(2);
 
     //Verify flow stats
@@ -239,7 +239,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     client->WaitForIdle(2);
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(3);
 
     //Verify Inter-Vn stats
@@ -256,7 +256,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     // the next flow-age evaluation cycle
 
     //Wait for stats to be updated
-    AgentUve::GetFlowStatsCollector()->run_counter_ = 0;
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
     client->FlowTimerWait(2);
 
     /* Make sure that the short flow is removed */
@@ -272,6 +272,166 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 }
 
+TEST_F(StatsTestMock, VrfStatsTest) {
+    //Create 2 vrfs in agent
+    VrfAddReq("vrf41");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
+    EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
+
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    EXPECT_TRUE(vrf != NULL);
+    int vrf41_id = vrf->GetVrfId();
+
+    VrfAddReq("vrf42");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
+    EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
+
+    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    EXPECT_TRUE(vrf != NULL);
+    int vrf42_id = vrf->GetVrfId();
+
+    //Create 2 vrfs in mock Kernel and update its stats
+    KSyncSockTypeMap::VrfStatsAdd(vrf41_id);
+    KSyncSockTypeMap::VrfStatsAdd(vrf42_id);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 10, 11, 12, 13, 14, 15);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 16, 17, 18, 19, 20, 21);
+
+    //Wait for stats to be updated in agent
+    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    client->VrfStatsTimerWait(1);
+
+    //Verfify the stats read from kernel
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 10, 11, 12, 13, 14, 15));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 16, 17, 18, 19, 20, 21));
+
+    //Verfify the prev_* fields of vrf_stats are 0
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 0, 0, 0, 0, 0, 0));
+
+    //Delete both the VRFs from agent
+    VrfDelReq("vrf41");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf41")== false));
+    EXPECT_FALSE(DBTableFind("vrf41.uc.route.0"));
+
+    VrfDelReq("vrf42");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf42")== false));
+    EXPECT_FALSE(DBTableFind("vrf42.uc.route.0"));
+
+    //Verify that vrf_stats's entry is still present in agent_stats_collector.
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), false, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), false, 0, 0, 0, 0, 0, 0));
+
+    //Verify that prev_* fields of vrf_stats are updated
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 10, 11, 12, 13, 14, 15));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 16, 17, 18, 19, 20, 21));
+
+    //Update stats in mock kernel when vrfs are absent in agent
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 20, 21, 22, 23, 24, 25);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 26, 27, 28, 29, 30, 31);
+
+    //Wait for stats to be updated in agent
+    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    client->VrfStatsTimerWait(1);
+
+    //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 20, 21, 22, 23, 24, 25));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 26, 27, 28, 29, 30, 31));
+
+    //Add 2 VRFs in agent. They will re-use the id's allocated earlier
+    VrfAddReq("vrf41");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf41")== true));
+    EXPECT_TRUE(DBTableFind("vrf41.uc.route.0"));
+
+    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
+    EXPECT_TRUE(vrf != NULL);
+    int new_vrf41_id = vrf->GetVrfId();
+
+    VrfAddReq("vrf42");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf42")== true));
+    EXPECT_TRUE(DBTableFind("vrf42.uc.route.0"));
+
+    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
+    EXPECT_TRUE(vrf != NULL);
+    int new_vrf42_id = vrf->GetVrfId();
+
+    //Wait for stats to be updated in agent
+    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    client->VrfStatsTimerWait(1);
+
+    //Verify that vrf_stats's entry stats are set to 0
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 0, 0, 0, 0, 0, 0));
+
+    //Update stats in mock kernel when vrfs are absent in agent
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 40, 41, 42, 43, 44, 45);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 46, 47, 48, 49, 50, 51);
+
+    //Wait for stats to be updated in agent
+    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    client->VrfStatsTimerWait(1);
+
+    //Verify that vrf_stats_entry's stats are set to values after the vrf was added
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 20, 20, 20, 20, 20, 20));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 20, 20, 20, 20, 20, 20));
+
+    //Cleanup-Remove the VRFs added 
+    VrfDelReq("vrf41");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf41")== false));
+    EXPECT_FALSE(DBTableFind("vrf41.uc.route.0"));
+
+    VrfDelReq("vrf42");
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (VrfFind("vrf42")== false));
+    EXPECT_FALSE(DBTableFind("vrf42.uc.route.0"));
+}
+
+TEST_F(StatsTestMock, VnStatsTest) {
+    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    client->IfStatsTimerWait(2);
+
+    //Verify vn stats at the start of test case
+    char vn_name[20];
+    sprintf(vn_name, "vn%d", stats_if[0].vn_id);
+
+    EXPECT_TRUE(VnStatsMatch(vn_name, 0, 0, 0, 0)); 
+
+    EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
+    EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
+
+    //Change the stats on one interface of vn
+    KSyncSockTypeMap::IfStatsUpdate(test0->GetInterfaceId(), 50, 1, 0, 20, 1, 0);
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    client->IfStatsTimerWait(2);
+
+    //Verify the updated vn stats
+    EXPECT_TRUE(VnStatsMatch(vn_name, 50, 1, 20, 1)); 
+
+    if (stats_if[0].vn_id == stats_if[1].vn_id) {
+        //Change the stats on the other interface of same vn
+        KSyncSockTypeMap::IfStatsUpdate(test1->GetInterfaceId(), 50, 1, 0, 20, 1, 0);
+
+        //Wait for stats to be updated
+        AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+        client->IfStatsTimerWait(2);
+
+        //Verify the updated vn stats
+        EXPECT_TRUE(VnStatsMatch(vn_name, 100, 2, 40, 2)); 
+    }
+
+    //Reset the stats so that repeat of this test case works
+    KSyncSockTypeMap::IfStatsSet(test0->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test1->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
+}
+
 int main(int argc, char *argv[]) {
     int ret = 0;
 
@@ -281,7 +441,7 @@ int main(int argc, char *argv[]) {
 
     ret = RUN_ALL_TESTS();
 
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     cout << "Return test result:" << ret << endl;
     return ret;

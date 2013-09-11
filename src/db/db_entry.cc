@@ -69,6 +69,5 @@ void DBEntryBase::set_last_change_at(uint64_t time) {
 }
 
 const std::string DBEntryBase::last_change_at_str() const {
-    return boost::lexical_cast<std::string>
-                (UTCUsecToPTime(last_change_at_));
+    return integerToString(UTCUsecToPTime(last_change_at_));
 }

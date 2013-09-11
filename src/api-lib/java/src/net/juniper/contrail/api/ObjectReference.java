@@ -5,8 +5,9 @@ package net.juniper.contrail.api;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.io.Serializable;
 
-public class ObjectReference<AttrType extends ApiPropertyBase> {
+public class ObjectReference<AttrType extends ApiPropertyBase> implements Serializable {
     List<String> to;
     String href;
     AttrType attr;

@@ -20,6 +20,9 @@ env.Append(CPPPATH = [env['TOP'] + '/bgp'])
 ControlNodeSandeshGenFiles = env.SandeshGenCpp('sandesh/control_node.sandesh')
 ControlNodeSandeshGenSrcs = env.ExtractCpp(ControlNodeSandeshGenFiles)
 
+# Generate the sandesh UVE source files
+SandeshGenPyFiles  = env.SandeshGenPy('sandesh/control_node.sandesh')
+
 control_node_sandesh_files_ = []
 for src in ControlNodeSandeshGenSrcs:
     objname = src.replace('.cpp', '.o')
@@ -28,12 +31,12 @@ for src in ControlNodeSandeshGenSrcs:
 
 env.Prepend(LIBS=['bgp',
                   'bgp_schema',
-                  'bgp_l3vpn_unicast',
-                  'bgp_l3vpn_multicast',
-                  'bgp_l3vpn_multicast_msg',
+                  'xmpp_unicast',
+                  'xmpp_multicast',
                   'xmpp_enet',
                   'control_node',
                   'peer_sandesh',
+                  'origin_vn',
                   'routing_instance',
                   'rtarget',
                   'security_group',
@@ -74,6 +77,7 @@ libs = MapBuildDir(['base',
                     'bgp/enet',
                     'bgp/evpn',
                     'bgp/l3vpn',
+                    'bgp/origin-vn',
                     'bgp/routing-instance',
                     'bgp/rtarget',
                     'bgp/security_group',
@@ -121,9 +125,10 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_sandesh.path])
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_cpuinfo.path])
 
-buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema/libbgp_l3vpn_unicast.a', 
-                      '../schema/libbgp_l3vpn_multicast.a', '../schema/libbgp_l3vpn_multicast_msg.a', 
+buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema/libxmpp_unicast.a', 
+                      '../schema/libxmpp_multicast.a', '../schema/libxmpp_enet.a',
                       '../control-node/libcontrol_node.a', '../bgp/routing-instance/librouting_instance.a', 
+                      '../bgp/origin-vn/liborigin_vn.a',
                       '../bgp/rtarget/librtarget.a', '../bgp/security_group/libsecurity_group.a', '../schema/libifmap_vnc.a', 
                       '../ifmap/libifmap_server.a', '../ifmap/libifmap_common.a', '../route/libroute.a', '../net/libnet.a', 
                       '../../lib/libifmapio.a', '../xmpp/libxmpp.a', '../xml/libxml.a', '../../lib/libsandeshvns.a', 

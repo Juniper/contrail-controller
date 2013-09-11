@@ -64,34 +64,34 @@ public:
     }
 
 private:
-    CommunityDB *comm_db_;
+    friend int intrusive_ptr_add_ref(const Community *ccomm);
+    friend int intrusive_ptr_del_ref(const Community *ccomm);
+    friend void intrusive_ptr_release(const Community *ccomm);
 
-    friend int intrusive_ptr_add_ref(Community *comm);
-    friend int intrusive_ptr_del_ref(Community *comm);
-    friend void intrusive_ptr_release(Community *comm);
-    // atomic refcount
     mutable tbb::atomic<int> refcount_;
+    CommunityDB *comm_db_;
     std::vector<uint32_t> communities_;
 };
 
-inline int intrusive_ptr_add_ref(Community *comm) {
-    return comm->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const Community *ccomm) {
+    return ccomm->refcount_.fetch_and_increment();
 }
 
-inline int intrusive_ptr_del_ref(Community *comm) {
-    return comm->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const Community *ccomm) {
+    return ccomm->refcount_.fetch_and_decrement();
 }
 
-inline void intrusive_ptr_release(Community *comm) {
-    int prev = comm->refcount_.fetch_and_decrement();
+inline void intrusive_ptr_release(const Community *ccomm) {
+    int prev = ccomm->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        Community *comm = const_cast<Community *>(ccomm);
         comm->Remove();
         assert(comm->refcount_ == 0);
         delete comm;
     }
 }
 
-typedef boost::intrusive_ptr<Community> CommunityPtr;
+typedef boost::intrusive_ptr<const Community> CommunityPtr;
 
 struct CommunityCompare {
     bool operator()(const Community *lhs, const Community *rhs) {
@@ -131,6 +131,7 @@ class ExtCommunity {
 public:
     typedef boost::array<uint8_t, 8> ExtCommunityValue;
     typedef std::vector<ExtCommunityValue> ExtCommunityList;
+
     ExtCommunity(ExtCommunityDB *extcomm_db) : extcomm_db_(extcomm_db) {
         refcount_ = 0;
     }
@@ -146,14 +147,23 @@ public:
     virtual ~ExtCommunity() { }
     virtual void Remove();
     int CompareTo(const ExtCommunity &rhs) const;
-    // Add new community.. Added for appending export_rt
-    void Append(const ExtCommunityList &export_rt);
+
+    void Append(const ExtCommunityList &list);
     void RemoveRTarget();
     void RemoveSGID();
+    void RemoveOriginVn();
 
     // Return vector of communities
     const ExtCommunityList &communities() const {
         return communities_;
+    }
+
+    static bool is_origin_vn(const ExtCommunityValue &val) {
+        //
+        // Origin VN extended community
+        // 2 Octet AS specific extended community
+        //
+        return (val[0] == 0x80) && (val[1] == 0x71);
     }
 
     static bool is_route_target(const ExtCommunityValue &val) {
@@ -190,34 +200,34 @@ public:
     }
 
 private:
-    ExtCommunityDB *extcomm_db_;
+    friend int intrusive_ptr_add_ref(const ExtCommunity *cextcomm);
+    friend int intrusive_ptr_del_ref(const ExtCommunity *cextcomm);
+    friend void intrusive_ptr_release(const ExtCommunity *cextcomm);
 
-    friend int intrusive_ptr_add_ref(const ExtCommunity *comm);
-    friend int intrusive_ptr_del_ref(const ExtCommunity *comm);
-    friend void intrusive_ptr_release(ExtCommunity *comm);
-    // atomic refcount
     mutable tbb::atomic<int> refcount_;
+    ExtCommunityDB *extcomm_db_;
     ExtCommunityList communities_;
 };
 
-inline int intrusive_ptr_add_ref(const ExtCommunity *comm) {
-    return comm->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const ExtCommunity *cextcomm) {
+    return cextcomm->refcount_.fetch_and_increment();
 }
 
-inline int intrusive_ptr_del_ref(const ExtCommunity *comm) {
-    return comm->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const ExtCommunity *cextcomm) {
+    return cextcomm->refcount_.fetch_and_decrement();
 }
 
-inline void intrusive_ptr_release(ExtCommunity *comm) {
-    int prev = comm->refcount_.fetch_and_decrement();
+inline void intrusive_ptr_release(const ExtCommunity *cextcomm) {
+    int prev = cextcomm->refcount_.fetch_and_decrement();
     if (prev == 1) {
-        comm->Remove();
-        assert(comm->refcount_ == 0);
-        delete comm;
+        ExtCommunity *extcomm = const_cast<ExtCommunity *>(cextcomm);
+        extcomm->Remove();
+        assert(extcomm->refcount_ == 0);
+        delete extcomm;
     }
 }
 
-typedef boost::intrusive_ptr<ExtCommunity> ExtCommunityPtr;
+typedef boost::intrusive_ptr<const ExtCommunity> ExtCommunityPtr;
 
 struct ExtCommunityCompare {
     bool operator()(const ExtCommunity *lhs, const ExtCommunity *rhs) {
@@ -232,14 +242,18 @@ class ExtCommunityDB : public BgpPathAttributeDB<ExtCommunity, ExtCommunityPtr,
 public:
     ExtCommunityDB(BgpServer *server);
 
-    // Added for copying and appending RT as per export rules
-    ExtCommunityPtr AppendAndLocate(const ExtCommunity *me, 
-                            const ExtCommunity::ExtCommunityList &export_rt);
+    ExtCommunityPtr AppendAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &list);
+    ExtCommunityPtr AppendAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityValue &value);
 
     ExtCommunityPtr ReplaceRTargetAndLocate(const ExtCommunity *src,
-                            const ExtCommunity::ExtCommunityList &export_list);
+            const ExtCommunity::ExtCommunityList &export_list);
     ExtCommunityPtr ReplaceSGIDListAndLocate(const ExtCommunity *src,
-                            const ExtCommunity::ExtCommunityList &sgid_list);
+            const ExtCommunity::ExtCommunityList &sgid_list);
+    ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &origin_vn_list);
+
 private:
     BgpServer *server_;
 };

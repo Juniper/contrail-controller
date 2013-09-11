@@ -57,5 +57,4 @@ void MirrorAction::SetActionSandeshData(std::vector<ActionStr> &actions) {
 
 MirrorAction::~MirrorAction() {
     //Agent::GetMirrorTable()->DelMirrorEntry(analyzer_name_);
-    LOG(DEBUG, "~MirrorAction");
 }

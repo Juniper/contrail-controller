@@ -38,8 +38,9 @@ using boost::system::error_code;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
-TaskTrigger *collector_info_trigger;
-Timer *collector_info_log_timer;
+static TaskTrigger *collector_info_trigger;
+static Timer *collector_info_log_timer;
+static EventManager evm;
 
 bool CollectorInfoLogTimer() {
     collector_info_trigger->Set();
@@ -67,6 +68,7 @@ bool CollectorCPULogger(const string & hostname) {
     cciv.push_back(cinfo);
     state.set_module_cpu_info(cciv);
     state.set_collector_cpu_share(cpu_load_info.get_cpu_share());
+    state.set_collector_mem_virt(cpu_load_info.get_meminfo().get_virt());
 
     ModuleCpuStateTrace::Send(state);
 
@@ -81,7 +83,21 @@ void HandleGenCleanup(int count) {
 bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         OpServerProxy * osp) {
     CollectorState state;
+    static bool first = true;
+
     state.set_name(hostname);
+    if (first) {
+        state.set_build_info(CollectorVersion());
+        vector<string> ip_list;
+        ip_list.push_back(Collector::GetSelfIp());
+        state.set_self_ip_list(ip_list);
+        vector<string> list;
+        MiscUtils::GetCoreFileList(Collector::GetProgramName(), list);
+        if (list.size()) {
+            state.set_core_files_list(list);
+        }
+        first = false;
+    }
     std::vector<GeneratorSummaryInfo> infos;
     collector->GetGeneratorSummaryInfo(infos);
 
@@ -95,15 +111,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     osp->GeneratorCleanup(HandleGenCleanup);
 
     state.set_generator_infos(infos);
-    state.set_build_info(CollectorVersion());
-    vector<string> ip_list;
-    ip_list.push_back(Collector::GetSelfIp());
-    state.set_self_ip_list(ip_list);
-    vector<string> list;
-    MiscUtils::GetCoreFileList(Collector::GetProgramName(), list);
-    if (list.size()) {
-        state.set_core_files_list(list);
-    }
     CollectorInfo::Send(state);
     return true;
 }
@@ -130,12 +137,46 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
     return true;
 }
 
+// Trigger graceful shutdown of collector process.
+//
+// IO (evm) is shutdown first. Afterwards, main() resumes, shutting down rest of the
+// objects, and eventually exit()s.
+void CollectorShutdown() {
+    static bool shutdown_;
+
+    if (shutdown_) return;
+    shutdown_ = true;
+
+    // Shutdown event manager first to stop all IO activities.
+    evm.Shutdown();
+}
+
+static void terminate(int param) {
+    CollectorShutdown();
+}
+
 static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
     if (client) {
         client->WithdrawPublish(DiscoveryServiceClient::CollectorService);
         client->Shutdown();
         delete client;
     }
+}
+
+// Shutdown various objects used in the collector.
+static void ShutdownServers(VizCollector *viz_collector,
+        DiscoveryServiceClient *client) {
+    // Shutdown discovery client first
+    ShutdownDiscoveryClient(client);
+
+    viz_collector->Shutdown();
+
+    TimerManager::DeleteTimer(collector_info_log_timer);
+    delete collector_info_trigger;
+
+    VizCollector::WaitForIdle();
+    Sandesh::Uninit();
+    VizCollector::WaitForIdle();
 }
 
 // This is to force vizd to wait for a gdbattach
@@ -145,8 +186,6 @@ volatile int gdbhelper = 1;
 
 int main(int argc, char *argv[])
 {
-    EventManager evm;
-    VizCollector *analytics;
     const string default_log_file = "<stdout>";
     while (gdbhelper==0) {
         usleep(1000);
@@ -169,7 +208,7 @@ int main(int argc, char *argv[])
          opt::value<string>()->default_value("127.0.0.1"),
          "redis server ip")
         ("redis-port",
-         opt::value<int>()->default_value(6379),
+         opt::value<int>()->default_value(ContrailPorts::RedisUvePort),
          "redis server port")
         ("listen-port",
          opt::value<int>()->default_value(ContrailPorts::CollectorPort),
@@ -235,7 +274,13 @@ int main(int argc, char *argv[])
         dup = true;
     }
 
-    analytics = new VizCollector(&evm,
+    LOG(INFO, "COLLECTOR LISTEN PORT: " << var_map["listen-port"].as<int>());
+    LOG(INFO, "COLLECTOR REDIS SERVER: " << var_map["redis-ip"].as<string>());
+    LOG(INFO, "COLLECTOR REDIS PORT: " << var_map["redis-port"].as<int>());
+    LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
+    LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
+
+    VizCollector analytics(&evm,
             var_map["listen-port"].as<int>(),
             cassandra_ip,
             cassandra_port,
@@ -255,12 +300,12 @@ int main(int argc, char *argv[])
         PyList_Insert(sysPath, 0, PyString_FromString(rpath));
     }
 
-    analytics->Init();
+    analytics.Init();
 
-    VizSandeshContext vsc(analytics);
+    VizSandeshContext vsc(&analytics);
     Sandesh::InitCollector(
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second,
-            analytics->name(), &evm, "127.0.0.1", var_map["listen-port"].as<int>(),
+            analytics.name(), &evm, "127.0.0.1", var_map["listen-port"].as<int>(),
             var_map["http-server-port"].as<int>(), &vsc);
     Sandesh::SetLoggingParams(var_map.count("log"),
             var_map["log-category"].as<string>(),
@@ -305,9 +350,10 @@ int main(int argc, char *argv[])
     collector_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
                                                     "Collector Info log timer");
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
+    signal(SIGTERM, terminate);
     evm.Run();
 
-    ShutdownDiscoveryClient(ds_client);
+    ShutdownServers(&analytics, ds_client);
 
     return 0;
 }

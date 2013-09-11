@@ -4,7 +4,6 @@
 
 #include "bgp/rtarget/rtarget_address.h"
 
-#include "base/parse_object.h"
 #include "net/address.h"
 
 using namespace std;

@@ -55,7 +55,9 @@ Generator::Generator(Collector * const collector, VizSession *session,
                     "Delete wait timer" + source + module)),
         source_(source),
         module_(module),
-        name_("Generator(" + source_ + ":" + module_ + ")") {
+        name_(source_ + ":" + module_) {
+    // Update state machine
+    state_machine_->SetGeneratorKey(name_);
 }
 
 Generator::~Generator() {
@@ -155,7 +157,8 @@ void Generator::ReceiveSandeshCtrlMsg(uint32_t connects) {
             GENERATOR_GETSEQ_TRACE(UVETraceBuf, source_, module_, false);
             GENERATOR_LOG(ERROR, "Session:" << viz_session_->ToString() <<
                     " OSP GetSeq FAILED");
-
+            std::vector<UVETypeInfo> vu;
+            SandeshCtrlServerToClient::Request(vu, false, "ctrl", viz_session_->connection());
         } else {
             GENERATOR_GETSEQ_TRACE(UVETraceBuf, source_, module_, true);
          }
@@ -300,4 +303,11 @@ void GeneratorListReq::HandleRequest() const {
     resp->set_genlist(genlist);
     resp->set_context(context());
     resp->Response();
+}
+
+const std::string Generator::State() const {
+    if (state_machine_) {
+        return state_machine_->StateName();
+    }
+    return "Disconnected";
 }

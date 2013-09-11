@@ -8,6 +8,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
@@ -15,6 +16,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/bgp_server.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
@@ -69,6 +71,7 @@ protected:
     BgpSessionUnitTest()
         : server_(&evm_),
           instance_config_(BgpConfigManager::kMasterInstance) {
+        ConcurrencyScope scope("bgp::Config");
         BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpPeerMock *>());
         RoutingInstance *rti =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
@@ -77,7 +80,7 @@ protected:
                                             "test-peer", "localhost",
                                             &router_, NULL));
         peer_ = static_cast<BgpPeerMock *>(
-            rti->PeerLocate(&server_, config_.get()));
+            rti->peer_manager()->PeerLocate(&server_, config_.get()));
         session_.reset(new BgpSessionTest(server_.session_manager()));
         session_->SetPeer(peer_);
     }

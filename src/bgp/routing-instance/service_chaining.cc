@@ -20,6 +20,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 #include "net/address.h"
@@ -68,6 +69,27 @@ ServiceChain::CompareServiceChainCfg(const autogen::ServiceChainInfo &cfg) {
     return true;
 }
 
+static int GetOriginVnIndex(const BgpRoute *route) {
+    const BgpPath *path = route->BestPath();
+    if (!path)
+        return 0;
+
+    const BgpAttr *attr = path->GetAttr();
+    const ExtCommunity *ext_community = attr->ext_community();
+    if (!ext_community)
+        return 0;
+
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                  ext_community->communities()) {
+        if (!ExtCommunity::is_origin_vn(comm))
+            continue;
+        OriginVn origin_vn(comm);
+        return origin_vn.vn_index();
+    }
+
+    return 0;
+}
+
 // Match function called from BgpConditionListener
 // Concurrency : db::DBTable
 // For the purpose of route aggregation, two condition needs to be matched
@@ -93,21 +115,26 @@ bool ServiceChain::Match(BgpServer *server, BgpTable *table,
             else 
                 type = ServiceChainRequest::MORE_SPECIFIC_ADD_CHG;
         } else {
+            // External connecting routes
             if (!deleted) {
                 if (route->BestPath() == NULL || 
                     !route->BestPath()->IsFeasible()) {
                     deleted = true;
                 } else {
-                    const OriginVn *origin_vn =
-                        route->BestPath()->GetAttr()->origin_vn();
-                    if (!origin_vn ||
-                        (origin_vn->origin_vn().ToString() !=
-                         dest_routing_instance()->virtual_network())) {
-                        deleted = true;
+                    int vn_index = GetOriginVnIndex(route);
+                    if (vn_index != 0) {
+                        if (dest_->virtual_network_index() != vn_index)
+                            deleted = true;
+                    } else {
+                        const BgpAttr *attr = route->BestPath()->GetAttr();
+                        const ExtCommunity *extcomm =
+                            attr ? attr->ext_community() : NULL;
+                        if (!dest_->HasExportTarget(extcomm))
+                            deleted = true;
                     }
                 }
             }
-            // External connecting routes
+
             if (deleted)
                 type = ServiceChainRequest::EXT_CONNECT_ROUTE_DELETE;
             else
@@ -222,8 +249,7 @@ void ServiceChain::RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate) {
 
 // AddServiceChainRoute
 void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
-        const OriginVn *origin_vn, ConnectedPathIdList *old_path_ids,
-        bool aggregate) {
+        ConnectedPathIdList *old_path_ids, bool aggregate) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
 
     BgpTable *bgptable = src_table();
@@ -240,15 +266,21 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         service_chain_route->ClearDelete();
     }
 
+    ExtCommunity::ExtCommunityList origin_vn_list;
+    int vn_index = dest_routing_instance()->virtual_network_index();
+    BgpServer *server = dest_routing_instance()->server();
+    OriginVn origin_vn(server->autonomous_system(), vn_index);
+    origin_vn_list.push_back(origin_vn.GetExtCommunity());
+
     ExtCommunity::ExtCommunityList sgid_list;
     if (orig_route) {
-        const BgpPath *src_path = orig_route->BestPath();
-        const BgpAttr *src_attr = NULL;
+        const BgpPath *orig_path = orig_route->BestPath();
+        const BgpAttr *orig_attr = NULL;
         const ExtCommunity *ext_community = NULL;
-        if (src_path)
-            src_attr = src_path->GetAttr();
-        if (src_attr)
-            ext_community = src_attr->ext_community();
+        if (orig_path)
+            orig_attr = orig_path->GetAttr();
+        if (orig_attr)
+            ext_community = orig_attr->ext_community();
         if (ext_community) {
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
                           ext_community->communities()) {
@@ -259,7 +291,6 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
     }
 
     BgpAttrDB *attr_db = src_->server()->attr_db();
-    OriginVnDB *origin_vn_db = src_->server()->origin_vn_db();
     ExtCommunityDB *extcomm_db = src_->server()->extcomm_db();
     for (Route::PathList::iterator it = 
          connected_route()->GetPathList().begin();
@@ -280,29 +311,24 @@ void ServiceChain::AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route,
         if (connected_route()->DuplicateForwardingPath(connected_path))
             continue;
 
-        // strip any RouteTargets ext-communities from the connected attributes
-        ExtCommunityPtr ext_comm = extcomm_db->ReplaceRTargetAndLocate
-            (connected_path->GetAttr()->ext_community(),
-             ExtCommunity::ExtCommunityList());
+        const BgpAttr *attr = connected_path->GetAttr();
+        ExtCommunityPtr new_ext_community;
 
-        ExtCommunityPtr new_ext_community = 
-            extcomm_db->ReplaceSGIDListAndLocate(ext_comm.get(), sgid_list);
+        // Strip any RouteTargets from the connected attributes.
+        new_ext_community = extcomm_db->ReplaceRTargetAndLocate(
+            attr->ext_community(), ExtCommunity::ExtCommunityList());
 
-        BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate
-            (connected_path->GetAttr(), new_ext_community);
+        // Replace the SGID list with the list from the original route.
+        new_ext_community = extcomm_db->ReplaceSGIDListAndLocate(
+            new_ext_community.get(), sgid_list);
 
-        // Replace origin vn with the one provided.  If one if not
-        // provided, use the virtual network for the dest instance.
-        OriginVnPtr origin_vn_ptr;
-        if (origin_vn) {
-            OriginVnSpec origin_vn_spec(origin_vn->origin_vn());
-            origin_vn_ptr = origin_vn_db->Locate(origin_vn_spec);
-        } else {
-            OriginVnSpec origin_vn_spec(dest_->virtual_network());
-            origin_vn_ptr = origin_vn_db->Locate(origin_vn_spec);
-        }
-        new_attr =
-            attr_db->ReplaceOriginVnAndLocate(new_attr.get(), origin_vn_ptr);
+        // Replace the OriginVn with the value from the original route
+        // or the value associated with the dest routing instance.
+        new_ext_community = extcomm_db->ReplaceOriginVnAndLocate(
+            new_ext_community.get(), origin_vn_list);
+
+        BgpAttrPtr new_attr = attr_db->ReplaceExtCommunityAndLocate(
+            attr, new_ext_community);
 
         // Replace the source rd if the connected path is a secondary path
         // of a primary path in the l3vpn table. Use the RD of the primary.
@@ -408,8 +434,8 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             if (info->add_more_specific(aggregate_match, route) && 
                 info->connected_route_valid()) {
                 // Add the aggregate route
-                info->AddServiceChainRoute(aggregate_match, NULL, NULL, 
-                                           NULL, true);
+                info->AddServiceChainRoute(
+                    aggregate_match, NULL, NULL, true);
             }
             break;
         }
@@ -443,8 +469,8 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                 // Add aggregate route.. Or if the route exists
                 // sync the path and purge old paths
                 if (!it->second.empty())
-                    info->AddServiceChainRoute(it->first, NULL, NULL, 
-                                               &path_ids, true);
+                    info->AddServiceChainRoute(
+                        it->first, NULL, &path_ids, true);
             }
 
             for (ServiceChain::ExtConnectRouteList::iterator it = 
@@ -452,12 +478,8 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
                  it != info->ext_connecting_routes()->end(); it++) {
                 // Add ServiceChain route for external connecting route
                 InetRoute *ext_route = static_cast<InetRoute *>(*it);
-                const BgpPath *path = ext_route->BestPath();
-                const OriginVn *origin_vn = NULL;
-                if (path && path->GetAttr())
-                    origin_vn = path->GetAttr()->origin_vn();
                 info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, origin_vn, &path_ids, false);
+                    ext_route->GetPrefix(), ext_route, &path_ids, false);
             }
             break;
         }
@@ -483,15 +505,12 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             break;
         }
         case ServiceChainRequest::EXT_CONNECT_ROUTE_ADD_CHG: {
+            assert(state);
             info->ext_connecting_routes()->insert(route);
             if (info->connected_route_valid()) { 
                 InetRoute *ext_route = dynamic_cast<InetRoute *>(route);
-                const BgpPath *path = ext_route->BestPath();
-                const OriginVn *origin_vn = NULL;
-                if (path && path->GetAttr())
-                    origin_vn = path->GetAttr()->origin_vn();
                 info->AddServiceChainRoute(
-                    ext_route->GetPrefix(), ext_route, origin_vn, NULL, false);
+                    ext_route->GetPrefix(), ext_route, NULL, false);
             }
             break;
         }

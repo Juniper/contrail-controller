@@ -64,8 +64,9 @@ class CdbIf : public GenDbIf {
         CdbIf(boost::asio::io_service *, DbErrorHandler, std::string, unsigned short, bool, int ttl);
         ~CdbIf();
 
-        virtual bool Db_Init();
-        virtual void Db_Uninit();
+        virtual bool Db_Init(std::string task_id, int task_instance);
+        virtual void Db_Uninit(bool shutdown);
+        virtual void Db_SetInitDone(bool);
         virtual bool Db_AddTablespace(const std::string& tablespace);
         virtual bool Db_SetTablespace(const std::string& tablespace);
         virtual bool Db_AddSetTablespace(const std::string& tablespace);
@@ -172,11 +173,10 @@ class CdbIf : public GenDbIf {
         bool DbDataValueVecFromString(GenDb::DbDataValueVec&, const DbDataTypeVec&, const string&);
         bool ColListFromColumnOrSuper(GenDb::ColList&, std::vector<org::apache::cassandra::ColumnOrSuperColumn>&, const string&);
 
-        bool Db_InitDone();
         bool Db_AsyncAddColumn(CdbIfColList *cl);
         bool Db_Columnfamily_present(const std::string& cfname);
         bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
-
+        bool Db_IsInitDone();
         bool Db_FindColumnfamily(const std::string& cfname);
 
         /* encode/decode for non-composite */

@@ -20,10 +20,11 @@
 #include <vnc_cfg_types.h>
 #include <cmn/dns.h>
 #include <bind/bind_util.h>
+#include <mgr/dns_mgr.h>
+#include <mgr/dns_oper.h>
 #include <bind/named_config.h>
 #include <cfg/dns_config.h>
 #include <cfg/dns_config_parser.h>
-#include <mgr/dns_mgr.h>
 #include <agent/agent_xmpp_init.h>
 #include "bgp/bgp_sandesh.h"
 #include <sandesh/common/vns_types.h>
@@ -67,28 +68,6 @@ static void IFMap_Initialize(IFMapServer *server) {
     // bgp_schema_ParserInit(parser);
     // bgp_schema_Server_ModuleInit(server->database(), server->graph());
     server->Initialize();
-}
-
-class DiscoveryDNSClient {
-public:
-    static void DiscoveryCollectorHandler(std::vector<DSResponse> resp);
-};
-
-void DiscoveryDNSClient::DiscoveryCollectorHandler(std::vector<DSResponse> resp) {
-
-    static bool call_connect_once = false;
-    if (call_connect_once) {
-        return;
-    }
-    std::vector<DSResponse>::iterator iter;
-    for (iter = resp.begin(); iter != resp.end(); iter++) {
-        DSResponse dr = *iter;
-        // TODO: expecting only one collector address for now
-        std::string collector_server = dr.ep.address().to_string();
-        Dns::SetCollector(collector_server);
-        Sandesh::ConnectToCollector(collector_server, dr.ep.port());
-        call_connect_once = true;
-    }
 }
 
 void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
@@ -176,11 +155,13 @@ int main(int argc, char *argv[]) {
     boost::system::error_code ec;
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
-    Sandesh::InitGenerator(
+    if (!var_map.count("discovery-server")) {
+        Sandesh::InitGenerator(
                     g_vns_constants.ModuleNames.find(Module::DNS)->second,
                     hostname,
                     Dns::GetEventManager(),
                     sandesh_http_port, &sandesh_context);
+    }
     if ((collector_server_port != 0) && (!collector_server.empty())) {
         Sandesh::ConnectToCollector(collector_server, collector_server_port);
     }
@@ -262,10 +243,18 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-            string service_name = g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
             string subscriber_name = g_vns_constants.ModuleNames.find(Module::DNS)->second;
-            ds_client->Subscribe(subscriber_name, service_name, 1,
-                boost::bind(&DiscoveryDNSClient::DiscoveryCollectorHandler, _1));
+
+            Sandesh::CollectorSubFn csf = 0;
+            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client, subscriber_name, _1, _2, _3);
+            vector<string> list;
+            list.clear();
+            Sandesh::InitGenerator(subscriber_name,
+                                   hostname, Dns::GetEventManager(),
+                                   sandesh_http_port,
+                                   csf,
+                                   list,
+                                   &sandesh_context);
         }
     }
 

@@ -18,83 +18,17 @@
 #include <base/misc_utils.h>
 #include <cmn/buildinfo.h>
 
-std::string Agent::null_str_ = "";
-std::string Agent::collector_ = "";
-int Agent::collector_port_;
-std::string Agent::fabric_vn_name_ = "default-domain:default-project:ip-fabric";
-std::string Agent::fabric_vrf_name_ =
+const std::string Agent::null_str_ = "";
+const std::string Agent::fabric_vn_name_ = "default-domain:default-project:ip-fabric";
+const std::string Agent::fabric_vrf_name_ =
     "default-domain:default-project:ip-fabric:__default__";
-std::string Agent::link_local_vn_name_ = 
+const std::string Agent::link_local_vn_name_ = 
     "default-domain:default-project:__link_local__";
-std::string Agent::link_local_vrf_name_ = 
+const std::string Agent::link_local_vrf_name_ = 
     "default-domain:default-project:__link_local__:__link_local__";
 
-EventManager *Agent::event_mgr_;
-AgentXmppChannel *Agent::agent_xmpp_channel_[MAX_XMPP_SERVERS];
-AgentIfMapXmppChannel *Agent::ifmap_channel_[MAX_XMPP_SERVERS];
-XmppClient *Agent::xmpp_client_[MAX_XMPP_SERVERS];
-XmppInit *Agent::xmpp_init_[MAX_XMPP_SERVERS];
-AgentDnsXmppChannel *Agent::dns_xmpp_channel_[MAX_XMPP_SERVERS];
-XmppClient *Agent::dns_xmpp_client_[MAX_XMPP_SERVERS];
-XmppInit *Agent::dns_xmpp_init_[MAX_XMPP_SERVERS];
-DiscoveryServiceClient *Agent::ds_client_;
-AgentXmppChannel *Agent::cn_mcast_builder_;
-bool Agent::router_id_configured_;
-
-// DB handles
-DB *Agent::db_;
-InterfaceTable *Agent::intf_table_;
-NextHopTable *Agent::nh_table_;
-VrfTable *Agent::vrf_table_;
-VmTable *Agent::vm_table_;
-VnTable *Agent::vn_table_;
-SgTable *Agent::sg_table_;
-AddrTable *Agent::addr_table_;
-MplsTable *Agent::mpls_table_;
-AclTable *Agent::acl_table_;
-MirrorTable *Agent::mirror_table_;
-Inet4UcRouteTable *Agent::uc_rt_table_;
-Inet4McRouteTable *Agent::mc_rt_table_;
-VrfAssignTable *Agent::vrf_assign_table_;
 AgentStats *AgentStats::singleton_;
-
-// Config DB Table handles
-CfgIntTable *Agent::intf_cfg_table_;
-CfgListener *Agent::cfg_listener_;
-
-// Mirror Cfg table handles
-MirrorCfgTable *Agent::mirror_cfg_table_;
-IntfMirrorCfgTable *Agent::intf_mirror_cfg_table_;
-
-Ip4Address Agent::router_id_;
-uint32_t Agent::prefix_len_;
-Ip4Address Agent::gateway_id_;
-std::string Agent::xs_cfg_addr_;
-int8_t Agent::xs_idx_;
-std::string Agent::xs_addr_[MAX_XMPP_SERVERS];
-uint32_t Agent::xs_port_[MAX_XMPP_SERVERS];
-uint64_t Agent::xs_stime_[MAX_XMPP_SERVERS];
-int8_t Agent::xs_dns_idx_ = -1;
-std::string Agent::xs_dns_addr_[MAX_XMPP_SERVERS];
-uint32_t Agent::xs_dns_port_[MAX_XMPP_SERVERS];
-std::string Agent::dss_addr_;
-uint32_t Agent::dss_port_;
-int Agent::dss_xs_instances_;
-std::string Agent::label_range_[MAX_XMPP_SERVERS];
-std::string Agent::ip_fabric_intf_name_;
-Peer *Agent::local_peer_;
-Peer *Agent::local_vm_peer_;
-Peer *Agent::mdata_vm_peer_;
-IFMapAgentParser *Agent::ifmap_parser_;
-IFMapAgentStaleCleaner *Agent::agent_stale_cleaner_;
-std::string Agent::virtual_host_intf_name_;
-std::string Agent::host_name_;
-std::string Agent::prog_name_;
-LifetimeManager* Agent::lifetime_manager_;
-uint16_t Agent::mirror_src_udp_port_;
-bool Agent::test_mode_ = false;
-int Agent::sandesh_port_;
-
+Agent *Agent::singleton_;
 AgentInit *AgentInit::instance_;
 
 const string &Agent::GetHostInterfaceName() {
@@ -208,26 +142,26 @@ void Agent::ShutdownLifetimeManager() {
 
 void AgentStatsReq::HandleRequest() const {
     IpcStatsResp *ipc = new IpcStatsResp();
-    ipc->set_ipc_in_msgs(AgentStats::GetIpcInMsgs());
-    ipc->set_ipc_out_msgs(AgentStats::GetIpcOutMsgs());
+    ipc->set_ipc_in_msgs(AgentStats::GetInstance()->GetIpcInMsgs());
+    ipc->set_ipc_out_msgs(AgentStats::GetInstance()->GetIpcOutMsgs());
     ipc->set_context(context());
     ipc->set_more(true);
     ipc->Response();
 
     PktTrapStatsResp *pkt = new PktTrapStatsResp();
-    pkt->set_exceptions(AgentStats::GetPktExceptions());
-    pkt->set_invalid_agent_hdr(AgentStats::GetPktInvalidAgentHdr());
-    pkt->set_invalid_interface(AgentStats::GetPktInvalidInterface());
-    pkt->set_no_handler(AgentStats::GetPktNoHandler());
-    pkt->set_pkt_dropped(AgentStats::GetPktDropped());
+    pkt->set_exceptions(AgentStats::GetInstance()->GetPktExceptions());
+    pkt->set_invalid_agent_hdr(AgentStats::GetInstance()->GetPktInvalidAgentHdr());
+    pkt->set_invalid_interface(AgentStats::GetInstance()->GetPktInvalidInterface());
+    pkt->set_no_handler(AgentStats::GetInstance()->GetPktNoHandler());
+    pkt->set_pkt_dropped(AgentStats::GetInstance()->GetPktDropped());
     pkt->set_context(context());
     pkt->set_more(true);
     pkt->Response();
 
     FlowStatsResp *flow = new FlowStatsResp();
-    flow->set_flow_active(AgentStats::GetFlowActive());
-    flow->set_flow_created(AgentStats::GetFlowCreated());
-    flow->set_flow_aged(AgentStats::GetFlowAged());
+    flow->set_flow_active(AgentStats::GetInstance()->GetFlowActive());
+    flow->set_flow_created(AgentStats::GetInstance()->GetFlowCreated());
+    flow->set_flow_aged(AgentStats::GetInstance()->GetFlowAged());
     flow->set_context(context());
     flow->set_more(true);
     flow->Response();
@@ -236,9 +170,9 @@ void AgentStatsReq::HandleRequest() const {
     vector<XmppStatsInfo> list;
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         XmppStatsInfo peer;
-        if (!Agent::GetXmppServer(count).empty()) {
-            peer.set_ip(Agent::GetXmppServer(count));
-            AgentXmppChannel *ch = Agent::GetAgentXmppChannel(count);
+        if (!Agent::GetInstance()->GetXmppServer(count).empty()) {
+            peer.set_ip(Agent::GetInstance()->GetXmppServer(count));
+            AgentXmppChannel *ch = Agent::GetInstance()->GetAgentXmppChannel(count);
             if (ch == NULL) {
                 continue;
             }
@@ -246,9 +180,9 @@ void AgentStatsReq::HandleRequest() const {
             if (xc == NULL) {
                 continue;
             }
-            peer.set_reconnect(AgentStats::GetXmppReconnect(count));
-            peer.set_in_msgs(AgentStats::GetXmppInMsgs(count));
-            peer.set_out_msgs(AgentStats::GetXmppOutMsgs(count));
+            peer.set_reconnect(AgentStats::GetInstance()->GetXmppReconnect(count));
+            peer.set_in_msgs(AgentStats::GetInstance()->GetXmppInMsgs(count));
+            peer.set_out_msgs(AgentStats::GetInstance()->GetXmppOutMsgs(count));
             list.push_back(peer);
         }
     }
@@ -258,10 +192,10 @@ void AgentStatsReq::HandleRequest() const {
     xmpp_resp->Response();
 
     SandeshStatsResp *sandesh = new SandeshStatsResp();
-    sandesh->set_sandesh_in_msgs(AgentStats::GetSandeshInMsgs());
-    sandesh->set_sandesh_out_msgs(AgentStats::GetSandeshOutMsgs());
-    sandesh->set_sandesh_http_sessions(AgentStats::GetSandeshHttpSessions());
-    sandesh->set_sandesh_reconnects(AgentStats::GetSandeshReconnects());
+    sandesh->set_sandesh_in_msgs(AgentStats::GetInstance()->GetSandeshInMsgs());
+    sandesh->set_sandesh_out_msgs(AgentStats::GetInstance()->GetSandeshOutMsgs());
+    sandesh->set_sandesh_http_sessions(AgentStats::GetInstance()->GetSandeshHttpSessions());
+    sandesh->set_sandesh_reconnects(AgentStats::GetInstance()->GetSandeshReconnects());
     sandesh->set_context(context());
     sandesh->set_more(false);
     sandesh->Response();

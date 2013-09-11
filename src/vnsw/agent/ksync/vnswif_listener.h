@@ -84,18 +84,18 @@ private:
     void IfaddrHandler(struct nlmsghdr *nlh);
     int AddAttr(int type, void *data, int alen);
 
+    static VnswIfListener *instance_;
     uint8_t *read_buf_;
     uint8_t tx_buf_[max_buf_size];
 
     int sock_fd_;
     local::datagram_protocol::socket sock_;
-    static VnswIfListener *instance_;
     bool ifaddr_listen_;
     bool iflink_listen_;
     DBTableBase::ListenerId intf_listener_id_;
     Ip4HostTableType    ll_addr_table_;
     WorkQueue<VnswRouteEvent *> *revent_queue_;
-    static int seqno_;
+    int seqno_;
 };
 
 #endif

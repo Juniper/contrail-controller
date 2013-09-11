@@ -16,6 +16,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/test/bgp_test_util.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
@@ -48,6 +49,7 @@ protected:
     }
     virtual void SetUp() {
         IFMapLinkTable_Init(&db_, &db_graph_);
+        vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
         bgp_schema_Server_ModuleInit(&db_, &db_graph_);
         config_manager_.Initialize(&db_, &db_graph_, "local");
     }
@@ -74,7 +76,7 @@ protected:
     }
 
     const BgpInstanceConfig *FindInstanceConfig(const string instance_name) {
-        return config_manager_.config().Find(instance_name);
+        return config_manager_.config().FindInstance(instance_name);
     }
 
     DB db_;
@@ -91,6 +93,7 @@ protected:
 
     virtual void SetUp() {
         IFMapLinkTable_Init(&config_db_, &db_graph_);
+        vnc_cfg_Server_ModuleInit(&config_db_, &db_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &db_graph_);
         server_.config_manager()->Initialize(&config_db_, &db_graph_, "local");
     }
@@ -114,7 +117,17 @@ protected:
     BgpConfigParser parser_;
 };
 
-namespace {
+static void PauseDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->PauseDelete();
+    TaskScheduler::GetInstance()->Start();
+}
+
+static void ResumeDelete(LifetimeActor *actor) {
+    TaskScheduler::GetInstance()->Stop();
+    actor->ResumeDelete();
+    TaskScheduler::GetInstance()->Start();
+}
 
 //
 // Config parsing tests
@@ -450,7 +463,7 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
     RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
         BgpConfigManager::kMasterInstance);
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
-    TASK_UTIL_EXPECT_EQ(3, rti->peer_map().size());
+    TASK_UTIL_EXPECT_EQ(3, rti->peer_manager()->size());
 
     const char config_update[] = "\
 <config>\
@@ -463,7 +476,7 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
 
     EXPECT_TRUE(parser_.Parse(config_update));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(3, rti->peer_map().size());
+    TASK_UTIL_EXPECT_EQ(3, rti->peer_manager()->size());
 
     const char config_delete[] = "\
 <delete>\
@@ -474,7 +487,254 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
 
     EXPECT_TRUE(parser_.Parse(config_delete));
     task_util::WaitForIdle();
-    TASK_UTIL_EXPECT_EQ(2, rti->peer_map().size());
+    TASK_UTIL_EXPECT_EQ(2, rti->peer_manager()->size());
+}
+
+//
+// Pause and resume neighbor deletion.  The peer should get destroyed
+// after deletion is resumed.
+//
+TEST_F(BgpConfigTest, DelayDeletedNeighbor) {
+    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    // Make sure the peer exists.
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    BgpPeer *peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Pause deletion of the peer.
+    PauseDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the neighbor config - this should trigger peer deletion.
+    // The peer can't get destroyed because deletion has been paused.
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Resume deletion of the peer.
+    ResumeDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure that the peer is gone.
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) == NULL);
+
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// Config for neighbor is re-added before the previous incarnation has been
+// destroyed. The peer should get resurrected after the old incarnation has
+// been destroyed.
+//
+TEST_F(BgpConfigTest, CreateDeletedNeighbor) {
+    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    // Make sure the peer exists.
+    BgpPeer *peer;
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Pause deletion of the peer.
+    PauseDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the neighbor config - this should trigger peer deletion.
+    // The peer can't get destroyed because deletion has been paused.
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Recreate neighbor config. The old peer should still be around.
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Resume deletion of the peer.
+    ResumeDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure the peer got resurrected.
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Get rid of the peer.
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// Config for neighbor is re-added and updated before the previous incarnation
+// has been destroyed. The peer should get resurrected with the latest config
+// after the old incarnation has been destroyed.
+//
+TEST_F(BgpConfigTest, UpdateDeletedNeighbor) {
+    string content_a = FileRead("src/bgp/testdata/config_test_19a.xml");
+    string content_b = FileRead("src/bgp/testdata/config_test_19b.xml");
+    string content_c = FileRead("src/bgp/testdata/config_test_19c.xml");
+    string content_d = FileRead("src/bgp/testdata/config_test_19d.xml");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    // Make sure the peer exists.
+    BgpPeer *peer;
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_EQ(101, peer->peer_as());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Pause deletion of the peer.
+    PauseDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the neighbor config - this should trigger peer deletion.
+    // The peer can't get destroyed because deletion has been paused.
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_EQ(101, peer->peer_as());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Recreate neighbor config. The old peer should still be around.
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_EQ(101, peer->peer_as());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Update neighbor config. The old peer should still be around.
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_EQ(101, peer->peer_as());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Resume deletion of the peer.
+    ResumeDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure the peer got resurrected with the latest config (AS 202).
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_EQ(202, peer->peer_as());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Get rid of the peer.
+    EXPECT_TRUE(parser_.Parse(content_d));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+//
+// Config for neighbor is re-added and deleted before the previous incarnation
+// is destroyed. The peer should not get resurrected after the old incarnation
+// has been destroyed.
+//
+TEST_F(BgpConfigTest, DeleteDeletedNeighbor) {
+    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
+        BgpConfigManager::kMasterInstance);
+    TASK_UTIL_ASSERT_TRUE(rti != NULL);
+    TASK_UTIL_EXPECT_EQ(1, rti->peer_manager()->size());
+    string name = rti->name() + ":" + "remote";
+
+    // Make sure the peer exists.
+    BgpPeer *peer;
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) != NULL);
+    peer = rti->peer_manager()->PeerLookup(name);
+    TASK_UTIL_EXPECT_FALSE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() != NULL);
+
+    // Pause deletion of the peer.
+    PauseDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Delete the neighbor config - this should trigger peer deletion.
+    // The peer can't get destroyed because deletion has been paused.
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Recreate neighbor config. The old peer should still be around.
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Delete neighbor config. The old peer should still be around.
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(peer->IsDeleted());
+    TASK_UTIL_EXPECT_TRUE(peer->config() == NULL);
+
+    // Resume deletion of the peer.
+    ResumeDelete(peer->deleter());
+    task_util::WaitForIdle();
+
+    // Make sure that the peer is gone.
+    TASK_UTIL_EXPECT_TRUE(rti->peer_manager()->PeerLookup(name) == NULL);
+
+    // Get rid of the reset of the config.
+    EXPECT_TRUE(parser_.Parse(content_c));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.edge_count());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
 TEST_F(BgpConfigTest, InstanceTargetExport1) {
@@ -995,7 +1255,7 @@ TEST_F(BgpConfigTest, AddressFamilies1) {
     RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
         BgpConfigManager::kMasterInstance);
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
-    BgpPeer *peer = rti->PeerFind("10.1.1.1");
+    BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
     TASK_UTIL_ASSERT_TRUE(peer != NULL);
 
     TASK_UTIL_EXPECT_EQ(1, peer->families().size());
@@ -1021,7 +1281,7 @@ TEST_F(BgpConfigTest, AddressFamilies2) {
     RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
         BgpConfigManager::kMasterInstance);
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
-    BgpPeer *peer = rti->PeerFind("10.1.1.1");
+    BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
     TASK_UTIL_ASSERT_TRUE(peer != NULL);
 
     TASK_UTIL_EXPECT_EQ(2, peer->families().size());
@@ -1048,7 +1308,7 @@ TEST_F(BgpConfigTest, AddressFamilies3) {
     RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
         BgpConfigManager::kMasterInstance);
     TASK_UTIL_ASSERT_TRUE(rti != NULL);
-    BgpPeer *peer = rti->PeerFind("10.1.1.1");
+    BgpPeer *peer = rti->peer_manager()->PeerFind("10.1.1.1");
     TASK_UTIL_ASSERT_TRUE(peer != NULL);
 
     TASK_UTIL_EXPECT_EQ(1, peer->families().size());
@@ -1069,20 +1329,18 @@ class IFMapConfigTest : public ::testing::Test {
     }
     virtual void SetUp() {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
-        bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("vnc_cfg");
-        bgp_schema_ParserInit(parser);
+        bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
+        bgp_schema_ParserInit(parser);
     }
 
     virtual void TearDown() {
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
-        IFMapServerParser *parser =
-           IFMapServerParser::GetInstance("vnc_cfg");
-        parser->MetadataClear("vnc_cfg");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        parser->MetadataClear("schema");
         db_util::Clear(&config_db_);
     }
 
@@ -1101,8 +1359,6 @@ TEST_F(IFMapConfigTest, InitialConfig) {
     parser->Receive(&config_db_, content.data(), content.length(), 0);
     task_util::WaitForIdle();
 }
-
-}  // namespace
 
 int main(int argc, char **argv) {
     bgp_log_test::init();

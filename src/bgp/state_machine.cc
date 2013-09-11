@@ -1168,6 +1168,13 @@ bool StateMachine::OpenTimerExpired() {
 }
 
 bool StateMachine::HoldTimerExpired() {
+    error_code error;
+
+    // Reset hold timer if there is data already present in the socket.
+    if (peer() && peer()->session() && peer()->session()->socket() &&
+            peer()->session()->socket()->available(error) > 0) {
+        return true;
+    }
     Enqueue(fsm::EvHoldTimerExpired(hold_timer_));
     return false;
 }
@@ -1294,8 +1301,7 @@ const string &StateMachine::LastStateName() const {
 }
 
 const std::string StateMachine::last_state_change_at() const {
-    return boost::lexical_cast<std::string>
-        (UTCUsecToPTime(last_state_change_at_));
+    return integerToString(UTCUsecToPTime(last_state_change_at_));
 }
 ostream &operator<< (ostream &out, const StateMachine::State &state) {
     out << state_names[state];
@@ -1427,7 +1433,10 @@ const int StateMachine::GetDefaultHoldTime() {
 void StateMachine::set_last_event(const std::string &event) { 
     last_event_ = event; 
     last_event_at_ = UTCTimestampUsec(); 
-
+    // ignore logging keepalive event
+    if (event == "fsm::EvBgpKeepalive") {
+	    return;
+    }
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     PeerEventInfo event_info;

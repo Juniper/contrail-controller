@@ -61,13 +61,13 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
             <mac>01:02:03:04:05:06</mac>
             <address>10.1.1.1</address>
           </nlri>  
-          <next-hops-list>
+          <next-hops>
           <next-hop>
             <af>1</af>
             <address>192.168.1.1</address>
             <label>32</label>
           </next-hop>
-          </next-hops-list>
+          </next-hops>
         </entry>
       </item>
     </publish>

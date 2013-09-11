@@ -28,7 +28,7 @@ libgendb = env.Library('gendb',
                        'cdb_if.cc',
                        ])
 
-env.Requires(libgendb, '#/build/debug/cdb/libcdb.a')
+env.Requires(libgendb, env['TOP'] + '/cdb/libcdb.a')
 
 env.Append(CPPPATH = ['#/build/include/thrift'])
 includes = ['cdb', 'gendb']

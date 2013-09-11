@@ -52,12 +52,10 @@ public:
 
     static std::string LinkAttrKey(IFMapNode *first, IFMapNode *second);
 
-    void IFMapVmSubscribe(DB *db, DBGraph *graph, const std::string &vr_name,
+    void IFMapVmSubscribe(const std::string &vr_name,
         const std::string &vm_name, bool subscribe, bool has_vms);
-    void IFMapAddVrVmLink(DB *db, DBGraph *graph, IFMapNode *vr_node,
-                          IFMapNode *vm_node);
-    void IFMapRemoveVrVmLink(DB *db, DBGraph *graph, IFMapNode *vr_node,
-                             IFMapNode *vm_node);
+    void IFMapAddVrVmLink(IFMapNode *vr_node, IFMapNode *vm_node);
+    void IFMapRemoveVrVmLink(IFMapNode *vr_node, IFMapNode *vm_node);
 
 private:
     IFMapNode *EntryLocate(RequestKey *key, bool *changep);
@@ -81,13 +79,13 @@ private:
                      IFMapNode *first, IFMapNode *second,
                      const std::string &metadata, uint64_t sequence_number,
                      const IFMapOrigin &origin);
-    void LinkNodeDelete(IFMapNode *first, IFMapNode *second);
-    void LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number);
-    void IFMapProcVmSubscribe(DB *db, DBGraph *graph,
-                              const std::string &vr_name,  
+    void LinkNodeDelete(IFMapNode *first, IFMapNode *second,
+                        const IFMapOrigin &origin);
+    void LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number,
+                        const IFMapOrigin &origin);
+    void IFMapProcVmSubscribe(const std::string &vr_name,  
                               const std::string &vm_name);
-    void IFMapProcVmUnsubscribe(DB *db, DBGraph *graph,
-                                const std::string &vr_name,  
+    void IFMapProcVmUnsubscribe(const std::string &vr_name,  
                                 const std::string &vm_name, bool has_vms);
 
     DBGraph *graph_;

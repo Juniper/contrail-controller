@@ -40,16 +40,35 @@
     	<version>2.6</version>
     </dependency>
     <dependency>
+    	<groupId>org.apache.commons</groupId>
+    	<artifactId>commons-exec</artifactId>
+    	<version>1.1</version>
+    </dependency>
+    <dependency>
     	<groupId>log4j</groupId>
     	<artifactId>log4j</artifactId>
     	<version>1.2.16</version>
     </dependency>
   </dependencies>
+
   <build>
     <defaultGoal>package</defaultGoal>
     <directory>${basedir}/../../../build/debug/api-lib/java/target</directory>
     <sourceDirectory>${basedir}/src</sourceDirectory>
     <testSourceDirectory>${basedir}/test</testSourceDirectory>
+    <testResources>
+      <testResource>
+        <directory>${basedir}/test/resources</directory>
+      </testResource>
+    </testResources>
+    <resources>
+      <resource>
+        <directory>${basedir}/test/resources</directory>
+        <includes>
+           <include>default_config</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
     	<plugin>
     	<groupId>org.apache.maven.plugins</groupId>
@@ -93,6 +112,17 @@
 	    </configuration>
 	  </execution>
 	</executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>-Xmx1024m</argLine>
+          <excludes>
+	    <exclude>**/ContrailApiTest.java</exclude>
+	    <!--<exclude>**/ContrailApiMockTest.java</exclude>-->
+	  </excludes>
+        </configuration>
       </plugin>
     </plugins>
     <pluginManagement>

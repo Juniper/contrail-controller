@@ -104,8 +104,9 @@ class GenDbIf {
         virtual ~GenDbIf() {}
 
         /* Init function */
-        virtual bool Db_Init() = 0;
-        virtual void Db_Uninit() = 0;
+        virtual bool Db_Init(std::string task_id, int task_instance) = 0;
+        virtual void Db_Uninit(bool shutdown) = 0;
+        virtual void Db_SetInitDone(bool init_done) = 0;
         /* api to create a table space */
         virtual bool Db_AddTablespace(const std::string& tablespace) = 0;
         /* api to set the current table space */

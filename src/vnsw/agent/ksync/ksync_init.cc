@@ -39,24 +39,10 @@
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
-static char *Encode(Sandesh &encoder, int &len) {
-    struct nl_client cl;
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    int ret;
-    uint8_t *buf;
-    uint32_t buf_len;
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating if message. Error : " << ret);
-        return NULL;
-    }
-
-    int encode_len, error;
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+static int Encode(Sandesh &encoder, uint8_t *buf, int buf_len) {
+    int len, error;
+    len = encoder.WriteBinary(buf, buf_len, &error);
+    return len;
 }
 
 void GenericNetlinkInit() {
@@ -75,23 +61,23 @@ void GenericNetlinkInit() {
 
 void KSync::RegisterDBClients(DB *db) {
     KSyncObjectManager::Init();
-    IntfKSyncObject::Init(Agent::GetInterfaceTable());
-    RouteKSyncObject::Init(Agent::GetVrfTable());
-    NHKSyncObject::Init(Agent::GetNextHopTable());
-    MplsKSyncObject::Init(Agent::GetMplsTable());
-    MirrorKSyncObject::Init(Agent::GetMirrorTable());
-    VrfAssignKSyncObject::Init(Agent::GetVrfAssignTable());
+    IntfKSyncObject::Init(Agent::GetInstance()->GetInterfaceTable());
+    VrfKSyncObject::Init(Agent::GetInstance()->GetVrfTable());
+    NHKSyncObject::Init(Agent::GetInstance()->GetNextHopTable());
+    MplsKSyncObject::Init(Agent::GetInstance()->GetMplsTable());
+    MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
+    VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
     FlowTableKSyncObject::Init();
-    Agent::SetRouterIdConfigured(false);
+    Agent::GetInstance()->SetRouterIdConfigured(false);
 }
 
 void KSync::NetlinkInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetEventManager();
+    event_mgr = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSock::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
+    KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext);
 
     GenericNetlinkInit();
@@ -110,9 +96,9 @@ void KSync::VRouterInterfaceSnapshot() {
         req.set_h_op(sandesh_op::DUMP);
         req.set_vifr_idx(0);
         req.set_vifr_marker(ctxt->GetContextMarker());
-        char *msg = Encode(req, len);
-        sock->BlockingSend(msg, len);
-        free(msg);
+        uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
+        len = Encode(req, msg, KSYNC_DEFAULT_MSG_SIZE);
+        sock->BlockingSend((char *)msg, len);
         if (sock->BlockingRecv()) {
             LOG(ERROR, "Error getting interface dump from VROUTER");
             return;
@@ -125,11 +111,11 @@ void KSync::ResetVRouter() {
     int len = 0;
     vrouter_ops encoder;
     encoder.set_h_op(sandesh_op::RESET);
-    char *msg = Encode(encoder, len);
+    uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
+    len = Encode(encoder, msg, KSYNC_DEFAULT_MSG_SIZE);
 
     KSyncSock *sock = KSyncSock::Get(0);
-    sock->BlockingSend(msg, len);
-    free(msg);
+    sock->BlockingSend((char *)msg, len);
     if (sock->BlockingRecv()) {
         LOG(ERROR, "Error resetting VROUTER. Skipping KSync Start");
         return;
@@ -141,7 +127,7 @@ void KSync::ResetVRouter() {
 void KSync::VnswIfListenerInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetEventManager();
+    event_mgr = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
     VnswIfListener::Init(io);
 }
@@ -156,7 +142,7 @@ void KSync::CreateVhostIntf() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetVirtualHostInterfaceName().c_str(),
+    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
 	    IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
@@ -180,12 +166,12 @@ void KSync::UpdateVhostMac() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetVirtualHostInterfaceName().c_str(),
+    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
 	    IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
-    GetPhyMac(Agent::GetIpFabricItfName().c_str(), ifm.if_mac);
+    GetPhyMac(Agent::GetInstance()->GetIpFabricItfName().c_str(), ifm.if_mac);
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);
@@ -196,7 +182,7 @@ void KSync::UpdateVhostMac() {
 
 void KSync::Shutdown() {
     IntfKSyncObject::Shutdown();
-    RouteKSyncObject::Shutdown();
+    VrfKSyncObject::Shutdown();
     NHKSyncObject::Shutdown();
     MplsKSyncObject::Shutdown();
     KSyncSock::Shutdown();

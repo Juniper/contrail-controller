@@ -5,12 +5,12 @@
 #include <vector>
 #include <xml/xml_base.h>
 #include "xml/xml_pugi.h"
-#include "bgp_l3vpn_unicast_types.h"
+#include "xmpp_unicast_types.h"
 
 #include <base/logging.h>
 #include <boost/bind.hpp>
 
-#include <net/address.h>
+#include <net/bgp_af.h>
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
 #include "control_node_mock.h"
@@ -329,20 +329,24 @@ void ControlNodeMock::SendRoute(string vrf, RouteEntry *rt, bool add) {
 
     xml_node event = AddXmppHdr();
     xml_node items = event.append_child("items");
-    items.append_attribute("node") = vrf.c_str();  
+    stringstream nodestr;
+    nodestr << BgpAf::IPv4 << "/" << BgpAf::Unicast << "/" << vrf.c_str();
+    items.append_attribute("node") = nodestr.str().c_str();  
 
     autogen::ItemType item;
 
     autogen::NextHopType item_nexthop;
     std::vector<NHEntry>::iterator it = rt->nh_list_.begin();
     for (;it != rt->nh_list_.end(); it++) {
-        item_nexthop.af = Address::INET;
+        item_nexthop.af = BgpAf::IPv4;
+        item_nexthop.safi = BgpAf::Unicast;
         item_nexthop.address = it->nh;
         item_nexthop.label = it->label;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
     }
 
-    item.entry.nlri.af = Address::INET;
+    item.entry.nlri.af = BgpAf::IPv4;
+    item.entry.nlri.safi = BgpAf::Unicast;
     item.entry.nlri.address = rt->address;
     item.entry.version = 1;
     item.entry.virtual_network = rt->vn;

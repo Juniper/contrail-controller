@@ -21,6 +21,7 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/state_machine.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_table.h"
@@ -55,6 +56,7 @@ BgpServerTest::BgpServerTest(EventManager *evm, const string &localname)
           config_graph_(new DBGraph()) {
     cleanup_config_ = true;
     IFMapLinkTable_Init(config_db_.get(), config_graph_.get());
+    vnc_cfg_Server_ModuleInit(config_db_.get(), config_graph_.get());
     bgp_schema_Server_ModuleInit(config_db_.get(), config_graph_.get());
     config_mgr_->Initialize(config_db_.get(), config_graph_.get(), localname);
     GetIsPeerCloseGraceful_fnc_ =
@@ -103,9 +105,9 @@ BgpPeerTest *BgpServerTest::FindPeerByUuid(const char *routing_instance,
                                            const std::string &uuid) {
     RoutingInstance *rti = inst_mgr_->GetRoutingInstance(routing_instance);
     assert(rti != NULL);
-    for (RoutingInstance::BgpPeerKeyMap::iterator iter =
-         rti->peer_map_mutable()->begin();
-         iter != rti->peer_map_mutable()->end(); ++iter) {
+    for (PeerManager::BgpPeerKeyMap::iterator iter =
+         rti->peer_manager()->peer_map_mutable()->begin();
+         iter != rti->peer_manager()->peer_map_mutable()->end(); ++iter) {
         BgpPeer *peer = iter->second;
         if (peer->config() && peer->config()->uuid() == uuid) {
             return static_cast<BgpPeerTest *>(peer);
@@ -118,7 +120,7 @@ BgpPeer *BgpServerTest::FindPeer(const char *routing_instance,
                                  const std::string &name) {
     RoutingInstance *rti = inst_mgr_->GetRoutingInstance(routing_instance);
     assert(rti != NULL);
-    return rti->PeerLookup(name);
+    return rti->peer_manager()->PeerLookup(name);
 }
 
 string BgpServerTest::ToString() const {
@@ -242,18 +244,15 @@ void BgpPeerTest::BindLocalEndpoint(BgpSession *session) {
 }
 
 //
-// Create routing-instance class objects. We need this, inorder to feed 
-// our test peer structure into the data base
+// We need this in order to feed our test peer structure into the database.
 //
-RoutingInstanceTest::RoutingInstanceTest(
-    std::string name, BgpServer *server, RoutingInstanceMgr *mgr,
-    const BgpInstanceConfig *config)
-        : RoutingInstance(name, server, mgr, config) {
+PeerManagerTest::PeerManagerTest(RoutingInstance *instance)
+    : PeerManager(instance) {
 }
 
-BgpPeer *RoutingInstanceTest::PeerLocate(
+BgpPeer *PeerManagerTest::PeerLocate(
     BgpServer *server, const BgpNeighborConfig *config) {
-    BgpPeer *peer = RoutingInstance::PeerLocate(server, config);
+    BgpPeer *peer = PeerManager::PeerLocate(server, config);
     PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
 
     if (loc != peers_by_uuid_.end()) {
@@ -267,19 +266,19 @@ BgpPeer *RoutingInstanceTest::PeerLocate(
     return peer;
 }
 
-void RoutingInstanceTest::DestroyIPeer(IPeer *ipeer) {
+void PeerManagerTest::DestroyIPeer(IPeer *ipeer) {
     BgpPeerTest *peer = static_cast<BgpPeerTest *>(ipeer);
     PeerByUuidMap::iterator loc = peers_by_uuid_.find(peer->peer_key().uuid);
 
     assert(loc != peers_by_uuid_.end());
     peers_by_uuid_.erase(loc);
-    RoutingInstance::DestroyIPeer(ipeer);
+    PeerManager::DestroyIPeer(ipeer);
 }
 
 //
 // Server side peer lookup logic. Look into the global map to identify the peer
 //
-BgpPeer *RoutingInstanceTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
+BgpPeer *PeerManagerTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
     BgpPeerKey peer_key;
     bool present;
 
@@ -311,27 +310,58 @@ BgpPeer *RoutingInstanceTest::PeerLookup(ip::tcp::endpoint remote_endpoint) {
     return loc->second;
 }
 
-auto_ptr<BgpInstanceConfigTest> BgpTestUtil::CreateBgpInstanceConfig(
-        const string &name, const string import_targets,
-        const string export_targets) {
+BgpInstanceConfigTest *BgpTestUtil::CreateBgpInstanceConfig(
+        const string &name,
+        const string import_targets, const string export_targets,
+        const string virtual_network, int virtual_network_index) {
     BgpInstanceConfigTest *inst = new BgpInstanceConfigTest(name);
+
     std::vector<string> import_list;
+    if (import_targets != "")
+        split(import_list, import_targets, is_any_of(", "), token_compress_on);
+
     std::vector<string> export_list;
-    if (import_targets != "") {
-        split(import_list, import_targets, is_any_of(", "), 
-                token_compress_on);
-    }
-    if (export_targets != "") {
-        split(export_list, export_targets, is_any_of(", "), 
-                token_compress_on);
-    }
+    if (export_targets != "")
+        split(export_list, export_targets, is_any_of(", "), token_compress_on);
+
     BOOST_FOREACH(string import_target, import_list) {
         inst->mutable_import_list()->insert(import_target);
     }
     BOOST_FOREACH(string export_target, export_list) {
         inst->mutable_export_list()->insert(export_target);
     }
-    return auto_ptr<BgpInstanceConfigTest> (inst);
+
+    inst->set_virtual_network(virtual_network);
+    inst->set_virtual_network_index(virtual_network_index);
+
+    return inst;
+}
+
+void BgpTestUtil::UpdateBgpInstanceConfig(BgpInstanceConfigTest *inst,
+        const string import_targets, const string export_targets) {
+    std::vector<string> import_list;
+    if (import_targets != "")
+        split(import_list, import_targets, is_any_of(", "), token_compress_on);
+
+    std::vector<string> export_list;
+    if (export_targets != "")
+        split(export_list, export_targets, is_any_of(", "), token_compress_on);
+
+    inst->mutable_import_list()->clear();
+    BOOST_FOREACH(string import_target, import_list) {
+        inst->mutable_import_list()->insert(import_target);
+    }
+
+    inst->mutable_export_list()->clear();
+    BOOST_FOREACH(string export_target, export_list) {
+        inst->mutable_export_list()->insert(export_target);
+    }
+}
+
+void BgpTestUtil::UpdateBgpInstanceConfig(BgpInstanceConfigTest *inst,
+        const string virtual_network, int virtual_network_index) {
+    inst->set_virtual_network(virtual_network);
+    inst->set_virtual_network_index(virtual_network_index);
 }
 
 void BgpTestUtil::SetUserData(std::string key, boost::any &value) {
@@ -359,7 +389,8 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
 }
 
 void BgpServerTest::GlobalSetUp(void) {
-    BgpObjectFactory::Register<BgpPeer>(boost::factory<BgpPeerTest *>());
-    BgpObjectFactory::Register<RoutingInstance>(
-        boost::factory<RoutingInstanceTest *>());
+    BgpObjectFactory::Register<BgpPeer>(
+        boost::factory<BgpPeerTest *>());
+    BgpObjectFactory::Register<PeerManager>(
+        boost::factory<PeerManagerTest *>());
 }

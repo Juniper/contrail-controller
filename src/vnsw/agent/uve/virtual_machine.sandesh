@@ -23,6 +23,7 @@ struct VmInterfaceAgent {
     6: u32 label;
     7: bool active;
     8: string vm_name;
+    9: string gateway;
 }
 
 struct VmInterfaceAgentStats {

@@ -28,6 +28,7 @@ public:
 
     void BgpConfig(const std::string &config);
     void IFMapMessage(const std::string &msg);
+    void VerifyRoutingInstance(const std::string instance);
 
     int BgpEstablishedCount() const;
 

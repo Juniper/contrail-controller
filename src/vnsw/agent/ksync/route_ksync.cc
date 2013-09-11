@@ -23,25 +23,22 @@
 #include "ksync/nexthop_ksync.h"
 #include "ksync/route_ksync.h"
 
-#include "nl_util.h"
-
 #include "ksync_init.h"
 #include "vr_types.h"
 #include "vr_defs.h"
 #include "vr_nexthop.h"
+
+VrfKSyncObject *VrfKSyncObject::singleton_;
 
 void vr_route_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
     ioc->RouteMsgHandler(this);
 }
 
-DBTableBase::ListenerId RouteKSyncObject::vrf_listener_id_;
-RouteKSyncObject::VrfRtObjectMap RouteKSyncObject::vrf_ucrt_object_map_;
-RouteKSyncObject::VrfRtObjectMap RouteKSyncObject::vrf_mcrt_object_map_;
-
 KSyncDBObject *RouteKSyncEntry::GetObject() {
     return static_cast<KSyncDBObject*>
-        (RouteKSyncObject::GetRouteKSyncObject(vrf_id_, rt_type_));
+        (VrfKSyncObject::GetKSyncObject()->GetRouteKSyncObject(vrf_id_,
+                                                               rt_type_));
 }
 
 RouteKSyncEntry::RouteKSyncEntry(const Inet4Route *rt) :
@@ -170,19 +167,10 @@ void RouteKSyncEntry::FillObjectLog(sandesh_op::type type, KSyncRouteInfo &info)
     }
 }
 
-char *RouteKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int RouteKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_route_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
     NHKSyncEntry *nh = GetNH();
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        KSYNC_TRACE(Trace, "Error creating route message. Error : " + ret);
-        return NULL;
-    }
 
     encoder.set_h_op(op);
     encoder.set_rtr_rid(0);
@@ -214,30 +202,27 @@ char *RouteKSyncEntry::Encode(sandesh_op::type op, int &len) {
         encoder.set_rtr_nh_id(NH_DISCARD_ID);
     }
 
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-   
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    return encode_len;
 }
 
 
-char *RouteKSyncEntry::AddMsg(int &len) {
+int RouteKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Route, info);
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *RouteKSyncEntry::ChangeMsg(int &len){
+int RouteKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncRouteInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Route, info);
 
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *RouteKSyncEntry::DeleteMsg(int &len) {
+int RouteKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
     RouteKSyncEntry key(this, KSyncEntry::kInvalidIndex);
     KSyncEntry *found = NULL;
@@ -246,7 +231,7 @@ char *RouteKSyncEntry::DeleteMsg(int &len) {
 
     // IF multicast delete unconditionally
     if (rt_type_ == RT_MCAST) {
-        return DeleteInternal(GetNH(), 0, false, len);
+        return DeleteInternal(GetNH(), 0, false, buf, buf_len);
     }
 
     for (int plen = (GetPLen() - 1); plen >= 0; plen--) {
@@ -266,7 +251,7 @@ char *RouteKSyncEntry::DeleteMsg(int &len) {
                 ksync_nh = route->GetNH();
                 if(ksync_nh && ksync_nh->IsResolved()) {
                     return DeleteInternal(ksync_nh, route->GetLabel(),
-                                          route->GetProxyArp(), len);
+                                          route->GetProxyArp(), buf, buf_len);
                 }
                 ksync_nh = NULL;
             }
@@ -276,19 +261,19 @@ char *RouteKSyncEntry::DeleteMsg(int &len) {
     /* If better route is not found, send discardNH for route */
     DiscardNHKey nh_oper_key;
     NextHop *nh = static_cast<NextHop *>
-        (Agent::GetNextHopTable()->FindActiveEntry(&nh_oper_key));
+        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_oper_key));
     if (nh != NULL) {
         NHKSyncEntry nh_key(nh);
         ksync_nh = static_cast<NHKSyncEntry *>
             (NHKSyncObject::GetKSyncObject()->Find(&nh_key));
     }
 
-    return DeleteInternal(ksync_nh, 0, false, len);
+    return DeleteInternal(ksync_nh, 0, false, buf, buf_len);
 }
 
 
-char *RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nh, uint32_t lbl,
-                                      bool proxy_arp, int &len) {
+int RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nh, uint32_t lbl,
+                                    bool proxy_arp, char *buf, int buf_len) {
     nh_ = nh;
     label_ = lbl;
     proxy_arp_ = proxy_arp;
@@ -297,7 +282,7 @@ char *RouteKSyncEntry::DeleteInternal(NHKSyncEntry *nh, uint32_t lbl,
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Route, info);
 
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 KSyncEntry *RouteKSyncEntry::UnresolvedReference() {
@@ -319,7 +304,7 @@ RouteKSyncObject::RouteKSyncObject(Inet4RouteTable *rt_table):
 void RouteKSyncObject::Unregister() {
     if (IsEmpty() == true && marked_delete_ == true) {
         KSYNC_TRACE(Trace, "Destroying ksync object: " + rt_table_->name());
-        DelFromVrfMap(this);
+        VrfKSyncObject::GetKSyncObject()->DelFromVrfMap(this);
         KSyncObjectManager::Unregister(this);
     }
 }
@@ -335,8 +320,8 @@ void RouteKSyncObject::EmptyTable() {
     }
 }
 
-RouteKSyncObject *RouteKSyncObject::GetRouteKSyncObject(uint32_t vrf_id, 
-                                                    unsigned int table) {
+RouteKSyncObject *VrfKSyncObject::GetRouteKSyncObject(uint32_t vrf_id,
+                                                      unsigned int table) {
     VrfRtObjectMap::iterator it;
 
     if (table == RT_UCAST) {
@@ -353,8 +338,8 @@ RouteKSyncObject *RouteKSyncObject::GetRouteKSyncObject(uint32_t vrf_id,
     return NULL;
 }
 
-void RouteKSyncObject::AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *rt, 
-                                                    unsigned int table) {
+void VrfKSyncObject::AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *rt,
+                                 unsigned int table) {
     if (table == RT_UCAST) {
         vrf_ucrt_object_map_.insert(make_pair(vrf_id, rt));
     } else {
@@ -362,7 +347,7 @@ void RouteKSyncObject::AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *rt,
     }
 }
 
-void RouteKSyncObject::DelFromVrfMap(RouteKSyncObject *rt) {
+void VrfKSyncObject::DelFromVrfMap(RouteKSyncObject *rt) {
     VrfRtObjectMap::iterator it;
     for (it = vrf_ucrt_object_map_.begin(); it != vrf_ucrt_object_map_.end(); 
         ++it) {
@@ -381,14 +366,13 @@ void RouteKSyncObject::DelFromVrfMap(RouteKSyncObject *rt) {
     }
 }
 
-void RouteKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
+void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
-    VrfState *state = static_cast<VrfState *>(vrf->GetState(partition->parent(),
-                                                            vrf_listener_id_));
-
+    VrfState *state = static_cast<VrfState *>
+        (vrf->GetState(partition->parent(), singleton_->vrf_listener_id_));
     if (vrf->IsDeleted()) {
         if (state) {
-            vrf->ClearState(partition->parent(), vrf_listener_id_);
+            vrf->ClearState(partition->parent(), singleton_->vrf_listener_id_);
             delete state;
         }
         return;
@@ -398,30 +382,35 @@ void RouteKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         KSYNC_TRACE(Trace, "Subscribing to route table " + vrf->GetName());
         state = new VrfState();
         state->seen_ = true;
-        vrf->SetState(partition->parent(), vrf_listener_id_, state);
+        vrf->SetState(partition->parent(), singleton_->vrf_listener_id_, state);
 
-        // Get Inet4 Route table
+        // Get Inet4 Route table and register with KSync
         Inet4RouteTable *rt_table = vrf->GetInet4UcRouteTable();
-
-        // Register route-table with KSync
         RouteKSyncObject *ksync = new RouteKSyncObject(rt_table);
-        AddToVrfMap(vrf->GetVrfId(), ksync, RT_UCAST);
+        singleton_->AddToVrfMap(vrf->GetVrfId(), ksync, RT_UCAST);
 
-        //Now for multicast table. Ksync object for multicast table is not maintained in vrf list
-        //TODO Enhance ksyncobject for UC/MC, currently there is only one entry
-        //in MC so just use the UC object for time being.
+        // Now for multicast table. Ksync object for multicast table is not
+        // maintained in vrf list
+        // TODO Enhance ksyncobject for UC/MC, currently there is only one entry
+        // in MC so just use the UC object for time being.
         rt_table = vrf->GetInet4McRouteTable();
         ksync = new RouteKSyncObject(rt_table);
-        AddToVrfMap(vrf->GetVrfId(), ksync, RT_MCAST);
+        singleton_->AddToVrfMap(vrf->GetVrfId(), ksync, RT_MCAST);
     }
 }
 
-void RouteKSyncObject::Init(VrfTable *vrf_table) {
-    vrf_listener_id_ = Agent::GetVrfTable()->Register
-            (boost::bind(&RouteKSyncObject::VrfNotify, _1, _2));
+void VrfKSyncObject::Init(VrfTable *vrf_table) {
+    assert(singleton_ == NULL);
+    singleton_ = new VrfKSyncObject();
+
+    singleton_->vrf_listener_id_ = Agent::GetInstance()->GetVrfTable()->Register
+            (boost::bind(&VrfKSyncObject::VrfNotify, _1, _2));
 }
 
-void RouteKSyncObject::Shutdown() {
-    Agent::GetVrfTable()->Unregister(vrf_listener_id_);
-    vrf_listener_id_ = -1;
+void VrfKSyncObject::Shutdown() {
+    Agent::GetInstance()->GetVrfTable()->Unregister
+        (singleton_->vrf_listener_id_);
+    singleton_->vrf_listener_id_ = -1;
+    delete singleton_;
+    singleton_ = NULL;
 }

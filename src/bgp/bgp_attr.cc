@@ -6,7 +6,7 @@
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
 
-BgpProtoPrefix::BgpProtoPrefix() : prefixlen(0) {
+BgpProtoPrefix::BgpProtoPrefix() : prefixlen(0), type(0) {
 }
 
 int BgpAttribute::CompareTo(const BgpAttribute &rhs) const {
@@ -135,6 +135,7 @@ int BgpMpNlri::CompareTo(const BgpAttribute &rhs_attr) const {
     KEY_COMPARE(nlri.size(), rhs.nlri.size());
 
     for (size_t i = 0; i < nlri.size(); i++) {
+        KEY_COMPARE(nlri[i]->type, rhs.nlri[i]->type);
         KEY_COMPARE(nlri[i]->prefixlen, rhs.nlri[i]->prefixlen);
         KEY_COMPARE(nlri[i]->prefix, rhs.nlri[i]->prefix);
     }
@@ -232,7 +233,7 @@ BgpAttr::BgpAttr(const BgpAttr &rhs)
       aggregator_address_(rhs.aggregator_address_),
       source_rd_(rhs.source_rd_),
       as_path_(rhs.as_path_), community_(rhs.community_),
-      ext_community_(rhs.ext_community_), origin_vn_(rhs.origin_vn_),
+      ext_community_(rhs.ext_community_),
       label_block_(rhs.label_block_), olist_(rhs.olist_) {
     refcount_ = 0; 
 }
@@ -262,18 +263,6 @@ void BgpAttr::set_ext_community(const ExtCommunitySpec *extcomm) {
         ext_community_ = attr_db_->server()->extcomm_db()->Locate(*extcomm);
     } else {
         ext_community_ = NULL;
-    }
-}
-
-void BgpAttr::set_origin_vn(OriginVnPtr origin_vn) {
-    origin_vn_ = origin_vn;
-}
-
-void BgpAttr::set_origin_vn(const OriginVnSpec *origin_vn) {
-    if (origin_vn) {
-        origin_vn_ = attr_db_->server()->origin_vn_db()->Locate(*origin_vn);
-    } else {
-        origin_vn_ = NULL;
     }
 }
 
@@ -327,13 +316,6 @@ int BgpAttr::CompareTo(const BgpAttr &rhs) const {
         if (ret != 0) return ret;
     }
 
-    if (origin_vn_.get() == NULL || rhs.origin_vn_.get() == NULL) {
-        KEY_COMPARE(origin_vn_.get(), rhs.origin_vn_.get());
-    } else {
-        int ret = origin_vn_->CompareTo(*rhs.origin_vn_);
-        if (ret != 0) return ret;
-    }
-
     return 0;
 }
 
@@ -362,7 +344,6 @@ std::size_t hash_value(BgpAttr const &attr) {
     if (attr.as_path_) boost::hash_combine(hash, *attr.as_path_);
     if (attr.community_) boost::hash_combine(hash, *attr.community_);
     if (attr.ext_community_) boost::hash_combine(hash, *attr.ext_community_);
-    if (attr.origin_vn_) boost::hash_combine(hash, *attr.origin_vn_);
 
     return hash;
 }
@@ -383,14 +364,6 @@ BgpAttrPtr BgpAttrDB::ReplaceLocalPreferenceAndLocate(const BgpAttr *attr,
                                                       uint32_t local_pref) {
     BgpAttr *clone = new BgpAttr(*attr);
     clone->set_local_pref(local_pref);
-    return Locate(clone);
-}
-
-// Return a clone of attribute with updated origin vn.
-BgpAttrPtr BgpAttrDB::ReplaceOriginVnAndLocate(const BgpAttr *attr,
-                                               OriginVnPtr origin_vn) {
-    BgpAttr *clone = new BgpAttr(*attr);
-    clone->set_origin_vn(origin_vn);
     return Locate(clone);
 }
 

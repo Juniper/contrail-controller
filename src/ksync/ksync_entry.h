@@ -132,11 +132,11 @@ public:
     virtual ~KSyncNetlinkEntry() { };
 
     // Generate netlink add message for the object
-    virtual char *AddMsg(int &len) = 0;
+    virtual int AddMsg(char *msg, int len) = 0;
     // Generate netlink change message for the object
-    virtual char *ChangeMsg(int &len) = 0;
+    virtual int ChangeMsg(char *msgi, int len) = 0;
     // Generate netlink delete message for the object
-    virtual char *DeleteMsg(int &len) = 0;
+    virtual int DeleteMsg(char *msg, int len) = 0;
 
     bool Add();
     bool Change();
@@ -183,11 +183,11 @@ public:
     virtual ~KSyncNetlinkDBEntry() { };
 
     // Generate netlink add message for the object
-    virtual char *AddMsg(int &len) = 0;
+    virtual int AddMsg(char *msg, int len) = 0;
     // Generate netlink change message for the object
-    virtual char *ChangeMsg(int &len) = 0;
+    virtual int ChangeMsg(char *msg, int len) = 0;
     // Generate netlink delete message for the object
-    virtual char *DeleteMsg(int &len) = 0;
+    virtual int DeleteMsg(char *msg, int len) = 0;
 
     bool Add();
     bool Change();

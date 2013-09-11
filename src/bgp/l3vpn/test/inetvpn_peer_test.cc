@@ -18,6 +18,7 @@
 #include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
@@ -139,10 +140,10 @@ protected:
         TASK_UTIL_EXPECT_EQ_MSG(StateMachine::ESTABLISHED, peer_b_->GetState(),
                                 "Is peer ready");
 
-        a_red_ = dynamic_cast<RoutingInstanceTest *>(a_->routing_instance_mgr()->GetRoutingInstance("red"));
-        a_blue_ = dynamic_cast<RoutingInstanceTest *>(a_->routing_instance_mgr()->GetRoutingInstance("blue"));
-        b_blue_ = dynamic_cast<RoutingInstanceTest *>(b_->routing_instance_mgr()->GetRoutingInstance("blue"));
-        b_red_ = dynamic_cast<RoutingInstanceTest *>(b_->routing_instance_mgr()->GetRoutingInstance("red"));
+        a_red_ = a_->routing_instance_mgr()->GetRoutingInstance("red");
+        a_blue_ = a_->routing_instance_mgr()->GetRoutingInstance("blue");
+        b_blue_ = b_->routing_instance_mgr()->GetRoutingInstance("blue");
+        b_red_ = b_->routing_instance_mgr()->GetRoutingInstance("red");
 
         a_vpn_ =
             static_cast<BgpTable *>(a_->database()->FindTable("bgp.l3vpn.0"));
@@ -280,7 +281,7 @@ protected:
                                                        "a_red", "a_red_local",
                                                        &rtr_config));
         a_peer_red_ = dynamic_cast<BgpPeerTest *>(
-                      a_red->PeerLocate(a_.get(), a_peer_red_config_.get()));
+            a_red->peer_manager()->PeerLocate(a_.get(), a_peer_red_config_.get()));
         a_peer_red_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_red_, a_red_inet_, policy, -1);
 
@@ -293,10 +294,9 @@ protected:
                                                         "a_blue_local",
                                                         &rtr_config));
         a_peer_blue_ = dynamic_cast<BgpPeerTest *>(
-                       a_blue->PeerLocate(a_.get(), a_peer_blue_config_.get()));
+            a_blue->peer_manager()->PeerLocate(a_.get(), a_peer_blue_config_.get()));
         a_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         a_->membership_mgr()->Register(a_peer_blue_, a_blue_inet_, policy, -1);
-
 
         params.port = 3;
         params.autonomous_system = 65533;
@@ -307,7 +307,7 @@ protected:
                                                         "b_blue_local",
                                                         &rtr_config));
         b_peer_blue_ = dynamic_cast<BgpPeerTest *>(
-                       b_blue->PeerLocate(b_.get(), b_peer_blue_config_.get()));
+            b_blue->peer_manager()->PeerLocate(b_.get(), b_peer_blue_config_.get()));
         b_peer_blue_->IsReady_fnc_ = boost::bind(&L3VPNPeerTest::IsReady, this);
         b_->membership_mgr()->Register(b_peer_blue_, b_blue_inet_, policy, -1);
 
@@ -340,8 +340,8 @@ protected:
 
     /* Server A */
     auto_ptr<BgpServerTest> a_;
-    RoutingInstanceTest *a_red_;
-    RoutingInstanceTest *a_blue_;
+    RoutingInstance *a_red_;
+    RoutingInstance *a_blue_;
     BgpTable *a_vpn_;
     BgpTable *a_red_inet_;
     BgpTable *a_blue_inet_;

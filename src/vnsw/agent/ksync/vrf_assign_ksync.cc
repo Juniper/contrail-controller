@@ -22,8 +22,6 @@
 #include "ksync/interface_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 
-#include "nl_util.h"
-
 #include "ksync_init.h"
 
 void vr_vrf_assign_req::Process(SandeshContext *context) {
@@ -103,45 +101,33 @@ bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
     return ret;
 };
 
-char *VrfAssignKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_vrf_assign_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
     IntfKSyncEntry *intf = GetInterface();
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating vassign message. Error : " << ret);
-        return NULL;
-    }
 
     encoder.set_h_op(op);
     encoder.set_var_vif_index(intf->GetIndex());
     encoder.set_var_vlan_id(vlan_tag_);
     encoder.set_var_vif_vrf(vrf_id_);
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     LOG(DEBUG, "VRF Assign for Interface <" << intf->GetName() << "> Tag <" 
         << GetVlanTag() << "> Vrf <" << GetVrfId() << ">");
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    return encode_len;
 }
 
-char *VrfAssignKSyncEntry::AddMsg(int &len) {
+int VrfAssignKSyncEntry::AddMsg(char *buf, int buf_len) {
     LOG(DEBUG, "VrfAssign: Add");
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *VrfAssignKSyncEntry::ChangeMsg(int &len){
-    return AddMsg(len);
+int VrfAssignKSyncEntry::ChangeMsg(char *buf, int buf_len){
+    return AddMsg(buf, buf_len);
 }
 
-char *VrfAssignKSyncEntry::DeleteMsg(int &len) {
+int VrfAssignKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     LOG(DEBUG, "VrfAssign: Delete");
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 KSyncEntry *VrfAssignKSyncEntry::UnresolvedReference() {

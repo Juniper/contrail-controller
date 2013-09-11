@@ -3,6 +3,9 @@ options {
     managed-keys-directory "./";
     empty-zones-enable no;
     pid-file "./named.pid";
+    allow-query { any; };
+    allow-recursion { any; };
+    allow-query-cache { any; };
 };
 
 key "rndc-key" {

@@ -6,6 +6,16 @@
 usage () {
   echo "usage: $0 [-h|start|stop|restart|status] <service-name>"
   echo " Starts/Stops/Restarts a contrail service"
+  echo " Valid <service-name>
+            contrail-collector|contrail-opserver|contrail-qe|contrail-analytics-nodemgr|redis-query|redis-sentinel|redis-uve
+            contrail-control
+            contrail-api|contrail-schema|contrail-svc-monitor|contrail-discovery|ifmap
+            contrail-vrouter
+            contrail-dns|contrail-named
+            contrail-webui|contrail-webui-middleware|redis-webui
+            supervisor-analytics|supervisor-control|supervisor-dns|supervisor-config|supervisor-vrouter|supervisor-webui
+            all-config 
+       "
 }
 
 while getopts ':h?' OPTION
@@ -40,39 +50,30 @@ case $2 in
         	export supervisor_port=9002
 		;;
         "contrail-control")
-                if [ -e /etc/init.d/contrail-control ]; then
-                    service contrail-control $1
-                    exit 0   
-                else 
-        	    export supervisor_port=9003
-                fi
+        	export supervisor_port=9003
 		;;
         "contrail-api"|"contrail-schema"|"contrail-svc-monitor"|"contrail-discovery"|"ifmap")
         	export supervisor_port=9004
 		;;
         "contrail-vrouter")
-                if [ -e /etc/init.d/contrail-vrouter ]; then
-                    service $2 $1
-                    exit 0   
-                else 
-        	    export supervisor_port=9005
-                fi
+        	export supervisor_port=9005
 		;;
-        "contrail-dns"|"contrail-name")
-                if [ -e /etc/init.d/contrail-dns ]; then
-                    service $2 $1
-                    exit 0   
-                else 
-        	    export supervisor_port=9006
-                fi
+        "contrail-dns"|"contrail-named")
+        	export supervisor_port=9006
 		;;
-
+        "contrail-webui"|"contrail-webui-middleware"|"redis-webui")
+        	export supervisor_port=9008
+		;;
         "all-config")
 		if [ $1 == "status" ]; then
 			supervisorctl -s http://localhost:9004 $1
 		else		
 			supervisorctl -s http://localhost:9004 $1 all
 		fi
+		exit 0
+		;;
+        "supervisor-analytics" | "supervisor-control" | "supervisor-dns" | "supervisor-config" | "supervisor-vrouter" | "supervisor-webui")
+                service $2 $1
 		exit 0
 		;;
 	*)

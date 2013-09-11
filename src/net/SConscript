@@ -10,6 +10,7 @@ env = BuildEnv.Clone()
 
 libnet = env.Library('net',
                      ['address.cc',
+                      'bgp_af.cc',
                       'mac_address.cc',
                       'rd.cc',
                       'tunnel_encap_type.cc',

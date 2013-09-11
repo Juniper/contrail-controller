@@ -62,10 +62,10 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
 
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -74,8 +74,8 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
-    WAIT_FOR(500, 1000, (1 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (1 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VmIntfMapSize()));
 
     DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
@@ -84,8 +84,8 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     //second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
     client->WaitForIdle(2);
 
     //Cleanup other things created by this test-case
@@ -94,9 +94,9 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->PortDelNotifyWait(2);
     
-    WAIT_FOR(100, 1000, (Agent::GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(100, 1000, (Agent::GetVmTable()->Size() == 0));
-    WAIT_FOR(100, 1000, (Agent::GetVnTable()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
+    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
 }
 
 TEST_F(UveTest, VnAddDelTest1) {
@@ -110,11 +110,11 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
 
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
@@ -123,8 +123,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VnDelNotifyWait(1);
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
-    WAIT_FOR(500, 1000, (1 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (1 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VmIntfMapSize()));
 
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -133,8 +133,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VnDelNotifyWait(2);
     //Second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);
@@ -142,9 +142,9 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VmDelNotifyWait(2);
     client->PortDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
 }
 
 TEST_F(UveTest, IntAddDelTest1) {
@@ -158,22 +158,22 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->WaitForIdle(2);
     WAIT_FOR(500, 1000, (VmPortActive(input, 0) == true));
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
-    EXPECT_EQ(2U, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
 
     IntfCfgDel(input, 0);
     client->WaitForIdle(2);
     client->PortDelNotifyWait(1);
-    EXPECT_EQ(1U, GetUveClient()->VnIntfMapSize());
-    EXPECT_EQ(1U, GetUveClient()->VmIntfMapSize());
+    EXPECT_EQ(1U, UveClient::GetInstance()->VnIntfMapSize());
+    EXPECT_EQ(1U, UveClient::GetInstance()->VmIntfMapSize());
 
     IntfCfgDel(input, 1);
     client->WaitForIdle(2);
     client->PortDelNotifyWait(2);
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == GetUveClient()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
+    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);
@@ -181,9 +181,9 @@ TEST_F(UveTest, IntAddDelTest1) {
     client->VnDelNotifyWait(2);
     client->VmDelNotifyWait(2);
 
-    WAIT_FOR(500, 1000, (Agent::GetIntfCfgTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetVmTable()->Size() == 0));
-    WAIT_FOR(500, 1000, (Agent::GetVnTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetIntfCfgTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVmTable()->Size() == 0));
+    WAIT_FOR(500, 1000, (Agent::GetInstance()->GetVnTable()->Size() == 0));
 }
 
 //To verify VRF addition/removal keeps the vrf stats tree in correct state
@@ -194,13 +194,13 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     WAIT_FOR(100, 10000, (VrfFind("vrf11")== true));
     EXPECT_TRUE(DBTableFind("vrf11.uc.route.0"));
  
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName("vrf11");
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11");
     EXPECT_TRUE(vrf != NULL);
     int vrf11_id = vrf->GetVrfId();
 
     //Verify that vrf_stats entry is added vrf_stats_tree of 
     //agent_stats_collector
-    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 0));
 
     //Delete vrf - vrf11
     VrfDelReq("vrf11");
@@ -210,21 +210,21 @@ TEST_F(UveTest, VrfAddDelTest_1) {
 
     //Verify that vrf_stats entry is not removed from vrf_stats_tree of 
     //agent_stats_collector after deletion of vrf
-    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 0));
 
     //Create vrf - vrf21
     VrfAddReq("vrf21");
     client->WaitForIdle();
     EXPECT_TRUE(DBTableFind("vrf21.uc.route.0"));
  
-    vrf = Agent::GetVrfTable()->FindVrfFromName("vrf21");
+    vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf21");
     EXPECT_TRUE(vrf != NULL);
     int vrf21_id = vrf->GetVrfId();
     LOG(DEBUG, "vrf 11 " << vrf11_id << " vrf 21 " << vrf21_id);
     if (vrf11_id == vrf21_id) {
         //When vrf-id is re-used for different vrf verify that vrf-name
         //is updated correctly in the vrf_stats_entry of agent_stats_collector
-        EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf21"), 0, 0, 0, 0, 0, 0));
+        EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf21"), true, 0, 0, 0, 0, 0, 0));
     }
 
     //Delete vrf - vrf21
@@ -232,7 +232,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (VrfFind("vrf21")== false));
     EXPECT_FALSE(DBTableFind("vrf21.uc.route.0"));
-    EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), true, 0, 0, 0, 0, 0, 0));
 }
 
 int main(int argc, char **argv) {
@@ -243,7 +243,7 @@ int main(int argc, char **argv) {
 
     ret = RUN_ALL_TESTS();
     UveTest::TestTearDown();
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
 
     return ret;

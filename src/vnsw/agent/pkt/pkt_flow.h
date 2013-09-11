@@ -23,8 +23,40 @@ public:
     static void Init(boost::asio::io_service &io);
     static void Shutdown();
     static const std::string *UnknownVn() {return &unknown_vn_;};
-    static const std::string *LinkLocalVn() {return &Agent::GetLinkLocalVnName();};
+    static const std::string *LinkLocalVn() {return &Agent::GetInstance()->GetLinkLocalVnName();};
 private:
+};
+
+class FlowProto : public Proto<FlowHandler> {
+public:
+    FlowProto(boost::asio::io_service &io) :
+        Proto<FlowHandler>("Agent::FlowHandler", PktHandler::FLOW, io) {};
+
+    virtual ~FlowProto() {};
+
+    static void Init(boost::asio::io_service &io) {
+        Agent::GetInstance()->SetFlowProto(new FlowProto(io));
+    }
+
+    static void Shutdown() {
+        delete Agent::GetInstance()->GetFlowProto();
+        Agent::GetInstance()->SetFlowProto(NULL);
+    }
+
+    bool Validate(PktInfo *msg) {
+        if (msg->ip == NULL) {
+            FLOW_TRACE(DetailErr, msg->agent_hdr.cmd_param,
+                       msg->agent_hdr.ifindex, msg->agent_hdr.vrf,
+                       msg->ip_saddr, msg->ip_daddr,
+                       "Flow : Non-IP packet. Dropping");
+            return false;
+        }
+        return true;
+    }
+
+    bool RemovePktBuff() {
+        return true;
+    }
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;

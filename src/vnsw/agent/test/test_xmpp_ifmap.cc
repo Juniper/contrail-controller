@@ -70,6 +70,7 @@ public:
             return channel_->Send(msg, size, xmps::CONFIG,
                    boost::bind(&ControlNodeMockIFMapXmppPeer::WriteReadyCb, this, _1));
         }
+        return false;
     }
 
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -86,10 +87,10 @@ private:
 class AgentIFMapXmppUnitTest : public ::testing::Test { 
 protected:
     virtual void SetUp() {
-        Agent::SetEventManager(&evm_);
-        thread_ = new ServerThread(Agent::GetEventManager());
+        Agent::GetInstance()->SetEventManager(&evm_);
+        thread_ = new ServerThread(Agent::GetInstance()->GetEventManager());
         RouterIdDepInit();
-        xs.reset(new XmppServer(Agent::GetEventManager(), XmppInit::kControlNodeJID));
+        xs.reset(new XmppServer(Agent::GetInstance()->GetEventManager(), XmppInit::kControlNodeJID));
 
         xs->Initialize(XMPP_SERVER_PORT, false);
         thread_->Start();
@@ -101,7 +102,7 @@ protected:
         client->WaitForIdle();
         VNController::DisConnect();
         client->WaitForIdle();
-        Agent::GetEventManager()->Shutdown();
+        Agent::GetInstance()->GetEventManager()->Shutdown();
         client->WaitForIdle();
         thread_->Join();
     }
@@ -112,12 +113,12 @@ protected:
         CfgIntData *data = new CfgIntData();
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(addr, ec);
-        data->Init(nil_uuid(), nil_uuid(), name, ip.to_v4(), mac, "");
+        data->Init(nil_uuid(), nil_uuid(), name, ip.to_v4(), mac, "", 0);
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(data);
-        Agent::GetIntfCfgTable()->Enqueue(&req);
+        Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
         usleep(1000);
     }
 
@@ -228,7 +229,7 @@ TEST_F(AgentIFMapXmppUnitTest, vntest) {
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn1");
 
     //Lookup in oper db
@@ -254,7 +255,7 @@ TEST_F(AgentIFMapXmppUnitTest, vmtest) {
     IFMapTable::RequestKey *req_key = new IFMapTable::RequestKey;
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vm1");
 
     //Lookup in oper db
@@ -302,22 +303,22 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
 
     req_key->id_type = "virtual-machine";
     req_key->id_name = "vm3";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vm3");
 
     req_key->id_type = "virtual-network";
     req_key->id_name = "vn1";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vn1");
 
     req_key->id_type = "routing-instance";
     req_key->id_name = "vrf2";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vrf2");
 
     req_key->id_type = "virtual-machine-interface";
     req_key->id_name = "vnet4";
-    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), req_key)) != NULL));
+    WAIT_FOR(100, 10000, ((node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), req_key)) != NULL));
     EXPECT_EQ(node->name(), "vnet4");
 
     client->WaitForIdle();
@@ -353,7 +354,7 @@ TEST_F(AgentIFMapXmppUnitTest, vn_vm_vrf_test) {
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
     return RUN_ALL_TESTS();
 }
 

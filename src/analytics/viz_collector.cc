@@ -29,7 +29,9 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
                 cassandra_ip, cassandra_port, analytics_ttl)),
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get())),
-    dbif_timer_(*evm_->io_service()) {
+    dbif_timer_(TimerManager::CreateTimer(
+            *evm_->io_service(), "Collector DbIf Timer",
+            TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
     error_code error;
     if (dup)
         name_ = boost::asio::ip::host_name(error) + "dup";
@@ -44,7 +46,9 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
     db_handler_(db_handler),
     ruleeng_(ruleeng),
     collector_(collector),
-    dbif_timer_(*evm->io_service()) {
+    dbif_timer_(TimerManager::CreateTimer(
+            *evm_->io_service(), "Collector DbIf Timer",
+            TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
     error_code error;
     name_ = boost::asio::ip::host_name(error);
 }
@@ -52,8 +56,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
 VizCollector::~VizCollector() {
 }
 
-bool
-VizCollector::SendRemote(const string& destination,
+bool VizCollector::SendRemote(const string& destination,
         const string& dec_sandesh) {
     if (collector_){
         return collector_->SendRemote(destination, dec_sandesh);
@@ -62,43 +65,66 @@ VizCollector::SendRemote(const string& destination,
     }
 }
 
+void VizCollector::WaitForIdle() {
+    static const int kTimeout = 15;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
 
-void VizCollector::Shutdown() {
-    collector_->Shutdown();
+    for (int i = 0; i < (kTimeout * 1000); i++) {
+        if (scheduler->IsEmpty()) {
+            break;
+        }
+        usleep(1000);
+    }
 }
 
-void VizCollector::DbifReinit(const boost::system::error_code &error) {
-    if (error) {
-        if (error.value() != boost::system::errc::operation_canceled) {
-            LOG(INFO, "VizCollector::DbifReinit error: "
-                << error.category().name()
-                << " " << error.message());
-        }
+void VizCollector::Shutdown() {
+    // First shutdown collector
+    collector_->Shutdown();
+    WaitForIdle();
+
+    // Wait until all connections are cleaned up.
+    for (int cnt = 0; collector_->ConnectionsCount() != 0 && cnt < 15; cnt++) {
+        sleep(1);
     }
-    Init();
+    TcpServerManager::DeleteServer(collector_);
+
+    TimerManager::DeleteTimer(dbif_timer_);
+    dbif_timer_ = NULL;
+
+    db_handler_->UnInit(true);
+}
+
+bool VizCollector::DbifReinitTimerExpired() {
+    bool done = Init();
+    // Start the timer again if initialization is not done
+    return !done;
+}
+
+void VizCollector::DbifReinitTimerErrorHandler(string error_name,
+        string error_message) {
+    LOG(ERROR, __func__ << " " << error_name << " " << error_message);
 }
 
 void VizCollector::StartDbifReinitTimer() {
-    boost::system::error_code ec;
-    dbif_timer_.expires_from_now(boost::posix_time::seconds(DbifReinitTime), ec);
-    dbif_timer_.async_wait(boost::bind(&VizCollector::DbifReinit, this,
-                boost::asio::placeholders::error));
+    dbif_timer_->Start(DbifReinitTime * 1000,
+            boost::bind(&VizCollector::DbifReinitTimerExpired, this),
+            boost::bind(&VizCollector::DbifReinitTimerErrorHandler, this,
+                    _1, _2));
 }
 
 void VizCollector::StartDbifReinit() {
-    db_handler_->UnInit();
+    db_handler_->UnInit(false);
     StartDbifReinitTimer();
 }
 
-void VizCollector::Init() {
-    LOG(DEBUG, "VizCollector::" << __func__ << " Begin");
+bool VizCollector::Init() {
     if (!db_handler_->Init()) {
-        LOG(DEBUG, __func__ << "db_handler_ init failed");
+        LOG(DEBUG, __func__ << " DB Handler initialization failed");
         StartDbifReinit();
-        return;
+        return false;
     }
     ruleeng_->Init();
-
-    LOG(DEBUG, "VizCollector::" << __func__ << " Done");
+    LOG(DEBUG, __func__ << " Initialization complete");
+    return true;
 }
 

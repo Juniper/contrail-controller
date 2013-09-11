@@ -40,7 +40,6 @@ std::map<curl_socket_t, HttpClientSession *> socket_map;
 /* Update the event timer after curl_multi library calls */
 static int multi_timer_cb(CURLM *multi, long timeout_ms, HttpClient *client)
 {
-  fprintf(MSG_OUT, "\nmulti_timer_cb: timeout_ms %ld", timeout_ms);
 
   if ( timeout_ms > 0 )
   {
@@ -73,10 +72,10 @@ static void mcode_or_die(const char *where, CURLMcode code)
     default: s="CURLM_unknown";
       break;
     case     CURLM_BAD_SOCKET:         s="CURLM_BAD_SOCKET";
-      fprintf(MSG_OUT, "\nERROR: %s returns %s", where, s);
       /* ignore this error */
       return;
     }
+
     fprintf(MSG_OUT, "\nERROR: %s returns %s", where, s);
     exit(code);
   }
@@ -92,8 +91,6 @@ static void check_multi_info(GlobalInfo *g)
   CURL *easy;
   CURLcode res;
 
-  fprintf(MSG_OUT, "\nREMAINING: %d", g->still_running);
-
   while ((msg = curl_multi_info_read(g->multi, &msgs_left)))
   {
     if (msg->msg == CURLMSG_DONE)
@@ -102,7 +99,6 @@ static void check_multi_info(GlobalInfo *g)
       res = msg->data.result;
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
-      fprintf(MSG_OUT, "\nDONE: %s => (%d) %s", eff_url, res, conn->error);
       if (res != CURLE_OK) {
           boost::system::error_code error(res, boost::system::system_category());
           std::string empty_str("");
@@ -110,6 +106,8 @@ static void check_multi_info(GlobalInfo *g)
       }
       if (conn->connection->curl_handle()) {
           curl_multi_remove_handle(g->multi, easy);
+          curl_slist_free_all(conn->headers);
+          free(conn->post);
           free(conn->url);
           curl_easy_cleanup(easy);
           conn->connection->set_curl_handle(NULL);
@@ -125,7 +123,6 @@ static void event_cb_impl(GlobalInfo *g, TcpSessionPtr session, int action,
                           const boost::system::error_code &error, 
                           std::size_t bytes_transferred)
 {
-  fprintf(MSG_OUT, "\nevent_cb: action=%d", action);
 
   if (session->IsClosed()) return;
 
@@ -139,7 +136,6 @@ static void event_cb_impl(GlobalInfo *g, TcpSessionPtr session, int action,
 
   if ( g->still_running <= 0 )
   {
-    fprintf(MSG_OUT, "\nlast transfer done, kill timeout");
     g->client->CancelTimer();
   }
 }
@@ -171,8 +167,6 @@ void timer_cb(GlobalInfo *g)
 /* Clean up any data */
 static void remsock(int *f, GlobalInfo *g)
 {
-  fprintf(MSG_OUT, "\nremsock: ");
-
   if ( f )
   {
     free(f);
@@ -181,13 +175,10 @@ static void remsock(int *f, GlobalInfo *g)
 
 static void setsock(int *fdp, curl_socket_t s, CURL*e, int act, GlobalInfo *g)
 {
-  fprintf(MSG_OUT, "\nsetsock: socket=%d, act=%d, fdp=%p", s, act, fdp);
-
   std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(s);
 
   if ( it == socket_map.end() )
   {
-    fprintf(MSG_OUT, "\nsocket %d is a c-ares socket, ignoring", s);
     return;
   }
 
@@ -233,32 +224,21 @@ static void addsock(curl_socket_t s, CURL *easy, int action, GlobalInfo *g)
 /* CURLMOPT_SOCKETFUNCTION */
 static int sock_cb(CURL *e, curl_socket_t s, int what, void *cbp, void *sockp)
 {
-  fprintf(MSG_OUT, "\nsock_cb: socket=%d, what=%d, sockp=%p", s, what, sockp);
-
   GlobalInfo *g = (GlobalInfo*) cbp;
   int *actionp = (int*) sockp;
-  const char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE"};
-
-  fprintf(MSG_OUT,
-          "\nsocket callback: s=%d e=%p what=%s ", s, e, whatstr[what]);
 
   if ( what == CURL_POLL_REMOVE )
   {
-    fprintf(MSG_OUT, "\n");
     remsock(actionp, g);
   }
   else
   {
     if ( !actionp )
     {
-      fprintf(MSG_OUT, "\nAdding data: %s", whatstr[what]);
       addsock(s, e, what, g);
     }
     else
     {
-      fprintf(MSG_OUT,
-              "\nChanging action from %s to %s",
-              whatstr[*actionp], whatstr[what]);
       setsock(actionp, s, e, what, g);
     }
   }
@@ -303,12 +283,8 @@ static size_t read_cb(void *ptr, size_t size, size_t nmemb, void *data)
 static int prog_cb (void *p, double dltotal, double dlnow, double ult,
                     double uln)
 {
-  ConnInfo *conn = (ConnInfo *)p;
   (void)ult;
   (void)uln;
-
-  fprintf(MSG_OUT, "\nProgress: %s (%g/%g)", conn->url, dlnow, dltotal);
-  fprintf(MSG_OUT, "\nProgress: %s (%g)", conn->url, ult);
 
   return 0;
 }
@@ -318,8 +294,6 @@ static curl_socket_t opensocket(void *data,
                                 curlsocktype purpose,
                                 struct curl_sockaddr *address)
 {
-  fprintf(MSG_OUT, "\nopensocket :");
-
   HttpConnection *conn = static_cast<HttpConnection *>(data);
  
   curl_socket_t sockfd = CURL_SOCKET_BAD;
@@ -341,8 +315,6 @@ static curl_socket_t opensocket(void *data,
 /* CURLOPT_CLOSESOCKETFUNCTION */
 static int closesocket(void *clientp, curl_socket_t item)
 {
-  fprintf(MSG_OUT, "\nclosesocket : %d", item);
-
   std::map<curl_socket_t, HttpClientSession *>::iterator it = socket_map.find(item);
   if ( it != socket_map.end() ) {
       socket_map.erase(it);
@@ -362,6 +334,8 @@ void del_conn(HttpConnection *connection, GlobalInfo *g) {
     struct _ConnInfo *curl_handle = connection->curl_handle();
     if (curl_handle) {
         curl_multi_remove_handle(g->multi, curl_handle->easy);
+        curl_slist_free_all(curl_handle->headers);
+        free(curl_handle->post);
         free(curl_handle->url);
         curl_easy_cleanup(curl_handle->easy);
         connection->set_curl_handle(NULL);
@@ -380,7 +354,6 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
 
   if ( !conn->easy )
   {
-    fprintf(MSG_OUT, "\ncurl_easy_init() failed, exiting!");
     exit(2);
   }
   conn->global = g;
@@ -389,7 +362,6 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
   curl_easy_setopt(conn->easy, CURLOPT_WRITEDATA, connection);
   curl_easy_setopt(conn->easy, CURLOPT_READFUNCTION, read_cb);
   curl_easy_setopt(conn->easy, CURLOPT_READDATA, connection);
-  curl_easy_setopt(conn->easy, CURLOPT_VERBOSE, 1L);
   curl_easy_setopt(conn->easy, CURLOPT_ERRORBUFFER, conn->error);
   curl_easy_setopt(conn->easy, CURLOPT_PRIVATE, conn);
   curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 1L);
@@ -415,10 +387,9 @@ void set_url(ConnInfo *conn, const char *url) {
 }
 
 void set_put_string(ConnInfo *conn, const char *post) { 
-    struct curl_slist *headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/xml");
-    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, headers);
-
+    conn->headers = curl_slist_append(conn->headers, "Content-Type: application/xml");
+    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
+    
     conn->post = strdup(post);
     curl_easy_setopt(conn->easy, CURLOPT_POSTFIELDS, conn->post);
 }

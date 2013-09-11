@@ -4,8 +4,12 @@
 
 #include "bgp/bgp_aspath.h"
 
+#include <sstream>
+
 #include "base/util.h"
 #include "bgp/bgp_proto.h"
+
+using namespace std;
 
 int AsPathSpec::CompareTo(const BgpAttribute &rhs_attr) const {
     int ret = BgpAttribute::CompareTo(rhs_attr);
@@ -25,27 +29,31 @@ void AsPathSpec::ToCanonical(BgpAttr *attr) {
 }
 
 std::string AsPathSpec::ToString() const {
-    char repr[1024];
-    snprintf(repr, sizeof(repr), 
-             "AS_PATH: %d", (uint32_t)path_segments.size());
+    ostringstream oss;
 
     for (size_t i = 0; i < path_segments.size(); i++) {
-        char type[10];
-        snprintf(type, sizeof(type), 
-                 " [ %1d %3d ", path_segments[i]->path_segment_type, 
-                 (uint32_t)path_segments[i]->path_segment.size());
-        strcat(repr, type);
-        for (size_t j = 0; j < path_segments[i]->path_segment.size(); j++) {
-            char path[10];
-            snprintf(path, sizeof(path), 
-                     " %d ", (uint32_t)path_segments[i]->path_segment[j]);
-            strcat(repr, path);
+        if (i != 0) oss << " ";
+        switch (path_segments[i]->path_segment_type) {
+        case AsPathSpec::PathSegment::AS_SET:
+            oss << "{";
+            for (size_t j = 0; j < path_segments[i]->path_segment.size(); j++) {
+                if (j != 0) oss << " ";
+                oss << path_segments[i]->path_segment[j];
+            }
+            oss << "}";
+            break;
+        case AsPathSpec::PathSegment::AS_SEQUENCE:
+            for (size_t j = 0; j < path_segments[i]->path_segment.size(); j++) {
+                if (j != 0) oss << " ";
+                oss << path_segments[i]->path_segment[j];
+            }
+            break;
+        default:
+            break;
         }
-        snprintf(type, sizeof(type), "]");
-        strcat(repr, type);
     }
 
-    return std::string(repr);
+    return oss.str();
 }
 
 bool AsPathSpec::AsPathLoop(as_t as) const {

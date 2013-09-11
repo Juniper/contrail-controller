@@ -64,7 +64,7 @@
 using namespace std;
 
 #define TUN_INTF_CLONE_DEV "/dev/net/tun"
-#define DEFAULT_VNSW_CONFIG_FILE "src/vnsw/agent/test/vnswa_cfg.xml"
+#define DEFAULT_VNSW_CONFIG_FILE "controller/src/vnsw/agent/test/vnswa_cfg.xml"
 
 #define GETUSERARGS()                           \
     bool ksync_init = false;                    \
@@ -123,9 +123,9 @@ public:
     FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowAge")), 0) {
     }
     virtual bool Run() {
-        //AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(100);
+        //AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(100);
         //usleep(100);
-        AgentUve::GetFlowStatsCollector()->Run();
+        AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
         return true;
     }
 };
@@ -251,28 +251,56 @@ public:
     void FlowTimerWait(int count) {
         int i = 0;
 
-        while (AgentUve::GetFlowStatsCollector()->run_counter_ <= count) {
+        while (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);
             } else {
                 break;
             }
         }
-        EXPECT_TRUE(AgentUve::GetFlowStatsCollector()->run_counter_ > count);
+        EXPECT_TRUE(AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ > count);
         WaitForIdle(2);
     }
 
     void IfStatsTimerWait(int count) {
         int i = 0;
 
-        while (AgentUve::GetStatsCollector()->run_counter_ <= count) {
+        while (AgentUve::GetInstance()->GetStatsCollector()->run_counter_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);
             } else {
                 break;
             }
         }
-        EXPECT_TRUE(AgentUve::GetStatsCollector()->run_counter_ > count);
+        EXPECT_TRUE(AgentUve::GetInstance()->GetStatsCollector()->run_counter_ > count);
+        WaitForIdle(2);
+    }
+
+    void VrfStatsTimerWait(int count) {
+        int i = 0;
+
+        while (AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ <= count) {
+            if (i++ < 1000) {
+                usleep(1000);
+            } else {
+                break;
+            }
+        }
+        EXPECT_TRUE(AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ >= count);
+        WaitForIdle(2);
+    }
+
+    void DropStatsTimerWait(int count) {
+        int i = 0;
+
+        while (AgentUve::GetInstance()->GetStatsCollector()->drop_stats_responses_ <= count) {
+            if (i++ < 1000) {
+                usleep(1000);
+            } else {
+                break;
+            }
+        }
+        EXPECT_TRUE(AgentUve::GetInstance()->GetStatsCollector()->drop_stats_responses_ >= count);
         WaitForIdle(2);
     }
 
@@ -535,21 +563,21 @@ public:
     }
 
     void Init() {
-        Agent::GetIntfCfgTable()->Register(boost::bind(&TestClient::CfgNotify, 
+        Agent::GetInstance()->GetIntfCfgTable()->Register(boost::bind(&TestClient::CfgNotify, 
                                                    this, _1, _2));
-        Agent::GetVnTable()->Register(boost::bind(&TestClient::VnNotify, 
+        Agent::GetInstance()->GetVnTable()->Register(boost::bind(&TestClient::VnNotify, 
                                                    this, _1, _2));
-        Agent::GetVmTable()->Register(boost::bind(&TestClient::VmNotify, 
+        Agent::GetInstance()->GetVmTable()->Register(boost::bind(&TestClient::VmNotify, 
                                                    this, _1, _2));
-        Agent::GetInterfaceTable()->Register(boost::bind(&TestClient::PortNotify, 
+        Agent::GetInstance()->GetInterfaceTable()->Register(boost::bind(&TestClient::PortNotify, 
                                                    this, _1, _2));
-        Agent::GetAclTable()->Register(boost::bind(&TestClient::AclNotify, 
+        Agent::GetInstance()->GetAclTable()->Register(boost::bind(&TestClient::AclNotify, 
                                                    this, _1, _2));
-        Agent::GetVrfTable()->Register(boost::bind(&TestClient::VrfNotify, 
+        Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&TestClient::VrfNotify, 
                                                    this, _1, _2));
-        Agent::GetNextHopTable()->Register(boost::bind(&TestClient::CompositeNHNotify,
+        Agent::GetInstance()->GetNextHopTable()->Register(boost::bind(&TestClient::CompositeNHNotify,
                                                    this, _1, _2));
-        Agent::GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
+        Agent::GetInstance()->GetMplsTable()->Register(boost::bind(&TestClient::MplsNotify, 
                                                    this, _1, _2));
     };
 

@@ -11,11 +11,10 @@ cflags = env['CCFLAGS']
 cflags.remove('-Werror')
 env['CCFLAGS'] = cflags
 
-cdb_lib = '#/build/debug/cdb'
+cdb_lib = env['TOP'] + '/cdb'
 cdb_include = '#/src/cdb'
 
-env.Append(CPPPATH = ['#/build/include/thrift', cdb_include,
-        '#/build/debug/cdb'])
+env.Append(CPPPATH = ['#/build/include/thrift', cdb_include, cdb_lib])
 env.Append(LIBPATH = [cdb_lib])
 
 env.Append(LIBS = ['thrift', 'cdb'])
@@ -23,4 +22,4 @@ env.Append(LIBS = ['thrift', 'cdb'])
 test = env.Program('cassandra_example',
                    ['cassandra_example.cpp'],
                   )
-env.Requires(test, '#/build/debug/cdb/libcdb.a')
+env.Requires(test, env['TOP'] + '/cdb/libcdb.a')

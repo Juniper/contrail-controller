@@ -9,16 +9,16 @@ Peer::PeerMap Peer::peer_map_;
 tbb::mutex Peer::mutex_;
 
 void Peer::DelPeerRoutes(DelPeerDone cb) {
-    VrfTable *vrf_table = Agent::GetVrfTable();
+    VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
     vrf_table->DelPeerRoutes(this, cb);
 };
 
 void Peer::PeerNotifyRoutes() {
-    VrfTable *vrf_table = Agent::GetVrfTable();
+    VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
     vrf_table->VrfTableWalkerNotify(this);
 };
 
 void Peer::PeerNotifyMcastBcastRoutes(bool associate) {
-    VrfTable *vrf_table = Agent::GetVrfTable();
+    VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
     vrf_table->VrfTableWalkerMcastBcastNotify(this, associate);
 }

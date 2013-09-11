@@ -1,0 +1,54 @@
+<!--
+ Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ -->
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+xmlns:ct="http://www.contrailsystems.com/xmpp-multicast.xsd"
+xsd:targetNamespace="http://www.contrailsystems.com/xmpp-multicast.xsd">
+
+<xsd:complexType name="McastNextHopType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="safi" type="xsd:integer"/>
+    <xsd:element name="address" type="xsd:string"/>
+    <xsd:element name="label" type="xsd:string"/>
+    <!-- label-range for messages from agent to control-node -->
+    <!-- destination label for messages from control-node to agent-->
+</xsd:complexType>
+
+<xsd:complexType name="OlistType">
+    <xsd:element name="next-hop" type="McastNextHopType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:complexType name="McastNextHopsType">
+    <xsd:element name="next-hop" type="McastNextHopType" maxOccurs="unbounded"/>
+</xsd:complexType>
+
+<xsd:complexType name="McastNlriType">
+    <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="safi" type="xsd:integer"/>
+    <xsd:element name="group" type="xsd:string"/>
+    <xsd:element name="source" type="xsd:string"/>
+    <xsd:element name="source-label" type="xsd:integer"/>
+</xsd:complexType>
+
+<xsd:complexType name="McastEntryType">
+    <xsd:all>
+        <xsd:element name="nlri" type="McastNlriType"/>
+        <xsd:element name="next-hops" type="McastNextHopsType"/>
+        <xsd:element name="olist" type="OlistType"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name="McastItemType">
+    <xsd:element name="entry" type="McastEntryType"/>
+</xsd:complexType>
+
+<xsd:complexType name="McastItemsType">
+    <xsd:all>
+        <xsd:element name="item" type="McastItemType" maxOccurs="unbounded"/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:element name="items" type="McastItemsType"/>
+
+</xsd:schema>
+

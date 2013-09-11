@@ -123,17 +123,17 @@ public:
     virtual std::string ToString() const {return "VLAN";};;
     virtual KSyncEntry *UnresolvedReference() {return NULL;};
     virtual bool Sync(DBEntry *e) {return true;};
-    virtual char *AddMsg(int &len) {
+    virtual int AddMsg(char *msg, int len) {
         add_count_++;
-        return NULL;
+        return 0;
     };
-    virtual char *ChangeMsg(int &len) {
+    virtual int ChangeMsg(char *msg, int len) {
         change_count_++;
-        return NULL;
+        return 0;
     };
-    virtual char *DeleteMsg(int &len) {
+    virtual int DeleteMsg(char *msg, int len) {
         del_count_++;
-        return NULL;
+        return 0;
     };
     KSyncDBObject *GetObject();
 

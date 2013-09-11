@@ -18,6 +18,7 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace boost;
 
 static const int kRouteCount = 255;
 
@@ -33,10 +34,10 @@ protected:
         adc_notification_ = 0;
         del_notification_ = 0;
 
-        master_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-            BgpConfigManager::kMasterInstance, "", "");
-        blue_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-            "blue", "target:1.2.3.4:1", "target:1.2.3.4:1");
+        master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            BgpConfigManager::kMasterInstance, "", ""));
+        blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            "blue", "target:1.2.3.4:1", "target:1.2.3.4:1"));
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
@@ -108,8 +109,8 @@ protected:
     BgpServer server_;
     EnetTable *blue_;
     DBTableBase::ListenerId tid_;
-    std::auto_ptr<BgpInstanceConfig> master_cfg_;
-    std::auto_ptr<BgpInstanceConfig> blue_cfg_;
+    scoped_ptr<BgpInstanceConfig> master_cfg_;
+    scoped_ptr<BgpInstanceConfig> blue_cfg_;
 
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;

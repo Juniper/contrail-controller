@@ -22,7 +22,6 @@
 #include "ksync/interface_ksync.h"
 #include "ksync/nexthop_ksync.h"
 
-#include "nl_util.h"
 #include "vr_nexthop.h"
 
 #include "ksync_init.h"
@@ -123,7 +122,7 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     case NextHop::COMPOSITE: {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         //vrf_id_ = comp_nh->GetVrfId();
-        vrf_id_ = (Agent::GetVrfTable()->FindVrfFromName(comp_nh->GetVrfName()))->GetVrfId();
+        vrf_id_ = (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(comp_nh->GetVrfName()))->GetVrfId();
         sip_.s_addr = comp_nh->GetSrcAddr().to_ulong();
         dip_.s_addr = comp_nh->GetGrpAddr().to_ulong();
         is_mcast_nh_ = comp_nh->IsMcastNH();
@@ -321,7 +320,9 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
             IntfKSyncObject *interface_object = IntfKSyncObject::GetKSyncObject();
             IntfKSyncEntry interface(rcv_nh->GetInterface());
             interface_ = interface_object->GetReference(&interface);
-            memcpy(&dmac_, PhysicalIntfMac(), sizeof(dmac_));
+            memcpy(&dmac_, 
+                   IntfKSyncObject::GetKSyncObject()->PhysicalIntfMac(),
+                   sizeof(dmac_));
         } else if (active_nh->GetType() == NextHop::DISCARD) {
             valid_ = false;
             interface_ = NULL;
@@ -385,23 +386,13 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     return ret;
 };
 
-char *NHKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_nexthop_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
     uint32_t intf_id = kInvalidIndex;
     std::vector<int8_t> encap;
     const uint8_t *smac = nil_mac;
     IntfKSyncEntry *interface = NULL;
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(ERROR, "Error creating if message. Error : " << ret);
-        return NULL;
-    }
 
     encoder.set_h_op(op);
     encoder.set_nhr_id(GetIndex());
@@ -438,7 +429,8 @@ char *NHKSyncEntry::Encode(sandesh_op::type op, int &len) {
             if (type_ == NextHop::VLAN) {
                 smac = smac_.ether_addr_octet;
             } else {
-                smac = (const uint8_t *)PhysicalIntfMac();
+                smac = (const uint8_t *)
+                    IntfKSyncObject::GetKSyncObject()->PhysicalIntfMac();
             }
             for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
                 encap.push_back(smac[i]);
@@ -479,7 +471,8 @@ char *NHKSyncEntry::Encode(sandesh_op::type op, int &len) {
                 encap.push_back(dmac_.ether_addr_octet[i]);
             }
             /* SMAC encode */
-            smac = (const uint8_t *)PhysicalIntfMac();
+            smac = (const uint8_t *)
+                IntfKSyncObject::GetKSyncObject()->PhysicalIntfMac();
             for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
                 encap.push_back(smac[i]);
             }
@@ -512,7 +505,8 @@ char *NHKSyncEntry::Encode(sandesh_op::type op, int &len) {
                 encap.push_back(dmac_.ether_addr_octet[i]);
             }
             /* SMAC encode */
-            smac = (const uint8_t *)PhysicalIntfMac();
+            smac = (const uint8_t *)
+                IntfKSyncObject::GetKSyncObject()->PhysicalIntfMac();
             for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
                 encap.push_back(smac[i]);
             }
@@ -575,11 +569,8 @@ char *NHKSyncEntry::Encode(sandesh_op::type op, int &len) {
             assert(0);
     }
     encoder.set_nhr_flags(flags);
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    return encode_len;
 }
 
 void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) {
@@ -675,28 +666,28 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) {
     }
 }
 
-char *NHKSyncEntry::AddMsg(int &len) {
+int NHKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(NH, info);
  
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *NHKSyncEntry::ChangeMsg(int &len){
+int NHKSyncEntry::ChangeMsg(char *buf, int buf_len){
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(NH, info);
 
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *NHKSyncEntry::DeleteMsg(int &len) {
+int NHKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncNhInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(NH, info);
 
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 KSyncEntry *NHKSyncEntry::UnresolvedReference() {

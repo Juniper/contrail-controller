@@ -19,13 +19,13 @@ SandeshTraceBufferPtr DhcpTraceBuf(SandeshTraceBufferCreate("Dhcp", 1000));
 SandeshTraceBufferPtr ArpTraceBuf(SandeshTraceBufferCreate("Arp", 1000));
 
 void ServicesModule::Init(bool run_with_vrouter) {
-    EventManager *event = Agent::GetEventManager();
+    EventManager *event = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event->io_service();
 
     DhcpProto::Init(io, run_with_vrouter);
     DnsProto::Init(io);
     ArpProto::Init(io, run_with_vrouter);
-    Proto<IcmpHandler>::Init("Agent::Services", PktHandler::ICMP, io);
+    IcmpProto::Init(io);
 }
 
 void ServicesModule::ConfigInit() {
@@ -33,7 +33,8 @@ void ServicesModule::ConfigInit() {
 }
 
 void ServicesModule::Shutdown() {
-    Proto<DhcpHandler>::Shutdown();
-    Proto<DnsHandler>::Shutdown();
+    DhcpProto::Shutdown();
+    DnsProto::Shutdown();
     ArpProto::Shutdown();
+    IcmpProto::Shutdown();
 }

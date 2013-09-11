@@ -728,7 +728,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     QE_TRACE(DEBUG, "Initializing database");
     dbif = dbif_.get();
 
-    if (!dbif->Db_Init()) {
+    if (!dbif->Db_Init("qe::DbHandler", -1)) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
@@ -769,7 +769,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-
+    dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
 
@@ -798,7 +798,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     QE_TRACE(DEBUG, "Initializing database");
     dbif = dbif_.get();
 
-    if (!dbif->Db_Init()) {
+    if (!dbif->Db_Init("qe::DbHandler", -1)) {
         QE_LOG(ERROR, "Database initialization failed");
         this->status_details = EIO;
     }
@@ -840,7 +840,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
             this->status_details = EIO;
         }
     }
-
+    dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
 
@@ -882,7 +882,7 @@ QueryEngine::QueryEngine(EventManager *evm,
     bool retry = true;
     while (retry == true) {
         retry = false;
-        if (!db_if->Db_Init()) {
+        if (!db_if->Db_Init("qe::DbHandler", -1)) {
             QE_LOG_NOQID(ERROR, "Database initialization failed");
             retry = true;
         }
@@ -918,7 +918,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            db_if->Db_Uninit();
+            db_if->Db_Uninit(false);
             sleep(5);
         }
     }
@@ -951,6 +951,7 @@ QueryEngine::QueryEngine(EventManager *evm,
     }
     if (!init_done)
         stime = UTCTimestampUsec()-StartTimeDiffInSec*1000000;
+    dbif_->Db_SetInitDone(true);
 }
 
 using std::vector;

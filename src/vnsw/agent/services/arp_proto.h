@@ -20,10 +20,12 @@
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
 #include "services/services_types.h"
+#include "base/timer.h"
 
 #define GRATUITOUS_ARP 0x0100 // keep this different from standard ARP commands
 
 class ArpEntry;
+class ArpNHClient;
 
 template <typename CacheKey, typename CacheEntry>
 class Cache {
@@ -42,7 +44,7 @@ public:
             return cache_.insert(CachePair(key, entry)).second;
         return false;
     };
-    bool Remove(CacheKey &key) {
+    bool Delete(CacheKey &key) {
         tbb::mutex::scoped_lock lock(mutex_);
         return (bool) cache_.erase(key);
     };
@@ -86,7 +88,6 @@ struct ArpKey {
 
 class ArpHandler : public ProtoHandler {
 public:
-    typedef Cache<ArpKey, ArpEntry *> ArpCache;
     enum ArpMsgType {
         VRF_DELETE,
         ITF_DELETE,
@@ -97,22 +98,6 @@ public:
         AGING_TIMER_EXPIRED,
         GRACIOUS_TIMER_EXPIRED,
     };
-    struct ArpStats {
-        uint32_t pkts_dropped;
-        uint32_t arp_req;
-        uint32_t arp_replies;
-        uint32_t arp_gracious;
-        uint32_t resolved;
-        uint32_t max_retries_exceeded;
-        uint32_t errors;
-
-        void Reset() {
-            pkts_dropped = arp_req = arp_replies = arp_gracious = 
-            resolved = max_retries_exceeded = errors = 0;
-        }
-    };
-    static const uint32_t grat_retry_timeout_ = 2000;  // milli seconds
-    static const uint16_t grat_retries_ = 2;
 
     struct ArpIpc : IpcMsg {
         ArpKey key;
@@ -128,43 +113,13 @@ public:
     virtual ~ArpHandler() {}
     bool Run();
 
-    static uint16_t MaxRetries() { return max_retries_; }
-    static void MaxRetries(uint16_t val) { max_retries_ = val; }
-    static uint32_t RetryTimeout() { return retry_timeout_; }
-    static void RetryTimeout(uint32_t val) { retry_timeout_ = val; }
-    static uint32_t AgingTimeout() { return aging_timeout_; }
-    static void AgingTimeout(uint32_t val) { aging_timeout_ = val; }
-    static Interface *IPFabricIntf() { return ip_fabric_intf_; }
-    static void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
-    static uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
-    static void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
-    static unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
-    static void IPFabricIntfMac(char *mac) { 
-        memcpy(ip_fabric_intf_mac_, mac, MAC_ALEN);
-    }
-    static void StatsPktsDropped() { arp_stats_.pkts_dropped++; }
-    static void StatsArpReq() { arp_stats_.arp_req++; }
-    static void StatsArpReplies() { arp_stats_.arp_replies++; }
-    static void StatsGracious() { arp_stats_.arp_gracious++; }
-    static void StatsResolved() { arp_stats_.resolved++; }
-    static void StatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
-    static void StatsErrors() { arp_stats_.errors++; }
-    static ArpStats GetStats() { return arp_stats_; }
-    static void ClearStats() { arp_stats_.Reset(); }
-    static std::size_t GetArpCacheSize() { return arp_cache_.Size(); }
-    static const ArpCache& GetArpCache() { return arp_cache_; }
     static void SendArpIpc(ArpHandler::ArpMsgType type,
                            in_addr_t ip, const VrfEntry *vrf);
     static void SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key);
-    static void Shutdown() {
-    }
 
     void SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
                  unsigned const char *tmac, in_addr_t tip, 
                  uint16_t itf, uint16_t vrf);
-    bool RemoveCacheEntry(ArpKey &key) { 
-        return arp_cache_.Remove(key); 
-    }
     bool EntryDelete(ArpEntry *&entry);
     void EntryDeleteWithKey(ArpKey &key);
 
@@ -178,55 +133,106 @@ private:
 
     ether_arp *arp_;
     in_addr_t arp_tpa_;
-
     std::vector<ArpEntry *> arp_del_list_;
-    static uint16_t max_retries_;
-    static uint32_t retry_timeout_;  // milli seconds
-    static uint32_t aging_timeout_;  // milli seconds
-    static uint16_t ip_fabric_intf_index_;
-    static unsigned char ip_fabric_intf_mac_[MAC_ALEN];
-    static Interface *ip_fabric_intf_;
-    static ArpStats arp_stats_;
-    static ArpCache arp_cache_;
+
     DISALLOW_COPY_AND_ASSIGN(ArpHandler);
 };
 
 class ArpProto : public Proto<ArpHandler> {
 public:
+    static const uint16_t kGratRetries = 2;
+    static const uint32_t kGratRetryTimeout = 2000;        // milli seconds
+    static const uint16_t kMaxRetries = 8;
+    static const uint32_t kRetryTimeout = 2000;            // milli seconds
+    static const uint32_t kAgingTimeout = (5 * 60 * 1000); // milli seconds
+
+    typedef Cache<ArpKey, ArpEntry *> ArpCache;
+    typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
+
+    struct ArpStats {
+        uint32_t pkts_dropped;
+        uint32_t arp_req;
+        uint32_t arp_replies;
+        uint32_t arp_gracious;
+        uint32_t resolved;
+        uint32_t max_retries_exceeded;
+        uint32_t errors;
+
+        void Reset() {
+            pkts_dropped = arp_req = arp_replies = arp_gracious = 
+            resolved = max_retries_exceeded = errors = 0;
+        }
+        ArpStats() { Reset(); }
+    };
+
     static void Init(boost::asio::io_service &io, bool run_with_vrouter);
     static void Shutdown();
-    virtual ~ArpProto() {
-        Agent::GetVrfTable()->Unregister(vid_);
-        Agent::GetInterfaceTable()->Unregister(iid_);
-        DelGraciousArpEntry();
+    virtual ~ArpProto();
+
+    bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
+
+    bool Add(ArpKey &key, ArpEntry *ent) { return arp_cache_.Add(key, ent); }
+    bool Delete(ArpKey &key) { return arp_cache_.Delete(key); }
+    ArpEntry *Find(ArpKey &key) { return arp_cache_.Find(key); }
+    void Iterate(Callback cb) { arp_cache_.Iterate(cb); }
+    std::size_t GetArpCacheSize() { return arp_cache_.Size(); }
+    const ArpCache& GetArpCache() { return arp_cache_; }
+
+    Interface *IPFabricIntf() { return ip_fabric_intf_; }
+    void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
+    uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
+    void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
+    unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
+    void IPFabricIntfMac(char *mac) { 
+        memcpy(ip_fabric_intf_mac_, mac, MAC_ALEN);
     }
 
-    static ArpProto *GetInstance() { 
-        return static_cast<ArpProto *>(Proto<ArpHandler>::instance_); 
-    }
+    ArpNHClient *GetArpNHClient() { return arp_nh_client_; }
     boost::asio::io_service &GetIoService() { return Proto<ArpHandler>::io_; }
-    void TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type, 
-                     const boost::system::error_code &ec);
 
-    static ArpEntry *GraciousArpEntry() { return gracious_arp_entry_; }
-    static void GraciousArpEntry(ArpEntry *entry) { 
-        gracious_arp_entry_ = entry; 
-    }
-    static void DelGraciousArpEntry();
+    ArpEntry *GraciousArpEntry() { return gracious_arp_entry_; }
+    void GraciousArpEntry(ArpEntry *entry) { gracious_arp_entry_ = entry; }
+    void DelGraciousArpEntry();
+
+    void StatsPktsDropped() { arp_stats_.pkts_dropped++; }
+    void StatsArpReq() { arp_stats_.arp_req++; }
+    void StatsArpReplies() { arp_stats_.arp_replies++; }
+    void StatsGracious() { arp_stats_.arp_gracious++; }
+    void StatsResolved() { arp_stats_.resolved++; }
+    void StatsMaxRetries() { arp_stats_.max_retries_exceeded++; }
+    void StatsErrors() { arp_stats_.errors++; }
+    ArpStats GetStats() { return arp_stats_; }
+    void ClearStats() { arp_stats_.Reset(); }
+
+    uint16_t MaxRetries() { return max_retries_; }
+    void MaxRetries(uint16_t retries) { max_retries_ = retries; }
+    uint32_t RetryTimeout() { return retry_timeout_; }
+    void RetryTimeout(uint32_t timeout) { retry_timeout_ = timeout; }
+    uint32_t AgingTimeout() { return aging_timeout_; }
+    void AgingTimeout(uint32_t timeout) { aging_timeout_ = timeout; }
 
 private:
-    ArpProto(boost::asio::io_service &io, bool run_with_vrouter) : 
-        Proto<ArpHandler>("Agent::Services", PktHandler::ARP, io), 
-        run_with_vrouter_(run_with_vrouter) {}
+    ArpProto(boost::asio::io_service &io, bool run_with_vrouter);
     void VrfUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void ItfUpdate(DBEntryBase *entry);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
 
+    ArpCache arp_cache_;
+    ArpStats arp_stats_;
+    ArpNHClient *arp_nh_client_;
     bool run_with_vrouter_;
-    static DBTableBase::ListenerId vid_;
-    static DBTableBase::ListenerId iid_;
-    static ArpEntry *gracious_arp_entry_;
+    uint16_t ip_fabric_intf_index_;
+    unsigned char ip_fabric_intf_mac_[MAC_ALEN];
+    Interface *ip_fabric_intf_;
+    ArpEntry *gracious_arp_entry_;
+    DBTableBase::ListenerId vid_;
+    DBTableBase::ListenerId iid_;
     DBTableBase::ListenerId fabric_route_table_listener_;
+
+    uint16_t max_retries_;
+    uint32_t retry_timeout_;   // milli seconds
+    uint32_t aging_timeout_;   // milli seconds
+
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
 };
 
@@ -243,14 +249,14 @@ public:
              const VrfEntry *vrf,
              State state = ArpEntry::INITING) 
         : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
-        arp_timer_(io) {
+        arp_timer_(NULL) {
         memset(mac_, 0, MAC_ALEN);
+        arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
     }
     virtual ~ArpEntry() {
-        boost::system::error_code ec;
-        arp_timer_.cancel(ec);
-        assert(ec.value() == 0);
+        arp_timer_->Cancel();
         delete handler_;
+        TimerManager::DeleteTimer(arp_timer_);
     }
     bool IsResolved() {
         return (state_ & (ArpEntry::ACTIVE | ArpEntry::RERESOLVING));
@@ -267,6 +273,7 @@ public:
     void SendGraciousArp();
 
 private:
+    void StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype);
     void SendArpRequest();
     void UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved = false);
 
@@ -275,26 +282,22 @@ private:
     State state_;
     int retry_count_;
     ArpHandler *handler_;
-    boost::asio::deadline_timer arp_timer_;
+    Timer *arp_timer_;
     DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 
 class ArpNHClient {
 public:
-    virtual ~ArpNHClient() { };
+    ArpNHClient(boost::asio::io_service &io);
+    virtual ~ArpNHClient();
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void HandleArpNHmodify(ArpNH *arp_nh);
     void UpdateArp(Ip4Address &ip, struct ether_addr &mac, const string &vrf,
                    const Interface &intf, DBRequest::DBOperation op, 
                    bool resolved);
-    static void Init(boost::asio::io_service &io);
-    static void Shutdown();
-    static ArpNHClient *GetArpNHClient() {return singleton_;};
 
 private:
-    ArpNHClient(boost::asio::io_service &io) : io_(io) { };
-    static ArpNHClient *singleton_;
-    static DBTableBase::ListenerId listener_id_;
+    DBTableBase::ListenerId listener_id_;
     boost::asio::io_service &io_;
     DISALLOW_COPY_AND_ASSIGN(ArpNHClient);
 };

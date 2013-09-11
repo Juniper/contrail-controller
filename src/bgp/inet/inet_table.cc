@@ -57,7 +57,7 @@ DBTableBase *InetTable::CreateTable(DB *db, const std::string &name) {
 
 BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *path,
-        ExtCommunityPtr community, OriginVnPtr origin_vn) {
+        ExtCommunityPtr community) {
 
     InetRoute *inet= dynamic_cast<InetRoute *> (src_rt);
 
@@ -84,17 +84,9 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         dest_route->ClearDelete();
     }
 
-    // The attributes of the secondary path include the route-target
-    // community associated with the incoming route (or vrf-export policy
-    // of a local vrf).
-    BgpAttrPtr new_attr;
-    if (src_table->family() == Address::INET) {
-        new_attr = server->attr_db()->ReplaceExtCommunityAndLocate(
-            path->GetAttr(), community);
-    } else {
-        new_attr = server->attr_db()->ReplaceOriginVnAndLocate(
-            path->GetAttr(), origin_vn);
-    }
+    // Replace the extended community with the one provided.
+    BgpAttrPtr new_attr = server->attr_db()->ReplaceExtCommunityAndLocate(
+        path->GetAttr(), community);
 
     // Check whether there's already a path with the given peer and path id.
     BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt, path->GetPeer(),
@@ -103,8 +95,8 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         if ((new_attr != dest_path->GetAttr()) || 
             (path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
-            dest_route->RemoveSecondaryPath(src_rt, path->GetPeer(), 
-                                        path->GetPathId(), path->GetSource());
+            assert(dest_route->RemoveSecondaryPath(src_rt, path->GetPeer(), 
+                                        path->GetPathId(), path->GetSource()));
         } else {
             return dest_route;
         }

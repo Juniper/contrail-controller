@@ -18,7 +18,7 @@ struct IFMapOrigin {
         return origin == rhs.origin;
     }
     void set_origin(Origin in_origin) { origin = in_origin; }
-    std::string ToString() {
+    std::string ToString() const {
         if (origin == UNKNOWN) {
             return "Unknown";
         } else if (origin == LOCAL) {
@@ -31,7 +31,7 @@ struct IFMapOrigin {
             return "NotSet";
         }
     }
-    bool IsOriginXmpp() {
+    bool IsOriginXmpp() const {
         return ((origin == XMPP) ? true : false);
     }
 

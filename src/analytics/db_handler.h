@@ -32,7 +32,7 @@ public:
     virtual ~DbHandler();
 
     bool Init();
-    void UnInit();
+    void UnInit(bool shutdown);
 
     bool CreateTables();
     inline bool AllowMessageTableInsert(std::string& message_type);

@@ -27,14 +27,13 @@
 #include "ksync/flowtable_ksync.h"
 
 SandeshTraceBufferPtr PktFlowTraceBuf(SandeshTraceBufferCreate("FlowHandler", 5000));
-template <> Proto<FlowHandler> *Proto<FlowHandler>::instance_ = NULL;
 
 void FlowHandler::Init(boost::asio::io_service &io) {
-    Proto<FlowHandler>::Init("Agent::FlowHandler", PktHandler::FLOW, io);
+    FlowProto::Init(io);
 }
 
 void FlowHandler::Shutdown() {
-    Proto<FlowHandler>::Shutdown();
+    FlowProto::Shutdown();
 }
 
 static void LogError(const PktInfo *pkt, const char *str) {
@@ -215,7 +214,7 @@ static bool IntfHasFloatingIp(const Interface *intf) {
 
 static bool IsMdataRoute(const Inet4UcRoute *rt) {
     const AgentPath *path = rt->GetActivePath();
-    if (path && path->GetPeer() == Agent::GetMdataPeer())
+    if (path && path->GetPeer() == Agent::GetInstance()->GetMdataPeer())
         return true;
 
     return false;
@@ -251,7 +250,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         const VmPortInterface *vm_port = 
             static_cast<const VmPortInterface *>(in->intf_);
         const VrfEntry *vrf = 
-            Agent::GetVrfTable()->FindVrfFromId(pkt->vrf);
+            Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->vrf);
         if (vm_port->HasServiceVlan() && vm_port->GetVrf() != vrf) {
             //Packet came on service VRF
             label = vm_port->GetServiceVlanLabel(vrf);
@@ -260,23 +259,24 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             VlanNHKey key(vm_port->GetUuid(), vlan);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetNextHopTable()->FindActiveEntry(&key));
+                (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
         } else {
             InterfaceNHKey key(static_cast<InterfaceKey *>(vm_port->GetDBRequestKey().release()),
                                false, false);
             component_nh_ptr =
                 static_cast<NextHop *>
-                (Agent::GetNextHopTable()->FindActiveEntry(&key));
+                (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
             label = vm_port->GetLabel();
         }
     } else {
         //Packet from fabric
         Ip4Address dest_ip(pkt->tunnel.ip_saddr);
-        TunnelNHKey key(Agent::GetDefaultVrf(), Agent::GetRouterId(), dest_ip,
+        TunnelNHKey key(Agent::GetInstance()->GetDefaultVrf(), 
+                        Agent::GetInstance()->GetRouterId(), dest_ip,
                         false, pkt->tunnel.type);
         //Get component NH pointer
         component_nh_ptr =
-            static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+            static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
         //Get Label to be used to reach destination server
         const CompositeNH *nh = 
             static_cast<const CompositeNH *>(in->rt_->GetActiveNextHop());
@@ -291,8 +291,8 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     } else {
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
-        if (in->rt_->FindPath(Agent::GetLocalVmPeer())) {
-            nh = in->rt_->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+        if (in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
+            nh = in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
         } else {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>
                 (in->rt_->GetActiveNextHop());
@@ -357,14 +357,15 @@ void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    out->vrf_ = Agent::GetVrfTable()->FindVrfFromName(Agent::GetDefaultVrf());
+    out->vrf_ = Agent::GetInstance()->GetVrfTable()->
+                FindVrfFromName(Agent::GetInstance()->GetDefaultVrf());
     dest_vrf = out->vrf_->GetVrfId();
 
     // Set NAT flow fields
     mdata_flow = true;
     nat_done = true;
     nat_ip_saddr = vm_port->GetMdataIpAddr().to_ulong();
-    nat_ip_daddr = Agent::GetRouterId().to_ulong();
+    nat_ip_daddr = Agent::GetInstance()->GetRouterId().to_ulong();
     if (pkt->ip_proto == IPPROTO_TCP) {
         nat_dport = METADATA_PORT;
     } else {
@@ -395,7 +396,7 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
     }
 
     if ((pkt->ip_daddr != vm_port->GetMdataIpAddr().to_ulong()) ||
-        (pkt->ip_saddr != Agent::GetRouterId().to_ulong())) {
+        (pkt->ip_saddr != Agent::GetInstance()->GetRouterId().to_ulong())) {
         // Force implicit deny
         in->rt_ = NULL;
         out->rt_ = NULL;
@@ -622,7 +623,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
                                 PktControlInfo *out) {
-    MplsLabel *mpls = Agent::GetMplsTable()->FindMplsLabel(pkt->tunnel.label);
+    MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(pkt->tunnel.label);
     if (mpls == NULL) {
         LogError(pkt, "Invalid Label in egress flow");
         return;
@@ -661,7 +662,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         return false;
     }
 
-    in->vrf_ = Agent::GetVrfTable()->FindVrfFromId(pkt->agent_hdr.vrf);
+    in->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         LogError(pkt, "Invalid or Inactive VRF");
         return false;
@@ -709,7 +710,6 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         SetEcmpFlowInfo(pkt, in, out);
     }
 
-    dest_intf = out->intf_;
     return true;
 }
 
@@ -720,35 +720,56 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
 
     FlowEntryPtr rflow(NULL);
+    uint16_t r_sport;
+    uint16_t r_dport;
+
+    if (pkt->ip_proto == IPPROTO_ICMP) {
+        r_sport = pkt->sport;
+        r_dport = pkt->dport;
+    } else if (nat_done) {
+        r_sport = nat_dport;
+        r_dport = nat_sport;
+    } else {
+        r_sport = pkt->dport;
+        r_dport = pkt->sport;
+    }
+
     if (nat_done) {
         FlowKey rkey(nat_vrf, nat_ip_daddr, nat_ip_saddr,
-                     pkt->ip_proto, nat_dport, nat_sport);
+                     pkt->ip_proto, r_sport, r_dport);
         rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
     } else {
         FlowKey rkey(dest_vrf, pkt->ip_daddr, pkt->ip_saddr,
-                     pkt->ip_proto, pkt->dport, pkt->sport);
+                     pkt->ip_proto, r_sport, r_dport);
         rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
     }
 
-    InitFwdFlow(flow.get(), pkt, in);
-    InitRevFlow(rflow.get(), pkt, out);
+    InitFwdFlow(flow.get(), pkt, in, out);
+    InitRevFlow(rflow.get(), pkt, out, in);
 
     PktFlowTrace(pkt, this);
     FlowTable::GetFlowTableObject()->Add(flow.get(), rflow.get());
 }
 
 void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
+
+    std::ostringstream ostr;
+    ostr << "ECMP Resolve for flow index " << flow_index;
+    PKTFLOW_TRACE(Err,ostr.str());
+
     FlowKey key;
     if (!FlowTableKSyncObject::GetKSyncObject()->GetFlowKey(flow_index, key)) {
-        PKTFLOW_TRACE(Err,
-                string("ECMP Resolve: unable to find flow index %u", flow_index));
+        std::ostringstream ostr;
+        ostr << "ECMP Resolve: unable to find flow index " << flow_index;
+        PKTFLOW_TRACE(Err,ostr.str());
         return;
     }
 
     FlowEntry *flow = FlowTable::GetFlowTableObject()->Find(key);
     if (!flow) {
-        PKTFLOW_TRACE(Err,
-                string("ECMP Resolve unable to find flow entry %u", flow_index));
+        std::ostringstream ostr;  
+        ostr << "ECMP Resolve: unable to find flow index " << flow_index;
+        PKTFLOW_TRACE(Err,ostr.str());
         return;
     }
 
@@ -768,11 +789,6 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
 }
 
 bool FlowHandler::Run() {
-    if (pkt_info_->ip == NULL) {
-        LogError(pkt_info_, "Flow : Non-IP packet. Dropping");
-        return true;
-    }
-
     PktControlInfo in;
     PktControlInfo out;
     PktFlowInfo info(pkt_info_);
@@ -811,18 +827,6 @@ bool FlowHandler::Run() {
         info.local_flow = true;
     }
 
-    if (in.intf_ == NULL) {
-        in.intf_ = out.intf_;
-    } else if (out.intf_ == NULL) {
-        out.intf_ = in.intf_;
-    }
-
-    if (in.vn_ == NULL) {
-        in.vn_ = out.vn_;
-    } else if (out.vn_ == NULL) {
-        out.vn_ = in.vn_;
-    }
-
     if (in.intf_) {
         in.vm_ = InterfaceToVm(in.intf_);
     }
@@ -835,7 +839,8 @@ bool FlowHandler::Run() {
     return true;
 }
 
-bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl) {
+bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
+                              PktControlInfo *rev_ctrl) {
     if (flow->last_modified_time) {
         if (flow->nat != nat_done) {
             flow->MakeShortFlow();
@@ -849,14 +854,15 @@ bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl) {
     flow->short_flow = short_flow;
     flow->local_flow = local_flow;
 
-    flow->data.vn_entry = ctrl->vn_;
-    flow->data.intf_entry = ctrl->intf_;
-    flow->data.vm_entry = ctrl->vm_;
+    flow->data.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
+    flow->data.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
+    flow->data.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
+
     return true;
 }
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
-                              PktControlInfo *ctrl) {
+                              PktControlInfo *ctrl, PktControlInfo *rev_ctrl) {
     if (flow->flow_handle != pkt->GetAgentHdr().cmd_param) {
         if (flow->flow_handle != FlowEntry::kInvalidFlowHandle) {
             LOG(DEBUG, "Flow index changed from " << flow->flow_handle 
@@ -865,7 +871,7 @@ void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
         flow->flow_handle = pkt->GetAgentHdr().cmd_param;
     }
 
-    if (InitFlowCmn(flow, ctrl) == false) {
+    if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
         return;
     }
     flow->is_reverse_flow = false;
@@ -888,8 +894,8 @@ void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
 }
 
 void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
-                              PktControlInfo *ctrl) {
-    if (InitFlowCmn(flow, ctrl) == false) {
+                              PktControlInfo *ctrl, PktControlInfo *rev_ctrl) {
+    if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
         return;
     }
     flow->is_reverse_flow = true;

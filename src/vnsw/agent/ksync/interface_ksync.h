@@ -27,9 +27,6 @@ void KSyncInterfaceCreate(Interface::Type type, const char *if_name,
                           struct ether_addr &mac);
 void KSyncInterfaceDelete(Interface::Type type, const char *if_name,
                           uint32_t vrf_id, uint32_t ifindex, uint32_t fd);
-extern void PhysicalIntfInit();
-extern void PhysicalIntfInitTest();
-const char *PhysicalIntfMac();
 void GetPhyMac(const char *ifname, char *mac);
 
 class Timer;
@@ -75,9 +72,9 @@ public:
 
     virtual std::string ToString() const;
 
-    virtual char *AddMsg(int &len);
-    virtual char *ChangeMsg(int &len);
-    virtual char *DeleteMsg(int &len);
+    virtual int AddMsg(char *buf, int buf_len);
+    virtual int ChangeMsg(char *buf, int buf_len);
+    virtual int DeleteMsg(char *buf, int buf_len);
     virtual KSyncEntry *UnresolvedReference() {
         return NULL;
     };
@@ -174,7 +171,7 @@ public:
 
 private:
     friend class IntfKSyncObject;
-    char *Encode(sandesh_op::type op, int &len);
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
     string ifname_;     // Key
     Interface::Type type_;
     uint32_t intf_id_;
@@ -196,8 +193,7 @@ public:
     static const int kInterfaceCount = 1000;        // Max interfaces
 
     IntfKSyncObject(DBTableBase *table) : 
-        KSyncDBObject(table, kInterfaceCount) {};
-
+        KSyncDBObject(table, kInterfaceCount), vnsw_if_mac(), test_mode() {};
     virtual ~IntfKSyncObject() {};
 
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
@@ -225,27 +221,20 @@ public:
         return static_cast<KSyncEntry *>(key);
     }
 
-    static void Init(InterfaceTable *table) {
-        PhysicalIntfInit();
-        assert(singleton_ == NULL);
-        singleton_ = new IntfKSyncObject(table);
-    };
-
-    static void InitTest(InterfaceTable *table) {
-        PhysicalIntfInitTest();
-        assert(singleton_ == NULL);
-        singleton_ = new IntfKSyncObject(table);
-    };
- 
-    static IntfKSyncObject *GetKSyncObject() { return singleton_; };
-    const char *GetPhyIntfMac() { return PhysicalIntfMac(); };
-
+    static void Init(InterfaceTable *table);
+    static void InitTest(InterfaceTable *table);
     static void Shutdown() {
         delete singleton_;
         singleton_ = NULL;
     }
+ 
+    static IntfKSyncObject *GetKSyncObject() {return singleton_;};
+    const char *PhysicalIntfMac() const {return vnsw_if_mac;};
+    bool GetTestMode() const {return test_mode;};
 private:
     static IntfKSyncObject *singleton_;
+    char vnsw_if_mac[ETHER_ADDR_LEN];
+    int test_mode;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncObject);
 };
 

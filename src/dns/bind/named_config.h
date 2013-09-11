@@ -9,7 +9,6 @@
 #include <fstream>
 #include <set>
 #include <string>
-#include <cfg/dns_config.h>
 #include <base/timer.h>
 
 class BindStatus {
@@ -76,13 +75,14 @@ public:
     virtual ~NamedConfig() { singleton_ = NULL; }
     static NamedConfig *GetNamedConfigObject() { return singleton_; }
     static void Init();
+    static void Shutdown();
     void Reset();
-    void AddView(const VirtualDnsConfig *vdns);
-    void ChangeView(const VirtualDnsConfig *vdns);
-    void DelView(const VirtualDnsConfig *vdns);
-    void AddAllViews();
-    void AddZone(const Subnet &subnet, const VirtualDnsConfig *vdns);
-    void DelZone(const Subnet &subnet, const VirtualDnsConfig *vdns);
+    virtual void AddView(const VirtualDnsConfig *vdns);
+    virtual void ChangeView(const VirtualDnsConfig *vdns);
+    virtual void DelView(const VirtualDnsConfig *vdns);
+    virtual void AddAllViews();
+    virtual void AddZone(const Subnet &subnet, const VirtualDnsConfig *vdns);
+    virtual void DelZone(const Subnet &subnet, const VirtualDnsConfig *vdns);
 
     virtual void UpdateNamedConf(const VirtualDnsConfig *updated_vdns = NULL);
     void RemoveZoneFiles(const VirtualDnsConfig *vdns, ZoneList &zones);

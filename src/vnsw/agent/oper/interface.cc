@@ -3,7 +3,6 @@
  */
 
 #include <netinet/ether.h>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "base/logging.h"
@@ -109,7 +108,7 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
                 if (vm_data->analyzer_name_.size()) {
                     MirrorEntryKey mirror_key(vm_data->analyzer_name_);
                     MirrorEntry *mirr_entry = static_cast<MirrorEntry *>
-                            (Agent::GetMirrorTable()->FindActiveEntry(&mirror_key));
+                            (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirror_key));
                     vmport_intf->SetMirrorEntry(mirr_entry);
                 } else {
                     vmport_intf->SetMirrorEntry(NULL);
@@ -157,17 +156,17 @@ void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
 
 VrfEntry *InterfaceTable::FindVrfRef(const string &name) const {
     VrfKey key(name);
-    return static_cast<VrfEntry *>(Agent::GetVrfTable()->FindActiveEntry(&key));
+    return static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
 }
 
 VmEntry *InterfaceTable::FindVmRef(const uuid &uuid) const {
     VmKey key(uuid);
-    return static_cast<VmEntry *>(Agent::GetVmTable()->FindActiveEntry(&key));
+    return static_cast<VmEntry *>(Agent::GetInstance()->GetVmTable()->FindActiveEntry(&key));
 }
 
 VnEntry *InterfaceTable::FindVnRef(const uuid &uuid) const {
     VnKey key(uuid);
-    return static_cast<VnEntry *>(Agent::GetVnTable()->FindActiveEntry(&key));
+    return static_cast<VnEntry *>(Agent::GetInstance()->GetVnTable()->FindActiveEntry(&key));
 }
 
 DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
@@ -331,10 +330,10 @@ void BuildVmPortVrfInfo(VmPortInterfaceData *data, IFMapNode *node) {
 
             ether_addr smac = *ether_aton("00:01:00:5E:00:00");
             ether_addr dmac = *ether_aton("FF:FF:FF:FF:FF:FF");
-            if (rule.src_mac != Agent::NullString()) {
+            if (rule.src_mac != Agent::GetInstance()->NullString()) {
                 smac = *ether_aton(rule.src_mac.c_str());
             }
-            if (rule.src_mac != Agent::NullString()) {
+            if (rule.src_mac != Agent::GetInstance()->NullString()) {
                 dmac = *ether_aton(rule.dst_mac.c_str());
             }
             data->service_vlan_list_[rule.vlan_tag] = 
@@ -367,7 +366,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
-    CfgIntTable *cfg_table = Agent::GetIntfCfgTable();
+    CfgIntTable *cfg_table = Agent::GetInstance()->GetIntfCfgTable();
     CfgIntKey cfg_key(u);
     CfgIntEntry *nova_entry = static_cast <CfgIntEntry *>
         (cfg_table->Find(&cfg_key));
@@ -480,8 +479,8 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     data->SetFabricPort(false);
     data->SetNeedLinkLocalIp(true);
     data->SetSgUuidList(sg_list);
-    if (data->vrf_name_ == Agent::GetDefaultVrf() ||
-        data->vrf_name_ == Agent::GetLinkLocalVrfName()) {
+    if (data->vrf_name_ == Agent::GetInstance()->GetDefaultVrf() ||
+        data->vrf_name_ == Agent::GetInstance()->GetLinkLocalVrfName()) {
         data->SetFabricPort(true);
         data->SetNeedLinkLocalIp(false);
     } 
@@ -518,11 +517,11 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
         if (adj_node->table() == AgentConfig::GetVmInterfaceTable()) {
             DBRequest req;
             InterfaceTable *interface_table = static_cast<InterfaceTable *>
-                (Agent::GetInterfaceTable());
+                (Agent::GetInstance()->GetInterfaceTable());
 
             if (interface_table->IFNodeToReq(adj_node, req) == true) {
                 LOG(DEBUG, "Service VLAN SYNC for Port " << adj_node->name());
-                Agent::GetInterfaceTable()->Enqueue(&req);
+                Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
             }
         }
     }
@@ -700,7 +699,7 @@ void VmPortInterface::SgIdList(SecurityGroupList &sg_id_list) const {
 void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr, 
                                bool policy) {
     ComponentNHData component_nh_data(label_, GetUuid(), false);
-    VrfEntry *vrf_entry = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     uint32_t nh_count = vrf_entry->GetNHCount(addr);
 
     if (vrf_entry->FindNH(addr, component_nh_data) == true) {
@@ -712,7 +711,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
         //Default add VM receive route
         SecurityGroupList sg_id_list;
         SgIdList(sg_id_list);
-        Inet4UcRouteTable::AddLocalVmRoute(Agent::GetLocalVmPeer(), vrf_name, 
+        Inet4UcRouteTable::AddLocalVmRoute(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, 
                                            addr, 32, GetUuid(), vn_->GetName(),
                                            label_, sg_id_list);
     } else if (nh_count > 1) {
@@ -726,7 +725,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
                vrf_entry->FindNH(addr, component_nh_data) == false) {
         //Interface NH to ECMP NH transition
         //Allocate a new MPLS label
-        uint32_t new_label =  Agent::GetMplsTable()->AllocLabel();
+        uint32_t new_label =  Agent::GetInstance()->GetMplsTable()->AllocLabel();
         //Update label data
         vrf_entry->UpdateLabel(addr, new_label);
         //Create list of component NH
@@ -735,7 +734,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
         component_nh_list.push_back(component_nh_data);
 
         //Make route point to composite NH
-        Inet4UcRouteTable::AddRemoteVmRoute(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::AddRemoteVmRoute(Agent::GetInstance()->GetLocalVmPeer(),
                                             vrf_name, addr, 32,
                                             component_nh_list, new_label,
                                             vn_->GetName(), true);
@@ -754,7 +753,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
 void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr, 
                                   bool policy) {
     ComponentNHData component_nh_data(label_, GetUuid(), false);
-    VrfEntry *vrf_entry = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     if (vrf_entry->FindNH(addr, component_nh_data) == false) {
         //NH not present in route
         return;
@@ -765,7 +764,7 @@ void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr,
         *(vrf_entry->GetNHList(addr));
 
     if (vrf_entry->GetNHCount(addr) == 1) {
-        Inet4UcRouteTable::DeleteReq(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(),
                                      vrf_name, addr, 32);
     } else if (vrf_entry->GetNHCount(addr) == 2) {
         uint32_t label = vrf_entry->GetLabel(addr);
@@ -777,13 +776,13 @@ void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr,
             index = 1;
         }
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
-            (Agent::GetNextHopTable()->FindActiveEntry(comp_nh_list[index].nh_key_));
+            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(comp_nh_list[index].nh_key_));
         const VmPortInterface *vm_port = static_cast<const VmPortInterface *>
                                         (intf_nh->GetInterface());
         //Enqueue route change request
         SecurityGroupList sg_id_list;
         SgIdList(sg_id_list);
-        Inet4UcRouteTable::AddLocalVmRoute(Agent::GetLocalVmPeer(), vrf_name, 
+        Inet4UcRouteTable::AddLocalVmRoute(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, 
                                            addr, 32, vm_port->GetUuid(), 
                                            vm_port->GetVnEntry()->GetName(),
                                            vm_port->GetLabel(), sg_id_list);
@@ -813,7 +812,7 @@ void VmPortInterface::Activate() {
     // Allocate MPLS Label for non-fabric interfaces
     if (fabric_port_ == false) {
         if (label_ == MplsTable::kInvalidLabel) {
-            label_ = Agent::GetMplsTable()->AllocLabel();
+            label_ = Agent::GetInstance()->GetMplsTable()->AllocLabel();
         }
         MplsLabel::CreateVPortLabelReq(label_, GetUuid(), policy_enabled_);
     }
@@ -833,7 +832,7 @@ void VmPortInterface::Activate() {
     if (alloc_linklocal_ip_) {
         VmPortToMetaDataIp(GetInterfaceId(), vrf_->GetVrfId(), mdata_addr_);
         Inet4UcRouteTable::AddLocalVmRoute(
-            Agent::GetMdataPeer(), Agent::GetDefaultVrf(),
+            Agent::GetInstance()->GetMdataPeer(), Agent::GetInstance()->GetDefaultVrf(),
             mdata_addr_, 32, GetUuid(), vn_->GetName(), label_, true);
     }
 
@@ -845,8 +844,8 @@ void VmPortInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
 
     if (alloc_linklocal_ip_) {
         // Delete the route for meta-data service
-        Inet4UcRouteTable::DeleteReq(Agent::GetMdataPeer(), 
-                                     Agent::GetDefaultVrf(), mdata_addr_, 32);
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetMdataPeer(), 
+                                     Agent::GetInstance()->GetDefaultVrf(), mdata_addr_, 32);
     }
     DeleteRoute(vrf_name, ip, policy_enabled_);
 
@@ -936,9 +935,9 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
         }
 
         if (cmp > 0) {
-            VnEntry *vn = Agent::GetInterfaceTable()->FindVnRef(cfg_ip.vn_uuid_);
+            VnEntry *vn = Agent::GetInstance()->GetInterfaceTable()->FindVnRef(cfg_ip.vn_uuid_);
             assert(vn);
-            VrfEntry *vrf = Agent::GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
+            VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
             assert(vrf);
             if (install_route) {
                 AddRoute(cfg_ip.vrf_, cfg_ip.addr_, true);
@@ -960,9 +959,9 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
 
     while (cfg_it != data->floating_iplist_.end()) {
         const CfgFloatingIp &cfg_ip = *cfg_it;
-        VnEntry *vn = Agent::GetInterfaceTable()->FindVnRef(cfg_ip.vn_uuid_);
+        VnEntry *vn = Agent::GetInstance()->GetInterfaceTable()->FindVnRef(cfg_ip.vn_uuid_);
         assert(vn);
-        VrfEntry *vrf = Agent::GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
+        VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
         assert(vrf);
         if (install_route) {
             AddRoute(cfg_ip.vrf_, cfg_ip.addr_, true);
@@ -992,7 +991,7 @@ void VmPortInterface::ServiceVlanRouteAdd(VmPortInterface::ServiceVlan &entry) {
     ComponentNHData component_nh_data(entry.label_, GetUuid(), entry.tag_,
                                       false);
     VrfEntry *vrf_entry = 
-        Agent::GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
+        Agent::GetInstance()->GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
     if (vrf_entry->FindNH(entry.addr_, component_nh_data) == true) {
         //Route already current interface as one of its nexthop
         return;
@@ -1001,7 +1000,7 @@ void VmPortInterface::ServiceVlanRouteAdd(VmPortInterface::ServiceVlan &entry) {
     if (vrf_entry->GetNHCount(entry.addr_) == 0) {
         SecurityGroupList sg_id_list;
         SgIdList(sg_id_list);
-        Inet4UcRouteTable::AddVlanNHRoute(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::AddVlanNHRoute(Agent::GetInstance()->GetLocalVmPeer(),
                                           entry.vrf_->GetName(), entry.addr_,
                                           32, GetUuid(), entry.tag_,
                                           entry.label_,
@@ -1015,7 +1014,7 @@ void VmPortInterface::ServiceVlanRouteAdd(VmPortInterface::ServiceVlan &entry) {
     } else if (vrf_entry->GetNHCount(entry.addr_) == 1) {
         //Interface NH to ECMP NH transition
         //Allocate a new MPLS label
-        uint32_t new_label =  Agent::GetMplsTable()->AllocLabel();
+        uint32_t new_label =  Agent::GetInstance()->GetMplsTable()->AllocLabel();
         //Update label data
         vrf_entry->UpdateLabel(entry.addr_, new_label);
         //Create list of component NH
@@ -1024,7 +1023,7 @@ void VmPortInterface::ServiceVlanRouteAdd(VmPortInterface::ServiceVlan &entry) {
         component_nh_list.push_back(component_nh_data);
 
         //Make route point to composite NH
-        Inet4UcRouteTable::AddRemoteVmRoute(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::AddRemoteVmRoute(Agent::GetInstance()->GetLocalVmPeer(),
                                             entry.vrf_->GetName(), entry.addr_,
                                             32, component_nh_list, new_label,
                                             GetVnEntry()->GetName(),
@@ -1051,7 +1050,7 @@ void VmPortInterface::ServiceVlanRouteDel(VmPortInterface::ServiceVlan &entry) {
     ComponentNHData component_nh_data(entry.label_, GetUuid(), entry.tag_,
                                       false);
     VrfEntry *vrf_entry = 
-        Agent::GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
+        Agent::GetInstance()->GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
     if (vrf_entry->FindNH(entry.addr_, component_nh_data) == false) {
         //NH not present in route
         return;
@@ -1062,7 +1061,7 @@ void VmPortInterface::ServiceVlanRouteDel(VmPortInterface::ServiceVlan &entry) {
         *(vrf_entry->GetNHList(entry.addr_));
 
     if (vrf_entry->GetNHCount(entry.addr_) == 1) {
-        Inet4UcRouteTable::DeleteReq(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(),
                                      entry.vrf_->GetName(), entry.addr_, 32);
     } else if (vrf_entry->GetNHCount(entry.addr_) == 2) {
         uint32_t label = vrf_entry->GetLabel(entry.addr_);
@@ -1074,13 +1073,13 @@ void VmPortInterface::ServiceVlanRouteDel(VmPortInterface::ServiceVlan &entry) {
             index = 1;
         }
         const VlanNH *vlan_nh = static_cast<const VlanNH *>
-            (Agent::GetNextHopTable()->FindActiveEntry(comp_nh_list[index].nh_key_));
+            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(comp_nh_list[index].nh_key_));
         const VmPortInterface *vm_port = static_cast<const VmPortInterface *>
                                         (vlan_nh->GetInterface());
         //Enqueue route change request
         SecurityGroupList sg_id_list;
         SgIdList(sg_id_list);
-        Inet4UcRouteTable::AddVlanNHRoute(Agent::GetLocalVmPeer(),
+        Inet4UcRouteTable::AddVlanNHRoute(Agent::GetInstance()->GetLocalVmPeer(),
                                           entry.vrf_->GetName(), entry.addr_,
                                           32, vm_port->GetUuid(), 
                                           vlan_nh->GetVlanTag(),
@@ -1106,7 +1105,7 @@ void VmPortInterface::ServiceVlanRouteDel(VmPortInterface::ServiceVlan &entry) {
 void VmPortInterface::ServiceVlanAdd(VmPortInterface::ServiceVlan &entry) {
     VlanNH::CreateReq(GetUuid(), entry.tag_, entry.vrf_.get()->GetName(),
                       entry.smac_, entry.dmac_);
-    entry.label_ = Agent::GetMplsTable()->AllocLabel();
+    entry.label_ = Agent::GetInstance()->GetMplsTable()->AllocLabel();
     MplsLabel::CreateVlanNhReq(entry.label_, GetUuid(), entry.tag_);
     ServiceVlanRouteAdd(entry);
     VrfAssignTable::CreateVlanReq(GetUuid(),
@@ -1158,7 +1157,7 @@ bool VmPortInterface::OnResyncSecurityGroupList(VmPortInterfaceData *data,
     for (SgUuidList::iterator it = idlist.begin(); it != idlist.end(); ++it) {
         // Find the ID in the SGList of the entry, add it and return 'true'.
         SgKey sg_key(*it);
-        SgEntry *sg_entry = static_cast<SgEntry *>(Agent::GetSgTable()->FindActiveEntry(&sg_key));
+        SgEntry *sg_entry = static_cast<SgEntry *>(Agent::GetInstance()->GetSgTable()->FindActiveEntry(&sg_key));
         sg_uuid_l_.push_back(*it);
         if (sg_entry && sg_entry->GetAcl()) {
             sg_entry_l_.push_back(SgEntryRef(sg_entry));
@@ -1183,7 +1182,7 @@ bool VmPortInterface::OnResyncServiceVlan(VmPortInterfaceData *data) {
             it++;
             cfg_it++;
             VrfEntry *vrf = 
-                Agent::GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
+                Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
             if (vlan.vrf_.get() != vrf) {
                 ServiceVlanRouteDel(vlan);
                 vlan.vrf_ = vrf;
@@ -1203,7 +1202,7 @@ bool VmPortInterface::OnResyncServiceVlan(VmPortInterfaceData *data) {
 
         if (it->first > cfg_it->first) {
             VrfEntry *vrf = 
-                Agent::GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
+                Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
             assert(vrf);
             ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, cfg_vlan.tag_,
                                             cfg_vlan.smac_, cfg_vlan.dmac_);
@@ -1225,7 +1224,7 @@ bool VmPortInterface::OnResyncServiceVlan(VmPortInterfaceData *data) {
 
     while (cfg_it != data->service_vlan_list_.end()) {
         const CfgServiceVlan &cfg_vlan = cfg_it->second;
-        VrfEntry *vrf = Agent::GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
+        VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
         assert(vrf);
         ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, cfg_vlan.tag_,
                                         cfg_vlan.smac_, cfg_vlan.dmac_);
@@ -1494,9 +1493,9 @@ void VmPortInterface::FloatingIpSync(IFMapNode *node) {
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        if (Agent::GetInterfaceTable()->IFNodeToReq(if_node, req)) {
+        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(if_node, req)) {
             LOG(DEBUG, "FloatingIP SYNC for VM Port " << if_node->name());
-            Agent::GetInterfaceTable()->Enqueue(&req);
+            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
         }
     }
 
@@ -1544,7 +1543,7 @@ void VmPortInterface::InstanceIpSync(IFMapNode *node) {
 
         if (adj->table() == AgentConfig::GetVmInterfaceTable()) {
             InterfaceTable *interface_table = 
-                    static_cast<InterfaceTable *>(Agent::GetInterfaceTable());
+                    static_cast<InterfaceTable *>(Agent::GetInstance()->GetInterfaceTable());
             DBRequest req;
             if (interface_table->IFNodeToReq(adj, req)) {
                 interface_table->Enqueue(&req);
@@ -1599,7 +1598,7 @@ void VmPortInterface::FloatingIpVrfSync(IFMapNode *node) {
 void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     data.set_index(id_);
     data.set_name(name_);
-    data.set_uuid(boost::lexical_cast<std::string>(uuid_));
+    data.set_uuid(UuidToString(uuid_));
 
     if (vrf_)
         data.set_vrf_name(vrf_->GetName());
@@ -1635,8 +1634,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             if (vitf->GetVnEntry())
                 data.set_vn_name(vitf->GetVnEntry()->GetName());
             if (vitf->GetVmEntry())
-                data.set_vm_uuid(boost::lexical_cast<std::string>(
-                                 vitf->GetVmEntry()->GetUuid()));
+                data.set_vm_uuid(UuidToString(vitf->GetVmEntry()->GetUuid()));
             data.set_ip_addr(vitf->GetIpAddr().to_string());
             data.set_mac_addr(vitf->GetVmMacAddr());
             data.set_mdata_ip_addr(vitf->GetMdataIpAddr().to_string());
@@ -1839,7 +1837,7 @@ void VmPortInterface::SendTrace(Trace event) {
 
     intf_info.set_ip_address(addr_.to_string());
     if (vm_) {
-        intf_info.set_vm(boost::lexical_cast<std::string>(vm_->GetUuid()));
+        intf_info.set_vm(UuidToString(vm_->GetUuid()));
     }
     if (vn_) {
         intf_info.set_vn(vn_->GetName());

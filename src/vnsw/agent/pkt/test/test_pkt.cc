@@ -111,10 +111,10 @@ TEST_F(PktTest, FlowAdd_1) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortPolicyEnable(input, 0));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(1U, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     // Generate packet and enqueue
     VmPortInterface *intf = VmPortInterfaceGet(input[0].intf_id);
@@ -122,7 +122,7 @@ TEST_F(PktTest, FlowAdd_1) {
     TxIpPacket(intf->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    EthInterface::CreateReq("vnet0", Agent::GetDefaultVrf());
+    EthInterface::CreateReq("vnet0", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     
@@ -137,7 +137,7 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init);
-    Agent::SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
 
     return RUN_ALL_TESTS();
 }

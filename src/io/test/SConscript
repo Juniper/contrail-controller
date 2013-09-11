@@ -9,7 +9,7 @@ import sys
 
 env = BuildEnv.Clone()
 env.AppendUnique(CCFLAGS='-fno-exceptions')
-env.Append(CPPPATH = ["#/build/debug/"])
+env.Append(CPPPATH = [env['TOP']])
 
 env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../base'])

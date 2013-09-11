@@ -192,7 +192,7 @@ class UVEServer(object):
 
                     if empty:
                         empty = False
-                        print "Src %s, Mod %s, Typ %s" % (source,mdule,typ)
+                        #print "Src %s, Mod %s, Typ %s" % (source,mdule,typ)
                         if not state[key].has_key(typ):
                             state[key][typ] = {}
                     
@@ -236,7 +236,7 @@ class UVEServer(object):
                             statdict[typ][attr].append({elem["aggtype"]:edict})
                         continue
 
-                    print "Attr %s Value %s" % (attr,snhdict)
+                    #print "Attr %s Value %s" % (attr,snhdict)
                     if not state[key][typ].has_key(attr):
                         state[key][typ][attr] = {}
                     if state[key][typ][attr].has_key(dsource):

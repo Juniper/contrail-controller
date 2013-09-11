@@ -822,8 +822,7 @@ const string &IFMapStateMachine::LastStateName() const {
 }
 
 const std::string IFMapStateMachine::last_state_change_at() const {
-    return boost::lexical_cast<std::string>
-        (UTCUsecToPTime(last_state_change_at_));
+    return integerToString(UTCUsecToPTime(last_state_change_at_));
 }
 
 void IFMapStateMachine::set_last_event(const std::string &event) { 
@@ -832,6 +831,5 @@ void IFMapStateMachine::set_last_event(const std::string &event) {
 }
 
 const std::string IFMapStateMachine::last_event_at() const {
-    return boost::lexical_cast<std::string>
-        (UTCUsecToPTime(last_event_at_));
+    return integerToString(UTCUsecToPTime(last_event_at_));
 }

@@ -91,6 +91,8 @@ struct SandeshFlowData {
     30: FlowAclInfo out_policy;
     31: FlowAclInfo sg;
     32: FlowAclInfo out_sg;
+    33: FlowAclInfo mirror;
+    34: FlowAclInfo out_mirror;
 }
 
 request sandesh FetchFlowRecord {

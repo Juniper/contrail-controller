@@ -165,17 +165,26 @@ class DomainConfig {
 public:
     typedef std::map<std::string, IFMapNode  *> DomainConfigMap;
     typedef std::pair<std::string, IFMapNode *> DomainConfigPair;
+    typedef boost::function<void(IFMapNode *)> Callback;
     
-    static void IpamSync(IFMapNode *node);
-    static void VDnsSync(IFMapNode *node);
+    DomainConfig() {}
+    virtual ~DomainConfig() {}
+    void RegisterIpamCb(Callback cb);
+    void RegisterVdnsCb(Callback cb);
+    void IpamSync(IFMapNode *node);
+    void VDnsSync(IFMapNode *node);
 
-    static bool GetIpam(const std::string &name, autogen::IpamType &ipam);
-    static bool GetVDns(const std::string &vdns, 
-                        autogen::VirtualDnsType &vdns_type);
+    bool GetIpam(const std::string &name, autogen::IpamType &ipam);
+    bool GetVDns(const std::string &vdns, autogen::VirtualDnsType &vdns_type);
 
 private:
-    static DomainConfigMap ipam_config_;
-    static DomainConfigMap vdns_config_;
+    void CallVdnsCb(IFMapNode *node);
+    void CallIpamCb(IFMapNode *node);
+
+    DomainConfigMap ipam_config_;
+    DomainConfigMap vdns_config_;
+    std::vector<Callback> ipam_callback_;
+    std::vector<Callback> vdns_callback_;
 
     DISALLOW_COPY_AND_ASSIGN(DomainConfig);
 };

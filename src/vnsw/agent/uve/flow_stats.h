@@ -21,7 +21,7 @@ public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
     static const uint32_t FlowCountPerPass = 100;
     FlowStatsCollector(boost::asio::io_service &io, int intvl) :
-        StatsCollector(StatsCollector::FlowStatsCollector, io, intvl) {
+        StatsCollector(StatsCollector::FlowStatsCollector, io, intvl, "Flow stats collector") {
         flow_iteration_key_.Reset();
         flow_age_time_intvl_ = FlowAgeTime;
     }

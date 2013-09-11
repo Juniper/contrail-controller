@@ -10,7 +10,7 @@ static AgentTestInit *agent_init;
 pthread_t asio_thread;
 
 void *asio_poll(void *arg){
-    Agent::GetEventManager()->Run();
+    Agent::GetInstance()->GetEventManager()->Run();
     return NULL;
 }
 
@@ -43,7 +43,7 @@ bool AgentTestInit::Run() {
     switch(state_) {
         case MOD_INIT:
             Sandesh::InitGeneratorTest("VNSWAgent", "Agent", 
-                                   Agent::GetEventManager(), 
+                                   Agent::GetInstance()->GetEventManager(), 
                                    sandesh_port_, NULL);
             Sandesh::SetLoggingParams(log_locally_, "", "");
             InitModules();
@@ -64,7 +64,7 @@ bool AgentTestInit::Run() {
         case CONFIG_INIT:
             state_ = CONFIG_RUN;
             if (init_file_) {
-                AgentConfig::Init(Agent::GetDB(), init_file_, 
+                AgentConfig::Init(Agent::GetInstance()->GetDB(), init_file_, 
                                   boost::bind(&AgentTestInit::Trigger, this));
                 // ServicesModule::ConfigInit();
                 break;
@@ -84,7 +84,7 @@ bool AgentTestInit::Run() {
                 KSync::UpdateVhostMac();
             }
 
-            if (Agent::GetRouterIdConfigured()) {
+            if (Agent::GetInstance()->GetRouterIdConfigured()) {
                 // RouterIdDepInit();
             } else {
                 LOG(DEBUG, 
@@ -120,20 +120,20 @@ void AgentTestInit::InitModules() {
         KSync::NetlinkInitTest();
     }
 
-    CfgModule::CreateDBTables(Agent::GetDB());
-    OperDB::CreateDBTables(Agent::GetDB());
+    CfgModule::CreateDBTables(Agent::GetInstance()->GetDB());
+    OperDB::CreateDBTables(Agent::GetInstance()->GetDB());
  
-    CfgModule::RegisterDBClients(Agent::GetDB());
+    CfgModule::RegisterDBClients(Agent::GetInstance()->GetDB());
 
     MirrorCfgTable *mtable = MirrorCfgTable::CreateMirrorCfgTable();
-    Agent::SetMirrorCfgTable(mtable);
+    Agent::GetInstance()->SetMirrorCfgTable(mtable);
     
-    Agent::SetIntfMirrorCfgTable(IntfMirrorCfgTable::CreateIntfMirrorCfgTable());
+    Agent::GetInstance()->SetIntfMirrorCfgTable(IntfMirrorCfgTable::CreateIntfMirrorCfgTable());
 
     if (ksync_init_) {
-        KSync::RegisterDBClients(Agent::GetDB());
+        KSync::RegisterDBClients(Agent::GetInstance()->GetDB());
     } else {
-        KSync::RegisterDBClientsTest(Agent::GetDB());
+        KSync::RegisterDBClientsTest(Agent::GetInstance()->GetDB());
     }
 
     if (client_)
@@ -161,9 +161,9 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     bool log_locally = false;
     AgentCmdLineParams cmd_line("", 0, "", "", log_locally, "", "", sandesh_port, "");
     LoggingInit();
-    AgentConfig::InitConfig(init_file, cmd_line);
     Agent::Init();
-    Agent::SetTestMode();
+    AgentConfig::InitConfig(init_file, cmd_line);
+    Agent::GetInstance()->SetTestMode();
     AgentStats::Init();
     if (asio) {
         AsioRun();
@@ -188,15 +188,15 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     if (init_file)
         port_count += 2; // vhost, eth
     else {
-        Agent::SetVirtualHostInterfaceName("vhost0");
-        VirtualHostInterface::CreateReq("vhost0", Agent::GetDefaultVrf(), false);
+        Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
+        VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(), false);
         port_count += 1; // vhost
         boost::system::error_code ec;
-        Agent::SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+        Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
-        Agent::GetDefaultInet4UcRouteTable()->AddVHostRecvRoute(
-                                         Agent::GetDefaultVrf(), "vhost0", 
-                                         Agent::GetRouterId(), false);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddVHostRecvRoute(
+                                         Agent::GetInstance()->GetDefaultVrf(), "vhost0", 
+                                         Agent::GetInstance()->GetRouterId(), false);
     }
 
     return client;
@@ -204,7 +204,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
 TestClient *StatsTestInit() {
     LoggingInit();
-    Agent::Init();
+    Agent::GetInstance()->Init();
     AgentStats::Init();
     AsioRun();
 
@@ -224,10 +224,10 @@ TestClient *StatsTestInit() {
     agent_init->Trigger();
 
     sleep(6);
-    Agent::SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq("vhost0", Agent::GetDefaultVrf(), false);
+    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
+    VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(), false);
     boost::system::error_code ec;
-    Agent::SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
     // Wait for host and vhost interface creation
     client->WaitForIdle();
@@ -252,7 +252,7 @@ static bool WaitForDbFree(const string &name, int msec) {
 
     msec = msec * 1000;
     while (i < msec) {
-        if (Agent::GetDB()->FindTable(name) == NULL) {
+        if (Agent::GetInstance()->GetDB()->FindTable(name) == NULL) {
             break;
         }
 
@@ -260,24 +260,24 @@ static bool WaitForDbFree(const string &name, int msec) {
         i += 1000;
     }
 
-    return (Agent::GetDB()->FindTable(name) == NULL);
+    return (Agent::GetInstance()->GetDB()->FindTable(name) == NULL);
 }
 
 void TestClient::Shutdown() {
     VnswIfListener::Shutdown();
     AgentConfig::Shutdown();
     MirrorCfgTable::Shutdown();
-    AgentUve::Shutdown();
+    AgentUve::GetInstance()->Shutdown();
     CfgModule::Shutdown();
-    UveClient::Shutdown();
+    UveClient::GetInstance()->Shutdown();
     KSync::NetlinkShutdownTest();
     KSync::Shutdown();
     PktModule::Shutdown();  
     ServicesModule::Shutdown();
     MulticastHandler::Shutdown();
     OperDB::Shutdown();
-    Agent::GetDB()->Clear();
-    Agent::GetDB()->ClearFactoryRegistry();
+    Agent::GetInstance()->GetDB()->Clear();
+    Agent::GetInstance()->GetDB()->ClearFactoryRegistry();
 }
 
 void TestShutdown() {
@@ -289,46 +289,45 @@ void TestShutdown() {
     AgentConfig::DeleteStaticEntries();
     client->WaitForIdle();
 
-    WaitForDbCount(Agent::GetInterfaceTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetInterfaceTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
-    WaitForDbCount(Agent::GetVrfTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetVrfTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetVrfTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVrfTable()->Size());
 
-    WaitForDbCount(Agent::GetNextHopTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetNextHopTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetNextHopTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetNextHopTable()->Size());
 
-    WaitForDbFree(Agent::GetDefaultVrf(), 100);
-    assert(Agent::GetDB()->FindTable(Agent::GetDefaultVrf()) == NULL);
+    WaitForDbFree(Agent::GetInstance()->GetDefaultVrf(), 100);
+    assert(Agent::GetInstance()->GetDB()->FindTable(Agent::GetInstance()->GetDefaultVrf()) == NULL);
 
-    WaitForDbCount(Agent::GetVmTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetVmTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
 
-    WaitForDbCount(Agent::GetVnTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetVnTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
-    WaitForDbCount(Agent::GetMplsTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetMplsTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetMplsTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetMplsTable()->Size());
 
-    WaitForDbCount(Agent::GetIntfCfgTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetIntfCfgTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetIntfCfgTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
-    WaitForDbCount(Agent::GetAclTable(), 0, 100);
-    EXPECT_EQ(0U, Agent::GetAclTable()->Size());
+    WaitForDbCount(Agent::GetInstance()->GetAclTable(), 0, 100);
+    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
     client->WaitForIdle();
 
     agent_init->Shutdown();
     client->WaitForIdle();
 
-    SandeshHttp::Uninit();
     Sandesh::Uninit();
     client->WaitForIdle();
 
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     TaskScheduler::GetInstance()->Terminate();
 
-    AgentStats::Shutdown();
-    Agent::Shutdown();
+    AgentStats::GetInstance()->Shutdown();
+    Agent::GetInstance()->Shutdown();
     delete agent_init;
 }

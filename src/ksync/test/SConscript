@@ -23,11 +23,11 @@ env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
 env.Prepend(LIBS=['nova_ins', 'nova_ins_thrift', 'thriftasio',
-                  'thrift','xmpp', 'peer_sandesh', 'bgp_l3vpn_unicast', 'bgp_l3vpn_multicast',
-                  'bgp_l3vpn_multicast_msg',  'ds', 'services', 
-                  'xml', 'pugixml', 'route', 'curl',
+                  'thrift','xmpp', 'peer_sandesh', 'xmpp_unicast',
+                  'xmpp_multicast',  'ds', 'services', 
+                  'xml', 'pugixml', 'route',
                   'bgp_schema', 'ifmap_vnc', 'ifmap_agent', 'ifmap_common', 
-                  'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser',
+                  'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
                   'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
                   'gunit', 'boost_regex', 'boost_filesystem',
                   'bind_interface', 'cpuinfo'])

@@ -15,6 +15,17 @@
 // cleared.
 class IFMapLink : public DBGraphEdge {
 public:
+    struct LinkOriginInfo {
+        explicit LinkOriginInfo() : 
+            origin(IFMapOrigin::UNKNOWN), sequence_number(0) {
+        }
+        explicit LinkOriginInfo(IFMapOrigin origin, uint64_t seq_num) :
+            origin(origin), sequence_number(seq_num) {
+        }
+        IFMapOrigin origin;
+        uint64_t sequence_number;
+    };
+
     IFMapLink(DBGraphBase::edge_descriptor edge_id);
     
     // Initialize the link.
@@ -22,7 +33,8 @@ public:
                        const std::string &metadata, uint64_t sequence_number,
                        const IFMapOrigin &origin);
     // Update some fields
-    void UpdateProperties(uint64_t sequence_number);
+    void UpdateProperties(const IFMapOrigin &in_origin, 
+                          uint64_t sequence_number);
     // Called by IFMapLinkTable when the node is deleted.
     void ClearNodes();
     
@@ -47,28 +59,33 @@ public:
     const IFMapNode *left() const { return left_node_; }
     IFMapNode *right() { return right_node_; }
     const IFMapNode *right() const { return right_node_; }
-    uint64_t sequence_number() { return sequence_number_; }
-    const uint64_t sequence_number() const { return sequence_number_; }
 
     const IFMapNode::Descriptor &left_id() const { return left_id_; }
     const IFMapNode::Descriptor &right_id() const { return right_id_; }
     
     const std::string &metadata() const { return metadata_; }
 
-    void AddOrigin(const IFMapOrigin &in_origin);
-    void RemoveOrigin(const IFMapOrigin &in_origin);
+    void AddOriginInfo(const IFMapOrigin &in_origin, uint64_t seq_num);
+    void RemoveOriginInfo(IFMapOrigin::Origin in_origin);
     bool HasOrigin(IFMapOrigin::Origin in_origin);
-    bool is_origin_empty() { return origins_.empty(); }
+    bool is_origin_empty() { return origin_info_.empty(); }
     void EncodeLinkInfo(pugi::xml_node *parent) const;
 
+    // if exists is true, return value will have relevant entry
+    IFMapLink::LinkOriginInfo GetOriginInfo(IFMapOrigin::Origin in_origin,
+                                            bool *exists);
+    // if exists is true, return value will have relevant sequence number
+    uint64_t sequence_number(IFMapOrigin::Origin in_origin, bool *exists);
+
 private:
+    friend class ShowIFMapLinkTable;
+
     std::string metadata_;
     IFMapNode::Descriptor left_id_;
     IFMapNode::Descriptor right_id_;
     IFMapNode *left_node_;
     IFMapNode *right_node_;
-    uint64_t sequence_number_;
-    std::vector<IFMapOrigin> origins_;
+    std::vector<LinkOriginInfo> origin_info_;
     DISALLOW_COPY_AND_ASSIGN(IFMapLink);
 };
 

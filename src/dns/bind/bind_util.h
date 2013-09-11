@@ -147,9 +147,7 @@ struct DnsItem {
     DnsItem() : eclass(1), type(0), ttl(0), priority(0), offset(0),
     name_plen(0), name_offset(0), data_plen(0), data_offset(0), soa() {}
 
-    std::string ToString() {
-        return name + " / " + data + ";";
-    }   
+    std::string ToString();
 
     bool operator ==(const DnsItem &rhs) const {
         if (eclass == rhs.eclass && type == rhs.type && 
@@ -190,6 +188,10 @@ struct DnsUpdateData {
     std::string virtual_dns;
     std::string zone;
     mutable DnsItems items;
+
+    DnsUpdateData() {}
+    DnsUpdateData(const std::string &vdns, const std::string &z) 
+                : virtual_dns(vdns), zone(z) {}
 
     struct Compare {
         bool operator() (DnsUpdateData *const &lhs, DnsUpdateData *const &rhs) {
@@ -264,6 +266,7 @@ public:
     };
 
     static uint16_t DnsClass(const std::string &cl);
+    static std::string DnsClass(uint16_t cl);
     static uint16_t DnsType(const std::string &tp);
     static std::string DnsType(uint16_t tp);
     static const std::string &DnsResponseCode(uint16_t code);

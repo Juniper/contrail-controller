@@ -30,8 +30,7 @@ libpeer_sandesh = env.Library('peer_sandesh', SandeshPeerGenSrcs);
 
 libbgp = env.Library('bgp',
                      SandeshGenSrcs +
-                     ['bgp_af.cc',
-                      'bgp_aspath.cc',
+                     ['bgp_aspath.cc',
                       'bgp_attr.cc',
                       'bgp_condition_listener.cc',
                       'bgp_config.cc',
@@ -43,7 +42,6 @@ libbgp = env.Library('bgp',
                       'bgp_log.cc',
                       'bgp_message_builder.cc',
                       'bgp_multicast.cc',
-                      'bgp_origin_vn.cc',
                       'bgp_path.cc',
                       'bgp_peer.cc',
                       'bgp_peer_close.cc',
@@ -74,6 +72,7 @@ env.SConscript('evpn/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('inetmcast/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('l3vpn/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('origin-vn/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('routing-instance/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('rtarget/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('security_group/SConscript', exports='BuildEnv', duplicate = 0)

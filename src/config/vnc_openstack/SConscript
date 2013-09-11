@@ -1,0 +1,27 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Contrail Systems. All rights reserved.
+#
+
+import glob
+
+Import('CfgmEnv')
+env = CfgmEnv.Clone()
+
+source_files = ['setup.py', 'vnc_openstack/__init__.py']
+source_rules = []
+for file in source_files:
+    if len(file.split('/')) > 1:
+        idir = '/'.join(file.split('/')[:-1])
+    else:
+        idir = ''
+    source_rules.append(
+        env.Install(idir, "#/controller/src/config/vnc_openstack/" + file))
+
+sdist_depends = []
+sdist_depends.extend(source_rules)
+sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+
+env.Depends(sdist_gen, sdist_depends)
+env.Default(sdist_gen)

@@ -128,7 +128,8 @@ void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
     DhcpStats *dhcp = new DhcpStats();
-    DhcpHandler::DhcpStats dstats = DhcpHandler::GetStats();
+    DhcpProto::DhcpStats dstats = 
+                Agent::GetInstance()->GetDhcpProto()->GetStats();
     dhcp->set_dhcp_discover(dstats.discover);
     dhcp->set_dhcp_request(dstats.request);
     dhcp->set_dhcp_inform(dstats.inform);
@@ -146,9 +147,10 @@ void ServicesSandesh::DhcpStatsSandesh(std::string ctxt, bool more) {
 }
 
 void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
+    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
     ArpStats *arp = new ArpStats();
-    ArpHandler::ArpStats astats = ArpHandler::GetStats();
-    arp->set_arp_entries(ArpHandler::GetArpCacheSize());
+    ArpProto::ArpStats astats = arp_proto->GetStats();
+    arp->set_arp_entries(arp_proto->GetArpCacheSize());
     arp->set_arp_requests(astats.arp_req);
     arp->set_arp_replies(astats.arp_replies);
     arp->set_arp_gracious(astats.arp_gracious);
@@ -163,7 +165,7 @@ void ServicesSandesh::ArpStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
     DnsStats *dns = new DnsStats();
-    DnsHandler::DnsStats nstats = DnsHandler::GetStats();
+    DnsProto::DnsStats nstats = Agent::GetInstance()->GetDnsProto()->GetStats();
     dns->set_dns_requests(nstats.requests);
     dns->set_dns_resolved(nstats.resolved);
     dns->set_dns_retransmit_reqs(nstats.retransmit_reqs);
@@ -177,7 +179,7 @@ void ServicesSandesh::DnsStatsSandesh(std::string ctxt, bool more) {
 
 void ServicesSandesh::IcmpStatsSandesh(std::string ctxt, bool more) {
     IcmpStats *icmp = new IcmpStats();
-    IcmpHandler::IcmpStats istats = IcmpHandler::GetStats();
+    IcmpProto::IcmpStats istats = Agent::GetInstance()->GetIcmpProto()->GetStats();
     icmp->set_icmp_gw_ping(istats.icmp_gw_ping);
     icmp->set_icmp_gw_ping_err(istats.icmp_gw_ping_err);
     icmp->set_icmp_drop(istats.icmp_drop);
@@ -228,6 +230,15 @@ void ServicesSandesh::FillMacHdr(ethhdr *eth, MacHdr &resp) {
                  (type == 0x806) ? "arp" : IntToString(type);
 }
 
+static uint32_t get_val(void *data) {
+    union {
+        uint8_t data[sizeof(uint32_t)];
+        uint32_t addr;
+    } bytes;
+    memcpy(bytes.data, data, sizeof(uint32_t));
+    return ntohl(bytes.addr);
+}
+
 void ServicesSandesh::FillArpHdr(ether_arp *arp, ArpHdr &resp) {
     uint16_t val = ntohs(arp->arp_hrd);
     resp.htype = (val == 1) ? "ethernet" : IntToString(val);
@@ -240,8 +251,8 @@ void ServicesSandesh::FillArpHdr(ether_arp *arp, ArpHdr &resp) {
                   (val == 2) ? "response" : IntToString(val);
     MacToString(arp->arp_sha, resp.sender_mac);
     MacToString(arp->arp_tha, resp.target_mac);
-    Ip4Address spa(ntohl(*reinterpret_cast<in_addr_t *>(arp->arp_spa)));
-    Ip4Address tpa(ntohl(*reinterpret_cast<in_addr_t *>(arp->arp_spa)));
+    Ip4Address spa(get_val(arp->arp_spa));
+    Ip4Address tpa(get_val(arp->arp_tpa));
     resp.sender_ip = spa.to_string();
     resp.target_ip = tpa.to_string();
 }
@@ -314,8 +325,7 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
 
             case DHCP_OPTION_REQ_IP_ADDRESS: {
                 if (len >= (2 + opt->len)) {
-                    Ip4Address addr(ntohl(*reinterpret_cast<in_addr_t *>
-                                          (opt->data)));
+                    Ip4Address addr(get_val(opt->data));
                     resp += "Requested IP : " + addr.to_string() + "; ";
                 }
                 break;
@@ -341,44 +351,37 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
 
             case DHCP_OPTION_IP_LEASE_TIME:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionInteger(*(uint32_t *)opt->data,
-                                              "Lease time : ");
+                    resp += FillOptionInteger(get_val(opt->data), "Lease time : ");
                 break;
 
             case DHCP_OPTION_SUBNET_MASK:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "Subnet mask : ");
+                    resp += FillOptionIp(get_val(opt->data), "Subnet mask : ");
                 break;
 
             case DHCP_OPTION_BCAST_ADDRESS:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "Broadcast : ");
+                    resp += FillOptionIp(get_val(opt->data), "Broadcast : ");
                 break;
 
             case DHCP_OPTION_ROUTER:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "Gateway : ");
+                    resp += FillOptionIp(get_val(opt->data), "Gateway : ");
                 break;
 
             case DHCP_OPTION_DNS:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "DNS : ");
+                    resp += FillOptionIp(get_val(opt->data), "DNS : ");
                 break;
 
             case DHCP_OPTION_NTP:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "NTP : ");
+                    resp += FillOptionIp(get_val(opt->data), "NTP : ");
                 break;
 
             case DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len >= (2 + opt->len))
-                    resp += FillOptionIp(ntohl(*(uint32_t *)opt->data),
-                                         "Server : ");
+                    resp += FillOptionIp(get_val(opt->data), "Server : ");
                 break;
 
             default:
@@ -540,7 +543,7 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
 
 void ServicesSandesh::HandleRequest(PktHandler::ModuleName mod,
                                     std::string ctxt, bool more = false) {
-    SandeshResponse *resp;
+    SandeshResponse *resp = NULL;
     boost::function<void(PktTrace::Pkt &)> cb;
     boost::array<std::string, PktHandler::MAX_MODULES> names =
         { { "Invalid", "Flow", "Arp", "Dhcp", "Dns", "Icmp", "Diagnostics" } };
@@ -640,10 +643,10 @@ void ClearAllInfo::HandleRequest() const {
     PktHandler::GetPktHandler()->PktTraceClear(PktHandler::DIAG);
     PktHandler::GetPktHandler()->PktTraceClear(PktHandler::INVALID);
     PktHandler::GetPktHandler()->ClearStats();
-    DhcpHandler::ClearStats();
-    ArpHandler::ClearStats();
-    DnsHandler::ClearStats();
-    IcmpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+    Agent::GetInstance()->GetArpProto()->ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
+    Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
     resp->set_context(context());
@@ -656,40 +659,11 @@ void ShowArpCache::HandleRequest() const {
     ArpCacheResp *resp = new ArpCacheResp();
     resp->set_context(context());
     ArpSandesh *arp_sandesh = new ArpSandesh(resp);
-    ArpHandler::ArpCache &cache = 
-        const_cast<ArpHandler::ArpCache &>(ArpHandler::GetArpCache());
+    ArpProto::ArpCache &cache = const_cast<ArpProto::ArpCache &>
+              (Agent::GetInstance()->GetArpProto()->GetArpCache());
     cache.Iterate(boost::bind(&ArpSandesh::SetArpEntry, arp_sandesh, _1, _2));
     arp_sandesh->Response();
     delete arp_sandesh;
-}
-
-void ShowArpConfig::HandleRequest() const {
-    ArpConfig *resp = new ArpConfig();
-    resp->set_retries(ArpHandler::MaxRetries());
-    resp->set_retry_timer(ArpHandler::RetryTimeout());
-    resp->set_aging_timer(ArpHandler::AgingTimeout());
-    resp->set_context(context());
-    resp->Response();
-}
-
-void SetArpConfig::HandleRequest() const {
-    std::string msg;
-    PktErrorResp *resp = new PktErrorResp();
-    if ((retries < 0) || (retries > ServicesConsts::MAX_RETRIES))
-        msg.append("   Invalid Retries !!!   \n");
-    if ((retry_timer <= 0) || (retry_timer > ServicesConsts::MAX_RETRY_TIMEOUT))
-        msg.append("   Invalid Retry Timeout !!!   \n");
-    if ((aging_timer <= 0) || (aging_timer > ServicesConsts::MAX_AGING_TIMEOUT))
-        msg.append("   Invalid Aging Timeout !!!   \n");
-    if (!msg.empty())
-        resp->set_resp(msg);
-    else {
-        ArpHandler::MaxRetries(retries);
-        ArpHandler::RetryTimeout(retry_timer);
-        ArpHandler::AgingTimeout(aging_timer);
-    }
-    resp->set_context(context());
-    resp->Response();
 }
 
 bool ArpSandesh::SetArpEntry(const ArpKey &key, ArpEntry *&entry) {

@@ -77,7 +77,8 @@ public:
     typedef std::pair<int, VrfStats> VrfStatsPair;
 
     AgentStatsCollector(boost::asio::io_service &io, int intvl) : 
-        StatsCollector(StatsCollector::AgentStatsCollector, io, intvl) {
+        StatsCollector(StatsCollector::AgentStatsCollector, io, intvl, "Agent Stats collector"), 
+        vrf_stats_responses_(0), drop_stats_responses_(0) {
         AddNamelessVrfStatsEntry();
     }
     virtual ~AgentStatsCollector() { 
@@ -98,8 +99,10 @@ public:
     VrfStats* GetVrfStats(int vrf_id);
     vr_drop_stats_req GetDropStats() const { return drop_stats_; }
     void SetDropStats(vr_drop_stats_req &req) { drop_stats_ = req; }
-    static std::string GetNamelessVrf() { return "__untitled__"; }
-    static int GetNamelessVrfId() { return -1; }
+    std::string GetNamelessVrf() { return "__untitled__"; }
+    int GetNamelessVrfId() { return -1; }
+    int vrf_stats_responses_; //used only in UT code
+    int drop_stats_responses_; //used only in UT code
 private:
     void AddNamelessVrfStatsEntry();
     void SendAsync(char* buf, uint32_t buf_len, StatsType type);

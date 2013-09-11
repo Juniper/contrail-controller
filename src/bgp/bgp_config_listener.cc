@@ -50,12 +50,19 @@ public:
         policy_.insert(make_pair("routing-instance", rt_instance_react));
 
         ReactionMap bgp_peering_react =
-            map_list_of<string, PropagateList>("bgp-peering", list_of("self"));
+            map_list_of<string, PropagateList>
+		        ("bgp-peering", list_of("self"));
         policy_.insert(make_pair("bgp-peering", bgp_peering_react));
 
         ReactionMap bgp_router_react =
-            map_list_of<string, PropagateList>("self", list_of("bgp-peering"));
+            map_list_of<string, PropagateList>
+		        ("self", list_of("bgp-peering"));
         policy_.insert(make_pair("bgp-router", bgp_router_react));
+
+        ReactionMap virtual_network_react =
+            map_list_of<string, PropagateList>
+		        ("self", list_of("virtual-network-routing-instance"));
+        policy_.insert(make_pair("virtual-network", virtual_network_react));
     }
 
     void NodeEvent(IFMapNode *node) {
@@ -227,6 +234,7 @@ static const char *bgp_config_types[] = {
     "bgp-peering",
     "bgp-router",
     "routing-instance",
+    "virtual-network",
 };
 
 void BgpConfigListener::Initialize(DB *database) {
@@ -299,6 +307,7 @@ void BgpConfigListener::ChangeListAdd(ChangeList *change_list,
 void BgpConfigListener::NodeObserver(DBTablePartBase *root,
                                      DBEntryBase *db_entry) {
     IFMapNode *node = static_cast<IFMapNode *>(db_entry);
+
     // Ignore deleted nodes for which the configuration code doesn't hold
     // state. This is the case with BgpRouter objects other than the local
     // node.

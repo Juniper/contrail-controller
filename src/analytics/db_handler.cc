@@ -106,8 +106,9 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit() {
-    dbif_->Db_Uninit();
+void DbHandler::UnInit(bool shutdown) {
+    dbif_->Db_Uninit(shutdown);
+    dbif_->Db_SetInitDone(false);
 }
 
 bool DbHandler::Init() {
@@ -115,7 +116,7 @@ bool DbHandler::Init() {
     init_vizd_tables();
 
     LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
-    if (!dbif_->Db_Init()) {
+    if (!dbif_->Db_Init("collector::DbHandler", -1)) {
         LOG(ERROR, __func__ << ": Connection to DB FAILED");
         return false;
     }
@@ -131,6 +132,7 @@ bool DbHandler::Init() {
         return false;
     }
 
+    dbif_->Db_SetInitDone(true);
     LOG(DEBUG, "DbHandler::" << __func__ << " Done");
 
     return true;
@@ -160,8 +162,8 @@ inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
             rowkey.push_back(message_type);
     } else if (cfname == g_viz_constants.MESSAGE_TABLE_TIMESTAMP) {
     } else {
-        LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
-                " to table:" << cfname << " FAILED");
+        LOG(ERROR, __func__ << ": Unknown table: " << cfname << ", message: "
+                << message_type << ", message UUID: " << unm);
         return false;
     }
 
@@ -177,7 +179,10 @@ inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
 
     std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
     if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
-        VIZD_ASSERT(0);
+        LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
+                ", message UUID: " << unm << " to table: " << cfname <<
+                " FAILED");
+        return false;
     }
     return true;
 }
@@ -231,7 +236,8 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
     if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
         LOG(ERROR, __func__ << ": Addition of message: " << message_type <<
-                " COLUMN FAILED");
+                ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
+        return;
     }
 
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header, message_type, vmsgp->unm);
@@ -280,7 +286,10 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
         if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
+                    ", message UUID " << unm << " into table " << table <<
+                    " FAILED");
+            return;
         }
       }
 
@@ -305,7 +314,10 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
         if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
+                    ", message UUID " << unm << " " << table << " into table "
+                    << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
+            return;
         }
       }
 }

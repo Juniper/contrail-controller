@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "base/task.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "bgp/inet/inet_table.h"
@@ -81,6 +83,8 @@ public:
 class PeerMembershipMgrTest : public ::testing::Test {
 protected:
     virtual void SetUp() {
+        ConcurrencyScope scope("bgp::Config");
+
         gbl_index = 0;
         evm_.reset(new EventManager());
         server_.reset(new BgpServerTest(evm_.get(), "Local"));
@@ -128,7 +132,7 @@ protected:
                 new BgpNeighborConfig(rtinstance->config(), out.str(),
                                       out.str(), &router_);
             BgpTestPeer *peer = static_cast<BgpTestPeer *>(
-                rtinstance->PeerLocate(server(), config));
+                rtinstance->peer_manager()->PeerLocate(server(), config));
             peers_.push_back(peer);
             peer_configs_.push_back(config);
             peer_names_.push_back(out.str());

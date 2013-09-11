@@ -1127,6 +1127,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     TASK_UTIL_EXPECT_EQ(true, vnsw_client->HasNMessages(num_msgs + 2));
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
+    EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 0);
 
     link = LinkLookup(vr, vm);
     EXPECT_TRUE(link != NULL);
@@ -1143,6 +1144,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
     task_util::WaitForIdle();
     usleep(1000);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 1);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
     link = LinkLookup(vr, vm);
@@ -1158,6 +1160,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     num_msgs = vnsw_client->Count();
     vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME);
     usleep(1000);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vmsub_messages(), 2);
     EXPECT_EQ(vnsw_client->HasNMessages(num_msgs), true);
 
     link = LinkLookup(vr, vm);
@@ -1287,6 +1290,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 0);
 
     // 2nd spurious unsubscribe
     num_msgs = vnsw_client->Count();
@@ -1296,6 +1300,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 1);
 
     // 3rd spurious unsubscribe
     num_msgs = vnsw_client->Count();
@@ -1305,6 +1310,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 2);
 
     vnsw_client->OutputRecvBufferToFile();
 
@@ -3472,10 +3478,12 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
     IFMapClient *client1 = ifmap_server_.FindClient(client_name);
     size_t index1 = client1->index();
     task_util::WaitForIdle();
+    EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vrsub_messages(), 0);
 
     // Subscribe to config again to simulate a spurious vr-subscribe
     vnsw_client->SendConfigSubscribe();
     usleep(1000);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_dupicate_vrsub_messages(), 1);
     IFMapClient *client2 = ifmap_server_.FindClient(client_name);
     size_t index2 = client2->index();
 
@@ -3488,6 +3496,71 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
 
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
+
+    // Give a chance for the xmpp channel to get deleted
+    usleep(1000);
+
+    vnsw_client->Shutdown();
+    task_util::WaitForIdle();
+    TcpServerManager::DeleteServer(vnsw_client);
+    vnsw_client = NULL;
+
+    // Delete xmpp-channel explicitly
+    XmppConnection *sconnection = xmpp_server_->FindConnection(client_name);
+    if (sconnection) {
+        sconnection->Shutdown();
+    }
+
+    TASK_UTIL_EXPECT_TRUE(xmpp_server_->FindConnection(client_name) == NULL);
+}
+
+TEST_F(XmppIfmapTest, VmSubUnsubWithNoVrSub) {
+
+    // Read the ifmap data from file
+    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    assert(content.size() != 0);
+
+    // Give the read file to the parser
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    // Create the mock client
+    string client_name(CLI_ADDR);
+    XmppVnswMockPeer *vnsw_client =
+        new XmppVnswMockPeer(&evm_, xmpp_server_->GetPort(), client_name,
+                string("127.0.0.1"), string("/tmp/connection.output"));
+    TASK_UTIL_EXPECT_EQ(true, vnsw_client->IsEstablished());
+
+    vnsw_client->RegisterWithXmpp();
+
+    // Server connection
+    TASK_UTIL_EXPECT_TRUE(ServerIsEstablished(xmpp_server_, client_name)
+                          == true);
+
+    // verify ifmap_server client is not created until config subscribe
+    TASK_UTIL_EXPECT_TRUE(ifmap_server_.FindClient(client_name) == NULL);
+
+    // No config messages sent until config subscribe
+    TASK_UTIL_EXPECT_EQ(0, vnsw_client->Count());
+
+    // Subscribe to config
+    vnsw_client->SendVmConfigSubscribe("aad4c946-9390-4a53-8bbd-09d346f5ba6c");
+    usleep(1000);
+    EXPECT_TRUE(ifmap_server_.FindClient(client_name) == NULL);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmsub_novrsub_messages(), 1);
+
+    // Unsubscribe from config
+    vnsw_client->SendVmConfigUnsubscribe(
+            "aad4c946-9390-4a53-8bbd-09d346f5ba6c");
+    usleep(1000);
+    EXPECT_TRUE(ifmap_server_.FindClient(client_name) == NULL);
+    TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novrsub_messages(), 1);
+
+    EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+
+    // Client close generates a TcpClose event on server
+    ConfigUpdate(vnsw_client, new XmppConfigData());
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
 
     // Give a chance for the xmpp channel to get deleted
     usleep(1000);

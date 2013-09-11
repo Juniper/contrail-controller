@@ -79,6 +79,8 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
 
 CdbIf::~CdbIf() { 
     transport_->close();
+    TimerManager::DeleteTimer(periodic_timer_);
+    periodic_timer_ = NULL;
 }
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
@@ -89,6 +91,7 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     client_(new CassandraClient(protocol_)),
     ioservice_(ioservice),
     errhandler_(errhandler),
+    db_init_done_(false),
     periodic_timer_(TimerManager::CreateTimer(*ioservice, "Cdb Periodic timer")),
     enable_stats_(enable_stats),
     cassandra_ttl_(ttl) {
@@ -97,19 +100,30 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     name_ = boost::asio::ip::host_name(error);
 }
 
-bool CdbIf::Db_InitDone() {
+bool CdbIf::Db_IsInitDone() {
     return db_init_done_;
 }
 
-bool CdbIf::Db_Init() {
+void CdbIf::Db_SetInitDone(bool init_done) {
+    if (db_init_done_ != init_done) {
+        if (init_done) {
+            // Start cdbq dequeue if init is done
+            cdbq_->MayBeStartRunner();
+        }
+        db_init_done_ = init_done;
+    }
+}
+
+bool CdbIf::Db_Init(std::string task_id, int task_instance) {
     /*
      * we can leave the queue contents as is so they can be replayed after the
      * connection to db is established
      */
     if (!cdbq_.get()) {
-        cdbq_.reset(new WorkQueue<CdbIfColList *>(0, -1,
-                    boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1),
-                    boost::bind(&CdbIf::Db_InitDone, this))); 
+        cdbq_.reset(new WorkQueue<CdbIfColList *>(
+            TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance,
+            boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1),
+            boost::bind(&CdbIf::Db_IsInitDone, this)));
     }
 
     if (enable_stats_) {
@@ -129,7 +143,7 @@ bool CdbIf::Db_Init() {
     return true;
 }
 
-void CdbIf::Db_Uninit() {
+void CdbIf::Db_Uninit(bool shutdown) {
     try {
         transport_->close();
     } catch (TTransportException &tx) {
@@ -137,7 +151,13 @@ void CdbIf::Db_Uninit() {
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
     }
-    db_init_done_ = false;
+    if (enable_stats_) {
+        periodic_timer_->Cancel();
+    }
+    if (shutdown) {
+        cdbq_->Shutdown();
+        cdbq_.reset();
+    }
 }
 
 bool CdbIf::Db_AddTablespace(const std::string& tablespace) {
@@ -201,9 +221,6 @@ bool CdbIf::Db_SetTablespace(const std::string& tablespace) {
         *cfdef = *iter;
         CdbIfCfList.insert(name, new CdbIfCfInfo(cfdef));
     }
-
-    db_init_done_ = true;
-
     return true;
 }
 
@@ -573,7 +590,6 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 
 /*
  * called by the WorkQueue mechanism
- * return value is not really used by WorkQueue - hence always return True
  */
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
     bool ret_value = true;
@@ -651,7 +667,8 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
             CDBIF_HANDLE_EXCEPTION(__func__ << "TimedOutException: " << te.what() << "for cf: " << new_colp->cfname_);
         } catch (TTransportException& te) {
             CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << te.what());
-            ioservice_->post(errhandler_);
+            errhandler_();
+            ret_value = false;
         } catch (TException& tx) {
             CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << tx.what() << new_colp->cfname_);
         }

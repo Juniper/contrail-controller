@@ -18,6 +18,7 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace boost;
 
 static const int kRouteCount = 255;
 
@@ -104,7 +105,7 @@ protected:
     BgpServer server_;
     EvpnTable *evpn_;
     DBTableBase::ListenerId tid_;
-    std::auto_ptr<BgpInstanceConfig> master_cfg_;
+    scoped_ptr<BgpInstanceConfig> master_cfg_;
 
     tbb::atomic<long> adc_notification_;
     tbb::atomic<long> del_notification_;

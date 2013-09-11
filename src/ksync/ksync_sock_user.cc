@@ -10,7 +10,6 @@
 #include <linux/sockios.h>
 
 #include <boost/bind.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include <base/logging.h>
 #include <db/db.h>
@@ -33,6 +32,7 @@
 #include "vr_genetlink.h"
 #include "vr_message.h"
 #include "vr_types.h"
+#include "vr_defs.h"
 
 KSyncSockTypeMap *KSyncSockTypeMap::singleton_; 
 vr_flow_entry *KSyncSockTypeMap::flow_table_;
@@ -44,32 +44,16 @@ void vrouter_ops_test::Process(SandeshContext *context) {
 
 //process sandesh messages that are being sent from the agent
 //this is used to store a local copy of what is being send to kernel
-void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, 
+void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len, 
                                       KSyncUserSockContext *ctx) {
-    struct nlmsghdr *nlh = (struct nlmsghdr *)(parse_buf);
-    int total_len = nlh->nlmsg_len;
     int decode_len;
     uint8_t *decode_buf;
 
-    struct genlmsghdr *genlh = (struct genlmsghdr *)(parse_buf + NLMSG_HDRLEN);
-    if (genlh->cmd != SANDESH_REQUEST) {
-        LOG(ERROR, "Unkown generic netlink cmd : " << genlh->cmd);
-        assert(0);
-    }
-
-    struct nlattr *attr = (struct nlattr *)(parse_buf + NLMSG_HDRLEN
-                                            + GENL_HDRLEN);
-    if (attr->nla_type != NL_ATTR_VR_MESSAGE_PROTOCOL) {
-        LOG(ERROR, "Unkown generic netlink TLV type : " << attr->nla_type);
-        assert(0);
-    }
-
     //parse sandesh
     int err = 0;
-    int hdrlen = NLMSG_HDRLEN + GENL_HDRLEN + NLA_HDRLEN;
-    int decode_buf_len = total_len - hdrlen;
-    decode_buf = (uint8_t *)(parse_buf + hdrlen);
-    while(decode_buf_len > (NLA_ALIGNTO - 1)) {
+    int decode_buf_len = buf_len;
+    decode_buf = (uint8_t *)(parse_buf);
+    while(decode_buf_len > 0) {
         decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len,
                                                   &err, ctx);
         if (decode_len < 0) {
@@ -159,6 +143,40 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     nl_free(&cl);
 }
 
+void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
+    vr_vrf_stats_req vrf_stats;
+    vrf_stats.set_vsr_vrf(vrf_id);
+    vrf_stats.set_vsr_family(AF_INET);
+    vrf_stats.set_vsr_type(RT_UCAST);
+    vrf_stats.set_vsr_rid(0);
+    vrf_stats.set_vsr_discards(0);
+    vrf_stats.set_vsr_resolves(0);
+    vrf_stats.set_vsr_receives(0);
+    vrf_stats.set_vsr_tunnels(0);
+    vrf_stats.set_vsr_composites(0);
+    vrf_stats.set_vsr_encaps(0);
+
+    it = sock->vrf_stats_map.find(vrf_id);
+    if (it == sock->vrf_stats_map.end()) {
+        sock->vrf_stats_map[vrf_id] = vrf_stats;
+    }
+}
+
+void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
+                               uint64_t receives, uint64_t tunnels, 
+                               int64_t composites, uint64_t encaps) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    vr_vrf_stats_req &vrf_stats = sock->vrf_stats_map[vrf_id];
+    vrf_stats.set_vsr_discards(discards);
+    vrf_stats.set_vsr_resolves(resolves);
+    vrf_stats.set_vsr_receives(receives);
+    vrf_stats.set_vsr_tunnels(tunnels);
+    vrf_stats.set_vsr_composites(composites);
+    vrf_stats.set_vsr_encaps(encaps);
+}
+
 void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors, 
                                      int obytes, int opkts, int oerrors) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
@@ -205,32 +223,103 @@ int KSyncSockTypeMap::RouteCount() {
     return sock->rt_tree.size();
 }
 
+uint32_t KSyncSockTypeMap::GetSeqno(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    return nlh->nlmsg_seq;
+}
+
+bool KSyncSockTypeMap::IsMoreData(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+
+    return ((nlh->nlmsg_flags & NLM_F_MULTI) && (nlh->nlmsg_type != NLMSG_DONE));
+}
+
+void KSyncSockTypeMap::Decoder(char *data, SandeshContext *ctxt) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    //LOG(DEBUG, "Kernel Data: msg_type " << nlh->nlmsg_type << " seq no " 
+    //                << nlh->nlmsg_seq << " len " << nlh->nlmsg_len);
+    if (nlh->nlmsg_type == GetNetlinkFamilyId()) {
+        struct genlmsghdr *genlh = (struct genlmsghdr *)
+                                   (data + NLMSG_HDRLEN);
+        int total_len = nlh->nlmsg_len;
+        int decode_len;
+        uint8_t *decode_buf;
+        if (genlh->cmd == SANDESH_REQUEST) {
+            struct nlattr * attr = (struct nlattr *)(data + NLMSG_HDRLEN
+                                                     + GENL_HDRLEN);
+            int decode_buf_len = total_len - (NLMSG_HDRLEN + GENL_HDRLEN + 
+                                              NLA_HDRLEN);
+            int err = 0;
+            if (attr->nla_type == NL_ATTR_VR_MESSAGE_PROTOCOL) {
+                decode_buf = (uint8_t *)(data + NLMSG_HDRLEN + 
+                                         GENL_HDRLEN + NLA_HDRLEN);
+                while(decode_buf_len > (NLA_ALIGNTO - 1)) {
+                    decode_len = Sandesh::ReceiveBinaryMsgOne(decode_buf, decode_buf_len, &err,
+                                                              ctxt);
+                    if (decode_len < 0) {
+                        LOG(DEBUG, "Incorrect decode len " << decode_len);
+                        break;
+                    }
+                    decode_buf += decode_len;
+                    decode_buf_len -= decode_len;
+                }
+            } else {
+                LOG(ERROR, "Unkown generic netlink TLV type : " << attr->nla_type);
+                assert(0);
+            }
+        } else {
+            LOG(ERROR, "Unkown generic netlink cmd : " << genlh->cmd);
+            assert(0);
+        }
+    } else if (nlh->nlmsg_type != NLMSG_DONE) {
+        LOG(ERROR, "Netlink unkown message type : " << nlh->nlmsg_type);
+        assert(0);
+    }
+    
+}
+
+bool KSyncSockTypeMap::Validate(char *data) {
+    struct nlmsghdr *nlh = (struct nlmsghdr *)data;
+    if (nlh->nlmsg_type == NLMSG_ERROR) {
+        LOG(ERROR, "Ignoring Netlink error for seqno " << nlh->nlmsg_seq 
+                        << " len " << nlh->nlmsg_len);
+        assert(0);
+        return true;
+    }
+
+    if (nlh->nlmsg_len > kBufLen) {
+        LOG(ERROR, "Length of " << nlh->nlmsg_len << " is more than expected "
+            "length of " << kBufLen);
+        assert(0);
+        return true;
+    }
+    return true;
+}
+
 //send or store in map
-void KSyncSockTypeMap::AsyncSendTo(mutable_buffers_1 buf, HandlerCb cb) {
-    const uint8_t *parse_buf = buffer_cast<const uint8_t *>(buf);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)parse_buf;
-    KSyncUserSockContext ctx(true, nlh->nlmsg_seq);
+void KSyncSockTypeMap::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
+                                   HandlerCb cb) {
+    KSyncUserSockContext ctx(true, ioc->GetSeqno());
     //parse and store info in map [done in Process() callbacks]
-    ProcessSandesh(parse_buf, &ctx);
+    ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(nlh->nlmsg_seq, 0, 0); 
+        SimulateResponse(ioc->GetSeqno(), 0, 0); 
     }
 }
 
 //send or store in map
-void KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
-    const uint8_t *parse_buf = buffer_cast<const uint8_t *>(buf);
-    struct nlmsghdr *nlh = (struct nlmsghdr *)parse_buf;
-    KSyncUserSockContext ctx(true, nlh->nlmsg_seq);
+size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
+    KSyncUserSockContext ctx(true, 0);
     //parse and store info in map [done in Process() callbacks]
-    KSyncSockTypeMap::ProcessSandesh(parse_buf, &ctx);
+    ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(nlh->nlmsg_seq, 0, 0); 
+        SimulateResponse(0, 0, 0); 
     }
+    return 0;
 }
 
 //receive msgs from datapath
@@ -281,7 +370,8 @@ void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
 }
 
 //init ksync map
-void KSyncSockTypeMap::Init(boost::asio::io_service &ios) {
+void KSyncSockTypeMap::Init(boost::asio::io_service &ios, int count) {
+    KSyncSock::Init(count);
     assert(singleton_ == NULL);
     singleton_ = new KSyncSockTypeMap(ios);
 
@@ -295,6 +385,9 @@ void KSyncSockTypeMap::Init(boost::asio::io_service &ios) {
     SandeshBaseFactory::map_type update_map;
     update_map["vrouter_ops"] = &createT<vrouter_ops_test>;
     SandeshBaseFactory::Update(update_map);
+    for (int i = 0; i < count; i++) {
+        KSyncSock::SetSockTableEntry(i, singleton_);
+    }
 }
 
 void KSyncSockTypeMap::Shutdown() {
@@ -581,13 +674,60 @@ void KSyncUserSockContext::VrfAssignMsgHandler(vr_vrf_assign_req *req) {
     SetResponseReqd(false);
 }
 
+void KSyncUserSockVrfStatsContext::Process() {
+    if (req_->get_h_op() == sandesh_op::DUMP) {
+        VrfStatsDumpHandler dump;
+        dump.SendDumpResponse(GetSeqNum(), req_);
+    } else if (req_->get_h_op() == sandesh_op::GET) {
+        VrfStatsDumpHandler dump;
+        dump.SendGetResponse(GetSeqNum(), req_->get_vsr_vrf());
+    }
+}
+
+void KSyncUserSockContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserSockVrfStatsContext *vrfctx = new KSyncUserSockVrfStatsContext(
+                                                          GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(vrfctx);
+    } else {
+        vrfctx->Process();
+        delete vrfctx;
+    }
+    SetResponseReqd(false);
+}
+
+void KSyncUserSockDropStatsContext::Process() {
+    if (req_->get_h_op() == sandesh_op::GET) {
+        DropStatsDumpHandler dump;
+        dump.SendGetResponse(GetSeqNum(), 0);
+    }
+}
+
+void KSyncUserSockContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncUserSockDropStatsContext *dropctx = new KSyncUserSockDropStatsContext(
+                                                          GetSeqNum(), req);
+
+    if (sock->IsBlockMsgProcessing()) {
+        tbb::mutex::scoped_lock lock(sock->ctx_queue_lock_);
+        sock->ctx_queue_.push(dropctx);
+    } else {
+        dropctx->Process();
+        delete dropctx;
+    }
+    SetResponseReqd(false);
+}
+
 void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     struct nl_client cl;
     int error = 0, ret;
     uint8_t *buf = NULL;
     uint32_t buf_len = 0, encode_len = 0, tot_encode_len = 0;
-    struct nlmsghdr *nlh;
+    struct nlmsghdr *nlh = NULL;
     bool more = false;
     int count = 0;
     unsigned int resp_code = 0;
@@ -952,3 +1092,50 @@ Sandesh* VrfAssignDumpHandler::GetNext(Sandesh *input) {
     }
     return NULL;
 }
+
+Sandesh* VrfStatsDumpHandler::Get(int idx) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
+    static vr_vrf_stats_req req;
+
+    it = sock->vrf_stats_map.find(idx);
+    if (it != sock->vrf_stats_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* VrfStatsDumpHandler::GetFirst(Sandesh *from_req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
+    static vr_vrf_stats_req req;
+    int idx;
+    vr_vrf_stats_req *orig_req;
+    orig_req = static_cast<vr_vrf_stats_req *>(from_req);
+
+    idx = orig_req->get_vsr_marker();
+    it = sock->vrf_stats_map.upper_bound(idx);
+
+    if (it != sock->vrf_stats_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+
+Sandesh* VrfStatsDumpHandler::GetNext(Sandesh *input) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
+    static vr_vrf_stats_req req, *r;
+
+    r = static_cast<vr_vrf_stats_req *>(input);
+    it = sock->vrf_stats_map.upper_bound(r->get_vsr_vrf());
+
+    if (it != sock->vrf_stats_map.end()) {
+        req = it->second;
+        return &req;
+    }
+    return NULL;
+}
+

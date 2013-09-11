@@ -18,7 +18,6 @@
 #include "ksync/interface_ksync.h"
 #include "ksync/nexthop_ksync.h"
 #include "ksync/mirror_ksync.h"
-#include "nl_util.h"
 #include "ksync_init.h"
 
 void vr_mirror_req::Process(SandeshContext *context) {
@@ -78,44 +77,32 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
     return ret;
 };
 
-char *MirrorKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int MirrorKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mirror_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
     NHKSyncEntry *nh = GetNH();
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating Mirror message. Error : " << ret);
-        return NULL;
-    }
 
     encoder.set_h_op(op);
     encoder.set_mirr_index(GetIndex());
     encoder.set_mirr_rid(0);
     encoder.set_mirr_nhid(nh->GetIndex());
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     LOG(DEBUG, "Mirror index " << GetIndex() << " nhid " << nh->GetIndex());
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    return encode_len;
 }
 
-char *MirrorKSyncEntry::AddMsg(int &len) {
+int MirrorKSyncEntry::AddMsg(char *buf, int buf_len) {
     LOG(DEBUG, "MirrorEntry: Add");
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *MirrorKSyncEntry::ChangeMsg(int &len){
-    return AddMsg(len);
+int MirrorKSyncEntry::ChangeMsg(char *buf, int buf_len){
+    return AddMsg(buf, buf_len);
 }
 
-char *MirrorKSyncEntry::DeleteMsg(int &len) {
+int MirrorKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     LOG(DEBUG, "MirrorEntry: Delete");
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 KSyncEntry *MirrorKSyncEntry::UnresolvedReference() {

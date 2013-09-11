@@ -3,6 +3,8 @@
  */
 
 #include "base/logging.h"
+#include "base/task.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "testing/gunit.h"
 
@@ -15,6 +17,7 @@
 #include "bgp/l3vpn/inetvpn_address.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/bgp_message_builder.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 #include "io/event_manager.h"
@@ -29,10 +32,11 @@ protected:
         : server_(&evm_),
           instance_config_(BgpConfigManager::kMasterInstance),
           config_(&instance_config_, "test-peer", "local", &router_, NULL) {
+        ConcurrencyScope scope("bgp::Config");
         RoutingInstance *rti =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
-        peer_ = rti->PeerLocate(&server_, &config_);
+        peer_ = rti->peer_manager()->PeerLocate(&server_, &config_);
     }
 
     virtual void TearDown() {

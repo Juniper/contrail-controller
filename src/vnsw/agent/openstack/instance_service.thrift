@@ -20,6 +20,7 @@ typedef list<Port> PortList
 service InstanceService {
     bool AddPort(PortList port_list),
     bool KeepAliveCheck(),
+    bool Connect(),
     bool DeletePort(tuuid port_id),
 
     bool TunnelNHEntryAdd(1:required string src_ip, 2:required string dst_ip, 3:string vrf_name),

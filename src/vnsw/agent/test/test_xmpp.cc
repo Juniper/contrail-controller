@@ -7,6 +7,7 @@
 #include <tbb/task.h>
 #include <base/task.h>
 #include "io/test/event_manager_test.h"
+#include <net/bgp_af.h>
 
 #include <cmn/agent_cmn.h>
 #include "base/test/task_test_util.h"
@@ -131,6 +132,7 @@ public:
             return channel_->Send(msg, size, xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::WriteReadyCb, this, _1));
         }
+        return false;
     }
 
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -206,7 +208,9 @@ protected:
         xml_node event = msg.append_child("event");
         event.append_attribute("xmlns") = "http://jabber.org/protocol/pubsub";
         xml_node xitems = event.append_child("items");
-        xitems.append_attribute("node") = vrf.c_str();
+        stringstream node;
+        node << BgpAf::IPv4 << "/" << BgpAf::Unicast << "/" << vrf.c_str();
+        xitems.append_attribute("node") = node.str().c_str();
         return(xitems);
     }
 
@@ -217,13 +221,15 @@ protected:
         xml_node xitems = MessageHeader(&xdoc, vrf);
 
         autogen::NextHopType item_nexthop;
-        item_nexthop.af = Address::INET;
-        item_nexthop.address = Agent::GetRouterId().to_string();;
+        item_nexthop.af = BgpAf::IPv4;
+        item_nexthop.safi = BgpAf::Unicast;
+        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
         item_nexthop.label = label;
         
         autogen::ItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
-        item.entry.nlri.af = Address::INET;
+        item.entry.nlri.af = BgpAf::IPv4;
+        item.entry.nlri.safi = BgpAf::Unicast;
         item.entry.nlri.address = address.c_str();
         item.entry.version = 1;
         item.entry.virtual_network = vn;
@@ -242,13 +248,15 @@ protected:
         xml_node xitems = MessageHeader(&xdoc, vrf);
 
         autogen::NextHopType item_nexthop;
-        item_nexthop.af = 1; //BgpMpNlri::IPv4;
-        item_nexthop.address = Agent::GetRouterId().to_string();;
+        item_nexthop.af = BgpAf::IPv4;
+        item_nexthop.safi = BgpAf::Unicast;
+        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
         item_nexthop.label = label;
         
         autogen::ItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
-        item.entry.nlri.af = 1;
+        item.entry.nlri.af = BgpAf::IPv4;
+        item.entry.nlri.safi = BgpAf::Unicast;
         item.entry.nlri.address = address.c_str();
         item.entry.version = 1;
         item.entry.virtual_network = vn;
@@ -275,7 +283,7 @@ protected:
 
     void XmppConnectionSetUp() {
 
-        Agent::SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
 
         //Create control-node bgp mock peer 
         mock_peer.reset(new ControlNodeMockBgpXmppPeer());
@@ -295,11 +303,11 @@ protected:
 	cchannel = xc->FindChannel(XmppInit::kControlNodeJID);
 	//Create agent bgp peer
         bgp_peer.reset(new AgentBgpXmppPeerTest(cchannel,
-                       Agent::GetXmppServer(0), 0));
+                       Agent::GetInstance()->GetXmppServer(0), 0));
 	xc->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
 			bgp_peer.get(), _2));
-	Agent::SetAgentXmppChannel(bgp_peer.get(), 0);
+	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer.get(), 0);
 
         // server connection
         WAIT_FOR(100, 10000,
@@ -433,10 +441,10 @@ TEST_F(AgentXmppUnitTest, Connection) {
     DelVrf("vrf2");
     client->WaitForIdle();
 
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
     VnDelReq(2);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -460,12 +468,12 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
     client->Reset();
     client->WaitForIdle(5);
 
-    ASSERT_TRUE(Agent::GetXmppServer(0) == Agent::GetXmppCfgServer());
+    ASSERT_TRUE(Agent::GetInstance()->GetXmppServer(0) == Agent::GetInstance()->GetXmppCfgServer());
 
     //bring-down the channel
     bgp_peer.get()->HandleXmppChannelEvent(xmps::NOT_READY);
     client->WaitForIdle();
-    ASSERT_TRUE(Agent::GetXmppCfgServer().empty() == 1);
+    ASSERT_TRUE(Agent::GetInstance()->GetXmppCfgServer().empty() == 1);
 
     xc->ConfigUpdate(new XmppConfigData());
     client->WaitForIdle(5);
@@ -562,7 +570,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     //Confirm Vmport is deleted
     EXPECT_FALSE(VmPortFind(input2, 0)); 
 
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -650,10 +658,10 @@ TEST_F(AgentXmppUnitTest, DISABLED_SgList) {
     DelVrf("vrf2");
     client->WaitForIdle();
 
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
     VnDelReq(2);
     client->WaitForIdle();
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     EXPECT_FALSE(DBTableFind("vrf1.uc.route.0"));
     EXPECT_FALSE(VrfFind("vrf1"));
@@ -668,10 +676,10 @@ TEST_F(AgentXmppUnitTest, DISABLED_SgList) {
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
 
     int ret = RUN_ALL_TESTS();
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     return ret;
 }

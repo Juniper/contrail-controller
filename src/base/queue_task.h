@@ -21,15 +21,13 @@
 template <typename QueueEntryT, typename QueueT>
 class QueueTaskRunner : public Task {
 public:
-    static const int kMaxIterations = 32;
-
     QueueTaskRunner(QueueT *queue)
         : Task(queue->GetTaskId(), queue->GetTaskInstance()), queue_(queue) {
     }
 
     bool RunQueue() {
         QueueEntryT entry = QueueEntryT();
-        int count = 0;
+        size_t count = 0;
         
         while (queue_->Dequeue(&entry)) {
             // Process the entry
@@ -37,7 +35,7 @@ public:
                 break;
             }
 
-            if (++count == kMaxIterations) {
+            if (++count == queue_->max_iterations_) {
                 return queue_->RunnerDone();
             }
         }
@@ -86,6 +84,7 @@ template <typename QueueEntryT>
 class WorkQueue {
 public:
     static const int kThreshold = 1024;
+    static const int kMaxIterations = 32;
     typedef tbb::concurrent_queue<QueueEntryT> Queue;
     typedef boost::function<bool (QueueEntryT)> Callback;
     typedef boost::function<bool (void)> StartRunnerFunc;
@@ -93,7 +92,8 @@ public:
     typedef boost::function<bool ()> TaskEntryCallback;
 
     WorkQueue(int taskId, int taskInstance, Callback callback,
-            StartRunnerFunc start_runner = 0) :
+              StartRunnerFunc start_runner = 0,
+              size_t max_iterations = kMaxIterations) :
     	running_(false),
     	taskId_(taskId),
     	taskInstance_(taskInstance),
@@ -105,7 +105,8 @@ public:
         on_entry_defer_count_(0),
         disable_(false),
         deleted_(false),
-        enqueues_(0) {
+        enqueues_(0),
+        max_iterations_(max_iterations) {
         count_ = 0;
     }
 
@@ -261,6 +262,7 @@ private:
     bool disable_;
     bool deleted_;
     uint64_t enqueues_;
+    size_t max_iterations_;
 
     friend class QueueTaskRunner<QueueEntryT, WorkQueue<QueueEntryT> >;
 

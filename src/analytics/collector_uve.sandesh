@@ -61,6 +61,7 @@ uve sandesh SandeshModuleServerTrace {
 struct GeneratorSummaryInfo {
     1: string                              source
     2: string                              module_id    
+    3: string                              state    
 }
 request sandesh GeneratorListReq {
 }
@@ -84,6 +85,7 @@ struct CollectorState {
     6: optional list<string>               self_ip_list
     7: optional list<string>               core_files_list
 }
+
 uve sandesh CollectorInfo {
     1: CollectorState                      data
 }

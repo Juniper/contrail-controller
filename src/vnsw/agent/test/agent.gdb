@@ -9,7 +9,7 @@ define nh_entry_format
 end
 
 define dump_nh_entries
-   pdb_table_entries Agent::nh_table_ nh_entry_format
+   pdb_table_entries Agent::singleton_.nh_table_ nh_entry_format
 end
 
 define intf_entry_format
@@ -19,7 +19,7 @@ define intf_entry_format
 end
 
 define dump_intf_entries
-   pdb_table_entries Agent::intf_table_ intf_entry_format
+   pdb_table_entries Agent::singleton_.intf_table_ intf_entry_format
 end
 
 define mpls_entry_format
@@ -28,7 +28,7 @@ define mpls_entry_format
 end
   
 define dump_mpls_entries
-   pdb_table_entries Agent::mpls_table_ mpls_entry_format
+   pdb_table_entries Agent::singleton_.mpls_table_ mpls_entry_format
 end
 
 define route_entry_format
@@ -60,7 +60,7 @@ define vrf_entry_format
 end
 
 define dump_vrf_entries
-    pdb_table_entries Agent::vrf_table_ vrf_entry_format
+    pdb_table_entries Agent::singleton_.vrf_table_ vrf_entry_format
 end
 
 define vn_entry_format
@@ -70,7 +70,7 @@ define vn_entry_format
 end
 
 define dump_vn_entries
-   pdb_table_entries Agent::vn_table_ vn_entry_format
+   pdb_table_entries Agent::singleton_.vn_table_ vn_entry_format
 end
 
 define vm_entry_format
@@ -79,7 +79,7 @@ define vm_entry_format
 end
 
 define dump_vm_entries
-   pdb_table_entries Agent::vm_table_ vm_entry_format
+   pdb_table_entries Agent::singleton_.vm_table_ vm_entry_format
 end
 
 define mirror_entry_format
@@ -94,7 +94,7 @@ define mirror_entry_format
 end
 
 define dump_mirror_entries
-   pdb_table_entries mirror_table_ mirror_entry_format
+   pdb_table_entries Agent::singleton_.mirror_table_ mirror_entry_format
 end
 
 define vrf_assign_entry_format
@@ -104,7 +104,7 @@ define vrf_assign_entry_format
 end
 
 define dump_vrf_assign_entries
-   pdb_table_entries Agent::vrf_assign_table_ vrf_assign_entry_format
+   pdb_table_entries Agent::singleton_.vrf_assign_table_ vrf_assign_entry_format
 end
 
 define acl_entry_format
@@ -114,7 +114,7 @@ define acl_entry_format
 end
 
 define dump_acl_entries
-   pdb_table_entries acl_table_ acl_entry_format
+   pdb_table_entries Agent::singleton_.acl_table_ acl_entry_format
 end
 
 define sg_entry_format
@@ -124,7 +124,7 @@ end
 
 define dump_sg_entries
    printf "Entry             Id      Acl\n"
-   pdb_table_entries Agent::sg_table_ sg_entry_format
+   pdb_table_entries Agent::singleton_.sg_table_ sg_entry_format
 end
 
 define ifnode_entry_format
@@ -249,10 +249,8 @@ end
 
 define kflow_entry_format
     set $__kflow = (FlowTableKSyncEntry *)((size_t)$Xnode - (size_t)&(KSyncEntry::node_))
-    printf"%p  hash=0x%-8x  fp=%p  src_vn=%-10s dest_vn=%-10s\n",\
-        $__kflow, $__kflow->hash_id_, $__kflow->fe_.px,\
-        $__kflow->fe_.px->source_vn._M_dataplus._M_p,\
-        $__kflow->fe_.px->dest_vn._M_dataplus._M_p
+    printf"%p  hash=0x%-8x  fp=%p \n",\
+        $__kflow, $__kflow->hash_id_, $__kflow->fe_.px
 end
 
 define dump_ksync_flow_entries
@@ -312,3 +310,4 @@ end
 define dump_ksync_vassign_entries
     pksync_entries VrfAssignKSyncObject::singleton_ kvassign_entry_format
 end
+

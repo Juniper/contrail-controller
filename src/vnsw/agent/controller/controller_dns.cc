@@ -65,17 +65,17 @@ void AgentDnsXmppChannel::WriteReadyCb(uint8_t *msg,
 void AgentDnsXmppChannel::HandleXmppClientChannelEvent(
         AgentDnsXmppChannel *peer, xmps::PeerState state) {
     if (state == xmps::READY) {
-        if (Agent::GetXmppDnsCfgServerIdx() == -1)
-            Agent::SetXmppDnsCfgServer(peer->xs_idx_);
+        if (Agent::GetInstance()->GetXmppDnsCfgServerIdx() == -1)
+            Agent::GetInstance()->SetXmppDnsCfgServer(peer->xs_idx_);
         DnsHandler::SendDnsUpdateIpc(peer);
     } else {
-        if (Agent::GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
-            Agent::SetXmppDnsCfgServer(-1);
+        if (Agent::GetInstance()->GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
+            Agent::GetInstance()->SetXmppDnsCfgServer(-1);
             uint8_t o_idx = ((peer->xs_idx_ == 0) ? 1 : 0);
-            AgentDnsXmppChannel *o_chn = Agent::GetAgentDnsXmppChannel(o_idx);
+            AgentDnsXmppChannel *o_chn = Agent::GetInstance()->GetAgentDnsXmppChannel(o_idx);
             if (o_chn && o_chn->GetXmppChannel() &&
                 o_chn->GetXmppChannel()->GetPeerState() == xmps::READY)
-                Agent::SetXmppDnsCfgServer(o_idx);
+                Agent::GetInstance()->SetXmppDnsCfgServer(o_idx);
         }
     }
 }

@@ -51,6 +51,17 @@ Ip4Prefix Ip4Prefix::FromString(const std::string &str, error_code *errorp) {
     return prefix;
 }
 
+// Check whether 'this' is more specific than rhs.
+bool Ip4Prefix::IsMoreSpecific(const Ip4Prefix &rhs) const {
+
+    // My prefixlen must be longer in order to be more specific.
+    if (prefixlen_ < rhs.prefixlen()) return false;
+
+    uint32_t mask = ((uint32_t) ~0) << (32 - rhs.prefixlen());
+    return (ip4_addr_.to_ulong() & mask) ==
+        (rhs.ip4_addr().to_ulong() & mask);
+}
+
 InetRoute::InetRoute(const Ip4Prefix &prefix) : prefix_(prefix) {
 }
 
@@ -61,6 +72,18 @@ int InetRoute::CompareTo(const Route &rhs) const {
 
 string InetRoute::ToString() const {
     return prefix_.ToString();
+}
+
+// Check whether 'this' is more specific than rhs.
+bool InetRoute::IsMoreSpecific(const string &match) const {
+    error_code ec;
+
+    Ip4Prefix prefix = Ip4Prefix::FromString(match, &ec);
+    if (!ec) {
+        return GetPrefix().IsMoreSpecific(prefix);
+    }
+
+    return false;
 }
 
 DBEntryBase::KeyPtr InetRoute::GetDBRequestKey() const {

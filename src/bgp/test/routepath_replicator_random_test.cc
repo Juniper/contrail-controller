@@ -121,6 +121,7 @@ protected:
         : bgp_server_(new BgpServer(&evm_)) {
         min_vrf_ = 32;
         IFMapLinkTable_Init(&config_db_, &config_graph_);
+        vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
     ~ReplicationTest() {
@@ -129,8 +130,8 @@ protected:
 
     virtual void SetUp() {
         InitParams();
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
@@ -145,8 +146,7 @@ protected:
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
         task_util::WaitForIdle();
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         parser->MetadataClear("bgp_schema");
         task_util::WaitForIdle();
     }
@@ -162,7 +162,7 @@ protected:
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
         IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+            IFMapServerParser::GetInstance("schema");
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
@@ -520,7 +520,7 @@ protected:
                 }
             }
 
-            // secodary routes which are no longer replicated
+            // secondary routes which are no longer replicated
             for (RtReplicated::ReplicatedRtPathList::iterator iter =
                  dbstate->GetList().begin();
                  iter != dbstate->GetList().end(); iter++) {

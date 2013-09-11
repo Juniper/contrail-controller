@@ -144,9 +144,9 @@ void L4PortBitmap::Encode(PortBucketBitmap &bmap) {
 FlowUve *FlowUve::singleton_;
 
 void FlowUve::NewFlow(const FlowEntry *flow) {
-    GetUveClient()->NewFlow(flow);
+    UveClient::GetInstance()->NewFlow(flow);
 }
 
 void FlowUve::DeleteFlow(const FlowEntry *flow) {
-    GetUveClient()->DeleteFlow(flow);
+    UveClient::GetInstance()->DeleteFlow(flow);
 }

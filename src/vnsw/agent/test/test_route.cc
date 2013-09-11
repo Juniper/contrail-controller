@@ -60,14 +60,14 @@ protected:
     RouteTest() : vrf_name_("vrf1"), eth_name_(eth_itf) {
         default_dest_ip_ = Ip4Address::from_string("0.0.0.0");
 
-        if (Agent::GetRouterIdConfigured()) {
-            vhost_ip_ = Agent::GetRouterId();
+        if (Agent::GetInstance()->GetRouterIdConfigured()) {
+            vhost_ip_ = Agent::GetInstance()->GetRouterId();
         } else {
             vhost_ip_ = Ip4Address::from_string("10.1.1.10");
         }
-        if (Agent::GetGatewayId() != default_dest_ip_) {
+        if (Agent::GetInstance()->GetGatewayId() != default_dest_ip_) {
             is_gateway_configured = true;
-            fabric_gw_ip_ = Agent::GetGatewayId();
+            fabric_gw_ip_ = Agent::GetInstance()->GetGatewayId();
         } else {
             is_gateway_configured = false;
             fabric_gw_ip_ = Ip4Address::from_string("10.1.1.254");
@@ -89,7 +89,7 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        EthInterface::CreateReq(eth_name_, Agent::GetDefaultVrf());
+        EthInterface::CreateReq(eth_name_, Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
@@ -113,13 +113,13 @@ protected:
     }
 
     void AddHostRoute(Ip4Address addr) {
-        Agent::GetDefaultInet4UcRouteTable()->AddHostRoute(vrf_name_, addr, 32, Agent::GetFabricVnName());
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddHostRoute(vrf_name_, addr, 32, Agent::GetInstance()->GetFabricVnName());
         client->WaitForIdle();
     }
 
     void AddVhostRoute() {
-        Agent::GetDefaultInet4UcRouteTable()->AddVHostRecvRoute(
-                                                Agent::GetDefaultVrf(),
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddVHostRecvRoute(
+                                                Agent::GetInstance()->GetDefaultVrf(),
                                                 "vhost0", vhost_ip_, false);
         client->WaitForIdle();
     }
@@ -127,7 +127,7 @@ protected:
     void AddRemoteVmRoute(const Ip4Address &remote_vm_ip, 
                           const Ip4Address &server_ip, uint32_t plen, 
                           uint32_t label, TunnelType::TypeBmap bmap) {
-        Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, vrf_name_,
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, vrf_name_,
             remote_vm_ip, plen, server_ip, bmap, label, vrf_name_);
         client->WaitForIdle();
     }
@@ -140,14 +140,14 @@ protected:
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        Agent::GetDefaultInet4UcRouteTable()->AddResolveRoute(
-                Agent::GetDefaultVrf(), server_ip, plen);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddResolveRoute(
+                Agent::GetInstance()->GetDefaultVrf(), server_ip, plen);
         client->WaitForIdle();
     }
 
     void AddGatewayRoute(const std::string &vrf_name, 
                          const Ip4Address &ip, const Ip4Address &server) {
-        Agent::GetDefaultInet4UcRouteTable()->AddGatewayRoute(NULL, vrf_name,
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddGatewayRoute(NULL, vrf_name,
                                                             ip, 32, server);
         client->WaitForIdle();
     }
@@ -157,7 +157,7 @@ protected:
                         uint16_t label, const std::string &vn_name) {
 
         SecurityGroupList sg_l;
-        Agent::GetDefaultInet4UcRouteTable()->AddVlanNHRoute
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddVlanNHRoute
             (NULL, vrf_name_, Ip4Address::from_string(ip), plen, MakeUuid(id),
              tag, label, vn_name, sg_l);
         client->WaitForIdle();
@@ -165,7 +165,7 @@ protected:
 
     void DeleteRoute(const Peer *peer, const std::string &vrf_name, 
                      const Ip4Address &addr, uint32_t plen) {
-        Agent::GetDefaultInet4UcRouteTable()->DeleteReq(peer, vrf_name,
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(peer, vrf_name,
                                                       addr, plen);
         client->WaitForIdle();
         while (RouteFind(vrf_name, addr, plen) == true) {
@@ -218,7 +218,7 @@ TEST_F(RouteTest, HostRoute_1) {
     AddHostRoute(trap_ip_);
     EXPECT_TRUE(RouteFind(vrf_name_, trap_ip_, 32));
 
-    DeleteRoute(Agent::GetLocalPeer(), vrf_name_, trap_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, trap_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, trap_ip_, 32));
 }
 
@@ -226,10 +226,10 @@ TEST_F(RouteTest, VhostRecvRoute_1) {
     //Recv route for IP address set on vhost interface
     //Add and delete recv route on fabric VRF
     AddVhostRoute();
-    EXPECT_TRUE(RouteFind(Agent::GetDefaultVrf(), vhost_ip_, 32));
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), vhost_ip_, 32));
     
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), vhost_ip_, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), vhost_ip_, 32));
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), vhost_ip_, 32);
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), vhost_ip_, 32));
 }
 
 TEST_F(RouteTest, LocalVmRoute_1) {
@@ -290,9 +290,9 @@ TEST_F(RouteTest, RemoteVmRoute_2) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
     //Delete ARP route
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), 
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), 
                 server1_ip_, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), server1_ip_, 32));
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32));
 }
 
 TEST_F(RouteTest, RemoteVmRoute_3) {
@@ -340,21 +340,21 @@ TEST_F(RouteTest, RemoteVmRoute_4) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
     //Delete ARP route
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), 
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), 
                 server1_ip_, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), server1_ip_, 32));
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32));
 
     //Delete Resolve route
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), 
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), 
                 server1_ip_, 24);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), server1_ip_, 24));
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 24));
 }
 
 TEST_F(RouteTest, RemoteVmRoute_5) {
     if (!is_gateway_configured) {
-        Agent::SetGatewayId(fabric_gw_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(fabric_gw_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, fabric_gw_ip_);
         client->WaitForIdle();
     }
@@ -382,9 +382,9 @@ TEST_F(RouteTest, RemoteVmRoute_5) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
     if (!is_gateway_configured) {
-        Agent::SetGatewayId(default_dest_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(default_dest_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, default_dest_ip_);
         client->WaitForIdle();
     }
@@ -392,9 +392,9 @@ TEST_F(RouteTest, RemoteVmRoute_5) {
 
 TEST_F(RouteTest, RemoteVmRoute_no_gw) {
     if (is_gateway_configured) {
-        Agent::SetGatewayId(default_dest_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(default_dest_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, default_dest_ip_);
         client->WaitForIdle();
     }
@@ -409,9 +409,9 @@ TEST_F(RouteTest, RemoteVmRoute_no_gw) {
         const TunnelNH *tun = static_cast<const TunnelNH *>(addr_nh);
         EXPECT_TRUE(tun->GetRt()->GetActiveNextHop()->GetType() == NextHop::DISCARD);
 
-        Agent::SetGatewayId(fabric_gw_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(fabric_gw_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, fabric_gw_ip_);
         client->WaitForIdle();
         //addr_nh = addr_rt->GetActiveNextHop();
@@ -429,9 +429,9 @@ TEST_F(RouteTest, RemoteVmRoute_no_gw) {
         client->WaitForIdle();
         EXPECT_TRUE(addr_nh->IsValid() == false);
 
-        Agent::SetGatewayId(default_dest_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(default_dest_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, default_dest_ip_);
         client->WaitForIdle();
     }
@@ -441,9 +441,9 @@ TEST_F(RouteTest, RemoteVmRoute_no_gw) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
     if (is_gateway_configured) {
-        Agent::SetGatewayId(fabric_gw_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(fabric_gw_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, fabric_gw_ip_);
         client->WaitForIdle();
     }
@@ -451,9 +451,9 @@ TEST_F(RouteTest, RemoteVmRoute_no_gw) {
 
 TEST_F(RouteTest, RemoteVmRoute_foreign_gw) {
 
-    Agent::SetGatewayId(foreign_gw_ip_);
-    Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                       Agent::GetDefaultVrf(),
+    Agent::GetInstance()->SetGatewayId(foreign_gw_ip_);
+    Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                       Agent::GetInstance()->GetDefaultVrf(),
                                        default_dest_ip_, 0, foreign_gw_ip_);
     client->WaitForIdle();
 
@@ -475,15 +475,15 @@ TEST_F(RouteTest, RemoteVmRoute_foreign_gw) {
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));
 
     if (is_gateway_configured) {
-        Agent::SetGatewayId(fabric_gw_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(fabric_gw_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, fabric_gw_ip_);
         client->WaitForIdle();
     } else {
-        Agent::SetGatewayId(default_dest_ip_);
-        Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                           Agent::GetDefaultVrf(),
+        Agent::GetInstance()->SetGatewayId(default_dest_ip_);
+        Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                           Agent::GetInstance()->GetDefaultVrf(),
                                            default_dest_ip_, 0, default_dest_ip_);
         client->WaitForIdle();
     }
@@ -494,15 +494,15 @@ TEST_F(RouteTest, GatewayRoute_1) {
     //We add a gateway route as below
     //server2_ip ----->GW---->ARP NH
     //Server2 route and GW route, should have same NH
-    AddGatewayRoute(Agent::GetDefaultVrf(), server2_ip_, fabric_gw_ip_);
-    EXPECT_TRUE(RouteFind(Agent::GetDefaultVrf(), server2_ip_, 32));
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), server2_ip_, fabric_gw_ip_);
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server2_ip_, 32));
 
     //Resolve ARP for subnet gateway route
     AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
            eth_name_.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(IsSameNH(server2_ip_, 32, fabric_gw_ip_, 32,
-                         Agent::GetDefaultVrf()));
+                         Agent::GetInstance()->GetDefaultVrf()));
 
     //Change mac, and verify that nexthop of gateway route
     //also get updated
@@ -510,11 +510,11 @@ TEST_F(RouteTest, GatewayRoute_1) {
            eth_name_.c_str());
     client->WaitForIdle();
     EXPECT_TRUE(IsSameNH(server2_ip_, 32, fabric_gw_ip_, 32,
-                         Agent::GetDefaultVrf()));
+                         Agent::GetInstance()->GetDefaultVrf()));
 
     //Delete indirect route
-    DeleteRoute(NULL, Agent::GetDefaultVrf(), server2_ip_, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), server2_ip_, 32));
+    DeleteRoute(NULL, Agent::GetInstance()->GetDefaultVrf(), server2_ip_, 32);
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server2_ip_, 32));
 
     //Delete ARP route, since no covering resolve route
     //is present server2 route would point to discard NH
@@ -531,28 +531,28 @@ TEST_F(RouteTest, GatewayRoute_2) {
     //Add gateway route a reachable via b, b reachable
     //via c, c reachable via d.
     AddArp(d.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
-    AddGatewayRoute(Agent::GetDefaultVrf(), c, d);
-    AddGatewayRoute(Agent::GetDefaultVrf(), b, c);
-    AddGatewayRoute(Agent::GetDefaultVrf(), a, b);
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), c, d);
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), b, c);
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), a, b);
     client->WaitForIdle();
-    EXPECT_TRUE(IsSameNH(a, 32, b, 32, Agent::GetDefaultVrf()));
-    EXPECT_TRUE(IsSameNH(b, 32, c, 32, Agent::GetDefaultVrf()));
-    EXPECT_TRUE(IsSameNH(c, 32, d, 32, Agent::GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(a, 32, b, 32, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(b, 32, c, 32, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(c, 32, d, 32, Agent::GetInstance()->GetDefaultVrf()));
 
     DelArp(d.to_string().c_str(), "0a:0b:0c:0d:0e:0f", eth_name_.c_str());
     client->WaitForIdle();
-    EXPECT_TRUE(IsSameNH(a, 32, b, 32, Agent::GetDefaultVrf()));
-    EXPECT_TRUE(IsSameNH(b, 32, c, 32, Agent::GetDefaultVrf()));
-    EXPECT_TRUE(IsSameNH(c, 32, d, 32, Agent::GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(a, 32, b, 32, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(b, 32, c, 32, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_TRUE(IsSameNH(c, 32, d, 32, Agent::GetInstance()->GetDefaultVrf()));
 
-    DeleteRoute(NULL, Agent::GetDefaultVrf(), a, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), a ,32));
+    DeleteRoute(NULL, Agent::GetInstance()->GetDefaultVrf(), a, 32);
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), a ,32));
 
-    DeleteRoute(NULL, Agent::GetDefaultVrf(), b, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), b, 32));
+    DeleteRoute(NULL, Agent::GetInstance()->GetDefaultVrf(), b, 32);
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), b, 32));
 
-    DeleteRoute(NULL, Agent::GetDefaultVrf(), c, 32);
-    EXPECT_FALSE(RouteFind(Agent::GetDefaultVrf(), c, 32));
+    DeleteRoute(NULL, Agent::GetInstance()->GetDefaultVrf(), c, 32);
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), c, 32));
 }
 
 TEST_F(RouteTest, FindLPM) {
@@ -568,23 +568,23 @@ TEST_F(RouteTest, FindLPM) {
     AddArp(lpm5_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0a", eth_name_.c_str());
     client->WaitForIdle();
 
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm4_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm4_ip_, 32);
     client->WaitForIdle();
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm3_ip_, rt->GetIpAddress());
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm3_ip_, 24);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm3_ip_, 24);
     client->WaitForIdle();
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm2_ip_, rt->GetIpAddress());
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm2_ip_, 16);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm2_ip_, 16);
     client->WaitForIdle();
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm1_ip_, rt->GetIpAddress());
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm1_ip_, 8);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm1_ip_, 8);
     client->WaitForIdle();
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm5_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm5_ip_, 32);
     client->WaitForIdle();
 }
 
@@ -694,16 +694,16 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
 
     // Add state to NextHop so that entry is not freed on delete
     DBTableBase::ListenerId id = 
-        Agent::GetNextHopTable()->Register(boost::bind(&RouteTest::NhListener, this, _1, _2));
+        Agent::GetInstance()->GetNextHopTable()->Register(boost::bind(&RouteTest::NhListener, this, _1, _2));
     InterfaceNHKey key(new VmPortInterfaceKey(MakeUuid(1), ""), false);
-    NextHop *nh = static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+    NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     TestNhState *state = new TestNhState();
-    nh->SetState(Agent::GetNextHopTable(), id, state);
+    nh->SetState(Agent::GetInstance()->GetNextHopTable(), id, state);
 
     DeleteVmportEnv(input, 1, false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetNextHopTable()->FindActiveEntry(&key) == NULL);
-    EXPECT_TRUE(Agent::GetNextHopTable()->Find(&key, true) != NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->Find(&key, true) != NULL);
 
     TestNhPeer *peer = new TestNhPeer();
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
@@ -714,17 +714,17 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     Inet4UcRouteTable::DeleteReq(peer, "vrf1", addr, 32);
     client->WaitForIdle();
 
-    nh->ClearState(Agent::GetNextHopTable(), id);
+    nh->ClearState(Agent::GetInstance()->GetNextHopTable(), id);
     client->WaitForIdle();
     delete state;
     delete peer;
 
-    Agent::GetNextHopTable()->Unregister(id);
+    Agent::GetInstance()->GetNextHopTable()->Unregister(id);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetNextHopTable()->Find(&key, true) == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->Find(&key, true) == NULL);
     int i = 0;
     while(RouteFind(vrf_name_, local_vm_ip_, 32) == true && ++i < 25) {
         client->WaitForIdle();
@@ -818,7 +818,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
 TEST_F(RouteTest, RtEntryReuse) {
     client->Reset();
     DBTableBase::ListenerId id = 
-        Agent::GetDefaultInet4UcRouteTable()->Register(boost::bind(&RouteTest::RtListener, this, _1, _2));
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->Register(boost::bind(&RouteTest::RtListener, this, _1, _2));
 
     Inet4UcRoute *rt;
     Inet4UcRoute *rt_hold;
@@ -827,30 +827,30 @@ TEST_F(RouteTest, RtEntryReuse) {
     AddArp(lpm4_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0f", eth_name_.c_str());
     client->WaitForIdle();
 
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
 
     boost::scoped_ptr<TestRtState> state(new TestRtState());
-    rt->SetState(Agent::GetDefaultInet4UcRouteTable(), id, state.get());
+    rt->SetState(Agent::GetInstance()->GetDefaultInet4UcRouteTable(), id, state.get());
     rt_hold = rt;
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm4_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm4_ip_, 32);
     client->WaitForIdle();
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm3_ip_, rt->GetIpAddress());
 
     AddArp(lpm4_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0f", eth_name_.c_str());
     client->WaitForIdle();
-    rt = Agent::GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
+    rt = Agent::GetInstance()->GetDefaultInet4UcRouteTable()->FindLPM(lpm4_ip_);
     EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
     EXPECT_EQ(rt, rt_hold);
-    rt->ClearState(Agent::GetDefaultInet4UcRouteTable(), id);
+    rt->ClearState(Agent::GetInstance()->GetDefaultInet4UcRouteTable(), id);
 
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm4_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm4_ip_, 32);
     client->WaitForIdle();
-    DeleteRoute(Agent::GetLocalPeer(), Agent::GetDefaultVrf(), lpm3_ip_, 24);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm3_ip_, 24);
     client->WaitForIdle();
 
-    Agent::GetDefaultInet4UcRouteTable()->Unregister(id);
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->Unregister(id);
 }
 
 
@@ -859,7 +859,7 @@ int main(int argc, char *argv[]) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init, true, false);
     if (vm.count("config")) {
-        eth_itf = Agent::GetIpFabricItfName();
+        eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         eth_itf = "eth0";
     }

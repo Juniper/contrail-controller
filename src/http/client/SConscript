@@ -24,7 +24,7 @@ if sys.platform != 'darwin':
 libs = MapBuildDir(['io'])
 env.Append(LIBPATH=libs)
 
-httpc_include = ['#/' + Dir('.').path, '#/third_party/curl-7.22.0/include']
+httpc_include = env['TOP_INCLUDE']
 env.Prepend(CPPPATH=httpc_include)
 
 env.Append(LIBPATH = ['#/' + Dir('..').path,
@@ -38,6 +38,6 @@ env.Append(LIBS = ['task_test', 'gunit', 'base', 'httpc', 'sandesh', 'http', 'ht
 
 httpcd = env.Program(target = 'httpcd',
                    source = ['main.cc'])
-
+env.Requires(httpcd, '#/build/include/curl/curl.h')
 #env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 env.Install(env['TOP_LIB'], libhttpc)                                  

@@ -22,6 +22,9 @@ FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerRibMembershipManager, PeerRibMembe
 #include "bgp/bgp_ribout_updates.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RibOutUpdates, RibOutUpdates);
 
+#include "bgp/routing-instance/peer_manager.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, PeerManager, PeerManager);
+
 #include "bgp/routing-instance/routing_instance.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstance, RoutingInstance);
 FACTORY_STATIC_REGISTER(BgpObjectFactory, RoutingInstanceMgr, RoutingInstanceMgr);

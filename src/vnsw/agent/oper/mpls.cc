@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
 
@@ -23,7 +22,7 @@ MplsLabel::~MplsLabel() {
     }
     if ((type_ != MplsLabel::MCAST_NH) &&
         free_label_) {
-        Agent::GetMplsTable()->FreeLabel(label_);
+        Agent::GetInstance()->GetMplsTable()->FreeLabel(label_);
     }
 }
 
@@ -74,7 +73,7 @@ bool MplsTable::ChangeHandler(MplsLabel *mpls, const DBRequest *req) {
     bool ret = false;
     MplsLabelData *data = static_cast<MplsLabelData *>(req->data.get());
     NextHop *nh = static_cast<NextHop *>
-        (Agent::GetNextHopTable()->FindActiveEntry(data->nh_key));
+        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(data->nh_key));
 
     if (mpls->nh_ != nh) {
         mpls->nh_ = nh;
@@ -287,7 +286,7 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
                 break;
         }
         info.set_intf_type(if_type_str);
-        info.set_intf_uuid(boost::lexical_cast<string>(intf->GetUuid()));
+        info.set_intf_uuid(UuidToString(intf->GetUuid()));
         info.set_intf_name(intf->GetName());
     }
     OPER_TRACE(Mpls, info);

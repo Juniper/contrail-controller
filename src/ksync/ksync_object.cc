@@ -354,12 +354,13 @@ void intrusive_ptr_release(KSyncEntry *p) {
 // KSyncNetlinkEntry routines
 ///////////////////////////////////////////////////////////////////////////////
 bool KSyncNetlinkEntry::Add() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
     Sync();
-    msg = AddMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);
@@ -368,15 +369,16 @@ bool KSyncNetlinkEntry::Add() {
 }
 
 bool KSyncNetlinkEntry::Change() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
     if (Sync() == false) {
         return true;
     }
 
-    msg = ChangeMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);
@@ -385,11 +387,12 @@ bool KSyncNetlinkEntry::Change() {
 }
 
 bool KSyncNetlinkEntry::Delete() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
-    msg = DeleteMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);
@@ -401,11 +404,12 @@ bool KSyncNetlinkEntry::Delete() {
 // KSyncNetlinkDBEntry routines
 ///////////////////////////////////////////////////////////////////////////////
 bool KSyncNetlinkDBEntry::Add() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
-    msg = AddMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = AddMsg(msg, KSYNC_DEFAULT_MSG_SIZE); 
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);
@@ -414,11 +418,12 @@ bool KSyncNetlinkDBEntry::Add() {
 }
 
 bool KSyncNetlinkDBEntry::Change() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
-    msg = ChangeMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = ChangeMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);
@@ -427,11 +432,12 @@ bool KSyncNetlinkDBEntry::Change() {
 }
 
 bool KSyncNetlinkDBEntry::Delete() {
-    char        *msg;
+    char        *msg = (char *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     int         msg_len;
 
-    msg = DeleteMsg(msg_len);
-    if (msg == NULL) {
+    msg_len = DeleteMsg(msg, KSYNC_DEFAULT_MSG_SIZE);
+    if (msg_len == 0) {
+        free(msg);
         return true;
     }
     KSyncSock   *sock = KSyncSock::Get(0);

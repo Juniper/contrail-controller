@@ -23,7 +23,7 @@ if '-fno-exceptions' in cflags:
 
 import sys
 if sys.platform != 'darwin':
-    env.Prepend(LIBS=['agent_test']);
+    env.Prepend(LIBS=['agent_test'])
 
     test_intf = env.Program(target = 'test_intf', source = ['test_intf.cc'])
     env.Alias('src/vnsw/agent/oper/test:test_intf', test_intf)

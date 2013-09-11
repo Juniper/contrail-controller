@@ -36,8 +36,8 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         if (node != NULL) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (Agent::GetInterfaceTable()->IFNodeToReq(node, req)) {
-                Agent::GetInterfaceTable()->Enqueue(&req);
+            if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(node, req)) {
+                Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
             }
         }
     }
@@ -97,11 +97,11 @@ IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) {
 
 void InterfaceCfgClient::Init() {
     singleton_ = new InterfaceCfgClient();
-    DBTableBase *table = Agent::GetIntfCfgTable();
+    DBTableBase *table = Agent::GetInstance()->GetIntfCfgTable();
     table->Register(boost::bind(&InterfaceCfgClient::Notify, singleton_, _1, _2));
 
     // Register with config DB table for vm-port UUID to IFNode mapping
-    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
                                                 "virtual-machine-interface");
     assert(cfg_db);
     singleton_->cfg_listener_id_ = cfg_db->Register
@@ -109,7 +109,7 @@ void InterfaceCfgClient::Init() {
 }
 
 void InterfaceCfgClient::Shutdown() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
                                                 "virtual-machine-interface");
     cfg_db->Unregister(singleton_->cfg_listener_id_);
     delete singleton_;

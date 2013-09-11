@@ -13,6 +13,7 @@
 #include <boost/functional/hash.hpp>
 #include <discovery/client/discovery_client_types.h>
 
+#include "discovery_client_priv.h"
 #include "discovery_client.h"
 #include "xml/xml_base.h"                                                                         
 #include "xml/xml_pugi.h"                                                                              
@@ -219,51 +220,6 @@ bool DiscoveryServiceClient::DequeueEvent(EnqueuedCb cb) {
     return true;
 }
 
-/*
- * The client code needs to add the following based on the service(eg:IFMapService)
- *
- *  1) IFMapService ifmap_svc;
- *     ifmap_svc.ip_addr = "127.0.0.1"
- *     ifmap_svc.port = "5678"
- *
- *  2) DiscoverService ds(ep);
- *     ds.Publish(DiscoveryServiceClient::IFMapService, ifmap_svc)
- *
- * int BuildPublishXmlMessage(std:string ServiceName, AutogenProperty &ServiceObj, uint8_t *buf) {
- *
- *   ServiceName obj = static_cast<ServiceName>(ServiceObj);
- *   std:string service_tag = service_name_map_.find(ServiceName)->second;
- *
- *    //Build the DOM tree                                 
- *   auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl()); 
- *   XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
- *   pugi->AddNode(service_tag);
- *   pugi::xml_node node = pugi->FindNode(service_tag)
- *   obj.Encode(&node);
- *   
- *   return (impl->WriteRawDoc(buf));
- * }
- *
- */
-
-/*
-void Publish(std::string ServiceName, AutogenProperty &ServiceObj) {
-    uint8_t buf[4096];
-
-    stringstream ss;
-    bzero(buf, sizeof(buf));
-    int buflen = BuildPublishXmlMessage(ServiceName, ServiceObj, buf);
-    if (buflen) {
-        stringstream url;
-        url << "http://" << ds_endpoint_.address().to_string() << "/" <<
-                            ds_endpoint_.port() << "/publish";
-        SendHttpMessage(url, buf);
-    }
-   
-    //Start periodic heartbeat, timer per service 
-}
-*/
-
 void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls, 
                                                     boost::system::error_code ec, 
                                                     std::string serviceName,
@@ -285,7 +241,6 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     } else {
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler", 
                                serviceName, "serviceName not in PublishResponseMap");
-        LOG(ERROR, "Stray Publish Response serviceName:" << serviceName);
         return;
     }
 
@@ -389,13 +344,14 @@ void DiscoveryServiceClient::Subscribe(std::string subscriber_name,
     stringstream inst;
     inst << static_cast<int>(numbOfInstances);
     pugi->AddChildNode("instances", inst.str());
-
     pugi->ReadNode(serviceName); //Reset parent
 
     boost::uuids::uuid u = boost::uuids::random_generator()();
     std::string uuid_str = to_string(u);
-    if (!subscriber_name.empty())
-        uuid_str = uuid_str + subscriber_name;
+    if (!subscriber_name.empty()) {
+        pugi->AddChildNode("client-type", subscriber_name);
+        pugi->ReadNode(serviceName); //Reset parent
+    }
     pugi->AddChildNode("client", uuid_str);
         
     stringstream ss; 
@@ -468,7 +424,6 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     } else {
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
                                serviceName, "serviceName not in ServiceResponseMap");
-        LOG(ERROR, "Stray Subscribe Response serviceName:" << serviceName);
         return;
     }
 

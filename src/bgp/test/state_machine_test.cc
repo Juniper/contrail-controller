@@ -10,6 +10,7 @@
 
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
+#include "net/bgp_af.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"

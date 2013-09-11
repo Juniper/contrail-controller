@@ -5,9 +5,9 @@
 #ifndef ctrlplane_inetmcast_route_h
 #define ctrlplane_inetmcast_route_h
 
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_route.h"
+#include "net/bgp_af.h"
 #include "net/rd.h"
 
 class InetMcastPrefix {

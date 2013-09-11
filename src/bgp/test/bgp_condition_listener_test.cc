@@ -132,14 +132,16 @@ protected:
     BgpConditionListenerTest()
         : evm_(new EventManager()), bgp_server_(new BgpServer(evm_.get())) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
+        vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
     ~BgpConditionListenerTest() {
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        ConcurrencyScope scope("bgp::Config");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
@@ -150,17 +152,15 @@ protected:
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
-        parser->MetadataClear("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        parser->MetadataClear("schema");
     }
 
     void NetworkConfig(const vector<string> &instance_names,
                        const multimap<string, string> &connections) {
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 

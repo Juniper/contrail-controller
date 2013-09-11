@@ -20,6 +20,7 @@
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_test_util.h"
@@ -105,13 +106,13 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         bgp_schema_ParserInit(parser);
         vnc_cfg_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
         bgp_server_->service_chain_mgr()->set_aggregate_host_route(true);
+        ri_mgr_ = bgp_server_->routing_instance_mgr();
     }
 
     virtual void TearDown() {
@@ -119,20 +120,37 @@ protected:
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
-        parser->MetadataClear("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        parser->MetadataClear("schema");
     }
 
     void NetworkConfig(const vector<string> &instance_names,
                        const multimap<string, string> &connections) {
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
+        task_util::WaitForIdle();
     }
 
+    void VerifyNetworkConfig(const vector<string> &instance_names) {
+        for (vector<string>::const_iterator iter = instance_names.begin();
+             iter != instance_names.end(); ++iter) {
+            TASK_UTIL_WAIT_NE_NO_MSG(ri_mgr_->GetRoutingInstance(*iter),
+                NULL, 1000, 10000, "Wait for routing instance..");
+            const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(*iter);
+            TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+                0, 1000, 10000, "Wait for vn index..");
+        }
+    }
+
+    void DisableServiceChainQ() {
+        bgp_server_->service_chain_mgr()->DisableQueue();
+    }
+
+    void EnableServiceChainQ() {
+        bgp_server_->service_chain_mgr()->EnableQueue();
+    }
     void AddInetRoute(IPeer *peer, const string &instance_name,
                       const string &prefix, int localpref, 
                       std::vector<uint32_t> sglist = std::vector<uint32_t>(),
@@ -156,9 +174,6 @@ protected:
                 new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
-        string vn_name = instance_name;
-        boost::scoped_ptr<OriginVnSpec> origin_vn(new OriginVnSpec(vn_name));
-        attr_spec.push_back(origin_vn.get());
         ExtCommunitySpec ext_comm;
         for(std::vector<uint32_t>::iterator it = sglist.begin(); 
             it != sglist.end(); it++) {
@@ -170,6 +185,11 @@ protected:
             TunnelEncap tunnel_encap(*it);
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
+        const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
+        TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
+        OriginVn origin_vn(0, rti->virtual_network_index());
+        ext_comm.communities.push_back(origin_vn.GetExtCommunityValue());
+
         attr_spec.push_back(&ext_comm);
 
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
@@ -197,38 +217,6 @@ protected:
 
         table->Enqueue(&request);
     }
-
-    std::vector<uint32_t> GetSGIDListFromRoute(const BgpPath *path) {
-        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
-        assert(ext_comm);
-        std::vector<uint32_t> list;
-        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
-                      ext_comm->communities()) {
-            if (!ExtCommunity::is_security_group(comm))
-                continue;
-            SecurityGroup security_group(comm);
-
-            list.push_back(security_group.security_group_id());
-        }
-        std::sort(list.begin(), list.end());
-        return list;
-    }
-
-    std::set<std::string> GetTunnelEncapListFromRoute(const BgpPath *path) {
-        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
-        assert(ext_comm);
-        std::set<std::string> list;
-        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
-                      ext_comm->communities()) {
-            if (!ExtCommunity::is_tunnel_encap(comm))
-                continue;
-            TunnelEncap encap(comm);
-
-            list.insert(TunnelEncapType::TunnelEncapToString(encap.tunnel_encap()));
-        }
-        return list;
-    }
-
 
     void AddInetVpnRoute(IPeer *peer, const string &instance_name,
                          const string &prefix, int localpref,
@@ -283,9 +271,66 @@ protected:
             TunnelEncap tunnel_encap(*it);
             extcomm_spec.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
+        const RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
+        TASK_UTIL_EXPECT_NE(0, rti->virtual_network_index());
+        OriginVn origin_vn(0, rti->virtual_network_index());
+        extcomm_spec.communities.push_back(origin_vn.GetExtCommunityValue());
  
         attr_spec.push_back(&extcomm_spec);
 
+        BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
+
+        request.data.reset(new BgpTable::RequestData(attr, flags, label));
+        InetVpnTable *inetvpn_table = dynamic_cast<InetVpnTable *>(
+            bgp_server_->database()->FindTable("bgp.l3vpn.0"));
+        ASSERT_TRUE(inetvpn_table != NULL);
+        inetvpn_table->Enqueue(&request);
+    }
+
+    void AddInetVpnRoute(IPeer *peer, const vector<string> &instance_names,
+                         const string &prefix, int localpref,
+                         string nexthop="7.8.9.1",
+                         uint32_t flags=0, int label=0) {
+        RoutingInstance *rtinstance =
+            ri_mgr_->GetRoutingInstance(instance_names[0]);
+        ASSERT_TRUE(rtinstance != NULL);
+
+        string vpn_prefix;
+        if (peer) {
+            vpn_prefix = peer->ToString() + ":" +
+                boost::lexical_cast<std::string>(rtinstance->index()) + ":" +
+                prefix;
+        } else {
+            vpn_prefix = "7.7.7.7:7777:" + prefix;
+        }
+
+        error_code error;
+        InetVpnPrefix nlri = InetVpnPrefix::FromString(vpn_prefix, &error);
+        EXPECT_FALSE(error);
+
+        DBRequest request;
+        request.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        request.key.reset(new InetVpnTable::RequestKey(nlri, peer));
+
+        BgpAttrSpec attr_spec;
+        boost::scoped_ptr<BgpAttrLocalPref> local_pref(
+                new BgpAttrLocalPref(localpref));
+        attr_spec.push_back(local_pref.get());
+
+        IpAddress chain_addr = Ip4Address::from_string(nexthop, error);
+        boost::scoped_ptr<BgpAttrNextHop> nexthop_attr(
+                new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
+        attr_spec.push_back(nexthop_attr.get());
+
+        ExtCommunitySpec extcomm_spec;
+        BOOST_FOREACH(const string &instance_name, instance_names) {
+            RoutingInstance *rti = ri_mgr_->GetRoutingInstance(instance_name);
+            ASSERT_TRUE(rti != NULL);
+            ASSERT_EQ(1, rti->GetExportList().size());
+            RouteTarget rtarget = *(rti->GetExportList().begin());
+            extcomm_spec.communities.push_back(rtarget.GetExtCommunityValue());
+        }
+        attr_spec.push_back(&extcomm_spec);
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
         request.data.reset(new BgpTable::RequestData(attr, flags, label));
@@ -442,10 +487,55 @@ protected:
         return params;
     }
 
+    std::vector<uint32_t> GetSGIDListFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        std::vector<uint32_t> list;
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_security_group(comm))
+                continue;
+            SecurityGroup security_group(comm);
+
+            list.push_back(security_group.security_group_id());
+        }
+        std::sort(list.begin(), list.end());
+        return list;
+    }
+
+    std::set<std::string> GetTunnelEncapListFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        std::set<std::string> list;
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_tunnel_encap(comm))
+                continue;
+            TunnelEncap encap(comm);
+
+            list.insert(TunnelEncapType::TunnelEncapToString(encap.tunnel_encap()));
+        }
+        return list;
+    }
+
+    std::string GetOriginVnFromRoute(const BgpPath *path) {
+        const ExtCommunity *ext_comm = path->GetAttr()->ext_community();
+        assert(ext_comm);
+        BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                      ext_comm->communities()) {
+            if (!ExtCommunity::is_origin_vn(comm))
+                continue;
+            OriginVn origin_vn(comm);
+            return ri_mgr_->GetVirtualNetworkByVnIndex(origin_vn.vn_index());
+        }
+        return "unresolved";
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
     boost::scoped_ptr<BgpServer> bgp_server_;
+    RoutingInstanceMgr *ri_mgr_;
     vector<BgpPeerMock *> peers_;
     const char *connected_table_;
     bool connected_rt_is_inetvpn_;
@@ -476,7 +566,7 @@ TEST_P(ServiceChainParamTest, Basic) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -511,7 +601,7 @@ TEST_P(ServiceChainParamTest, Basic) {
     const BgpPath *aggregate_path = aggregate_rt->BestPath();
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -527,7 +617,7 @@ TEST_P(ServiceChainParamTest, MoreSpecificAddDelete) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -597,7 +687,7 @@ TEST_P(ServiceChainParamTest, ConnectedAddDelete) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -650,7 +740,7 @@ TEST_P(ServiceChainParamTest, DeleteConnected) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -717,7 +807,7 @@ TEST_P(ServiceChainParamTest, StopServiceChain) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -760,7 +850,7 @@ TEST_P(ServiceChainParamTest, ServiceChainWithExistingRouteEntries) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     // Add More specific & connected
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
@@ -828,7 +918,7 @@ TEST_P(ServiceChainParamTest, UpdateNexthop) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -855,7 +945,7 @@ TEST_P(ServiceChainParamTest, UpdateNexthop) {
     const BgpPath *aggregate_path = aggregate_rt->BestPath();
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "3.4.5.6");
@@ -876,7 +966,7 @@ TEST_P(ServiceChainParamTest, UpdateNexthop) {
         }
         if (count++ == 100) {
             EXPECT_EQ(attr->nexthop().to_v4().to_string(), "3.4.5.6");
-            EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+            EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
             break;
         }
     }
@@ -893,7 +983,7 @@ TEST_P(ServiceChainParamTest, UpdateLabel) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -953,7 +1043,7 @@ TEST_P(ServiceChainParamTest, DeleteRoutingInstance) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -991,7 +1081,7 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -1014,7 +1104,10 @@ TEST_P(ServiceChainParamTest, PendingChain) {
                              "Wait for Aggregate route in blue..");
 
     // Add "red" routing instance and create connection with "red-i2"
-    AddRoutingInstance("red", "red-i2");
+    instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
 
     // Add MoreSpecific
     AddInetRoute(NULL, "red", "192.168.1.1/32", 100);
@@ -1035,7 +1128,7 @@ TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -1067,7 +1160,7 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_3.xml");
@@ -1128,7 +1221,7 @@ TEST_P(ServiceChainParamTest, PeerUpdate) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1168,7 +1261,7 @@ TEST_P(ServiceChainParamTest, PeerUpdate) {
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
     task_util::WaitForIdle();
@@ -1217,7 +1310,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     multimap<string, string> connections =
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1260,7 +1353,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     EXPECT_EQ(aggregate_rt->count(), 1);
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Check for ExtConnect route
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
@@ -1273,7 +1366,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     EXPECT_EQ(ext_rt->count(), 1);
     attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete connected route from peers_[0]
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
@@ -1290,7 +1383,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     EXPECT_EQ(aggregate_rt->count(), 1);
     attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Check for ExtConnect route
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
@@ -1303,7 +1396,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     EXPECT_EQ(ext_rt->count(), 1);
     attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -1323,7 +1416,7 @@ TEST_P(ServiceChainParamTest, EcmpPaths) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1361,7 +1454,7 @@ TEST_P(ServiceChainParamTest, EcmpPaths) {
     EXPECT_EQ(aggregate_rt->count(), 1);
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
     task_util::WaitForIdle();
@@ -1409,7 +1502,7 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1453,7 +1546,7 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
         } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.5") {
             EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.5");
         }
-        EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
     }
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.8");
     task_util::WaitForIdle();
@@ -1471,10 +1564,12 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
         } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.1.8") {
             EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.1.8");
         }
-        EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
     }
+
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
+
     // Delete connected route
     DeleteConnectedRoute(peers_[0], "1.1.2.3/32");
     DeleteConnectedRoute(peers_[1], "1.1.2.3/32");
@@ -1486,7 +1581,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHADD) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1548,7 +1643,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHADD) {
         } else if (BgpPath::PathIdString(path->GetPathId()) == "2.3.3.5") {
             EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
         }
-        EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
     }
 
     scheduler->Stop();
@@ -1577,7 +1672,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHDEL) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1635,7 +1730,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHDEL) {
     EXPECT_EQ(aggregate_rt->count(), 1);
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -1658,7 +1753,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
     multimap<string, string> connections =
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -1715,7 +1810,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
             if (BgpPath::PathIdString(aggregate_path->GetPathId()) == path_id) {
                 BgpAttrPtr attr = aggregate_path->GetAttr();
                 EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+                EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
                 found = true;
                 break;
             }
@@ -1737,7 +1832,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
             if (BgpPath::PathIdString(ext_path->GetPathId()) == path_id) {
                 BgpAttrPtr attr = ext_path->GetAttr();
                 EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+                EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
                 found = true;
                 break;
             }
@@ -1764,7 +1859,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
             if (BgpPath::PathIdString(aggregate_path->GetPathId()) == path_id) {
                 BgpAttrPtr attr = aggregate_path->GetAttr();
                 EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+                EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
                 found = true;
                 break;
             }
@@ -1786,7 +1881,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
             if (BgpPath::PathIdString(ext_path->GetPathId()) == path_id) {
                 BgpAttrPtr attr = ext_path->GetAttr();
                 EXPECT_EQ(attr->nexthop().to_v4().to_string(), path_id);
-                EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+                EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
                 found = true;
                 break;
             }
@@ -1820,7 +1915,7 @@ TEST_P(ServiceChainParamTest, IgnoreAggregateRoute) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -1860,7 +1955,7 @@ TEST_P(ServiceChainParamTest, IgnoreAggregateRoute) {
     EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(aggregate_path->GetPathId()));
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Delete MX leaked, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.0/24");
@@ -1884,7 +1979,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRoute) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -1958,7 +2053,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRoute) {
     EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
     BgpAttrPtr attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -1983,7 +2078,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnOnly) {
     multimap<string, string> connections =
         map_list_of("blue", "blue-i1") ("red-i2", "red") ("red", "green");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2021,6 +2116,14 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnOnly) {
                              NULL, 1000, 10000,
                              "Wait for ExtConnect route in blue..");
 
+    // Verify ExtConnect route attributes
+    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
+    const BgpPath *ext_path = ext_rt->BestPath();
+    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
+    BgpAttrPtr attr = ext_path->GetAttr();
+    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+
     // Check for non-OriginVn route
     TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "20.1.1.0/24"),
                              NULL, 1000, 10000,
@@ -2030,6 +2133,122 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnOnly) {
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
     DeleteInetRoute(NULL, "green", "20.1.1.0/24");
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Service chain route should be added for routes with unresolved origin
+// vn if there is at least one route target matching an export target of
+// the destination instance.
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add connected route
+// 3. Add MX leaked route 10.1.1.0/24 with unresolved OriginVn
+// 4. Verify that ext connect route 10.1.1.0/24 is added
+//
+TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved1) {
+    vector<string> instance_names =
+        list_of("blue")("blue-i1")("red-i2")("red")("green");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    std::auto_ptr<autogen::ServiceChainInfo> params =
+        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                                         "blue-i1",
+                                         "service-chain-information",
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Add Ext connect route with targets of both red and green.
+    vector<string> instances = list_of("red")("green");
+    AddInetVpnRoute(NULL, instances, "10.1.1.0/24", 100);
+    task_util::WaitForIdle();
+
+    // Verify that MX leaked route is present in red
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("red", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for MX leaked route in red..");
+
+    // Verify that ExtConnect route is present in blue
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for ExtConnect route in blue..");
+
+    // Verify ExtConnect route attributes
+    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
+    const BgpPath *ext_path = ext_rt->BestPath();
+    EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
+    BgpAttrPtr attr = ext_path->GetAttr();
+    EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
+
+    // Delete ExtRoute and connected route
+    DeleteInetVpnRoute(NULL, "red", "10.1.1.0/24");
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+    task_util::WaitForIdle();
+}
+
+//
+// Service chain route must not be added for routes with unresolved origin
+// vn if there is no route target matching an export target of destination
+// instance.
+//
+// 1. Create Service Chain with 192.168.1.0/24 as vn subnet
+// 2. Add connected route
+// 3. Add MX leaked route 10.1.1.0/24 with unresolved OriginVn
+// 4. Verify that ext connect route 10.1.1.0/24 is not added
+//
+TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved2) {
+    vector<string> instance_names =
+        list_of("blue")("blue-i1")("red-i2")("red")("green")("yellow");
+    multimap<string, string> connections =
+        map_list_of("blue", "blue-i1") ("red-i2", "red") ("red", "green");
+    NetworkConfig(instance_names, connections);
+    VerifyNetworkConfig(instance_names);
+
+    std::auto_ptr<autogen::ServiceChainInfo> params =
+        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
+                                         "blue-i1",
+                                         "service-chain-information",
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Add Ext connect route with targets of green and yellow.
+    vector<string> instances = list_of("green")("yellow");
+    AddInetVpnRoute(NULL, instances, "10.1.1.0/24", 100);
+    task_util::WaitForIdle();
+
+    // Verify that MX leaked route is present in red
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("red", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for MX leaked route in red..");
+
+    // Verify that ExtConnect route is not present in blue
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.0/24"),
+                             NULL, 1000, 10000,
+                             "Wait for ExtConnect route in blue..");
+
+    // Delete ExtRoute and connected route
+    DeleteInetVpnRoute(NULL, "green", "10.1.1.0/24");
     DeleteConnectedRoute(NULL, "1.1.2.3/32");
     task_util::WaitForIdle();
 }
@@ -2046,7 +2265,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteCoveringSubnetPrefix) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2093,7 +2312,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteCoveringSubnetPrefix) {
     EXPECT_EQ("2.3.4.5", BgpPath::PathIdString(ext_path->GetPathId()));
     BgpAttrPtr attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -2114,7 +2333,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteWithinSubnetPrefix) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2189,7 +2408,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteServiceChainUpdate) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2319,7 +2538,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -2356,7 +2575,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
     BgpAttrPtr attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.0.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     AddConnectedRoute(peers_[1], "1.1.2.3/32", 100, "2.3.1.5");
     task_util::WaitForIdle();
@@ -2401,7 +2620,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedMoreSpecificEcmpPaths) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     error_code ec;
     peers_.push_back(
@@ -2512,7 +2731,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
     error_code ec;
@@ -2582,6 +2801,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
         it1 != list.end() && it2 != sgid_list_more_specific_1.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     leak_path = leak_rt_2->BestPath();
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
@@ -2592,6 +2812,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
         it1 != list.end() && it2 != sgid_list_more_specific_2.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     const BgpPath *ext_path = ext_rt->BestPath();
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
@@ -2601,6 +2822,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
         it2=sgid_list_ext.begin();
         it1 != list.end() && it2 != sgid_list_ext.end(); it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -2615,7 +2837,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
     error_code ec;
@@ -2685,6 +2907,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it1 != list.end() && it2 != sgid_list_more_specific_1.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     leak_path = leak_rt_2->BestPath();
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(leak_path->GetPathId()));
@@ -2695,6 +2918,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it1 != list.end() && it2 != sgid_list_more_specific_2.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     const BgpPath *ext_path = ext_rt->BestPath();
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
@@ -2704,6 +2928,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it2=sgid_list_ext.begin();
         it1 != list.end() && it2 != sgid_list_ext.end(); it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Update Ext connect route with different SGID list
     AddInetRoute(NULL, "red", "10.1.1.0/24", 100, sgid_list_more_specific_1);
@@ -2749,6 +2974,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it1 != list.end() && it2 != sgid_list_ext.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     leak_path = leak_rt_2->BestPath();
     list = GetSGIDListFromRoute(leak_path);
@@ -2758,6 +2984,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it1 != list.end() && it2 != sgid_list_connected.end(); 
         it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(leak_path), "red");
 
     ext_path = ext_rt->BestPath();
     EXPECT_EQ("2.3.0.5", BgpPath::PathIdString(ext_path->GetPathId()));
@@ -2767,6 +2994,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         it2=sgid_list_more_specific_1.begin();
         it1 != list.end() && it2 != sgid_list_more_specific_1.end(); it1++, it2++)
         EXPECT_EQ(*it1, *it2);
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete ExtRoute, More specific and connected route
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -2781,7 +3009,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2817,7 +3045,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
 
     BgpAttrPtr attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     encap = list_of("gre");
     // Add Connected
@@ -2837,7 +3065,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
 
     attr = aggregate_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(aggregate_path), "red");
 
     // Delete More specific
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
@@ -2853,7 +3081,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
     multimap<string, string> connections = 
         map_list_of("blue", "blue-i1") ("red-i2", "red");
     NetworkConfig(instance_names, connections);
-    task_util::WaitForIdle();
+    VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
         GetChainConfig("src/bgp/testdata/service_chain_1.xml");
@@ -2882,14 +3110,14 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
                              NULL, 1000, 10000, 
                              "Wait for Service Chain route in blue..");
 
-    BgpRoute *service_chain_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    const BgpPath *service_chain_path = service_chain_rt->BestPath();
-    set<string> list = GetTunnelEncapListFromRoute(service_chain_path);
+    BgpRoute *ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
+    const BgpPath *ext_path = ext_rt->BestPath();
+    set<string> list = GetTunnelEncapListFromRoute(ext_path);
     EXPECT_EQ(list, encap);
 
-    BgpAttrPtr attr = service_chain_path->GetAttr();
+    BgpAttrPtr attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     encap = list_of("udp");
     // Add Connected
@@ -2902,14 +3130,14 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
                              NULL, 1000, 10000, 
                              "Wait for Service Chain route in blue..");
 
-    service_chain_rt = InetRouteLookup("blue", "10.1.1.0/24");
-    service_chain_path = service_chain_rt->BestPath();
-    list = GetTunnelEncapListFromRoute(service_chain_path);
+    ext_rt = InetRouteLookup("blue", "10.1.1.0/24");
+    ext_path = ext_rt->BestPath();
+    list = GetTunnelEncapListFromRoute(ext_path);
     EXPECT_EQ(list, encap);
 
-    attr = service_chain_path->GetAttr();
+    attr = ext_path->GetAttr();
     EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.4.5");
-    EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+    EXPECT_EQ(GetOriginVnFromRoute(ext_path), "red");
 
     // Delete ext connected route
     DeleteInetRoute(NULL, "red", "10.1.1.0/24");
@@ -2985,7 +3213,7 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
             EXPECT_EQ(attr->nexthop().to_v4().to_string(), "2.3.3.5");
             EXPECT_EQ(list, encap_3);
         }
-        EXPECT_EQ(attr->origin_vn()->origin_vn().ToString(), "red");
+        EXPECT_EQ(GetOriginVnFromRoute(path), "red");
     }
 
     // Delete More specific
@@ -2997,6 +3225,79 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
     task_util::WaitForIdle();
 }
 
+
+TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {
+    vector<string> instance_names = list_of("blue")("blue-i1")("red-i2")("red");
+    multimap<string, string> connections = 
+        map_list_of("blue", "blue-i1") ("red-i2", "red");
+    NetworkConfig(instance_names, connections);
+    task_util::WaitForIdle();
+
+    std::auto_ptr<autogen::ServiceChainInfo> params = 
+        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+
+    // Service Chain Info
+    ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
+                                         "blue-i1", 
+                                         "service-chain-information", 
+                                         params.release(),
+                                         0);
+    task_util::WaitForIdle();
+
+    // Add Ext connect route
+    AddInetRoute(NULL, "red", "10.1.1.1/32", 100);
+    AddInetRoute(NULL, "red", "10.1.1.2/32", 100);
+    AddInetRoute(NULL, "red", "10.1.1.3/32", 100);
+    task_util::WaitForIdle();
+
+    // Add Connected
+    AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
+    task_util::WaitForIdle();
+
+    // Check for ExtConnect route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.2/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+
+    DisableServiceChainQ();
+    AddConnectedRoute(NULL, "1.1.2.3/32", 200, "2.3.4.5");
+    DeleteInetRoute(NULL, "red", "10.1.1.1/32");
+
+    BgpRoute *ext_rt = InetRouteLookup("red", "10.1.1.1/32");
+    TASK_UTIL_WAIT_EQ_NO_MSG(ext_rt->IsDeleted(),
+                             true, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+    // Check for ExtConnect route
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.2/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "10.1.1.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+
+    EnableServiceChainQ();
+
+    TASK_UTIL_EXPECT_TRUE(bgp_server_->service_chain_mgr()->IsQueueEmpty());
+
+    TASK_UTIL_WAIT_EQ_NO_MSG(InetRouteLookup("blue", "10.1.1.1/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for ExtConnect route in blue..");
+
+    // Delete ExtRoute, More specific and connected route
+    DeleteInetRoute(NULL, "red", "10.1.1.2/32");
+    DeleteInetRoute(NULL, "red", "10.1.1.3/32");
+    DeleteConnectedRoute(NULL, "1.1.2.3/32");
+    task_util::WaitForIdle();
+}
 INSTANTIATE_TEST_CASE_P(Instance, ServiceChainParamTest,
         ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 

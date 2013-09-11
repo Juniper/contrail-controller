@@ -86,7 +86,7 @@ public:
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual void Delete(DBEntry *entry, const DBRequest *req) { };
     VrfEntry *FindVrfEntry(const string &vrf_name) const {
-        return Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+        return Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     };
     static void AddMirrorEntry(const std::string &analyzer_name,
                                const std::string &vrf_name,

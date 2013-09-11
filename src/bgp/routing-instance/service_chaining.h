@@ -104,9 +104,7 @@ public:
     ConnectedPathIdList *ConnectedPathIds() { return &connected_path_ids_; }
 
     void AddServiceChainRoute(Ip4Prefix prefix, InetRoute *orig_route, 
-                              const OriginVn *origin_vn, ConnectedPathIdList *list, 
-                              bool aggregate);
-
+                              ConnectedPathIdList *list, bool aggregate);
     void RemoveServiceChainRoute(Ip4Prefix prefix, bool aggregate);
 
     bool add_more_specific(Ip4Prefix aggregate, BgpRoute *more_specific) {
@@ -334,6 +332,7 @@ private:
     // All service chain related actions are performed in the context 
     // of this task. This task has exclusion with DBTable task
     //
+    friend class ServiceChainTest;
     static int service_chain_task_id_;
 
     ServiceChainMap chain_set_;
@@ -344,6 +343,9 @@ private:
     // Work Queue to handle requests posted from Match function(DBTable ctx)
     // The actions are performed in the ServiceChain task ctx
     //
+    void DisableQueue() { process_queue_->set_disable(true); }
+    void EnableQueue() { process_queue_->set_disable(false); }
+
     WorkQueue<ServiceChainRequest *> *process_queue_;
 
     //

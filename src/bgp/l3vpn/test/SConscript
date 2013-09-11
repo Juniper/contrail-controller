@@ -20,6 +20,7 @@ env.Append(LIBPATH = env['TOP'] + '/bgp/enet')
 env.Append(LIBPATH = env['TOP'] + '/bgp/evpn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/test')
 env.Append(LIBPATH = env['TOP'] + '/bgp/l3vpn')
+env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
 env.Append(LIBPATH = env['TOP'] + '/bgp/routing-instance')
 env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
 env.Append(LIBPATH = env['TOP'] + '/bgp/security_group')
@@ -40,10 +41,12 @@ env.Prepend(LIBS = [
                     'bgp',
                     'peer_sandesh',
                     'control_node',
+                    'origin_vn',
                     'routing_instance',
                     'rtarget',                    
                     'security_group',                    
                     'tunnel_encap',                    
+                    'ifmap_vnc',
                     'bgp_schema',
                     'sandesh',
                     'http',
@@ -61,9 +64,8 @@ env.Prepend(LIBS = [
                     'xmpp',
                     'bgp_enet',
                     'bgp_evpn',
-                    'bgp_l3vpn_unicast',
-                    'bgp_l3vpn_multicast',
-                    'bgp_l3vpn_multicast_msg',
+                    'xmpp_unicast',
+                    'xmpp_multicast',
                     'xmpp_enet',
                     'xml',
                     'pugixml',

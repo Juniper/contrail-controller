@@ -71,9 +71,8 @@ void ExtCommunity::Remove() {
     extcomm_db_->Delete(this);
 }
 
-void ExtCommunity::Append(const ExtCommunityList &export_rt) {
-    communities_.insert(communities_.end(), export_rt.begin(), export_rt.end());
-    return;
+void ExtCommunity::Append(const ExtCommunityList &list) {
+    communities_.insert(communities_.end(), list.begin(), list.end());
 }
 
 void ExtCommunity::RemoveRTarget() {
@@ -85,7 +84,6 @@ void ExtCommunity::RemoveRTarget() {
             it++;
         }
     }
-    return;
 }
 
 void ExtCommunity::RemoveSGID() {
@@ -97,7 +95,17 @@ void ExtCommunity::RemoveSGID() {
             it++;
         }
     }
-    return;
+}
+
+void ExtCommunity::RemoveOriginVn() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_origin_vn(*it)) {
+            it = communities_.erase(it);
+        } else {
+            it++;
+        }
+    }
 }
 
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
@@ -114,8 +122,8 @@ ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
 ExtCommunityDB::ExtCommunityDB(BgpServer *server) : server_(server) {
 }
 
-ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src, 
-                        const ExtCommunity::ExtCommunityList &export_list) {
+ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &list) {
     ExtCommunity *clone;
     if (src) {
         clone = new ExtCommunity(*src);
@@ -123,12 +131,19 @@ ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,
         clone = new ExtCommunity(this);
     }
 
-    clone->Append(export_list);
+    clone->Append(list);
     return Locate(clone);
 }
 
+ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityValue &value) {
+    ExtCommunity::ExtCommunityList list;
+    list.push_back(value);
+    return AppendAndLocate(src, list);
+}
+
 ExtCommunityPtr ExtCommunityDB::ReplaceRTargetAndLocate(const ExtCommunity *src,
-                            const ExtCommunity::ExtCommunityList &export_list) {
+        const ExtCommunity::ExtCommunityList &export_list) {
     ExtCommunity *clone;
     if (src) {
         clone = new ExtCommunity(*src);
@@ -142,7 +157,7 @@ ExtCommunityPtr ExtCommunityDB::ReplaceRTargetAndLocate(const ExtCommunity *src,
 }
 
 ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src,
-                            const ExtCommunity::ExtCommunityList &sgid_list) {
+        const ExtCommunity::ExtCommunityList &sgid_list) {
     ExtCommunity *clone;
     if (src) {
         clone = new ExtCommunity(*src);
@@ -152,5 +167,19 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src
 
     clone->RemoveSGID();
     clone->Append(sgid_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &origin_vn_list) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveOriginVn();
+    clone->Append(origin_vn_list);
     return Locate(clone);
 }

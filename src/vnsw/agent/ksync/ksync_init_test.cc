@@ -22,6 +22,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
+#include <ksync/ksync_sock_user.h>
 
 #include "ksync_init.h"
 #include "ksync/interface_ksync.h"
@@ -31,7 +32,6 @@
 #include "ksync/flowtable_ksync.h"
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
-#include "nl_util.h"
 #include "vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
 
@@ -43,23 +43,23 @@ void GenericNetlinkInitTest() {
 
 void KSync::RegisterDBClientsTest(DB *db) {
     KSyncObjectManager::Init();
-    IntfKSyncObject::InitTest(Agent::GetInterfaceTable());
-    RouteKSyncObject::Init(Agent::GetVrfTable());
-    NHKSyncObject::Init(Agent::GetNextHopTable());
-    MplsKSyncObject::Init(Agent::GetMplsTable());
-    MirrorKSyncObject::Init(Agent::GetMirrorTable());
+    IntfKSyncObject::InitTest(Agent::GetInstance()->GetInterfaceTable());
+    VrfKSyncObject::Init(Agent::GetInstance()->GetVrfTable());
+    NHKSyncObject::Init(Agent::GetInstance()->GetNextHopTable());
+    MplsKSyncObject::Init(Agent::GetInstance()->GetMplsTable());
+    MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
     FlowTableKSyncObject::InitTest();
-    VrfAssignKSyncObject::Init(Agent::GetVrfAssignTable());
-    Agent::SetRouterIdConfigured(false);
+    VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
+    Agent::GetInstance()->SetRouterIdConfigured(false);
 }
 
 void KSync::NetlinkInitTest() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetEventManager();
+    event_mgr = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
-    KSyncSock::Init(io, 1, 0);
+    KSyncSockTypeMap::Init(io, 1);
     KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext);
 
     GenericNetlinkInitTest();

@@ -3,7 +3,6 @@
  */
 
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <base/parse_object.h>
 #include <ifmap/ifmap_link.h>
@@ -27,8 +26,6 @@
 #include <oper/agent_sandesh.h>
 
 static VnTable *vn_table_;
-DomainConfig::DomainConfigMap DomainConfig::ipam_config_;
-DomainConfig::DomainConfigMap DomainConfig::vdns_config_;
 
 using namespace autogen;
 using namespace std;
@@ -73,7 +70,7 @@ bool VnEntry::GetIpamData(const VmPortInterface *vmitf,
             break;
     }
     if (i == ipam_.size() ||
-        !DomainConfig::GetIpam(ipam_[i].ipam_name, ipam_type))
+        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_[i].ipam_name, ipam_type))
         return false;
 
     return true;
@@ -107,7 +104,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
-        (Agent::GetAclTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
     if (vn->acl_.get() != acl) {
         vn->acl_ = acl;
         ret = true;
@@ -115,7 +112,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_key(data->mirror_acl_id_);
     AclDBEntry *mirror_acl = static_cast<AclDBEntry *>
-        (Agent::GetAclTable()->FindActiveEntry(&mirror_key));
+        (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_key));
     if (vn->mirror_acl_.get() != mirror_acl) {
         vn->mirror_acl_ = mirror_acl;
         ret = true;
@@ -123,7 +120,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     AclKey mirror_cfg_acl_key(data->mirror_cfg_acl_id_);
     AclDBEntry *mirror_cfg_acl = static_cast<AclDBEntry *>
-         (Agent::GetAclTable()->FindActiveEntry(&mirror_cfg_acl_key));
+         (Agent::GetInstance()->GetAclTable()->FindActiveEntry(&mirror_cfg_acl_key));
     if (vn->mirror_cfg_acl_.get() != mirror_cfg_acl) {
         vn->mirror_cfg_acl_ = mirror_cfg_acl;
         ret = true;
@@ -131,7 +128,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetVrfTable()->FindActiveEntry(&vrf_key));
+        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
     if (vrf != vn->vrf_.get()) {
         if (!vrf)
             DeleteIpamHostRoutes(vn);
@@ -283,7 +280,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             }
         }
 
-        uuid mirror_acl_uuid = Agent::GetMirrorCfgTable()->GetMirrorUuid(node->name());
+        uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
                           mirror_cfg_acl_uuid, vn_ipam);
@@ -291,7 +288,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetVnTable()->Enqueue(&req);
+    Agent::GetInstance()->GetVnTable()->Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
@@ -314,8 +311,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInterfaceTable()->Enqueue(&req);
+        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
+            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
         }
     }
 
@@ -365,7 +362,7 @@ void VnTable::IpamVnSync(IFMapNode *node) {
 
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        Agent::GetVnTable()->IFNodeToReq(adj_node, req);
+        Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
     }
 
     return;
@@ -431,7 +428,7 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
         // Do not let the gateway configuration overwrite the receive nh.
-        if (vrf->GetName() == Agent::GetLinkLocalVrfName()) {
+        if (vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {
             return;
         }
         vrf->GetInet4UcRouteTable()->AddHostRoute(vrf->GetName(), 
@@ -445,7 +442,7 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
 void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf && ipam.installed) {
-        vrf->GetInet4UcRouteTable()->DeleteReq(Agent::GetLocalPeer(),
+        vrf->GetInet4UcRouteTable()->DeleteReq(Agent::GetInstance()->GetLocalPeer(),
                                                vrf->GetName(), 
                                                ipam.default_gw, 32);
         ipam.installed = false;
@@ -507,7 +504,7 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
 void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
     VnObjectLogInfo info;
     string str;
-    string vn_uuid = boost::lexical_cast<string>(GetUuid());
+    string vn_uuid = UuidToString(GetUuid());
     const AclDBEntry *acl = GetAcl();
     const AclDBEntry *mirror_acl = GetMirrorAcl();
     const AclDBEntry *mirror_cfg_acl = GetMirrorCfgAcl();
@@ -536,15 +533,15 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
 
     info.set_event(str);
     if (acl) {
-        acl_uuid.assign(boost::lexical_cast<string>(acl->GetUuid()));
+        acl_uuid.assign(UuidToString(acl->GetUuid()));
         info.set_acl_uuid(acl_uuid);
     }
     if (mirror_acl) {
-        mirror_acl_uuid.assign(boost::lexical_cast<string>(mirror_acl->GetUuid()));
+        mirror_acl_uuid.assign(UuidToString(mirror_acl->GetUuid()));
         info.set_mirror_acl_uuid(mirror_acl_uuid);
     }
     if (mirror_cfg_acl) {
-        mirror_cfg_acl_uuid.assign(boost::lexical_cast<string>(mirror_cfg_acl->GetUuid()));
+        mirror_cfg_acl_uuid.assign(UuidToString(mirror_cfg_acl->GetUuid()));
         info.set_mirror_cfg_acl_uuid(mirror_cfg_acl_uuid);
     }
     VrfEntry *vrf = GetVrf();
@@ -575,19 +572,45 @@ void VnListReq::HandleRequest() const {
     sand->DoSandesh();
 }
 
+void DomainConfig::RegisterIpamCb(Callback cb) {
+    ipam_callback_.push_back(cb);
+}
+
+void DomainConfig::RegisterVdnsCb(Callback cb) {
+    vdns_callback_.push_back(cb);
+}
+
 void DomainConfig::IpamSync(IFMapNode *node) {
-    if (!node->IsDeleted())
+    if (!node->IsDeleted()) {
         ipam_config_.insert(DomainConfigPair(node->name(), node));
-    else {
+        CallIpamCb(node);
+    } else {
+        CallIpamCb(node);
         ipam_config_.erase(node->name());
     }
+
 }
 
 void DomainConfig::VDnsSync(IFMapNode *node) {
-    if (!node->IsDeleted())
+    if (!node->IsDeleted()) {
         vdns_config_.insert(DomainConfigPair(node->name(), node));
-    else
+        CallVdnsCb(node);
+    } else {
+        CallVdnsCb(node);
         vdns_config_.erase(node->name());
+    }
+}
+
+void DomainConfig::CallIpamCb(IFMapNode *node) {
+    for (unsigned int i = 0; i < ipam_callback_.size(); ++i) {
+        ipam_callback_[i](node);
+    }
+}
+
+void DomainConfig::CallVdnsCb(IFMapNode *node) {
+    for (unsigned int i = 0; i < vdns_callback_.size(); ++i) {
+        vdns_callback_[i](node);
+    }
 }
 
 bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType &ipam) {

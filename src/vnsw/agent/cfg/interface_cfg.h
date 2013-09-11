@@ -29,13 +29,15 @@ struct CfgIntData : public DBRequestData {
     void Init(const boost::uuids::uuid &vm_id, const boost::uuids::uuid &vn_id,
 	      const std::string &tname, const IpAddress &ip,
 	      const std::string &mac,
-              const std::string &vm_name);
+              const std::string &vm_name,
+              const int32_t version);
     boost::uuids::uuid vm_id_;
     boost::uuids::uuid vn_id_;
     std::string tap_name_;
     IpAddress ip_addr_;
     std::string mac_addr_;
     std::string vm_name_;
+    int32_t version_;
 };
 
 class CfgIntEntry : public DBEntry {
@@ -54,6 +56,8 @@ public:
     const IpAddress &GetIpAddr() const {return ip_addr_;};
     const std::string &GetMacAddr() const {return mac_addr_;};
     const std::string &GetVmName() const {return vm_name_;};
+    const int32_t &GetVersion() const {return version_;};
+    void SetVersion(int32_t version) {version_ = version;};
     std::string ToString() const;
 
 private:
@@ -64,6 +68,7 @@ private:
     IpAddress ip_addr_;
     std::string mac_addr_;
     std::string vm_name_;
+    int32_t version_;
 };
 
 class CfgIntTable : public DBTable {
@@ -83,6 +88,7 @@ public:
     virtual size_t Hash(const DBRequestKey *key) const {return 0;};
 
     virtual DBEntry *Add(const DBRequest *req);
+    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual void Delete(DBEntry *entry, const DBRequest *req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);

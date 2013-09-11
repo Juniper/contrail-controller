@@ -4,6 +4,7 @@
 
 #include "testing/gunit.h"
 
+#include <net/bgp_af.h>
 #include <pugixml/pugixml.hpp>
 
 #include <base/logging.h>
@@ -39,7 +40,7 @@
 #include "cfg/init_config.h"
 #include "vr_types.h"
 
-#include "bgp_l3vpn_multicast_msg_types.h"
+#include "xmpp_multicast_types.h"
 #include "xml/xml_pugi.h"
 
 #include "controller/controller_peer.h" 
@@ -119,6 +120,7 @@ public:
             return channel_->Send(msg, size, xmps::BGP,
                    boost::bind(&ControlNodeMockBgpXmppPeer::WriteReadyCb, this, _1));
         }
+        return false;
     }
 
     void WriteReadyCb(const boost::system::error_code &ec) {
@@ -192,7 +194,7 @@ protected:
 
     int GetStartLabel_XmppServer(uint8_t idx) {
         vector<int> entries;
-        assert(stringToIntegerList(Agent::GetAgentMcastLabelRange(idx), "-",
+        assert(stringToIntegerList(Agent::GetInstance()->GetAgentMcastLabelRange(idx), "-",
                                    entries));
         assert(entries.size() > 0);
         return entries[0];
@@ -220,14 +222,14 @@ protected:
         xml_node event = msg.append_child("event");
         event.append_attribute("xmlns") = "http://jabber.org/protocol/pubsub";
         xml_node xitems = event.append_child("items");
+        stringstream ss;
         if (bcast) {
-            stringstream ss;
-            ss << "1" << "/" << "5" << "/" << vrf.c_str();
-            std::string node_str(ss.str());
-            xitems.append_attribute("node") = node_str.c_str();
+            ss << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << vrf.c_str();
         } else {
-            xitems.append_attribute("node") = vrf.c_str();
+            ss << BgpAf::IPv4 << "/" << BgpAf::Unicast << "/" << vrf.c_str();
         }
+        std::string node_str(ss.str());
+        xitems.append_attribute("node") = node_str.c_str();
         return(xitems);
     }
 
@@ -237,13 +239,13 @@ protected:
         xml_node xitems = MessageHeader(&xdoc, vrf, false);
 
         autogen::NextHopType item_nexthop;
-        item_nexthop.af = Address::INET;
-        item_nexthop.address = Agent::GetRouterId().to_string();;
+        item_nexthop.af = BgpAf::IPv4;
+        item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
         item_nexthop.label = label;
         
         autogen::ItemType item;
         item.entry.next_hops.next_hop.push_back(item_nexthop);
-        item.entry.nlri.af = Address::INET;
+        item.entry.nlri.af = BgpAf::IPv4;
         item.entry.nlri.address = address.c_str();
         item.entry.version = 1;
         item.entry.virtual_network = "vn1";
@@ -272,18 +274,20 @@ protected:
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf, true);
 
-        autogen::McastMessageItemType item;
-        item.entry.af = Address::INET;
-        item.entry.safi = Address::INETMCAST;
-        item.entry.group = subnet_addr.c_str();
-        item.entry.source = "0.0.0.0";
-        item.entry.label = src_label; //label allocated by control-node
+        autogen::McastItemType item;
+        item.entry.nlri.af = BgpAf::IPv4;
+        item.entry.nlri.safi = BgpAf::Mcast;
+        item.entry.nlri.group = subnet_addr.c_str();
+        item.entry.nlri.source = "0.0.0.0";
+        item.entry.nlri.source_label = src_label; //label allocated by control-node
 
         autogen::McastNextHopType nh;
-        nh.af = item.entry.af;
-        nh.safi = item.entry.safi;
+        nh.af = item.entry.nlri.af;
+        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
-        nh.label = dest_label; 
+        stringstream label;
+        label << dest_label;
+        nh.label = label.str(); 
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh);
@@ -306,27 +310,31 @@ protected:
         xml_document xdoc;
         xml_node xitems = MessageHeader(&xdoc, vrf, true);
 
-        autogen::McastMessageItemType item;
-        item.entry.af = Address::INET;
-        item.entry.safi = Address::INETMCAST;
-        item.entry.group = subnet_addr.c_str();
-        item.entry.source = "0.0.0.0";
-        item.entry.label = src_label; //label allocated by control-node
+        autogen::McastItemType item;
+        item.entry.nlri.af = BgpAf::IPv4;
+        item.entry.nlri.safi = BgpAf::Mcast;
+        item.entry.nlri.group = subnet_addr.c_str();
+        item.entry.nlri.source = "0.0.0.0";
+        item.entry.nlri.source_label = src_label; //label allocated by control-node
 
         autogen::McastNextHopType nh;
-        nh.af = item.entry.af;
-        nh.safi = item.entry.safi;
+        nh.af = item.entry.nlri.af;
+        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
-        nh.label = dest_label1; 
+        stringstream label1;
+        label1 << dest_label1;
+        nh.label = label1.str(); 
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh);
 
         autogen::McastNextHopType nh2;
-        nh2.af = item.entry.af;
-        nh2.safi = item.entry.safi;
+        nh2.af = item.entry.nlri.af;
+        nh2.safi = item.entry.nlri.safi;
         nh2.address = "127.0.0.3"; // agent-c, does not exist
-        nh2.label = dest_label2; 
+        stringstream label2;
+        label2 << dest_label2;
+        nh2.label = label2.str(); 
 
         //Add to olist
         item.entry.olist.next_hop.push_back(nh2);
@@ -359,7 +367,7 @@ protected:
 
     void XmppConnectionSetUp() {
 
-        Agent::SetControlNodeMulticastBuilder(NULL);
+        Agent::GetInstance()->SetControlNodeMulticastBuilder(NULL);
 
         //Create control-node bgp mock peer 
 	mock_peer.reset(new ControlNodeMockBgpXmppPeer());
@@ -377,9 +385,9 @@ protected:
         cchannel_p = xc_p->FindChannel(XmppInit::kControlNodeJID); 
         //Create agent bgp peer
 	bgp_peer.reset(new AgentBgpXmppPeerTest(cchannel_p,
-                       Agent::GetXmppServer(0), 
-                       Agent::GetAgentMcastLabelRange(0), 0));
-	Agent::SetAgentXmppChannel(bgp_peer.get(), 0);
+                       Agent::GetInstance()->GetXmppServer(0), 
+                       Agent::GetInstance()->GetAgentMcastLabelRange(0), 0));
+	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer.get(), 0);
 	xc_p->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, bgp_peer.get(), _2));
 	
@@ -404,9 +412,9 @@ protected:
         cchannel_s = xc_s->FindChannel(XmppInit::kControlNodeJID);
         //Create agent bgp peer
 	bgp_peer_s.reset(new AgentBgpXmppPeerTest(cchannel_s,
-                         Agent::GetXmppServer(1), 
-                         Agent::GetAgentMcastLabelRange(1), 1));
-	Agent::SetAgentXmppChannel(bgp_peer_s.get(), 1);
+                         Agent::GetInstance()->GetXmppServer(1), 
+                         Agent::GetInstance()->GetAgentMcastLabelRange(1), 1));
+	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer_s.get(), 1);
 	xc_s->RegisterConnectionEvent(xmps::BGP,
 	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, bgp_peer_s.get(), _2));
 
@@ -506,9 +514,9 @@ protected:
 
 	//Verify mpls table
 	MplsLabel *mpls = 
-	    Agent::GetMplsTable()->FindMplsLabel(alloc_label);
+	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
 	ASSERT_TRUE(mpls == NULL);
-	ASSERT_TRUE(Agent::GetMplsTable()->Size() == 3);
+	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 3);
 
 	// Verify presence of all broadcast route in mcast table
 	addr = Ip4Address::from_string("255.255.255.255");
@@ -532,9 +540,9 @@ protected:
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);
 	
 	//Verify mpls table
-	mpls = Agent::GetMplsTable()->FindMplsLabel(alloc_label+ 1);
+	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+ 1);
 	ASSERT_TRUE(mpls == NULL);
-	ASSERT_TRUE(Agent::GetMplsTable()->Size() == 4);
+	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
     }
 
     void XmppSubnetTearDown() {
@@ -574,7 +582,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     client->Reset();
     client->WaitForIdle();
  
-    AgentXmppChannel *ch = Agent::GetControlNodeMulticastBuilder();
+    AgentXmppChannel *ch = Agent::GetInstance()->GetControlNodeMulticastBuilder();
     EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(ch->GetXmppServer().size() != 0);
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
@@ -584,7 +592,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     bgp_peer_s.get()->AgentBgpXmppPeerTest::HandleXmppChannelEvent(xmps::NOT_READY); 
     client->WaitForIdle();
 
-    ch = Agent::GetControlNodeMulticastBuilder();
+    ch = Agent::GetInstance()->GetControlNodeMulticastBuilder();
     EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(ch->GetXmppServer().size() != 0);
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.2");
@@ -610,7 +618,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     ASSERT_TRUE(cnh->ComponentNHCount() == 2);
 
     //Verify label deallocated from Mpls Table
-    EXPECT_TRUE(Agent::GetMplsTable()->Size() == 2);
+    EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 2);
 
     //expect subnet and all braodcast routes to newly elected
     //multicast builder
@@ -625,7 +633,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     bgp_peer_s.get()->AgentBgpXmppPeerTest::HandleXmppChannelEvent(xmps::READY); 
     client->WaitForIdle();
 
-    ch = Agent::GetControlNodeMulticastBuilder();
+    ch = Agent::GetInstance()->GetControlNodeMulticastBuilder();
     EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(ch->GetXmppServer().size() != 0);
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
@@ -643,7 +651,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     client->WaitForIdle();
 
     //multicast builder should be unchanged
-    ch = Agent::GetControlNodeMulticastBuilder();
+    ch = Agent::GetInstance()->GetControlNodeMulticastBuilder();
     EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(ch->GetXmppServer().size() != 0);
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
@@ -658,7 +666,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     client->WaitForIdle(5);
 
     //multicast builder should be unchanged
-    ch = Agent::GetControlNodeMulticastBuilder();
+    ch = Agent::GetInstance()->GetControlNodeMulticastBuilder();
     EXPECT_TRUE(ch != NULL);
     EXPECT_TRUE(ch->GetXmppServer().size() != 0);
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
@@ -706,13 +714,13 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_DBWalk_Cancel) {
 int main(int argc, char **argv) {
     GETUSERARGS();
     client = TestInit(init_file, ksync_init);
-    Agent::SetXmppServer("127.0.0.2", 0);
-    Agent::SetXmppServer("127.0.0.1", 1);
-    Agent::SetAgentMcastLabelRange(0);
-    Agent::SetAgentMcastLabelRange(1);
+    Agent::GetInstance()->SetXmppServer("127.0.0.2", 0);
+    Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
+    Agent::GetInstance()->SetAgentMcastLabelRange(0);
+    Agent::GetInstance()->SetAgentMcastLabelRange(1);
     
     int ret = RUN_ALL_TESTS();
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     return ret;
 }

@@ -10,18 +10,6 @@
 // ICMP protocol handler
 class IcmpHandler : public ProtoHandler {
 public:
-    struct IcmpStats {
-        uint32_t icmp_gw_ping;
-        uint32_t icmp_gw_ping_err;
-        uint32_t icmp_drop;
-
-        void Reset() { icmp_gw_ping = icmp_gw_ping_err = icmp_drop = 0; }
-        IcmpStats() { Reset(); }
-        void IncrStatsGwPing() { icmp_gw_ping++; }
-        void IncrStatsGwPingErr() { icmp_gw_ping_err++; }
-        void IncrStatsDrop() { icmp_drop++; }
-    };
-
     IcmpHandler(PktInfo *info, boost::asio::io_service &io) 
         : ProtoHandler(info, io), icmp_(pkt_info_->transp.icmp) {
         icmp_len_ = ntohs(pkt_info_->ip->tot_len) - (pkt_info_->ip->ihl * 4);
@@ -30,17 +18,41 @@ public:
 
     bool Run();
 
-    static IcmpStats GetStats() { return stats_; }
-    static void ClearStats() { stats_.Reset(); }
-
 private:
     bool CheckPacket();
     void SendResponse();
 
     icmphdr *icmp_;
     uint16_t icmp_len_;
-    static IcmpStats stats_;
     DISALLOW_COPY_AND_ASSIGN(IcmpHandler);
+};
+
+class IcmpProto : public Proto<IcmpHandler> {
+public:
+    struct IcmpStats {
+        uint32_t icmp_gw_ping;
+        uint32_t icmp_gw_ping_err;
+        uint32_t icmp_drop;
+
+        IcmpStats() { Reset(); }
+        void Reset() { icmp_gw_ping = icmp_gw_ping_err = icmp_drop = 0; }
+    };
+
+    static void Init(boost::asio::io_service &io);
+    static void Shutdown();
+    virtual ~IcmpProto();
+
+    void IncrStatsGwPing() { stats_.icmp_gw_ping++; }
+    void IncrStatsGwPingErr() { stats_.icmp_gw_ping_err++; }
+    void IncrStatsDrop() { stats_.icmp_drop++; }
+    IcmpStats GetStats() { return stats_; }
+    void ClearStats() { stats_.Reset(); }
+
+private:
+    IcmpProto(boost::asio::io_service &io);
+
+    IcmpStats stats_;
+    DISALLOW_COPY_AND_ASSIGN(IcmpProto);
 };
 
 #endif // vnsw_agent_icmp_proto_h_

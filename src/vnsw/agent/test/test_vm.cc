@@ -87,7 +87,7 @@ TEST_F(CfgTest, VmBasic_1) {
     string s2;
 
     vm->SetKey(static_cast<DBRequestKey*>(newKey));
-    s1 = boost::lexical_cast<std::string>(oldKey->uuid_);
+    s1 = UuidToString(oldKey->uuid_);
     s2 = vm->ToString();
     EXPECT_FALSE(s1.compare(s2) == 0);
     vm->SetKey(static_cast<DBRequestKey*>(oldKey));
@@ -98,10 +98,10 @@ TEST_F(CfgTest, VmBasic_1) {
     VmListReq *vm_list_req = new VmListReq();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    vm_list_req->set_uuid(boost::lexical_cast<std::string>(MakeUuid(1)));
+    vm_list_req->set_uuid(UuidToString(MakeUuid(1)));
     vm_list_req->HandleRequest();
     client->WaitForIdle();
-    vm_list_req->set_uuid(boost::lexical_cast<std::string>(MakeUuid(10)));
+    vm_list_req->set_uuid(UuidToString(MakeUuid(10)));
     vm_list_req->HandleRequest();
     client->WaitForIdle();
     vm_list_req->Release();

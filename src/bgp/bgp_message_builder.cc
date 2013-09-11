@@ -2,12 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_message_builder.h"
-#include "bgp/bgp_route.h"
-#include "base/parse_object.h"
+
 #include "base/logging.h"
-#include "bgp_log.h"
+#include "base/parse_object.h"
+#include "bgp/bgp_log.h"
+#include "bgp/bgp_route.h"
+#include "net/bgp_af.h"
 
 BgpMessage::BgpMessage() {
 }
@@ -145,6 +146,8 @@ bool BgpMessage::AddRoute(const BgpRoute *route, const RibOutAttr *roattr) {
     size_t size = sizeof(data_) - datalen_;
 
     BgpMpNlri nlri;
+    nlri.afi = route->Afi();
+    nlri.safi = route->Safi();
     BgpProtoPrefix *prefix = new BgpProtoPrefix;
     uint32_t label = roattr ? roattr->label() : 0;
     route->BuildProtoPrefix(prefix, label);

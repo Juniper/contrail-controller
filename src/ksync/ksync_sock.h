@@ -18,36 +18,8 @@
 #include <sandesh/sandesh.h>
 #include "vr_types.h"
 
+#define KSYNC_DEFAULT_MSG_SIZE    4096
 class KSyncEntry;
-
-//abstract socket 
-//[kernel netlink, userspace udp, userspace memorymap]
-class KSyncSockType {
-public:
-    KSyncSockType() { };
-    virtual ~KSyncSockType() { };
-
-    typedef boost::function<void(const boost::system::error_code &, size_t)> HandlerCb;
-    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
-    virtual void AsyncSendTo(boost::asio::mutable_buffers_1, HandlerCb) = 0;
-    virtual void SendTo(boost::asio::const_buffers_1) = 0;
-    virtual void Receive(boost::asio::mutable_buffers_1) = 0;
-private:
-};
-
-//netlink socket class for interacting with kernel
-class KSyncSockTypeNetlink : public KSyncSockType {
-public:
-    KSyncSockTypeNetlink(boost::asio::io_service &ios, int protocol);
-    virtual ~KSyncSockTypeNetlink() { };
-
-    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void SendTo(boost::asio::const_buffers_1);
-    virtual void Receive(boost::asio::mutable_buffers_1);
-private:
-    boost::asio::netlink::raw::socket sock_;
-};
 
 /* Base class to hold sandesh context information which is passed to 
  * Sandesh decode
@@ -111,9 +83,10 @@ public:
 
     AgentSandeshContext *GetSandeshContext() { return ctx_; }
     IoContextWorkQId GetWorkQId() { return work_q_id_; }
-protected:
+
     boost::intrusive::set_member_hook<> node_;
-    void UpdateNetlinkHeader();
+
+protected:
     AgentSandeshContext *ctx_;
 
 private:
@@ -138,21 +111,20 @@ private:
     KSyncEntry::KSyncEvent event_;
 };
 
+typedef boost::intrusive::member_hook<IoContext,
+        boost::intrusive::set_member_hook<>,
+        &IoContext::node_> KSyncSockNode;
+typedef boost::intrusive::set<IoContext, KSyncSockNode> Tree;
+
 class KSyncSock {
 public:
     const static int kMsgGrowSize = 16;
     const static unsigned kBufLen = 4096;
 
-    typedef boost::intrusive::member_hook<IoContext,
-            boost::intrusive::set_member_hook<>,
-            &IoContext::node_> KSyncSockNode;
-    typedef boost::intrusive::set<IoContext, KSyncSockNode> Tree;
-
-    KSyncSock(boost::asio::io_service &ios, int protocol);
+    typedef boost::function<void(const boost::system::error_code &, size_t)> HandlerCb;
+    KSyncSock();
     virtual ~KSyncSock();
 
-    // Create KSyncSock objects
-    static void Init(boost::asio::io_service &ios, int count, int protocol);
     // Start Ksync Asio operations
     static void Start();
     static void Shutdown();
@@ -162,7 +134,7 @@ public:
     static KSyncSock *Get(int partition_id);
     // Write a KSyncEntry to kernel
     void SendAsync(KSyncEntry *entry, int msg_len, char *msg, KSyncEntry::KSyncEvent event);
-    void BlockingSend(const char *msg, int msg_len);
+    std::size_t BlockingSend(const char *msg, int msg_len);
     bool BlockingRecv();
 
     static uint32_t GetPid() {return pid_;};
@@ -179,7 +151,15 @@ public:
     static void SetAgentSandeshContext(AgentSandeshContext *ctx) {
         agent_sandesh_ctx_ = ctx;
     }
-    void Decoder(char *data, SandeshContext *ctxt);
+    virtual void Decoder(char *data, SandeshContext *ctxt) = 0;
+protected:
+    static void Init(int count);
+    static void SetSockTableEntry(int i, KSyncSock *sock);
+    // Tree of all KSyncEntries pending ack from Netlink socket
+    Tree wait_tree_;
+    tbb::mutex mutex_;
+
+    WorkQueue<char *> *work_queue_[IoContext::MAX_WORK_QUEUES];
 private:
     // Read handler registered with boost::asio. Demux done based on seqno_
     void ReadHandler(const boost::system::error_code& error,
@@ -190,8 +170,19 @@ private:
                       size_t bytes_transferred);
 
     bool ProcessKernelData(char *data);
+    virtual bool Validate(char *data) = 0;
     bool ValidateAndEnqueue(char *data);
     void SendAsyncImpl(int msg_len, char *msg, IoContext *ioc);
+
+    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
+    virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
+                             HandlerCb) = 0;
+    virtual std::size_t SendTo(boost::asio::const_buffers_1) = 0;
+    virtual void Receive(boost::asio::mutable_buffers_1) = 0;
+
+    virtual uint32_t GetSeqno(char *data) = 0;
+    Tree::iterator GetIoContext(char *data);
+    virtual bool IsMoreData(char *data) = 0;
 
     static std::vector<KSyncSock *> sock_table_;
     static pid_t pid_;
@@ -199,20 +190,56 @@ private:
     static AgentSandeshContext *agent_sandesh_ctx_;
     static tbb::atomic<bool> shutdown_;
 
-    // Tree of all KSyncEntries pending ack from Netlink socket
-    Tree wait_tree_;
-    KSyncSockType *sock_type_;
     char *rx_buff_;
     tbb::atomic<int> seqno_;
-    tbb::mutex mutex_;
 
     // Debug stats
     int tx_count_;
     int ack_count_;
     int err_count_;
 
-    WorkQueue<char *> *work_queue_[IoContext::MAX_WORK_QUEUES];
     DISALLOW_COPY_AND_ASSIGN(KSyncSock);
+};
+
+//netlink socket class for interacting with kernel
+class KSyncSockNetlink : public KSyncSock {
+public:
+    KSyncSockNetlink(boost::asio::io_service &ios, int protocol);
+    virtual ~KSyncSockNetlink() { };
+
+    static void Init(boost::asio::io_service &ios, int count, int protocol);
+    virtual uint32_t GetSeqno(char *data);
+    virtual bool IsMoreData(char *data);
+    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool Validate(char *data);
+    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
+    virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
+                             HandlerCb);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual void Receive(boost::asio::mutable_buffers_1);
+private:
+    boost::asio::netlink::raw::socket sock_;
+};
+
+//udp socket class for interacting with user vrouter
+class KSyncSockUdp : public KSyncSock {
+public:
+    KSyncSockUdp(boost::asio::io_service &ios, int port);
+    virtual ~KSyncSockUdp() { };
+
+    static void Init(boost::asio::io_service &ios, int count, int port);
+    virtual uint32_t GetSeqno(char *data);
+    virtual bool IsMoreData(char *data);
+    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool Validate(char *data);
+    virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
+    virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
+                             HandlerCb);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual void Receive(boost::asio::mutable_buffers_1);
+private:
+    boost::asio::ip::udp::socket sock_;
+    boost::asio::ip::udp::endpoint server_ep_;
 };
 
 #endif // ctrlplane_ksync_sock_h

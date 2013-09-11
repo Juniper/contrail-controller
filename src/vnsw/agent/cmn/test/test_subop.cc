@@ -55,7 +55,7 @@ bool TableC::OnChange(DBEntry *entry, const DBRequest *req) {
 
 bool TableC::Resync(DBEntry *entry, DBRequest *req) {
     resync_count_++;
-    OnChange(entry, req);
+    return OnChange(entry, req);
 }
 
 void TableC::Delete(DBEntry *entry, const DBRequest *req) {

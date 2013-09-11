@@ -5,7 +5,6 @@
 #include "bgp/bgp_multicast.h"
 
 #include <boost/bind.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include "base/task_annotations.h"
 #include "bgp/bgp_path.h"
@@ -67,7 +66,7 @@ McastForwarder::~McastForwarder() {
 // Printable string for McastForwarder.
 //
 std::string McastForwarder::ToString() const {
-    return rd_.ToString() + " -> " + boost::lexical_cast<std::string>(label_);
+    return rd_.ToString() + " -> " + integerToString(label_);
 }
 
 //

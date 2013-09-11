@@ -9,6 +9,7 @@ struct VirtualDnsTraceData {
     4: string dns_order;
     5: i32 dns_ttl;
     6: string dns_next;
+    7: string installed;
 }
 
 struct VirtualDnsRecordTraceData {
@@ -18,7 +19,8 @@ struct VirtualDnsRecordTraceData {
     4: string rec_class;
     5: string rec_data;
     6: i32 rec_ttl;
-    7: string installed;
+    7: string source;
+    8: string installed;
 }
 
 trace sandesh IpamTrace {
@@ -38,8 +40,12 @@ trace sandesh VirtualDnsRecordTrace {
     3: VirtualDnsRecordTraceData data;
 }
 
+trace sandesh DnsConfigTrace {
+    1: string trace_msg;
+}
+
 trace sandesh DnsError {
-    1: string err;
+    1: string error_msg;
 }
 
 struct VirtualDnsSandesh {
@@ -88,4 +94,14 @@ request sandesh ShowAgentXmppDnsData {
 
 response sandesh AgentXmppDnsDataResponse {
     1: list<AgentDnsData> data;
+}
+
+systemlog sandesh DnsConfiguration {
+    1: string message;
+    2: string config_name;
+    3: string config_item;
+}
+
+systemlog sandesh DnsOperational {
+    1: string message;
 }

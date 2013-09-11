@@ -84,7 +84,7 @@ void TapInterface::AsyncRead() {
 }
 
 TapDescriptor::TapDescriptor(const std::string &name) {
-    if (name == Agent::GetHostIfname()) {
+    if (name == Agent::GetInstance()->GetHostIfname()) {
         if ((fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> opening tap-device");

@@ -257,6 +257,9 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         if (cpu_load_info.get_cpu_share() != prev_state.get_cpu_info().get_cpu_share()) {
             state.set_cpu_share(cpu_load_info.get_cpu_share());
         }
+        if (prev_state.get_cpu_info().get_meminfo() != cpu_load_info.get_meminfo()) {
+            state.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
+        }
         prev_state.set_cpu_info(cpu_load_info);
         change = true;
     }
@@ -335,30 +338,6 @@ void ControlNodeShutdown() {
     // Shutdown event manager first to stop all IO activities.
     evm.Shutdown();
 }
-
-class DiscoveryControlNodeClient {
-public:
-    static void DiscoveryCollectorHandler(std::vector<DSResponse> resp);
-};
-
-void DiscoveryControlNodeClient::DiscoveryCollectorHandler(std::vector<DSResponse> resp) {
-
-    static bool connect_once = false;
-    if (connect_once) {
-        return;
-    }
-
-    std::vector<DSResponse>::iterator iter;
-    for (iter = resp.begin(); iter != resp.end(); iter++) {
-        DSResponse dr = *iter;
-        // TODO: expect only one collector address
-        std::string collector_server = dr.ep.address().to_string();
-        ControlNode::SetCollector(collector_server);
-        Sandesh::ConnectToCollector(collector_server, dr.ep.port());
-        connect_once = true;
-    }
-}
-
 
 // Read command line options from a file for ease of use. These options read
 // from file are appended to those specified in the command line.
@@ -506,10 +485,13 @@ int main(int argc, char *argv[]) {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    Sandesh::InitGenerator(
+    if (!var_map.count("discovery-server")) { 
+        Sandesh::InitGenerator(
             g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second,
             hostname, &evm,
             var_map["http-server-port"].as<int>(), &sandesh_context);
+    }
+
     if (var_map.count("collector-port") && var_map.count("collector")) {
         int collector_port = var_map["collector-port"].as<int>();
         std::string collector_server = var_map["collector"].as<string>();
@@ -614,10 +596,18 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-            string service_name = g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second; 
             string subscriber_name = g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
-            ds_client->Subscribe(subscriber_name, service_name, 1,
-                boost::bind(&DiscoveryControlNodeClient::DiscoveryCollectorHandler, _1));
+           
+            Sandesh::CollectorSubFn csf = 0;
+            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client, subscriber_name, _1, _2, _3);
+            vector<string> list;
+            list.clear();
+            Sandesh::InitGenerator(subscriber_name,
+                                   hostname, &evm,
+                                   var_map["http-server-port"].as<int>(),
+                                   csf,
+                                   list,
+                                   &sandesh_context);
         }
     }
      

@@ -31,7 +31,7 @@ using namespace autogen;
 
 class VrfEntry::DeleteActor : public LifetimeActor {
   public:
-    DeleteActor(VrfEntry *vrf) : LifetimeActor(Agent::GetLifetimeManager()), 
+    DeleteActor(VrfEntry *vrf) : LifetimeActor(Agent::GetInstance()->GetLifetimeManager()), 
                                  table_(vrf) { 
     }
     virtual ~DeleteActor() { 
@@ -126,7 +126,7 @@ VrfEntry::VrfEntry(const string &name) :
 VrfEntry::~VrfEntry() {
     if (id_ != kInvalidIndex) {
         VrfTable::FreeVrfId(id_);
-        Agent::GetVrfTable()->VrfReuse(GetName());
+        Agent::GetInstance()->GetVrfTable()->VrfReuse(GetName());
     }
 }
 
@@ -188,7 +188,7 @@ bool VrfEntry::DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry,
         }
 
         Inet4UcRouteTable *table = vrf->GetInet4UcRouteTable();
-        DBTableWalker *walker = Agent::GetDB()->GetWalker();
+        DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
 
         if (state->inet4_uc_walkid_ != DBTableWalker::kInvalidWalkerId) { 
             AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel  walk ", 
@@ -261,7 +261,7 @@ bool VrfEntry::VrfNotifyEntryMcastBcastWalk(DBTablePartBase *part, DBEntryBase *
         VrfExport::State *state = 
             static_cast<VrfExport::State *>(vrf->GetState(part->parent(), id)); 
 
-        if (state && (vrf->GetName().compare(Agent::GetDefaultVrf()) != 0)) {
+        if (state && (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0)) {
 
             Inet4UcRouteTable *table = vrf->GetInet4UcRouteTable();
             table->Inet4UcRouteTableWalkerNotify(vrf, bgp_peer->GetBgpXmppPeer(), 
@@ -334,7 +334,7 @@ bool VrfEntry::DeleteTimeout() {
 
 void VrfEntry::StartDeleteTimer() {
     delete_timeout_timer_ = TimerManager::CreateTimer(
-                                *(Agent::GetEventManager())->io_service(),
+                                *(Agent::GetInstance()->GetEventManager())->io_service(),
                                 "VrfDeleteTimer");
     delete_timeout_timer_->Start(kDeleteTimeout, 
                                  boost::bind(&VrfEntry::DeleteTimeout,
@@ -424,22 +424,22 @@ void VrfTable::VrfReuse(const std::string  name) {
     IFMapTable::RequestKey req_key;
     req_key.id_type = "routing-instance";
     req_key.id_name = name;
-    IFMapNode *node = IFMapAgentTable::TableEntryLookup(Agent::GetDB(), &req_key);
+    IFMapNode *node = IFMapAgentTable::TableEntryLookup(Agent::GetInstance()->GetDB(), &req_key);
 
     if (!node || node->IsDeleted()) {
         return;
     }
 
     OPER_TRACE(Vrf, "Resyncing configuration for VRF: ", name);
-    Agent::GetCfgListener()->NodeReSync(node);
+    Agent::GetInstance()->GetCfgListener()->NodeReSync(node);
 }
 
 void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     if (e->IsDeleted()) {
-        Agent::GetDB()->RemoveTable(vrf->GetInet4UcRouteTable());
+        Agent::GetInstance()->GetDB()->RemoveTable(vrf->GetInet4UcRouteTable());
         delete vrf->GetInet4UcRouteTable();
-        Agent::GetDB()->RemoveTable(vrf->GetInet4McRouteTable());
+        Agent::GetInstance()->GetDB()->RemoveTable(vrf->GetInet4McRouteTable());
         delete vrf->GetInet4McRouteTable();
 
         name_tree_.erase(vrf->GetName());
@@ -629,7 +629,7 @@ void VrfTable::Input(DBTablePartition *partition, DBClient *client,
 bool VrfTable::CanNotify(IFMapNode *node) {
     VrfKey key(node->name());
     VrfEntry *entry = static_cast<VrfEntry *>
-        (Agent::GetVrfTable()->Find(&key, true));
+        (Agent::GetInstance()->GetVrfTable()->Find(&key, true));
     // Check if there is an entry with given name in *any* DBState
     if (entry && entry->IsDeleted()) {
         OPER_TRACE(Vrf, "VRF pending delete, Ignoring config for ", node->name());
@@ -640,8 +640,8 @@ bool VrfTable::CanNotify(IFMapNode *node) {
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    if (node->name() != Agent::GetDefaultVrf() && 
-        node->name() != Agent::GetLinkLocalVrfName()) {
+    if (node->name() != Agent::GetInstance()->GetDefaultVrf() && 
+        node->name() != Agent::GetInstance()->GetLinkLocalVrfName()) {
         VrfKey *key = new VrfKey(node->name());
         //Trigger add or delete only for non fabric VRF
         if (node->IsDeleted()) {
@@ -652,7 +652,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetVrfTable()->Enqueue(&req);
+        Agent::GetInstance()->GetVrfTable()->Enqueue(&req);
     }
 
     if (node->IsDeleted()) {

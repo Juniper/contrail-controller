@@ -169,7 +169,7 @@ public:
             collector_ = NULL;
         }
 
-        SandeshHttp::Uninit();
+        Sandesh::Uninit();
         task_util::WaitForIdle();
     }
 

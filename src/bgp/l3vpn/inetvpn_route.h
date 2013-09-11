@@ -8,13 +8,13 @@
 #include <set>
 
 #include "base/util.h"
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_attr.h"
+#include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_route.h"
 #include "bgp/l3vpn/inetvpn_address.h"
 #include "net/address.h"
+#include "net/bgp_af.h"
 #include "route/route.h"
-#include "bgp/bgp_attr_base.h"
 
 class InetVpnRoute : public BgpRoute {
 public:
@@ -41,6 +41,7 @@ public:
 
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
     virtual u_int8_t Safi() const { return BgpAf::Vpn; }
+    virtual bool IsMoreSpecific(const std::string &match) const;
 
 private:
     InetVpnPrefix prefix_;

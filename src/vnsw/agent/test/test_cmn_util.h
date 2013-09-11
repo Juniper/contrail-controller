@@ -58,6 +58,8 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
                              uint32_t obytes, uint32_t opkts);
+bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
+                  uint64_t out_bytes, uint64_t out_pkts);
 bool VmPortInactive(int id);
 bool VmPortInactive(PortInfo *input, int id);
 EthInterface *EthInterfaceGet(const char *name);
@@ -113,6 +115,8 @@ void DelVn(const char *name);
 void AddPort(const char *name, int id);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
+void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn);
+void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);
 void DelFloatingIp(const char *name);
 void AddFloatingIpPool(const char *name, int id);
@@ -172,9 +176,12 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
                             const char *sip, const char *dip, 
                             int sport, int dport, int hash_idx = 0);
 
-bool VrfStatsMatch(int vrf_id, std::string vrf_name, uint64_t discards, 
-                   uint64_t resolves, uint64_t receives, uint64_t tunnels, 
-                   int64_t composites, uint64_t encaps);
+bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
+                   uint64_t discards, uint64_t resolves, uint64_t receives, 
+                   uint64_t tunnels, int64_t composites, uint64_t encaps);
+bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
+                       uint64_t receives, uint64_t tunnels, 
+                       int64_t composites, uint64_t encaps);
 bool RouterIdMatch(Ip4Address rid2);
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);

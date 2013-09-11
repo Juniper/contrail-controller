@@ -151,7 +151,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name="simple-action" type="SimpleActionType"/>
         <xsd:element name="gateway-name" type="xsd:string"/>
-        <xsd:element name="service-chain-type" type="ServiceModeType"/>
         <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
@@ -442,6 +441,9 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="autonomous-system" type="AutonomousSystemType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('autonomous-system', 'global-system-config') -->
+<xsd:element name="config-version" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('config-version', 'global-system-config') -->
 
 <xsd:element name="global-system-config-bgp-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -513,21 +515,31 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-virtual-network',
           'project', 'virtual-network', ['has']) -->
-     
+
+<xsd:simpleType name="VxlanNetworkIdentifierType">
+     <xsd:restriction base="xsd:integer">
+         <xsd:minInclusive value="0"/>
+         <xsd:maxInclusive value="1048575"/>
+     </xsd:restriction>
+</xsd:simpleType> 
+
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
         <!-- This indicates whether this virtual-network will be extended to
              non-contrail bgp routers -->
         <xsd:element name='extend-to-external-routers' type="xsd:boolean"/>
-        <!-- A unique id for the network -->
+        <!-- A unique id for the network, auto generated -->
         <xsd:element name='network-id' type='xsd:integer'/>
+        <!-- VNI for the network, configured by user -->
+        <xsd:element name='vxlan-network-identifier'
+                     type='VxlanNetworkIdentifierType'/>
     </xsd:all>
 </xsd:complexType>
 
 <xsd:element name="virtual-network-properties" type="VirtualNetworkType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-network-properties', 'virtual-network') -->
-     
+
 <xsd:complexType name="RouteTargetList">
     <xsd:all>
         <xsd:element name="route-target" type="xsd:string" maxOccurs="unbounded"/>
@@ -605,7 +617,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name='InterfaceMirrorType'>
     <xsd:all>
-        <xsd:element name="traffic-dirrection" type="TrafficDirectionType"/>
+        <xsd:element name="traffic-direction" type="TrafficDirectionType"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
     </xsd:all>
 </xsd:complexType>
@@ -807,6 +819,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="transparent"/>
         <xsd:enumeration value="in-network"/>
+        <xsd:enumeration value="in-network-nat"/>
     </xsd:restriction>
 </xsd:simpleType>
 

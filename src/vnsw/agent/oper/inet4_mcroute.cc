@@ -33,7 +33,7 @@ Inet4McRouteTable::~Inet4McRouteTable() {
 auto_ptr<DBEntry> Inet4McRouteTable::AllocEntry(const DBRequestKey *k) const {
     const Inet4McRouteKey *key = static_cast<const Inet4McRouteKey *>(k);
     VrfKey vrf_key(key->vrf_name_);
-    VrfEntry *vrf = static_cast<VrfEntry *>(Agent::GetVrfTable()->Find(&vrf_key, true));
+    VrfEntry *vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&vrf_key, true));
     Inet4McRoute *route = new Inet4McRoute(vrf, key->src_, key->addr_);
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
@@ -46,7 +46,7 @@ DBTableBase *Inet4McRouteTable::CreateTable(DB *db, const std::string &name) {
     size_t index = name.rfind(VrfTable::GetInet4McSuffix());
     assert(index != string::npos);
     string vrf = name.substr(0, index);
-    VrfEntry *vrf_entry = Agent::GetVrfTable()->FindVrfFromName(vrf);
+    VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf);
     assert(vrf_entry);
     table->SetVrfEntry(vrf_entry);
     table->SetVrfDeleteRef(vrf_entry->deleter());
@@ -66,20 +66,20 @@ NextHop *Inet4McRouteTable::GetMcNextHop(Inet4McRouteKey *key, Inet4RouteData *d
           Inet4McReceiveRoute *vhost = static_cast<Inet4McReceiveRoute *>(data);
           ReceiveNHKey nhkey(vhost->intf_.Clone(), vhost->policy_);
           nh = static_cast<NextHop *>
-              (Agent::GetNextHopTable()->FindActiveEntry(&nhkey));
+              (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nhkey));
           break;
       }
       default: {
           CompositeNHKey nhkey(key->vrf_name_, mcast_data->grp_addr_,
                                 mcast_data->src_addr_, false);
           nh = static_cast<NextHop *>
-              (Agent::GetNextHopTable()->FindActiveEntry(&nhkey));
+              (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nhkey));
           assert(nh);
           /*
           CompositeNH *cnh = static_cast<CompositeNH *>(nh);
           if (cnh->IsMarkedForDeletion() == true) {
               nhkey.DiscardInit();
-              nh = static_cast<NextHop *>(Agent::GetNextHopTable()->Find(&nhkey));
+              nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->Find(&nhkey));
           }
           */
           break;
@@ -248,7 +248,7 @@ void Inet4McRouteTable::DeleteV4MulticastRoute(const string &vrf_name,
 Inet4McRoute* Inet4McRouteTable::FindRoute(const string &vrf_name, 
                                        const Ip4Address &src, const Ip4Address &grp) {
         
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     Inet4McRouteTable *rt_table = vrf->GetInet4McRouteTable();
     Inet4McRouteKey *rt_key = new Inet4McRouteKey(vrf_name, src, grp);
     return static_cast<Inet4McRoute *>(rt_table->Find(rt_key));
@@ -271,14 +271,14 @@ const NextHop *Inet4McRoute::GetActiveNextHop() const {
 void Inet4McRouteTable::AddVHostRecvRoute(const string &vm_vrf,
                                         const Ip4Address &addr,
                                         bool policy) {
-    ReceiveNH::CreateReq(Agent::GetVirtualHostInterfaceName());
+    ReceiveNH::CreateReq(Agent::GetInstance()->GetVirtualHostInterfaceName());
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     Inet4McRouteKey *rt_key = new Inet4McRouteKey(vm_vrf, addr, 32);
     req.key.reset(rt_key);
     VirtualHostInterfaceKey intf_key(nil_uuid(), 
-                                     Agent::GetVirtualHostInterfaceName());
+                                     Agent::GetInstance()->GetVirtualHostInterfaceName());
     Inet4McReceiveRoute *data = new Inet4McReceiveRoute(intf_key, policy);
     req.data.reset(data);
     mc_route_table_->Enqueue(&req);
@@ -338,7 +338,7 @@ void Inet4McRouteTable::Inet4McRouteTableWalkerNotify(VrfEntry *vrf,
                                                       AgentXmppChannel *bgp_xmpp_peer,
                                                       DBState *state,
                                                       bool associate) {
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
 
     if (vrf_state->inet4_mc_walkid_ != DBTableWalker::kInvalidWalkerId) {
@@ -399,7 +399,7 @@ bool Inet4McRoute::DBEntrySandesh(Sandesh *sresp) const {
 /////////////////////////////////////////////////////////////////////////////
 
 void Inet4McRouteReq::HandleRequest() const {
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromId(get_vrf_index());
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

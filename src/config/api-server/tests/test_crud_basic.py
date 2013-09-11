@@ -21,65 +21,30 @@ import json
 import copy
 from lxml import etree
 import inspect
-#from mock import patch
-from flexmock import flexmock, Mock
-from collections import OrderedDict
-
 import pycassa
 
 from vnc_api.vnc_api import *
 from cfgm_common import exceptions as vnc_exceptions
-import vnc_cfg_api_server
-import cfgm_common.ifmap.client as ifmap_client
-import cfgm_common.ifmap.response as ifmap_response
 from cfgm_common.test_utils import *
 import gen.vnc_api_test_gen
 from gen.resource_test import *
 import discovery.client as disc_client
 
+import test_common
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
-def launch_api_server(listen_ip, listen_port, http_server_port):
-    args_str = ""
-    args_str = args_str + "--listen_ip_addr %s " %(listen_ip)
-    args_str = args_str + "--listen_port %s " %(listen_port)
-    args_str = args_str + "--http_server_port %s " %(http_server_port)
-    args_str = args_str + "--cassandra_server_list 0.0.0.0:9160"
-
-    vnc_cfg_api_server.main(args_str)
-
-#end launch_api_server
-
-def setup_flexmock():
-    flexmock(ifmap_client.client, __init__ = FakeIfmapClient.initialize,
-                                  call = FakeIfmapClient.call)
-    flexmock(ifmap_response.Response, __init__ = stub, element = stub)
-    flexmock(ifmap_response.newSessionResult, get_session_id = stub)
-    flexmock(ifmap_response.newSessionResult, get_publisher_id = stub)
-    
-    flexmock(pycassa.system_manager.Connection, __init__ = stub)
-    flexmock(pycassa.system_manager.SystemManager, create_keyspace = stub,
-                                                   create_column_family = stub)
-    flexmock(pycassa.ConnectionPool, __init__ = stub)
-    flexmock(pycassa.ColumnFamily, __new__ = FakeCF)
-    flexmock(pycassa.util, convert_uuid_to_time = Fake_uuid_to_time)
-
-    flexmock(disc_client.DiscoveryClient, __init__ = stub)
-    flexmock(disc_client.DiscoveryClient, publish_obj = stub)
-
-#end setup_flexmock
 
 class TestCrudBasic(object):
 #class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
     def setUp(self):
         super(TestCrudBasic, self).setUp()
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        self._api_svr = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -114,12 +79,12 @@ class TestCrudBasic(object):
 class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
     def setUp(self):
         super(TestFixtures, self).setUp()
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        self._api_svr = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -202,12 +167,12 @@ class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
 class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
     def setUp(self):
         super(TestNetAddrAlloc, self).setUp()
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        self._api_svr = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -321,12 +286,12 @@ class DemoFixture(fixtures.Fixture):
 class TestDemo(object):
     def setUp(self):
         super(TestDemo, self).setUp()
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        self._api_svr = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -347,12 +312,12 @@ class TestDemo(object):
 #class TestRefUpdate(unittest.TestCase):
 class TestRefUpdate(object):
     def setUp(self):
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -406,12 +371,12 @@ class TestRefUpdate(object):
 class TestListUpdate(object):
     def setUp(self):
         super(TestListUpdate, self).setUp()
-        setup_flexmock()
+        test_common.setup_flexmock()
 
         api_server_ip = socket.gethostbyname(socket.gethostname())
         api_server_port = get_free_port()
         http_server_port = get_free_port()
-        self._api_svr = gevent.spawn(launch_api_server, api_server_ip, api_server_port, http_server_port)
+        self._api_svr = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
         block_till_port_listened(api_server_ip, api_server_port)
         self._vnc_lib = VncApi('u', 'p', api_server_host = api_server_ip,
                                          api_server_port = api_server_port)
@@ -476,4 +441,5 @@ if __name__ == '__main__':
     ch.setLevel(logging.DEBUG)
     logger.addHandler(ch)
 
-    unittest.main(failfast=True)
+    #unittest.main(failfast=True)
+    unittest.main()

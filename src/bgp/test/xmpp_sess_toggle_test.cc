@@ -29,7 +29,7 @@
 #include "io/test/event_manager_test.h"
 #include "control-node/test/network_agent_mock.h"
 
-#include "schema/bgp_l3vpn_unicast_types.h"
+#include "schema/xmpp_unicast_types.h"
 
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"

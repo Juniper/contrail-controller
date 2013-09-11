@@ -74,6 +74,7 @@ while AnalyticsEnv_excep['CCFLAGS'].count('-fno-exceptions') > 0:
 
 # Generate the source files
 SandeshGenPyFiles  = AnalyticsEnv.SandeshGenPy('viz.sandesh')
+SandeshGenPyFiles  += AnalyticsEnv.SandeshGenPy('collector_uve.sandesh')
 AnalyticsVizSandeshGenFiles = AnalyticsEnv.SandeshGenOnlyCpp('viz.sandesh')
 AnalyticsSandeshGenFiles  = AnalyticsEnv.SandeshGenCpp('collector_uve.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')

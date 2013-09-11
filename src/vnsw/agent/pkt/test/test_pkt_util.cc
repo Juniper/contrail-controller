@@ -37,7 +37,6 @@ void TxIpPacketEcmp(int ifindex, const char *sip, const char *dip,
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
     PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
-
 }
 
 void MakeUdpPacket(PktGen *pkt, int ifindex, const char *sip,

@@ -125,7 +125,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     AddVn("vn2", 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(2));
-    EXPECT_EQ(2U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetVnTable()->Size());
 
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -191,7 +191,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.2"), 32));
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
 
-    EthInterface::CreateReq("enet1", Agent::GetDefaultVrf());
+    EthInterface::CreateReq("enet1", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
@@ -204,11 +204,12 @@ TEST_F(CfgTest, FloatingIp_1) {
     LOG(DEBUG, "Doing cleanup");
 
     // Delete routes
-    DelArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
     Inet4UcRouteTable::DeleteReq(bgp_peer_, "vrf1", 
                                Ip4Address::from_string("1.1.1.3"), 32);
     Inet4UcRouteTable::DeleteReq(bgp_peer_, "vrf2", 
                                Ip4Address::from_string("2.2.2.3"), 32);
+    client->WaitForIdle();
+    DelArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
 
     // Delete links
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");

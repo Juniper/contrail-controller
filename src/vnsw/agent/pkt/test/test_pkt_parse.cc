@@ -31,7 +31,7 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
 
     pkt_info->pkt = ptr;
     pkt_info->len = len;
-    AgentStats::IncrPktExceptions();
+    AgentStats::GetInstance()->IncrPktExceptions();
     if ((pkt = PktHandler::GetPktHandler()->ParseAgentHdr(pkt_info)) == NULL) {
         LOG(ERROR, "Error parsing Agent Header");
         return false;
@@ -69,18 +69,18 @@ static void SetupIntf() {
 }
 
 TEST_F(PktParseTest, Stats_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
 
     TxIpPacket(vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
-    EXPECT_EQ(AgentStats::GetPktExceptions(), (exception_count + 1));
+    EXPECT_EQ(AgentStats::GetInstance()->GetPktExceptions(), (exception_count + 1));
 }
 
 TEST_F(PktParseTest, InvalidAgentHdr_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
-    unsigned int drop_count = AgentStats::GetPktDropped();
-    unsigned int err_count = AgentStats::GetPktInvalidAgentHdr();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
+    unsigned int drop_count = AgentStats::GetInstance()->GetPktDropped();
+    unsigned int err_count = AgentStats::GetInstance()->GetPktInvalidAgentHdr();
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
 
     PktGen *pkt = new PktGen();
@@ -94,25 +94,25 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
                                               (sizeof(ethhdr) + sizeof(agent_hdr)));
 
     client->WaitForIdle();
-    EXPECT_EQ((exception_count + 1), AgentStats::GetPktExceptions());
-    EXPECT_EQ((drop_count + 1), AgentStats::GetPktDropped());
-    EXPECT_EQ((err_count + 1), AgentStats::GetPktInvalidAgentHdr());
+    EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->GetPktExceptions());
+    EXPECT_EQ((drop_count + 1), AgentStats::GetInstance()->GetPktDropped());
+    EXPECT_EQ((err_count + 1), AgentStats::GetInstance()->GetPktInvalidAgentHdr());
 }
 
 TEST_F(PktParseTest, InvalidIntf_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
-    unsigned int drop_count = AgentStats::GetPktDropped();
-    unsigned int err_count = AgentStats::GetPktInvalidInterface();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
+    unsigned int drop_count = AgentStats::GetInstance()->GetPktDropped();
+    unsigned int err_count = AgentStats::GetInstance()->GetPktInvalidInterface();
 
     TxIpPacket(100, "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
-    EXPECT_EQ((exception_count + 1), AgentStats::GetPktExceptions());
-    EXPECT_EQ((err_count + 1), AgentStats::GetPktInvalidInterface());
-    EXPECT_EQ((drop_count + 1), AgentStats::GetPktDropped());
+    EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->GetPktExceptions());
+    EXPECT_EQ((err_count + 1), AgentStats::GetInstance()->GetPktInvalidInterface());
+    EXPECT_EQ((drop_count + 1), AgentStats::GetInstance()->GetPktDropped());
 }
 
 TEST_F(PktParseTest, Arp_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t arp_count = GetPktModuleCount(PktHandler::ARP);
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
 
@@ -126,12 +126,12 @@ TEST_F(PktParseTest, Arp_1) {
     PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
 
     client->WaitForIdle();
-    EXPECT_EQ((exception_count + 1), AgentStats::GetPktExceptions());
+    EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->GetPktExceptions());
     EXPECT_EQ((arp_count + 1), GetPktModuleCount(PktHandler::ARP));
 }
 
 TEST_F(PktParseTest, NonIp_On_Vnet_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t drop_count = GetPktModuleCount(PktHandler::INVALID);
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
 
@@ -172,12 +172,12 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     PktHandler::GetPktHandler()->HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
-    EXPECT_EQ((exception_count + 4), AgentStats::GetPktExceptions());
+    EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->GetPktExceptions());
     EXPECT_EQ((drop_count + 4), GetPktModuleCount(PktHandler::INVALID));
 }
 
 TEST_F(PktParseTest, NonIp_On_Eth_1) {
-    unsigned int exception_count = AgentStats::GetPktExceptions();
+    unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t drop_count = GetPktModuleCount(PktHandler::INVALID);
     EthInterface *eth = EthInterfaceGet("vnet0");
 
@@ -218,7 +218,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     PktHandler::GetPktHandler()->HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
-    EXPECT_EQ((exception_count + 4), AgentStats::GetPktExceptions());
+    EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->GetPktExceptions());
     EXPECT_EQ((drop_count + 4), GetPktModuleCount(PktHandler::INVALID));
 }
 
@@ -413,7 +413,7 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     EthInterface *eth = EthInterfaceGet("vnet0");
-    unsigned int drop_count = AgentStats::GetPktDropped();
+    unsigned int drop_count = AgentStats::GetInstance()->GetPktDropped();
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
@@ -472,7 +472,7 @@ int main(int argc, char *argv[]) {
     ksync_init = false;
     client = TestInit(init_file, ksync_init, true, true, true);
     SetupIntf();
-    Agent::SetRouterId(Ip4Address::from_string("10.1.1.1"));
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1"));
 
     return RUN_ALL_TESTS();
 }

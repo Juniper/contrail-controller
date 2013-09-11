@@ -7,6 +7,7 @@
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 #include <boost/assign/list_of.hpp>
+#include "net/bgp_af.h"
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_proto.h"
 #include "bgp_message_test.h"
@@ -306,7 +307,55 @@ TEST_F(BgpProtoTest, Notification) {
 
 TEST_F(BgpProtoTest, Update) {
     BgpProto::Update update;
-    BgpMessageTest::GenerateUpdateMessage(&update);
+    BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Unicast);
+    uint8_t data[256];
+
+    int res = BgpProto::Encode(&update, data, 256);
+    EXPECT_NE(-1, res);
+    if (detail::debug_) {
+        for (int i = 0; i < res; i++) {
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+    const BgpProto::Update *result;
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    EXPECT_TRUE(result != NULL);
+    if (result) {
+        EXPECT_EQ(0, result->CompareTo(update));
+        delete result;
+    }
+}
+
+TEST_F(BgpProtoTest, L3VPNUpdate) {
+    BgpProto::Update update;
+    BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::IPv4, BgpAf::Vpn);
+    uint8_t data[256];
+
+    int res = BgpProto::Encode(&update, data, 256);
+    EXPECT_NE(-1, res);
+    if (detail::debug_) {
+        for (int i = 0; i < res; i++) {
+            printf("%02x ", data[i]);
+        }
+        printf("\n");
+    }
+
+    const BgpProto::Update *result;
+    result = static_cast<const BgpProto::Update *>(BgpProto::Decode(data, res));
+    EXPECT_TRUE(result != NULL);
+    if (result) {
+        EXPECT_EQ(0, result->CompareTo(update));
+        delete result;
+    }
+}
+
+
+
+TEST_F(BgpProtoTest, EvpnUpdate) {
+    BgpProto::Update update;
+    BgpMessageTest::GenerateUpdateMessage(&update, BgpAf::L2Vpn, BgpAf::EVpn);
     uint8_t data[256];
 
     int res = BgpProto::Encode(&update, data, 256);
@@ -520,6 +569,7 @@ TEST_F(BgpProtoTest, UpdateAttrFlagsError) {
 
 TEST_F(BgpProtoTest, UpdateScale) {
     BgpProto::Update update;
+    static const int kMaxRoutes = 500;
 
     BgpAttrOrigin *origin = new BgpAttrOrigin(BgpAttrOrigin::INCOMPLETE);
     update.path_attributes.push_back(origin);
@@ -552,7 +602,7 @@ TEST_F(BgpProtoTest, UpdateScale) {
     mp_nlri->safi = 128;
     uint8_t nh[4] = {192,168,1,1};
     mp_nlri->nexthop.assign(&nh[0], &nh[4]);
-    for (int i = 0; i < 600; i++) {
+    for (int i = 0; i < kMaxRoutes; i++) {
         BgpProtoPrefix *prefix = new BgpProtoPrefix;
         int len = rand() % 12;
         prefix->prefixlen = len*8;

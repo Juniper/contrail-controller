@@ -41,13 +41,13 @@ TEST_F(UveVnVmListTest, VmAdd_1) {
     };
 
     //Create VM, VN, VRF and Vmport
-    GetUveClient()->VnVmListUpdateCountReset();
+    UveClient::GetInstance()->VnVmListUpdateCountReset();
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    EXPECT_EQ(2U, GetUveClient()->VnVmListSize());
-    EXPECT_EQ(2U, GetUveClient()->VnVmListUpdateCount());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListSize());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListUpdateCount());
 
     struct PortInfo input1[] = {
         {"vnet3", 3, "1.1.1.3", "00:00:00:01:01:03", 1, 3},
@@ -55,29 +55,29 @@ TEST_F(UveVnVmListTest, VmAdd_1) {
     struct PortInfo input2[] = {
         {"vnet4", 4, "1.1.1.4", "00:00:00:01:01:04", 1, 4},
     };
-    GetUveClient()->VnVmListUpdateCountReset();
+    UveClient::GetInstance()->VnVmListUpdateCountReset();
     CreateVmportEnv(input1, 1);
     client->WaitForIdle();
 
     CreateVmportEnv(input2, 1);
     client->WaitForIdle();
-    EXPECT_EQ(4U, GetUveClient()->VnVmListSize());
-    EXPECT_EQ(2U, GetUveClient()->VnVmListUpdateCount());
+    EXPECT_EQ(4U, UveClient::GetInstance()->VnVmListSize());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListUpdateCount());
 
     client->Reset();
-    GetUveClient()->VnVmListUpdateCountReset();
+    UveClient::GetInstance()->VnVmListUpdateCountReset();
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
     DeleteVmportEnv(input2, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(2U, GetUveClient()->VnVmListSize());
-    EXPECT_EQ(2U, GetUveClient()->VnVmListUpdateCount());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListSize());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListUpdateCount());
 
-    GetUveClient()->VnVmListUpdateCountReset();
+    UveClient::GetInstance()->VnVmListUpdateCountReset();
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
-    EXPECT_EQ(0U, GetUveClient()->VnVmListSize());
-    EXPECT_EQ(2U, GetUveClient()->VnVmListUpdateCount());
+    EXPECT_EQ(0U, UveClient::GetInstance()->VnVmListSize());
+    EXPECT_EQ(2U, UveClient::GetInstance()->VnVmListUpdateCount());
 }
 
 int main(int argc, char **argv) {

@@ -26,7 +26,9 @@ if sys.platform != 'darwin':
     test_pkt = env.Program(target = 'test_pkt', source = ['test_pkt.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_pkt', test_pkt)
 
-    test_pkt_flow = env.Program(target = 'test_pkt_flow', source = ['test_pkt_flow.cc'])
+    test_pkt_flow = env.Program(target = 'test_pkt_flow', 
+                                source = ['test_pkt_flow.cc', 
+                                          'test_pkt_util.cc'])
     env.Alias('src/vnsw/agent/pkt/test:test_pkt_flow', test_pkt_flow)
 
     test_pkt_parse = env.Program(target = 'test_pkt_parse',

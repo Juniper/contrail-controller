@@ -17,7 +17,7 @@ from lxml import etree
 #import inspect
 #from mock import patch
 from flexmock import flexmock, Mock
-from collections import OrderedDict
+
 from cfgm_common.discovery import DiscoveryService
 
 import pycassa
@@ -25,9 +25,10 @@ import pycassa
 import cfgm_common.ifmap
 from vnc_api.vnc_api import *
 from cfgm_common import exceptions as vnc_exceptions
-sys.path.insert(0, os.path.realpath('lib/python2.7/site-packages/vnc_cfg_api_server'))
+pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
+sys.path.insert(0, os.path.realpath('lib/python%s/site-packages/vnc_cfg_api_server' %(pyver)))
 import vnc_cfg_api_server
-sys.path.insert(1, os.path.realpath('lib/python2.7/site-packages/svc_monitor'))
+sys.path.insert(1, os.path.realpath('lib/python%s/site-packages/svc_monitor' %(pyver)))
 import svc_monitor
 from schema_transformer import to_bgp
 from cfgm_common.test_utils import *

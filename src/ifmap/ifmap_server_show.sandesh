@@ -5,7 +5,7 @@
 /** Definitions for showing 'type' tables - IFMapNode/IFMapObject **/
 
 struct IFMapObjectShowInfo {
-    1: i64 sequence_number;
+    1: u64 sequence_number;
     2: string origin;
     3: string data;
 }
@@ -31,6 +31,11 @@ response sandesh IFMapTableShowResp {
 
 /** Definitions for showing link table - IFMapLink **/
 
+struct IFMapLinkOriginShowInfo {
+    1: u64 sequence_number;
+    2: string origin;
+}
+
 struct IFMapLinkShowInfo {
     1: string metadata;
     2: string left (link="IFMapNodeShowReq")
@@ -39,6 +44,7 @@ struct IFMapLinkShowInfo {
     5: string advertised;
     6: string dbentryflags;
     7: string last_modified;
+    8: list<IFMapLinkOriginShowInfo> origins;
 }
 
 // Show all the nodes in the IFMap link table
@@ -167,6 +173,11 @@ struct IFMapChannelManagerStats {
     4: u64 invalid_channel_not_ready_messages;
     5: u64 invalid_channel_state_messages;
     6: u64 invalid_vm_subscribe_messages;
+    7: u64 vmsub_novrsub_messages;
+    8: u64 vmunsub_novrsub_messages;
+    9: u64 vmunsub_novmsub_messages;
+    10: u64 dupicate_vrsub_messages;
+    11: u64 dupicate_vmsub_messages;
 }
 
 struct IFMapXmppChannelMapEntry {
@@ -228,6 +239,8 @@ response sandesh IFMapPeerServerInfoResp {
     4: IFMapStateMachineInfo sm_info;
 }
 
+/** Definitions for showing the list of uuid to node mappings **/
+
 request sandesh IFMapUuidToNodeMappingReq {
 }
 
@@ -240,6 +253,8 @@ response sandesh IFMapUuidToNodeMappingResp {
     1: i32 map_count;
     2: list<IFMapUuidToNodeMappingEntry> uuid_to_node_map;
 }
+
+/** Definitions for showing the list of node to uuid mappings **/
 
 request sandesh IFMapNodeToUuidMappingReq {
 }
@@ -254,6 +269,8 @@ response sandesh IFMapNodeToUuidMappingResp {
     2: list<IFMapNodeToUuidMappingEntry> node_to_uuid_map;
 }
 
+/** Definitions for showing the list of pending vm registrations **/
+
 request sandesh IFMapPendingVmRegReq {
 }
 
@@ -265,5 +282,18 @@ struct IFMapPendingVmRegEntry {
 response sandesh IFMapPendingVmRegResp {
     1: i32 map_count;
     2: list<IFMapPendingVmRegEntry> vm_reg_map;
+}
+
+/** Definitions for showing the list of node ifmap tables **/
+
+request sandesh IFMapNodeTableListShowReq {
+}
+
+struct IFMapNodeTableListShowEntry {
+    1: string table_name (link="IFMapTableShowReq")
+}
+
+response sandesh IFMapNodeTableListShowResp {
+    1: list<IFMapNodeTableListShowEntry> table_list
 }
 

@@ -6,8 +6,6 @@
 #include <string.h>
 
 #include <net/if.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
 #include <linux/if_tun.h>
 
 #include <boost/asio.hpp>
@@ -23,7 +21,6 @@
 #include "ksync/agent_ksync_types.h"
 #include "vr_types.h"
 #include "vnsw_utils.h"
-#include "nl_util.h"
 #include "base/logging.h"
 #include "oper/interface.h"
 #include "oper/mirror_table.h"
@@ -39,10 +36,6 @@
 #define TUN_INTF_CLONE_DEV      "/dev/net/tun"
 #define SOCK_RETRY_COUNT 4
 
-static int vnsw_ioctl_sock;
-static char vnsw_if_mac[ETHER_ADDR_LEN];
-static int test_mode = 0;
-
 IntfKSyncObject *IntfKSyncObject::singleton_;
 
 void vr_response::Process(SandeshContext *context) {
@@ -52,6 +45,24 @@ void vr_response::Process(SandeshContext *context) {
 
 void vrouter_ops::Process(SandeshContext *context) {
     assert(0);
+}
+
+void IntfKSyncObject::Init(InterfaceTable *table) {
+    Interface::SetTestMode(false);
+
+    assert(singleton_ == NULL);
+    singleton_ = new IntfKSyncObject(table);
+
+    // Get MAC Address for vnsw interface
+    GetPhyMac(Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
+              singleton_->vnsw_if_mac);
+}
+
+void IntfKSyncObject::InitTest(InterfaceTable *table) {
+    Interface::SetTestMode(true);
+    assert(singleton_ == NULL);
+    singleton_ = new IntfKSyncObject(table);
+    singleton_->test_mode = 1;
 }
 
 KSyncDBObject *IntfKSyncEntry::GetObject() { 
@@ -65,23 +76,13 @@ std::string IntfKSyncEntry::ToString() const {
     return s.str();
 }
 
-char *IntfKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
+    int encode_len, error;
 
     // Dont send message if interface index not known
     if (os_index_ == Interface::kInvalidIndex) {
-        return NULL;
-    }
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating if message. Error : " << ret);
-        return NULL;
+        return 0;
     }
 
     encoder.set_h_op(op);
@@ -147,11 +148,8 @@ char *IntfKSyncEntry::Encode(sandesh_op::type op, int &len) {
     encoder.set_vifr_name(ifname_);
     encoder.set_vifr_ip(ip_);
 
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
+    return encode_len;
 }
 
 void IntfKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) {
@@ -174,61 +172,47 @@ void IntfKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) {
     }
 }
 
-char *IntfKSyncEntry::AddMsg(int &len) {
+int IntfKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
 
     FillObjectLog(sandesh_op::ADD, info);
     KSYNC_TRACE(Intf, info);
-    return Encode(sandesh_op::ADD, len);
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *IntfKSyncEntry::DeleteMsg(int &len) {
+int IntfKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Intf, info);
-    return Encode(sandesh_op::DELETE, len);
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
-char *IntfKSyncEntry::ChangeMsg(int &len) {
-    return AddMsg(len);
+int IntfKSyncEntry::ChangeMsg(char *buf, int buf_len) {
+    return AddMsg(buf, buf_len);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 // sub-interface related functions
 //////////////////////////////////////////////////////////////////////////////
-void PhysicalIntfInit() {
-    Interface::SetTestMode(false);
-
-    vnsw_ioctl_sock = socket(AF_LOCAL, SOCK_STREAM, 0);
-    assert(vnsw_ioctl_sock >= 0);
-
-    // Get MAC Address for vnsw interface
-    GetPhyMac(Agent::GetVirtualHostInterfaceName().c_str(), vnsw_if_mac);
-}
-
-void PhysicalIntfInitTest() {
-    Interface::SetTestMode(true);
-    test_mode = 1;
-}
-
-const char *PhysicalIntfMac() { 
-    return vnsw_if_mac; 
-}
-
 void GetPhyMac(const char *ifname, char *mac) {
     struct ifreq ifr;
 
-    if (test_mode) {
+    if (IntfKSyncObject::GetKSyncObject()->GetTestMode()) {
         return;
     }
 
+    int fd = socket(AF_LOCAL, SOCK_STREAM, 0);
+    assert(fd >= 0);
+
     memset(&ifr, 0, sizeof(ifr));
     strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
-    if (ioctl(vnsw_ioctl_sock, SIOCGIFHWADDR, (void *)&ifr) < 0) {
+    if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
             "> quering mac-address for interface <" << ifname << ">");
         assert(0);
     }
+    close(fd);
+
     memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
 }
 
@@ -250,7 +234,7 @@ void InterfaceKSnap::Shutdown() {
 
 InterfaceKSnap::InterfaceKSnap() {
     timer_ = TimerManager::CreateTimer(
-             *(Agent::GetEventManager())->io_service(), "InterfaceKSnapTimer");
+             *(Agent::GetInstance()->GetEventManager())->io_service(), "InterfaceKSnapTimer");
     timer_->Start(timeout_, boost::bind(&InterfaceKSnap::Reset, this));
 }
 

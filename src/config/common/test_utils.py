@@ -13,7 +13,10 @@ import errno
 import re
 import copy
 from lxml import etree
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except ImportError:
+    from ordereddict import OrderedDict
 import pycassa
 import Queue
 from copy import deepcopy
@@ -399,7 +402,7 @@ class FakeIfmapClient(object):
             return result_env
         elif method == 'subscribe':
             session_id=int(body._SubscribeRequest__session_id)
-            cls._subscribe_lists[session_id] = copy.deepcopy(cls._subscribe_lists[0])
+            cls._subscribe_lists[session_id] = cls._subscribe_lists[0]
             result = etree.Element('subscribeReceived')
             result_env = cls._RSP_ENVELOPE %{'result': etree.tostring(result)}
             return result_env

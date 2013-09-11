@@ -17,7 +17,6 @@
 #include "base/util.h"
 #include "io/event_manager.h"
 
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_debug.h"
@@ -33,13 +32,15 @@
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
 #include "db/db.h"
-#include "schema/bgp_l3vpn_unicast_types.h"
+#include "net/bgp_af.h"
+#include "schema/xmpp_unicast_types.h"
 #include "testing/gunit.h"
 
 #include "xmpp/xmpp_client.h"
@@ -52,6 +53,7 @@
 #define PUBSUB_NODE_ADDR "bgp-node.contrail.com"
 
 using namespace std;
+using namespace boost;
 using namespace boost::asio;
 using namespace boost::assign;
 using namespace boost::program_options;
@@ -225,8 +227,8 @@ public:
                                 static_cast<AutogenProperty *>(&params));
         config_.reset(new BgpNeighborConfig(instance_config, name, "Local",
                                             &rtr_config_));
-        peer_ = static_cast<BgpPeerTest *>(rtinstance->PeerLocate(
-                                               server, config_.get()));
+        peer_ = static_cast<BgpPeerTest *>
+            (rtinstance->peer_manager()->PeerLocate(server, config_.get()));
         WaitForIdle();
     }
     BgpPeerTest *peer() { return peer_; }
@@ -288,8 +290,8 @@ protected:
 
         channel_manager_.reset(new BgpXmppChannelManagerMock(
                                        xmpp_server_, server_.get()));
-        master_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-            BgpConfigManager::kMasterInstance, "", "");
+        master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            BgpConfigManager::kMasterInstance, "", ""));
         rtinstance_ = static_cast<RoutingInstance *>(
             server_->routing_instance_mgr()->GetRoutingInstance(
                 BgpConfigManager::kMasterInstance));
@@ -398,7 +400,7 @@ protected:
     boost::scoped_ptr<BgpServerTest> server_;
     XmppServer *xmpp_server_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> channel_manager_;
-    auto_ptr<BgpInstanceConfigTest> master_cfg_;
+    scoped_ptr<BgpInstanceConfigTest> master_cfg_;
     RoutingInstance *rtinstance_;
     std::list<BgpNullPeer *> peers_;
     std::list<test::NetworkAgentMock *> xmpp_agents_;

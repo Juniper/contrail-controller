@@ -5,18 +5,6 @@
 xmlns:ct="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd"
 xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
-<!--
-<xsd:complexType name="NexthopType">
-    <xsd:attribute name="af" type="xsd:integer"/>
-    <xsd:element name="next-hop" type="xsd:string"/>
-</xsd:complexType>
-
-<xsd:complexType name="NlriType">
-    <xsd:attribute name="af" type="xsd:integer"/>
-    <xsd:element name="nlri" type="xsd:string"/>
-</xsd:complexType>
--->
-
 <xsd:simpleType name="TunnelEncapsulationType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="gre"/>
@@ -31,6 +19,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
 <xsd:complexType name="NextHopType">
     <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="safi" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
@@ -42,6 +31,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
 <xsd:complexType name="IPAddressType">
     <xsd:element name="af" type="xsd:integer"/>
+    <xsd:element name="safi" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
 </xsd:complexType>
 
@@ -75,55 +65,41 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 <!--
 
 <iq type='set'
-    from='01020304abcd@domain.org'
-    to='network-control.domain.org'
+    from='a6s17' 
+    to='network-control@contrailsystems.com/bgp-peer'
     id='request1'>
   <pubsub xmlns='http://jabber.org/protocol/pubsub'>
-    <publish node='01020304abcd:vpn-ip-address/32'>
+    <publish node='1/1/vrf-name/10.1.2.1'>
       <item>
         <entry xmlns='http://ietf.org/protocol/bgpvpn'>
           <version>1</version>
           <nlri>
-            <af>1</af
-            <address>10.1.2.1/32</address>
+            <af>1</af>
+            <safi>1</safi>
+            <address>10.1.2.1</address>
           </nlri>
-          <next-hops-list>
+          <next-hops>
             <next-hop>
               <af>1</af>
-              <address>'infrastructure-ip-address'</address>
+              <safi>1</safi>
+              <address>10.1.1.1</address>
               <label>10000</label>
             </next-hop>
-          </next-hops-list>
+          </next-hops>
         </entry>
       </item>
     </publish>
   </pubsub>
 </iq>
 
--->
-
-<!--
-
 <iq type='set'
-    from='01020304abcd@domain.org'
-    to='network-control.domain.org'
+    from='a6s17' 
+    to='network-control@contrailsystems.com/bgp-peer'
     id='request1'>
   <pubsub xmlns='http://jabber.org/protocol/pubsub'>
-    <publish node='01020304abcd:vpn-ip-address/32'>
-      <item>
-        <entry xmlns='http://ietf.org/protocol/bgpvpn'>
-          <nlri af='1'>10.1.2.1/32</nlri>
-          <version>1</version>
-          <next-hops-list>
-            <next-hop>
-              <af>1</af>
-              <address>10.1.1.1</address>
-              <label>10000</label>
-            </next-hop>
-          </next-hops-list>
-        </entry>
-      </item>
-    </publish>
+    <collection node='vrf-name'>
+      <associate node='1/1/vrf-name/10.1.2.1'></associate>
+   </collection>
   </pubsub>
 </iq>
 

@@ -6,6 +6,7 @@
 #define __ctrlplane__ifmap_server__
 
 #include <map>
+#include <vector>
 
 #include <boost/asio/io_service.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -15,6 +16,7 @@
 #include "net/address.h"
 #include "base/queue_task.h"
 #include "ifmap/client/ifmap_manager.h"
+//#include "ifmap/ifmap_server_show_types.h"
 
 class DB;
 class DBGraph;
@@ -29,6 +31,8 @@ class IFMapUpdateSender;
 class IFMapVmUuidMapper;
 class IFMapServerShowClientMap;
 class IFMapServerShowIndexMap;
+class IFMapTableListEntry;
+class IFMapNodeTableListShowEntry;
 
 class IFMapServer {
 public:

@@ -10,11 +10,11 @@
 #include "base/util.h"
 #include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_af.h"
 #include "bgp/ipeer.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "schema/bgp_l3vpn_unicast_types.h"
-#include "schema/bgp_l3vpn_multicast_types.h"
+#include "net/bgp_af.h"
+#include "schema/xmpp_unicast_types.h"
+#include "schema/xmpp_multicast_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "schema/xmpp_enet_types.h"
 #include "xml/xml_pugi.h"
@@ -113,16 +113,14 @@ public:
         std::string nodename(node.value());
         bool inet_route;
         const char *af = NULL, *safi = NULL, *network;
-        if (!strchr(nodename.c_str(), '/')) {
+        char *str = const_cast<char *>(nodename.c_str());
+        char *saveptr;
+        af = strtok_r(str, "/", &saveptr);
+        safi = strtok_r(NULL, "/", &saveptr);
+        network = saveptr;
+
+        if (atoi(af) == BgpAf::IPv4 && atoi(safi) == BgpAf::Unicast) {
             inet_route = true;
-            network = node.value();
-        } else {
-            inet_route = false;
-            char *str = const_cast<char *>(nodename.c_str());
-            char *saveptr;
-            af = strtok_r(str, "/", &saveptr);
-            safi = strtok_r(NULL, "/", &saveptr);
-            network = saveptr;
         }
 
         xml_node retract_node = pugi->FindNode("retract");
@@ -281,15 +279,21 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
-    pub.append_attribute("node") = prefix.c_str();
+    stringstream header;
+    header << BgpAf::IPv4 << "/" <<  BgpAf::Unicast << "/" <<
+              network.c_str() << "/" << prefix.c_str();
+    pub.append_attribute("node") = header.str().c_str();
     autogen::ItemType rt_entry;
     rt_entry.Clear();
     rt_entry.entry.nlri.af = BgpAf::IPv4;
+    rt_entry.entry.nlri.safi = BgpAf::Unicast;
     rt_entry.entry.nlri.address = prefix;
+    rt_entry.entry.security_group_list.security_group.push_back(101);
 
     autogen::NextHopType item_nexthop;
 
     item_nexthop.af = BgpAf::IPv4;
+    item_nexthop.safi = BgpAf::Unicast;
     item_nexthop.address = !nexthop.empty() ? nexthop : localaddr();
     item_nexthop.label = add ? label_alloc_++ : 0xFFFFF;
     item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back(std::string("gre"));
@@ -302,7 +306,7 @@ pugi::xml_document *XmppDocumentMock::RouteAddDeleteXmlDoc(
     collection.append_attribute("node") = network.c_str();
     xml_node assoc = collection.append_child(
             add ? "associate" : "dissociate");
-    assoc.append_attribute("node") = prefix.c_str();
+    assoc.append_attribute("node") = header.str().c_str();
     return xdoc_.get();
 }
 
@@ -312,20 +316,21 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     xdoc_->reset();
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
-    pub.append_attribute("node") = prefix.c_str();
+    stringstream node_str;
+    node_str << BgpAf::L2Vpn << "/" << BgpAf::Enet << "/" 
+             << network << "/" << prefix;
+    pub.append_attribute("node") = node_str.str().c_str();
     autogen::EnetItemType rt_entry;
     rt_entry.Clear();
 
     std::string temp(prefix.c_str());
     char *str = const_cast<char *>(temp.c_str());
     char *saveptr;
-    char *af = strtok_r(str, "/", &saveptr);
-    char *safi = strtok_r(NULL, "/", &saveptr);
-    char *mac = strtok_r(NULL, ",", &saveptr);
+    char *mac = strtok_r(str, ",", &saveptr);
     char *address = strtok_r(NULL, "", &saveptr);
 
-    rt_entry.entry.nlri.af = atoi(af);
-    rt_entry.entry.nlri.safi = atoi(safi);
+    rt_entry.entry.nlri.af = BgpAf::L2Vpn;
+    rt_entry.entry.nlri.safi = BgpAf::Enet;
     rt_entry.entry.nlri.mac = std::string(mac) ;
     rt_entry.entry.nlri.address = std::string(address);
 
@@ -343,7 +348,7 @@ pugi::xml_document *XmppDocumentMock::RouteEnetAddDeleteXmlDoc(
     collection.append_attribute("node") = network.c_str();
     xml_node assoc = collection.append_child(
             add ? "associate" : "dissociate");
-    assoc.append_attribute("node") = prefix.c_str();
+    assoc.append_attribute("node") = node_str.str().c_str();
     return xdoc_.get();
 }
 
@@ -355,15 +360,16 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
     string sg_save(sg.c_str());
     xml_node pubsub = PubSubHeader(kNetworkServiceJID);
     xml_node pub = pubsub.append_child("publish");
-    pub.append_attribute("node") = sg_save.c_str();
+    stringstream node_str;
+    node_str << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" 
+             << network << "/" << sg_save;
+    pub.append_attribute("node") = node_str.str().c_str();
     autogen::McastItemType rt_entry;
     rt_entry.Clear();
 
     char *str = const_cast<char *>(sg.c_str());
     char *saveptr;
-    char *af = strtok_r(str, "/", &saveptr);
-    char *safi = strtok_r(NULL, "/", &saveptr);
-    char *group = strtok_r(NULL, ",", &saveptr);
+    char *group = strtok_r(str, ",", &saveptr);
     char *source = NULL;
     if (group == NULL) {
         group = strtok_r(NULL, "", &saveptr);
@@ -371,21 +377,27 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
         source = strtok_r(NULL, "", &saveptr);
     }
 
-    rt_entry.entry.nlri.af = atoi(af);
-    rt_entry.entry.nlri.safi = atoi(safi);
+    rt_entry.entry.nlri.af = BgpAf::IPv4;
+    rt_entry.entry.nlri.safi = BgpAf::Mcast;
     rt_entry.entry.nlri.group = std::string(group) ;
     if (source != NULL) {
         rt_entry.entry.nlri.source = std::string(source);
     } else {
         rt_entry.entry.nlri.source = std::string("0.0.0.0");
     }
+
+    autogen::McastNextHopType item_nexthop;
+
     if (!nexthop.empty()) {
-        rt_entry.entry.next_hop.af = BgpAf::IPv4;
-        rt_entry.entry.next_hop.address = nexthop.c_str();
+        item_nexthop.af = BgpAf::IPv4;
+        item_nexthop.safi = BgpAf::Mcast;
+        item_nexthop.address = nexthop.c_str();
+        if (!lrange.empty()) {
+            item_nexthop.label = lrange;
+        }
+        rt_entry.entry.next_hops.next_hop.push_back(item_nexthop);
     }
-    if (!lrange.empty()) {
-        rt_entry.entry.label = lrange;
-    }
+
     xml_node item = pub.append_child("item");
     rt_entry.Encode(&item);
     pubsub = PubSubHeader(kNetworkServiceJID);
@@ -393,7 +405,7 @@ pugi::xml_document *XmppDocumentMock::RouteMcastAddDeleteXmlDoc(
     collection.append_attribute("node") = network.c_str();
     xml_node assoc = collection.append_child(
             add ? "associate" : "dissociate");
-    assoc.append_attribute("node") = sg_save.c_str();
+    assoc.append_attribute("node") = node_str.str().c_str();
     return xdoc_.get();
 }
 

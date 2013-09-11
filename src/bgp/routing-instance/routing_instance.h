@@ -32,22 +32,21 @@ class DBTable;
 class BgpInstanceConfig;
 class BgpNeighborConfig;
 class BgpServer;
-class BgpPeer;
 class BgpTable;
 class RouteDistinguisher;
 class RoutingInstanceMgr;
 class RoutingInstanceInfo;
 class BgpNeighborResp;
 class LifetimeActor;
+class PeerManager;
 class ShowRouteTable;
 class StaticRouteMgr;
 
 class RoutingInstance {
 public:
-    typedef std::multimap<BgpPeerKey, BgpPeer *> BgpPeerKeyMap;
-    typedef std::map<std::string, BgpPeer *> BgpPeerNameMap;
     typedef std::set<RouteTarget> RouteTargetList;
     typedef std::map<std::string, BgpTable *> RouteTableList;
+
     RoutingInstance(std::string name, BgpServer *server,
                     RoutingInstanceMgr *mgr,
                     const BgpInstanceConfig *config);
@@ -58,6 +57,8 @@ public:
     }
 
     void ProcessConfig(BgpServer *server);
+    void UpdateConfig(BgpServer *server, const BgpInstanceConfig *config);
+    void ClearConfig();
 
     static std::string GetTableNameFromVrf(std::string name, Address::Family fmly);
 
@@ -67,13 +68,9 @@ public:
 
     void RemoveTable(BgpTable *tbl);
 
-    const RouteTargetList &GetImportList() const {
-        return import_;
-    }
-
-    const RouteTargetList &GetExportList() const {
-        return export_;
-    }
+    const RouteTargetList &GetImportList() const { return import_; }
+    const RouteTargetList &GetExportList() const { return export_; }
+    bool HasExportTarget(const ExtCommunity *extcomm) const;
 
     const RouteDistinguisher *GetRD() const {
         return rd_.get();
@@ -95,53 +92,28 @@ public:
         return is_default_;
     }
 
-    void Update(BgpServer *server, const BgpInstanceConfig *config);
-
     const std::string &name() const {
         return name_;
     }
 
-    virtual BgpPeer *PeerFind(std::string address);
-    virtual BgpPeer *PeerLookup(std::string name);
-    virtual BgpPeer *PeerLookup(boost::asio::ip::tcp::endpoint remote_endpoint);
-    virtual BgpPeer *PeerLocate(BgpServer *server,
-                                const BgpNeighborConfig *config);
-    void TriggerPeerDeletion(const BgpNeighborConfig *config);
-    virtual void DestroyIPeer(IPeer *ipeer);
-
-    const BgpPeerKeyMap &peer_map() const { return peers_by_key_; }
-    BgpPeerKeyMap *peer_map_mutable() { return &peers_by_key_; }
-    virtual BgpPeer *NextPeer(BgpPeerKey &key);
-    void ClearAllPeers();
-
     const BgpInstanceConfig *config() const { return config_; }
     const std::string virtual_network() const;
-
-    void FillBgpNeighborInfo(std::vector<BgpNeighborResp> &nbr_list,
-                             std::string peer);
+    int virtual_network_index() const;
 
     const RoutingInstanceMgr *manager() const { return mgr_; }
+    RoutingInstanceInfo GetDataCollection(const char *operation);
 
     BgpServer *server();
 
     // Remove import and export route target
     // and Leave corresponding RtGroup
     void ClearRouteTarget();
-    size_t GetNeighborCount(std::string up_or_down);
 
     StaticRouteMgr *static_route_mgr() { return static_route_mgr_.get(); }
+    PeerManager *peer_manager() { return peer_manager_.get(); }
 
 private:
-    friend class RoutingInstanceTest;
     class DeleteActor;
-
-
-    RoutingInstanceInfo GetDataCollection(const char *operation);
-
-    void InsertPeerByKey(BgpPeerKey key, BgpPeer *peer);
-    void RemovePeerByKey(BgpPeerKey key, BgpPeer *peer);
-    void InsertPeerByName(const std::string name, BgpPeer *peer);
-    void RemovePeerByName(const std::string name, BgpPeer *peer);
 
     // Cleanup all the state prior to deletion.
     void Shutdown();
@@ -151,8 +123,6 @@ private:
 
     std::string name_;
     int index_;
-    BgpPeerKeyMap peers_by_key_;
-    BgpPeerNameMap peers_by_name_;
     std::auto_ptr<RouteDistinguisher> rd_;
     RouteTableList vrf_table_;
     RouteTargetList import_;
@@ -160,9 +130,12 @@ private:
     RoutingInstanceMgr *mgr_;
     const BgpInstanceConfig *config_;
     bool is_default_;
+    std::string virtual_network_;
+    int virtual_network_index_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstance> manager_delete_ref_;
     boost::scoped_ptr<StaticRouteMgr> static_route_mgr_;
+    boost::scoped_ptr<PeerManager> peer_manager_;
 };
 
 
@@ -175,6 +148,7 @@ public:
             RoutingInstanceSet> RoutingInstanceList;
     typedef RoutingInstanceList::iterator NameIterator;
     typedef std::multimap<RouteTarget, RoutingInstance *> InstanceTargetMap;
+    typedef std::multimap<int, RoutingInstance *> VnIndexMap;
 
     typedef boost::function<void(std::string)> RoutingInstanceCreateCb;
     typedef std::vector<RoutingInstanceCreateCb> RoutingInstanceCreateListenersList;
@@ -225,21 +199,27 @@ public:
     NameIterator name_lower_bound(const std::string &name) {
         return instances_.lower_bound(name);
     }
-    RoutingInstance *GetRoutingInstance(const std::string &name)  {
+    RoutingInstance *GetRoutingInstance(const std::string &name) {
+        return instances_.Find(name);
+    }
+    const RoutingInstance *GetRoutingInstance(const std::string &name) const {
         return instances_.Find(name);
     }
 
     int RegisterCreateCallback(RoutingInstanceCreateCb cb);
-
     void NotifyRoutingInstanceCreate(std::string name);
-
     void UnregisterCreateCallback(int id);
 
     RoutingInstance *GetRoutingInstance(int index) {
         return instances_.At(index);
     }
+    const RoutingInstance *GetRoutingInstance(int index) const {
+        return instances_.At(index);
+    }
 
     const RoutingInstance *GetInstanceByTarget(const RouteTarget &target) const;
+    std::string GetVirtualNetworkByVnIndex(int vn_index) const;
+    int GetVnIndexByExtCommunity(const ExtCommunity *community) const;
 
     // called from the BgpServer::ConfigUpdater
     virtual RoutingInstance *CreateRoutingInstance(
@@ -248,7 +228,6 @@ public:
     virtual void DeleteRoutingInstance(const std::string &name);
 
     bool deleted();
-
     void ManagedDelete();
 
     void DestroyRoutingInstance(RoutingInstance *rtinstance);
@@ -264,11 +243,16 @@ private:
 
     void InstanceTargetAdd(RoutingInstance *rti);
     void InstanceTargetRemove(const RoutingInstance *rti);
-    int AllocateRoutingInstanceId();
+    void InstanceVnIndexAdd(RoutingInstance *rti);
+    void InstanceVnIndexRemove(const RoutingInstance *rti);
+
+    const RoutingInstance *GetInstanceByVnIndex(int vn_index) const;
+    int GetVnIndexByRouteTarget(const RouteTarget &rtarget) const;
 
     BgpServer *server_;
     RoutingInstanceList instances_;
     InstanceTargetMap target_map_;
+    VnIndexMap vn_index_map_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
     SandeshTraceBufferPtr trace_buf_;

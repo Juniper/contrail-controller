@@ -31,8 +31,7 @@ public:
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_table,
                                      BgpRoute *src_rt, const BgpPath *path, 
-                                     ExtCommunityPtr ptr,
-                                     OriginVnPtr origin_vn);
+                                     ExtCommunityPtr ptr);
 
 
     virtual bool Export(RibOut *ribout, Route *route,

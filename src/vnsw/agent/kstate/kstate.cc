@@ -67,26 +67,16 @@ int KState::VrResponseMsgHandler(vr_response *r) {
 
 void KState::EncodeAndSend(Sandesh &encoder) {
 
-    int encode_len, error, ret;
-    uint8_t *buf;
-    uint32_t buf_len;
-    struct nl_client cl;
+    int encode_len, error;
+    uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
     KSyncSock   *sock = KSyncSock::Get(0);
 
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating if req message. Error : " << ret);
-        return;
-    }
-
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
+    encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
 
     AgentSandeshContext *sctx = static_cast<AgentSandeshContext *>(this);
-    KStateIoContext *ioc = new KStateIoContext(cl.cl_msg_len, cl.cl_buf, 
+    KStateIoContext *ioc = new KStateIoContext(encode_len, (char *)buf,
                                                sock->AllocSeqNo(), sctx);
-    sock->GenericSend(cl.cl_msg_len, cl.cl_buf, ioc);
+    sock->GenericSend(encode_len, (char *)buf, ioc);
 }
 
 void KState::UpdateContext(void *more_ctx) {

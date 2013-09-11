@@ -22,24 +22,46 @@
 
 #include "gen-cpp/InstanceService.h"
 #include "db/db.h"
+#include "db/db_table_walker.h"
 #include "io/event_manager.h"
 #include "oper/peer.h"
+#include "base/timer.h"
 
 using namespace apache::thrift;
+
+class CfgIntfStaleCleaner {
+public:
+    static const uint32_t kCfgIntfStaleTimeout = 60 * 1000;
+    CfgIntfStaleCleaner(DB *db, boost::asio::io_service &io_service);
+    ~CfgIntfStaleCleaner();
+    void StartStaleCleanTimer(int32_t version);
+private:
+    bool StaleEntryTimeout(int32_t version);
+    void CfgIntfWalkDone(int32_t version);
+    bool CfgIntfWalk(DBTablePartBase *partition, DBEntryBase *entry, int32_t version);
+
+    DB *db_;
+    Timer *timer_;
+    DBTableWalker::WalkId walkid_;
+};
 
 class InstanceServiceAsyncHandler: virtual public InstanceServiceAsyncIf {
 public:
     static const int kUuidSize = 16;
     typedef boost::uuids::uuid uuid;
 
-    InstanceServiceAsyncHandler(boost::asio::io_service& io_service) : io_service_(io_service) {
+    InstanceServiceAsyncHandler(boost::asio::io_service& io_service) : io_service_(io_service), 
+                                                                       version_(0) {
         novaPeer_ = new Peer(Peer::NOVA_PEER, NOVA_PEER_NAME); 
     }
     ~InstanceServiceAsyncHandler() {
         delete novaPeer_;
+        delete intf_stale_cleaner_;
     }
     virtual AddPort_shared_future_t AddPort(const PortList& port_list);
     virtual KeepAliveCheck_shared_future_t KeepAliveCheck();
+    virtual Connect_shared_future_t Connect();
+
     virtual DeletePort_shared_future_t DeletePort(const tuuid& port_id);
 
     virtual TunnelNHEntryAdd_shared_future_t TunnelNHEntryAdd(
@@ -78,15 +100,18 @@ public:
     virtual CreateVrf_shared_future_t CreateVrf(const std::string& vrf_name);
 
     void SetDb(DB *db);
+    void SetCfgIntfStaleCleaner(CfgIntfStaleCleaner *intf_stale_cleaner);
+
 protected:
     boost::asio::io_service& io_service_;
     
 private:
     uuid ConvertToUuid(const tuuid &tid);
-    void PrintUuid(const uuid &id);
     uuid MakeUuid(int id);
     Peer *novaPeer_;
     DB *db_;
+    int version_;
+    CfgIntfStaleCleaner *intf_stale_cleaner_;
 };
 
 void InstanceInfoServiceServerInit(EventManager &evm, DB *db);

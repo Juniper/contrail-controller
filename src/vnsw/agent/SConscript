@@ -29,45 +29,58 @@ env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Prepend(CPPPATH = env['TOP'])
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
 
+
 env.Prepend(
     LIBS=[
         'nova_ins',
         'nova_ins_thrift',
-        'thriftasio',
-        'thrift',
         'xmpp',
         'peer_sandesh',
-        'bgp_l3vpn_unicast',
-        'bgp_l3vpn_multicast',
-        'bgp_l3vpn_multicast_msg',
+        'xmpp_multicast',
+        'xmpp_unicast',
         'ds',
         'xml',
         'pugixml',
-        'route',
         'curl',
         'bind_interface',
         'bgp_schema',
         'ifmap_vnc',
         'ifmap_agent',
         'ifmap_common', 
-        'sandeshvns',
-        'sandeshmirror',
-        'sandeshflow',
         'kstate',
-        'sandesh',
-        'httpc',
-        'http',
-        'http_parser',
-        'db',
         'net',
+        'sandeshflow',
+        'sandeshmirror',
+        'sandeshvns',
+        'sandeshvns',
+        'filter',
+        'httpc',
+        'route',
+        'db',
         'cpuinfo',
         'io',
-        'sandeshvns',
+        'sandesh',
+        'http',
+        'http_parser',
         'base',
-        'boost_regex',
+        'thriftasio',
+        'thrift',
         'boost_filesystem',
-        'boost_program_options'
+        'boost_program_options',
+        'boost_regex',
 ])
+
+if sys.platform != 'darwin':
+    env.Prepend(LIBS=[
+        'agent_services',
+        'diag',
+        'vnswksync',
+        'ksync',
+        'vrutil',
+        'agentuve',
+        ])
+
+env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter'])
 
 if sys.platform == 'darwin':
     kstate_lib =  Dir('./kstate').path + '/libkstate.a'
@@ -83,13 +96,8 @@ else:
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['pkt', 'rt'])
-    env.Prepend(LIBS=['agent_services'])
-    env.Prepend(LIBS=['diag'])
-    env.Prepend(LIBS=['ksync', 'vnswksync', 'vrutil','agentuve'])
 
-env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter',])
-
-libs = MapBuildDir(
+libpath = MapBuildDir(
     [
      'base',
      'bgp',
@@ -121,7 +129,7 @@ libs = MapBuildDir(
      'xmpp'
 ])
 
-env.Append(LIBPATH=libs)
+env.Append(LIBPATH=libpath)
 
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h

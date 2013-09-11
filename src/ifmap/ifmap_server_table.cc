@@ -114,23 +114,18 @@ void IFMapServerTable::LinkNodeAdd(DBGraphBase::edge_descriptor edge,
     table->AddLink(edge, first, second, metadata, sequence_number, origin);
 }
 
-void IFMapServerTable::LinkNodeUpdate(IFMapLink *link,
-                                      uint64_t sequence_number) {
+void IFMapServerTable::LinkNodeUpdate(IFMapLink *link, uint64_t sequence_number,
+                                      const IFMapOrigin &origin) {
     link->set_last_change_at_to_now();
-    link->UpdateProperties(sequence_number);
+    link->UpdateProperties(origin, sequence_number);
 }
 
-void IFMapServerTable::LinkNodeDelete(IFMapNode *first, IFMapNode *second) {
+void IFMapServerTable::LinkNodeDelete(IFMapNode *first, IFMapNode *second,
+                                      const IFMapOrigin &origin) {
     IFMapLinkTable *table = static_cast<IFMapLinkTable *>(
         database()->FindTable("__ifmap_metadata__.0"));
     assert(table != NULL);
-    DBGraphEdge *edge = graph_->GetEdge(first, second);
-    IFMapLink *glink = static_cast<IFMapLink *>(edge);
-    glink->set_last_change_at_to_now();
-    glink->RemoveOrigin(IFMapOrigin(IFMapOrigin::MAP_SERVER));
-    if (glink->is_origin_empty()) {
-        table->DeleteLink(edge);
-    }
+    table->DeleteLink(first, second, origin);
 }
 
 // Generate an unique key for a Link Attribute element. The generated key should
@@ -312,7 +307,7 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
                 LinkNodeAdd(edge, first, midnode, data->metadata,
                             key->id_seq_num, data->origin);
             } else {
-                LinkNodeUpdate(glink, key->id_seq_num);
+                LinkNodeUpdate(glink, key->id_seq_num, data->origin);
             }
             glink = static_cast<IFMapLink *>(graph_->GetEdge(midnode, second));
             if (glink == NULL) {
@@ -320,7 +315,7 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
                 LinkNodeAdd(edge, midnode, second, data->metadata,
                             key->id_seq_num, data->origin);
             } else {
-                LinkNodeUpdate(glink, key->id_seq_num);
+                LinkNodeUpdate(glink, key->id_seq_num, data->origin);
             }
             IFMapLinkAttr *link_attr = mtable->LocateLinkAttr(midnode,
                                                               data->origin,
@@ -335,13 +330,12 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
             if (midnode->GetObject() != NULL) {
                 return;
             }
-            LinkNodeDelete(first, midnode);
-            graph_->Unlink(first, midnode);
-            LinkNodeDelete(midnode, second);
-            graph_->Unlink(midnode, second);
+            IFMapOrigin origin(IFMapOrigin::MAP_SERVER);
+            LinkNodeDelete(first, midnode, origin);
+            LinkNodeDelete(midnode, second, origin);
             DeleteIfEmpty(first);
             rtable->DeleteIfEmpty(second);
-            mtable->DeleteNode(midnode);
+            mtable->DeleteIfEmpty(midnode);
         }
     } else {
         // link
@@ -354,13 +348,13 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
                 LinkNodeAdd(edge, first, second, data->metadata,
                             key->id_seq_num, data->origin);
             } else {
-                LinkNodeUpdate(glink, key->id_seq_num);
+                LinkNodeUpdate(glink, key->id_seq_num, data->origin);
             }
         } else {
             // TODO: check if the edge is present and ignore otherwise.
             if (graph_->GetEdge(first, second) != NULL) {
-                LinkNodeDelete(first, second);
-                graph_->Unlink(first, second);
+                IFMapOrigin origin(IFMapOrigin::MAP_SERVER);
+                LinkNodeDelete(first, second, origin);
                 // check whether any of the identifiers can be deleted.
                 DeleteIfEmpty(first);
                 rtable->DeleteIfEmpty(second);
@@ -397,40 +391,35 @@ void IFMapServerTable::Clear() {
 
 // This is called in the context of the virtual_router table i.e. 'this' points
 // to __ifmap__.virtual_router.0
-void IFMapServerTable::IFMapVmSubscribe(DB *db, DBGraph *graph,
-                                        const std::string &vr_name,
+void IFMapServerTable::IFMapVmSubscribe(const std::string &vr_name,
                                         const std::string &vm_name,
                                         bool subscribe, bool has_vms) {
     if (subscribe) {
-        IFMapProcVmSubscribe(db, graph, vr_name, vm_name);
+        IFMapProcVmSubscribe(vr_name, vm_name);
     } else {
-        IFMapProcVmUnsubscribe(db, graph, vr_name, vm_name, has_vms);
+        IFMapProcVmUnsubscribe(vr_name, vm_name, has_vms);
     }
 }
 
-void IFMapServerTable::IFMapAddVrVmLink(DB *db, DBGraph *graph,
-                                        IFMapNode *vr_node,
+void IFMapServerTable::IFMapAddVrVmLink(IFMapNode *vr_node,
                                         IFMapNode *vm_node) {
     // Add the link if it does not exist. If it does, add XMPP as origin
+    uint64_t sequence_number = 0;
+    IFMapOrigin origin(IFMapOrigin::XMPP);
+
     IFMapLink *glink = 
         static_cast<IFMapLink *>(graph_->GetEdge(vr_node, vm_node));
     if (glink == NULL) {
-        IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
-            db->FindTable("__ifmap_metadata__.0"));
-        assert(link_table != NULL);
-        DBGraph::Edge edge = graph->Link(vr_node, vm_node);
+        DBGraph::Edge edge = graph_->Link(vr_node, vm_node);
         std::string metadata = std::string("virtual-router-virtual-machine");
-        uint64_t sequence_number = 0;
-        link_table->AddLink(edge, vr_node, vm_node, metadata, sequence_number,
-                            IFMapOrigin(IFMapOrigin::XMPP));
+        LinkNodeAdd(edge, vr_node, vm_node, metadata, sequence_number, origin);
     } else {
-        glink->AddOrigin(IFMapOrigin(IFMapOrigin::XMPP));
+        glink->AddOriginInfo(origin, sequence_number);
     }
 }
 
 // Process the vm-subscribe only after a config-add of the vm
-void IFMapServerTable::IFMapProcVmSubscribe(DB *db, DBGraph *graph,
-                                            const std::string &vr_name,
+void IFMapServerTable::IFMapProcVmSubscribe(const std::string &vr_name,
                                             const std::string &vm_name) {
     bool changed = false;
 
@@ -445,35 +434,24 @@ void IFMapServerTable::IFMapProcVmSubscribe(DB *db, DBGraph *graph,
 
     // Lookup the node corresponding to vm_name
     IFMapServerTable *vm_table = static_cast<IFMapServerTable *>(
-            db->FindTable("__ifmap__.virtual_machine.0"));
+            database()->FindTable("__ifmap__.virtual_machine.0"));
     assert(vm_table != NULL);
     request.id_name = vm_name;
     IFMapNode *vm_node = vm_table->EntryLookup(&request);
     assert(vm_node != NULL);
     vm_table->LocateIdentifier(vm_node, IFMapOrigin(IFMapOrigin::XMPP), 0);
 
-    IFMapAddVrVmLink(db, graph, vr_node, vm_node);
+    IFMapAddVrVmLink(vr_node, vm_node);
 }
 
-void IFMapServerTable::IFMapRemoveVrVmLink(DB *db, DBGraph *graph,
-                                           IFMapNode *vr_node,
+void IFMapServerTable::IFMapRemoveVrVmLink(IFMapNode *vr_node,
                                            IFMapNode *vm_node) {
-    // Remove XMPP as origin. If there are no more origin's, delete the link
-    DBGraphEdge *edge = graph_->GetEdge(vr_node, vm_node);
-    if (edge) {
-        IFMapLink *glink = static_cast<IFMapLink *>(edge);
-        glink->RemoveOrigin(IFMapOrigin(IFMapOrigin::XMPP));
-        if (glink->is_origin_empty()) {
-            IFMapLinkTable *link_table = static_cast<IFMapLinkTable *>(
-                    db->FindTable("__ifmap_metadata__.0"));
-            assert(link_table != NULL);
-            link_table->DeleteLink(edge, vr_node, vm_node);
-        }
-    }
+    // Remove XMPP as origin. If there are no more origin's, delete the link.
+    IFMapOrigin origin(IFMapOrigin::XMPP);
+    LinkNodeDelete(vr_node, vm_node, origin);
 }
 
-void IFMapServerTable::IFMapProcVmUnsubscribe(DB *db, DBGraph *graph,
-                                              const std::string &vr_name,
+void IFMapServerTable::IFMapProcVmUnsubscribe(const std::string &vr_name,
                                               const std::string &vm_name,
                                               bool has_vms) {
     // Lookup the node corresponding to vr_name
@@ -484,13 +462,13 @@ void IFMapServerTable::IFMapProcVmUnsubscribe(DB *db, DBGraph *graph,
 
     // Lookup the node corresponding to vm_name
     IFMapServerTable *vm_table = static_cast<IFMapServerTable *>(
-            db->FindTable("__ifmap__.virtual_machine.0"));
+            database()->FindTable("__ifmap__.virtual_machine.0"));
     assert(vm_table != NULL);
     request.id_name = vm_name;
     IFMapNode *vm_node = vm_table->EntryLookup(&request);
     assert(vm_node != NULL);
 
-    IFMapRemoveVrVmLink(db, graph, vr_node, vm_node);
+    IFMapRemoveVrVmLink(vr_node, vm_node);
 
     IFMapObject *vm_object = vm_node->Find(IFMapOrigin(IFMapOrigin::XMPP));
     if (vm_object) {

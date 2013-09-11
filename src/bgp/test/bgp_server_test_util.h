@@ -16,6 +16,7 @@
 #include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_peer_close.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 
 #include "db/db.h"
@@ -29,13 +30,27 @@ public:
     }
     RouteTargetList *mutable_import_list() { return &import_list_; }
     RouteTargetList *mutable_export_list() { return &export_list_; }
+    void set_virtual_network(std::string virtual_network) {
+        virtual_network_ = virtual_network;
+    }
+    void set_virtual_network_index(int virtual_network_index) {
+        virtual_network_index_ = virtual_network_index;
+    }
 };
 
 class BgpTestUtil {
 public:
-    static std::auto_ptr<BgpInstanceConfigTest> CreateBgpInstanceConfig(
-            const std::string &name, const std::string import_targets,
+    static BgpInstanceConfigTest *CreateBgpInstanceConfig(
+            const std::string &name,
+            const std::string import_targets = "",
+            const std::string export_targets = "",
+            const std::string virtual_network = "",
+            int virtual_network_index = 0);
+    static void UpdateBgpInstanceConfig(BgpInstanceConfigTest *inst,
+            const std::string import_targets,
             const std::string export_targets);
+    static void UpdateBgpInstanceConfig(BgpInstanceConfigTest *inst,
+        const std::string virtual_network, int virtual_network_index);
 
     void SetUserData(std::string key, boost::any &value);
     boost::any GetUserData(std::string key);
@@ -126,15 +141,14 @@ private:
     static bool verbose_name_;
 };
 
-class RoutingInstanceTest : public RoutingInstance {
+class PeerManagerTest : public PeerManager {
 public:
-    RoutingInstanceTest(std::string name, BgpServer *server,
-                        RoutingInstanceMgr *mgr,
-                        const BgpInstanceConfig *config);
+    PeerManagerTest(RoutingInstance *instance);
     virtual BgpPeer *PeerLocate(BgpServer *server,
                                 const BgpNeighborConfig *config);
     virtual BgpPeer *PeerLookup(boost::asio::ip::tcp::endpoint remote_endpoint);
     virtual void DestroyIPeer(IPeer *ipeer);
+
 private:
     typedef std::map<boost::uuids::uuid, BgpPeer *> PeerByUuidMap;
     PeerByUuidMap peers_by_uuid_;

@@ -346,6 +346,10 @@ public:
     virtual NextHopKey *Clone() const {return NULL;}
     virtual bool Compare(const NextHopKey &rhs) const {assert(0); return false;}
 
+    void SetPolicy(bool policy) {
+        policy_ = policy;
+    };
+
     NextHop::Type GetType() const {return type_;}
     bool GetPolicy() const {return policy_;}
 protected:
@@ -1144,7 +1148,7 @@ public:
         DBRequest req;
         req.key.reset(key);
         req.data.reset(NULL);
-        Agent::GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     }
 
     virtual void OnZeroRefcount(AgentDBEntry *e);

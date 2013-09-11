@@ -425,8 +425,9 @@ void IFMapAgentLinkTable::Input(DBTablePartition *partition, DBClient *client,
             edge = graph_->Link(left, right);
             AddLink(edge, left, right, key->left_key.id_seq_num);
         } else {
+            IFMapOrigin origin(IFMapOrigin::UNKNOWN);
             IFMapLink *l = static_cast<IFMapLink *>(link);
-            l->UpdateProperties(key->left_key.id_seq_num);
+            l->UpdateProperties(origin, key->left_key.id_seq_num);
         }
     } else {
         if (link == NULL) {
@@ -556,11 +557,14 @@ public:
                 static_cast<IFMapLink *>(graph_->GetEdge(lhs, rhs));
             assert(link);
 
-            if (link->sequence_number() < seq_ ) {
+            bool exists = false;
+            IFMapLink::LinkOriginInfo origin_info = 
+                link->GetOriginInfo(IFMapOrigin::UNKNOWN, &exists);
+            if (exists && (origin_info.sequence_number < seq_ )) {
                 IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
                     db_->FindTable(IFMAP_AGENT_LINK_DB_NAME));
                 IFMAP_AGENT_TRACE(Trace,
-                     link->sequence_number(), "Deleting Link between " + 
+                     origin_info.sequence_number, "Deleting Link between " + 
                      lhs->name() + rhs->name()); 
                 ltable->DeleteLink(link, lhs, rhs);
             }

@@ -46,7 +46,7 @@ public:
             {"vnet22", 5, "2.2.2.2", "00:00:00:00:02:01", 1, 4},
         };
 
-        uve = GetUveClient();
+        uve = UveClient::GetInstance();
         CreateVmportEnv(input, 5);
         client->WaitForIdle();
         //Don't expect bitmaps to be reset on start of each test
@@ -66,7 +66,7 @@ public:
         client->WaitForIdle();
         //We don't reset bitmaps on removal of flows
         //EXPECT_TRUE(ValidateVrouter(0xFF, 0xFFFF, 0xFFFF));
-        WAIT_FOR(1000, 1000, (Agent::GetVrfTable()->Size() == 1));
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
     }
 
     bool ValidateBmap(const PortBucketBitmap &port, uint8_t proto,
@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (Agent::GetVrfTable()->Size() == 1));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
     TestShutdown();
     delete client;
     return ret;

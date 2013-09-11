@@ -5,6 +5,7 @@
 #include "bgp/state_machine.h"
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
@@ -15,6 +16,7 @@
 #include "bgp/bgp_session.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "control-node/control_node.h"
 #include "db/db_table_partition.h"
@@ -43,12 +45,13 @@ protected:
           peer_(NULL),
           rib1_(NULL), rib2_(NULL),
           tid1_(DBTableBase::kInvalidId), tid2_(DBTableBase::kInvalidId) {
+        ConcurrencyScope scope("bgp::Config");
         RoutingInstance *instance =
                 server_.routing_instance_mgr()->CreateRoutingInstance(
                     &instance_config_);
         rib1_ = instance->GetTable(Address::INET);
         rib2_ = instance->GetTable(Address::INETVPN);
-        peer_ = instance->PeerLocate(&server_, &config_);
+        peer_ = instance->peer_manager()->PeerLocate(&server_, &config_);
         adc_notification_ = 0;
         del_notification_ = 0;
     }

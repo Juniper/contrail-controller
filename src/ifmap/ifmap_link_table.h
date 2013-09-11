@@ -34,6 +34,7 @@ public:
                  uint64_t sequence_number, const IFMapOrigin &origin);
     void DeleteLink(DBGraphEdge *edge);
     void DeleteLink(DBGraphEdge *edge, IFMapNode *lhs, IFMapNode *rhs);
+    void DeleteLink(IFMapNode *lhs, IFMapNode *rhs, const IFMapOrigin &origin);
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *key) const;
 

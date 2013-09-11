@@ -24,14 +24,16 @@
 #include "bgp/inetmcast/inetmcast_table.h"
 #include "bgp/enet/enet_table.h"
 #include "bgp/ipeer.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/scheduling_group.h"
 #include "bgp/security_group/security_group.h"
 
+#include "net/bgp_af.h"
 #include "net/mac_address.h"
 
-#include "schema/bgp_l3vpn_unicast_types.h"
-#include "schema/bgp_l3vpn_multicast_types.h"
+#include "schema/xmpp_unicast_types.h"
+#include "schema/xmpp_multicast_types.h"
 #include "schema/xmpp_enet_types.h"
 
 #include "xml/xml_pugi.h"
@@ -546,11 +548,20 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         vector<uint32_t> labels;
 
+        // Agents should send only one next-hop in the item
+        if (item.entry.next_hops.next_hop.size() != 1) {
+            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "More than one nexthop received for the group:"
+                    << item.entry.nlri.group);
+                return;
+        }
+
         // Label Allocation item.entry.label by parsing the range
-        if (!stringToIntegerList(item.entry.label, "-", labels) ||
+        if (!stringToIntegerList(item.entry.next_hops.next_hop[0].label, "-", labels) ||
             labels.size() != 2) {
             BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Bad label block range:" << item.entry.label);
+                "Bad label block range:" << item.entry.next_hops.next_hop[0].label);
             return;
         }
 
@@ -562,11 +573,12 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
 
         //Next-hop ipaddress
         IpAddress nh_address;
-        if (!(XmppDecodeAddress(item.entry.next_hop.af,
-                                item.entry.next_hop.address, &nh_address))) {
+        if (!(XmppDecodeAddress(item.entry.next_hops.next_hop[0].af,
+                                item.entry.next_hops.next_hop[0].address, &nh_address))) {
             BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                "Error parsing nexthop address:" << item.entry.next_hop.address << 
-                " family:" << item.entry.next_hop.af <<
+                "Error parsing nexthop address:" << 
+                 item.entry.next_hops.next_hop[0].address << 
+                " family:" << item.entry.next_hops.next_hop[0].af <<
                 " for multicast route");
             return;
         }
@@ -608,8 +620,11 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
                                BGP_LOG_FLAG_ALL, "Inet Multicast Group " 
                                << item.entry.nlri.group <<
                                " Source " << item.entry.nlri.source <<
-                               " Label Range: " << item.entry.label.c_str() <<
-                               " from peer:" << peer_->ToString() << 
+                               " Label Range: " << 
+                               ((item.entry.next_hops.next_hop.size() == 1) ?
+                                 item.entry.next_hops.next_hop[0].label.c_str():
+                                 "Invalid Label Range")
+                               << " from peer:" << peer_->ToString() << 
                                " is enqueued for " <<
                                (add_change ? "add/change" : "delete")); 
     table->Enqueue(&req);
@@ -774,12 +789,6 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
         attrs.push_back(&nexthop);
 
-        OriginVnSpec origin_vn;
-        if (rt_instance) {
-            origin_vn = OriginVnSpec(rt_instance->virtual_network());
-            attrs.push_back(&origin_vn);
-        }
-
         BgpAttrSourceRd source_rd(
             RouteDistinguisher(peer_->bgp_identifier(), instance_id));
         attrs.push_back(&source_rd);
@@ -793,8 +802,14 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             ext.communities.push_back(sg.GetExtCommunityValue());
         }
 
-        // sgid and tunnel-encap list form the extended community for 
-        // the path attribute
+        if (rt_instance) {
+            OriginVn origin_vn(bgp_server_->autonomous_system(),
+                rt_instance->virtual_network_index());
+            ext.communities.push_back(origin_vn.GetExtCommunityValue());
+        }
+
+        // We may have extended communities for tunnel encapsulation, security
+        // groups and origin vn.
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 
@@ -1030,22 +1045,22 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
     }
 
     if (request->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-        // 
         // In cases where RoutingInstance is not yet created when RouteAdd 
-        // request is rxed from agent, the origin_vn attribute is not set 
-        // in the DBRequest. Fill the origin_vn info in the Route attribute.
-        //
+        // request is received from agent, the origin_vn is not set in the
+        // DBRequest. Fill the origin_vn info in the route attribute.
         BgpTable::RequestData *data = 
             static_cast<BgpTable::RequestData *>(request->data.get());
         BgpAttrPtr attr =  data->attrs_;
         RoutingInstance *rt_instance = table->routing_instance();
         assert(rt_instance);
-        OriginVnSpec origin_vn(rt_instance->virtual_network());
-        OriginVnPtr origin_vn_ptr = 
-            bgp_server_->origin_vn_db()->Locate(origin_vn);
+        OriginVn origin_vn(bgp_server_->autonomous_system(),
+            rt_instance->virtual_network_index());
+        ExtCommunityPtr ext_community =
+            bgp_server_->extcomm_db()->AppendAndLocate(attr->ext_community(),
+                origin_vn.GetExtCommunity());
         BgpAttrPtr new_attr = 
-            bgp_server_->attr_db()->ReplaceOriginVnAndLocate(attr.get(), 
-                                                             origin_vn_ptr);
+            bgp_server_->attr_db()->ReplaceExtCommunityAndLocate(
+                attr.get(), ext_community);
         data->attrs_ = new_attr;
     }
 
@@ -1381,23 +1396,22 @@ void BgpXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
                     item = item.next_sibling()) {
                     if (strcmp(item.name(), "item") != 0) continue;
 
-                    std::string id(iq->as_node.c_str());
-                    if (strchr(id.c_str(), '/') == strrchr(id.c_str(), '/')) {
-                        ProcessItem(iq->node, item, iq->is_as_node);
-                    } else {
+                        std::string id(iq->as_node.c_str());
                         char *str = const_cast<char *>(id.c_str());
                         char *saveptr;
                         char *af = strtok_r(str, "/", &saveptr);
                         char *safi = strtok_r(NULL, "/", &saveptr);
 
                         if (atoi(af) == BgpAf::IPv4 &&
+                            atoi(safi) == BgpAf::Unicast) {
+                            ProcessItem(iq->node, item, iq->is_as_node);
+                        } else if (atoi(af) == BgpAf::IPv4 &&
                             atoi(safi) == BgpAf::Mcast) {
                             ProcessMcastItem(iq->node, item, iq->is_as_node);
                         } else if (atoi(af) == BgpAf::L2Vpn &&
                                    atoi(safi) == BgpAf::Enet) {
                             ProcessEnetItem(iq->node, item, iq->is_as_node);
                         }
-                    }
                 }
             }
         }

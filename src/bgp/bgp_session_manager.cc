@@ -2,11 +2,13 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/logging.h"
 #include "bgp/bgp_session_manager.h"
+
+#include "base/logging.h"
+#include "bgp/bgp_log.h"
 #include "bgp/bgp_session.h"
-#include "routing-instance/routing_instance.h"
-#include "bgp_log.h"
+#include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
 
 using namespace std;
 using namespace boost::asio;
@@ -57,7 +59,7 @@ BgpPeer *BgpSessionManager::FindPeer(ip::tcp::endpoint remote_endpoint) {
     for (RoutingInstanceMgr::RoutingInstanceIterator it = 
                  server_->routing_instance_mgr()->begin();
         it != server_->routing_instance_mgr()->end(); it++) {
-        peer = it->PeerLookup(remote_endpoint);
+        peer = it->peer_manager()->PeerLookup(remote_endpoint);
         if (peer) break;
     }
     return peer;

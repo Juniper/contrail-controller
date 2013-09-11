@@ -26,7 +26,8 @@
 
 void AgentStatsCollector::SendIntfBulkGet() {
     vr_interface_req encoder;
-    AgentStatsSandeshContext *ctx = AgentUve::GetIntfStatsSandeshContext();
+    AgentStatsSandeshContext *ctx = AgentUve::GetInstance()->
+                                    GetIntfStatsSandeshContext();
 
     encoder.set_h_op(sandesh_op::DUMP);
     encoder.set_vifr_context(0);
@@ -36,7 +37,7 @@ void AgentStatsCollector::SendIntfBulkGet() {
 
 void AgentStatsCollector::SendVrfStatsBulkGet() {
     vr_vrf_stats_req encoder;
-    AgentStatsSandeshContext *ctx = AgentUve::GetVrfStatsSandeshContext();
+    AgentStatsSandeshContext *ctx = AgentUve::GetInstance()->GetVrfStatsSandeshContext();
 
     encoder.set_h_op(sandesh_op::DUMP);
     encoder.set_vsr_rid(0);
@@ -57,43 +58,34 @@ void AgentStatsCollector::SendDropStatsBulkGet() {
 bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
     int encode_len;
     int error;
-    int ret;
-    uint8_t *buf;
-    uint32_t buf_len;
-    struct nl_client cl;
+    uint8_t *buf = (uint8_t *)malloc(KSYNC_DEFAULT_MSG_SIZE);
 
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
+    encode_len = encoder.WriteBinary(buf, KSYNC_DEFAULT_MSG_SIZE, &error);
+    SendAsync((char*)buf, encode_len, type);
 
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating if message. Error : " << ret);
-        return false;
-    }
-    encode_len = encoder.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-
-    SendAsync(cl.cl_buf, cl.cl_msg_len, type);
     return true;
 }
 
 void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
     uint32_t seq = sock->AllocSeqNo();
+    AgentStatsSandeshContext *ctx;
 
     IoContext *ioc = NULL;
     switch (type) {
         case IntfStatsType:
-            ioc = new IntfStatsIoContext(buf_len, buf, seq,
-                                         AgentUve::GetIntfStatsSandeshContext(), 
+            ctx = AgentUve::GetInstance()->GetIntfStatsSandeshContext();
+            ioc = new IntfStatsIoContext(buf_len, buf, seq, ctx, 
                                          IoContext::UVE_Q_ID);
             break;
        case VrfStatsType:
-            ioc = new VrfStatsIoContext(buf_len, buf, seq,
-                                         AgentUve::GetVrfStatsSandeshContext(), 
-                                         IoContext::UVE_Q_ID);
+            ctx = AgentUve::GetInstance()->GetVrfStatsSandeshContext();
+            ioc = new VrfStatsIoContext(buf_len, buf, seq, ctx, 
+                                        IoContext::UVE_Q_ID);
             break;
        case DropStatsType:
-            ioc = new DropStatsIoContext(buf_len, buf, seq,
-                                         AgentUve::GetDropStatsSandeshContext(), 
+            ctx = AgentUve::GetInstance()->GetDropStatsSandeshContext();
+            ioc = new DropStatsIoContext(buf_len, buf, seq, ctx, 
                                          IoContext::UVE_Q_ID);
             break;
        default:
@@ -173,8 +165,8 @@ bool AgentStatsCollector::Run() {
 }
 
 void AgentStatsCollector::SendStats() {
-    GetUveClient()->SendVnStats();
-    GetUveClient()->SendVmStats();
+    UveClient::GetInstance()->SendVnStats();
+    UveClient::GetInstance()->SendVmStats();
 }
 
 AgentStatsCollector::IfStats *AgentStatsCollector::GetIfStats(const Interface *intf) {
@@ -199,12 +191,13 @@ AgentStatsCollector::VrfStats *AgentStatsCollector::GetVrfStats(int vrf_id) {
 }
 
 void IntfStatsIoContext::Handler() {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     collector->run_counter_++;
-    AgentUve::GetStatsCollector()->SendStats();
+    AgentUve::GetInstance()->GetStatsCollector()->SendStats();
     /* Reset the marker for query during next timer interval, if there is
      * no additional records for the current query */
-    AgentStatsSandeshContext *ctx = AgentUve::GetIntfStatsSandeshContext();
+    AgentStatsSandeshContext *ctx = AgentUve::GetInstance()->
+                                    GetIntfStatsSandeshContext();
     if (!ctx->MoreData()) {
         ctx->SetMarker(-1);
     }
@@ -216,10 +209,13 @@ void IntfStatsIoContext::ErrorHandler(int err) {
 }
 
 void VrfStatsIoContext::Handler() {
-    GetUveClient()->SendVnStats();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
+    collector->vrf_stats_responses_++;
+    UveClient::GetInstance()->SendVnStats();
     /* Reset the marker for query during next timer interval, if there is
      * no additional records for the current query */
-    AgentStatsSandeshContext *ctx = AgentUve::GetVrfStatsSandeshContext();
+    AgentStatsSandeshContext *ctx = AgentUve::GetInstance()->
+                                    GetVrfStatsSandeshContext();
     if (!ctx->MoreData()) {
         ctx->SetMarker(-1);
     }
@@ -231,6 +227,8 @@ void VrfStatsIoContext::ErrorHandler(int err) {
 }
 
 void DropStatsIoContext::Handler() {
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
+    collector->drop_stats_responses_++;
 }
 
 void DropStatsIoContext::ErrorHandler(int err) {
@@ -259,7 +257,7 @@ int AgentStatsSandeshContext::VrResponseMsgHandler(vr_response *r) {
 }
 
 void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     SetMarker(req->get_vifr_idx());
     const Interface *intf = InterfaceTable::FindInterface(req->get_vifr_idx());
     if (intf == NULL) {
@@ -273,10 +271,10 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
         return;
     }
     if (intf->GetType() == Interface::VMPORT) {
-        AgentStats::IncrInPkts(req->get_vifr_ipackets() - stats->in_pkts);
-        AgentStats::IncrInBytes(req->get_vifr_ibytes() - stats->in_bytes);
-        AgentStats::IncrOutPkts(req->get_vifr_opackets() - stats->out_pkts);
-        AgentStats::IncrOutBytes(req->get_vifr_obytes() - stats->out_bytes);
+        AgentStats::GetInstance()->IncrInPkts(req->get_vifr_ipackets() - stats->in_pkts);
+        AgentStats::GetInstance()->IncrInBytes(req->get_vifr_ibytes() - stats->in_bytes);
+        AgentStats::GetInstance()->IncrOutPkts(req->get_vifr_opackets() - stats->out_pkts);
+        AgentStats::GetInstance()->IncrOutBytes(req->get_vifr_obytes() - stats->out_bytes);
     }
 
     stats->in_pkts = req->get_vifr_ipackets();
@@ -288,15 +286,17 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
 }
 
 void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     SetMarker(req->get_vsr_vrf());
     bool vrf_present = true;
-    const VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromId(req->get_vsr_vrf());
+    const VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->
+                          FindVrfFromId(req->get_vsr_vrf());
     if (vrf == NULL) {
-        if (req->get_vsr_vrf() != AgentStatsCollector::GetNamelessVrfId()) {
+        if (req->get_vsr_vrf() != collector->GetNamelessVrfId()) { 
             vrf_present = false;
+        } else {
+            return;
         }
-        return;
      }
  
     AgentStatsCollector::VrfStats *stats = collector->GetVrfStats(req->get_vsr_vrf());
@@ -323,7 +323,7 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
          * This will be used to update prev_* fields on receiving vrf delete
          * notification
          */
-        if (req->get_vsr_vrf() != AgentStatsCollector::GetNamelessVrfId()) {
+        if (req->get_vsr_vrf() != collector->GetNamelessVrfId()) { 
             stats->k_discards = req->get_vsr_discards();
             stats->k_resolves = req->get_vsr_resolves();
             stats->k_receives = req->get_vsr_receives();
@@ -336,6 +336,6 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
 }
 
 void AgentStatsSandeshContext::DropStatsMsgHandler(vr_drop_stats_req *req) {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     collector->SetDropStats(*req);
 }

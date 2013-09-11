@@ -37,6 +37,7 @@ public:
     static InetVpnPrefix FromString(const std::string &str,
                                     boost::system::error_code *errorp = NULL);
     std::string ToString() const;
+    bool IsMoreSpecific(const InetVpnPrefix &rhs) const;
 
     RouteDistinguisher route_distinguisher() const { return rd_; }
     Ip4Address addr() const { return addr_; }

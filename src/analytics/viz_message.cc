@@ -9,7 +9,8 @@ RuleMsg::RuleMsg(const boost::shared_ptr<VizMsg> vmsgp) : hdr(vmsgp->hdr),
     messagetype(vmsgp->messagetype) {
     pugi::xml_parse_result result = doc_.load(vmsgp->xmlmessage.c_str());
     if (!result) {
-        LOG(ERROR, __func__ << ": ERROR parsing XML: " << result.description());
+        LOG(ERROR, __func__ << ": ERROR parsing XML: " << result.description()
+            << " Message: " << vmsgp->xmlmessage);
     }
 }
 

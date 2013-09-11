@@ -32,7 +32,7 @@ protected:
 
     virtual void SetUp() {
         client->Reset();
-        EthInterface::CreateReq(eth_itf, Agent::GetDefaultVrf());
+        EthInterface::CreateReq(eth_itf, Agent::GetInstance()->GetDefaultVrf());
         fabric_gw_ip_ = Ip4Address::from_string("10.1.1.254");
         uint16_t sport = 10000;
         unsigned long ip = 0x0a010102;
@@ -51,7 +51,7 @@ protected:
         for (int i = 0; i < count_; i++) {
             std::stringstream str;
             str << analyzer << i;
-            MirrorTable::AddMirrorEntry(str.str(), Agent::GetDefaultVrf(), sip_[i], sport_[i], dip_[i], dport_[i]);
+            MirrorTable::AddMirrorEntry(str.str(), Agent::GetInstance()->GetDefaultVrf(), sip_[i], sport_[i], dip_[i], dport_[i]);
         }
         client->WaitForIdle();
     }
@@ -75,8 +75,8 @@ protected:
 
     void DelAllArpEntry() {
         for (int i = 0; i < count_; i++) {
-            Agent::GetDefaultInet4UcRouteTable()->DeleteReq(Agent::GetLocalPeer(),
-                                                          Agent::GetDefaultVrf(),
+            Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                                                          Agent::GetInstance()->GetDefaultVrf(),
                                                           dip_[i], 32);
         }
         client->WaitForIdle();
@@ -86,20 +86,20 @@ protected:
         std::stringstream str;
         str << analyzer << i;
         MirrorEntryKey key(str.str());
-        return (Agent::GetMirrorTable()->FindActiveEntry(&key) != NULL);
+        return (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key) != NULL);
     }
 
     bool MirrorNHFind(int i) {
-        MirrorNHKey key(Agent::GetDefaultVrf(), sip_[i], sport_[i], dip_[i],
+        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip_[i], sport_[i], dip_[i],
                         dport_[i]);
-        return (Agent::GetNextHopTable()->FindActiveEntry(&key) != NULL);
+        return (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL);
     }
 
     MirrorEntry *GetMirrorEntry(int i) {
         std::stringstream str;
         str << analyzer << i;
         MirrorEntryKey key(str.str());
-        return static_cast<MirrorEntry *>(Agent::GetMirrorTable()->FindActiveEntry(&key));
+        return static_cast<MirrorEntry *>(Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
     }
 
     int count_;
@@ -199,17 +199,17 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_2) {
 }
 
 TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
-    Ip4Address vhost_ip(Agent::GetRouterId());
+    Ip4Address vhost_ip(Agent::GetInstance()->GetRouterId());
     //Add mirror entry pointing to same vhost IP
     std::stringstream str;
     str << analyzer;
-    MirrorTable::AddMirrorEntry(analyzer, Agent::GetDefaultVrf(), 
+    MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->GetDefaultVrf(), 
                                 vhost_ip, 0x1, vhost_ip, 0x2);
     client->WaitForIdle();
     //Mirror NH would point to a route, whose nexthop would be RCV NH
     MirrorEntryKey key(analyzer);
     const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
-                                    (Agent::GetMirrorTable()->FindActiveEntry(&key));
+                                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry != NULL);
     const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
     //Make sure mirror nh internally points to receive router
@@ -219,22 +219,22 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_3) {
     MirrorTable::DelMirrorEntry(analyzer);
     client->WaitForIdle();
     mirr_entry = static_cast<const MirrorEntry *>
-                 (Agent::GetMirrorTable()->FindActiveEntry(&key));
+                 (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
 }
  
 TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
-    Ip4Address vhost_ip(Agent::GetRouterId());
+    Ip4Address vhost_ip(Agent::GetInstance()->GetRouterId());
     Ip4Address remote_server = Ip4Address::from_string("1.1.1.1");
     //Add mirror entry pointing to same vhost IP
     std::string ana = analyzer + "r";
-    MirrorTable::AddMirrorEntry(ana, Agent::GetDefaultVrf(),
+    MirrorTable::AddMirrorEntry(ana, Agent::GetInstance()->GetDefaultVrf(),
                                 vhost_ip, 0x1, remote_server, 0x2);
     client->WaitForIdle();
     //Mirror NH would point to a gateway route
     MirrorEntryKey key(ana);
     const MirrorEntry *mirr_entry = static_cast<const MirrorEntry *>
-                                    (Agent::GetMirrorTable()->FindActiveEntry(&key));
+                                    (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry != NULL);
     const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(mirr_entry->GetNH());
     //Gateway route not resolved, hence mirror entry would 
@@ -257,7 +257,7 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_4) {
     MirrorTable::DelMirrorEntry(ana);
     client->WaitForIdle();
     mirr_entry = static_cast<const MirrorEntry *>
-                 (Agent::GetMirrorTable()->FindActiveEntry(&key));
+                 (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&key));
     EXPECT_TRUE(mirr_entry == NULL);
     client->WaitForIdle();
     usleep(1000);
@@ -270,7 +270,7 @@ int main(int argc, char *argv[]) {
     entry_count = 10;
     client = TestInit(init_file, ksync_init, true, false);
     if (vm.count("config")) {
-        eth_itf = Agent::GetIpFabricItfName();
+        eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         eth_itf = "eth0";
     }

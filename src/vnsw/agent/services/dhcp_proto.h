@@ -135,6 +135,45 @@ struct DhcpOptions {
 // DHCP protocol handler
 class DhcpHandler : public ProtoHandler {
 public:
+    DhcpHandler(PktInfo *info, boost::asio::io_service &io);
+    virtual ~DhcpHandler() {};
+
+    bool Run();
+
+private:
+    bool ReadOptions();
+    bool FindLeaseData();
+    void FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns);
+    void UpdateDnsServer();
+    void WriteOption82(DhcpOptions *opt, uint16_t &optlen);
+    bool ReadOption82(DhcpOptions *opt);
+    bool CreateRelayPacket(bool is_request);
+    void RelayRequestToFabric();
+    void RelayResponseFromFabric();
+    uint16_t DhcpHdr(in_addr_t, in_addr_t, uint8_t *);
+    void SendDhcpResponse();
+    void UpdateStats();
+    DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
+        return reinterpret_cast<DhcpOptions *>(dhcp_->options + optlen);
+    }
+
+    dhcphdr *dhcp_;
+    VmPortInterface *vm_itf_;
+    uint32_t vm_itf_index_;
+    uint8_t msg_type_;
+    uint8_t out_msg_type_;
+    std::string client_name_;
+    std::string domain_name_;
+    in_addr_t req_ip_addr_;
+    std::string nak_msg_;
+    ConfigRecord config_;
+    autogen::IpamType ipam_type_;
+    autogen::VirtualDnsType vdns_type_;
+    DISALLOW_COPY_AND_ASSIGN(DhcpHandler);
+};
+
+class DhcpProto : public Proto<DhcpHandler> {
+public:
     struct DhcpStats {
         uint32_t discover;
         uint32_t request;
@@ -153,92 +192,45 @@ public:
             offers = acks = nacks = errors = relay_req = relay_resp = 0;
         }
         DhcpStats() { Reset(); }
-        void IncrStatsDiscover() { discover++; }
-        void IncrStatsRequest() { request++; }
-        void IncrStatsInform() { inform++; }
-        void IncrStatsDecline() { decline++; }
-        void IncrStatsOther() { other++; }
-        void IncrStatsOffers() { offers++; }
-        void IncrStatsAcks() { acks++; }
-        void IncrStatsNacks() { nacks++; }
-        void IncrStatsRelayReqs() { relay_req++; }
-        void IncrStatsRelayResps() { relay_resp++; }
-        void IncrStatsErrors() { errors++; }
     };
-
-    DhcpHandler(PktInfo *info, boost::asio::io_service &io);
-    virtual ~DhcpHandler() {};
-
-    bool Run();
-
-    static DhcpStats GetStats() { return stats_; }
-    static void ClearStats() { stats_.Reset(); }
-
-private:
-    bool ReadOptions();
-    bool FindLeaseData();
-    void GetLinkLocalAddr(uint32_t id);
-    void FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dns);
-    void UpdateDnsServer();
-    void WriteOption82(DhcpOptions *opt, uint16_t &optlen);
-    bool ReadOption82(DhcpOptions *opt);
-    bool CreateRelayPacket(bool is_request);
-    void RelayRequestToFabric();
-    void RelayResponseFromFabric();
-    uint16_t DhcpHdr(in_addr_t, in_addr_t, uint8_t *);
-    void SendDhcpResponse();
-    void UpdateStats() {
-        (out_msg_type_ == DHCP_OFFER) ?  stats_.IncrStatsOffers() :
-            ((out_msg_type_ == DHCP_ACK) ?  stats_.IncrStatsAcks() : 
-            stats_.IncrStatsNacks());
-    }
-    std::string &MsgType(uint32_t msg_type);
-    DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
-        return reinterpret_cast<DhcpOptions *>(dhcp_->options + optlen);
-    }
-
-    dhcphdr *dhcp_;
-    VmPortInterface *vm_itf_;
-    uint32_t vm_itf_index_;
-    uint8_t msg_type_;
-    uint8_t out_msg_type_;
-    std::string client_name_;
-    std::string domain_name_;
-    in_addr_t req_ip_addr_;
-    std::string nak_msg_;
-    ConfigRecord config_;
-    autogen::IpamType ipam_type_;
-    autogen::VirtualDnsType vdns_type_;
-    static DhcpStats stats_;
-    DISALLOW_COPY_AND_ASSIGN(DhcpHandler);
-};
-
-class DhcpProto : public Proto<DhcpHandler> {
-public:
-    typedef std::set<Interface *> InterfaceList;
 
     static void Init(boost::asio::io_service &io, bool run_with_vrouter);
     static void Shutdown();
     virtual ~DhcpProto();
 
-    static Interface *IPFabricIntf() { return ip_fabric_intf_; }
-    static void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
-    static uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
-    static void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
-    static unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
-    static void IPFabricIntfMac(char *mac) {
+    Interface *IPFabricIntf() { return ip_fabric_intf_; }
+    void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
+    uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
+    void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
+    unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
+    void IPFabricIntfMac(char *mac) {
         memcpy(ip_fabric_intf_mac_, mac, MAC_ALEN);
     }
+
+    void IncrStatsDiscover() { stats_.discover++; }
+    void IncrStatsRequest() { stats_.request++; }
+    void IncrStatsInform() { stats_.inform++; }
+    void IncrStatsDecline() { stats_.decline++; }
+    void IncrStatsOther() { stats_.other++; }
+    void IncrStatsOffers() { stats_.offers++; }
+    void IncrStatsAcks() { stats_.acks++; }
+    void IncrStatsNacks() { stats_.nacks++; }
+    void IncrStatsRelayReqs() { stats_.relay_req++; }
+    void IncrStatsRelayResps() { stats_.relay_resp++; }
+    void IncrStatsErrors() { stats_.errors++; }
+    DhcpStats GetStats() { return stats_; }
+    void ClearStats() { stats_.Reset(); }
 
 private:
     DhcpProto(boost::asio::io_service &io, bool run_with_vrouter);
     void ItfUpdate(DBEntryBase *entry);
 
     bool run_with_vrouter_;
-    static Interface *ip_fabric_intf_;
-    static uint16_t ip_fabric_intf_index_;
-    static unsigned char ip_fabric_intf_mac_[MAC_ALEN];
-    static DBTableBase::ListenerId iid_;
+    Interface *ip_fabric_intf_;
+    uint16_t ip_fabric_intf_index_;
+    unsigned char ip_fabric_intf_mac_[MAC_ALEN];
+    DBTableBase::ListenerId iid_;
+    DhcpStats stats_;
 
     DISALLOW_COPY_AND_ASSIGN(DhcpProto);
 };

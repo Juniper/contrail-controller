@@ -94,7 +94,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     cfg_data->addr_ = Ip4Address::from_string(ip);
     cfg_data->fabric_port_ = false;
     req.data.reset(cfg_data);
-    Agent::GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
@@ -202,32 +202,32 @@ TEST_F(IntfTest, CfgSync_NoNova_1) {
     CfgIntfSync(1, "cfg-vnet1", 1, 1, NULL_VRF, ZERO_IP);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_TRUE(VmPortFind(1));
     EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     CfgIntfSync(1, "cfg-vnet1", 1, 1, NULL_VRF, ZERO_IP);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFind(1));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     NovaDel(1);
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     CfgIntfSync(1, "cfg-vnet1", 1, 1, NULL_VRF, ZERO_IP);
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
 }
 
@@ -237,13 +237,13 @@ TEST_F(IntfTest, AddDelNova_NoCfg_1) {
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_TRUE(VmPortFind(1));
     EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     NovaDel(1);
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
 }
 
 // VmPort create, VM create, VN create, VRF create
@@ -253,7 +253,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_TRUE(client->NotifyWait(1, 0, 0));
     EXPECT_TRUE(VmPortFind(1));
     EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     VmAddReq(1);
@@ -262,7 +262,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(client->VmNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VrfAddReq("vrf1");
@@ -281,7 +281,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortActive(1));
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VmDelReq(1);
@@ -306,14 +306,14 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfDelReq("vrf1");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 // VM create, VMPort create, VN create, VRF create
@@ -327,8 +327,8 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VnAddReq(1, "vn1", 0, "vrf2");
@@ -337,7 +337,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(1));
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfAddReq("vrf2");
@@ -355,7 +355,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(1));
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     NovaDel(1);
@@ -366,12 +366,12 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     VnDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfDelReq("vrf2");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 #if 0
@@ -380,17 +380,17 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_3) {
     client->Reset();
     VmAddReq(1);
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VnAddReq(1, "vn1", 0, "vrf3");
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfAddReq("vrf3");
     EXPECT_TRUE(client->VrfNotifyWait(1));
-    EXPECT_EQ(2, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
@@ -407,7 +407,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_3) {
     VnDelReq(1);
     EXPECT_TRUE(client->VnNotifyWait(1));
     // Interface still has reference to VN
-    EXPECT_EQ(1, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
     CfgIntfSync(1, "cfg-vnet1", 1, 1);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_TRUE(VmPortInactive(1));
@@ -416,14 +416,14 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_3) {
     NovaDel(1);
     EXPECT_TRUE(client->PortNotifyWait(1));
     EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(2, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
     // VN removed after interface deleted
-    EXPECT_EQ(0, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VmDelReq(1);
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(0, Agent::GetVmTable()->Size());
+    EXPECT_EQ(0, Agent::GetInstance()->GetVmTable()->Size());
 }
 #endif
 
@@ -433,7 +433,7 @@ TEST_F(IntfTest, MultipleVmPorts_1) {
     VmAddReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VrfAddReq("vrf4");
@@ -454,7 +454,7 @@ TEST_F(IntfTest, MultipleVmPorts_1) {
     EXPECT_TRUE(VmPortInactive(1));
     EXPECT_TRUE(VmPortInactive(2));
     EXPECT_TRUE(VmPortInactive(3));
-    EXPECT_EQ(6U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(6U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     CfgIntfSync(1, "cfg-vnet1", 1, 1, "vrf4", "1.1.1.1");
@@ -465,7 +465,7 @@ TEST_F(IntfTest, MultipleVmPorts_1) {
     EXPECT_TRUE(VmPortActive(1));
     EXPECT_TRUE(VmPortActive(2));
     EXPECT_TRUE(VmPortActive(3));
-    EXPECT_EQ(6U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(6U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     NovaDel(1);
@@ -473,24 +473,24 @@ TEST_F(IntfTest, MultipleVmPorts_1) {
     NovaDel(3);
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(3));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     VmDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VnDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfDelReq("vrf4");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 // VN has ACL set before VM Port is created
@@ -500,7 +500,7 @@ TEST_F(IntfTest, VmPortPolicy_1) {
     VmAddReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     AclAddReq(1);
@@ -516,7 +516,7 @@ TEST_F(IntfTest, VmPortPolicy_1) {
     VnAddReq(1, "vn1", 1, "vrf5");
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
@@ -530,20 +530,20 @@ TEST_F(IntfTest, VmPortPolicy_1) {
 
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(VmPortPolicyEnable(2));
-    EXPECT_EQ(5U, Agent::GetInterfaceTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
 
     client->Reset();
     AclDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->AclNotifyWait(1));
     // ACL not deleted due to reference from VN
-    EXPECT_EQ(1U, Agent::GetAclTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetAclTable()->Size());
     client->Reset();
     VnAddReq(1, "vn1", 1, "vrf5");
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetAclTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
     // Ports not yet notified. So, they still have policy enabled
     EXPECT_TRUE(VmPortPolicyEnable(1));
     EXPECT_TRUE(VmPortPolicyEnable(2));
@@ -565,19 +565,19 @@ TEST_F(IntfTest, VmPortPolicy_1) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmPortFind(1));
     EXPECT_FALSE(VmPortFind(2));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VnDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfDelReq("vrf5");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 // ACL set in VN after VM Port is created
@@ -586,7 +586,7 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     VmAddReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
 
     client->Reset();
     VrfAddReq("vrf6");
@@ -597,7 +597,7 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     VnAddReq(1, "vn1", 1, "vrf6");
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
@@ -638,9 +638,9 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     EXPECT_TRUE(client->VnNotifyWait(1));
     EXPECT_TRUE(client->PortNotifyWait(2));
     // ACL deleted since no reference from VN
-    EXPECT_EQ(0U, Agent::GetAclTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(0U, Agent::GetAclTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
     // Ports already notified. So, they still have policy disabled
     EXPECT_TRUE(VmPortPolicyDisable(1));
     EXPECT_TRUE(VmPortPolicyDisable(2));
@@ -654,20 +654,20 @@ TEST_F(IntfTest, VmPortPolicy_2) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmPortFind(1));
     EXPECT_FALSE(VmPortFind(2));
-    EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(0U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VnDelReq(1);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(0U, Agent::GetVnTable()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
 
     client->Reset();
     VrfDelReq("vrf6");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 // Floating IP add
@@ -679,9 +679,9 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     VnAddReq(1, "vn1", 1, "vrf1");
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(3U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetVrfTable()->Size());
 
     // Nova add followed by config interface
     client->Reset();
@@ -725,7 +725,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     VrfDelReq("vrf1");
     VrfDelReq("vrf2");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 // Floating IP add
@@ -737,9 +737,9 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     VnAddReq(1, "vn1", 1, "vrf1");
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(3U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(3U, Agent::GetInstance()->GetVrfTable()->Size());
 
     // Nova add followed by config interface
     client->Reset();
@@ -802,7 +802,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     VrfDelReq("vrf1");
     VrfDelReq("vrf2");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 TEST_F(IntfTest, VmPortFloatingIpResync_1) {
@@ -815,9 +815,9 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     VnAddReq(1, "vn1", 1, "vrf1");
     client->WaitForIdle();
     EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(1U, Agent::GetVnTable()->Size());
-    EXPECT_EQ(5U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(5U, Agent::GetInstance()->GetVrfTable()->Size());
 
     // Nova add followed by config interface
     client->Reset();
@@ -902,7 +902,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     VrfDelReq("vrf3");
     VrfDelReq("vrf4");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetVrfTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
 }
 
 TEST_F(IntfTest, VmPortFloatingIpDelete_1) {

@@ -62,7 +62,7 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
     MirrorNHKey nh_key(data->vrf_name_, data->sip_, data->sport_, 
                        data->dip_, data->dport_);
     NextHop *nh = static_cast<NextHop *>
-                  (Agent::GetNextHopTable()->FindActiveEntry(&nh_key));
+                  (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
     assert(nh);
 
     if (mirror_entry->nh_ != nh) {
@@ -71,7 +71,7 @@ bool MirrorTable::OnChange(DBEntry *entry, const DBRequest *req) {
         mirror_entry->sport_ = data->sport_;
         mirror_entry->dip_ = data->dip_;
         mirror_entry->dport_ = data->dport_;
-        mirror_entry->vrf_ = Agent::GetVrfTable()->FindVrfFromName(data->vrf_name_);
+        mirror_entry->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(data->vrf_name_);
         ret = true;
     }
     return ret;
@@ -89,7 +89,7 @@ void MirrorTable::AddMirrorEntry(const std::string &analyzer_name,
     MirrorNHKey *nh_key = new MirrorNHKey(vrf_name, sip, sport, dip, dport);
     req.key.reset(nh_key);
     req.data.reset(NULL);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     MirrorEntryKey *key = new MirrorEntryKey(analyzer_name);
@@ -138,7 +138,7 @@ void MirrorTable::ReadHandler(const boost::system::error_code &ec,
 void MirrorTable::MirrorSockInit(void) {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetEventManager();
+    event_mgr = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
     ip::udp::endpoint ep(ip::udp::v4(), 0);
 
@@ -153,7 +153,7 @@ void MirrorTable::MirrorSockInit(void) {
 
     ip::udp::endpoint sock_ep = udp_sock_->local_endpoint(ec);
     assert(ec.value() == 0);
-    Agent::SetMirrorPort(sock_ep.port());
+    Agent::GetInstance()->SetMirrorPort(sock_ep.port());
 
     udp_sock_->async_receive(boost::asio::buffer(rx_buff_, sizeof(rx_buff_)), 
                              boost::bind(&MirrorTable::ReadHandler, this, 

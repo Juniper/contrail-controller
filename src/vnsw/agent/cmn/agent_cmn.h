@@ -89,6 +89,7 @@ class CfgIntTable;
 class AclTable;
 class MirrorTable;
 class VrfAssignTable;
+class DomainConfig;
 
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
@@ -101,6 +102,12 @@ class DiscoveryServiceClient;
 class EventManager;
 class IFMapAgentStaleCleaner;
 class CfgListener;
+
+class ArpProto;
+class DhcpProto;
+class DnsProto;
+class IcmpProto;
+class FlowProto;
 
 class Peer;
 class LifetimeManager;
@@ -116,440 +123,496 @@ using namespace boost::uuids;
 
 class Agent {
 public:
-    static const std::string &GetHostName();
-    static const std::string GetBuildInfo();
-    static void SetHostName(const std::string &name);
-    static const std::string &GetProgramName() {return prog_name_;};
-    static void SetProgramName(const char *name) { prog_name_ = name; };
-    static const std::string &NullString() {return null_str_;};
-    static InterfaceTable *GetInterfaceTable() {return intf_table_;};
-    static MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
-    static IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
-    static NextHopTable *GetNextHopTable() {return nh_table_;};
-    static Inet4UcRouteTable *GetDefaultInet4UcRouteTable() {return uc_rt_table_;};
-    static Inet4McRouteTable *GetDefaultInet4McRouteTable() {return mc_rt_table_;};
-    static VrfTable *GetVrfTable() { return vrf_table_;};
-    static VmTable *GetVmTable() { return vm_table_;};
-    static VnTable *GetVnTable() { return vn_table_;};
-    static SgTable *GetSgTable() { return sg_table_;};
-    static AddrTable *GetAddressTable() { return addr_table_;};
-    static MplsTable *GetMplsTable() { return mpls_table_;};
-    static AclTable *GetAclTable() { return acl_table_;};
-    static MirrorTable *GetMirrorTable() { return mirror_table_;};
-    static CfgIntTable *GetIntfCfgTable() {return intf_cfg_table_;};
-    static VrfAssignTable *GetVrfAssignTable() {return vrf_assign_table_;};
-    static void SetSandeshPort(int sandesh_port) { sandesh_port_ = sandesh_port; };
-    static int GetSandeshPort() { return sandesh_port_;};
-    static std::string GetCollector() { return collector_; }
-    static void SetCollector(std::string srv) { collector_ = srv; }
-    static int GetCollectorPort() { return collector_port_; }
-    static void SetCollectorPort(int port) { collector_port_ = port; }
+    const std::string &GetHostName();
+    const std::string GetBuildInfo();
+    void SetHostName(const std::string &name);
+    const std::string &GetProgramName() {return prog_name_;};
+    void SetProgramName(const char *name) { prog_name_ = name; };
+    const std::string &NullString() {return null_str_;};
+    InterfaceTable *GetInterfaceTable() {return intf_table_;};
+    MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
+    IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
+    NextHopTable *GetNextHopTable() {return nh_table_;};
+    Inet4UcRouteTable *GetDefaultInet4UcRouteTable() {return uc_rt_table_;};
+    Inet4McRouteTable *GetDefaultInet4McRouteTable() {return mc_rt_table_;};
+    VrfTable *GetVrfTable() { return vrf_table_;};
+    VmTable *GetVmTable() { return vm_table_;};
+    VnTable *GetVnTable() { return vn_table_;};
+    SgTable *GetSgTable() { return sg_table_;};
+    AddrTable *GetAddressTable() { return addr_table_;};
+    MplsTable *GetMplsTable() { return mpls_table_;};
+    AclTable *GetAclTable() { return acl_table_;};
+    MirrorTable *GetMirrorTable() { return mirror_table_;};
+    CfgIntTable *GetIntfCfgTable() {return intf_cfg_table_;};
+    DomainConfig *GetDomainConfigTable() {return domain_config_table_;};
+    VrfAssignTable *GetVrfAssignTable() {return vrf_assign_table_;};
+    void SetSandeshPort(int sandesh_port) { sandesh_port_ = sandesh_port; };
+    int GetSandeshPort() { return sandesh_port_;};
+    std::string GetCollector() { return collector_; }
+    void SetCollector(std::string srv) { collector_ = srv; }
+    int GetCollectorPort() { return collector_port_; }
+    void SetCollectorPort(int port) { collector_port_ = port; }
 
-    static EventManager *GetEventManager() {return event_mgr_;};
-    static DB *GetDB() {return db_;};
-    static const char *GetHostIfname() {return "pkt0";};
+    EventManager *GetEventManager() {return event_mgr_;};
+    DB *GetDB() {return db_;};
+    const char *GetHostIfname() {return "pkt0";};
 
-    static uint16_t GetMirrorPort() {return mirror_src_udp_port_;};
-    static Ip4Address GetRouterId() {return router_id_; };
-    static void SetRouterId(const Ip4Address &addr) {
+    uint16_t GetMirrorPort() {return mirror_src_udp_port_;};
+    Ip4Address GetRouterId() {return router_id_; };
+    void SetRouterId(const Ip4Address &addr) {
         router_id_ = addr;
         SetRouterIdConfigured(true);
     };
 
-    static uint32_t GetPrefixLen() {return prefix_len_;};
-    static void SetPrefixLen(uint32_t plen) {prefix_len_ = plen;};
+    uint32_t GetPrefixLen() {return prefix_len_;};
+    void SetPrefixLen(uint32_t plen) {prefix_len_ = plen;};
 
-    static bool GetRouterIdConfigured() { return router_id_configured_; }
-    static LifetimeManager *GetLifetimeManager() { return lifetime_manager_;};
+    bool GetRouterIdConfigured() { return router_id_configured_; }
+    LifetimeManager *GetLifetimeManager() { return lifetime_manager_;};
 
-    static Ip4Address GetGatewayId() {return gateway_id_; };
-    static void SetGatewayId(const Ip4Address &addr) {gateway_id_ = addr;};
+    Ip4Address GetGatewayId() {return gateway_id_; };
+    void SetGatewayId(const Ip4Address &addr) {gateway_id_ = addr;};
 
-    static const std::string &GetIpFabricItfName() {
+    const std::string &GetIpFabricItfName() {
         return ip_fabric_intf_name_;
     };
-    static void SetIpFabricItfName(const std::string &name) {
+    void SetIpFabricItfName(const std::string &name) {
         ip_fabric_intf_name_ = name;
     };
 
-    static const std::string &GetXmppCfgServer() {return xs_cfg_addr_; };
-    static const int8_t &GetXmppCfgServerIdx() {return xs_idx_; };
-    static void SetXmppCfgServer(const std::string &addr, uint8_t xs_idx) {
+    const std::string &GetXmppCfgServer() {return xs_cfg_addr_; };
+    const int8_t &GetXmppCfgServerIdx() {return xs_idx_; };
+    void SetXmppCfgServer(const std::string &addr, uint8_t xs_idx) {
         xs_cfg_addr_ = addr;
         xs_idx_ = xs_idx;
     };
-    static void ResetXmppCfgServer() {
+    void ResetXmppCfgServer() {
         xs_cfg_addr_.clear();
         xs_idx_ = -1;
     }
-    static const std::string &GetXmppServer(uint8_t idx) {return xs_addr_[idx]; };
-    static const uint32_t GetXmppPort(uint8_t idx) {return xs_port_[idx]; };
-    static void SetXmppServer(const std::string &addr, uint8_t idx) {
+    const std::string &GetXmppServer(uint8_t idx) {return xs_addr_[idx]; };
+    const uint32_t GetXmppPort(uint8_t idx) {return xs_port_[idx]; };
+    void SetXmppServer(const std::string &addr, uint8_t idx) {
         xs_addr_[idx] = addr;
     };
 
-    static void SetXmppPort(uint32_t port, uint8_t idx) {
+    void SetXmppPort(uint32_t port, uint8_t idx) {
         xs_port_[idx] = port;
     };
 
-    static const uint64_t GetAgentXmppChannelSetupTime(uint8_t idx) {return xs_stime_[idx];}
-    static void SetAgentXmppChannelSetupTime(uint64_t time, uint8_t idx) {xs_stime_[idx] = time;}
+    const uint64_t GetAgentXmppChannelSetupTime(uint8_t idx) {return xs_stime_[idx];}
+    void SetAgentXmppChannelSetupTime(uint64_t time, uint8_t idx) {xs_stime_[idx] = time;}
  
-    static const int8_t &GetXmppDnsCfgServerIdx() {return xs_dns_idx_; };
-    static void SetXmppDnsCfgServer(uint8_t xs_idx) { xs_dns_idx_ = xs_idx; };
-    static const std::string &GetDnsXmppServer(uint8_t idx) {
+    const int8_t &GetXmppDnsCfgServerIdx() {return xs_dns_idx_; };
+    void SetXmppDnsCfgServer(uint8_t xs_idx) { xs_dns_idx_ = xs_idx; };
+    const std::string &GetDnsXmppServer(uint8_t idx) {
         return xs_dns_addr_[idx]; 
     }
-    static void SetDnsXmppServer(const std::string &addr, uint8_t idx) {
+    void SetDnsXmppServer(const std::string &addr, uint8_t idx) {
         xs_dns_addr_[idx] = addr;
     }
 
-    static const uint32_t GetDnsXmppPort(uint8_t idx) {
+    const uint32_t GetDnsXmppPort(uint8_t idx) {
         return xs_dns_port_[idx]; 
     }
-    static void SetDnsXmppPort(uint32_t port, uint8_t idx) {
+    void SetDnsXmppPort(uint32_t port, uint8_t idx) {
         xs_dns_port_[idx] = port;
     }
 
     /* Discovery Server, port, service-instances */
-    static const std::string &GetDiscoveryServer() {
+    const std::string &GetDiscoveryServer() {
         return dss_addr_; 
     }
-    static void SetDiscoveryServer(const std::string &addr) {
+    void SetDiscoveryServer(const std::string &addr) {
         dss_addr_ = addr;
     }
-    static const uint32_t GetDiscoveryServerPort() {
+    const uint32_t GetDiscoveryServerPort() {
         return dss_port_; 
     }
-    static void SetDiscoveryServerPort(uint32_t port) {
+    void SetDiscoveryServerPort(uint32_t port) {
         dss_port_ = port;
     }
-    static const int GetDiscoveryXmppServerInstances() {
+    const int GetDiscoveryXmppServerInstances() {
         return dss_xs_instances_; 
     }
-    static void SetDiscoveryXmppServerInstances(int xs_instances) {
+    void SetDiscoveryXmppServerInstances(int xs_instances) {
         dss_xs_instances_ = xs_instances;
     }
    
-   
-    static const std::string &GetAgentMcastLabelRange(uint8_t idx) { 
+    const std::string &GetAgentMcastLabelRange(uint8_t idx) { 
         return label_range_[idx]; 
     };
-    static void SetAgentMcastLabelRange(uint8_t idx) {
+    void SetAgentMcastLabelRange(uint8_t idx) {
         std::stringstream str;
         str << (MULTICAST_LABEL_RANGE_START + (idx * MULTICAST_LABEL_BLOCK_SIZE)) << "-"
             << (MULTICAST_LABEL_RANGE_START + ((idx + 1) * MULTICAST_LABEL_BLOCK_SIZE) - 1); 
         label_range_[idx] = str.str();
     };
-    static void ResetAgentMcastLabelRange(uint8_t idx) {
+    void ResetAgentMcastLabelRange(uint8_t idx) {
         label_range_[idx].clear();
     }
 
-    static AgentXmppChannel* GetControlNodeMulticastBuilder() {
+    AgentXmppChannel* GetControlNodeMulticastBuilder() {
         return cn_mcast_builder_;
     };
-    static void SetControlNodeMulticastBuilder(AgentXmppChannel *peer) { 
+    void SetControlNodeMulticastBuilder(AgentXmppChannel *peer) { 
         cn_mcast_builder_ =  peer;
     };
 
-    static const std::string &GetFabricVnName() {return fabric_vn_name_;};
-    static const std::string &GetDefaultVrf() {return fabric_vrf_name_;};
-    static const std::string &GetLinkLocalVnName() {return link_local_vn_name_;}
-    static const std::string &GetLinkLocalVrfName() {return link_local_vrf_name_;}
+    const std::string &GetFabricVnName() {return fabric_vn_name_;};
+    const std::string &GetDefaultVrf() {return fabric_vrf_name_;};
+    const std::string &GetLinkLocalVnName() {return link_local_vn_name_;}
+    const std::string &GetLinkLocalVrfName() {return link_local_vrf_name_;}
 
-    static const std::string &GetHostInterfaceName();
-    static void SetHostInterfaceName(const std::string &name);
+    const std::string &GetHostInterfaceName();
+    void SetHostInterfaceName(const std::string &name);
 
-    static const std::string &GetVirtualHostInterfaceName();
-    static void SetVirtualHostInterfaceName(const std::string &name);
+    const std::string &GetVirtualHostInterfaceName();
+    void SetVirtualHostInterfaceName(const std::string &name);
 
-    static AgentXmppChannel *GetAgentXmppChannel(uint8_t idx) { 
+    AgentXmppChannel *GetAgentXmppChannel(uint8_t idx) { 
         return agent_xmpp_channel_[idx];
     };
-    static AgentIfMapXmppChannel *GetAgentIfMapXmppChannel(uint8_t idx) { 
+    AgentIfMapXmppChannel *GetAgentIfMapXmppChannel(uint8_t idx) { 
         return ifmap_channel_[idx];
     };
-    static XmppClient *GetAgentXmppClient(uint8_t idx) {
+    XmppClient *GetAgentXmppClient(uint8_t idx) {
         return xmpp_client_[idx];
     };
-    static XmppInit *GetAgentXmppInit(uint8_t idx) {
+    XmppInit *GetAgentXmppInit(uint8_t idx) {
         return xmpp_init_[idx];
     };
-    static AgentDnsXmppChannel *GetAgentDnsXmppChannel(uint8_t idx) { 
+    AgentDnsXmppChannel *GetAgentDnsXmppChannel(uint8_t idx) { 
         return dns_xmpp_channel_[idx];
     };
-    static XmppClient *GetAgentDnsXmppClient(uint8_t idx) {
+    XmppClient *GetAgentDnsXmppClient(uint8_t idx) {
         return dns_xmpp_client_[idx];
     };
-    static XmppInit *GetAgentDnsXmppInit(uint8_t idx) {
+    XmppInit *GetAgentDnsXmppInit(uint8_t idx) {
         return dns_xmpp_init_[idx];
     };
-    static DiscoveryServiceClient *GetDiscoveryServiceClient() {
+    DiscoveryServiceClient *GetDiscoveryServiceClient() {
         return ds_client_; 
     };
-    static IFMapAgentParser *GetIfMapAgentParser() {return ifmap_parser_;};
-    static IFMapAgentStaleCleaner *GetIfMapAgentStaleCleaner() {return agent_stale_cleaner_;};
+    IFMapAgentParser *GetIfMapAgentParser() {return ifmap_parser_;};
+    IFMapAgentStaleCleaner *GetIfMapAgentStaleCleaner() {return agent_stale_cleaner_;};
     
-    static const Peer *GetLocalPeer() {return local_peer_;};
-    static const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    static const Peer *GetMdataPeer() {return mdata_vm_peer_;};
+    ArpProto *GetArpProto() { return arp_proto_; }
+    DhcpProto *GetDhcpProto() { return dhcp_proto_; }
+    DnsProto *GetDnsProto() { return dns_proto_; }
+    IcmpProto *GetIcmpProto() { return icmp_proto_; }
+    FlowProto *GetFlowProto() { return flow_proto_; }
 
-    static void SetInterfaceTable(InterfaceTable *table) {
+    const Peer *GetLocalPeer() {return local_peer_;};
+    const Peer *GetLocalVmPeer() {return local_vm_peer_;};
+    const Peer *GetMdataPeer() {return mdata_vm_peer_;};
+
+    void SetInterfaceTable(InterfaceTable *table) {
          intf_table_ = table;
     };
 
-    static void SetNextHopTable(NextHopTable *table) {
+    void SetNextHopTable(NextHopTable *table) {
         nh_table_ = table;
     };
 
-    static void SetDefaultInet4UcRouteTable(Inet4UcRouteTable *table) {
+    void SetDefaultInet4UcRouteTable(Inet4UcRouteTable *table) {
         uc_rt_table_ = table;
     };
 
-    static void SetDefaultInet4McRouteTable(Inet4McRouteTable *table) {
+    void SetDefaultInet4McRouteTable(Inet4McRouteTable *table) {
         mc_rt_table_ = table;
     };
 
-    static void SetVrfTable(VrfTable *table) {
+    void SetVrfTable(VrfTable *table) {
         vrf_table_ = table;
     };
 
-    static void SetVmTable(VmTable *table) {
+    void SetVmTable(VmTable *table) {
         vm_table_ = table;
     };
 
-    static void SetVnTable(VnTable *table) {
+    void SetVnTable(VnTable *table) {
         vn_table_ = table;
     };
 
-    static void SetSgTable(SgTable *table) {
+    void SetSgTable(SgTable *table) {
         sg_table_ = table;
     }
 
-    static void SetAddressTable(AddrTable *table) { 
+    void SetAddressTable(AddrTable *table) { 
         addr_table_ = table;
     };
 
-    static void SetMplsTable(MplsTable *table) { 
+    void SetMplsTable(MplsTable *table) { 
         mpls_table_ = table;
     };
     
-    static void SetAclTable(AclTable *table) { 
+    void SetAclTable(AclTable *table) { 
         acl_table_ = table;
     };
     
-    static void SetIntfCfgTable(CfgIntTable *table) {
+    void SetIntfCfgTable(CfgIntTable *table) {
         intf_cfg_table_ = table;
     };
 
-    static void SetMirrorCfgTable(MirrorCfgTable *table) {
+    void SetMirrorCfgTable(MirrorCfgTable *table) {
         mirror_cfg_table_ = table;
     }
 
-    static void SetIntfMirrorCfgTable(IntfMirrorCfgTable *table) {
+    void SetIntfMirrorCfgTable(IntfMirrorCfgTable *table) {
         intf_mirror_cfg_table_ = table;
     }
 
-    static void SetMirrorTable(MirrorTable *table) {
+    void SetMirrorTable(MirrorTable *table) {
         mirror_table_ = table;
     };
 
-    static void SetVrfAssignTable(VrfAssignTable *table) {
+    void SetDomainConfigTable(DomainConfig *table) {
+        domain_config_table_ = table;
+    };
+
+    void SetVrfAssignTable(VrfAssignTable *table) {
         vrf_assign_table_ = table;
     };
 
-    static void SetMirrorPort(uint16_t mirr_port) {
+    void SetMirrorPort(uint16_t mirr_port) {
         mirror_src_udp_port_ = mirr_port;
     }
 
-    static void SetAgentXmppChannel(AgentXmppChannel *channel, uint8_t idx) {
+    void SetAgentXmppChannel(AgentXmppChannel *channel, uint8_t idx) {
         agent_xmpp_channel_[idx] = channel;
     };
 
-    static void SetAgentIfMapXmppChannel(AgentIfMapXmppChannel *channel, 
+    void SetAgentIfMapXmppChannel(AgentIfMapXmppChannel *channel, 
                                          uint8_t idx) {
         ifmap_channel_[idx] = channel;
     };
 
-    static void SetAgentXmppClient(XmppClient *client, uint8_t idx) {
+    void SetAgentXmppClient(XmppClient *client, uint8_t idx) {
         xmpp_client_[idx] = client;
     };
 
-    static void SetAgentXmppInit(XmppInit *init, uint8_t idx) {
+    void SetAgentXmppInit(XmppInit *init, uint8_t idx) {
         xmpp_init_[idx] = init;
     };
 
-    static void SetAgentDnsXmppChannel(AgentDnsXmppChannel *chnl, uint8_t idx) { 
+    void SetAgentDnsXmppChannel(AgentDnsXmppChannel *chnl, uint8_t idx) { 
         dns_xmpp_channel_[idx] = chnl;
     };
 
-    static void SetAgentDnsXmppClient(XmppClient *client, uint8_t idx) {
+    void SetAgentDnsXmppClient(XmppClient *client, uint8_t idx) {
         dns_xmpp_client_[idx] = client;
     };
 
-    static void SetAgentDnsXmppInit(XmppInit *xmpp, uint8_t idx) {
+    void SetAgentDnsXmppInit(XmppInit *xmpp, uint8_t idx) {
         dns_xmpp_init_[idx] = xmpp;
     };
 
-    static void SetDiscoveryServiceClient(DiscoveryServiceClient *client) {
+    void SetDiscoveryServiceClient(DiscoveryServiceClient *client) {
         ds_client_ = client;
     };
 
-    static void SetAgentStaleCleaner(IFMapAgentStaleCleaner *cl) {
+    void SetAgentStaleCleaner(IFMapAgentStaleCleaner *cl) {
         agent_stale_cleaner_ = cl;
     };
 
-    static void SetIfMapAgentParser(IFMapAgentParser *parser) {
+    void SetIfMapAgentParser(IFMapAgentParser *parser) {
         ifmap_parser_ = parser;
     };
 
-    static void SetLocalPeer(Peer *peer) {
+    void SetArpProto(ArpProto *proto) { arp_proto_ = proto; }
+    void SetDhcpProto(DhcpProto *proto) { dhcp_proto_ = proto; }
+    void SetDnsProto(DnsProto *proto) { dns_proto_ = proto; }
+    void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
+    void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
+
+    void SetLocalPeer(Peer *peer) {
         local_peer_ = peer;
     };
 
-    static void SetLocalVmPeer(Peer *peer) {
+    void SetLocalVmPeer(Peer *peer) {
         local_vm_peer_ = peer;
     };
 
-    static void SetMdataPeer(Peer *peer) {
+    void SetMdataPeer(Peer *peer) {
         mdata_vm_peer_ = peer;
     };
 
-    static void SetRouterIdConfigured(bool value) {
+    void SetRouterIdConfigured(bool value) {
         router_id_configured_ = value;
     }
 
-    static void SetEventManager(EventManager *evm) {
+    void SetEventManager(EventManager *evm) {
         event_mgr_ = evm;
     }
 
-    static void SetCfgListener(CfgListener *cfg_listener) {
+    void SetCfgListener(CfgListener *cfg_listener) {
         cfg_listener_ = cfg_listener;
     }
 
-    static CfgListener* GetCfgListener() {
+    CfgListener* GetCfgListener() {
         return cfg_listener_;
     }
 
-    static std::string GetUuidStr(uuid uuid_val) {
+    std::string GetUuidStr(uuid uuid_val) {
         std::ostringstream str;
         str << uuid_val;
         return str.str();
     }
 
-    static bool IsTestMode() {
+    bool IsTestMode() {
         return test_mode_;
     }
 
-    static void SetTestMode() {
+    void SetTestMode() {
         test_mode_ = true;
     }
 
-    static bool isXenMode();
+    bool isXenMode();
 
-    static void Init() {
+    Agent() :
+        event_mgr_(NULL), agent_xmpp_channel_(), ifmap_channel_(), xmpp_client_(), 
+        xmpp_init_(), dns_xmpp_channel_(), dns_xmpp_client_(), dns_xmpp_init_(), 
+        agent_stale_cleaner_(NULL), cn_mcast_builder_(NULL), ds_client_(NULL), 
+        host_name_(""), prog_name_(""), sandesh_port_(0), 
+        db_(NULL), intf_table_(NULL), nh_table_(NULL), uc_rt_table_(NULL), 
+        mc_rt_table_(NULL), vrf_table_(NULL), vm_table_(NULL), vn_table_(NULL),
+        sg_table_(NULL), addr_table_(NULL), mpls_table_(NULL), acl_table_(NULL),
+        mirror_table_(NULL), vrf_assign_table_(NULL), mirror_cfg_table_(NULL),
+        intf_mirror_cfg_table_(NULL), intf_cfg_table_(NULL), 
+        domain_config_table_(NULL), router_id_(0), prefix_len_(0), 
+        gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(), 
+        xs_stime_(), xs_dns_idx_(0), xs_dns_addr_(), xs_dns_port_(), 
+        dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(), 
+        ip_fabric_intf_name_(""), virtual_host_intf_name_(""), 
+        cfg_listener_(NULL), arp_proto_(NULL), dhcp_proto_(NULL),
+        dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
+        local_peer_(NULL), local_vm_peer_(NULL),
+        mdata_vm_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
+        mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false), 
+        collector_(""), collector_port_(0) {
+
+        assert(singleton_ == NULL);
         db_ = new DB();
         assert(db_);
-        EventManager *evm;
 
-        evm = new EventManager();
-        assert(evm);
-        SetEventManager(evm);
+        event_mgr_ = new EventManager();
+        assert(event_mgr_);
 
         SetAgentTaskPolicy();
         CreateLifetimeManager();
-    };
+    }
 
-    static void Shutdown() {
-        delete GetEventManager();
-        SetEventManager(NULL);
+    ~Agent() {
+        delete event_mgr_;
+        event_mgr_ = NULL;
 
         ShutdownLifetimeManager();
 
         delete db_;
         db_ = NULL;
     }
+    static void Init() {
+        singleton_ = new Agent();
+    }
 
-    static void CreateLifetimeManager();
-    static void ShutdownLifetimeManager();
-    static void SetAgentTaskPolicy();
+    static Agent *GetInstance() {return singleton_;}
+
+    void Shutdown() {
+        delete singleton_;
+        singleton_ = NULL;
+    }
+
+    void CreateLifetimeManager();
+    void ShutdownLifetimeManager();
+    void SetAgentTaskPolicy();
 
 private:
-    static EventManager *event_mgr_;
-    static AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
-    static AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
-    static XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
-    static XmppInit *xmpp_init_[MAX_XMPP_SERVERS];
-    static AgentDnsXmppChannel *dns_xmpp_channel_[MAX_XMPP_SERVERS];
-    static XmppClient *dns_xmpp_client_[MAX_XMPP_SERVERS];
-    static XmppInit *dns_xmpp_init_[MAX_XMPP_SERVERS];
-    static IFMapAgentStaleCleaner *agent_stale_cleaner_;
-    static AgentXmppChannel *cn_mcast_builder_;
-    static DiscoveryServiceClient *ds_client_;
-    static std::string host_name_;
-    static std::string prog_name_;
-    static int sandesh_port_;
+    EventManager *event_mgr_;
+    AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];
+    AgentIfMapXmppChannel *ifmap_channel_[MAX_XMPP_SERVERS];
+    XmppClient *xmpp_client_[MAX_XMPP_SERVERS];
+    XmppInit *xmpp_init_[MAX_XMPP_SERVERS];
+    AgentDnsXmppChannel *dns_xmpp_channel_[MAX_XMPP_SERVERS];
+    XmppClient *dns_xmpp_client_[MAX_XMPP_SERVERS];
+    XmppInit *dns_xmpp_init_[MAX_XMPP_SERVERS];
+    IFMapAgentStaleCleaner *agent_stale_cleaner_;
+    AgentXmppChannel *cn_mcast_builder_;
+    DiscoveryServiceClient *ds_client_;
+    std::string host_name_;
+    std::string prog_name_;
+    int sandesh_port_;
 
-    static std::string null_str_;
 
     // DB handles
-    static DB *db_;
-    static InterfaceTable *intf_table_;
-    static NextHopTable *nh_table_;
-    static Inet4UcRouteTable *uc_rt_table_;
-    static Inet4McRouteTable *mc_rt_table_;
-    static VrfTable *vrf_table_;
-    static VmTable *vm_table_;
-    static VnTable *vn_table_;
-    static SgTable *sg_table_;
-    static AddrTable *addr_table_;
-    static MplsTable *mpls_table_;
-    static AclTable *acl_table_;
-    static MirrorTable *mirror_table_;
-    static VrfAssignTable *vrf_assign_table_;
+    DB *db_;
+    InterfaceTable *intf_table_;
+    NextHopTable *nh_table_;
+    Inet4UcRouteTable *uc_rt_table_;
+    Inet4McRouteTable *mc_rt_table_;
+    VrfTable *vrf_table_;
+    VmTable *vm_table_;
+    VnTable *vn_table_;
+    SgTable *sg_table_;
+    AddrTable *addr_table_;
+    MplsTable *mpls_table_;
+    AclTable *acl_table_;
+    MirrorTable *mirror_table_;
+    VrfAssignTable *vrf_assign_table_;
 
     // Mirror config table
-    static MirrorCfgTable *mirror_cfg_table_;
+    MirrorCfgTable *mirror_cfg_table_;
     // Interface Mirror config table
-    static IntfMirrorCfgTable *intf_mirror_cfg_table_;
+    IntfMirrorCfgTable *intf_mirror_cfg_table_;
     
     // Config DB Table handles
-    static CfgIntTable *intf_cfg_table_;
+    CfgIntTable *intf_cfg_table_;
 
-    static Ip4Address router_id_;
-    static uint32_t prefix_len_;
-    static Ip4Address gateway_id_;
-    static std::string fabric_vrf_name_;
-    static std::string fabric_vn_name_;
-    static std::string link_local_vrf_name_;
-    static std::string link_local_vn_name_;
-    static std::string xs_cfg_addr_;
-    static int8_t xs_idx_;
-    static std::string xs_addr_[MAX_XMPP_SERVERS];
-    static uint32_t xs_port_[MAX_XMPP_SERVERS];
-    static uint64_t xs_stime_[MAX_XMPP_SERVERS];
-    static int8_t xs_dns_idx_;
-    static std::string xs_dns_addr_[MAX_XMPP_SERVERS];
-    static uint32_t xs_dns_port_[MAX_XMPP_SERVERS];
-    static std::string dss_addr_;
-    static uint32_t dss_port_;
-    static int dss_xs_instances_;
-    static std::string label_range_[MAX_XMPP_SERVERS];
-    static std::string ip_fabric_intf_name_;
-    static std::string virtual_host_intf_name_;
-    static CfgListener *cfg_listener_;
+    // DomainConfig handle
+    DomainConfig *domain_config_table_;
 
-    static Peer *local_peer_;
-    static Peer *local_vm_peer_;
-    static Peer *mdata_vm_peer_;
-    static IFMapAgentParser *ifmap_parser_;
-    static bool router_id_configured_;
+    Ip4Address router_id_;
+    uint32_t prefix_len_;
+    Ip4Address gateway_id_;
+    std::string xs_cfg_addr_;
+    int8_t xs_idx_;
+    std::string xs_addr_[MAX_XMPP_SERVERS];
+    uint32_t xs_port_[MAX_XMPP_SERVERS];
+    uint64_t xs_stime_[MAX_XMPP_SERVERS];
+    int8_t xs_dns_idx_;
+    std::string xs_dns_addr_[MAX_XMPP_SERVERS];
+    uint32_t xs_dns_port_[MAX_XMPP_SERVERS];
+    std::string dss_addr_;
+    uint32_t dss_port_;
+    int dss_xs_instances_;
+    std::string label_range_[MAX_XMPP_SERVERS];
+    std::string ip_fabric_intf_name_;
+    std::string virtual_host_intf_name_;
+    CfgListener *cfg_listener_;
 
-    static uint16_t mirror_src_udp_port_;
-    static LifetimeManager *lifetime_manager_;
-    static bool test_mode_;
-    static std::string collector_;
-    static int collector_port_;
+    ArpProto *arp_proto_;
+    DhcpProto *dhcp_proto_;
+    DnsProto *dns_proto_;
+    IcmpProto *icmp_proto_;
+    FlowProto *flow_proto_;
+
+    Peer *local_peer_;
+    Peer *local_vm_peer_;
+    Peer *mdata_vm_peer_;
+    IFMapAgentParser *ifmap_parser_;
+    bool router_id_configured_;
+
+    uint16_t mirror_src_udp_port_;
+    LifetimeManager *lifetime_manager_;
+    bool test_mode_;
+    std::string collector_;
+    int collector_port_;
+    static Agent *singleton_;
+    static const std::string null_str_;
+    static const std::string fabric_vrf_name_;
+    static const std::string fabric_vn_name_;
+    static const std::string link_local_vrf_name_;
+    static const std::string link_local_vn_name_;
 };
 
 class AgentStats {
@@ -569,104 +632,105 @@ public:
         singleton_ = new AgentStats();
     }
 
-    static void Shutdown() {
+    static AgentStats *GetInstance() {return singleton_;}
+    void Shutdown() {
         delete singleton_;
         singleton_ = NULL;
     }
 
-    static void IncrXmppReconnect(uint8_t idx) {singleton_->xmpp_reconnect_[idx]++;};
-    static uint16_t GetXmppReconnect(uint8_t idx) {return singleton_->xmpp_reconnect_[idx];};
+    void IncrXmppReconnect(uint8_t idx) {xmpp_reconnect_[idx]++;};
+    uint16_t GetXmppReconnect(uint8_t idx) {return xmpp_reconnect_[idx];};
 
-    static void IncrXmppInMsgs(uint8_t idx) {singleton_->xmpp_in_msgs_[idx]++;};
-    static uint64_t GetXmppInMsgs(uint8_t idx) {return singleton_->xmpp_in_msgs_[idx];};
+    void IncrXmppInMsgs(uint8_t idx) {xmpp_in_msgs_[idx]++;};
+    uint64_t GetXmppInMsgs(uint8_t idx) {return xmpp_in_msgs_[idx];};
 
-    static void IncrXmppOutMsgs(uint8_t idx) {singleton_->xmpp_out_msgs_[idx]++;};
-    static uint64_t GetXmppOutMsgs(uint8_t idx) {return singleton_->xmpp_out_msgs_[idx];};
+    void IncrXmppOutMsgs(uint8_t idx) {xmpp_out_msgs_[idx]++;};
+    uint64_t GetXmppOutMsgs(uint8_t idx) {return xmpp_out_msgs_[idx];};
 
-    static void IncrSandeshReconnects() {singleton_->sandesh_reconnects_++;};
-    static uint16_t GetSandeshReconnects() {
-        return singleton_->sandesh_reconnects_;
+    void IncrSandeshReconnects() {sandesh_reconnects_++;};
+    uint16_t GetSandeshReconnects() {
+        return sandesh_reconnects_;
     };
 
-    static void IncrSandeshInMsgs() {singleton_->sandesh_in_msgs_++;};
-    static uint64_t GetSandeshInMsgs() {
-        return singleton_->sandesh_in_msgs_;
+    void IncrSandeshInMsgs() {sandesh_in_msgs_++;};
+    uint64_t GetSandeshInMsgs() {
+        return sandesh_in_msgs_;
     };
 
-    static void IncrSandeshOutMsgs() {singleton_->sandesh_out_msgs_++;};
-    static uint64_t GetSandeshOutMsgs() {
-        return singleton_->sandesh_out_msgs_;
+    void IncrSandeshOutMsgs() {sandesh_out_msgs_++;};
+    uint64_t GetSandeshOutMsgs() {
+        return sandesh_out_msgs_;
     };
 
-    static void IncrSandeshHttpSessions() {
-        singleton_->sandesh_http_sessions_++;
+    void IncrSandeshHttpSessions() {
+        sandesh_http_sessions_++;
     };
-    static uint16_t GetSandeshHttpSessions() {
-        return singleton_->sandesh_http_sessions_;
-    };
-
-    static void IncrFlowCreated() {singleton_->flow_created_++;};
-    static uint64_t GetFlowCreated() {return singleton_->flow_created_; };
-
-    static void IncrFlowAged() {singleton_->flow_aged_++;};
-    static uint64_t GetFlowAged() {return singleton_->flow_aged_;};
-
-    static void IncrFlowActive() {singleton_->flow_active_++;};
-    static void DecrFlowActive() {singleton_->flow_active_--;};
-    static uint64_t GetFlowActive() {return singleton_->flow_active_;};
-
-    static void IncrPktExceptions() {singleton_->pkt_exceptions_++;};
-    static uint64_t GetPktExceptions() {return singleton_->pkt_exceptions_;};
-
-    static void IncrPktInvalidAgentHdr() {
-        singleton_->pkt_invalid_agent_hdr_++;
-    };
-    static uint64_t GetPktInvalidAgentHdr() {
-        return singleton_->pkt_invalid_agent_hdr_;
+    uint16_t GetSandeshHttpSessions() {
+        return sandesh_http_sessions_;
     };
 
-    static void IncrPktInvalidInterface() {
-        singleton_->pkt_invalid_interface_++;
+    void IncrFlowCreated() {flow_created_++;};
+    uint64_t GetFlowCreated() {return flow_created_; };
+
+    void IncrFlowAged() {flow_aged_++;};
+    uint64_t GetFlowAged() {return flow_aged_;};
+
+    void IncrFlowActive() {flow_active_++;};
+    void DecrFlowActive() {flow_active_--;};
+    uint64_t GetFlowActive() {return flow_active_;};
+
+    void IncrPktExceptions() {pkt_exceptions_++;};
+    uint64_t GetPktExceptions() {return pkt_exceptions_;};
+
+    void IncrPktInvalidAgentHdr() {
+        pkt_invalid_agent_hdr_++;
     };
-    static uint64_t GetPktInvalidInterface() {
-        return singleton_->pkt_invalid_interface_;
+    uint64_t GetPktInvalidAgentHdr() {
+        return pkt_invalid_agent_hdr_;
     };
 
-    static void IncrPktNoHandler() {singleton_->pkt_no_handler_++;};
-    static uint64_t GetPktNoHandler() {return singleton_->pkt_no_handler_;};
+    void IncrPktInvalidInterface() {
+        pkt_invalid_interface_++;
+    };
+    uint64_t GetPktInvalidInterface() {
+        return pkt_invalid_interface_;
+    };
 
-    static void IncrPktDropped() {singleton_->pkt_dropped_++;};
-    static uint64_t GetPktDropped() {return singleton_->pkt_dropped_;};
+    void IncrPktNoHandler() {pkt_no_handler_++;};
+    uint64_t GetPktNoHandler() {return pkt_no_handler_;};
 
-    static void IncrIpcInMsgs() {singleton_->ipc_in_msgs_++;};
-    static uint64_t GetIpcInMsgs() {return singleton_->ipc_out_msgs_;};
+    void IncrPktDropped() {pkt_dropped_++;};
+    uint64_t GetPktDropped() {return pkt_dropped_;};
 
-    static void IncrIpcOutMsgs() {singleton_->ipc_out_msgs_++;};
-    static uint64_t GetIpcOutMsgs() {return singleton_->ipc_out_msgs_;};
+    void IncrIpcInMsgs() {ipc_in_msgs_++;};
+    uint64_t GetIpcInMsgs() {return ipc_out_msgs_;};
 
-    static void IncrInPkts(uint64_t count) {
-        singleton_->in_tpkts_ += count;
+    void IncrIpcOutMsgs() {ipc_out_msgs_++;};
+    uint64_t GetIpcOutMsgs() {return ipc_out_msgs_;};
+
+    void IncrInPkts(uint64_t count) {
+        in_tpkts_ += count;
     };
-    static uint64_t GetInPkts() {
-        return singleton_->in_tpkts_;
+    uint64_t GetInPkts() {
+        return in_tpkts_;
     };
-    static void IncrInBytes(uint64_t count) {
-        singleton_->in_bytes_ += count;
+    void IncrInBytes(uint64_t count) {
+        in_bytes_ += count;
     };
-    static uint64_t GetInBytes() {
-        return singleton_->in_bytes_;
+    uint64_t GetInBytes() {
+        return in_bytes_;
     };
-    static void IncrOutPkts(uint64_t count) {
-        singleton_->out_tpkts_ += count;
+    void IncrOutPkts(uint64_t count) {
+        out_tpkts_ += count;
     };
-    static uint64_t GetOutPkts() {
-        return singleton_->out_tpkts_;
+    uint64_t GetOutPkts() {
+        return out_tpkts_;
     };
-    static void IncrOutBytes(uint64_t count) {
-        singleton_->out_bytes_ += count;
+    void IncrOutBytes(uint64_t count) {
+        out_bytes_ += count;
     };
-    static uint64_t GetOutBytes() {
-        return singleton_->out_bytes_;
+    uint64_t GetOutBytes() {
+        return out_bytes_;
     };
 private:
     uint16_t xmpp_reconnect_[MAX_XMPP_SERVERS];
@@ -725,7 +789,7 @@ public:
                                   log_level, collector_addr, collector_port,
                                   create_vhost);
     }
-    static void Shutdown() {
+    void Shutdown() {
         if (instance_)
             delete instance_;
         instance_ = NULL;
@@ -817,21 +881,6 @@ static inline void CfgUuidSet(uint64_t ms_long, uint64_t ls_long,
         u.data[15 - i] = ls_long & 0xFF;
         ls_long = ls_long >> 8;
     }
-}
-
-static inline std::string UuidToString(const boost::uuids::uuid &id)
-{
-    std::stringstream uuidstring;
-    uuidstring << id;
-    return uuidstring.str();
-}
-
-static inline boost::uuids::uuid StringToUuid(const std::string &str)
-{
-    boost::uuids::uuid u = boost::uuids::nil_uuid();
-    std::stringstream uuidstring(str);
-    uuidstring >> u;
-    return u;
 }
 
 extern SandeshTraceBufferPtr OperDBTraceBuf;

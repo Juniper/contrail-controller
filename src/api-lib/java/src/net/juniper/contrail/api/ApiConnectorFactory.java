@@ -12,6 +12,9 @@ public class ApiConnectorFactory {
      * @return ApiConnector implementation.
      */
     public static ApiConnector build(String hostname, int port) {
+        if (hostname == null || hostname.length() == 0 || port == 0) {
+            return new ApiConnectorMock();
+        }
         return new ApiConnectorImpl(hostname, port);
     }
 }

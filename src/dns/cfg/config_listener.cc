@@ -291,7 +291,7 @@ void ConfigListener::ChangeListAdd(ChangeList *change_list,
 
         DBState *current = node->GetState(table, tid->second);
         if (current == NULL) {
-            delta.node = IFMapNodeRef(new IFMapNodeProxy(node, tid->second));
+            delta.node = IFMapNodeProxyRef(new IFMapNodeProxy(node, tid->second));
         }
         delta.obj = IFMapObjectRef(node->GetObject());
     }

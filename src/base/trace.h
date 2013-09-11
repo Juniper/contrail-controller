@@ -9,7 +9,8 @@
 #include <map>
 #include <vector>
 #include <stdexcept>
-#include <boost/circular_buffer.hpp>
+#include <boost/function.hpp>
+#include <boost/ptr_container/ptr_circular_buffer.hpp>
 #include <boost/weak_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include "base/util.h"
@@ -17,8 +18,6 @@
 template<typename TraceEntryT>
 class TraceBuffer {
 public:
-    typedef boost::function<void (TraceEntryT, bool)> ReadTraceCallback;
-
     TraceBuffer(const std::string& buf_name, size_t size, bool trace_enable) 
         : trace_buf_name_(buf_name), 
           trace_buf_size_(size),
@@ -55,7 +54,7 @@ public:
         return trace_buf_size_; 
     }
 
-    uint32_t TraceWrite(TraceEntryT trace_entry) {
+    uint32_t TraceWrite(TraceEntryT *trace_entry) {
         tbb::mutex::scoped_lock lock(mutex_);
        
         // Add the trace
@@ -101,7 +100,7 @@ public:
     }
 
     void TraceRead(const std::string& context, const int count, 
-            ReadTraceCallback cb) {
+            boost::function<void (TraceEntryT *, bool)> cb) {
         tbb::mutex::scoped_lock lock(mutex_);
         if (trace_buf_.empty()) {
             // No message in the trace buffer
@@ -134,7 +133,7 @@ public:
         typename ContainerType::iterator next = it;
         for (i = 0; (it != trace_buf_.end()) && (i < cnt); i++, it = next) {
             ++next;
-            cb(*it, next != trace_buf_.end());
+            cb(&(*it), next != trace_buf_.end());
         }
 
         // Update the read index in the read context
@@ -153,7 +152,7 @@ public:
     }
 
 private:
-    typedef boost::circular_buffer<TraceEntryT> ContainerType;
+    typedef boost::ptr_circular_buffer<TraceEntryT> ContainerType;
     typedef std::map<const std::string, boost::shared_ptr<int> > 
         ReadContextMap;
 
@@ -209,8 +208,7 @@ template<typename TraceEntryT>
 class Trace {
 public:
     typedef std::map<const std::string, boost::weak_ptr<TraceBuffer<TraceEntryT> > > TraceBufMap;
-    typedef boost::function<void (TraceEntryT, bool)> TraceReadCallback;
-   
+
     static Trace* GetInstance() {
         if (!trace_) {
             trace_ = new Trace;

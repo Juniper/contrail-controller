@@ -21,8 +21,11 @@
 #include "schema/vnc_cfg_types.h"
 #include "cmn/dns.h"
 #include "bind/bind_util.h"
+#include "bind/bind_resolver.h"
 #include "cfg/dns_config.h"
 #include "cfg/dns_config_parser.h"
+#include "mgr/dns_mgr.h"
+#include "mgr/dns_oper.h"
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include "testing/gunit.h"
@@ -36,12 +39,34 @@ static string FileRead(const string &filename) {
     return content;
 }
 
+class NamedConfigTest : public NamedConfig {
+public:
+    NamedConfigTest(const char *conf_file, const char *zone_dir) : 
+                    NamedConfig(conf_file, zone_dir) {}
+    static void Init() {
+        assert(singleton_ == NULL);
+        singleton_ = new NamedConfigTest("./named.conf", "./");
+        singleton_->Reset();
+    }
+    static void Shutdown() {
+        delete singleton_;
+        singleton_ = NULL;
+        remove("./named.conf");
+    }
+    virtual void AddView(const VirtualDnsConfig *vdns) {}
+    virtual void ChangeView(const VirtualDnsConfig *vdns) {}
+    virtual void DelView(const VirtualDnsConfig *vdns) {}
+    virtual void AddAllViews() {}
+    virtual void AddZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {}
+    virtual void DelZone(const Subnet &subnet, const VirtualDnsConfig *vdns) {}
+};
+
 class DnsConfigManagerTest : public ::testing::Test {
 protected:
     enum {
-        DNS_NETWORK_IPAM,
         DNS_VIRT_DOMAIN,
         DNS_VIRT_DOMAIN_RECORD,
+        DNS_NETWORK_IPAM,
     } DnsNodeType;
 #define MAX_NUM_TYPES 3
 #define MAX_NUM_OPS 4
@@ -52,41 +77,63 @@ protected:
     virtual void SetUp() {
         IFMapLinkTable_Init(&db_, &db_graph_);
         vnc_cfg_Server_ModuleInit(&db_, &db_graph_);
-        config_manager_.Initialize(&db_, &db_graph_);
+        NamedConfigTest::Init();
+        Dns::SetDnsManager(&dns_manager_);
+        dns_manager_.GetConfigManager().Initialize(&db_, &db_graph_);
         Register();
     }
     virtual void TearDown() {
         task_util::WaitForIdle();
-        config_manager_.Terminate();
+        dns_manager_.GetConfigManager().Terminate();
+        NamedConfigTest::Shutdown();
+        BindResolver::Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
     void DnsIpamCallback(const Subnet &subnet, const VirtualDnsConfig *c,  
-                           DnsConfigManager::EventType ev) {
+                           DnsConfig::DnsConfigEvent ev) {
         counts_[DNS_NETWORK_IPAM][ev]++;
     }
-    void VDnsCallback(const VirtualDnsConfig *c, 
-                      DnsConfigManager::EventType ev) {
+    void VDnsCallback(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
+        const VirtualDnsConfig *c = static_cast<const VirtualDnsConfig *>(cfg);
+        if (ev == DnsConfig::CFG_ADD || ev == DnsConfig::CFG_CHANGE) {
+            cfg->MarkNotified();
+        } else if (ev == DnsConfig::CFG_DELETE) {
+            cfg->ClearNotified();
+        }
         counts_[DNS_VIRT_DOMAIN][ev]++;
-        const VirtualDnsConfig::IpamList &list = c->GetIpamList();
-        for (VirtualDnsConfig::IpamList::iterator iter = list.begin();
-             iter != list.end(); ++iter) {
-            const IpamConfig::VnniList &vnni_list = (*iter)->GetVnniList();
-            for (IpamConfig::VnniList::iterator vnni_it = vnni_list.begin();
-                 vnni_it != vnni_list.end(); ++vnni_it) {
-                Subnets &subnets = (*vnni_it)->GetSubnets();
-                counts_[DNS_NETWORK_IPAM][ev] += subnets.size();
-            }
+        if (ev == DnsConfig::CFG_ADD || ev == DnsConfig::CFG_DELETE) {
+            const VirtualDnsConfig::IpamList &list = c->GetIpamList();
+            for (VirtualDnsConfig::IpamList::iterator iter = list.begin();
+                 iter != list.end(); ++iter) {
+                if (!(*iter)->IsValid())
+                    continue;
+                const IpamConfig::VnniList &vnni_list = (*iter)->GetVnniList();
+                for (IpamConfig::VnniList::iterator vnni_it = vnni_list.begin();
+                     vnni_it != vnni_list.end(); ++vnni_it) {
+                    if (!(*vnni_it)->IsValid())
+                        continue;
+                    Subnets &subnets = (*vnni_it)->GetSubnets();
+                    counts_[DNS_NETWORK_IPAM][ev] += subnets.size();
+                }
+            }   
         }   
-        if (ev == DnsConfigManager::CFG_DELETE)
+        if (ev == DnsConfig::CFG_DELETE) {
             counts_[DNS_VIRT_DOMAIN_RECORD][ev] += 
                 c->virtual_dns_records_.size();
+        }
     }
-    void VDnsRecCallback(const VirtualDnsRecordConfig *c, 
-                         DnsConfigManager::EventType ev) {
+    void VDnsRecCallback(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
+        const VirtualDnsRecordConfig *c =
+                    static_cast<const VirtualDnsRecordConfig *>(cfg);
+        if (ev == DnsConfig::CFG_ADD || ev == DnsConfig::CFG_CHANGE) {
+            c->MarkNotified();
+        } else if (ev == DnsConfig::CFG_DELETE) {
+            c->ClearNotified();
+        }
         counts_[DNS_VIRT_DOMAIN_RECORD][ev]++;
     }
-    int GetCount(int type, DnsConfigManager::EventType ev) {
+    int GetCount(int type, DnsConfig::DnsConfigEvent ev) {
         return counts_[type][ev];
     }
     void ClearCounts() {
@@ -95,18 +142,16 @@ protected:
                 counts_[i][j] = 0;
     }
     void Register() {
-        DnsConfigManager::Observers obs;
-        obs.subnet =
-            boost::bind(&DnsConfigManagerTest::DnsIpamCallback, this, _1, _2, _3);
-        obs.virtual_dns =
+        DnsConfig::VdnsCallback = 
             boost::bind(&DnsConfigManagerTest::VDnsCallback, this, _1, _2);
-        obs.virtual_dns_record =
+        DnsConfig::VdnsRecordCallback =
             boost::bind(&DnsConfigManagerTest::VDnsRecCallback, this, _1, _2);
-        config_manager_.RegisterObservers(obs);
+        DnsConfig::VdnsZoneCallback =
+            boost::bind(&DnsConfigManagerTest::DnsIpamCallback, this, _1, _2, _3);
     }
     DB db_;
     DBGraph db_graph_;
-    DnsConfigManager config_manager_;
+    DnsManager dns_manager_;
     DnsConfigParser parser_;
     int counts_[MAX_NUM_TYPES][MAX_NUM_OPS];
 };
@@ -122,9 +167,9 @@ TEST_F(DnsConfigManagerTest, Config) {
     string content = FileRead("src/dns/testdata/config_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    EXPECT_EQ(4, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(5, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_ADD));
+    EXPECT_EQ(4, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_EQ(5, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
 
     const char config_change[] = "\
 <config>\
@@ -146,17 +191,17 @@ TEST_F(DnsConfigManagerTest, Config) {
 ";
     EXPECT_TRUE(parser_.Parse(config_change));
     task_util::WaitForIdle();
-    EXPECT_EQ(6, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_CHANGE));
+    EXPECT_EQ(6, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 1);
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    EXPECT_EQ(6, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(4, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_DELETE));
+    EXPECT_EQ(6, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
 }
 
 TEST_F(DnsConfigManagerTest, Reordered) {
@@ -164,9 +209,12 @@ TEST_F(DnsConfigManagerTest, Reordered) {
     string content = FileRead("src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    EXPECT_EQ(6, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(8, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_ADD));
+    EXPECT_EQ(6, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(0, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(8, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
 
     const char config_change[] = "\
 <config>\
@@ -211,11 +259,13 @@ TEST_F(DnsConfigManagerTest, Reordered) {
 ";
     EXPECT_TRUE(parser_.Parse(config_change));
     task_util::WaitForIdle();
-    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(1, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_CHANGE));
-    EXPECT_EQ(7, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(0, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_CHANGE));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 1);
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(7, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(0, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
 
     const char config_change_1[] = "\
 <config>\
@@ -257,8 +307,13 @@ TEST_F(DnsConfigManagerTest, Reordered) {
 ";
     EXPECT_TRUE(parser_.Parse(config_change_1));
     task_util::WaitForIdle();
-    EXPECT_EQ(9, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(2, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_DELETE));
+    EXPECT_EQ(9, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 1);
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
 
     const char config_change_2[] = "\
 <delete>\
@@ -306,8 +361,13 @@ TEST_F(DnsConfigManagerTest, Reordered) {
 ";
     EXPECT_TRUE(parser_.Parse(config_change_2));
     task_util::WaitForIdle();
-    EXPECT_EQ(9, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(6, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_DELETE));
+    EXPECT_EQ(9, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(6, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 0);
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
 
     const char config_change_3[] = "\
 <config>\
@@ -323,16 +383,25 @@ TEST_F(DnsConfigManagerTest, Reordered) {
 ";
     EXPECT_TRUE(parser_.Parse(config_change_3));
     task_util::WaitForIdle();
-    EXPECT_EQ(11, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_ADD));
-    EXPECT_EQ(8, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_DELETE));
+    EXPECT_EQ(11, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(8, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(2, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 1);
+    EXPECT_EQ(0, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    EXPECT_EQ(11, GetCount(DNS_NETWORK_IPAM, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfigManager::CFG_DELETE));
-    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfigManager::CFG_DELETE));
+    EXPECT_EQ(11, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
+    EXPECT_EQ(11, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_ADD));
+    EXPECT_TRUE(GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_CHANGE) >= 1);
+    EXPECT_EQ(4, GetCount(DNS_VIRT_DOMAIN, DnsConfig::CFG_DELETE));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_ADD));
+    EXPECT_EQ(10, GetCount(DNS_VIRT_DOMAIN_RECORD, DnsConfig::CFG_DELETE));
     ClearCounts();
 }
 

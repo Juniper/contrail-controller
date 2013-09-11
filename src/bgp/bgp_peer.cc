@@ -13,7 +13,6 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
@@ -29,9 +28,11 @@
 #include "bgp/evpn/evpn_table.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "io/event_manager.h"
 #include "net/address.h"
+#include "net/bgp_af.h"
 
 using boost::system::error_code;
 using namespace std;
@@ -228,7 +229,7 @@ class BgpPeer::DeleteActor : public LifetimeActor {
     virtual void Destroy() {
         CHECK_CONCURRENCY("bgp::Config");
         peer_->PostCloseRelease();
-        peer_->rtinstance_->DestroyIPeer(peer_);
+        peer_->rtinstance_->peer_manager()->DestroyIPeer(peer_);
     }
 
   private:
@@ -281,6 +282,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           local_as_(server_->autonomous_system()),
           peer_as_(config_->peer_as()),
           remote_bgp_id_(0),
+          local_bgp_id_(server_->bgp_identifier()),
           peer_type_((peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP),
           policy_(peer_type_, RibExportPolicy::BGP, peer_as_, -1, 0),
           peer_close_(new PeerClose(this)),
@@ -303,7 +305,11 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
                             "internal" : "external");
     peer_info.set_local_asn(local_as_);
     peer_info.set_peer_asn(peer_as_);
-    peer_info.set_local_id(server_->bgp_identifier());
+    peer_info.set_local_id(local_bgp_id_);
+    if (!config->address_families().empty())
+        peer_info.set_configured_families(config->address_families());
+
+    peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
     BGPPeerInfo::Send(peer_info);
 }
 
@@ -323,6 +329,9 @@ void BgpPeer::BindLocalEndpoint(BgpSession *session) {
 }
 
 void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
+    if (IsDeleted())
+        return;
+
     config_ = config;
 
     // During peer deletion, configuration gets completely deleted. In that
@@ -338,10 +347,14 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
 
     bool clear_session = false;
 
+    BgpPeerInfoData peer_info;
+    peer_info.set_name(ToUVEKey());
+
     // Check if there is any change in the peer address.
     BgpPeerKey key(config);
     if (peer_key_ != key) {
         peer_key_ = key;
+        peer_info.set_peer_address(peer_key_.endpoint.address().to_string());
         clear_session = true;
     }
 
@@ -349,15 +362,33 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     if (family_ != new_families) {
         family_ = new_families;
         clear_session = true;
+        peer_info.set_configured_families(config->address_families());
     }
 
-    // Check if there is any change in the local or peer AS.
-    if (local_as_ != server_->autonomous_system() ||
-        peer_as_ != config->peer_as()) {
+    BgpProto::BgpPeerType old_type = PeerType();
+    if (local_as_ != server_->autonomous_system()) {
         local_as_ = server_->autonomous_system();
+        peer_info.set_local_asn(local_as_);
+        clear_session = true;
+    }
+
+    if (peer_as_ != config->peer_as()) {
         peer_as_ = config->peer_as();
-        peer_type_ =
-            (peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP;
+        peer_info.set_peer_asn(peer_as_);
+        clear_session = true;
+    }
+
+    if (local_bgp_id_ != server_->bgp_identifier()) {
+        local_bgp_id_ = server_->bgp_identifier();
+        peer_info.set_local_id(local_bgp_id_);
+        clear_session = true;
+    }
+
+    peer_type_ = (peer_as_ == local_as_) ? BgpProto::IBGP : BgpProto::EBGP;
+
+    if (old_type != PeerType()) {
+        peer_info.set_peer_type(PeerType() == BgpProto::IBGP ? 
+                                "internal" : "external");
         policy_.type = peer_type_;
         policy_.as_number = peer_as_;
         clear_session = true;
@@ -367,8 +398,14 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
         BGP_LOG_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
                      BGP_PEER_DIR_NA, "Session cleared due to changes in "
                      "peer configuration");
+        BGPPeerInfo::Send(peer_info);
         Clear();
     }
+}
+
+void BgpPeer::ClearConfig() {
+    CHECK_CONCURRENCY("bgp::Config");
+    config_ = NULL;
 }
 
 LifetimeActor *BgpPeer::deleter() {
@@ -551,7 +588,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     BgpProto::OpenMessage openmsg;
     openmsg.as_num = server->autonomous_system();
     openmsg.holdtime = state_machine_->hold_time();
-    openmsg.identifier = server->bgp_identifier();
+    openmsg.identifier = local_bgp_id_;
     static const uint8_t cap_mp[3][4] = {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
@@ -863,6 +900,12 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             vector<BgpProtoPrefix *>::const_iterator it;
             size_t label_offset = 24;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
+                if ((*it)->type != 2) {
+                    BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                                 BGP_PEER_DIR_IN,
+                                 "EVPN: Unsupported route type " << (*it)->type);
+                    continue;
+                }
                 uint32_t label = ((*it)->prefix[label_offset] << 16 |
                                   (*it)->prefix[label_offset + 1] << 8 |
                                   (*it)->prefix[label_offset + 2]) >> 4;
@@ -1005,7 +1048,7 @@ string BgpPeer::ToUVEKey() const {
     ostringstream out;
     out << rtinstance_->name() << ":";
     out << server_->localname() << ":";
-    out << peer_key_.endpoint.address();
+    out << peer_name();
     return out.str();
 }
 
@@ -1047,8 +1090,6 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
 void BgpPeer::ManagedDelete() {
     BGP_LOG_PEER(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Received request for deletion");
-
-
     deleter_->Delete();
 }
  
@@ -1152,7 +1193,7 @@ void BgpPeer::FillNeighborInfo(std::vector<BgpNeighborResp> &nbr_list) const {
     nbr.set_encoding("BGP");
     nbr.set_state(state_machine_->StateName());
     nbr.set_peer_id(remote_bgp_id_);
-    nbr.set_local_id(server_->bgp_identifier());
+    nbr.set_local_id(local_bgp_id_);
     nbr.set_active_holdtime(state_machine_->hold_time());
 
     FillBgpNeighborDebugState(nbr, peer_stats_.get());
@@ -1206,7 +1247,7 @@ void BgpPeer::inc_rx_route_unreach() {
 
 std::string BgpPeer::last_flap_at() const { 
     if (last_flap_) {
-        return boost::lexical_cast<std::string>(UTCUsecToPTime(last_flap_));
+        return integerToString(UTCUsecToPTime(last_flap_));
     } else {
         return "";
     }

@@ -42,10 +42,8 @@ public:
 
   /// Default constructor.
   basic_endpoint() {
-      struct sockaddr_nl *sa;
-      sa = (struct sockaddr_nl *)&impl_;
-      memset(sa, 0, sizeof(impl_));
-      sa->nl_family = AF_NETLINK;
+      memset(&impl_, 0, sizeof(impl_));
+      sa.nl_family = AF_NETLINK;
   }
 
   data_type *data() {
@@ -67,7 +65,10 @@ public:
 
 private:
   // The underlying NETLINK domain endpoint.
-  data_type impl_;
+  union {
+      data_type impl_;
+      struct sockaddr_nl sa;
+  };
 };
 
 } // namespace netlink

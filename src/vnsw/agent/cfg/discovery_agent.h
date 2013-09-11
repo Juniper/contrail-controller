@@ -13,12 +13,10 @@ class DiscoveryAgentClient {
         static void Shutdown();
         static void DiscoverServices();
         static void DiscoverController(); //subscribe to XMPP server on controller
-        static void DiscoverCollector();  //subscribe to collector server
         static void DiscoverDNS();        //subscribe to DN server
 
         // subscribe callbacks
         static void DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp);
-        static void DiscoverySubscribeCollectorHandler(std::vector<DSResponse> resp);
         static void DiscoverySubscribeDNSHandler(std::vector<DSResponse> resp);
 };
 

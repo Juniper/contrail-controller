@@ -18,10 +18,11 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/scheduling_group.h"
+#include "bgp/routing-instance/peer_manager.h"
+#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/service_chaining.h"
 #include "io/event_manager.h"
-#include "routing-instance/routing_instance.h"
-#include "routing-instance/routepath_replicator.h"
-#include "routing-instance/service_chaining.h"
 
 using namespace std;
 using namespace boost::asio;
@@ -40,6 +41,7 @@ public:
             boost::bind(&ConfigUpdater::ProcessBgpConfig, this, _1, _2);
         obs.neighbor =
             boost::bind(&ConfigUpdater::ProcessNeighborConfig, this, _1, _2);
+
         server->config_manager()->RegisterObservers(obs);
     }
 
@@ -78,45 +80,26 @@ public:
     void BgpServerConfigUpdate(string instance_name,
                                autogen::BgpRouterParams &params) {
         boost::system::error_code ec;
-        bool autonomous_system_changed;
-        bool bgp_identifier_changed;
-
         Ip4Address bgp_identifier =
             Ip4Address::from_string(params.identifier, ec);
-        autonomous_system_changed = server_->autonomous_system_ != 0 &&
-            server_->autonomous_system_ != params.autonomous_system;
-        bgp_identifier_changed = !server_->bgp_identifier_.is_unspecified() &&
-                                  server_->bgp_identifier_ != bgp_identifier;
         
         server_->autonomous_system_ = params.autonomous_system;
         server_->bgp_identifier_ = bgp_identifier;
-        
-        //
-        // For AS Number and/or BGP Identifier changes, clear all peers
-        //
-        if (autonomous_system_changed || bgp_identifier_changed) {
-            RoutingInstance *rtinstance = server_->routing_instance_mgr()->\
-                                            GetRoutingInstance(instance_name);
-            if (rtinstance) {
-                rtinstance->ClearAllPeers();
-            }
-        }
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,
                                BgpConfigManager::EventType event) {
         string instance_name = neighbor_config->InstanceName();
-        RoutingInstanceMgr *rt_mgr = server_->routing_instance_mgr();
-        RoutingInstance *rti = rt_mgr->GetRoutingInstance(instance_name);
+        RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+        RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance_name);
+        PeerManager *peer_manager = rti->peer_manager();
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
-            assert(rti != NULL);
-            BgpPeer *peer = rti->PeerLocate(server_, neighbor_config);
+            BgpPeer *peer = peer_manager->PeerLocate(server_, neighbor_config);
             peer->ConfigUpdate(neighbor_config);
         } else if (event == BgpConfigManager::CFG_DELETE) {
-            assert(rti != NULL);
-            rti->TriggerPeerDeletion(neighbor_config);
+            peer_manager->TriggerPeerDeletion(neighbor_config);
         }
     }
 
@@ -191,7 +174,6 @@ BgpServer::BgpServer(EventManager *evm)
       aspath_db_(new AsPathDB(this)),
       comm_db_(new CommunityDB(this)),
       extcomm_db_(new ExtCommunityDB(this)),
-      origin_vn_db_(new OriginVnDB(this)),
       attr_db_(new BgpAttrDB(this)),
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
       sched_mgr_(new SchedulingGroupManager),
@@ -287,7 +269,7 @@ void BgpServer::VisitBgpPeers(BgpServer::VisitorFn fn) const {
     RoutingInstanceMgr::RoutingInstanceIterator rit = inst_mgr_->begin();
     for (;rit != inst_mgr_->end(); rit++) {
         BgpPeerKey key = BgpPeerKey();
-        while (BgpPeer *peer = rit->NextPeer(key)) {
+        while (BgpPeer *peer = rit->peer_manager()->NextPeer(key)) {
             fn(peer);
         }
     }

@@ -113,7 +113,7 @@ static void AddAclEntry(const char *name, int id, int proto,
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
-    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
     client->WaitForIdle();
 }
 

@@ -9,21 +9,39 @@
 #include <oper/mirror_table.h>
 #include "icmp_proto.h"
 
-template<> Proto<IcmpHandler> *Proto<IcmpHandler>::instance_ = NULL;
-IcmpHandler::IcmpStats IcmpHandler::stats_;
+///////////////////////////////////////////////////////////////////////////////
+
+void IcmpProto::Init(boost::asio::io_service &io) {
+    Agent::GetInstance()->SetIcmpProto(new IcmpProto(io));
+}
+
+void IcmpProto::Shutdown() {
+    delete Agent::GetInstance()->GetIcmpProto();
+    Agent::GetInstance()->SetIcmpProto(NULL);
+}
+
+IcmpProto::IcmpProto(boost::asio::io_service &io) :
+    Proto<IcmpHandler>("Agent::Services", PktHandler::ICMP, io) {
+}
+
+IcmpProto::~IcmpProto() {
+}
+
+///////////////////////////////////////////////////////////////////////////////
 
 bool IcmpHandler::Run() {
+    IcmpProto *icmp_proto = Agent::GetInstance()->GetIcmpProto();
     switch (icmp_->type) {
         case ICMP_ECHO:
             if (CheckPacket()) {
-                stats_.IncrStatsGwPing();
+                icmp_proto->IncrStatsGwPing();
                 SendResponse();
             } else
-                stats_.IncrStatsGwPingErr();
+                icmp_proto->IncrStatsGwPingErr();
             return true;
 
         default:
-            stats_.IncrStatsDrop();
+            icmp_proto->IncrStatsDrop();
             return true;
     }
 }
@@ -61,3 +79,5 @@ void IcmpHandler::SendResponse() {
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::ICMP);
 }
+
+///////////////////////////////////////////////////////////////////////////////

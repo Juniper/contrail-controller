@@ -32,7 +32,7 @@ Inet4UcRouteTable::~Inet4UcRouteTable() {
 auto_ptr<DBEntry> Inet4UcRouteTable::AllocEntry(const DBRequestKey *k) const {
     const Inet4UcRouteKey *key = static_cast<const Inet4UcRouteKey *>(k);
     VrfKey vrf_key(key->vrf_name_);
-    VrfEntry *vrf = static_cast<VrfEntry *>(Agent::GetVrfTable()->Find(&vrf_key, true));
+    VrfEntry *vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&vrf_key, true));
     Inet4UcRoute *route = new Inet4UcRoute(vrf, key->addr_, key->plen_);
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
@@ -45,7 +45,7 @@ DBTableBase *Inet4UcRouteTable::CreateTable(DB *db, const std::string &name) {
     size_t index = name.rfind(VrfTable::GetInet4UcSuffix());
     assert(index != string::npos);
     string vrf = name.substr(0, index);
-    VrfEntry *vrf_entry = Agent::GetVrfTable()->FindVrfFromName(vrf);
+    VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf);
     assert(vrf_entry);
     table->SetVrfEntry(vrf_entry);
     table->SetVrfDeleteRef(vrf_entry->deleter());
@@ -87,7 +87,7 @@ void Inet4UcRouteTable::EvaluateUnresolvedNH(void) {
         nh_key->sub_op_ = AgentKey::RESYNC;
         req.key = key;
         req.data.reset(NULL);
-        Agent::GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     }
     unresolved_nh_tree_.clear();
 }
@@ -260,13 +260,13 @@ void Inet4UcRouteTable::Input(DBTablePartition *part, DBClient *client,
             if (path == NULL) {
                 path = new AgentPath(key->peer_, rt);
                 rt->InsertPath(path);
-                path->RouteChange(Agent::GetNextHopTable(), key, data, sync);
+                path->RouteChange(Agent::GetInstance()->GetNextHopTable(), key, data, sync);
                 rt->FillTrace(rt_info, Inet4Route::ADD_PATH, path);
                 OPER_TRACE(Route, rt_info);
                 notify = true;
             } else {
                 // Let path know of route change and update itself
-                notify = path->RouteChange(Agent::GetNextHopTable(), key, 
+                notify = path->RouteChange(Agent::GetInstance()->GetNextHopTable(), key, 
                                            data, sync);
                 rt->FillTrace(rt_info, Inet4Route::CHANGE_PATH, path);
                 OPER_TRACE(Route, rt_info);
@@ -330,7 +330,7 @@ Inet4UcRoute *Inet4UcRouteTable::FindLPM(const Ip4Address &ip) {
 
 Inet4UcRoute *Inet4UcRouteTable::FindRoute(const string &vrf_name, 
         const Ip4Address &ip) {
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     Inet4UcRouteTable *rt_table = vrf->GetInet4UcRouteTable();
     return rt_table->FindLPM(ip);
 }
@@ -353,7 +353,7 @@ Inet4UcRoute *Inet4UcRouteTable::FindResolveRoute(const Ip4Address &ip) {
 
 Inet4UcRoute *Inet4UcRouteTable::FindResolveRoute(const string &vrf_name, 
         const Ip4Address &ip) {
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     Inet4UcRouteTable *rt_table = vrf->GetInet4UcRouteTable();
     return rt_table->FindResolveRoute(ip);
 }
@@ -446,7 +446,7 @@ const Peer *Inet4UcRoute::GetActivePeer() const {
 }
 
 DBEntryBase::KeyPtr Inet4UcRoute::GetDBRequestKey() const {
-    Inet4UcRouteKey *key = new Inet4UcRouteKey(Agent::GetLocalPeer(),
+    Inet4UcRouteKey *key = new Inet4UcRouteKey(Agent::GetInstance()->GetLocalPeer(),
                                            GetVrfEntry()->GetName(), 
                                            GetIpAddress(), GetPlen());
     return DBEntryBase::KeyPtr(key);
@@ -498,7 +498,7 @@ void Inet4UcRoute::UpdateNH(void) {
         nh_key->sub_op_ = AgentKey::RESYNC;
         req.key = key;
         req.data.reset(NULL);
-        Agent::GetNextHopTable()->Enqueue(&req);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     }
 }
 
@@ -562,11 +562,11 @@ void Inet4UcRouteTable::AddHostRoute(const string &vrf_name,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    Inet4UcRouteKey *key = new Inet4UcRouteKey(Agent::GetLocalPeer(),
+    Inet4UcRouteKey *key = new Inet4UcRouteKey(Agent::GetInstance()->GetLocalPeer(),
                                            vrf_name, addr, plen);
     req.key.reset(key);
 
-    HostInterfaceKey intf_key(nil_uuid(), Agent::GetHostInterfaceName());
+    HostInterfaceKey intf_key(nil_uuid(), Agent::GetInstance()->GetHostInterfaceName());
     Inet4UcHostRoute *data = new Inet4UcHostRoute(intf_key, dest_vn_name);
     req.data.reset(data);
 
@@ -671,14 +671,14 @@ void Inet4UcRouteTable::AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
     // First enqueue request to add/change Interface NH
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *nh_key = new TunnelNHKey(Agent::GetDefaultVrf(),
-                                         Agent::GetRouterId(), server_ip,
+    NextHopKey *nh_key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
+                                         Agent::GetInstance()->GetRouterId(), server_ip,
                                          false, TunnelType::ComputeType(bmap));
     req.key.reset(nh_key);
 
     TunnelNHData *nh_data = new TunnelNHData();
     req.data.reset(nh_data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 
     // Enqueue request for route pointing to Interface NH created above
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -686,7 +686,7 @@ void Inet4UcRouteTable::AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
     Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(peer, vm_vrf, vm_addr, plen);
     req.key.reset(rt_key);
 
-    Inet4UcRemoteVmRoute *rt_data = new Inet4UcRemoteVmRoute(Agent::GetDefaultVrf(),
+    Inet4UcRemoteVmRoute *rt_data = new Inet4UcRemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
                                                          server_ip, label,
                                                          dest_vn_name, bmap);
     req.data.reset(rt_data);
@@ -705,14 +705,14 @@ void Inet4UcRouteTable::AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
     // First enqueue request to add/change Interface NH
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *nh_key = new TunnelNHKey(Agent::GetDefaultVrf(), 
-                                         Agent::GetRouterId(), server_ip,
+    NextHopKey *nh_key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+                                         Agent::GetInstance()->GetRouterId(), server_ip,
                                          false, TunnelType::ComputeType(bmap));
     req.key.reset(nh_key);
 
     TunnelNHData *nh_data = new TunnelNHData();
     req.data.reset(nh_data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 
     // Enqueue request for route pointing to Interface NH created above
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -721,7 +721,7 @@ void Inet4UcRouteTable::AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
     req.key.reset(rt_key);
 
     Inet4UcRemoteVmRoute *rt_data = 
-        new Inet4UcRemoteVmRoute(Agent::GetDefaultVrf(), server_ip, label,
+        new Inet4UcRemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(), server_ip, label,
                                  dest_vn_name, bmap);
     rt_data->sg_list_ = sg_list;
     req.data.reset(rt_data);
@@ -769,7 +769,7 @@ void Inet4UcRouteTable::AddArpReq(const string &vrf_name, const Ip4Address &ip) 
 
     ArpNHData *arp_data = new ArpNHData();
     nh_req.data.reset(arp_data);
-    Agent::GetNextHopTable()->Enqueue(&nh_req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
 
     DBRequest  rt_req;
     rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -806,16 +806,16 @@ void Inet4UcRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     switch(op) {
     case DBRequest::DB_ENTRY_ADD_CHANGE:
-        Agent::GetNextHopTable()->Enqueue(&nh_req);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
         data = new Inet4RouteData(Inet4RouteData::ARP_ROUTE);
         break;
 
     case DBRequest::DB_ENTRY_DELETE: {
-        VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+        VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
         Inet4UcRoute *rt = 
             static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->Find(rt_key));
         assert(resolved==false);
-        Agent::GetNextHopTable()->Enqueue(&nh_req);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
 
         // If no other route is dependent on this, remove the route; else ignore
         if (rt && rt->gw_route_empty() && rt->tunnel_nh_list_empty()) {
@@ -872,8 +872,8 @@ void Inet4UcRouteTable::AddVHostRecvRoute(const string &vm_vrf,
                                           const string &interface_name,
                                           const Ip4Address &addr,
                                           bool policy) {
-    AddVHostRecvRoute(Agent::GetLocalPeer(), vm_vrf, interface_name, addr,
-                      Agent::GetFabricVnName(), policy);
+    AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(), vm_vrf, interface_name, addr,
+                      Agent::GetInstance()->GetFabricVnName(), policy);
 }
 
 void Inet4UcRouteTable::AddVHostSubnetRecvRoute(
@@ -885,12 +885,12 @@ void Inet4UcRouteTable::AddVHostSubnetRecvRoute(
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(Agent::GetLocalPeer(), 
+    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(Agent::GetInstance()->GetLocalPeer(), 
                                               vm_vrf, subnet_addr, 32);
     req.key.reset(rt_key);
     VirtualHostInterfaceKey intf_key(nil_uuid(), interface_name);
     Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key, policy,
-                                                        Agent::GetFabricVnName());
+                                                        Agent::GetInstance()->GetFabricVnName());
     req.data.reset(data);
     uc_route_table_->Enqueue(&req);
 }
@@ -898,7 +898,7 @@ void Inet4UcRouteTable::AddVHostSubnetRecvRoute(
 void Inet4UcRouteTable::AddDropRoute(const string &vm_vrf,
                                      const Ip4Address &addr, uint8_t plen) {
     Ip4Address subnet_addr(addr.to_ulong() | ~(0xFFFFFFFF << (32 - plen)));
-    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(Agent::GetLocalPeer(), 
+    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(Agent::GetInstance()->GetLocalPeer(), 
                                                   vm_vrf, subnet_addr, plen);
     Inet4UcDropRoute *data = new Inet4UcDropRoute();
     DBRequest req;
@@ -911,7 +911,7 @@ void Inet4UcRouteTable::AddDropRoute(const string &vm_vrf,
 void Inet4UcRouteTable::DelVHostSubnetRecvRoute(
     const string &vm_vrf, const Ip4Address &addr, uint8_t plen) {
     Ip4Address subnet_addr(addr.to_ulong() | ~(0xFFFFFFFF << (32 - plen)));
-    DeleteReq(Agent::GetLocalPeer(), vm_vrf, subnet_addr, 32);
+    DeleteReq(Agent::GetInstance()->GetLocalPeer(), vm_vrf, subnet_addr, 32);
 }
 
 void Inet4UcRouteTable::AddGatewayRoute(const Peer *peer, const string &vrf_name,
@@ -934,7 +934,7 @@ void Inet4UcRouteTable::Inet4UcRouteTableWalkerNotify(VrfEntry *vrf,
                                                   bool subnet_only,
                                                   bool associate) {
     boost::system::error_code ec;
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
         
     if (vrf_state->inet4_uc_walkid_ != DBTableWalker::kInvalidWalkerId) {
@@ -971,7 +971,7 @@ void Inet4UcRouteTable::Inet4UcRouteNotifyDone(DBTableBase *base,
 
 void UnresolvedNH::HandleRequest() const {
 
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromId(0);
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());
@@ -1003,7 +1003,7 @@ void UnresolvedNH::HandleRequest() const {
 }
 
 void UnresolvedRoute::HandleRequest() const {
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromId(0);
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());
@@ -1086,7 +1086,7 @@ bool Inet4UcRoute::DBEntrySandesh(Sandesh *sresp, Ip4Address addr,
 /////////////////////////////////////////////////////////////////////////////
 
 void Inet4UcRouteReq::HandleRequest() const {
-    VrfEntry *vrf = Agent::GetVrfTable()->FindVrfFromId(get_vrf_index());
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

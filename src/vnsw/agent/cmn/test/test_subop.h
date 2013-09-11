@@ -52,7 +52,9 @@ public:
     };
     static void ClearCount() {free_count_ = 0;};
 
-    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {};
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {
+        return true;
+    }
     static int free_count_;
 
     int id_;

@@ -12,11 +12,14 @@ import json
 import time
 import disc_consts 
 
+from gevent.coros import BoundedSemaphore
+
 class DiscoveryZkClient(object):
     def __init__(self, discServer, zk_srv_ip='127.0.0.1', zk_srv_port='2181', reset_config=False):
         self._reset_config = reset_config
         self._service_id_to_type = {}
         self._ds = discServer
+        self._zk_sem = BoundedSemaphore(1)
 
         self._zk = kazoo.client.KazooClient(hosts = '%s:%s' % (zk_srv_ip, zk_srv_port),
             timeout = 120, handler = kazoo.handlers.gevent.SequentialGeventHandler())
@@ -109,10 +112,14 @@ class DiscoveryZkClient(object):
 
         # preclude duplicate service entry
         sid_set = set()
+
+        # prevent background task from deleting node under our nose
+        self._zk_sem.acquire()
         seq_list = self._zk.get_children(path)
         for sequence in seq_list:
             sid, stat = self._zk.get('/election/%s/%s' %(service_type, sequence))
             sid_set.add(sid)
+        self._zk_sem.release()
         if not service_id in sid_set:
             path = '/election/%s/node-' %(service_type)
             pp = self._zk.create(path, service_id, makepath = True, sequence = True)
@@ -179,11 +186,9 @@ class DiscoveryZkClient(object):
         data = {'ttl': ttl, 'blob': blob}
 
         path = '/services/%s/%s/%s' % (service_type, service_id, client_id)
-        self.syslog('create %s' %(path))
         self.create_node(path, value = json.dumps(data))
 
         path = '/clients/%s/%s/%s' % (service_type, client_id, service_id)
-        self.syslog('create %s' %(path))
         self.create_node(path, value = json.dumps(data), makepath = True)
     #end insert_client
 
@@ -252,14 +257,14 @@ class DiscoveryZkClient(object):
         path = '/clients/%s/%s/%s' %(service_type, client_id, service_id)
         self._zk.delete(path)
 
-        # purge in-memory cache - ideally we are not supposed to know about this
-        self._ds.delete_sub_data(client_id, service_type)
-
         # delete client node if all subscriptions gone
         path = '/clients/%s/%s' %(service_type, client_id)
         if self._zk.get_children(path):
             return
         self._zk.delete(path)
+
+        # purge in-memory cache - ideally we are not supposed to know about this
+        self._ds.delete_sub_data(client_id, service_type)
 
         # delete service node if all clients gone
         path = '/clients/%s' %(service_type)
@@ -326,7 +331,9 @@ class DiscoveryZkClient(object):
                 if not self._zk.exists(path):
                     continue
                 self.syslog('Deleting sequence node %s for service %s:%s' %(path, service_type, service_id))
+                self._zk_sem.acquire()
                 self._zk.delete(path)
+                self._zk_sem.release()
                 self._debug['oos_delete'] += 1
             gevent.sleep(self._ds._args.hc_interval)
     #end

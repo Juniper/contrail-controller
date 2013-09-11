@@ -88,7 +88,7 @@ void Inet4RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
     Inet4UcRoute *route = static_cast<Inet4UcRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
-    AgentPath *path = route->FindPath(Agent::GetLocalVmPeer());
+    AgentPath *path = route->FindPath(Agent::GetInstance()->GetLocalVmPeer());
 
     if (marked_delete_) {
         //Ignore route updates on delete marked vrf
@@ -175,12 +175,14 @@ void Inet4RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         return;
     }
 
+    if (marked_delete_) {
+        //Ignore route updates on delete marked vrf
+        return;
+    }
+
     if (state == NULL) {
         state = new State();
         route->SetState(partition->parent(), id_, state);
-        //We should never add a state on a VRF marked 
-        //for delete
-        assert(marked_delete_ == false);
     }
 
     if ((cnh->ComponentNHCount() != 0) &&
@@ -217,7 +219,7 @@ void Inet4RouteExport::Walkdone(DBTableBase *partition,
 
 void Inet4RouteExport::Unregister() {
     //Start unregister process
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     walker->WalkTable(rt_table_, NULL, 
             boost::bind(&Inet4RouteExport::DeleteState, this, _1, _2),
             boost::bind(&Inet4RouteExport::Walkdone, _1, this));

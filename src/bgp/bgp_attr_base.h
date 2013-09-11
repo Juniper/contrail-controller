@@ -42,8 +42,7 @@ struct BgpAttribute : public ParseObject {
     enum Subcode {
         OList = 1,
         LabelBlock = 2,
-        OriginVn = 3,
-        SourceRd = 4
+        SourceRd = 3
     };
 
     BgpAttribute() : code(0), subcode(0), flags(0) { }
@@ -64,6 +63,7 @@ struct BgpProtoPrefix : public ParseObject {
     BgpProtoPrefix();
     std::vector<uint8_t> prefix;
     int prefixlen;
+    uint8_t type; // only applicable for evpn
 };
 
 // Base class to manage BGP Path Attributes database. This class provides

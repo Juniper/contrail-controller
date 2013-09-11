@@ -44,8 +44,8 @@ public:
     virtual int VrResponseMsgHandler(vr_response *req) {return 0;};
     virtual void FlowMsgHandler(vr_flow_req *req);
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req);
-    virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req) {}
-    virtual void DropStatsMsgHandler(vr_drop_stats_req *req) {}
+    virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
+    virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void Process() {}
 private:
     bool response_reqd_; 
@@ -77,9 +77,11 @@ struct TestVrfAssignCmp {
 
 //this class stores all netlink sandesh messages in a map
 //used for unit testing or userspace datapath integration
-class KSyncSockTypeMap : public KSyncSockType {
+class KSyncSockTypeMap : public KSyncSock {
 public:
-    KSyncSockTypeMap(boost::asio::io_service &ios) : sock_(ios) { block_msg_processing_ = false; }
+    KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
+        block_msg_processing_ = false;
+    }
     ~KSyncSockTypeMap() {
         assert(nh_map.size() == 0);
         assert(flow_map.size() == 0);
@@ -104,29 +106,41 @@ public:
     ksync_map_mirror mirror_map; 
     typedef std::set<vr_vrf_assign_req, TestVrfAssignCmp> ksync_vrf_assign_tree;
     ksync_vrf_assign_tree vrf_assign_tree; 
+    typedef std::map<int, vr_vrf_stats_req> ksync_map_vrf_stats;
+    ksync_map_vrf_stats vrf_stats_map; 
+    vr_drop_stats_req drop_stats;
 
     typedef std::queue<KSyncUserSockContext *> ksync_map_ctx_queue;
     ksync_map_ctx_queue ctx_queue_;
     tbb::mutex  ctx_queue_lock_;
 
+    virtual uint32_t GetSeqno(char *data);
+    virtual bool IsMoreData(char *data);
+    virtual void Decoder(char *data, SandeshContext *ctxt);
+    virtual bool Validate(char *data);
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void AsyncSendTo(boost::asio::mutable_buffers_1, HandlerCb);
-    virtual void SendTo(boost::asio::const_buffers_1);
+    virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
+                             HandlerCb);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
-    static void ProcessSandesh(const uint8_t *, KSyncUserSockContext *);
+    static void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void SimulateResponse(uint32_t, int, int);
     static void SendNetlinkDoneMsg(int seq_num);
     static void IfDumpResponse(uint32_t);
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
     static void IfStatsSet(int, int, int, int, int, int, int);
+    static void VrfStatsAdd(int vrf_id);
+    static void VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
+                               uint64_t receives, uint64_t tunnels, 
+                               int64_t composites, uint64_t encaps);
     static int IfCount();
     static int NHCount();
     static int MplsCount();
     static int RouteCount();
     static KSyncSockTypeMap *GetKSyncSockTypeMap() { return singleton_; };
-    static void Init(boost::asio::io_service &ios);
+    static void Init(boost::asio::io_service &ios, int count);
     static void Shutdown();
     static vr_flow_entry *FlowMmapAlloc(int size);
     static void FlowMmapFree();
@@ -215,6 +229,25 @@ public:
     /* GET operation is not supported for route */
     virtual Sandesh* Get(int idx) { 
         return NULL;
+    }
+};
+
+class VrfStatsDumpHandler : public MockDumpHandlerBase {
+public:
+    VrfStatsDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *);
+    virtual Sandesh* GetNext(Sandesh *);
+    virtual Sandesh* Get(int idx);
+};
+
+class DropStatsDumpHandler : public MockDumpHandlerBase {
+public:
+    DropStatsDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *) { return NULL; }
+    virtual Sandesh* GetNext(Sandesh *) { return NULL; }
+    virtual Sandesh* Get(int idx) {
+        KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+        return &sock->drop_stats;
     }
 };
 
@@ -343,6 +376,48 @@ public:
     virtual void Process(); 
 private:
     vr_vrf_assign_req *req_;
+};
+
+class KSyncUserSockVrfStatsContext : public KSyncUserSockContext {
+public:
+    KSyncUserSockVrfStatsContext(uint32_t seq_num, vr_vrf_stats_req *req) : KSyncUserSockContext(false, seq_num) {
+        if (req) {
+            req_ = new vr_vrf_stats_req(*req);
+        } else {
+            req_ = NULL;
+        }
+    }
+    ~KSyncUserSockVrfStatsContext() {
+        if (req_) {
+            delete req_;
+            req_ = NULL;
+        }
+    }
+
+    virtual void Process(); 
+private:
+    vr_vrf_stats_req *req_;
+};
+
+class KSyncUserSockDropStatsContext : public KSyncUserSockContext {
+public:
+    KSyncUserSockDropStatsContext(uint32_t seq_num, vr_drop_stats_req *req) : KSyncUserSockContext(false, seq_num) {
+        if (req) {
+            req_ = new vr_drop_stats_req(*req);
+        } else {
+            req_ = NULL;
+        }
+    }
+    ~KSyncUserSockDropStatsContext() {
+        if (req_) {
+            delete req_;
+            req_ = NULL;
+        }
+    }
+
+    virtual void Process(); 
+private:
+    vr_drop_stats_req *req_;
 };
 
 #endif // ctrlplane_ksync_sock_user_h

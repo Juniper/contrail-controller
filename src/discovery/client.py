@@ -48,7 +48,14 @@ class Subscribe(object):
         self.sig = hashlib.md5(infostr).hexdigest()
         self.done = False
 
-        self.post_body = json.dumps({'service':service_type, 'instances':count, 'client':dc._myid})
+        data = {
+            'service':service_type, 
+            'instances':count, 
+            'client-type':dc._client_type, 
+            'client':dc._myid
+        }
+        self.post_body = json.dumps(data)
+
         self.url = "http://%s:%s/subscribe" %(dc._server_ip, dc._server_port)
 
         if f:
@@ -110,26 +117,15 @@ class Subscribe(object):
             gevent.sleep(1)
     #end
 
-    def read(self, raw = False):
-        if raw:
-            return self.info
-
-        if self.service_type in services.__all__:
-            r = []
-            class_name = CamelCase(self.service_type)
-            cls = str_to_class(class_name)
-            for obj_dict in self.info:
-                obj = cls.factory(**obj_dict)
-                r.append(obj)
-        else:
-            r = self.info
-        return r
+    def read(self):
+        return self.info
 
 class DiscoveryClient(object):
-    def __init__(self, server_ip, server_port, id = None):
+    def __init__(self, server_ip, server_port, client_type):
         self._server_ip = server_ip
         self._server_port = server_port
-        self._myid = id or str(uuid.uuid4())
+        self._myid = str(uuid.uuid4())
+        self._client_type = client_type
         self._headers = {
             'Content-type': 'application/json',
             }
@@ -193,7 +189,9 @@ class DiscoveryClient(object):
         sock.settimeout(delay)
         while True:
             # send heartbeat for each published object seperately
-            for cookie in self.pubdata:
+            # dictionary can change size during iteration
+            pub_list = self.pubdata.copy()
+            for cookie in pub_list:
                 data = '<cookie>%s</cookie>' %(cookie)
                 sock.sendto(data, (self._server_ip, int(self._server_port)))
                 try:

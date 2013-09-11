@@ -266,7 +266,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         output.first = inputs[0]->first;
 
     if (mquery->table == g_viz_constants.FLOW_SERIES_TABLE) {
-        bool status;
+        bool status = false;
         for (size_t i = 0; i < inputs.size(); i++) {
             status = flowseries_merge_processing(&inputs[i]->second, 
                                                  &output.second);

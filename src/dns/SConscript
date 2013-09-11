@@ -17,12 +17,10 @@ env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
 env.Prepend(CPPPATH = env['TOP'] + '/bgp')
-env.Prepend(CPPPATH = env['TOP'] + '/../../third_party/bind-9.9.2-P1/bin/rndc/')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 
-env.Prepend(LIBS=['rndc', 'isccc', 'dns', 'isccfg', 'bind9','isc',
-                  'ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
+env.Prepend(LIBS=['ifmap_vnc', 'ifmap_server', 'ifmap_common', 'net', 'ifmapio',
                   'xmpp', 'ds', 'sandeshvns', 'sandesh', 'peer_sandesh',
                   'httpc', 'http', 'http_parser', 'curl',
                   'db', 'io', 'base', 'xml', 'pugixml', 'libxml2',

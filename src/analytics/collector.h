@@ -35,7 +35,8 @@ public:
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng);
-    ~Collector();
+    virtual ~Collector();
+    virtual void Shutdown();
 
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                            const std::string &cmsg, const std::string &message_type,
@@ -66,8 +67,6 @@ protected:
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
-    static const std::string kSessionTask;
-
     DbHandler *db_handler_;
     OpServerProxy * const osp_;
     EventManager * const evm_;
@@ -83,7 +82,6 @@ private:
     boost::uuids::random_generator umn_gen_;
     static std::string prog_name_;
     static std::string self_ip_;
-    int session_task_id_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };
@@ -95,6 +93,7 @@ public:
             int task_id) :
         SandeshSession(client, socket, task_instance, task_id),
         gen_(NULL) { }
+    void EnqueueClose();
 };
 
 #endif /* COLLECTOR_H_ */

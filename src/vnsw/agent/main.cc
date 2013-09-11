@@ -32,11 +32,12 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <base/misc_utils.h>
+#include <cmn/buildinfo.h>
 
 namespace opt = boost::program_options;
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetEventManager()), Agent::GetDB());
+    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), Agent::GetInstance()->GetDB());
 
     // Parse config and then connect
     VNController::Connect();
@@ -56,17 +57,6 @@ bool AgentInit::Run() {
     switch(state_) {
         case MOD_INIT:
 
-            Sandesh::InitGenerator(
-                g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second,
-                Agent::GetHostName(), Agent::GetEventManager(),
-                sandesh_port_);
-            if ((collector_server_port_ != 0) && (!collector_server_.empty())) {
-                Sandesh::ConnectToCollector(collector_server_, collector_server_port_);
-                Agent::SetCollector(collector_server_);
-                Agent::SetCollectorPort(collector_server_port_);
-            }
-            Sandesh::SetLoggingParams(log_locally_, log_category_, log_level_);
-
             InitModules();
             state_ = STATIC_OBJ_OPERDB;
             // Continue with the next state
@@ -85,7 +75,7 @@ bool AgentInit::Run() {
         case CONFIG_INIT:
             state_ = CONFIG_RUN;
             if (init_file_) {
-                AgentConfig::Init(Agent::GetDB(), init_file_, 
+                AgentConfig::Init(Agent::GetInstance()->GetDB(), init_file_, 
                                   boost::bind(&AgentInit::Trigger, this));
                 ServicesModule::ConfigInit();
                 break;
@@ -104,20 +94,34 @@ bool AgentInit::Run() {
                 KSync::VnswIfListenerInit();
             }
 
-            if (Agent::GetRouterIdConfigured()) {
+            if (Agent::GetInstance()->GetRouterIdConfigured()) {
                 RouterIdDepInit();
             } else {
                 LOG(DEBUG, 
                     "Router ID Dependent modules (Nova & BGP) not initialized");
             }
 
+            if (Agent::GetInstance()->GetDiscoveryServer().empty()) {
+                Sandesh::InitGenerator(
+                    g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second,
+                    Agent::GetInstance()->GetHostName(), Agent::GetInstance()->GetEventManager(),
+                    sandesh_port_);
+
+                if ((collector_server_port_ != 0) && (!collector_server_.empty())) {
+                    Sandesh::ConnectToCollector(collector_server_, collector_server_port_);
+                    Agent::GetInstance()->SetCollector(collector_server_);
+                    Agent::GetInstance()->SetCollectorPort(collector_server_port_);
+                }
+            }
+            Sandesh::SetLoggingParams(log_locally_, log_category_, log_level_);
+
+            //Discover Services
             DiscoveryAgentClient::DiscoverServices();
 
             state_ = INIT_DONE;
             // Continue with the next state
 
         case INIT_DONE: {
-            UveClient::SendVrouterObject();
             break;
         }
 
@@ -139,14 +143,14 @@ void AgentInit::InitModules() {
         KSync::CreateVhostIntf();
     }
 
-    CfgModule::CreateDBTables(Agent::GetDB());
-    OperDB::CreateDBTables(Agent::GetDB());
-    CfgModule::RegisterDBClients(Agent::GetDB());
-    Agent::SetMirrorCfgTable(MirrorCfgTable::CreateMirrorCfgTable());
-    Agent::SetIntfMirrorCfgTable(IntfMirrorCfgTable::CreateIntfMirrorCfgTable());
+    CfgModule::CreateDBTables(Agent::GetInstance()->GetDB());
+    OperDB::CreateDBTables(Agent::GetInstance()->GetDB());
+    CfgModule::RegisterDBClients(Agent::GetInstance()->GetDB());
+    Agent::GetInstance()->SetMirrorCfgTable(MirrorCfgTable::CreateMirrorCfgTable());
+    Agent::GetInstance()->SetIntfMirrorCfgTable(IntfMirrorCfgTable::CreateIntfMirrorCfgTable());
 
     if (ksync_init_) {
-        KSync::RegisterDBClients(Agent::GetDB());
+        KSync::RegisterDBClients(Agent::GetInstance()->GetDB());
     }
 
     if (pkt_init_) {
@@ -207,7 +211,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (var_map.count("version")) {
-        cout <<  Agent::GetBuildInfo() << endl;
+        cout <<  MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo) << endl;
         exit(0);
     }
 
@@ -249,7 +253,6 @@ int main(int argc, char *argv[]) {
         init_file = var_map["config-file"].as<string>().c_str();
     }
     int sandesh_http_port = var_map["http-server-port"].as<int>();
-    Agent::SetSandeshPort(sandesh_http_port);
     std::string log_level = var_map["log-level"].as<string>();
     std::string log_category = var_map["log-category"].as<string>();
 
@@ -260,16 +263,16 @@ int main(int argc, char *argv[]) {
         boost::system::error_code error;
         hostname = boost::asio::ip::host_name(error);
     }
-    Agent::SetHostName(hostname);
-    Agent::SetProgramName(argv[0]);
-    MiscUtils::LogVersionInfo(Agent::GetBuildInfo(), Category::VROUTER);
 
     // Read config file
     AgentCmdLineParams cmd_line(collector_server, collector_port, log_file, 
                                 init_file, enable_local_logging, log_level, 
                                 log_category, sandesh_http_port, hostname);
-    AgentConfig::InitConfig(init_file, cmd_line);
     AgentConfig::Mode mode = AgentConfig::MODE_KVM;
+    bool xen_config_set = false;
+    string port_name = "";
+    int plen = -1;
+    Ip4Address addr = Ip4Address::from_string("0.0.0.0");
     if (var_map.count("hypervisor")) {
         const std::string mode_str = var_map["hypervisor"].as<string>();
         if (mode_str == "kvm") {
@@ -277,9 +280,6 @@ int main(int argc, char *argv[]) {
         } else if (mode_str == "xen") {
             mode = AgentConfig::MODE_XEN;
 
-            string port_name = "";
-            int plen = -1;
-            Ip4Address addr = Ip4Address::from_string("0.0.0.0");
             if (var_map.count("xen-ll-port")) {
                 port_name = var_map["xen-ll-port"].as<string>();
             }
@@ -303,20 +303,30 @@ int main(int argc, char *argv[]) {
                     exit(EINVAL);
                 }
             }
-            AgentConfig::GetInstance()->SetXenInfo(port_name, addr, plen);
+            xen_config_set = true;
         } else {
             LOG(ERROR, "Error unknown hypervisor <" << mode_str << ">");
             exit(EINVAL);
         }
 
-        AgentConfig::GetInstance()->SetMode(mode);
     }
-    AgentConfig::GetInstance()->LogConfig();
-
     /*
-     * Create DB table and event manager
+     * Do Agent::Init before AgentConfig::InitConfig because some of the
+     * methods of Agent class could be invoked during AgentConfig::InitConfig
      */
     Agent::Init();
+    Agent::GetInstance()->SetHostName(hostname);
+    Agent::GetInstance()->SetProgramName(argv[0]);
+    Agent::GetInstance()->SetSandeshPort(sandesh_http_port);
+    MiscUtils::LogVersionInfo(Agent::GetInstance()->GetBuildInfo(), Category::VROUTER);
+
+    //Read the config file
+    AgentConfig::InitConfig(init_file, cmd_line);
+    if (xen_config_set)
+        AgentConfig::GetInstance()->SetXenInfo(port_name, addr, plen);
+    AgentConfig::GetInstance()->SetMode(mode);
+    AgentConfig::GetInstance()->LogConfig();
+
     AgentStats::Init();
 
     AgentInit::Init(ksync_init, pkt_init, 
@@ -325,6 +335,6 @@ int main(int argc, char *argv[]) {
             create_vhost);
     AgentInit::GetInstance()->Trigger();
 
-    Agent::GetEventManager()->Run();
+    Agent::GetInstance()->GetEventManager()->Run();
     return 0;
 }

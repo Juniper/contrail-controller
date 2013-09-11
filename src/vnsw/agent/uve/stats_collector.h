@@ -7,6 +7,7 @@
 
 #include <boost/asio.hpp>
 #include <map>
+#include "base/timer.h"
 #include "base/queue_task.h"
 
 class StatsCollector {
@@ -24,50 +25,34 @@ public:
     };
 
     StatsCollector(uint32_t instance, boost::asio::io_service &io, 
-                   int exp = stats_coll_time) : run_counter_(0),
+                   int exp, std::string timer_name) : run_counter_(0),
                    work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                        "Agent::StatsCollector"), instance, 
                        boost::bind(&StatsCollector::HandleMsg, this, _1)),
-                   timer_(io), expiry_time_(exp) {
-        StartTimer();
+                   timer_(NULL), expiry_time_(exp) {
+        timer_ = TimerManager::CreateTimer(io, timer_name.c_str());
+        timer_->Start(expiry_time_, 
+                      boost::bind(&StatsCollector::TimerExpiry, this));
     };
 
     virtual ~StatsCollector() { 
-        boost::system::error_code ec;
-        timer_.cancel(ec);
-        assert(ec.value() == 0);
+        timer_->Cancel();
+        TimerManager::DeleteTimer(timer_);
     }
 
     virtual bool Run() = 0;
 
     void StartTimer() {
-        boost::system::error_code ec;
-        timer_.expires_from_now(boost::posix_time::millisec(expiry_time_), ec);
-        assert(ec.value() == 0);
-        timer_.async_wait(boost::bind(&StatsCollector::TimerExpiry, this,
-                                      boost::asio::placeholders::error));
+        timer_->Cancel();
+        timer_->Start(expiry_time_, 
+                      boost::bind(&StatsCollector::TimerExpiry, this));
     }
     int run_counter_; //used only in UT code
 private:
-    bool EnqueueMessage(Event event) {
-        return work_queue_.Enqueue(event);
-    };
-
-    void TimerExpiry(const boost::system::error_code &ec) {
-        if (!ec)
-            SendTimerMsg();
-        else {
-            LOG(ERROR, "StatsCollector : timer error " << ec);
-            if (ec != boost::system::errc::operation_canceled) {
-                StartTimer();
-            }
-        }
-    }
-
-    void SendTimerMsg() {
-        if (!EnqueueMessage(StatsCollector::CollectStats)) {
-            LOG(ERROR, "StatsCollector : failed to enqueue; message dropped");
-        }
+    bool TimerExpiry() {
+        return work_queue_.Enqueue(CollectStats);
+        /* Return false to suppress auto-restart of timer */
+        return false;
     }
 
     bool HandleMsg(Event event) {
@@ -84,9 +69,7 @@ private:
     }
 
     WorkQueue<Event> work_queue_;
-    // TODO: This should use base/timer.h
-    boost::asio::deadline_timer timer_;
-    static tbb::atomic<bool> shutdown_;
+    Timer *timer_;
     int expiry_time_;
     DISALLOW_COPY_AND_ASSIGN(StatsCollector);
 };

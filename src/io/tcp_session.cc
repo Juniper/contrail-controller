@@ -7,9 +7,11 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <boost/scoped_array.hpp>
+#include <boost/asio/detail/socket_option.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
+#include "base/util.h"
 #include "io/event_manager.h"
 #include "io/tcp_server.h"
 #include "io/tcp_message_write.h"
@@ -214,16 +216,19 @@ void TcpSession::CloseInternal(bool callObserver) {
     established_ = false;
     name_ = "-";
 
+    // Take a reference through intrusive pointer to protect session from
+    // possibly getting deleted from another thread.
+    TcpSessionPtr session = TcpSessionPtr(this);
     lock.release();
 
     {
         mutex::scoped_lock obs_lock(obs_mutex_);
         if (callObserver == true && observer_) {
-            observer_(this, CLOSE);
+            observer_(session.get(), CLOSE);
         }
     }
 
-    server_->OnSessionClose(this);
+    server_->OnSessionClose(session.get());
 }
 
 void TcpSession::Close() {
@@ -260,6 +265,9 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
     bool ret = true;
     mutex::scoped_lock lock(mutex_);
 
+    // Reset sent, if provided.
+    if (sent) *sent = 0;
+
     //
     // If the session closed in the mean while, bail out
     //
@@ -274,6 +282,7 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
                 "Write failed due to error: " << error.category().name() << " "
                                               << error.message());
             CloseInternal(true);
+            return false;
         }
         if (len < 0 || (size_t)len != size) ret = false;
         if (sent) *sent = (len > 0) ? len : 0;
@@ -534,6 +543,59 @@ bool TcpSession::IsSocketErrorHard(const error_code &ec) {
     if (ec == error::no_buffer_space) return false;
 
     return true;
+}
+
+error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
+        int keepalive_intvl, int keepalive_probes) {
+    error_code ec;
+    socket_base::keep_alive keep_alive_option(true);
+    socket_->set_option(keep_alive_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "keep_alive set error: " << ec);
+        return ec;
+    }
+#ifdef TCP_KEEPIDLE
+    typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPIDLE > keepalive_idle_time;
+    keepalive_idle_time keepalive_idle_time_option(keepalive_time);
+    socket_->set_option(keepalive_idle_time_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "keepalive_idle_time: " << keepalive_time << " set error: " << ec);
+        return ec;
+    }
+#endif
+#ifdef TCP_KEEPALIVE
+    typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPALIVE > keepalive_idle_time;
+    keepalive_idle_time keepalive_idle_time_option(keepalive_time);
+    socket_->set_option(keepalive_idle_time_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "keepalive_idle_time: " << keepalive_time << " set error: " << ec);
+        return ec;
+    }
+#endif
+#ifdef TCP_KEEPINTVL
+    typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPINTVL > keepalive_interval;
+    keepalive_interval keepalive_interval_option(keepalive_intvl);
+    socket_->set_option(keepalive_interval_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "keepalive_interval: " << keepalive_intvl << " set error: " << ec);
+        return ec;
+    }
+#endif
+#ifdef TCP_KEEPCNT
+    typedef boost::asio::detail::socket_option::integer< IPPROTO_TCP, TCP_KEEPCNT > keepalive_count;
+    keepalive_count keepalive_count_option(keepalive_probes);
+    socket_->set_option(keepalive_count_option, ec);
+    if (ec) {
+        TCP_SESSION_LOG_ERROR(this, TCP_DIR_OUT,
+                "keepalive_probes: " << keepalive_probes << " set error: " << ec);
+        return ec;
+    }
+#endif
+    return ec;
 }
 
 error_code TcpSession::SetSocketOptions() {

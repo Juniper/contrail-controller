@@ -8,7 +8,6 @@
 
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
@@ -120,7 +119,7 @@ void xml_parse(pugi::xml_node &node, string &s, int n) {
             if (ms_set && ls_set) {
                 boost::uuids::uuid u;
                 to_uuid(uuid_ms, uuid_ls, u);
-                string tmp = boost::lexical_cast<std::string>(u);
+                string tmp = UuidToString(u);
                 s = s + t + "Uuid : " + tmp + "\n";
                 ms_set = ls_set = 0;
             }

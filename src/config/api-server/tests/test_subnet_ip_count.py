@@ -102,5 +102,16 @@ def all (ip='10.84.9.45', port=8082, domain_name='my-domain',
     print 'Actual output:', result
     print result
 
+    # cleanup
+    print 'Cleaning up'
+    vnc_lib.instance_ip_delete(id = ip_id1)
+    vnc_lib.instance_ip_delete(id = ip_id2)
+    vnc_lib.virtual_machine_interface_delete(id = port_obj1.uuid)
+    vnc_lib.virtual_machine_interface_delete(id = port_obj2.uuid)
+    vnc_lib.virtual_network_delete(id = vn.uuid)
+    vnc_lib.network_ipam_delete(id = ipam.uuid)
+    vnc_lib.project_delete(id = project.uuid)
+    vnc_lib.domain_delete(id = domain.uuid)
+
 if __name__ == '__main__':
     all ()

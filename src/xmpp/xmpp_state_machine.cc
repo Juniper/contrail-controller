@@ -794,8 +794,15 @@ bool XmppStateMachine::OpenTimerExpired() {
 
 
 bool XmppStateMachine::HoldTimerExpired() {
-     XMPP_UTDEBUG(XmppStateMachineTimerExpire, this->ChannelType(), 
-                  "Hold", StateName());
+    error_code error;
+
+    // Reset hold timer if there is data already present in the socket.
+    if (session() && session()->socket() &&
+            session()->socket()->available(error) > 0) {
+        return true;
+    }
+    XMPP_UTDEBUG(XmppStateMachineTimerExpire, this->ChannelType(),
+                 "Hold", StateName());
     Enqueue(xmsm::EvHoldTimerExpired());
     return false;
 }
@@ -900,7 +907,7 @@ string XmppStateMachine::LastStateName() const {
 }
 
 string XmppStateMachine::LastStateChangeAt() const {
-    return boost::lexical_cast<std::string>(UTCUsecToPTime(state_since_));
+    return integerToString(UTCUsecToPTime(state_since_));
 }
 
 xmsm::XmState XmppStateMachine::StateType() const {
@@ -964,6 +971,11 @@ void XmppStateMachine::set_last_event(const std::string &event) {
     last_event_at_ = UTCTimestampUsec();
 
     if (!logUVE()) return;
+
+    // ignore logging keepalive event
+    if (event == "xmsm::EvXmppKeepalive") {
+	    return;
+    }
 
     XmppPeerInfoData peer_info;
     peer_info.set_name(connection()->ToUVEKey());

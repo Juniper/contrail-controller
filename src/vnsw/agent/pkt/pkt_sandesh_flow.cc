@@ -5,7 +5,6 @@
 #include <pkt/pkt_sandesh_flow.h>
 #include <vector>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/lexical_cast.hpp>
 #include <sstream>
 #include <algorithm>
 using boost::system::error_code;
@@ -39,7 +38,7 @@ using boost::system::error_code;
     }							 \
     data.set_stats_bytes(fe->data.bytes);		 \
     data.set_stats_packets(fe->data.packets); 		 \
-    data.set_uuid(boost::lexical_cast<std::string>(fe->flow_uuid)); \
+    data.set_uuid(UuidToString(fe->flow_uuid)); \
     if (fe->nat) {					 \
         data.set_nat("enabled");			 \
     } else {						 \
@@ -48,13 +47,13 @@ using boost::system::error_code;
     data.set_flow_handle(fe->flow_handle);		 \
     data.set_interface_idx(fe->intf_in);		 \
     data.set_setup_time(				 \
-                    boost::lexical_cast<std::string>(UTCUsecToPTime(fe->setup_time))); \
+                    integerToString(UTCUsecToPTime(fe->setup_time))); \
     data.set_refcount(fe->GetRefCount());		 \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no"); \
     data.set_short_flow(fe->ShortFlow() ? "yes" : "no");           \
     data.set_local_flow(fe->local_flow ? "yes" : "no");           \
     if (fe->local_flow) {                                         \
-        data.set_egress_uuid(boost::lexical_cast<std::string>(fe->egress_uuid));        \
+        data.set_egress_uuid(UuidToString(fe->egress_uuid));        \
     }                                                             \
     data.set_src_vn(fe->data.source_vn);                          \
     data.set_dst_vn(fe->data.dest_vn);                            \
@@ -116,6 +115,28 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
     policy.set_action(fe->data.match_p.out_sg_action);
     policy.set_acl(acl);
     data.set_out_sg(policy);
+
+    acl.clear();
+    for (it = fe->data.match_p.m_mirror_acl_l.begin();
+         it != fe->data.match_p.m_mirror_acl_l.end(); it++) {
+        FlowAclUuid f;
+        f.uuid = UuidToString(it->acl->GetUuid());
+        acl.push_back(f);
+    }
+    policy.set_action(fe->data.match_p.mirror_action);
+    policy.set_acl(acl);
+    data.set_mirror(policy);
+
+    acl.clear();
+    for (it = fe->data.match_p.m_out_mirror_acl_l.begin();
+         it != fe->data.match_p.m_out_mirror_acl_l.end(); it++) {
+        FlowAclUuid f;
+        f.uuid = UuidToString(it->acl->GetUuid());
+        acl.push_back(f);
+    }
+    policy.set_action(fe->data.match_p.out_mirror_action);
+    policy.set_acl(acl);
+    data.set_out_mirror(policy);
 }
 
 void PktSandeshFlow::SetSandeshFlowData(std::vector<SandeshFlowData> &list, FlowEntry *fe) {

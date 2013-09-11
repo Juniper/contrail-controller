@@ -3,7 +3,6 @@
  */
 
 #include <cmn/agent_cmn.h>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include <oper/interface.h>
@@ -31,7 +30,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
 
     VmPortInterfaceKey intf_key(key->intf_uuid_, "");
     Interface *interface = static_cast<Interface *>
-        (Agent::GetInterfaceTable()->Find(&intf_key, true));
+        (Agent::GetInstance()->GetInterfaceTable()->Find(&intf_key, true));
 
     switch (key->type_) {
     case VrfAssign::VLAN: {
@@ -79,11 +78,11 @@ DBTableBase *VrfAssignTable::CreateTable(DB *db, const string &name) {
 Interface *VrfAssignTable::FindInterface(const uuid &intf_uuid) {
     VmPortInterfaceKey key(intf_uuid, "");
     return static_cast<Interface *>
-        (Agent::GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
 }
 
 VrfEntry *VrfAssignTable::FindVrf(const string &name) {
-    return Agent::GetVrfTable()->FindVrfFromName(name);
+    return Agent::GetInstance()->GetVrfTable()->FindVrfFromName(name);
 }
 
 void VrfAssignTable::CreateVlanReq(const boost::uuids::uuid &intf_uuid,

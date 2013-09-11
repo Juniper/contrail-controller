@@ -26,17 +26,13 @@ targets = env.IFMapAutogen('bgp_schema.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
 lib = env.Library('bgp_schema', lib_srcs)
 
-targets = env.TypeAutogen('bgp_l3vpn_unicast.xsd')
+targets = env.TypeAutogen('xmpp_unicast.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
-lib = env.Library('bgp_l3vpn_unicast', lib_srcs)
+lib = env.Library('xmpp_unicast', lib_srcs)
 
-targets = env.TypeAutogen('bgp_l3vpn_multicast.xsd')
+targets = env.TypeAutogen('xmpp_multicast.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
-lib = env.Library('bgp_l3vpn_multicast', lib_srcs)
-
-targets = env.TypeAutogen('bgp_l3vpn_multicast_msg.xsd')
-lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)
-lib = env.Library('bgp_l3vpn_multicast_msg', lib_srcs)
+lib = env.Library('xmpp_multicast', lib_srcs)
 
 targets = env.TypeAutogen('xmpp_enet.xsd')
 lib_srcs = filter(lambda x: re.match(r'(.*)\.cc$', x.abspath), targets)

@@ -8,7 +8,6 @@
 #include <boost/assign/list_of.hpp>
 
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
 #include "bgp/inet/inet_table.h"
@@ -23,6 +22,7 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
+#include "net/bgp_af.h"
 #include "schema/bgp_schema_types.h"
 #include "testing/gunit.h"
 
@@ -87,6 +87,7 @@ protected:
     ReplicationTest()
         : bgp_server_(new BgpServer(&evm_)) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
+        vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
         bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
     ~ReplicationTest() {
@@ -94,8 +95,8 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
@@ -106,9 +107,8 @@ protected:
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
-        parser->MetadataClear("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        parser->MetadataClear("schema");
     }
 
     void NetworkConfig(const vector<string> &instance_names,
@@ -116,7 +116,7 @@ protected:
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
         IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+            IFMapServerParser::GetInstance("schema");
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
@@ -982,8 +982,12 @@ TEST_F(ReplicationTest, DeleteNetwork) {
                                         "instance-target");
     }
     task_util::WaitForIdle();
+
+#if 0
     VERIFY_EQ(0,
               bgp_server_->routing_instance_mgr()->GetRoutingInstance("blue"));
+#endif
+    VERIFY_EQ(0, RouteCount("blue"));
     VERIFY_EQ(0, RouteCount("red"));
     VERIFY_EQ(0, RouteCount("green"));
 

@@ -8,6 +8,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/function.hpp>
+#include <boost/uuid/uuid.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/nil_generator.hpp>
+#include <boost/uuid/string_generator.hpp>
 #include <sstream>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -135,12 +139,12 @@ private:
     T *ptr_;
 };
 
+static boost::posix_time::ptime epoch_ptime(boost::gregorian::date(1970,1,1));
 
 /* timestamp - returns usec since epoch */
 static inline uint64_t UTCTimestampUsec() {
-    boost::posix_time::ptime t1(boost::gregorian::date(1970,1,1));
     boost::posix_time::ptime t2(boost::posix_time::microsec_clock::universal_time());
-    boost::posix_time::time_duration diff = t2 - t1; 
+    boost::posix_time::time_duration diff = t2 - epoch_ptime; 
     return diff.total_microseconds();
 }
 
@@ -150,6 +154,21 @@ static inline boost::posix_time::ptime UTCUsecToPTime(uint64_t tusec) {
                    tusec/1000000, 
                    boost::posix_time::time_duration::ticks_per_second()/1000000*(tusec%1000000)));
     return pt;
+}
+
+static inline std::string UuidToString(const boost::uuids::uuid &id)
+{
+    std::stringstream uuidstring;
+    uuidstring << id;
+    return uuidstring.str();
+}
+
+static inline boost::uuids::uuid StringToUuid(const std::string &str)
+{
+    boost::uuids::uuid u = boost::uuids::nil_uuid();
+    std::stringstream uuidstring(str);
+    uuidstring >> u;
+    return u;
 }
 
 // Writes a number into a string

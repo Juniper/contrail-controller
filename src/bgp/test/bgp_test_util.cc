@@ -4,22 +4,40 @@
 
 #include "bgp/test/bgp_test_util.h"
 
+#include <stdio.h>
 #include <pugixml/pugixml.hpp>
 
 using pugi::xml_document;
 using pugi::xml_node;
+using pugi::node_pcdata;
 using namespace std;
 
 namespace bgp_util {
 string NetworkConfigGenerate(
         const vector<string> &instance_names,
         const multimap<string, string> &connections) {
+    int index;
     xml_document xdoc;
     xml_node env = xdoc.append_child("Envelope");
     xml_node update = env.append_child("Body").append_child("response").
             append_child("pollResult").append_child("updateResult");
 
-    int index = 0;
+    index = 0;
+    for (vector<string>::const_iterator iter = instance_names.begin();
+         iter != instance_names.end(); ++iter) {
+        xml_node item = update.append_child("resultItem");
+        xml_node id = item.append_child("identity");
+        string vn("virtual-network:");
+        vn.append(*iter);
+        id.append_attribute("name") = vn.c_str();
+        xml_node meta = item.append_child("metadata");
+        xml_node vn_properties = meta.append_child("virtual-network-properties");
+        xml_node net_id = vn_properties.append_child("network-id");
+        char value[16];
+        snprintf(value, sizeof(value), "%d", ++index);
+        net_id.append_child(node_pcdata).set_value(value);
+    }
+    index = 0;
     for (vector<string>::const_iterator iter = instance_names.begin();
          iter != instance_names.end(); ++iter) {
         xml_node item = update.append_child("resultItem");

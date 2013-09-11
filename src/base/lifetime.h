@@ -129,21 +129,32 @@ public:
     // may be called multiple times.
     virtual void Shutdown();
 
-    // called immediatly before the object is destroyed.
+    // called immediately before the object is destroyed.
     virtual void DeleteComplete();
 
     // must be called under a specific thread.
     virtual void Destroy() = 0;
 
+    // Prevent/Resume deletion of object - for testing only.
+    void PauseDelete();
+    void ResumeDelete();
+
     bool IsDeleted() const { return deleted_; }
 
-    // Descrement the reference count and test whether the object can be
+    // Decrement the reference count and test whether the object can be
     // destroyed
     void ReferenceIncrement();
     bool ReferenceDecrementAndTest();
 
     bool shutdown_invoked() { return shutdown_invoked_; }
     void set_shutdown_invoked() { shutdown_invoked_ = true; }
+
+    const uint64_t create_time_stamp_usecs() const {
+        return create_time_stamp_usecs_;
+    }
+    const uint64_t delete_time_stamp_usecs() const {
+        return delete_time_stamp_usecs_;
+    }
 
 private:
     typedef DependencyList<LifetimeRefBase, LifetimeActor> Dependents;
@@ -157,6 +168,9 @@ private:
     tbb::atomic<bool> deleted_;
     int refcount_;
     bool shutdown_invoked_;
+    bool delete_paused_;
+    uint64_t create_time_stamp_usecs_;
+    uint64_t delete_time_stamp_usecs_;
     Dependents dependents_;
     DISALLOW_COPY_AND_ASSIGN(LifetimeActor);
 };
@@ -180,9 +194,8 @@ public:
     // incremented the reference count.
     void EnqueueNoIncrement(LifetimeActor *actor);
 
-    //
-    // Retrun the number of times work queue task executions were deferred
-    //
+
+    // Return the number of times work queue task executions were deferred.
     size_t GetQueueDeferCount() { return queue_.on_entry_defer_count(); }
 
 private:

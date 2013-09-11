@@ -24,6 +24,7 @@ public:
         CreateFunction;
     typedef std::map<std::string, DBTableBase *> TableMap;
     typedef TableMap::iterator iterator;
+    typedef TableMap::const_iterator const_iterator;
 
     DB();
     ~DB();
@@ -57,6 +58,11 @@ public:
     iterator begin() { return tables_.begin(); }
     iterator end() { return tables_.end(); }
     iterator lower_bound(const std::string &name) {
+        return tables_.lower_bound(name);
+    }
+    const_iterator const_begin() { return tables_.begin(); }
+    const_iterator const_end() { return tables_.end(); }
+    const_iterator const_lower_bound(const std::string &name) {
         return tables_.lower_bound(name);
     }
 

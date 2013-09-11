@@ -11,7 +11,6 @@ env = AnalyticsEnv.Clone()
 env.Append(LIBS=['libsandeshflow', 'gunit', 'hiredis', 'thrift', 'task_test'])
 env.Append(LIBPATH=['#/build/lib', Dir(env['TOP']).abspath + '/base/test/'])
 env.Append(CPPPATH = ['#/'+Dir('.').path ,
-                      "#/build/debug/",
                       env['TOP'],
                       env['TOP'] + '/base/sandesh/'])
 
@@ -111,17 +110,10 @@ env.Alias('src/analytics:viz_message_test', viz_message_test)
 #       )
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
-import sys
 test_suite = []
-if sys.platform == 'darwin':
-    test_suite = [ viz_message_test,
-                   viz_redis_test,
-                   ]
-else:
-    test_suite = [ viz_message_test,
-                   #viz_redis_test,
-                   ]
-
+test_suite = [ viz_message_test,
+               viz_redis_test,
+             ]
 test = env.TestSuite('analytics-test', test_suite)
 
 env.Alias('src/analytics:test', test)

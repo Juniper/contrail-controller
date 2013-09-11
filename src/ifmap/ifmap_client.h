@@ -47,6 +47,9 @@ public:
     void DeleteVm(const std::string &vm_uuid) {
         vm_map_.erase(vm_uuid);
     }
+    bool HasAddedVm(const std::string &vm_uuid) {
+        return ((vm_map_.count(vm_uuid) == 1) ? true : false);
+    }
     bool HasVms() {
         return (vm_map_.size() != 0);
     }

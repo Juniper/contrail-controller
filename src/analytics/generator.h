@@ -58,7 +58,10 @@ public:
     void set_session(VizSession *session) { viz_session_ = session; }
     void set_state_machine(SandeshStateMachine *state_machine) {
         state_machine_ = state_machine;
+        // Update state machine
+        state_machine_->SetGeneratorKey(name_);
     }
+    const std::string State() const;
 
     void GetGeneratorInfo(ModuleServerState &genlist) const;
 private:

@@ -18,6 +18,7 @@ public:
     void set_time_stamp_usecs(uint64_t time_stamp_usecs) {
         time_stamp_usecs_ = time_stamp_usecs;
     }
+
 private:
     friend class Route;
     boost::intrusive::list_member_hook<> node_;

@@ -4,6 +4,7 @@
 #include <iostream>
 #include <boost/property_tree/xml_parser.hpp>
 #include <pugixml/pugixml.hpp>
+#include <stdlib.h>
 
 #include "base/logging.h"
 #include "testing/gunit.h"
@@ -12,7 +13,6 @@
 #include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <pugixml/pugixml.hpp>
-#include <boost/lexical_cast.hpp>
 
 #include <db/db_entry.h>
 #include <db/db_table.h>
@@ -126,7 +126,7 @@ void ReadAcl(ptree &config) {
 	 Acl *acl = new Acl();
 	 acl->name = acl_tree.get<string>("name");
 	 acl->id = acl_tree.get<string>("id");
-	 int id = boost::lexical_cast<int>(acl->id);
+	 int id = strtoul((acl->id).c_str(), NULL, 0);
 	 LOG(DEBUG, "Acl name:" << acl->name);
 	 for (ptree::const_iterator iter = acl_tree.begin(); iter != acl_tree.end();
 	      ++iter, ++i) {
@@ -170,7 +170,7 @@ void ReadVmPort(Vn &vn, string &vm_str)
      vm->id = vm_id++;
      string ip_address;
      tokens >> ip_address;
-     string port_name = vm->name + boost::lexical_cast<std::string>(vm->id);
+     string port_name = vm->name + integerToString(vm->id);
      strncpy(vm->pinfo.name, port_name.c_str(), sizeof(vm->pinfo.name));
      vm->pinfo.vm_id = vm->id;
      vm->pinfo.intf_id = vm->id; // ?
@@ -206,7 +206,7 @@ void ReadVn(ptree &vn_tree, Vn &vn) {
 	     string pstr =  iter->second.data();
 	     ReadVmPort(vn, pstr);
 	 } else if (iter->first == "acl-id") {
-	     vn.acl_id = boost::lexical_cast<int>(iter->second.data());
+	     vn.acl_id = strtoul((iter->second.data()).c_str(), NULL, 0);
 	 }
     }
     LOG(DEBUG, "No of VMs:" << vn.vm_l.size());

@@ -141,6 +141,8 @@ request sandesh ShowRouteReq {
 
     // Only return this number of results. 0 implies unlimited
     7: u32 count;
+
+    8: bool longer_match;
 }
 
 //
@@ -173,6 +175,7 @@ struct ShowRoutingInstanceTable {
 struct ShowRoutingInstance {
     1: string name (link="ShowRoutingInstanceReq"); // Routing instance name
     3: string virtual_network;                      // Virtual network
+    6: i32 vn_index;                                // Virtual network index
     4: list<string> import_target;                  // Import Route targets
     5: list<string> export_target;                  // Export Route targets
     2: list<ShowRoutingInstanceTable> tables;
@@ -296,6 +299,7 @@ struct BgpPeerInfoData {
     1: string name (key="ObjectBgpPeer"); // RoutingInstance:RemoteEnd:LocalEnd
     2: optional bool                deleted
     3: optional string peer_type;         // internal/external
+    20: optional string peer_address;
     4: optional u32 local_asn;
     5: optional u32 peer_asn;
     6: optional u32 hold_time;
@@ -306,6 +310,7 @@ struct BgpPeerInfoData {
    11: optional u32 local_id;
    12: optional u32 peer_id;
    13: optional string send_state;       // in sync/not in sync
+   21: optional list<string> configured_families;
    14: optional list<string> families;
    15: optional peer_info.PeerFlapInfo flap_info;
    16: optional peer_info.PeerStateInfo state_info;

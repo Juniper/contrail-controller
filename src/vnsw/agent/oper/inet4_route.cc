@@ -28,7 +28,7 @@ SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
 class Inet4RouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(Inet4RouteTable *rt_table) : 
-        LifetimeActor(Agent::GetLifetimeManager()), table_(rt_table) { 
+        LifetimeActor(Agent::GetInstance()->GetLifetimeManager()), table_(rt_table) { 
     }
     virtual ~DeleteActor() { 
     }
@@ -85,7 +85,7 @@ void Inet4RouteTable::MayResumeDelete(bool is_empty) {
         return;
     }
 
-    Agent::GetLifetimeManager()->Enqueue(deleter());
+    Agent::GetInstance()->GetLifetimeManager()->Enqueue(deleter());
 }
 
 Inet4Route *Inet4RouteTable::FindActiveEntry(const Inet4Route *key) {
@@ -105,11 +105,11 @@ Inet4Route *Inet4RouteTable::FindActiveEntry(const Inet4RouteKey *key) {
 }
 
 NextHop *Inet4RouteTable::FindNextHop(NextHopKey *key) const {
-    return static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(key));
+    return static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(key));
 }
 
 VrfEntry *Inet4RouteTable::FindVrfEntry(const string &vrf_name) const {
-    return Agent::GetVrfTable()->FindVrfFromName(vrf_name);
+    return Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
 }
 
 void Inet4RouteTable::DeleteRouteDone(DBTableBase *base, 
@@ -124,7 +124,7 @@ bool Inet4RouteTable::DelWalkerCb(DBTablePartBase *part,
 }
 
 void Inet4RouteTable::DeleteAllRoutes() {
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
             boost::bind(&Inet4RouteTable::DelWalkerCb, this, _1, _2),

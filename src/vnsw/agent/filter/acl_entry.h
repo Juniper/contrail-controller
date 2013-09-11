@@ -135,7 +135,7 @@ public:
 
     //typedef boost::ptr_list<TrafficAction> ActionList;
     typedef std::list<TrafficAction *> ActionList;
-    static ActionList EmptyActionList;
+    static ActionList kEmptyActionList;
     AclEntry() : 
         id_(0), type_(TERMINAL), matches_(), actions_(), mirror_entry_(NULL) {};
 

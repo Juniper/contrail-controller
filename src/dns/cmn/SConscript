@@ -11,8 +11,7 @@ SandeshGenFiles = env.SandeshGenCpp('dns.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '../../dns/agent/libagent_xmpp.a', 
-                      '../../dns/bind/libbind_interface.a', '../../../lib/librndc.a', '../../../lib/libisccc.a', 
-                      '../../../lib/libdns.a', '../../../lib/libisccfg.a', '../../../lib/libbind9.a', '../../../lib/libisc.a', 
+                      '../../dns/bind/libbind_interface.a', 
                       '../../schema/libifmap_vnc.a', '../../ifmap/libifmap_server.a', '../../ifmap/libifmap_common.a', 
                       '../../net/libnet.a', '../../../lib/libifmapio.a', '../../xmpp/libxmpp.a', '../../../lib/libsandeshvns.a',
                       '../../../lib/libsandesh.a', '../../../lib/libhttp.a', '../../../lib/libhttp_parser.a', 

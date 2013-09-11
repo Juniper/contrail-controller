@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
@@ -51,7 +50,7 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
         Inet4UcLocalVmRoute *local = static_cast<Inet4UcLocalVmRoute *>(d);
         VmPortInterfaceKey intf_key(local->intf_.uuid_, "");
         VmPortInterface *vm_port = static_cast<VmPortInterface *>
-            (Agent::GetInterfaceTable()->FindActiveEntry(&intf_key));
+            (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&intf_key));
         
         bool policy = false;
         // Use policy based NH if policy enabled on interface
@@ -139,7 +138,7 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
     case Inet4RouteData::REMOTE_VM: {
         Inet4UcRemoteVmRoute *remote = static_cast<Inet4UcRemoteVmRoute *>(d);
         tunnel_bmap_ = remote->tunnel_bmap_;
-        TunnelNHKey key(remote->server_vrf_, Agent::GetRouterId(),
+        TunnelNHKey key(remote->server_vrf_, Agent::GetInstance()->GetRouterId(),
                         remote->server_ip_, false,
                         TunnelType::ComputeType(tunnel_bmap_));
         nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
@@ -167,8 +166,8 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
         ArpNHKey key(rt_key->vrf_name_, rt_key->addr_);
         nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
         unresolved_ = false;
-        dest_vn_name_ = Agent::GetFabricVnName();
-        if (dest_vn_name_ != Agent::GetFabricVnName()) {
+        dest_vn_name_ = Agent::GetInstance()->GetFabricVnName();
+        if (dest_vn_name_ != Agent::GetInstance()->GetFabricVnName()) {
             ret = true;
         }
         ret = true;
@@ -179,8 +178,8 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
         ResolveNHKey key;
         nh = static_cast<NextHop *>(nh_table->FindActiveEntry(&key));
         unresolved_ = false;
-        if (dest_vn_name_ != Agent::GetFabricVnName()) {
-            dest_vn_name_ = Agent::GetFabricVnName();
+        if (dest_vn_name_ != Agent::GetInstance()->GetFabricVnName()) {
+            dest_vn_name_ = Agent::GetInstance()->GetFabricVnName();
             ret = true;
         }
         break;
@@ -222,8 +221,8 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
         //Reset to new gateway route, no nexthop for indirect route
         gw_ip_ = ind_rt->gw_ip_;
         gw_rt_.reset(rt);
-        if (dest_vn_name_ != Agent::GetFabricVnName()) {
-            dest_vn_name_ = Agent::GetFabricVnName();
+        if (dest_vn_name_ != Agent::GetInstance()->GetFabricVnName()) {
+            dest_vn_name_ = Agent::GetInstance()->GetFabricVnName();
             ret = true;
         }
         return true;
@@ -298,20 +297,20 @@ bool AgentPath::Sync(Inet4UcRoute *sync_route) {
             InterfaceNHKey key(new VmPortInterfaceKey(vm_port->GetUuid(), ""),
                                policy);
             nh_ = static_cast<NextHop *>
-                (Agent::GetNextHopTable()->FindActiveEntry(&key));
+                (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
             // If NH is not found, point route to discard NH
             if (nh_ == NULL) {
                 LOG(DEBUG, "Interface NH for <" 
-                    << boost::lexical_cast<std::string>(vm_port->GetUuid())
+                    << UuidToString(vm_port->GetUuid())
                     << " : policy = " << policy);
                 DiscardNHKey key;
                 nh_ = static_cast<NextHop *>
-                    (Agent::GetNextHopTable()->FindActiveEntry(&key));
+                    (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
             }
         }
     }
 
-    if (vrf_name_ == Agent::NullString()) {
+    if (vrf_name_ == Agent::GetInstance()->NullString()) {
         return ret;
     }
  
@@ -349,7 +348,7 @@ const NextHop* AgentPath::GetNextHop(void) const {
     if (unresolved_ == true) {
         DiscardNH key;
         return static_cast<NextHop *>
-            (Agent::GetNextHopTable()->FindActiveEntry(&key));
+            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     }
 
     //Indirect route's path, get direct route's NH

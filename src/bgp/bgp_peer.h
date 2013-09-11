@@ -55,6 +55,7 @@ public:
 
     // thread: bgp::config
     void ConfigUpdate(const BgpNeighborConfig *config);
+    void ClearConfig();
 
     // thread: event manager thread.
     // Invoked from BgpServer when a session is accepted.
@@ -258,6 +259,7 @@ private:
     as_t local_as_;
     as_t peer_as_;
     uint32_t remote_bgp_id_;
+    uint32_t local_bgp_id_;
     AddressFamilyList family_;
     BgpProto::BgpPeerType peer_type_;
     RibExportPolicy policy_;

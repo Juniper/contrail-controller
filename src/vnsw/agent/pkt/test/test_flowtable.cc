@@ -84,7 +84,7 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmPortInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetDefaultInet4UcRouteTable()->AddLocalVmRoute
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddLocalVmRoute
             (NULL, vrf, addr, 32, intf->GetUuid(),
              intf->GetVnEntry()->GetName(), label); 
         client->WaitForIdle();
@@ -95,7 +95,7 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute
             (NULL, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
@@ -103,7 +103,7 @@ public:
 
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetDefaultInet4UcRouteTable()->DeleteReq(NULL, vrf, addr, 32);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, vrf, addr, 32);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
@@ -263,11 +263,11 @@ public:
         EXPECT_TRUE(VmPortActive(tap3, 0));
         EXPECT_TRUE(VmPortPolicyEnable(tap3, 0));
 
-        EXPECT_EQ(7U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(3U, Agent::GetVmTable()->Size());
+        EXPECT_EQ(7U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(3U, Agent::GetInstance()->GetVmTable()->Size());
 
-        EXPECT_EQ(2, Agent::GetVnTable()->Size());
-        EXPECT_EQ(3U, Agent::GetIntfCfgTable()->Size());
+        EXPECT_EQ(2, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(3U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
         vif1 = VmPortInterfaceGet(tap1[0].intf_id);
         assert(vif1);
@@ -294,11 +294,11 @@ public:
         EXPECT_FALSE(VmPortFind(tap2, 0));
         EXPECT_FALSE(VmPortFind(tap3, 0));
 
-        EXPECT_EQ(3U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(0U, Agent::GetIntfCfgTable()->Size());
-        EXPECT_EQ(0U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(0U, Agent::GetVnTable()->Size());
-        EXPECT_EQ(0U, Agent::GetAclTable()->Size());
+        EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
 
         if (ksync_init_) {
             DeleteTapIntf(fd_table, MAX_VNET);
@@ -384,10 +384,10 @@ int main(int argc, char *argv[]) {
 
     client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10));
     if (vm.count("config")) {
-        FlowTableTest::eth_itf = Agent::GetIpFabricItfName();
+        FlowTableTest::eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         FlowTableTest::eth_itf = "eth0";
-        EthInterface::CreateReq(FlowTableTest::eth_itf, Agent::GetDefaultVrf());
+        EthInterface::CreateReq(FlowTableTest::eth_itf, Agent::GetInstance()->GetDefaultVrf());
         client->WaitForIdle();
     }
 

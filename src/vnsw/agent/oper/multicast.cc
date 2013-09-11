@@ -53,7 +53,7 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
     boost::system::error_code ec;
     if (!IS_BCAST_MCAST(dip)) { 
         MCTRACE(Log, "notify subnet route chg", vrf_name, dip.to_string(), 0);
-        Inet4UcRouteTable::AddSubnetBroadcastRoute(Agent::GetLocalVmPeer(), 
+        Inet4UcRouteTable::AddSubnetBroadcastRoute(Agent::GetInstance()->GetLocalVmPeer(), 
                                                    vrf_name,
                                                    IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                                    dip, vn_name);
@@ -67,9 +67,9 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
  * Enable trace print messages
  */
 void MulticastHandler::Register() {
-    Agent::GetVnTable()->Register(boost::bind(&MulticastHandler::ModifyVNIpam,
+    Agent::GetInstance()->GetVnTable()->Register(boost::bind(&MulticastHandler::ModifyVNIpam,
                                               _1, _2));
-    Agent::GetInterfaceTable()->Register(boost::bind(&MulticastHandler::ModifyVmInterface,
+    Agent::GetInstance()->GetInterfaceTable()->Register(boost::bind(&MulticastHandler::ModifyVmInterface,
                                                      _1, _2));
 
     MulticastHandler::GetInstance()->GetMulticastObjList().clear();
@@ -122,10 +122,10 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
     req.key.reset(key);
     cnh_data = new CompositeNHData();
     req.data.reset(cnh_data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 
     MCTRACE(Log, "subnet route ", vrf_name, addr.to_string(), 0);
-    Inet4UcRouteTable::AddSubnetBroadcastRoute(Agent::GetLocalVmPeer(), 
+    Inet4UcRouteTable::AddSubnetBroadcastRoute(Agent::GetInstance()->GetLocalVmPeer(), 
                                  vrf_name,
                                  IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                  addr, vn_name);
@@ -147,7 +147,7 @@ void MulticastHandler::DeleteSubnetRoute(const std::string &vrf_name,
                                          const Ip4Address &addr)
 {
     MCTRACE(Log, "delete subnet route ", vrf_name, addr.to_string(), 0);
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalVmPeer(), 
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
                                  vrf_name, addr, 32);
     MulticastGroupObject *subnet_broadcast = 
         this->FindGroupObject(vrf_name, addr);
@@ -188,7 +188,7 @@ void MulticastHandler::DeleteVnIPAM(const VnEntry *vn)
                           broadcast_addr);
 
         /*
-        Inet4UcRouteTable::DeleteReq(Agent::GetLocalVmPeer(), 
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
                                      GetAssociatedVrfForVn(vn->GetUuid()), 
                                      broadcast_addr, 32);
                                      */
@@ -496,8 +496,8 @@ void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
 
     for (TunnelOlist::const_iterator it = obj->GetTunnelOlist().begin();
          it != obj->GetTunnelOlist().end(); it++) {
-        ComponentNHData nh_data(it->label_, Agent::GetDefaultVrf(),
-                                Agent::GetRouterId(), it->daddr_, false,
+        ComponentNHData nh_data(it->label_, Agent::GetInstance()->GetDefaultVrf(),
+                                Agent::GetInstance()->GetRouterId(), it->daddr_, false,
                                 it->tunnel_bmap_);
         data.push_back(nh_data);
     }
@@ -516,7 +516,7 @@ void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
     req.key.reset(key);
     cnh_data = new CompositeNHData(data, CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 }
 
 /*
@@ -588,15 +588,15 @@ bool MulticastGroupObject::ModifyFabricMembers(const TunnelOlist &olist)
          it != olist.end(); it++) {
         AddMemberInTunnelOlist(it->label_, it->daddr_, it->tunnel_bmap_);
 
-        key = new TunnelNHKey(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+        key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                               it->daddr_, false, 
                               TunnelType::ComputeType(it->tunnel_bmap_));
         tnh_data = new TunnelNHData();
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
         req.data.reset(tnh_data);
-        Agent::GetNextHopTable()->Enqueue(&req);
-        MCTRACE(Log, "Enqueue add TUNNEL ", Agent::GetDefaultVrf(),
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        MCTRACE(Log, "Enqueue add TUNNEL ", Agent::GetInstance()->GetDefaultVrf(),
                 it->daddr_.to_string(), it->label_);
     }
     return true;

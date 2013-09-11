@@ -17,13 +17,15 @@ using boost::uuids::uuid;
 void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id, 
                        const std::string& tname, const IpAddress& ip,
                        const std::string& mac,
-                       const std::string& vm_name) {
+                       const std::string& vm_name,
+                       const int32_t version) {
     vm_id_ = vm_id;
     vn_id_ = vn_id;
     tap_name_ = tname;
     ip_addr_ = ip;
     mac_addr_ = mac;
     vm_name_ = vm_name;
+    version_ = version;
 }
 
 // CfgIntEntry methods
@@ -34,6 +36,7 @@ void CfgIntEntry::Init(const CfgIntData& int_data) {
     ip_addr_ = int_data.ip_addr_;
     mac_addr_ = int_data.mac_addr_;
     vm_name_ = int_data.vm_name_;
+    version_ = int_data.version_;
 }
 
 bool CfgIntEntry::IsLess(const DBEntry &rhs) const {
@@ -62,6 +65,19 @@ std::auto_ptr<DBEntry> CfgIntTable::AllocEntry(const DBRequestKey *key) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(cfg_intf));
 }
 
+bool CfgIntTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    bool ret = false;
+    CfgIntEntry *cfg_int = static_cast<CfgIntEntry *>(entry);
+    CfgIntData *data = static_cast<CfgIntData *>(req->data.get());
+
+    // Handling only version change for now
+    if (cfg_int->GetVersion() != data->version_) {
+        cfg_int->SetVersion(data->version_);
+        ret = true;
+    }
+    return ret;
+}
+
 DBEntry *CfgIntTable::Add(const DBRequest *req) {
     CfgIntKey *key = static_cast<CfgIntKey *>(req->key.get());
     CfgIntData *data = static_cast<CfgIntData *>(req->data.get());
@@ -77,7 +93,8 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
 
     CFG_TRACE(IntfTrace, cfg_int->GetIfname(), 
               cfg_int->GetVmName(), vm.str(), vn.str(), 
-              cfg_int->GetIpAddr().to_string(), "ADD");
+              cfg_int->GetIpAddr().to_string(), "ADD", 
+              cfg_int->GetVersion());
     return cfg_int;
 }
 
@@ -91,7 +108,8 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
 
     CFG_TRACE(IntfTrace, cfg->GetIfname(), 
               cfg->GetVmName(), vm.str(), vn.str(),
-              cfg->GetIpAddr().to_string(), "DELETE");
+              cfg->GetIpAddr().to_string(), "DELETE",
+              cfg->GetVersion());
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);

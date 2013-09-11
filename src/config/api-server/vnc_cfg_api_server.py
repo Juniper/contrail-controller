@@ -35,6 +35,7 @@ for more information.
 import threading
 threading._DummyThread._Thread__stop = lambda x: 42
 
+CONFIG_VERSION = '1.0'
 
 import bottle
 
@@ -55,6 +56,7 @@ from gen.vnc_api_server_gen import VncApiServerGen
 import cfgm_common
 from cfgm_common.rest import LinkObject
 from cfgm_common.exceptions import *
+from cfgm_common.vnc_extensions import ExtensionManager, ApiHookManager
 import vnc_addr_mgmt
 import vnc_auth
 import vnc_auth_keystone
@@ -63,6 +65,7 @@ from cfgm_common import vnc_cpu_info
 
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
+import discovery.client as client
 #from gen_py.vnc_api.ttypes import *
 
 _WEB_HOST = '0.0.0.0'
@@ -80,6 +83,8 @@ _ACTION_RESOURCES = [
      'method_name': 'useragent_kv_http_post'},
     {'uri': '/db-check', 'link_name': 'database-check',
      'method_name': 'db_check'},
+    {'uri': '/fetch-records', 'link_name': 'fetch-records',
+     'method_name': 'fetch_records'},
 ]
 
 @bottle.error(403)
@@ -145,6 +150,8 @@ class VncApiServer(VncApiServerGen):
         self._resource_classes['virtual-machine-interface'] = \
                                vnc_cfg_types.VirtualMachineInterfaceServer
         self._resource_classes['virtual-network'] = vnc_cfg_types.VirtualNetworkServer
+        self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer
+        self._resource_classes['virtual-DNS-record'] = vnc_cfg_types.VirtualDnsRecordServer
 
         # TODO default-generation-setting can be from ini file
         self._resource_classes['bgp-router'].generate_default_instance = False
@@ -187,16 +194,31 @@ class VncApiServer(VncApiServerGen):
         bottle.route('/multi-tenancy', 'GET', self.mt_http_get)
         bottle.route('/multi-tenancy', 'PUT', self.mt_http_put)
 
+        # Initialize discovery client
+        self._disc = None
+        if self._args.disc_server_ip and self._args.disc_server_port:
+            self._disc= client.DiscoveryClient(self._args.disc_server_ip, 
+                                               self._args.disc_server_port,
+                                               ModuleNames[Module.API_SERVER])
+
         # sandesh init
+        collectors = None
+        if self._args.collector and self._args.collector_port:
+            collectors = [(self._args.collector, int(self._args.collector_port))]
         self._sandesh = Sandesh()
-        self._sandesh.init_generator(ModuleNames[Module.API_SERVER], socket.gethostname(),
-                (self._args.collector, int(self._args.collector_port)),
-                'vnc_api_server_context', int(self._args.http_server_port), ['cfgm_common', 'sandesh'])
+        self._sandesh.init_generator(ModuleNames[Module.API_SERVER], 
+                socket.gethostname(), collectors, 'vnc_api_server_context', 
+                int(self._args.http_server_port),
+                ['cfgm_common', 'sandesh'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
         self._sandesh.set_logging_params(enable_local_log = self._args.log_local,
                                          category = self._args.log_category,
                                          level = self._args.log_level,
                                          file = self._args.log_file)
+
+        # Load extensions
+        self._extension_mgrs = {}
+        self._load_extensions()
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
@@ -222,8 +244,11 @@ class VncApiServer(VncApiServerGen):
         self._permissions = vnc_perms.VncPermissions(self, self._args)
 
         # DB interface initialization
-        self._db_connect(self._args.reset_config)
-        self._db_init_entries()
+        if self._args.wipe_config:
+            self._db_connect(True)
+        else:
+            self._db_connect(self._args.reset_config)
+            self._db_init_entries()
 
         # recreate subnet operating state from DB
         (ok, vn_fq_names) = self._db_conn.dbe_list('virtual-network')
@@ -296,8 +321,8 @@ class VncApiServer(VncApiServerGen):
     def id_to_fq_name_http_post(self):
         self._post_common(bottle.request, None, None)
         fq_name = self._db_conn.uuid_to_fq_name(bottle.request.json['uuid'])
-        # strip type
-        return {'fq_name': fq_name}
+        obj_type = self._db_conn.uuid_to_obj_type(bottle.request.json['uuid'])
+        return {'fq_name': fq_name, 'type': obj_type}
     #end id_to_fq_name_http_post
 
     def ifmap_to_id_http_post(self):
@@ -338,6 +363,12 @@ class VncApiServer(VncApiServerGen):
         return {'results': check_result}
     #end db_check
 
+    def fetch_records(self):
+        """ Retrieve and return all records """
+        result = self._db_conn.db_read()
+        return {'results': result}
+    #end fetch_records
+
     # Private Methods
     def _parse_args(self, args_str):
         '''
@@ -371,12 +402,13 @@ class VncApiServer(VncApiServerGen):
 
         defaults = {
             'reset_config': False,
+            'wipe_config': False,
             'listen_ip_addr' : _WEB_HOST,
             'listen_port' : _WEB_PORT,
             'ifmap_server_ip' : _WEB_HOST,
             'ifmap_server_port' : "8443",
-            'collector' : '127.0.0.1',
-            'collector_port' : '8086',
+            'collector' : None,
+            'collector_port' : None,
             'http_server_port' : '8084',
             'log_local' : False,
             'log_level' : SandeshLevel.SYS_DEBUG,
@@ -443,7 +475,9 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument("--auth", choices = ['keystone'],
                             help = "Type of authentication for user-requests")
         parser.add_argument("--reset_config", action = "store_true",
-                            help = "Warning! Destroy previous configuration and start clean")
+                            help = "Warning! Destroy previous configuration and create defaults")
+        parser.add_argument("--wipe_config", action = "store_true",
+                            help = "Warning! Destroy previous configuration")
         parser.add_argument("--listen_ip_addr",
                             help = "IP address to provide service on, default %s" %(_WEB_HOST))
         parser.add_argument("--listen_port",
@@ -467,7 +501,7 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument("--multi_tenancy", action = "store_true",
                             help = "Validate resource permissions (implies token validation)")
         self._args = parser.parse_args(remaining_argv)
-        self._args.conf_file = args.conf_file
+        self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
             self._args.cassandra_server_list = self._args.cassandra_server_list.split()
     #end _parse_args
@@ -478,6 +512,17 @@ class VncApiServer(VncApiServerGen):
         self._db_connect(reset_config = False)
         self._db_init_entries()
     #end sigchld_handler
+
+    def _load_extensions(self):
+        try:
+            conf_sections = self._args.config_sections
+            self._extension_mgrs['resync'] = ExtensionManager('vnc_cfg_api.resync', 
+                                                          api_server_ip = self._args.listen_ip_addr,
+                                                          api_server_port = self._args.listen_port,
+                                                          conf_sections = conf_sections)
+        except Exception as e:
+            pass
+    #end _load_extensions
 
     def _db_connect(self, reset_config):
         ifmap_ip = self._args.ifmap_server_ip
@@ -523,40 +568,24 @@ class VncApiServer(VncApiServerGen):
 
     def _db_init_entries(self):
         # create singleton defaults if they don't exist already in db
-        glb_sys_cfg = self._create_singleton_entry(GlobalSystemConfig(autonomous_system = 64512))
+        glb_sys_cfg = self._create_singleton_entry(GlobalSystemConfig(autonomous_system = 64512,
+                                                                      config_version = CONFIG_VERSION))
         def_domain = self._create_singleton_entry(Domain())
         ip_fab_vn = self._create_singleton_entry(VirtualNetwork(cfgm_common.IP_FABRIC_VN_FQ_NAME[-1]))
         self._create_singleton_entry(RoutingInstance('__default__', ip_fab_vn))
         link_local_vn = self._create_singleton_entry(VirtualNetwork(cfgm_common.LINK_LOCAL_VN_FQ_NAME[-1]))
         self._create_singleton_entry(RoutingInstance('__link_local__', link_local_vn))
 
-        # read-in projects (in future domains) from keystone
-        # TODO audit with DB and remove stale
-        content = self._auth_svc.get_projects()
-        tenants = []
-        if 'tenants' in content:
-            tenants = content['tenants']
-
-        for tenant in tenants:
-           proj_obj = Project(tenant['name'], id_perms = self._get_default_id_perms('project'))
-           fq_name = proj_obj.get_fq_name()
-           proj_uuid = uuid.UUID(tenant['id'])
-           try:
-               id = self._db_conn.fq_name_to_uuid('project', fq_name)
-               if id != str(proj_uuid):
-                   # TODO hack! remove older entry of uuid and audit
-                   (ok, result) = self._db_conn.dbe_alloc('project', proj_obj.__dict__, str(proj_uuid))
-                   obj_ids = result
-                   (ok, result) = self._db_conn.dbe_create('project', obj_ids, proj_obj.__dict__)
-           except NoIdError:
-               proj_uuid = uuid.UUID(tenant['id'])
-               (ok, result) = self._db_conn.dbe_alloc('project', proj_obj.__dict__, str(proj_uuid))
-               obj_ids = result
-               (ok, result) = self._db_conn.dbe_create('project', obj_ids, proj_obj.__dict__)
-               self._project_create_default_children(proj_obj)
-
         self._db_conn.db_resync()
+        try:
+            self._extension_mgrs['resync'].map(self._resync_projects)
+        except Exception as e:
+            pass
     #end _db_init_entries
+
+    def _resync_projects(self, ext):
+        ext.obj.resync_projects()
+    #end _resync_projects
 
     def _create_singleton_entry(self, singleton_obj):
         s_obj = singleton_obj
@@ -890,19 +919,58 @@ class VncApiServer(VncApiServerGen):
     #end
 
     def publish(self):
-        import discovery.services as services
-        import discovery.client as client
-
-        disc = client.DiscoveryClient(self._args.disc_server_ip, self._args.disc_server_port)
-
         # publish API server
-        s = services.Apiservice(self._args.listen_ip_addr, self._args.listen_port)
-        self.api_server_task = disc.publish_obj(s)
+        data = {
+            'ip-address' : self._args.listen_ip_addr,
+            'port'       : self._args.listen_port,
+        }
+        self.api_server_task = self._disc.publish(ModuleNames[Module.API_SERVER], data)
 
         # publish ifmap server
-        s = services.Ifmapservice(self._args.ifmap_server_ip, self._args.ifmap_server_port)
-        self.ifmap_task = disc.publish_obj(s)
+        data = {
+            'ip-address' : self._args.ifmap_server_ip,
+            'port'       : self._args.ifmap_server_port,
+        }
+        self.ifmap_task = self._disc.publish(ModuleNames[Module.IFMAP_SERVER], data)
     #end
+
+    def _create_default_security_group(self, proj_obj):
+        sgr_uuid = str(uuid.uuid4())
+        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+            protocol='any',
+            src_addresses=[AddressType(subnet=SubnetType('0.0.0.0', 0))],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(security_group='local')],
+            dst_ports=[PortType(0, 65535)])
+        sg_rules = PolicyEntriesType([ingress_rule])
+
+        sgr_uuid = str(uuid.uuid4())
+        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
+            protocol='any',
+            src_addresses=[AddressType(security_group='local')],
+            src_ports=[PortType(0, 65535)],
+            dst_addresses=[AddressType(subnet=SubnetType('0.0.0.0', 0))],
+            dst_ports=[PortType(0, 65535)])
+        sg_rules.add_policy_rule(egress_rule)
+
+        #create security group
+        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj, 
+            id_perms = self._get_default_id_perms('project'),
+            security_group_entries=sg_rules)
+        sg_obj_json = json.dumps(sg_obj, default=lambda o: dict((k, v) for k, v in o.__dict__.iteritems()))
+        sg_obj_dict = json.loads(sg_obj_json)
+
+        (ok, result) = self._db_conn.dbe_alloc('security_group', sg_obj_dict)
+        obj_ids = result
+        (ok, result) = self._db_conn.dbe_create('security_group', obj_ids, sg_obj_dict)
+    #end _create_default_security_group
+
+    def projects_http_post(self):
+        resp = super(VncApiServer, self).projects_http_post()
+        proj_obj = Project.factory(**resp['project'])
+        self._create_default_security_group(proj_obj)
+        return resp
+    #end projects_http_post
 
     def project_http_delete(self, id):
         # delete the 'default' security group on project delete in openstack

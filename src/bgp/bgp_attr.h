@@ -17,7 +17,6 @@
 #include "bgp/bgp_aspath.h"
 #include "bgp/bgp_attr_base.h"
 #include "bgp/bgp_server.h"
-#include "bgp/bgp_origin_vn.h"
 #include "bgp/community.h"
 
 #include "net/address.h"
@@ -257,8 +256,6 @@ public:
     void set_community(const CommunitySpec *comm);
     void set_ext_community(ExtCommunityPtr comm);
     void set_ext_community(const ExtCommunitySpec *extcomm);
-    void set_origin_vn(OriginVnPtr origin_vn);
-    void set_origin_vn(const OriginVnSpec *origin_vn);
     void set_label_block(LabelBlockPtr label_block);
     void set_olist(BgpOListPtr olist);
     friend std::size_t hash_value(BgpAttr const &attr);
@@ -276,7 +273,6 @@ public:
     int as_path_count() const { return as_path_ ? as_path_->AsCount() : 0; }
     const Community *community() const { return community_.get(); }
     const ExtCommunity *ext_community() const { return ext_community_.get(); }
-    const OriginVn *origin_vn() const { return origin_vn_.get(); }
     LabelBlockPtr label_block() const { return label_block_; }
     BgpOListPtr olist() const { return olist_; }
     BgpAttrDB *attr_db() const { return attr_db_; }
@@ -300,7 +296,6 @@ private:
     AsPathPtr as_path_;
     CommunityPtr community_;
     ExtCommunityPtr ext_community_;
-    OriginVnPtr origin_vn_;
     LabelBlockPtr label_block_;
     BgpOListPtr olist_;
 };
@@ -339,8 +334,6 @@ public:
                                             ExtCommunityPtr com);
     BgpAttrPtr ReplaceLocalPreferenceAndLocate(const BgpAttr *attr, 
                                                uint32_t local_pref);
-    BgpAttrPtr ReplaceOriginVnAndLocate(const BgpAttr *attr,
-                                        OriginVnPtr origin_vn);
     BgpAttrPtr ReplaceSourceRdAndLocate(const BgpAttr *attr,
                                         RouteDistinguisher source_rd);
     BgpAttrPtr UpdateNexthopAndLocate(const BgpAttr *attr, uint16_t afi, 

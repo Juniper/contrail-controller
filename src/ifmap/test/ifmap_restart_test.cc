@@ -168,9 +168,10 @@ TEST_F(IFMapRestartTest, BasicTest) {
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 1);
 
+    bool exists = false;
     IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
     ASSERT_TRUE(ifl != NULL);
-    ASSERT_TRUE(ifl->sequence_number() == 1);
+    ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
     // Update nodes and links with seq-num 2
     IFMapMsgPropertyAdd("domain", "user1", "d-u1", new AutogenProperty(), 2);
@@ -193,7 +194,7 @@ TEST_F(IFMapRestartTest, BasicTest) {
 
     ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
     ASSERT_TRUE(ifl != NULL);
-    ASSERT_TRUE(ifl->sequence_number() == 2);
+    ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 2);
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
@@ -244,12 +245,13 @@ TEST_F(IFMapRestartTest, BasicTest1) {
     IFMapNode *idn3 = TableLookup("virtual-network", "blue");
     ASSERT_TRUE(idn3 != NULL);
 
+    bool exists = false;
     IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn1, idn2));
     ASSERT_TRUE(ifl != NULL);
-    ASSERT_TRUE(ifl->sequence_number() == 1);
+    ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
     ifl = static_cast<IFMapLink *>(graph_.GetEdge(idn2, idn3));
     ASSERT_TRUE(ifl != NULL);
-    ASSERT_TRUE(ifl->sequence_number() == 1);
+    ASSERT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
     // Update domain-project part of graph with seq-num 2. Dont update the
     // virtual-network part.
@@ -388,12 +390,13 @@ TEST_F(IFMapRestartTest, LinkAttr) {
                                      "attr(ipam1,vn1)");
     EXPECT_TRUE(midnode != NULL);
 
+    bool exists = false;
     IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
     ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
     // Update the channel's seq-num to 2 and trigger cleanup
     server_.set_ifmap_channel_sequence_number(2);
@@ -471,12 +474,13 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     EXPECT_TRUE(midnode != NULL);
 
     // Check if the 2 links exist.
+    bool exists = false;
     IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
     ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
     // Update the nodes with seq-num 2 and remove 1 property each
     ipt = new autogen::IdPermsType();
@@ -593,12 +597,13 @@ TEST_F(IFMapRestartTest, XXX) {
     EXPECT_TRUE(midnode != NULL);
 
     // Check if the 2 links exist.
+    bool exists = false;
     IFMapLink *ifl = static_cast<IFMapLink *>(graph_.GetEdge(left, midnode));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
     ifl = static_cast<IFMapLink *>(graph_.GetEdge(midnode, right));
     EXPECT_TRUE(ifl != NULL);
-    EXPECT_TRUE(ifl->sequence_number() == 1);
+    EXPECT_TRUE(ifl->sequence_number(IFMapOrigin::MAP_SERVER, &exists) == 1);
 
     // Update the nodes with seq-num 2 and remove 1 property each
     ipt = new autogen::IdPermsType();

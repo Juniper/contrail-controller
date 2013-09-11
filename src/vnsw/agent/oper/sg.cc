@@ -3,7 +3,6 @@
  */
 
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <base/parse_object.h>
 #include <ifmap/ifmap_link.h>
@@ -78,7 +77,7 @@ bool SgTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     SgData *data = static_cast<SgData *>(req->data.get());
     
     AclKey key(data->acl_id_);
-    AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetAclTable()->FindActiveEntry(&key));
+    AclDBEntry *acl = static_cast<AclDBEntry *>(Agent::GetInstance()->GetAclTable()->FindActiveEntry(&key));
     if (sg->acl_ != acl) {
         sg->acl_ = acl;
         ret = true;
@@ -137,7 +136,7 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetSgTable()->Enqueue(&req);
+    Agent::GetInstance()->GetSgTable()->Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
@@ -156,8 +155,8 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         if (adj_node->GetObject() == NULL) {
             continue;
         }
-        if (Agent::GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
-            Agent::GetInterfaceTable()->Enqueue(&req);
+        if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
+            Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
         }
     }
     return false;

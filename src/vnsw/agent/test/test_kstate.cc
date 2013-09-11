@@ -63,7 +63,8 @@ public:
             client->WaitForIdle(2);
         }
         //To disable flow aging set the flow age time to high value
-        AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(1000000 * 60 * 10);
+        AgentUve::GetInstance()->GetFlowStatsCollector()->
+                                 SetFlowAgeTime(1000000 * 60 * 10);
 
         client->SetFlowFlushExclusionPolicy();
     }
@@ -97,16 +98,16 @@ public:
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (1 == Agent::GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetInstance()->GetVmTable()->Size()));
+        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, true);
         if (if_count) {
 	    unsigned int oper_if_count = MAX_TEST_FD + if_count;
             WAIT_FOR(1000, 1000, ((oper_if_count) == 
-                                Agent::GetInterfaceTable()->Size()));
+                                Agent::GetInstance()->GetInterfaceTable()->Size()));
         }
         WAIT_FOR(1000, 1000, (MAX_TEST_FD == 
-                            Agent::GetMplsTable()->Size()));
+                            Agent::GetInstance()->GetMplsTable()->Size()));
         if (!ksync_init_) {
             WAIT_FOR(1000, 1000, (MAX_TEST_FD == 
                                  KSyncSockTypeMap::MplsCount()));
@@ -128,10 +129,10 @@ public:
     void DeletePorts() {
         DeleteVmportEnv(input, MAX_TEST_FD, true);
         client->WaitForIdle(2);
-        WAIT_FOR(1000, 1000, (0 == Agent::GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (0 == Agent::GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (0 == Agent::GetMplsTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetMplsTable()->Size()));
     }
     
     void CreatePortsWithPolicy() {
@@ -145,10 +146,10 @@ public:
             WAIT_FOR(1000, 1000, (VmPortActive(input, idx) == true));
             WAIT_FOR(1000, 1000, (VmPortPolicyEnable(input, idx) == true));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (1 == Agent::GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (MAX_TEST_FD == Agent::GetInstance()->GetVmTable()->Size()));
+        WAIT_FOR(1000, 1000, (1 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, true);
-        WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == Agent::GetInterfaceTable()->Size()));
+        WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == Agent::GetInstance()->GetInterfaceTable()->Size()));
         if (!ksync_init_) {
             WAIT_FOR(1000, 1000, ((MAX_TEST_FD + 3) == KSyncSockTypeMap::IfCount()));
         }
@@ -164,10 +165,10 @@ public:
             idx = i;
             WAIT_FOR(1000, 1000, (VmPortFind(input, idx) == false));
         }
-        WAIT_FOR(1000, 1000, (0 == Agent::GetVmTable()->Size()));
-        WAIT_FOR(1000, 1000, (0 == Agent::GetVnTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
+        WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, false);
-        WAIT_FOR(1000, 1000, (3 == Agent::GetInterfaceTable()->Size()));
+        WAIT_FOR(1000, 1000, (3 == Agent::GetInstance()->GetInterfaceTable()->Size()));
     }
 
     void CreateMirrorEntry() {
@@ -175,13 +176,13 @@ public:
         Ip4Address dip(DIP);
 
         //Create Mirror entry
-        MirrorTable::AddMirrorEntry(analyzer, Agent::GetDefaultVrf(),
+        MirrorTable::AddMirrorEntry(analyzer, Agent::GetInstance()->GetDefaultVrf(),
                                     sip, SPORT, dip, DPORT);
         client->WaitForIdle(2);
 
         //Verify mirror NH is created
-        MirrorNHKey key(Agent::GetDefaultVrf(), sip, SPORT, dip, DPORT);
-        WAIT_FOR(1000, 1000, (Agent::GetNextHopTable()->FindActiveEntry(&key) != NULL));
+        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip, SPORT, dip, DPORT);
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL));
     }
 
     void DeleteMirrorEntry() {
@@ -192,8 +193,8 @@ public:
         client->WaitForIdle(2);
 
         //Verify mirror NH is deleted
-        MirrorNHKey key(Agent::GetDefaultVrf(), sip, SPORT, dip, DPORT);
-        WAIT_FOR(1000, 1000, (Agent::GetNextHopTable()->FindActiveEntry(&key) == NULL));
+        MirrorNHKey key(Agent::GetInstance()->GetDefaultVrf(), sip, SPORT, dip, DPORT);
+        WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) == NULL));
     }
 
     static bool ksync_init_;
@@ -299,7 +300,7 @@ TEST_F(KStateTest, MirrorNHGetTest) {
     CreateMirrorEntry();
 
     //Verify that NH table size is increased by 1
-    EXPECT_EQ(Agent::GetNextHopTable()->Size(), nh_count + 1);
+    EXPECT_EQ(Agent::GetInstance()->GetNextHopTable()->Size(), nh_count + 1);
 
     //Verify the get of Mirror NH
     TestNHKState::Init(nh_count);
@@ -414,7 +415,7 @@ int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
     KStateTest::TestTearDown();
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     return ret;
 }

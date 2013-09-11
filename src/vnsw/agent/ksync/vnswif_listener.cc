@@ -22,7 +22,6 @@
 extern void RouterIdDepInit();
 
 VnswIfListener *VnswIfListener::instance_;
-int VnswIfListener::seqno_;
 
 int VnswIfListener::AddAttr(int type, void *data, int alen) {
     struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
@@ -74,7 +73,7 @@ VnswIfListener::VnswIfListener(boost::asio::io_service & io) : sock_(io) {
     /* listening to links is required only for Xen Mode*/
     iflink_listen_ = AgentConfig::GetInstance()->isXenMode();
 
-    intf_listener_id_ = Agent::GetInterfaceTable()->Register
+    intf_listener_id_ = Agent::GetInstance()->GetInterfaceTable()->Register
         (boost::bind(&VnswIfListener::IntfNotify, this, _1, _2));
 
     /* Allocate Route Event Workqueue */
@@ -169,7 +168,7 @@ void VnswIfListener::KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) 
     AddAttr(RTA_TABLE, (void *) &ipaddr, 4);
     ipaddr = htonl(addr.to_ulong());
     AddAttr(RTA_DST, (void *) &ipaddr, 4);
-    int if_index = if_nametoindex(Agent::GetVirtualHostInterfaceName().c_str());
+    int if_index = if_nametoindex(Agent::GetInstance()->GetVirtualHostInterfaceName().c_str());
     AddAttr(RTA_OIF, (void *) &if_index, 4);
 
     boost::system::error_code ec;
@@ -180,51 +179,51 @@ void VnswIfListener::KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) 
 void VnswIfListener::CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
     Inet4UcRouteTable *rt_table;
 
-    std::string vrf_name = Agent::GetDefaultVrf();
+    std::string vrf_name = Agent::GetInstance()->GetDefaultVrf();
 
-    rt_table = Agent::GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
     if (rt_table == NULL) {
         assert(0);
     }
 
-    if (Agent::GetPrefixLen() != 0) {
-        Ip4Address old = Agent::GetRouterId();
+    if (Agent::GetInstance()->GetPrefixLen() != 0) {
+        Ip4Address old = Agent::GetInstance()->GetRouterId();
         LOG(ERROR, "Host IP update not supported!");
         LOG(ERROR, "Old IP is " << old.to_string() << " prefix len "
-                   << (unsigned short)Agent::GetPrefixLen());
+                   << (unsigned short)Agent::GetInstance()->GetPrefixLen());
         LOG(ERROR, "New IP is " << host_ip.to_string() << " prefix len "
                    << (unsigned short)plen);
         return;
     }
     LOG(DEBUG, "New IP is " << host_ip.to_string() << " prefix len "
                << (unsigned short)plen);
-    Agent::SetRouterId(host_ip);
+    Agent::GetInstance()->SetRouterId(host_ip);
     rt_table->AddVHostRecvRoute(
-        vrf_name, Agent::GetVirtualHostInterfaceName(), host_ip, false);
+        vrf_name, Agent::GetInstance()->GetVirtualHostInterfaceName(), host_ip, false);
     rt_table->AddVHostSubnetRecvRoute(
-        vrf_name, Agent::GetVirtualHostInterfaceName(), host_ip, plen, false);
+        vrf_name, Agent::GetInstance()->GetVirtualHostInterfaceName(), host_ip, plen, false);
     rt_table->AddResolveRoute(vrf_name, host_ip, plen);
-    Agent::SetPrefixLen(plen);
+    Agent::GetInstance()->SetPrefixLen(plen);
 }
 
 void VnswIfListener::DeleteVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
     Inet4UcRouteTable *rt_table;
 
-    std::string vrf_name = Agent::GetDefaultVrf();
+    std::string vrf_name = Agent::GetInstance()->GetDefaultVrf();
 
-    rt_table = Agent::GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
     if (rt_table == NULL) {
         assert(0);
     }
 
-    assert(Agent::GetPrefixLen() == plen && Agent::GetRouterId() == host_ip);
+    assert(Agent::GetInstance()->GetPrefixLen() == plen && Agent::GetInstance()->GetRouterId() == host_ip);
 
     LOG(DEBUG, "Delete VHost IP " << host_ip.to_string() << " prefix len "
                 << (unsigned short)plen);
-    rt_table->DeleteReq(Agent::GetLocalPeer(), vrf_name, host_ip, 32);
+    rt_table->DeleteReq(Agent::GetInstance()->GetLocalPeer(), vrf_name, host_ip, 32);
     rt_table->DelVHostSubnetRecvRoute(vrf_name, host_ip, plen);
-    rt_table->DeleteReq(Agent::GetLocalPeer(), vrf_name, host_ip, plen);
-    Agent::SetPrefixLen(0);
+    rt_table->DeleteReq(Agent::GetInstance()->GetLocalPeer(), vrf_name, host_ip, plen);
+    Agent::GetInstance()->SetPrefixLen(0);
 }
 
 uint32_t VnswIfListener::NetmaskToPrefix(uint32_t netmask) {
@@ -252,7 +251,7 @@ uint32_t VnswIfListener::FetchVhostAddress(bool netmask) {
 
     memset(&ifr, 0, sizeof(ifr));
     ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name, Agent::GetVirtualHostInterfaceName().c_str(),
+    strncpy(ifr.ifr_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
 	    sizeof(ifr.ifr_name));
 
     if (netmask) {
@@ -468,7 +467,7 @@ void VnswIfListener::IfaddrHandler(struct nlmsghdr *nlh) {
     if_indextoname(ifa->ifa_index, name);
 
     LOG(DEBUG, "Received change notification for " << name);
-    if (Agent::GetVirtualHostInterfaceName().compare(name) != 0) {
+    if (Agent::GetInstance()->GetVirtualHostInterfaceName().compare(name) != 0) {
         LOG(DEBUG, "Ignoring IP change notification received for "
                 << name);
         return;
@@ -495,7 +494,7 @@ void VnswIfListener::IfaddrHandler(struct nlmsghdr *nlh) {
              */
             DeleteVhostRoutes(addr, ifa->ifa_prefixlen);
         } else {
-            if (!Agent::GetRouterIdConfigured()) {
+            if (!Agent::GetInstance()->GetRouterIdConfigured()) {
                 dep_init_reqd = true; 
             }
             CreateVhostRoutes(addr, ifa->ifa_prefixlen);

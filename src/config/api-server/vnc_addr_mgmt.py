@@ -183,6 +183,12 @@ class AddrMgmt(object):
                                         db_conn = db_conn)
                         ipam_subnet['default_gateway'] = str(subnet.gw_ip)
                         self.vninfo[vn_fq_name_str][subnet_name] = subnet
+                    else: # subnet present already
+                        # always ensure default_gateway cannot be reset to NULL
+                        if not gateway_ip:
+                            subnet = self.vninfo[vn_fq_name_str][subnet_name]
+                            ipam_subnet['default_gateway'] = str(subnet.gw_ip)
+
                     # bump up the version
                     self.vninfo[vn_fq_name_str][subnet_name].set_version(version)
 
@@ -231,8 +237,8 @@ class AddrMgmt(object):
     def net_check_subnet_delete(self, obj_dict):
         # get all new subnets
         ipam_refs = obj_dict.get('network_ipam_refs', None)
+        new_subnet_list = []
         if ipam_refs:
-            new_subnet_list = []
             for ref in ipam_refs:
                 vnsn_data = ref['attr'];
                 ipam_subnets = vnsn_data['ipam_subnets']

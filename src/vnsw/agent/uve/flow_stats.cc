@@ -8,7 +8,6 @@
 #include <linux/genetlink.h>
 #include <linux/if_tun.h>
 
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include <db/db.h>
@@ -155,7 +154,8 @@ bool FlowStatsCollector::Run() {
         assert(entry);
         deleted = false;
 
-        const vr_flow_entry *k_flow = FlowTableKSyncObject::GetKernelFlowEntry
+        const vr_flow_entry *k_flow = 
+            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
             (entry->flow_handle, false);
         // Can the flow be aged?
         if (ShouldBeAged(entry, k_flow, curr_time)) {
@@ -163,7 +163,8 @@ bool FlowStatsCollector::Run() {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
-                k_flow_rev = FlowTableKSyncObject::GetKernelFlowEntry
+                k_flow_rev = 
+                    FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
                     (reverse_flow->flow_handle, false);
                 if (ShouldBeAged(reverse_flow, k_flow_rev, curr_time)) {
                     deleted = true;
@@ -183,6 +184,9 @@ bool FlowStatsCollector::Run() {
                 (entry->key, reverse_flow != NULL? true : false);
             if (reverse_flow) {
                 count++;
+                if (count == FlowCountPerPass) {
+                    break;
+                }
             }
         }
 
@@ -191,7 +195,7 @@ bool FlowStatsCollector::Run() {
                 diff_bytes = k_flow->fe_stats.flow_bytes - entry->data.bytes;
                 diff_pkts = k_flow->fe_stats.flow_packets - entry->data.packets;
                 //Update Inter-VN stats
-                AgentUve::GetInterVnStatsCollector()->UpdateVnStats(entry, 
+                AgentUve::GetInstance()->GetInterVnStatsCollector()->UpdateVnStats(entry, 
                                                                     diff_bytes, diff_pkts);
                 entry->data.bytes = k_flow->fe_stats.flow_bytes;
                 entry->data.packets = k_flow->fe_stats.flow_packets;
@@ -207,11 +211,14 @@ bool FlowStatsCollector::Run() {
 
         count++;
         if (count == FlowCountPerPass) {
-            if (it != flow_obj->flow_entry_map_.end()) {
-                flow_iteration_key_ = entry->key;
-                key_updation_reqd = false;
-            }
             break;
+        }
+    }
+    
+    if (count == FlowCountPerPass) {
+        if (it != flow_obj->flow_entry_map_.end()) {
+            flow_iteration_key_ = entry->key;
+            key_updation_reqd = false;
         }
     }
 

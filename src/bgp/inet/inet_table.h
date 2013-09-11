@@ -44,7 +44,7 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     BgpRoute *RouteReplicate(BgpServer *server, BgpTable *src_tbl, 
                              BgpRoute *src_rt, const BgpPath *path,
-                             ExtCommunityPtr ptr, OriginVnPtr origin_vn);
+                             ExtCommunityPtr ptr);
 
 private:
     virtual BgpRoute *TableFind(DBTablePartition *rtp, 

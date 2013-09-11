@@ -86,9 +86,9 @@ void InterVnStatsCollector::UpdateVnStats(FlowEntry *fe, uint64_t bytes,
         VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, false);
     } else {
         if (fe->data.ingress) {
-            VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, false);
-        } else {
             VnStatsUpdateInternal(src_vn, dst_vn, bytes, pkts, true);
+        } else {
+            VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, false);
         }
     }
     //PrintAll();

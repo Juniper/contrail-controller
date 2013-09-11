@@ -75,7 +75,7 @@ static void CreateVhostBcastRoute(const string &vrf_name) {
     boost::system::error_code ec;
     Ip4Address bcast_ip = Ip4Address::from_string("255.255.255.255", ec);
     Inet4McRouteTable *mc_rt_table =
-                Agent::GetVrfTable()->GetInet4McRouteTable(vrf_name);
+                Agent::GetInstance()->GetVrfTable()->GetInet4McRouteTable(vrf_name);
     mc_rt_table->AddVHostRecvRoute(vrf_name, bcast_ip, false);
 }
 
@@ -203,7 +203,7 @@ static void ParseDnsServer(const ptree &node, const string &fname,
 }
 
 static void ParseDiscoveryServer(const ptree &node, const string &fname,
-                                 string &server, int xs_instances) {
+                                 string &server, int &xs_instances) {
     optional<string> opt_str;
 
     try {
@@ -212,7 +212,7 @@ static void ParseDiscoveryServer(const ptree &node, const string &fname,
             server = opt_str.get();
         }
 
-        opt_str = node.get_optional<string>("xmpp-instances");
+        opt_str = node.get<string>("control-instances");
         if (opt_str) {
             stringstream str(opt_str.get());
             str >> xs_instances;
@@ -268,6 +268,7 @@ void AgentConfig::LogConfig() const {
     LOG(DEBUG, "DNS Server-1                : " << dns_server_1_);
     LOG(DEBUG, "DNS Server-2                : " << dns_server_2_);
     LOG(DEBUG, "Discovery Server            : " << dss_server_);
+    LOG(DEBUG, "Controller Instances        : " << dss_xs_instances_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     if (mode_ != MODE_XEN) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
@@ -502,8 +503,8 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
                                  dns_addr_1, dns_addr_2, tunnel_str,
                                  dss_addr, xs_instances, cmd_line);
 
-    Agent::SetVirtualHostInterfaceName(vhost_name);
-    Agent::SetIpFabricItfName(eth_port);
+    Agent::GetInstance()->SetVirtualHostInterfaceName(vhost_name);
+    Agent::GetInstance()->SetIpFabricItfName(eth_port);
 
     // If "/proc/xen" exists it means we are running in Xen dom0
     struct stat fstat;
@@ -563,26 +564,26 @@ void AgentConfig::OnItfCreate(DBEntryBase *entry, AgentConfig::Callback cb) {
     if (type != Interface::ETH)
         return;
 
-    CreateVhostBcastRoute(Agent::GetDefaultVrf());
+    CreateVhostBcastRoute(Agent::GetInstance()->GetDefaultVrf());
 
     //Create Receive and resolve route
     if (GetVHostAddr() != "") {
         Inet4UcRouteTable *rt_table;
 
-        rt_table =Agent::GetVrfTable()->GetInet4UcRouteTable(Agent::GetDefaultVrf());
+        rt_table =Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(Agent::GetInstance()->GetDefaultVrf());
         boost::system::error_code ec;
         Ip4Address ip =Ip4Address::from_string(GetVHostAddr(), ec);
         assert(ec.value() == 0);
-        Agent::SetRouterId(ip);
+        Agent::GetInstance()->SetRouterId(ip);
         rt_table->AddVHostRecvRoute(
-            Agent::GetDefaultVrf(), Agent::GetVirtualHostInterfaceName(),
+            Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetVirtualHostInterfaceName(),
             ip, false);
         rt_table->AddVHostSubnetRecvRoute(
-            Agent::GetDefaultVrf(), Agent::GetVirtualHostInterfaceName(),
+            Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetVirtualHostInterfaceName(),
             ip, GetVHostPlen(), false);
-        rt_table->AddResolveRoute(Agent::GetDefaultVrf(), GetVHostPrefix(), 
+        rt_table->AddResolveRoute(Agent::GetInstance()->GetDefaultVrf(), GetVHostPrefix(), 
                                   GetVHostPlen());
-        Agent::SetPrefixLen(GetVHostPlen());
+        Agent::GetInstance()->SetPrefixLen(GetVHostPlen());
     }
 
     boost::system::error_code ec;
@@ -596,14 +597,14 @@ void AgentConfig::OnItfCreate(DBEntryBase *entry, AgentConfig::Callback cb) {
     }
 
     Ip4Address default_dest_ip = Ip4Address::from_string("0.0.0.0", ec);
-    Agent::SetGatewayId(gw_ip);
-    Inet4UcRouteTable::AddGatewayRoute(Agent::GetLocalPeer(),
-                                     Agent::GetDefaultVrf(),
+    Agent::GetInstance()->SetGatewayId(gw_ip);
+    Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+                                     Agent::GetInstance()->GetDefaultVrf(),
                                      default_dest_ip, 0, gw_ip);
 
     if (cb)
         cb();
-    trigger_ = SafeDBUnregister(Agent::GetInterfaceTable(), lid_);
+    trigger_ = SafeDBUnregister(Agent::GetInstance()->GetInterfaceTable(), lid_);
 }
 
 SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
@@ -615,11 +616,11 @@ void AgentConfig::InitXenLinkLocalIntf() {
     }
 
     VirtualHostInterface::CreateReq(singleton_->xen_ll_.name_, 
-                                    Agent::GetLinkLocalVrfName(), true);
+                                    Agent::GetInstance()->GetLinkLocalVrfName(), true);
 
     Inet4UcRouteTable *rt_table;
-    rt_table = Agent::GetVrfTable()->GetInet4UcRouteTable(
-        Agent::GetLinkLocalVrfName());
+    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(
+        Agent::GetInstance()->GetLinkLocalVrfName());
     rt_table->AddVHostRecvRoute(rt_table->GetVrfName(),
                                 singleton_->xen_ll_.name_, 
                                 singleton_->xen_ll_.addr_, false);
@@ -641,35 +642,35 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
     int dns_count = 0;
 
     if (singleton_->GetXmppServer_1() != "") {
-        Agent::SetAgentMcastLabelRange(count);
-        Agent::SetXmppServer(singleton_->GetXmppServer_1(), count++);
+        Agent::GetInstance()->SetAgentMcastLabelRange(count);
+        Agent::GetInstance()->SetXmppServer(singleton_->GetXmppServer_1(), count++);
     }
 
     if (singleton_->GetXmppServer_2() != "") {
-        Agent::SetAgentMcastLabelRange(count);
-        Agent::SetXmppServer(singleton_->GetXmppServer_2(), count++);
+        Agent::GetInstance()->SetAgentMcastLabelRange(count);
+        Agent::GetInstance()->SetXmppServer(singleton_->GetXmppServer_2(), count++);
     }
 
     if (singleton_->GetDnsServer_1() != "") {
-        Agent::SetDnsXmppServer(singleton_->GetDnsServer_1(), dns_count++);
+        Agent::GetInstance()->SetDnsXmppServer(singleton_->GetDnsServer_1(), dns_count++);
     }
 
     if (singleton_->GetDnsServer_2() != "") {
-        Agent::SetDnsXmppServer(singleton_->GetDnsServer_2(), dns_count++);
+        Agent::GetInstance()->SetDnsXmppServer(singleton_->GetDnsServer_2(), dns_count++);
     }
 
     if (singleton_->GetDiscoveryServer() != "") {
-        Agent::SetDiscoveryServer(singleton_->GetDiscoveryServer());
-        Agent::SetDiscoveryXmppServerInstances(singleton_->GetDiscoveryXmppServerInstances());
+        Agent::GetInstance()->SetDiscoveryServer(singleton_->GetDiscoveryServer());
+        Agent::GetInstance()->SetDiscoveryXmppServerInstances(singleton_->GetDiscoveryXmppServerInstances());
     }
 
-    singleton_->lid_ = Agent::GetInterfaceTable()->Register
+    singleton_->lid_ = Agent::GetInstance()->GetInterfaceTable()->Register
         (boost::bind(&AgentConfig::OnItfCreate, singleton_, _2, cb));
 
     VirtualHostInterface::CreateReq(singleton_->GetVHostName(), 
-                                    Agent::GetDefaultVrf(), false);
+                                    Agent::GetInstance()->GetDefaultVrf(), false);
     InitXenLinkLocalIntf();
-    EthInterface::CreateReq(singleton_->GetEthPort(), Agent::GetDefaultVrf());
+    EthInterface::CreateReq(singleton_->GetEthPort(), Agent::GetInstance()->GetDefaultVrf());
     if (singleton_->tunnel_type_ == "MPLSoUDP")
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
     else
@@ -682,21 +683,21 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
 static void DeleteRoutes() {
    boost::system::error_code ec;
     Ip4Address ip = Ip4Address::from_string("255.255.255.255", ec);
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
                                ip, 32);
-    Inet4McRouteTable::DeleteReq(Agent::GetDefaultVrf(), ip);
+    Inet4McRouteTable::DeleteReq(Agent::GetInstance()->GetDefaultVrf(), ip);
     ip = Ip4Address::from_string("0.0.0.0", ec);
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
                                ip, 0);
 
-   Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
-                               Agent::GetRouterId(), 32);
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
-                               Agent::GetGatewayId(), 32);
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
-                               Agent::GetRouterId(), Agent::GetPrefixLen());
-    Inet4UcRouteTable::DeleteReq(Agent::GetLocalPeer(), Agent::GetDefaultVrf(),
-               Ip4Address(Agent::GetRouterId().to_ulong() | ~(0xFFFFFFFF << (32 - Agent::GetPrefixLen()))), 32);
+   Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
+                               Agent::GetInstance()->GetRouterId(), 32);
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
+                               Agent::GetInstance()->GetGatewayId(), 32);
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
+                               Agent::GetInstance()->GetRouterId(), Agent::GetInstance()->GetPrefixLen());
+    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
+               Ip4Address(Agent::GetInstance()->GetRouterId().to_ulong() | ~(0xFFFFFFFF << (32 - Agent::GetInstance()->GetPrefixLen()))), 32);
 
 }
 
@@ -709,26 +710,26 @@ static void DeleteNextHop() {
     NextHopTable::Delete(key);
 
     key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
-                           Agent::GetVirtualHostInterfaceName()), false);
+                           Agent::GetInstance()->GetVirtualHostInterfaceName()), false);
     NextHopTable::Delete(key);
 
     key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
-                           Agent::GetVirtualHostInterfaceName()), true);
+                           Agent::GetInstance()->GetVirtualHostInterfaceName()), true);
     NextHopTable::Delete(key);
 
     key = new InterfaceNHKey(new HostInterfaceKey(nil_uuid(),
-                             Agent::GetHostInterfaceName()), false);
+                             Agent::GetInstance()->GetHostInterfaceName()), false);
     NextHopTable::Delete(key);
 }
 
 static void DeleteVrf() {
-    Agent::GetVrfTable()->DeleteVrf(Agent::GetDefaultVrf());
+    Agent::GetInstance()->GetVrfTable()->DeleteVrf(Agent::GetInstance()->GetDefaultVrf());
 }
 
 static void DeleteInterface() {
-    HostInterface::DeleteReq(Agent::GetHostInterfaceName());
-    VirtualHostInterface::DeleteReq(Agent::GetVirtualHostInterfaceName());
-    EthInterface::DeleteReq(Agent::GetIpFabricItfName());
+    HostInterface::DeleteReq(Agent::GetInstance()->GetHostInterfaceName());
+    VirtualHostInterface::DeleteReq(Agent::GetInstance()->GetVirtualHostInterfaceName());
+    EthInterface::DeleteReq(Agent::GetInstance()->GetIpFabricItfName());
 }
 
 void AgentConfig::DeleteStaticEntries() {
@@ -752,7 +753,7 @@ void CfgModule::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.cfg_int.0", &CfgIntTable::CreateTable);
     table = static_cast<CfgIntTable *>(db->CreateTable("db.cfg_int.0"));
     assert(table);
-    Agent::SetIntfCfgTable(table);
+    Agent::GetInstance()->SetIntfCfgTable(table);
 
     cfg_parser_ = new IFMapAgentParser(db);
     cfg_graph_ = new DBGraph;
@@ -762,33 +763,33 @@ void CfgModule::CreateDBTables(DB *db) {
     bgp_schema_Agent_ParserInit(db, cfg_parser_);
     IFMapAgentLinkTable_Init(db, cfg_graph_);
     cfg_listener_ = new CfgListener;
-    Agent::SetCfgListener(cfg_listener_);
-    Agent::SetIfMapAgentParser(cfg_parser_);
+    Agent::GetInstance()->SetCfgListener(cfg_listener_);
+    Agent::GetInstance()->SetIfMapAgentParser(cfg_parser_);
     IFMapAgentStaleCleaner *cl = new IFMapAgentStaleCleaner(db, cfg_graph_, 
-                                        *(Agent::GetEventManager()->io_service()));
-    Agent::SetAgentStaleCleaner(cl);
+                                        *(Agent::GetInstance()->GetEventManager()->io_service()));
+    Agent::GetInstance()->SetAgentStaleCleaner(cl);
     IFMapAgentSandeshInit(db);
 }
 
 void CfgModule::RegisterDBClients(DB *db) {
-    cfg_listener_->Register("virtual-network", Agent::GetVnTable(),
+    cfg_listener_->Register("virtual-network", Agent::GetInstance()->GetVnTable(),
                             VirtualNetwork::ID_PERMS);
-    cfg_listener_->Register("security-group", Agent::GetSgTable(),
+    cfg_listener_->Register("security-group", Agent::GetInstance()->GetSgTable(),
                             SecurityGroup::ID_PERMS);
-    cfg_listener_->Register("virtual-machine", Agent::GetVmTable(),
+    cfg_listener_->Register("virtual-machine", Agent::GetInstance()->GetVmTable(),
                             VirtualMachine::ID_PERMS);
     cfg_listener_->Register("virtual-machine-interface",
-                            Agent::GetInterfaceTable(),
+                            Agent::GetInstance()->GetInterfaceTable(),
                             VirtualMachineInterface::ID_PERMS);
-    cfg_listener_->Register("access-control-list", Agent::GetAclTable(),
+    cfg_listener_->Register("access-control-list", Agent::GetInstance()->GetAclTable(),
                             AccessControlList::ID_PERMS);
-    cfg_listener_->Register("routing-instance", Agent::GetVrfTable(), -1);
+    cfg_listener_->Register("routing-instance", Agent::GetInstance()->GetVrfTable(), -1);
     cfg_listener_->Register("virtual-network-network-ipam", 
                             boost::bind(&VnTable::IpamVnSync, _1), -1);
-    cfg_listener_->Register("network-ipam", 
-                            boost::bind(&DomainConfig::IpamSync, _1), -1);
-    cfg_listener_->Register("virtual-DNS", 
-                            boost::bind(&DomainConfig::VDnsSync, _1), -1);
+    cfg_listener_->Register("network-ipam", boost::bind(&DomainConfig::IpamSync,
+                            Agent::GetInstance()->GetDomainConfigTable(), _1), -1);
+    cfg_listener_->Register("virtual-DNS", boost::bind(&DomainConfig::VDnsSync, 
+                            Agent::GetInstance()->GetDomainConfigTable(), _1), -1);
     cfg_listener_->Register
         ("virtual-machine-interface-routing-instance", 
          boost::bind(&InterfaceTable::VmInterfaceVrfSync, _1), -1);
@@ -810,51 +811,51 @@ void CfgModule::RegisterDBClients(DB *db) {
          boost::bind(&TunnelType::EncapPrioritySync, _1), -1);
 
     AgentConfig::cfg_vm_interface_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "virtual-machine-interface"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-machine-interface"));
     assert(AgentConfig::cfg_vm_interface_table_);
 
     AgentConfig::cfg_acl_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "access-control-list"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "access-control-list"));
     assert(AgentConfig::cfg_acl_table_);
 
     AgentConfig::cfg_vm_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "virtual-machine"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-machine"));
     assert(AgentConfig::cfg_vm_table_);
 
     AgentConfig::cfg_vn_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "virtual-network"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-network"));
     assert(AgentConfig::cfg_vn_table_);
 
     AgentConfig::cfg_sg_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "security-group"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "security-group"));
     assert(AgentConfig::cfg_sg_table_);         
 
     AgentConfig::cfg_vrf_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "routing-instance"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "routing-instance"));
     assert(AgentConfig::cfg_vrf_table_);
 
     AgentConfig::cfg_instanceip_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "instance-ip"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "instance-ip"));
     assert(AgentConfig::cfg_instanceip_table_);
 
     AgentConfig::cfg_floatingip_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "floating-ip"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "floating-ip"));
     assert(AgentConfig::cfg_floatingip_table_);
 
     AgentConfig::cfg_floatingip_pool_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "floating-ip-pool"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "floating-ip-pool"));
     assert(AgentConfig::cfg_floatingip_pool_table_);
 
     AgentConfig::network_ipam_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "network-ipam"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "network-ipam"));
     assert(AgentConfig::network_ipam_table_);
 
     AgentConfig::vn_network_ipam_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), "virtual-network-network-ipam"));
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-network-network-ipam"));
     assert(AgentConfig::vn_network_ipam_table_);
 
     AgentConfig::vm_port_vrf_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetDB(), 
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
                                "virtual-machine-interface-routing-instance"));
     assert(AgentConfig::vm_port_vrf_table_);
 
@@ -866,21 +867,21 @@ void CfgModule::Shutdown() {
     CfgFilter::Shutdown();
     InterfaceCfgClient::Shutdown();
 
-    Agent::GetDB()->RemoveTable(Agent::GetIntfCfgTable());
-    delete Agent::GetIntfCfgTable();
-    Agent::SetIntfCfgTable(NULL);
+    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetIntfCfgTable());
+    delete Agent::GetInstance()->GetIntfCfgTable();
+    Agent::GetInstance()->SetIntfCfgTable(NULL);
 
     delete cfg_parser_;
     cfg_parser_ = NULL;
-    Agent::SetIfMapAgentParser(cfg_parser_);
+    Agent::GetInstance()->SetIfMapAgentParser(cfg_parser_);
 
 
     delete cfg_listener_;
     cfg_listener_ = NULL;
 
-    Agent::GetIfMapAgentStaleCleaner()->Clear();
-    delete Agent::GetIfMapAgentStaleCleaner();
-    Agent::SetAgentStaleCleaner(NULL);
+    Agent::GetInstance()->GetIfMapAgentStaleCleaner()->Clear();
+    delete Agent::GetInstance()->GetIfMapAgentStaleCleaner();
+    Agent::GetInstance()->SetAgentStaleCleaner(NULL);
 
     delete cfg_graph_;
     cfg_graph_ = NULL;

@@ -26,16 +26,89 @@
 #include <nl_util.h>
 #include <vr_flow.h>
 #include <vr_genetlink.h>
-#include "ksync/ksync_sock_user.h"
+#include <ksync/ksync_sock_user.h>
 
 #include <pkt/pkt_flow.h>
 #include <oper/agent_types.h>
 
 FlowTableKSyncObject *FlowTableKSyncObject::singleton_;
-vr_flow_req FlowTableKSyncObject::flow_info_;
-vr_flow_entry *FlowTableKSyncObject::flow_table_;
-uint32_t FlowTableKSyncObject::flow_table_entries_;
-int FlowTableKSyncObject::audit_yeild_;
+
+FlowTableKSyncObject::FlowTableKSyncObject() : 
+    KSyncObject(), audit_flow_idx_(0),
+    audit_timer_(TimerManager::CreateTimer
+                 (*(Agent::GetInstance()->GetEventManager())->io_service(),
+                  "Flow Audit Timer",
+                  TaskScheduler::GetInstance()->GetTaskId
+                  ("Agent::StatsCollector"))) { 
+}
+
+FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
+    KSyncObject(max_index), audit_flow_idx_(0),
+    audit_timer_(TimerManager::CreateTimer
+                 (*(Agent::GetInstance()->GetEventManager())->io_service(),
+                  "Flow Audit Timer",
+                  TaskScheduler::GetInstance()->GetTaskId
+                  ("Agent::StatsCollector"))) {
+};
+FlowTableKSyncObject::~FlowTableKSyncObject() {
+    TimerManager::DeleteTimer(audit_timer_);
+};
+
+KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
+    const FlowTableKSyncEntry *entry  =
+        static_cast<const FlowTableKSyncEntry *>(key);
+    FlowTableKSyncEntry *ksync = new FlowTableKSyncEntry(entry->GetFe(),
+                                                         entry->GetHashId());
+    return static_cast<KSyncEntry *>(ksync);
+}
+
+FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
+    FlowTableKSyncEntry entry(key, key->flow_handle);
+    KSyncObject *obj = 
+        static_cast<KSyncObject *>(FlowTableKSyncObject::GetKSyncObject());
+    return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
+}
+
+void FlowTableKSyncObject::UpdateFlowStats(FlowEntry *fe,
+                                           bool ignore_active_status) {
+    const vr_flow_entry *k_flow = GetKernelFlowEntry
+        (fe->flow_handle, ignore_active_status);
+    if (k_flow) {
+        fe->data.bytes =  k_flow->fe_stats.flow_bytes;
+        fe->data.packets =  k_flow->fe_stats.flow_packets;
+    }
+
+}
+
+const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
+    (uint32_t idx, bool ignore_active_status) { 
+    if (idx == FlowEntry::kInvalidFlowHandle) {
+        return NULL;
+    }
+
+    if (ignore_active_status) {
+        return &flow_table_[idx];
+    }
+
+    if (flow_table_[idx].fe_flags & VR_FLOW_FLAG_ACTIVE) {
+        return &flow_table_[idx];
+    }
+    return NULL;
+}
+
+bool FlowTableKSyncObject::GetFlowKey(uint32_t index, FlowKey &key) {
+    const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
+    if (!kflow) {
+        return false;
+    }
+    key.vrf = kflow->fe_key.key_vrf_id;
+    key.src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
+    key.dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
+    key.src_port = ntohs(kflow->fe_key.key_src_port);
+    key.dst_port = ntohs(kflow->fe_key.key_dst_port);
+    key.protocol = kflow->fe_key.key_proto;
+    return true;
+}
 
 KSyncObject *FlowTableKSyncEntry::GetObject() {
     return FlowTableKSyncObject::GetKSyncObject();
@@ -44,7 +117,7 @@ KSyncObject *FlowTableKSyncEntry::GetObject() {
 void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe, 
                                       std::vector<int8_t> &data) {
     data.clear();
-    uint32_t addr = Agent::GetRouterId().to_ulong();
+    uint32_t addr = Agent::GetInstance()->GetRouterId().to_ulong();
     data.push_back(FlowEntry::PCAP_CAPTURE_HOST);
     data.push_back(0x4);
     data.push_back(((addr >> 24) & 0xFF));
@@ -75,27 +148,16 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back(0x0);
 }
 
-char *FlowTableKSyncEntry::Encode(sandesh_op::type op, int &len) {
-    struct nl_client cl;
+int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_flow_req req;
     int encode_len;
     int error;
-    int ret;
-    uint8_t *buf;
-    uint32_t buf_len;
     uint16_t action = 0;
     std::vector<int8_t> pcap_data;
 
 
     if (hash_id_ == FlowEntry::kInvalidFlowHandle) {
-        return NULL;
-    }
-
-    nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
-
-    if ((ret = nl_build_header(&cl, &buf, &buf_len)) < 0) {
-        LOG(DEBUG, "Error creating mpls message. Error : " << ret);
-        return NULL;
+        return 0;
     }
 
     req.set_fr_op(flow_op::FLOW_SET);
@@ -152,8 +214,8 @@ char *FlowTableKSyncEntry::Encode(sandesh_op::type op, int &len) {
                 }
             }
             req.set_fr_mir_vrf(fe_->data.mirror_vrf); 
-            req.set_fr_mir_sip(htonl(Agent::GetRouterId().to_ulong()));
-            req.set_fr_mir_sport(htons(Agent::GetMirrorPort()));
+            req.set_fr_mir_sip(htonl(Agent::GetInstance()->GetRouterId().to_ulong()));
+            req.set_fr_mir_sport(htons(Agent::GetInstance()->GetMirrorPort()));
             SetPcapData(fe_, pcap_data);
             req.set_fr_pcap_meta_data(pcap_data);
         }
@@ -242,10 +304,8 @@ char *FlowTableKSyncEntry::Encode(sandesh_op::type op, int &len) {
 
     FillFlowInfo(op, action, flags);
 
-    encode_len = req.WriteBinary(buf, buf_len, &error);
-    nl_update_header(&cl, encode_len);
-    len = cl.cl_msg_len;
-    return (char *)cl.cl_buf;
+    encode_len = req.WriteBinary((uint8_t *)buf, buf_len, &error);
+    return encode_len;
 }
 
 std::string FlowTableKSyncEntry::GetActionString(uint16_t action, 
@@ -343,16 +403,16 @@ bool FlowTableKSyncEntry::Sync() {
     return changed;
 }
 
-char *FlowTableKSyncEntry::AddMsg(int &len) {
-    return Encode(sandesh_op::ADD, len);
+int FlowTableKSyncEntry::AddMsg(char *buf, int buf_len) {
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *FlowTableKSyncEntry::ChangeMsg(int &len) {
-    return Encode(sandesh_op::ADD, len);
+int FlowTableKSyncEntry::ChangeMsg(char *buf, int buf_len) {
+    return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-char *FlowTableKSyncEntry::DeleteMsg(int &len) {
-    return Encode(sandesh_op::DELETE, len);
+int FlowTableKSyncEntry::DeleteMsg(char *buf, int buf_len) {
+    return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
 void FlowTableKSyncEntry::Response() {
@@ -388,7 +448,7 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
         flow_idx = obj->audit_flow_list_.front();
         obj->audit_flow_list_.pop_front();
 
-        vflow_entry = GetKernelFlowEntry(flow_idx, false);
+        vflow_entry = obj->GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
             FlowKey key(ntohs(vflow_entry->fe_key.key_vrf_id), 
                         ntohl(vflow_entry->fe_key.key_src_ip), 
@@ -412,9 +472,9 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
     }
 
     int count = 0;
-    assert(audit_yeild_);
-    while (count < audit_yeild_) {
-        vflow_entry = GetKernelFlowEntry(obj->audit_flow_idx_, false);
+    assert(obj->audit_yeild_);
+    while (count < obj->audit_yeild_) {
+        vflow_entry = obj->GetKernelFlowEntry(obj->audit_flow_idx_, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
             obj->audit_flow_list_.push_back(obj->audit_flow_idx_);
         }

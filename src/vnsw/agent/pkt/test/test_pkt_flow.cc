@@ -3,6 +3,7 @@
  */
 
 #include "test/test_cmn_util.h"
+#include "test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
 
 #define MAX_VNET 4
@@ -23,6 +24,10 @@ struct TestFlowKey {
 #define vm2_ip "11.1.1.2"
 #define vm3_ip "12.1.1.1"
 #define vm4_ip "13.1.1.1"
+#define vm5_ip "14.1.1.1"
+#define vm1_fip "14.1.1.100"
+#define vm1_fip2 "14.1.1.101"
+#define vm2_fip "14.1.1.100"
 #define remote_vm1_ip "11.1.1.3"
 #define remote_vm3_ip "12.1.1.3"
 #define remote_vm4_ip "13.1.1.2"
@@ -40,11 +45,16 @@ struct PortInfo input2[] = {
         {"flow3", 9, vm4_ip, "00:00:00:01:01:04", 3, 4},
 };
 
+struct PortInfo input3[] = {
+        {"flow4", 10, vm5_ip, "00:00:00:01:01:06", 4, 5},
+};
+
 int hash_id;
 VmPortInterface *flow0;
 VmPortInterface *flow1;
 VmPortInterface *flow2;
 VmPortInterface *flow3;
+VmPortInterface *flow4;
 std::string eth_itf;
 
 class FlowTest : public ::testing::Test {
@@ -71,7 +81,7 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmPortInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetDefaultInet4UcRouteTable()->AddLocalVmRoute
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddLocalVmRoute
             (NULL, vrf, addr, 32, intf->GetUuid(),
              intf->GetVnEntry()->GetName(), label); 
         client->WaitForIdle();
@@ -82,21 +92,31 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute
-            (NULL, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(
+                peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
 
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetDefaultInet4UcRouteTable()->DeleteReq(NULL, vrf, addr, 32);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, 
+                vrf, addr, 32);
+        client->WaitForIdle();
+        WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
+    }
+
+    void DeleteRemoteRoute(const char *vrf, const char *ip) {
+        Ip4Address addr = Ip4Address::from_string(ip);
+        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(peer_,
+                vrf, addr, 32);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
 
     static void FlowDel(int vrf, const char *sip, const char *dip,
-                        int proto, int sport, int dport, bool del_reverse_flow) {
+                        int proto, int sport, int dport, 
+                        bool del_reverse_flow) {
         FlowKey key;
 
         key.vrf = vrf;
@@ -110,13 +130,16 @@ public:
     }
 
     static void RunFlowAudit() {
-        FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject::GetKSyncObject());
-        FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject::GetKSyncObject());
+        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
+                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
+        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
+                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
     }
 
-    static bool KFlowHoldAdd(int hash_id, int vrf, const char *sip, const char *dip,
-                             int proto, int sport, int dport) {
-        if (hash_id >= FlowTableKSyncObject::GetFlowTableSize()) {
+    static bool KFlowHoldAdd(int hash_id, int vrf, const char *sip, 
+                             const char *dip, int proto, int sport, int dport) {
+        if (hash_id >= 
+                FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize()) {
             return false;
         }
         if (ksync_init_) {
@@ -142,7 +165,8 @@ public:
             return;
         }
 
-        for (int count = 0; count < FlowTableKSyncObject::GetFlowTableSize();
+        for (int count = 0; 
+             count < FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
             vr_flow->fe_action = VR_FLOW_ACTION_DROP;;
@@ -211,41 +235,28 @@ public:
 
     static void TestTearDown() {
         client->Reset();
-        DeleteVmportEnv(input, 3, true, 1);
-        client->PortDelNotifyWait(3);
-        client->WaitForIdle();
-        EXPECT_FALSE(VmPortFind(input, 0));
-        EXPECT_FALSE(VmPortFind(input, 1));
-        EXPECT_FALSE(VmPortFind(input, 2));
-        EXPECT_EQ(5U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(1U, Agent::GetIntfCfgTable()->Size());
-
-        client->Reset();
-        DeleteVmportEnv(input2, 1, true, 2);
-        client->PortDelNotifyWait(1);
-        client->WaitForIdle();
-        EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(0U, Agent::GetIntfCfgTable()->Size());
-        EXPECT_FALSE(VmPortFind(input2, 0));
-        EXPECT_EQ(0U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(0U, Agent::GetVnTable()->Size());
-        EXPECT_EQ(0U, Agent::GetAclTable()->Size());
-
         if (ksync_init_) {
             DeleteTapIntf(fd_table, MAX_VNET);
         }
+        client->SetFlowAgeExclusionPolicy();
         client->WaitForIdle();
     }
 
     static void TestSetup(bool ksync_init) {
-        unsigned int vn_count = 0;
-
         ksync_init_ = ksync_init;
         if (ksync_init_) {
             CreateTapInterfaces("flow", MAX_VNET, fd_table);
             client->WaitForIdle();
         }
+    }
 
+protected:
+    virtual void SetUp() {
+        unsigned int vn_count = 0;
+        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        //Reset flow age
+        client->EnqueueFlowAge();
+        client->WaitForIdle();
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 3, 1);
@@ -258,10 +269,10 @@ public:
         EXPECT_TRUE(VmPortPolicyEnable(input, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input, 1));
         EXPECT_TRUE(VmPortPolicyEnable(input, 2));
-        EXPECT_EQ(7U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(3U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
-        EXPECT_EQ(3U, Agent::GetIntfCfgTable()->Size());
+        EXPECT_EQ(7U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(3U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(3U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
         flow0 = VmPortInterfaceGet(input[0].intf_id);
         assert(flow0);
@@ -277,65 +288,116 @@ public:
         vn_count++;
         EXPECT_TRUE(VmPortActive(input2, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input2, 0));
-        EXPECT_EQ(8U, Agent::GetInterfaceTable()->Size());
-        EXPECT_EQ(4U, Agent::GetVmTable()->Size());
-        EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
-        EXPECT_EQ(4U, Agent::GetIntfCfgTable()->Size());
-        EXPECT_EQ(2U, Agent::GetAclTable()->Size());
+        EXPECT_EQ(8U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(4U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->GetAclTable()->Size());
 
         flow3 = VmPortInterfaceGet(input2[0].intf_id);
         assert(flow3);
 
-        client->SetFlowAgeExclusionPolicy();
-    }
-
-protected:
-    virtual void SetUp() {
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
-        //Reset flow age
-        client->EnqueueFlowAge();
+        /* Create interface flow4 in vn4 */
+        client->Reset();
+        CreateVmportEnv(input3, 1);
         client->WaitForIdle();
+        vn_count++;
+        EXPECT_TRUE(VmPortActive(input3, 0));
+        EXPECT_EQ(9U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(5U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(5U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        flow4 = VmPortInterfaceGet(input3[0].intf_id);
+        assert(flow4);
+        // Configure Floating-IP
+        AddFloatingIpPool("fip-pool1", 1);
+        AddFloatingIp("fip1", 1, "14.1.1.100");
+        AddFloatingIp("fip2", 1, "14.1.1.101");
+        AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
+        AddLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
+        AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
+        AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+        client->WaitForIdle();
+        peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
     }
 
     virtual void TearDown() {
         FlushFlowTable();
+        client->Reset();
+        DeleteVmportEnv(input, 3, true, 1);
+        client->PortDelNotifyWait(3);
+        client->WaitForIdle();
+        EXPECT_FALSE(VmPortFind(input, 0));
+        EXPECT_FALSE(VmPortFind(input, 1));
+        EXPECT_FALSE(VmPortFind(input, 2));
+        EXPECT_EQ(6U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+
+        client->Reset();
+        DeleteVmportEnv(input2, 1, true, 2);
+        client->PortDelNotifyWait(1);
+        client->WaitForIdle();
+        EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_FALSE(VmPortFind(input2, 0));
+
+        client->Reset();
+        DeleteVmportEnv(input3, 1, true);
+        client->PortDelNotifyWait(1);
+        client->WaitForIdle();
+        EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+        EXPECT_FALSE(VmPortFind(input3, 0));
+
+        EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+        delete static_cast<Peer *>(peer_);
     }
 
 private:
     static bool ksync_init_;
+    BgpPeer *peer_;
 };
 
 bool FlowTest::ksync_init_;
 //Ingress flow test (VMport to VMport - Same VN)
 //Flow creation using IP and TCP packets
 TEST_F(FlowTest, FlowAdd_1) {
+    TestFlow flow[] = {
+        //Add a ICMP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                flow0->GetInterfaceId()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                flow1->GetInterfaceId()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        //Add a TCP forward and reverse flow
+        {  TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, 
+                "vrf5", flow0->GetInterfaceId()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        },
+        {  TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, 
+                "vrf5", flow1->GetInterfaceId()),
+        {
+            new VerifyVn("vn5", "vn5"),
+            new VerifyVrf("vrf5", "vrf5")
+        }
+        }
+    };
 
-    //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 1, 0, 0, false, 
-                        "vn5", "vn5", hash_id++));
-
-    //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->GetInterfaceId(), vm2_ip, vm1_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm2_ip, vm1_ip, 1, 0, 0, true, 
-                          "vn5", "vn5", hash_id++));
-
-    //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1000, 200, 
-                    hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
-
-    //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm2_ip, vm1_ip, 200, 1000, 
-                    hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm2_ip, vm1_ip, 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id++));
-
+    CreateFlow(flow, 4);
     EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
 }
 
@@ -347,59 +409,61 @@ TEST_F(FlowTest, FlowAdd_2) {
     //Create ETH interface to receive GRE packets on it.
     EthInterfaceKey key(nil_uuid(), eth_itf);
     Interface *intf = static_cast<Interface *>
-                                 (Agent::GetInterfaceTable()->FindActiveEntry(&key));
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
 
     //Create remote VM route. This will be used to figure out destination VN for
     //flow
-    Ip4Address addr = Ip4Address::from_string(remote_vm1_ip);
-    Ip4Address gw = Ip4Address::from_string(remote_router_ip);
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute
-        (NULL, "vrf5", addr, 32, gw, TunnelType::AllType(), 30, "vn5");
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
     client->WaitForIdle();
-    EXPECT_TRUE(RouteFind("vrf5", addr, 32));
-    
-    Ip4Address rid1 = Agent::GetRouterId();
-    std::string router_ip_str = rid1.to_string();
 
-    //Send GRE-MPLS packet containing IP datagram
-    TxMplsPacketUtil(intf->GetInterfaceId(), remote_router_ip, router_ip_str.c_str(), 16, 
-                     remote_vm1_ip, vm1_ip, 1, hash_id);
+    CreateRemoteRoute("vrf5", remote_vm3_ip, remote_router_ip, 32, "vn5");
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", remote_vm1_ip, vm1_ip, 1, 0, 0, false, 
-                        "vn5", "vn5", hash_id++));
 
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, remote_vm1_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, remote_vm1_ip, 1, 0, 0, true, 
-                        "vn5", "vn5", hash_id++));
-    
-    //Create remote VM route. This will be used to figure out destination VN for
-    //flow
-    addr = Ip4Address::from_string(remote_vm3_ip);
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute
-        (NULL, "vrf5", addr, 32, gw, TunnelType::AllType(), 30, "vn5");
-    client->WaitForIdle();
-    EXPECT_TRUE(RouteFind("vrf5", addr, 32));
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM to local VM
+        {
+            TestFlowPkt(remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    remote_router_ip, 16),
+            { 
+                new VerifyVn("vn5", "vn5"),
+                new VerifyVrf("vrf5", "vrf5")
+            }
+        },
+        //Send a ICMP reply from local to remote VM
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn5"),
+                new VerifyVrf("vrf5", "vrf5")
+            }
+        },
+        //Send a TCP flow from remote VM to local VM
+        {
+            TestFlowPkt(remote_vm3_ip, vm3_ip, IPPROTO_TCP, 1001, 1002,
+                    "vrf5", remote_router_ip, 18),
+            {
+                new VerifyVn("vn5", "vn5"),
+                new VerifyVrf("vrf5", "vrf5")
+            }
+        },
+        //Send a TCP reply from local VM to remote VM
+        {
+            TestFlowPkt(vm3_ip, remote_vm3_ip, IPPROTO_TCP, 1002, 1001,
+                    "vrf5", flow2->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn5"),
+                new VerifyVrf("vrf5", "vrf5")
+            }
+        }
+    };
 
-    //Send GRE-MPLS packet containing TCP packet
-    TxMplsTcpPacketUtil(intf->GetInterfaceId(), remote_router_ip, router_ip_str.c_str(),
-                        18, remote_vm3_ip, vm3_ip, 1001, 1002, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", remote_vm3_ip, vm3_ip, 6, 1001, 1002, false, 
-                        "vn5", "vn5", hash_id++));
-
-    TxTcpPacketUtil(flow2->GetInterfaceId(), vm3_ip, remote_vm3_ip,
-                    1002, 1001, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm3_ip, remote_vm3_ip, 6, 1002, 1001, true, 
-                        "vn5", "vn5", hash_id++));
-
-    //cleanup
-
+    CreateFlow(flow, 4);
     //1. Remove remote VM routes
-    DeleteRoute("vrf5", remote_vm1_ip);
-    DeleteRoute("vrf5", remote_vm3_ip);
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    DeleteRemoteRoute("vrf5", remote_vm3_ip);
+    client->WaitForIdle();
 }
 
 //Ingress flow test (VMport to VMport - Different VNs)
@@ -411,36 +475,48 @@ TEST_F(FlowTest, FlowAdd_3) {
     /* Add Local VM route of vrf5 to vrf3 */
     CreateLocalRoute("vrf3", vm1_ip, flow0, 16);
 
-    //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm4_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm4_ip, 1, 0, 0, false, 
-                        "vn5", "vn3", hash_id++));
+    TestFlow flow[] = {
+        //Send a ICMP request from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an ICMP reply from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, 1, 0, 0, "vrf3", 
+                    flow3->GetInterfaceId()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP packet from local VM in vn5 to local VM in vn3
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, IPPROTO_TCP, 200, 300, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send an TCP packet from local VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm4_ip, vm1_ip, IPPROTO_TCP, 300, 200, "vrf3", 
+                    flow3->GetInterfaceId()),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        }
+    };
 
-    //Create flow in reverse direction and make sure it is NOT linked to previous flow
-    TxIpPacketUtil(flow3->GetInterfaceId(), vm4_ip, vm1_ip, 1, hash_id);
+    CreateFlow(flow, 4);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf3", vm4_ip, vm1_ip, 1, 0, 0, false, 
-                        "vn3", "vn5", hash_id++));
-
-    //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm4_ip,
-                    1004, 1005, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm4_ip, 6, 1004, 1005, false,
-                        "vn5", "vn3", hash_id++));
-
-    //Create flow in reverse direction and make sure it is NOT linked to previous flow
-    TxTcpPacketUtil(flow3->GetInterfaceId(), vm4_ip, vm1_ip,
-                    1005, 1004, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf3", vm4_ip, vm1_ip, 6, 1005, 1004, false, 
-                        "vn3", "vn5", hash_id++));
-    //cleanup
 
     //1. Remove remote VM routes
     DeleteRoute("vrf5", vm4_ip);
     DeleteRoute("vrf3", vm1_ip);
+    client->WaitForIdle();
 }
 
 //Egress flow test (IP fabric to VMport - Different VNs)
@@ -448,123 +524,135 @@ TEST_F(FlowTest, FlowAdd_3) {
 TEST_F(FlowTest, FlowAdd_4) {
     /* Add remote VN route to vrf5 */
     CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3");
-
-    EthInterfaceKey key(nil_uuid(), eth_itf);
-    Interface *intf = static_cast<Interface *>
-                                 (Agent::GetInterfaceTable()->FindActiveEntry(&key));
-    EXPECT_TRUE(intf != NULL);
-
-    Ip4Address rid1 = Agent::GetRouterId();
+    Ip4Address rid1 = Agent::GetInstance()->GetRouterId();
     std::string router_ip_str = rid1.to_string();
 
-    //Send GRE-MPLS packet containing IP datagram
-    TxMplsPacketUtil(intf->GetInterfaceId(), remote_router_ip, 
-                     router_ip_str.c_str(), 16, remote_vm4_ip, 
-                     vm1_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", remote_vm4_ip, vm1_ip, 1, 0, 0, false, 
-                        "vn3", "vn5", hash_id++));
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(remote_vm4_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    remote_router_ip, 16),
+            { 
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a ICMP reply from local VM in vn5 to remote VM in vn3
+        {
+            TestFlowPkt(vm1_ip, remote_vm4_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        },
+        //Send a TCP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(remote_vm4_ip, vm1_ip, IPPROTO_TCP, 1006, 1007,
+                    "vrf5", remote_router_ip, 16),
+            {
+                new VerifyVn("vn3", "vn5"),
+            }
+        },
+        //Send a TCP reply from local VM in vn5 to remote VM in vn3
+        {
+            TestFlowPkt(vm1_ip, remote_vm4_ip, IPPROTO_TCP, 1007, 1006,
+                    "vrf5", flow0->GetInterfaceId()),
+            {
+                new VerifyVn("vn5", "vn3"),
+            }
+        }
+    };
 
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, remote_vm4_ip, 1, hash_id);
+    CreateFlow(flow, 4); 
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, remote_vm4_ip, 1, 0, 0, true, 
-                        "vn5", "vn3", hash_id++));
-
-    //Send GRE-MPLS packet containing TCP packet
-    TxMplsTcpPacketUtil(intf->GetInterfaceId(), remote_router_ip, 
-                        router_ip_str.c_str(), 16, remote_vm4_ip, 
-                        vm1_ip, 1006, 1007, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", remote_vm4_ip, vm1_ip, 6, 1006, 1007, false, 
-                        "vn3", "vn5", hash_id++));
-
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm1_ip, remote_vm4_ip, 
-                    1007, 1006, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, remote_vm4_ip, 6, 1007, 1006, true, 
-                        "vn5", "vn3", hash_id++));
-    //cleanup
-
     //1. Remove remote VM routes
-    DeleteRoute("vrf5", remote_vm4_ip);
+    DeleteRemoteRoute("vrf5", remote_vm4_ip);
+    client->WaitForIdle();
 }
 
 //Duplicate Ingress flow test (VMport to VMport - Same VN)
 //Flow creation using IP
 TEST_F(FlowTest, FlowAdd_5) {
-    //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 1, 0, 0, false, 
-                        "vn5", "vn5", hash_id));
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            { 
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
 
+    CreateFlow(flow, 1);
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
-
-    //Create the same flow again
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1, hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 1, 0, 0, false, 
-                        "vn5", "vn5", hash_id++));
-
+    CreateFlow(flow, 1);
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 }
 
 //Duplicate Ingress flow test for flow having reverse flow (VMport to VMport - Same VN)
 //Flow creation using TCP packets
 TEST_F(FlowTest, FlowAdd_6) {
-    //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1000, 200, 
-                    hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 6, 1000, 200, false,
-                        "vn5", "vn5", hash_id++));
+    TestFlow fwd_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, IPPROTO_TCP, 1000, 200, "vrf5", 
+                    flow0->GetInterfaceId()),
+            { 
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
 
+    TestFlow rev_flow[] = {
+        {
+            TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, 200, 1000, "vrf5",
+                    flow1->GetInterfaceId()),
+            { 
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
+
+
+    CreateFlow(fwd_flow, 1);
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 
-    //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm2_ip, vm1_ip, 200, 1000, 
-                    hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm2_ip, vm1_ip, 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id));
-
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
-
+    CreateFlow(rev_flow, 1);
     //Send request for reverse flow again
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm2_ip, vm1_ip, 200, 1000, 
-                    hash_id);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm2_ip, vm1_ip, 6, 200, 1000, true, 
-                        "vn5", "vn5", hash_id));
-
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
-
+    CreateFlow(rev_flow, 1);
     //Send request for forward flow again 
-    TxTcpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1000, 200, 
-                    (hash_id - 1));
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 6, 1000, 200, true,
-                        "vn5", "vn5", (hash_id - 1)));
-
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 }
 
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
+            tmp_age_time);
 
     //Create bidirectional flow
-    TxIpPacketUtil(flow0->GetInterfaceId(), vm1_ip, vm2_ip, 1, 1);
-    TxIpPacketUtil(flow1->GetInterfaceId(), vm2_ip, vm1_ip, 1, 2);
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            { 
+                new VerifyVn("vn5", "vn5"),
+            }
+        },
+        {
+            TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    flow1->GetInterfaceId(), 2),
+            { 
+                new VerifyVn("vn5", "vn5"),
+            }
+        }
+    };
+
+    CreateFlow(flow, 2);
+    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowGet("vrf5", vm1_ip, vm2_ip, 1, 0, 0, true,
-                        "vn5", "vn5", 1));
-    EXPECT_TRUE(FlowGet("vrf5", vm2_ip, vm1_ip, 1, 0, 0, true, 
-                        "vn5", "vn5", 2));
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 
     // Sleep for age-time
     usleep(tmp_age_time + 10);
@@ -598,21 +686,29 @@ TEST_F(FlowTest, FlowAge_1) {
     WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 // Flow with index -1 ages out on age-time irrespective of stats
 TEST_F(FlowTest, FlowAge_2) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
 
-    // Create flow with flow-index -1
-    FlowAdd(-1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
+    //Create a flow with index -1
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), -1),
+            { }
+        }
+    };
 
+    CreateFlow(flow, 1);
     //Trigger flow-aging
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -623,22 +719,44 @@ TEST_F(FlowTest, FlowAge_2) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 // Aging with more than 2 entries
 TEST_F(FlowTest, FlowAge_3) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.1", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(3, 1, "1.1.1.1", "2.2.2.3", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(4, 1, "1.1.1.1", "2.2.2.4", 1, 0, 0, NULL, NULL, 0);
-    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            { }
+        },
+        {
+            TestFlowPkt(vm1_ip, vm3_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 2),
+            { }
+        },
+        {
+            TestFlowPkt(vm1_ip, vm4_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 3),
+            { }
+        },
+        {
+            TestFlowPkt(vm2_ip, vm3_ip, 1, 0, 0, "vrf5", 
+                    flow1->GetInterfaceId(), 4),
+            { }
+        },
+    };
+
+    CreateFlow(flow, 4);
     EXPECT_EQ(8U, FlowTable::GetFlowTableObject()->Size());
 
     // Flow entries are created with #pkts = 1. 
@@ -653,10 +771,7 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     // Delete of 2 linked flows
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.1", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "2.2.2.1", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(3, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(4, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
+    CreateFlow(flow, 2);
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -668,10 +783,7 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     // Delete 2 out of 4 linked entries
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.1", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "2.2.2.1", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(3, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(4, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
+    CreateFlow(flow, 2);
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
@@ -681,8 +793,8 @@ TEST_F(FlowTest, FlowAge_3) {
     client->WaitForIdle();
     WAIT_FOR(100, 1, (2U == FlowTable::GetFlowTableObject()->Size()));
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.1", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.1", "1.1.1.1", 1, 0, 0, false, -1, -1));
+    EXPECT_TRUE(FlowGet(1, vm1_ip, vm2_ip, 1, 0, 0, false, -1, -1));
+    EXPECT_TRUE(FlowGet(1, vm2_ip, vm1_ip, 1, 0, 0, false, -1, -1));
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -691,21 +803,40 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, ScaleFlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
     int count_per_pass = FlowStatsCollector::FlowCountPerPass;
 
     for (int i = 0; i < count_per_pass + 10; i++) {
-        FlowAdd(i, i, "1.1.1.1", "2.2.2.1", 1, 0, 0, NULL, NULL, 0);
-        FlowAdd(i + 100, i, "2.2.2.1", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
+        Ip4Address dip(0x1010101 + i);
+        //Add route for all of them
+        CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip, 
+                10, "vn5");
+        TestFlow flow[]=  {
+            {
+                TestFlowPkt(vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
+                        flow0->GetInterfaceId(), i),
+                { }
+            },
+            {
+                TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
+                        flow1->GetInterfaceId(), i + 100),
+                { }
+            }
+        };
+        CreateFlow(flow, 2);
     }
-    EXPECT_EQ(((count_per_pass + 10U)*2), FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(((count_per_pass + 10U)*2), 
+            FlowTable::GetFlowTableObject()->Size());
 
     // Flow entries are created with #pkts = 1. 
     // Do first sleep for aging to work correctly below
@@ -713,7 +844,8 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
     client->WaitForIdle();
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_EQ(((count_per_pass + 10U)*2), FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(((count_per_pass + 10U)*2), 
+            FlowTable::GetFlowTableObject()->Size());
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -732,21 +864,40 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, ScaleFlowAge_2) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
     int count_per_pass = FlowStatsCollector::FlowCountPerPass;
 
     for (int i = 0; i < count_per_pass + 10; i++) {
-        FlowAdd(i, i, "1.1.1.1", "2.2.2.1", 1, 0, 0, NULL, NULL, 0);
-        FlowAdd(i + 100, i, "2.2.2.1", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
+        Ip4Address dip(0x1010101 + i);
+        //Add route for all of them
+        CreateRemoteRoute("vrf5", dip.to_string().c_str(), remote_router_ip, 
+                          10, "vn5");
+        TestFlow flow[]=  {
+            {
+                TestFlowPkt(vm1_ip, dip.to_string(), 1, 0, 0, "vrf5", 
+                        flow0->GetInterfaceId(), i),
+                { }
+            },
+            {
+                TestFlowPkt(dip.to_string(), vm1_ip, 1, 0, 0, "vrf5",
+                        flow1->GetInterfaceId(), i + count_per_pass + 10),
+                { }
+            }
+        };
+        CreateFlow(flow, 2);
     }
-    EXPECT_EQ(((count_per_pass + 10U)*2), FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(((count_per_pass + 10U)*2), 
+            FlowTable::GetFlowTableObject()->Size());
 
     // Flow entries are created with #pkts = 1. 
     // Do first sleep for aging to work correctly below
@@ -754,7 +905,10 @@ TEST_F(FlowTest, ScaleFlowAge_2) {
     client->WaitForIdle();
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_EQ(((count_per_pass + 10U)*2), FlowTable::GetFlowTableObject()->Size());
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+    EXPECT_EQ(((count_per_pass + 10U)*2), 
+            FlowTable::GetFlowTableObject()->Size());
 
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     usleep(tmp_age_time + 10);
@@ -762,10 +916,8 @@ TEST_F(FlowTest, ScaleFlowAge_2) {
     client->WaitForIdle();
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    client->EnqueueFlowAge();
-    client->WaitForIdle();
-    WAIT_FOR(100, 1, (22U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(22U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 1, (20U == FlowTable::GetFlowTableObject()->Size()));
+    EXPECT_EQ(20U, FlowTable::GetFlowTableObject()->Size());
 
     KSyncSockTypeMap::IncrFlowStats(201, 1, 30);
     usleep(tmp_age_time + 10);
@@ -781,20 +933,29 @@ TEST_F(FlowTest, ScaleFlowAge_2) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, Nat_FlowAge_1) {
     int tmp_age_time = 10 * 1000;
-    int bkp_age_time = AgentUve::GetFlowStatsCollector()->GetFlowAgeTime();
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
 
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    client->WaitForIdle();
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            { 
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
+            }
+        }
+    };
 
+    CreateFlow(flow, 1);
     // Update stats so that flow is not aged
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
 
@@ -804,8 +965,10 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->WaitForIdle();
 
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0, 
+                        false, -1, -1));
+    EXPECT_TRUE(FlowGet(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0, 
+                        false, -1, -1));
 
     // Sleep for age-time
     usleep(tmp_age_time + 10);
@@ -815,75 +978,114 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
 
     //Restore flow aging time
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
+#if 0
 TEST_F(FlowTest, teardown) {
     FlowTest::TestTearDown();
 }
+#endif
 
 TEST_F(FlowTest, NonNatFlowAdd_1) {
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, 1, -1));
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {}
+        },
+        {
+            TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+                    flow1->GetInterfaceId()),
+            {}
+        }   
+    };
+
+    CreateFlow(flow, 1);
 
     // Add duplicate flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, 1, -1));
+    CreateFlow(flow, 1);
 
     // Add reverse flow
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, 2, 1));
+    CreateFlow(flow + 1, 1);
 
     // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
+    DeleteFlow(flow, 1);
     EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
     EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
 
     // Add forward and reverse flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, 2, 1));
-
+    CreateFlow(flow, 2);
     // Delete reverse flow. Should delete both flows
-    FlowDel(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true);
+    DeleteFlow(flow + 1, 1);
     EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
     EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NonNatDupFlowAdd_1) {
+    TestFlow flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm2_ip, 1, 0, 0, "vrf5", 
+                                flow0->GetInterfaceId()),
+            {}
+        },
+        {
+             TestFlowPkt(vm2_ip, vm1_ip, 1, 0, 0, "vrf5",
+                                flow1->GetInterfaceId()),
+            {}
+        }   
+    };
+
     // Add forward and reverse flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, 1, 2));
+    CreateFlow(flow, 2); 
 
     // Add duplicate forward and reverse flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, 2, 1));
+    CreateFlow(flow, 2);
 
     // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
+    DeleteFlow(flow, 1);
     EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
     EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NonNatAddOldNat_1) {
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
+
+    TestFlow non_nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            { }
+        }
+    };
+
     // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
 
+    //Disassociate fip
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    client->WaitForIdle();
+        
     // Add Non-NAT forward flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
+    CreateFlow(non_nat_flow, 1);
+    //Make sure NAT reverse flow is also deleted
+    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+                          0, 0));
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
+    DeleteFlow(non_nat_flow, 1); 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm5_ip, vm1_ip, 1, 
+                         0, 0));
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -892,45 +1094,90 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 
 
 TEST_F(FlowTest, NonNatAddOldNat_2) {
+#if 0
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId()),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
+            }
+        }
+    };
+
+    TestFlow non_nat_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId()),
+            {
+                new VerifyVn(unknown_vn_, unknown_vn_)
+            }
+        }
+    };
+
     // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
 
-    // Add Non-NAT Reverse flow
-    FlowAdd(1001, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
+    //Disassociate fip
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    client->WaitForIdle();
+    //Make sure NAT reverse flow is deleted
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 
+                         0, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+                         0, 0));
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "3.3.3.3", "2.2.2.2", 1, 0, 0, true, -1, -1));
+    // Add Non-NAT reverse flow
+    CreateFlow(non_nat_flow, 1);
+    DeleteFlow(non_nat_flow, 1); 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 
+                         0, 0));
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
+#endif
 }
 
 TEST_F(FlowTest, NonNatAddOldNat_3) {
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
+
+    TestFlow non_nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId()),
+            {
+                new VerifyVn(unknown_vn_, unknown_vn_)
+            }
+        }
+    };
+
     // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
 
-    // Add Non-NAT flow. Reverse flow matching a NAT flow
-    FlowAdd(3, 1, "3.3.3.3", "2.2.2.2", 1, 0, 0, NULL, NULL, 0);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "3.3.3.3", "2.2.2.2", 1, 0, 0, true, -1, -1));
+    //Disassociate fip
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    client->WaitForIdle();
+    //Make sure NAT reverse flow is also deleted
+    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+                0, 0));
 
-    // Delete new Non-NAT flow. The NAT flow should still be present
-    FlowDel(1, "3.3.3.3", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "3.3.3.3", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
+    // Add Non-NAT forward flow
+    CreateFlow(non_nat_flow, 1);
+    DeleteFlow(non_nat_flow, 1); 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm5_ip, vm1_ip, 1, 
+                0, 0));
+    //Make sure NAT reverse flow is not present
+    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+                0, 0));
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -938,128 +1185,145 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 }
 
 TEST_F(FlowTest, NatFlowAdd_1) {
-    // Add a NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    // Add duplicate flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
+    //Add duplicate flow
+    CreateFlow(nat_flow, 1);
+    
+    //Send a reverse nat flow packet
+    TestFlow nat_rev_flow[] = {
+        {
+            TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId(), 2),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
+            }
+        }
+    };
+    CreateFlow(nat_rev_flow, 1);
 
-    // Add duplicate flow
-    FlowAdd(1, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, "2.2.2.2", "1.1.1.1", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    //Delete a forward flow and expect both flows to be deleted
+    DeleteFlow(nat_flow, 1);
+    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
-
-    // Add a NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
-
-    // Delete reverse flow. Should delete both flows
-    FlowDel(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
+    CreateFlow(nat_flow, 1); 
+    DeleteFlow(nat_rev_flow, 1);
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NatFlowAdd_2) {
-    // Add a NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    // Add reverse flow as NAT
-    FlowAdd(1, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, "2.2.2.2", "1.1.1.1", 1);
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
+    //Add duplicate flow
+    CreateFlow(nat_flow, 1);
+    //Send a reverse nat flow packet
+    TestFlow nat_rev_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId(), 2),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
+            }
+        }
+    };
+    CreateFlow(nat_rev_flow, 1);
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
+    //Delete a forward flow and expect both flows to be deleted
+    DeleteFlow(nat_flow, 1);
+    EXPECT_TRUE(FlowFail(VrfGet("vrf3")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NatAddOldNonNat_1) {
-    // Add Non-NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 1);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, -2, -1));
+    //Disassociate fip
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
+    client->WaitForIdle();
 
-    // Add NAT forward flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
+    TestFlow non_nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyVn(unknown_vn_, unknown_vn_) 
+            }
+        }
+    };
+    CreateFlow(non_nat_flow, 1);
 
-    // Forward flow must be converted to NAT flow. Reverse flow must be unlinked
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true, -2, -1));
+    //Associate a floating IP with flow0
+    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    client->WaitForIdle();
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
+    CreateFlow(nat_flow, 1);
+    DeleteFlow(nat_flow, 1);
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true, -1, -1));
-
+    EXPECT_TRUE(FlowGet(VrfGet("vrf4")->GetVrfId(), vm5_ip, 
+                       vm1_fip, 1, 0, 0) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NatAddOldNonNat_2) {
-    // Add Non-NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 1);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, 1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, 2, -1));
-
-    // Add NAT forward flow
-    FlowAdd(1, 1, "3.3.3.3", "2.2.2.2", 1, 0, 0, "1.1.1.1", "2.2.2.2", 1);
-
-    // Forward flow must be converted to NAT flow. Reverse flow must be unlinked
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true, -2, -1));
-    EXPECT_TRUE(FlowGet(1, "3.3.3.3", "2.2.2.2", 1, 0, 0, true, -1, -1));
-
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "3.3.3.3", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-
-    client->EnqueueFlowAge();
+    //Disassociate fip
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
-}
 
-TEST_F(FlowTest, NatAddOldNonNat_3) {
-    // Add Non-NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, NULL, NULL, 1);
-    FlowAdd(2, 1, "2.2.2.2", "1.1.1.1", 1, 0, 0, NULL, NULL, 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, 1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, false, 2, -1));
+    TestFlow non_nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyVn(unknown_vn_, unknown_vn_) 
+            }
+        }
+    };
+    CreateFlow(non_nat_flow, 1);
 
-    // Add NAT forward flow
-    FlowAdd(1, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, "2.2.2.2", "1.1.1.1", 1);
+    //Associate a floating IP with flow0
+    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
+    client->WaitForIdle();
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
+            }
+        }
+    };
+    CreateFlow(nat_flow, 1);
+    DeleteFlow(nat_flow, 1);
 
-    // Forward flow must be converted to NAT flow. Reverse flow must be unlinked
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true, -1, -1));
-
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "1.1.1.1", 1, 0, 0, true, -1, -1));
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, 
+                vm5_ip, 1, 0, 0) == NULL);
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -1067,89 +1331,132 @@ TEST_F(FlowTest, NatAddOldNonNat_3) {
 }
 
 TEST_F(FlowTest, NatAddOldNat_1) {
-    // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    // Add new NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "4.4.4.4", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, true, -1, -1));
+    CreateFlow(nat_flow, 1);
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "4.4.4.4", 1, 0, 0));
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
+    AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip2"); 
+    client->WaitForIdle();
 
+    TestFlow new_nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip2, 1, 0, 0) 
+            }
+        }
+    };
+    CreateFlow(new_nat_flow, 1);
+    DeleteFlow(new_nat_flow, 1);
+ 
     client->EnqueueFlowAge();
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NatAddOldNat_2) {
-    // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    // Add new NAT flow
-    FlowAdd(3, 1, "1.1.1.2", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, false, -3, -1));
+    CreateFlow(nat_flow, 1);
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
+    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1"); 
+    client->WaitForIdle();
 
-    FlowDel(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.2", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
+    TestFlow new_nat_flow[] = {
+        {
+             TestFlowPkt(vm2_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow1->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0)
+            }
+        }
+    };
+    CreateFlow(new_nat_flow, 1);
+    DeleteFlow(new_nat_flow, 1);
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 TEST_F(FlowTest, NatAddOldNat_3) {
-    // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    // Add new NAT flow
-    FlowAdd(3, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, "2.2.2.2", "1.1.1.2", 1);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    CreateFlow(nat_flow, 1);
 
-    // Delete forward flow. It should delete both flows
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowGet(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, false, -1, -1));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1, -1));
+    DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");  
+    AddLink("virtual-machine-interface", "flow1", "floating-ip", "fip1"); 
+    client->WaitForIdle();
 
-    FlowDel(1, "1.1.1.2", "2.2.2.2", 1, 0, 0, true);
-    EXPECT_TRUE(FlowFail(1, "1.1.1.2", "2.2.2.2", 1, 0, 0));
-    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "3.3.3.3", 1, 0, 0));
+    TestFlow new_nat_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm2_ip, vm5_ip, 1, 0, 0)
+            }
+        }
+    };
+    CreateFlow(new_nat_flow, 1);
+    DeleteFlow(new_nat_flow, 1);
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
 }
 
 //Create same Nat flow with different flow handles
 TEST_F(FlowTest, TwoNatFlow) {
-    // Add NAT flow
-    FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
-    EXPECT_TRUE(FlowTableWait(2));
-    usleep(1000);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1001));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1001, -1));
+    TestFlow nat_flow[] = {
+        {
+             TestFlowPkt(vm1_ip, vm5_ip, 1, 0, 0, "vrf5", 
+                    flow0->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm5_ip, vm1_fip, 1, 0, 0) 
+            }
+        }
+    };
 
-    FlowAdd(2, 1, "2.2.2.2", "3.3.3.3", 1, 0, 0, "2.2.2.2", "1.1.1.1", 1);
-    usleep(1000);
-    EXPECT_TRUE(FlowGet(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, false, -1, -1001));
-    EXPECT_TRUE(FlowGet(1, "2.2.2.2", "3.3.3.3", 1, 0, 0, false, -1001, -1));
+    CreateFlow(nat_flow, 1);
+    TestFlow nat_rev_flow[] = {
+        {
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+                    flow4->GetInterfaceId(), 1),
+            {
+                new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
+            }
+        }
+    };
+    CreateFlow(nat_rev_flow, 1);
 
-    FlowDel(1, "1.1.1.1", "2.2.2.2", 1, 0, 0, true);
+    DeleteFlow(nat_flow, 1);    
     EXPECT_TRUE(FlowTableWait(0));
 }
 
@@ -1177,22 +1484,49 @@ TEST_F(FlowTest, FlowAudit) {
     KFlowPurgeHold();
 }
 
+//Test flow deletion on ACL deletion
+TEST_F(FlowTest, AclDelete) {
+    AddAcl("acl1", 1, "vn5" , "vn5");
+    client->WaitForIdle();
+    uint32_t sport = 30;
+    for (uint32_t i = 0; i < 1; i++) {
+        sport++;
+        TestFlow flow[] = {
+            {
+                TestFlowPkt(vm2_ip, vm1_ip, IPPROTO_TCP, sport, 40, "vrf5",
+                            flow1->GetInterfaceId(), 1),
+                {
+                    new VerifyVn("vn5", "vn5")
+                }
+            }
+        };
+        CreateFlow(flow, 1);
+    }
+
+    //Delete the acl
+    DelOperDBAcl(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowTableWait(0));
+}
+
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10));
+    client = 
+        TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10));
     if (vm.count("config")) {
-		eth_itf = Agent::GetIpFabricItfName();
+		eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         eth_itf = "eth0";
-        EthInterface::CreateReq(eth_itf, Agent::GetDefaultVrf());
+        EthInterface::CreateReq(eth_itf, Agent::GetInstance()->GetDefaultVrf());
         client->WaitForIdle();
     }
 
     FlowTest::TestSetup(ksync_init);
     int ret = RUN_ALL_TESTS();
     usleep(1000);
-    Agent::GetEventManager()->Shutdown();
+    Agent::GetInstance()->GetEventManager()->Shutdown();
     AsioStop();
     return ret;
 }

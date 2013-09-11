@@ -15,7 +15,7 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
-#include "schema/bgp_l3vpn_unicast_types.h"
+#include "schema/xmpp_unicast_types.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
@@ -31,8 +31,6 @@ protected:
     }
 
     virtual void SetUp() {
-        vnc_cfg_Server_ModuleInit(bgp_server_.config_db(),
-                                  bgp_server_.config_graph());
         IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
         vnc_cfg_ParserInit(parser);
         bgp_schema_ParserInit(parser);
@@ -66,31 +64,39 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
     parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
                     0);
     task_util::WaitForIdle();
-    // vn1 target:1:1
+
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
+
     RouteTarget tgt1 = RouteTarget::FromString("target:1:84");
     TASK_UTIL_EXPECT_NE(static_cast<const RoutingInstance *>(NULL),
                         manager->GetInstanceByTarget(tgt1));
     const RoutingInstance *rti = manager->GetInstanceByTarget(tgt1);
     if (rti != NULL) {
+	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+	        0, 1000, 10000, "Wait for vn index..");
         string netname = rti->virtual_network();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
         }
         EXPECT_EQ("vn1", netname);
+        EXPECT_EQ(1, rti->virtual_network_index());
     }
+
     RouteTarget tgt2 = RouteTarget::FromString("target:1:85");
     TASK_UTIL_EXPECT_NE(static_cast<const RoutingInstance *>(NULL),
                         manager->GetInstanceByTarget(tgt2));
     rti = manager->GetInstanceByTarget(tgt2);
     if (rti != NULL) {
+	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+	        0, 1000, 10000, "Wait for vn index..");
         string netname = rti->virtual_network();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
         }
         EXPECT_EQ("vn2", netname);
+        EXPECT_EQ(2, rti->virtual_network_index());
     }
 }
 
@@ -101,19 +107,23 @@ TEST_F(NetworkConfigTest, SoapMessage2) {
     parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
                     0);
     task_util::WaitForIdle();
-    // vn1 target:1:1
+
     RoutingInstanceMgr *manager = bgp_server_.routing_instance_mgr();
+
     RouteTarget tgt1 = RouteTarget::FromString("target:1:6");
     TASK_UTIL_EXPECT_NE(static_cast<const RoutingInstance *>(NULL),
                         manager->GetInstanceByTarget(tgt1));
     const RoutingInstance *rti = manager->GetInstanceByTarget(tgt1);
     if (rti != NULL) {
+	    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+	        0, 1000, 10000, "Wait for vn index..");
         string netname = rti->virtual_network();
         size_t colon = netname.rfind(":");
         if (colon != string::npos) {
             netname = netname.substr(colon + 1);
         }
         EXPECT_EQ("vn1", netname);
+        EXPECT_EQ(1, rti->virtual_network_index());
     }
 }
 
@@ -229,8 +239,18 @@ TEST_F(MiniSystemTest, DifferentNodes) {
     
     string content = FileRead("src/bgp/testdata/network_test_1.xml");
     ASSERT_NE(0, content.size());
+
     node_a_->IFMapMessage(content);
+    task_util::WaitForIdle();
     node_b_->IFMapMessage(content);
+    task_util::WaitForIdle();
+
+    const char *ri_1 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1";
+    const char *ri_2 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2";
+    node_a_->VerifyRoutingInstance(ri_1);
+    node_a_->VerifyRoutingInstance(ri_2);
+    node_b_->VerifyRoutingInstance(ri_1);
+    node_b_->VerifyRoutingInstance(ri_2);
 
     agent_a_.reset(
         new test::NetworkAgentMock(&evm_, "phys-host-1", node_a_->xmpp_port(),
@@ -271,16 +291,24 @@ static string network_name(const char *rti_name) {
 
 TEST_F(MiniSystemTest, SameNode) {
     SCOPED_TRACE(__FUNCTION__);
-    const char *net_1 =
-            "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
-    const char *net_2 =
-            "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
+    const char *net_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
+    const char *net_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
     
     string content = FileRead("src/bgp/testdata/network_test_2.xml");
     ASSERT_NE(0, content.size());
+
     node_a_->IFMapMessage(content);
+    task_util::WaitForIdle();
     node_b_->IFMapMessage(content);
+    task_util::WaitForIdle();
     
+    const char *ri_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
+    const char *ri_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
+    node_a_->VerifyRoutingInstance(ri_1);
+    node_a_->VerifyRoutingInstance(ri_2);
+    node_b_->VerifyRoutingInstance(ri_1);
+    node_b_->VerifyRoutingInstance(ri_2);
+
     agent_a_.reset(
         new test::NetworkAgentMock(&evm_, "host-187",
                                    node_a_->xmpp_port(), "127.0.0.1"));
@@ -303,7 +331,7 @@ TEST_F(MiniSystemTest, SameNode) {
     const test::NetworkAgentMock::RouteEntry *rt2 =
     agent_a_->RouteLookup(net_1, "20.0.1.1/32");
     ASSERT_TRUE(rt2 != NULL);
-    EXPECT_EQ(network_name(net_2), rt2->entry.virtual_network);    
+    EXPECT_EQ(network_name(net_2), rt2->entry.virtual_network);
 }
 
 class TestEnvironment : public ::testing::Environment {

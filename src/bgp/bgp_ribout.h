@@ -12,9 +12,9 @@
 #include "base/index_map.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_proto.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "db/db_entry.h"
 #include "net/tunnel_encap_type.h"
-#include "tunnel_encap/tunnel_encap.h"
 
 class IPeer;
 class IPeerUpdate;
@@ -49,6 +49,12 @@ public:
                 if (address_ > rhs.address_) return 1;
                 if (label_ < rhs.label_) return -1;
                 if (label_ > rhs.label_) return 1;
+                if (encap_.size() < rhs.encap_.size()) return -1;
+                if (encap_.size() > rhs.encap_.size()) return 1;
+                for (size_t idx = 0; idx < encap_.size(); idx++) {
+                    if (encap_[idx] < rhs.encap_[idx]) return -1;
+                    if (encap_[idx] > rhs.encap_[idx]) return 1;
+                }
                 return 0;
             }
 
@@ -91,6 +97,7 @@ public:
                 encap_list.push_back(TunnelEncapType::TunnelEncapToString(id));
             }
         }
+        std::sort(encap_list.begin(), encap_list.end());
         return encap_list;
     }
 

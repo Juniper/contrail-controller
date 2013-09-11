@@ -20,6 +20,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_route.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
@@ -342,6 +343,49 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
     }
 }
 
+//
+// Update the ExtCommunity with the RouteTargets from the export list
+// and the OriginVn. The OriginVn is derived from the RouteTargets in
+// l3vpn routes.
+//
+static ExtCommunityPtr UpdateExtCommunity(BgpServer *server,
+        const RoutingInstance *rtinstance, const ExtCommunity *ext_community,
+        const ExtCommunity::ExtCommunityList &export_list) {
+
+    // Add RouteTargets exported by the instance for a non-default instance.
+    ExtCommunityPtr extcomm_ptr;
+    if (!rtinstance->IsDefaultRoutingInstance()) {
+        extcomm_ptr =
+            server->extcomm_db()->AppendAndLocate(ext_community, export_list);
+        return extcomm_ptr;
+    }
+
+    // Bail if we have a l3vpn/evpn route without extended communities.
+    if (!ext_community)
+        return ExtCommunityPtr(NULL);
+
+    // Nothing to do if we already have the OriginVn community.
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
+                  ext_community->communities()) {
+        if (!ExtCommunity::is_origin_vn(comm))
+            continue;
+        return ExtCommunityPtr(ext_community);
+    }
+
+
+    // Add the OriginVn if we have a valid vn index.
+    int vn_index =
+        server->routing_instance_mgr()->GetVnIndexByExtCommunity(ext_community);
+    if (vn_index) {
+        OriginVn origin_vn(server->autonomous_system(), vn_index);
+        extcomm_ptr = server->extcomm_db()->AppendAndLocate(
+            ext_community, origin_vn.GetExtCommunity());
+        return extcomm_ptr;
+    }
+
+    return ExtCommunityPtr(ext_community);
+}
+
 // concurrency: db-partition
 // This function handles
 //   1. Table Notification for route replication
@@ -389,9 +433,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         }
     }
 
-    // Fall down to replicate all feasible and non replicated paths
-    OriginVnDB *origin_vn_db = server_->origin_vn_db();
-    const RoutingInstanceMgr *ri_mgr = server_->routing_instance_mgr();
+    // Replicate all feasible and non replicated paths.
     for (Route::PathList::iterator it = rt->GetPathList().begin(); 
         it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
@@ -404,44 +446,20 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         const BgpAttr *attr = path->GetAttr();
         const ExtCommunity *ext_community = attr->ext_community();
 
-        OriginVnPtr origin_vn;
-        const BgpPeer *peer = dynamic_cast<const BgpPeer *>(path->GetPeer());
-        if (rtinstance->IsDefaultRoutingInstance() && 
-            (!peer || !peer->IsControlNode()) && ext_community) {
-            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm,
-                          ext_community->communities()) {
-                if (!ExtCommunity::is_route_target(comm))
-                    continue;
-
-                RouteTarget rtarget(comm);
-                const RoutingInstance *origin_rtinstance =
-                    ri_mgr->GetInstanceByTarget(rtarget);
-                if (origin_rtinstance &&
-                    !origin_rtinstance->virtual_network().empty()) {
-                    OriginVnSpec spec(origin_rtinstance->virtual_network());
-                    origin_vn = origin_vn_db->Locate(spec);
-                    break;
-                }
-            }
-        }
-
-        ExtCommunityPtr new_ext_community(NULL);
-        if (!export_list.empty()) {
-            // Add RouteTarget exported by the routing instance to the 
-            // selected Path
-            new_ext_community =
-                server()->extcomm_db()->AppendAndLocate(ext_community, 
-                                                        export_list);
-            ext_community = new_ext_community.get();
-        }
-
-        if (!ext_community) continue;
+        ExtCommunityPtr extcomm_ptr =
+            UpdateExtCommunity(server(), rtinstance, ext_community, export_list);
+        ext_community = extcomm_ptr.get();
+        if (!ext_community)
+            continue;
 
         RtGroup::RtGroupMemberList super_set;
 
-        // For each extended community, Get the list of tables to replicate
+        // For each RouteTarget extended community, get the list of tables to
+        // replicate to.
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
                       ext_community->communities()) {
+            if (!ExtCommunity::is_route_target(comm))
+                continue;
             RtGroup *rtgroup = GetRtGroup(comm);
             if (rtgroup) {
                 super_set.insert(super_set.end(), 
@@ -462,7 +480,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
             if (dest == table) continue;
 
             BgpRoute *replicated = dest->RouteReplicate(server(), table,
-                                        rt, path, new_ext_community, origin_vn);
+                                        rt, path, extcomm_ptr);
             if (replicated) {
                 RtReplicated::SecondaryRouteInfo rtinfo(dest, path->GetPeer(),
                             path->GetPathId(), path->GetSource(), replicated);
@@ -498,7 +516,7 @@ void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
     uint32_t path_id = rtinfo.path_id_;
     BgpPath::PathSource src = rtinfo.src_;
 
-    rt_secondary->RemoveSecondaryPath(rt, peer, path_id, src);
+    assert(rt_secondary->RemoveSecondaryPath(rt, peer, path_id, src));
     DBTablePartBase *partition = 
         secondary_table->GetTablePartition(rt_secondary);
     if (rt_secondary->count() == 0) {

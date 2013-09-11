@@ -94,8 +94,8 @@ protected:
     StaticRouteTest()
         : bgp_server_(new BgpServer(&evm_)) {
         IFMapLinkTable_Init(&config_db_, &config_graph_);
-        bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
         vnc_cfg_Server_ModuleInit(&config_db_, &config_graph_);
+        bgp_schema_Server_ModuleInit(&config_db_, &config_graph_);
     }
 
     ~StaticRouteTest() {
@@ -103,10 +103,9 @@ protected:
     }
 
     virtual void SetUp() {
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
-        bgp_schema_ParserInit(parser);
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         vnc_cfg_ParserInit(parser);
+        bgp_schema_ParserInit(parser);
         bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                                   "localhost");
     }
@@ -116,17 +115,15 @@ protected:
         bgp_server_->Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&config_db_);
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
-        parser->MetadataClear("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
+        parser->MetadataClear("schema");
     }
 
     void NetworkConfig(const vector<string> &instance_names,
                        const multimap<string, string> &connections) {
         string netconf(
             bgp_util::NetworkConfigGenerate(instance_names, connections));
-        IFMapServerParser *parser =
-            IFMapServerParser::GetInstance("bgp_schema");
+        IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
         parser->Receive(&config_db_, netconf.data(), netconf.length(), 0);
     }
 
@@ -165,10 +162,6 @@ protected:
                 new BgpAttrNextHop(chain_addr.to_v4().to_ulong()));
         attr_spec.push_back(nexthop_attr.get());
 
-        string vn_name = instance_name;
-        boost::scoped_ptr<OriginVnSpec> origin_vn(new OriginVnSpec(vn_name));
-        attr_spec.push_back(origin_vn.get());
-
         ExtCommunitySpec ext_comm;
         for(std::vector<uint32_t>::iterator it = sglist.begin(); 
             it != sglist.end(); it++) {
@@ -181,9 +174,6 @@ protected:
             ext_comm.communities.push_back(tunnel_encap.GetExtCommunityValue());
         }
         attr_spec.push_back(&ext_comm);
-
-
-
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attr_spec);
 
         request.data.reset(new BgpTable::RequestData(attr, flags, label));

@@ -49,7 +49,7 @@ Ping::CreateTcpPkt() {
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
     DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
-                                   *(Agent::GetEventManager())->io_service());
+                                   *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -75,7 +75,7 @@ Ping::CreateUdpPkt() {
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
     DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
-                                    *(Agent::GetEventManager())->io_service());
+                                    *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -121,7 +121,7 @@ void Ping::SendRequest() {
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
     uint32_t intf_id = intf_nh->GetInterface()->GetInterfaceId();
-    uint32_t vrf_id = Agent::GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
+    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
     //Send request out
     pkt_handler->SetDiagChkSum();
     pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
@@ -219,7 +219,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    if (Agent::GetVrfTable()->FindVrfFromName(get_vrf_name()) == NULL) {
+    if (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(get_vrf_name()) == NULL) {
         err_str = "Invalid VRF";
         goto error;
     }

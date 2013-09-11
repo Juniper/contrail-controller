@@ -16,6 +16,7 @@
 #include "base/bitset.h"
 
 #include "ifmap/ifmap_exporter.h"
+#include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_node.h"
@@ -351,7 +352,20 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
     if (src_link->is_onlist()) {
         dest->dbentryflags.append("OnList");
     }
+    if (src_link->IsOnRemoveQ()) {
+        dest->dbentryflags.append("OnRemoveQ");
+    }
     dest->last_modified = src_link->last_change_at_str();
+
+    for (std::vector<IFMapLink::LinkOriginInfo>::const_iterator iter = 
+         src_link->origin_info_.begin(); iter != src_link->origin_info_.end();
+         ++iter) {
+        const IFMapLink::LinkOriginInfo *origin_info = iter.operator->();
+        IFMapLinkOriginShowInfo dest_origin;
+        dest_origin.sequence_number = origin_info->sequence_number;
+        dest_origin.origin = origin_info->origin.ToString();
+        dest->origins.push_back(dest_origin);
+    }
 }
 
 bool ShowIFMapLinkTable::BufferStage(const Sandesh *sr,
@@ -1244,6 +1258,42 @@ void IFMapServerClientShowReq::HandleRequest() const {
 
     s0.taskId_ = scheduler->GetTaskId("db::DBTable");
     s0.cbFn_ = IFMapServerClientShowReqHandleRequest;
+    s0.instances_.push_back(0);
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= boost::assign::list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+static bool IFMapNodeTableListShowReqHandleRequest(const Sandesh *sr,
+                const RequestPipeline::PipeSpec ps, int stage, int instNum,
+                RequestPipeline::InstData *data) {
+    const IFMapNodeTableListShowReq *request =
+        static_cast<const IFMapNodeTableListShowReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc =
+        static_cast<BgpSandeshContext *>(request->client_context());
+
+    vector<IFMapNodeTableListShowEntry> dest_buffer;
+    IFMapTable::FillNodeTableList(bsc->ifmap_server->database(),
+                                  &dest_buffer);
+
+    IFMapNodeTableListShowResp *response = new IFMapNodeTableListShowResp();
+    response->set_table_list(dest_buffer);
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+
+    // Return 'true' so that we are not called again
+    return true;
+}
+
+void IFMapNodeTableListShowReq::HandleRequest() const {
+
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("db::DBTable");
+    s0.cbFn_ = IFMapNodeTableListShowReqHandleRequest;
     s0.instances_.push_back(0);
 
     RequestPipeline::PipeSpec ps(this);

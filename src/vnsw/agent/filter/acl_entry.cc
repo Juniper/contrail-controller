@@ -10,10 +10,8 @@
 #include "base/logging.h"
 
 #include <boost/cast.hpp>
-#include <boost/lexical_cast.hpp>
 
-
-AclEntry::ActionList AclEntry::EmptyActionList;
+AclEntry::ActionList AclEntry::kEmptyActionList;
 
 AclEntry::~AclEntry() {
     // Clean up Matches
@@ -116,7 +114,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
                                                      (*it).ma.encap);
                 actions_.push_back(act);
             } else {
-                LOG(ERROR, "Not supported action " << (*it).ta_type);
+                ACL_TRACE(Err, "Not supported action " + integerToString((*it).ta_type));
             }
         }
     }
@@ -137,7 +135,7 @@ const AclEntry::ActionList &AclEntry::PacketMatch(const PacketHeader &packet_hea
     std::vector<AclEntryMatch *>::const_iterator it;
     for (it = matches_.begin(); it != matches_.end(); it++) {
         if (!((*it)->Match(&packet_header))) {
-            return AclEntry::EmptyActionList;
+            return AclEntry::kEmptyActionList;
         }
     }
     return Actions();
@@ -167,7 +165,7 @@ void AclEntry::SetAclEntrySandeshData(AclEntrySandeshData &data) const {
     }
 
     // AclEntry ID
-    data.ace_id = boost::lexical_cast<std::string>(id_);
+    data.ace_id = integerToString(id_);
 }
 
 bool AclEntry::IsTerminal() const

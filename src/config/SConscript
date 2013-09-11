@@ -11,4 +11,4 @@ import sys
 Import('BuildEnv')
 
 CfgmEnv = BuildEnv.Clone()
-CfgmEnv.SConscript(dirs=['uve', 'common', 'api-server', 'schema-transformer', 'svc-monitor'], exports='CfgmEnv', duplicate = 0)
+CfgmEnv.SConscript(dirs=['uve', 'common', 'api-server', 'schema-transformer', 'svc-monitor', 'vnc_openstack',], exports='CfgmEnv', duplicate = 0)

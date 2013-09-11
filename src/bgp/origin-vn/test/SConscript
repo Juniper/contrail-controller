@@ -1,0 +1,24 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('BuildEnv')
+env = BuildEnv.Clone()
+
+env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
+
+env.Prepend(LIBS = ['gunit', 'origin_vn'])
+
+origin_vn_test = env.UnitTest('origin_vn_test', ['origin_vn_test.cc'])
+env.Alias('src/bgp/origin-vn:origin_vn_test', origin_vn_test)
+
+test_suite = [
+    origin_vn_test,
+]
+
+test = env.TestSuite('origin-vn-test', test_suite)
+env.Alias('src/bgp/origin-vn:test', test)
+
+Return('test_suite')

@@ -20,7 +20,6 @@
 #include "base/test/addr_test_util.h"
 #include "base/test/task_test_util.h"
 #include "base/util.h"
-#include "io/event_manager.h"
 
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_config.h"
@@ -33,40 +32,29 @@
 #include "bgp/bgp_peer_membership.h"
 #include "bgp/bgp_proto.h"
 #include "bgp/bgp_ribout.h"
-#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
-#include "bgp/bgp_xmpp_channel.h"
-#include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
-#include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
-#include "control-node/test/network_agent_mock.h"
-#include "ifmap/ifmap_link_table.h"
-#include "ifmap/ifmap_server_parser.h"
-#include "ifmap/ifmap_table.h"
-#include "ifmap/ifmap_xmpp.h"
-#include "ifmap/test/ifmap_test_util.h"
-#include "io/test/event_manager_test.h"
 
 #include "db/db.h"
+#include "io/event_manager.h"
 
-#include "sandesh/sandesh.h"
 #include "sandesh/sandesh_http.h"
-#include "sandesh/sandesh_server.h"
 #include "sandesh/sandesh_types.h"
-#include "schema/bgp_l3vpn_unicast_types.h"
+#include "schema/xmpp_unicast_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "tbb/task_scheduler_init.h"
-#include "testing/gunit.h"
 
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
 #include "xmpp/xmpp_state_machine.h"
+
+#include "bgp/test/bgp_stress_test.h"
 
 #define BGP_STRESS_TEST_LOG(str)                                 \
 do {                                                             \
@@ -116,7 +104,8 @@ using namespace std;
 using namespace boost::asio;
 using namespace boost::assign;
 using namespace boost::program_options;
-using   boost::any_cast;
+using boost::any_cast;
+using boost::scoped_ptr;
 using ::testing::TestWithParam;
 using ::testing::Bool;
 using ::testing::ValuesIn;
@@ -156,13 +145,14 @@ static vector<float> d_events_weight_ = boost::assign::list_of
 // ntargets:   Number of import/export route-targets attached to each instance
 //
 
+static bool d_external_mode_ = false;
 static int d_instances_ = 1;
 static int d_routes_ = 1;
 static int d_peers_ = 1;
 static int d_agents_ = 1;
 static int d_targets_ = 1;
 static int d_test_id_ = 0;
-static int d_vms_count_ = 1;
+static int d_vms_count_ = 0;
 static bool d_close_from_control_node_ = false;
 static bool d_pause_after_initial_setup_ = false;
 static bool d_profile_heap_ = false;
@@ -209,955 +199,547 @@ static void WaitForIdle() {
     }
 }
 
-class PeerCloseManagerTest : public PeerCloseManager {
-public:
-    explicit PeerCloseManagerTest(IPeer *peer) : PeerCloseManager(peer) { }
-    ~PeerCloseManagerTest() { }
+PeerCloseManagerTest::PeerCloseManagerTest(IPeer *peer) :
+        PeerCloseManager(peer) {
+}
 
-    //
-    // Do not start the timer in test, as we right away call it in line from
-    // within the tests
-    //
-    void StartStaleTimer() { }
-};
+PeerCloseManagerTest::~PeerCloseManagerTest() {
+}
 
-class StateMachineTest : public StateMachine {
-    public:
-        explicit StateMachineTest(BgpPeer *peer) : StateMachine(peer) { }
-        ~StateMachineTest() { }
+void PeerCloseManagerTest::StartStaleTimer() {
+}
 
-        void StartConnectTimer(int seconds) {
-            connect_timer_->Start(100,
-                boost::bind(&StateMachine::ConnectTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
+void StateMachineTest:: StartConnectTimer(int seconds) {
+    connect_timer_->Start(100,
+            boost::bind(&StateMachine::ConnectTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+}
 
-        void StartOpenTimer(int seconds) {
-            open_timer_->Start(100,
-                boost::bind(&StateMachine::OpenTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
+void StateMachineTest::StartOpenTimer(int seconds) {
+    open_timer_->Start(100,
+            boost::bind(&StateMachine::OpenTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+}
 
-        void StartIdleHoldTimer() {
-            if (idle_hold_time_ <= 0)
-                return;
+void StateMachineTest::StartIdleHoldTimer() {
+    if (idle_hold_time_ <= 0) return;
 
-            idle_hold_timer_->Start(100,
-                boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-                boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
-        }
-};
+    idle_hold_timer_->Start(100,
+            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
+            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+}
 
 static string GetRouterName(int router_id) {
     return "A" + boost::lexical_cast<string>(router_id);
 }
 
-class BgpNullPeer {
-public:
-    BgpNullPeer(BgpServerTest *server, int peer_id) {
-        for (int i = 0; i < 20; i++) {
-            ribout_creation_complete_.push_back(false);
-        }
-
-        string uuid = BgpConfigParser::session_uuid(
-                GetRouterName(0), GetRouterName(peer_id), 1);
-        TASK_UTIL_EXPECT_NE(static_cast<BgpPeerTest *>(NULL),
-                            static_cast<BgpPeerTest *>(
-                            server->FindPeerByUuid(
-                                BgpConfigManager::kMasterInstance, uuid)));
-        peer_ = static_cast<BgpPeerTest *>(
-                    server->FindPeerByUuid(BgpConfigManager::kMasterInstance,
-                                           uuid));
-        peer_id_ = peer_id;
+BgpNullPeer::BgpNullPeer(BgpServerTest *server, int peer_id) {
+    for (int i = 0; i < 20; i++) {
+        ribout_creation_complete_.push_back(false);
     }
 
-    BgpPeerTest *peer() { return peer_; }
-    void set_peer(BgpPeerTest *peer) { peer_ = peer; }
-    int peer_id() { return peer_id_; }
-
-    bool ribout_creation_complete(Address::Family family) {
-        return ribout_creation_complete_[family];
-    }
-
-    void ribout_creation_complete(Address::Family family, bool complete) {
-        ribout_creation_complete_[family] = complete;
-    }
-
-    string name_;
-    int peer_id_;
-    BgpPeerTest *peer_;
-
-private:
-    autogen::BgpRouter rtr_config_;
-    auto_ptr<BgpNeighborConfig> config_;
-    std::vector<bool> ribout_creation_complete_;
-};
-
-//
-// Test verison of XmppServer class
-//
-// Protect connection db with mutex as it is queried from main thread which
-// does not adhere to control-node scheduler policy.
-//
-class XmppServerTest : public XmppServer {
-public:
-    XmppServerTest(EventManager *evm, const string &server_addr) :
-            XmppServer(evm, server_addr) {
-    }
-
-    virtual ~XmppServerTest() { }
-
-    virtual XmppConnection *FindConnection(const string &peer_addr) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return XmppServer::FindConnection(peer_addr);
-    }
-
-    virtual void InsertConnection(XmppConnection *connection) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        XmppServer::InsertConnection(connection);
-    }
-
-    virtual void RemoveConnection(XmppConnection *connection) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        XmppServer::RemoveConnection(connection);
-    }
-
-private:
-    tbb::mutex mutex_;
-};
-
-class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
-public:
-    BgpXmppChannelManagerMock(XmppServerTest *x, BgpServer *b) :
-        BgpXmppChannelManager(x, b), channel_(NULL) { }
-
-    virtual BgpXmppChannel *CreateChannel(XmppChannel *channel) {
-        channel_ = new BgpXmppChannel(channel, bgp_server_, this);
-        return channel_;
-    }
-
-    BgpXmppChannel *channel_;
-};
-
-//
-// IFMapChannelManagerTest that injects ifmap vrouter and vm configuration
-//
-class IFMapChannelManagerTest : public IFMapChannelManager {
-public:
-    IFMapChannelManagerTest(XmppServerTest *xmpp_server,
-                            IFMapServer *ifmap_server,
-                            DB *config_db)
-        : IFMapChannelManager(xmpp_server, ifmap_server),
-          config_db_(config_db),
-          config_queue_(
-            TaskScheduler::GetInstance()->GetTaskId("ifmap::StateMachine"), 0,
-            boost::bind(&IFMapChannelManagerTest::ProcessConfig, this, _1)) {
-    }
-
-    bool ProcessConfig(const std::string *config) {
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        parser->Receive(config_db_, config->c_str(), config->size(), 0);
-
-        delete config;
-        return true;
-    }
-
-    IFMapXmppChannel *CreateIFMapXmppChannel(XmppChannel *channel);
-
-    void Enqueue(const std::string *config) {
-        config_queue_.Enqueue(config);
-    }
-
-private:
-    DB *config_db_;
-    WorkQueue<const std::string *> config_queue_;
-};
-
-class IFMapXmppChannelTest : public IFMapXmppChannel {
-public:
-    IFMapXmppChannelTest(IFMapChannelManagerTest *manager,
-                         XmppChannel *channel, IFMapServer *server) :
-        IFMapXmppChannel(channel, server, manager), manager_(manager) {
-    }
-
-    virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
-
-        //
-        // Inject virtual-machine and virtual-router configurations so that
-        // they get downloaded to agents later on.
-        //
-        CreatefmapConfig(msg);
-        IFMapXmppChannel::ReceiveUpdate(msg);
-    }
-
-    // Split uuid hex string (with -'s) into upper and lower 8 bytes decimal digitis string.
-    static void UuidToDecimal(string uuid, string &uuid_msb, string &uuid_lsb) {
-
-        // Remove all '-'s from the uuid string.
-        uuid.erase(remove(uuid.begin(), uuid.end(), '-'), uuid.end());
-
-        string msb = "0x" + uuid.substr(0, 16);
-        string lsb = "0x" + uuid.substr(16, 16);
-
-        ostringstream os;
-        os << strtoull(msb.c_str(), NULL, 0);
-        uuid_msb = os.str();
-        os.str("");
-
-        os << strtoull(lsb.c_str(), NULL, 0);
-        uuid_lsb = os.str();
-    }
-
-    virtual void CreatefmapConfig(const XmppStanza::XmppMessage *msg) {
-        if (msg->type != XmppStanza::IQ_STANZA) return;
-
-        const char* const vr_string = "virtual-router:";
-        const char* const vm_string = "virtual-machine:";
-        const XmppStanza::XmppMessageIq *iq;
-        ostringstream config;
-        string oper;
-
-        iq = static_cast<const XmppStanza::XmppMessageIq *>(msg);
-        string id_name;
-        string uuid_msb = "12309684986471008851";
-        string uuid_lsb = "10069215144903555692";
-
-        if (iq->node.compare(0, strlen(vm_string), vm_string) == 0) {
-            id_name = vm_string;
-            string uuid = std::string(iq->node, (strlen(vm_string)));
-            id_name += uuid;
-            UuidToDecimal(uuid, uuid_msb, uuid_lsb);
-        } else if (iq->node.compare(0, strlen(vr_string), vr_string) == 0) {
-
-            id_name = vr_string;
-            id_name += std::string(iq->node, (strlen(vr_string)));
-        } else {
-            return;
-        }
-
-        if ((iq->iq_type.compare("set") == 0) && 
-            (iq->action.compare("subscribe") == 0)) {
-            oper = "resultItem";
-        } else if ((iq->iq_type.compare("set") == 0) && 
-                  (iq->action.compare("unsubscribe") == 0)) {
-            oper = "deleteItem";
-        } else {
-            return;
-        }
-
-        //
-        // Dump sample xml configuration with proper id
-        //
-        config <<
-        "<?xml version=\"1.0\"?>"
-        "<ns3:Envelope xmlns:ns2=\"http://www.trustedcomputinggroup.org/2010/IFMAP/2\" xmlns:ns3=\"http://www.w3.org/2003/05/soap-envelope\">"
-        "  <ns3:Body>"
-        "    <ns2:response>"
-        "      <pollResult>"
-        "        <searchResult name=\"bgpd\">";
-        
-            config <<
-        "          <" << oper << ">"
-        "            <identity other-type-definition=\"extended\" type=\"other\" name=\"contrail:" << id_name << "\"/>"
-        "            <metadata>"
-        "              <contrail:id-perms xmlns:contrail=\"http://www.contrailsystems.com/vnc_cfg.xsd\" ifmap-cardinality=\"singleValue\" ifmap-publisher-id=\"test--1870931913-1\" ifmap-timestamp=\"2012-11-03T20:33:33+00:00\">"
-        "                <permissions>"
-        "                  <owner>cloud-admin</owner>"
-        "                  <owner-access>7</owner-access>"
-        "                  <group>cloud-admin-group</group>"
-        "                  <group-access>7</group-access>"
-        "                  <other-access>7</other-access>"
-        "                </permissions>"
-        "                <uuid>"
-        "                  <uuid-mslong>" << uuid_msb << "</uuid-mslong>"
-        "                  <uuid-lslong>" << uuid_lsb << "</uuid-lslong>"
-        "                </uuid>"
-        "                <enable>true</enable>"
-        "                <created/>"
-        "                <last-modified/>"
-        "              </contrail:id-perms>"
-        "            </metadata>"
-        "          </" << oper << ">"
-        "";
-        
-            config <<
-        "        </searchResult>"
-        "      </pollResult>"
-        "    </ns2:response>"
-        "  </ns3:Body>"
-        "</ns3:Envelope>";
-
-        string *config_str = new string(config.str());
-        manager_->Enqueue(config_str);
-    }
-
-private:
-    IFMapChannelManagerTest *manager_;
-};
-
-IFMapXmppChannel *IFMapChannelManagerTest::CreateIFMapXmppChannel(
-                                               XmppChannel *channel) {
-    IFMapXmppChannelTest *ifmap_chnl;
-
-    ifmap_chnl = new IFMapXmppChannelTest(this, channel, ifmap_server_);
-    channel_map_.insert(std::make_pair(channel, ifmap_chnl));
-    return ifmap_chnl;
+    string uuid = BgpConfigParser::session_uuid(
+            GetRouterName(0), GetRouterName(peer_id), 1);
+    TASK_UTIL_EXPECT_NE(static_cast<BgpPeerTest *>(NULL),
+                        static_cast<BgpPeerTest *>(
+                        server->FindPeerByUuid(
+                            BgpConfigManager::kMasterInstance, uuid)));
+    peer_ = static_cast<BgpPeerTest *>(
+                server->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                       uuid));
+    peer_id_ = peer_id;
 }
 
-class BgpStressTestEvent {
-public:
+XmppServerTest::XmppServerTest(EventManager *evm,
+                               const std::string &server_addr) :
+            XmppServer(evm, server_addr) {
+}
+XmppServerTest::~XmppServerTest() { }
 
-    //
-    // List of test events
-    //
-    enum EventType {
-        ADD_BGP_ROUTE = 1,
-        DELETE_BGP_ROUTE,
-        ADD_XMPP_ROUTE,
-        DELETE_XMPP_ROUTE,
-        BRING_UP_XMPP_AGENT,
-        BRING_DOWN_XMPP_AGENT,
-        CLEAR_XMPP_AGENT,
-        SUBSCRIBE_ROUTING_INSTANCE,
-        UNSUBSCRIBE_ROUTING_INSTANCE,
-        SUBSCRIBE_CONFIGURATION,
-        UNSUBSCRIBE_CONFIGURATION,
-        ADD_BGP_PEER,
-        DELETE_BGP_PEER,
-        CLEAR_BGP_PEER,
-        ADD_ROUTING_INSTANCE,
-        DELETE_ROUTING_INSTANCE,
-        ADD_ROUTE_TARGET,
-        DELETE_ROUTE_TARGET,
-        CHANGE_SOCKET_BUFFER_SIZE,
-        SHOW_ALL_ROUTES,
-        PAUSE,
-        NUM_TEST_EVENTS = PAUSE - 1,
+XmppConnection *XmppServerTest::FindConnection(const string &peer_addr) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    return XmppServer::FindConnection(peer_addr);
+}
+
+void XmppServerTest::InsertConnection(XmppConnection *connection) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    XmppServer::InsertConnection(connection);
+}
+
+void XmppServerTest::RemoveConnection(XmppConnection *connection) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    XmppServer::RemoveConnection(connection);
+}
+
+BgpXmppChannelManagerMock::BgpXmppChannelManagerMock(XmppServerTest *x,
+                                                     BgpServer *b) :
+        BgpXmppChannelManager(x, b), channel_(NULL) {
+}
+
+BgpXmppChannelManagerMock::~BgpXmppChannelManagerMock() {
+}
+
+BgpXmppChannel *BgpXmppChannelManagerMock::CreateChannel(XmppChannel *channel) {
+    channel_ = new BgpXmppChannel(channel, bgp_server_, this);
+    return channel_;
+}
+
+string BgpStressTestEvent::ToString(BgpStressTestEvent::EventType event) {
+    switch (event) {
+        case ADD_BGP_ROUTE:
+            return "ADD_BGP_ROUTE";
+        case DELETE_BGP_ROUTE:
+            return  "DELETE_BGP_ROUTE";
+        case ADD_XMPP_ROUTE:
+            return  "ADD_XMPP_ROUTE";
+        case DELETE_XMPP_ROUTE:
+            return  "DELETE_XMPP_ROUTE";
+        case BRING_UP_XMPP_AGENT:
+            return  "BRING_UP_XMPP_AGENT";
+        case BRING_DOWN_XMPP_AGENT:
+            return  "BRING_DOWN_XMPP_AGENT";
+        case CLEAR_XMPP_AGENT:
+            return  "CLEAR_XMPP_AGENT";
+        case SUBSCRIBE_ROUTING_INSTANCE:
+            return "SUBSCRIBE_ROUTING_INSTANCE";
+        case UNSUBSCRIBE_ROUTING_INSTANCE:
+            return "UNSUBSCRIBE_ROUTING_INSTANCE";
+        case SUBSCRIBE_CONFIGURATION:
+            return "SUBSCRIBE_CONFIGURATION";
+        case UNSUBSCRIBE_CONFIGURATION:
+            return "UNSUBSCRIBE_CONFIGURATION";
+        case ADD_BGP_PEER:
+            return "ADD_BGP_PEER";
+        case DELETE_BGP_PEER:
+            return "DELETE_BGP_PEER";
+        case CLEAR_BGP_PEER:
+            return "CLEAR_BGP_PEER";
+        case ADD_ROUTING_INSTANCE:
+            return "ADD_ROUTING_INSTANCE";
+        case DELETE_ROUTING_INSTANCE:
+            return "DELETE_ROUTING_INSTANCE";
+        case ADD_ROUTE_TARGET:
+            return "ADD_ROUTE_TARGET";
+        case DELETE_ROUTE_TARGET:
+            return "DELETE_ROUTE_TARGET";
+        case CHANGE_SOCKET_BUFFER_SIZE:
+            return "CHANGE_SOCKET_BUFFER_SIZE";
+        case SHOW_ALL_ROUTES:
+            return "SHOW_ALL_ROUTES";
+        case PAUSE:
+            return "PAUSE";
+    }
+
+    assert(false);
+}
+
+BgpStressTestEvent::EventType BgpStressTestEvent::FromString(
+                                                      const string event) {
+    static EventStringMap from_string_map_ = map_list_of
+            ("ADD_BGP_ROUTE", ADD_BGP_ROUTE)
+            ("DELETE_BGP_ROUTE", DELETE_BGP_ROUTE)
+            ("ADD_XMPP_ROUTE", ADD_XMPP_ROUTE)
+            ("DELETE_XMPP_ROUTE", DELETE_XMPP_ROUTE)
+            ("BRING_UP_XMPP_AGENT", BRING_UP_XMPP_AGENT)
+            ("BRING_DOWN_XMPP_AGENT", BRING_DOWN_XMPP_AGENT)
+            ("CLEAR_XMPP_AGENT", CLEAR_XMPP_AGENT)
+            ("SUBSCRIBE_ROUTING_INSTANCE", SUBSCRIBE_ROUTING_INSTANCE)
+            ("UNSUBSCRIBE_ROUTING_INSTANCE", UNSUBSCRIBE_ROUTING_INSTANCE)
+            ("SUBSCRIBE_CONFIGURATION", SUBSCRIBE_CONFIGURATION)
+            ("UNSUBSCRIBE_CONFIGURATION", UNSUBSCRIBE_CONFIGURATION)
+            ("ADD_BGP_PEER", ADD_BGP_PEER)
+            ("DELETE_BGP_PEER", DELETE_BGP_PEER)
+            ("CLEAR_BGP_PEER", CLEAR_BGP_PEER)
+            ("ADD_ROUTING_INSTANCE", ADD_ROUTING_INSTANCE)
+            ("DELETE_ROUTING_INSTANCE", DELETE_ROUTING_INSTANCE)
+            ("ADD_ROUTE_TARGET", ADD_ROUTE_TARGET)
+            ("DELETE_ROUTE_TARGET", DELETE_ROUTE_TARGET)
+            ("CHANGE_SOCKET_BUFFER_SIZE", CHANGE_SOCKET_BUFFER_SIZE)
+            ("SHOW_ALL_ROUTES", SHOW_ALL_ROUTES)
+            ("PAUSE", PAUSE)
+        ;
+
+    EventStringMap::iterator iter = from_string_map_.find(event);
+    if (iter == from_string_map_.end()) return EVENT_INVALID;
+
+    return iter->second;
+}
+
+void BgpStressTestEvent::ReadEventsFromFile(string events_file) {
+    struct noop {
+        void operator()(...) const {}
     };
 
-#define EVENT_INVALID \
-            (static_cast<BgpStressTestEvent::EventType>(0))
-
-    static string ToString(EventType event) {
-        switch (event) {
-            case ADD_BGP_ROUTE:
-                return "ADD_BGP_ROUTE";
-            case DELETE_BGP_ROUTE:
-                return  "DELETE_BGP_ROUTE";
-            case ADD_XMPP_ROUTE:
-                return  "ADD_XMPP_ROUTE";
-            case DELETE_XMPP_ROUTE:
-                return  "DELETE_XMPP_ROUTE";
-            case BRING_UP_XMPP_AGENT:
-                return  "BRING_UP_XMPP_AGENT";
-            case BRING_DOWN_XMPP_AGENT:
-                return  "BRING_DOWN_XMPP_AGENT";
-            case CLEAR_XMPP_AGENT:
-                return  "CLEAR_XMPP_AGENT";
-            case SUBSCRIBE_ROUTING_INSTANCE:
-                return "SUBSCRIBE_ROUTING_INSTANCE";
-            case UNSUBSCRIBE_ROUTING_INSTANCE:
-                return "UNSUBSCRIBE_ROUTING_INSTANCE";
-            case SUBSCRIBE_CONFIGURATION:
-                return "SUBSCRIBE_CONFIGURATION";
-            case UNSUBSCRIBE_CONFIGURATION:
-                return "UNSUBSCRIBE_CONFIGURATION";
-            case ADD_BGP_PEER:
-                return "ADD_BGP_PEER";
-            case DELETE_BGP_PEER:
-                return "DELETE_BGP_PEER";
-            case CLEAR_BGP_PEER:
-                return "CLEAR_BGP_PEER";
-            case ADD_ROUTING_INSTANCE:
-                return "ADD_ROUTING_INSTANCE";
-            case DELETE_ROUTING_INSTANCE:
-                return "DELETE_ROUTING_INSTANCE";
-            case ADD_ROUTE_TARGET:
-                return "ADD_ROUTE_TARGET";
-            case DELETE_ROUTE_TARGET:
-                return "DELETE_ROUTE_TARGET";
-            case CHANGE_SOCKET_BUFFER_SIZE:
-                return "CHANGE_SOCKET_BUFFER_SIZE";
-            case SHOW_ALL_ROUTES:
-                return "SHOW_ALL_ROUTES";
-            case PAUSE:
-                return "PAUSE";
-        }
-
-        assert(false);
+    istream *input;
+    if (events_file == "-") {
+        input = &cin;
+    } else {
+        input = new ifstream(events_file.c_str());
     }
 
-    static EventType FromString(const string event) {
-        typedef std::map<string, const EventType> EventStringMap;
-        static EventStringMap from_string_map_ = map_list_of
-                ("ADD_BGP_ROUTE", ADD_BGP_ROUTE)
-                ("DELETE_BGP_ROUTE", DELETE_BGP_ROUTE)
-                ("ADD_XMPP_ROUTE", ADD_XMPP_ROUTE)
-                ("DELETE_XMPP_ROUTE", DELETE_XMPP_ROUTE)
-                ("BRING_UP_XMPP_AGENT", BRING_UP_XMPP_AGENT)
-                ("BRING_DOWN_XMPP_AGENT", BRING_DOWN_XMPP_AGENT)
-                ("CLEAR_XMPP_AGENT", CLEAR_XMPP_AGENT)
-                ("SUBSCRIBE_ROUTING_INSTANCE", SUBSCRIBE_ROUTING_INSTANCE)
-                ("UNSUBSCRIBE_ROUTING_INSTANCE", UNSUBSCRIBE_ROUTING_INSTANCE)
-                ("SUBSCRIBE_CONFIGURATION", SUBSCRIBE_CONFIGURATION)
-                ("UNSUBSCRIBE_CONFIGURATION", UNSUBSCRIBE_CONFIGURATION)
-                ("ADD_BGP_PEER", ADD_BGP_PEER)
-                ("DELETE_BGP_PEER", DELETE_BGP_PEER)
-                ("CLEAR_BGP_PEER", CLEAR_BGP_PEER)
-                ("ADD_ROUTING_INSTANCE", ADD_ROUTING_INSTANCE)
-                ("DELETE_ROUTING_INSTANCE", DELETE_ROUTING_INSTANCE)
-                ("ADD_ROUTE_TARGET", ADD_ROUTE_TARGET)
-                ("DELETE_ROUTE_TARGET", DELETE_ROUTE_TARGET)
-                ("CHANGE_SOCKET_BUFFER_SIZE", CHANGE_SOCKET_BUFFER_SIZE)
-                ("SHOW_ALL_ROUTES", SHOW_ALL_ROUTES)
-                ("PAUSE", PAUSE)
-            ;
 
-        EventStringMap::iterator iter = from_string_map_.find(event);
-        if (iter == from_string_map_.end()) return EVENT_INVALID;
+    while (input->good()) {
+        string line;
+        getline(*input, line);
 
-        return iter->second;
-    }
-
-    static void ReadEventsFromFile(string events_file) {
-        struct noop {
-            void operator()(...) const {}
-        };
-
-        istream *input;
-        if (events_file == "-") {
-            input = &cin;
-        } else {
-            input = new ifstream(events_file.c_str());
-        }
-
-
-        while (input->good()) {
-            string line;
-            getline(*input, line);
-
-            size_t pos = line.find("event: ");
-            if (pos == string::npos) continue;
-
-            //
-            // Get the actual event string
-            //
-            EventType event = FromString(line.c_str() + pos + 7);
-
-            if (event != EVENT_INVALID) {
-                d_events_list_.push_back(event);
-            }
-        }
-
-        if (input != &cin) {
-            delete input;
-        }
+        size_t pos = line.find("event: ");
+        if (pos == string::npos) continue;
 
         //
-        // Set the number of events read from the file
+        // Get the actual event string
         //
-        if (d_events_list_.size()) {
-            d_events_ = d_events_list_.size();
+        EventType event = FromString(line.c_str() + pos + 7);
+
+        if (event != EVENT_INVALID) {
+            d_events_list_.push_back(event);
         }
     }
 
-    static EventType GetTestEvent(int count) {
-        float rnd;
-        int     i;
-        EventType event;
+    if (input != &cin) {
+        delete input;
+    }
 
-        //
-        // Check if events to be fed are known (from a file..)
-        //
-        if (!d_events_list_.empty()) {
-            event = d_events_list_[count - 1];
-        } else {
-            rnd = random((int) GetEventWeightSum());
-            for(i = 0; i < NUM_TEST_EVENTS; i++) {
-                if(rnd < d_events_weight_[i]) {
-                    break;
-                }
-                rnd -= d_events_weight_[i];
+    //
+    // Set the number of events read from the file
+    //
+    if (d_events_list_.size()) {
+        d_events_ = d_events_list_.size();
+    }
+}
+float BgpStressTestEvent::GetEventWeightSum() {
+    static float event_weight_sum_ = 0;
+
+    if (!event_weight_sum_) {
+        for(int i = 0; i < NUM_TEST_EVENTS; i++) {
+            event_weight_sum_ += d_events_weight_[i];
+        }
+    }
+    return event_weight_sum_;
+}
+
+BgpStressTestEvent::EventType BgpStressTestEvent::GetTestEvent(int count) {
+    float rnd;
+    int     i;
+    EventType event;
+
+    //
+    // Check if events to be fed are known (from a file..)
+    //
+    if (!d_events_list_.empty()) {
+        event = d_events_list_[count - 1];
+    } else {
+        rnd = random((int) GetEventWeightSum());
+        for(i = 0; i < NUM_TEST_EVENTS; i++) {
+            if(rnd < d_events_weight_[i]) {
+                break;
             }
-
-            event = static_cast<EventType>(i + 1);
+            rnd -= d_events_weight_[i];
         }
 
-        ostringstream out;
-        out << "Feed " << count << "th event: " << ToString(event);
-        d_events_played_list_.push_back(out.str());
-
-        BGP_STRESS_TEST_LOG(out.str());
-
-        return event;
+        event = static_cast<EventType>(i + 1);
     }
 
-    static int random(int limit) {
-        return std::rand() % limit;
+    ostringstream out;
+    out << "Feed " << count << "th event: " << ToString(event);
+    d_events_played_list_.push_back(out.str());
+
+    BGP_STRESS_TEST_LOG(out.str());
+
+    return event;
+}
+
+int BgpStressTestEvent::random(int limit) {
+    return std::rand() % limit;
+}
+
+vector<int> BgpStressTestEvent::GetEventItems(int nitems, int inc) {
+    vector<int> event_ids_list;
+
+    if (!nitems) return event_ids_list;
+
+    int event_ids = 1;
+    if (d_events_proportion_) {
+        event_ids  = nitems * d_events_proportion_;
+        if (!event_ids) event_ids = 1;
     }
 
-    static vector<int> GetEventItems(int nitems, int inc = 0) {
-        vector<int> event_ids_list;
-
-        if (!nitems) return event_ids_list;
-
-        int event_ids = 1;
-        if (d_events_proportion_) {
-            event_ids  = nitems * d_events_proportion_;
-            if (!event_ids) event_ids = 1;
-        }
-
-        for (int i = 0; i < event_ids; i++) {
-            while (true) {
-                int item = BgpStressTestEvent::random(nitems);
-                if (std::find(event_ids_list.begin(),
-                              event_ids_list.end(), item) ==
-                        event_ids_list.end()) {
-                    event_ids_list.push_back(item + inc);
-                    break;
-                }
+    for (int i = 0; i < event_ids; i++) {
+        while (true) {
+            int item = BgpStressTestEvent::random(nitems);
+            if (std::find(event_ids_list.begin(),
+                            event_ids_list.end(), item) ==
+                    event_ids_list.end()) {
+                event_ids_list.push_back(item + inc);
+                break;
             }
         }
-
-        return event_ids_list;
     }
 
-    static void clear_events() {
-        d_events_played_list_.clear();
-    }
-    static vector<EventType> d_events_list_;
-private:
-    static vector<string> d_events_played_list_;
+    return event_ids_list;
+}
 
-    static float GetEventWeightSum() {
-        static float event_weight_sum_ = 0;
-
-        if (!event_weight_sum_) {
-            for(int i = 0; i < NUM_TEST_EVENTS; i++) {
-                event_weight_sum_ += d_events_weight_[i];
-            }
-        }
-
-        return event_weight_sum_;
-    }
-};
-
-class SandeshServerTest : public SandeshServer {
-public:
-    SandeshServerTest(EventManager *evm) : SandeshServer(evm) { }
-    virtual ~SandeshServerTest() { }
-    virtual bool ReceiveSandeshMsg(SandeshSession *session,
-                           const string& cmsg, const string& message_type,
-                           const SandeshHeader& header, uint32_t xml_offset) {
-        return true;
-    }
-    virtual bool ReceiveMsg(SandeshSession *session, ssm::Message *msg) {
-        return true;
-    }
-
-private:
-};
+void BgpStressTestEvent::clear_events() {
+    d_events_played_list_.clear();
+}
 
 vector<BgpStressTestEvent::EventType> BgpStressTestEvent::d_events_list_;
 vector<string> BgpStressTestEvent::d_events_played_list_;
 
-typedef std::tr1::tuple<int, int, int, int, int, bool> TestParams;
+void BgpStressTest::IFMapInitialize() {
+    if (d_external_mode_) return;
 
-class BgpStressTest : public ::testing::TestWithParam<TestParams> {
-protected:
-    BgpStressTest() : thread_(&evm_) { }
+    config_db_ = new DB();
+    config_graph_ = new DBGraph();
 
-    void IFMapInitialize() {
-        if (!d_vms_count_) return;
+    ifmap_server_.reset(new IFMapServer(config_db_, config_graph_,
+                                        evm_.io_service()));
+    IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
+    IFMapServerParser *ifmap_parser =
+        IFMapServerParser::GetInstance("vnc_cfg");
+    vnc_cfg_ParserInit(ifmap_parser);
+    vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
+                                ifmap_server_->graph());
+    bgp_schema_ParserInit(ifmap_parser);
+    bgp_schema_Server_ModuleInit(ifmap_server_->database(),
+                                    ifmap_server_->graph());
+    ifmap_server_->Initialize();
+}
 
-        config_db_ = new DB();
-        config_graph_ = new DBGraph();
+void BgpStressTest::IFMapCleanUp() {
+    if (d_external_mode_) return;
 
-        ifmap_server_.reset(new IFMapServer(config_db_, config_graph_,
-                                            evm_.io_service()));
-        IFMapLinkTable_Init(ifmap_server_->database(), ifmap_server_->graph());
-        IFMapServerParser *ifmap_parser =
-            IFMapServerParser::GetInstance("vnc_cfg");
-        vnc_cfg_ParserInit(ifmap_parser);
-        vnc_cfg_Server_ModuleInit(ifmap_server_->database(),
-                                  ifmap_server_->graph());
-        bgp_schema_ParserInit(ifmap_parser);
-        bgp_schema_Server_ModuleInit(ifmap_server_->database(),
-                                     ifmap_server_->graph());
-        ifmap_server_->Initialize();
-    }
+    ifmap_server_->Shutdown();
+    WaitForIdle();
+    IFMapLinkTable_Clear(config_db_);
+    IFMapTable::ClearTables(config_db_);
+    WaitForIdle();
 
-    void IFMapCleanUp() {
-        if (!d_vms_count_) return;
+    config_db_->Clear();
+    IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
+}
 
-        ifmap_server_->Shutdown();
-        WaitForIdle();
-        IFMapLinkTable_Clear(config_db_);
-        IFMapTable::ClearTables(config_db_);
-        WaitForIdle();
+void BgpStressTest::SetUp() {
+    BgpStressTestEvent::clear_events();
+    socket_buffer_size_ = 1 << 10;
 
-        config_db_->Clear();
-        IFMapServerParser::GetInstance("vnc_cfg")->MetadataClear("vnc_cfg");
-    }
+    sandesh_context_.reset(new BgpSandeshContext());
+    if (!d_no_sandesh_server_) {
 
-    virtual void SetUp() {
-        BgpStressTestEvent::clear_events();
-        socket_buffer_size_ = 1 << 10;
+        //
+        // Initialize SandeshServer
+        //
+        sandesh_server_ = new SandeshServerTest(&evm_);
+        sandesh_server_->Initialize(0);
 
-        sandesh_context_.reset(new BgpSandeshContext());
-        if (!d_no_sandesh_server_) {
-
-            //
-            // Initialize SandeshServer
-            //
-            sandesh_server_ = new SandeshServerTest(&evm_);
-            sandesh_server_->Initialize(0);
-
-            boost::system::error_code error;
-            string hostname(boost::asio::ip::host_name(error));
-            Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, &evm_,
-                                   d_http_port_, sandesh_context_.get());
-            Sandesh::ConnectToCollector("127.0.0.1",
-                                        sandesh_server_->GetPort());
-            BGP_STRESS_TEST_LOG("Introspect at http://localhost:" <<
-                                Sandesh::http_port());
-        } else {
-            Sandesh::set_client_context(sandesh_context_.get());
-            sandesh_server_ = NULL;
-        }
-
-        IFMapInitialize();
-
-        if (d_vms_count_) {
-            server_.reset(new BgpServerTest(&evm_, "A0", config_db_,
-                                            config_graph_));
-        } else {
-            server_.reset(new BgpServerTest(&evm_, "A0"));
-        }
-        xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
-
-        if (d_vms_count_) {
-            ifmap_channel_mgr_.reset(
-                new IFMapChannelManagerTest(xmpp_server_test_,
-                                            ifmap_server_.get(), config_db_));
-            ifmap_server_->set_ifmap_channel_manager(ifmap_channel_mgr_.get());
-            sandesh_context_->ifmap_server = ifmap_server_.get();
-        }
-
-        channel_manager_.reset(new BgpXmppChannelManagerMock(
-                                       xmpp_server_test_, server_.get()));
-        master_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-            BgpConfigManager::kMasterInstance, "", "");
-        rtinstance_ = static_cast<RoutingInstance *>(
-            server_->routing_instance_mgr()->GetRoutingInstance(
-                BgpConfigManager::kMasterInstance));
-        n_families_ = 2;
-        families_.push_back(Address::INET);
-        families_.push_back(Address::INETVPN);
-
-        server_->session_manager()->Initialize(0);
-        xmpp_server_test_->Initialize(0, false);
-
-        sandesh_context_->bgp_server = server_.get();
-        sandesh_context_->xmpp_peer_manager = channel_manager_.get();
-
-        thread_.Start();
-    }
-
-    virtual void TearDown() {
-        WaitForIdle();
-        xmpp_server_test_->Shutdown();
-        WaitForIdle();
-        if (n_agents_) {
-            TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionsCount());
-        }
-        AgentCleanup();
-        channel_manager_.reset();
-        WaitForIdle();
-
-        TcpServerManager::DeleteServer(xmpp_server_test_);
-        xmpp_server_test_ = NULL;
-        BOOST_FOREACH(BgpServerTest *peer_server, peer_servers_) {
-            if (peer_server) {
-                peer_server->Shutdown();
-                WaitForIdle();
-                delete peer_server;
-            }
-        }
-        WaitForIdle();
-        server_->Shutdown();
-        WaitForIdle();
-        Cleanup();
-        WaitForIdle();
-        IFMapCleanUp();
-        WaitForIdle();
-
-        evm_.Shutdown();
-        thread_.Join();
-        task_util::WaitForIdle();
-    }
-
-    void AgentCleanup() {
-        BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-            agent->Delete();
-        }
-        WaitForIdle();
-    }
-    void Cleanup() {
-        BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-            if (npeer) {
-                delete npeer;
-            }
-        }
-
-        BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-            delete agent;
-        }
-        WaitForIdle();
-        SandeshShutdown();
-        WaitForIdle();
-    }
-
-    void SandeshShutdown() {
-        if (d_no_sandesh_server_) return;
-
-        Sandesh::Uninit();
-        WaitForIdle();
-        TASK_UTIL_EXPECT_FALSE(sandesh_server_->HasSessions());
-        sandesh_server_->Shutdown();
-        WaitForIdle();
-        TcpServerManager::DeleteServer(sandesh_server_);
+        boost::system::error_code error;
+        string hostname(boost::asio::ip::host_name(error));
+        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, &evm_,
+                                d_http_port_, sandesh_context_.get());
+        Sandesh::ConnectToCollector("127.0.0.1",
+                                    sandesh_server_->GetPort());
+        BGP_STRESS_TEST_LOG("Introspect at http://localhost:" <<
+                            Sandesh::http_port());
+    } else {
+        Sandesh::set_client_context(sandesh_context_.get());
         sandesh_server_ = NULL;
-
-        SandeshHttp::Uninit();
-        WaitForIdle();
     }
 
-    void VerifyRoutingInstances() {
-        for (int instance_id = 0; instance_id < (int) instances_.size();
-                instance_id++) {
-            if (instances_[instance_id]) {
-                TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
-                        server_->routing_instance_mgr()->\
-                            GetRoutingInstance(GetInstanceName(instance_id)));
-            } else {
-                TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
-                        server_->routing_instance_mgr()->\
-                            GetRoutingInstance(GetInstanceName(instance_id)));
-            }
+    IFMapInitialize();
+
+    if (!d_external_mode_) {
+        server_.reset(new BgpServerTest(&evm_, "A0", config_db_,
+                                        config_graph_));
+    } else {
+        server_.reset(new BgpServerTest(&evm_, "A0"));
+    }
+    xmpp_server_test_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
+
+    if (!d_external_mode_) {
+        ifmap_channel_mgr_.reset(new IFMapChannelManager(xmpp_server_test_,
+                                            ifmap_server_.get()));
+        ifmap_server_->set_ifmap_channel_manager(ifmap_channel_mgr_.get());
+        sandesh_context_->ifmap_server = ifmap_server_.get();
+    }
+
+    channel_manager_.reset(new BgpXmppChannelManagerMock(
+                                    xmpp_server_test_, server_.get()));
+    master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+        BgpConfigManager::kMasterInstance, "", ""));
+    rtinstance_ = static_cast<RoutingInstance *>(
+        server_->routing_instance_mgr()->GetRoutingInstance(
+            BgpConfigManager::kMasterInstance));
+    n_families_ = 2;
+    families_.push_back(Address::INET);
+    families_.push_back(Address::INETVPN);
+
+    server_->session_manager()->Initialize(0);
+    xmpp_server_test_->Initialize(0, false);
+
+    sandesh_context_->bgp_server = server_.get();
+    sandesh_context_->xmpp_peer_manager = channel_manager_.get();
+
+    thread_.Start();
+}
+
+void BgpStressTest::TearDown() {
+    WaitForIdle();
+    xmpp_server_test_->Shutdown();
+    WaitForIdle();
+    if (n_agents_) {
+        TASK_UTIL_EXPECT_EQ(0, xmpp_server_test_->ConnectionsCount());
+    }
+    AgentCleanup();
+    channel_manager_.reset();
+    WaitForIdle();
+
+    TcpServerManager::DeleteServer(xmpp_server_test_);
+    xmpp_server_test_ = NULL;
+    BOOST_FOREACH(BgpServerTest *peer_server, peer_servers_) {
+        if (peer_server) {
+            peer_server->Shutdown();
+            WaitForIdle();
+            delete peer_server;
+        }
+    }
+    WaitForIdle();
+    server_->Shutdown();
+    WaitForIdle();
+    Cleanup();
+    WaitForIdle();
+    IFMapCleanUp();
+    WaitForIdle();
+
+    evm_.Shutdown();
+    thread_.Join();
+    task_util::WaitForIdle();
+}
+
+void BgpStressTest::AgentCleanup() {
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        agent->Delete();
+    }
+    WaitForIdle();
+}
+void BgpStressTest::Cleanup() {
+    BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
+        if (npeer) {
+            delete npeer;
         }
     }
 
-    Ip4Prefix GetAgentRoute(int agent_id, int instance_id, int route_id) {
-        Ip4Prefix prefix;
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        delete agent;
+    }
+    WaitForIdle();
+    SandeshShutdown();
+    WaitForIdle();
+}
 
-        if (!d_xmpp_rt_prefix_.empty()) {
-            prefix = Ip4Prefix::FromString(d_xmpp_rt_prefix_);
+void BgpStressTest::SandeshShutdown() {
+    if (d_no_sandesh_server_) return;
+
+    Sandesh::Uninit();
+    WaitForIdle();
+    TASK_UTIL_EXPECT_FALSE(sandesh_server_->HasSessions());
+    sandesh_server_->Shutdown();
+    WaitForIdle();
+    TcpServerManager::DeleteServer(sandesh_server_);
+    sandesh_server_ = NULL;
+    WaitForIdle();
+}
+
+void BgpStressTest::VerifyRoutingInstances() {
+    for (int instance_id = 0; instance_id < (int) instances_.size();
+            instance_id++) {
+        if (instances_[instance_id]) {
+            TASK_UTIL_EXPECT_NE(static_cast<RoutingInstance *>(NULL),
+                    server_->routing_instance_mgr()->\
+                        GetRoutingInstance(GetInstanceName(instance_id)));
         } else {
-            unsigned long address;
-            if (d_xmpp_rt_format_large_) {
-
-                // <0-7> 3 bits for test-id
-                // <0-31> 5 bits for instance-id
-                // <0-4095> 12 bits for agent-id
-                // <0-4095> 12 bits for prefix
-                address = (d_test_id_ << 29) |
-                          ((instance_id) << 24) |
-                          (((agent_id >> 4) & 0xff) << 16) |
-                          ((agent_id & 0xf) << 12) | 1;
-            } else {
-
-                // <0-511> 9  bits for test-id
-                // <0-63>  6  bits for instance-id
-                // <0-127> 7  bits for agent-id
-                // <0-511> 10 bits for prefix
-                address = (d_test_id_ << 23) |
-                          (instance_id << 17) |
-                          (agent_id << 10) | 1;
-            }
-            prefix = Ip4Prefix(Ip4Address(address), 32);
+            TASK_UTIL_EXPECT_EQ(static_cast<RoutingInstance *>(NULL),
+                    server_->routing_instance_mgr()->\
+                        GetRoutingInstance(GetInstanceName(instance_id)));
         }
-
-        prefix = task_util::Ip4PrefixIncrement(prefix, route_id);
-
-        return prefix;
     }
+}
 
-    void Configure(string config) {
-        BGP_DEBUG_UT("Applying config: " << config);
-        server_->Configure(config.c_str());
-        VerifyRoutingInstances();
-    }
+Ip4Prefix BgpStressTest::GetAgentRoute(int agent_id, int instance_id,
+                                       int route_id) {
+    Ip4Prefix prefix;
 
-    XmppChannelConfig *CreateXmppChannelCfg(const char *address, int port,
-                                            const string &from,
-                                            const string &to,
-                                            bool isClient) {
-        XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
-        boost::system::error_code ec;
-        cfg->endpoint.address(ip::address::from_string(address, ec));
-        cfg->endpoint.port(port);
-        cfg->ToAddr = to;
-        cfg->FromAddr = from;
-        if (!isClient) cfg->NodeAddr = PUBSUB_NODE_ADDR;
-        return cfg;
-    }
+    if (!d_xmpp_rt_prefix_.empty()) {
+        prefix = Ip4Prefix::FromString(d_xmpp_rt_prefix_);
+    } else {
+        unsigned long address;
+        if (d_xmpp_rt_format_large_) {
 
-    string GetInstanceName(int instance_id, int vn_id = 1) {
-        if (!instance_id) return BgpConfigManager::kMasterInstance;
-        ostringstream out;
+            // <0-7> 3 bits for test-id
+            // <0-31> 5 bits for instance-id
+            // <0-4095> 12 bits for agent-id
+            // <0-4095> 12 bits for prefix
+            address = (d_test_id_ << 29) |
+                        ((instance_id) << 24) |
+                        (((agent_id >> 4) & 0xff) << 16) |
+                        ((agent_id & 0xf) << 12) | 1;
+        } else {
 
-        out << "default-domain:demo";
-
-        //
-        // Check if instance name is provided by the user
-        //
-        if (!d_instance_name_.empty()) {
-            out << ":" << d_instance_name_ << instance_id;
-            out << ":" << d_instance_name_ << instance_id;
-            return out.str();
+            // <0-511> 9  bits for test-id
+            // <0-63>  6  bits for instance-id
+            // <0-127> 7  bits for agent-id
+            // <0-511> 10 bits for prefix
+            address = (d_test_id_ << 23) |
+                        (instance_id << 17) |
+                        (agent_id << 10) | 1;
         }
+        prefix = Ip4Prefix(Ip4Address(address), 32);
+    }
 
-        out << ":network" << vn_id << "." << "instance" << instance_id;
-        out << ":network" << vn_id << "." << "instance" << instance_id;
+    prefix = task_util::Ip4PrefixIncrement(prefix, route_id);
 
+    return prefix;
+}
+
+void BgpStressTest::Configure(string config) {
+    BGP_DEBUG_UT("Applying config: " << config);
+    server_->Configure(config.c_str());
+    VerifyRoutingInstances();
+}
+
+XmppChannelConfig *BgpStressTest::CreateXmppChannelCfg(const char *address,
+                                                       int port,
+                                                       const string &from,
+                                                       const string &to,
+                                                       bool isClient) {
+    XmppChannelConfig *cfg = new XmppChannelConfig(isClient);
+    boost::system::error_code ec;
+    cfg->endpoint.address(ip::address::from_string(address, ec));
+    cfg->endpoint.port(port);
+    cfg->ToAddr = to;
+    cfg->FromAddr = from;
+    if (!isClient) cfg->NodeAddr = PUBSUB_NODE_ADDR;
+    return cfg;
+}
+
+string BgpStressTest::GetInstanceName(int instance_id, int vn_id) {
+    if (!instance_id) return BgpConfigManager::kMasterInstance;
+    ostringstream out;
+
+    out << "default-domain:demo";
+
+    //
+    // Check if instance name is provided by the user
+    //
+    if (!d_instance_name_.empty()) {
+        out << ":" << d_instance_name_ << instance_id;
+        out << ":" << d_instance_name_ << instance_id;
         return out.str();
     }
 
-    string GetInstanceConfig(int instance_id, int ntargets);
-    string GetRouterConfig(int router_id, int peer_id, bool skip_rtr_config);
-    BgpAttr *CreatePathAttr();
+    out << ":network" << vn_id << "." << "instance" << instance_id;
+    out << ":network" << vn_id << "." << "instance" << instance_id;
 
-    void AddBgpRoute(int family, int peer_id, int route_id, int ntargets);
-    void AddBgpRoute(vector<int> family, vector<int> peer_id,
-                     vector<int> route_id, int ntargets);
-    void AddBgpRouteInternal(int family, int peer_id, int ntargets,
-                             int route_id, string start_prefix, int label);
-    void AddBgpRoutes(int family, int peer_id, int nroutes, int ntargets);
-    void AddAllBgpRoutes(int nroutes, int ntargets);
-
-    string GetAgentNexthop(int agent_id, int route_id);
-    void AddXmppRoute(int instance_id, int agent_id, int route_id);
-    void AddXmppRoute(vector<int> instance_ids, vector<int> agent_ids,
-                      vector<int> route_ids);
-    void AddXmppRoutes(int instance_id, int agent_id, int nroutes);
-    void AddAllXmppRoutes(int ninstances, int nagents, int nroutes);
-
-    void AddAllRoutes(int ninstances, int npeers, int nagents, int nroutes,
-                      int ntargets);
-
-    void DeleteBgpRoute(int family, int peer_id, int route_id, int ntargets);
-    void DeleteBgpRoute(vector<int> family, vector<int> peer_id,
-                        vector<int> route_id, int ntargets);
-    void DeleteBgpRouteInternal(int family, int peer_id, int route_id,
-                                string start_prefix, int ntargets);
-    void DeleteBgpRoutes(int family, int peer_id, int nroutes, int ntargets);
-    void DeleteAllBgpRoutes(int nroutes, int ntargets, int npeers, int nagents);
-
-    void DeleteXmppRoute(int instance_id, int agent_id, int route_id);
-    void DeleteXmppRoute(vector<int> instance_ids, vector<int> agent_ids,
-                         vector<int> route_ids);
-    void DeleteXmppRoutes(int ninstances, int agent_id, int nroutes);
-    void DeleteAllXmppRoutes(int ninstances, int nagents, int nroutes);
-
-    void DeleteAllRoutes(int ninstances, int npeers, int nagents, int nroutes,
-                         int ntargets);
-
-    void VerifyControllerRoutes(int ninstances, int nagents, int count);
-    void VerifyAgentRoutes(int nagents, int ninstances, int routes);
-    size_t GetAllAgentRouteCount(int nagents, int ninstances);
-    void VerifyXmppRouteNextHops();
-
-    ExtCommunitySpec *CreateRouteTargets(int ntargets);
-    void InitParams();
-
-    void SubscribeRoutingInstance(int agent_id, int instance_id,
-                                  bool check_agent_state = true);
-    void SubscribeRoutingInstance(vector<int> agent_ids,
-                                  vector<int> instance_ids,
-                                  bool check_agent_state = true);
-    void SubscribeAgents(int ninstances, int nagents);
-    void UnsubscribeRoutingInstance(int agent_id, int instance_id);
-    void UnsubscribeRoutingInstance(vector<int> agent_ids,
-                                    vector<int> instance_ids);
-    void UnsubscribeAgents(int nagents, int ninstances);
-
-    void SubscribeConfiguration(int agent_id);
-    void SubscribeConfiguration(vector<int> agent_ids);
-    void UnsubscribeConfiguration(int agent_id);
-    void UnsubscribeConfiguration(vector<int> agent_ids);
-    void SubscribeAgentsConfiguration(int agent_id);
-    void UnsubscribeAgentsConfiguration(int agent_id);
-
-    void BringUpXmppAgent(vector<int> agent_ids, bool verify_state);
-    void BringUpXmppAgents(int nagents);
-    void BringDownXmppAgent(vector<int> agent_ids, bool verify_state);
-    void BringDownXmppAgents(int nagents);
-    void AddBgpPeer(int peer_id, bool verify_state);
-    void AddBgpPeer(vector<int> peer_id, bool verify_state);
-    void AddBgpPeers(int npeers);
-    void DeleteBgpPeer(int peer_id, bool verify_state);
-    void DeleteBgpPeer(vector<int> peer_id, bool verify_state);
-    void DeleteBgpPeers(int npeers);
-    void ClearBgpPeer(vector<int> peer_ids);
-    void ClearBgpPeers(int npeers);
-    void AddRouteTarget(int instance_id, int target);
-    void RemoveRouteTarget(int instance_id, int target);
-    void AddRoutingInstance(int instance_id, int ntargets);
-    void AddRoutingInstance(vector<int> instance_ids, int ntargets);
-    void AddRoutingInstances(int ninstances, int ntargets);
-    void DeleteRoutingInstance(int instance_id, int ntargets);
-    void DeleteRoutingInstance(vector<int> instance_ids, int ntargets);
-    void DeleteRoutingInstances();
-    bool IsAgentEstablished(test::NetworkAgentMock *agent);
-
-    void VerifyPeer(BgpServerTest *server, BgpNullPeer *npeer);
-    void VerifyPeers();
-    void VerifyNoPeers();
-    void VerifyNoPeer(int peer_id, string peer_name);
-    void VerifyRibOutCreationCompletion();
-    void UpdateSocketBufferSize();
-    void ShowAllRoutes();
-    void ShowNeighborStatistics();
-    void ValidateShowNeighborStatisticsResponse(size_t expected_count,
-                                                Sandesh *sandesh);
-    void ValidateShowRouteSandeshResponse(Sandesh *sandesh);
-
-    string GetAgentConfigName(int agent_id);
-    string GetAgentVmConfigName(int agent_id, int vm_id);
-    string GetAgentName(int agent_id);
-    bool XmppClientIsEstablished(const string &client_name);
-
-    EventManager evm_;
-    ServerThread thread_;
-    boost::scoped_ptr<BgpServerTest> server_;
-    XmppServerTest *xmpp_server_test_;
-    SandeshServerTest *sandesh_server_;
-    boost::scoped_ptr<BgpXmppChannelManagerMock> channel_manager_;
-    auto_ptr<BgpInstanceConfigTest> master_cfg_;
-    RoutingInstance *rtinstance_;
-    std::vector<bool> instances_;
-    std::vector<BgpNullPeer *> peers_;
-    std::vector<BgpServerTest *> peer_servers_;
-    std::vector<test::NetworkAgentMock *> xmpp_agents_;
-    std::vector<BgpXmppChannel *> xmpp_peers_;
-    int n_families_;
-    std::vector<Address::Family> families_;
-    int n_instances_;
-    int n_peers_;
-    int n_routes_;
-    int n_agents_;
-    int n_targets_;
-    bool xmpp_close_from_control_node_;
-    int socket_buffer_size_;
-    bool sandesh_response_validation_complete_;
-    boost::scoped_ptr<BgpSandeshContext> sandesh_context_;
-
-    DB *config_db_;
-    DBGraph *config_graph_;
-    boost::scoped_ptr<IFMapServer> ifmap_server_;
-    boost::scoped_ptr<IFMapChannelManagerTest> ifmap_channel_mgr_;
-};
+    return out.str();
+}
 
 void BgpStressTest::VerifyPeer(BgpServerTest *server, BgpNullPeer *npeer) {
     string uuid = BgpConfigParser::session_uuid(
@@ -1411,7 +993,8 @@ void BgpStressTest::AddBgpRouteInternal(int family, int peer_id, int ntargets,
     switch (table->family()) {
         case Address::INET:
             commspec.reset(new ExtCommunitySpec());
-            commspec->communities.push_back(get_value(tun_encap.GetExtCommunity().begin(), 8));
+            commspec->communities.push_back(
+                    get_value(tun_encap.GetExtCommunity().begin(), 8));
             attr_spec.push_back(commspec.get());
             req.key.reset(new InetTable::RequestKey(prefix, peer));
             break;
@@ -1421,7 +1004,8 @@ void BgpStressTest::AddBgpRouteInternal(int family, int peer_id, int ntargets,
             if (!commspec.get()) {
                 commspec.reset(new ExtCommunitySpec());
             }
-            commspec->communities.push_back(get_value(tun_encap.GetExtCommunity().begin(), 8));
+            commspec->communities.push_back(
+                    get_value(tun_encap.GetExtCommunity().begin(), 8));
             attr_spec.push_back(commspec.get());
             break;
         default:
@@ -1556,12 +1140,12 @@ bool BgpStressTest::IsAgentEstablished(test::NetworkAgentMock *agent) {
     return agent && agent->IsEstablished();
 }
 
-void BgpStressTest::SubscribeConfiguration(int agent_id) {
+void BgpStressTest::SubscribeConfiguration(int agent_id, bool verify) {
     if (!d_vms_count_) return;
 
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
-    if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
+    // if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
     string agent_name = GetAgentConfigName(agent_id);
     if (xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name)) return;
 
@@ -1569,33 +1153,53 @@ void BgpStressTest::SubscribeConfiguration(int agent_id) {
     TASK_UTIL_EXPECT_EQ(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
 
-    xmpp_agents_[agent_id]->vrouter_mgr_->Subscribe(agent_name);
+    xmpp_agents_[agent_id]->vrouter_mgr_->Subscribe(agent_name, 0, false);
 
     for (int i = 0; i < d_vms_count_; i++) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
-        TASK_UTIL_EXPECT_EQ(0,
-            xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
-        xmpp_agents_[agent_id]->vm_mgr_->Subscribe(vm_uuid);
-        TASK_UTIL_EXPECT_EQ(1,
-            xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
+        TASK_UTIL_EXPECT_EQ(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
+        xmpp_agents_[agent_id]->vm_mgr_->Subscribe(vm_uuid, 0, false);
     }
 
+    int pending = d_vms_count_;
+    if (verify) VerifyConfiguration(agent_id, pending);
+}
+
+void BgpStressTest::VerifyConfiguration(int agent_id, int &pending) {
+   if (!d_vms_count_ || d_no_agent_messages_processing_) return;
+
+    for (int i = 0; i < d_vms_count_; i++) {
+        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        TASK_UTIL_EXPECT_EQ_MSG(1,
+            xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
+            "Pending VMs: " << pending);
+        --pending;
+    }
+
+    string agent_name = GetAgentConfigName(agent_id);
     TASK_UTIL_EXPECT_EQ(1,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
 }
 
-void BgpStressTest::SubscribeConfiguration(vector<int> agent_ids) {
+void BgpStressTest::SubscribeConfiguration(vector<int> agent_ids, bool verify) {
     BOOST_FOREACH(int agent_id, agent_ids) {
-        SubscribeConfiguration(agent_id);
+        SubscribeConfiguration(agent_id, false);
+    }
+
+    if (verify) {
+        int pending = agent_ids.size() * d_vms_count_;
+        BOOST_FOREACH(int agent_id, agent_ids) {
+            VerifyConfiguration(agent_id, pending);
+        }
     }
 }
 
-void BgpStressTest::UnsubscribeConfiguration(int agent_id) {
+void BgpStressTest::UnsubscribeConfiguration(int agent_id, bool verify) {
     if (!d_vms_count_) return;
 
     if (agent_id >= (int) xmpp_agents_.size() || !xmpp_agents_[agent_id])
         return;
-    if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
+    // if (!IsAgentEstablished(xmpp_agents_[agent_id])) return;
 
     string agent_name = GetAgentConfigName(agent_id);
     if (!xmpp_agents_[agent_id]->vrouter_mgr_->HasSubscribed(agent_name))
@@ -1609,34 +1213,60 @@ void BgpStressTest::UnsubscribeConfiguration(int agent_id) {
 
     for (int i = 0; i < d_vms_count_; i++) {
         string vm_uuid = GetAgentVmConfigName(agent_id, i);
-        TASK_UTIL_EXPECT_NE(0,
-            xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
-        xmpp_agents_[agent_id]->vm_mgr_->Unsubscribe(vm_uuid);
-        TASK_UTIL_EXPECT_EQ(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
+        TASK_UTIL_EXPECT_NE(0, xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid));
+        xmpp_agents_[agent_id]->vm_mgr_->Unsubscribe(vm_uuid, 0, false);
     }
+
+    int pending = 1;
+    if (verify) VerifyNoConfiguration(agent_id, pending);
+}
+
+void BgpStressTest::VerifyNoConfiguration(int agent_id, int &pending) {
+
+    for (int i = 0; i < d_vms_count_; i++) {
+        string vm_uuid = GetAgentVmConfigName(agent_id, i);
+        TASK_UTIL_EXPECT_EQ_MSG(0,
+            xmpp_agents_[agent_id]->vm_mgr_->Count(vm_uuid),
+            "Pending VM Configs to receive: " << pending);
+        --pending;
+    }
+
+    string agent_name = GetAgentConfigName(agent_id);
     TASK_UTIL_EXPECT_EQ(0,
         xmpp_agents_[agent_id]->vrouter_mgr_->Count(agent_name));
 
 }
 
-void BgpStressTest::UnsubscribeConfiguration(vector<int> agent_ids) {
+void BgpStressTest::UnsubscribeConfiguration(vector<int> agent_ids,
+                                             bool verify) {
     BOOST_FOREACH(int agent_id, agent_ids) {
-        UnsubscribeConfiguration(agent_id);
+        UnsubscribeConfiguration(agent_id, false);
+    }
+
+    if (verify) {
+        int pending = agent_ids.size() * d_vms_count_;
+        BOOST_FOREACH(int agent_id, agent_ids) {
+            VerifyNoConfiguration(agent_id, pending);
+        }
     }
 }
 
-void BgpStressTest::SubscribeAgentsConfiguration(int nagents) {
+void BgpStressTest::SubscribeAgentsConfiguration(int nagents, bool verify) {
+    vector<int> agents;
 
     for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        SubscribeConfiguration(agent_id);
+        agents.push_back(agent_id);
     }
+    SubscribeConfiguration(agents, verify);
 }
 
-void BgpStressTest::UnsubscribeAgentsConfiguration(int nagents) {
+void BgpStressTest::UnsubscribeAgentsConfiguration(int nagents, bool verify) {
+    vector<int> agents;
 
     for (int agent_id = 0; agent_id < nagents; agent_id++) {
-        UnsubscribeConfiguration(agent_id);
+        agents.push_back(agent_id);
     }
+    UnsubscribeConfiguration(agents, verify);
 }
 
 void BgpStressTest::SubscribeRoutingInstance(vector<int> agent_ids,
@@ -1983,13 +1613,13 @@ void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {
 
         if (xmpp_close_from_control_node_) {
             TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpXmppChannel *>(NULL),
-                channel_manager_->channel_,
-                "Waiting for channel_manager_->channel_ to be set");
+                channel_manager_->channel(),
+                "Waiting for channel_manager_->channel() to be set");
             if (agent_id >= (int) xmpp_peers_.size()) {
                 xmpp_peers_.resize(agent_id + 1, NULL);
             }
-            xmpp_peers_[agent_id] = channel_manager_->channel_;
-            channel_manager_->channel_ = NULL;
+            xmpp_peers_[agent_id] = channel_manager_->channel();
+            channel_manager_->set_channel(NULL);
         }
     }
 
@@ -2001,7 +1631,9 @@ void BgpStressTest::BringUpXmppAgent(vector<int> agent_ids, bool verify_state) {
         //
         // server connection
         //
-        TASK_UTIL_EXPECT_TRUE(XmppClientIsEstablished(agent_name));
+        if (!d_external_mode_) {
+            TASK_UTIL_EXPECT_TRUE(XmppClientIsEstablished(agent_name));
+        }
 
         //
         // Client side
@@ -2086,7 +1718,10 @@ void BgpStressTest::BringDownXmppAgents(int nagents) {
 
     for (int agent_id = 0; agent_id < nagents; agent_id++) {
         TASK_UTIL_EXPECT_TRUE(!IsAgentEstablished(xmpp_agents_[agent_id]));
-        TASK_UTIL_EXPECT_FALSE(XmppClientIsEstablished(GetAgentName(agent_id)));
+        if (!d_external_mode_) {
+            TASK_UTIL_EXPECT_FALSE(XmppClientIsEstablished(
+                                       GetAgentName(agent_id)));
+        }
         BGP_STRESS_TEST_LOG("Agent " << xmpp_agents_[agent_id]->ToString()
                             << " down");
     }
@@ -2327,6 +1962,7 @@ void BgpStressTest::AddRoutingInstance(vector<int> instance_ids, int ntargets) {
 }
 
 void BgpStressTest::AddRoutingInstances(int ninstances, int ntargets) {
+    if (d_external_mode_) return;
     for (int instance_id = 0; instance_id <= ninstances; instance_id++) {
         if (instance_id < (int) instances_.size() && instances_[instance_id])
             continue;
@@ -2398,7 +2034,7 @@ void BgpStressTest::AddAllRoutes(int ninstances, int npeers, int nagents,
     if (d_vms_count_) {
         BGP_STRESS_TEST_LOG("Start subscribing all agents' "
                             "IFMAP configuration");
-        SubscribeAgentsConfiguration(nagents);
+        SubscribeAgentsConfiguration(nagents, true);
         BGP_STRESS_TEST_LOG("End subscribing all agents' "
                             "IFMAP configuration");
     }
@@ -2451,7 +2087,7 @@ void BgpStressTest::DeleteAllRoutes(int ninstances, int npeers, int nagents,
     VerifyControllerRoutes(ninstances, nagents, 0);
 
     UnsubscribeAgents(nagents, ninstances);
-    UnsubscribeAgentsConfiguration(nagents);
+    UnsubscribeAgentsConfiguration(nagents, true);
     VerifyPeers();
     VerifyRibOutCreationCompletion();
 }
@@ -2629,6 +2265,7 @@ TEST_P(BgpStressTest, RandomEvents) {
     for (int count = 1; !d_events_ || count <= d_events_; count++) {
         switch (BgpStressTestEvent::GetTestEvent(count)) {
             case BgpStressTestEvent::ADD_BGP_ROUTE:
+                if (d_external_mode_) break;
                 if (!n_peers_ || !n_families_ || !n_routes_) break;
                 AddBgpRoute(BgpStressTestEvent::GetEventItems(n_families_),
                             BgpStressTestEvent::GetEventItems(n_peers_, 1),
@@ -2637,6 +2274,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::DELETE_BGP_ROUTE:
+                if (d_external_mode_) break;
                 if (!n_peers_ || !n_families_ || !n_routes_) break;
                 DeleteBgpRoute(BgpStressTestEvent::GetEventItems(n_families_),
                                BgpStressTestEvent::GetEventItems(n_peers_, 1),
@@ -2696,33 +2334,37 @@ TEST_P(BgpStressTest, RandomEvents) {
             case BgpStressTestEvent::SUBSCRIBE_CONFIGURATION:
                 if (!n_agents_) break;
                 SubscribeConfiguration(
-                        BgpStressTestEvent::GetEventItems(n_agents_));
+                        BgpStressTestEvent::GetEventItems(n_agents_), true);
                 break;
 
             case BgpStressTestEvent::UNSUBSCRIBE_CONFIGURATION:
                 if (!n_agents_) break;
                 UnsubscribeConfiguration(
-                        BgpStressTestEvent::GetEventItems(n_agents_));
+                        BgpStressTestEvent::GetEventItems(n_agents_), true);
                 break;
 
             case BgpStressTestEvent::ADD_BGP_PEER:
+                if (d_external_mode_) break;
                 if (!n_peers_) break;
                 AddBgpPeer(BgpStressTestEvent::GetEventItems(n_peers_, 1),
                            true);
                 break;
 
             case BgpStressTestEvent::DELETE_BGP_PEER:
+                if (d_external_mode_) break;
                 if (!n_peers_) break;
                 DeleteBgpPeer(BgpStressTestEvent::GetEventItems(n_peers_, 1),
                               true);
                 break;
 
             case BgpStressTestEvent::CLEAR_BGP_PEER:
+                if (d_external_mode_) break;
                 if (!n_peers_) break;
                 ClearBgpPeer(BgpStressTestEvent::GetEventItems(n_peers_, 1));
                 break;
 
             case BgpStressTestEvent::ADD_ROUTING_INSTANCE:
+                if (d_external_mode_) break;
                 if (!n_instances_) break;
                 if (!n_targets_) {
                     target = ++n_targets_;
@@ -2737,6 +2379,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::DELETE_ROUTING_INSTANCE:
+                if (d_external_mode_) break;
                 if (!n_instances_) break;
                 DeleteRoutingInstance(
                     BgpStressTestEvent::GetEventItems(n_instances_, 1),
@@ -2744,6 +2387,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::ADD_ROUTE_TARGET:
+                if (d_external_mode_) break;
                 target = ++n_targets_;
                 for (i = 1; i <= n_instances_; i++) {
                     AddRouteTarget(i, target);
@@ -2751,6 +2395,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::DELETE_ROUTE_TARGET:
+                if (d_external_mode_) break;
                 if (!n_targets_) break;
                 target = n_targets_--;
 
@@ -2767,6 +2412,7 @@ TEST_P(BgpStressTest, RandomEvents) {
                 break;
 
             case BgpStressTestEvent::SHOW_ALL_ROUTES:
+                if (d_external_mode_) break;
                 ShowAllRoutes();
                 break;
 
@@ -3033,8 +2679,10 @@ static void process_command_line_args(int argc, const char **argv) {
         d_targets_ = vm["ntargets"].as<int>();
         cmd_line_arg_set = true;
     }
+    bool nvms_set = false;
     if (vm.count("nvms")) {
         d_vms_count_ = vm["nvms"].as<int>();
+        nvms_set = true;
     }
     if (vm.count("xmpp-nexthop")) {
         d_xmpp_rt_nexthop_ = vm["xmpp-nexthop"].as<string>();
@@ -3253,14 +2901,17 @@ static void process_command_line_args(int argc, const char **argv) {
     // test, unless events are being fed through a file
     //
     if (xmpp_port_set) {
+#if 0
         if (BgpStressTestEvent::d_events_list_.empty()) {
             BgpStressTestEvent::d_events_list_.push_back(
                 BgpStressTestEvent::PAUSE);
             d_events_ = 1;
         }
+#endif
         d_peers_ = 0;
+        d_external_mode_ = true;
         cmd_line_arg_set = true;
-        d_vms_count_ = 0;
+        if (!nvms_set) d_vms_count_ = 0;
     }
 
     if (cmd_line_arg_set) {
@@ -3341,6 +2992,8 @@ static void SetUp() {
         boost::factory<PeerCloseManagerTest *>());
     BgpObjectFactory::Register<StateMachine>(
         boost::factory<StateMachineTest *>());
+    IFMapFactory::Register<IFMapXmppChannel>(
+        boost::factory<IFMapXmppChannelTest *>());
 }
 
 static void TearDown() {

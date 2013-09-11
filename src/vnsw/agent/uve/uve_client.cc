@@ -31,13 +31,7 @@
 using namespace std;
 using namespace boost::asio;
 
-static UveClient *singleton_;
-
-uint64_t start_time;
-
-UveClient *GetUveClient() {
-    return singleton_;
-}
+UveClient *UveClient::singleton_;
 
 void UveClient::AddIntfToVm(const VmEntry *vm, const Interface *intf) {
     //Check if the element is already present
@@ -83,9 +77,28 @@ void UveClient::DelIntfFromVn(const Interface *intf) {
     }
 }
 
+bool UveClient::GetVmIntfGateway(const VmPortInterface *vm_intf, string &gw) {
+    const VnEntry *vn = vm_intf->GetVnEntry();
+    if (vn == NULL) {
+        return false;
+    }
+    const vector<VnIpam> &list = vn->GetVnIpam();
+    Ip4Address vm_addr = vm_intf->GetIpAddr();
+    unsigned int i;
+    for (i = 0; i < list.size(); i++) {
+        if (list[i].IsSubnetMember(vm_addr))
+            break;
+    }
+    if (i == list.size()) {
+        return false;
+    }
+    gw = list[i].default_gw.to_string();
+    return true;
+}
+
 bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf, 
                              VmInterfaceAgent *s_intf) {
-    if (vm_intf->GetCfgName() == Agent::NullString()) {
+    if (vm_intf->GetCfgName() == Agent::GetInstance()->NullString()) {
         return false;
     }
     s_intf->set_name(vm_intf->GetCfgName());
@@ -116,6 +129,10 @@ bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf,
     s_intf->set_floating_ips(uve_fip_list);
     s_intf->set_label(vm_intf->GetLabel());
     s_intf->set_active(vm_intf->GetActiveState());
+    string gw;
+    if (GetVmIntfGateway(vm_intf, gw)) {
+        s_intf->set_gateway(gw);
+    }
 
     return true;
 }
@@ -123,14 +140,14 @@ bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf,
 bool UveClient::FrameIntfStatsMsg(const VmPortInterface *vm_intf, 
                                   VmInterfaceAgentStats *s_intf) {
     uint64_t in_band, out_band;
-    if (vm_intf->GetCfgName() == Agent::NullString()) {
+    if (vm_intf->GetCfgName() == Agent::GetInstance()->NullString()) {
         return false;
     }
     s_intf->set_name(vm_intf->GetCfgName());
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentStatsCollector::IfStats *s = 
-        AgentUve::GetStatsCollector()->GetIfStats(intf);
+        AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
     if (s == NULL) {
         return false;
     }
@@ -172,7 +189,7 @@ void UveClient::VnVmListSend(const string &vn) {
 
 void UveClient::AddVmToVn(const VmPortInterface *intf, const string vm_name, const string vn_name) {
 
-    if (vm_name == Agent::NullString() || vn_name == Agent::NullString()) {
+    if (vm_name == Agent::GetInstance()->NullString() || vn_name == Agent::GetInstance()->NullString()) {
         return;
     }
 
@@ -185,7 +202,7 @@ void UveClient::AddVmToVn(const VmPortInterface *intf, const string vm_name, con
 
 void UveClient::DelVmFromVn(const VmPortInterface *intf, const string vm_name, const string vn_name) {
 
-    if (vm_name == Agent::NullString() || vn_name == Agent::NullString()) {
+    if (vm_name == Agent::GetInstance()->NullString() || vn_name == Agent::GetInstance()->NullString()) {
         return;
     }
 
@@ -199,12 +216,12 @@ void UveClient::DelVmFromVn(const VmPortInterface *intf, const string vm_name, c
 }
 
 void UveClient::AddIntfToIfStatsTree(const Interface *intf) {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     collector->AddIfStatsEntry(intf);
 }
 
 void UveClient::DelIntfFromIfStatsTree(const Interface *intf) {
-    AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     collector->DelIfStatsEntry(intf);
 }
 
@@ -226,7 +243,7 @@ void UveClient::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                       (e->GetState(partition->parent(), vrf_listener_id_));
     if (e->IsDeleted()) {
         if (state) {
-            AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+            AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
             collector->DelVrfStatsEntry(vrf);
             delete state;
             e->ClearState(partition->parent(), vrf_listener_id_);
@@ -236,7 +253,7 @@ void UveClient::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
             state = new UveState();
             e->SetState(partition->parent(), vrf_listener_id_, state);
         }
-        AgentStatsCollector *collector = AgentUve::GetStatsCollector();
+        AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
         collector->AddUpdateVrfStatsEntry(vrf);
     }
 }
@@ -252,7 +269,7 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     switch(intf->GetType()) {
     case Interface::VMPORT: {
         vm_port = static_cast<const VmPortInterface*>(intf);
-        if (vm_port->GetCfgName() == Agent::NullString()) {
+        if (vm_port->GetCfgName() == Agent::GetInstance()->NullString()) {
             return;
         }
         if (!e->IsDeleted() && !state) {
@@ -325,8 +342,8 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         if (vm_port) {
             const VmEntry *vm = vm_port->GetVmEntry();
             const VnEntry *vn = vm_port->GetVnEntry();
-            state->vm_name_ = vm? vm->GetCfgName() : Agent::NullString();
-            state->vn_name_ = vn? vn->GetName() : Agent::NullString();
+            state->vm_name_ = vm? vm->GetCfgName() : Agent::GetInstance()->NullString();
+            state->vn_name_ = vn? vn->GetName() : Agent::GetInstance()->NullString();
         }
         e->SetState(partition->parent(), intf_listener_id_, state);
     } else if (reset_state) {
@@ -416,7 +433,7 @@ bool UveClient::FrameVmMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
         changed = true;
     }
 
-    string hostname = Agent::GetHostName();
+    string hostname = Agent::GetInstance()->GetHostName();
     if (UveVmVRouterChanged(hostname, last_uve)) {
         uve->uve_info.set_vrouter(hostname);
         last_uve.set_vrouter(hostname);
@@ -432,7 +449,7 @@ bool UveClient::FrameVmMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
 }
 
 void UveClient::SendVmMsg(const VmEntry *vm, bool stats) {
-    if (vm->GetCfgName() == Agent::NullString()) {
+    if (vm->GetCfgName() == Agent::GetInstance()->NullString()) {
         return;
     }
 
@@ -520,7 +537,7 @@ void UveClient::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
             s_vm.set_deleted(true); 
             UveVirtualMachineAgentTrace::Send(s_vm);
             last_vm_uve_set_.erase(s_vm.get_name());
-            if (Agent::IsTestMode() == false) {
+            if (Agent::GetInstance()->IsTestMode() == false) {
                 VmStat::Stop(state->stat_);
             }
             e->ClearState(partition->parent(), vm_listener_id_);
@@ -540,7 +557,7 @@ void UveClient::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
         last_vm_uve_set_.insert(LastVmUvePair(vm->GetCfgName(), uve));
 
         //Create object to poll for VM stats
-        if (Agent::IsTestMode() == false) { 
+        if (Agent::GetInstance()->IsTestMode() == false) { 
             VmStat *stat = new VmStat(vm->GetUuid());
             stat->Start();
             state->stat_ = stat;
@@ -553,7 +570,7 @@ bool UveClient::PopulateInterVnStats(string vn_name,
                                      UveVirtualNetworkAgent *s_vn) {
     bool changed = false;
     InterVnStatsCollector::VnStatsSet *stats_set = 
-            AgentUve::GetInterVnStatsCollector()->Find(vn_name);
+            AgentUve::GetInstance()->GetInterVnStatsCollector()->Find(vn_name);
 
     if (!stats_set) {
         return false;
@@ -726,7 +743,7 @@ bool UveClient::FrameVnMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
         acl_name = vn->GetAcl()->GetName();
         acl_rule_count = vn->GetAcl()->Size();
     } else {
-        acl_name = Agent::NullString();
+        acl_name = Agent::GetInstance()->NullString();
         acl_rule_count = 0;
     }
 
@@ -745,7 +762,7 @@ bool UveClient::FrameVnMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
     if (vn->GetMirrorCfgAcl()) {
         acl_name = vn->GetMirrorCfgAcl()->GetName();
     } else {
-        acl_name = Agent::NullString();
+        acl_name = Agent::GetInstance()->NullString();
     }
     if (it == last_vn_uve_set_.end() ||
         UveVnMirrorAclChanged(acl_name, last_uve)) {
@@ -782,6 +799,14 @@ bool UveClient::UpdateVnFipCount(LastVnUveSet::iterator &it, int count,
     return false;
 }
 
+bool UveClient::GetUveVnEntry(const string vn_name, UveVnEntry &entry) {
+    LastVnUveSet::iterator it = last_vn_uve_set_.find(vn_name);
+    if (it == last_vn_uve_set_.end()) {
+        return false;
+    }
+    entry = it->second;
+    return true;
+}
 
 bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
                                 L4PortBitmap *vn_port_bitmap, UveVnEntry *uve) {
@@ -806,7 +831,7 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
         fip_count += vm_port->GetFloatingIpCount();
 
         const AgentStatsCollector::IfStats *s = 
-            AgentUve::GetStatsCollector()->GetIfStats(intf);
+            AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -817,13 +842,13 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
     }
     
     LastVnUveSet::iterator it = last_vn_uve_set_.find(vn->GetName());
-    UveVirtualNetworkAgent &last_uve = it->second.uve_info;
+    UveVnEntry &prev_uve_vn_entry = it->second;
+    UveVirtualNetworkAgent &last_uve = prev_uve_vn_entry.uve_info;
 
     uint64_t diff_in_bytes = 0;
     if (UveVnIfInStatsChanged(in_bytes, in_pkts, last_uve)) {
         uve->uve_info.set_in_tpkts(in_pkts);
         uve->uve_info.set_in_bytes(in_bytes);
-        diff_in_bytes = in_bytes - last_uve.get_in_bytes();
         last_uve.set_in_tpkts(in_pkts);
         last_uve.set_in_bytes(in_bytes);
         changed = true;
@@ -833,7 +858,6 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
     if (UveVnIfOutStatsChanged(out_bytes, out_pkts, last_uve)) {
         uve->uve_info.set_out_tpkts(out_pkts);
         uve->uve_info.set_out_bytes(out_bytes);
-        diff_out_bytes = out_bytes - last_uve.get_out_bytes();
         last_uve.set_out_tpkts(out_pkts);
         last_uve.set_out_bytes(out_bytes);
         changed = true;
@@ -841,30 +865,33 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
 
     uint64_t diff_seconds = 0;
     uint64_t cur_time = UTCTimestampUsec();
-    bool bandwidth_set = false;
+    bool send_bandwidth = false;
     uint64_t in_band, out_band;
     if (it->second.prev_stats_update_time == 0) {
         in_band = out_band = 0;
-        bandwidth_set = true;
+        send_bandwidth = true;
+        it->second.prev_stats_update_time = cur_time;
     } else {
-        diff_seconds = (cur_time - it->second.prev_stats_update_time) / 1000000;
-        if (diff_seconds == 0) {
-            in_band = out_band = 0;
-            bandwidth_set = true;
+        diff_seconds = (cur_time - it->second.prev_stats_update_time) / 
+                       bandwidth_intvl_;
+        if (diff_seconds > 0) {
+            diff_in_bytes = in_bytes - prev_uve_vn_entry.prev_in_bytes;
+            diff_out_bytes = out_bytes - prev_uve_vn_entry.prev_out_bytes;
+            in_band = (diff_in_bytes * 8)/diff_seconds;
+            out_band = (diff_out_bytes * 8)/diff_seconds;
+            it->second.prev_stats_update_time = cur_time;
+            prev_uve_vn_entry.prev_in_bytes = in_bytes;
+            prev_uve_vn_entry.prev_out_bytes = out_bytes;
+            send_bandwidth = true;
         }
     }
-    it->second.prev_stats_update_time = cur_time;
-    if (!bandwidth_set) {
-        in_band = (diff_in_bytes * 8)/diff_seconds;
-        out_band = (diff_out_bytes * 8)/diff_seconds;
-    }
-    if (UveVnInBandChanged(in_band, last_uve)) {
+    if (send_bandwidth && UveVnInBandChanged(in_band, last_uve)) {
         uve->uve_info.set_in_bandwidth_usage(in_band);
         last_uve.set_in_bandwidth_usage(in_band);
         changed = true;
     }
 
-    if (UveVnOutBandChanged(out_band, last_uve)) {
+    if (send_bandwidth && UveVnOutBandChanged(out_band, last_uve)) {
         uve->uve_info.set_out_bandwidth_usage(out_band);
         last_uve.set_out_bandwidth_usage(out_band);
         changed = true;
@@ -911,7 +938,7 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
         vector<UveVrfStats> vlist;
 
         AgentStatsCollector::VrfStats *s = 
-              AgentUve::GetStatsCollector()->GetVrfStats(vrf->GetVrfId());
+              AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf->GetVrfId());
         if (s != NULL) {
             vrf_stats.set_name(s->name);
             vrf_stats.set_discards(s->discards);
@@ -932,7 +959,7 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
 }
 
 void UveClient::SendVnMsg(const VnEntry *vn, bool stats) {
-    if (vn->GetName() == Agent::NullString()) {
+    if (vn->GetName() == Agent::GetInstance()->NullString()) {
        return;
     }
 
@@ -964,12 +991,12 @@ void UveClient::SendUnresolvedVnMsg(string vn_name) {
     uve.uve_info.set_name(vn_name);
     changed = PopulateInterVnStats(vn_name, &uve.uve_info);
 
+    AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     /* Send Nameless VrfStats as part of Unknown VN */
     if (vn_name.compare(*FlowHandler::UnknownVn()) == 0) {
         UveVirtualNetworkAgent &last_uve = it->second.uve_info;
-        AgentStatsCollector::VrfStats *s = 
-            AgentUve::GetStatsCollector()->GetVrfStats(
-                          AgentStatsCollector::GetNamelessVrfId());
+        AgentStatsCollector::VrfStats *s = collector->GetVrfStats(
+                                               collector->GetNamelessVrfId());
         if (s) {
             UveVrfStats vrf_stats;
             vector<UveVrfStats> vlist;
@@ -1176,7 +1203,7 @@ void UveClient::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
     if (e->IsDeleted()) {
         if (state) {
             VrouterObjectVnNotify(vn);
-            AgentUve::GetInterVnStatsCollector()->Remove(vn->GetName());
+            AgentUve::GetInstance()->GetInterVnStatsCollector()->Remove(vn->GetName());
             DeleteAllIntf(vn);
 
             UveVirtualNetworkAgent s_vn;
@@ -1206,7 +1233,7 @@ void UveClient::VnNotify(DBTablePartBase *partition, DBEntryBase *e) {
 void UveClient::VnWalkDone(DBTableBase *base, 
                            std::vector<std::string> *vn_list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(Agent::GetHostName());
+    vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
     vrouter_agent.set_connected_networks(*vn_list);
     UveVrouterAgent::Send(vrouter_agent);
     delete vn_list;
@@ -1226,10 +1253,16 @@ void UveClient::SendVrouterUve() {
     VrouterAgent vrouter_agent;
     bool changed = false;
     static bool first = true;
-    vrouter_agent.set_name(Agent::GetHostName());
-    Ip4Address rid = Agent::GetRouterId();
+    vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
+    Ip4Address rid = Agent::GetInstance()->GetRouterId();
 
     if (first) {
+        vector<string> core_list;
+        MiscUtils::GetCoreFileList(Agent::GetInstance()->GetProgramName(), core_list);
+        if (core_list.size()) {
+            vrouter_agent.set_core_files_list(core_list);
+        }
+
         //Physical interface list
         vector<AgentInterface> phy_if_list;
         PhyIntfSet::iterator it = phy_intf_set_.begin();
@@ -1245,8 +1278,8 @@ void UveClient::SendVrouterUve() {
         vrouter_agent.set_phy_if(phy_if_list);
 
         //vhost attributes
-        VirtualHostInterfaceKey key(nil_uuid(), Agent::GetVirtualHostInterfaceName());
-        const Interface *vhost = static_cast<const Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+        VirtualHostInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetVirtualHostInterfaceName());
+        const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
         if (vhost) {
             AgentInterface vitf;
             vitf.set_name(vhost->GetName());
@@ -1257,12 +1290,19 @@ void UveClient::SendVrouterUve() {
         changed = true;
     }
 
+    if (!prev_vrouter_.__isset.build_info ||
+        prev_vrouter_.get_build_info() != Agent::GetInstance()->GetBuildInfo()) {
+        vrouter_agent.set_build_info(Agent::GetInstance()->GetBuildInfo());
+        prev_vrouter_.set_build_info(Agent::GetInstance()->GetBuildInfo());
+        changed = true;
+    }
+
     std::vector<AgentXmppPeer> xmpp_list;
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         AgentXmppPeer peer;
-        if (!Agent::GetXmppServer(count).empty()) {
-            peer.set_ip(Agent::GetXmppServer(count));
-            AgentXmppChannel *ch = Agent::GetAgentXmppChannel(count);
+        if (!Agent::GetInstance()->GetXmppServer(count).empty()) {
+            peer.set_ip(Agent::GetInstance()->GetXmppServer(count));
+            AgentXmppChannel *ch = Agent::GetInstance()->GetAgentXmppChannel(count);
             if (ch == NULL) {
                 continue;
             }
@@ -1275,9 +1315,8 @@ void UveClient::SendVrouterUve() {
             } else {
                 peer.set_status(false);
             }
-            peer.set_setup_time(integerToString(UTCUsecToPTime(
-                            Agent::GetAgentXmppChannelSetupTime(count))));
-            if (Agent::GetXmppCfgServerIdx() == count) {
+            peer.set_setup_time(Agent::GetInstance()->GetAgentXmppChannelSetupTime(count));
+            if (Agent::GetInstance()->GetXmppCfgServerIdx() == count) {
                 peer.set_primary(true);
             } else {
                 peer.set_primary(false);
@@ -1303,16 +1342,16 @@ void UveClient::SendVrouterUve() {
     }
 
     if (!prev_vrouter_.__isset.collector ||
-        prev_vrouter_.get_collector() != Agent::GetCollector()) {
-        vrouter_agent.set_collector(Agent::GetCollector());
-        prev_vrouter_.set_collector(Agent::GetCollector());
+        prev_vrouter_.get_collector() != Agent::GetInstance()->GetCollector()) {
+        vrouter_agent.set_collector(Agent::GetInstance()->GetCollector());
+        prev_vrouter_.set_collector(Agent::GetInstance()->GetCollector());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.collector_port ||
-        prev_vrouter_.get_collector_port() != Agent::GetCollectorPort()) {
-        vrouter_agent.set_collector_port(Agent::GetCollectorPort());
-        prev_vrouter_.set_collector_port(Agent::GetCollectorPort());
+        prev_vrouter_.get_collector_port() != Agent::GetInstance()->GetCollectorPort()) {
+        vrouter_agent.set_collector_port(Agent::GetInstance()->GetCollectorPort());
+        prev_vrouter_.set_collector_port(Agent::GetInstance()->GetCollectorPort());
         changed = true;
     }
 
@@ -1429,12 +1468,12 @@ void UveClient::SendVrouterUve() {
         changed = true;
     }
 
-    if (config->GetDnsServer_1() != "") {
-        dns_list.push_back(config->GetDnsServer_1());
+    for (int idx = 0; idx < MAX_XMPP_SERVERS; idx++) {
+        if (!Agent::GetInstance()->GetDnsXmppServer(idx).empty()) {
+            dns_list.push_back(Agent::GetInstance()->GetDnsXmppServer(idx));
+        }
     }
-    if (config->GetDnsServer_2() != "") {
-        dns_list.push_back(config->GetDnsServer_2());
-    }
+
     if (!prev_vrouter_.__isset.dns_servers ||
         prev_vrouter_.get_dns_servers() != dns_list) {
         vrouter_agent.set_dns_servers(dns_list);
@@ -1449,8 +1488,8 @@ void UveClient::SendVrouterUve() {
 
 void UveClient::VrouterObjectVnNotify(const VnEntry *vn) {
     std::vector<std::string> *vn_list = new std::vector<std::string>();
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
-    walker->WalkTable(Agent::GetVnTable(), NULL, 
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    walker->WalkTable(Agent::GetInstance()->GetVnTable(), NULL, 
                   boost::bind(&UveClient::AppendVn, singleton_, _1, _2, vn_list),
                   boost::bind(&UveClient::VnWalkDone, singleton_, _1, vn_list));
 }
@@ -1458,7 +1497,7 @@ void UveClient::VrouterObjectVnNotify(const VnEntry *vn) {
 void UveClient::VmWalkDone(DBTableBase *base, 
                            std::vector<std::string> *vm_list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(Agent::GetHostName());
+    vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
     vrouter_agent.set_virtual_machine_list(*vm_list);
     UveVrouterAgent::Send(vrouter_agent);
     delete vm_list;
@@ -1478,8 +1517,8 @@ bool UveClient::AppendVm(DBTablePartBase *part, DBEntryBase *entry,
 
 void UveClient::VrouterObjectVmNotify(const VmEntry *vm) {
     std::vector<std::string> *vm_list = new std::vector<std::string>();
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
-    walker->WalkTable(Agent::GetVmTable(), NULL,
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    walker->WalkTable(Agent::GetInstance()->GetVmTable(), NULL,
         boost::bind(&UveClient::AppendVm, singleton_, _1, _2, vm_list),
         boost::bind(&UveClient::VmWalkDone, singleton_, _1, vm_list));
 }
@@ -1488,7 +1527,7 @@ void UveClient::IntfWalkDone(DBTableBase *base,
                              std::vector<std::string> *intf_list,
                              std::vector<std::string> *err_if_list) {
     VrouterAgent vrouter_agent;
-    vrouter_agent.set_name(Agent::GetHostName());
+    vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
     if (intf_list) {
         vrouter_agent.set_interface_list(*intf_list);
     }
@@ -1510,7 +1549,7 @@ bool UveClient::AppendIntf(DBTablePartBase *part, DBEntryBase *entry,
         if (intf_list && !entry->IsDeleted()) {
             intf_list->push_back(port->GetCfgName());
         }
-        if (!intf->GetActiveState()) {
+        if (!intf->GetActiveState() && !entry->IsDeleted()) {
            err_if_list->push_back(port->GetCfgName());
         }
     }
@@ -1523,24 +1562,10 @@ void UveClient::VrouterObjectIntfNotify(const Interface *intf, bool if_list) {
         intf_list = new std::vector<std::string>();
     }
     std::vector<std::string> *err_if_list = new std::vector<std::string>();
-    DBTableWalker *walker = Agent::GetDB()->GetWalker();
-    walker->WalkTable(Agent::GetInterfaceTable(), NULL,
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    walker->WalkTable(Agent::GetInstance()->GetInterfaceTable(), NULL,
         boost::bind(&UveClient::AppendIntf, singleton_,_1, _2, intf_list, err_if_list),
         boost::bind(&UveClient::IntfWalkDone, singleton_, _1, intf_list, err_if_list));
-}
-
-void UveClient::SendVrouterObject() {
-    VrouterAgent vrouter_agent;
-
-    vrouter_agent.set_name(Agent::GetHostName());
-    vector<string> list;
-    MiscUtils::GetCoreFileList(Agent::GetProgramName(), list);
-    if (list.size()) {
-        vrouter_agent.set_core_files_list(list);
-    }
-    vrouter_agent.set_build_info(Agent::GetBuildInfo());
-
-    UveVrouterAgent::Send(vrouter_agent);
 }
 
 string UveClient::GetMacAddress(const ether_addr &mac) {
@@ -1586,7 +1611,7 @@ uint64_t UveClient::GetVmPortBandwidth(AgentStatsCollector::IfStats *s, bool dir
         s->prev_out_bytes = s->out_bytes;
     }
     uint64_t cur_time = UTCTimestampUsec();
-    uint64_t diff_seconds = (cur_time - s->stats_time) / 1000000;
+    uint64_t diff_seconds = (cur_time - s->stats_time) / bandwidth_intvl_;
     if (diff_seconds == 0) {
         return 0;
     }
@@ -1635,7 +1660,7 @@ bool UveClient::BuildPhyIfList(vector<AgentIfStats> &phy_if_list) {
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentStatsCollector::IfStats *s = 
-              AgentUve::GetStatsCollector()->GetIfStats(intf);
+              AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -1662,7 +1687,7 @@ bool UveClient::BuildPhyIfBand(vector<AgentIfBandwidth> &phy_if_list, uint8_t mi
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentStatsCollector::IfStats *s = 
-              AgentUve::GetStatsCollector()->GetIfStats(intf);
+              AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -1684,7 +1709,7 @@ void UveClient::InitPrevStats() {
     while (it != phy_intf_set_.end()) {
         const Interface *intf = *it;
         AgentStatsCollector::IfStats *s = 
-              AgentUve::GetStatsCollector()->GetIfStats(intf);
+              AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
         if (s == NULL) {
             continue;
         }
@@ -1699,7 +1724,7 @@ void UveClient::InitPrevStats() {
 }
 
 void UveClient::FetchDropStats(AgentDropStats &ds) {
-    vr_drop_stats_req stats = AgentUve::GetStatsCollector()->GetDropStats();
+    vr_drop_stats_req stats = AgentUve::GetInstance()->GetStatsCollector()->GetDropStats();
     ds.ds_discard = stats.get_vds_discard();
     ds.ds_pull = stats.get_vds_pull();
     ds.ds_invalid_if = stats.get_vds_invalid_if();
@@ -1797,8 +1822,8 @@ void UveClient::NewFlow(const FlowEntry *flow) {
 void UveClient::BuildXmppStatsList(vector<AgentXmppStats> &list) {
     for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
         AgentXmppStats peer;
-        if (!Agent::GetXmppServer(count).empty()) {
-            AgentXmppChannel *ch = Agent::GetAgentXmppChannel(count);
+        if (!Agent::GetInstance()->GetXmppServer(count).empty()) {
+            AgentXmppChannel *ch = Agent::GetInstance()->GetAgentXmppChannel(count);
             if (ch == NULL) {
                 continue;
             }
@@ -1806,10 +1831,10 @@ void UveClient::BuildXmppStatsList(vector<AgentXmppStats> &list) {
             if (xc == NULL) {
                 continue;
             }
-            peer.set_ip(Agent::GetXmppServer(count));
-            peer.set_reconnects(AgentStats::GetXmppReconnect(count));
-            peer.set_in_msgs(AgentStats::GetXmppInMsgs(count));
-            peer.set_out_msgs(AgentStats::GetXmppOutMsgs(count));
+            peer.set_ip(Agent::GetInstance()->GetXmppServer(count));
+            peer.set_reconnects(AgentStats::GetInstance()->GetXmppReconnect(count));
+            peer.set_in_msgs(AgentStats::GetInstance()->GetXmppInMsgs(count));
+            peer.set_out_msgs(AgentStats::GetInstance()->GetXmppOutMsgs(count));
             list.push_back(peer);
         }
     }
@@ -1824,33 +1849,38 @@ bool UveClient::SendAgentStats() {
     static bool first = true;
     bool change = false;
     static uint8_t count = 0;
+    static uint8_t cpu_stats_count = 0;
     VrouterStatsAgent stats;
 
     SendVrouterUve();
 
-    stats.set_name(Agent::GetHostName());
+    stats.set_name(Agent::GetInstance()->GetHostName());
 
-    if (prev_stats_.get_in_tpkts() != AgentStats::GetInPkts() || first) {
-        stats.set_in_tpkts(AgentStats::GetInPkts());
-        prev_stats_.set_in_tpkts(AgentStats::GetInPkts());
+    if (prev_stats_.get_in_tpkts() != 
+            AgentStats::GetInstance()->GetInPkts() || first) {
+        stats.set_in_tpkts(AgentStats::GetInstance()->GetInPkts());
+        prev_stats_.set_in_tpkts(AgentStats::GetInstance()->GetInPkts());
         change = true;
     }
 
-    if (prev_stats_.get_in_bytes() != AgentStats::GetInBytes() || first) {
-        stats.set_in_bytes(AgentStats::GetInBytes());
-        prev_stats_.set_in_bytes(AgentStats::GetInBytes());
+    if (prev_stats_.get_in_bytes() != 
+            AgentStats::GetInstance()->GetInBytes() || first) {
+        stats.set_in_bytes(AgentStats::GetInstance()->GetInBytes());
+        prev_stats_.set_in_bytes(AgentStats::GetInstance()->GetInBytes());
         change = true;
     }
 
-    if (prev_stats_.get_out_tpkts() != AgentStats::GetOutPkts() || first) {
-        stats.set_out_tpkts(AgentStats::GetOutPkts());
-        prev_stats_.set_out_tpkts(AgentStats::GetOutPkts());
+    if (prev_stats_.get_out_tpkts() != 
+            AgentStats::GetInstance()->GetOutPkts() || first) {
+        stats.set_out_tpkts(AgentStats::GetInstance()->GetOutPkts());
+        prev_stats_.set_out_tpkts(AgentStats::GetInstance()->GetOutPkts());
         change = true;
     }
 
-    if (prev_stats_.get_out_bytes() != AgentStats::GetOutBytes() || first) {
-        stats.set_out_bytes(AgentStats::GetOutBytes());
-        prev_stats_.set_out_bytes(AgentStats::GetOutBytes());
+    if (prev_stats_.get_out_bytes() != 
+            AgentStats::GetInstance()->GetOutBytes() || first) {
+        stats.set_out_bytes(AgentStats::GetInstance()->GetOutBytes());
+        prev_stats_.set_out_bytes(AgentStats::GetInstance()->GetOutBytes());
         change = true;
     }
 
@@ -1862,66 +1892,86 @@ bool UveClient::SendAgentStats() {
         change = true;
     }
 
-    //stats.set_collector_reconnects(AgentStats::GetSandeshReconnects());
-    //stats.set_in_sandesh_msgs(AgentStats::GetSandeshInMsgs());
-    //stats.set_out_sandesh_msgs(AgentStats::GetSandeshOutMsgs());
-    //stats.set_sandesh_http_sessions(AgentStats::GetSandeshHttpSessions());
+    //stats.set_collector_reconnects(AgentStats::GetInstance()->GetSandeshReconnects());
+    //stats.set_in_sandesh_msgs(AgentStats::GetInstance()->GetSandeshInMsgs());
+    //stats.set_out_sandesh_msgs(AgentStats::GetInstance()->GetSandeshOutMsgs());
+    //stats.set_sandesh_http_sessions(AgentStats::GetInstance()->GetSandeshHttpSessions());
 
-    if (prev_stats_.get_exception_packets() != AgentStats::GetPktExceptions()
-            || first) {
-        stats.set_exception_packets(AgentStats::GetPktExceptions());
-        prev_stats_.set_exception_packets(AgentStats::GetPktExceptions());
+    if (prev_stats_.get_exception_packets() != 
+            AgentStats::GetInstance()->GetPktExceptions() || first) {
+        stats.set_exception_packets(AgentStats::GetInstance()->GetPktExceptions());
+        prev_stats_.set_exception_packets(AgentStats::GetInstance()->GetPktExceptions());
         change = true;
     }
 
-    if (prev_stats_.get_exception_packets_dropped() != AgentStats::GetPktDropped() 
-            || first) {
-        stats.set_exception_packets_dropped(AgentStats::GetPktDropped());
-        prev_stats_.set_exception_packets_dropped(AgentStats::GetPktDropped());
+    if (prev_stats_.get_exception_packets_dropped() != 
+            AgentStats::GetInstance()->GetPktDropped() || first) {
+        stats.set_exception_packets_dropped(AgentStats::GetInstance()->GetPktDropped());
+        prev_stats_.set_exception_packets_dropped(AgentStats::GetInstance()->GetPktDropped());
         change = true;
     }
 
     //stats.set_exception_packets_denied();
-    if (prev_stats_.get_exception_packets_allowed() != 
-            (AgentStats::GetPktExceptions() - AgentStats::GetPktDropped())) {
-        stats.set_exception_packets_allowed(AgentStats::GetPktExceptions() - 
-                                            AgentStats::GetPktDropped());
-        prev_stats_.set_exception_packets_allowed(AgentStats::GetPktExceptions() - 
-                                            AgentStats::GetPktDropped());
+    uint64_t e_pkts_allowed = (AgentStats::GetInstance()->GetPktExceptions() -
+                     AgentStats::GetInstance()->GetPktDropped());
+    if (prev_stats_.get_exception_packets_allowed() != e_pkts_allowed) {
+        stats.set_exception_packets_allowed(e_pkts_allowed);
+        prev_stats_.set_exception_packets_allowed(e_pkts_allowed);
         change = true;
     }
 
-    if (prev_stats_.get_total_flows() != AgentStats::GetFlowCreated() 
-            || first) {
-        stats.set_total_flows(AgentStats::GetFlowCreated());
-        prev_stats_.set_total_flows(AgentStats::GetFlowCreated());
+    if (prev_stats_.get_total_flows() != 
+            AgentStats::GetInstance()->GetFlowCreated() || first) {
+        stats.set_total_flows(AgentStats::GetInstance()->GetFlowCreated());
+        prev_stats_.set_total_flows(AgentStats::GetInstance()->GetFlowCreated());
         change = true;
     }
 
-    if (prev_stats_.get_active_flows() != AgentStats::GetFlowActive() 
-            || first) {
-        stats.set_active_flows(AgentStats::GetFlowActive());
-        prev_stats_.set_active_flows(AgentStats::GetFlowActive());
+    if (prev_stats_.get_active_flows() != 
+            AgentStats::GetInstance()->GetFlowActive() || first) {
+        stats.set_active_flows(AgentStats::GetInstance()->GetFlowActive());
+        prev_stats_.set_active_flows(AgentStats::GetInstance()->GetFlowActive());
         change = true;
     }
 
-    if (prev_stats_.get_aged_flows() != AgentStats::GetFlowAged() || first) {
-        stats.set_aged_flows(AgentStats::GetFlowAged());
-        prev_stats_.set_aged_flows(AgentStats::GetFlowAged());
+    if (prev_stats_.get_aged_flows() != 
+            AgentStats::GetInstance()->GetFlowAged() || first) {
+        stats.set_aged_flows(AgentStats::GetInstance()->GetFlowAged());
+        prev_stats_.set_aged_flows(AgentStats::GetInstance()->GetFlowAged());
         change = true;
     }
     //stats.set_aged_flows_dp();
     //stats.active_flows_dp();
 
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, true);
-    if (prev_stats_.get_cpu_info() != cpu_load_info || first) {
-        stats.set_cpu_info(cpu_load_info);
-        if (prev_stats_.get_cpu_info().get_cpu_share() != cpu_load_info.get_cpu_share() || first) {
-            stats.set_cpu_share(cpu_load_info.get_cpu_share());
+    cpu_stats_count++;
+    if ((cpu_stats_count % 6) == 0) {
+        static bool cpu_first = true; //to track whether cpu-info is being sent for first time
+        CpuLoadInfo cpu_load_info;
+        CpuLoadData::FillCpuInfo(cpu_load_info, true);
+        if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
+            stats.set_cpu_info(cpu_load_info);
+            if ((prev_stats_.get_cpu_info().get_cpu_share() != 
+                cpu_load_info.get_cpu_share()) || cpu_first) {
+                stats.set_cpu_share(cpu_load_info.get_cpu_share());
+            }
+            if ((prev_stats_.get_cpu_info().get_meminfo().get_virt() != 
+                cpu_load_info.get_meminfo().get_virt()) || cpu_first) {
+                stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
+            }
+            if ((prev_stats_.get_cpu_info().get_sys_mem_info().get_used() != 
+                cpu_load_info.get_sys_mem_info().get_used()) || cpu_first) {
+                stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
+            }
+            if ((prev_stats_.get_cpu_info().get_cpuload().get_one_min_avg() != 
+                cpu_load_info.get_cpuload().get_one_min_avg()) || cpu_first) {
+                stats.set_one_min_avg_cpuload(
+                        cpu_load_info.get_cpuload().get_one_min_avg());
+            }
+            prev_stats_.set_cpu_info(cpu_load_info);
+            change = true;
+            cpu_first = false;
         }
-        prev_stats_.set_cpu_info(cpu_load_info);
-        change = true;
+        cpu_stats_count = 0;
     }
     vector<AgentIfStats> phy_if_list;
     BuildPhyIfList(phy_if_list);
@@ -1944,6 +1994,18 @@ bool UveClient::SendAgentStats() {
             stats.set_phy_if_1min_usage(phy_if_blist);
             prev_stats_.set_phy_if_1min_usage(phy_if_blist);
             change = true;
+
+            vector<AgentIfBandwidth>::iterator it = phy_if_blist.begin();
+            int num_intfs = 0, in_band = 0, out_band = 0;
+            while(it != phy_if_blist.end()) {
+                AgentIfBandwidth band = *it;
+                in_band += band.get_in_bandwidth_usage();
+                out_band += band.get_out_bandwidth_usage();
+                num_intfs++;
+                ++it;
+            }
+            stats.set_total_in_bandwidth_utilization((in_band/num_intfs));
+            stats.set_total_out_bandwidth_utilization((out_band/num_intfs));
         }
     }
 
@@ -1953,7 +2015,7 @@ bool UveClient::SendAgentStats() {
         BuildPhyIfBand(phy_if_blist, 5);
         if (prev_stats_.get_phy_if_5min_usage() != phy_if_blist) {
             stats.set_phy_if_5min_usage(phy_if_blist);
-            prev_stats_.set_phy_if_1min_usage(phy_if_blist);
+            prev_stats_.set_phy_if_5min_usage(phy_if_blist);
             change = true;
         }
     }
@@ -1970,13 +2032,13 @@ bool UveClient::SendAgentStats() {
         //The following avoids handling of count overflow cases.
         count = 0;
     }
-    VirtualHostInterfaceKey key(nil_uuid(), Agent::GetVirtualHostInterfaceName());
-    const Interface *vhost = static_cast<const Interface *>(Agent::GetInterfaceTable()->FindActiveEntry(&key));
+    VirtualHostInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetVirtualHostInterfaceName());
+    const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     const AgentStatsCollector::IfStats *s = 
-        AgentUve::GetStatsCollector()->GetIfStats(vhost);
+        AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
-        vhost_stats.set_name(Agent::GetVirtualHostInterfaceName());
+        vhost_stats.set_name(Agent::GetInstance()->GetVirtualHostInterfaceName());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
         vhost_stats.set_out_pkts(s->out_pkts);
@@ -1998,7 +2060,7 @@ bool UveClient::SendAgentStats() {
     FetchDropStats(drop_stats);
     stats.set_drop_stats(drop_stats);
     if (first) {
-        stats.set_uptime(start_time);
+        stats.set_uptime(start_time_);
     }
 
     if (change) {
@@ -2029,7 +2091,7 @@ void HandleSigChild(const boost::system::error_code& error,
     if (!error) {
         int status;
         while (::waitpid(-1, &status, WNOHANG) > 0);
-        singleton_->RegisterSigHandler();
+        UveClient::GetInstance()->RegisterSigHandler();
     }
 }
 
@@ -2060,34 +2122,33 @@ void UveClient::EnqueueVmStatData(VmStatData *data) {
     singleton_->event_queue_->Enqueue(data);
 }
 
-void UveClient::Init(void) {
-    singleton_ = new UveClient();
+void UveClient::Init(uint64_t bandwidth_intvl) {
+    singleton_ = new UveClient(bandwidth_intvl);
 
-    VmTable *vm_table = Agent::GetVmTable();
+    VmTable *vm_table = Agent::GetInstance()->GetVmTable();
     singleton_->vm_listener_id_ = vm_table->Register
         (boost::bind(&UveClient::VmNotify, singleton_, _1, _2));
 
-    VnTable *vn_table = Agent::GetVnTable();
+    VnTable *vn_table = Agent::GetInstance()->GetVnTable();
     singleton_->vn_listener_id_ = vn_table->Register
         (boost::bind(&UveClient::VnNotify, singleton_, _1, _2));
 
-    InterfaceTable *intf_table = Agent::GetInterfaceTable();
+    InterfaceTable *intf_table = Agent::GetInstance()->GetInterfaceTable();
     singleton_->intf_listener_id_ = intf_table->Register
         (boost::bind(&UveClient::IntfNotify, singleton_, _1, _2));
 
-    VrfTable *vrf_table = Agent::GetVrfTable();
+    VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
     singleton_->vrf_listener_id_ = vrf_table->Register
         (boost::bind(&UveClient::VrfNotify, singleton_, _1, _2));
 
     CpuLoadData::Init();
-    start_time = UTCTimestampUsec();
 
     singleton_->agent_stats_trigger_ = 
         new TaskTrigger(boost::bind(&UveClient::SendAgentStats, singleton_),
                 TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0);
 
     singleton_->agent_stats_timer_ = 
-        TimerManager::CreateTimer(*Agent::GetEventManager()->io_service(),
+        TimerManager::CreateTimer(*Agent::GetInstance()->GetEventManager()->io_service(),
                                  "Agent stats collector timer");
     singleton_->agent_stats_timer_->Start(10*1000,
                              boost::bind(&UveClient::AgentStatsTimer, singleton_), 
@@ -2105,9 +2166,9 @@ UveClient::~UveClient() {
 }
 
 void UveClient::Shutdown(void) {
-    Agent::GetVmTable()->Unregister(singleton_->vm_listener_id_);
-    Agent::GetVnTable()->Unregister(singleton_->vn_listener_id_);
-    Agent::GetInterfaceTable()->Unregister(singleton_->intf_listener_id_);
+    Agent::GetInstance()->GetVmTable()->Unregister(singleton_->vm_listener_id_);
+    Agent::GetInstance()->GetVnTable()->Unregister(singleton_->vn_listener_id_);
+    Agent::GetInstance()->GetInterfaceTable()->Unregister(singleton_->intf_listener_id_);
     delete singleton_;
     singleton_ = NULL;
 }
@@ -2115,8 +2176,8 @@ void UveClient::Shutdown(void) {
 VmStat::VmStat(const uuid &vm_uuid):
     vm_uuid_(vm_uuid), mem_usage_(0), virt_memory_(0), virt_memory_peak_(0),
     vm_memory_quota_(0), prev_cpu_stat_(0), cpu_usage_(0), prev_cpu_snapshot_time_(0), 
-    prev_vcpu_snapshot_time_(0), input_(*(Agent::GetEventManager()->io_service())),
-    timer_(TimerManager::CreateTimer(*(Agent::GetEventManager())->io_service(),
+    prev_vcpu_snapshot_time_(0), input_(*(Agent::GetInstance()->GetEventManager()->io_service())),
+    timer_(TimerManager::CreateTimer(*(Agent::GetInstance()->GetEventManager())->io_service(),
     "VmStatTimer")), marked_delete_(false), pid_(0), retry_(0) {
 }
 
@@ -2135,7 +2196,7 @@ void VmStat::ReadData(const boost::system::error_code &ec,
         input_.close(close_ec);
         //Enqueue a request to process data
         VmStatData *vm_stat_data = new VmStatData(this, cb);
-        UveClient::EnqueueVmStatData(vm_stat_data);
+        UveClient::GetInstance()->EnqueueVmStatData(vm_stat_data);
     } else {
         bzero(rx_buff_, sizeof(rx_buff_));
         async_read(input_, boost::asio::buffer(rx_buff_, kBufLen),
@@ -2211,7 +2272,7 @@ void VmStat::ReadCpuStat() {
         }
     }
 
-    uint32_t num_of_cpu = singleton_->GetCpuCount();
+    uint32_t num_of_cpu = UveClient::GetInstance()->GetCpuCount();
     if (num_of_cpu == 0) {
         GetVcpuStat();
         return;
@@ -2336,13 +2397,13 @@ void VmStat::ReadMemStat() {
 
 void VmStat::GetCpuStat() {
     std::ostringstream cmd;
-    cmd << "virsh cpu-stats " << Agent::GetUuidStr(vm_uuid_) << " --total";
+    cmd << "virsh cpu-stats " << Agent::GetInstance()->GetUuidStr(vm_uuid_) << " --total";
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadCpuStat, this));
 }
 
 void VmStat::GetVcpuStat() {
     std::ostringstream cmd;
-    cmd << "virsh vcpuinfo " << Agent::GetUuidStr(vm_uuid_);
+    cmd << "virsh vcpuinfo " << Agent::GetInstance()->GetUuidStr(vm_uuid_);
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadVcpuStat, this));
 }
 
@@ -2362,7 +2423,7 @@ void VmStat::ReadMemoryQuota() {
 
 void VmStat::GetMemoryQuota() {
     std::ostringstream cmd;
-    cmd << "virsh dommemstat " << Agent::GetUuidStr(vm_uuid_);
+    cmd << "virsh dommemstat " << Agent::GetInstance()->GetUuidStr(vm_uuid_);
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadMemoryQuota, this));
 }
 
@@ -2413,7 +2474,7 @@ void VmStat::ReadPid() {
 
 void VmStat::GetPid() {
     std::ostringstream cmd;
-    cmd << "ps -eo pid,cmd | grep " << Agent::GetUuidStr(vm_uuid_);
+    cmd << "ps -eo pid,cmd | grep " << Agent::GetInstance()->GetUuidStr(vm_uuid_);
     ExecCmd(cmd.str(), boost::bind(&VmStat::ReadPid, this));
 }
 

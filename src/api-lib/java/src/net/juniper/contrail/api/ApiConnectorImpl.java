@@ -47,11 +47,6 @@ import org.apache.http.util.EntityUtils;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.ImmutableList;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 class ApiConnectorImpl implements ApiConnector {
     private static final Logger s_logger =
@@ -59,6 +54,7 @@ class ApiConnectorImpl implements ApiConnector {
 
     private String _api_hostname;
     private int _api_port;
+    private ApiBuilder _apiBuilder;
 
     // HTTP Connection parameters
     private HttpParams _params;
@@ -74,6 +70,7 @@ class ApiConnectorImpl implements ApiConnector {
         _api_port = port;
         initHttpClient();
         initHttpServerParams(hostname, port); 
+        _apiBuilder = new ApiBuilder();
     }
     
     
@@ -154,26 +151,6 @@ class ApiConnectorImpl implements ApiConnector {
         return  _api_port;
     }
 
-    private String getTypename(Class<?> cls) {
-        String clsname = cls.getName();
-        int loc = clsname.lastIndexOf('.');
-        if (loc > 0) {
-            clsname = clsname.substring(loc + 1);
-        }
-        String typename = new String();
-        for (int i = 0; i < clsname.length(); i++) {
-            char ch = clsname.charAt(i);
-            if (Character.isUpperCase(ch)) {
-                if (i > 0) {
-                    typename += "-";
-                }
-                ch = Character.toLowerCase(ch);
-            }
-            typename += ch;
-        }
-        return typename;
-    }
-
     public HttpResponse execute(String method, String uri, StringEntity entity) throws IOException {
 
         checkConnection();
@@ -217,47 +194,6 @@ class ApiConnectorImpl implements ApiConnector {
         return data;
     }
 
-    private ApiObjectBase decodeCreateResponse(HttpResponse response, String typename,
-            Class<? extends ApiObjectBase> cls) {
-        final String data = getResponseData(response);
-
-        s_logger.debug("<< Create Response: " + data);
-
-        final JsonParser parser = new JsonParser();
-        final JsonObject js_obj = parser.parse(data).getAsJsonObject();
-        if (js_obj == null) {
-            s_logger.warn("Unable to parse response");
-            return null;
-        }
-        final JsonElement element = js_obj.get(typename);
-        if (element == null) {
-            s_logger.warn("Element " + typename + ": not found");
-            return null;
-        }
-        
-        ApiObjectBase resp = ApiSerializer.deserialize(element.toString(), cls);
-        return resp;
-    }
-
-
-    private ApiObjectBase decodeObject(HttpResponse response, String typename, Class<? extends ApiObjectBase> cls) {
-        final String data = getResponseData(response);
-
-        final JsonParser parser = new JsonParser();
-        final JsonObject js_obj = parser.parse(data).getAsJsonObject();
-        if (js_obj == null) {
-            s_logger.warn("Unable to parse response");
-            return null;
-        }
-        final JsonElement element = js_obj.get(typename);
-        if (element == null) {
-            s_logger.warn("Element " + typename + ": not found");
-            return null;
-        }
-        ApiObjectBase resp = ApiSerializer.deserialize(element.toString(), cls);
-        return resp;
-    }
-
     private void updateObject(ApiObjectBase obj, ApiObjectBase resp) {
         Class<?> cls = obj.getClass();
         for (Field f : cls.getDeclaredFields()) {
@@ -288,7 +224,7 @@ class ApiConnectorImpl implements ApiConnector {
 
     @Override
     public synchronized boolean create(ApiObjectBase obj) throws IOException {
-        final String typename = getTypename(obj.getClass());
+        final String typename = _apiBuilder.getTypename(obj.getClass());
         final String jsdata = ApiSerializer.serializeObject(typename, obj);
         final HttpResponse response = execute(HttpPost.METHOD_NAME, "/" + typename + "s", 
                 new StringEntity(jsdata, ContentType.APPLICATION_JSON));
@@ -303,7 +239,7 @@ class ApiConnectorImpl implements ApiConnector {
             return false;
         }
 
-        ApiObjectBase resp = decodeCreateResponse(response, typename, obj.getClass());
+        ApiObjectBase resp = _apiBuilder.jsonToApiObject(getResponseData(response), obj.getClass());
         if (resp == null) {
             s_logger.error("Unable to decode Create response");
             checkResponseKeepAliveStatus(response);
@@ -325,7 +261,7 @@ class ApiConnectorImpl implements ApiConnector {
 
     @Override
     public synchronized boolean update(ApiObjectBase obj) throws IOException {
-        final String typename = getTypename(obj.getClass());
+        final String typename = _apiBuilder.getTypename(obj.getClass());
         final String jsdata = ApiSerializer.serializeObject(typename, obj);
         final HttpResponse response = execute(HttpPut.METHOD_NAME, "/" + typename + '/' + obj.getUuid(), 
                 new StringEntity(jsdata, ContentType.APPLICATION_JSON));
@@ -341,7 +277,7 @@ class ApiConnectorImpl implements ApiConnector {
 
     @Override
     public synchronized boolean read(ApiObjectBase obj) throws IOException {
-        final String typename = getTypename(obj.getClass());
+        final String typename = _apiBuilder.getTypename(obj.getClass());
         final HttpResponse response = execute(HttpGet.METHOD_NAME, 
                 "/" + typename + '/' + obj.getUuid(), null);
         ApiObjectBase resp = null;
@@ -354,7 +290,8 @@ class ApiConnectorImpl implements ApiConnector {
             checkResponseKeepAliveStatus(response);
             return false;
         } else {
-            resp = decodeObject(response, typename, obj.getClass());
+            s_logger.debug("Response: " + response);
+            resp = _apiBuilder.jsonToApiObject(getResponseData(response), obj.getClass());
             if (resp == null) {
                 s_logger.warn("Unable to decode GET response");
             }
@@ -385,7 +322,7 @@ class ApiConnectorImpl implements ApiConnector {
             return;
         }
         
-        final String typename = getTypename(cls);
+        final String typename = _apiBuilder.getTypename(cls);
         final HttpResponse response = execute(HttpDelete.METHOD_NAME, 
                 "/" + typename +  '/' + uuid, null);
 
@@ -423,7 +360,7 @@ class ApiConnectorImpl implements ApiConnector {
 
     @Override
     public synchronized ApiObjectBase findById(Class<? extends ApiObjectBase> cls, String uuid) throws IOException {
-        final String typename = getTypename(cls);
+        final String typename = _apiBuilder.getTypename(cls);
         final HttpResponse response = execute(HttpGet.METHOD_NAME, 
                 '/' + typename + '/' + uuid, null);
         ApiObjectBase object = null;
@@ -432,7 +369,7 @@ class ApiConnectorImpl implements ApiConnector {
             EntityUtils.consumeQuietly(response.getEntity());  
             checkResponseKeepAliveStatus(response);
         } else {
-            object = decodeObject(response, typename, cls);
+            object = _apiBuilder.jsonToApiObject(getResponseData(response), cls);
             if (object == null) {
                 s_logger.warn("Unable to decode find response");
             }
@@ -463,12 +400,9 @@ class ApiConnectorImpl implements ApiConnector {
     // POST http://hostname:port/fqname-to-id
     // body: {"type": class, "fq_name": [parent..., name]}
     public synchronized String findByName(Class<? extends ApiObjectBase> cls, List<String> name_list) throws IOException {
-        Gson json = new Gson();
-        JsonObject js_dict = new JsonObject();
-        js_dict.add("type", json.toJsonTree(getTypename(cls)));
-        js_dict.add("fq_name", json.toJsonTree(name_list));
+        String jsonStr = _apiBuilder.buildFqnJsonString(cls, name_list);
         final HttpResponse response = execute(HttpPost.METHOD_NAME, "/fqname-to-id",  
-                new StringEntity(js_dict.toString(), ContentType.APPLICATION_JSON));
+                new StringEntity(jsonStr, ContentType.APPLICATION_JSON));
 
         if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
             EntityUtils.consumeQuietly(response.getEntity());  
@@ -483,26 +417,19 @@ class ApiConnectorImpl implements ApiConnector {
         }
         s_logger.debug("<< Response Data: " + data);
 
-        final JsonParser parser = new JsonParser();
-        final JsonObject js_obj= parser.parse(data).getAsJsonObject();
-        if (js_obj == null) {
+        String uuid = _apiBuilder.getUuid(data);
+        if (uuid == null) {
             s_logger.warn("Unable to parse response");
             checkResponseKeepAliveStatus(response);
             return null;
         }
-        final JsonElement element = js_obj.get("uuid");
-        if (element == null) {
-            s_logger.warn("Element \"uuid\": not found");
-            checkResponseKeepAliveStatus(response);
-            return null;
-        }
         checkResponseKeepAliveStatus(response);
-        return element.getAsString();
+        return uuid;
     }
 
     @Override
     public synchronized List<? extends ApiObjectBase> list(Class<? extends ApiObjectBase> cls, List<String> parent) throws IOException {
-        final String typename = getTypename(cls);
+        final String typename = _apiBuilder.getTypename(cls);
         final HttpResponse response = execute(HttpGet.METHOD_NAME, '/' + typename + 's', null);
 
         if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
@@ -517,29 +444,9 @@ class ApiConnectorImpl implements ApiConnector {
             checkResponseKeepAliveStatus(response);
             return null;
         }
-        List<ApiObjectBase> list = new ArrayList<ApiObjectBase>();
-
-        final JsonParser parser = new JsonParser();
-        final JsonObject js_obj= parser.parse(data).getAsJsonObject();
-        if (js_obj == null) {
-            s_logger.warn("Unable to parse response");
-            checkResponseKeepAliveStatus(response);
-            return null;
-        }
-        final JsonArray array = js_obj.getAsJsonArray(typename + "s");
-        if (array == null) {
-            s_logger.warn("Element " + typename + ": not found");
-            checkResponseKeepAliveStatus(response);
-            return null;
-        }
-        Gson json = ApiSerializer.getDeserializer();
-        for (JsonElement element : array) {
-            ApiObjectBase obj = json.fromJson(element.toString(), cls);
-            if (obj == null) {
-                s_logger.warn("Unable to decode list element");
-                continue;
-            }
-            list.add(obj);
+        List<? extends ApiObjectBase> list = _apiBuilder.jsonToApiObjects(data, cls, parent);
+        if (list == null) {
+            s_logger.warn("Unable to parse/deserialize response: " + data);
         }
         checkResponseKeepAliveStatus(response);
         return list;

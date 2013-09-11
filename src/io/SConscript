@@ -8,7 +8,7 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.AppendUnique(CCFLAGS='-fno-exceptions')
-env.Append(CPPPATH = ["#/build/debug/"])
+env.Append(CPPPATH = [env['TOP']])
 
 SandeshGenFiles = env.SandeshGenCpp('io_log.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)

@@ -21,6 +21,7 @@ typedef struct _ConnInfo
   CURL *easy;
   char *url;
   char *post;
+  struct curl_slist *headers;
   GlobalInfo *global;
   char error[CURL_ERROR_SIZE + 1];
   HttpConnection *connection;

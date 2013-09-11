@@ -15,6 +15,8 @@
 #include <sandesh/sandesh_session.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
+#include <sandesh/sandesh_connection.h>
+#include <sandesh/sandesh_state_machine.h>
 #include "viz_collector.h"
 #include "ruleeng.h"
 
@@ -25,7 +27,17 @@ using boost::shared_ptr;
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
-const std::string Collector::kSessionTask = "collector::VizSession";
+
+void VizSession::EnqueueClose() {
+    SandeshConnection *connection = this->connection();
+    if (connection && connection->state_machine()) {
+        connection->state_machine()->OnSessionEvent(this,
+                                                    TcpSession::CLOSE);
+    } else {
+        LOG(ERROR, __func__ << ": Session: " << ToString() <<
+            ": No state machine");
+    }
+}
 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, Ruleeng *ruleeng) :
@@ -33,12 +45,15 @@ Collector::Collector(EventManager *evm, short server_port,
         db_handler_(db_handler),
         osp_(ruleeng->GetOSP()),
         evm_(evm),
-        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1)),
-        session_task_id_(TaskScheduler::GetInstance()->GetTaskId(kSessionTask)) {
+        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1)) {
     SandeshServer::Initialize(server_port);
 }
 
 Collector::~Collector() {
+}
+
+void Collector::Shutdown() {
+    SandeshServer::Shutdown();
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     gen_map_.clear();
 }
@@ -87,7 +102,8 @@ bool Collector::ReceiveMsg(SandeshSession *session, ssm::Message *msg) {
 }
 
 TcpSession* Collector::AllocSession(Socket *socket) {
-    VizSession *session = new VizSession(this, socket, Task::kTaskInstanceAny, session_task_id_);
+    VizSession *session = new VizSession(this, socket, AllocConnectionIndex(), 
+                                         session_task_id());
     return session;
 }
 
@@ -119,20 +135,21 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     } else {
         // Update the generator if needed
         gen = gen_it->second;
-        if (gen->session() == NULL) {
+        VizSession *gsession = gen->session();
+        if (gsession == NULL) {
             gen->set_session(vsession);
             gen->set_state_machine(state_machine);
         } else {
-            // Message received on stale session
+            // Message received on different session. Close both.
             LOG(DEBUG, "Received Ctrl Message: " << gen->ToString()
-                   << " Stale Session:" << vsession->ToString() <<
-                   " Current Session:" << gen->session()->ToString());
+                   << " On Session:" << vsession->ToString() <<
+                   " Current Session:" << gsession->ToString());
             lock.release();
+            // Enqueue a close on the state machine on the generator session
+            gsession->EnqueueClose();
             return false;
         }
     }
-    state_machine->SetStateMachineKey(snh->get_source() + ":" + snh->get_module_name());
-
     lock.release();
     LOG(DEBUG, "Received Ctrl Message: " << gen->ToString()
             << " Session:" << vsession->ToString());
@@ -192,6 +209,7 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
         if (gen_attr.get_connects() > gen_attr.get_resets()) {
             gsinfo.set_source(gm_it->first.first);
             gsinfo.set_module_id(gm_it->first.second);
+            gsinfo.set_state(gen->State());
             genlist.push_back(gsinfo);
         }
     }

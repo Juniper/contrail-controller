@@ -61,7 +61,9 @@ public:
     }
     static void ClearCount() {free_count_ = 0;};
 
-    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {};
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {
+        return false;
+    }
     static int free_count_;
 private:
     int id_;
@@ -132,7 +134,9 @@ public:
     static void ClearCount() {free_count_ = 0;};
     static int free_count_;
 
-    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {};
+    bool DBEntrySandesh(Sandesh *sresp, std::string &name) const {
+        return false;
+    }
 
 private:
     int id_;
@@ -204,6 +208,8 @@ public:
     virtual bool OnChange(DBEntry *entry, const DBRequest *req) {
         EntryCKey *key = static_cast<EntryCKey *>(req->key.get());
         ref = key->a_;
+
+        return true;
     }
 
     virtual void Delete(DBEntry *entry, const DBRequest *req) {

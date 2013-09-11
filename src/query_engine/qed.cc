@@ -63,6 +63,7 @@ bool QEInfoLogger(const string &hostname) {
     cciv.push_back(cinfo);
     state.set_module_cpu_info(cciv);
     state.set_queryengine_cpu_share(cpu_load_info.get_cpu_share());
+    state.set_queryengine_mem_virt(cpu_load_info.get_meminfo().get_virt());
 
     ModuleCpuStateTrace::Send(state);
 
@@ -243,7 +244,6 @@ main(int argc, char *argv[]) {
     }
     delete qe;
     Sandesh::Uninit();
-    SandeshHttp::Uninit();
     usleep(1000000);
     return 0;
 }

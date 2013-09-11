@@ -585,6 +585,14 @@ class VncCassandraClient(VncCassandraClientGen):
         return json.loads(fq_name_json)
     #end uuid_to_fq_name
 
+    def uuid_to_obj_type(self, id):
+        try:
+            type_json = self._obj_uuid_cf.get(id, columns = ['type'])['type']
+        except pycassa.NotFoundException:
+            raise NoIdError(id)
+        return json.loads(type_json)
+    #end uuid_to_fq_name
+
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
         fq_name_str = ':'.join(fq_name)
@@ -906,6 +914,10 @@ class VncDbClient(object):
     def uuid_to_fq_name(self, obj_uuid):
         return self._cassandra_db.uuid_to_fq_name(obj_uuid)
     #end uuid_to_fq_name
+
+    def uuid_to_obj_type(self, obj_uuid):
+        return self._cassandra_db.uuid_to_obj_type(obj_uuid)
+    #end uuid_to_obj_type
 
     def ifmap_id_to_fq_name(self, ifmap_id):
         return self._ifmap_db.ifmap_id_to_fq_name(ifmap_id)

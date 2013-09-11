@@ -14,6 +14,8 @@ import cStringIO
 import requests
 import ConfigParser
 import cgitb
+import logging
+import logging.handlers
 import copy
 import argparse
 import socket
@@ -43,6 +45,8 @@ from sandesh.svc_mon_introspect import ttypes as sandesh
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
+import discovery.client as client
+
 _SVC_VN_MGMT = "svc-vn-mgmt"
 _SVC_VN_LEFT = "svc-vn-left"
 _SVC_VN_RIGHT = "svc-vn-right"
@@ -56,6 +60,7 @@ _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
 
 _CHECK_SVC_VM_HEALTH_INTERVAL = 30
 _CHECK_CLEANUP_INTERVAL = 5 
+_ERROR_LOG_FILE_SIZE = 64*1024
 
 class SvcMonitor(object):
     """
@@ -75,12 +80,23 @@ class SvcMonitor(object):
         #dictionary for nova
         self._nova = {}
 
+        #initialize discovery client
+        self._disc = None
+        if self._args.disc_server_ip and self._args.disc_server_port:
+            self._disc= client.DiscoveryClient(self._args.disc_server_ip, 
+                                               self._args.disc_server_port,
+                                               ModuleNames[Module.SVC_MONITOR])
+
         #sandesh init
+        collectors = None
+        if self._args.collector and self._args.collector_port:
+            collectors = [(self._args.collector, int(self._args.collector_port))]
         self._sandesh = Sandesh()
         sandesh.ServiceInstanceList.handle_request = self.sandesh_si_handle_request
-        self._sandesh.init_generator(ModuleNames[Module.SVC_MONITOR], socket.gethostname(),
-                (self._args.collector, int(self._args.collector_port)),
-                'svc_monitor_context', int(self._args.http_server_port), ['cfgm_common', 'sandesh'])
+        self._sandesh.init_generator(ModuleNames[Module.SVC_MONITOR], 
+                socket.gethostname(), collectors, 'svc_monitor_context', 
+                int(self._args.http_server_port), 
+                ['cfgm_common', 'sandesh'], self._disc)
         self._sandesh.set_logging_params(enable_local_log = self._args.log_local,
                                          category = self._args.log_category,
                                          level = self._args.log_level,
@@ -95,6 +111,15 @@ class SvcMonitor(object):
         cpu_info = vnc_cpu_info.CpuInfo(Module.SVC_MONITOR, sysinfo_req, self._sandesh, 60)
         self._cpu_info = cpu_info
 
+        # logging
+        self._err_file = '/var/log/contrail/svc-monitor.err'
+        self._tmp_file = '/var/log/contrail/svc-monitor.tmp'
+        self._svc_err_logger = logging.getLogger('SvcErrLogger')
+        self._svc_err_logger.setLevel(logging.ERROR)
+        handler = logging.handlers.RotatingFileHandler(self._err_file,
+                                                       maxBytes=_ERROR_LOG_FILE_SIZE,
+                                                       backupCount=2)
+        self._svc_err_logger.addHandler(handler)
     #end __init__
 
     #create service template
@@ -199,30 +224,24 @@ class SvcMonitor(object):
         return si_fq_str.split(':')[1]
     #enf _get_si_fq_str_to_proj_name
 
-    def _find_vn_by_name(self, proj_obj, vn_name):
-        domain_name, project_name = proj_obj.get_fq_name()
-        vn_fq_name = [domain_name, project_name, vn_name]
-        try:
-            vn_obj = self._vnc_lib.virtual_network_read(fq_name=vn_fq_name)
-        except NoIdError:
-            return None
-
-        return vn_obj.uuid
-    #end _find_vn_by_name
-
-    def _get_vn_id(self, proj_obj, vn_name, shared_vn_name = None, 
+    def _get_vn_id(self, proj_obj, vn_fq_name, 
+                   shared_vn_name = None, 
                    shared_vn_subnet = None):
         vn_id = None
 
-        if vn_name:
+        if vn_fq_name:
             #search for provided VN
-            vn_id = self._find_vn_by_name(proj_obj, vn_name)
-            if vn_id == None:
-                self._svc_syslog("_get_vn_id: vn_name %s not found" % (vn_name))
+            try:
+                vn_id = self._vnc_lib.fq_name_to_id('virtual-network', vn_fq_name)
+            except NoIdError:
+                self._svc_syslog("Error: vn_name %s not found" % (vn_name))
         else:
             #search or create shared VN
-            vn_id = self._find_vn_by_name(proj_obj, shared_vn_name)
-            if vn_id == None:
+            domain_name, proj_name = proj_obj.get_fq_name()
+            vn_fq_name = [domain_name, proj_name, shared_vn_name]
+            try:
+                vn_id = self._vnc_lib.fq_name_to_id('virtual-network', vn_fq_name)
+            except NoIdError:
                 vn_id = self._create_svc_vn(shared_vn_name, shared_vn_subnet,
                                             proj_obj)
 
@@ -252,11 +271,12 @@ class SvcMonitor(object):
             left_vn = si_props.get_left_virtual_network()
             right_vn = si_props.get_right_virtual_network()
 
-        if (vn_obj.name == _SVC_VN_MGMT) or (vn_obj.name == mgmt_vn):
+        vn_fq_name_str = vn_obj.get_fq_name_str()
+        if (vn_obj.name == _SVC_VN_MGMT) or (vn_fq_name_str == mgmt_vn):
             if_type = _MGMT_STR
-        elif (vn_obj.name == _SVC_VN_LEFT) or (vn_obj.name == left_vn):
+        elif (vn_obj.name == _SVC_VN_LEFT) or (vn_fq_name_str == left_vn):
             if_type = _LEFT_STR
-        elif (vn_obj.name == _SVC_VN_RIGHT) or (vn_obj.name == right_vn):
+        elif (vn_obj.name == _SVC_VN_RIGHT) or (vn_fq_name_str == right_vn):
             if_type = _RIGHT_STR
 
         if_properties = VirtualMachineInterfacePropertiesType(if_type)
@@ -292,9 +312,13 @@ class SvcMonitor(object):
             nic = {}
             funcname = "get_" + vm_if.service_interface_type + "_virtual_network"
             func = getattr(si_props, funcname)
-            vn_name = func()
+            vn_fq_name_str = func()
+            vn_fq_name = None
+            if vn_fq_name_str:
+                domain, proj, vn_name = vn_fq_name_str.split(':')
+                vn_fq_name = [domain, proj, vn_name]
 
-            vn_id = self._get_vn_id(proj_obj, vn_name, 
+            vn_id = self._get_vn_id(proj_obj, vn_fq_name,
                                     _SVC_VNS[vm_if.service_interface_type][0], 
                                     _SVC_VNS[vm_if.service_interface_type][1])
             if vn_id == None:
@@ -427,9 +451,13 @@ class SvcMonitor(object):
 
         #no SIs left hence delete shared VNs
         for vn_name in [_SVC_VN_MGMT, _SVC_VN_LEFT, _SVC_VN_RIGHT]:
-            vn_uuid = self._find_vn_by_name(proj_obj, vn_name)
-            if vn_uuid != None:
+            domain_name, proj_name = proj_obj.get_fq_name()
+            vn_fq_name = [domain_name, proj_name, vn_name]
+            try:
+                vn_uuid = self._vnc_lib.fq_name_to_id('virtual-network', vn_fq_name)
                 self._cleanup_cf.insert(vn_uuid, {'proj_name': proj_obj.name, 'type': 'vn'})
+            except Exception:
+                pass
     #end _delmsg_project_service_instance
 
     def _delmsg_service_instance_service_template(self, idents):
@@ -507,10 +535,8 @@ class SvcMonitor(object):
             for meta in metas:
                 meta_name = re.sub('{.*}', '', meta.tag)
                 if result_type == 'deleteResult':
-                    self._svc_syslog("deleting %s/%s"% (meta_name, idents))
                     funcname="_delmsg_"+meta_name.replace('-', '_')
                 elif result_type in ['searchResult', 'updateResult']:
-                    self._svc_syslog("adding %s/%s"% (meta_name, idents))
                     funcname="_addmsg_"+meta_name.replace('-', '_')
                 #end if result_type
                 try:
@@ -518,7 +544,7 @@ class SvcMonitor(object):
                 except AttributeError:
                     pass
                 else:
-                    self._svc_syslog("calling %s" % (funcname))
+                    self._svc_syslog("%s with %s/%s"% (funcname, meta_name, idents))
                     func(idents)
             #end for meta
         #end for result_type
@@ -530,7 +556,7 @@ class SvcMonitor(object):
             return client
 
         self._nova[proj_name] = nc.Client('2', username = self._args.admin_user, project_id = proj_name, 
-                api_key=self._args.admin_password, auth_url='http://'+ self._args.ifmap_server_ip +':5000/v2.0')
+                api_key=self._args.admin_password, auth_url='http://'+ self._args.auth_host +':5000/v2.0')
         return self._nova[proj_name]
     #end _novaclient_get
  
@@ -561,7 +587,7 @@ class SvcMonitor(object):
 
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
         domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, project_name, 'default-network-ipam']
+        ipam_fq_name = [domain_name, 'admin', 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
@@ -612,9 +638,12 @@ def launch_arc(monitor, ssrc_mapc):
             result = arc_mapc.call('poll', pollreq)
             monitor.process_poll_result(result)
         except Exception as e:
-            cgitb.Hook(format = "text", file = open('/var/log/contrail/svc-monitor.err', 'a')).handle(sys.exc_info())
             if type(e) == socket.error:
                 time.sleep(3)
+            else:
+                cgitb.Hook(format = "text", file = open(monitor._tmp_file, 'w')).handle(sys.exc_info())
+                fhandle = open(monitor._tmp_file)
+                monitor._svc_err_logger.error("%s" % fhandle.read())
 #end launch_arc
 
 def launch_ssrc(monitor):
@@ -625,7 +654,11 @@ def launch_ssrc(monitor):
 
 def timer_callback(monitor):
     #check health of VMs
-    vm_list = list(monitor._svc_vm_cf.get_range())
+    try:
+        vm_list = list(monitor._svc_vm_cf.get_range())
+    except Exception as e:
+        return
+
     for vm_uuid, si in vm_list:
         try:
             proj_name = monitor._get_proj_name_from_si_fq_str(si['si_fq_str'])
@@ -646,13 +679,18 @@ def launch_timer(monitor):
         try:
             timer_callback(monitor)
         except Exception as e:
-            cgitb.Hook(format = "text", file = open('/var/log/contrail/svc-monitor.err', 'a')).handle(sys.exc_info())
-            pass
+            cgitb.Hook(format = "text", file = open(monitor._tmp_file, 'w')).handle(sys.exc_info())
+            fhandle = open(monitor._tmp_file)
+            monitor._svc_err_logger.error("%s" % fhandle.read())
 #end launch_timer
 
 def cleanup_callback(monitor):
-    delete_list = list(monitor._cleanup_cf.get_range())
-    for uuid, info in delete_list:
+    try:
+        delete_list = list(monitor._cleanup_cf.get_range())
+    except Exception as e:
+        return
+
+    for uuid, info in delete_list or []:
         if info['type'] == 'vm':
             monitor._delete_svc_instance_vm(uuid, info['proj_name'])
         elif info['type'] == 'vn':
@@ -667,8 +705,9 @@ def launch_cleanup(monitor):
         try:
             cleanup_callback(monitor)
         except Exception as e:
-            cgitb.Hook(format = "text", file = open('/var/log/contrail/svc-monitor.err', 'a')).handle(sys.exc_info())
-            pass
+            cgitb.Hook(format = "text", file = open(monitor._tmp_file, 'w')).handle(sys.exc_info())
+            fhandle = open(monitor._tmp_file)
+            monitor._svc_err_logger.error("%s" % fhandle.read())
 #end launch_cleanup
 
 def parse_args(args_str):
@@ -682,6 +721,8 @@ def parse_args(args_str):
                          --api_server_port 8082
                          --collector 127.0.0.1
                          --collector_port 8080
+                         --disc_server_ip 127.0.0.1
+                         --disc_server_port 5998
                          --http_server_port 8090
                          --log_local
                          --log_level SYS_DEBUG
@@ -706,8 +747,10 @@ def parse_args(args_str):
         'cassandra_server_list' : '127.0.0.1:9160',
         'api_server_ip' : '127.0.0.1',
         'api_server_port' : '8082',
-        'collector' : '127.0.0.1',
-        'collector_port' : '8086',
+        'collector' : None,
+        'collector_port' : None,
+        'disc_server_ip' : None,
+        'disc_server_port' : None,
         'http_server_port' : '8088',
         'log_local' : False,
         'log_level' : SandeshLevel.SYS_DEBUG,
@@ -722,6 +765,7 @@ def parse_args(args_str):
         'ifmap_certauth_port' : "8444",
         }
     ksopts = {
+        'auth_host'        : '127.0.0.1',
         'admin_user'       : 'user1',
         'admin_password'   : 'password1',
         'admin_tenant_name': 'default-domain'
@@ -772,6 +816,10 @@ def parse_args(args_str):
                         help = "IP address of VNC collector server")
     parser.add_argument("--collector_port",
                         help = "Port of VNC collector server")
+    parser.add_argument("--disc_server_ip",
+                        help = "IP address of the discovery server")
+    parser.add_argument("--disc_server_port",
+                        help = "Port of the discovery server")
     parser.add_argument("--http_server_port",
                         help = "Port of local HTTP server")
     parser.add_argument("--log_local", action = "store_true",

@@ -18,16 +18,10 @@
 #include <uve/inter_vn_stats.h>
 #include <oper/mirror_table.h>
 
-AgentStatsCollector *AgentUve::agent_stats_collector_;
-VrouterStatsCollector *AgentUve::vrouter_stats_collector_;
-FlowStatsCollector *AgentUve::flow_stats_collector_;
-InterVnStatsCollector *AgentUve::inter_vn_stats_collector_;
-AgentStatsSandeshContext *AgentUve::intf_stats_sandesh_ctx_;
-AgentStatsSandeshContext *AgentUve::vrf_stats_sandesh_ctx_;
-AgentStatsSandeshContext *AgentUve::drop_stats_sandesh_ctx_;
+AgentUve *AgentUve::singleton_;
 
-void AgentUve::Init(int time_interval) {
-    EventManager *evm = Agent::GetEventManager();
+AgentUve::AgentUve(int time_interval) {
+    EventManager *evm = Agent::GetInstance()->GetEventManager();
     agent_stats_collector_ = new AgentStatsCollector(*evm->io_service(), time_interval);
     vrouter_stats_collector_ = new VrouterStatsCollector(*evm->io_service());
     flow_stats_collector_ = new FlowStatsCollector(*evm->io_service(), time_interval);
@@ -35,7 +29,11 @@ void AgentUve::Init(int time_interval) {
     intf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     vrf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     drop_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
-    UveClient::Init();
+}
+
+void AgentUve::Init(int time_interval, uint64_t band_intvl) {
+    singleton_ = new AgentUve(time_interval);
+    UveClient::Init(band_intvl);
 }
 
 void AgentUve::Shutdown() {

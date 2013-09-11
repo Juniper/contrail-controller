@@ -23,10 +23,12 @@
 #include "bgp/inet/inet_route.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/inetmcast/inetmcast_table.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/origin-vn/origin_vn.h"
+#include "bgp/security_group/security_group.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "db/db_table_partition.h"
-#include "security_group/security_group.h"
-#include "tunnel_encap/tunnel_encap.h"
 #include "xmpp/xmpp_server.h"
 
 using namespace boost::assign;
@@ -62,6 +64,7 @@ public:
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
         BgpRoute *route;
+        const RoutingInstanceMgr *ri_mgr = table->routing_instance()->manager();
 
         // As of now, this code walks through all the prefixes even if we are
         // searching for a specific one. We can improve it by doing a lookup
@@ -73,7 +76,8 @@ public:
         }
         for (int i = 0; route && (!count || i < count);
                 route = static_cast<BgpRoute *>(partition->GetNext(route)), i++) {
-            if (!match(req_->get_prefix(), route->ToString()))
+            if (!MatchPrefix(req_->get_prefix(), route,
+                             req_->get_longer_match()))
                 continue;
             ShowRoute show_route;
             show_route.set_prefix(route->ToString());
@@ -131,6 +135,11 @@ public:
                         if (ExtCommunity::is_route_target(*it)) {
                             RouteTarget rt(*it);
                             srp.communities.push_back(rt.ToString());
+                        } else if (ExtCommunity::is_origin_vn(*it)) {
+                            OriginVn origin_vn(*it);
+                            srp.communities.push_back(origin_vn.ToString());
+                            int vn_index = origin_vn.vn_index();
+                            srp.set_origin_vn(ri_mgr->GetVirtualNetworkByVnIndex(vn_index));
                         } else if (ExtCommunity::is_security_group(*it)) {
                             SecurityGroup sg(*it);
                             srp.communities.push_back(sg.ToString());
@@ -150,14 +159,22 @@ public:
                         }
                     }
                 }
-                if (attr->origin_vn()) {
-                    srp.set_origin_vn(attr->origin_vn()->origin_vn().ToString());
-                }
                 show_route_paths.push_back(srp);
             }
             show_route.set_paths(show_route_paths);
             route_list.push_back(show_route);
         }
+    }
+
+    bool MatchPrefix(const string &expected_prefix, BgpRoute *route,
+                     bool longer_match) {
+        if (expected_prefix == "") return true;
+        if (!longer_match) {
+            return expected_prefix == route->ToString();
+        }
+
+        // Do longest prefix match.
+        return route->IsMoreSpecific(expected_prefix);
     }
 
     bool match(const string &expected, const string &actual) {
@@ -453,11 +470,13 @@ bool ShowNeighborHandler::CallbackS1(const Sandesh *sr,
     if (req->get_domain() != "") {
         RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
         if (ri)
-            ri->FillBgpNeighborInfo(mydata->nbr_list, req->get_ip_address());
+            ri->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
+                req->get_ip_address());
     } else {
         RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
         for (;it != rim->end(); it++) {
-            it->FillBgpNeighborInfo(mydata->nbr_list, req->get_ip_address());
+            it->peer_manager()->FillBgpNeighborInfo(mydata->nbr_list,
+                req->get_ip_address());
         }
     }
 
@@ -572,11 +591,13 @@ size_t ShowNeighborStatisticsHandler::FillBgpNeighborStatistics(
         RoutingInstanceMgr *rim = bgp_server->routing_instance_mgr();
         if (!req->get_domain().empty()) {
             RoutingInstance *ri = rim->GetRoutingInstance(req->get_domain());
-            if (ri) count += ri->GetNeighborCount(req->get_up_or_down());
+            if (ri) {
+                count += ri->peer_manager()->GetNeighborCount(req->get_up_or_down());
+            }
         } else {
             RoutingInstanceMgr::RoutingInstanceIterator it = rim->begin();
             for (;it != rim->end(); it++) {
-                count += it->GetNeighborCount(req->get_up_or_down());
+                count += it->peer_manager()->GetNeighborCount(req->get_up_or_down());
             }
         }
     }
@@ -703,6 +724,7 @@ public:
         if (rit_list.size()) {
             inst.set_name(ri->name());
             inst.set_virtual_network(ri->virtual_network());
+            inst.set_vn_index(ri->virtual_network_index());
             std::vector<std::string> import_rt;
             BOOST_FOREACH(RouteTarget rt, ri->GetImportList()) {
                 import_rt.push_back(rt.ToString());

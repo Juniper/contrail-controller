@@ -17,7 +17,6 @@ using namespace boost::assign;
 
 #include "base/util.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_path.h"
@@ -37,9 +36,10 @@ using namespace boost::assign;
 #include "io/test/event_manager_test.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
+#include "net/bgp_af.h"
 
 
-#include "schema/bgp_l3vpn_unicast_types.h"
+#include "schema/xmpp_unicast_types.h"
 
 #include "xmpp/xmpp_client.h"
 #include "xmpp/xmpp_init.h"
@@ -240,7 +240,7 @@ TEST_F(BgpXmppUnitTest, 3Agent_Multicast_SG_TEST) {
 
     // Multicast Route Entry Add
     stringstream mroute; 
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1,10.1.1.1";
+    mroute << "225.0.0.1,10.1.1.1"; 
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     task_util::WaitForIdle();
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
@@ -352,7 +352,7 @@ TEST_F(BgpXmppUnitTest, 3Agent_Multicast_G_TEST) {
 
     // Multicast Route Entry Add
     stringstream mroute;
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1,10.1.1.1";
+    mroute << "225.0.0.1,10.1.1.1";
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
 
@@ -447,7 +447,7 @@ TEST_F(BgpXmppUnitTest, Multicast_PendingSubscribe_Test) {
     agent_a_->Subscribe("blue", 1); 
     // Multicast Route Entry Add
     stringstream mroute;
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1";
+    mroute << "225.0.0.1"; 
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
     task_util::WaitForIdle();
@@ -518,7 +518,7 @@ TEST_F(BgpXmppUnitTest, Multicast_PendingUnSubscribe_Test) {
     agent_a_->Subscribe("blue", 1); 
     // Multicast Route Entry Add
     stringstream mroute;
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1";
+    mroute << "225.0.0.1"; 
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     agent_a_->Unsubscribe("blue"); 
     WAIT_EQ(3, bgp_channel_manager_->channel_[0]->Count());
@@ -576,7 +576,7 @@ TEST_F(BgpXmppUnitTest, Multicast_SubsequentSubUnsub_Test) {
     agent_a_->Subscribe("blue", 1); 
     // Multicast Route Entry Add
     stringstream mroute;
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1";
+    mroute << "225.0.0.1"; 
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
     agent_a_->Unsubscribe("blue"); 
@@ -620,11 +620,11 @@ TEST_F(BgpXmppUnitTest, Multicast_MultipleRoutes_Test) {
     WAIT_EQ(1, bgp_channel_manager_->channel_[0]->Count());
     // Multicast Route Entry Add
     stringstream mroute;
-    mroute << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.1";
+    mroute << "225.0.0.1"; 
     agent_a_->AddMcastRoute("blue", mroute.str(), "7.7.7.7", "10000-20000"); 
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
     stringstream mroute2;
-    mroute2 << BgpAf::IPv4 << "/" << BgpAf::Mcast << "/" << "225.0.0.2";
+    mroute2 << "225.0.0.2"; 
     agent_a_->AddMcastRoute("blue", mroute2.str(), "7.7.7.7", "10000-20000"); 
     WAIT_EQ(3, bgp_channel_manager_->channel_[0]->Count());
     task_util::WaitForIdle();
@@ -655,19 +655,18 @@ TEST_F(BgpXmppUnitTest, XmppBadAddress) {
     // Register to both unicast and multicast table
     agent_a_->Subscribe("blue", 1); 
     WAIT_EQ(1, bgp_channel_manager_->channel_[0]->Count());
-    // Multicast Route Entry Add with unsupported af
-    agent_a_->AddMcastRoute("blue", "2/8/225.0.0.1", "7.7.7.7", "10000-20000"); 
+    agent_a_->AddMcastRoute("blue", "225.0.0.1", "7.7.7.7", "10000-20000"); 
     WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
 
     //Verify route added with instance_id = 2
     InetMcastTable *blue_table_ = static_cast<InetMcastTable *>(
             a_->database()->FindTable("blue.inetmcast.0"));
-    EXPECT_TRUE(blue_table_->Size() == 0);
+    EXPECT_TRUE(blue_table_->Size() == 1);
 
     // Multicast Route Entry Add with invalid nh 
-    agent_a_->AddMcastRoute("blue", "1/8/225.0.0.1", "7.7", "10000-20000"); 
+    agent_a_->AddMcastRoute("blue", "225.0.0.1", "7.7", "10000-20000"); 
     WAIT_EQ(3, bgp_channel_manager_->channel_[0]->Count());
-    EXPECT_TRUE(blue_table_->Size() == 0);
+    EXPECT_TRUE(blue_table_->Size() == 1);
 
     //trigger a TCP close event on the server
     agent_a_->SessionDown();

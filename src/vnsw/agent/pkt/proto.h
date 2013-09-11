@@ -25,11 +25,42 @@ public:
         instance_ = NULL;
     }
 
+    Proto(const char *task_name, PktHandler::ModuleName mod, boost::asio::io_service &io) : 
+        work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
+                    boost::bind(&Proto<Handler>::ProcessProto, this, _1)), io_(io) { 
+        PktHandler::GetPktHandler()->Register(mod,
+                    boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
+    };
+
     virtual ~Proto() { 
         work_queue_. Shutdown();
     };
 
-    bool EnqueueMessage(PktInfo *msg) {
+    virtual bool Validate(PktInfo *msg) {
+        return true;
+    }
+
+    virtual bool RemovePktBuff() {
+        return false;
+    }
+
+    bool ValidateAndEnqueueMessage(PktInfo *msg) {
+        if (!Validate(msg)) {
+            delete msg;
+            return true;
+        }
+
+        if (RemovePktBuff()) {
+            if (msg->pkt)
+                delete [] msg->pkt;
+            msg->pkt = NULL;
+            msg->eth = NULL;
+            msg->arp = NULL;
+            msg->ip = NULL;
+            msg->transp.tcp = NULL;
+            msg->data = NULL;
+        }
+
         return work_queue_.Enqueue(msg);
     };
 
@@ -41,13 +72,6 @@ public:
     }
 
 protected:
-    Proto(const char *task_name, PktHandler::ModuleName mod, boost::asio::io_service &io) : 
-        work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
-                    boost::bind(&Proto<Handler>::ProcessProto, this, _1)), io_(io) { 
-        PktHandler::GetPktHandler()->Register(mod,
-                    boost::bind(&Proto::EnqueueMessage, this, _1) );
-    };
-
     static Proto *instance_;
     WorkQueue<PktInfo *> work_queue_;
     boost::asio::io_service &io_;

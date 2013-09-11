@@ -43,10 +43,10 @@ public:
     };
     static std::map<BuildModule, std::string> MapInit() {
         std::map<BuildModule, std::string> m;
-         m[Agent] = "contrail-agent";
-         m[Analytics] = "contrail-analytics";
-         m[ControlNode] = "contrail-control";
-         m[Dns] = "contrail-dns";
+         m[Agent] = "contrail-vrouter ";
+         m[Analytics] = "contrail-analytics ";
+         m[ControlNode] = "contrail-control ";
+         m[Dns] = "contrail-dns ";
          return m;
     }
     static const std::map<BuildModule, std::string> BuildModuleNames;

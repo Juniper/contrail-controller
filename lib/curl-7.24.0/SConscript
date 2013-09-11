@@ -33,8 +33,7 @@ make_cmd = ('(cd ' + Dir('.').abspath + '; ' +
 
 make_products = ['#/build/lib/libcurl.a', '#/build/include/curl/curl.h']
 
-curl_make = env.Command(libs, 'Makefile', make_cmd)
+curl_make = env.Command(make_products, 'Makefile', make_cmd)
 
-env.SideEffect(make_products, curl_make)
 env.Depends(curl_make, curl_cfg)
 

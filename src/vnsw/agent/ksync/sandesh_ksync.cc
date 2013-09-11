@@ -42,7 +42,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
            r->get_fr_op() == flow_op::FLOW_SET);
 
     if (r->get_fr_op() == flow_op::FLOW_TABLE_GET) {
-        FlowTableKSyncObject::flow_info_ = *r;
+        FlowTableKSyncObject::GetKSyncObject()->flow_info_ = *r;
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         FlowKey key;

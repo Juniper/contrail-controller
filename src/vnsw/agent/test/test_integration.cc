@@ -512,7 +512,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     if (create) {
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(ipaddr, ec);
-        data->Init(vm_id, vn_id, tap_intf, ip, mac, "");
+        data->Init(vm_id, vn_id, tap_intf, ip, mac, "", 0);
 
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(key);
@@ -522,7 +522,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
         req.key.reset(key);
         req.data.reset(NULL);
     }
-    Agent::GetIntfCfgTable()->Enqueue(&req);
+    Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
     xdoc.append_copy(parent);
 
     if (create) {
@@ -537,7 +537,7 @@ void IntegrationTestAddConfig(xml_document &xdoc, xml_node &node) {
     xml_node update = config.append_child("update");
     update.append_copy(node);
     DumpXmlNode(config);
-    Agent::GetIfMapAgentParser()->ConfigParse(config, 0);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(config, 0);
 }
 
 void IntegrationTestDelConfig(xml_document &xdoc, xml_node &node) {
@@ -545,7 +545,7 @@ void IntegrationTestDelConfig(xml_document &xdoc, xml_node &node) {
     xml_node update = config.append_child("delete");
     update.append_copy(node);
     DumpXmlNode(config);
-    Agent::GetIfMapAgentParser()->ConfigParse(config, 0);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(config, 0);
 }
 
 void AddNodeConfig (xml_document &xdoc, xml_node &node, GroupEntry *g_parent) {

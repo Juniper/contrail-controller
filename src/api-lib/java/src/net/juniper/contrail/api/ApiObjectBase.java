@@ -5,10 +5,11 @@ package net.juniper.contrail.api;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.io.Serializable;
 
 import com.google.common.collect.ImmutableList;
 
-public abstract class ApiObjectBase {
+public abstract class ApiObjectBase implements Serializable {
     private String name;
     private String uuid;
     private List<String> fq_name;

@@ -45,7 +45,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     cfg_data->vm_uuid_ = vm_uuid;
     cfg_data->floating_iplist_ = list;
     req.data.reset(cfg_data);
-    Agent::GetInterfaceTable()->Enqueue(&req);
+    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
 }
 
 struct PortInfo input1[] = {

@@ -59,10 +59,10 @@ protected:
         client->Reset();
         thread_ = new ServerThread(&evm_);
         bgp_peer1 = new test::ControlNodeMock(&evm_, "127.0.0.1");
-        Agent::SetXmppServer("127.0.0.1", 0);
-        Agent::SetXmppPort(bgp_peer1->GetServerPort(), 0);
-        Agent::SetDnsXmppServer("", 0);
-        Agent::SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+        Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+        Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
+        Agent::GetInstance()->SetDnsXmppServer("", 0);
+        Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
         RouterIdDepInit();
         thread_->Start();
         WAIT_FOR(100, 10000, (bgp_peer1->IsEstablished() == true));
@@ -71,7 +71,7 @@ protected:
     virtual void TearDown() {
         VNController::DisConnect();
         client->WaitForIdle();
-        TcpServerManager::DeleteServer(Agent::GetAgentXmppClient(0));
+        TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();
@@ -153,13 +153,13 @@ TEST_F(VrfTest, VrfAddDelWithNoRoutes_1) {
 }
 
 TEST_F(VrfTest, CheckDefaultVrfDelete) {
-    AddVrf(Agent::GetDefaultVrf().c_str());
+    AddVrf(Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetDefaultVrf().c_str()));
+    EXPECT_TRUE(VrfFind(Agent::GetInstance()->GetDefaultVrf().c_str()));
 
-    DelVrf(Agent::GetDefaultVrf().c_str());
+    DelVrf(Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
-    EXPECT_TRUE(VrfFind(Agent::GetDefaultVrf().c_str()));
+    EXPECT_TRUE(VrfFind(Agent::GetInstance()->GetDefaultVrf().c_str()));
 }
 
 TEST_F(VrfTest, CheckTableDeleteAndEntryDelete) {
@@ -176,7 +176,7 @@ TEST_F(VrfTest, CheckTableDeleteAndEntryDelete) {
     DelVrf("vrf1");
     client->WaitForIdle();
     VrfKey key("vrf1");
-    EXPECT_TRUE(Agent::GetVrfTable()->Find(&key, true));
+    EXPECT_TRUE(Agent::GetInstance()->GetVrfTable()->Find(&key, true));
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
 
     //Release pending reference on vrf
@@ -199,7 +199,7 @@ TEST_F(VrfTest, CheckVrfReuse) {
     DelVrf("vrf1");
     client->WaitForIdle();
     VrfKey key("vrf1");
-    vrf = static_cast<VrfEntry *>(Agent::GetVrfTable()->Find(&key, true));
+    vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->Find(&key, true));
     EXPECT_TRUE(vrf->IsDeleted());
     EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
 

@@ -12,17 +12,26 @@ DnsTypeMap g_dns_type_map = map_list_of<std::string, uint16_t>
                                 ("A", 1)
                                 ("NS", 2)
                                 ("CNAME", 5)
+                                ("SOA", 6)
                                 ("PTR", 0x0C)
-                                ("AAAA", 0x1C);
+                                ("TXT", 0x10)
+                                ("AAAA", 0x1C)
+                                ("ANY", 0xFF);
 
 DnsTypeNumMap g_dns_type_num_map = map_list_of<uint16_t, std::string>
                                 (DNS_A_RECORD, "A")
-                                (DNS_AAAA_RECORD, "AAAA")
+                                (DNS_NS_RECORD, "NS")
+                                (DNS_CNAME_RECORD, "CNAME")
+                                (DNS_TYPE_SOA, "SOA")
                                 (DNS_PTR_RECORD, "PTR")
                                 (DNS_TXT_RECORD, "TXT")
-                                (DNS_NS_RECORD, "NS")
-                                (DNS_TYPE_SOA, "SOA")
+                                (DNS_AAAA_RECORD, "AAAA")
                                 (DNS_TYPE_ANY, "ANY");
+
+DnsTypeNumMap g_dns_class_num_map = map_list_of<uint16_t, std::string>
+                                (DNS_CLASS_IN, "IN")
+                                (DNS_CLASS_NONE, "None")
+                                (DNS_CLASS_ANY, "Any");
 
 DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
                                 (0, "No error")
@@ -45,10 +54,22 @@ DnsResponseMap g_dns_response_map = map_list_of<uint16_t, std::string>
                                 (22, "Bad truncation")
                                 (4095, "Invalid response code");
 
+std::string DnsItem::ToString() {
+    return BindUtil::DnsClass(eclass) + "/" +
+           BindUtil::DnsType(type) + "/" + name + "/" + data + ";";
+}   
+
 uint16_t BindUtil::DnsClass(const std::string &cl) {
     if (cl == "IN")
         return DNS_CLASS_IN;
     return DNS_CLASS_ANY;
+}
+
+std::string BindUtil::DnsClass(uint16_t cl) {
+    DnsTypeNumIter iter = g_dns_class_num_map.find(cl);
+    if (iter == g_dns_type_num_map.end())
+        return "";
+    return iter->second;
 }
 
 uint16_t BindUtil::DnsType(const std::string &tp) {

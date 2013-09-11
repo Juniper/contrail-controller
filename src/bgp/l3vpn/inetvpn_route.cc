@@ -4,6 +4,7 @@
 
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
+#include "bgp/inet/inet_route.h"
 
 using namespace std;
 
@@ -65,4 +66,16 @@ void InetVpnRoute::BuildBgpProtoNextHop(std::vector<uint8_t> &nh, IpAddress next
 DBEntryBase::KeyPtr InetVpnRoute::GetDBRequestKey() const {
     InetVpnTable::RequestKey *key = new InetVpnTable::RequestKey(GetPrefix(), NULL);
     return KeyPtr(key);
+}
+
+// Check whether 'this' is more specific than rhs.
+bool InetVpnRoute::IsMoreSpecific(const string &match) const {
+    boost::system::error_code ec;
+
+    InetVpnPrefix prefix = InetVpnPrefix::FromString(match, &ec);
+    if (!ec) {
+        return GetPrefix().IsMoreSpecific(prefix);
+    }
+
+    return false;
 }

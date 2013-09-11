@@ -107,7 +107,7 @@ TEST_F(CfgTest, VnBasic_1) {
     string s2;
 
     vn->SetKey(static_cast<DBRequestKey*>(newKey));
-    s1 = boost::lexical_cast<std::string>(oldKey->uuid_);
+    s1 = UuidToString(oldKey->uuid_);
     s2 = vn->ToString();
     EXPECT_FALSE(s1.compare(s2) == 0);
     vn->SetKey(static_cast<DBRequestKey*>(oldKey));

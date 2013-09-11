@@ -4,9 +4,10 @@
 
 #include <cmn/dns.h>
 #include <bind/bind_util.h>
+#include <mgr/dns_mgr.h>
+#include <mgr/dns_oper.h>
 #include <bind/bind_resolver.h>
 #include <bind/named_config.h>
-#include <mgr/dns_mgr.h>
 #include <agent/agent_xmpp_channel.h>
 
 uint16_t DnsManager::g_trans_id_;
@@ -21,10 +22,20 @@ DnsManager::DnsManager()
 
     Dns::SetDnsConfigManager(&config_mgr_);    
     DnsConfigManager::Observers obs;
-    obs.virtual_dns = boost::bind(&DnsManager::DnsView, this, _1, _2);
-    obs.virtual_dns_record = boost::bind(&DnsManager::DnsRecord, this, _1, _2);
-    obs.subnet = boost::bind(&DnsManager::DnsPtrZone, this, _1, _2, _3);
+    obs.virtual_dns = boost::bind(&DnsManager::ProcessConfig<VirtualDnsConfig>,
+                                  this, _1, _2, _3);
+    obs.virtual_dns_record = 
+        boost::bind(&DnsManager::ProcessConfig<VirtualDnsRecordConfig>,
+                    this, _1, _2, _3);
+    obs.ipam = boost::bind(&DnsManager::ProcessConfig<IpamConfig>, this, _1, _2, _3);
+    obs.vnni = boost::bind(&DnsManager::ProcessConfig<VnniConfig>, this, _1, _2, _3);
     Dns::GetDnsConfigManager()->RegisterObservers(obs);
+
+    DnsConfig::VdnsCallback = boost::bind(&DnsManager::DnsView, this, _1, _2);
+    DnsConfig::VdnsRecordCallback = boost::bind(&DnsManager::DnsRecord, this,
+                                                _1, _2);
+    DnsConfig::VdnsZoneCallback = boost::bind(&DnsManager::DnsPtrZone, this,
+                                              _1, _2, _3);
 }
 
 void DnsManager::Initialize(DB *config_db, DBGraph *config_graph) {
@@ -37,26 +48,95 @@ DnsManager::~DnsManager() {}
 
 void DnsManager::Shutdown() {
     config_mgr_.Terminate();
+    NamedConfig::Shutdown();
     BindResolver::Shutdown();
 }
 
-void DnsManager::DnsView(const VirtualDnsConfig *config,
-                         DnsConfigManager::EventType ev) {
+template <typename ConfigType>
+void DnsManager::ProcessConfig(IFMapNodeProxy *proxy,
+                               const std::string &name,
+                               DnsConfigManager::EventType event) {
+    IFMapNode *node = proxy->node();
+    ConfigType *config = ConfigType::Find(name);
+    switch (event) {
+        case DnsConfigManager::CFG_ADD:
+            if (!config) {
+                config = new ConfigType(node);
+            }
+            config->OnAdd(node);
+            break;
+
+        case DnsConfigManager::CFG_CHANGE:
+            if (config)
+                config->OnChange(node);
+            break;
+
+        case DnsConfigManager::CFG_DELETE:
+            if (config) {
+                config->OnDelete();
+                delete config;
+            }
+            break;
+
+        default:
+            assert(0);
+    }
+}
+
+                                    
+void DnsManager::ProcessAgentUpdate(BindUtil::Operation event,
+                                    const std::string &name,
+                                    const std::string &vdns_name,
+                                    const DnsItem &item) {
+    tbb::mutex::scoped_lock lock(mutex_);
+    VirtualDnsRecordConfig *config = VirtualDnsRecordConfig::Find(name);
+    switch (event) {
+        case BindUtil::ADD_UPDATE:
+            if (!config) {
+                config = new VirtualDnsRecordConfig(name, vdns_name, item);
+            }
+            config->OnAdd();
+            break;
+
+        case BindUtil::DELETE_UPDATE:
+            if (config) {
+                config->OnDelete();
+                delete config;
+            }
+            break;
+
+        default:
+            assert(0);
+    }
+}
+
+void DnsManager::DnsView(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
     if (!bind_status_.IsUp())
         return;
 
+    const VirtualDnsConfig *config = static_cast<const VirtualDnsConfig *>(cfg);
+    DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS <" << config->GetName() <<
+                   "> " << DnsConfig::ToEventString(ev));
+    config->ClearNotified();
     std::string dns_domain = config->GetDomainName();
     if (dns_domain.empty()) {
-        DNS_BIND_TRACE(DnsBindError, "Virtual DNS <" <<
-                       config->GetName() << 
-                       "> doesnt have domain; ignoring event : " << ev);
+        DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS <" << config->GetName() << 
+                       "> doesnt have domain; ignoring event : " <<
+                       DnsConfig::ToEventString(ev));
         return;
     }
 
     NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
-    if (ev == DnsConfigManager::CFG_ADD) {
+    if (ev == DnsConfig::CFG_ADD) {
+        if (!CheckName(config->GetName(), dns_domain)) {
+            return;
+        }
+        config->MarkNotified();
         ncfg->AddView(config);
-    } else if (ev == DnsConfigManager::CFG_CHANGE) {
+    } else if (ev == DnsConfig::CFG_CHANGE) {
+        if (CheckName(config->GetName(), dns_domain)) {
+            config->MarkNotified();
+        }
         ncfg->ChangeView(config);
         if (dns_domain != config->GetOldDomainName()) {
             for (VirtualDnsConfig::VDnsRec::const_iterator it = 
@@ -71,48 +151,59 @@ void DnsManager::DnsView(const VirtualDnsConfig *config,
 }
 
 void DnsManager::DnsPtrZone(const Subnet &subnet, const VirtualDnsConfig *vdns,
-                            DnsConfigManager::EventType ev) {
+                            DnsConfig::DnsConfigEvent ev) {
     if (!bind_status_.IsUp())
         return;
 
     std::string dns_domain = vdns->GetDomainName();
     if (dns_domain.empty()) {
+        DNS_BIND_TRACE(DnsBindTrace, "Ptr Zone <" << vdns->GetName() << 
+                       "> doesnt have domain; ignoring event : " <<
+                       DnsConfig::ToEventString(ev));
         return;
     }
 
     NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
-    if (ev == DnsConfigManager::CFG_DELETE) {
+    if (ev == DnsConfig::CFG_DELETE) {
         ncfg->DelZone(subnet, vdns);
     } else {
         ncfg->AddZone(subnet, vdns);
     }
+    DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS <" << vdns->GetName() << "> " <<
+                   subnet.prefix.to_string() << "/" << subnet.plen << " " <<
+                   DnsConfig::ToEventString(ev));
 }
 
-void DnsManager::DnsRecord(const VirtualDnsRecordConfig *config,
-                           DnsConfigManager::EventType ev) {
+void DnsManager::DnsRecord(const DnsConfig *cfg, DnsConfig::DnsConfigEvent ev) {
     if (!bind_status_.IsUp())
         return;
 
-    const autogen::VirtualDnsRecordType &rec = config->GetRecord();
-    if (rec.record_name == "" || rec.record_data == "") {
+    const VirtualDnsRecordConfig *config = 
+                static_cast<const VirtualDnsRecordConfig *>(cfg);
+    config->ClearNotified();
+    const DnsItem &item = config->GetRecord();
+    if (item.name == "" || item.data == "") {
         DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
                        config->GetName() << 
-                       "> doesnt have name / data; ignoring event : " << ev);
+                       "> doesnt have name / data; ignoring event : " <<
+                       DnsConfig::ToEventString(ev));
         return;
     }
 
-    if (config->GetViewName() == "") {
+    if (config->GetViewName() == "" || !config->GetVirtualDns()->IsValid()) {
         return;
     }
 
     switch (ev) {
-        case DnsConfigManager::CFG_ADD:
-        case DnsConfigManager::CFG_CHANGE:
-            SendRecordUpdate(BindUtil::ADD_UPDATE, config);
+        case DnsConfig::CFG_ADD:
+        case DnsConfig::CFG_CHANGE:
+            if (SendRecordUpdate(BindUtil::ADD_UPDATE, config))
+                config->MarkNotified();
             break;
 
-        case DnsConfigManager::CFG_DELETE:
-            SendRecordUpdate(BindUtil::DELETE_UPDATE, config);
+        case DnsConfig::CFG_DELETE:
+            if (SendRecordUpdate(BindUtil::DELETE_UPDATE, config))
+                config->ClearNotified();
             break;
 
         default:
@@ -120,63 +211,56 @@ void DnsManager::DnsRecord(const VirtualDnsRecordConfig *config,
     }
 }
 
-void DnsManager::SendRecordUpdate(BindUtil::Operation op, 
+bool DnsManager::SendRecordUpdate(BindUtil::Operation op, 
                                   const VirtualDnsRecordConfig *config) {
-    const autogen::VirtualDnsRecordType rec = config->GetRecord();
+    DnsItem item = config->GetRecord();
     const autogen::VirtualDnsType vdns = config->GetVDns();
 
     std::string zone;
-    DnsItem item;
-    item.eclass = BindUtil::DnsClass(rec.record_class);
-    item.type = BindUtil::DnsType(rec.record_type);
-    item.ttl = rec.record_ttl_seconds;
-    item.data = rec.record_data;
-    if (rec.record_type == "PTR") {
+    if (item.type == DNS_PTR_RECORD) {
         uint32_t addr;
-        if (BindUtil::IsIPv4(rec.record_name, addr)) {
+        if (BindUtil::IsIPv4(item.name, addr)) {
             BindUtil::GetReverseZone(addr, 32, item.name);
         } else {
-            item.name = rec.record_name;
             if (!BindUtil::GetAddrFromPtrName(item.name, addr)) {
                 DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" <<
                                config->GetName() << "> invalid PTR name " <<
                                item.name << "; ignoring");
-                return;
+                return false;
             }
         }
-        if (!CheckName(config->GetName(), rec.record_data)) {
-            return;
+        if (!CheckName(config->GetName(), item.data)) {
+            return false;
         }
         Subnet net;
         if (!config->GetVirtualDns()->GetSubnet(addr, net)) {
             DNS_BIND_TRACE(DnsBindError, "Virtual DNS Record <" << 
                            config->GetName() << 
                            "> doesnt belong to a known subnet; ignoring");
-            return;
+            return false;
         }
         BindUtil::GetReverseZone(addr, net.plen, zone);
-        item.data = BindUtil::GetFQDN(rec.record_data, vdns.domain_name, ".");
+        item.data = BindUtil::GetFQDN(item.data, vdns.domain_name, ".");
     } else {
         // Bind allows special chars in CNAME, NS names and in CNAME data
-        if ((rec.record_type == "A" || rec.record_type == "AAAA") &&
-            !CheckName(config->GetName(), rec.record_name)) {
-            return;
+        if ((item.type == DNS_A_RECORD || item.type == DNS_AAAA_RECORD) &&
+            !CheckName(config->GetName(), item.name)) {
+            return false;
         }
         zone = config->GetVDns().domain_name;
-        item.name = BindUtil::GetFQDN(rec.record_name, 
+        item.name = BindUtil::GetFQDN(item.name, 
                                       vdns.domain_name, vdns.domain_name);
-        if (rec.record_type == "CNAME")
-            item.data = BindUtil::GetFQDN(rec.record_data, vdns.domain_name, ".");
-        else
-            item.data = rec.record_data;
+        if (item.type == DNS_CNAME_RECORD)
+            item.data = BindUtil::GetFQDN(item.data, vdns.domain_name, ".");
         // In case of NS record, ensure that there are no special characters in data.
         // When it is virtual dns name, we could have chars like ':'
-        if (rec.record_type == "NS")
+        if (item.type == DNS_NS_RECORD)
             BindUtil::RemoveSpecialChars(item.data);
     }
     DnsItems items;
     items.push_back(item);
     SendUpdate(op, config->GetViewName(), zone, items);
+    return true;
 }
 
 void DnsManager::SendUpdate(BindUtil::Operation op, const std::string &view,
@@ -191,17 +275,31 @@ void DnsManager::SendUpdate(BindUtil::Operation op, const std::string &view,
 }
 
 void DnsManager::UpdateAll() {
-    NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
-    ncfg->AddAllViews();
-    DnsConfigManager::VirtualDnsMap vmap = config_mgr_.GetVirtualDnsMap();
-    for (DnsConfigManager::VirtualDnsMap::iterator it = vmap.begin();
+    VirtualDnsConfig::DataMap vmap = VirtualDnsConfig::GetVirtualDnsMap();
+    for (VirtualDnsConfig::DataMap::iterator it = vmap.begin();
          it != vmap.end(); ++it) {
         VirtualDnsConfig *vdns = it->second;
+        if (!vdns->GetDomainName().empty() &&
+            CheckName(vdns->GetName(), vdns->GetDomainName())) {
+            vdns->MarkNotified();
+            DNS_BIND_TRACE(DnsBindTrace, "Virtual DNS <" << vdns->GetName() <<
+                           "> Add");
+        } else {
+            vdns->ClearNotified();
+        }
+    }
+    NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
+    ncfg->AddAllViews();
+    for (VirtualDnsConfig::DataMap::iterator it = vmap.begin();
+         it != vmap.end(); ++it) {
+        VirtualDnsConfig *vdns = it->second;
+        if (!vdns->IsNotified())
+            continue;
         for (VirtualDnsConfig::VDnsRec::iterator vit = 
              vdns->virtual_dns_records_.begin();
              vit != vdns->virtual_dns_records_.end(); ++vit) {
-            if ((*vit)->IsNotified())
-                SendRecordUpdate(BindUtil::ADD_UPDATE, *vit);
+            if ((*vit)->IsValid())
+                DnsRecord(*vit, DnsConfig::CFG_ADD);
         }
     }
 }
@@ -222,15 +320,16 @@ void DnsManager::HandleUpdateResponse(uint8_t *pkt) {
 }
 
 inline uint16_t DnsManager::GetTransId() {
-    tbb::mutex::scoped_lock lock(mutex_);
     return (++g_trans_id_ == 0 ? ++g_trans_id_ : g_trans_id_);
 }
 
 inline bool DnsManager::CheckName(std::string rec_name, std::string name) {
     if (BindUtil::HasSpecialChars(name)) {
-        DNS_BIND_TRACE(DnsBindError, "Virtual DNS / Record <" << rec_name <<
-                       "> Special chars are not allowed in DNS name : " <<
-                       name << "; ignoring");
+        DNS_CONFIGURATION_LOG(
+            g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
+            SandeshLevel::SYS_ERR, 
+            "Invalid DNS Name - cannot use special characters in DNS name",
+            rec_name, name);
         return false;
     }
     return true;
@@ -239,14 +338,17 @@ inline bool DnsManager::CheckName(std::string rec_name, std::string name) {
 void DnsManager::BindEventHandler(BindStatus::Event event) {
     switch (event) {
         case BindStatus::Up: {
+            DNS_OPERATIONAL_LOG(
+                g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
+                SandeshLevel::SYS_NOTICE, "BIND named up; DNS is operational");
             UpdateAll();
-            Dns::GetAgentXmppChannelManager()->UpdateAll();
-            DNS_BIND_TRACE(DnsBindTrace, "BIND named up;");
             break;
         }
 
         case BindStatus::Down: {
-            DNS_BIND_TRACE(DnsBindTrace, "BIND named down;");
+            DNS_OPERATIONAL_LOG(
+                g_vns_constants.CategoryNames.find(Category::DNSAGENT)->second,
+                SandeshLevel::SYS_NOTICE, "BIND named down; DNS is not operational");
             NamedConfig *ncfg = NamedConfig::GetNamedConfigObject();
             ncfg->Reset();
             break;
@@ -255,4 +357,55 @@ void DnsManager::BindEventHandler(BindStatus::Event event) {
         default:
             assert(0);
     }
+}
+
+void ShowDnsConfig::HandleRequest() const {
+    DnsConfigResponse *resp = new DnsConfigResponse();
+    resp->set_context(context());
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+
+    std::vector<VirtualDnsSandesh> vdns_list_sandesh;
+    for (VirtualDnsConfig::DataMap::iterator vdns_it = vdns.begin();
+         vdns_it != vdns.end(); ++vdns_it) {
+        VirtualDnsConfig *vdns_config = vdns_it->second;
+        VirtualDnsSandesh vdns_sandesh;
+        VirtualDnsTraceData vdns_trace_data;
+        vdns_config->VirtualDnsTrace(vdns_trace_data);
+
+        std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
+        for (VirtualDnsConfig::VDnsRec::iterator rec_it = 
+             vdns_config->virtual_dns_records_.begin();
+             rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
+            VirtualDnsRecordTraceData rec_trace_data;
+            (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
+            rec_list_sandesh.push_back(rec_trace_data);
+        }
+
+        std::vector<std::string> net_list_sandesh;
+        for (VirtualDnsConfig::IpamList::iterator ipam_iter = 
+             vdns_config->ipams_.begin(); 
+             ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
+            IpamConfig *ipam = *ipam_iter;
+            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
+            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
+                 vnni_it != vnni.end(); ++vnni_it) {
+                Subnets &subnets = (*vnni_it)->GetSubnets();
+                for (unsigned int i = 0; i < subnets.size(); i++) {
+                    std::stringstream str;
+                    str << subnets[i].prefix.to_string();
+                    str << "/";
+                    str << subnets[i].plen;
+                    net_list_sandesh.push_back(str.str());
+                }
+            }
+        }
+
+        vdns_sandesh.set_virtual_dns(vdns_trace_data);
+        vdns_sandesh.set_records(rec_list_sandesh);
+        vdns_sandesh.set_subnets(net_list_sandesh);
+        vdns_list_sandesh.push_back(vdns_sandesh);
+    }
+
+    resp->set_virtual_dns(vdns_list_sandesh);
+    resp->Response();
 }

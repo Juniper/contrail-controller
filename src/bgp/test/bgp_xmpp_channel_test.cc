@@ -33,6 +33,7 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace boost;
 using namespace test;
 
 using ::testing::_;
@@ -220,14 +221,14 @@ protected:
         b.reset(new XmppChannelMock);
         c.reset(new XmppChannelMock);
 
-        master_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-                "__default__", "", "");
-        blue_cfg_ = BgpTestUtil::CreateBgpInstanceConfig("blue",
-                "target:1.2.3.4:1", "target:1.2.3.4:1");
-        red_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-                "red", "target:1:2", "target:1:2");
-        purple_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-                "purple", "target:1:2", "target:1:2");
+        master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+                "__default__", "", ""));
+        blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("blue",
+                "target:1.2.3.4:1", "target:1.2.3.4:1"));
+        red_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+                "red", "target:1:2", "target:1:2"));
+        purple_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+                "purple", "target:1:2", "target:1:2"));
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
@@ -323,10 +324,10 @@ protected:
         task_util::WaitForIdle();
     }
 
-    std::auto_ptr<BgpInstanceConfigTest> master_cfg_;
-    std::auto_ptr<BgpInstanceConfigTest> purple_cfg_;
-    std::auto_ptr<BgpInstanceConfigTest> blue_cfg_;
-    std::auto_ptr<BgpInstanceConfigTest> red_cfg_;
+    scoped_ptr<BgpInstanceConfigTest> master_cfg_;
+    scoped_ptr<BgpInstanceConfigTest> purple_cfg_;
+    scoped_ptr<BgpInstanceConfigTest> blue_cfg_;
+    scoped_ptr<BgpInstanceConfigTest> red_cfg_;
 
     EventManager evm_;
     boost::scoped_ptr<BgpServer> server_;

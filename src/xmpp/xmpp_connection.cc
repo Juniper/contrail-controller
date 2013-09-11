@@ -325,8 +325,7 @@ void XmppConnection::increment_flap_count() {
 
 const std::string XmppConnection::last_flap_at() const {
     if (last_flap_) {
-        return boost::lexical_cast<std::string>
-            (UTCUsecToPTime(last_flap_));
+        return integerToString(UTCUsecToPTime(last_flap_));
     } else {
         return "";
     }

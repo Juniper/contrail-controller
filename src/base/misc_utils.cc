@@ -96,7 +96,7 @@ void MiscUtils::GetHostIp(const string hostname, vector<string> &ip_list) {
 
 void MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version, string &build_num) {
     //Store rpm version in a tmp file
-    string cmd = "contrail-version | grep " + BuildModuleNames.at(id);
+    string cmd = "contrail-version | grep \"" + BuildModuleNames.at(id) + "\"";
     system((cmd + "  | awk '{ print $2 }' > .tmp.build.info").c_str());
     system((cmd + "  | awk '{ print $3 }' >> .tmp.build.info").c_str());
 

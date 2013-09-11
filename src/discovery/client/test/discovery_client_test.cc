@@ -2,10 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "../discovery_client.h"
-
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
+
+#include <sandesh/sandesh.h>
+#include <sandesh/sandesh_types.h>
 
 #include "base/logging.h"
 #include "base/util.h"
@@ -13,12 +14,10 @@
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
 
-#include <sandesh/sandesh.h>
-#include <sandesh/sandesh_types.h>
-
 #include "xml/xml_base.h"
 #include "xml/xml_pugi.h"
 
+#include "../discovery_client.h"
 #include "testing/gunit.h"
 
 using namespace std;

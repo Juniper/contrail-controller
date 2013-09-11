@@ -49,12 +49,12 @@ public:
 
     KSyncObject *GetObject();
     KSyncEntry *UnresolvedReference() {return NULL;};
-    char *AddMsg(int &len);
-    char *ChangeMsg(int &len);
-    char *DeleteMsg(int &len);
+    int AddMsg(char *buf, int buf_len);
+    int ChangeMsg(char *buf, int buf_len);
+    int DeleteMsg(char *buf, int buf_len);
     void Response();
     FlowEntryPtr GetFe() const {return fe_;};
-    char *Encode(sandesh_op::type op, int &len);
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
     uint32_t GetHashId() const {return hash_id_;};
     void FillFlowInfo(sandesh_op::type op, uint16_t action, uint16_t flag);
     std::string GetActionString(uint16_t action, uint16_t flag);
@@ -74,108 +74,52 @@ private:
 
 class FlowTableKSyncObject : public KSyncObject {
 public:
-    static const int kTestFlowTableSize = 131072;
+    static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
     static const uint32_t AuditTimeout = 2000;
     static const int AuditYeild = 1024;
-    FlowTableKSyncObject() : KSyncObject(), audit_flow_idx_(0),
-    audit_timer_(TimerManager::CreateTimer(*(Agent::GetEventManager())->io_service(),
-                                           "Flow Audit Timer",
-                                           TaskScheduler::GetInstance()->GetTaskId(
-                                           "Agent::StatsCollector"))) { };
-    FlowTableKSyncObject(int max_index) : KSyncObject(max_index), audit_flow_idx_(0),
-    audit_timer_(TimerManager::CreateTimer(*(Agent::GetEventManager())->io_service(),
-                                           "Flow Audit Timer",
-                                           TaskScheduler::GetInstance()->GetTaskId(
-                                           "Agent::StatsCollector"))) { };
-    ~FlowTableKSyncObject() {
-        TimerManager::DeleteTimer(audit_timer_);
-    };
 
-    KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index) {
-        const FlowTableKSyncEntry *entry  = static_cast<const FlowTableKSyncEntry *>(key);
-        FlowTableKSyncEntry *ksync = new FlowTableKSyncEntry(entry->GetFe(),
-                                                             entry->GetHashId());
-        return static_cast<KSyncEntry *>(ksync);
-    }
+    FlowTableKSyncObject();
+    FlowTableKSyncObject(int max_index);
+    ~FlowTableKSyncObject();
+    KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
+    FlowTableKSyncEntry *Find(FlowEntry *key);
+    void UpdateFlowStats(FlowEntry *fe, bool ignore_active_status);
+    const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
+                                            bool ignore_active_status);
+    bool GetFlowKey(uint32_t index, FlowKey &key);
 
-    FlowTableKSyncEntry *Find(FlowEntry *key) {
-        FlowTableKSyncEntry entry(key, key->flow_handle);
-        KSyncObject *obj = 
-            static_cast<KSyncObject *>(FlowTableKSyncObject::GetKSyncObject());
-        return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
-    }
-
+    uint32_t GetFlowTableSize() { return flow_table_entries_; }
     static bool AuditProcess(FlowTableKSyncObject *obj);
-    static void MapFlowMem();
-    static void MapFlowMemTest();
-    static void UnmapFlowMemTest();
+    void MapFlowMem();
+    void MapFlowMemTest();
+    void UnmapFlowMemTest();
+
+    static FlowTableKSyncObject *GetKSyncObject() { return singleton_; };
     static void Init() {
         assert(singleton_ == NULL);
         singleton_ = new FlowTableKSyncObject();
-        MapFlowMem();
+        singleton_->MapFlowMem();
     };
     static void InitTest() {
         assert(singleton_ == NULL);
         singleton_ = new FlowTableKSyncObject();
-        MapFlowMemTest();
+        singleton_->MapFlowMemTest();
     };
     static void Shutdown() {
-        UnmapFlowMemTest();
-        delete singleton_;
-        singleton_ = NULL;
+        singleton_->UnmapFlowMemTest();
+        delete singleton_->singleton_;
+        singleton_->singleton_ = NULL;
     };
 
-    static void UpdateFlowStats(FlowEntry *fe, bool ignore_active_status) {
-        const vr_flow_entry *k_flow = GetKernelFlowEntry(
-                                                     fe->flow_handle, 
-                                                     ignore_active_status);
-        if (k_flow) {
-            fe->data.bytes =  k_flow->fe_stats.flow_bytes;
-            fe->data.packets =  k_flow->fe_stats.flow_packets;
-        }
-
-    }
-    static const vr_flow_entry * GetKernelFlowEntry(uint32_t idx, 
-                                                bool ignore_active_status) { 
-        if (idx == FlowEntry::kInvalidFlowHandle) {
-            return NULL;
-        }
-
-        if (ignore_active_status) {
-            return &flow_table_[idx];
-        }
-
-        if (flow_table_[idx].fe_flags & VR_FLOW_FLAG_ACTIVE) {
-            return &flow_table_[idx];
-        }
-        return NULL;
-    }
-
-    bool GetFlowKey(uint32_t index, FlowKey &key) {
-        const vr_flow_entry *kflow = GetKernelFlowEntry(index, false);
-        if (!kflow) {
-            return false;
-        }
-        key.vrf = kflow->fe_key.key_vrf_id;
-        key.src.ipv4 = ntohl(kflow->fe_key.key_src_ip);
-        key.dst.ipv4 = ntohl(kflow->fe_key.key_dest_ip);
-        key.src_port = ntohs(kflow->fe_key.key_src_port);
-        key.dst_port = ntohs(kflow->fe_key.key_dst_port);
-        key.protocol = kflow->fe_key.key_proto;
-        return true;
-    }
-
-    static FlowTableKSyncObject *GetKSyncObject() { return singleton_; };
-    static uint32_t GetFlowTableSize() { return flow_table_entries_; }
 private:
     friend class KSyncSandeshContext;
-    static vr_flow_req flow_info_;
-    static vr_flow_entry *flow_table_;
-    static uint32_t flow_table_entries_;
     static FlowTableKSyncObject *singleton_;
-    static int audit_yeild_;
+    vr_flow_req flow_info_;
+    vr_flow_entry *flow_table_;
+    uint32_t flow_table_entries_;
+    int audit_yeild_;
     uint32_t audit_flow_idx_;
-    std::list<uint32_t>  audit_flow_list_;
+    std::list<uint32_t> audit_flow_list_;
     Timer *audit_timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };

@@ -40,12 +40,12 @@ char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 class IcmpTest : public ::testing::Test {
 public:
     IcmpTest() : itf_count_(0), icmp_seq_(0) {
-        rid_ = Agent::GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                 boost::bind(&IcmpTest::ItfUpdate, this, _2));
     }
 
     ~IcmpTest() {
-        Agent::GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -143,7 +143,10 @@ class AsioRunEvent : public Task {
 public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
-    bool Run() { Agent::GetEventManager()->Run();};
+    bool Run() {
+        Agent::GetInstance()->GetEventManager()->Run();
+        return true;
+    }
 };
 
 TEST_F(IcmpTest, IcmpPingTest) {
@@ -151,7 +154,7 @@ TEST_F(IcmpTest, IcmpPingTest) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
         {"vnet2", 2, "7.8.9.2", "00:00:00:02:02:02", 1, 2},
     };
-    IcmpHandler::IcmpStats stats;
+    IcmpProto::IcmpStats stats;
 
     IpamInfo ipam_info[] = {
         {"1.2.3.128", 27, "1.2.3.129"},
@@ -181,7 +184,7 @@ TEST_F(IcmpTest, IcmpPingTest) {
     do {
         usleep(1000);
         client->WaitForIdle();
-        stats = IcmpHandler::GetStats();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
     } while (stats.icmp_gw_ping < 2);
@@ -199,14 +202,14 @@ TEST_F(IcmpTest, IcmpPingTest) {
     do {
         usleep(1000);
         client->WaitForIdle();
-        stats = IcmpHandler::GetStats();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
     } while (stats.icmp_gw_ping < 3);
     client->WaitForIdle();
     EXPECT_EQ(3, stats.icmp_gw_ping);
     EXPECT_EQ(0, stats.icmp_drop);
-    IcmpHandler::ClearStats();
+    Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     // Send updated Ipam
     char buf[BUF_SIZE];
@@ -231,7 +234,7 @@ TEST_F(IcmpTest, IcmpPingTest) {
     do {
         usleep(1000);
         client->WaitForIdle();
-        stats = IcmpHandler::GetStats();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
     } while (stats.icmp_gw_ping < 1);
@@ -256,14 +259,14 @@ TEST_F(IcmpTest, IcmpPingTest) {
     do {
         usleep(1000);
         client->WaitForIdle();
-        stats = IcmpHandler::GetStats();
+        stats = Agent::GetInstance()->GetIcmpProto()->GetStats();
         if (++count == MAX_WAIT_COUNT)
             assert(0);
     } while (stats.icmp_gw_ping < 3);
     client->WaitForIdle();
     EXPECT_EQ(3, stats.icmp_gw_ping);
     EXPECT_EQ(0, stats.icmp_drop);
-    IcmpHandler::ClearStats();
+    Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     client->Reset();
     DelIPAM("vn1");
@@ -275,7 +278,8 @@ TEST_F(IcmpTest, IcmpPingTest) {
 }
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetEventManager()), Agent::GetDB());
+    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
+                                  Agent::GetInstance()->GetDB());
 
     // Parse config and then connect
     VNController::Connect();

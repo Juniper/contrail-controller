@@ -123,7 +123,8 @@ bool FlowKState::Run() {
                         const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
 
     if (flow_idx_ != -1) {
-        k_flow = FlowTableKSyncObject::GetKernelFlowEntry(flow_idx_, false);
+        k_flow = FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+            (flow_idx_, false);
         if (k_flow) {
             SetFlowData(list, k_flow, flow_idx_);
             SendResponse();
@@ -135,10 +136,13 @@ bool FlowKState::Run() {
         return true;
     }
     uint32_t idx = flow_iteration_key_;
-    uint32_t max_flows = FlowTableKSyncObject::GetFlowTableSize();
+    uint32_t max_flows = 
+        FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
     
     while(idx < max_flows) {
-        k_flow = FlowTableKSyncObject::GetKernelFlowEntry(idx, false);
+        k_flow = 
+            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry(idx,
+                                                                       false);
         if (k_flow) {
             count++;
             SetFlowData(list, k_flow, idx);

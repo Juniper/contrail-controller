@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 
 import net.juniper.contrail.api.types.NetworkIpam;
+import net.juniper.contrail.api.types.Project;
 import net.juniper.contrail.api.types.SubnetType;
 import net.juniper.contrail.api.types.VirtualMachineInterface;
 import net.juniper.contrail.api.types.VirtualNetwork;
@@ -16,6 +17,8 @@ import junit.framework.TestCase;
 
 import org.junit.Test;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -55,5 +58,31 @@ public class ObjectReferenceTest extends TestCase {
         List<IpamSubnetType> iplist = result.getNetworkIpam().get(0).attr.getIpamSubnets();
         assertSame(1, iplist.size());
         assertEquals("192.168.0.0", iplist.get(0).getSubnet().getIpPrefix());
+    }
+    @Test
+    public void testVoidReference() {
+        String voidref = "{\"network_policys\": [{\"to\": [\"default-domain\", \"testProject\", \"testPolicy\"], \"href\": \"http://localhost:53730/network-policy/4e4b0486-e56f-4bfe-8716-afc1a76ad106\", \"uuid\": \"4e4b0486-e56f-4bfe-8716-afc1a76ad106\"}]}";
+        final JsonParser parser = new JsonParser();
+        final JsonObject js_obj = parser.parse(voidref).getAsJsonObject();
+        final JsonElement element = js_obj.get("network_policys");
+        JsonArray items = element.getAsJsonArray();
+        JsonElement item = items.get(0);
+        Gson json = ApiSerializer.getDeserializer();
+        ObjectReference<?> result = json.fromJson(item.toString(), ObjectReference.class);
+	assertNotNull(result);
+	assertEquals("testPolicy", result.to.get(2));
+    }
+    @Test
+    /**
+     * API generator adds an "s" at the end of the children name. Thus "network-policy" becomes "network-policys".
+     */
+    public void testVoidAttrType() {
+        String content = "{\"project\": {\"network_policys\": [{\"to\": [\"default-domain\", \"testProject\", \"testPolicy\"], \"href\": \"http://localhost:53730/network-policy/4e4b0486-e56f-4bfe-8716-afc1a76ad106\", \"uuid\": \"4e4b0486-e56f-4bfe-8716-afc1a76ad106\"}], \"fq_name\": [\"default-domain\", \"testProject\"], \"uuid\": \"7a6580ac-d7dc-4363-a342-47a473a32884\"}}";
+        final JsonParser parser = new JsonParser();
+        final JsonObject js_obj = parser.parse(content).getAsJsonObject();
+        final JsonElement element = js_obj.get("project");
+        Project result = (Project) ApiSerializer.deserialize(element.toString(), Project.class);
+        assertEquals("testProject", result.getName());
+        assertNotNull(result.getNetworkPolicys());
     }
 }

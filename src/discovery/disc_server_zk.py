@@ -73,7 +73,6 @@ class DiscoveryServer():
             'msg_query':0, 
             'heartbeats':0, 
             'ttl_short':0,
-            'ttl_reset':0,
             'policy_rr':0,
             'policy_lb':0,
             'policy_fi':0,
@@ -148,10 +147,13 @@ class DiscoveryServer():
             self._pipe_start_app = bottle.app()
 
         # sandesh init
+        collectors = None
+        if self._args.collector and self._args.collector_port:
+            collectors = [(self._args.collector, int(self._args.collector_port))]
         self._sandesh = Sandesh()
-        self._sandesh.init_generator(ModuleNames[Module.DISCOVERY_SERVICE], socket.gethostname(),
-                (self._args.collector, int(self._args.collector_port)),
-                'discovery_context', int(self._args.http_server_port), ['sandesh', 'uve'])
+        self._sandesh.init_generator(ModuleNames[Module.DISCOVERY_SERVICE], 
+                socket.gethostname(), collectors, 'discovery_context', 
+                int(self._args.http_server_port), ['sandesh', 'uve'])
         self._sandesh.set_logging_params(enable_local_log = self._args.log_local,
                                          category = self._args.log_category,
                                          level = self._args.log_level,
@@ -185,12 +187,13 @@ class DiscoveryServer():
     def create_sub_data(self, client_id, service_type):
         if not client_id in self._sub_data:
             self._sub_data[client_id] = {}
-        sdata = {
-            'ttl_expires' : 0,
-            'heartbeat'   : int(time.time()),
-        }
-        self._sub_data[client_id][service_type] = sdata
-        return sdata
+        if not service_type in self._sub_data[client_id]:
+            sdata = {
+                'ttl_expires' : 0,
+                'heartbeat'   : int(time.time()),
+            }
+            self._sub_data[client_id][service_type] = sdata
+        return self._sub_data[client_id][service_type]
     #end
 
     def delete_sub_data(self, client_id, service_type):
@@ -282,7 +285,6 @@ class DiscoveryServer():
         # per service options
         self.default_service_opts = {
             'policy': None,
-            'ttl_short': 0,
         }
         self.service_config = {}
 
@@ -379,10 +381,8 @@ class DiscoveryServer():
         if service_type in self.short_ttl_map[client_id]:
             # keep doubling till we land in normal range
             ttl = self.short_ttl_map[client_id][service_type] * 2
-            if ttl >= 16:
-                self.syslog('Reset ttl for client %s, service %s' %(client_id, service_type))
-                self._debug['ttl_reset'] += 1
-                ttl = default
+            if ttl >= 32:
+                ttl = 32
 
         self.short_ttl_map[client_id][service_type] = ttl
         return ttl
@@ -550,6 +550,7 @@ class DiscoveryServer():
         service_type = json_req['service']
         client_id = json_req['client']
         count = reqcnt = int(json_req['instances'])
+        client_type = json_req.get('client-type', '')
 
         assigned_sid = set()
         r = []
@@ -560,25 +561,26 @@ class DiscoveryServer():
             cl_entry = {
                 'instances': count,
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
+                'client_type': client_type,
             }
             self.create_sub_data(client_id, service_type)
             self._db_conn.insert_client_data(service_type, client_id, cl_entry)
+            self.syslog('subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d' \
+                %(service_type, client_type, client_id, ttl, count))
 
         sdata = self.get_sub_data(client_id, service_type)
         sdata['ttl_expires'] += 1
 
         # check existing subscriptions 
         subs = self._db_conn.lookup_subscription(service_type, client_id)
-        self.syslog('subscribe: service type=%s, cid=%s, ttl=%d, asked=%d, cur=%d' \
-            %(service_type, client_id, ttl, count, len(subs) if subs else 0))
         if subs:
             for service_id, result in subs:
                 entry = self._db_conn.lookup_service(service_type, service_id = service_id)
                 if self.service_expired(entry):
-                    self.syslog('skipping expired service %s, info %s' %(service_id, entry['info']))
+                    #self.syslog('skipping expired service %s, info %s' %(service_id, entry['info']))
                     continue
                 self._db_conn.insert_client(service_type, service_id, client_id, result, ttl)
-                self.syslog(' refresh subscrition for service %s' %(service_id))
+                #self.syslog(' refresh subscrition for service %s' %(service_id))
                 r.append(result)
                 assigned_sid.add(service_id)
                 count -= 1
@@ -600,7 +602,7 @@ class DiscoveryServer():
                 if ttl_short:
                     ttl = self.get_ttl_short(client_id, service_type, ttl_short)
                     self._debug['ttl_short'] += 1
-                    self.syslog(' sending short ttl %d to %s' %(ttl, client_id))
+                    #self.syslog(' sending short ttl %d to %s' %(ttl, client_id))
 
             response = {'ttl': ttl, service_type: r}
             if ctype == 'application/xml':
@@ -610,7 +612,7 @@ class DiscoveryServer():
 
         # eliminate inactive services
         pubs_active = [item for item in pubs if not self.service_expired(item)]
-        self.syslog(' Found %s publishers, %d active, need %d' %(len(pubs), len(pubs_active), count))
+        #self.syslog(' Found %s publishers, %d active, need %d' %(len(pubs), len(pubs_active), count))
 
         # find least loaded instances
         pubs = self.service_list(service_type, pubs_active)
@@ -650,7 +652,7 @@ class DiscoveryServer():
             if ttl_short:
                 ttl = self.get_ttl_short(client_id, service_type, ttl_short)
                 self._debug['ttl_short'] += 1
-                self.syslog(' sending short ttl %d to %s' %(ttl, client_id))
+                #self.syslog(' sending short ttl %d to %s' %(ttl, client_id))
 
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
@@ -846,6 +848,7 @@ class DiscoveryServer():
         rsp += ' <table border="1" cellpadding="1" cellspacing="0">\n'
         rsp += '    <tr>\n'
         rsp += '        <td>Client IP</td>\n'
+        rsp += '        <td>Client Type</td>\n'
         rsp += '        <td>Client Id</td>\n'
         rsp += '        <td>Service Type</td>\n'
         rsp += '        <td>Service Id</td>\n'
@@ -866,8 +869,13 @@ class DiscoveryServer():
             if cl_entry is None:
                 continue
             sdata = self.get_sub_data(client_id, service_type)
+            if sdata is None:
+                self.syslog('Missing sdata for client %s, service %s' %(client_id, service_type))
+                continue
             rsp += '    <tr>\n'
             rsp += '        <td>' + cl_entry['remote'] + '</td>\n'
+            client_type = cl_entry.get('client_type', '')
+            rsp += '        <td>' + client_type  + '</td>\n'
             rsp += '        <td>' + client_id    + '</td>\n'
             rsp += '        <td>' + service_type + '</td>\n'
             link = do_html_url("service/%s/brief"%(service_id), service_id)

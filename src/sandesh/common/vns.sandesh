@@ -18,8 +18,9 @@ enum Module {
     QUERY_ENGINE,
     SVC_MONITOR,
     DNS,
-    MAX_MODULE,
     DISCOVERY_SERVICE,
+    IFMAP_SERVER,
+    MAX_MODULE,
 }
 
 const map<Module, string> ModuleNames = {
@@ -33,6 +34,7 @@ const map<Module, string> ModuleNames = {
     Module.SVC_MONITOR        : "ServiceMonitor"
     Module.DNS                : "DnsAgent",
     Module.DISCOVERY_SERVICE  : "DiscoveryService"
+    Module.IFMAP_SERVER       : "IfmapServer",
 }
 
 const map<string, Module> ModuleIds = {
@@ -46,6 +48,7 @@ const map<string, Module> ModuleIds = {
     "ServiceMonitor"        : Module.SVC_MONITOR,
     "DnsAgent"              : Module.DNS,
     "DiscoveryService"      : Module.DISCOVERY_SERVICE
+    "IfmapServer"           : Module.IFMAP_SERVER,
 }
 
 enum Category {

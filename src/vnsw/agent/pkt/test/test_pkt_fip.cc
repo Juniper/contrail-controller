@@ -147,7 +147,7 @@ static void AddAllowAcl(const char *name, int id) {
 
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
-    Agent::GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
 static void Setup() {
@@ -169,23 +169,23 @@ static void Setup() {
 
     VmPortSetup(input4, 1, 0);
 
-    EXPECT_EQ(10U, Agent::GetInterfaceTable()->Size());
-    if (Agent::GetInterfaceTable()->Size() != 10) {
+    EXPECT_EQ(10U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    if (Agent::GetInstance()->GetInterfaceTable()->Size() != 10) {
         ret = false;
     }
 
-    EXPECT_EQ(7U, Agent::GetVmTable()->Size());
-    if ( Agent::GetVmTable()->Size() != 7) {
+    EXPECT_EQ(7U, Agent::GetInstance()->GetVmTable()->Size());
+    if ( Agent::GetInstance()->GetVmTable()->Size() != 7) {
         ret = false;
     }
 
-    EXPECT_EQ(4U, Agent::GetVnTable()->Size());
-    if (Agent::GetVnTable()->Size() != 4) {
+    EXPECT_EQ(4U, Agent::GetInstance()->GetVnTable()->Size());
+    if (Agent::GetInstance()->GetVnTable()->Size() != 4) {
         ret = false;
     }
 
-    EXPECT_EQ(7U, Agent::GetIntfCfgTable()->Size());
-    if (Agent::GetIntfCfgTable()->Size() != 7) {
+    EXPECT_EQ(7U, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    if (Agent::GetInstance()->GetIntfCfgTable()->Size() != 7) {
         ret = false;
     }
 
@@ -202,9 +202,9 @@ static void Setup() {
         ret = false;
     }
     // Get route tables
-    vnet_table[1] = Agent::GetVrfTable()->GetInet4UcRouteTable("vrf1");
-    vnet_table[2] = Agent::GetVrfTable()->GetInet4UcRouteTable("vrf2");
-    vnet_table[3] = Agent::GetVrfTable()->GetInet4UcRouteTable("vrf3");
+    vnet_table[1] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf1");
+    vnet_table[2] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf2");
+    vnet_table[3] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf3");
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&
                 vnet_table[3] != NULL);
     if (vnet_table[1] == NULL || vnet_table[2] == NULL ||
@@ -243,8 +243,8 @@ static void Setup() {
     }
 
     boost::scoped_ptr<VirtualHostInterfaceKey> key(new VirtualHostInterfaceKey(MakeUuid(0), "vhost0"));
-    vhost = static_cast<VirtualHostInterface *>(Agent::GetInterfaceTable()->FindActiveEntry(key.get()));
-    strcpy(vhost_addr, Agent::GetRouterId().to_string().c_str());
+    vhost = static_cast<VirtualHostInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
+    strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
 
     EXPECT_TRUE(ret);
     assert(ret == true);
@@ -252,7 +252,7 @@ static void Setup() {
     client->SetFlowFlushExclusionPolicy();
     client->SetFlowAgeExclusionPolicy();
 
-    AgentUve::GetFlowStatsCollector()->SetFlowAgeTime(AGE_TIME);
+    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
 }
@@ -318,7 +318,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->GetVrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", 1, 0, 0, false, "vn1",
-                        Agent::GetLinkLocalVnName().c_str(), 1, true, false));
+                        Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", 1, 0, 0));
 
@@ -330,7 +330,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->GetVrf()->GetName(), "1.1.1.10",
                         "169.254.169.254", IPPROTO_TCP, 1001, 80, false, 
-                        "vn1", Agent::GetLinkLocalVnName().c_str(), 1, true, false));
+                        "vn1", Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", IPPROTO_TCP, 1001, 80));
     EXPECT_TRUE(FlowFail(vnet[1]->GetVrf()->GetName(),"1.1.1.10",
@@ -384,8 +384,8 @@ TEST_F(FlowTest, ServerToVm_1) {
     TxIpPacketUtil(vhost->GetInterfaceId(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vhost->GetVrf()->GetName(), vhost_addr, "80.80.80.80", 
-                        1, 0, 0, false, Agent::GetFabricVnName().c_str(),
-                        Agent::GetFabricVnName().c_str(), 1, true, false));
+                        1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
+                        Agent::GetInstance()->GetFabricVnName().c_str(), 1, true, false));
 
     EXPECT_TRUE(FlowDelete(vhost->GetVrf()->GetName(), vhost_addr, "80.80.80.80",
                            1, 0, 0));
@@ -402,7 +402,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
                                 1, 0, 0, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 0, 0, 
-                                Agent::GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // UDP from server to vnet1
     TxUdpPacket(vhost->GetInterfaceId(), vhost_addr,
@@ -413,7 +413,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
                                 IPPROTO_UDP, 10, 20, 1, "vrf1",
                                 "169.254.169.254", vnet_addr[1], 10, 20,
-                                Agent::GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // TCP from server to vnet1
     TxTcpPacket(vhost->GetInterfaceId(), vhost_addr,
@@ -424,7 +424,7 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
                                 IPPROTO_TCP, 10, 20, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 10, 20, 
-                                Agent::GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 }
 
 // Test for traffic from VM to server
@@ -439,7 +439,7 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vhost->GetVrf()->GetName().c_str(),
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
                                 vhost_addr, 10000, 8775, "vn1",
-                                Agent::GetFabricVnName().c_str()));
+                                Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
     TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], "169.254.169.254", 1);
@@ -449,7 +449,7 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vhost->GetVrf()->GetName().c_str(),
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
                                 vhost_addr, 0, 0, "vn1",
-                                Agent::GetFabricVnName().c_str()));
+                                Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
     TxUdpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], "169.254.169.254",
@@ -611,14 +611,14 @@ TEST_F(FlowTest, FlowAging_1) {
     EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
 
     // Trigger aging cycle
-    AgentUve::GetFlowStatsCollector()->Run();
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
     EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
 
     //Trigger flow-aging
     usleep(AGE_TIME*2);
-    AgentUve::GetFlowStatsCollector()->Run();
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
@@ -804,7 +804,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->GetVrf()->GetName(), vhost_addr,
                 vnet[7]->GetMdataIpAddr().to_string().c_str(), 6, 100, 100,
-                Agent::GetFabricVnName(), "vn7", 2, vnet[7]->GetVrf()->GetName().c_str(), 
+                Agent::GetInstance()->GetFabricVnName(), "vn7", 2, vnet[7]->GetVrf()->GetName().c_str(), 
                 "169.254.169.254", vnet_addr[7], 100, 100));
 
     TxTcpPacket(vnet[7]->GetInterfaceId(), vnet_addr[7], 
@@ -812,7 +812,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vnet[7]->GetVrf()->GetName(), vnet_addr[7],
                 "169.254.169.254", 6, 10, 80,
-                "vn7", Agent::GetFabricVnName(), 3, 
+                "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
                 vhost->GetVrf()->GetName().c_str(), 
                 vnet[7]->GetMdataIpAddr().to_string().c_str(), vhost_addr, 10, 8775));
     char mdata_ip[32];
@@ -840,14 +840,14 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                 vnet[8]->GetMdataIpAddr().to_string().c_str(), 100, 100, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->GetVrf()->GetName(), vhost_addr, mdata_ip,
-                           6, 100, 100, Agent::GetFabricVnName(), "vn8", 2,
+                           6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
                            "vrf8", "169.254.169.254", vnet_addr[8], 100, 100));
 
     TxTcpPacket(vnet[8]->GetInterfaceId(), vnet_addr[8], 
                 "169.254.169.254", 10, 80, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
-                           "vn8", Agent::GetFabricVnName(), 3,
+                           "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
                            vhost->GetVrf()->GetName().c_str(), mdata_ip,
                            vhost_addr, 10, 8775));
     client->WaitForIdle();

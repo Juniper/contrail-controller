@@ -44,6 +44,7 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
 
 void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
     IFMapLink *link = static_cast<IFMapLink *>(edge);
+    link->set_last_change_at_to_now();
     link->ClearNodes();
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
@@ -52,12 +53,19 @@ void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
 
 void IFMapLinkTable::DeleteLink(DBGraphEdge *edge, IFMapNode *lhs,
                                 IFMapNode *rhs) {
-    IFMapLink *link = static_cast<IFMapLink *>(edge);
-    link->ClearNodes();
-    DBTablePartition *partition =
-        static_cast<DBTablePartition *>(GetTablePartition(0));
-    partition->Delete(edge);
+    DeleteLink(edge);
     graph_->Unlink(lhs, rhs);
+}
+
+void IFMapLinkTable::DeleteLink(IFMapNode *lhs, IFMapNode *rhs,
+                                const IFMapOrigin &origin) {
+    DBGraphEdge *edge = graph_->GetEdge(lhs, rhs);
+    IFMapLink *link = static_cast<IFMapLink *>(edge);
+    link->RemoveOriginInfo(origin.origin);
+    if (link->is_origin_empty()) {
+        DeleteLink(edge);
+        graph_->Unlink(lhs, rhs);
+    }
 }
 
 DBTable *IFMapLinkTable::CreateTable(DB *db, const string &name,

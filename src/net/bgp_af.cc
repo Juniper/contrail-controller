@@ -2,8 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "net/bgp_af.h"
+
 #include <sstream>
-#include <bgp_af.h>
 
 std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
     std::ostringstream out;

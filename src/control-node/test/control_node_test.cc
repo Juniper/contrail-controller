@@ -10,6 +10,7 @@
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
+#include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
@@ -42,8 +43,6 @@ ControlNodeTest::ControlNodeTest(EventManager *evm, const std::string &hostname)
     xmpp_server_->Initialize(0, false);
 
     SetUp();
-    vnc_cfg_Server_ModuleInit(bgp_server_->config_db(),
-                              bgp_server_->config_graph());
     map_server_->Initialize();
 }
 
@@ -105,20 +104,28 @@ void ControlNodeTest::IFMapMessage(const std::string &msg) {
     parser->Receive(bgp_server_->config_db(), msg.data(), msg.length(), 0);
 }
 
+void ControlNodeTest::VerifyRoutingInstance(const std::string instance) {
+    const RoutingInstanceMgr *ri_mgr = bgp_server_->routing_instance_mgr();
+    TASK_UTIL_WAIT_NE_NO_MSG(ri_mgr->GetRoutingInstance(instance),
+        NULL, 1000, 10000, "Wait for routing instance..");
+    const RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance);
+    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+        0, 1000, 10000, "Wait for vn index..");
+}
+
 int ControlNodeTest::BgpEstablishedCount() const {
     RoutingInstanceMgr *manager  = bgp_server_->routing_instance_mgr();
     RoutingInstance *rt_default = manager->GetRoutingInstance(
         BgpConfigManager::kMasterInstance);
     assert(rt_default != NULL);
     int count = 0;
-    for (RoutingInstance::BgpPeerKeyMap::const_iterator iter =
-         rt_default->peer_map().begin();
-         iter != rt_default->peer_map().end(); ++iter) {
+    for (PeerManager::BgpPeerKeyMap::const_iterator iter =
+         rt_default->peer_manager()->peer_map().begin();
+         iter != rt_default->peer_manager()->peer_map().end(); ++iter) {
         const BgpPeer *peer = iter->second;
         if (peer->GetState() == StateMachine::ESTABLISHED) {
             count++;
         }
-        
     }
     return count;
 }

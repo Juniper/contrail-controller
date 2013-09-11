@@ -22,8 +22,7 @@ protected:
           attr_db_(server_.attr_db()),
           aspath_db_(server_.aspath_db()),
           comm_db_(server_.comm_db()),
-          extcomm_db_(server_.extcomm_db()),
-          origin_vn_db_(server_.origin_vn_db()) {
+          extcomm_db_(server_.extcomm_db()) {
     }
 
     void TearDown() {
@@ -37,7 +36,6 @@ protected:
     AsPathDB *aspath_db_;
     CommunityDB *comm_db_;
     ExtCommunityDB *extcomm_db_;
-    OriginVnDB *origin_vn_db_;
 };
 
 TEST_F(BgpAttrTest, UnknownCode) {
@@ -101,43 +99,40 @@ TEST_F(BgpAttrTest, AsPathAdd) {
 
 }
 
-TEST_F(BgpAttrTest, OriginVnBasic1) {
-    OriginVnSpec ovn_spec("red");
-    OriginVnPtr ovn = origin_vn_db_->Locate(ovn_spec);
-    EXPECT_EQ(1, origin_vn_db_->Size());
-    ovn.reset();
-    EXPECT_EQ(0, origin_vn_db_->Size());
+TEST_F(BgpAttrTest, AsPathFormat1) {
+    AsPathSpec spec;
+
+    AsPathSpec::PathSegment *ps = new AsPathSpec::PathSegment;
+    ps->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int idx = 1; idx < 5; idx++)
+        ps->path_segment.push_back(100 * idx);
+    spec.path_segments.push_back(ps);
+
+    EXPECT_EQ("100 200 300 400", spec.ToString());
 }
 
-TEST_F(BgpAttrTest, OriginVnBasic2) {
-    OriginVnSpec ovn_spec1("red");
-    OriginVnSpec ovn_spec2("red");
+TEST_F(BgpAttrTest, AsPathFormat2) {
+    AsPathSpec spec;
 
-    OriginVnPtr ovn1 = origin_vn_db_->Locate(ovn_spec1);
-    OriginVnPtr ovn2 = origin_vn_db_->Locate(ovn_spec2);
-    EXPECT_EQ(ovn1, ovn2);
-    EXPECT_EQ(1, origin_vn_db_->Size());
-}
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int idx = 1; idx < 3; idx++)
+        ps1->path_segment.push_back(100 * idx);
+    spec.path_segments.push_back(ps1);
 
-TEST_F(BgpAttrTest, OriginVnBasic3) {
-    OriginVnSpec ovn_spec1("red1");
-    OriginVnSpec ovn_spec2("red2");
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    for (int idx = 3; idx < 5; idx++)
+        ps2->path_segment.push_back(100 * idx);
+    spec.path_segments.push_back(ps2);
 
-    OriginVnPtr ovn1 = origin_vn_db_->Locate(ovn_spec1);
-    OriginVnPtr ovn2 = origin_vn_db_->Locate(ovn_spec2);
-    EXPECT_NE(ovn1, ovn2);
-    EXPECT_EQ(2, origin_vn_db_->Size());
-}
+    AsPathSpec::PathSegment *ps3 = new AsPathSpec::PathSegment;
+    ps3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int idx = 5; idx < 7; idx++)
+        ps3->path_segment.push_back(100 * idx);
+    spec.path_segments.push_back(ps3);
 
-TEST_F(BgpAttrTest, OriginVnBasic4) {
-    BgpAttrSpec attr_spec;
-    OriginVnSpec ovn_spec("red");
-    attr_spec.push_back(&ovn_spec);
-    BgpAttrPtr ptr = attr_db_->Locate(attr_spec);
-    EXPECT_EQ(1, attr_db_->Size());
-    EXPECT_EQ("red", ptr->origin_vn()->origin_vn().origin_vn);
-    BgpAttr attr(*(ptr.get()));
-    EXPECT_EQ("red", attr.origin_vn()->origin_vn().origin_vn);
+    EXPECT_EQ("100 200 {300 400} 500 600", spec.ToString());
 }
 
 TEST_F(BgpAttrTest, SourceRdBasic1) {
@@ -219,9 +214,6 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     ext_community->communities.push_back(0x1020304050607080);
     spec.push_back(ext_community);
 
-    OriginVnSpec *ovn_spec = new OriginVnSpec("red");
-    spec.push_back(ovn_spec);
-
     BgpAttrPtr ptr1 = attr_db_->Locate(spec);
     BgpAttrPtr ptr2 = attr_db_->Locate(spec);
 
@@ -229,7 +221,6 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, origin_vn_db_->Size());
 
     agg->address = 0xcafed00d;
     BgpAttrPtr ptr3 = attr_db_->Locate(spec);
@@ -238,35 +229,30 @@ TEST_F(BgpAttrTest, BgpAttrDB) {
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, origin_vn_db_->Size());
 
     ptr1.reset();
     EXPECT_EQ(2, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, origin_vn_db_->Size());
 
     ptr2.reset();
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, origin_vn_db_->Size());
 
     ptr3.reset();
     EXPECT_EQ(0, attr_db_->Size());
     EXPECT_EQ(0, aspath_db_->Size());
     EXPECT_EQ(0, comm_db_->Size());
     EXPECT_EQ(0, extcomm_db_->Size());
-    EXPECT_EQ(0, origin_vn_db_->Size());
 
     ptr1 = attr_db_->Locate(spec);
     EXPECT_EQ(1, attr_db_->Size());
     EXPECT_EQ(1, aspath_db_->Size());
     EXPECT_EQ(1, comm_db_->Size());
     EXPECT_EQ(1, extcomm_db_->Size());
-    EXPECT_EQ(1, origin_vn_db_->Size());
 
     STLDeleteValues(&spec);
 }
@@ -330,8 +316,6 @@ template void ConcurrencyTest<Community, CommunityPtr, CommunityDB,
                               CommunitySpec>(CommunityDB *);
 template void ConcurrencyTest<ExtCommunity, ExtCommunityPtr, ExtCommunityDB,
                               ExtCommunitySpec>(ExtCommunityDB *);
-template void ConcurrencyTest<OriginVn, OriginVnPtr, OriginVnDB, OriginVnSpec>(
-                  OriginVnDB *);
 
 TEST_F(BgpAttrTest, BgpAttrDBConcurrency) {
     ConcurrencyTest<BgpAttr, BgpAttrPtr, BgpAttrDB, BgpAttrSpec>(attr_db_);
@@ -349,11 +333,6 @@ TEST_F(BgpAttrTest, CommunityDBConcurrency) {
 TEST_F(BgpAttrTest, ExtCommunityDBConcurrency) {
     ConcurrencyTest<ExtCommunity, ExtCommunityPtr, ExtCommunityDB,
                     ExtCommunitySpec>(extcomm_db_);
-}
-
-TEST_F(BgpAttrTest, OriginVnDBConcurrency) {
-    ConcurrencyTest<OriginVn, OriginVnPtr, OriginVnDB,
-                    OriginVnSpec>(origin_vn_db_);
 }
 
 static void SetUp() {

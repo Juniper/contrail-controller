@@ -60,8 +60,7 @@ public:
 
     virtual BgpRoute *RouteReplicate(BgpServer *server, BgpTable *table, 
                                      BgpRoute *src, const BgpPath *path, 
-                                     ExtCommunityPtr community,
-                                     OriginVnPtr origin_vn) = 0;
+                                     ExtCommunityPtr community) = 0;
 
     static bool PathSelection(const Path &path1, const Path &path2);
     UpdateInfo *GetUpdateInfo(RibOut *ribout, BgpRoute *route,

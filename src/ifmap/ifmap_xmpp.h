@@ -60,7 +60,7 @@ public:
     void ProcessVmSubscribe(const std::string &vm_uuid);
     void ProcessVmUnsubscribe(const std::string &vm_uuid);
     void EnqueueVmSubUnsub(bool subscribe, const std::string &vm_uuid);
-    bool get_client_added() { return client_added; }
+    bool get_client_added() { return client_added_; }
 
 private:
     friend class XmppIfmapTest;
@@ -71,7 +71,7 @@ private:
     IFMapServer *ifmap_server_;
     IFMapChannelManager *ifmap_channel_manager_;
     IFMapSender *ifmap_client_;
-    bool client_added;  // set to true if ifmap_server has processed add-client
+    bool client_added_;  // true if ifmap_server has processed add-client
 };
 
 class IFMapChannelManager {
@@ -101,6 +101,21 @@ public:
     void incr_invalid_vm_subscribe_messages() {
         ++invalid_vm_subscribe_messages;
     }
+    void incr_vmsub_novrsub_messages() {
+        ++vmsub_novrsub_messages;
+    }
+    void incr_vmunsub_novrsub_messages() {
+        ++vmunsub_novrsub_messages;
+    }
+    void incr_vmunsub_novmsub_messages() {
+        ++vmunsub_novmsub_messages;
+    }
+    void incr_dupicate_vrsub_messages() {
+        ++dupicate_vrsub_messages;
+    }
+    void incr_dupicate_vmsub_messages() {
+        ++dupicate_vmsub_messages;
+    }
 
     uint64_t get_unknown_subscribe_messages() {
         return unknown_subscribe_messages; 
@@ -119,6 +134,21 @@ public:
     }
     uint64_t get_invalid_vm_subscribe_messages() {
         return invalid_vm_subscribe_messages;
+    }
+    uint64_t get_vmsub_novrsub_messages() {
+        return vmsub_novrsub_messages;
+    }
+    uint64_t get_vmunsub_novrsub_messages() {
+        return vmunsub_novrsub_messages;
+    }
+    uint64_t get_vmunsub_novmsub_messages() {
+        return vmunsub_novmsub_messages;
+    }
+    uint64_t get_dupicate_vrsub_messages() {
+        return dupicate_vrsub_messages;
+    }
+    uint64_t get_dupicate_vmsub_messages() {
+        return dupicate_vmsub_messages;
     }
     void FillChannelMap(std::vector<IFMapXmppChannelMapEntry> *out_map);
 
@@ -147,6 +177,11 @@ private:
     uint64_t invalid_channel_not_ready_messages;
     uint64_t invalid_channel_state_messages;
     uint64_t invalid_vm_subscribe_messages;
+    uint64_t vmsub_novrsub_messages;
+    uint64_t vmunsub_novrsub_messages;
+    uint64_t vmunsub_novmsub_messages;
+    uint64_t dupicate_vrsub_messages;
+    uint64_t dupicate_vmsub_messages;
 };
 
 #endif // __XMPP_IFMAP_INC__

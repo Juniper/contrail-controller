@@ -81,7 +81,7 @@ public:
     PktFlowInfo(PktInfo *info): 
         pkt(info), source_vn(NULL), dest_vn(NULL), flow_source_vrf(-1),
         flow_dest_vrf(-1), source_sg_id_l(NULL), dest_sg_id_l(NULL),
-        dest_intf(NULL), nat_done(false), nat_ip_saddr(0),
+        nat_done(false), nat_ip_saddr(0),
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), mdata_flow(false), ecmp(false),
@@ -111,9 +111,12 @@ public:
     static bool GetIngressNwPolicyAclList(const Interface *intf,
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
-    bool InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl);
-    void InitFwdFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl);
-    void InitRevFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl);
+    bool InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
+                     PktControlInfo *rev_ctrl);
+    void InitFwdFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
+                     PktControlInfo *rev_flow);
+    void InitRevFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
+                     PktControlInfo *rev_flow);
     void RewritePktInfo(uint32_t index);
 public:
     PktInfo             *pkt;
@@ -124,7 +127,6 @@ public:
     uint32_t            flow_dest_vrf;
     const SecurityGroupList *source_sg_id_l;
     const SecurityGroupList *dest_sg_id_l;
-    const Interface     *dest_intf;
 
     // NAT addresses
     bool                nat_done;
@@ -346,7 +348,7 @@ class FlowEntry {
     void GetSgList(const Interface *intf, MatchPolicy *policy);
     bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
-                      std::list<MatchAclParams> &acl);
+                      std::list<MatchAclParams> &acl, bool add_implicit_deny);
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);

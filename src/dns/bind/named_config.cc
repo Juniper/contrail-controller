@@ -10,8 +10,9 @@
 #include <dirent.h>
 #include <base/contrail_ports.h>
 #include <bind/bind_util.h>
+#include <cfg/dns_config.h>
+#include <mgr/dns_oper.h>
 #include "named_config.h"
-#include <rndc.h> //present in third_party/bind-9.9.2-P1/bin/rndc/
 #include <cmn/dns.h>
 
 using namespace std;
@@ -31,6 +32,11 @@ void NamedConfig::Init() {
     assert(singleton_ == NULL);
     singleton_ = new NamedConfig();
     singleton_->Reset();
+}
+
+void NamedConfig::Shutdown() {
+    assert(singleton_);
+    delete singleton_;
 }
 
 // Reset bind config 
@@ -141,6 +147,9 @@ void NamedConfig::WriteOptionsConfig() {
     file_ << "    managed-keys-directory \"" << zone_file_dir_ << "\";" << endl;
     file_ << "    empty-zones-enable no;" << endl;
     file_ << "    pid-file \"" << GetPidFilePath() << "\";" << endl;
+    file_ << "    allow-query { any; };" << endl;
+    file_ << "    allow-recursion { any; };" << endl;
+    file_ << "    allow-query-cache { any; };" << endl;
     file_ << "};" << endl << endl;
 }
 
@@ -187,13 +196,13 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
     if (reset_flag_)
         return;
 
-    DnsConfigManager::VirtualDnsMap vdns = Dns::GetDnsConfigManager()->GetVirtualDnsMap();
-    for (DnsConfigManager::VirtualDnsMap::iterator it = vdns.begin(); it != vdns.end(); ++it) {
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+    for (VirtualDnsConfig::DataMap::iterator it = vdns.begin(); it != vdns.end(); ++it) {
         VirtualDnsConfig *curr_vdns = it->second;
         ZoneList zones;
         MakeZoneList(curr_vdns, zones);
 
-        if (curr_vdns->IsDeleted()) {
+        if (curr_vdns->IsDeleted() || !curr_vdns->IsNotified()) {
             RemoveZoneFiles(curr_vdns, zones);
             continue;
         }
@@ -334,13 +343,13 @@ void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zo
     const VirtualDnsConfig::IpamList &ipams = vdns_config->GetIpamList();
     for (VirtualDnsConfig::IpamList::const_iterator ipam_it = ipams.begin();
          ipam_it != ipams.end(); ++ipam_it) {
-        if ((*ipam_it)->IsDeleted()) {
+        if ((*ipam_it)->IsDeleted() || !(*ipam_it)->IsValid()) {
             continue;
         }
         const IpamConfig::VnniList &vnni_list = (*ipam_it)->GetVnniList();
         for (IpamConfig::VnniList::iterator vnni_it = vnni_list.begin();
              vnni_it != vnni_list.end(); ++vnni_it) {
-            if ((*vnni_it)->IsDeleted()) {
+            if ((*vnni_it)->IsDeleted() || !(*vnni_it)->IsValid()) {
                 continue;
             }
             const Subnets &subnets = (*vnni_it)->GetSubnets();
@@ -394,12 +403,12 @@ bool BindStatus::CheckBindStatus() {
     }
 
     if (new_pid != named_pid_) {
+        named_pid_ = new_pid;
         if (new_pid == (uint32_t) -1) {
             handler_(Down);
         } else {
             handler_(Up);
         }
-        named_pid_ = new_pid;
     }
 
     status_timer_->Start(kBindStatusTimeout, 

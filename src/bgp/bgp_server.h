@@ -26,7 +26,6 @@ class CommunityDB;
 class ExtCommunityDB;
 class LifetimeActor;
 class LifetimeManager;
-class OriginVnDB;
 class PeerRibMembershipManager;
 class RoutePathReplicator;
 class RoutingInstanceMgr;
@@ -73,12 +72,13 @@ public:
         assert(false);
         return NULL;
     }
+
     PeerRibMembershipManager *membership_mgr() { return membership_mgr_.get(); }
     AsPathDB *aspath_db() { return aspath_db_.get(); }
     BgpAttrDB *attr_db() { return attr_db_.get(); }
     CommunityDB *comm_db() { return comm_db_.get(); }
     ExtCommunityDB *extcomm_db() { return extcomm_db_.get(); }
-    OriginVnDB *origin_vn_db() { return origin_vn_db_.get(); }
+
     bool IsReadyForDeletion();
     DB *database() { return &db_; }
     const std::string &localname() const;
@@ -128,7 +128,6 @@ private:
     boost::scoped_ptr<AsPathDB> aspath_db_;
     boost::scoped_ptr<CommunityDB> comm_db_;
     boost::scoped_ptr<ExtCommunityDB> extcomm_db_;
-    boost::scoped_ptr<OriginVnDB> origin_vn_db_;
     boost::scoped_ptr<BgpAttrDB> attr_db_;
 
     // sessions and state managers

@@ -8,6 +8,7 @@
 #include "db/db_table.h"
 
 class IFMapNode;
+class IFMapNodeTableListShowEntry;
 
 class IFMapTable : public DBTable {
 public:
@@ -32,5 +33,7 @@ public:
 
     static IFMapTable *FindTable(DB  *db, const std::string &element_type);
     static void ClearTables(DB *db);
+    static void FillNodeTableList(DB *db,
+        std::vector<IFMapNodeTableListShowEntry> *table_list);
 };
 #endif

@@ -33,10 +33,10 @@ TEST_F(StatsTest, IntfStatsTest) {
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    EXPECT_EQ(4U, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(2U, Agent::GetVmTable()->Size());
-    EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
-    EXPECT_EQ(2U, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     /* Wait for stats-collector task to be run */
 
@@ -105,10 +105,10 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_TRUE(VmPortPolicyEnable(input, 2));
     EXPECT_TRUE(VmPortPolicyEnable(input, 3));
     if_count += 4;
-    EXPECT_EQ(if_count, Agent::GetInterfaceTable()->Size());
-    EXPECT_EQ(vn_count, Agent::GetVnTable()->Size());
+    EXPECT_EQ(if_count, Agent::GetInstance()->GetInterfaceTable()->Size());
+    EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
     cfg_if_count += 4;
-    EXPECT_EQ(cfg_if_count, Agent::GetIntfCfgTable()->Size());
+    EXPECT_EQ(cfg_if_count, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     /* Flush any existing Flows */
     FlowTable::GetFlowTableObject()->DeleteAll();
@@ -146,7 +146,7 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_TRUE(FlowStats(flow_input, 1, (28 * 2), 2));
     client->WaitForIdle();
 
-    GetUveClient()->SendVnStats();
+    UveClient::GetInstance()->SendVnStats();
 
     /* Flush all the Flows */
     FlowTable::GetFlowTableObject()->DeleteAll();

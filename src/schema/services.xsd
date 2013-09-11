@@ -7,35 +7,35 @@ xsd:targetNamespace="http://www.contrailsystems.com/services.xsd">
 
 <xsd:complexType name="XmppService">
   <xsd:all>
-    <xsd:element name="ip-addr" type="xsd:string" />
+    <xsd:element name="ip-address" type="xsd:string" />
     <xsd:element name="port" type="xsd:string" />
   </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="IFMapService">
   <xsd:all>
-    <xsd:element name="ip-addr" type="xsd:string" />
+    <xsd:element name="ip-address" type="xsd:string" />
     <xsd:element name="port" type="xsd:string" />
   </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="ApiService">
   <xsd:all>
-    <xsd:element name="ip-addr" type="xsd:string" />
+    <xsd:element name="ip-address" type="xsd:string" />
     <xsd:element name="port" type="xsd:string" />
   </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="BgpService">
   <xsd:all>
-    <xsd:element name="ip-addr" type="xsd:string" />
+    <xsd:element name="ip-address" type="xsd:string" />
     <xsd:element name="port" type="xsd:string" />
   </xsd:all>
 </xsd:complexType>
 
 <xsd:complexType name="CollectorService">
   <xsd:all>
-    <xsd:element name="ip-addr" type="xsd:string" />
+    <xsd:element name="ip-address" type="xsd:string" />
     <xsd:element name="port" type="xsd:string" />
   </xsd:all>
 </xsd:complexType>

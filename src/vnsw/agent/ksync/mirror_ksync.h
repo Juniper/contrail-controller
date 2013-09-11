@@ -37,9 +37,9 @@ public:
     virtual std::string ToString() const;
     virtual KSyncEntry *UnresolvedReference();
     virtual bool Sync(DBEntry *e);
-    virtual char *AddMsg(int &len);
-    virtual char *ChangeMsg(int &len);
-    virtual char *DeleteMsg(int &len);
+    virtual int AddMsg(char *buf, int buf_len);
+    virtual int ChangeMsg(char *buf, int buf_len);
+    virtual int DeleteMsg(char *buf, int buf_len);
     uint32_t GetIdx(Ip4Address &dip, uint16_t dport);
     KSyncDBObject *GetObject();
 
@@ -47,7 +47,7 @@ public:
         return static_cast<NHKSyncEntry *>(nh_.get());
     }
 private:
-    char *Encode(sandesh_op::type op, int &len);
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
     uint32_t vrf_id_;
     Ip4Address sip_;
     uint16_t   sport_;

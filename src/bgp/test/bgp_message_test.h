@@ -40,7 +40,8 @@ public:
         open->opt_params.push_back(opt_param);
     }
 
-    static void GenerateUpdateMessage(BgpProto::Update *update) {
+    static void GenerateUpdateMessage(BgpProto::Update *update, uint16_t afi, 
+                                      uint8_t safi) {
         char p[] = {0x1, 0x2, 0x3};
         BgpProtoPrefix *prefix = new BgpProtoPrefix;
         prefix->prefixlen = 9;
@@ -77,21 +78,31 @@ public:
         update->path_attributes.push_back(community);
 
         BgpMpNlri *mp_nlri = new BgpMpNlri(BgpAttribute::MPReachNlri);
-        mp_nlri->afi = 1;
-        mp_nlri->safi = 128;
+        mp_nlri->afi = afi;
+        mp_nlri->safi = safi;
         uint8_t nh[3] = {192,168,1};
         mp_nlri->nexthop.assign(&nh[0], &nh[3]);
         prefix = new BgpProtoPrefix;
-        prefix->prefixlen = 20;
+        if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn) {
+            prefix->type = 2;
+            prefix->prefixlen = 24;
+        } else {
+            prefix->prefixlen = 20;
+        }
         prefix->prefix = vector<uint8_t>(p, p + 3);
         mp_nlri->nlri.push_back(prefix);
         update->path_attributes.push_back(&mp_nlri[0]);
 
         mp_nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri);
-        mp_nlri->afi = 1;
-        mp_nlri->safi = 128;
+        mp_nlri->afi = afi;
+        mp_nlri->safi = safi;
         prefix = new BgpProtoPrefix;
-        prefix->prefixlen = 9;
+        if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn) {
+            prefix->type = 2;
+            prefix->prefixlen = 16;
+        } else {
+            prefix->prefixlen = 9;
+        }
         prefix->prefix = vector<uint8_t>(p, p + 2);
         mp_nlri->nlri.push_back(prefix);
         update->path_attributes.push_back(mp_nlri);

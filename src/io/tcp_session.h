@@ -66,7 +66,7 @@ class TcpSession {
 
     void Close();
 
-    std::string ToString() const { return name_; }
+    virtual std::string ToString() const { return name_; }
 
     // Getters and setters
     Socket *socket() { return socket_.get(); }
@@ -139,6 +139,8 @@ class TcpSession {
     virtual void WriteReady(const boost::system::error_code &error);
 
     EventObserver observer() { return observer_; }
+    boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,
+            int keepalive_intvl, int keepalive_probes);
 
   private:
     typedef boost::intrusive_ptr<TcpSession> TcpSessionPtr;

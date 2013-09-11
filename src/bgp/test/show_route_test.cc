@@ -298,20 +298,20 @@ protected:
     assert(table_a);
 
     // Create 3 IPv4 prefixes and the corresponding keys.
-    AddInetRoute("192.168.1.0/24", peers[0]);
-    AddInetRoute("192.168.2.0/24", peers[1]);
+    AddInetRoute("192.168.240.0/20", peers[0]);
+    AddInetRoute("192.168.242.0/24", peers[1]); // Longer prefix
     AddInetRoute("192.168.3.0/24", peers[2]);
 
-    AddInetRoute("192.168.11.0/24", peers[0], "red");
+    AddInetRoute("192.240.11.0/12", peers[0], "red");
     AddInetRoute("192.168.12.0/24", peers[1], "red");
     AddInetRoute("192.168.13.0/24", peers[2], "red");
 
-    AddInetRoute("192.168.11.0/24", peers[0], "blue");
+    AddInetRoute("192.240.11.0/12", peers[0], "blue");
     AddInetRoute("192.168.12.0/24", peers[1], "blue");
     AddInetRoute("192.168.23.0/24", peers[2], "blue");
 
-    AddInetVpnRoute("2:20:192.168.11.0/24", peers[0]);
-    AddInetVpnRoute("2:20:192.168.22.0/24", peers[1]);
+    AddInetVpnRoute("2:20:192.240.11.0/12", peers[0]);
+    AddInetVpnRoute("2:20:192.242.22.0/24", peers[1]); // Longer prefix
     AddInetVpnRoute("2:20:192.168.33.0/24", peers[2]);
 
     BgpSandeshContext sandesh_context;
@@ -326,21 +326,48 @@ protected:
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
-
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // Exact match for 192.168.242.0/24
     show_req = new ShowRouteReq;
     result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
                                                result, __LINE__));
-    show_req->set_prefix("192.168.2.0/24");
+    show_req->set_prefix("192.168.242.0/24");
     validate_done_ = 0;
     show_req->HandleRequest();
     show_req->Release();
     task_util::WaitForIdle();
-
     TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // longest match for 192.168.240.0/20 in inet.0 table.
     show_req = new ShowRouteReq;
-    result = list_of(1)(1);
+    result = list_of(2);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
+                                               result, __LINE__));
+    show_req->set_prefix("192.168.240.0/20");
+    show_req->set_longer_match(true);
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    // longest match for 2:20:192.240.11.0/12 in bgp.l3vpn.0 table.
+    show_req = new ShowRouteReq;
+    result = list_of(2);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
+                                               result, __LINE__));
+    show_req->set_prefix("2:20:192.240.11.0/12");
+    show_req->set_longer_match(true);
+    validate_done_ = 0;
+    show_req->HandleRequest();
+    show_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_EQ(1, validate_done_);
+
+    show_req = new ShowRouteReq;
+    result = list_of(2);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1,
                                                result, __LINE__));
     show_req->set_start_routing_instance(BgpConfigManager::kMasterInstance);
@@ -378,20 +405,20 @@ protected:
     //
     // Delete all the routes added
     //
-    DeleteInetRoute("192.168.1.0/24", peers[0], 2);
-    DeleteInetRoute("192.168.2.0/24", peers[1], 1);
+    DeleteInetRoute("192.168.240.0/20", peers[0], 2);
+    DeleteInetRoute("192.168.242.0/24", peers[1], 1);
     DeleteInetRoute("192.168.3.0/24", peers[2], 0);
 
-    DeleteInetRoute("192.168.11.0/24", peers[0], 2, "red");
+    DeleteInetRoute("192.240.11.0/12", peers[0], 2, "red");
     DeleteInetRoute("192.168.12.0/24", peers[1], 1, "red");
     DeleteInetRoute("192.168.13.0/24", peers[2], 0, "red");
 
-    DeleteInetRoute("192.168.11.0/24", peers[0], 2, "blue");
+    DeleteInetRoute("192.240.11.0/12", peers[0], 2, "blue");
     DeleteInetRoute("192.168.12.0/24", peers[1], 1, "blue");
     DeleteInetRoute("192.168.23.0/24", peers[2], 0, "blue");
 
-    DeleteInetVpnRoute("2:20:192.168.11.0/24", peers[0], 2);
-    DeleteInetVpnRoute("2:20:192.168.22.0/24", peers[1], 1);
+    DeleteInetVpnRoute("2:20:192.240.11.0/12", peers[0], 2);
+    DeleteInetVpnRoute("2:20:192.242.22.0/24", peers[1], 1);
     DeleteInetVpnRoute("2:20:192.168.33.0/24", peers[2], 0);
 }
 

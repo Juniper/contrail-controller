@@ -5,11 +5,11 @@
 #ifndef ctrlplane_inet_route_h
 #define ctrlplane_inet_route_h
 
-#include "net/address.h"
-#include "route/route.h"
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_route.h"
+#include "net/address.h"
+#include "net/bgp_af.h"
+#include "route/route.h"
 
 class Ip4Prefix {
 public:
@@ -43,6 +43,9 @@ public:
         return (cmp > 0);
     }
 
+    // Check whether 'this' is more specific than rhs.
+    bool IsMoreSpecific(const Ip4Prefix &rhs) const;
+
 private:
     Ip4Address ip4_addr_;
     int prefixlen_;
@@ -71,6 +74,8 @@ public:
         return (cmp < 0);
     }
 
+    // Check whether 'this' is more specific than rhs.
+    virtual bool IsMoreSpecific(const std::string &match) const;
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
     virtual u_int8_t Safi() const { return BgpAf::Unicast; }
 

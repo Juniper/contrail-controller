@@ -18,7 +18,7 @@ public:
                   inet4_uc_walkid_(DBTableWalker::kInvalidWalkerId),
                   inet4_mc_walkid_(DBTableWalker::kInvalidWalkerId) {};
         ~State() {
-            DBTableWalker *walker = Agent::GetDB()->GetWalker();
+            DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
 
             if (inet4_uc_walkid_ != DBTableWalker::kInvalidWalkerId) {
                 walker->WalkCancel(inet4_uc_walkid_);

@@ -106,7 +106,7 @@ protected:
 
 TEST_F(CfgTest, NodeTest) {
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/vnsw/agent/testdata/test_add_cfg.xml");
+            xdoc_.load_file("controller/src/vnsw/agent/testdata/test_add_cfg.xml");
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_.first_child(), 0);
@@ -127,7 +127,7 @@ TEST_F(CfgTest, NodeTest) {
     EXPECT_EQ("testbar", TestBar->name());
 
     //Do the deletion of the nodes
-    result = xdoc_.load_file("src/vnsw/agent/testdata/test_del_cfg.xml");
+    result = xdoc_.load_file("controller/src/vnsw/agent/testdata/test_del_cfg.xml");
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_.first_child(), 0);
@@ -164,7 +164,7 @@ TEST_F(CfgTest, LinkTest) {
             Register(boost::bind(&CfgTest_LinkTest_Test::LinkListener, this, _1, _2));
 
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/vnsw/agent/testdata/test_link_add_cfg.xml");
+            xdoc_.load_file("controller/src/vnsw/agent/testdata/test_link_add_cfg.xml");
     EXPECT_TRUE(result);
 
     parser_->ConfigParse(xdoc_.first_child(), 0);
@@ -200,7 +200,7 @@ TEST_F(CfgTest, LinkTest) {
 
 
     //Delete only link, but not nodes
-    result = xdoc_.load_file("src/vnsw/agent/testdata/test_link_del_cfg.xml");
+    result = xdoc_.load_file("controller/src/vnsw/agent/testdata/test_link_del_cfg.xml");
     parser_->ConfigParse(xdoc_.first_child(), 0);
     WaitForIdle();
 
@@ -234,7 +234,7 @@ TEST_F(CfgTest, LinkTest) {
     EXPECT_EQ(bar_cnt, 1);
 
     //Delete the nodes as well
-    result = xdoc_.load_file("src/vnsw/agent/testdata/test_del_cfg.xml");
+    result = xdoc_.load_file("controller/src/vnsw/agent/testdata/test_del_cfg.xml");
     parser_->ConfigParse(xdoc_.first_child(), 0);
     WaitForIdle();
 

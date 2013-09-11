@@ -11,7 +11,7 @@
 #include "base/util.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_table.h"
-#include "routing-instance/routing_instance.h"
+#include "bgp/routing-instance/routing_instance.h"
 
 using namespace std;
 

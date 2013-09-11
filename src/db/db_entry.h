@@ -25,10 +25,11 @@ public:
     DBEntryBase() : table_(NULL), flags(0), last_change_at_(UTCTimestampUsec()) {
     }
     virtual ~DBEntryBase() { }
-
     virtual std::string ToString() const = 0;
-
     virtual KeyPtr GetDBRequestKey() const = 0;
+    virtual bool IsMoreSpecific(const std::string &match) const {
+        return false;
+    }
 
     void SetState(DBTableBase *tbl_base, ListenerId listener, DBState *state);
     void ClearState(DBTableBase *tbl_base, ListenerId listener);

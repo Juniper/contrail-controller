@@ -68,13 +68,18 @@ struct UveVnEntry {
     L4PortBitmap port_bitmap;
     UveVirtualNetworkAgent  uve_info;
     uint64_t prev_stats_update_time;
+    uint64_t prev_in_bytes;
+    uint64_t prev_out_bytes;
 
-    UveVnEntry() : port_bitmap(), uve_info(), prev_stats_update_time(0) { }
+    UveVnEntry() : port_bitmap(), uve_info(), prev_stats_update_time(0),
+                   prev_in_bytes(0), prev_out_bytes(0) { }
     ~UveVnEntry() {}
     UveVnEntry(const UveVnEntry &rhs) {
         port_bitmap = rhs.port_bitmap;
         uve_info = rhs.uve_info;
         prev_stats_update_time = rhs.prev_stats_update_time;
+        prev_in_bytes = rhs.prev_in_bytes;
+        prev_out_bytes = rhs.prev_out_bytes;
     }
 };
 
@@ -92,14 +97,16 @@ struct UveIntfEntry {
 
 class UveClient {
 public:
-    UveClient() : 
+    UveClient(uint64_t b_intvl) : 
         vn_vmlist_updates_(0), vn_vm_set_(), vn_intf_map_(),
         vm_intf_map_(), phy_intf_set_(), vn_listener_id_(DBTableBase::kInvalidId),
         vm_listener_id_(DBTableBase::kInvalidId),
         intf_listener_id_(DBTableBase::kInvalidId),
         agent_stats_trigger_(NULL), agent_stats_timer_(NULL), prev_stats_(),
         prev_vrouter_(), last_vm_uve_set_(), last_vn_uve_set_(),
-        port_bitmap_(), signal_(*(Agent::GetEventManager()->io_service())) {
+        port_bitmap_(), bandwidth_intvl_(b_intvl), 
+        signal_(*(Agent::GetInstance()->GetEventManager()->io_service())) {
+            start_time_ = UTCTimestampUsec();
             AddLastVnUve(*FlowHandler::UnknownVn());
             AddLastVnUve(*FlowHandler::LinkLocalVn());
             event_queue_ = new WorkQueue<VmStatData *>
@@ -120,6 +127,7 @@ public:
     typedef std::set<const Interface *> PhyIntfSet;
 
     
+    bool GetUveVnEntry(const string vn_name, UveVnEntry &entry);
     void AddIntfToVm(const VmEntry *vm, const Interface *intf);
     void DelIntfFromVm(const Interface *intf);
     void AddIntfToVn(const VnEntry *vn, const Interface *intf);
@@ -173,14 +181,16 @@ public:
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
 
-    static void Init();
-    static void Shutdown();
-    static void SendVrouterObject();
+    static void Init(uint64_t b_intvl);
+    void Shutdown();
     void RegisterSigHandler();
     uint32_t GetCpuCount();
     bool Process(VmStatData *vm_stat_data);
-    static void EnqueueVmStatData(VmStatData *vm_stat_data);
+    void EnqueueVmStatData(VmStatData *vm_stat_data);
+    bool GetVmIntfGateway(const VmPortInterface *vm_intf, string &gw);
+    static UveClient *GetInstance() {return singleton_;}
 private:
+    static UveClient *singleton_;
     friend class UvePortBitmapTest;
     void InitPrevStats();
     void FetchDropStats(AgentDropStats &ds);
@@ -249,8 +259,10 @@ private:
     LastVmUveSet last_vm_uve_set_;
     LastVnUveSet last_vn_uve_set_;
     L4PortBitmap port_bitmap_;
+    uint64_t bandwidth_intvl_; //in microseconds
     boost::asio::signal_set signal_;
     WorkQueue<VmStatData *> *event_queue_;
+    uint64_t start_time_;
     DISALLOW_COPY_AND_ASSIGN(UveClient);
 };
 
@@ -322,5 +334,4 @@ private:
     VmStat::DoneCb cb_;
 };
 
-UveClient *GetUveClient();
 #endif // vnsw_agent_uve_client_h

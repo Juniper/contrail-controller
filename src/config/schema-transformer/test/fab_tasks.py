@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+import sys
 from fabric.api import task, lcd, prefix, execute, local
 
 @task
@@ -29,6 +30,10 @@ def setup_venv(build_top = "../../../../build"):
             local("pip install testtools==0.9.32")
             local("pip install flexmock==0.9.7")
             local("pip install python-novaclient==2.13.0")
+            # 2.6 requirements
+            local("pip install ordereddict")
+            local("pip install importlib")
+
 #end setup_venv
 
 @task
@@ -42,11 +47,12 @@ def destroy_venv(build_top = "../../../../build"):
 def run_tests(build_top = "../../../../build"):
     venv_base = "%s/debug/cfgm/schema-transformer" %(build_top)
     venv_dir = "%s/ut-venv" %(venv_base)
+    pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
     with lcd(venv_dir):
         with prefix("source bin/activate"):
-            local("cp ../../../../../src/cfgm/schema-transformer/test/test_service.py lib/python2.7/site-packages/schema_transformer/")
+            local("cp ../../../../../src/cfgm/schema-transformer/test/test_service.py lib/python%s/site-packages/schema_transformer/" %(pyver))
             local("which python")
-            local("python lib/python2.7/site-packages/schema_transformer/test_service.py")
+            local("python lib/python%s/site-packages/schema_transformer/test_service.py" %(pyver))
 #end run_tests
 
 @task

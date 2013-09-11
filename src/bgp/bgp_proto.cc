@@ -10,6 +10,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp_server.h"
+#include "net/bgp_af.h"
 
 using namespace std;
 namespace mpl = boost::mpl;
@@ -787,10 +788,102 @@ public:
     static const int kMinOccurs = 0;
     static const int kMaxOccurs = -1;
 
+    struct OptMatch {
+        bool match(const BgpMpNlri *obj) {
+            return 
+                (((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) ||
+                 ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)));
+        }
+    };
+
+    typedef OptMatch ContextMatch;
     typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
             &BgpMpNlri::nlri> ContextStorer;
 
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
+};
+
+class BgpEvpnNlriType : public ProtoElement<BgpEvpnNlriType> {
+public:
+    static const int kSize = 1;
+    typedef Accessor<BgpProtoPrefix, uint8_t,
+            &BgpProtoPrefix::type> Setter;
+};
+
+class BgpEvpnNlriLen : public ProtoElement<BgpEvpnNlriLen> {
+public:
+    static const int kSize = 1;
+
+    struct EvpnPrefixLen {
+        static void set(BgpProtoPrefix *obj, int value) {
+            obj->prefixlen = value * 8;
+        }
+
+        static int get(const BgpProtoPrefix *obj) {
+            return obj->prefixlen / 8;
+        }
+    };
+
+
+    typedef int SequenceLength;
+
+    typedef EvpnPrefixLen Setter;
+};
+
+class BgpPathAttributeMpEvpnNlri : public ProtoSequence<BgpPathAttributeMpEvpnNlri> {
+public:
+    static const int kMinOccurs = 0;
+    static const int kMaxOccurs = -1;
+
+    struct OptMatch {
+        bool match(const BgpMpNlri *obj) {
+            return ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn));
+        }
+    };
+
+    typedef OptMatch ContextMatch;
+
+    typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
+            &BgpMpNlri::nlri> ContextStorer;
+
+    typedef mpl::list<BgpEvpnNlriType, BgpEvpnNlriLen, BgpPrefixAddress> Sequence;
+};
+
+class BgpPathAttributeMpNlriChoice : public ProtoChoice<BgpPathAttributeMpNlriChoice> {
+public:
+    static const int kSize = 0;
+    struct MpChoice {
+        static void set(BgpMpNlri *obj, int &value) {
+            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
+                value = 1;
+            }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) {
+                value = 0;
+            }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
+                value = 0;
+            }
+        }
+
+        static int get(BgpMpNlri *obj) {
+            if ((obj->afi == BgpAf::L2Vpn) && (obj->safi == BgpAf::EVpn)) {
+                return 1;
+            }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Unicast)) {
+                return 0;
+            }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
+                return 0;
+            }
+            return -1;
+        }
+    };
+
+    typedef MpChoice Setter;
+    typedef mpl::map<
+          mpl::pair<mpl::int_<0>, BgpPathAttributeMpNlri>,
+          mpl::pair<mpl::int_<1>, BgpPathAttributeMpEvpnNlri>
+    > Choice;
 };
 
 class BgpPathAttributeMpReachNlriSequence :
@@ -809,7 +902,7 @@ public:
                   BgpAttributeValue<1, BgpMpNlri, uint8_t, &BgpMpNlri::safi>,
                   BgpPathAttributeMpNlriNextHop,
                   BgpPathAttributeReserved,
-                  BgpPathAttributeMpNlri> Sequence;
+                  BgpPathAttributeMpNlriChoice> Sequence;
 };
 
 class BgpPathAttributeMpUnreachNlriSequence :
@@ -826,7 +919,7 @@ public:
     typedef mpl::list<BgpPathAttrLength,
                   BgpAttributeValue<2, BgpMpNlri, uint16_t, &BgpMpNlri::afi>,
                   BgpAttributeValue<1, BgpMpNlri, uint8_t, &BgpMpNlri::safi>,
-                  BgpPathAttributeMpNlri> Sequence;
+                  BgpPathAttributeMpNlriChoice> Sequence;
 };
 
 class BgpPathAttrUnknownValue : public ProtoElement<BgpPathAttrUnknownValue> {
@@ -978,7 +1071,12 @@ int BgpProto::Encode(const BgpMessage *msg, uint8_t *data, size_t size,
 int BgpProto::Encode(const BgpMpNlri *msg, uint8_t *data, size_t size,
                      EncodeOffsets *offsets) {
     EncodeContext ctx;
-    int result = BgpPathAttributeMpNlri::Encode(&ctx, msg, data, size);
+    int result = 0;
+    if ((msg->afi == BgpAf::L2Vpn) && (msg->safi == BgpAf::EVpn)) {
+        result = BgpPathAttributeMpEvpnNlri::Encode(&ctx, msg, data, size);
+    } else {
+        result = BgpPathAttributeMpNlri::Encode(&ctx, msg, data, size);
+    }
     if (offsets) {
         *offsets = ctx.encode_offsets();
     }

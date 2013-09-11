@@ -124,11 +124,9 @@ void HttpConnection::HttpPutInternal(std::string put_string, std::string path,  
     curl_handle->connection = this;
     set_curl_handle(curl_handle);
 
-    buf_.assign(path);
     cb_ = cb;
 
     std::string url = make_url(path);
-    set_put_string(curl_handle_, buf_.c_str());
     set_url(curl_handle_, url.c_str());
     set_put_string(curl_handle_, put_string.c_str());
 

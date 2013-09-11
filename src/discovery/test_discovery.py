@@ -55,10 +55,13 @@ class TestDiscService():
             if self.args.subscribe_type is None:
                 print 'Subscribe type (sync or async) must be specified'
                 sys.exit()
-
-        if self.args.oper == 'publish':
+        elif self.args.oper == 'publish':
             if self.args.service_data is None or self.args.service_type is None:
                 print 'Service name and data required for publish operation'
+                sys.exit()
+        elif self.args.oper == 'pubtest':
+            if self.args.service_type is None:
+                print 'Service name required for pubtest operation'
                 sys.exit()
 
         print 'Discovery server = %s:%s' %(self.args.server_ip, self.args.server_port)
@@ -101,13 +104,10 @@ def main(args_str = None):
         gevent.joinall([task])
     elif x.args.oper == 'pubtest':
         tasks = []
-        for i in range(2):
-            ip = '1.1.1.%d' %(i)
-            port = '11%02d' %(i)
-            s = services.Ifmapservice(ip, port)
-            print 'Publish: service-type %s at %s:%s' \
-                %(s.service_type, s.ip_addr, s.port)
-            task = disc.publish_obj(s)
+        for i in range(x.args.count):
+            data = '%s-%d' %(x.args.service_type, i)
+            print 'Publish: service-type %s, data %s' %(x.args.service_type, data)
+            task = disc.publish(x.args.service_type, data)
             tasks.append(task)
         gevent.joinall(tasks)
     elif x.args.oper == 'update_service':

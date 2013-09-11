@@ -18,7 +18,7 @@ template <> Proto<DiagPktHandler> *Proto<DiagPktHandler>::instance_ = NULL;
 
 DiagEntry::DiagEntry(int timeout, int count):
     timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(Agent::GetEventManager())->io_service(), 
+    timer_(TimerManager::CreateTimer(*(Agent::GetInstance()->GetEventManager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 
@@ -135,10 +135,10 @@ bool DiagTable::Process(DiagEntryOp *op) {
 }
 
 DiagTable::DiagTable() {
-    Proto<DiagPktHandler>::Init("Agent::Diag", PktHandler::DIAG, 
-                        *(Agent::GetEventManager())->io_service());
+    Proto<DiagPktHandler>::Init("Agent::GetInstance()->Diag", PktHandler::DIAG, 
+                        *(Agent::GetInstance()->GetEventManager())->io_service());
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
-                    (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
+                    (TaskScheduler::GetInstance()->GetTaskId("Agent::GetInstance()->Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));
     index_ = 1;
     Ping::PingInit();

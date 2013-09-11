@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
 
 #include "cmn/agent_cmn.h"
 #include "oper/interface.h"
@@ -41,7 +42,7 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
         tap_ = new TestTapInterface("test", io_serv,
                    boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
     assert(tap_ != NULL);
-    Agent::GetVrfTable()->Register(
+    Agent::GetInstance()->GetVrfTable()->Register(
             boost::bind(&PktHandler::VrfUpdate, this, _1, _2));
 }
 
@@ -54,23 +55,23 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     VrfEntry *vrf_entry = static_cast<VrfEntry *>(entry);
 
     // Do not create the routes for the default VRF
-    if (Agent::GetDefaultVrf() == vrf_entry->GetName())
+    if (Agent::GetInstance()->GetDefaultVrf() == vrf_entry->GetName())
         return;
 
     Inet4UcRouteTable *rt_table = vrf_entry->GetInet4UcRouteTable();
 
     // In XenMode the link-local interface is configured in a separate
     // instance. Otherwise it is available on the VRF as a NATed address.
-    if (!Agent::isXenMode()) {
+    if (!Agent::GetInstance()->isXenMode()) {
         if (entry->IsDeleted()) {
-            rt_table->DeleteReq(Agent::GetMdataPeer(), vrf_entry->GetName(),
+            rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), vrf_entry->GetName(),
                                 Ip4Address(METADATA_IP_ADDR), 32);
         } else {
-            rt_table->AddVHostRecvRoute(Agent::GetMdataPeer(),
+            rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
                                         vrf_entry->GetName(),
-                                        Agent::GetVirtualHostInterfaceName(),
+                                        Agent::GetInstance()->GetVirtualHostInterfaceName(),
                                         Ip4Address(METADATA_IP_ADDR),
-                                        Agent::GetLinkLocalVnName(),
+                                        Agent::GetInstance()->GetLinkLocalVnName(),
                                         true);
         }
     }
@@ -105,10 +106,10 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     Interface *intf = NULL;
     uint8_t *pkt;
 
-    AgentStats::IncrPktExceptions();
+    AgentStats::GetInstance()->IncrPktExceptions();
     if ((pkt = ParseAgentHdr(pkt_info)) == NULL) {
         PKT_TRACE(Err, "Error parsing Agent Header");
-        AgentStats::IncrPktInvalidAgentHdr();
+        AgentStats::GetInstance()->IncrPktInvalidAgentHdr();
         goto drop;
     }
 
@@ -117,7 +118,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         std::stringstream str;
         str << pkt_info->GetAgentHdr().ifindex;
         PKT_TRACE(Err, "Invalid interface index <" + str.str() + ">");
-        AgentStats::IncrPktInvalidInterface();
+        AgentStats::GetInstance()->IncrPktInvalidInterface();
         goto enqueue;
     }
     ParseUserPkt(pkt_info, intf, pkt_type, pkt);
@@ -183,10 +184,10 @@ enqueue:
         }
         return;
     }
-    AgentStats::IncrPktNoHandler();
+    AgentStats::GetInstance()->IncrPktNoHandler();
 
 drop:
-    AgentStats::IncrPktDropped();
+    AgentStats::GetInstance()->IncrPktDropped();
     delete pkt_info;
     return;
 }
@@ -251,13 +252,20 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
         break;
     }
 
-    case IPPROTO_ICMP:
+    case IPPROTO_ICMP: {
         pkt_info->transp.icmp = (icmphdr *) pkt;
-        // pkt += sizeof(icmphdr);
         pkt_type = PktType::ICMP;
-        pkt_info->dport = 0;
-        pkt_info->sport = 0;
+
+        icmphdr *icmp = (icmphdr *)pkt;
+        pkt_info->dport = icmp->type;
+        if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
+            pkt_info->dport = ICMP_ECHOREPLY;
+            pkt_info->sport = htons(icmp->un.echo.id);
+        } else {
+            pkt_info->sport = 0;
+        }
         break;
+    }
 
     default: {
         pkt_type = PktType::IPV4;
@@ -333,7 +341,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     pkt_type = PktType::INVALID;
     // Decap only IP-DA is ours
-    if (pkt_info->ip_daddr != Agent::GetRouterId().to_ulong()) {
+    if (pkt_info->ip_daddr != Agent::GetInstance()->GetRouterId().to_ulong()) {
         PKT_TRACE(Err, "Tunnel packet not destined to me. Ignoring");
         return pkt;
     }
@@ -368,7 +376,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
 
     MplsLabel *label = 
-        Agent::GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
+        Agent::GetInstance()->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
     if (label == NULL) {
         std::stringstream str;
         str << pkt_info->tunnel.label;

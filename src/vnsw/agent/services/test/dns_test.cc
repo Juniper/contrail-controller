@@ -83,22 +83,23 @@ std::string auth_data[MAX_ITEMS] = {"8.8.8.254",
                                     "67.49.23.254",
                                     "127.0.0.1" };
 
-#define CHECK_CONDITION(condition)  count = 0;                           \
-                                    do {                                 \
-                                        usleep(1000);                    \
-                                        client->WaitForIdle();           \
-                                        stats = DnsHandler::GetStats();  \
-                                        if (++count == MAX_WAIT_COUNT)   \
-                                            assert(0);                   \
-                                    } while (condition);                 \
+#define CHECK_CONDITION(condition)                                       \
+            count = 0;                                                   \
+            do {                                                         \
+                usleep(1000);                                            \
+                client->WaitForIdle();                                   \
+                stats = Agent::GetInstance()->GetDnsProto()->GetStats(); \
+                if (++count == MAX_WAIT_COUNT)                           \
+                    assert(0);                                           \
+            } while (condition);                                         \
 
 class DnsTesting : public ::testing::Test {
 public:
     DnsTesting() { 
-        Agent::SetXmppServer("127.0.0.1", 0);
-        Agent::SetXmppCfgServer("127.0.0.1", 0);
-        Agent::SetXmppDnsCfgServer(0);
-        rid_ = Agent::GetInterfaceTable()->Register(
+        Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+        Agent::GetInstance()->SetXmppCfgServer("127.0.0.1", 0);
+        Agent::GetInstance()->SetXmppDnsCfgServer(0);
+        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                 boost::bind(&DnsTesting::ItfUpdate, this, _2));
         for (int i = 0; i < MAX_ITEMS; i++) {
             a_items[i].eclass   = ptr_items[i].eclass   = DNS_CLASS_IN;
@@ -136,7 +137,7 @@ public:
         }
     }
     ~DnsTesting() { 
-        Agent::GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -172,7 +173,7 @@ public:
         return itf_id_; 
     }
 
-    void CHECK_STATS(DnsHandler::DnsStats &stats, int req, int res,
+    void CHECK_STATS(DnsProto::DnsStats &stats, int req, int res,
                      int rexmit, int unsupp, int fail, int drop) {
         EXPECT_EQ(req, stats.requests);
         EXPECT_EQ(res, stats.resolved);
@@ -312,7 +313,10 @@ class AsioRunEvent : public Task {
 public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
-    bool Run() { Agent::GetEventManager()->Run();};
+    bool Run() {
+        Agent::GetInstance()->GetEventManager()->Run();
+        return true;
+    }
 };
 
 TEST_F(DnsTesting, VirtualDnsReqTest) {
@@ -357,7 +361,7 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     usleep(1000);
     client->WaitForIdle();
     SendDnsResp(1, a_items, 1, auth_items, 1, add_items);
-    DnsHandler::DnsStats stats;
+    DnsProto::DnsStats stats;
     int count = 0;
     CHECK_CONDITION(stats.resolved < 1);
     CHECK_STATS(stats, 3, 1, 2, 0, 0, 0);
@@ -402,16 +406,16 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 8, 4, 2, 1, 1, 0);
 
-    DnsProto::SetTimeout(30);
-    DnsProto::SetMaxRetries(1);
+    Agent::GetInstance()->GetDnsProto()->SetTimeout(30);
+    Agent::GetInstance()->GetDnsProto()->SetMaxRetries(1);
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
     g_xid++;
     usleep(100000); // wait for retry timer to expire
     client->WaitForIdle();
     CHECK_CONDITION(stats.drop < 1);
     CHECK_STATS(stats, 9, 4, 2, 1, 1, 1);
-    DnsProto::SetTimeout(2000);
-    DnsProto::SetMaxRetries(2);
+    Agent::GetInstance()->GetDnsProto()->SetTimeout(2000);
+    Agent::GetInstance()->GetDnsProto()->SetMaxRetries(2);
 
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, true);
     client->WaitForIdle();
@@ -434,7 +438,7 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
 
     IntfCfgDel(input, 0);
     WaitForItfUpdate(0);
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
 TEST_F(DnsTesting, DnsXmppTest) {
@@ -464,7 +468,7 @@ TEST_F(DnsTesting, DnsXmppTest) {
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1");
     client->WaitForIdle();
 
-    DnsHandler::DnsStats stats;
+    DnsProto::DnsStats stats;
     int count = 0;
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, true);
     client->WaitForIdle();
@@ -495,7 +499,7 @@ TEST_F(DnsTesting, DnsXmppTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
 TEST_F(DnsTesting, DefaultDnsReqTest) {
@@ -527,14 +531,14 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 2, query_items);
     usleep(1000);
     client->WaitForIdle();
-    DnsHandler::DnsStats stats;
+    DnsProto::DnsStats stats;
     int count = 0;
     usleep(1000);
     CHECK_CONDITION(stats.resolved < 1);
     EXPECT_EQ(2U, stats.requests);
     EXPECT_TRUE(stats.resolved == 1 || stats.resolved == 2);
     EXPECT_TRUE(stats.retransmit_reqs == 1 || stats.resolved == 2);
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     DnsItem ptr_query_items[MAX_ITEMS] = ptr_items;
     ptr_query_items[0].name     = "1.0.0.127.in-addr.arpa";
@@ -544,7 +548,7 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
     CHECK_CONDITION(stats.resolved < 1);
     EXPECT_EQ(1U, stats.requests);
     EXPECT_EQ(1U, stats.resolved);
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 
     // Failure response
     query_items[0].name     = "test.non-existent.domain";
@@ -566,13 +570,13 @@ TEST_F(DnsTesting, DefaultDnsReqTest) {
 
     IntfCfgDel(input, 0);
     WaitForItfUpdate(0);
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 
 #if 0
 TEST_F(DnsTesting, DnsDropTest) {
     SendDnsReq(ifindex, 1, DNS_A_RECORD);
-    DnsHandler::DnsStats stats;
+    DnsProto::DnsStats stats;
     int count = 0;
     do {
         usleep(1000);
@@ -583,12 +587,13 @@ TEST_F(DnsTesting, DnsDropTest) {
     } while (stats.drop < 1);
     EXPECT_EQ(1U, stats.requests);
     EXPECT_EQ(1U, stats.drop);
-    DnsHandler::ClearStats();
+    Agent::GetInstance()->GetDnsProto()->ClearStats();
 }
 #endif
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetEventManager()), Agent::GetDB());
+    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
+                                  Agent::GetInstance()->GetDB());
 
     // Parse config and then connect
     VNController::Connect();

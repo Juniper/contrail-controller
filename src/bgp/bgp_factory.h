@@ -18,6 +18,7 @@ class EventManager;
 class InetMcastTable;
 class IPeer;
 class McastTreeManager;
+class PeerManager;
 class PeerCloseManager;
 class PeerRibMembershipManager;
 class RibOut;
@@ -27,14 +28,14 @@ class RoutingInstanceMgr;
 class StateMachine;
 
 class BgpObjectFactory : public Factory<BgpObjectFactory> {
-    FACTORY_TYPE_N1(BgpObjectFactory, BgpExport,
-                    RibOut *);
-    FACTORY_TYPE_N1(BgpObjectFactory, PeerRibMembershipManager, 
-                    BgpServer *);
-    FACTORY_TYPE_N1(BgpObjectFactory, RibOutUpdates,
-                    RibOut *);
-    FACTORY_TYPE_N1(BgpObjectFactory, RoutingInstanceMgr, 
-                    BgpServer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);
+    FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, InetMcastTable *);
+    FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, PeerManager, RoutingInstance *);
+    FACTORY_TYPE_N1(BgpObjectFactory, PeerRibMembershipManager, BgpServer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, RibOutUpdates, RibOut *);
+    FACTORY_TYPE_N1(BgpObjectFactory, RoutingInstanceMgr, BgpServer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);
     FACTORY_TYPE_N3(BgpObjectFactory, BgpPeer,
@@ -42,9 +43,6 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N4(BgpObjectFactory, RoutingInstance,
                     std::string, BgpServer *, RoutingInstanceMgr *,
                     const BgpInstanceConfig *);
-    FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeer *);
-    FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
-    FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, InetMcastTable *);
 };
 
 #endif

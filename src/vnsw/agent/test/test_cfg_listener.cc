@@ -273,7 +273,7 @@ public:
         vn_table = AgentConfig::GetVnTable();
         vm_table = AgentConfig::GetVmTable();
         link_table = static_cast<IFMapAgentLinkTable *>
-            (Agent::GetDB()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
+            (Agent::GetInstance()->GetDB()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
 
         WAIT_FOR(100, 10000, (vn_table->Size() == 0));
         WAIT_FOR(100, 10000, (vm_table->Size() == 0));

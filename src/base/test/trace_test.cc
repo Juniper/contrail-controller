@@ -10,22 +10,27 @@ namespace {
 class TraceTest : public ::testing::Test {
 };
 
-TEST_F(TraceTest, 1MillionIntWrite) {
+class TraceStruct {
+    char data[4096];
+};
+
+TEST_F(TraceTest, DISABLED_1MillionTraceWrite) {
     // Enable trace
-    Trace<int>::GetInstance()->TraceOn();
+    Trace<TraceStruct>::GetInstance()->TraceOn();
     // Create tracebuffer
-    boost::shared_ptr<TraceBuffer<int> > trace_buf(
-            Trace<int>::GetInstance()->TraceBufAdd("1MillionIntWriteTraceBuf",
+    boost::shared_ptr<TraceBuffer<TraceStruct> > trace_buf(
+            Trace<TraceStruct>::GetInstance()->TraceBufAdd("1MillionWriteTraceBuf",
             1000, true));
     // Write 1 million entries to the tracebuf
     for (int i = 0; i < 1000000; i++) {
-        trace_buf->TraceWrite(i);
+        TraceStruct *ni(new TraceStruct);
+        trace_buf->TraceWrite(ni);
     }
 }
 } // namespace
 
-template<> Trace<int>
-        *Trace<int>::trace_ = NULL;
+template<> Trace<TraceStruct>
+        *Trace<TraceStruct>::trace_ = NULL;
 
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

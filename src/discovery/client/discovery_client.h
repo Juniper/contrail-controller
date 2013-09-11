@@ -25,15 +25,8 @@ class DiscoveryServiceClientMock;
 
 struct DSResponse {
 
-   enum Status {
-       SERVICE_UP,
-       SERVICE_DOWN
-   };
-
    boost::asio::ip::tcp::endpoint  ep;
-   Status status;
    uint32_t ttl;
-
 };
 
 struct DSResponseHeader {
@@ -169,12 +162,5 @@ private:
     bool DequeueEvent(EnqueuedCb);
     WorkQueue<EnqueuedCb> work_queue_;
 };
-
-extern SandeshTraceBufferPtr DiscoveryClientTraceBuf;
-
-#define DISCOVERY_CLIENT_TRACE(obj, ...)\
-do {\
-    obj::TraceMsg(DiscoveryClientTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
-} while(0);\
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__

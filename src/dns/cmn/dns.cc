@@ -65,7 +65,9 @@ void Dns::SetTaskSchedulingPolicy() {
     scheduler->SetPolicy(scheduler->GetTaskId("dns::BindStatus"), bindstatus_exclude);
 
     TaskPolicy exclude_io = boost::assign::list_of
-        (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")));
+        (TaskExclusion(scheduler->GetTaskId("io::ReaderTask")))
+        (TaskExclusion(scheduler->GetTaskId("sandesh::RecvQueue")))
+        (TaskExclusion(scheduler->GetTaskId("http::RequestHandlerTask")));
     scheduler->SetPolicy(scheduler->GetTaskId("xmpp::StateMachine"),
                          exclude_io);
 

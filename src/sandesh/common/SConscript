@@ -41,5 +41,5 @@ env.Install(env['TOP_INCLUDE'] + '/sandesh/common', SandeshGenHdrs)
 # Generate the Python source files
 SandeshGenPyFiles  = env.SandeshGenPy('mirror.sandesh')
 SandeshGenPyFiles += env.SandeshGenPy('flow.sandesh')
-SandeshGenPyFiles += env.SandeshGenPy('vns.sandesh')
-  
+SandeshGenPyFiles += env.SandeshGenPy('vns.sandesh')  
+

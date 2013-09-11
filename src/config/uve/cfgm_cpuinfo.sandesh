@@ -9,6 +9,7 @@ include "base/sandesh/cpuinfo.sandesh"
 struct  ModuleCpuInfo {
     1: string module_id
     2: cpuinfo.CpuLoadInfo cpu_info
+    3: optional list<cpuinfo.ProcessState>         process_state_list (aggtype="union")
 }
 
 // This struct is part of the Config None UVE. 
@@ -24,6 +25,13 @@ struct  ModuleCpuState {
     3: optional list<ModuleCpuInfo> module_cpu_info (aggtype="union")
     4: optional string build_info
     5: optional string config_node_ip
+    6: optional double api_server_cpu_share (aggtype="stats")
+    7: optional double schema_xmer_cpu_share (aggtype="stats")
+    8: optional double service_monitor_cpu_share (aggtype="stats")
+    9: optional u32 api_server_mem_virt (aggtype="stats", hbin="100000")
+    10: optional u32 schema_xmer_mem_virt (aggtype="stats", hbin="100000")
+    11: optional u32 service_monitor_mem_virt (aggtype="stats", hbin="100000")
+
 }
 uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState data

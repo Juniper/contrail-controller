@@ -11,7 +11,7 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include "xmpp/xmpp_channel.h"
-#include "bgp_l3vpn_unicast_types.h"
+#include "xmpp_unicast_types.h"
 
 class Inet4Route;
 class Peer;

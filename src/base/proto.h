@@ -332,7 +332,7 @@ private:
 
 template <typename Setter, typename T>
 struct ChoiceSetter {
-    void operator()(T *obj, int value) {
+    void operator()(T *obj, int &value) {
         Setter::set(obj, value);
     }
 };

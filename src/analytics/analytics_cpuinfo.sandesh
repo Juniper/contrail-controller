@@ -26,6 +26,10 @@ struct  ModuleCpuState {
     5: optional double                     collector_cpu_share (aggtype="stats",hbin="0.1")
     6: optional double                     queryengine_cpu_share (aggtype="stats",hbin="0.1")
     7: optional double                     opserver_cpu_share (aggtype="stats",hbin="0.1")
+    8: optional list<cpuinfo.ProcessState>         process_state_list (aggtype="union")
+    9: optional u32                        collector_mem_virt (aggtype="stats", hbin="100000")
+    10: optional u32                       queryengine_mem_virt (aggtype="stats", hbin="100000")
+    11: optional u32                       opserver_mem_virt (aggtype="stats", hbin="100000")
 }
 uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState                   data

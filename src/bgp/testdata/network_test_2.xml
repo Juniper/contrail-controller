@@ -521,6 +521,9 @@
                 </uuid>
                 <enable>true</enable>
               </contrail:id-perms>
+              <virtual-network-properties>
+                <network-id>1</network-id>
+              </virtual-network-properties>
             </metadata>
           </resultItem>
           <resultItem>
@@ -1666,6 +1669,9 @@
                 </uuid>
                 <enable>true</enable>
               </contrail:id-perms>
+              <virtual-network-properties>
+                <network-id>2</network-id>
+              </virtual-network-properties>
             </metadata>
           </resultItem>
           <resultItem>

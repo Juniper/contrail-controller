@@ -69,6 +69,7 @@ void EvpnPrefix::BuildProtoPrefix(uint32_t label,
     int num_bytes = (prefix->prefixlen + 7) / 8;
 
     prefix->prefix.clear();
+    prefix->type = 2;
     prefix->prefix.resize(num_bytes, 0);
 
     size_t rd_offset = 0;

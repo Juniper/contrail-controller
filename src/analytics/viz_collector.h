@@ -36,24 +36,23 @@ public:
     ~VizCollector();
 
     std::string name() { return name_; }
-    void Init();
-    void ReInit();
+    bool Init();
     void Shutdown();
+    static void WaitForIdle();
 
-    DbHandler *GetDbHandler() {
+    DbHandler *GetDbHandler() const {
         return db_handler_.get();
     }
-    Collector *GetCollector() {
+    Collector *GetCollector() const {
         return collector_;
     }
-    Ruleeng *GetRuleeng() {
+    Ruleeng *GetRuleeng() const {
         return ruleeng_.get();
     }
-    OpServerProxy *GetOsp() {
+    OpServerProxy *GetOsp() const {
         return osp_.get();
     }
     bool SendRemote(const std::string& destination, const std::string& dec_sandesh);
-
 
 private:
     EventManager *evm_;
@@ -63,11 +62,12 @@ private:
     Collector *collector_;
     std::string name_;
 
-    boost::asio::deadline_timer dbif_timer_;
+    Timer *dbif_timer_;
 
     void Ruleeng_Initialize(); 
     void DbifReinit_fromdb();
-    void DbifReinit(const boost::system::error_code &error);
+    bool DbifReinitTimerExpired();
+    void DbifReinitTimerErrorHandler(std::string error_name, std::string error_message);
     void StartDbifReinitTimer();
     void StartDbifReinit();
 

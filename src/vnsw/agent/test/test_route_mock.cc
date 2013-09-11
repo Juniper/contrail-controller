@@ -64,18 +64,18 @@ void StartControlNodeMock() {
     thread1 = new ServerThread(&evm1);
     bgp_peer1 = new test::ControlNodeMock(&evm1, "127.0.0.1");
     
-    Agent::SetXmppServer("127.0.0.1", 0);
-    Agent::SetXmppPort(bgp_peer1->GetServerPort(), 0);
-    Agent::SetDnsXmppServer("", 0);
-    Agent::SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
+    Agent::GetInstance()->SetXmppPort(bgp_peer1->GetServerPort(), 0);
+    Agent::GetInstance()->SetDnsXmppServer("", 0);
+    Agent::GetInstance()->SetDnsXmppPort(bgp_peer1->GetServerPort(), 0);
 
     thread2 = new ServerThread(&evm2);
     bgp_peer2 = new test::ControlNodeMock(&evm2, "127.0.0.1");
     
-    Agent::SetXmppServer("127.0.0.1", 1);
-    Agent::SetXmppPort(bgp_peer2->GetServerPort(), 1);
-    Agent::SetDnsXmppServer("", 1);
-    Agent::SetDnsXmppPort(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->SetXmppServer("127.0.0.1", 1);
+    Agent::GetInstance()->SetXmppPort(bgp_peer2->GetServerPort(), 1);
+    Agent::GetInstance()->SetDnsXmppServer("", 1);
+    Agent::GetInstance()->SetDnsXmppPort(bgp_peer2->GetServerPort(), 1);
     thread1->Start();
     thread2->Start();
 }
@@ -83,8 +83,8 @@ void StartControlNodeMock() {
 void StopControlNodeMock() {
     VNController::DisConnect();
     client->WaitForIdle();
-    TcpServerManager::DeleteServer(Agent::GetAgentXmppClient(0));
-    TcpServerManager::DeleteServer(Agent::GetAgentXmppClient(1));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
+    TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(1));
 
     bgp_peer1->Shutdown();
     client->WaitForIdle();
@@ -142,7 +142,7 @@ TEST_F(RouteTest, RouteTest_1) {
 
     //Get Local path
     const NextHop *local_nh = 
-        rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+        rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh == bgp_nh);
 
@@ -174,7 +174,7 @@ TEST_F(RouteTest, RouteTest_2) {
 
     //Local path and BGP path would point to same NH
     const NextHop *local_nh = 
-        rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+        rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     const NextHop *bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh == bgp_nh);
 
@@ -183,7 +183,7 @@ TEST_F(RouteTest, RouteTest_2) {
     AddLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortPolicyEnabled(input, 0));
-    local_nh = rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+    local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     bgp_nh = rt->GetActiveNextHop();
     EXPECT_TRUE(local_nh->PolicyEnabled() == true);
     EXPECT_TRUE(bgp_nh->PolicyEnabled() == true);
@@ -194,7 +194,7 @@ TEST_F(RouteTest, RouteTest_2) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortPolicyEnabled(input, 0));
-    local_nh = rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+    local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     bgp_nh = rt->GetActiveNextHop();
     EXPECT_FALSE(local_nh->PolicyEnabled() == true);
     EXPECT_FALSE(bgp_nh->PolicyEnabled() == true);
@@ -432,7 +432,7 @@ TEST_F(RouteTest, EcmpRouteTest_1) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 3);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(local_nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 3);
@@ -472,7 +472,7 @@ TEST_F(RouteTest, EcmpRouteTest_2) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 4);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(local_nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 2);
@@ -529,7 +529,7 @@ TEST_F(RouteTest, EcmpRouteTest_3) {
     const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
     WAIT_FOR(100, 10000, comp_nh->ComponentNHCount() == 4);
 
-    const NextHop *local_nh = rt->FindPath(Agent::GetLocalVmPeer())->GetNextHop();
+    const NextHop *local_nh = rt->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
     EXPECT_TRUE(local_nh->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(bgp_nh != local_nh);
 
@@ -561,9 +561,9 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
@@ -584,9 +584,9 @@ TEST_F(RouteTest, EcmpRouteTest_4) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");
@@ -610,9 +610,9 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
 
     //Leak route to vrf2
     bgp_peer1->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     bgp_peer2->AddRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
 
     WAIT_FOR(100, 10000, (RouteGet("vrf2", ip, 32) != NULL));
@@ -643,15 +643,57 @@ TEST_F(RouteTest, EcmpRouteTest_5) {
  
     //Delete route leaked to vrf2
     bgp_peer1->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     bgp_peer2->DeleteRoute("vrf2", "1.1.1.1/32", 
-            Agent::GetRouterId().to_string().c_str(), 18, "vn1");
+            Agent::GetInstance()->GetRouterId().to_string().c_str(), 18, "vn1");
     client->WaitForIdle();
     WAIT_FOR(100, 10000, RouteFind("vrf2", ip, 32) == false);
     DelVrf("vrf2");
     DelVn("vn2");
 }
  
+//Test to ensure composite NH, only has non policy enabled
+//interface nexthopss 
+TEST_F(RouteTest, EcmpRouteTest_7) {
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    //Create VM interface with polcy
+    struct PortInfo input1[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    CreateVmportEnv(input1, 1, 1);
+    client->WaitForIdle();
+
+    //Add couple of routes hosted at different servers
+    bgp_peer1->AddRoute("vrf1", "1.1.1.1/32", "10.10.10.10", 16, "vn1");
+    bgp_peer1->AddRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
+
+    bgp_peer2->AddRoute("vrf1", "1.1.1.1/32", "10.10.10.10", 16, "vn1");
+    bgp_peer2->AddRoute("vrf1", "1.1.1.1/32", "11.11.11.11", 17, "vn1");
+    client->WaitForIdle();
+
+    WAIT_FOR(100, 10000, (RouteGet("vrf1", ip, 32) != NULL));
+    Inet4UcRoute *rt = RouteGet("vrf1", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    WAIT_FOR(100, 10000, rt->GetPathList().size() == 3);
+    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() == Peer::BGP_PEER);
+    WAIT_FOR(100, 10000, rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+
+    //Expect route to point to composite NH
+    const NextHop *bgp_nh = rt->GetActiveNextHop();
+    const CompositeNH *comp_nh = static_cast<const CompositeNH *>(bgp_nh);
+
+    //Verfiy that all members of component NH are correct 
+    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    EXPECT_TRUE((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE);
+    const  InterfaceNH *intf_nh =
+        static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
+    EXPECT_TRUE(intf_nh->PolicyEnabled() == false);
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();

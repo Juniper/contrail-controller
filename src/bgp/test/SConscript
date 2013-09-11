@@ -25,6 +25,7 @@ env.Append(LIBPATH = ['#/' + Dir('..').path,
                       '../../io',
                       '../../ifmap',
                       '../../net',
+                      '../origin-vn',
                       '../rtarget',
                       '../routing-instance',
                       '../../route',
@@ -84,9 +85,9 @@ else:
 env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])
 env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast', 'bgp_l3vpn'])
 env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
-env.Append(LIBS = ['security_group', 'tunnel_encap'])
-env.Append(LIBS = ['xmpp', 'bgp_l3vpn_unicast', 'bgp_l3vpn_multicast',
-                   'bgp_l3vpn_multicast_msg', 'xmpp_enet', 'xml', 'pugixml',
+env.Append(LIBS = ['origin_vn', 'security_group', 'tunnel_encap'])
+env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
+                   'xmpp_multicast', 'xmpp_enet', 'xml', 'pugixml',
                    'boost_regex', 'boost_program_options'])
 
 if sys.platform != 'darwin':
@@ -226,6 +227,10 @@ routepath_replicator_test = env.UnitTest('routepath_replicator_test',
                               ['routepath_replicator_test.cc'])
 env.Alias('src/bgp:routepath_replicator_test', routepath_replicator_test)
 
+routing_instance_mgr_test = env.UnitTest('routing_instance_mgr_test',
+                                         ['routing_instance_mgr_test.cc'])
+env.Alias('src/bgp:routing_instance_mgr_test', routing_instance_mgr_test)
+
 routing_instance_test = env.UnitTest('routing_instance_test',
                                      ['routing_instance_test.cc'])
 env.Alias('src/bgp:routing_instance_test', routing_instance_test)
@@ -246,6 +251,10 @@ service_chain_test = env.UnitTest('service_chain_test',
                                      ['service_chain_test.cc'])
 env.Alias('src/bgp:service_chain_test', service_chain_test)
 
+svc_static_route_intergration_test = env.UnitTest('svc_static_route_intergration_test',
+                                     ['svc_static_route_intergration_test.cc'])
+env.Alias('src/bgp:svc_static_route_intergration_test', svc_static_route_intergration_test)
+
 show_route_test = env.UnitTest('show_route_test',
                              ['show_route_test.cc'])
 env.Alias('src/bgp:show_route_test', show_route_test)
@@ -258,11 +267,11 @@ static_route_test = env.UnitTest('static_route_test',
                                  ['static_route_test.cc'])
 env.Alias('src/bgp:static_route_test', static_route_test)
 
-
 xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
                              ['xmpp_sess_toggle_test.cc'])
 env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 
+# All Tests
 test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
@@ -295,6 +304,7 @@ test_suite = [
     ribout_attributes_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
+    routing_instance_mgr_test,
     routing_instance_test,
     rt_network_attr_test,
     scheduling_group_test,
@@ -302,12 +312,27 @@ test_suite = [
     show_route_test,
     state_machine_test,
     static_route_test,
+    svc_static_route_intergration_test,
     xmpp_sess_toggle_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
 env.Alias('src/bgp:test', test)
 
+# Service Chain Related Tests
+sc_test_suite = [
+    bgp_condition_listener_test,
+    routepath_replicator_random_test,
+    routepath_replicator_test,
+    service_chain_test,
+    static_route_test,
+    svc_static_route_intergration_test,
+]
+
+sc_test = env.TestSuite('bgp-sc-test', sc_test_suite)
+env.Alias('src/bgp:sc_test', sc_test)
+
+# Stress Tests
 if 'BGP_STRESS_TEST_SUITE' in os.environ and \
         os.environ['BGP_STRESS_TEST_SUITE'] != "0":
     env.Alias('src/bgp:bgp_stress_test_suite', env.TestSuite('bgp-stress-test',

@@ -67,7 +67,7 @@ DBTableBase *InetMcastTable::CreateTable(DB *db, const std::string &name) {
 
 BgpRoute *InetMcastTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *path,
-        ExtCommunityPtr community, OriginVnPtr origin_vn) {
+        ExtCommunityPtr community) {
     return NULL;
 }
 

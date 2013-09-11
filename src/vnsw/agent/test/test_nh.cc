@@ -48,7 +48,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 static void WaitForIdle(uint32_t size, uint32_t max_retries) {
     do {
         client->WaitForIdle();
-    } while ((Agent::GetNextHopTable()->Size() == size) && max_retries-- > 0);
+    } while ((Agent::GetInstance()->GetNextHopTable()->Size() == size) && max_retries-- > 0);
 }
 
 static void CreateTunnelNH(const string &vrf_name, const Ip4Address &sip,
@@ -56,14 +56,14 @@ static void CreateTunnelNH(const string &vrf_name, const Ip4Address &sip,
                            TunnelType::TypeBmap bmap){
     DBRequest req;
     TunnelNHData *data = new TunnelNHData();
-    uint32_t table_size = Agent::GetNextHopTable()->Size();
+    uint32_t table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
     NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
                                       TunnelType::ComputeType(bmap)); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     WaitForIdle(table_size, 5);
 }
 
@@ -72,14 +72,14 @@ static void DeleteTunnelNH(const string &vrf_name, const Ip4Address &sip,
                            TunnelType::TypeBmap bmap){
     DBRequest req;
     TunnelNHData *data = new TunnelNHData();
-    uint32_t table_size = Agent::GetNextHopTable()->Size();
+    uint32_t table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
     NextHopKey *key = new TunnelNHKey(vrf_name, sip, dip, policy,
                                       TunnelType::ComputeType(bmap)); 
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(data);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     WaitForIdle(table_size, 5);
 }
 
@@ -91,35 +91,35 @@ TEST_F(CfgTest, TunnelNh_1) {
     NextHopKey *dscd_key = new DiscardNHKey();
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(dscd_key);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    TunnelType::AllType());
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), true,
                    TunnelType::AllType());
-    CreateTunnelNH(Agent::GetDefaultVrf(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(),
                    Ip4Address::from_string("30.30.30.30"),
                    Ip4Address::from_string("20.20.20.20"), true,
                    TunnelType::AllType());
-    CreateTunnelNH(Agent::GetDefaultVrf(), 
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), 
                    Ip4Address::from_string("33.30.30.30"),
                    Ip4Address::from_string("22.20.20.20"), false,
                    TunnelType::AllType());
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    TunnelType::AllType());
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), true,
                    TunnelType::AllType());
-    DeleteTunnelNH(Agent::GetDefaultVrf(), 
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), 
                    Ip4Address::from_string("30.30.30.30"),
                    Ip4Address::from_string("20.20.20.20"), true,
                    TunnelType::AllType());
-    DeleteTunnelNH(Agent::GetDefaultVrf(), 
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), 
                    Ip4Address::from_string("33.30.30.30"),
                    Ip4Address::from_string("22.20.20.20"), false,
                    TunnelType::AllType());
@@ -137,24 +137,24 @@ TEST_F(CfgTest, TunnelNh_2) {
     NextHopKey *dscd_key = new DiscardNHKey();
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(dscd_key);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_UDP));
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.10"),
                                      false, TunnelType::MPLS_UDP) == true));
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), true,
                    (1 << TunnelType::MPLS_UDP));
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.10"),
                                      true, TunnelType::MPLS_UDP)));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_UDP));
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), true,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -165,7 +165,7 @@ TEST_F(CfgTest, TunnelNh_2) {
 
 TEST_F(CfgTest, MirrorNh_1) {
     DBRequest req;
-    uint32_t table_size = Agent::GetNextHopTable()->Size();
+    uint32_t table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
     AddVrf("test_vrf");
     client->WaitForIdle();
@@ -174,61 +174,61 @@ TEST_F(CfgTest, MirrorNh_1) {
     NextHopKey *dscd_key = new DiscardNHKey();
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(dscd_key);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     client->WaitForIdle();
 
     MirrorNHKey key
-        (Agent::GetDefaultVrf(), Ip4Address::from_string("10.10.10.10"),
+        (Agent::GetInstance()->GetDefaultVrf(), Ip4Address::from_string("10.10.10.10"),
          10, Ip4Address::from_string("20.20.20.20"), 20);
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
     std::string analyzer_1 = "TestAnalyzer_1";
-    MirrorTable::AddMirrorEntry(analyzer_1, Agent::GetDefaultVrf(),
+    MirrorTable::AddMirrorEntry(analyzer_1, Agent::GetInstance()->GetDefaultVrf(),
             Ip4Address::from_string("10.10.10.10"), 10,
             Ip4Address::from_string("20.20.20.20"), 20);
     WaitForIdle(table_size, 5);
 
-    EXPECT_TRUE(Agent::GetNextHopTable()->FindActiveEntry(&key) != NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL);
 
     /* Test dport */
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
     std::string analyzer_2 = "TestAnalyzer_2";
-    MirrorTable::AddMirrorEntry(analyzer_2, Agent::GetDefaultVrf(),
+    MirrorTable::AddMirrorEntry(analyzer_2, Agent::GetInstance()->GetDefaultVrf(),
             Ip4Address::from_string("10.10.10.10"), 10,
             Ip4Address::from_string("20.20.20.20"), 30);
     MirrorNHKey mirror_dport_key
-        (Agent::GetDefaultVrf(), Ip4Address::from_string("10.10.10.10"),
+        (Agent::GetInstance()->GetDefaultVrf(), Ip4Address::from_string("10.10.10.10"),
          10, Ip4Address::from_string("20.20.20.20"), 30);
     WaitForIdle(table_size, 5);
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
-    EXPECT_TRUE(Agent::GetNextHopTable()->FindActiveEntry(&mirror_dport_key) != NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&mirror_dport_key) != NULL);
 
-    EXPECT_TRUE(Agent::GetNextHopTable()->FindActiveEntry(&key) != NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL);
 
     /* Delete Added mirror entries */
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
     MirrorTable::DelMirrorEntry(analyzer_1);
     WaitForIdle(table_size, 5);
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
     MirrorTable::DelMirrorEntry(analyzer_2);
     WaitForIdle(table_size, 5);
 }
 
 TEST_F(CfgTest, NhSandesh_1) {
-    uint32_t table_size = Agent::GetNextHopTable()->Size();
+    uint32_t table_size = Agent::GetInstance()->GetNextHopTable()->Size();
 
     VrfAddReq("test_vrf_sandesh");
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("100.1.1.10"), false,
                    TunnelType::AllType());
 
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
     std::string analyzer_1 = "AnalyzerNhSandesh_1";
     MirrorTable::AddMirrorEntry(analyzer_1,
-                          Agent::GetDefaultVrf(),
+                          Agent::GetInstance()->GetDefaultVrf(),
                           Ip4Address::from_string("100.10.10.10"), 100,
                           Ip4Address::from_string("200.20.20.20"), 200);
     WaitForIdle(table_size, 5);
@@ -243,11 +243,11 @@ TEST_F(CfgTest, NhSandesh_1) {
 
     client->WaitForIdle();
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("100.1.1.10"), false,
                    TunnelType::AllType());
 
-    table_size = Agent::GetNextHopTable()->Size();
+    table_size = Agent::GetInstance()->GetNextHopTable()->Size();
     MirrorTable::DelMirrorEntry(analyzer_1);
     WaitForIdle(table_size, 5);
 }
@@ -262,7 +262,7 @@ TEST_F(CfgTest, CreateVrfNh_1) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
     client->WaitForIdle();
 }
 
@@ -683,7 +683,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
     //Add a remote VM route
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
                                                            remote_vm_ip,
                                                            32, remote_server_ip1,
                                                            TunnelType::AllType(),
@@ -691,12 +691,12 @@ TEST_F(CfgTest, EcmpNH_5) {
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
-    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetDefaultVrf(), 
-                                          Agent::GetRouterId(),
+    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+                                          Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip1, false,
                                           TunnelType::DefaultType());
-    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetDefaultVrf(), 
-                                          Agent::GetRouterId(),
+    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+                                          Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip2, false,
                                           TunnelType::DefaultType());
 
@@ -708,7 +708,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     comp_nh_list.push_back(nh_data2);
     comp_nh_list.push_back(nh_data1);
 
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
                                                           remote_vm_ip, 32,
                                                           comp_nh_list, -1, 
                                                           "vn2", false);
@@ -734,7 +734,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
     EXPECT_TRUE((*component_nh_it)->GetLabel() == 20);
 
-    Agent::GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", remote_vm_ip, 32);
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", remote_vm_ip, 32);
     DelVrf("vrf2");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
@@ -752,7 +752,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
     Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
     //Add a remote VM route
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
                                                            remote_vm_ip,
                                                            32, remote_server_ip1,
                                                            TunnelType::AllType(),
@@ -760,12 +760,12 @@ TEST_F(CfgTest, EcmpNH_6) {
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
-    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetDefaultVrf(), 
-                                          Agent::GetRouterId(),
+    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+                                          Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip2, false,
                                           TunnelType::DefaultType());
-    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetDefaultVrf(), 
-                                          Agent::GetRouterId(),
+    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+                                          Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip3, false,
                                           TunnelType::DefaultType());
 
@@ -777,7 +777,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     comp_nh_list.push_back(nh_data1);
     comp_nh_list.push_back(nh_data2);
 
-    Agent::GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
                                                           remote_vm_ip, 32,
                                                           comp_nh_list, -1, 
                                                           "vn2", false);
@@ -803,7 +803,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
     EXPECT_TRUE((*component_nh_it)->GetLabel() == 20);
 
-    Agent::GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", remote_vm_ip, 32);
+    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", remote_vm_ip, 32);
     DelVrf("vrf2");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
@@ -813,15 +813,15 @@ TEST_F(CfgTest, TunnelType_1) {
     AddEncapList("MPLSoGRE", NULL, NULL);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    ((1 << TunnelType::MPLS_GRE) | (1 << TunnelType::MPLS_UDP)));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -835,15 +835,15 @@ TEST_F(CfgTest, TunnelType_1) {
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
                                      false, TunnelType::DefaultType()) == true));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::DefaultType()));
     client->WaitForIdle();
@@ -856,15 +856,15 @@ TEST_F(CfgTest, TunnelType_2) {
     AddEncapList("MPLSoUDP", NULL, NULL);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    ((1 << TunnelType::MPLS_GRE) | (1 << TunnelType::MPLS_UDP)));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -878,15 +878,15 @@ TEST_F(CfgTest, TunnelType_2) {
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
                                      false, TunnelType::MPLS_UDP) == true));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::DefaultType()));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -899,15 +899,15 @@ TEST_F(CfgTest, TunnelType_3) {
     AddEncapList("MPLSoGRE", "MPLSoUDP", NULL);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    ((1 << TunnelType::MPLS_GRE) | (1 << TunnelType::MPLS_UDP)));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -921,15 +921,15 @@ TEST_F(CfgTest, TunnelType_3) {
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
                                      false, TunnelType::MPLS_UDP) == true));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -942,15 +942,15 @@ TEST_F(CfgTest, TunnelType_4) {
     AddEncapList("MPLSoUDP", "MPLSoGRE", NULL);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    ((1 << TunnelType::MPLS_GRE) | (1 << TunnelType::MPLS_UDP)));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -964,15 +964,15 @@ TEST_F(CfgTest, TunnelType_4) {
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
                                      false, TunnelType::MPLS_UDP) == true));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::MPLS_UDP));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -985,15 +985,15 @@ TEST_F(CfgTest, TunnelType_5) {
     AddEncapList(NULL, NULL, NULL);
     client->WaitForIdle();
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    ((1 << TunnelType::MPLS_GRE) | (1 << TunnelType::MPLS_UDP)));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::MPLS_GRE));
 
-    CreateTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    CreateTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::MPLS_UDP));
     client->WaitForIdle();
@@ -1007,15 +1007,15 @@ TEST_F(CfgTest, TunnelType_5) {
     WAIT_FOR(100, 100, (TunnelNHFind(Ip4Address::from_string("10.1.1.12"),
                                      false, TunnelType::DefaultType()) == true));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.10"), false,
                    (1 << TunnelType::DefaultType()));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.11"), false,
                    (1 << TunnelType::DefaultType()));
 
-    DeleteTunnelNH(Agent::GetDefaultVrf(), Agent::GetRouterId(),
+    DeleteTunnelNH(Agent::GetInstance()->GetDefaultVrf(), Agent::GetInstance()->GetRouterId(),
                    Ip4Address::from_string("10.1.1.12"), false,
                    (1 << TunnelType::DefaultType()));
     client->WaitForIdle();

@@ -51,7 +51,7 @@ bool AgentIfMapXmppChannel::SendUpdate(const std::string &msg) {
 
 void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 
-    if (GetXmppServerIdx() != Agent::GetXmppCfgServerIdx()) {
+    if (GetXmppServerIdx() != Agent::GetInstance()->GetXmppCfgServerIdx()) {
         LOG(WARN, "IFMap config on non primary channel");
         return;
     }
@@ -61,7 +61,7 @@ void AgentIfMapXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
         XmlBase *impl = msg->dom.get();
         XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl);
         pugi::xml_node node = pugi->FindNode("config");
-        IFMapAgentParser *parser = Agent::GetIfMapAgentParser();
+        IFMapAgentParser *parser = Agent::GetInstance()->GetIfMapAgentParser();
         assert(parser);
         parser->ConfigParse(node, seq_number_);
     }
@@ -92,15 +92,19 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     vmid << entry->GetVmUuid();
     vmiid << entry->GetUuid();
     if (entry->IsDeleted()) {
-        assert(info);
+
+        //If delete already processed, neglect the delete
+        if (!info)
+            return;
 
         std::list<uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
                     info->vmi_list_.end(), entry->GetUuid());
-        assert(vmi_it != info->vmi_list_.end());
+        if (vmi_it == info->vmi_list_.end())
+            return;
 
-        if (Agent::GetXmppCfgServerIdx() != -1) {
-            peer = Agent::GetAgentXmppChannel(Agent::GetXmppCfgServerIdx());
-            ifmap = Agent::GetAgentIfMapXmppChannel(Agent::GetXmppCfgServerIdx());
+        if (Agent::GetInstance()->GetXmppCfgServerIdx() != -1) {
+            peer = Agent::GetInstance()->GetAgentXmppChannel(Agent::GetInstance()->GetXmppCfgServerIdx());
+            ifmap = Agent::GetInstance()->GetAgentIfMapXmppChannel(Agent::GetInstance()->GetXmppCfgServerIdx());
             if (peer && ifmap) {
                 if ((info->seq_number_ == ifmap->GetSeqNumber()) && 
                                         (info->vmi_list_.size() == 1)) {
@@ -141,17 +145,17 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
 
 
         //Ensure there is connection to control node
-        if (Agent::GetXmppCfgServerIdx() == -1) {
+        if (Agent::GetInstance()->GetXmppCfgServerIdx() == -1) {
             return;
         }
 
         //Ensure that peer exists
-        peer = Agent::GetAgentXmppChannel(Agent::GetXmppCfgServerIdx());
+        peer = Agent::GetInstance()->GetAgentXmppChannel(Agent::GetInstance()->GetXmppCfgServerIdx());
         if (!peer) {
             return;
         }
 
-        ifmap = Agent::GetAgentIfMapXmppChannel(Agent::GetXmppCfgServerIdx());
+        ifmap = Agent::GetInstance()->GetAgentIfMapXmppChannel(Agent::GetInstance()->GetXmppCfgServerIdx());
         if (!ifmap) {
             return;
         }
@@ -181,7 +185,7 @@ void AgentIfMapVmExport::NotifyAll(AgentXmppChannel *peer) {
         return;
     }
     
-    ifmap = Agent::GetAgentIfMapXmppChannel(Agent::GetXmppCfgServerIdx());
+    ifmap = Agent::GetInstance()->GetAgentIfMapXmppChannel(Agent::GetInstance()->GetXmppCfgServerIdx());
     if (!ifmap) {
         return;
     }
@@ -217,7 +221,7 @@ void AgentIfMapVmExport::Shutdown() {
 void AgentIfMapVmExport::Init() {
     singleton_ = new AgentIfMapVmExport();
     //Register a nova interface cfg listener
-    DBTableBase *table = Agent::GetIntfCfgTable();
+    DBTableBase *table = Agent::GetInstance()->GetIntfCfgTable();
     singleton_->vmi_list_id_ = table->Register(boost::bind(&AgentIfMapVmExport::Notify, 
                                                singleton_, _1, _2));
 }
@@ -235,7 +239,7 @@ AgentIfMapVmExport::~AgentIfMapVmExport() {
         delete info;
     }
     //Register a nova interface cfg listener
-    DBTableBase *table = Agent::GetIntfCfgTable();
+    DBTableBase *table = Agent::GetInstance()->GetIntfCfgTable();
     if (table) {
         table->Unregister(vmi_list_id_);
     }

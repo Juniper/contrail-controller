@@ -39,9 +39,9 @@ public:
     virtual std::string ToString() const;
     virtual KSyncEntry *UnresolvedReference();
     virtual bool Sync(DBEntry *e);
-    virtual char *AddMsg(int &len);
-    virtual char *ChangeMsg(int &len);
-    virtual char *DeleteMsg(int &len);
+    virtual int AddMsg(char *buf, int buf_len);
+    virtual int ChangeMsg(char *buf, int buf_len);
+    virtual int DeleteMsg(char *buf, int buf_len);
     KSyncDBObject *GetObject();
     void SetPLen(uint32_t len) {
         plen_ = len;
@@ -55,9 +55,9 @@ public:
     }
     void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info);
 private:
-    char *Encode(sandesh_op::type op, int &len);
-    char *DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, bool proxy_arp,
-                         int &len);
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
+    int DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, bool proxy_arp,
+                       char *buf, int buf_len);
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
     uint32_t rt_type_;
@@ -94,27 +94,46 @@ public:
         return static_cast<KSyncEntry *>(key);
     };
 
-    static void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
-    static void Init(VrfTable *vrf_table);
-    static void Shutdown();
-    static RouteKSyncObject *GetRouteKSyncObject(uint32_t vrf_id, 
-                                            unsigned int table_id);
-    static void AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *, 
-                                            unsigned int table_id);
-    static void DelFromVrfMap(RouteKSyncObject *);
     void ManagedDelete();
     bool IsDeleteMarked() {return marked_delete_;};
     void Unregister();
     virtual void EmptyTable();
 
 private:
-    static DBTableBase::ListenerId vrf_listener_id_;
-    static VrfRtObjectMap vrf_ucrt_object_map_;
-    static VrfRtObjectMap vrf_mcrt_object_map_;
     bool marked_delete_;
     Inet4RouteTable *rt_table_;
     LifetimeRef<RouteKSyncObject> table_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncObject);
+};
+
+class VrfKSyncObject {
+public:
+    typedef std::map<uint32_t, RouteKSyncObject *> VrfRtObjectMap;
+    struct VrfState : DBState {
+        VrfState() : DBState(), seen_(false) {};
+        bool seen_;
+    };
+
+    VrfKSyncObject() {};
+    virtual ~VrfKSyncObject() {};
+
+    static void Init(VrfTable *vrf_table);
+    static void Shutdown();
+    static void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
+    static VrfKSyncObject *GetKSyncObject() {return singleton_;};
+
+    void AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *,
+                     unsigned int table_id);
+    void DelFromVrfMap(RouteKSyncObject *);
+    RouteKSyncObject *GetRouteKSyncObject(uint32_t vrf_id,
+                                          unsigned int table_id);
+
+private:
+    static VrfKSyncObject *singleton_;
+    DBTableBase::ListenerId vrf_listener_id_;
+    VrfRtObjectMap vrf_ucrt_object_map_;
+    VrfRtObjectMap vrf_mcrt_object_map_;
+    DISALLOW_COPY_AND_ASSIGN(VrfKSyncObject);
 };
 
 #endif // vnsw_agent_route_ksync_h

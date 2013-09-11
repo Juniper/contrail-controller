@@ -333,6 +333,14 @@ class VncApi(VncApiClientGen):
         return json.loads(content)['fq_name']
     #end id_to_fq_name
 
+    def id_to_fq_name_type(self, id):
+        json_body = json.dumps({'uuid': id})
+        uri = self._action_uri['id-to-name']
+        content = self._request_server(rest.OP_POST, uri, data = json_body)
+
+        json_rsp = json.loads(content)
+        return (json_rsp['fq_name'], json_rsp['type'])
+
     # This is required only for helping ifmap-subscribers using rest publish
     def ifmap_to_id(self, ifmap_id):
         json_body = json.dumps({'ifmap_id': ifmap_id})
@@ -345,6 +353,29 @@ class VncApi(VncApiClientGen):
 
         return json.loads(content)['uuid']
     #end ifmap_to_id
+
+    def fetch_records(self):
+        json_body = json.dumps({'fetch_records': None})
+        uri = self._action_uri['fetch-records']
+        content = self._request_server(rest.OP_POST, uri, data = json_body)
+
+        return json.loads(content)['results']
+    #end fetch_records
+
+    def restore_config(self, create, resource, json_body):
+        class_name = "%sClientGen" %(CamelCase(resource))
+        cls = str_to_class(class_name)
+        if create:
+            uri = cls.create_uri
+            content = self._request_server(rest.OP_POST, uri, data = json_body)
+        else:
+            obj_dict = json.loads(json_body)
+            uri = cls.resource_uri_base[resource] + '/'
+            uri += obj_dict[resource]['uuid']
+            content = self._request_server(rest.OP_PUT, uri, data = json_body)
+
+        return json.loads(content)
+    #end restore_config
 
     def kv_store(self, key, value):
         # TODO move oper value to common

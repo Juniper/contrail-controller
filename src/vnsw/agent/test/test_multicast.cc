@@ -33,7 +33,7 @@ void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
                        IpAddress::from_string("0.0.0.0").to_v4(), false);
     NextHop *nh;
     do {
-        nh = static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+        nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
         usleep(1000);
         client->WaitForIdle();
     } while ((nh != NULL) && (nh->IsDeleted() != true));
@@ -99,7 +99,7 @@ TEST_F(CfgTest, McastSubnet_1) {
                                           IpAddress::from_string("1.1.1.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
-    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetIpFabricItfName().c_str());
+    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
@@ -110,7 +110,7 @@ TEST_F(CfgTest, McastSubnet_1) {
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
-	    Agent::GetMplsTable()->FindMplsLabel(1111);
+	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 2);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
@@ -137,7 +137,7 @@ TEST_F(CfgTest, McastSubnet_1) {
     ASSERT_TRUE(nh != NULL);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 2222);
-	mpls = Agent::GetMplsTable()->FindMplsLabel(2222);
+	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(2222);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 3);
@@ -162,7 +162,7 @@ TEST_F(CfgTest, McastSubnet_1) {
     ASSERT_TRUE(nh != NULL);
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 2222);
-	mpls = Agent::GetMplsTable()->FindMplsLabel(2222);
+	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(2222);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 2);
@@ -248,7 +248,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     EXPECT_TRUE(RouteFind("vrf1", "1.1.1.255", 32));
     CompositeNHKey key("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
                        IpAddress::from_string("0.0.0.0").to_v4(), false);
-    nh = static_cast<NextHop *>(Agent::GetNextHopTable()->FindActiveEntry(&key));
+    nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     cnh = static_cast<CompositeNH *>(nh);
     while(cnh->ComponentNHCount() == 0) {
         client->WaitForIdle();
@@ -262,7 +262,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
                                           IpAddress::from_string("1.1.1.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
-    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetIpFabricItfName().c_str());
+    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
@@ -273,7 +273,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
-	    Agent::GetMplsTable()->FindMplsLabel(1111);
+	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
@@ -338,7 +338,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
                                           IpAddress::from_string("1.1.1.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
-    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetIpFabricItfName().c_str());
+    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
@@ -349,7 +349,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
-	    Agent::GetMplsTable()->FindMplsLabel(1111);
+	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(1111);
 	ASSERT_TRUE(mpls == NULL);
     ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 1);
     ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
@@ -419,7 +419,7 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(NULL);
-    Agent::GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 
     MulticastGroupObject *mcobj;
     mcobj = MulticastHandler::GetInstance()->FindGroupObject("vrf1",
@@ -435,12 +435,12 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
                                           IpAddress::from_string("1.1.1.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
-    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetIpFabricItfName().c_str());
+    AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
     CompositeNHKey nhkey("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
                          IpAddress::from_string("0.0.0.0").to_v4(), false);
-    nh = static_cast<NextHop *>(Agent::GetNextHopTable()->Find(&nhkey, true));
+    nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->Find(&nhkey, true));
     EXPECT_TRUE(nh->IsDeleted() == true);
 
     client->Reset();
@@ -525,6 +525,63 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
     client->WaitForIdle();
 }
 
+#if 0
+TEST_F(CfgTest, McastSubnet_interfaceadd_after_ipam_delete) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.2", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "11.1.1.3", "00:00:00:03:03:03", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"11.1.1.0", 24, "11.1.1.200"},
+    };
+
+    const char *vrf_name = "domain:vn1:vrf1";
+
+    AddVn("vn1", 1);
+    AddVrf(vrf_name, 2);
+    AddIPAM("vn1", ipam_info, 3);
+    AddLink("virtual-network", "vn1", "routing-instance", vrf_name);
+    client->WaitForIdle();
+    client->Reset();
+
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+	EXPECT_TRUE(VmPortActive(input, 0));
+
+    while (RouteFind("vrf1", "11.1.1.255", 32) != true) {
+        client->WaitForIdle();
+    }
+
+    DelIPAM("vn1");
+    client->Reset();
+    client->WaitForIdle();
+
+    while (RouteFind("vrf1", "11.1.1.255", 32) == true) {
+        client->WaitForIdle();
+    }
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+	EXPECT_TRUE(VmPortActive(input, 1));
+
+    CompositeNHKey key("vrf1", IpAddress::from_string("11.1.1.255").to_v4(),
+                       IpAddress::from_string("0.0.0.0").to_v4(), false);
+    EXPECT_FALSE(FindNH(&key));
+
+    DelLink("virtual-network", "vn1", "routing-instance", vrf_name);
+    DelVrf(vrf_name);
+    client->Reset();
+
+    DeleteVmportEnv(input, 2, 1, 0);
+    client->WaitForIdle();
+    while (RouteFind("vrf1", "11.1.1.3", 32) != false) {
+        client->WaitForIdle();
+    }
+}
+#endif
+
 TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     client->Reset();
     struct PortInfo input[] = {
@@ -567,10 +624,10 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
 
     DeleteVmportEnv(input, 1, 1, 0);
     client->WaitForIdle();
-    while (RouteFind("vrf1", "1.1.1.255", 32) != false) {
+    while (RouteFind("vrf1", "11.1.1.3", 32) != false) {
         client->WaitForIdle();
     }
-    EXPECT_FALSE(RouteFind("vrf1", "11.1.1.3", 32));
+    EXPECT_FALSE(RouteFind("vrf1", "10.1.1.2", 32));
 
     client->WaitForIdle();
 }
@@ -611,6 +668,7 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
     DelIPAM("vn1");
     client->Reset();
     client->WaitForIdle();
+
     DelLink("virtual-network", "vn1", "routing-instance", vrf_name);
     DelVrf(vrf_name);
     client->Reset();

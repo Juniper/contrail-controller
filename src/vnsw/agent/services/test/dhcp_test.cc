@@ -38,23 +38,24 @@
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 
-#define DHCP_CHECK(condition) do {                                             \
-                                  usleep(1000);                                \
-                                  client->WaitForIdle();                       \
-                                  stats = DhcpHandler::GetStats();             \
-                                  if (++count == MAX_WAIT_COUNT)               \
-                                      assert(0);                               \
-                                } while (condition);                           \
+#define DHCP_CHECK(condition)                                                  \
+                    do {                                                       \
+                      usleep(1000);                                            \
+                      client->WaitForIdle();                                   \
+                      stats = Agent::GetInstance()->GetDhcpProto()->GetStats();\
+                      if (++count == MAX_WAIT_COUNT)                           \
+                          assert(0);                                           \
+                    } while (condition);                                       \
 
 class DhcpTest : public ::testing::Test {
 public:
     DhcpTest() : itf_count_(0) {
-        rid_ = Agent::GetInterfaceTable()->Register(
+        rid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                 boost::bind(&DhcpTest::ItfUpdate, this, _2));
     }
 
     ~DhcpTest() {
-        Agent::GetInterfaceTable()->Unregister(rid_);
+        Agent::GetInstance()->GetInterfaceTable()->Unregister(rid_);
     }
 
     void ItfUpdate(DBEntryBase *entry) {
@@ -257,7 +258,10 @@ class AsioRunEvent : public Task {
 public:
     AsioRunEvent() : Task(75) { };
     virtual  ~AsioRunEvent() { };
-    bool Run() { Agent::GetEventManager()->Run();};
+    bool Run() {
+        Agent::GetInstance()->GetEventManager()->Run();
+        return true;
+    }
 };
 
 TEST_F(DhcpTest, DhcpReqTest) {
@@ -271,7 +275,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
         {"1.2.3.128", 27, "1.2.3.129"},
@@ -345,7 +349,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
     DeleteVmportEnv(input, 2, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpOtherReqTest) {
@@ -356,7 +360,7 @@ TEST_F(DhcpTest, DhcpOtherReqTest) {
         DHCP_OPTION_MSG_TYPE,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -373,7 +377,7 @@ TEST_F(DhcpTest, DhcpOtherReqTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpOptionTest) {
@@ -391,7 +395,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
         DHCP_OPTION_PAD,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
         {CLIENT_REQ_PREFIX, 24, CLIENT_REQ_GW},
@@ -450,7 +454,7 @@ TEST_F(DhcpTest, DhcpOptionTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpNakTest) {
@@ -463,7 +467,7 @@ TEST_F(DhcpTest, DhcpNakTest) {
         DHCP_OPTION_REQ_IP_ADDRESS,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
         {"5.6.7.0", 24, "5.6.7.1"},
@@ -489,7 +493,7 @@ TEST_F(DhcpTest, DhcpNakTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpShortLeaseTest) {
@@ -501,7 +505,7 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
         DHCP_OPTION_HOST_NAME,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     IntfCfgAdd(input, 0);
     WaitForItfUpdate(1);
@@ -553,7 +557,7 @@ TEST_F(DhcpTest, DhcpShortLeaseTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpTenantDnsTest) {
@@ -566,7 +570,7 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
     IpamInfo ipam_info[] = {
         {"3.2.5.0", 24, "3.2.5.254"},
@@ -620,24 +624,24 @@ TEST_F(DhcpTest, DhcpTenantDnsTest) {
     DeleteVmportEnv(input, 1, 1, 0); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpFabricPortTest) {
     struct PortInfo input[] = {
         {"vnet7", 7, "1.1.1.1", "00:00:00:07:07:07", 1, 7},
     };
-    Ip4Address vmaddr(Agent::GetRouterId().to_ulong() + 1);
+    Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
     strncpy(input[0].addr, vmaddr.to_string().c_str(), 32);
     uint8_t options[] = {
         DHCP_OPTION_MSG_TYPE,
         DHCP_OPTION_DOMAIN_NAME,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
-    CreateVmportEnv(input, 1, 0, Agent::GetLinkLocalVnName().c_str(),
-                    Agent::GetDefaultVrf().c_str());
+    CreateVmportEnv(input, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+                    Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
 
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 3);
@@ -650,11 +654,11 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
     EXPECT_EQ(1U, stats.acks);
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0, Agent::GetLinkLocalVnName().c_str(),
-                    Agent::GetDefaultVrf().c_str()); 
+    DeleteVmportEnv(input, 1, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+                    Agent::GetInstance()->GetDefaultVrf().c_str()); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 TEST_F(DhcpTest, DhcpZeroIpTest) {
@@ -672,13 +676,13 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
         DHCP_OPTION_82,
         DHCP_OPTION_END
     };
-    DhcpHandler::DhcpStats stats;
+    DhcpProto::DhcpStats stats;
 
-    CreateVmportEnv(input, 1, 0, Agent::GetLinkLocalVnName().c_str(),
-                    Agent::GetDefaultVrf().c_str());
+    CreateVmportEnv(input, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+                    Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
 
-    Ip4Address vmaddr(Agent::GetRouterId().to_ulong() + 1);
+    Ip4Address vmaddr(Agent::GetInstance()->GetRouterId().to_ulong() + 1);
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, req_options, 3);
     SendDhcp(FABRIC_ITF, 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3);
@@ -687,18 +691,19 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     DHCP_CHECK (stats.relay_resp < 2);
     EXPECT_EQ(2U, stats.relay_req);
     EXPECT_EQ(2U, stats.relay_resp);
-    EXPECT_TRUE(RouteFind(Agent::GetDefaultVrf(), vmaddr, 32));
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), vmaddr, 32));
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0, Agent::GetLinkLocalVnName().c_str(),
-                    Agent::GetDefaultVrf().c_str()); 
+    DeleteVmportEnv(input, 1, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+                    Agent::GetInstance()->GetDefaultVrf().c_str()); 
     client->WaitForIdle();
 
-    DhcpHandler::ClearStats();
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
 }
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetEventManager()), Agent::GetDB());
+    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
+                                  Agent::GetInstance()->GetDB());
 
     // Parse config and then connect
     VNController::Connect();

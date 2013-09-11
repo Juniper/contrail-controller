@@ -110,3 +110,25 @@ systemlog sandesh IFMapSmEventMessage {
     3: string msg2
     4: string state
 }
+
+systemlog sandesh IFMapNoVrSub {
+    1: string op
+    2: string client_name
+    3: string vm_uuid
+}
+
+systemlog sandesh IFMapNoVmSub {
+    1: string client_name
+    2: string vm_uuid
+}
+
+systemlog sandesh IFMapDuplicateVrSub {
+    1: string hostname
+    2: string fqn
+}
+
+systemlog sandesh IFMapDuplicateVmSub {
+    1: string client_name
+    2: string vm_uuid
+}
+

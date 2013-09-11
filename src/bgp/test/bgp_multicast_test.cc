@@ -21,6 +21,7 @@
 #include "testing/gunit.h"
 
 using namespace std;
+using namespace boost;
 
 class XmppPeerMock : public IPeer {
 public:
@@ -111,12 +112,12 @@ protected:
     virtual void SetUp() {
         ConcurrencyScope scope("bgp::Config");
 
-        master_cfg_ = BgpTestUtil::CreateBgpInstanceConfig(
-            BgpConfigManager::kMasterInstance, "", "");
-        red_cfg_ = BgpTestUtil::CreateBgpInstanceConfig("red",
-            "target:1.2.3.4:1", "target:1.2.3.4:1");
-        green_cfg_ = BgpTestUtil::CreateBgpInstanceConfig("green",
-            "target:1.2.3.4:2", "target:1.2.3.4:2");
+        master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            BgpConfigManager::kMasterInstance, "", ""));
+        red_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            "red", "target:1.2.3.4:1", "target:1.2.3.4:1"));
+        green_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
+            "green", "target:1.2.3.4:2", "target:1.2.3.4:2"));
 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Stop();
@@ -344,9 +345,9 @@ protected:
     InetMcastTable *green_table_;
     McastTreeManager *red_tm_;
     McastTreeManager *green_tm_;
-    std::auto_ptr<BgpInstanceConfig> master_cfg_;
-    std::auto_ptr<BgpInstanceConfig> red_cfg_;
-    std::auto_ptr<BgpInstanceConfig> green_cfg_;
+    scoped_ptr<BgpInstanceConfig> master_cfg_;
+    scoped_ptr<BgpInstanceConfig> red_cfg_;
+    scoped_ptr<BgpInstanceConfig> green_cfg_;
     std::vector<XmppPeerMock *> peers_;
 };
 

@@ -14,6 +14,14 @@
 
 TMPFILE=/tmp/yl.${BASHPID}
 CONTRAILRPMS=/etc/contrail/rpm_list.txt
+VERSIONFILE=/opt/contrail/contrail_packages/VERSION
+CONTRAIL_INSTALLS="@contrail_install_repo"
+
+# Installs variable - BUILDID in the env
+if [ -f $VERSIONFILE ];
+then
+    source $VERSIONFILE
+fi
 
 /bin/rm -f $TMPFILE
 /usr/bin/yum list installed > $TMPFILE
@@ -22,9 +30,20 @@ echo "Package                                Version                 Build-ID | 
 echo "-------------------------------------- ----------------------- ----------------------------------"
 for i in `cat $CONTRAILRPMS`; do
   #j=$i; v="N/A"; r="N/A"
-  read j v r <<< `grep "^$i\." $TMPFILE`
+  j=""; v="", r=""
+  #read j v r <<< `grep "^$i\." $TMPFILE`
+  read j v r <<< `grep -Pzo "^$i\.[^\s]+[\s|\n]+[^\s]+[\s|\n]+[^\s]+" $TMPFILE | tr "\n" " "`
   rr=`echo $r|cut -f2 -d/`
-  printf "%-39s%-24s%-20s\n" $i $v $rr
+
+  # Override if @contrail_install_repo
+  if [ "$rr" == "$CONTRAIL_INSTALLS" ] && [[ -n $BUILDID ]]; then
+      rr=$BUILDID
+  fi
+
+  # Only Installed packages are displayed
+  if [[ -n $rr ]]; then
+      printf "%-39s%-24s%-20s\n" $i $v $rr
+  fi
 done
 
 /bin/rm -f $TMPFILE

@@ -82,7 +82,7 @@ static RouteDistinguisher GenerateDistinguisher(
 
 BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
-        ExtCommunityPtr community, OriginVnPtr origin_vn) {
+        ExtCommunityPtr community) {
     assert(src_table->family() == Address::ENET);
 
     EnetRoute *enet = dynamic_cast<EnetRoute *>(src_rt);
@@ -115,8 +115,8 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
         if ((new_attr != dest_path->GetAttr()) ||
             (src_path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
-            dest_route->RemoveSecondaryPath(src_rt, src_path->GetPeer(),
-                                            src_path->GetSource());
+            assert(dest_route->RemoveSecondaryPath(src_rt, src_path->GetPeer(),
+                                            src_path->GetSource()));
         } else {
             return dest_route;
         }

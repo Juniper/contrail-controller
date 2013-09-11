@@ -8,6 +8,7 @@
 #include "ifmap/ifmap_server.h"
 
 #include <boost/asio/io_service.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "base/logging.h"
 #include "bgp/bgp_sandesh.h"
@@ -60,11 +61,15 @@ public:
             IFMapLink *link =
                 static_cast<IFMapLink *>(graph_->GetEdge(lhs, rhs));
             assert(link);
-            if (link->sequence_number() < curr_seq_num) {
+
+            bool exists = false;
+            IFMapLink::LinkOriginInfo origin_info = 
+                link->GetOriginInfo(IFMapOrigin::MAP_SERVER, &exists);
+            if (exists && (origin_info.sequence_number < curr_seq_num)) {
                 IFMapLinkTable *ltable = static_cast<IFMapLinkTable *>(
                     db_->FindTable("__ifmap_metadata__.0"));
                 // Cleanup the node and remove from the graph
-                link->RemoveOrigin(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+                link->RemoveOriginInfo(IFMapOrigin::MAP_SERVER);
                 if (link->is_origin_empty()) {
                     ltable->DeleteLink(link, lhs, rhs);
                 }
@@ -148,8 +153,7 @@ public:
             assert(vr_table != NULL);
 
             std::string vm_name = vm_node->name();
-            vr_table->IFMapVmSubscribe(db_, graph_, vr_name_, vm_name,
-                                       subscribe_, has_vms_);
+            vr_table->IFMapVmSubscribe(vr_name_, vm_name, subscribe_, has_vms_);
 
             IFMapClient *client = ifmap_server_->FindClient(vr_name_);
             if (client) {
@@ -305,7 +309,7 @@ void IFMapServer::RemoveSelfAddedLinks(IFMapClient *client) {
             IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
             next = ++iter;
             if (adj->table()->name() == "__ifmap__.virtual_machine.0") {
-                vr_table->IFMapRemoveVrVmLink(db_, graph_, node, adj);
+                vr_table->IFMapRemoveVrVmLink(node, adj);
             }
         }
     }

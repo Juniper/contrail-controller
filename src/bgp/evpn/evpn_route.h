@@ -7,9 +7,9 @@
 
 #include <boost/system/error_code.hpp>
 
-#include "bgp/bgp_af.h"
 #include "bgp/bgp_route.h"
 #include "bgp/inet/inet_route.h"
+#include "net/bgp_af.h"
 #include "net/mac_address.h"
 #include "net/rd.h"
 

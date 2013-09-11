@@ -11,9 +11,11 @@
 #include "xmpp/xmpp_connection.h"
 #include "xmpp/xmpp_server.h"
 #include "cmn/dns.h"
-#include "bind/bind_util.h"
-#include "bind/xmpp_dns_agent.h"
 #include "mgr/dns_mgr.h"
+#include "mgr/dns_oper.h"
+#include "bind/bind_util.h"
+#include "bind/named_config.h"
+#include "bind/xmpp_dns_agent.h"
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "sandesh/sandesh_trace.h"
@@ -64,15 +66,22 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
         for (DnsItems::iterator iter = data->items.begin(); 
              iter != data->items.end();) {
             bool change;
-            if ((*iter).IsDelete())
+            BindUtil::Operation op = BindUtil::ADD_UPDATE;
+            if ((*iter).IsDelete()) {
                 change = xmpp_data->DelItem(*iter);
-            else
+                op = BindUtil::DELETE_UPDATE;
+            } else {
                 change = xmpp_data->AddItem(*iter);
+            }
 
-            if (!change)
+            if (!change) {
                 data->items.erase(iter++);
-            else
+            } else {
+                Dns::GetDnsManager()->ProcessAgentUpdate(op,
+                                      GetDnsRecordName(data->virtual_dns, *iter),
+                                      data->virtual_dns, *iter);
                 ++iter;
+            }
         }
         if (!xmpp_data->items.size()) {
             update_data_.erase(xmpp_data);
@@ -83,22 +92,35 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
              iter != data->items.end();) {
             if ((*iter).IsDelete())
                 data->items.erase(iter++);
-            else
+            else {
+                Dns::GetDnsManager()->ProcessAgentUpdate(BindUtil::ADD_UPDATE, 
+                                      GetDnsRecordName(data->virtual_dns, *iter),
+                                      data->virtual_dns, *iter);
                 ++iter;
+            }
         }
         update_data_.insert(data);
         rcv_data.release();
     }
-    Dns::GetDnsManager()->SendUpdate(BindUtil::ADD_UPDATE, data->virtual_dns,
-                                     data->zone, data->items);
 }
 
 void DnsAgentXmppChannel::UpdateDnsRecords(BindUtil::Operation op) {
     for (DataSet::iterator it = update_data_.begin(); 
          it != update_data_.end(); ++it) {
-        Dns::GetDnsManager()->SendUpdate(op, (*it)->virtual_dns,
-                                         (*it)->zone, (*it)->items);
+        for (DnsItems::const_iterator item = (*it)->items.begin();
+             item != (*it)->items.end(); ++item) {
+            Dns::GetDnsManager()->ProcessAgentUpdate(op, 
+                                  GetDnsRecordName((*it)->virtual_dns, *item),
+                                  (*it)->virtual_dns, *item);
+        }
     }
+}
+
+std::string DnsAgentXmppChannel::GetDnsRecordName(std::string &vdns_name,
+                                                  const DnsItem &item) {
+    std::stringstream str;
+    str << vdns_name << ":" << item.type << ":" << item.name << ":" << item.data;
+    return str.str();
 }
 
 void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
@@ -118,6 +140,7 @@ void DnsAgentXmppChannel::GetAgentDnsData(AgentDnsData &data) {
             record.rec_class = "IN";
             record.rec_data = (*iter).data;
             record.rec_ttl = (*iter).ttl;
+            record.source = "Agent";
             record.installed = "yes";
             records.push_back(record);
         }

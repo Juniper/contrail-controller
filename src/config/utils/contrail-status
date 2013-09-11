@@ -39,11 +39,11 @@ systemctl --version >/dev/null 2>&1 && systemctl=1
 rpm -q contrail-libs > /dev/null && clibs='clibs'
 rpm -q contrail-control > /dev/null && control='control'
 rpm -q contrail-analytics > /dev/null && analytics='analytics'
-rpm -q contrail-agent > /dev/null && agent='agent'
-rpm -q contrail-api > /dev/null && capi='capi'
+rpm -q contrail-vrouter > /dev/null && agent='agent'
+rpm -q contrail-config > /dev/null && capi='capi'
 rpm -q openstack-quantum-contrail > /dev/null && cquantum='cquantum'
 rpm -q contrail-webui > /dev/null && cwebui='cwebui'
-rpm -q cassandra > /dev/null && database='database'
+rpm -q contrail-database > /dev/null && database='database'
 lsmod | grep vrouter > /dev/null && vr='vr'
 
 declare -a failedlist
@@ -110,64 +110,55 @@ check_svc() {
 }
 
 if test -z "$vr"; then
-  printf "VRouter is NOT PRESENT\n"
+  printf "vRouter is NOT PRESENT\n"
 fi
 
 if test -z "$agent"; then
-  printf "Agent is NOT PRESENT\n"
+  printf "vRouter agent is NOT PRESENT\n"
 else
-  printf "== Agent ==\n"
-  if [ -e /etc/init.d/contrail-vrouter ]; then
-    check_svc contrail-vrouter 
-  else
+  printf "== Contrail vRouter ==\n"
     check_svc supervisor-vrouter 
     supervisorctl -s http://localhost:9005 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
-  fi
 fi
 
 if test -z "$clibs"; then
-  printf "Contril libs are NOT PRESENT\n"
+  printf "Contrail libs are NOT PRESENT\n"
 fi
 
 if test "$control"; then
-  printf "== Control node ==\n"
-  if [ -e /etc/init.d/contrail-control ]; then
-   check_svc contrail-control
-   check_svc contrail-named
-   check_svc contrail-dns
-  else
+  printf "== Contrail Control ==\n"
    check_svc supervisor-control
    supervisorctl -s http://localhost:9003 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
    check_svc supervisor-dns
-  supervisorctl -s http://localhost:9006 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
-  fi
+   supervisorctl -s http://localhost:9006 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$analytics"; then
-  printf "== Analytics ==\n"
+  printf "== Contrail Analytics ==\n"
   check_svc supervisor-analytics
   supervisorctl -s http://localhost:9002 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$capi"; then
-  printf "== Contrail API server ==\n"
+  printf "== Contrail Config ==\n"
   check_svc supervisor-config
   supervisorctl -s http://localhost:9004 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$cquantum"; then
-  printf "== Contrail quantum ==\n"
+  printf "== Contrail Quantum ==\n"
 fi
 
 if test "$contrail-webui"; then
   printf "== Contrail Web UI ==\n"
-  check_svc contrail-webui
-  check_svc contrail-webui-middleware
+  check_svc supervisor-webui
+  supervisorctl -s http://localhost:9008 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$database"; then
-  printf "== Database ==\n"
-  check_svc cassandra
+  printf "== Contrail Database ==\n"
+  check_svc supervisord-contrail-database
+  supervisorctl -s http://localhost:9007 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 rpm_info() {
@@ -180,15 +171,15 @@ rpm_info() {
 if [[ "$rpm_info" -eq 1 || "detailed" -eq 1 ]]; then
   printf "\n==========Contrail installed list===========\n"
   printf "%-27s %-8s %-11s %-10s\n" "Name" "Release" "Version" "Summary" 
-  rpm_info contrail-agent
+  rpm_info contrail-vrouter
   rpm_info contrail-libs
   rpm_info contrail-control
   rpm_info contrail-analytics
-  rpm_info contrail-api
+  rpm_info contrail-config
   rpm_info openstack-quantum-contrail
   rpm_info contrail-webui
   rpm_info redis
-  rpm_info cassandra
+  rpm_info contrail-database
 fi
 
 if [ ${#failedlist[@]} -gt 0 ]; then

@@ -14,6 +14,7 @@
 #include "base/logging.h"
 
 #include "ifmap/ifmap_client.h"
+#include "ifmap/ifmap_factory.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
@@ -83,7 +84,7 @@ private:
 
 class IFMapXmppChannel::IFMapSender : public IFMapClient {
 public:
-    IFMapSender(IFMapXmppChannel *parent) ;
+    IFMapSender(IFMapXmppChannel *parent);
 
     virtual bool SendUpdate(const std::string &msg);
 
@@ -129,7 +130,7 @@ IFMapXmppChannel::IFMapXmppChannel(XmppChannel *channel, IFMapServer *server,
         IFMapChannelManager *ifmap_channel_manager) 
     : peer_id_(xmps::CONFIG), channel_(channel), ifmap_server_(server),
       ifmap_channel_manager_(ifmap_channel_manager),
-      ifmap_client_(new IFMapSender(this)), client_added(false) {
+      ifmap_client_(new IFMapSender(this)), client_added_(false) {
 
     channel_->RegisterReceive(xmps::CONFIG, 
                               boost::bind(&IFMapXmppChannel::ReceiveUpdate, 
@@ -176,30 +177,63 @@ std::string IFMapXmppChannel::VmSubscribeGetVmUuid(const std::string &iqn,
 // If add-client was sent to ifmap_server, we must send delete-client too and
 // vice-versa
 bool IFMapXmppChannel::MustProcessChannelNotReady() {
-    return client_added;
+    return client_added_;
 }
 
 void IFMapXmppChannel::ProcessVrSubscribe(const std::string &identifier) {
-    if (!client_added) {
-        ifmap_client_->SetIdentifier(identifier);
-        bool add_client = true;
-        ifmap_server_->ProcessClientWork(add_client, ifmap_client_);
-        client_added = true;
+    // If we have already received a vr-subscribe on this channel...
+    if (client_added_) {
+        ifmap_channel_manager_->incr_dupicate_vrsub_messages();
+        IFMAP_WARN(IFMapDuplicateVrSub, ifmap_client_->hostname(), identifier);
+        return;
     }
+
+    ifmap_client_->SetIdentifier(identifier);
+    bool add_client = true;
+    ifmap_server_->ProcessClientWork(add_client, ifmap_client_);
+    client_added_ = true;
 }
 
 void IFMapXmppChannel::ProcessVmSubscribe(const std::string &vm_uuid) {
-    ifmap_client_->AddVm(vm_uuid);
-    bool subscribe = true;
-    ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
-                                      subscribe, ifmap_client_->HasVms());
+    if (!client_added_) {
+        // If we didnt receive the vr-subscribe for this vm...
+        ifmap_channel_manager_->incr_vmsub_novrsub_messages();
+        IFMAP_WARN(IFMapNoVrSub, "VmSubscribe", ifmap_client_->hostname(),
+                   vm_uuid);
+        return;
+    }
+
+    if (!ifmap_client_->HasAddedVm(vm_uuid)) {
+        ifmap_client_->AddVm(vm_uuid);
+        bool subscribe = true;
+        ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
+                                          subscribe, ifmap_client_->HasVms());
+    } else {
+        // If we have already received a subscribe for this vm
+        ifmap_channel_manager_->incr_dupicate_vmsub_messages();
+        IFMAP_WARN(IFMapDuplicateVmSub, ifmap_client_->hostname(), vm_uuid);
+    }
 }
 
 void IFMapXmppChannel::ProcessVmUnsubscribe(const std::string &vm_uuid) {
-    ifmap_client_->DeleteVm(vm_uuid);
-    bool subscribe = false;
-    ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
-                                      subscribe, ifmap_client_->HasVms());
+    // If we didnt receive the vr-sub for this vm, ignore the request
+    if (!client_added_) {
+        ifmap_channel_manager_->incr_vmunsub_novrsub_messages();
+        IFMAP_WARN(IFMapNoVrSub, "VmUnsubscribe", ifmap_client_->hostname(),
+                   vm_uuid);
+        return;
+    }
+
+    if (ifmap_client_->HasAddedVm(vm_uuid)) {
+        ifmap_client_->DeleteVm(vm_uuid);
+        bool subscribe = false;
+        ifmap_server_->ProcessVmSubscribe(ifmap_client_->identifier(), vm_uuid,
+                                          subscribe, ifmap_client_->HasVms());
+    } else {
+        // If we didnt receive the subscribe for this vm, ignore the unsubscribe
+        ifmap_channel_manager_->incr_vmunsub_novmsub_messages();
+        IFMAP_WARN(IFMapNoVmSub, ifmap_client_->hostname(), vm_uuid);
+    }
 }
 
 void IFMapXmppChannel::EnqueueVrSubscribe(const std::string &identifier) {
@@ -294,7 +328,9 @@ IFMapChannelManager::IFMapChannelManager(XmppServer *xmpp_server,
       unknown_subscribe_messages(0), unknown_unsubscribe_messages(0),
       duplicate_channel_ready_messages(0),
       invalid_channel_not_ready_messages(0), invalid_channel_state_messages(0),
-      invalid_vm_subscribe_messages(0) {
+      invalid_vm_subscribe_messages(0), vmsub_novrsub_messages(0),
+      vmunsub_novrsub_messages(0), vmunsub_novmsub_messages(0),
+      dupicate_vrsub_messages(0), dupicate_vmsub_messages(0) {
 
     xmpp_server_->RegisterConnectionEvent(xmps::CONFIG,
         boost::bind(&IFMapChannelManager::IFMapXmppChannelEventCb, this, _1,
@@ -327,8 +363,8 @@ IFMapXmppChannel *IFMapChannelManager::FindChannel(std::string tostring) {
 
 IFMapXmppChannel *IFMapChannelManager::CreateIFMapXmppChannel(
         XmppChannel *channel) {
-    IFMapXmppChannel *ifmap_chnl = new IFMapXmppChannel(channel, ifmap_server_,
-                                                        this);
+    IFMapXmppChannel *ifmap_chnl = IFMapFactory::Create<IFMapXmppChannel>(
+                                       channel, ifmap_server_, this);
     tbb::mutex::scoped_lock lock(channel_map_mutex_);
     channel_map_.insert(std::make_pair(channel, ifmap_chnl));
     return ifmap_chnl;
@@ -453,6 +489,16 @@ static bool IFMapXmppShowReqHandleRequest(const Sandesh *sr,
         ifmap_channel_manager->get_invalid_channel_state_messages());
     channel_manager_stats.set_invalid_vm_subscribe_messages(
         ifmap_channel_manager->get_invalid_vm_subscribe_messages());
+    channel_manager_stats.set_vmsub_novrsub_messages(
+        ifmap_channel_manager->get_vmsub_novrsub_messages());
+    channel_manager_stats.set_vmunsub_novrsub_messages(
+        ifmap_channel_manager->get_vmunsub_novrsub_messages());
+    channel_manager_stats.set_vmunsub_novmsub_messages(
+        ifmap_channel_manager->get_vmunsub_novmsub_messages());
+    channel_manager_stats.set_dupicate_vrsub_messages(
+        ifmap_channel_manager->get_dupicate_vrsub_messages());
+    channel_manager_stats.set_dupicate_vmsub_messages(
+        ifmap_channel_manager->get_dupicate_vmsub_messages());
 
     IFMapXmppChannelMapList channel_map_list;
     std::vector<IFMapXmppChannelMapEntry> channel_map;

@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
 
@@ -26,7 +25,7 @@ bool VmEntry::IsLess(const DBEntry &rhs) const {
 }
 
 string VmEntry::ToString() const {
-    return boost::lexical_cast<std::string>(GetUuid());
+    return UuidToString(GetUuid());
 }
 
 DBEntryBase::KeyPtr VmEntry::GetDBRequestKey() const {
@@ -46,10 +45,10 @@ AgentDBTable *VmEntry::DBToTable() const {
 bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VmListResp *resp = static_cast<VmListResp *>(sresp);
 
-    std::string str_uuid = boost::lexical_cast<std::string>(GetUuid());
+    std::string str_uuid = UuidToString(GetUuid());
     if (str_uuid.find(name) != std::string::npos) {
         VmSandeshData data;
-        data.set_uuid(boost::lexical_cast<std::string>(GetUuid()));
+        data.set_uuid(UuidToString(GetUuid()));
         std::vector<VmSandeshData> &list =
                 const_cast<std::vector<VmSandeshData>&>(resp->get_vm_list());
         list.push_back(data);
@@ -62,7 +61,7 @@ bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
     VmObjectLogInfo info;
     string str;
-    string str_uuid = boost::lexical_cast<string>(GetUuid());
+    string str_uuid = UuidToString(GetUuid());
     vector<string> sg_list;
 
     switch (event) {

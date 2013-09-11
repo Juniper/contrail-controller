@@ -12,7 +12,9 @@
 class VrouterStatsCollector : public StatsCollector {
 public:
     VrouterStatsCollector(boost::asio::io_service &io) :
-        StatsCollector(StatsCollector::VrouterStatsCollector, io) {}
+        StatsCollector(StatsCollector::VrouterStatsCollector, io, 
+                       StatsCollector::stats_coll_time, 
+                       "Vrouter stats collector") {}
     virtual ~VrouterStatsCollector() { };
 
     bool Run();

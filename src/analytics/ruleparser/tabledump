@@ -1,0 +1,10 @@
+#!/bin/bash
+
+source /opt/contrail/analytics/bin/activate
+
+python /opt/contrail/analytics/tabledump.py $*
+ret=$?
+
+deactivate
+exit $ret
+

@@ -21,6 +21,7 @@
 #include "bgp/bgp_peer_key.h"
 #include "ifmap/ifmap_node_proxy.h"
 #include "schema/bgp_schema_types.h"
+#include "schema/vnc_cfg_types.h"
 
 class BgpConfigListener;
 class BgpConfigManager;
@@ -192,12 +193,14 @@ public:
     void NeighborAdd(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
     void NeighborChange(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
     void NeighborDelete(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
+    const BgpNeighborConfig *NeighborFind(std::string name) const;
 
     const NeighborMap &neighbors() const {
         return neighbors_;
     }
 
     const std::string &virtual_network() const { return virtual_network_; }
+    int virtual_network_index() const { return virtual_network_index_; }
 
     IFMapNode *node() { return node_proxy_.node(); }
     const std::string &name() const { return name_; }
@@ -218,6 +221,7 @@ private:
     RouteTargetList import_list_;
     RouteTargetList export_list_;
     std::string virtual_network_;
+    int virtual_network_index_;
 
     boost::intrusive_ptr<const autogen::RoutingInstance> instance_config_;
 
@@ -231,10 +235,11 @@ public:
 
     BgpConfigData();
     ~BgpConfigData();
-    BgpInstanceConfig *Locate(const std::string &name);
-    void Delete(BgpInstanceConfig *rti);
-    BgpInstanceConfig *Find(const std::string &name);
-    const BgpInstanceConfig *Find(const std::string &name) const;
+
+    BgpInstanceConfig *LocateInstance(const std::string &name);
+    void DeleteInstance(BgpInstanceConfig *rti);
+    BgpInstanceConfig *FindInstance(const std::string &name);
+    const BgpInstanceConfig *FindInstance(const std::string &name) const;
     const BgpInstanceMap &instances() const { return instances_; }
 
     BgpPeeringConfig *CreatePeering(BgpInstanceConfig *rti,
@@ -306,6 +311,7 @@ private:
     void IdentifierMapInit();
     void DefaultConfig();
     void ProcessChanges(const ChangeList &change_list);
+    void ProcessVirtualNetwork(const BgpConfigDelta &change);
     void ProcessRoutingInstance(const BgpConfigDelta &change);
     void ProcessBgpRouter(const BgpConfigDelta &change);
     void ProcessBgpProtocol(const BgpConfigDelta &change);

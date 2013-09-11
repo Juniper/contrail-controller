@@ -88,3 +88,11 @@ string InetVpnPrefix::ToString() const {
     Ip4Prefix prefix(addr_, prefixlen_);
     return (rd_.ToString() + ":" + prefix.ToString());
 }
+
+// Check whether 'this' is more specific than rhs.
+bool InetVpnPrefix::IsMoreSpecific(const InetVpnPrefix &rhs) const {
+    Ip4Prefix this_prefix(addr_, prefixlen_);
+    Ip4Prefix match_prefix(rhs.addr(), rhs.prefixlen());
+
+    return this_prefix.IsMoreSpecific(match_prefix);
+}

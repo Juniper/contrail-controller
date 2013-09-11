@@ -112,33 +112,34 @@ public:
     }
 
 private:
-    friend int intrusive_ptr_add_ref(const AsPath *attrp);
-    friend int intrusive_ptr_del_ref(const AsPath *cattrp);
-    friend void intrusive_ptr_release(AsPath *attrp);
+    friend int intrusive_ptr_add_ref(const AsPath *cpath);
+    friend int intrusive_ptr_del_ref(const AsPath *cpath);
+    friend void intrusive_ptr_release(const AsPath *cpath);
 
     mutable tbb::atomic<int> refcount_;
     AsPathDB *aspath_db_;
     AsPathSpec path_;
 };
 
-inline int intrusive_ptr_add_ref(const AsPath *path) {
-    return path->refcount_.fetch_and_increment();
+inline int intrusive_ptr_add_ref(const AsPath *cpath) {
+    return cpath->refcount_.fetch_and_increment();
 }
 
-inline int intrusive_ptr_del_ref(const AsPath *path) {
-    return path->refcount_.fetch_and_decrement();
+inline int intrusive_ptr_del_ref(const AsPath *cpath) {
+    return cpath->refcount_.fetch_and_decrement();
 }
 
-inline void intrusive_ptr_release(AsPath *path) {
-    int prev = path->refcount_.fetch_and_decrement();
+inline void intrusive_ptr_release(const AsPath *cpath) {
+    int prev = cpath->refcount_.fetch_and_decrement();
     if (prev == 1) {
+        AsPath *path = const_cast<AsPath *>(cpath);
         path->Remove();
         assert(path->refcount_ == 0);
         delete path;
     }
 }
 
-typedef boost::intrusive_ptr<AsPath> AsPathPtr;
+typedef boost::intrusive_ptr<const AsPath> AsPathPtr;
 
 struct AsPathCompare {
     bool operator()(const AsPath *lhs, const AsPath *rhs) {

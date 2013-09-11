@@ -3,15 +3,17 @@
     to='bgp.contrail.com/bgp-peer' 
     id='request1'>
     <pubsub xmlns='http://jabber.org/protocol/pubsub'>
-        <publish node='01020304abcd:vpn-ip-address/32'>
+        <publish node='1/1/10.1.2.1'>
             <item>
                 <entry>
                     <nlri>
                         <af>1</af>
+                        <safi>1</safi>
                         <address>10.1.2.1/32</address>
                     </nlri>
                     <next-hop>     
                         <af>1</af>
+                        <safi>1</safi>
                         <address>20.1.2.1</address>
                     </next-hop>     
                     <version>1</version>
@@ -28,7 +30,7 @@
     id='request2'>
     <pubsub xmlns='http://jabber.org/protocol/pubsub'>
         <collection node='blue'>   <!-- vpn-customer-name --->
-            <dissociate node='01020304abcd:vpn-ip-address/32'/>
+            <dissociate node='1/1/10.1.2.1'/>
         </collection>
     </pubsub>
 </iq>
