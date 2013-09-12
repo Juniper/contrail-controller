@@ -86,6 +86,7 @@ public:
 
     void StartKeepaliveTimer();
     void StopKeepaliveTimer();
+    bool KeepaliveTimerRunning();
     void SetSendReady();
 
     // thread: io::ReaderTask
@@ -210,7 +211,7 @@ private:
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
     bool IsFamilySupported(Address::Family family);
-    
+
     void PostCloseRelease();
     void CustomClose();
 
@@ -225,7 +226,6 @@ private:
     const BgpNeighborConfig *config_;
     // Global peer index
     int index_;
-    boost::scoped_ptr<StateMachine> state_machine_;
     TaskTrigger trigger_;
 
     // The mutex is used to protect the session, keepalive timer and the
@@ -253,6 +253,8 @@ private:
     bool send_ready_;
     bool control_node_;
     bool admin_down_;
+
+    boost::scoped_ptr<StateMachine> state_machine_;
     uint32_t membership_req_pending_;
     bool defer_close_;
     std::vector<BgpProto::OpenMessage::Capability *> capabilities_;

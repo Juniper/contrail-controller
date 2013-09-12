@@ -284,38 +284,45 @@ protected:
             }
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
             TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
+            TASK_UTIL_EXPECT_TRUE(!peer_->KeepaliveTimerRunning());
             TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             break;
+
         case StateMachine::ACTIVE:
             TASK_UTIL_EXPECT_TRUE(ConnectTimerRunning() != OpenTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
-            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             TASK_UTIL_EXPECT_TRUE((sm_->passive_session() != NULL) ==
                                   OpenTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(!peer_->KeepaliveTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             break;
+
         case StateMachine::CONNECT:
             TASK_UTIL_EXPECT_TRUE(ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
-            if (!session_mgr_->create_session_fail()) {
+            if (!session_mgr_->create_session_fail())
                 TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
-            }
-            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             TASK_UTIL_EXPECT_TRUE((sm_->passive_session() != NULL) ==
                                   OpenTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(!peer_->KeepaliveTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             break;
+
         case StateMachine::OPENSENT:
             TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL ||
-                        sm_->passive_session() != NULL);
-            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
+                                  sm_->passive_session() != NULL);
             TASK_UTIL_EXPECT_TRUE((sm_->passive_session() != NULL) ||
-                        !OpenTimerRunning());
+                                  !OpenTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(!peer_->KeepaliveTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
             break;
+
         case StateMachine::OPENCONFIRM:
             TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
@@ -323,8 +330,10 @@ protected:
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
             TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
+            TASK_UTIL_EXPECT_TRUE(peer_->KeepaliveTimerRunning());
             TASK_UTIL_EXPECT_TRUE(peer_->session() != NULL);
             break;
+
         case StateMachine::ESTABLISHED:
             TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
@@ -332,8 +341,10 @@ protected:
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
             TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
+            TASK_UTIL_EXPECT_TRUE(peer_->KeepaliveTimerRunning());
             TASK_UTIL_EXPECT_TRUE(peer_->session() != NULL);
             break;
+
         default:
             ASSERT_TRUE(false);
             break;
@@ -753,7 +764,7 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenStartThenBgpOpen) {
 
 // Old State: Idle
 // Event:     EvTcpPassiveOpen + EvStart + EvConnectTimerExpired + EvBgpOpen
-// New State: Active
+// New State: Connect
 // Messages:  None
 // Other:     Open message is ignored since there's no passive session
 //            when we process it. The passive session gets closed since
@@ -1027,7 +1038,7 @@ TEST_F(StateMachineConnectTest, TcpPassiveOpenThenTcpConnectFail) {
 
 // Old State: Connect
 // Event:     EvTcpPassiveOpen + EvTcpClose
-// New State: Active
+// New State: Connect
 // Timers:    Open timer must not be running since there's no passive session.
 //            Connect timer must be running since we want an active session.
 // Messages:  None.
@@ -1249,7 +1260,7 @@ TEST_F(StateMachineOpenSentTest, DuplicateTcpPassiveOpen2) {
 
 // Old State: OpenSent (via active and passive session)
 // Event:     EvTcpPassiveOpen
-// New State: Active
+// New State: OpenSent
 // Timers:    Open timer should be running since we have a passive session.
 //            Connect timer must not be started since there's a passive session.
 // Messages:  None.
@@ -2141,7 +2152,7 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpen) {
 
 // Old State: Established
 // Event:     EvTcpPassiveOpen + EvBgpOpen
-// New State: Established
+// New State: Idle
 TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();

@@ -360,7 +360,15 @@ struct Idle : sc::state<Idle, StateMachine> {
 
     Idle(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
+        BgpSession *session = peer->session();
+        peer->clear_session();
         state_machine->set_state(StateMachine::IDLE);
+        state_machine->set_active_session(NULL);
+        state_machine->set_passive_session(NULL);
+        state_machine->DeleteSession(session);
+        state_machine->CancelOpenTimer();
+        state_machine->CancelIdleHoldTimer();
     }
 
     ~Idle() {
@@ -416,14 +424,15 @@ struct Active : sc::state<Active, StateMachine> {
     Active(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_state(StateMachine::ACTIVE);
-        state_machine->CancelHoldTimer();
         if (state_machine->passive_session() == NULL)
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
     }
+
     ~Active() {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelConnectTimer();
     }
+
     sc::result react(const EvTcpPassiveOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_passive_session(event.session);
@@ -431,6 +440,7 @@ struct Active : sc::state<Active, StateMachine> {
         state_machine->StartOpenTimer(StateMachine::kOpenTime);
         return discard_event();
     }
+
     sc::result react(const EvTcpClose &event) {
         StateMachine *state_machine = &context<StateMachine>();
         if (event.session == state_machine->passive_session()) {
@@ -440,9 +450,11 @@ struct Active : sc::state<Active, StateMachine> {
         }
         return discard_event();
     }
+
     sc::result react(const EvConnectTimerExpired &event) {
         return transit<Connect>();
     }
+
     sc::result react(const EvOpenTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpSession *session = state_machine->passive_session();
@@ -453,6 +465,7 @@ struct Active : sc::state<Active, StateMachine> {
         }
         return discard_event();
     }
+
     sc::result react(const EvBgpOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -467,11 +480,7 @@ struct Active : sc::state<Active, StateMachine> {
 
         state_machine->set_hold_time(event.msg->holdtime);
         state_machine->AssignSession(false);
-        state_machine->CancelOpenTimer();
         peer->SendOpen(session);
-        peer->SendKeepalive(false);
-        peer->StartKeepaliveTimer();
-        state_machine->StartHoldTimer();
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
     }
@@ -499,13 +508,16 @@ struct Connect : sc::state<Connect, StateMachine> {
 
     Connect(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
-        state_machine->connect_attempts_inc();
         state_machine->set_state(StateMachine::CONNECT);
-        state_machine->CancelHoldTimer();
+        state_machine->connect_attempts_inc();
         state_machine->StartConnectTimer(state_machine->GetConnectTime());
-        if (!StartSession(state_machine)) {
+        if (!StartSession(state_machine))
             return;
-        }
+    }
+
+    ~Connect() {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->CancelConnectTimer();
     }
 
     sc::result react(const EvConnectTimerExpired &event) {
@@ -519,7 +531,6 @@ struct Connect : sc::state<Connect, StateMachine> {
         BgpPeer *peer = state_machine->peer();
         peer->SendOpen(state_machine->passive_session());
         state_machine->set_active_session(NULL);
-        state_machine->CancelConnectTimer();
         return transit<OpenSent>();
     }
 
@@ -528,7 +539,6 @@ struct Connect : sc::state<Connect, StateMachine> {
         BgpPeer *peer = state_machine->peer();
         BgpSession *session = state_machine->active_session();
         peer->SendOpen(session);
-        state_machine->CancelConnectTimer();
         return transit<OpenSent>();
     }
 
@@ -536,7 +546,6 @@ struct Connect : sc::state<Connect, StateMachine> {
         // delete session; restart connect timer.
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_active_session(NULL);
-        state_machine->CancelConnectTimer();
         return transit<Active>();
     }
 
@@ -557,7 +566,6 @@ struct Connect : sc::state<Connect, StateMachine> {
             state_machine->CancelOpenTimer();
             return discard_event();
         }
-        state_machine->CancelConnectTimer();
         assert(event.session == state_machine->active_session());
         state_machine->set_active_session(NULL);
         return transit<Active>();
@@ -576,13 +584,9 @@ struct Connect : sc::state<Connect, StateMachine> {
             return discard_event();
 
         state_machine->set_hold_time(event.msg->holdtime);
-        state_machine->CancelOpenTimer();
-        state_machine->CancelConnectTimer();
-        state_machine->StartHoldTimer();
         state_machine->set_active_session(NULL);
         state_machine->AssignSession(false);
         peer->SendOpen(session);
-        peer->SendKeepalive(false);
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
     }
@@ -628,6 +632,11 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
         state_machine->set_state(StateMachine::OPENSENT);
         state_machine->set_hold_time(StateMachine::kOpenSentHoldTime);
         state_machine->StartHoldTimer();
+    }
+
+    ~OpenSent() {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->CancelHoldTimer();
     }
 
     sc::result react(const EvBgpNotification &event) {
@@ -763,9 +772,6 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
 
         state_machine->set_hold_time(event.msg->holdtime);
         peer->SetCapabilities(event.msg.get());
-        peer->SendKeepalive(false);
-        peer->StartKeepaliveTimer();
-        state_machine->StartHoldTimer();
         return transit<OpenConfirm>();
     }
 };
@@ -788,7 +794,17 @@ struct OpenConfirm : sc::state<OpenConfirm, StateMachine> {
 
     OpenConfirm(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
+        peer->SendKeepalive(false);
+        peer->StartKeepaliveTimer();
         state_machine->set_state(StateMachine::OPENCONFIRM);
+        state_machine->CancelOpenTimer();
+        state_machine->StartHoldTimer();
+    }
+
+    ~OpenConfirm() {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->CancelHoldTimer();
     }
 
     sc::result react(const EvTcpPassiveOpen &event) {
@@ -814,8 +830,6 @@ struct OpenConfirm : sc::state<OpenConfirm, StateMachine> {
     }
 
     sc::result react(const EvBgpKeepalive &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->StartHoldTimer();
         return transit<Established>();
     }
 };
@@ -838,19 +852,19 @@ struct Established : sc::state<Established, StateMachine> {
 
     Established(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
+        BgpPeer *peer = state_machine->peer();
+        peer->RegisterAllTables();
+        peer->server()->IncUpPeerCount();
         state_machine->set_state(StateMachine::ESTABLISHED);
         state_machine->connect_attempts_clear();
-        state_machine->peer()->RegisterAllTables();
-        state_machine->peer()->server()->IncUpPeerCount();
+        state_machine->StartHoldTimer();
     }
 
     ~Established() {
         StateMachine *state_machine = &context<StateMachine>();
-        state_machine->peer()->server()->DecUpPeerCount();
-
-        // TODO Bring the state machine to a closure gracefully by sending
-        // a specific event instead of deleting the data structures here in
-        // the destructor
+        BgpPeer *peer = state_machine->peer();
+        peer->server()->DecUpPeerCount();
+        state_machine->CancelHoldTimer();
     }
 
     sc::result react(const EvBgpKeepalive &event) {
@@ -1045,22 +1059,20 @@ bool StateMachine::HoldTimerRunning() {
 }
 
 void StateMachine::DeleteSession(BgpSession *session) {
+    if (!session)
+        return;
     session->set_observer(NULL);
     session->Close();
     Enqueue(fsm::EvTcpDeleteSession(session));
 }
 
 void StateMachine::set_active_session(BgpSession *session) {
-    if (active_session_ != NULL) {
-        DeleteSession(active_session_);
-    }
+    DeleteSession(active_session_);
     active_session_ = session;
 }
 
 void StateMachine::set_passive_session(BgpSession *session) {
-    if (passive_session_ != NULL) {
-        DeleteSession(passive_session_);
-    }
+    DeleteSession(passive_session_);
     passive_session_ = session;
 }
 
@@ -1077,22 +1089,8 @@ void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
     if (session && code != 0)
         peer_->SendNotification(session, code, subcode, data);
 
-    // TODO variable hold time based peer flaps in time window
     set_idle_hold_time(idle_hold_time() ? idle_hold_time() : kIdleHoldTime);
-
-    CancelConnectTimer();
-    CancelIdleHoldTimer();
-    CancelOpenTimer();
-    CancelHoldTimer();
     reset_hold_time();
-
-    set_active_session(NULL);
-    set_passive_session(NULL);
-    BgpSession *peer_session = peer_->session();
-    if (peer_session != NULL) {
-        peer_->clear_session();
-        DeleteSession(peer_session);
-    }
     peer_->Close();
 }
 

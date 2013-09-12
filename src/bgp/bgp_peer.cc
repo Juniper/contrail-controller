@@ -267,7 +267,6 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_name_(config->name()),
           config_(config),
           index_(server->AllocPeerIndex()),
-          state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex()),
@@ -277,6 +276,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           send_ready_(true),
           control_node_(config_->vendor() == "contrail"),
           admin_down_(false),
+          state_machine_(BgpObjectFactory::Create<StateMachine>(this)),
           membership_req_pending_(0),
           defer_close_(false),
           local_as_(server_->autonomous_system()),
@@ -963,6 +963,11 @@ void BgpPeer::StopKeepaliveTimerUnlocked() {
 void BgpPeer::StopKeepaliveTimer() {
     spin_mutex::scoped_lock lock(spin_mutex_);
     StopKeepaliveTimerUnlocked();
+}
+
+bool BgpPeer::KeepaliveTimerRunning() {
+    spin_mutex::scoped_lock lock(spin_mutex_);
+    return keepalive_timer_->running();
 }
 
 void BgpPeer::SetSendReady() {
