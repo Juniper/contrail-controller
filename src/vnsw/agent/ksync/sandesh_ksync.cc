@@ -45,6 +45,39 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         FlowTableKSyncObject::GetKSyncObject()->flow_info_ = *r;
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
+        if (GetErrno() == EBADF) {
+            FlowKey key;
+            key.vrf = r->get_fr_flow_vrf();
+            key.src.ipv4 = ntohl(r->get_fr_flow_sip());
+            key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
+            key.src_port = ntohs(r->get_fr_flow_sport());
+            key.dst_port = ntohs(r->get_fr_flow_dport());
+            key.protocol = r->get_fr_flow_proto();
+            FlowEntry *entry = FlowTable::GetFlowTableObject()->Find(key);
+            in_addr src;
+            in_addr dst;
+            src.s_addr = r->get_fr_flow_sip();
+            dst.s_addr = r->get_fr_flow_dip();
+            string src_str = inet_ntoa(src);
+            string dst_str = inet_ntoa(dst);
+            string op;
+            if (r->get_fr_flags() != 0) {
+                op = "Add/Update";
+            } else {
+                op = "Delete";
+            }
+
+            LOG(ERROR, "Error Flow entry op = " << op
+                       << " vrf = " << (int) key.vrf
+                       << " src = " << src_str << ":" << key.src_port
+                       << " dst = " << dst_str << ":" << key.dst_port
+                       << " proto = " << (int)key.protocol);
+            if (entry && (int)entry->flow_handle == r->get_fr_index()) {
+                entry->flow_handle = FlowEntry::kInvalidFlowHandle;
+            }
+            
+            return;
+        }
         FlowKey key;
         key.vrf = r->get_fr_rflow_vrf();
         key.src.ipv4 = ntohl(r->get_fr_rflow_sip());

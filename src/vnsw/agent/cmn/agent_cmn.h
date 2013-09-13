@@ -148,10 +148,8 @@ public:
     VrfAssignTable *GetVrfAssignTable() {return vrf_assign_table_;};
     void SetSandeshPort(int sandesh_port) { sandesh_port_ = sandesh_port; };
     int GetSandeshPort() { return sandesh_port_;};
-    std::string GetCollector() { return collector_; }
-    void SetCollector(std::string srv) { collector_ = srv; }
-    int GetCollectorPort() { return collector_port_; }
-    void SetCollectorPort(int port) { collector_port_ = port; }
+    std::string GetMgmtIp() { return mgmt_ip_; }
+    void SetMgmtIp(std::string ip) { mgmt_ip_ = ip; }
 
     EventManager *GetEventManager() {return event_mgr_;};
     DB *GetDB() {return db_;};
@@ -490,7 +488,7 @@ public:
         local_peer_(NULL), local_vm_peer_(NULL),
         mdata_vm_peer_(NULL), ifmap_parser_(NULL), router_id_configured_(false),
         mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false), 
-        collector_(""), collector_port_(0) {
+        mgmt_ip_("") {
 
         assert(singleton_ == NULL);
         db_ = new DB();
@@ -605,8 +603,7 @@ private:
     uint16_t mirror_src_udp_port_;
     LifetimeManager *lifetime_manager_;
     bool test_mode_;
-    std::string collector_;
-    int collector_port_;
+    std::string mgmt_ip_;
     static Agent *singleton_;
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;

@@ -261,13 +261,11 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
     SetMarker(req->get_vifr_idx());
     const Interface *intf = InterfaceTable::FindInterface(req->get_vifr_idx());
     if (intf == NULL) {
-        LOG(DEBUG, "Invalid interface index <" << req->get_vifr_idx() << ">");
         return;
      }
  
     AgentStatsCollector::IfStats *stats = collector->GetIfStats(intf);
     if (!stats) {
-        LOG(DEBUG, "Interface not present in stats tree <" << intf->GetName() << ">");
         return;
     }
     if (intf->GetType() == Interface::VMPORT) {

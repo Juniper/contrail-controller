@@ -8,8 +8,10 @@
 class ContrailPorts {
 public:
     static const short ControlXmpp = 5269;
+    static const short DiscoveryServerPort = 5998;
     static const short RedisQueryPort = 6380;
     static const short RedisUvePort = 6381;
+    static const short RedisWebuiPort = 6383;
     static const short WebConsole = 8080;
     static const short OpServer = 8081;
     static const short ApiServer = 8082;
@@ -25,9 +27,9 @@ public:
     static const short HttpPortDns = 8092;
     static const short DnsXmpp = 8093;
     static const short DnsRndc = 8094;
-    static const short AnalyzerUdpPort = 8099;
-    static const short DiscoveryServerPort = 5998;
     static const short ApiServerOpen = 8095;
+    static const short AnalyzerUdpPort = 8099;
+
     // following ports are reserved for supervisord usage
     static const short supervisord_analytics = 9002;
     static const short supervisord_control = 9003;

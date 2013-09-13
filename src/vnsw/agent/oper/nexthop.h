@@ -820,7 +820,8 @@ private:
 class VlanNH : public NextHop {
 public:
     VlanNH(Interface *intf, uint32_t vlan_tag):
-        NextHop(VLAN, true, false), interface_(intf), vlan_tag_(vlan_tag) { };
+        NextHop(VLAN, true, false), interface_(intf), vlan_tag_(vlan_tag),
+        smac_(), dmac_(), vrf_(NULL) { };
     virtual ~VlanNH() { };
 
     bool NextHopIsLess(const DBEntry &rhs) const;

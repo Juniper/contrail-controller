@@ -1286,15 +1286,22 @@ void UveClient::SendVrouterUve() {
             vitf.set_mac_address(GetMacAddress(vhost->GetMacAddr()));
             vrouter_agent.set_vhost_if(vitf);
         }
+        vrouter_agent.set_control_ip(Agent::GetInstance()->GetMgmtIp());
         first = false;
         changed = true;
     }
 
-    if (!prev_vrouter_.__isset.build_info ||
-        prev_vrouter_.get_build_info() != Agent::GetInstance()->GetBuildInfo()) {
-        vrouter_agent.set_build_info(Agent::GetInstance()->GetBuildInfo());
-        prev_vrouter_.set_build_info(Agent::GetInstance()->GetBuildInfo());
-        changed = true;
+    //This API is invoked every 10 seconds. Send Build-Info only once after
+    //6 invocations (1 minute)
+    static int ver_count = 0;
+    static bool version_sent = false;
+    if (!version_sent) {
+        ver_count++;
+        if ((ver_count % 6) == 0) {
+            vrouter_agent.set_build_info(Agent::GetInstance()->GetBuildInfo());
+            changed = true;
+            version_sent = true;
+        }
     }
 
     std::vector<AgentXmppPeer> xmpp_list;
@@ -1338,20 +1345,6 @@ void UveClient::SendVrouterUve() {
 
         vrouter_agent.set_self_ip_list(ip_list);
         prev_vrouter_.set_self_ip_list(ip_list);
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.collector ||
-        prev_vrouter_.get_collector() != Agent::GetInstance()->GetCollector()) {
-        vrouter_agent.set_collector(Agent::GetInstance()->GetCollector());
-        prev_vrouter_.set_collector(Agent::GetInstance()->GetCollector());
-        changed = true;
-    }
-
-    if (!prev_vrouter_.__isset.collector_port ||
-        prev_vrouter_.get_collector_port() != Agent::GetInstance()->GetCollectorPort()) {
-        vrouter_agent.set_collector_port(Agent::GetInstance()->GetCollectorPort());
-        prev_vrouter_.set_collector_port(Agent::GetInstance()->GetCollectorPort());
         changed = true;
     }
 

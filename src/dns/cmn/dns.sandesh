@@ -54,6 +54,13 @@ struct VirtualDnsSandesh {
     3: list<string> subnets;
 }
 
+struct VirtualDnsServersSandesh {
+    1: VirtualDnsTraceData virtual_dns;
+    2: string records (link="ShowVirtualDnsRecords");
+    3: i32 num_records;
+    4: list<string> subnets;
+}
+
 struct AgentData {
     1: string peer;             // Peer name
     2: string peer_address;     // ip address and port
@@ -73,6 +80,22 @@ struct AgentDnsDataItem {
 struct AgentDnsData {
     1: string agent;
     2: list<AgentDnsDataItem> agent_data;
+}
+
+request sandesh ShowVirtualDnsServers {
+}
+
+response sandesh VirtualDnsServersResponse {
+    1: list<VirtualDnsServersSandesh> virtual_dns_servers;
+}
+
+request sandesh ShowVirtualDnsRecords {
+    1: string virtual_dns_server;
+}
+
+response sandesh VirtualDnsRecordsResponse {
+    1: string virtual_dns_server;
+    2: list<VirtualDnsRecordTraceData> records;
 }
 
 request sandesh ShowDnsConfig {

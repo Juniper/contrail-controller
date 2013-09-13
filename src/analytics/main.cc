@@ -290,6 +290,7 @@ int main(int argc, char *argv[])
             dup,
             var_map["analytics-data-ttl"].as<int>());
 
+#if 0
     // initialize python/c++ API
     Py_InitializeEx(0);
     // insert the patch where scripts are placed
@@ -299,6 +300,7 @@ int main(int argc, char *argv[])
         PyObject* sysPath = PySys_GetObject((char*)"path");
         PyList_Insert(sysPath, 0, PyString_FromString(rpath));
     }
+#endif
 
     analytics.Init();
 

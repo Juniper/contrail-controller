@@ -7,6 +7,7 @@ import sys
 import argparse
 import ConfigParser
 
+sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
 from provision_dns import DnsProvisioner
 from requests.exceptions import ConnectionError

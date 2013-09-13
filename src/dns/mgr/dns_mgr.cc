@@ -409,3 +409,70 @@ void ShowDnsConfig::HandleRequest() const {
     resp->set_virtual_dns(vdns_list_sandesh);
     resp->Response();
 }
+
+void ShowVirtualDnsServers::HandleRequest() const {
+    VirtualDnsServersResponse *resp = new VirtualDnsServersResponse();
+    resp->set_context(context());
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+
+    std::vector<VirtualDnsServersSandesh> vdns_list_sandesh;
+    for (VirtualDnsConfig::DataMap::iterator vdns_it = vdns.begin();
+         vdns_it != vdns.end(); ++vdns_it) {
+        VirtualDnsConfig *vdns_config = vdns_it->second;
+        VirtualDnsServersSandesh vdns_sandesh;
+        VirtualDnsTraceData vdns_trace_data;
+        vdns_config->VirtualDnsTrace(vdns_trace_data);
+
+        std::vector<std::string> net_list_sandesh;
+        for (VirtualDnsConfig::IpamList::iterator ipam_iter = 
+             vdns_config->ipams_.begin(); 
+             ipam_iter != vdns_config->ipams_.end(); ++ipam_iter) {
+            IpamConfig *ipam = *ipam_iter;
+            const IpamConfig::VnniList &vnni = ipam->GetVnniList();
+            for (IpamConfig::VnniList::iterator vnni_it = vnni.begin();
+                 vnni_it != vnni.end(); ++vnni_it) {
+                Subnets &subnets = (*vnni_it)->GetSubnets();
+                for (unsigned int i = 0; i < subnets.size(); i++) {
+                    std::stringstream str;
+                    str << subnets[i].prefix.to_string();
+                    str << "/";
+                    str << subnets[i].plen;
+                    net_list_sandesh.push_back(str.str());
+                }
+            }
+        }
+
+        vdns_sandesh.set_virtual_dns(vdns_trace_data);
+        vdns_sandesh.set_records(vdns_config->GetName());
+        vdns_sandesh.set_num_records(vdns_config->virtual_dns_records_.size());
+        vdns_sandesh.set_subnets(net_list_sandesh);
+        vdns_list_sandesh.push_back(vdns_sandesh);
+    }
+
+    resp->set_virtual_dns_servers(vdns_list_sandesh);
+    resp->Response();
+}
+
+void ShowVirtualDnsRecords::HandleRequest() const {
+    VirtualDnsRecordsResponse *resp = new VirtualDnsRecordsResponse();
+    VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
+
+    std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
+    VirtualDnsConfig::DataMap::iterator vdns_it = 
+                        vdns.find(get_virtual_dns_server());
+    if (vdns_it != vdns.end()) {
+        VirtualDnsConfig *vdns_config = vdns_it->second;
+        for (VirtualDnsConfig::VDnsRec::iterator rec_it = 
+             vdns_config->virtual_dns_records_.begin();
+             rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
+            VirtualDnsRecordTraceData rec_trace_data;
+            (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
+            rec_list_sandesh.push_back(rec_trace_data);
+        }
+    }
+
+    resp->set_context(context());
+    resp->set_virtual_dns_server(get_virtual_dns_server());
+    resp->set_records(rec_list_sandesh);
+    resp->Response();
+}

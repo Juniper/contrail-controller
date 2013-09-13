@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.Iterator;
 import java.util.Collections;
+import java.util.Random;
 import java.lang.reflect.Field;
 import java.io.FileInputStream;
 import java.io.ObjectInputStream;
@@ -20,6 +21,7 @@ import java.io.InputStream;
 import net.juniper.contrail.api.types.NetworkIpam;
 import net.juniper.contrail.api.types.VirtualMachine;
 import net.juniper.contrail.api.types.VirtualMachineInterface;
+import net.juniper.contrail.api.types.MacAddressesType;
 import net.juniper.contrail.api.types.VirtualNetwork;
 import net.juniper.contrail.api.types.NetworkPolicy;
 import net.juniper.contrail.api.types.Project;
@@ -30,9 +32,11 @@ import net.juniper.contrail.api.types.FloatingIp;
 import net.juniper.contrail.api.types.FloatingIpPool;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.InetAddresses;
 
 public class ApiConnectorMock implements ApiConnector {
     private static final Logger s_logger =
@@ -52,6 +56,32 @@ public class ApiConnectorMock implements ApiConnector {
         parentMap.put(FloatingIp.class, FloatingIpPool.class);
         parentMap.put(FloatingIpPool.class, VirtualNetwork.class);
         _parentMap = parentMap; 
+    }
+
+    private static void assignAutoProperty(ApiObjectBase obj) {
+        if (obj.getClass() == VirtualMachineInterface.class) {
+            if (((VirtualMachineInterface)obj).getMacAddresses() != null) {
+                return;
+            }
+            String addr = RandomStringUtils.random(17, false, true);
+            char[] charArray = addr.toCharArray();
+            charArray[2] = charArray[5] = charArray[5] = ':';
+            charArray[8] = charArray[11] = charArray[14] = ':';
+            addr = new String(charArray);
+
+            MacAddressesType macs = new MacAddressesType(); 
+            macs.addMacAddress(addr);
+            s_logger.debug("Assigned auto property mac address : " + addr);
+            ((VirtualMachineInterface)obj).setMacAddresses(macs); 
+        } else if (obj.getClass() == InstanceIp.class) {
+            if (((InstanceIp)obj).getAddress() != null) {
+               return;
+            }
+            Random random = new Random();
+            String ipString = InetAddresses.fromInteger(random.nextInt()).getHostAddress();
+            s_logger.debug("Assigned auto property ip address : " + ipString);
+            ((InstanceIp)obj).setAddress(ipString); 
+        }
     }
 
     private static Class<?extends ApiObjectBase> getVncClass(String clsname) {
@@ -245,6 +275,8 @@ public class ApiConnectorMock implements ApiConnector {
         }
         /* update object references it has with associated back refs */
         updateRefs(obj);
+        /* assign auto property, if any */
+        assignAutoProperty(obj);
         return true;
     }
 
@@ -330,12 +362,14 @@ public class ApiConnectorMock implements ApiConnector {
         HashMap<String, ApiObjectBase> fqnMap =  getFqnMap(clsData);
   
         ApiObjectBase obj = uuidMap.get(uuid);
-        if (isChildrenExists(obj)) {
+        if (obj != null && isChildrenExists(obj)) {
             s_logger.warn("children exist, can not delete");
             return;
         }
         uuidMap.remove(uuid);
-        fqnMap.remove(getFqnString(obj.getQualifiedName()));
+        if (obj != null) {
+            fqnMap.remove(getFqnString(obj.getQualifiedName()));
+        }
         return;
     }
 

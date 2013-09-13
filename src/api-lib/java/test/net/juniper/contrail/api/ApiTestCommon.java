@@ -232,7 +232,7 @@ public class ApiTestCommon {
             assertTrue(_api.create(ip_obj));
             // Must perform a GET in order to update the object contents.
             assertTrue(_api.read(ip_obj));
-//          assertNotNull(ip_obj.getAddress());
+            assertNotNull(ip_obj.getAddress());
 
             _api.delete(ip_obj);
             _api.delete(net);

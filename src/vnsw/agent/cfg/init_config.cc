@@ -225,7 +225,21 @@ static void ParseDiscoveryServer(const ptree &node, const string &fname,
     }
 }
 
+static void ParseControl(const ptree &node, const string &fname,
+                         string &mgmt_ip) {
+    optional<string> opt_str;
 
+    try {
+        opt_str = node.get<string>("ip-address");
+        if (opt_str) {
+            mgmt_ip = opt_str.get();
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"control stanza\" in config "
+            "file <" << fname << ">. Error <" << e.what() << ">");
+        exit(EINVAL);
+    }
+}
 
 static void ParseHypervisor(ptree::const_iterator &iter, const string &fname, 
                             string &mode, string &ll_name, string &ll_addr) {
@@ -314,6 +328,7 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
     string dns_addr_2 = "";
     string dss_addr = "";
     int xs_instances = -1;
+    string mgmt_ip = "";
     string vhost_addr = "";
     string tunnel_str = "";
     optional<string> opt_str;
@@ -379,6 +394,8 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
             ParseDnsServer(iter->second, init_file, dns_addr_1, dns_addr_2);
         } else if (iter->first == "discovery-server") {
             ParseDiscoveryServer(iter->second, init_file, dss_addr, xs_instances);
+        } else if (iter->first == "control") {
+            ParseControl(iter->second, init_file, mgmt_ip);
         } else if (iter->first == "hypervisor") {
             ParseHypervisor(iter, init_file, mode_str, xen_ll_name,
                             xen_ll_addr_str);
@@ -389,7 +406,8 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
                 << ">. Unknown XML node <" << iter->first << ">. Ignoring");
         }
     }
-
+    
+    Agent::GetInstance()->SetMgmtIp(mgmt_ip);
     opt_str = agent.get_optional<string>("tunnel-type");
     if (opt_str) {
         tunnel_str = opt_str.get();

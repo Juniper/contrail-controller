@@ -397,7 +397,7 @@ protected:
         RemoveServiceChainProperty(cn2_.get());
 
         char config[4096];
-        snprintf(config, sizeof(config), config_delete);
+        snprintf(config, sizeof(config), "%s", config_delete);
         cn1_->Configure(config);
         cn2_->Configure(config);
         mx_->Configure(config);

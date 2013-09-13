@@ -89,6 +89,7 @@ class OpServerProxy::OpServerImpl {
 
         void ToOpsConnDown() {
             LOG(DEBUG, "ToOpsConnDown.. DOWN.. Reconnect..");
+            assert(0);
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
                         this, RAC_CONN_TYPE_TO_OPS));
         }

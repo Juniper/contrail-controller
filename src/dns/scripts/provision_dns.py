@@ -6,7 +6,9 @@
 import json
 import copy
 import re
+import sys
 
+sys.path.insert(1, sys.path[0]+'/../api-venv/lib/python2.7/site-packages')
 from vnc_api.vnc_api import *
 
 class DnsProvisioner(object):

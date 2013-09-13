@@ -109,8 +109,6 @@ bool AgentInit::Run() {
 
                 if ((collector_server_port_ != 0) && (!collector_server_.empty())) {
                     Sandesh::ConnectToCollector(collector_server_, collector_server_port_);
-                    Agent::GetInstance()->SetCollector(collector_server_);
-                    Agent::GetInstance()->SetCollectorPort(collector_server_port_);
                 }
             }
             Sandesh::SetLoggingParams(log_locally_, log_category_, log_level_);

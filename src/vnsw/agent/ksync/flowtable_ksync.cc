@@ -156,13 +156,20 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     std::vector<int8_t> pcap_data;
 
 
-    if (hash_id_ == FlowEntry::kInvalidFlowHandle) {
+    if (fe_->flow_handle == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
 
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
-    req.set_fr_index(hash_id_);
+    req.set_fr_index(fe_->flow_handle);
+    FlowKey *fe_key = &fe_->key;
+    req.set_fr_flow_sip(htonl(fe_key->src.ipv4));
+    req.set_fr_flow_dip(htonl(fe_key->dst.ipv4));
+    req.set_fr_flow_proto(fe_key->protocol);
+    req.set_fr_flow_sport(htons(fe_key->src_port));
+    req.set_fr_flow_dport(htons(fe_key->dst_port));
+    req.set_fr_flow_vrf(fe_key->vrf);
     uint16_t flags = 0;
 
     if (op == sandesh_op::DELETE) {
@@ -345,7 +352,7 @@ std::string FlowTableKSyncEntry::GetActionString(uint16_t action,
 void FlowTableKSyncEntry::FillFlowInfo(sandesh_op::type op, 
                                        uint16_t action, uint16_t flag) {
     FlowInfo info;
-    info.set_flow_index(hash_id_);
+    info.set_flow_index(fe_->flow_handle);
     info.set_action(GetActionString(action, flag));
 
     if (op == sandesh_op::ADD) {
@@ -450,7 +457,7 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
 
         vflow_entry = obj->GetKernelFlowEntry(flow_idx, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            FlowKey key(ntohs(vflow_entry->fe_key.key_vrf_id), 
+            FlowKey key(vflow_entry->fe_key.key_vrf_id, 
                         ntohl(vflow_entry->fe_key.key_src_ip), 
                         ntohl(vflow_entry->fe_key.key_dest_ip),
                         vflow_entry->fe_key.key_proto,

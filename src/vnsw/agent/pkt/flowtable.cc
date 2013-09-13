@@ -1553,29 +1553,45 @@ static void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &
     }
 }
 
-static void SetAclAction(const FlowEntry &fe, std::vector<AclAction> &acl_action_l)
-{
-    const std::list<MatchAclParams> &acl_l = fe.data.match_p.m_acl_l;
+static void SetAclListAclAction(const std::list<MatchAclParams> &acl_l, std::vector<AclAction> &acl_action_l,
+                         std::string &acl_type) {
     std::list<MatchAclParams>::const_iterator it;
     for(it = acl_l.begin(); it != acl_l.end(); ++it) {
         AclAction acl_action;
         acl_action.set_acl_id(UuidToString((*it).acl->GetUuid()));
-        acl_action.set_sg(false);
+        acl_action.set_acl_type(acl_type);
         std::vector<ActionStr> action_str_l;
         SetActionStr((*it).action_info, action_str_l);
         acl_action.set_action_l(action_str_l);
         acl_action_l.push_back(acl_action);
     }
+}
+
+static void SetAclAction(const FlowEntry &fe, std::vector<AclAction> &acl_action_l)
+{
+    const std::list<MatchAclParams> &acl_l = fe.data.match_p.m_acl_l;
+    std::string acl_type("nw policy");
+    SetAclListAclAction(acl_l, acl_action_l, acl_type);
+
     const std::list<MatchAclParams> &sg_acl_l = fe.data.match_p.m_sg_acl_l;
-    for(it = sg_acl_l.begin(); it != sg_acl_l.end(); ++it) {
-        AclAction acl_action;
-        acl_action.set_acl_id(UuidToString((*it).acl->GetUuid()));
-        acl_action.set_sg(true);
-        std::vector<ActionStr> action_str_l;
-        SetActionStr((*it).action_info, action_str_l);
-        acl_action.set_action_l(action_str_l);
-        acl_action_l.push_back(acl_action);
-    }
+    acl_type = "sg";
+    SetAclListAclAction(sg_acl_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &m_acl_l = fe.data.match_p.m_mirror_acl_l;
+    acl_type = "dynamic";
+    SetAclListAclAction(m_acl_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &out_acl_l = fe.data.match_p.m_out_acl_l;
+    acl_type = "o nw policy";
+    SetAclListAclAction(out_acl_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &out_sg_acl_l = fe.data.match_p.m_out_sg_acl_l;
+    acl_type = "o sg";
+    SetAclListAclAction(out_sg_acl_l, acl_action_l, acl_type);
+
+    const std::list<MatchAclParams> &out_m_acl_l = fe.data.match_p.m_out_mirror_acl_l;
+    acl_type = "o dynamic";
+    SetAclListAclAction(out_m_acl_l, acl_action_l, acl_type);
 }
 
 string FlowTable::GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id) {
@@ -1630,6 +1646,25 @@ string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey 
     ss << uuid_str << ":";
     ss << PktSandeshFlow::GetFlowKey(key);
     return ss.str();
+}
+
+static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParams> &acl_l,
+                            std::vector<AceId> &ace_l) {
+    std::list<MatchAclParams>::const_iterator ma_it;
+    for (ma_it = acl_l.begin();
+         ma_it != acl_l.end();
+         ++ma_it) {
+        if ((*ma_it).acl != acl) {
+            continue;
+        }
+        AclEntryIDList::const_iterator ait;
+        for (ait = (*ma_it).ace_id_list.begin(); 
+             ait != (*ma_it).ace_id_list.end(); ++ ait) {
+            AceId ace_id;
+            ace_id.id = *ait;
+            ace_l.push_back(ace_id);
+        }
+    }
 }
 
 void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
@@ -1699,35 +1734,14 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
         }
         fe_sandesh_data.set_current_time(integerToString(
                                          UTCUsecToPTime(UTCTimestampUsec())));
-        std::list<MatchAclParams>::const_iterator ma_it;
-        for (ma_it = fe.data.match_p.m_acl_l.begin();
-             ma_it != fe.data.match_p.m_acl_l.end();
-             ++ma_it) {
-             if ((*ma_it).acl != acl) {
-                  continue;
-             }
-             AclEntryIDList::const_iterator ait;
-             for (ait = (*ma_it).ace_id_list.begin(); 
-                  ait != (*ma_it).ace_id_list.end(); ++ ait) {
-                  AceId ace_id;
-                  ace_id.id = *ait;
-                  fe_sandesh_data.ace_l.push_back(ace_id);
-             }
-        }
-        for (ma_it = fe.data.match_p.m_sg_acl_l.begin();
-             ma_it != fe.data.match_p.m_sg_acl_l.end();
-             ++ma_it) {
-             if ((*ma_it).acl != acl) {
-                  continue;
-             }
-             AclEntryIDList::const_iterator ait;
-             for (ait = (*ma_it).ace_id_list.begin(); 
-                  ait != (*ma_it).ace_id_list.end(); ++ ait) {
-                  AceId ace_id;
-                  ace_id.id = *ait;
-                  fe_sandesh_data.ace_l.push_back(ace_id);
-             }
-        }
+        
+        SetAclListAceId(acl, fe.data.match_p.m_acl_l, fe_sandesh_data.ace_l);
+        SetAclListAceId(acl, fe.data.match_p.m_sg_acl_l, fe_sandesh_data.ace_l);
+        SetAclListAceId(acl, fe.data.match_p.m_mirror_acl_l, fe_sandesh_data.ace_l);
+        SetAclListAceId(acl, fe.data.match_p.m_out_acl_l, fe_sandesh_data.ace_l);
+        SetAclListAceId(acl, fe.data.match_p.m_out_sg_acl_l, fe_sandesh_data.ace_l);
+        SetAclListAceId(acl, fe.data.match_p.m_out_mirror_acl_l, fe_sandesh_data.ace_l);
+
         if (fe.data.reverse_flow.get()) {
             fe_sandesh_data.set_reverse_flow("yes");
         } else {

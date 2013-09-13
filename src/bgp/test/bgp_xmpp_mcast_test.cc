@@ -655,18 +655,13 @@ TEST_F(BgpXmppUnitTest, XmppBadAddress) {
     // Register to both unicast and multicast table
     agent_a_->Subscribe("blue", 1); 
     WAIT_EQ(1, bgp_channel_manager_->channel_[0]->Count());
-    agent_a_->AddMcastRoute("blue", "225.0.0.1", "7.7.7.7", "10000-20000"); 
-    WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
-
-    //Verify route added with instance_id = 2
-    InetMcastTable *blue_table_ = static_cast<InetMcastTable *>(
-            a_->database()->FindTable("blue.inetmcast.0"));
-    EXPECT_TRUE(blue_table_->Size() == 1);
 
     // Multicast Route Entry Add with invalid nh 
     agent_a_->AddMcastRoute("blue", "225.0.0.1", "7.7", "10000-20000"); 
-    WAIT_EQ(3, bgp_channel_manager_->channel_[0]->Count());
-    EXPECT_TRUE(blue_table_->Size() == 1);
+    WAIT_EQ(2, bgp_channel_manager_->channel_[0]->Count());
+    InetMcastTable *blue_table_ = static_cast<InetMcastTable *>(
+            a_->database()->FindTable("blue.inetmcast.0"));
+    EXPECT_TRUE(blue_table_->Size() == 0);
 
     //trigger a TCP close event on the server
     agent_a_->SessionDown();
