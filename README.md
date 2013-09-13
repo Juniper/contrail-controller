@@ -1,7 +1,7 @@
 contrail-controller
 ===================
 
-Contrail Virtual Network Controller
+# Contrail Virtual Network Controller
 
 This software is licensed under the Apache License, Version 2.0 (the "License");
 you may not use this software except in compliance with the License.
@@ -29,7 +29,7 @@ compute node and programs the data-plane in the host operating system.
 
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
 
-** Contributing code
+### Contributing code
 * Sign the [CLA](https://secure.echosign.com/public/hostedForm?formid=6G36BHPX974EXY)
 * Push your changes to a topic branch in your fork of the repository.
 * Submit a pull request to the contrail repository.
