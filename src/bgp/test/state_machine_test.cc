@@ -500,7 +500,7 @@ struct EvGenComp {
 
 TEST_F(StateMachineTest, Matrix) {
     boost::asio::io_service::work work(*evm_.io_service());
-    typedef std::map<EvGen, StateMachine::State, EvGenComp> Transitions;
+    typedef map<EvGen, StateMachine::State, EvGenComp> Transitions;
 
 #define TRANSITION(F, E) \
     ((EvGen) boost::bind(&StateMachineTest_Matrix_Test::F, this), E)
@@ -624,57 +624,52 @@ TEST_F(StateMachineTest, Matrix) {
     }
 }
 
+//
+// Simplest sequence of events to go to Established.
+//
 TEST_F(StateMachineTest, Basic) {
-    GetToState(StateMachine::CONNECT);
+    GetToState(StateMachine::ACTIVE);
+    EvConnectTimerExpired();
+    VerifyState(StateMachine::CONNECT);
     BgpSessionMock *session = session_mgr_->active_session();
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
     VerifyState(StateMachine::OPENSENT);
-
-    BgpProto::OpenMessage *open = new BgpProto::OpenMessage;
-    BgpMessageTest::GenerateOpenMessage(open);
-    sm_->OnMessage(session, open);
+    EvBgpOpen();
     VerifyState(StateMachine::OPENCONFIRM);
-
-    BgpProto::Keepalive *keepalive = new BgpProto::Keepalive;
-    sm_->OnMessage(session, keepalive);
+    EvBgpKeepalive();
     VerifyState(StateMachine::ESTABLISHED);
 }
 
+//
+// Simulate EvTcpConnectFail and EvTcpClose.
+//
 TEST_F(StateMachineTest, ConnectionErrors) {
     boost::asio::io_service::work work(*evm_.io_service());
     GetToState(StateMachine::CONNECT);
-
-    BgpSessionMock *session = session_mgr_->active_session();
-    sm_->connect_attempts_clear();
-    session->ConnectFailed();
+    EvTcpConnectFail();
     VerifyState(StateMachine::ACTIVE);
     EvConnectTimerExpired();
     VerifyState(StateMachine::CONNECT);
-
-    session = session_mgr_->active_session();
+    BgpSessionMock *session = session_mgr_->active_session();
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
     VerifyState(StateMachine::OPENSENT);
-
-    session->Close();
-    sm_->OnSessionEvent(session, TcpSession::CLOSE);
+    EvTcpClose();
     VerifyState(StateMachine::ACTIVE);
 }
 
-// Simulate CreateSession failure and verify that state transition is gracefully
-// handled when CreateSession eventually succeeds.
 //
-// Old State: Connect
-// Event: EvConnectTimerExpired
-// New State: Connect/Active until CreateSession succeeds
+// Simulate CreateSession failure and verify that we cycle through the
+// Connect and Active states till CreateSession eventually succeeds.
+//
 TEST_F(StateMachineTest, CreateSessionFail) {
 
     // Mark CreateSession() to fail.
     session_mgr_->set_create_session_fail(true);
     GetToState(StateMachine::ACTIVE);
 
-    // Feed a few EvConnectTimerExpired and go through ACTIVE/CONNECT.
+    // Feed a few EvConnectTimerExpired and go through Active/Connect.
     for (int i = 0; i < 4; i++) {
         EvConnectTimerExpired();
         VerifyState(StateMachine::CONNECT);
@@ -685,6 +680,38 @@ TEST_F(StateMachineTest, CreateSessionFail) {
     // Restore CreateSession() to succeed.
     session_mgr_->set_create_session_fail(false);
 
+    // Make sure we can progress beyond Connect.
+    EvConnectTimerExpired();
+    VerifyState(StateMachine::CONNECT);
+    BgpSessionMock *session = session_mgr_->active_session();
+    TcpSession::Endpoint endpoint;
+    session->Connected(endpoint);
+    VerifyState(StateMachine::OPENSENT);
+}
+
+//
+// First get to Active state and then inject EvConnectTimerExpired and
+// EvTcpConnectFail multiple times to cycle through Connect and Active
+// states.
+//
+// Verify that the connect time backs off as expected.
+//
+TEST_F(StateMachineTest, ConnectTimerBackoff) {
+    GetToState(StateMachine::ACTIVE);
+    for (int idx = 0; idx < 10; idx++) {
+        int connect_time = sm_->GetConnectTime();
+        if (idx == 0) {
+            TASK_UTIL_EXPECT_EQ(0, connect_time);
+        } else if (idx <= 5) {
+            TASK_UTIL_EXPECT_EQ(1 << (idx -1), connect_time);
+        } else {
+            TASK_UTIL_EXPECT_EQ(StateMachine::kConnectInterval, connect_time);
+        }
+        EvConnectTimerExpired();
+        VerifyState(StateMachine::CONNECT);
+        EvTcpConnectFail();
+        VerifyState(StateMachine::ACTIVE);
+    }
     EvConnectTimerExpired();
     VerifyState(StateMachine::CONNECT);
     BgpSessionMock *session = session_mgr_->active_session();
