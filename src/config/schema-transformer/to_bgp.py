@@ -764,6 +764,10 @@ class VirtualNetworkST(DictST):
                     continue
 
                 if prule.action_list and prule.action_list.apply_service !=[]:
+                    if remote_network_name == self.name:
+                        _sandesh._logger.debug("Service chain source and dest "
+                                               "vn are same: %s", self.name)
+                        continue
                     remote_vn = VirtualNetworkST.get(remote_network_name)
                     if remote_vn is None:
                         _sandesh._logger.debug("Network %s not found while apply service chain to network %s",
@@ -790,7 +794,7 @@ class VirtualNetworkST(DictST):
                         if (action.mirror_to is not None and 
                             action.mirror_to.analyzer_name is not None):
                             if ((svn in [self.name, 'any']) or
-                                (dvn in [self.name, 'any'] and prule.direction == '<>')):
+                                (dvn in [self.name, 'any'])):
                                 self.process_analyzer(action)
                                 
                         match  = MatchConditionType(arule_proto,

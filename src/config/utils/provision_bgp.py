@@ -68,7 +68,7 @@ class BgpProvisioner(object):
     
         # full-mesh with existing bgp routers
         fq_name = rt_inst_obj.get_fq_name()
-        bgp_router_list = json.loads(vnc_lib.bgp_routers_list(parent_fq_name = fq_name))
+        bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name = fq_name)
         bgp_router_ids = [bgp_dict['uuid'] for bgp_dict in bgp_router_list['bgp-routers']]
         bgp_router_objs = []
         for id in bgp_router_ids:
@@ -93,7 +93,7 @@ class BgpProvisioner(object):
 
         # remove full-mesh with existing bgp routers
         fq_name = rt_inst_obj.get_fq_name()
-        bgp_router_list = json.loads(vnc_lib.bgp_routers_list(parent_fq_name = fq_name))
+        bgp_router_list = vnc_lib.bgp_routers_list(parent_fq_name = fq_name)
         bgp_router_ids = [bgp_dict['uuid'] for bgp_dict in bgp_router_list['bgp-routers']]
         bgp_router_objs = []
         for id in bgp_router_ids:

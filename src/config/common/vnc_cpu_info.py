@@ -97,8 +97,8 @@ class CpuInfo(object):
                 # placeholder for build_info. Need to retrieve build_info from 
                 #package/rpm and plug it in self._new_build_info
                 from buildinfo import build_info
-                rpm_version = os.popen("contrail-version | grep 'contrail-api '| awk '{print $2}'").read()
-                build_num = os.popen("contrail-version | grep 'contrail-api '| awk '{print $3}'").read()
+                rpm_version = os.popen("contrail-version | grep 'contrail-config '| awk '{print $2}'").read()
+                build_num = os.popen("contrail-version | grep 'contrail-config '| awk '{print $3}'").read()
                 self._new_build_info = build_info + '"build-id" : "' + rpm_version + '", "build-number" : "' + build_num + '"}]}'
                 if (self._new_build_info != self._curr_build_info):
                     self._curr_build_info = self._new_build_info

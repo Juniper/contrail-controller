@@ -43,8 +43,10 @@ Update virtual-networks to use the policy
 -----------------------------------------
 To associate the *policy-red-blue* with the virtual networks:
 
-    >>> vn_blue_obj.add_network_policy(policy_obj, None)
-    >>> vn_red_obj.add_network_policy(policy_obj, None)
+    >>> vn_blue_obj.add_network_policy(policy_obj, vnc_api.VirtualNetworkPolicyType(
+                                                       sequence=vnc_api.SequenceType(0, 0)))
+    >>> vn_red_obj.add_network_policy(policy_obj, vnc_api.VirtualNetworkPolicyType(
+                                                       sequence=vnc_api.SequenceType(0, 0)))
     >>> vnc_lib.virtual_network_update(vn_blue_obj)
     u'{"virtual-network": {"href": "http://10.84.14.2:8082/virtual-network/57603abb-0089-4a89-b44b-8ca71d4b7826", "uuid": "57603abb-0089-4a89-b44b-8ca71d4b7826"}}'
     >>> vnc_lib.virtual_network_update(vn_red_obj)
@@ -62,13 +64,9 @@ An object can be read by using its uuid returned by create...
 
 List the virtual-networks
 -------------------------
-A collection of objects can be listed by specifying their parent's uuid... or fully-qualified name.
+A collection of objects can be listed by 
 
-    >>> print vnc_lib.virtual_networks_list(project_id = 'f737782b-37b3-4ca4-b874-54f59ae6d187')
-
-... or by the parent's fully-qualified name.
-
-    >>> print vnc_lib.virtual_networks_list(project_name = ['default-domain', 'default-project'])
+    >>> print vnc_lib.virtual_networks_list()
 
 Deleting the objects
 --------------------

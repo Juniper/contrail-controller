@@ -145,10 +145,6 @@ if test "$capi"; then
   supervisorctl -s http://localhost:9004 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
-if test "$cquantum"; then
-  printf "== Contrail Quantum ==\n"
-fi
-
 if test "$contrail-webui"; then
   printf "== Contrail Web UI ==\n"
   check_svc supervisor-webui

@@ -29,8 +29,6 @@ class VncPermissions(object):
         id_perms = json.loads(obj_dict['prop:id_perms'])
 
         err_msg = (403, 'Permission Denied')
-        if not id_perms['enable']:
-            return (False, err_msg)
 
         user, roles = self.get_user_roles(request)
         is_admin = 'admin' in [x.lower() for x in roles]

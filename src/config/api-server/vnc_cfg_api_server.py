@@ -921,7 +921,7 @@ class VncApiServer(VncApiServerGen):
     def publish(self):
         # publish API server
         data = {
-            'ip-address' : self._args.listen_ip_addr,
+            'ip-address' : self._args.ifmap_server_ip,
             'port'       : self._args.listen_port,
         }
         self.api_server_task = self._disc.publish(ModuleNames[Module.API_SERVER], data)

@@ -55,7 +55,10 @@ class OpenstackDriver(vnc_plugin_base.Resync):
             while True:
                 try:
                     self._vnc_lib = vnc_api.VncApi(api_server_host = self._vnc_api_ip,
-                                                   api_server_port = self._vnc_api_port)
+                                                   api_server_port = self._vnc_api_port,
+                                                   username = self._auth_user,
+                                                   password = self._auth_passwd,
+                                                   tenant_name = self._auth_tenant)
                     break
                 except requests.ConnectionError:
                     gevent.sleep(1)
@@ -66,7 +69,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                                  tenant_name = self._auth_tenant,
                                  auth_url = self._auth_url)
      
-            old_projects = json.loads(self._vnc_lib.projects_list())['projects']
+            old_projects = self._vnc_lib.projects_list()['projects']
             old_project_ids = set([proj['uuid'] for proj in old_projects])
         except Exception as e:
             cgitb.Hook(format = "text", file = open(self._tmp_file_name, 'w')).handle(sys.exc_info())

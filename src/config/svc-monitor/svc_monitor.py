@@ -104,7 +104,7 @@ class SvcMonitor(object):
 
         #create default analyzer template
         self._create_default_template('analyzer-template', 'analyzer', 'analyzer')
-        self._create_default_template('nat-template', 'nat-service', 'firewall', 'in-network')
+        self._create_default_template('nat-template', 'nat-service', 'firewall', 'in-network-nat')
 
         #create cpu_info object to send periodic updates
         sysinfo_req = False
@@ -587,7 +587,7 @@ class SvcMonitor(object):
 
         vn_obj = VirtualNetwork(name=vn_name, parent_obj=proj_obj)
         domain_name, project_name = proj_obj.get_fq_name()
-        ipam_fq_name = [domain_name, 'admin', 'default-network-ipam']
+        ipam_fq_name = [domain_name, 'default-project', 'default-network-ipam']
         ipam_obj = self._vnc_lib.network_ipam_read(fq_name=ipam_fq_name)
         cidr = vn_subnet.split('/')
         pfx = cidr[0]
