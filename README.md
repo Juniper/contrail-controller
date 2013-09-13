@@ -28,3 +28,8 @@ compute node and programs the data-plane in the host operating system.
 
 
 Data gathered from all these components is collected into a logically centralized database (src/{analytics,opserver}).
+
+** Contributing code
+* Sign the [CLA](https://secure.echosign.com/public/hostedForm?formid=6G36BHPX974EXY)
+* Push your changes to a topic branch in your fork of the repository.
+* Submit a pull request to the contrail repository.
