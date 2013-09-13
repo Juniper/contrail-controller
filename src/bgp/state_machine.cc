@@ -46,7 +46,7 @@ namespace sc = boost::statechart;
 #define SESSION_LOG(session)                                                  \
 do {                                                                          \
     std::ostringstream out;                                                   \
-    out << "Processing event " << Name();                                     \
+    out << "Enqueue event " << Name();                                     \
     BGP_LOG_SERVER((session) ? (session)->Peer() : (IPeer *)0, (BgpTable *)0);\
     BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,            \
             BGP_LOG_FLAG_SYSLOG,                                              \
@@ -478,7 +478,8 @@ struct Active : sc::state<Active, StateMachine> {
         if (!session)
             return discard_event();
 
-        state_machine->set_hold_time(event.msg->holdtime);
+        int local_holdtime = state_machine->GetDefaultHoldTime();
+        state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->AssignSession(false);
         peer->SendOpen(session);
         peer->SetCapabilities(event.msg.get());
@@ -583,7 +584,8 @@ struct Connect : sc::state<Connect, StateMachine> {
         if (!session)
             return discard_event();
 
-        state_machine->set_hold_time(event.msg->holdtime);
+        int local_holdtime = state_machine->GetDefaultHoldTime();
+        state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->set_active_session(NULL);
         state_machine->AssignSession(false);
         peer->SendOpen(session);
@@ -770,7 +772,8 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
             state_machine->AssignSession(true);
         }
 
-        state_machine->set_hold_time(event.msg->holdtime);
+        int local_holdtime = state_machine->GetDefaultHoldTime();
+        state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
     }

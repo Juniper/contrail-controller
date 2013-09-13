@@ -443,10 +443,12 @@ protected:
         peer_->ResetCapabilities();
         sm_->OnMessage(session, open);
     }
-    void EvBgpOpenIdentifier(BgpSessionMock *session, uint32_t identifier) {
+    void EvBgpOpenCustom(BgpSessionMock *session,
+        uint32_t identifier = 1, int holdtime = 30) {
         BgpProto::OpenMessage *open = new BgpProto::OpenMessage;
         BgpMessageTest::GenerateOpenMessage(open);
         open->identifier = identifier;
+        open->holdtime = holdtime;
         peer_->ResetCapabilities();
         sm_->OnMessage(session, open);
     }
@@ -721,6 +723,7 @@ TEST_F(StateMachineTest, ConnectTimerBackoff) {
 }
 
 class StateMachineIdleTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
         GetToState(StateMachine::IDLE);
     }
@@ -769,7 +772,7 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     BgpSessionMock *session = session_mgr_->passive_session();
-    EvBgpOpenIdentifier(session, lower_id_);
+    EvBgpOpenCustom(session, lower_id_);
     TaskScheduler::GetInstance()->Start();
 
     VerifyState(StateMachine::IDLE);
@@ -792,7 +795,7 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenStartThenBgpOpen) {
     EvTcpPassiveOpen();
     EvStart();
     BgpSessionMock *session = session_mgr_->passive_session();
-    EvBgpOpenIdentifier(session, lower_id_);
+    EvBgpOpenCustom(session, lower_id_);
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
@@ -811,13 +814,14 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenConnectTimerExpiredThenBgpOpen) {
     EvStart();
     EvConnectTimerExpired();
     BgpSessionMock *session = session_mgr_->passive_session();
-    EvBgpOpenIdentifier(session, lower_id_);
+    EvBgpOpenCustom(session, lower_id_);
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::CONNECT);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
 }
 
 class StateMachineActiveTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
         GetToState(StateMachine::ACTIVE);
     }
@@ -911,26 +915,83 @@ TEST_F(StateMachineActiveTest, TcpPassiveOpenThenConnectTimerExpired) {
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
 }
 
-class StateMachineActiveParamTest :
+// Parameterize id (higher/lower)
+
+class StateMachineActiveParamTest1 :
     public StateMachineActiveTest,
     public ::testing::WithParamInterface<bool> {
+protected:
+    virtual void SetUp() {
+        id_ = GetParam() ? lower_id_ : higher_id_;
+        StateMachineActiveTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineActiveTest::TearDown();
+    }
+
+    int id_;
 };
 
 // Old State: Active
 // Event:     EvTcpPassiveOpen + EvBgpOpen (from higher or lower id)
 // New State: OpenConfirm
 // Messages:  Open message sent on passive session.
-TEST_P(StateMachineActiveParamTest, TcpPassiveOpenThenBgpOpen) {
+TEST_P(StateMachineActiveParamTest1, TcpPassiveOpenThenBgpOpen) {
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
 
-INSTANTIATE_TEST_CASE_P(One, StateMachineActiveParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(One, StateMachineActiveParamTest1, ::testing::Bool());
+
+// Parameterize id (higher/lower) and holdtime (higher/lower)
+
+typedef std::tr1::tuple<bool, bool> ActiveTestParams2;
+
+class StateMachineActiveParamTest2 :
+    public StateMachineActiveTest,
+    public ::testing::WithParamInterface<ActiveTestParams2> {
+protected:
+    virtual void SetUp() {
+        id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
+        if (tr1::get<1>(GetParam())) {
+            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+        } else {
+            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+        }
+        StateMachineActiveTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineActiveTest::TearDown();
+    }
+
+    uint32_t id_;
+    int holdtime_;
+};
+
+// Old State: Active
+// Event:     EvTcpPassiveOpen + EvBgpOpen (with higher or lower holdtime)
+// New State: OpenConfirm
+// Messages:  Open message sent on passive session.
+TEST_P(StateMachineActiveParamTest2, BgpHoldtimeNegotiation) {
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_, holdtime_);
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::OPENCONFIRM);
+    VerifyDirection(BgpSessionMock::PASSIVE);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+INSTANTIATE_TEST_CASE_P(One, StateMachineActiveParamTest2,
+    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class StateMachineConnectTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
         GetToState(StateMachine::CONNECT);
     }
@@ -1152,20 +1213,32 @@ TEST_F(StateMachineConnectTest, ConnectTimerExpiredThenTcpConnectFail) {
     TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
 }
 
-class StateMachineConnectParamTest :
+// Parameterize id (higher/lower)
+
+class StateMachineConnectParamTest1 :
     public StateMachineConnectTest,
     public ::testing::WithParamInterface<bool> {
+protected:
+    virtual void SetUp() {
+        id_ = GetParam() ? lower_id_ : higher_id_;
+        StateMachineConnectTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineConnectTest::TearDown();
+    }
+
+    int id_;
 };
 
 // Old State: Connect
 // Event:     EvTcpPassiveOpen + EvBgpOpen (from higher or lower id)
 // New State: OpenConfirm
 // Messages:  Open message sent on passive session.
-TEST_P(StateMachineConnectParamTest, TcpPassiveOpenThenBgpOpen) {
+TEST_P(StateMachineConnectParamTest1, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
@@ -1179,11 +1252,10 @@ TEST_P(StateMachineConnectParamTest, TcpPassiveOpenThenBgpOpen) {
 // Messages:  Open message sent on passive session.
 // Other:     The active session would have been closed before we process
 //            EvTcpConnected.
-TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenTcpConnected) {
+TEST_P(StateMachineConnectParamTest1, BgpPassiveOpenThenTcpConnected) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     EvTcpConnected();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
@@ -1198,11 +1270,10 @@ TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenTcpConnected) {
 // Messages:  Open message sent on passive session.
 // Other:     The active session would have been closed before we process
 //            EvTcpConnectFail.
-TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenTcpConnectFail) {
+TEST_P(StateMachineConnectParamTest1, BgpPassiveOpenThenTcpConnectFail) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     EvTcpConnectFail();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
@@ -1217,11 +1288,10 @@ TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenTcpConnectFail) {
 // Messages:  Open message sent on passive session.
 // Other:     The active session would have been closed before we process
 //            EvConnectTimerExpired.
-TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenConnectTimerExpired) {
+TEST_P(StateMachineConnectParamTest1, BgpPassiveOpenThenConnectTimerExpired) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     EvConnectTimerExpired();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
@@ -1229,9 +1299,54 @@ TEST_P(StateMachineConnectParamTest, BgpPassiveOpenThenConnectTimerExpired) {
     TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
 }
 
-INSTANTIATE_TEST_CASE_P(One, StateMachineConnectParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(One, StateMachineConnectParamTest1, ::testing::Bool());
+
+// Parameterize id (higher/lower) and holdtime (higher/lower)
+
+typedef std::tr1::tuple<bool, bool> ConnectTestParams2;
+
+class StateMachineConnectParamTest2 :
+    public StateMachineConnectTest,
+    public ::testing::WithParamInterface<ConnectTestParams2> {
+protected:
+    virtual void SetUp() {
+        id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
+        if (tr1::get<1>(GetParam())) {
+            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+        } else {
+            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+        }
+        StateMachineConnectTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineConnectTest::TearDown();
+    }
+
+    uint32_t id_;
+    int holdtime_;
+};
+
+// Old State: Connect
+// Event:     EvTcpPassiveOpen + EvBgpOpen (with higher or lower holdtime)
+// New State: OpenConfirm
+// Messages:  Open message sent on passive session.
+TEST_P(StateMachineConnectParamTest2, BgpHoldtimeNegotiation) {
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_, holdtime_);
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::OPENCONFIRM);
+    VerifyDirection(BgpSessionMock::PASSIVE);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+INSTANTIATE_TEST_CASE_P(One, StateMachineConnectParamTest2,
+    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class StateMachineOpenSentTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
     }
 
@@ -1347,7 +1462,7 @@ TEST_F(StateMachineOpenSentTest, Notification1a) {
 }
 
 // Old State: OpenSent (via active and passive sessions)
-// Event:     EvBgpNotification (pasive)
+// Event:     EvBgpNotification (passive)
 // New State: OpenSent
 // Timers:    Open timer must not be running since there's no passive session.
 // Messages:  Open message sent on passive session.
@@ -1519,7 +1634,7 @@ TEST_F(StateMachineOpenSentTest, TcpPassiveClose3) {
 TEST_F(StateMachineOpenSentTest, Collision1a) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->active_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), higher_id_);
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
@@ -1535,7 +1650,7 @@ TEST_F(StateMachineOpenSentTest, Collision1b) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
-    EvBgpOpenIdentifier(session_mgr_->active_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), higher_id_);
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
@@ -1550,7 +1665,7 @@ TEST_F(StateMachineOpenSentTest, Collision1b) {
 TEST_F(StateMachineOpenSentTest, Collision1c) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), higher_id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
@@ -1563,7 +1678,7 @@ TEST_F(StateMachineOpenSentTest, Collision1d) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), higher_id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
@@ -1576,7 +1691,7 @@ TEST_F(StateMachineOpenSentTest, Collision1d) {
 TEST_F(StateMachineOpenSentTest, Collision2a) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -1592,7 +1707,7 @@ TEST_F(StateMachineOpenSentTest, Collision2b) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
@@ -1606,7 +1721,7 @@ TEST_F(StateMachineOpenSentTest, Collision2b) {
 TEST_F(StateMachineOpenSentTest, Collision2c) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->active_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), lower_id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::ACTIVE);
 }
@@ -1619,7 +1734,7 @@ TEST_F(StateMachineOpenSentTest, Collision2d) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
     VerifyState(StateMachine::OPENSENT);
-    EvBgpOpenIdentifier(session_mgr_->active_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), lower_id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::ACTIVE);
 }
@@ -1631,7 +1746,7 @@ TEST_F(StateMachineOpenSentTest, Collision2d) {
 TEST_F(StateMachineOpenSentTest, Collision3a) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
+    EvBgpOpenCustom(session_mgr_->passive_session(),
         server_.bgp_identifier());
     VerifyState(StateMachine::IDLE);
 }
@@ -1643,7 +1758,7 @@ TEST_F(StateMachineOpenSentTest, Collision3a) {
 TEST_F(StateMachineOpenSentTest, Collision3b) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
+    EvBgpOpenCustom(session_mgr_->passive_session(),
         server_.bgp_identifier());
     VerifyState(StateMachine::IDLE);
 }
@@ -1655,7 +1770,7 @@ TEST_F(StateMachineOpenSentTest, Collision3b) {
 TEST_F(StateMachineOpenSentTest, Collision3c) {
     GetToState(StateMachine::OPENSENT);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->active_session(),
+    EvBgpOpenCustom(session_mgr_->active_session(),
         server_.bgp_identifier());
     VerifyState(StateMachine::IDLE);
 }
@@ -1667,7 +1782,7 @@ TEST_F(StateMachineOpenSentTest, Collision3c) {
 TEST_F(StateMachineOpenSentTest, Collision3d) {
     GetToState(StateMachine::OPENSENT);
     EvOpenTimerExpiredPassive();
-    EvBgpOpenIdentifier(session_mgr_->active_session(),
+    EvBgpOpenCustom(session_mgr_->active_session(),
         server_.bgp_identifier());
     VerifyState(StateMachine::IDLE);
 }
@@ -1695,7 +1810,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenKeepalive) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     EvBgpKeepalive(session_mgr_->passive_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
@@ -1713,8 +1828,8 @@ TEST_F(StateMachineOpenSentTest, CollisionThenBgpOpen) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
     TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
@@ -1732,7 +1847,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenNotification1) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     EvBgpNotification(session_mgr_->passive_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
@@ -1752,7 +1867,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenNotification2) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     EvBgpNotification(session_mgr_->active_session());
     TaskScheduler::GetInstance()->Start();
     RunToState(StateMachine::ACTIVE);
@@ -1772,7 +1887,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenClose1a) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     EvTcpClose(session_mgr_->passive_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
@@ -1791,7 +1906,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenClose1b) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->active_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), lower_id_);
     EvTcpClose(session_mgr_->passive_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
@@ -1807,7 +1922,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenClose2a) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), higher_id_);
     EvTcpClose(session_mgr_->active_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENCONFIRM);
@@ -1824,7 +1939,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenClose2b) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->active_session(), higher_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), higher_id_);
     EvTcpClose(session_mgr_->active_session());
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
@@ -1878,7 +1993,7 @@ TEST_F(StateMachineOpenSentTest, CollisionThenOpenTimerExpired) {
     GetToState(StateMachine::OPENSENT);
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(), lower_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), lower_id_);
     EvOpenTimerExpired();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::OPENSENT);
@@ -1996,39 +2111,154 @@ TEST_F(StateMachineOpenSentTest, HoldTimerExpiredThenBgpOpen3b) {
     VerifyState(StateMachine::IDLE);
 }
 
-class StateMachineOpenSentParamTest :
+// Parameterize id (higher/lower)
+
+class StateMachineOpenSentParamTest1 :
     public StateMachineOpenSentTest,
     public ::testing::WithParamInterface<bool> {
+protected:
+    virtual void SetUp() {
+        id_ = GetParam() ? lower_id_ : higher_id_;
+        StateMachineOpenSentTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineOpenSentTest::TearDown();
+    }
+
+    int id_;
 };
 
 // Old State: OpenSent
-// Event:     EvBgpOpenIdentifier (active with higher or lower id)
+// Event:     EvBgpOpen (active with higher or lower id)
 // New State: OpenConfirm
 // Messages:  Keepalive message sent on active session.
-TEST_P(StateMachineOpenSentParamTest, BgpOpenActive) {
+TEST_P(StateMachineOpenSentParamTest1, BgpOpenActive) {
     GetToState(StateMachine::OPENSENT);
-    EvBgpOpenIdentifier(session_mgr_->active_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->active_session(), id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::ACTIVE);
 }
 
 // Old State: OpenSent (via passive session)
-// Event:     EvBgpOpenIdentifier (passive with higher or lower id)
+// Event:     EvBgpOpen (passive with higher or lower id)
 // New State: OpenConfirm
 // Messages:  Keepalive message sent on passive session.
-TEST_P(StateMachineOpenSentParamTest, BgpOpenPassive) {
+TEST_P(StateMachineOpenSentParamTest1, BgpOpenPassive) {
     GetToState(StateMachine::ACTIVE);
     EvOpenTimerExpiredPassive();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
 
-INSTANTIATE_TEST_CASE_P(One, StateMachineOpenSentParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(One, StateMachineOpenSentParamTest1, ::testing::Bool());
+
+// Parameterize holdtime (higher/lower)
+
+class StateMachineOpenSentParamTest2 :
+    public StateMachineOpenSentTest,
+    public ::testing::WithParamInterface<bool> {
+protected:
+    virtual void SetUp() {
+        if (GetParam()) {
+            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+        } else {
+            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+        }
+        StateMachineOpenSentTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineOpenSentTest::TearDown();
+    }
+
+    int holdtime_;
+};
+
+// Old State: OpenSent (via active and passive session)
+// Event:     EvBgpOpen (via active session)
+// New State: OpenConfirm
+TEST_P(StateMachineOpenSentParamTest2, BgpHoldtimeNegotiation1) {
+    GetToState(StateMachine::OPENSENT);
+    EvOpenTimerExpiredPassive();
+    EvBgpOpenCustom(session_mgr_->active_session(), lower_id_, holdtime_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+// Old State: OpenSent (via active and passive session)
+// Event:     EvBgpOpen (via active session)
+// New State: OpenConfirm
+TEST_P(StateMachineOpenSentParamTest2, BgpHoldtimeNegotiation2) {
+    GetToState(StateMachine::OPENSENT);
+    EvOpenTimerExpiredPassive();
+    EvBgpOpenCustom(session_mgr_->passive_session(), higher_id_, holdtime_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+INSTANTIATE_TEST_CASE_P(One, StateMachineOpenSentParamTest2, ::testing::Bool());
+
+// Parameterize id (higher/lower) and holdtime (higher/lower)
+
+typedef std::tr1::tuple<bool, bool> OpenSentTestParams3;
+
+class StateMachineOpenSentParamTest3 :
+    public StateMachineOpenSentTest,
+    public ::testing::WithParamInterface<OpenSentTestParams3> {
+protected:
+    virtual void SetUp() {
+        id_ = tr1::get<0>(GetParam()) ? lower_id_ : higher_id_;
+        if (tr1::get<1>(GetParam())) {
+            holdtime_ = StateMachine::GetDefaultHoldTime() - 1;
+        } else {
+            holdtime_ = StateMachine::GetDefaultHoldTime() + 1;
+        }
+        StateMachineOpenSentTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineOpenSentTest::TearDown();
+    }
+
+    uint32_t id_;
+    int holdtime_;
+};
+
+// Old State: OpenSent (via active session)
+// Event:     EvBgpOpen (higher/lower id and higher/lower holdtime)
+// New State: OpenConfirm
+TEST_P(StateMachineOpenSentParamTest3, BgpHoldtimeNegotiation1) {
+    GetToState(StateMachine::OPENSENT);
+    EvBgpOpenCustom(session_mgr_->active_session(), id_, holdtime_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    VerifyDirection(BgpSessionMock::ACTIVE);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+// Old State: OpenSent (via passive session)
+// Event:     EvBgpOpen (higher/lower id and higher/lower holdtime)
+// New State: OpenConfirm
+TEST_P(StateMachineOpenSentParamTest3, BgpHoldtimeNegotiation2) {
+    GetToState(StateMachine::ACTIVE);
+    EvOpenTimerExpiredPassive();
+    VerifyState(StateMachine::OPENSENT);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_, holdtime_);
+    VerifyState(StateMachine::OPENCONFIRM);
+    VerifyDirection(BgpSessionMock::PASSIVE);
+    TASK_UTIL_EXPECT_EQ(min(holdtime_, StateMachine::GetDefaultHoldTime()),
+        sm_->hold_time());
+}
+
+INSTANTIATE_TEST_CASE_P(One, StateMachineOpenSentParamTest3,
+    ::testing::Combine(::testing::Bool(), ::testing::Bool()));
 
 class StateMachineOpenConfirmTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
     }
 
@@ -2112,19 +2342,31 @@ TEST_F(StateMachineOpenConfirmTest, TcpCloseThenAdminDown) {
     VerifyState(StateMachine::IDLE);
 }
 
-class StateMachineOpenConfirmParamTest :
+// Parameterize id (higher/lower)
+
+class StateMachineOpenConfirmParamTest1 :
     public StateMachineOpenConfirmTest,
     public ::testing::WithParamInterface<bool> {
+protected:
+    virtual void SetUp() {
+        id_ = GetParam() ? lower_id_ : higher_id_;
+        StateMachineOpenConfirmTest::SetUp();
+    }
+
+    virtual void TearDown() {
+        StateMachineOpenConfirmTest::TearDown();
+    }
+
+    int id_;
 };
 
 // Old State: OpenConfirm (via passive session)
 // Event:     EvBgpNotification (passive)
 // New State: Idle
-TEST_P(StateMachineOpenConfirmParamTest, Notification) {
+TEST_P(StateMachineOpenConfirmParamTest1, Notification) {
     GetToState(StateMachine::ACTIVE);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
     EvBgpNotification(session_mgr_->passive_session());
@@ -2134,11 +2376,10 @@ TEST_P(StateMachineOpenConfirmParamTest, Notification) {
 // Old State: OpenConfirm (via passive session)
 // Event:     EvTcpPassiveOpen (duplicate)
 // New State: OpenConfirm
-TEST_P(StateMachineOpenConfirmParamTest, TcpPassiveOpen) {
+TEST_P(StateMachineOpenConfirmParamTest1, TcpPassiveOpen) {
     GetToState(StateMachine::ACTIVE);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     EvTcpDuplicatePassiveOpen();
     VerifyState(StateMachine::OPENCONFIRM);
     VerifyDirection(BgpSessionMock::PASSIVE);
@@ -2149,21 +2390,22 @@ TEST_P(StateMachineOpenConfirmParamTest, TcpPassiveOpen) {
 // Old State: OpenConfirm (via passive session)
 // Event:     EvBgpKeepalive (passive)
 // New State: Established
-TEST_P(StateMachineOpenConfirmParamTest, BgpKeepalive) {
+TEST_P(StateMachineOpenConfirmParamTest1, BgpKeepalive) {
     GetToState(StateMachine::ACTIVE);
     EvTcpPassiveOpen();
-    EvBgpOpenIdentifier(session_mgr_->passive_session(),
-        GetParam() ? lower_id_ : higher_id_);
+    EvBgpOpenCustom(session_mgr_->passive_session(), id_);
     VerifyState(StateMachine::OPENCONFIRM);
     EvBgpKeepalive(session_mgr_->passive_session());
     VerifyState(StateMachine::ESTABLISHED);
     VerifyDirection(BgpSessionMock::PASSIVE);
 }
 
-INSTANTIATE_TEST_CASE_P(One, StateMachineOpenConfirmParamTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(One, StateMachineOpenConfirmParamTest1,
+    ::testing::Bool());
 
 
 class StateMachineEstablishedTest : public StateMachineTest {
+protected:
     virtual void SetUp() {
         GetToState(StateMachine::ESTABLISHED);
         VerifyDirection(BgpSessionMock::ACTIVE);
@@ -2193,7 +2435,7 @@ TEST_F(StateMachineEstablishedTest, TcpPassiveOpenThenBgpOpen) {
     TaskScheduler::GetInstance()->Stop();
     EvTcpPassiveOpen();
     BgpSessionMock *session = session_mgr_->passive_session();
-    EvBgpOpenIdentifier(session, lower_id_);
+    EvBgpOpenCustom(session, lower_id_);
     TaskScheduler::GetInstance()->Start();
     task_util::WaitForIdle();
     VerifyState(StateMachine::IDLE);
