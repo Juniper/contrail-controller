@@ -226,7 +226,9 @@ protected:
         case StateMachine::ACTIVE: {
             GetToState(StateMachine::IDLE);
             EvAdminUp();
-            RunToState(state);
+            task_util::WaitForIdle();
+            EvIdleHoldTimerExpired();
+            VerifyState(state);
             break;
         }
         case StateMachine::CONNECT: {
@@ -239,7 +241,7 @@ protected:
             GetToState(StateMachine::CONNECT);
             TcpSession::Endpoint endpoint;
             session_mgr_->active_session()->Connected(endpoint);
-            RunToState(state);
+            VerifyState(state);
             break;
         }
         case StateMachine::OPENCONFIRM: {
@@ -303,8 +305,11 @@ protected:
             TASK_UTIL_EXPECT_TRUE(ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
-            if (!session_mgr_->create_session_fail())
+            if (!session_mgr_->create_session_fail()) {
                 TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL);
+            } else {
+                TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
+            }
             TASK_UTIL_EXPECT_TRUE((sm_->passive_session() != NULL) ==
                                   OpenTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!peer_->KeepaliveTimerRunning());
@@ -620,11 +625,11 @@ TEST_F(StateMachineTest, Matrix) {
 }
 
 TEST_F(StateMachineTest, Basic) {
-    RunToState(StateMachine::CONNECT);
+    GetToState(StateMachine::CONNECT);
     BgpSessionMock *session = session_mgr_->active_session();
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
-    RunToState(StateMachine::OPENSENT);
+    VerifyState(StateMachine::OPENSENT);
 
     BgpProto::OpenMessage *open = new BgpProto::OpenMessage;
     BgpMessageTest::GenerateOpenMessage(open);
@@ -638,16 +643,20 @@ TEST_F(StateMachineTest, Basic) {
 
 TEST_F(StateMachineTest, ConnectionErrors) {
     boost::asio::io_service::work work(*evm_.io_service());
-    RunToState(StateMachine::CONNECT);
+    GetToState(StateMachine::CONNECT);
+
     BgpSessionMock *session = session_mgr_->active_session();
     sm_->connect_attempts_clear();
     session->ConnectFailed();
     VerifyState(StateMachine::ACTIVE);
-    RunToState(StateMachine::CONNECT);
+    EvConnectTimerExpired();
+    VerifyState(StateMachine::CONNECT);
+
     session = session_mgr_->active_session();
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
     VerifyState(StateMachine::OPENSENT);
+
     session->Close();
     sm_->OnSessionEvent(session, TcpSession::CLOSE);
     VerifyState(StateMachine::ACTIVE);
@@ -663,25 +672,25 @@ TEST_F(StateMachineTest, CreateSessionFail) {
 
     // Mark CreateSession() to fail.
     session_mgr_->set_create_session_fail(true);
+    GetToState(StateMachine::ACTIVE);
 
-    for (int i = 0; i < 2; i++) {
-
-        // We retry until CreateSession succeeds.
-        RunToState(StateMachine::CONNECT);
-        VerifyState(StateMachine::CONNECT);
-
-        // Feed EvConnectTimerExpired event.
+    // Feed a few EvConnectTimerExpired and go through ACTIVE/CONNECT.
+    for (int i = 0; i < 4; i++) {
         EvConnectTimerExpired();
+        VerifyState(StateMachine::CONNECT);
+        EvConnectTimerExpired();
+        VerifyState(StateMachine::ACTIVE);
     }
 
     // Restore CreateSession() to succeed.
     session_mgr_->set_create_session_fail(false);
 
-    RunToState(StateMachine::CONNECT);
+    EvConnectTimerExpired();
+    VerifyState(StateMachine::CONNECT);
     BgpSessionMock *session = session_mgr_->active_session();
     TcpSession::Endpoint endpoint;
     session->Connected(endpoint);
-    RunToState(StateMachine::OPENSENT);
+    VerifyState(StateMachine::OPENSENT);
 }
 
 class StateMachineIdleTest : public StateMachineTest {
