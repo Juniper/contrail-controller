@@ -46,7 +46,7 @@ namespace sc = boost::statechart;
 #define SESSION_LOG(session)                                                  \
 do {                                                                          \
     std::ostringstream out;                                                   \
-    out << "Enqueue event " << Name();                                     \
+    out << "Enqueue event " << Name();                                        \
     BGP_LOG_SERVER((session) ? (session)->Peer() : (IPeer *)0, (BgpTable *)0);\
     BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,            \
             BGP_LOG_FLAG_SYSLOG,                                              \
@@ -56,35 +56,48 @@ do {                                                                          \
 
 namespace fsm {
 
-// events
+// Events
 struct EvStart : sc::event<EvStart> {
-    static const char * Name() {
+    EvStart() {
+        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
+            BGP_LOG_FLAG_TRACE, Name());
+    }
+    static const char *Name() {
         return "EvStart";
     }
 };
 
 struct EvStop : sc::event<EvStop> {
-    static const char * Name() {
+    EvStop() {
+        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_TRACE, Name());
+    }
+    static const char *Name() {
         return "EvStop";
     }
 };
 
 struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
     EvIdleHoldTimerExpired(Timer *timer)  : timer_(timer){
+        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvIdleHoldTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
         return !timer_->cancelled();
     }
+
     Timer *timer_;
 };
 
 struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
     EvConnectTimerExpired(Timer *timer) : timer_(timer) {
+        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
+                BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvConnectTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -98,6 +111,7 @@ struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
         }
         return false;
     }
+
     Timer *timer_;
 };
 
@@ -106,7 +120,7 @@ struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
         BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
                 BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvOpenTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -116,6 +130,7 @@ struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
             return (state_machine->passive_session() != NULL);
         }
     }
+
     Timer *timer_;
 };
 
@@ -124,7 +139,7 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
         BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
                 BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvHoldTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -136,6 +151,7 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
             return (state_machine->peer()->session() != NULL);
         }
     }
+
     Timer *timer_;
 };
 
@@ -143,12 +159,13 @@ struct EvTcpConnected : sc::event<EvTcpConnected> {
     EvTcpConnected(BgpSession *session) : session(session) {
         SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvTcpConnected";
     }
     bool validate(StateMachine *state_machine) const {
         return (state_machine->active_session() == session);
     }
+
     BgpSession *session;
 };
 
@@ -156,30 +173,32 @@ struct EvTcpConnectFail : sc::event<EvTcpConnectFail> {
     EvTcpConnectFail(BgpSession *session) : session(session) {
         SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvTcpConnectFail";
     }
     bool validate(StateMachine *state_machine) const {
         return (state_machine->active_session() == session);
     }
+
     BgpSession *session;
 };
 
 struct EvTcpPassiveOpen : sc::event<EvTcpPassiveOpen> {
     EvTcpPassiveOpen(BgpSession *session) : session(session) {
         SESSION_LOG(session);
-    };
-    static const char * Name() {
+    }
+    static const char *Name() {
         return "EvTcpPassiveOpen";
     }
+
     BgpSession *session;
 };
 
 struct EvTcpClose : sc::event<EvTcpClose> {
     EvTcpClose(BgpSession *session) : session(session) {
         SESSION_LOG(session);
-    };
-    static const char * Name() {
+    }
+    static const char *Name() {
         return "EvTcpClose";
     }
     bool validate(StateMachine *state_machine) const {
@@ -187,30 +206,34 @@ struct EvTcpClose : sc::event<EvTcpClose> {
                 (state_machine->active_session() == session) ||
                 (state_machine->passive_session() == session));
     }
+
     BgpSession *session;
 };
 
 // Used to defer the session delete after all events currently on the queue.
 struct EvTcpDeleteSession : sc::event<EvTcpDeleteSession> {
-    EvTcpDeleteSession(TcpSession *session) : session(session) {
+    EvTcpDeleteSession(BgpSession *session) : session(session) {
+        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpDeleteSession";
     }
-    TcpSession *session;
+
+    BgpSession *session;
 };
 
 struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
     EvBgpHeaderError(BgpSession *session, int subcode, const uint8_t *_data,
-            size_t data_size)
-            : session(session), subcode(subcode) {
-                    if (_data)
-                        data = std::string((const char *)_data, data_size);
+        size_t data_size)
+        : session(session), subcode(subcode) {
         SESSION_LOG(session);
+        if (_data)
+            data = std::string((const char *)_data, data_size);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpHeaderError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
@@ -219,32 +242,34 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-            SESSION_LOG(session);
-        }
-    static const char * Name() {
+        SESSION_LOG(session);
+    }
+    static const char *Name() {
         return "EvBgpOpen";
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::OpenMessage> msg;
 };
 
 struct EvBgpOpenError : sc::event<EvBgpOpenError> {
     EvBgpOpenError(BgpSession *session, int subcode,
-                   const uint8_t *_data = NULL, size_t data_size = 0)
+        const uint8_t *_data = NULL, size_t data_size = 0)
         : session(session), subcode(subcode) {
+        SESSION_LOG(session);
         if (subcode == BgpProto::Notification::UnsupportedVersion) {
             // For unsupported version, we need to send our version in the
-            // data field
+            // data field.
             char version = 4;
             data.push_back(version);
         } else if (_data) {
             data = std::string((const char *)_data, data_size);
         }
-        SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpOpenError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
@@ -254,28 +279,29 @@ struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
         SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpKeepalive";
     }
     bool validate(StateMachine *state_machine) const {
         return !session->IsClosed();
     }
+
     BgpSession *session;
 };
 
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-            BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE,
-                    BGP_LOG_FLAG_ALL,
-                    session->Peer() ? session->Peer()->ToString() : "",
-                    BGP_PEER_DIR_IN, this->msg->data.size(),
-                    this->msg->error, this->msg->subcode,
-                    BgpProto::Notification::ToString(
-                        BgpProto::Notification::Code(this->msg->error),
-                        this->msg->subcode));
-        }
-    static const char * Name() {
+        BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE,
+                BGP_LOG_FLAG_ALL,
+                session->Peer() ? session->Peer()->ToString() : "",
+                BGP_PEER_DIR_IN, this->msg->data.size(),
+                this->msg->error, this->msg->subcode,
+                BgpProto::Notification::ToString(
+                BgpProto::Notification::Code(this->msg->error),
+                this->msg->subcode));
+    }
+    static const char *Name() {
         return "EvBgpNotification";
     }
     bool validate(StateMachine *state_machine) const {
@@ -283,30 +309,33 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
                 (state_machine->active_session() == session) ||
                 (state_machine->passive_session() == session));
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::Notification> msg;
 };
 
 struct EvBgpUpdate : sc::event<EvBgpUpdate> {
-    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg) :
-        session(session), msg(msg) {
-            SESSION_LOG(session);
-        }
-    static const char * Name() {
+    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg)
+        : session(session), msg(msg) {
+        SESSION_LOG(session);
+    }
+    static const char *Name() {
         return "EvBgpUpdate";
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::Update> msg;
 };
 
 struct EvBgpUpdateError : sc::event<EvBgpUpdateError> {
     EvBgpUpdateError(BgpSession *session, int subcode, std::string data)
-            : session(session), subcode(subcode), data(data) {
+        : session(session), subcode(subcode), data(data) {
         SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpUpdateError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
