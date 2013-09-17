@@ -64,4 +64,9 @@ def Symlink(target, source):
     if not os.path.exists(target[0].abspath):
         os.symlink(source[0].abspath, target[0].abspath)
 
+libpath = Dir(vpath).abspath
+if not os.path.exists(libpath):
+    print '%s not present' % libpath
+    sys.exit(1)
+
 Symlink([Dir('#/build/include/tbb')], [Dir(vpath + '/include/tbb')])
