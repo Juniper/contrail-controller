@@ -82,6 +82,9 @@ public:
     void FireIdleHoldTimer();
     bool IdleHoldTimerRunning();
 
+    void StartSession();
+    void DeleteSession(BgpSession *session);
+
     // Feed session events into the state machine.
     void OnSessionEvent(TcpSession *session, TcpSession::Event event);
 
@@ -141,7 +144,6 @@ public:
 
     const std::string last_notification_out_error() const;
     const std::string last_notification_in_error() const;
-    void DeleteSession(BgpSession *session);
 
     void reset_last_info();
 
