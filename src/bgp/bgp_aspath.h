@@ -74,6 +74,12 @@ public:
     explicit AsPath(AsPathDB *aspath_db, const AsPathSpec &spec)
         : aspath_db_(aspath_db), path_(spec) {
         refcount_ = 0;
+        for (size_t i = 0; i < path_.path_segments.size(); i++) {
+            AsPathSpec::PathSegment *ps = path_.path_segments[i];
+            if (ps->path_segment_type == AsPathSpec::PathSegment::AS_SET) {
+                std::sort(ps->path_segment.begin(), ps->path_segment.end());
+            }
+        }
     }
     virtual ~AsPath() { }
     virtual void Remove();

@@ -73,6 +73,7 @@ void ExtCommunity::Remove() {
 
 void ExtCommunity::Append(const ExtCommunityList &list) {
     communities_.insert(communities_.end(), list.begin(), list.end());
+    std::sort(communities_.begin(), communities_.end());
 }
 
 void ExtCommunity::RemoveRTarget() {
@@ -117,6 +118,7 @@ ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
         put_value(comm.data(), comm.size(), *it);
         communities_.push_back(comm);
     }
+    std::sort(communities_.begin(), communities_.end());
 }
 
 ExtCommunityDB::ExtCommunityDB(BgpServer *server) : server_(server) {

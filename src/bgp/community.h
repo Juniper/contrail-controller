@@ -49,6 +49,7 @@ public:
     explicit Community(CommunityDB *comm_db, const CommunitySpec spec)
         : comm_db_(comm_db), communities_(spec.communities) {
         refcount_ = 0;
+        std::sort(communities_.begin(), communities_.end());
     }
 
     virtual ~Community() { }

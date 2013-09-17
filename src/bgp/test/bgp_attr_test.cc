@@ -53,6 +53,46 @@ TEST_F(BgpAttrTest, UnknownCode) {
     EXPECT_EQ(1729, attr->local_pref());
 }
 
+TEST_F(BgpAttrTest, AsPathCompare_Sequence) {
+    AsPathSpec spec1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int idx = 1; idx < 5; idx++)
+        ps1->path_segment.push_back(100 * idx);
+    spec1.path_segments.push_back(ps1);
+    AsPath path1(aspath_db_, spec1);
+
+    AsPathSpec spec2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
+    for (int idx = 4; idx >= 1; idx--)
+        ps2->path_segment.push_back(100 * idx);
+    spec2.path_segments.push_back(ps2);
+    AsPath path2(aspath_db_, spec2);
+
+    EXPECT_NE(0, path1.CompareTo(path2));
+}
+
+TEST_F(BgpAttrTest, AsPathCompare_Set) {
+    AsPathSpec spec1;
+    AsPathSpec::PathSegment *ps1 = new AsPathSpec::PathSegment;
+    ps1->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    for (int idx = 1; idx < 5; idx++)
+        ps1->path_segment.push_back(100 * idx);
+    spec1.path_segments.push_back(ps1);
+    AsPath path1(aspath_db_, spec1);
+
+    AsPathSpec spec2;
+    AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
+    ps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
+    for (int idx = 4; idx >= 1; idx--)
+        ps2->path_segment.push_back(100 * idx);
+    spec2.path_segments.push_back(ps2);
+    AsPath path2(aspath_db_, spec2);
+
+    EXPECT_EQ(0, path1.CompareTo(path2));
+}
+
 TEST_F(BgpAttrTest, AsPathAdd) {
     AsPathSpec path;
 
@@ -108,7 +148,8 @@ TEST_F(BgpAttrTest, AsPathFormat1) {
         ps->path_segment.push_back(100 * idx);
     spec.path_segments.push_back(ps);
 
-    EXPECT_EQ("100 200 300 400", spec.ToString());
+    AsPath path(aspath_db_, spec);
+    EXPECT_EQ("100 200 300 400", path.path().ToString());
 }
 
 TEST_F(BgpAttrTest, AsPathFormat2) {
@@ -122,17 +163,46 @@ TEST_F(BgpAttrTest, AsPathFormat2) {
 
     AsPathSpec::PathSegment *ps2 = new AsPathSpec::PathSegment;
     ps2->path_segment_type = AsPathSpec::PathSegment::AS_SET;
-    for (int idx = 3; idx < 5; idx++)
+    for (int idx = 4; idx >= 3; idx--)
         ps2->path_segment.push_back(100 * idx);
     spec.path_segments.push_back(ps2);
 
     AsPathSpec::PathSegment *ps3 = new AsPathSpec::PathSegment;
     ps3->path_segment_type = AsPathSpec::PathSegment::AS_SEQUENCE;
-    for (int idx = 5; idx < 7; idx++)
+    for (int idx = 6; idx >= 5; idx--)
         ps3->path_segment.push_back(100 * idx);
     spec.path_segments.push_back(ps3);
 
-    EXPECT_EQ("100 200 {300 400} 500 600", spec.ToString());
+    AsPath path(aspath_db_, spec);
+    EXPECT_EQ("100 200 {300 400} 600 500", path.path().ToString());
+}
+
+TEST_F(BgpAttrTest, CommunityCompare) {
+    CommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    Community comm1(comm_db_, spec1);
+
+    CommunitySpec spec2;
+    for (int idx = 4; idx >= 1; idx--)
+        spec2.communities.push_back(100 * idx);
+    Community comm2(comm_db_, spec2);
+
+    EXPECT_EQ(0, comm1.CompareTo(comm2));
+}
+
+TEST_F(BgpAttrTest, ExtCommunityCompare) {
+    ExtCommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    ExtCommunity extcomm1(extcomm_db_, spec1);
+
+    ExtCommunitySpec spec2;
+    for (int idx = 4; idx >= 1; idx--)
+        spec2.communities.push_back(100 * idx);
+    ExtCommunity extcomm2(extcomm_db_, spec2);
+
+    EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
 }
 
 TEST_F(BgpAttrTest, SourceRdBasic1) {
