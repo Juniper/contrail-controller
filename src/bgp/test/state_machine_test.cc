@@ -747,23 +747,27 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpen) {
     GetToState(StateMachine::ACTIVE);
 }
 
-
 // Old State: Idle
-// Event:     EvStop + EvIdleHoldTimerExpired
+// Event:     EvAdminUp + EvAdminDown + EvIdleHoldTimerExpired
 // New State: Idle
-TEST_F(StateMachineIdleTest, StopThenIdleHoldTimerExpired) {
+// Intent:    IdleHoldTimer expires right after an AdminDown is enqueued.
+//            We shouldn't proceed beyond the Idle state if this happens.
+// Other:     Need to make sure that IdleHoldTimer is running when we call
+//            EvIdleHoldTimerExpired, otherwise no event will be enqueued.
+TEST_F(StateMachineIdleTest, AdminUpThenAdminDownThenIdleHoldTimerExpired) {
     TaskScheduler::GetInstance()->Stop();
-    EvStop();
+    EvAdminUp();
+    sm_->set_idle_hold_time(StateMachine::kMaxIdleHoldTime);
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+    TaskScheduler::GetInstance()->Stop();
+    EvAdminDown();
     EvIdleHoldTimerExpired();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
-
-    // Also verify that we can proceed after this event
-    GetToState(StateMachine::ACTIVE);
 }
-
 
 // Old State: Idle
 // Event:     EvTcpPassiveOpen + EvBgpOpen
