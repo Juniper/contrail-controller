@@ -30,12 +30,13 @@ typedef boost::function<bool(StateMachine *)> EvValidate;
 
 class StateMachine : public sc::state_machine<StateMachine, fsm::Idle> {
 public:
-    static const int kOpenTime = 15;        // seconds
-    static const int kConnectInterval = 30;
-    static const int kHoldTime = 90;
-    static const int kIdleHoldTime = 5000; //5 sec .. specified in milliseconds 
-    static const int kMaxIdleHoldTime = 100 * 1000;  // 100 sec
-    static const int kJitter = 10;  // percentage
+    static const int kOpenTime = 15;                // seconds
+    static const int kConnectInterval = 30;         // seconds
+    static const int kHoldTime = 90;                // seconds
+    static const int kOpenSentHoldTime = 240;       // seconds
+    static const int kIdleHoldTime = 5000;          // milliseconds
+    static const int kMaxIdleHoldTime = 100 * 1000; // milliseconds
+    static const int kJitter = 10;                  // percentage
 
     typedef boost::function<void(void)> EventCB;
     enum State {

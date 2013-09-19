@@ -277,6 +277,11 @@ protected:
             TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!OpenTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
+            if (peer_->IsAdminDown()) {
+                TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
+            } else {
+                TASK_UTIL_EXPECT_TRUE(IdleHoldTimerRunning());
+            }
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
             TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
             TASK_UTIL_EXPECT_TRUE(peer_->session() == NULL);
@@ -303,7 +308,7 @@ protected:
             break;
         case StateMachine::OPENSENT:
             TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
-            TASK_UTIL_EXPECT_TRUE(!HoldTimerRunning());
+            TASK_UTIL_EXPECT_TRUE(HoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
             TASK_UTIL_EXPECT_TRUE(sm_->active_session() != NULL ||
                         sm_->passive_session() != NULL);
@@ -535,7 +540,7 @@ TEST_F(StateMachineTest, Matrix) {
             TRANSITION2(EvBgpHeaderError, StateMachine::IDLE)
             TRANSITION2(EvBgpOpenError, StateMachine::IDLE)
             TRANSITION2(EvBgpUpdateError, StateMachine::IDLE)
-            TRANSITION(EvHoldTimerExpired, StateMachine::OPENSENT)
+            TRANSITION(EvHoldTimerExpired, StateMachine::IDLE)
             TRANSITION2(EvBgpKeepalive, StateMachine::IDLE)
             TRANSITION2(EvBgpNotification, StateMachine::IDLE)
             TRANSITION(EvConnectTimerExpired, StateMachine::OPENSENT)
@@ -687,7 +692,6 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpen) {
     VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
 
     // Also verify that we can proceed after this event
     GetToState(StateMachine::ACTIVE);
@@ -705,7 +709,6 @@ TEST_F(StateMachineIdleTest, StopThenIdleHoldTimerExpired) {
     VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
 
     // Also verify that we can proceed after this event
     GetToState(StateMachine::ACTIVE);
@@ -725,7 +728,6 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpenThenBgpOpen) {
     VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
     TASK_UTIL_EXPECT_TRUE(session_mgr_->active_session() == NULL);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
 
     // Also verify that we can proceed after this event
     GetToState(StateMachine::ACTIVE);
@@ -1885,7 +1887,66 @@ TEST_F(StateMachineOpenSentTest, TcpCloseThenAdminDown) {
     task_util::WaitForIdle();
     EvAdminDown();
     VerifyState(StateMachine::IDLE);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
+}
+
+// Old State: OpenSent
+// Event:     EvHoldTimerExpired + EvBgpOpen (via active session)
+// New State: Idle
+// Timers:    IdleHold timer must be running.
+// Messages:  Notification message sent on active session.
+TEST_F(StateMachineOpenSentTest, HoldTimerExpiredThenBgpOpen1) {
+    GetToState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
+    EvHoldTimerExpired();
+    EvBgpOpen();
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+}
+
+// Old State: OpenSent (via passive session)
+// Event:     EvHoldTimerExpired + EvBgpOpen (via passive session)
+// New State: Idle
+// Timers:    IdleHold timer must be running.
+// Messages:  Notification message sent on passive session.
+TEST_F(StateMachineOpenSentTest, HoldTimerExpiredThenBgpOpen2) {
+    GetToState(StateMachine::ACTIVE);
+    EvOpenTimerExpiredPassive();
+    VerifyState(StateMachine::OPENSENT);
+    TaskScheduler::GetInstance()->Stop();
+    EvHoldTimerExpired();
+    EvBgpOpen(session_mgr_->passive_session());
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+}
+
+// Old State: OpenSent (via active and passive sessions)
+// Event:     EvHoldTimerExpired + EvBgpOpen (via active session)
+// New State: Idle
+// Timers:    IdleHold timer must be running.
+// Messages:  Notification message sent on active session.
+TEST_F(StateMachineOpenSentTest, HoldTimerExpiredThenBgpOpen3a) {
+    GetToState(StateMachine::OPENSENT);
+    EvOpenTimerExpiredPassive();
+    TaskScheduler::GetInstance()->Stop();
+    EvHoldTimerExpired();
+    EvBgpOpen(session_mgr_->active_session());
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+}
+
+// Old State: OpenSent (via active and passive sessions)
+// Event:     EvHoldTimerExpired + EvBgpOpen (via passive session)
+// New State: Idle
+// Timers:    IdleHold timer must be running.
+// Messages:  Notification message sent on active session.
+TEST_F(StateMachineOpenSentTest, HoldTimerExpiredThenBgpOpen3b) {
+    GetToState(StateMachine::OPENSENT);
+    EvOpenTimerExpiredPassive();
+    TaskScheduler::GetInstance()->Stop();
+    EvHoldTimerExpired();
+    EvBgpOpen(session_mgr_->passive_session());
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
 }
 
 class StateMachineOpenSentParamTest :
@@ -2002,7 +2063,6 @@ TEST_F(StateMachineOpenConfirmTest, TcpCloseThenAdminDown) {
     task_util::WaitForIdle();
     EvAdminDown();
     VerifyState(StateMachine::IDLE);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
 }
 
 class StateMachineOpenConfirmParamTest :
@@ -2105,7 +2165,6 @@ TEST_F(StateMachineEstablishedTest, TcpCloseThenAdminDown) {
     task_util::WaitForIdle();
     EvAdminDown();
     VerifyState(StateMachine::IDLE);
-    TASK_UTIL_EXPECT_TRUE(!IdleHoldTimerRunning());
 }
 
 int main(int argc, char **argv) {
