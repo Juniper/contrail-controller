@@ -1,5 +1,3 @@
-![Google Analytics](http://www.google-analytics.com/__utm.gif?utmac=UA-44166833-1&utmdt=README.md&utmp=README.md)
-
 contrail-controller
 ===================
 
