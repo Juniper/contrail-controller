@@ -1,0 +1,7 @@
+The java api library is served out of a github repository.
+
+In order to update the maven artifact use the command:
+
+mvn -DaltDeploymentRepository=snapshot-repo::default::file:///<path>/contrail-maven/snapshots clean deploy
+
+Where path points to a local checkout repo.
