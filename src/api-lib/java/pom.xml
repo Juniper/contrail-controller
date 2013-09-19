@@ -7,6 +7,16 @@
   <version>1.0-SNAPSHOT</version>
   <name>juniper-contrail-api</name>
   <url>http://maven.apache.org</url>
+  <distributionManagement>
+    <repository>
+      <id>repo</id>
+      <url>https://github.com/Juniper/contrail-maven/raw/master/releases</url>
+    </repository>
+    <snapshotRepository>
+      <id>snapshot-repo</id>
+      <url>https://github.com/Juniper/contrail-maven/raw/master/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
   <dependencies>
     <dependency>
       <groupId>junit</groupId>
@@ -53,7 +63,7 @@
 
   <build>
     <defaultGoal>package</defaultGoal>
-    <directory>${basedir}/../../../build/debug/api-lib/java/target</directory>
+    <directory>${basedir}/../../../../build/debug/api-lib/java/target</directory>
     <sourceDirectory>${basedir}/src</sourceDirectory>
     <testSourceDirectory>${basedir}/test</testSourceDirectory>
     <testResources>
@@ -88,7 +98,7 @@
 	      <goal>exec</goal>
 	    </goals>
 	    <configuration>
-	      <workingDirectory>${basedir}/../../..</workingDirectory>
+	      <workingDirectory>${basedir}/../../../..</workingDirectory>
 	      <executable>${basedir}/generate-source.sh</executable>
 	    </configuration>
 	  </execution>
@@ -107,7 +117,7 @@
 	    </goals>
 	    <configuration>
 	      <sources>
-		<source>${basedir}/../../../build/debug/api-lib/java/src</source>
+		<source>${basedir}/../../../../build/debug/api-lib/java/src</source>
 	      </sources>
 	    </configuration>
 	  </execution>

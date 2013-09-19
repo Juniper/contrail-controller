@@ -435,6 +435,7 @@ class VncApiServer(VncApiServerGen):
             'admin_tenant_name': '',
         }
 
+        config = None
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])

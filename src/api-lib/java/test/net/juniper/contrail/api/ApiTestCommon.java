@@ -65,7 +65,7 @@ public class ApiTestCommon {
             exec.setExitValues(exitValues);
              
             String workingDir = System.getProperty("user.dir");
-            String path = workingDir + "/../../cfgm/api-server/tests/";
+            String path = workingDir + "/../../config/api-server/tests/";
             File f = new File(path);
             exec.setWorkingDirectory(f);
             exec.setStreamHandler(new PumpStreamHandler(new ByteArrayOutputStream()));

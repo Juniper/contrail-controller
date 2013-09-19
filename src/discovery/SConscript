@@ -20,8 +20,8 @@ autogen_sources = [
                  '#controller/src/schema/services.xsd',
                 ]
 
-autogen_script = '#tools/generateds/generateDS.py'
-autogen_cmd = '%s -f -l py -o %s -g service' % (autogen_script, Dir('.').path)
+autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_cmd = '%s -f -l py -o %s -g service' % (autogen_script, Dir('discovery/services').path)
 
 generated_files = [ 
                   'discovery/services.py',
