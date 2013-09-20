@@ -6,7 +6,6 @@
 #include <boost/assign.hpp>
 #include "base/task.h"
 
-std::string ControlNode::collector_ip_;
 std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
 std::string ControlNode::self_ip_;

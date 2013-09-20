@@ -43,6 +43,7 @@
 #include "controller/controller_peer.h" 
 #include "controller/controller_export.h" 
 #include "controller/controller_vrf_export.h" 
+#include "controller/controller_types.h"
 
 using namespace pugi;
 
@@ -174,6 +175,28 @@ protected:
         cfg->ToAddr = to;
         cfg->FromAddr = from;
         return cfg;
+    }
+
+    static void ValidateSandeshResponse(Sandesh *sandesh, vector<string> &result) {
+        AgentXmppConnectionStatus *resp =
+                dynamic_cast<AgentXmppConnectionStatus *>(sandesh);
+
+        std::vector<AgentXmppData> &list =
+                const_cast<std::vector<AgentXmppData>&>(resp->get_peer());
+
+        cout << "*******************************************************"<<endl;
+        for (size_t i = 0; i < list.size(); i++) {
+
+            EXPECT_STREQ(list[i].controller_ip.c_str(), result[i*3].c_str());
+            EXPECT_STREQ(list[i].cfg_controller.c_str(), result[(i*3)+1].c_str());
+            EXPECT_STREQ(list[i].state.c_str(), result[(i*3)+2].c_str());
+
+            cout << "Controller-IP:" << list[i].controller_ip << endl;
+            cout << "Cfg-Controller-IP:" << list[i].cfg_controller << endl;
+            cout << "State:" << list[i].state << endl;
+        }
+        cout << "*******************************************************"<<endl;
+
     }
 
     void SendDocument(const pugi::xml_document &xdoc, ControlNodeMockBgpXmppPeer *peer) {
@@ -329,6 +352,20 @@ TEST_F(AgentXmppUnitTest, Connection) {
 
     client->Reset();
     client->WaitForIdle();
+
+    //Mock Sandesh request
+    AgentXmppConnectionStatusReq *xmpp_req = new AgentXmppConnectionStatusReq();
+    std::vector<std::string> result;
+    result.push_back("127.0.0.1");
+    result.push_back("Yes");
+    result.push_back("Established");
+    result.push_back("127.0.0.2");
+    result.push_back("No");
+    result.push_back("Established");
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    xmpp_req->HandleRequest();
+    client->WaitForIdle();
+    xmpp_req->Release();
 
     // Create vm-port and vn
     struct PortInfo input[] = {
@@ -512,6 +549,21 @@ TEST_F(AgentXmppUnitTest, CfgServerSelection) {
                     compare(Agent::GetInstance()->GetXmppServer(0)) == 0);
     }
 
+    //Mock Sandesh request
+    AgentXmppConnectionStatusReq *xmpp_req = new AgentXmppConnectionStatusReq();
+    std::vector<std::string> result;
+    result.push_back("127.0.0.1");
+    result.push_back("No");
+    result.push_back("Established");
+    result.push_back("127.0.0.2");
+    result.push_back("Yes");
+    result.push_back("Established");
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    xmpp_req->HandleRequest();
+    client->WaitForIdle();
+    xmpp_req->Release();
+
+ 
     xc_p->ConfigUpdate(new XmppConfigData());
     client->WaitForIdle();
     xc_s->ConfigUpdate(new XmppConfigData());

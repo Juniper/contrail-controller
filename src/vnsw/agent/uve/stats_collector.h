@@ -20,17 +20,12 @@ public:
         VrouterStatsCollector,
     };
 
-    enum Event {
-        CollectStats,
-    };
-
     StatsCollector(uint32_t instance, boost::asio::io_service &io, 
                    int exp, std::string timer_name) : run_counter_(0),
-                   work_queue_(TaskScheduler::GetInstance()->GetTaskId(
-                       "Agent::StatsCollector"), instance, 
-                       boost::bind(&StatsCollector::HandleMsg, this, _1)),
-                   timer_(NULL), expiry_time_(exp) {
-        timer_ = TimerManager::CreateTimer(io, timer_name.c_str());
+                   timer_(TimerManager::CreateTimer(io, timer_name.c_str(), 
+                          TaskScheduler::GetInstance()->GetTaskId
+                          ("Agent::StatsCollector"), instance)), 
+                   expiry_time_(exp) {
         timer_->Start(expiry_time_, 
                       boost::bind(&StatsCollector::TimerExpiry, this));
     };
@@ -42,33 +37,14 @@ public:
 
     virtual bool Run() = 0;
 
-    void StartTimer() {
-        timer_->Cancel();
-        timer_->Start(expiry_time_, 
-                      boost::bind(&StatsCollector::TimerExpiry, this));
-    }
     int run_counter_; //used only in UT code
 private:
     bool TimerExpiry() {
-        return work_queue_.Enqueue(CollectStats);
-        /* Return false to suppress auto-restart of timer */
-        return false;
-    }
-
-    bool HandleMsg(Event event) {
-        switch(event) {
-        case StatsCollector::CollectStats:
-            Run();
-            StartTimer();
-            break;
-
-        default:
-            break;
-        }
+        Run();
+        /* Return true to request auto-restart of timer */
         return true;
     }
 
-    WorkQueue<Event> work_queue_;
     Timer *timer_;
     int expiry_time_;
     DISALLOW_COPY_AND_ASSIGN(StatsCollector);

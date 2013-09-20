@@ -230,6 +230,7 @@ struct ShowBgpServiceChainConfig {
     1: string routing_instance;
     2: string chain_address;
     3: list<string> prefixes;
+    4: string service_instance;
 }
 
 struct ShowBgpStaticRouteConfig {

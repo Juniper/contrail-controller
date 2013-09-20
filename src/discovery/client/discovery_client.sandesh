@@ -7,3 +7,8 @@ trace sandesh DiscoveryClientMsg {
     2: string serviceName;
     3: string msg;
 }
+
+systemlog sandesh DiscoveryClientLog {
+    1: string serviceName; 
+    2: string msg;
+}

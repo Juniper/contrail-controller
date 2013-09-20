@@ -48,8 +48,8 @@ const string &Agent::GetHostName() {
     return host_name_;
 };
 
-const string Agent::GetBuildInfo() {
-    return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo);
+bool Agent::GetBuildInfo(std::string &build_info_str) {
+    return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 };
 
 void Agent::SetHostName(const string &name) {

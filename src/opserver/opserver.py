@@ -317,15 +317,17 @@ class OpServer(object):
         except:
             raise Exception('Could not get Discovery Client')
         else:
+            ipaddr = socket.gethostbyname(socket.gethostname())
             data = {
-                'ip-address' : self._hostname,
+                'ip-address' : ipaddr,
                 'port'       : self._args.rest_api_port,
             }
             disc = client.DiscoveryClient(self._args.disc_server_ip,
                     self._args.disc_server_port, ModuleNames[Module.OPSERVER])
-            self._logger.info("Disc Publish to %s : %d" % \
+            self._logger.info("Disc Publish to %s : %d - %s" % \
                               (self._args.disc_server_ip,
-                              self._args.disc_server_port))
+                              self._args.disc_server_port,
+                              str(data)))
             disc.publish(self._moduleid, data)
     #end
 

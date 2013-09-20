@@ -79,6 +79,50 @@ def list_cf(keyspace = 'ContrailAnalytics'):
     dict = sysm.get_keyspace_column_families(keyspace)
     print dict.keys()
 
+
+
+from datetime import datetime
+def parse_time(s):
+    try:
+        ret = datetime.strptime(s, "%Y-%m-%d %H:%M:%S %Z")
+    except ValueError:
+        try:
+            ret = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            try:
+                ret = datetime.strptime(s, "%Y-%m-%d")
+            except ValueError:
+                ret = datetime.utcfromtimestamp(float(s))
+    return ret
+
+# purge all data defore particular datatime given in format 
+# %YYYY-%MM-%DD %HH:%MM:%SS %TZ
+# or %YYYY-%MM-%DD %HH:%MM:%SS
+# or %YYYY-%MM-%DD
+def purge_old_data(before_time = "1970-01-01 00:00:00 UTC"):
+    cutoff_time = parse_time(before_time)
+    total_rows_deleted = 0 # total number of rows deleted
+    table_list = sysm.get_keyspace_column_families('ContrailAnalytics')
+    for table in table_list:
+        # purge from index tables
+        if ((table != 'MessageTable') and (table != 'FlowRecordTable') and (table != 'MessageTableTimestamp') and (table != 'SystemObjectTable')):
+            print "deleting old records from table:" + table + "\n"
+            per_table_deleted = 0 # total number of rows deleted from this row
+            cf = pycassa.ColumnFamily(pool, table)
+            cf_get = cf.get_range(row_count=1000000)
+            l_result = list(cf_get)
+            for table_row in l_result:
+                t2 = table_row[0][0]
+                # each row will have equivalent of 2^23 = 8388608 usecs
+                row_time = datetime.utcfromtimestamp((float(t2)*8388608)/1000000)
+                if (row_time < cutoff_time):
+                    print "deleting row:" + str(table_row) + "\n"
+                    cf.remove(table_row[0])
+                    per_table_deleted +=1
+                    total_rows_deleted +=1
+            print "deleted " + str(per_table_deleted) + " rows from table:" + table
+    print "total rows deleted:" + str(total_rows_deleted)
+
 def show_cf(name='MessageTable', key=None, row_count=100, detail=0):
     if (name == 'FlowTable'):
         show_ft(key, row_count, detail)

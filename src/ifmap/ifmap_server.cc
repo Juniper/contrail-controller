@@ -190,7 +190,8 @@ IFMapServer::IFMapServer(DB *db, DBGraph *graph,
                       boost::bind(&IFMapServer::ClientWorker, this, _1)),
           io_service_(io_service),
           stale_cleanup_timer_(TimerManager::CreateTimer(*(io_service_),
-                                         "Stale cleanup timer")) {
+                                         "Stale cleanup timer")),
+          ifmap_manager_(NULL), ifmap_channel_manager_(NULL) {
 }
 
 IFMapServer::~IFMapServer() {

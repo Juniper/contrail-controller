@@ -81,7 +81,7 @@ void MiscUtils::GetHostIp(const string hostname, vector<string> &ip_list) {
         while (len < host->h_length) {
             addr.sin_addr = *(struct in_addr *)host->h_addr_list[i++];
             addr.sin_family = host->h_addrtype;
-            inet_ntop(AF_INET,&(addr.sin_addr.s_addr),buff,sizeof(buff));
+            inet_ntop(AF_INET, &(addr.sin_addr.s_addr), buff, sizeof(buff));
             len += 4;
             ip_addr = string(buff);
             //ignore loop back addresses
@@ -94,36 +94,53 @@ void MiscUtils::GetHostIp(const string hostname, vector<string> &ip_list) {
     }
 }
 
-void MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version, string &build_num) {
-    //Store rpm version in a tmp file
-    string cmd = "contrail-version | grep \"" + BuildModuleNames.at(id) + "\"";
-    system((cmd + "  | awk '{ print $2 }' > .tmp.build.info").c_str());
-    system((cmd + "  | awk '{ print $3 }' >> .tmp.build.info").c_str());
-
-    //Read rpm Version from the tmp File
-    ifstream file;
-    file.open(".tmp.build.info");
-
-    if (file.good()) {
-        getline(file, rpm_version);
-        if (file.good()) { 
-            getline(file, build_num);
-        } else {
-            build_num = "unknown";
-        }
-    } else {
-        rpm_version = "unknown";
-        build_num = "unknown";
+bool MiscUtils::GetVersionInfoInternal(const string &cmd, string &result) {
+    FILE *fp;
+    char line[512];
+    fp = popen(cmd.c_str(), "r");
+    if (fp == NULL) {
+        result.assign("unknown");
+        return false;
     }
-    file.close();
-    remove(".tmp.build.info");
+    char *ptr = fgets(line, sizeof(line), fp);
+    if (ptr == NULL) {
+        result.assign("unknown");
+        pclose(fp);
+        return false;
+    }
+    ptr = strchr(line, '\n');
+    if (ptr != NULL) {
+        *ptr = '\0';
+    }
+    result.assign(line);
+    pclose(fp);
+    return true;
 }
 
-string MiscUtils::GetBuildInfo(BuildModule id, string build_info) {
+bool MiscUtils::GetContrailVersionInfo(BuildModule id, string &rpm_version, string &build_num) {
+    bool ret1, ret2;
+    stringstream build_id_cmd;
+    build_id_cmd << "contrail-version | grep '" << BuildModuleNames.at(id);
+    build_id_cmd << "' | awk '{ print $2 }'";
+    ret1 = GetVersionInfoInternal(build_id_cmd.str(), rpm_version);
+
+    stringstream build_num_cmd;
+    build_num_cmd << "contrail-version | grep '" << BuildModuleNames.at(id);
+    build_num_cmd << "' | awk '{ print $3 }'";
+    ret2 = GetVersionInfoInternal(build_num_cmd.str(), build_num);
+
+    if (!ret1 || !ret2) {
+        return false;
+    }
+    return true;
+}
+
+bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info, string &result) {
     string rpm_version;
     string build_num;
 
-    GetContrailVersionInfo(id, rpm_version, build_num);
-    return (build_info + "\"build-id\" : \"" + rpm_version + "\", \"build-number\" : \"" + build_num  + "\"}]}");
+    bool ret = GetContrailVersionInfo(id, rpm_version, build_num);
+    result = (build_info + "\"build-id\" : \"" + rpm_version + "\", \"build-number\" : \"" + build_num  + "\"}]}");
+    return ret;
 }
 

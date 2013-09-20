@@ -555,7 +555,7 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
 
     string srch2("\r\n");
     size_t pos2 = reply_str.find(srch2, pos1 + srch1.length());
-    if (pos1 == string::npos) {
+    if (pos2 == string::npos) {
         IFMAP_WARN(IFMapServerConnection,
                    "No CRLF found. Improper message.", "");
         boost::system::error_code ec(boost::system::errc::bad_message,

@@ -402,6 +402,44 @@ static void RemoveMatchState(BgpConditionListener *listener, ServiceChain *info,
     }   
 }
 
+static void FillServiceChainConfigInfo(ShowServicechainInfo &info, 
+                                       const autogen::ServiceChainInfo &sci) {
+    info.set_dest_virtual_network(GetVNFromRoutingInstance(sci.routing_instance));
+    info.set_service_instance(sci.service_instance);
+}
+
+struct ServiceChainInfoComp {
+    bool operator()(const ShowServicechainInfo &lhs, const ShowServicechainInfo &rhs) {
+        std::string lnetwork;
+        std::string rnetwork;
+
+        if (lhs.src_virtual_network < lhs.dest_virtual_network) {
+            lnetwork = lhs.src_virtual_network + lhs.dest_virtual_network;
+        } else {
+            lnetwork = lhs.dest_virtual_network + lhs.src_virtual_network;
+        }
+
+        if (rhs.src_virtual_network < rhs.dest_virtual_network) {
+            rnetwork = rhs.src_virtual_network + rhs.dest_virtual_network;
+        } else {
+            rnetwork = rhs.dest_virtual_network + rhs.src_virtual_network;
+        }
+
+        if (lnetwork != rnetwork) {
+            return (lnetwork < rnetwork);
+        }
+
+        if (lhs.src_virtual_network != rhs.src_virtual_network) {
+            return (lhs.src_virtual_network < rhs.src_virtual_network);
+        }
+
+        if (lhs.service_instance != rhs.service_instance) {
+            return (lhs.service_instance < rhs.service_instance);
+        }
+        return false;
+    }
+};
+
 bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
     CHECK_CONCURRENCY("bgp::ServiceChain");
     BgpTable *table = NULL;
@@ -541,14 +579,30 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             ShowServiceChainResp *resp = 
                 static_cast<ShowServiceChainResp *>(req->snh_resp_);
             std::vector<ShowServicechainInfo> list;
-            for(ServiceChainMap::const_iterator it = chain_set().begin();
-                it != chain_set().end(); it++) {
+            RoutingInstanceMgr::RoutingInstanceIterator rit = 
+                server()->routing_instance_mgr()->begin();
+            for (;rit != server()->routing_instance_mgr()->end(); rit++) {
                 ShowServicechainInfo info;
-                ServiceChain *chain 
-                    = static_cast<ServiceChain *>(it->second.get());
-                chain->FillServiceChainInfo(info);
-                list.push_back(info);
+                const autogen::RoutingInstance *rti = rit->config()->instance_config();
+                if (rti && rti->IsPropertySet(autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
+                    info.set_src_virtual_network(rit->virtual_network());
+                    const autogen::ServiceChainInfo &sci = rti->service_chain_information();
+                    FillServiceChainConfigInfo(info, sci);
+                    ServiceChain *chain = FindServiceChain(rit->name());
+                    if (chain) {
+                        if (chain->deleted())
+                            info.set_state("Deleted");
+                        else 
+                            info.set_state("Active");
+                        chain->FillServiceChainInfo(info);
+                    } else {
+                        info.set_state("Pending");
+                    }
+                    list.push_back(info);
+                }
             }
+            ServiceChainInfoComp comp;
+            std::sort(list.begin(), list.end(), comp);
             resp->set_service_chain_list(list);
             resp->Response();
             break;
@@ -753,10 +807,13 @@ void ServiceChain::FillServiceChainInfo(ShowServicechainInfo &info) const {
     info.set_src_rt_instance(src_routing_instance()->name());
     info.set_dest_rt_instance(dest_routing_instance()->name());
 
-    ConnecteRouteInfo connected_rt_info;
+    ConnectedRouteInfo connected_rt_info;
     connected_rt_info.set_service_chain_addr(service_chain_addr().to_string());
-    if (connected_route())
-        connected_rt_info.set_connected_rt(connected_route()->ToString());
+    if (connected_route()) {
+        ShowRoute show_route;
+        connected_route()->FillRouteInfo(src_table(), &show_route);
+        connected_rt_info.set_connected_rt(show_route);
+    }
     info.set_connected_route(connected_rt_info);
 
     std::vector<PrefixToRouteListInfo> more_vec;
@@ -769,10 +826,14 @@ void ServiceChain::FillServiceChainInfo(ShowServicechainInfo &info) const {
         BgpTable *bgptable = src_table();
         InetRoute rt_key(it->first);
         BgpRoute *aggregate = static_cast<BgpRoute *>(bgptable->Find(&rt_key));
-        if (aggregate)
+        if (aggregate) {
             prefix_list_info.set_aggregate(true);
-        else
+            ShowRoute show_route;
+            aggregate->FillRouteInfo(bgptable, &show_route);
+            prefix_list_info.set_aggregate_rt(show_route);
+        } else {
             prefix_list_info.set_aggregate(false);
+        }
 
         std::vector<std::string> rt_list;
         for (RouteList::iterator rt_it = it->second.begin();
@@ -794,8 +855,11 @@ void ServiceChain::FillServiceChainInfo(ShowServicechainInfo &info) const {
         InetRoute rt_key(ext_route->GetPrefix());
         BgpRoute *ext_connecting = 
             static_cast<BgpRoute *>(bgptable->Find(&rt_key));
-        if (ext_connecting)
-            ext_rt_info.set_ext_rt_svc_rt(ext_connecting->ToString());
+        if (ext_connecting) {
+            ShowRoute show_route;
+            ext_connecting->FillRouteInfo(bgptable, &show_route);
+            ext_rt_info.set_ext_rt_svc_rt(show_route);
+        }
         ext_connecting_rt_info_list.push_back(ext_rt_info);
     }
     info.set_ext_connecting_rt_info_list(ext_connecting_rt_info_list);

@@ -73,8 +73,8 @@ bool QEInfoLogger(const string &hostname) {
     return true;
 }
 
-string QedVersion() {
-    return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo);
+bool QedVersion(std::string &version) {
+    return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
 
 #include <csignal>
@@ -140,7 +140,9 @@ main(int argc, char *argv[]) {
     }
 
     if (var_map.count("version")) {
-        std::cout << QedVersion() << std::endl;
+        string build_info;
+        QedVersion(build_info);
+        std::cout << build_info << std::endl;
         exit(0);
     }
 

@@ -76,6 +76,10 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                 entry->flow_handle = FlowEntry::kInvalidFlowHandle;
             }
             
+            // When NAT forward flow is deleted, vrouter will delete reverse
+            // flow also. When agent tries to delete reverse flow, it will get
+            // error from vrouter. Ignore the error for delete of NAT case
+            SetErrno(0);
             return;
         }
         FlowKey key;

@@ -365,15 +365,15 @@ TEST_F(KStateTest, FlowDumpTest) {
 
     int hash_id = 1;
     //Flow creation using IP packet
-    TxIpPacketUtil(test0->GetInterfaceId(), vm1_ip, vm2_ip, 1, hash_id);
+    TxIpPacketUtil(test0->GetInterfaceId(), vm1_ip, vm2_ip, 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 1, 0, 0, false, 
+    EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false, 
                         "vn3", "vn3", hash_id++));
 
     //Create flow in reverse direction
-    TxIpPacketUtil(test1->GetInterfaceId(), vm2_ip, vm1_ip, 1, hash_id);
+    TxIpPacketUtil(test1->GetInterfaceId(), vm2_ip, vm1_ip, 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 1, 0, 0, true, 
+    EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true, 
                         "vn3", "vn3", hash_id++));
 
     //Flow creation using TCP packet

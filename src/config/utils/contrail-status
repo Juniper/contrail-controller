@@ -118,7 +118,7 @@ if test -z "$agent"; then
 else
   printf "== Contrail vRouter ==\n"
     check_svc supervisor-vrouter 
-    supervisorctl -s http://localhost:9005 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+    (supervisorctl -s http://localhost:9005 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9005 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test -z "$clibs"; then
@@ -128,33 +128,33 @@ fi
 if test "$control"; then
   printf "== Contrail Control ==\n"
    check_svc supervisor-control
-   supervisorctl -s http://localhost:9003 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+   (supervisorctl -s http://localhost:9003 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9003 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
    check_svc supervisor-dns
-   supervisorctl -s http://localhost:9006 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+   (supervisorctl -s http://localhost:9006 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9006 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$analytics"; then
   printf "== Contrail Analytics ==\n"
   check_svc supervisor-analytics
-  supervisorctl -s http://localhost:9002 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+  (supervisorctl -s http://localhost:9002 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9002 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$capi"; then
   printf "== Contrail Config ==\n"
   check_svc supervisor-config
-  supervisorctl -s http://localhost:9004 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+  (supervisorctl -s http://localhost:9004 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9004 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$contrail-webui"; then
   printf "== Contrail Web UI ==\n"
   check_svc supervisor-webui
-  supervisorctl -s http://localhost:9008 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+  (supervisorctl -s http://localhost:9008 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9008 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$database"; then
   printf "== Contrail Database ==\n"
   check_svc supervisord-contrail-database
-  supervisorctl -s http://localhost:9007 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
+  (supervisorctl -s http://localhost:9007 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9007 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 rpm_info() {

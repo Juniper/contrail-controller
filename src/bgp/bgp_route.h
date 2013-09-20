@@ -13,6 +13,7 @@ class BgpAttr;
 struct BgpProtoPrefix;
 class IPeer;
 class BgpTable;
+class ShowRoute;
 
 class BgpRoute : public Route {
 public:
@@ -111,6 +112,8 @@ public:
     // number of paths
     size_t count() const;
 
+    // Fill info needed for introspect
+    void FillRouteInfo(BgpTable *table, ShowRoute *show_route);
 private:
 
     DISALLOW_COPY_AND_ASSIGN(BgpRoute);

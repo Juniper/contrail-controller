@@ -67,6 +67,7 @@ from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 import discovery.client as client
 #from gen_py.vnc_api.ttypes import *
+import netifaces
 
 _WEB_HOST = '0.0.0.0'
 _WEB_PORT = 8082
@@ -271,8 +272,19 @@ class VncApiServer(VncApiServerGen):
     #end get_args
 
     def get_server_ip(self):
-        return self._args.listen_ip_addr
+        for i in netifaces.interfaces():
+            try:
+                if netifaces.AF_INET in netifaces.ifaddresses(i):
+                    return netifaces.ifaddresses (i)[netifaces.AF_INET][0][
+                        'addr']
+            except ValueError, e:
+                print "Skipping interface %s" % i
+        return None
     #end get_server_ip
+    
+    def get_listen_ip(self):
+        return self._args.listen_ip_addr
+    #end get_listen_ip
 
     def get_server_port(self):
         return self._args.listen_port
@@ -1000,7 +1012,7 @@ def main(args_str = None):
     vnc_api_server = VncApiServer(args_str)
     pipe_start_app = vnc_api_server.get_pipe_start_app()
 
-    server_ip = vnc_api_server.get_server_ip()
+    server_ip = vnc_api_server.get_listen_ip()
     server_port = vnc_api_server.get_server_port()
 
     # Advertise services

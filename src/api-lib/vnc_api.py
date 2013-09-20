@@ -70,7 +70,7 @@ class VncApi(VncApiClientGen):
         # TODO allow for username/password to be present in creds file
 
         cfg_parser = ConfigParser.ConfigParser()
-        clen = len(cfg_parser.read(conf_file or "vnc_api_lib.ini"))
+        clen = len(cfg_parser.read(conf_file or "/etc/contrail/vnc_api_lib.ini"))
 
         # keystone
         self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE', self._DEFAULT_AUTHN_TYPE)

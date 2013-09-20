@@ -295,7 +295,7 @@ class DiscoveryServer():
             for section in config.sections():
                 if section == "DEFAULTS":
                     continue
-                self.service_config[section.lower()] = self.default_service_opts
+                self.service_config[section.lower()] = self.default_service_opts.copy()
                 self.service_config[section.lower()].update(dict(config.items(section)))
 
         # Override with CLI options

@@ -6,6 +6,7 @@
 #define __UTIL_H__
 
 #include <boost/algorithm/string.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/function.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -278,4 +279,21 @@ public:
     static int Get(void * const* &callstack);
 };
 
+static inline const std::string duration_usecs_to_string(const uint64_t usecs) {
+    std::ostringstream os;
+    boost::posix_time::time_duration duration;
+
+    duration = boost::posix_time::microseconds(usecs);
+    os << duration;
+    return os.str();
+}
+
+//
+// Get VN name from routing instance
+//
+static inline std::string GetVNFromRoutingInstance(const std::string &vn) {
+    std::vector<std::string> tokens;
+    boost::split(tokens, vn, boost::is_any_of(":"), boost::token_compress_on);
+    return tokens[0] + ":" + tokens[1] + ":" + tokens[2];
+}
 #endif /* UTIL_H_ */

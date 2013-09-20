@@ -1367,7 +1367,13 @@ class BgpRouterST(DictST):
         my_asn = int(VirtualNetworkST.get_autonomous_system())
         if self.asn != my_asn:
             return
-        obj = _vnc_lib.bgp_router_read(fq_name_str = self.name)
+        try:
+            obj = _vnc_lib.bgp_router_read(fq_name_str = self.name)
+        except NoIdError:
+            _sandesh._logger.debug("NoIdError while reading bgp router "
+                                   "%s: %s", self.name, str(e))
+            return
+        
         for router in self._dict.values():
             if router.name == self.name: continue
             if router.asn != my_asn: continue
@@ -1382,7 +1388,12 @@ class BgpRouterST(DictST):
             session = BgpSession(attributes=[bsa])
             attr = BgpPeeringAttributes(session=[session])
             obj.add_bgp_router(router_obj, attr)
-            _vnc_lib.bgp_router_update(obj)
+            try:
+                _vnc_lib.bgp_router_update(obj)
+            except NoIdError as e:
+                _sandesh._logger.debug("NoIdError while updating bgp router "
+                                       "%s: %s", self.name, str(e))
+                obj.del_bgp_router(router_obj)
     #end update_peering            
     def set_config(self, params):
         self.address = params.address
@@ -2243,6 +2254,8 @@ class SchemaTransformer(object):
                     for arule in acl_rule_list.get_list():
                         match = arule.get_match_condition()
                         action = arule.get_action_list()
+                        if action.simple_action == 'deny':
+                            continue
                         if match.dst_address.virtual_network in [network_name, "any"]:
                             connected_network = match.src_address.virtual_network
                         elif match.src_address.virtual_network in [network_name, "any"]:

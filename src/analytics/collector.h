@@ -93,7 +93,6 @@ public:
             int task_id) :
         SandeshSession(client, socket, task_instance, task_id),
         gen_(NULL) { }
-    void EnqueueClose();
 };
 
 #endif /* COLLECTOR_H_ */

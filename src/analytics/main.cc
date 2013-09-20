@@ -7,7 +7,6 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
-#include "boost/python.hpp"
 #include "base/logging.h"
 #include "base/contrail_ports.h"
 #include "base/cpuinfo.h"
@@ -30,6 +29,7 @@
 #include <base/misc_utils.h>
 #include <analytics/buildinfo.h>
 #include "discovery_client.h"
+#include "boost/python.hpp"
 
 using namespace ::apache::thrift;
 
@@ -47,8 +47,8 @@ bool CollectorInfoLogTimer() {
     return false;
 }
 
-string CollectorVersion() {
-    return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo);
+bool CollectorVersion(string &version) {
+    return MiscUtils::GetBuildInfo(MiscUtils::Analytics, BuildInfo, version);
 }
 
 bool CollectorCPULogger(const string & hostname) {
@@ -83,11 +83,10 @@ void HandleGenCleanup(int count) {
 bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         OpServerProxy * osp) {
     CollectorState state;
-    static bool first = true;
+    static bool first = true, build_info_set = false;
 
     state.set_name(hostname);
     if (first) {
-        state.set_build_info(CollectorVersion());
         vector<string> ip_list;
         ip_list.push_back(Collector::GetSelfIp());
         state.set_self_ip_list(ip_list);
@@ -98,6 +97,12 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         }
         first = false;
     }
+    if (!build_info_set) {
+        string build_info_str;
+        build_info_set = CollectorVersion(build_info_str);
+        state.set_build_info(build_info_str);
+    }
+
     std::vector<GeneratorSummaryInfo> infos;
     collector->GetGeneratorSummaryInfo(infos);
 
@@ -240,7 +245,9 @@ int main(int argc, char *argv[])
     }
 
     if (var_map.count("version")) {
-        cout << CollectorVersion() << endl;
+        string build_info_str;
+        CollectorVersion(build_info_str);
+        cout << build_info_str << endl;
         exit(0);
     }
 

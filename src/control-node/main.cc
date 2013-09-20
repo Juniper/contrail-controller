@@ -145,8 +145,8 @@ bool ControlNodeInfoLogTimer() {
     return false;
 }
 
-const string ControlNodeVersion() {
-    return MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo);
+bool ControlNodeVersion(string &build_info_str) {
+    return MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo, build_info_str);
 }
 
 static void FillProtoStats(IPeerDebugStats::ProtoStats &stats, 
@@ -231,7 +231,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
 
     BgpRouterState state;
     static BgpRouterState prev_state;
-    static bool first = true;
+    static bool first = true, build_info_set = false;
     bool change = false;
 
     CpuLoadInfo cpu_load_info;
@@ -239,9 +239,6 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
     state.set_name(server->localname());
     if (first) {
         state.set_uptime(start_time);
-        string build_info = ControlNodeVersion();
-        state.set_build_info(build_info);
-        state.set_collector_ip(ControlNode::GetCollector());
         vector<string> ip_list;
         ip_list.push_back(ControlNode::GetSelfIp());
         state.set_bgp_router_ip_list(ip_list);
@@ -249,6 +246,15 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         MiscUtils::GetCoreFileList(ControlNode::GetProgramName(), list);
         if (list.size()) {
             state.set_core_files_list(list);
+        }
+    }
+    if (!build_info_set) {
+        string build_info;
+        build_info_set = ControlNodeVersion(build_info);
+        if (build_info != prev_state.get_build_info()) {
+            state.set_build_info(build_info);
+            prev_state.set_build_info(build_info);
+            change = true;
         }
     }
 
@@ -462,7 +468,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (var_map.count("version")) {
-        cout << ControlNodeVersion() << endl;
+        string build_info;
+        ControlNodeVersion(build_info);
+        cout << build_info << endl;
         exit(0);
     }
 
@@ -495,7 +503,6 @@ int main(int argc, char *argv[]) {
     if (var_map.count("collector-port") && var_map.count("collector")) {
         int collector_port = var_map["collector-port"].as<int>();
         std::string collector_server = var_map["collector"].as<string>();
-        ControlNode::SetCollector(collector_server);
         Sandesh::ConnectToCollector(collector_server, collector_port);
     }
     Sandesh::SetLoggingParams(enable_local_logging,

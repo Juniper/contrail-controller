@@ -147,7 +147,7 @@ protected:
         db_util::Clear(&config_db_);
         task_util::WaitForIdle();
         IFMapServerParser *parser = IFMapServerParser::GetInstance("schema");
-        parser->MetadataClear("bgp_schema");
+        parser->MetadataClear("schema");
         task_util::WaitForIdle();
     }
 

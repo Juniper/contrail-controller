@@ -1252,7 +1252,7 @@ bool UveClient::AppendVn(DBTablePartBase *part, DBEntryBase *entry,
 void UveClient::SendVrouterUve() {
     VrouterAgent vrouter_agent;
     bool changed = false;
-    static bool first = true;
+    static bool first = true, build_info = false;
     vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
     Ip4Address rid = Agent::GetInstance()->GetRouterId();
 
@@ -1291,17 +1291,15 @@ void UveClient::SendVrouterUve() {
         changed = true;
     }
 
-    //This API is invoked every 10 seconds. Send Build-Info only once after
-    //6 invocations (1 minute)
-    static int ver_count = 0;
-    static bool version_sent = false;
-    if (!version_sent) {
-        ver_count++;
-        if ((ver_count % 6) == 0) {
-            vrouter_agent.set_build_info(Agent::GetInstance()->GetBuildInfo());
+    if (!build_info) {
+        string build_info_str;
+        build_info = Agent::GetInstance()->GetBuildInfo(build_info_str);
+        if (prev_vrouter_.get_build_info() != build_info_str) {
+            vrouter_agent.set_build_info(build_info_str);
+            prev_vrouter_.set_build_info(build_info_str);
             changed = true;
-            version_sent = true;
         }
+
     }
 
     std::vector<AgentXmppPeer> xmpp_list;

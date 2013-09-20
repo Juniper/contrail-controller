@@ -35,11 +35,11 @@ test_list.append(CCMapTest(map_env, 'ifmap_link_attr'))
 test_list.append(CCMapTest(map_env, 'ifmap_deep_property'))
 test_list.append(CCMapTest(map_env, 'ifmap_identity_property'))
 
-bgp_l3vpn_env = env.Clone()
-bgp_l3vpn_env.Append(LIBPATH = env['TOP'] + '/schema')
-bgp_l3vpn_env.Prepend(LIBS = ['xmpp_unicast'])
-test_list.append(
-    bgp_l3vpn_env.Program('xmpp_unicast', ['xmpp_unicast_test.cc']))
+#bgp_l3vpn_env = env.Clone()
+#bgp_l3vpn_env.Append(LIBPATH = env['TOP'] + '/schema')
+#bgp_l3vpn_env.Prepend(LIBS = ['xmpp_unicast'])
+#test_list.append(
+#    bgp_l3vpn_env.Program('xmpp_unicast', ['xmpp_unicast_test.cc']))
 
 vnc_cfg_env = env.Clone()
 vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/schema')

@@ -28,17 +28,6 @@ using boost::shared_ptr;
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
 
-void VizSession::EnqueueClose() {
-    SandeshConnection *connection = this->connection();
-    if (connection && connection->state_machine()) {
-        connection->state_machine()->OnSessionEvent(this,
-                                                    TcpSession::CLOSE);
-    } else {
-        LOG(ERROR, __func__ << ": Session: " << ToString() <<
-            ": No state machine");
-    }
-}
-
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, Ruleeng *ruleeng) :
         SandeshServer(evm),

@@ -109,6 +109,10 @@ public class ApiConnectorMock implements ApiConnector {
 
     ApiConnectorMock() {
         _apiBuilder = new ApiBuilder();
+        initConfig();
+    }
+
+    public void initConfig() {
         _map = new HashMap<String, List<HashMap<String, ApiObjectBase>>>();
         buildDefaultConfig(); 
         buildDefaultObjectMap();
@@ -281,6 +285,9 @@ public class ApiConnectorMock implements ApiConnector {
     }
 
     ApiObjectBase getDefaultParent(ApiObjectBase obj) {
+        if (obj.getClass() == Domain.class) {
+             return null;
+        }
         if (obj.getName().equals("default-domain")) return null;
         Class<?extends ApiObjectBase> parentCls = _parentMap.get(obj.getClass());
         return _defaultObjectMap.get(parentCls);

@@ -70,6 +70,20 @@ public:
         msg = ss.str(); 
     }
     
+    void BuildNullServiceResponseMessage(std::string serviceNameTag, 
+                                         std::string &msg) {
+
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        impl->LoadDoc("");
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+
+        pugi->AddChildNode("bad-response", "");
+
+        stringstream ss;
+        impl->PrintDoc(ss);
+        msg = ss.str(); 
+    }
+
     void BuildPublishMessage(std::string serviceNameTag, std::string &msg) {
         auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
         impl->LoadDoc("");
@@ -151,8 +165,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_no_publish_cb) {
     dsc_publish->Init();
  
     std::string msg;
-    dsc_publish->BuildPublishMessage("ifmap-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::IFMapService, msg);
+    dsc_publish->BuildPublishMessage("ifmap-server-test", msg); 
+    dsc_publish->Publish("ifmap-server-test", msg);
 
     while(true) {
         sleep(10);
@@ -177,8 +191,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_with_publish_cb) {
     dsc_publish->Init();
  
     std::string msg;
-    dsc_publish->BuildPublishMessage("ifmap-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::IFMapService, msg);
+    dsc_publish->BuildPublishMessage("ifmap-server-test", msg); 
+    dsc_publish->Publish("ifmap-server-test", msg);
 
     //Wait for connection to be closed
     task_util::WaitForIdle(); 
@@ -207,7 +221,7 @@ TEST_F(DiscoveryServiceClientTest, DSS_with_subscribe_cb) {
     dsc_subscribe->Init();
 
     //subscribe to service
-    dsc_subscribe->Subscribe("Test", DiscoveryServiceClient::XmppService, 1, 
+    dsc_subscribe->Subscribe("Test", "xmpp-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, 
                     dsc_subscribe, _1));
 
@@ -241,8 +255,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_clients) {
     dsc_publish->Init();
  
     std::string msg;
-    dsc_publish->BuildPublishMessage("xmpp-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::XmppService, msg);
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
 
 
     //Subscribe DS client
@@ -251,7 +265,7 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_clients) {
     dsc_subscribe->Init();
 
     //subscribe to service
-    dsc_subscribe->Subscribe("Test", DiscoveryServiceClient::XmppService, 1, 
+    dsc_subscribe->Subscribe("Test", xmpp-server-test, 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, 
                     dsc_subscribe, _1));
 
@@ -288,11 +302,11 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_client) {
  
     //Publish xmpp-server service
     std::string msg;
-    dsc_pubsub->BuildPublishMessage("xmpp-server", msg); 
-    dsc_pubsub->Publish(DiscoveryServiceClient::XmppService, msg);
+    dsc_pubsub->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_pubsub->Publish("xmpp-server-test", msg);
 
     //subscribe to service
-    dsc_pubsub->Subscribe("Test", DiscoveryServiceClient::CollectorService, 1, 
+    dsc_pubsub->Subscribe("Test", "collector-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncCollectorHandler, 
                     dsc_pubsub, _1));
 
@@ -321,15 +335,15 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service) {
  
     int ifmap_instances = 1;
     //subscribe to service
-    dsc->Subscribe("Test", DiscoveryServiceClient::IFMapService, ifmap_instances, 
+    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
 
     //subscribe response 
     std::string msg;
-    dsc->BuildServiceResponseMessage("ifmap-server", ifmap_instances, msg); 
+    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
     boost::system::error_code ec; 
-    dsc->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 1);
     EXPECT_TRUE(dsc->IfMapInstances() == ifmap_instances);
     task_util::WaitForIdle(); 
@@ -337,7 +351,7 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service) {
     EvmShutdown();
 
     //unsubscribe to service
-    dsc->Unsubscribe(DiscoveryServiceClient::IFMapService); 
+    dsc->Unsubscribe("ifmap-server-test"); 
     task_util::WaitForIdle(); 
 
     dsc->Shutdown(); // No more listening socket, clear sessions
@@ -357,20 +371,20 @@ TEST_F(DiscoveryServiceClientTest, Publish_1_Service) {
  
     //publish a service
     std::string msg;
-    dsc_publish->BuildPublishMessage("ifmap-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::IFMapService, msg);
+    dsc_publish->BuildPublishMessage("ifmap-server-test", msg); 
+    dsc_publish->Publish("ifmap-server-test", msg);
 
     // send publisher cookie response
     std::string msg2;
-    dsc_publish->BuildPublishResponseMessage("ifmap-server", msg2);
+    dsc_publish->BuildPublishResponseMessage("ifmap-server-test", msg2);
     boost::system::error_code ec; 
-    dsc_publish->PublishResponseHandler(msg2, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc_publish->PublishResponseHandler(msg2, ec, "ifmap-server-test", NULL);
     task_util::WaitForIdle(); 
     
     EvmShutdown();
 
     //withdraw publish service
-    dsc_publish->WithdrawPublish(DiscoveryServiceClient::IFMapService);
+    dsc_publish->WithdrawPublish("ifmap-server-test");
     task_util::WaitForIdle(); 
     
     dsc_publish->Shutdown(); // No more listening socket, clear sessions
@@ -392,27 +406,27 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_Services) {
     int ifmap_instances = 1;
 
     //subscribe to service
-    dsc->Subscribe("Test", DiscoveryServiceClient::IFMapService, ifmap_instances, 
+    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
-    dsc->Subscribe("Test", DiscoveryServiceClient::XmppService, xmpp_instances, 
+    dsc->Subscribe("Test", "xmpp-server-test", xmpp_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, dsc, _1));
 
     std::string msg;
     boost::system::error_code ec; 
-    dsc->BuildServiceResponseMessage("ifmap-server", ifmap_instances, msg); 
-    dsc->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
+    dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapInstances() == ifmap_instances);
 
-    dsc->BuildServiceResponseMessage("xmpp-server", xmpp_instances, msg); 
-    dsc->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::XmppService, NULL);
+    dsc->BuildServiceResponseMessage("xmpp-server-test", xmpp_instances, msg); 
+    dsc->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
     EXPECT_TRUE(dsc->XmppInstances() == xmpp_instances);
 
     EvmShutdown();
 
     //unsubscribe to service
-    dsc->Unsubscribe(DiscoveryServiceClient::IFMapService); 
-    dsc->Unsubscribe(DiscoveryServiceClient::XmppService); 
+    dsc->Unsubscribe("ifmap-server-test"); 
+    dsc->Unsubscribe("xmpp-server-test"); 
     task_util::WaitForIdle(); 
 
     dsc->Shutdown(); // No more listening socket, clear sessions
@@ -432,26 +446,26 @@ TEST_F(DiscoveryServiceClientTest, Publish_Services) {
 
     //publish a service
     std::string msg;
-    dsc_publish->BuildPublishMessage("ifmap-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::IFMapService, msg);
+    dsc_publish->BuildPublishMessage("ifmap-server-test", msg); 
+    dsc_publish->Publish("ifmap-server-test", msg);
 
-    dsc_publish->BuildPublishMessage("xmpp-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::XmppService, msg);
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
 
     // send publisher cookie response
     std::string msg2;
-    dsc_publish->BuildPublishResponseMessage("ifmap-server", msg2);
+    dsc_publish->BuildPublishResponseMessage("ifmap-server-test", msg2);
     boost::system::error_code ec; 
-    dsc_publish->PublishResponseHandler(msg2, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc_publish->PublishResponseHandler(msg2, ec, "ifmap-server-test", NULL);
 
-    dsc_publish->BuildPublishResponseMessage("xmpp-server", msg2);
-    dsc_publish->PublishResponseHandler(msg2, ec, DiscoveryServiceClient::XmppService, NULL);
+    dsc_publish->BuildPublishResponseMessage("xmpp-server-test", msg2);
+    dsc_publish->PublishResponseHandler(msg2, ec, "xmpp-server-test", NULL);
     
     EvmShutdown();
 
     //withdraw publish service
-    dsc_publish->WithdrawPublish(DiscoveryServiceClient::IFMapService);
-    dsc_publish->WithdrawPublish(DiscoveryServiceClient::XmppService);
+    dsc_publish->WithdrawPublish("ifmap-server-test");
+    dsc_publish->WithdrawPublish("xmpp-server-test");
     task_util::WaitForIdle(); 
     
     dsc_publish->Shutdown(); // No more listening socket, clear sessions
@@ -475,33 +489,33 @@ TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
 
     //publish a service
     std::string msg;
-    dsc_publish->BuildPublishMessage("xmpp-server", msg); 
-    dsc_publish->Publish(DiscoveryServiceClient::XmppService, msg);
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
 
     // send publisher cookie response
     std::string msg2;
-    dsc_publish->BuildPublishResponseMessage("xmpp-server", msg2);
+    dsc_publish->BuildPublishResponseMessage("xmpp-server-test", msg2);
     boost::system::error_code ec; 
-    dsc_publish->PublishResponseHandler(msg2, ec, DiscoveryServiceClient::XmppService, NULL);
+    dsc_publish->PublishResponseHandler(msg2, ec, "xmpp-server-test", NULL);
 
 
     //subscribe a service
-    dsc_subscribe->Subscribe("Test", DiscoveryServiceClient::XmppService, 1, 
+    dsc_subscribe->Subscribe("Test", "xmpp-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, dsc_subscribe, _1));
     task_util::WaitForIdle(); 
 
     //subscribe response 
-    dsc_subscribe->BuildServiceResponseMessage("xmpp-server", 1, msg); 
-    dsc_subscribe->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::XmppService, NULL);
+    dsc_subscribe->BuildServiceResponseMessage("xmpp-server-test", 1, msg); 
+    dsc_subscribe->SubscribeResponseHandler(msg, ec, "xmpp-server-test", NULL);
     EXPECT_TRUE(dsc_subscribe->XmppInstances() == 1);
 
     EvmShutdown();
 
     //unsubscribe to service
-    dsc_subscribe->Unsubscribe(DiscoveryServiceClient::XmppService); 
+    dsc_subscribe->Unsubscribe("xmpp-server-test"); 
 
     //withdraw publish service
-    dsc_publish->WithdrawPublish(DiscoveryServiceClient::XmppService);
+    dsc_publish->WithdrawPublish("xmpp-server-test");
     task_util::WaitForIdle(); 
     
     dsc_publish->Shutdown(); // No more listening socket, clear sessions
@@ -526,26 +540,26 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
  
     int ifmap_instances = 1;
     //subscribe to service
-    dsc->Subscribe("Test", DiscoveryServiceClient::IFMapService, ifmap_instances, 
+    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
 
     //subscribe response with no publisher
     std::string msg;
-    dsc->BuildServiceResponseMessage("ifmap-server", 0, msg); 
+    dsc->BuildServiceResponseMessage("ifmap-server-test", 0, msg); 
     boost::system::error_code ec; 
-    dsc->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 0);
     task_util::WaitForIdle(); 
 
     //Resubscribe assume ttl/connect-time expired
-    dsc->Subscribe("Test", DiscoveryServiceClient::IFMapService, ifmap_instances, 
+    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
    
     //subscribe response with no publisher
-    dsc->BuildServiceResponseMessage("ifmap-server", ifmap_instances, msg); 
-    dsc->SubscribeResponseHandler(msg, ec, DiscoveryServiceClient::IFMapService, NULL);
+    dsc->BuildServiceResponseMessage("ifmap-server-test", ifmap_instances, msg); 
+    dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
     EXPECT_TRUE(dsc->IfMapCbCount() == 1);
     EXPECT_TRUE(dsc->IfMapInstances() == ifmap_instances);
     task_util::WaitForIdle(); 
@@ -553,7 +567,45 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
     EvmShutdown();
 
     //unsubscribe to service
-    dsc->Unsubscribe(DiscoveryServiceClient::IFMapService); 
+    dsc->Unsubscribe("ifmap-server-test"); 
+    task_util::WaitForIdle(); 
+
+    dsc->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle(); 
+    delete dsc;
+    task_util::WaitForIdle(); 
+}
+
+
+TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_badresponse) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5997);
+    DiscoveryServiceClientMock *dsc = 
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+    dsc->Init();
+ 
+    int ifmap_instances = 1;
+    //subscribe to service
+    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+        boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
+    task_util::WaitForIdle(); 
+
+    //subscribe response with no publisher
+    std::string msg;
+    dsc->BuildNullServiceResponseMessage("ifmap-server-test", msg);
+    boost::system::error_code ec; 
+    dsc->SubscribeResponseHandler(msg, ec, "ifmap-server-test", NULL);
+    EXPECT_TRUE(dsc->IfMapCbCount() == 0);
+    task_util::WaitForIdle(); 
+
+    //Ensure we do send resubscribes.
+
+    EvmShutdown();
+
+    //unsubscribe to service
+    dsc->Unsubscribe("ifmap-server-test"); 
     task_util::WaitForIdle(); 
 
     dsc->Shutdown(); // No more listening socket, clear sessions
@@ -567,6 +619,8 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
 
 static void SetUp() {
     ControlNode::SetDefaultSchedulingPolicy();
+    LoggingInit();
+    Sandesh::SetLoggingParams(true, "", SandeshLevel::UT_DEBUG);
 }
 
 static void TearDown() {

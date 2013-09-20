@@ -166,7 +166,6 @@ struct PktInfo {
         boost::hash_combine(seed, ip_proto);
         boost::hash_combine(seed, sport);
         boost::hash_combine(seed, dport);
-        boost::hash_combine(seed, vrf);
         return seed;
     }
 };

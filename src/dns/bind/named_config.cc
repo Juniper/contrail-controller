@@ -130,6 +130,7 @@ void NamedConfig::UpdateNamedConf(const VirtualDnsConfig *updated_vdns) {
 }
 
 void NamedConfig::CreateNamedConf(const VirtualDnsConfig *updated_vdns) {
+     GetDefaultForwarders();
      file_.open(named_conf_file_.c_str());
     
      WriteOptionsConfig();
@@ -191,6 +192,9 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
     file_ << "    match-clients {any;};" << endl;
     file_ << "    match-destinations {any;};" << endl;
     file_ << "    match-recursive-only no;" << endl;
+    if (!default_forwarders_.empty()) {
+        file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
+    }
     file_ << "};" << endl << endl;
 
     if (reset_flag_)
@@ -226,6 +230,8 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
             } else {
                 file_ << "    virtual-forwarder \"" << next_dns << "\";" << endl;
             }
+        } else if (!default_forwarders_.empty()) {
+            file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
         }
 
         for (unsigned int i = 0; i < zones.size(); i++) {
@@ -366,6 +372,35 @@ void NamedConfig::MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zo
     std::sort(zones.begin(), zones.end());
     ZoneList::iterator it = std::unique(zones.begin(), zones.end());
     zones.resize(std::distance(zones.begin(), it));
+}
+
+void NamedConfig::GetDefaultForwarders() {
+    default_forwarders_.clear();
+    std::ifstream fd;
+    fd.open(GetResolveFile().c_str());
+    if (!fd.is_open()) {
+        return;
+    }
+
+    std::string line;
+    while (getline(fd, line)) {
+        std::size_t pos = line.find_first_of("#");
+        std::stringstream ss(line.substr(0, pos));
+        std::string key;
+        ss >> key;
+        if (key == "nameserver") {
+            std::string ip;
+            ss >> ip;
+            boost::system::error_code ec;
+            boost::asio::ip::address_v4 
+                addr(boost::asio::ip::address_v4::from_string(ip, ec));
+            if (!ec.value()) {
+                default_forwarders_ += ip + "; ";
+            }
+        }
+    }
+
+    fd.close();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

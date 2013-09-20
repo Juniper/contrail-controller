@@ -4,9 +4,20 @@
 
 #include "bgp/bgp_route.h"
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_path.h"
+#include "bgp/bgp_peer_types.h"
 #include "bgp/bgp_table.h"
+#include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/security_group/security_group.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
+
 
 BgpRoute::BgpRoute() {
 }
@@ -262,4 +273,92 @@ bool BgpRoute::RemoveSecondaryPath(const BgpRoute *src_rt,
 
 size_t BgpRoute::count() const {
     return GetPathList().size();
+}
+
+void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
+    const RoutingInstanceMgr *ri_mgr = table->routing_instance()->manager();
+
+    show_route->set_prefix(ToString());
+    show_route->set_last_modified(integerToString(UTCUsecToPTime(last_change_at())));
+
+    std::vector<ShowRoutePath> show_route_paths;
+    for(Route::PathList::const_iterator it = GetPathList().begin();
+        it != GetPathList().end(); it++) {
+        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
+        ShowRoutePath srp;
+        const IPeer *peer = path->GetPeer();
+        if (peer) {
+            srp.set_source(peer->ToString());
+        }
+
+        if (path->GetSource() == BgpPath::BGP_XMPP) {
+            if (peer)
+                srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
+            else 
+                srp.set_protocol("Local");
+        } else if (path->GetSource() == BgpPath::ServiceChain) {
+            srp.set_protocol("ServiceChain");
+        } else if (path->GetSource() == BgpPath::StaticRoute) {
+            srp.set_protocol("StaticRoute");
+        }
+
+        const BgpAttr *attr = path->GetAttr();
+        if (attr->as_path() != NULL) 
+            srp.set_as_path(attr->as_path()->path().ToString());
+        srp.set_local_preference(attr->local_pref());
+        srp.set_next_hop(attr->nexthop().to_string());
+        srp.set_label(path->GetLabel());
+        srp.set_flags(path->GetFlags());
+        srp.set_last_modified(integerToString(UTCUsecToPTime(path->time_stamp_usecs())));
+        if (path->IsReplicated()) {
+            const BgpSecondaryPath *replicated;
+            replicated = static_cast<const BgpSecondaryPath *>(path);
+            srp.set_replicated(true);
+            srp.set_primary_table(replicated->src_table()->name());
+        } else {
+            srp.set_replicated(false);
+        }
+        if (attr->community()) {
+            CommunitySpec comm;
+            comm.communities = attr->community()->communities();
+            srp.communities.push_back(comm.ToString());
+        }
+        if (attr->ext_community()) {
+            ExtCommunitySpec ext_comm;
+            const ExtCommunity::ExtCommunityList &v =
+                attr->ext_community()->communities();
+            for (ExtCommunity::ExtCommunityList::const_iterator it = v.begin();
+                 it != v.end(); ++it) {
+                if (ExtCommunity::is_route_target(*it)) {
+                    RouteTarget rt(*it);
+                    srp.communities.push_back(rt.ToString());
+                } else if (ExtCommunity::is_origin_vn(*it)) {
+                    OriginVn origin_vn(*it);
+                    srp.communities.push_back(origin_vn.ToString());
+                    int vn_index = origin_vn.vn_index();
+                    srp.set_origin_vn(
+                                  ri_mgr->GetVirtualNetworkByVnIndex(vn_index));
+                } else if (ExtCommunity::is_security_group(*it)) {
+                    SecurityGroup sg(*it);
+                    srp.communities.push_back(sg.ToString());
+                } else if (ExtCommunity::is_tunnel_encap(*it)) {
+                    TunnelEncap encap(*it);
+                    TunnelEncapType::Encap id = encap.tunnel_encap();
+                    srp.tunnel_encap.push_back(
+                               TunnelEncapType::TunnelEncapToString(id));
+                } else {
+                    char temp[50];
+                    int len = snprintf(temp, sizeof(temp), "ext community: ");
+
+                    for (size_t i=0; i < it->size(); i++) {
+                        len += snprintf(temp+len, sizeof(temp) - len, "%02x", 
+                                        (*it)[i]);
+                    }
+                    srp.communities.push_back(std::string(temp));
+                }
+            }
+        }
+        show_route_paths.push_back(srp);
+    }
+    show_route->set_paths(show_route_paths);
 }

@@ -124,7 +124,7 @@ using namespace boost::uuids;
 class Agent {
 public:
     const std::string &GetHostName();
-    const std::string GetBuildInfo();
+    bool GetBuildInfo(std::string &build_info_str);
     void SetHostName(const std::string &name);
     const std::string &GetProgramName() {return prog_name_;};
     void SetProgramName(const char *name) { prog_name_ = name; };

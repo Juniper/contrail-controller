@@ -17,8 +17,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
-#include <boost/python.hpp>
-
 // Careful: must include globals first for extern definitions
 #include "../ruleutil.h"
 #include "../t_ruleparser.h"
@@ -30,6 +28,7 @@
 #include <sandesh/sandesh.h> 
 #include <sandesh/sandesh_trace.h> 
 #include "../../viz_message.h"
+#include <boost/python.hpp>
 
 SandeshTraceBufferPtr UVETraceBuf(SandeshTraceBufferCreate("UveTrace", 25000));
 /**

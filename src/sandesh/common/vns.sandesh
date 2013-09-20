@@ -20,6 +20,7 @@ enum Module {
     DNS,
     DISCOVERY_SERVICE,
     IFMAP_SERVER,
+    XMPP_SERVER,
     MAX_MODULE,
 }
 
@@ -35,6 +36,7 @@ const map<Module, string> ModuleNames = {
     Module.DNS                : "DnsAgent",
     Module.DISCOVERY_SERVICE  : "DiscoveryService"
     Module.IFMAP_SERVER       : "IfmapServer",
+    Module.XMPP_SERVER        : "XmppServer",
 }
 
 const map<string, Module> ModuleIds = {
@@ -49,6 +51,7 @@ const map<string, Module> ModuleIds = {
     "DnsAgent"              : Module.DNS,
     "DiscoveryService"      : Module.DISCOVERY_SERVICE
     "IfmapServer"           : Module.IFMAP_SERVER,
+    "XmppServer"            : Module.XMPP_SERVER,
 }
 
 enum Category {
@@ -62,6 +65,7 @@ enum Category {
     VROUTER,
     DISCOVERY,
     DNSAGENT,
+    DISCOVERYCLIENT,
 }
 
 const map<Category, string> CategoryNames = {
@@ -74,7 +78,8 @@ const map<Category, string> CategoryNames = {
     Category.ROUTING_INSTANCE : "RoutingInstance"
     Category.VROUTER          : "VRouter",
     Category.DISCOVERY        : "Discovery",
-    Category.DNSAGENT         : "DnsAgent"
+    Category.DNSAGENT         : "DnsAgent",
+    Category.DISCOVERYCLIENT  : "DiscoveryClient",
 }
     
 const map<Module, list<Category>> ModuleCategoryMap = {

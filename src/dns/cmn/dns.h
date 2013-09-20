@@ -62,7 +62,7 @@ public:
     static std::string GetSelfIp() { return self_ip_; }
     static void SetSelfIp(std::string ip) { self_ip_ = ip; }
 
-    static std::string GetVersion();
+    static bool GetVersion(std::string &build_info_str);
     static void Init() {
         EventManager *evm;
         evm = new EventManager();

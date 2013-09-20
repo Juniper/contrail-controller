@@ -1,27 +1,34 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+include "bgp/bgp_peer.sandesh"
 
-struct ConnecteRouteInfo {
+
+struct ConnectedRouteInfo {
     1: string service_chain_addr;
-    2: string connected_rt;
+    2: bgp_peer.ShowRoute connected_rt;
 }
 
 struct PrefixToRouteListInfo {
     1: string prefix;
     2: bool   aggregate;
+    4: bgp_peer.ShowRoute  aggregate_rt;
     3: list<string> more_specific_list;
 }
  
 struct ExtConnectRouteInfo {
     1: string ext_rt_prefix;
-    2: string ext_rt_svc_rt;
+    2: bgp_peer.ShowRoute ext_rt_svc_rt;
 }
 
 struct ShowServicechainInfo {
+    7: string src_virtual_network;
+    8: string dest_virtual_network;
+    9: string service_instance;
     1: string src_rt_instance;
     2: string dest_rt_instance;
-    3: ConnecteRouteInfo connected_route;
+   10: string state;
+    3: ConnectedRouteInfo connected_route;
     4: list<PrefixToRouteListInfo> more_specifics;
     5: list<ExtConnectRouteInfo> ext_connecting_rt_info_list;
     6: bool aggregate_enable;

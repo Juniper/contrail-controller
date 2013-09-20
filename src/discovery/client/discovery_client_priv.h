@@ -12,4 +12,11 @@ do {\
     obj::TraceMsg(DiscoveryClientTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
 } while(0);\
 
+#define DISCOVERY_CLIENT_LOG_ERROR(obj, ...)                                   \
+do {                                                                           \
+    obj::Send(                                                                 \
+      g_vns_constants.CategoryNames.find(Category::DISCOVERYCLIENT)->second,   \
+      SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);               \
+} while (false)
+
 #endif // __DISCOVERY_CLIENT_PRIV_H__

@@ -11,8 +11,6 @@
 class ControlNode {
 public:
     static void SetDefaultSchedulingPolicy();
-    static void SetCollector(const std::string ip) { collector_ip_ = ip; }
-    static const std::string GetCollector() { return collector_ip_; }
     static void SetHostname(const std::string name) { hostname_ = name; }
     static const std::string GetHostname() { return hostname_; }
     static const std::string &GetProgramName() { return prog_name_; }
@@ -21,7 +19,6 @@ public:
     static void SetSelfIp(std::string ip) { self_ip_ = ip; }
 
 private:
-    static std::string collector_ip_;
     static std::string hostname_;
     static std::string prog_name_;
     static std::string self_ip_;

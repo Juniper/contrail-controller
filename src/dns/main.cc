@@ -126,7 +126,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (var_map.count("version")) {
-        cout << Dns::GetVersion() << endl;
+        string build_info_str;
+        Dns::GetVersion(build_info_str);
+        cout << build_info_str << endl;
         exit(0);
     }
 
@@ -135,7 +137,9 @@ int main(int argc, char *argv[]) {
     } else {
         LoggingInit(var_map["log-file"].as<string>());
     }
-    MiscUtils::LogVersionInfo(Dns::GetVersion(), Category::DNSAGENT);
+    string build_info_str;
+    Dns::GetVersion(build_info_str);
+    MiscUtils::LogVersionInfo(build_info_str, Category::DNSAGENT);
     // Create DB table and event manager
     Dns::Init();
 

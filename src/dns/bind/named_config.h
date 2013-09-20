@@ -90,6 +90,7 @@ public:
                                         const std::string &name);
     virtual std::string GetZoneFilePath(const std::string &vdns, 
                                         const std::string &name);
+    virtual std::string GetResolveFile() { return "/etc/resolv.conf"; }
     std::string GetPidFilePath();
     std::string GetConfFilePath() const { return named_conf_file_; }
     std::string GetZoneDir() const { return zone_file_dir_; }
@@ -108,10 +109,12 @@ protected:
     void CreateZoneFile(std::string &zone_name, 
                         const VirtualDnsConfig *vdns, bool ns);
     void MakeZoneList(const VirtualDnsConfig *vdns_config, ZoneList &zones);
+    void GetDefaultForwarders();
 
     std::ofstream file_;
     std::string named_conf_file_;
     std::string zone_file_dir_;
+    std::string default_forwarders_;
     bool reset_flag_;
     bool all_zone_files_;
     static NamedConfig *singleton_;

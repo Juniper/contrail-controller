@@ -55,12 +55,13 @@ public:
     static const int MaxCoreFiles;
 
     static void GetCoreFileList(std::string prog, std::vector<std::string> &list);
-    static std::string GetBuildInfo(BuildModule id, std::string build_info);
+    static bool GetBuildInfo(BuildModule id, const std::string &build_info, std::string &result);
     static void GetHostIp(const std::string name, std::vector<std::string> &ip_list);
     static void LogVersionInfo(const std::string str, Category::type categ);
 private:
-    static void GetContrailVersionInfo(BuildModule id, std::string &rpm_version, std::string &build_num);
+    static bool GetContrailVersionInfo(BuildModule id, std::string &rpm_version, std::string &build_num);
     static std::string BaseName(std::string filename);
+    static bool GetVersionInfoInternal(const std::string &cmd, std::string &result);
 };
 
 #endif // ctrlplane_misc_utils_h 

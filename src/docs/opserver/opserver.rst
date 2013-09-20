@@ -3,16 +3,27 @@ opserver Package
 
 :mod:`opserver` Module
 ----------------------
-Opserver provides ReST API interface to extract the operational state of
-Juniper's Contrail Virtual Network System.
+Opserver provides REST API interface to extract the operational state of
+Juniper's Contrail Virtual Network System. These APIs are used by Contrail
+Web UI to present operation state to the users. Other applications may use
+the Opserver's REST API for analytics and others uses.
+
+The available APIs are provided through the REST interface itself and one
+can navigate the URL tree starting at the root (``http://<ip>:<opserver-port>``)
+to see all of the available APIs.
 
 User Visible Entities
 ^^^^^^^^^^^^^^^^^^^^^
 Opserver provides API to get the
-current state of the User Visible Entities in the Contrail VNS. ``User Visible
-Entity(UVE)`` is defined as an Object that may span multiple components and may
-require aggregation before the UVE information is presented. The UVEs supported
-in Contrail VNS include the following:
+current state of the User Visible Entities in the Contrail VNS. **User Visible
+Entity(UVE)** is defined as an Object that may span multiple components and may
+require aggregation before the UVE information is presented. Examples include
+``Virtual Network``, ``Virtual Machine`` etc. Operational information of a ``Virtual Network``
+may span multiple vRouters, Config Nodes, Control Nodes. Opserver provides aggregation of
+all this information and provides the aggregated information through REST API.
+The URL ``/analytics/uves`` shows the list of all UVE types available in the system.
+
+The description of some of the UVEs in the Contrail VNS is given below:
 
     * ``Virtual Network``: This UVE provides information associated with a virtual network such as:
         - list of networks connected to this network
@@ -21,39 +32,76 @@ in Contrail VNS include the following:
         - global input/output statistics
         - per VN pair input/output statistics
 
-        The ReST api to get this UVE is through **HTTP GET** using the URL ``/analytics/virtual-network/<name>``
+        - The REST api to get all Virtual Network UVEs is through **HTTP GET** using the URL ``/analytics/uves/virtual-networks``
+        - The REST api to get a particular Virtual Network UVE is through **HTTP GET** using the URL ``/analytics/uves/virtual-network/<name>``
     * ``Virtual Machine``: This UVE provides information associated with a virtual machine such as:
         - list of interfaces in this virtual machine
         - list of floating IPs associated with each of it's interfaces
         - input/output statistics
 
-        The ReST api to get this UVE is through **HTTP GET** using the URL ``/analytics/virtual-machine/<name>``
+        - The REST api to get all Virtual Machine UVEs is through **HTTP GET** using the URL ``/analytics/uves/virtual-machines``
+        - The REST api to get a particular Virtual Machine UVE is through **HTTP GET** using the URL ``/analytics/uves/virtual-machine/<name>``
     * ``VRouter``: This UVE provides information associated with a VRouter such as:
         - list of virtual networks present on this VRouter
         - list of virtual machines spawned on the server of this VRouter
         - statistics of the traffic flowing through this VRouter
 
-        The ReST api to get this UVE is through **HTTP GET** using the URL ``/analytics/vrouter/<name>``
+        - The REST api to get all vRouter UVEs is through **HTTP GET** using the URL ``/analytics/uves/vrouters``
+        - The REST api to get a particular vRouter UVE is through **HTTP GET** using the URL ``/analytics/uves/vrouter/<name>``
+    * **Contrail Nodes**: There are multiple types of Nodes in Contrail VNS, for e.g Control Node, Config Node, Analytics Node, Compute Node etc.
+        There is a UVE for each Node type. The common information associated with each Node UVE is
+
+        - ip address of the Node
+        - list of processes, their cpu/memory utilization
+        There will also be Node type specific information for e.g
+
+        - Control Node will have information wrt it's connectivity to the vRouter and other Control Nodes
+        - Analytics node will have information regarding how many generators are connected to it etc.
+
+        - The REST api to get all Config Node UVEs is through **HTTP GET** using the URL ``/analytics/uves/config-nodes``
+        - The REST api to get a particular Config Node UVE is through **HTTP GET** using the URL ``/analytics/uves/config-node/<name>``
+        - The APIs are similar for other Node types.
+    * **Service Chaining**: There are UVEs related Service Chaining as well viz. Service Chain, Service Instance
+        The URLs for these are
+
+        - ``/analytics/uves/service-chains``
+        - ``/analytics/uves/service-instances``
+
+**Wild card query of UVEs**: If there is a need to get information for multiple UVEs of the same time, then wildcard query can be issued.
+For e.g
+
+- ``/analytics/uves/virtual-network/*`` gives all Virtual Network UVEs
+- ``/analytics/uves/virtual-network/project1*`` gives all Virtual Network UVEs that have their name starting with project1.
+
+**Filtered information of UVEs**: As explained earlier UVE information is an aggregated information across all generators. If there is
+a need to get partial information of the UVE, then relevant flags can be passed to get only the filtered information.
+Supported filtering flags are
+
+- sfilt : for Source (usually hostname of the generator) filtering, 
+- mfilt : for Module (module name of the generator) filtering, 
+- cfilt : for UVE struct type filtering - useful when UVE is a composition of multiple structs 
+For e.g
+
+- ``/analytics/uves/virtual-network/vn1?sfilt=src1`` gives Virtual Network vn1's information provided by all components on Source src1
+- ``/analytics/uves/virtual-network/vn1?mfilt=ApiServer`` gives Virtual Network vn1's information provided by all ApiServer modules
+
+Example outputs of the UVEs are given in the below Examples section
 
 Log and Flow Information
 ^^^^^^^^^^^^^^^^^^^^^^^^
 In Contrail VNS, the Log and Flow information is collected and stored centrally
 using horizontally scalable Contrail VNS Collector and horizontally scalable
-NoSQL database. Opserver provides ReST API to extract this information via
+NoSQL database. Opserver provides REST API to extract this information via
 queries. The queries provide well known SQL syntax and hide the underlying
 complexity of NoSQL tables.
 
 The following are the **HTTP GET** APIs related to supported queries:
     * ``/analytics/tables``
-        this API gives the list of SQL-type tables available for querying and the hrefs to get information for each of these tables
+        this API gives **the list of SQL-type tables** available for querying and the hrefs to get information for each of these tables
     * ``/analytics/table/<table>``
         this API gives for a given table, list of APIs available to get information for this table
     * ``/analytics/table/<table>/schema``
         this API gives schema for a given table
-    * ``/analytics/table/<table>/column-values``
-        this API gives hrefs for the column-names that support list of valid values
-    * ``/analytics/table/<table>/column-values/<column>``
-        this API gives valid values for a given column-name
 
 The following is the **HTTP POST** API related to these queries:
     * ``/analytics/query``
@@ -65,6 +113,8 @@ The following is the **HTTP POST** API related to these queries:
             | FILTER BY...
             | SORT BY...
             | LIMIT 
+
+        In addition to the above, the start time and the end time are mandatory - they define the time period of the query data.
 
         The parameters of the query are passed through POST data. The information passed has the following fields:
             - start_time: start of the time period
@@ -80,6 +130,33 @@ The following is the **HTTP POST** API related to these queries:
            :literal:
 
         The result of the query API is also in JSON format.
+
+**Query Types**:
+Opserver supports two types of queries - Sync and Async.
+POST data parameters as given above are same for both types for queries.
+The Client must request an Async query by attaching this header to the POST request: ``Expect: 202-accepted``.
+If this header is not present, Opserver will execute the query synchronously.
+
+**Sync Query**: Opserver sends the result inline with the query processing
+
+**Async Query**:
+
+``Initiating a Query``: The Client must request an Async query by attaching this header to the POST request: ``Expect: 202-accepted``.
+
+``Examining the status``: In case of an Asynchronous query, the Opserver will respond with code ``202 Accepted``
+The response contents will be an href/URI that represents the status entity for this async query.
+(The href will be of the form ``/analytics/query/<QueryID>``. The QueryID will have been assigned by the OpServer.
+The client is expected to poll this status entity (by doing a GET method on it)
+The response contents will have a variable named "progress", which will be a number between 0 and 100.
+This variable represents "approx. % complete". When "progress" is 100, query processing is complete.
+
+``The "chunk" field of the Status Entity``:
+The status entity will also have an element called "chunks", which will contain a list of query result chunks.
+Each element of this list will have 3 fields: "start_time", "end_time" and "href".
+The opserver will decide how many chunks to break up the query into.
+If the result of a chunk is not available yet, the chunk's "href" will be an empty string ("").
+When the partial result of a chunk is available, the chunk href will be of the form ``/analytics/query/<QueryID>/chunk-partial/<chunk number>``.
+When the final result of a chunk is available, the chunk href will be of the form ``/analytics/query/<QueryID>/chunk-final/<chunk number>``.
 
 Example Outputs
 ^^^^^^^^^^^^^^^
@@ -617,242 +694,3 @@ Example of a query into message table::
             }, 
             ...
     
-
-:mod:`opserver_client` Module
------------------------------
-
-This module provides functionality to exercise ReST API interface to Contrail
-VNS Opserver.
-
-:mod:`opserver` Classes and Functions Documentation
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. automodule:: opserver.opserver_client
-    :members:
-    :show-inheritance:
-
-Example Outputs
-^^^^^^^^^^^^^^^
-
-Example output for a virtual network UVE::
-    
-    >>> client.get_uve_state('default-domain:demo:front-end', 'virtual-network')
-    http://127.0.0.1:8081/analytics/virtual-network/default-domain:demo:front-end
-    {
-        "UveVirtualNetworkAgent": {
-            "acl": [
-                [
-                    {
-                        "@type": "string"
-                    }, 
-                    "a3s18:VRouterAgent"
-                ]
-            ], 
-            "in_bytes": {
-                "#text": "2274362383", 
-                "@aggtype": "counter", 
-                "@type": "i64"
-            }, 
-            "in_stats": {
-                "@aggtype": "append", 
-                "@type": "list", 
-                "list": {
-                    "@size": "3", 
-                    "@type": "struct", 
-                    "UveInterVnStats": [
-                        {
-                            "bytes": {
-                                "#text": "2154615631", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "default-domain:demo:back-end", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "5194580", 
-                                "@type": "i64"
-                            }
-                        }, 
-                        {
-                            "bytes": {
-                                "#text": "1152123", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "__FABRIC__", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "11323", 
-                                "@type": "i64"
-                            }
-                        }, 
-                        {
-                            "bytes": {
-                                "#text": "8192", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "default-domain:demo:front-end", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "50", 
-                                "@type": "i64"
-                            }
-                        }
-                    ]
-                }
-            }, 
-            "in_tpkts": {
-                "#text": "5230101", 
-                "@aggtype": "counter", 
-                "@type": "i64"
-            }, 
-            "interface_list": {
-                "@aggtype": "union", 
-                "@type": "list", 
-                "list": {
-                    "@size": "1", 
-                    "@type": "string", 
-                    "element": [
-                        "tap2158f77c-ec"
-                    ]
-                }
-            }, 
-            "out_bytes": {
-                "#text": "2228756965", 
-                "@aggtype": "counter", 
-                "@type": "i64"
-            }, 
-            "out_stats": {
-                "@aggtype": "append", 
-                "@type": "list", 
-                "list": {
-                    "@size": "4", 
-                    "@type": "struct", 
-                    "UveInterVnStats": [
-                        {
-                            "bytes": {
-                                "#text": "2199424147", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "default-domain:demo:back-end", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "5216946", 
-                                "@type": "i64"
-                            }
-                        }, 
-                        {
-                            "bytes": {
-                                "#text": "1603041", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "__FABRIC__", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "9595", 
-                                "@type": "i64"
-                            }
-                        }, 
-                        {
-                            "bytes": {
-                                "#text": "24608", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "__UNKNOWN__", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "408", 
-                                "@type": "i64"
-                            }
-                        }, 
-                        {
-                            "bytes": {
-                                "#text": "8192", 
-                                "@type": "i64"
-                            }, 
-                            "other_vn": {
-                                "#text": "default-domain:demo:front-end", 
-                                "@aggtype": "listkey", 
-                                "@type": "string"
-                            }, 
-                            "tpkts": {
-                                "#text": "50", 
-                                "@type": "i64"
-                            }
-                        }
-                    ]
-                }
-            }, 
-            "out_tpkts": {
-                "#text": "5207916", 
-                "@aggtype": "counter", 
-                "@type": "i64"
-            }, 
-            "virtualmachine_list": {
-                "@aggtype": "union", 
-                "@type": "list", 
-                "list": {
-                    "@size": "1", 
-                    "@type": "string", 
-                    "element": [
-                        "dd09f8c3-32a8-456f-b8cc-fab15189f50f"
-                    ]
-                }
-            }
-        }, 
-        "UveVirtualNetworkConfig": {
-            "connected_networks": {
-                "@aggtype": "union", 
-                "@type": "list", 
-                "list": {
-                    "@size": "1", 
-                    "@type": "string", 
-                    "element": [
-                        "default-domain:demo:back-end"
-                    ]
-                }
-            }, 
-            "routing_instance_list": {
-                "@aggtype": "union", 
-                "@type": "list", 
-                "list": {
-                    "@size": "1", 
-                    "@type": "string", 
-                    "element": [
-                        "front-end"
-                    ]
-                }
-            }, 
-            "total_acl_rules": [
-                [
-                    {
-                        "#text": "3", 
-                        "@type": "i32"
-                    }, 
-                    ":", 
-                    "a3s14:Schema"
-                ]
-            ]
-        }
-    }
-    
-Example output for a table query::
-    
-    >>> 
-    >>> client.query(table='MessageTable', ...

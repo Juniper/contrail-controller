@@ -10,6 +10,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/request_pipeline.h>
 
+#include "base/util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
@@ -34,16 +35,6 @@
 using namespace boost::assign;
 using namespace std;
 
-// Convert duration in micro seconds to user friendly time string.
-static const string duration_usecs_to_string(uint64_t usecs) {
-    ostringstream os;
-    boost::posix_time::time_duration duration;
-
-    duration = boost::posix_time::microseconds(usecs);
-    os << duration;
-    return os.str();
-}
-
 struct ShowRouteData : public RequestPipeline::InstData {
     vector<ShowRouteTable> route_table_list;
 };
@@ -64,7 +55,6 @@ public:
         DBTablePartition *partition =
             static_cast<DBTablePartition *>(table->GetTablePartition(inst_id_));
         BgpRoute *route;
-        const RoutingInstanceMgr *ri_mgr = table->routing_instance()->manager();
 
         // As of now, this code walks through all the prefixes even if we are
         // searching for a specific one. We can improve it by doing a lookup
@@ -80,88 +70,7 @@ public:
                              req_->get_longer_match()))
                 continue;
             ShowRoute show_route;
-            show_route.set_prefix(route->ToString());
-            show_route.set_last_modified(duration_usecs_to_string(
-                           UTCTimestampUsec() - route->last_change_at()));
-            vector<ShowRoutePath> show_route_paths;
-            for(Route::PathList::const_iterator it = route->GetPathList().begin();
-                    it != route->GetPathList().end(); it++) {
-                const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-                ShowRoutePath srp;
-                const IPeer *peer = path->GetPeer();
-                if (peer) {
-                   srp.set_source(peer->ToString());
-                }
-
-                if (path->GetSource() == BgpPath::BGP_XMPP) {
-                    if (peer)
-                        srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
-                    else 
-                        srp.set_protocol("Local");
-                } else if (path->GetSource() == BgpPath::ServiceChain) {
-                    srp.set_protocol("ServiceChain");
-                } else if (path->GetSource() == BgpPath::StaticRoute) {
-                    srp.set_protocol("StaticRoute");
-                }
-
-                const BgpAttr *attr = path->GetAttr();
-                if (attr->as_path() != NULL) 
-                    srp.set_as_path(attr->as_path()->path().ToString());
-                srp.set_local_preference(attr->local_pref());
-                srp.set_next_hop(attr->nexthop().to_string());
-                srp.set_label(path->GetLabel());
-                srp.set_flags(path->GetFlags());
-                srp.set_last_modified(duration_usecs_to_string(
-                        UTCTimestampUsec() - path->time_stamp_usecs()));
-                if (path->IsReplicated()) {
-                    const BgpSecondaryPath *replicated;
-                    replicated = static_cast<const BgpSecondaryPath *>(path);
-                    srp.set_replicated(true);
-                    srp.set_primary_table(replicated->src_table()->name());
-                } else {
-                    srp.set_replicated(false);
-                }
-                if (attr->community()) {
-                    CommunitySpec comm;
-                    comm.communities = attr->community()->communities();
-                    srp.communities.push_back(comm.ToString());
-                }
-                if (attr->ext_community()) {
-                    ExtCommunitySpec ext_comm;
-                    const ExtCommunity::ExtCommunityList &v =
-                            attr->ext_community()->communities();
-                    for (ExtCommunity::ExtCommunityList::const_iterator it = v.begin();
-                            it != v.end(); ++it) {
-                        if (ExtCommunity::is_route_target(*it)) {
-                            RouteTarget rt(*it);
-                            srp.communities.push_back(rt.ToString());
-                        } else if (ExtCommunity::is_origin_vn(*it)) {
-                            OriginVn origin_vn(*it);
-                            srp.communities.push_back(origin_vn.ToString());
-                            int vn_index = origin_vn.vn_index();
-                            srp.set_origin_vn(ri_mgr->GetVirtualNetworkByVnIndex(vn_index));
-                        } else if (ExtCommunity::is_security_group(*it)) {
-                            SecurityGroup sg(*it);
-                            srp.communities.push_back(sg.ToString());
-                        } else if (ExtCommunity::is_tunnel_encap(*it)) {
-                            TunnelEncap encap(*it);
-                            TunnelEncapType::Encap id = encap.tunnel_encap();
-                            srp.tunnel_encap.push_back(
-                                   TunnelEncapType::TunnelEncapToString(id));
-                        } else {
-                            char temp[50];
-                            int len = snprintf(temp, sizeof(temp), "ext community: ");
-
-                            for (size_t i=0; i < it->size(); i++) {
-                                len += snprintf(temp+len, sizeof(temp) - len, "%02x", (*it)[i]);
-                            }
-                            srp.communities.push_back(std::string(temp));
-                        }
-                    }
-                }
-                show_route_paths.push_back(srp);
-            }
-            show_route.set_paths(show_route_paths);
+            route->FillRouteInfo(table, &show_route);
             route_list.push_back(show_route);
         }
     }
@@ -1185,6 +1094,7 @@ public:
                 const autogen::ServiceChainInfo &sci = rti->service_chain_information();
                 ShowBgpServiceChainConfig scc;
                 scc.set_routing_instance(sci.routing_instance);
+                scc.set_service_instance(sci.service_instance);
                 scc.set_chain_address(sci.service_chain_address);
                 scc.set_prefixes(sci.prefix);
                 inst.set_service_chain_info(scc);

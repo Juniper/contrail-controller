@@ -399,12 +399,10 @@ class SvcMonitor(object):
             #insert shared instance IP uuids into cleanup list if present
             try:
                 svc_vm_cf_row = self._svc_vm_cf.get(vm_uuid)
-                if _MGMT_STR in svc_vm_cf_row:
-                    self._cleanup_cf.insert(svc_vm_cf_row[_MGMT_STR], {'proj_name': proj_name, 'type': 'iip'})
-                if _LEFT_STR in svc_vm_cf_row:
-                    self._cleanup_cf.insert(svc_vm_cf_row[_LEFT_STR], {'proj_name': proj_name, 'type': 'iip'})
-                if _RIGHT_STR in svc_vm_cf_row:
-                    self._cleanup_cf.insert(svc_vm_cf_row[_RIGHT_STR], {'proj_name': proj_name, 'type': 'iip'})
+                for itf_str in [_MGMT_STR, _LEFT_STR, _RIGHT_STR]:
+                    if not itf_str in svc_vm_cf_row:
+                        continue
+                    self._cleanup_cf.insert(svc_vm_cf_row[itf_str], {'proj_name': proj_name, 'type': 'iip'})
             except pycassa.NotFoundException:
                 pass
 
@@ -436,8 +434,11 @@ class SvcMonitor(object):
 
     def _delete_shared_iip(self, iip_uuid, proj_name):
         try:
-            self._svc_syslog("Deleting IIP %s %s" %(proj_name, iip_uuid))
-            self._vnc_lib.instance_ip_delete(id = iip_uuid)
+            iip_obj = self._vnc_lib.instance_ip_read(id=iip_uuid)
+            vmi_refs = iip_obj.get_virtual_machine_interface_refs()
+            if vmi_refs == None:
+                self._svc_syslog("Deleting IIP %s %s" %(proj_name, iip_uuid))
+                self._vnc_lib.instance_ip_delete(id = iip_uuid)
         except NoIdError:
             #remove from cleanup list
             self._cleanup_cf.remove(iip_uuid)
@@ -470,12 +471,12 @@ class SvcMonitor(object):
                 self._delete_svc_instance_vm(vm_uuid, proj_name, si_fq_str = si_fq_str)
     #end _delmsg_service_instance_service_template
 
-    def _delmsg_service_instance_virtual_machine(self, idents):
+    def _delmsg_virtual_machine_service_instance(self, idents):
         vm_uuid = idents['virtual-machine']
         si_fq_str = idents['service-instance']
         proj_name = self._get_proj_name_from_si_fq_str(si_fq_str) 
         self._delete_svc_instance_vm(vm_uuid, proj_name, si_fq_str = si_fq_str)
-    #end _delmsg_service_instance_virtual_machine
+    #end _delmsg_virtual_machine_service_instance
 
     def _addmsg_virtual_machine_interface_virtual_network(self, idents):
         vmi_fq_str = idents['virtual-machine-interface'];

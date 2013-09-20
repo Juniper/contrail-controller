@@ -61,6 +61,7 @@ public:
     std::string GetZoneFilePath(const string &name) {
         return GetZoneFilePath("", name);
     }
+    std::string GetResolveFile() { return ""; }
 };
 
 static bool FileExists(const char *file) {

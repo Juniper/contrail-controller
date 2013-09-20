@@ -108,15 +108,15 @@ public:
 TEST_F(StatsTestMock, FlowStatsTest) {
     hash_id = 1;
     //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, hash_id);
+    TxIpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 1, 0, 0, false, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1", 1, hash_id);
+    TxIpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1", 0, hash_id);
     client->WaitForIdle(2);
-    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 1, 0, 0, true, 
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
                           "vn5", "vn5", hash_id++));
 
     //Flow creation using TCP packet
@@ -141,8 +141,8 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     client->FlowTimerWait(2);
 
     //Verify flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 1, 0, 0, 1, 30));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 1, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 1, 30));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
 
@@ -157,8 +157,8 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     client->FlowTimerWait(2);
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 1, 0, 0, 2, 60));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 1, 0, 0, 2, 60));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, 2, 60));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 2, 60));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60));
 

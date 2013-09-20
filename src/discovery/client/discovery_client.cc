@@ -6,6 +6,7 @@
 #include "base/logging.h"
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
+#include <sandesh/common/vns_constants.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -21,7 +22,6 @@
 using namespace std; 
 namespace ip = boost::asio::ip;
 
-const char *DiscoveryServiceClient::IFMapService = "ifmap-server";
 const char *DiscoveryServiceClient::XmppService = "xmpp-server";
 const char *DiscoveryServiceClient::CollectorService = "collector-server";
 const char *DiscoveryServiceClient::DNSService = "dns-server";
@@ -239,8 +239,8 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     if (loc != publish_response_map_.end()) {
         resp = loc->second;
     } else {
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler", 
-                               serviceName, "serviceName not in PublishResponseMap");
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+                                   "Stray Publish Response");
         return;
     }
 
@@ -252,6 +252,9 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->attempts_++; 
             resp->StartPublishConnectTimer(resp->GetConnectTime());
+        } else {
+            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+                "PublishResponseHandler: Empty Response or Timeout");
         }
         return;
     }
@@ -259,8 +262,8 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     //Parse the xml string and build DSResponse
     auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler", 
-                               serviceName, "Loading Xml Doc failed!");
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName,
+            "PublishResponseHandler: Loading Xml Doc failed!!");
         return;
     }
 
@@ -422,18 +425,21 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     if (loc != service_response_map_.end()) {
         hdr = loc->second;
     } else {
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
-                               serviceName, "serviceName not in ServiceResponseMap");
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+                                   "Stray Subscribe Response");
         return;
     }
 
     hdr->sub_rcvd_++;
     if (xmls.empty()) {
         // No response from DSS
-        if (ec.value() > 0) {
+        if (ec.value() != 0) {
             hdr->attempts_++;
             //Use subscribe timer as connect timer 
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
+        } else {
+            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+                "SubscribeResponseHandler: Empty Response or Timeout");
         }
         return;
     }
@@ -441,8 +447,8 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     //Parse the xml string and build DSResponse
     auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg,  "SubscribeResponseHandler",
-                               serviceName, "Loading Xml Doc failed!!");
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
+            "SubscribeResponseHandler: Loading Xml Doc failed!!");
         return;
     }
 
@@ -514,6 +520,13 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             ServiceHandler cb = it->second;
             cb(ds_response); 
         } 
+    } else {
+        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName,
+            "SubscribeResponseHandler: No <response> tag, resend subscribe");
+
+        hdr->attempts_++; 
+        //Use subscribe timer as connect timer 
+        hdr->StartSubscribeTimer(hdr->GetConnectTime());
     }
 }
 

@@ -121,7 +121,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     if (nh->GetType() == NextHop::COMPOSITE) {
         info->ecmp = true;
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        if (info->out_component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
+        if (info->out_component_nh_idx == CompositeNH::kInvalidComponentNHIdx ||
+           (comp_nh->GetNH(info->out_component_nh_idx) == NULL)) {
             info->out_component_nh_idx = 
                 comp_nh->GetComponentNHList()->hash(pkt->hash());
         }
@@ -751,6 +752,9 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     FlowTable::GetFlowTableObject()->Add(flow.get(), rflow.get());
 }
 
+//If a packet is trapped for ecmp resolve, dp might have already
+//overwritten original packet(NAT case), hence get actual packet by
+//overwritting packet with data in flow entry.
 void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
 
     std::ostringstream ostr;
@@ -779,12 +783,8 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     pkt->ip_proto = key.protocol;
     pkt->sport = key.src_port;
     pkt->dport = key.dst_port;
-    pkt->agent_hdr.ifindex = flow->data.intf_entry->GetInterfaceId();
     pkt->agent_hdr.vrf = key.vrf;
-    //Flow transition from Non ECMP to ECMP, use index 0
-    if (flow->data.component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
-        out_component_nh_idx = 0;
-    }
+    out_component_nh_idx = flow->data.component_nh_idx;
     return;
 }
 

@@ -90,6 +90,7 @@ public:
         hash_table_.clear();
         for (uint32_t i = 0; i < mbr_list_.size(); i++) {
             if (mbr_list_[i] == NULL) {
+                hash_table_.push_back(0xffff);
                 continue;
             }
             hash_table_.push_back(i);
@@ -201,7 +202,13 @@ public:
     }
 
     uint32_t hash(size_t hash) const {
-        return hash_table_[hash % hash_table_.size()];
+        for (uint32_t i = 0; i < mbr_list_.size(); i++) {
+            if (hash_table_[hash % hash_table_.size()] != 0xffff) {
+                return hash_table_[hash % hash_table_.size()];
+            }
+            hash++;
+        }
+        return 0;
     }
 
 private:
@@ -1081,7 +1088,10 @@ public:
     }
 
     const NextHop* GetNH(uint32_t idx) const {
-        return component_nh_list_.Get(idx)->GetNH();
+        if (component_nh_list_.Get(idx)) {
+            return component_nh_list_.Get(idx)->GetNH();
+        } 
+        return NULL;
     }
  
     bool IsMcastNH() const {

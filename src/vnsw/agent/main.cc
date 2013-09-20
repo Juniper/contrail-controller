@@ -209,7 +209,9 @@ int main(int argc, char *argv[]) {
     }
 
     if (var_map.count("version")) {
-        cout <<  MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo) << endl;
+        string build_info;
+        MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info);
+        cout <<  build_info << endl;
         exit(0);
     }
 
@@ -316,7 +318,9 @@ int main(int argc, char *argv[]) {
     Agent::GetInstance()->SetHostName(hostname);
     Agent::GetInstance()->SetProgramName(argv[0]);
     Agent::GetInstance()->SetSandeshPort(sandesh_http_port);
-    MiscUtils::LogVersionInfo(Agent::GetInstance()->GetBuildInfo(), Category::VROUTER);
+    string build_info;
+    Agent::GetInstance()->GetBuildInfo(build_info);
+    MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
     //Read the config file
     AgentConfig::InitConfig(init_file, cmd_line);
