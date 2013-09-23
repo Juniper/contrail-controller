@@ -177,7 +177,7 @@ TEST_F(BgpAttrTest, AsPathFormat2) {
     EXPECT_EQ("100 200 {300 400} 600 500", path.path().ToString());
 }
 
-TEST_F(BgpAttrTest, CommunityCompare) {
+TEST_F(BgpAttrTest, CommunityCompare1) {
     CommunitySpec spec1;
     for (int idx = 1; idx < 5; idx++)
         spec1.communities.push_back(100 * idx);
@@ -191,7 +191,23 @@ TEST_F(BgpAttrTest, CommunityCompare) {
     EXPECT_EQ(0, comm1.CompareTo(comm2));
 }
 
-TEST_F(BgpAttrTest, ExtCommunityCompare) {
+TEST_F(BgpAttrTest, CommunityCompare2) {
+    CommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    for (int idx = 4; idx >= 1; idx--)
+        spec1.communities.push_back(100 * idx);
+    Community comm1(comm_db_, spec1);
+
+    CommunitySpec spec2;
+    for (int idx = 1; idx < 5; idx++)
+        spec2.communities.push_back(100 * idx);
+    Community comm2(comm_db_, spec2);
+
+    EXPECT_EQ(0, comm1.CompareTo(comm2));
+}
+
+TEST_F(BgpAttrTest, ExtCommunityCompare1) {
     ExtCommunitySpec spec1;
     for (int idx = 1; idx < 5; idx++)
         spec1.communities.push_back(100 * idx);
@@ -199,6 +215,66 @@ TEST_F(BgpAttrTest, ExtCommunityCompare) {
 
     ExtCommunitySpec spec2;
     for (int idx = 4; idx >= 1; idx--)
+        spec2.communities.push_back(100 * idx);
+    ExtCommunity extcomm2(extcomm_db_, spec2);
+
+    EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
+}
+
+TEST_F(BgpAttrTest, ExtCommunityCompare2) {
+    ExtCommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    for (int idx = 4; idx >= 1; idx--)
+        spec1.communities.push_back(100 * idx);
+    ExtCommunity extcomm1(extcomm_db_, spec1);
+
+    ExtCommunitySpec spec2;
+    for (int idx = 1; idx < 5; idx++)
+        spec2.communities.push_back(100 * idx);
+    ExtCommunity extcomm2(extcomm_db_, spec2);
+
+    EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
+}
+
+TEST_F(BgpAttrTest, ExtCommunityAppend1) {
+    ExtCommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    ExtCommunity extcomm1(extcomm_db_, spec1);
+
+    ExtCommunity::ExtCommunityList list;
+    for (int idx = 8; idx >= 5; idx--) {
+        ExtCommunity::ExtCommunityValue comm;
+        put_value(comm.data(), comm.size(), 100 * idx);
+        list.push_back(comm);
+    }
+    extcomm1.Append(list);
+
+    ExtCommunitySpec spec2;
+    for (int idx = 1; idx < 9; idx++)
+        spec2.communities.push_back(100 * idx);
+    ExtCommunity extcomm2(extcomm_db_, spec2);
+
+    EXPECT_EQ(0, extcomm1.CompareTo(extcomm2));
+}
+
+TEST_F(BgpAttrTest, ExtCommunityAppend2) {
+    ExtCommunitySpec spec1;
+    for (int idx = 1; idx < 5; idx++)
+        spec1.communities.push_back(100 * idx);
+    ExtCommunity extcomm1(extcomm_db_, spec1);
+
+    ExtCommunity::ExtCommunityList list;
+    for (int idx = 1; idx < 5; idx++) {
+        ExtCommunity::ExtCommunityValue comm;
+        put_value(comm.data(), comm.size(), 100 * idx);
+        list.push_back(comm);
+    }
+    extcomm1.Append(list);
+
+    ExtCommunitySpec spec2;
+    for (int idx = 1; idx < 5; idx++)
         spec2.communities.push_back(100 * idx);
     ExtCommunity extcomm2(extcomm_db_, spec2);
 

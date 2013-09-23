@@ -46,11 +46,7 @@ public:
     };
 
     Community(CommunityDB *comm_db) : comm_db_(comm_db) { refcount_ = 0; }
-    explicit Community(CommunityDB *comm_db, const CommunitySpec spec)
-        : comm_db_(comm_db), communities_(spec.communities) {
-        refcount_ = 0;
-        std::sort(communities_.begin(), communities_.end());
-    }
+    explicit Community(CommunityDB *comm_db, const CommunitySpec spec);
 
     virtual ~Community() { }
     virtual void Remove();
