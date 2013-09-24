@@ -16,7 +16,6 @@ namespace sc = boost::statechart;
 
 class BgpPeer;
 class BgpSession;
-struct BgpSessionDeleter;
 class BgpPeerInfo;
 class BgpMessage;
 class StateMachine;
@@ -28,8 +27,30 @@ struct EvBgpNotification;
 
 typedef boost::function<bool(StateMachine *)> EvValidate;
 
+//
+// This class implements the state machine for a BgpPeer. Note that a single
+// state machine is used for a BgpPeer, instead of using one per TCP session.
+// As a consequence, the state machine keeps track of the active and passive
+// sessions to/from the peer.  Connection collision is resolved using remote
+// and local router ids as specified in the RFC.  When the state machine has
+// determined which session (active or passive) will be used in the steady
+// state, ownership of that session is transferred to the peer and the other
+// session, if any, is closed.
+//
+// Events for the state machine can be posted from a few different contexts.
+// Administrative events are posted from the bgp::Config task, TCP related
+// events from the ASIO thread, Timer events from bgp::StateMachine task and
+// BGP Message related events are posted from the io::Reader task.
+//
+// All events on the state machine are processed asynchronously by enqueueing
+// them to a WorkQueue. The WorkQueue is serviced by a bgp::StateMachine task.
+// The BgpPeer index is used as the instance id for the task. This allows the
+// state machines for multiple BgpPeers to run concurrently.
+//
 class StateMachine : public sc::state_machine<StateMachine, fsm::Idle> {
 public:
+    typedef boost::function<void(void)> EventCB;
+
     static const int kOpenTime = 15;                // seconds
     static const int kConnectInterval = 30;         // seconds
     static const int kHoldTime = 90;                // seconds
@@ -38,7 +59,8 @@ public:
     static const int kMaxIdleHoldTime = 100 * 1000; // milliseconds
     static const int kJitter = 10;                  // percentage
 
-    typedef boost::function<void(void)> EventCB;
+    static const int GetDefaultHoldTime();
+
     enum State {
         IDLE        = 0,
         ACTIVE      = 1,
@@ -51,56 +73,41 @@ public:
     StateMachine(BgpPeer *peer);
     ~StateMachine();
 
-    static const int GetDefaultHoldTime();
-
     void Initialize();
     void Shutdown();
     void SetAdminState(bool down);
 
     // State transitions
     template <class Ev, int code> void OnIdle(const Ev &event);
-    void OnIdleNotification(const fsm::EvBgpNotification &event);
     template <class Ev, int code> void OnIdleError(const Ev &event);
+    void OnIdleNotification(const fsm::EvBgpNotification &event);
 
+    int GetConnectTime() const;
     virtual void StartConnectTimer(int seconds);
     void CancelConnectTimer();
-    void FireConnectTimer();
     bool ConnectTimerRunning();
 
     virtual void StartOpenTimer(int seconds);
     void CancelOpenTimer();
-    void FireOpenTimer();
     bool OpenTimerRunning();
 
     virtual void StartHoldTimer();
     void CancelHoldTimer();
-    void FireHoldTimer();
     bool HoldTimerRunning();
 
     virtual void StartIdleHoldTimer();
     void CancelIdleHoldTimer();
-    void FireIdleHoldTimer();
     bool IdleHoldTimerRunning();
 
     void StartSession();
     void DeleteSession(BgpSession *session);
-
-    // Feed session events into the state machine.
-    void OnSessionEvent(TcpSession *session, TcpSession::Event event);
-
-    // Receive Passive Open.
-    bool PassiveOpen(BgpSession *session);
-
-    // Receive incoming message
-    void OnMessage(BgpSession *session, BgpProto::BgpMessage *msg);
-
-    void OnSessionError(BgpSession *session, const ParseErrorContext *context);
-
-    // transfer the ownership of the session to the peer.
     void AssignSession(bool active);
 
-    // Calculate Timer value for active to connect transition.
-    int GetConnectTime() const;
+    void OnSessionEvent(TcpSession *session, TcpSession::Event event);
+    bool PassiveOpen(BgpSession *session);
+
+    void OnMessage(BgpSession *session, BgpProto::BgpMessage *msg);
+    void OnMessageError(BgpSession *session, const ParseErrorContext *context);
 
     void SendNotificationAndClose(BgpSession *session,
         int code, int subcode = 0, const std::string &data = std::string());
@@ -110,7 +117,6 @@ public:
     const std::string &StateName() const;
     const std::string &LastStateName() const;
 
-    // getters and setters
     BgpPeer *peer() { return peer_; }
     BgpSession *active_session();
     void set_active_session(BgpSession *session);
@@ -119,9 +125,10 @@ public:
 
     void connect_attempts_inc() { attempts_++; }
     void connect_attempts_clear() { attempts_ = 0; }
-    void set_hold_time(int hold_time);
-    void reset_hold_time(); 
+
     int hold_time() const { return hold_time_; }
+    void reset_hold_time();
+    void set_hold_time(int hold_time);
     int idle_hold_time() const { return idle_hold_time_; }
     void reset_idle_hold_time() { idle_hold_time_ = 0; }
     void set_idle_hold_time(int idle_hold_time) { 
@@ -131,9 +138,9 @@ public:
     void set_state(State state);
     State get_state() { return state_; }
     const std::string last_state_change_at() const;
-
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
+
     void set_last_notification_in(int code, int subcode,
         const std::string &reason);
     void set_last_notification_out(int code, int subcode,
@@ -152,17 +159,20 @@ private:
         EvValidate validate;
     };
 
-    void TimerErrorHanlder(std::string name, std::string error);
     bool ConnectTimerExpired();
+    void FireConnectTimer();
     bool OpenTimerExpired();
+    void FireOpenTimer();
     bool HoldTimerExpired();
+    void FireHoldTimer();
     bool IdleHoldTimerExpired();
+    void FireIdleHoldTimer();
+
+    void TimerErrorHanlder(std::string name, std::string error) { }
     void DeleteAllTimers();
 
     template <typename Ev> bool Enqueue(const Ev &event);
     bool DequeueEvent(EventContainer ec);
-
-    bool IsValidSession() const;
 
     WorkQueue<EventContainer> work_queue_;
     BgpPeer *peer_;
@@ -177,9 +187,9 @@ private:
     int attempts_;
     bool deleted_;
     State state_;
+    State last_state_;
     std::string last_event_;
     uint64_t last_event_at_;
-    State last_state_;
     uint64_t last_state_change_at_;
     std::pair<int, int> last_notification_in_;
     std::string last_notification_in_error_;
@@ -191,6 +201,6 @@ private:
     DISALLOW_COPY_AND_ASSIGN(StateMachine);
 };
 
-std::ostream &operator<< (std::ostream &out, const StateMachine::State &state);
+std::ostream &operator<<(std::ostream &out, const StateMachine::State &state);
 
 #endif

@@ -434,7 +434,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::MsgHdrErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
     void EvBgpOpen(BgpSessionMock *session = NULL) {
         session = GetSession(session);
@@ -456,7 +456,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::OpenMsgErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
     void EvBgpKeepalive(BgpSessionMock *session = NULL) {
         session = GetSession(session);
@@ -478,7 +478,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::UpdateMsgErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
 
     bool ConnectTimerRunning() { return sm_->connect_timer_->running(); }

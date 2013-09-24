@@ -1028,21 +1028,21 @@ StateMachine::StateMachine(BgpPeer *peer)
         active_session_(NULL),
         passive_session_(NULL),
         connect_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                 "Connect timer",
-                 TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                 peer->GetIndex())),
+            "Connect timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         open_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                  "Open timer",
-                  TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                  peer->GetIndex())),
+            "Open timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         hold_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                  "Hold timer",
-                  TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                  peer->GetIndex())),
+            "Hold timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         idle_hold_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                   "Idle hold timer",
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                   peer->GetIndex())),
+            "Idle hold timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         hold_time_(GetDefaultHoldTime()),
         idle_hold_time_(0),
         attempts_(0),
@@ -1087,6 +1087,11 @@ void StateMachine::SetAdminState(bool down) {
         reset_last_info();
         Enqueue(fsm::EvStart());
     }
+}
+
+int StateMachine::GetConnectTime() const {
+    int backoff = min(attempts_, 6);
+    return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
 }
 
 void StateMachine::StartConnectTimer(int seconds) {
@@ -1194,12 +1199,35 @@ void StateMachine::StartSession() {
         peer_->peer_key().endpoint);
 }
 
+//
+// Post a pseudo event to delete the underlying TcpSession.
+//
+// This ensures that any references to the TcpSession from pending events on
+// the state machine queue are still valid. Since we remove the TCP observer
+// before posting the delete event, we are guaranteed that we won't receive
+// any more events on the TcpSession.
+//
 void StateMachine::DeleteSession(BgpSession *session) {
     if (!session)
         return;
     session->set_observer(NULL);
     session->Close();
     Enqueue(fsm::EvTcpDeleteSession(session));
+}
+
+//
+// Transfer the ownership of the session from state machine to the peer.
+// This is called after we have resolved any connection collision issues
+// and decided that we want to reach ESTABLISHED state via the session.
+//
+void StateMachine::AssignSession(bool active) {
+    if (active) {
+        peer_->set_session(active_session_);
+        active_session_ = NULL;
+    } else {
+        peer_->set_session(passive_session_);
+        passive_session_ = NULL;
+    }
 }
 
 void StateMachine::set_active_session(BgpSession *session) {
@@ -1259,10 +1287,23 @@ template <class Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
     // Release all resources
     SendNotificationAndClose(peer()->session(), code);
-    // Collect before changing state
-
     bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+//
+// The template below must only be called for EvBgpHeaderError, EvBgpOpenError
+// or EvBgpUpdateError.
+//
+template <class Ev, int code>
+void StateMachine::OnIdleError(const Ev &event) {
+    SendNotificationAndClose(event.session,
+                             code, event.subcode, event.data);
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
     set_state(IDLE);
 }
 
@@ -1271,25 +1312,10 @@ void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
     SendNotificationAndClose(peer()->session(), 0);
     // Collect before changing state
     bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
+    if (flap)
+        peer()->increment_flap_count();
     set_state(IDLE);
-    set_last_notification_in(event.msg->error, event.msg->subcode, event.Name());
-}
-
-
-//The template below must only be called for EvBgpHeaderError, EvBgpOpenError
-//or EvBgpUpdateError
-template <class Ev, int code>
-void StateMachine::OnIdleError(const Ev &event) {
-    SendNotificationAndClose(event.session,
-                             code, event.subcode, event.data);
-    // Collect before changing state
-    bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
-    set_state(IDLE);
-}
-
-void StateMachine::TimerErrorHanlder(std::string name, std::string error) {
+    set_last_notification_in(event.msg->error,event.msg->subcode, event.Name());
 }
 
 bool StateMachine::ConnectTimerExpired() {
@@ -1327,7 +1353,10 @@ bool StateMachine::IdleHoldTimerExpired() {
     return false;
 }
 
+//
 // Concurrency: ASIO thread.
+// Feed TCP session events into the state machine.
+//
 void StateMachine::OnSessionEvent(
         TcpSession *session, TcpSession::Event event) {
     BgpSession *bgp_session = static_cast<BgpSession *>(session);
@@ -1346,12 +1375,20 @@ void StateMachine::OnSessionEvent(
     }
 }
 
+//
+// Receive TCP Passive Open.
+// Set the observer right away, so that we don't miss any events on the socket
+// that happen before the state machine has processed EvTcpPassiveOpen event.
+//
 bool StateMachine::PassiveOpen(BgpSession *session) {
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
-                this, _1, _2));
+        this, _1, _2));
     return Enqueue(fsm::EvTcpPassiveOpen(session));
 }
 
+//
+// Handle incoming message on the session.
+//
 void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     switch (msg->type) {
     case BgpProto::OPEN: {
@@ -1406,7 +1443,10 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     if (msg) delete msg;
 }
 
-void StateMachine::OnSessionError(BgpSession *session,
+//
+// Handle errors in incoming message on the session.
+//
+void StateMachine::OnMessageError(BgpSession *session,
         const ParseErrorContext *context) {
     switch (context->error_code) {
     case BgpProto::Notification::MsgHdrErr: {
@@ -1422,7 +1462,8 @@ void StateMachine::OnSessionError(BgpSession *session,
         Enqueue(fsm::EvBgpUpdateError(session, context->error_subcode,
                 std::string((const char *)context->data, context->data_size)));
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -1438,6 +1479,7 @@ static const std::string state_names[] = {
 const string &StateMachine::StateName() const {
     return state_names[state_];
 }
+
 const string &StateMachine::LastStateName() const {
     return state_names[last_state_];
 }
@@ -1445,27 +1487,13 @@ const string &StateMachine::LastStateName() const {
 const std::string StateMachine::last_state_change_at() const {
     return integerToString(UTCUsecToPTime(last_state_change_at_));
 }
-ostream &operator<< (ostream &out, const StateMachine::State &state) {
+
+ostream &operator<<(ostream &out, const StateMachine::State &state) {
     out << state_names[state];
     return out;
 }
 
-void StateMachine::AssignSession(bool active) {
-    if (active) {
-        peer_->set_session(active_session_);
-        active_session_ = NULL;
-    } else {
-        peer_->set_session(passive_session_);
-        passive_session_ = NULL;
-    }
-}
-
 const int StateMachine::kConnectInterval;
-
-int StateMachine::GetConnectTime() const {
-    int backoff = min(attempts_, 6);
-    return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
-}
 
 // This class determines whether a given class has a method called 'validate'
 template <typename Ev>
