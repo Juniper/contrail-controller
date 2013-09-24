@@ -32,35 +32,24 @@ using namespace std;
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
 
-#define SM_LOG(level, _Msg)                                                  \
-    do {                                                                     \
-        StateMachine *_Xstate_machine = &context<StateMachine>();            \
-        BgpPeer *_Xpeer = _Xstate_machine->peer();                           \
-        std::ostringstream out;                                              \
-        out << _Msg;                                                         \
-        BGP_LOG_SERVER(_Xpeer, (BgpTable *) 0);                              \
-        BGP_LOG(BgpStateMachineSessionMessage, level,                        \
-                BGP_LOG_FLAG_SYSLOG, _Xpeer->ToString(), out.str());         \
-    } while (false)
-
-#define SESSION_LOG(session)                                                  \
-do {                                                                          \
-    std::ostringstream out;                                                   \
-    out << "Enqueue event " << Name();                                        \
-    BGP_LOG_SERVER((session) ? (session)->Peer() : (IPeer *)0, (BgpTable *)0);\
-    BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,            \
-            BGP_LOG_FLAG_SYSLOG,                                              \
-            (session) && (session)->Peer() ? (session)->Peer()->ToString():"",\
-            out.str());                                                       \
+#define SM_LOG(level, _Msg)                                                    \
+do {                                                                           \
+    StateMachine *_Xstate_machine = &context<StateMachine>();                  \
+    BgpPeer *_Xpeer = _Xstate_machine->peer();                                 \
+    std::ostringstream out;                                                    \
+    out << _Msg;                                                               \
+    BGP_LOG_SERVER(_Xpeer, (BgpTable *) 0);                                    \
+    BGP_LOG(BgpStateMachineSessionMessage, level,                              \
+            BGP_LOG_FLAG_SYSLOG, _Xpeer->ToString(), out.str());               \
 } while (false)
 
 namespace fsm {
 
-// Events
+// Events for the state machine.  These are listed in roughly the same order
+// as the RFC - Administrative, Timer, Tcp and Message.
+
 struct EvStart : sc::event<EvStart> {
     EvStart() {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-            BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvStart";
@@ -69,8 +58,6 @@ struct EvStart : sc::event<EvStart> {
 
 struct EvStop : sc::event<EvStop> {
     EvStop() {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvStop";
@@ -79,8 +66,6 @@ struct EvStop : sc::event<EvStop> {
 
 struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
     EvIdleHoldTimerExpired(Timer *timer)  : timer_(timer){
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvIdleHoldTimerExpired";
@@ -94,8 +79,6 @@ struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
 
 struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
     EvConnectTimerExpired(Timer *timer) : timer_(timer) {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvConnectTimerExpired";
@@ -117,8 +100,6 @@ struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
 
 struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
     EvOpenTimerExpired(Timer *timer) : timer_(timer) {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvOpenTimerExpired";
@@ -136,8 +117,6 @@ struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
 
 struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
     EvHoldTimerExpired(Timer *timer) : timer_(timer) {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
     static const char *Name() {
         return "EvHoldTimerExpired";
@@ -157,7 +136,6 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
 
 struct EvTcpConnected : sc::event<EvTcpConnected> {
     EvTcpConnected(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpConnected";
@@ -171,7 +149,6 @@ struct EvTcpConnected : sc::event<EvTcpConnected> {
 
 struct EvTcpConnectFail : sc::event<EvTcpConnectFail> {
     EvTcpConnectFail(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpConnectFail";
@@ -185,7 +162,6 @@ struct EvTcpConnectFail : sc::event<EvTcpConnectFail> {
 
 struct EvTcpPassiveOpen : sc::event<EvTcpPassiveOpen> {
     EvTcpPassiveOpen(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpPassiveOpen";
@@ -196,7 +172,6 @@ struct EvTcpPassiveOpen : sc::event<EvTcpPassiveOpen> {
 
 struct EvTcpClose : sc::event<EvTcpClose> {
     EvTcpClose(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpClose";
@@ -213,7 +188,6 @@ struct EvTcpClose : sc::event<EvTcpClose> {
 // Used to defer the session delete after all events currently on the queue.
 struct EvTcpDeleteSession : sc::event<EvTcpDeleteSession> {
     EvTcpDeleteSession(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvTcpDeleteSession";
@@ -226,7 +200,6 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
     EvBgpHeaderError(BgpSession *session, int subcode, const uint8_t *_data,
         size_t data_size)
         : session(session), subcode(subcode) {
-        SESSION_LOG(session);
         if (_data)
             data = std::string((const char *)_data, data_size);
     }
@@ -242,7 +215,6 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvBgpOpen";
@@ -256,7 +228,6 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
     EvBgpOpenError(BgpSession *session, int subcode,
         const uint8_t *_data = NULL, size_t data_size = 0)
         : session(session), subcode(subcode) {
-        SESSION_LOG(session);
         if (subcode == BgpProto::Notification::UnsupportedVersion) {
             // For unsupported version, we need to send our version in the
             // data field.
@@ -277,7 +248,6 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvBgpKeepalive";
@@ -317,7 +287,6 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
 struct EvBgpUpdate : sc::event<EvBgpUpdate> {
     EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg)
         : session(session), msg(msg) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvBgpUpdate";
@@ -330,7 +299,6 @@ struct EvBgpUpdate : sc::event<EvBgpUpdate> {
 struct EvBgpUpdateError : sc::event<EvBgpUpdateError> {
     EvBgpUpdateError(BgpSession *session, int subcode, std::string data)
         : session(session), subcode(subcode), data(data) {
-        SESSION_LOG(session);
     }
     static const char *Name() {
         return "EvBgpUpdateError";
@@ -1499,55 +1467,20 @@ int StateMachine::GetConnectTime() const {
     return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
 }
 
-bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
-    const fsm::EvTcpDeleteSession *deferred_delete =
-            dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
-    if (deferred_delete != NULL) {
-        peer_->server()->session_manager()->DeleteSession(
-            deferred_delete->session);
-        return true;
-    }
-    if (deleted_) return true;
-
-    set_last_event(TYPE_NAME(*ec.event));
-    if (ec.validate.empty() || ec.validate(this)) {
-        SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
-
-        //
-        // Reduce log level for periodic keep alive messages.
-        //
-        if (get_state() == ESTABLISHED &&
-                TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive") {
-            log_level = SandeshLevel::UT_DEBUG;
-        }
-        SM_LOG(log_level, "Processing " << TYPE_NAME(*ec.event) << " in state "
-                                        << StateName());
-        process_event(*ec.event);
-    } else {
-        SM_LOG(SandeshLevel::SYS_INFO,
-               "Discarding " << TYPE_NAME(*ec.event) << " in state "
-                                                     << StateName());
-    }
-    ec.event.reset();
-    return true;
-}
-
-void StateMachine::unconsumed_event(const sc::event_base &event) {
-}
-
 // This class determines whether a given class has a method called 'validate'
-template<typename Ev>
-struct HasValidate
-{
-    template<typename T, bool (T::*)(StateMachine *) const> struct SFINAE {};
-    template<typename T> static char Test(SFINAE<T, &T::validate>*);
-    template<typename T> static int Test(...);
+template <typename Ev>
+struct HasValidate {
+    template <typename T, bool (T::*)(StateMachine *) const> struct SFINAE {};
+    template <typename T> static char Test(SFINAE<T, &T::validate>*);
+    template <typename T> static int Test(...);
     static const bool Has = sizeof(Test<Ev>(0)) == sizeof(char);
 };
 
 template <typename Ev, bool has_validate>
 struct ValidateFn {
-    EvValidate operator()(const Ev *event) { return NULL; }
+    EvValidate operator()(const Ev *event) {
+        return NULL;
+    }
 };
 
 template <typename Ev>
@@ -1559,12 +1492,59 @@ struct ValidateFn<Ev, true> {
 
 template <typename Ev>
 bool StateMachine::Enqueue(const Ev &event) {
-    if (deleted_) return false;
+    if (deleted_)
+        return false;
+
+    std::ostringstream out;
+    out << "Enqueueing event " << TYPE_NAME(event);
+    BGP_LOG_SERVER(peer_, (BgpTable *) 0);
+    BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,
+            BGP_LOG_FLAG_SYSLOG, peer_->ToString(), out.str());
 
     EventContainer ec;
     ec.event = event.intrusive_from_this();
-    ec.validate = ValidateFn<Ev, HasValidate<Ev>::Has>()(static_cast<const Ev *>(ec.event.get()));
+    ec.validate = ValidateFn<Ev, HasValidate<Ev>::Has>()(
+        static_cast<const Ev *>(ec.event.get()));
     work_queue_.Enqueue(ec);
+
+    return true;
+}
+
+bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
+    SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
+
+    const fsm::EvTcpDeleteSession *deferred_delete =
+            dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
+    if (deferred_delete != NULL) {
+        SM_LOG(log_level,
+                "Processing event " << TYPE_NAME(*ec.event) <<
+                " in state " << StateName());
+        peer_->server()->session_manager()->DeleteSession(
+            deferred_delete->session);
+        return true;
+    }
+
+    if (deleted_)
+        return true;
+
+    set_last_event(TYPE_NAME(*ec.event));
+    if (ec.validate.empty() || ec.validate(this)) {
+
+        // Reduce log level for periodic keep alive messages.
+        if (get_state() == ESTABLISHED &&
+            TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive") {
+            log_level = SandeshLevel::UT_DEBUG;
+        }
+        SM_LOG(log_level,
+                "Processing event " << TYPE_NAME(*ec.event) <<
+                " in state " << StateName());
+        process_event(*ec.event);
+    } else {
+        SM_LOG(SandeshLevel::SYS_INFO,
+               "Discarding event " << TYPE_NAME(*ec.event) <<
+               " in state " << StateName());
+    }
+    ec.event.reset();
 
     return true;
 }

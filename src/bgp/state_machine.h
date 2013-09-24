@@ -102,6 +102,11 @@ public:
     // Calculate Timer value for active to connect transition.
     int GetConnectTime() const;
 
+    void SendNotificationAndClose(BgpSession *session,
+        int code, int subcode = 0, const std::string &data = std::string());
+    bool ProcessNotificationEvent(BgpSession *session);
+    void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
+
     const std::string &StateName() const;
     const std::string &LastStateName() const;
 
@@ -125,27 +130,19 @@ public:
 
     void set_state(State state);
     State get_state() { return state_; }
-
     const std::string last_state_change_at() const;
-
-    void SendNotificationAndClose(BgpSession *session,
-                                  int code, int subcode = 0,
-                                  const std::string &data = std::string());
-    bool ProcessNotificationEvent(BgpSession *session);
-
-    void unconsumed_event(const sc::event_base &event);
-
-    void SetDataCollectionKey(BgpPeerInfo *peer_info) const;
 
     void set_last_event(const std::string &event);
     const std::string &last_event() const { return last_event_; }
-    void set_last_notification_in(int code, int subcode, const std::string &reason);
-    void set_last_notification_out(int code, int subcode, const std::string &reason);
-
+    void set_last_notification_in(int code, int subcode,
+        const std::string &reason);
+    void set_last_notification_out(int code, int subcode,
+        const std::string &reason);
     const std::string last_notification_out_error() const;
     const std::string last_notification_in_error() const;
-
     void reset_last_info();
+
+    void unconsumed_event(const sc::event_base &event) { }
 
 private:
     friend class StateMachineTest;
