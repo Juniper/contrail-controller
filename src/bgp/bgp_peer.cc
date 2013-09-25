@@ -1036,12 +1036,10 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
         return;
     }
 
-    //
-    // Periodic keep-alive packets tracing not necessary
-    //
-    if (minfo->type != BgpProto::KEEPALIVE) {
+    // Tracing periodic keepalive packets is not necessary.
+    if (minfo->type != BgpProto::KEEPALIVE)
         BGP_TRACE_PEER_PACKET(this, msg, size, SandeshLevel::UT_DEBUG);
-    }
+
     state_machine_->OnMessage(session, minfo);
 }
 

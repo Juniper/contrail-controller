@@ -14,8 +14,6 @@
 #include <boost/statechart/state.hpp>
 #include <boost/statechart/state_machine.hpp>
 #include <boost/statechart/transition.hpp>
-
-#include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 
 #include "base/logging.h"
@@ -309,7 +307,7 @@ struct EvBgpUpdateError : sc::event<EvBgpUpdateError> {
     std::string data;
 };
 
-// states
+// States for the BGP state machine.
 struct Idle;
 struct Active;
 struct Connect;
@@ -317,31 +315,31 @@ struct OpenSent;
 struct OpenConfirm;
 struct Established;
 
-template <class Ev, int code = 0>
+template <typename Ev, int code = 0>
 struct TransitToIdle {
     typedef sc::transition<Ev, Idle, StateMachine,
-            &StateMachine::OnIdle<Ev, code> > reaction;
+        &StateMachine::OnIdle<Ev, code> > reaction;
 };
 
 template <>
 struct TransitToIdle<EvBgpNotification, 0> {
     typedef sc::transition<EvBgpNotification, Idle, StateMachine,
-            &StateMachine::OnIdleNotification> reaction;
+        &StateMachine::OnIdleNotification> reaction;
 };
 
-template <class Ev>
+template <typename Ev>
 struct IdleCease {
     typedef sc::transition<Ev, Idle, StateMachine,
-            &StateMachine::OnIdle<Ev, BgpProto::Notification::Cease> > reaction;
+        &StateMachine::OnIdle<Ev, BgpProto::Notification::Cease> > reaction;
 };
 
-template<class Ev>
+template <typename Ev>
 struct IdleFsmError {
     typedef sc::transition<Ev, Idle, StateMachine,
-            &StateMachine::OnIdle<Ev, BgpProto::Notification::FSMErr> > reaction;
+        &StateMachine::OnIdle<Ev, BgpProto::Notification::FSMErr> > reaction;
 };
 
-template <class Ev, int code>
+template <typename Ev, int code>
 struct IdleError {
     typedef sc::transition<Ev, Idle, StateMachine,
             &StateMachine::OnIdleError<Ev, code> > reaction;
@@ -762,9 +760,9 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
 
                 // Passive connection wins, close the active session.
                 peer->SendNotification(state_machine->active_session(),
-                      BgpProto::Notification::Cease,
-                      BgpProto::Notification::ConnectionCollision,
-                      "Connection collision - closing active session");
+                    BgpProto::Notification::Cease,
+                    BgpProto::Notification::ConnectionCollision,
+                    "Connection collision - closing active session");
                 state_machine->set_active_session(NULL);
 
                 // If we haven't already sent an OPEN message on the passive
@@ -791,9 +789,9 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
 
                 // Active connection wins, close the passive session.
                 peer->SendNotification(state_machine->passive_session(),
-                          BgpProto::Notification::Cease,
-                          BgpProto::Notification::ConnectionCollision,
-                          "Connection collision - closing passive session");
+                    BgpProto::Notification::Cease,
+                    BgpProto::Notification::ConnectionCollision,
+                    "Connection collision - closing passive session");
                 state_machine->set_passive_session(NULL);
                 state_machine->CancelOpenTimer();
 
@@ -1089,6 +1087,44 @@ void StateMachine::SetAdminState(bool down) {
     }
 }
 
+template <typename Ev, int code>
+void StateMachine::OnIdle(const Ev &event) {
+    // Release all resources
+    SendNotificationAndClose(peer()->session(), code);
+
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+//
+// The template below must only be called for EvBgpHeaderError, EvBgpOpenError
+// or EvBgpUpdateError.
+//
+template <typename Ev, int code>
+void StateMachine::OnIdleError(const Ev &event) {
+    // Release all resources.
+    SendNotificationAndClose(event.session, code, event.subcode, event.data);
+
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
+    // Release all resources.
+    SendNotificationAndClose(peer()->session(), 0);
+
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+    set_last_notification_in(event.msg->error, event.msg->subcode,
+        event.Name());
+}
+
 int StateMachine::GetConnectTime() const {
     int backoff = min(attempts_, 6);
     return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
@@ -1283,41 +1319,6 @@ bool StateMachine::ProcessNotificationEvent(BgpSession *session) {
     return true;
 }
 
-template <class Ev, int code>
-void StateMachine::OnIdle(const Ev &event) {
-    // Release all resources
-    SendNotificationAndClose(peer()->session(), code);
-    bool flap = (state_ == ESTABLISHED);
-    if (flap)
-        peer()->increment_flap_count();
-    set_state(IDLE);
-}
-
-//
-// The template below must only be called for EvBgpHeaderError, EvBgpOpenError
-// or EvBgpUpdateError.
-//
-template <class Ev, int code>
-void StateMachine::OnIdleError(const Ev &event) {
-    SendNotificationAndClose(event.session,
-                             code, event.subcode, event.data);
-    bool flap = (state_ == ESTABLISHED);
-    if (flap)
-        peer()->increment_flap_count();
-    set_state(IDLE);
-}
-
-void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
-    // Release all resources
-    SendNotificationAndClose(peer()->session(), 0);
-    // Collect before changing state
-    bool flap = (state_ == ESTABLISHED);
-    if (flap)
-        peer()->increment_flap_count();
-    set_state(IDLE);
-    set_last_notification_in(event.msg->error,event.msg->subcode, event.Name());
-}
-
 bool StateMachine::ConnectTimerExpired() {
     if (!deleted_) {
 
@@ -1346,7 +1347,6 @@ bool StateMachine::HoldTimerExpired() {
     Enqueue(fsm::EvHoldTimerExpired(hold_timer_));
     return false;
 }
-
 
 bool StateMachine::IdleHoldTimerExpired() {
     Enqueue(fsm::EvIdleHoldTimerExpired(idle_hold_timer_));
@@ -1393,7 +1393,7 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     switch (msg->type) {
     case BgpProto::OPEN: {
         BgpProto::OpenMessage *open_msg =
-                static_cast<BgpProto::OpenMessage *>(msg);
+            static_cast<BgpProto::OpenMessage *>(msg);
         BgpPeer *peer = session->Peer();
         peer->inc_rx_open();
         if (int subcode = open_msg->Validate(peer)) {
@@ -1419,13 +1419,12 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         break;
     }
     case BgpProto::UPDATE: {
-        BgpProto::Update *update =
-                static_cast<BgpProto::Update *>(msg);
+        BgpProto::Update *update = static_cast<BgpProto::Update *>(msg);
         BgpPeer *peer = NULL;
         if (session) 
             peer = session->Peer();
-
         if (peer) peer->inc_rx_update();
+
         std::string data;
         int subcode;
         if (peer && (subcode = update->Validate(peer, data))) {
@@ -1440,7 +1439,8 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
         SM_LOG(SandeshLevel::SYS_NOTICE, "Unknown message type " << msg->type);
         break;
     }
-    if (msg) delete msg;
+
+    delete msg;
 }
 
 //
@@ -1495,7 +1495,7 @@ ostream &operator<<(ostream &out, const StateMachine::State &state) {
 
 const int StateMachine::kConnectInterval;
 
-// This class determines whether a given class has a method called 'validate'
+// This class determines whether a given class has a method called 'validate'.
 template <typename Ev>
 struct HasValidate {
     template <typename T, bool (T::*)(StateMachine *) const> struct SFINAE {};
@@ -1539,10 +1539,14 @@ bool StateMachine::Enqueue(const Ev &event) {
 }
 
 bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
+    if (deleted_)
+        return true;
+
+    set_last_event(TYPE_NAME(*ec.event));
     SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
 
     const fsm::EvTcpDeleteSession *deferred_delete =
-            dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
+        dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
     if (deferred_delete != NULL) {
         SM_LOG(log_level,
                 "Processing event " << TYPE_NAME(*ec.event) <<
@@ -1552,10 +1556,6 @@ bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
         return true;
     }
 
-    if (deleted_)
-        return true;
-
-    set_last_event(TYPE_NAME(*ec.event));
     if (ec.validate.empty() || ec.validate(this)) {
 
         // Reduce log level for periodic keep alive messages.
@@ -1582,15 +1582,15 @@ void StateMachine::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
 }
 
 const std::string StateMachine::last_notification_in_error() const {
-    return(BgpProto::Notification::ToString(
-           static_cast<BgpProto::Notification::Code>(last_notification_in_.first),
-           last_notification_in_.second));
+    return (BgpProto::Notification::ToString(
+        static_cast<BgpProto::Notification::Code>(last_notification_in_.first),
+        last_notification_in_.second));
 }
 
 const std::string StateMachine::last_notification_out_error() const {
-    return(BgpProto::Notification::ToString(
-           static_cast<BgpProto::Notification::Code>(last_notification_out_.first),
-           last_notification_out_.second));
+    return (BgpProto::Notification::ToString(
+        static_cast<BgpProto::Notification::Code>(last_notification_out_.first),
+        last_notification_out_.second));
 }
 
 //
@@ -1615,41 +1615,45 @@ const int StateMachine::GetDefaultHoldTime() {
 void StateMachine::set_last_event(const std::string &event) { 
     last_event_ = event; 
     last_event_at_ = UTCTimestampUsec(); 
-    // ignore logging keepalive event
-    if (event == "fsm::EvBgpKeepalive") {
+
+    // Don't log keepalive events.
+    if (event == "fsm::EvBgpKeepalive")
 	    return;
-    }
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     PeerEventInfo event_info;
     event_info.set_last_event(last_event_);
     event_info.set_last_event_at(last_event_at_);
     peer_info.set_event_info(event_info);
-
     BGPPeerInfo::Send(peer_info);
 }
 
-void StateMachine::set_last_notification_out(int code, int subcode, const string &reason) {
+void StateMachine::set_last_notification_out(int code, int subcode,
+    const string &reason) {
     last_notification_out_ = std::make_pair(code, subcode);
     last_notification_out_at_ = UTCTimestampUsec();
     last_notification_out_error_ = reason;
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_notification_out_at(last_notification_out_at_);
     peer_info.set_notification_out(BgpProto::Notification::ToString(
-            static_cast<BgpProto::Notification::Code>(code), subcode));
+        static_cast<BgpProto::Notification::Code>(code), subcode));
     BGPPeerInfo::Send(peer_info);
 }
 
-void StateMachine::set_last_notification_in(int code, int subcode, const string &reason) {
+void StateMachine::set_last_notification_in(int code, int subcode,
+    const string &reason) {
     last_notification_in_ = std::make_pair(code, subcode);
     last_notification_in_at_ = UTCTimestampUsec();
     last_notification_in_error_ = reason;
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_notification_in_at(last_notification_in_at_);
     peer_info.set_notification_in(BgpProto::Notification::ToString(
-            static_cast<BgpProto::Notification::Code>(code), subcode));
+        static_cast<BgpProto::Notification::Code>(code), subcode));
     BGPPeerInfo::Send(peer_info);
 }
 
@@ -1678,6 +1682,7 @@ void StateMachine::set_hold_time(int hold_time) {
 
 void StateMachine::reset_hold_time() { 
     hold_time_ = GetDefaultHoldTime(); 
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_hold_time(hold_time_);
@@ -1708,6 +1713,5 @@ void StateMachine::reset_last_info() {
     event_info.set_last_event(last_event_);
     event_info.set_last_event_at(last_event_at_);
     peer_info.set_event_info(event_info);
-
     BGPPeerInfo::Send(peer_info);
 }
