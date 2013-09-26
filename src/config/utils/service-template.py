@@ -10,53 +10,59 @@ import time
 import argparse
 
 sys.path.insert(0, os.path.realpath('/usr/lib/python2.7/site-packages'))
-sys.path.insert(0, os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
+sys.path.insert(
+    0,
+    os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_cfg_api_server
 from svc_monitor import svc_monitor
 
+
 class ServiceTemplateCmd(object):
-    def __init__(self, args_str = None):
+
+    def __init__(self, args_str=None):
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
         if self._args.svc_type == 'analyzer':
-            self._if_list = [['management', False], ['left', self._args.svc_scaling]]
+            self._if_list = [
+                ['management', False], ['left', self._args.svc_scaling]]
         else:
-            self._if_list = [['management', False], ['left', self._args.svc_scaling], ['right', False]]
+            self._if_list = [['management', False], [
+                'left', self._args.svc_scaling], ['right', False]]
 
         self._st_fq_name = [self._args.domain_name, self._args.template_name]
         self._domain_fq_name = [self._args.domain_name]
 
-        self._vnc_lib = VncApi('u', 'p', 
-                         api_server_host = self._args.api_server_ip, 
-                         api_server_port = self._args.api_server_port)
-    #end __init__
+        self._vnc_lib = VncApi('u', 'p',
+                               api_server_host=self._args.api_server_ip,
+                               api_server_port=self._args.api_server_port)
+    # end __init__
 
     def _parse_args(self, args_str):
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
-        conf_parser = argparse.ArgumentParser(add_help = False)
-        
+        conf_parser = argparse.ArgumentParser(add_help=False)
+
         conf_parser.add_argument("-c", "--conf_file",
                                  help="Specify config file", metavar="FILE")
         args, remaining_argv = conf_parser.parse_known_args(args_str.split())
 
         global_defaults = {
-            'domain_name'     : 'default-domain',
-            'template_name'   : None,
-            'image_name'      : 'vsrx',
-            'svc_scaling'     : False,
-            'svc_type'        : 'firewall',
-            'api_server_ip'   : '127.0.0.1',
-            'api_server_port' : '8082',
+            'domain_name': 'default-domain',
+            'template_name': None,
+            'image_name': 'vsrx',
+            'svc_scaling': False,
+            'svc_type': 'firewall',
+            'api_server_ip': '127.0.0.1',
+            'api_server_port': '8082',
         }
 
-        args.conf_file ='/etc/contrail/svc_monitor.conf' 
+        args.conf_file = '/etc/contrail/svc_monitor.conf'
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
@@ -71,36 +77,43 @@ class ServiceTemplateCmd(object):
             description=__doc__,
             # Don't mess with format of description
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            )
+        )
 
         parser.set_defaults(**global_defaults)
         subparsers = parser.add_subparsers()
 
         create_parser = subparsers.add_parser('add')
-        create_parser.add_argument("template_name", help = "service template name")
-        create_parser.add_argument("--svc_type", help = "firewall or analyzer [default: firewall]", 
-                                   choices=['firewall', 'analyzer'])
-        create_parser.add_argument("--image_name", help = "glance image name [default: vsrx]")
-        create_parser.add_argument("--svc_scaling", action = "store_true", default = False,
-                                   help = "enable service scaling [default: False]")
-        create_parser.set_defaults(func = self.create_st)
+        create_parser.add_argument(
+            "template_name", help="service template name")
+        create_parser.add_argument(
+            "--svc_type", help="firewall or analyzer [default: firewall]",
+            choices=['firewall', 'analyzer'])
+        create_parser.add_argument(
+            "--image_name", help="glance image name [default: vsrx]")
+        create_parser.add_argument(
+            "--svc_scaling", action="store_true", default=False,
+            help="enable service scaling [default: False]")
+        create_parser.set_defaults(func=self.create_st)
 
         delete_parser = subparsers.add_parser('del')
-        delete_parser.add_argument("template_name", help = "service template name")
-        delete_parser.set_defaults(func = self.delete_st)
+        delete_parser.add_argument(
+            "template_name", help="service template name")
+        delete_parser.set_defaults(func=self.delete_st)
 
         self._args = parser.parse_args(remaining_argv)
-    #end _parse_args
+    # end _parse_args
 
-    #create service template
+    # create service template
     def create_st(self):
         print "Creating service template %s" % (self._args.template_name)
         try:
-            st_obj = self._vnc_lib.service_template_read(fq_name=self._st_fq_name)
+            st_obj = self._vnc_lib.service_template_read(
+                fq_name=self._st_fq_name)
             st_uuid = st_obj.uuid
         except NoIdError:
             domain = self._vnc_lib.domain_read(fq_name=self._domain_fq_name)
-            st_obj = ServiceTemplate(name=self._args.template_name, domain_obj=domain)
+            st_obj = ServiceTemplate(
+                name=self._args.template_name, domain_obj=domain)
             st_uuid = self._vnc_lib.service_template_create(st_obj)
 
         svc_properties = ServiceTemplateType()
@@ -108,7 +121,7 @@ class ServiceTemplateCmd(object):
         svc_properties.set_service_scaling(True)
         svc_properties.set_service_type(self._args.svc_type)
 
-        #set interface list
+        # set interface list
         for itf in self._if_list:
             if_type = ServiceTemplateInterfaceType(shared_ip=itf[1])
             if_type.set_service_interface_type(itf[0])
@@ -118,23 +131,25 @@ class ServiceTemplateCmd(object):
         self._vnc_lib.service_template_update(st_obj)
 
         return st_uuid
-    #create_st
+    # create_st
 
     def delete_st(self):
         try:
             print "Deleting service template %s" % (self._args.template_name)
-            self._vnc_lib.service_template_delete(fq_name = self._st_fq_name)
+            self._vnc_lib.service_template_delete(fq_name=self._st_fq_name)
         except NoIdError:
-            print "Error: Service template %s not found" % (self._args.template_name)
+            print "Error: Service template %s not found"\
+                % (self._args.template_name)
             return
     #_delete_st
 
-#end class ServiceTemplateCmd
+# end class ServiceTemplateCmd
 
-def main(args_str = None):
+
+def main(args_str=None):
     st = ServiceTemplateCmd(args_str)
     st._args.func()
-#end main
+# end main
 
 if __name__ == "__main__":
-    main() 
+    main()

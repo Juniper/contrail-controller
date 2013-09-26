@@ -615,12 +615,14 @@ public:
 
     AgentTestInit(bool ksync_init, bool pkt_init, bool services_init,
                   const char *init_file, int sandesh_port, bool log,
-                  TestClient *client, bool uve_init, int interval) 
+                  TestClient *client, bool uve_init, 
+                  int agent_stats_interval, int flow_stats_interval) 
         : state_(MOD_INIT), ksync_init_(ksync_init), pkt_init_(pkt_init),
         services_init_(services_init), init_file_(init_file),
         sandesh_port_(sandesh_port), log_locally_(log),
         trigger_(NULL), client_(client), uve_init_(uve_init),
-        interval_(interval) {}
+        agent_stats_interval_(agent_stats_interval), 
+        flow_stats_interval_(flow_stats_interval) {}
     ~AgentTestInit() {
         for (std::vector<TaskTrigger *>::iterator it = list_.begin();
              it != list_.end(); ++it) {
@@ -661,14 +663,16 @@ private:
     TaskTrigger *trigger_;
     TestClient *client_;
     bool uve_init_;
-    int interval_;
+    int agent_stats_interval_;
+    int flow_stats_interval_;
     std::vector<TaskTrigger *> list_;
 };
 
 TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false, 
                      bool pkt_init = true, bool services_init = true,
                      bool uve_init = true,
-                     int interval = StatsCollector::stats_coll_time,
+                     int agent_stats_interval = AgentStatsCollector::AgentStatsInterval,
+                     int flow_stats_interval = FlowStatsCollector::FlowStatsInterval,
                      bool asio = true);
 
 void TestShutdown();

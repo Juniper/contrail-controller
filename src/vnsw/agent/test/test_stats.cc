@@ -40,8 +40,8 @@ TEST_F(StatsTest, IntfStatsTest) {
 
     /* Wait for stats-collector task to be run */
 
-    cout << "sleep for: " << ((StatsCollector::stats_coll_time + 1)*1000) << endl;
-    usleep((StatsCollector::stats_coll_time + 1)*1000);
+    cout << "sleep for: " << ((AgentStatsCollector::AgentStatsInterval + 1)*1000) << endl;
+    usleep((AgentStatsCollector::AgentStatsInterval + 1)*1000);
 
     /* Verify that interface stats query succeeds 
      * These should return the present value of stats
@@ -55,7 +55,7 @@ TEST_F(StatsTest, IntfStatsTest) {
     client->WaitForIdle();
 
     /* Wait for stats-collector task to be run */
-    usleep((StatsCollector::stats_coll_time + 1)*1000);
+    usleep((AgentStatsCollector::AgentStatsInterval + 1)*1000);
 
     /* Verify interface stats */
     EXPECT_TRUE(VmPortStats(input, 0, (bytes0 + 42), (pkts0 + 1)));
@@ -67,7 +67,7 @@ TEST_F(StatsTest, IntfStatsTest) {
     client->WaitForIdle();
 
     /* Wait for stats-collector task to be run */
-    usleep((StatsCollector::stats_coll_time + 1)*1000);
+    usleep((AgentStatsCollector::AgentStatsInterval + 1)*1000);
     client->WaitForIdle();
 
     /* Verify updated interface stats */
@@ -126,7 +126,7 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 
     /* Wait for stats-collector task to be run */
-    usleep((StatsCollector::stats_coll_time + 1)*1000);
+    usleep((FlowStatsCollector::FlowStatsInterval + 1)*1000);
 
     /* Match with expected flow stats */
     EXPECT_TRUE(FlowStats(flow_input, 0, 28, 1));
@@ -138,7 +138,7 @@ TEST_F(StatsTest, FlowStatsTest) {
     send_icmp(fd_table[3], 5, 7, flow_input[1].sip, flow_input[1].dip);
     
     /* Wait for stats-collector task to be run */
-    usleep((StatsCollector::stats_coll_time + 1)*1000);
+    usleep((FlowStatsCollector::FlowStatsInterval + 1)*1000);
     client->WaitForIdle();
 
     /* Verify updated interface stats */

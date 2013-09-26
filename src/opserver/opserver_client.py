@@ -16,20 +16,25 @@ import json
 import datetime
 import pdb
 import argparse
-import socket, struct
+import socket
+import struct
 from prettytable import PrettyTable
 from collections import OrderedDict
 from opserver_util import OpServerUtils
 
+
 class OpServerClient(object):
+
     """
-        The OpServerClient object provides python functions to exercise :mod:`opserver` APIs
+        The OpServerClient object provides python functions to
+        exercise :mod:`opserver` APIs
 
     """
 
     def __init__(self):
-        self.opserver_time_range = 10*60*1000000 # 10 minutes in microseconds
-    #end __init__
+        self.opserver_time_range = 10 * 60 * \
+            1000000  # 10 minutes in microseconds
+    # end __init__
 
     def _parse_args(self):
         '''
@@ -37,28 +42,29 @@ class OpServerClient(object):
         '''
         parser = argparse.ArgumentParser()
         parser.add_argument("opserver_ip",
-                            help = "IP address of OpServer")
+                            help="IP address of OpServer")
         parser.add_argument("opserver_port",
-                            help = "Port of OpServer (e.g. 8081)")
+                            help="Port of OpServer (e.g. 8081)")
         self._args = parser.parse_args()
-    #end _parse_args
+    # end _parse_args
+
     def UTCTimestampUsec(self):
         epoch = datetime.datetime.utcfromtimestamp(0)
         now = datetime.datetime.utcnow()
-        delta = now-epoch
-        return (int(delta.total_seconds()*1000000))
-    #end UTCTimestampUsec
+        delta = now - epoch
+        return (int(delta.total_seconds() * 1000000))
+    # end UTCTimestampUsec
 
     def get_start_end_time(self, start_time, end_time):
-        if start_time == None and end_time == None:
+        if start_time is None and end_time is None:
             end_time = self.UTCTimestampUsec()
             start_time = end_time - self.opserver_time_range
-        elif start_time == None and end_time != None:
+        elif start_time is None and end_time is not None:
             start_time = end_time - self.opserver_time_range
-        elif start_time != None and end_time == None:
+        elif start_time is not None and end_time is None:
             end_time = start_time + self.opserver_time_range
         return start_time, end_time
-    #end get_start_end_time
+    # end get_start_end_time
 
     def get_url_http(self, url):
         data = {}
@@ -70,17 +76,18 @@ class OpServerClient(object):
             print "Network error: %s" % e.reason.args[1]
 
         return data
-    #end get_url_http
+    # end get_url_http
 
     def opserver_url(self):
-        return "http://" + self._args.opserver_ip + ":" + self._args.opserver_port + "/"
-    #end opserver_url
+        return "http://" + self._args.opserver_ip + ":" +\
+            self._args.opserver_port + "/"
+    # end opserver_url
 
     def opserver_analytics_url(self):
         return self.opserver_url() + 'analytics/'
-    #end opserver_analytics_url
+    # end opserver_analytics_url
 
-    def get_uve_state(self, name, uve_type) :
+    def get_uve_state(self, name, uve_type):
         """
         This function performs ReST API to :mod:`opserver` to get current
         state of a User Visible Entity
@@ -93,15 +100,15 @@ class OpServerClient(object):
         uve_state_url = self.opserver_analytics_url() + uve_type + "/" + name
         print uve_state_url
         uve_state = json.loads(self.get_url_http(uve_state_url))
-        print json.dumps(uve_state, indent = 4, sort_keys = True)
+        print json.dumps(uve_state, indent=4, sort_keys=True)
 
-
-    def query(self, table, start_time = None, end_time = None,
-            select_fields = None,
-            where_clause = "",
-            sort_fields = None, sort = None, limit = None, filter = None):
+    def query(self, table, start_time=None, end_time=None,
+              select_fields=None,
+              where_clause="",
+              sort_fields=None, sort=None, limit=None, filter=None):
         """
-        This function takes in the query parameters, format appropriately and calls
+        This function takes in the query parameters,
+        format appropriately and calls
         ReST API to the :mod:`opserver` to get data
 
         :param table: table to do the query on
@@ -110,7 +117,8 @@ class OpServerClient(object):
         :type start_time: int
         :param end_time: end_time of the query's timeperiod
         :type end_time: int
-        :param select_fields: list of columns to be returned in the final result
+        :param select_fields: list of columns to be returned in the
+         final result
         :type select_fields: list of str
         :param where_clause: list of match conditions for the query
         :type where_clause: list of match, which is a pair of str ANDed
@@ -120,21 +128,22 @@ class OpServerClient(object):
         """
 
         flows_url = OpServerUtils.opserver_query_url(self._args.opserver_ip,
-                                                        self._args.opserver_port)
+                                                     self._args.opserver_port)
         print flows_url
 
         query_dict = OpServerUtils.get_query_dict(table, start_time, end_time,
-            select_fields,
-            where_clause,
-            sort_fields, sort, limit, filter)
+                                                  select_fields, where_clause,
+                                                  sort_fields, sort, limit,
+                                                  filter)
 
         print json.dumps(query_dict)
         resp = OpServerUtils.post_url_http(flows_url, json.dumps(query_dict))
         if resp is not None:
             resp = json.loads(resp)
             qid = resp['href'].rsplit('/', 1)[1]
-            result = OpServerUtils.get_query_result(self._args.opserver_ip, 
-                                                    self._args.opserver_port, qid)
+            result = OpServerUtils.get_query_result(self._args.opserver_ip,
+                                                    self._args.opserver_port,
+                                                    qid)
             for item in result:
                 print item
 
@@ -147,19 +156,21 @@ class OpServerClient(object):
             if "@" in k or "line" in k or "file" in k:
                 del xml_dict[k]
                 continue
-    #end xml_dict_remove_attributes
+    # end xml_dict_remove_attributes
 
     def request_analyzer(self, analyzer_name):
-        analyzer_req_url = self.opserver_url() + "request-analyzer/" + analyzer_name
+        analyzer_req_url = self.opserver_url(
+        ) + "request-analyzer/" + analyzer_name
         print analyzer_req_url
         print self.get_url_http(analyzer_req_url)
-    #end request_analyzer
+    # end request_analyzer
 
     def delete_analyzer(self, analyzer_name):
-        analyzer_req_url = self.opserver_url() + "delete-analyzer/" + analyzer_name
+        analyzer_req_url = self.opserver_url(
+        ) + "delete-analyzer/" + analyzer_name
         print analyzer_req_url
         print self.get_url_http(analyzer_req_url)
-    #end delete_analyzer
+    # end delete_analyzer
 
     def show_analyzer(self, analyzer_name):
         analyzer_req_url = self.opserver_url() + "analyzers"
@@ -167,16 +178,17 @@ class OpServerClient(object):
             analyzer_req_url += "?name=" + analyzer_name
         print analyzer_req_url
         print self.get_url_http(analyzer_req_url)
-    #end show_analyzer
+    # end show_analyzer
 
     def add_mirror_request(self, handle, apply_vn, analyzer_name,
-                           src_vn=None, src_ip_prefix=None, src_ip_prefix_len=None,
-                           dst_vn=None, dst_ip_prefix=None, dst_ip_prefix_len=None,
+                           src_vn=None, src_ip_prefix=None,
+                           src_ip_prefix_len=None, dst_vn=None,
+                           dst_ip_prefix=None, dst_ip_prefix_len=None,
                            start_src_port=None, end_src_port=None,
                            start_dst_port=None, end_dst_port=None,
                            protocol=None, time_period=None):
-        mirror_req_url = self.opserver_url() + "request-mirroring/" + handle + \
-            "?apply_vn=" + apply_vn
+        mirror_req_url = self.opserver_url() + "request-mirroring/" +\
+            handle + "?apply_vn=" + apply_vn
         if src_vn:
             mirror_req_url += "&src_vn=%s" % (src_vn)
         if src_ip_prefix:
@@ -205,13 +217,13 @@ class OpServerClient(object):
 
         print mirror_req_url
         print self.get_url_http(mirror_req_url)
-    #end add_mirror_request
+    # end add_mirror_request
 
     def delete_mirror_request(self, handle):
         mirror_req_url = self.opserver_url() + "delete-mirroring/" + handle
         print mirror_req_url
         print self.get_url_http(mirror_req_url)
-    #end delete_mirror_request
+    # end delete_mirror_request
 
     def show_mirror(self, handle):
         mirror_req_url = self.opserver_url() + "mirrors"
@@ -219,9 +231,9 @@ class OpServerClient(object):
             mirror_req_url += "?name=" + handle
         print mirror_req_url
         print self.get_url_http(mirror_req_url)
-    #end show_mirror
+    # end show_mirror
 
-#end class OpServerClient
+# end class OpServerClient
 
 if __name__ == '__main__':
     client = OpServerClient()

@@ -6,9 +6,11 @@ import functools
 
 import stevedore
 
+
 class ApiHookManager(stevedore.hook.HookManager):
     def __init__(self, namespace, hook_name):
-        super(ApiHookManager, self).__init__(namespace, hook_name, invoke_on_load = True)
+        super(ApiHookManager, self).__init__(namespace, hook_name,
+                                             invoke_on_load=True)
     #end __init__
 
     def run_pre(self, hook_name, args, kwargs):
@@ -46,14 +48,15 @@ def add_api_hook(hook_manager, hook_name):
     return outer
 #end add_api_hook
 
+
 class ExtensionManager(stevedore.extension.ExtensionManager):
-    def __init__(self, namespace, api_server_ip, api_server_port, conf_sections):
-        super(ExtensionManager, self).__init__(namespace, invoke_on_load = True,
-                                               invoke_kwds = {
-                                                   'api_server_ip': api_server_ip,
-                                                   'api_server_port': api_server_port,
-                                                   'conf_sections': conf_sections,
-                                               })
+    def __init__(self, namespace, api_server_ip,
+                 api_server_port, conf_sections):
+        super(ExtensionManager, self).__init__(
+            namespace, invoke_on_load=True,
+            invoke_kwds={'api_server_ip': api_server_ip,
+                         'api_server_port': api_server_port,
+                         'conf_sections': conf_sections, })
     #end __init__
 
 #end class ExtensionManager

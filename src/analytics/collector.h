@@ -31,31 +31,30 @@ class SandeshStateMachine;
 
 class Collector : public SandeshServer {
 public:
-    typedef boost::function<bool(const boost::shared_ptr<VizMsg>)> VizCallback;
+    typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng);
     virtual ~Collector();
     virtual void Shutdown();
 
+    virtual bool ReceiveResourceUpdate(SandeshSession *session,
+            bool rsc);
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                            const std::string &cmsg, const std::string &message_type,
-                           const SandeshHeader& header, uint32_t xml_offset);
+                           const SandeshHeader& header, uint32_t xml_offset, bool rsc);
     virtual bool ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             SandeshSession *session, const Sandesh *sandesh);
-    virtual bool ReceiveMsg(SandeshSession *session, ssm::Message *msg);
 
     void GetGeneratorSummaryInfo(std::vector<GeneratorSummaryInfo> &genlist);
     void GetGeneratorSandeshStatsInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
-    void EnqueueSeqRedisReply(Generator::GeneratorId &id,
-            const std::map<std::string, int32_t> &typemap);
-    void EnqueueDelRedisReply(Generator::GeneratorId &id, bool res);
 
     OpServerProxy * GetOSP() const { return osp_; }
     EventManager * event_manager() const { return evm_; }
     VizCallback ProcessSandeshMsgCb() const { return cb_; }
+    void RedisUpdate(bool rsc);
 
     static const std::string &GetProgramName() { return prog_name_; };
     static void SetProgramName(const char *name) { prog_name_ = name; };

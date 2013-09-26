@@ -109,6 +109,7 @@ public:
     virtual void Delete(DBEntry *entry, const DBRequest *req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static VrfAssignTable *GetInstance() {return vrf_assign_table_;};
     static void Shutdown();
 
     static Interface *FindInterface(const boost::uuids::uuid &intf_uuid);
@@ -122,6 +123,7 @@ public:
                                   uint16_t vlan_tag);
 
 private:
+    static VrfAssignTable *vrf_assign_table_;
     VrfAssign *AllocWithKey(const DBRequestKey *k) const;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignTable);
 };

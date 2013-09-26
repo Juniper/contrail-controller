@@ -11,10 +11,10 @@
 #include <oper/vrf_assign.h>
 #include <oper/agent_sandesh.h>
 
-static VrfAssignTable *vrf_assign_table_;
-
 using namespace std;
 using namespace boost::uuids;
+
+VrfAssignTable *VrfAssignTable::vrf_assign_table_;
 
 ///////////////////////////////////////////////////////////////////////////
 // VRF Assignment table routines
@@ -143,7 +143,7 @@ bool VrfAssign::Change(const DBRequest *req) {
     VrfAssign::VrfAssignData *data = 
         static_cast<VrfAssign::VrfAssignData *>(req->data.get());
 
-    VrfEntry *vrf = vrf_assign_table_->FindVrf(data->vrf_name_);
+    VrfEntry *vrf = VrfAssignTable::GetInstance()->FindVrf(data->vrf_name_);
     if (vrf_.get() != vrf) {
         vrf_ = vrf;
         ret = true;
@@ -157,7 +157,7 @@ bool VrfAssign::Change(const DBRequest *req) {
 }
 
 AgentDBTable *VrfAssign::DBToTable() const {
-    return static_cast<AgentDBTable *>(vrf_assign_table_);
+    return static_cast<AgentDBTable *>(VrfAssignTable::GetInstance());
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -177,7 +177,7 @@ DBEntryBase::KeyPtr VlanVrfAssign::GetDBRequestKey() const {
 void VlanVrfAssign::SetKey(const DBRequestKey *k) {
     const VrfAssignKey *key = static_cast<const VrfAssignKey *>(k);
     type_ = key->type_;
-    interface_ = vrf_assign_table_->FindInterface(key->intf_uuid_);
+    interface_ = VrfAssignTable::GetInstance()->FindInterface(key->intf_uuid_);
     vlan_tag_ = key->vlan_tag_;
 }
 

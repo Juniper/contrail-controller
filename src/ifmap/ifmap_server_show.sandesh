@@ -218,10 +218,22 @@ struct IFMapPeerServerConnInfo {
     3: u64 sequence_number;
 }
 
+struct IFMapPeerTimedoutEntry {
+    1: string host
+    2: u64 timeout_count;
+    3: string last_timeout_ago
+}
+
+struct IFMapPeerTimedoutEntries {
+    1: i32 list_count
+    2: list<IFMapPeerTimedoutEntry> timedout_list
+}
+
 struct IFMapPeerServerStatsInfo {
     1: u64 rx_msgs;
     2: u64 tx_msgs;
     3: u64 reconnect_attempts;
+    4: IFMapPeerTimedoutEntries timedout_entries;
 }
 
 struct IFMapStateMachineInfo {

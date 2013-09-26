@@ -231,7 +231,7 @@ public:
                     ptr += sizeof(uint32_t) + 2;
                     *ptr = DHCP_SUBOP_REMOTEID;
                     *(ptr + 1) = sizeof(VmPortInterface *);
-                    Interface *vm = InterfaceTable::FindInterface(ifindex);
+                    Interface *vm = InterfaceTable::GetInstance()->FindInterface(ifindex);
                     assert(vm != NULL);
                     memcpy(ptr+2, &vm, sizeof(VmPortInterface *));
                     ptr += sizeof(VmPortInterface *) + 2;

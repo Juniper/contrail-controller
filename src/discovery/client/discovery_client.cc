@@ -180,13 +180,26 @@ void DSPublishResponse::StartPublishConnectTimer(int seconds) {
         boost::bind(&DSPublishResponse::PublishConnectTimerExpired, this));
 }
 
+static void WaitForIdle() {
+    static const int kTimeout = 15;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    for (int i = 0; i < (kTimeout * 1000); i++) {
+        if (scheduler->IsEmpty()) {
+            break;
+        }
+        usleep(1000);
+    }    
+}
+
 /******************* DiscoveryServiceClient ************************************/
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
                                                boost::asio::ip::tcp::endpoint ep) 
     : http_client_(new HttpClient(evm)),
       evm_(evm), ds_endpoint_(ep), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
-                  boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)) {
+                  boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
+      shutdown_(false) {
 }
 
 void DiscoveryServiceClient::Init() {
@@ -209,9 +222,14 @@ void DiscoveryServiceClient::Shutdown() {
     }
 
     http_client_->Shutdown();
+    // Make sure that the above enqueues on the work queue are processed
+    WaitForIdle();
+    shutdown_ = true;
 }
 
 DiscoveryServiceClient::~DiscoveryServiceClient() {
+    assert(shutdown_);
+    work_queue_.Shutdown();
     TcpServerManager::DeleteServer(http_client_);
 } 
 
@@ -318,6 +336,7 @@ void DiscoveryServiceClient::WithdrawPublishInternal(std::string serviceName) {
 }
 
 void DiscoveryServiceClient::WithdrawPublish(std::string serviceName) {
+    assert(shutdown_ == false);
     work_queue_.Enqueue(boost::bind(&DiscoveryServiceClient::WithdrawPublishInternal,
                                     this, serviceName));
 }
@@ -401,6 +420,7 @@ void DiscoveryServiceClient::UnsubscribeInternal(std::string serviceName) {
 
 
 void DiscoveryServiceClient::Unsubscribe(std::string serviceName) {
+    assert(shutdown_ == false);
     work_queue_.Enqueue(boost::bind(&DiscoveryServiceClient::UnsubscribeInternal, 
                                     this, serviceName));
 }

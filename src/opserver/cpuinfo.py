@@ -8,6 +8,7 @@ import psutil
 from sandesh.analytics_cpuinfo.ttypes import *
 from sandesh.analytics_cpuinfo.cpuinfo.ttypes import *
 
+
 class CpuInfoData(object):
 
     def __init__(self):

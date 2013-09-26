@@ -18,7 +18,7 @@
 using namespace std;
 using namespace boost::asio;
 
-static MirrorTable *mirror_table_;
+MirrorTable *MirrorTable::mirror_table_;
 
 bool MirrorEntry::IsLess(const DBEntry &rhs) const {
     const MirrorEntry &a = static_cast<const MirrorEntry &>(rhs);
@@ -36,7 +36,7 @@ void MirrorEntry::SetKey(const DBRequestKey *k) {
 }
 
 AgentDBTable *MirrorEntry::DBToTable() const {
-        return mirror_table_;
+        return MirrorTable::GetInstance();
 }
 
 std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {

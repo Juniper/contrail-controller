@@ -1336,6 +1336,120 @@ TEST_F(CfgTest, NodeDelLinkAddDeferTest) {
     ltable->Unregister(lid);
 }
 
+TEST_F(CfgTest, LinkJumbleTest) {
+    char buff[1500];
+    sprintf(buff, 
+        "<update>\n"    
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"bar\">\n"
+        "           <name>testbar</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *btable = IFMapTable::FindTable(&db_, "bar");
+    ASSERT_TRUE(btable!=NULL);
+
+    IFMapTable *ttable = IFMapTable::FindTable(&db_, "test");
+    ASSERT_TRUE(ttable!=NULL);
+
+    IFMapAgentLinkTable *ltable = static_cast<IFMapAgentLinkTable *>(
+            db_.FindTable(IFMAP_AGENT_LINK_DB_NAME));
+    ASSERT_TRUE(ltable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+
+    IFMapNode *TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    //Bar is not added so it should not erxist
+    IFMapNode *TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar == NULL);
+
+
+    //Ensure that there is link from Test to Foo
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestBar->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+    	EXPECT_EQ("testfoo", TestFoo->name());
+    }
+
+    //Add Foo again
+    sprintf(buff, 
+        "<update>\n"    
+        "    <node type=\"foo\">\n"
+        "        <name>testfoo</name>\n"
+        "    </node>\n"
+        "</update>\n");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Bar is still not added
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar == NULL);
+
+    //Add bar now
+    sprintf(buff, 
+        "<update>\n"    
+        "    <node type=\"bar\">\n"
+        "        <name>testbar</name>\n"
+        "    </node>\n"
+        "</update>\n");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+
+    TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    TestBar = btable->FindNode("testbar");
+    ASSERT_TRUE(TestBar != NULL);
+    EXPECT_EQ("testbar", TestBar->name());
+    //Delete unadded links
+    ltable->DestroyDefLink();
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

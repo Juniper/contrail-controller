@@ -33,6 +33,7 @@ struct AgentCmdLineParams {
 class AgentConfig  {
 public:
     enum Mode {
+        MODE_INVALID,
         MODE_KVM,
         MODE_XEN
     };
@@ -95,18 +96,31 @@ public:
     static void Shutdown();
     static void InitXenLinkLocalIntf();
 
-    static IFMapAgentTable *GetVmInterfaceTable() {return cfg_vm_interface_table_;};
-    static IFMapAgentTable *GetVmTable() {return cfg_vm_table_;};
-    static IFMapAgentTable *GetVnTable() {return cfg_vn_table_;};
-    static IFMapAgentTable *GetSgTable() {return cfg_sg_table_;};
-    static IFMapAgentTable *GetAclTable() {return cfg_acl_table_;};
-    static IFMapAgentTable *GetVrfTable() {return cfg_vrf_table_;};
-    static IFMapAgentTable *GetInstanceIpTable() {return cfg_instanceip_table_;};
-    static IFMapAgentTable *GetFloatingIpTable() {return cfg_floatingip_table_;};
-    static IFMapAgentTable *GetFloatingIpPoolTable() {return cfg_floatingip_pool_table_;};
-    static IFMapAgentTable *GetNetworkIpamTable() {return network_ipam_table_;};
-    static IFMapAgentTable *GetVnNetworkIpamTable() {return vn_network_ipam_table_;};
-    static IFMapAgentTable *GetVmPortVrfTable() {return vm_port_vrf_table_;};
+    IFMapAgentTable *GetVmInterfaceTable() {return cfg_vm_interface_table_;};
+    IFMapAgentTable *GetVmTable() {return cfg_vm_table_;};
+    IFMapAgentTable *GetVnTable() {return cfg_vn_table_;};
+    IFMapAgentTable *GetSgTable() {return cfg_sg_table_;};
+    IFMapAgentTable *GetAclTable() {return cfg_acl_table_;};
+    IFMapAgentTable *GetVrfTable() {return cfg_vrf_table_;};
+    IFMapAgentTable *GetInstanceIpTable() {return cfg_instanceip_table_;};
+    IFMapAgentTable *GetFloatingIpTable() {return cfg_floatingip_table_;};
+    IFMapAgentTable *GetFloatingIpPoolTable() {return cfg_floatingip_pool_table_;};
+    IFMapAgentTable *GetNetworkIpamTable() {return network_ipam_table_;};
+    IFMapAgentTable *GetVnNetworkIpamTable() {return vn_network_ipam_table_;};
+    IFMapAgentTable *GetVmPortVrfTable() {return vm_port_vrf_table_;};
+
+    void SetVmInterfaceTable(IFMapAgentTable *table) {cfg_vm_interface_table_ = table;};
+    void SetVmTable(IFMapAgentTable *table) {cfg_vm_table_ = table;};
+    void SetVnTable(IFMapAgentTable *table) {cfg_vn_table_ = table;};
+    void SetSgTable(IFMapAgentTable *table) {cfg_sg_table_ = table;};
+    void SetAclTable(IFMapAgentTable *table) {cfg_acl_table_ = table;};
+    void SetVrfTable(IFMapAgentTable *table) {cfg_vrf_table_ = table;};
+    void SetInstanceIpTable(IFMapAgentTable *table) {cfg_instanceip_table_ = table;};
+    void SetFloatingIpTable(IFMapAgentTable *table) {cfg_floatingip_table_ = table;};
+    void SetFloatingIpPoolTable(IFMapAgentTable *table) {cfg_floatingip_pool_table_ = table;};
+    void SetNetworkIpamTable(IFMapAgentTable *table) {network_ipam_table_ = table;};
+    void SetVnNetworkIpamTable(IFMapAgentTable *table) {vn_network_ipam_table_ = table;};
+    void SetVmPortVrfTable(IFMapAgentTable *table) {vm_port_vrf_table_ = table;};
 
     static AgentConfig *GetInstance() {
         return singleton_;
@@ -119,18 +133,18 @@ private:
                      std::string name, std::string addr, std::string gw, 
                      AgentConfig::Callback cb);
 
-    static IFMapAgentTable *cfg_vm_interface_table_;
-    static IFMapAgentTable *cfg_vm_table_;
-    static IFMapAgentTable *cfg_vn_table_;
-    static IFMapAgentTable *cfg_sg_table_;
-    static IFMapAgentTable *cfg_acl_table_;
-    static IFMapAgentTable *cfg_vrf_table_;
-    static IFMapAgentTable *cfg_instanceip_table_;
-    static IFMapAgentTable *cfg_floatingip_table_;
-    static IFMapAgentTable *cfg_floatingip_pool_table_;
-    static IFMapAgentTable *network_ipam_table_;
-    static IFMapAgentTable *vn_network_ipam_table_;
-    static IFMapAgentTable *vm_port_vrf_table_;
+    IFMapAgentTable *cfg_vm_interface_table_;
+    IFMapAgentTable *cfg_vm_table_;
+    IFMapAgentTable *cfg_vn_table_;
+    IFMapAgentTable *cfg_sg_table_;
+    IFMapAgentTable *cfg_acl_table_;
+    IFMapAgentTable *cfg_vrf_table_;
+    IFMapAgentTable *cfg_instanceip_table_;
+    IFMapAgentTable *cfg_floatingip_table_;
+    IFMapAgentTable *cfg_floatingip_pool_table_;
+    IFMapAgentTable *network_ipam_table_;
+    IFMapAgentTable *vn_network_ipam_table_;
+    IFMapAgentTable *vm_port_vrf_table_;
 
     static AgentConfig *singleton_;
     DBTableBase::ListenerId lid_;

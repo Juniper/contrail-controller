@@ -7,7 +7,6 @@
 
 #include <sandesh/common/flow_types.h>
 #include <cmn/agent_cmn.h>
-#include <uve/uve_init.h>
 #include <uve/stats_collector.h>
 #include <pkt/flowtable.h>
 #include <ksync/flowtable_ksync.h>
@@ -20,6 +19,8 @@ class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
     static const uint32_t FlowCountPerPass = 100;
+    static const uint32_t FlowStatsInterval = (2000); // time in milliseconds
+
     FlowStatsCollector(boost::asio::io_service &io, int intvl) :
         StatsCollector(StatsCollector::FlowStatsCollector, io, intvl, "Flow stats collector") {
         flow_iteration_key_.Reset();

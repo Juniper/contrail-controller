@@ -643,7 +643,7 @@ void IFMapStateMachine::ProcConnectionCleaned() {
 void IFMapStateMachine::ProcResolveResponse(
         const boost::system::error_code& error) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvResolveFailed());
@@ -656,7 +656,7 @@ void IFMapStateMachine::ProcResolveResponse(
 void IFMapStateMachine::ProcConnectResponse(
         const boost::system::error_code& error) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvConnectFailed());
@@ -669,7 +669,7 @@ void IFMapStateMachine::ProcConnectResponse(
 void IFMapStateMachine::ProcHandshakeResponse(
         const boost::system::error_code& error) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvHandshakeFailed());
@@ -682,7 +682,7 @@ void IFMapStateMachine::ProcHandshakeResponse(
 void IFMapStateMachine::ProcNewSessionWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvWriteFailed());
@@ -695,7 +695,7 @@ void IFMapStateMachine::ProcNewSessionWrite(
 void IFMapStateMachine::ProcNewSessionResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvReadFailed());
@@ -708,7 +708,7 @@ void IFMapStateMachine::ProcNewSessionResponse(
 void IFMapStateMachine::ProcSubscribeWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvWriteFailed());
@@ -721,7 +721,7 @@ void IFMapStateMachine::ProcSubscribeWrite(
 void IFMapStateMachine::ProcSubscribeResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvReadFailed());
@@ -734,7 +734,7 @@ void IFMapStateMachine::ProcSubscribeResponse(
 void IFMapStateMachine::ProcPollWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        if (error == boost::asio::error::operation_aborted) {
+        if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvWriteFailed());
@@ -748,6 +748,8 @@ void IFMapStateMachine::ProcPollWrite(
 void IFMapStateMachine::ProcPollResponseRead(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
+        // Dont need to call ProcErrorAndIgnore() since the error has already
+        // been processed by ProcResponse().
         if (error == boost::asio::error::operation_aborted) {
             return;
         }
@@ -761,10 +763,25 @@ void IFMapStateMachine::ProcPollResponseRead(
 // NewSessionResponseWait, SubscribeResponseWait, PollResponseWait
 void IFMapStateMachine::ProcResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
-    if (error == boost::asio::error::operation_aborted) {
+    if (error && ProcErrorAndIgnore(error)) {
         return;
     }
     EnqueueEvent(ifsm::EvProcessResponse(error, bytes_transferred));
+}
+
+// Returns true if the error can be ignored. False otherwise.
+bool IFMapStateMachine::ProcErrorAndIgnore(
+        const boost::system::error_code& error) {
+    IFMAP_WARN(IFMapPeerConnError, error.message(), StateName(last_state_),
+               StateName(state_), last_event());
+
+    bool done = false;
+    if (error == boost::asio::error::operation_aborted) {
+        done = true;
+    } else if (error == boost::asio::error::timed_out) {
+        channel_->IncrementTimedout();
+    }
+    return done;
 }
 
 void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {

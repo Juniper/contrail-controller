@@ -31,11 +31,23 @@ public:
             const std::string &source, const std::string &module,
             const std::string &key, int32_t seq);
 
+    static bool
+    SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
+            const std::string &source, const std::string &module,
+            const std::string & coll,  int timeout,
+            std::map<std::string,int32_t> & seqReply);
+
+    static bool 
+    SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
+            const std::string &source, const std::string &module,
+            const std::string & coll,  int timeout);
+
     static void
     RefreshGenerator(RedisAsyncConnection * rac,
             const std::string &source, const std::string &module,
             const std::string &coll, int timeout);
 
+  
     static void
     WithdrawGenerator(RedisAsyncConnection * rac,
             const std::string &source, const std::string &module,
@@ -77,53 +89,6 @@ protected:
     std::map<std::string,void *> childMap_;
 };
 
-
-// This Redis Processor will delete all UVEs that are stored
-// under the given source,module.
-//
-struct DelRequest : public RedisProcessorIf {
-    typedef boost::function<void(const std::string &, bool)> finFn;
-    // callback function to parent
-    DelRequest(RedisAsyncConnection * rac, finFn fn,
-            const std::string& source, const std::string& module,
-            const std::string& coll, int timeout);
-    bool RedisSend();
-    void ProcessCallback(redisReply *reply);
-    std::string Key();
-    void FinalResult();
-private:
-    RedisAsyncConnection * rac_;
-    finFn fin_;
-    std::string source_;
-    std::string module_;
-    std::string coll_;
-    int timeout_;
-    bool res_;
-};
-
-// This Redis Processor will query the list of all types for 
-// the given source,module and the seqnum of the last message seen.
-//
-struct TypesQuery : public RedisProcessorIf {
-    typedef boost::function<void(const std::string &,
-            const std::map<std::string,int32_t> &)> finFn;
-    // callback function to parent
-    TypesQuery(RedisAsyncConnection * rac, finFn fn,
-            const std::string& source, const std::string& module,
-            const std::string& coll, int timeout);
-    bool RedisSend();
-    void ProcessCallback(redisReply *reply);
-    std::string Key();
-    void FinalResult();
-private:
-    RedisAsyncConnection * rac_;
-    finFn fin_;
-    std::string source_;
-    std::string module_;
-    std::string coll_;
-    int timeout_;
-    std::map<std::string,int32_t> res_;
-};
 
 struct GenCleanupReq : public RedisProcessorIf {
     typedef boost::function<void(const std::string &, int)> finFn;

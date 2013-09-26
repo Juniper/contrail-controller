@@ -13,61 +13,87 @@ def setup_venv(build_top = "../../../../../build"):
     venv_dir = "%s/ut-venv" %(venv_base)
     with lcd(venv_dir):
         with prefix("source bin/activate"):
-            local("pip install --upgrade ../../common/dist/cfgm_common-0.1dev.tar.gz")
-            local("pip install --upgrade ../dist/vnc_cfg_api_server-0.1dev.tar.gz")
-            local("pip install --upgrade ../../../api-lib/dist/vnc_api-0.1dev.tar.gz")
-            local("pip install --upgrade ../../../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz")
-            local("pip install --upgrade ../../../sandesh/common/dist/sandesh-common-0.1dev.tar.gz")
-            local("pip install --upgrade ../../../discovery/dist/discovery-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../../common/dist/cfgm_common-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../dist/vnc_cfg_api_server-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../../../api-lib/dist/vnc_api-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../../../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../../../sandesh/common/dist/sandesh-common-0.1dev.tar.gz")
+            local(
+                "pip install --upgrade "
+                "../../../discovery/dist/discovery-0.1dev.tar.gz")
             local("pip install xmltodict")
             local("pip install fixtures==0.3.12")
             local("pip install testtools==0.9.32")
             local("pip install flexmock==0.9.7")
             local("pip install python-novaclient==2.13.0")
             local("pip install stevedore")
-            pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
+            pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             # 2.6 requirements
             local("pip install ordereddict")
             if pyver == '2.6':
                 local("pip install importlib")
 
-            local("cp ../../../../../controller/src/config/api-server/tests/test_common.py lib/python%s/site-packages/vnc_cfg_api_server/" %(pyver))
+            local(
+                "cp ../../../../../controller/src/config/api-server/tests/"
+                "test_common.py lib/python%s/site-packages/"
+                "vnc_cfg_api_server/" %
+                (pyver))
 #end setup_venv
 
 @task
 def destroy_venv(build_top = "../../../../../build"):
-    venv_base = "%s/debug/config/api-server" %(build_top)
-    venv_dir = "%s/ut-venv" %(venv_base)
-    local("rm -rf %s" %(venv_dir))
+    venv_base = "%s/debug/config/api-server" % (build_top)
+    venv_dir = "%s/ut-venv" % (venv_base)
+    local("rm -rf %s" % (venv_dir))
 #end destroy_venv
 
 @task
 def run_tests(build_top = "../../../../../build"):
-    venv_base = "%s/debug/config/api-server" %(build_top)
-    venv_dir = "%s/ut-venv" %(venv_base)
+    venv_base = "%s/debug/config/api-server" % (build_top)
+    venv_dir = "%s/ut-venv" % (venv_base)
     with lcd(venv_dir):
         with prefix("source bin/activate"):
-            pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
-            local("cp ../../../../../src/config/api-server/tests/test_crud_basic.py lib/python%s/site-packages/vnc_cfg_api_server/" %(pyver))
-            local("python lib/python%s/site-packages/vnc_cfg_api_server/test_crud_basic.py" %(pyver))
+            pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
+            local(
+                "cp ../../../../../src/config/api-server/tests/"
+                "test_crud_basic.py lib/python%s/site-packages/"
+                "vnc_cfg_api_server/" % (pyver))
+            local(
+                "python lib/python%s/site-packages/"
+                "vnc_cfg_api_server/test_crud_basic.py" % (pyver))
 #end run_tests
 
 @task
 def run_api_srv(build_top = "../../../../../build", listen_ip = None, listen_port = None):
-    venv_base = "%s/debug/config/api-server" %(build_top)
-    venv_dir = "%s/ut-venv" %(venv_base)
+    venv_base = "%s/debug/config/api-server" % (build_top)
+    venv_dir = "%s/ut-venv" % (venv_base)
     with lcd(venv_dir):
         with prefix("source bin/activate"):
             pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
-            local("cp ../../../../../controller/src/config/api-server/tests/fake_api_server.py lib/python%s/site-packages/vnc_cfg_api_server/" %(pyver))
+            local(
+                "cp ../../../../../controller/src/config/api-server/tests/"
+                "fake_api_server.py lib/python%s/site-packages/"
+                "vnc_cfg_api_server/" % (pyver))
 
             opt_str = ""
             if listen_ip:
-                opt_str = "%s --listen_ip %s" %(opt_str, listen_ip)
+                opt_str = "%s --listen_ip %s" % (opt_str, listen_ip)
             if listen_port:
-                opt_str = "%s --listen_port %s" %(opt_str, listen_port)
+                opt_str = "%s --listen_port %s" % (opt_str, listen_port)
 
-            local("python lib/python%s/site-packages/vnc_cfg_api_server/fake_api_server.py %s" %(pyver, opt_str))
+            local(
+                "python lib/python%s/site-packages/"
+                "vnc_cfg_api_server/fake_api_server.py %s" % (pyver, opt_str))
 #end run_api_srv
 
 @task

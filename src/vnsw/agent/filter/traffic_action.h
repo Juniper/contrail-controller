@@ -35,6 +35,8 @@ public:
     };
     static const uint32_t DROP_FLAGS = ((1 << DROP) | (1 << DENY) | 
                                         (1 << REJECT));
+    static const uint32_t PASS_FLAGS = ((1 << PASS));
+    static const uint32_t IMPLICIT_DENY_FLAGS = ((1 << IMPLICIT_DENY));
 
     TrafficAction() {};
     virtual ~TrafficAction() {};

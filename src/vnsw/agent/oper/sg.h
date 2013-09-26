@@ -79,8 +79,10 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static SgTable *GetInstance() {return sg_table_;};
 
 private:
+    static SgTable* sg_table_;
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     DISALLOW_COPY_AND_ASSIGN(SgTable);
 };

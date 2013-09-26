@@ -243,7 +243,7 @@ bool Ruleeng::handle_flow_object(const RuleMsg& rmsg) {
     return true;
 }
 
-bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp) {
+bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc) {
     RuleMsg rmsg(vmsgp);
 
 
@@ -258,7 +258,7 @@ bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp) {
 
     handle_object_log(parent, rmsg, vmsgp->unm);
 
-    handle_uve_publish(rmsg);
+    if (uveproc) handle_uve_publish(rmsg);
 
     handle_flow_object(rmsg);
 

@@ -87,9 +87,6 @@ static void WaitForIdle() {
 
 static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
     if (client) {
-        client->WithdrawPublish(DiscoveryServiceClient::XmppService);
-        client->Unsubscribe(g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
-
         client->Shutdown();
         delete client;
     }

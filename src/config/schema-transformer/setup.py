@@ -9,8 +9,8 @@ setup(
     packages=['schema_transformer',
               'schema_transformer.sandesh',
               'schema_transformer.sandesh.st_introspect',
-             ],
-    package_data={'':['*.html', '*.css', '*.xml']},
+              ],
+    package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration Schema Transformer",
     install_requires=[

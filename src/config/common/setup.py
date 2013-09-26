@@ -19,8 +19,8 @@ setup(
               'cfgm_common.uve.vrouter',
               'cfgm_common.uve.cfgm_cpuinfo',
               'cfgm_common.uve.cfgm_cpuinfo.cpuinfo'
-             ],
-    package_data={'':['*.html', '*.css', '*.xml']},
+              ],
+    package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration Common Utils",
 )

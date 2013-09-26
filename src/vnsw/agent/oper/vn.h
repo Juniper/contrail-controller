@@ -141,6 +141,7 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static VnTable *GetInstance() {return vn_table_;};
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam);
@@ -149,6 +150,7 @@ public:
     static void IpamVnSync(IFMapNode *node);
 
 private:
+    static VnTable *vn_table_;
     bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
     void DeleteIpamHostRoutes(VnEntry *vn);

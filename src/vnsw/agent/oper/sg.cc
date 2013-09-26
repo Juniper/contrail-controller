@@ -18,10 +18,10 @@
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
 
-static SgTable *sg_table_;
-
 using namespace autogen;
 using namespace std;
+
+SgTable *SgTable::sg_table_;
 
 bool SgEntry::IsLess(const DBEntry &rhs) const {
     const SgEntry &a = static_cast<const SgEntry &>(rhs);
@@ -45,7 +45,7 @@ void SgEntry::SetKey(const DBRequestKey *key) {
 }
 
 AgentDBTable *SgEntry::DBToTable() const {
-    return sg_table_;
+    return static_cast<AgentDBTable *>(SgTable::GetInstance());
 }
 
 std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
@@ -123,7 +123,7 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 continue;
             }
 
-            if (adj_node->table() == AgentConfig::GetAclTable()) {
+            if (adj_node->table() == AgentConfig::GetInstance()->GetAclTable()) {
                 AccessControlList *acl_cfg = static_cast<AccessControlList *>
                     (adj_node->GetObject());
                 assert(acl_cfg);
@@ -149,7 +149,7 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetVmInterfaceTable()) == false) {
+            (adj_node, AgentConfig::GetInstance()->GetVmInterfaceTable()) == false) {
             continue;
         }
         if (adj_node->GetObject() == NULL) {

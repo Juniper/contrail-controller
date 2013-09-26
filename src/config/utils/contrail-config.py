@@ -13,23 +13,26 @@ import json
 from pprint import pprint
 
 sys.path.insert(0, os.path.realpath('/usr/lib/python2.7/site-packages'))
-sys.path.insert(0, os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
+sys.path.insert(
+    0,
+    os.path.realpath('/usr/lib/python2.7/site-packages/vnc_cfg_api_server/'))
 
 from vnc_api.vnc_api import *
 from vnc_api.common import exceptions as vnc_exceptions
 import vnc_cfg_api_server
 
+
 class ContrailConfigCmd(object):
-    def __init__(self, args_str = None):
+    def __init__(self, args_str=None):
         self._args = None
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
         # connect to vnc server
-        self._vnc_lib = VncApi('u', 'p', 
-                         api_server_host = self._args.listen_ip_addr, 
-                         api_server_port = self._args.listen_port)
+        self._vnc_lib = VncApi('u', 'p',
+                               api_server_host=self._args.listen_ip_addr,
+                               api_server_port=self._args.listen_port)
 
         self.re_parser = re.compile('[ \t\n]+')
         self.dfs_path = []
@@ -38,7 +41,7 @@ class ContrailConfigCmd(object):
     def _parse_args(self, args_str):
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
-        conf_parser = argparse.ArgumentParser(add_help = False)
+        conf_parser = argparse.ArgumentParser(add_help=False)
 
         conf_parser.add_argument("-c", "--conf_file",
                                  help="Specify config file", metavar="FILE")
@@ -46,7 +49,7 @@ class ContrailConfigCmd(object):
 
         global_defaults = {}
 
-        args.conf_file ='/etc/contrail/api_server.conf' 
+        args.conf_file = '/etc/contrail/api_server.conf'
         if args.conf_file:
             config = ConfigParser.SafeConfigParser()
             config.read([args.conf_file])
@@ -67,12 +70,14 @@ class ContrailConfigCmd(object):
         subparsers = parser.add_subparsers()
 
         restore_parser = subparsers.add_parser('restore')
-        restore_parser.add_argument("filename", help = "file name to save config")
-        restore_parser.set_defaults(func = self.restore_contrail_config)
+        restore_parser.add_argument("filename",
+                                    help="file name to save config")
+        restore_parser.set_defaults(func=self.restore_contrail_config)
 
         backup_parser = subparsers.add_parser('backup')
-        backup_parser.add_argument("name", help = "name to backup config database")
-        backup_parser.set_defaults(func = self.backup_contrail_config)
+        backup_parser.add_argument("name",
+                                   help="name to backup config database")
+        backup_parser.set_defaults(func=self.backup_contrail_config)
 
         self._args = parser.parse_args(remaining_argv)
     #end _parse_args
@@ -87,8 +92,8 @@ class ContrailConfigCmd(object):
             #create object with these keys
             create_obj = {}
             for key, val in obj['data'].items():
-                if key not in ['uuid', 'fq_name', 'id_perms', \
-                               'parent_type', 'virtual_network_refs', \
+                if key not in ['uuid', 'fq_name', 'id_perms',
+                               'parent_type', 'virtual_network_refs',
                                'network_ipam_refs']:
                     continue
                 create_obj[key] = val
@@ -103,9 +108,12 @@ class ContrailConfigCmd(object):
                 obj['created'] = True
             except Exception as e:
                 if hasattr(e, 'status_code'):
-                    print("Error(%s): creating %s %s " % (e.status_code, obj['type'], obj['data']['fq_name']))
+                    print("Error(%s): creating %s %s "
+                          % (e.status_code, obj['type'],
+                             obj['data']['fq_name']))
                 else:
-                    print("Error: creating %s %s %s\n" % (obj['type'], obj['data']['fq_name'], e))
+                    print("Error: creating %s %s %s\n"
+                          % (obj['type'], obj['data']['fq_name'], e))
 
     #end _create_objects
 
@@ -122,9 +130,12 @@ class ContrailConfigCmd(object):
                 pass
             except Exception as e:
                 if hasattr(e, 'status_code'):
-                    print("Error(%s): updating %s %s " % (e.status_code, obj['type'], obj['data']['fq_name']))
+                    print("Error(%s): updating %s %s "
+                          % (e.status_code, obj['type'],
+                             obj['data']['fq_name']))
                 else:
-                    print("Error: updating %s %s %s\n" % (obj['type'], obj['data']['fq_name'], e))
+                    print("Error: updating %s %s %s\n"
+                          % (obj['type'], obj['data']['fq_name'], e))
     #end _update_objects
 
     #depth first search
@@ -158,8 +169,8 @@ class ContrailConfigCmd(object):
             type = line.split(':')[1]
             line = f.readline()
             obj = json.loads(line)
-            objs[str(obj['fq_name'])] = {'created': False, 
-                                         'type': type.replace('_', '-'), 
+            objs[str(obj['fq_name'])] = {'created': False,
+                                         'type': type.replace('_', '-'),
                                          'data': obj}
         f.close()
 
@@ -228,10 +239,11 @@ class ContrailConfigCmd(object):
 
 #end class ContrailConfigCmd
 
-def main(args_str = None):
+
+def main(args_str=None):
     cfg = ContrailConfigCmd(args_str)
     cfg._args.func()
 #end main
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -3,7 +3,7 @@
 #
 import gevent
 import os
-import sys 
+import sys
 import pdb
 from pprint import pprint
 import functools
@@ -25,40 +25,45 @@ from pycassa.util import *
 from vnc_api import *
 from novaclient import exceptions as nc_exc
 
+
 def stub(*args, **kwargs):
     pass
+
 
 class CassandraCFs(object):
     _all_cfs = {}
 
     @classmethod
     def add_cf(cls, name, cf):
-        CassandraCFs._all_cfs[name] =  cf
-    #end add_cf
+        CassandraCFs._all_cfs[name] = cf
+    # end add_cf
 
     @classmethod
     def get_cf(cls, name):
         return CassandraCFs._all_cfs[name]
-    #end get_cf
+    # end get_cf
 
-#end CassandraCFs
+# end CassandraCFs
+
 
 class FakeCF(object):
+
     def __init__(*args, **kwargs):
         self = args[0]
         self._name = args[3]
         self._rows = OrderedDict({})
         self.column_validators = {}
         CassandraCFs.add_cf(self._name, self)
-    #end __init__
+    # end __init__
 
     def get_range(self, *args, **kwargs):
         for key in self._rows:
             yield (key, self.get(key))
-    #end get_range
+    # end get_range
 
-    def get(self, key, columns = None, column_start = None, column_finish = None,
-            include_timestamp = False):
+    def get(
+        self, key, columns=None, column_start=None, column_finish=None,
+            include_timestamp=False):
         if not key in self._rows:
             raise pycassa.NotFoundException
 
@@ -85,7 +90,7 @@ class FakeCF(object):
                     col_dict[col_name] = col_value
 
         return col_dict
-    #end get
+    # end get
 
     def insert(self, key, col_dict):
         if key not in self._rows:
@@ -95,12 +100,12 @@ class FakeCF(object):
         for col_name in col_dict.keys():
             self._rows[key][col_name] = (col_dict[col_name], tstamp)
 
-    #end insert
+    # end insert
 
-    def remove(self, key, columns = None):
+    def remove(self, key, columns=None):
         try:
             if columns:
-                #for each entry in col_name delete each that element
+                # for each entry in col_name delete each that element
                 for col_name in columns:
                     del self._rows[key][col_name]
             else:
@@ -108,9 +113,10 @@ class FakeCF(object):
         except KeyError:
             # pycassa remove ignores non-existing keys
             pass
-    #end remove
+    # end remove
 
-    def xget(self, key, column_start = None, column_finish = None, include_timestamp = False):
+    def xget(self, key, column_start=None, column_finish=None,
+             include_timestamp=False):
         col_names = []
         if key in self._rows:
             col_names = self._rows[key].keys()
@@ -126,80 +132,92 @@ class FakeCF(object):
             else:
                 yield (col_name, col_value)
 
-    #end xget
+    # end xget
 
     def batch(self):
         return self
-    #end batch
+    # end batch
 
     def send(self):
         pass
-    #end send
+    # end send
 
-#end class FakeCF
+# end class FakeCF
+
 
 class FakeNovaClient(object):
+
     @staticmethod
     def initialize(*args, **kwargs):
         return FakeNovaClient
-    
+
     class flavors:
+
         @staticmethod
         def find(ram):
             return None
-    #end class flavors
-    
+    # end class flavors
+
     class images:
+
         @staticmethod
         def find(name):
             return None
-    #end class images
-    
+    # end class images
+
     class servers:
+
         @staticmethod
         def create(name, image, flavor, nics):
             vm = vnc_api.VirtualMachine(name)
             FakeNovaClient.vnc_lib.virtual_machine_create(vm)
             for network in nics:
-                vn = FakeNovaClient.vnc_lib.virtual_network_read(id=network['net-id'])
+                vn = FakeNovaClient.vnc_lib.virtual_network_read(
+                    id=network['net-id'])
                 vmi = vnc_api.VirtualMachineInterface(vn.name, parent_obj=vm)
                 vmi.set_virtual_network(vn)
                 FakeNovaClient.vnc_lib.virtual_machine_interface_create(vmi)
 
-                ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(vn, count=1)[0]
+                ip_address = FakeNovaClient.vnc_lib.virtual_network_ip_alloc(
+                    vn, count=1)[0]
                 ip_obj = vnc_api.InstanceIp(ip_address, ip_address)
                 ip_obj.add_virtual_network(vn)
                 ip_obj.add_virtual_machine_interface(vmi)
                 FakeNovaClient.vnc_lib.instance_ip_create(ip_obj)
-            #end for network
+            # end for network
             vm.id = vm.uuid
-            vm.delete = FakeNovaClient.delete_vm.__get__(vm, vnc_api.VirtualMachine)
+            vm.delete = FakeNovaClient.delete_vm.__get__(
+                vm, vnc_api.VirtualMachine)
             vm.get = stub
             return vm
-        #end create
-        
+        # end create
+
         @staticmethod
         def find(id):
             try:
                 vm = FakeNovaClient.vnc_lib.virtual_machine_read(id=id)
             except vnc_api.NoIdError:
                 raise nc_exc.NotFound(404, "")
-            vm.delete = FakeNovaClient.delete_vm.__get__(vm, vnc_api.VirtualMachine)
+            vm.delete = FakeNovaClient.delete_vm.__get__(
+                vm, vnc_api.VirtualMachine)
             vm.status = 'OK'
             return vm
-        #end find
-    #end class servers
-    
+        # end find
+    # end class servers
+
     @staticmethod
     def delete_vm(vm):
         for if_ref in vm.get_virtual_machine_interfaces():
-            intf = FakeNovaClient.vnc_lib.virtual_machine_interface_read(id=if_ref['uuid'])
+            intf = FakeNovaClient.vnc_lib.virtual_machine_interface_read(
+                id=if_ref['uuid'])
             for ip_ref in intf.get_instance_ip_back_refs() or []:
                 FakeNovaClient.vnc_lib.instance_ip_delete(id=ip_ref['uuid'])
-            FakeNovaClient.vnc_lib.virtual_machine_interface_delete(id=if_ref['uuid'])
+            FakeNovaClient.vnc_lib.virtual_machine_interface_delete(
+                id=if_ref['uuid'])
         FakeNovaClient.vnc_lib.virtual_machine_delete(id=vm.uuid)
-    #end delete_vm
-#end class FakeNovaClient
+    # end delete_vm
+# end class FakeNovaClient
+
 
 class FakeIfmapClient(object):
     # _graph is dict of ident_names where val for each key is
@@ -208,23 +226,46 @@ class FakeIfmapClient(object):
     # 'links' is a dict with keys of concat(<meta-name>' '<ident-name>')
     # and vals of dict with 'meta' which has meta xml element and
     #                       'other' which has other ident xml element
-    # eg. cls._graph['contrail:network-ipam:default-domain:default-project:ipam2'] =
+    # eg. cls._graph['contrail:network-ipam:default-domain:default-project:
+    # ipam2'] =
     # 'ident': <Element identity at 0x2b3e280>,
     # 'links': {'contrail:id-perms': {'meta': <Element metadata at 0x2b3eb40>},
-    #           'contrail:project-network-ipam contrail:project:default-domain:default-project':
-    #               {'other': <Element identity at 0x2b3eaa0>, 'meta': <Element metadata at 0x2b3ea50>},
-    #           'contrail:virtual-network-network-ipam contrail:virtual-network:default-domain:default-project:vn2':
-    #               {'other': <Element identity at 0x2b3ee10>, 'meta': <Element metadata at 0x2b3e410>}}}
+    #           'contrail:project-network-ipam
+    #            contrail:project:default-domain:default-project':
+    #               {'other': <Element identity at 0x2b3eaa0>,
+    #                'meta': <Element metadata at 0x2b3ea50>},
+    #                'contrail:virtual-network-network-ipam contrail:
+    #                virtual-network:default-domain:default-project:vn2':
+    #                {'other': <Element identity at 0x2b3ee10>,
+    #                 'meta': <Element metadata at 0x2b3e410>}}}
     _graph = {}
     _subscribe_lists = [Queue.Queue()]
-    _PUBLISH_ENVELOPE = """<?xml version="1.0" encoding="UTF-8"?> <env:Envelope xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd" xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2"> <env:Body> %(body)s </env:Body> </env:Envelope>"""
+    _PUBLISH_ENVELOPE = \
+        """<?xml version="1.0" encoding="UTF-8"?> """\
+        """<env:Envelope xmlns:"""\
+        """env="http://www.w3.org/2003/05/soap-envelope" xmlns:"""\
+        """ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" """\
+        """xmlns:contrail="http://www.contrailsystems.com/"""\
+        """vnc_cfg.xsd" """\
+        """xmlns:meta="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP-METADATA/2"> """\
+        """<env:Body> %(body)s </env:Body> </env:Envelope>"""
 
-    _RSP_ENVELOPE = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?> <env:Envelope xmlns:ifmap="http://www.trustedcomputinggroup.org/2010/IFMAP/2" xmlns:env="http://www.w3.org/2003/05/soap-envelope" xmlns:meta="http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2" xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd"> <env:Body><ifmap:response> %(result)s </ifmap:response></env:Body></env:Envelope>"""
+    _RSP_ENVELOPE = \
+        """<?xml version="1.0" encoding="UTF-8" standalone="yes"?> """\
+        """<env:Envelope xmlns:ifmap="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP/2" """\
+        """xmlns:env="http://www.w3.org/2003/05/soap-envelope" """\
+        """xmlns:meta="http://www.trustedcomputinggroup.org"""\
+        """/2010/IFMAP-METADATA/2" """\
+        """xmlns:contrail="http://www.contrailsystems.com/vnc_cfg.xsd"> """\
+        """<env:Body><ifmap:response> %(result)s """\
+        """</ifmap:response></env:Body></env:Envelope>"""
 
     @staticmethod
     def initialize(*args, **kwargs):
         pass
-    #end initialize
+    # end initialize
 
     @classmethod
     def _update_publish(cls, upd_root):
@@ -242,7 +283,7 @@ class FakeIfmapClient(object):
         elif len(upd_root) == 3:
             meta_name = re.sub("{.*}", "contrail:", upd_root[2][0].tag)
             to_name = upd_root[1].attrib['name']
-            link_key = '%s %s' %(meta_name, to_name)
+            link_key = '%s %s' % (meta_name, to_name)
             link_info = {'meta': upd_root[2], 'other': upd_root[1]}
             cls._graph[from_name]['links'][link_key] = link_info
 
@@ -252,16 +293,17 @@ class FakeIfmapClient(object):
             to_type = to_name.split(':')[1]
             if not to_name in cls._graph:
                 cls._graph[to_name] = {'ident': upd_root[1], 'links': {}}
-            link_key = '%s %s' %(meta_name, from_name)
+            link_key = '%s %s' % (meta_name, from_name)
             link_info = {'meta': upd_root[2], 'other': upd_root[0]}
             cls._graph[to_name]['links'][link_key] = link_info
         else:
-            raise Exception("Unknown ifmap update: %s" %(etree.tostring(upd_root)))
+            raise Exception("Unknown ifmap update: %s" %
+                            (etree.tostring(upd_root)))
 
         subscribe_result = etree.Element('updateResult')
         subscribe_result.append(subscribe_item)
         return subscribe_result
-    #end _update_publish
+    # end _update_publish
 
     @classmethod
     def _delete_publish(cls, del_root):
@@ -272,13 +314,14 @@ class FakeIfmapClient(object):
                 link_key = meta_name
             elif len(del_root) == 2:
                 to_name = del_root[1].attrib['name']
-                link_key = '%s %s' %(meta_name, to_name)
+                link_key = '%s %s' % (meta_name, to_name)
             else:
-                raise Exception("Unknown ifmap delete: %s" %(etree.tostring(del_root)))
-               
+                raise Exception("Unknown ifmap delete: %s" %
+                                (etree.tostring(del_root)))
+
             link_keys = [link_key]
 
-        else: # delete all metadata on this ident or between pair of idents
+        else:  # delete all metadata on this ident or between pair of idents
             if len(del_root) == 1:
                 link_keys = cls._graph[from_name]['links'].keys()
             elif len(del_root) == 2:
@@ -292,7 +335,8 @@ class FakeIfmapClient(object):
                             if link_key.split()[1] == to_name:
                                 link_keys.append(link_key)
             else:
-                raise Exception("Unknown ifmap delete: %s" %(etree.tostring(del_root)))
+                raise Exception("Unknown ifmap delete: %s" %
+                                (etree.tostring(del_root)))
 
         subscribe_result = etree.Element('deleteResult')
         for link_key in link_keys:
@@ -303,8 +347,9 @@ class FakeIfmapClient(object):
             subscribe_result.append(subscribe_item)
             if 'other' in link_info:
                 other_name = link_info['other'].attrib['name']
-                meta_name = re.sub("{.*}", "contrail:", link_info['meta'][0].tag)
-                rev_link_key = '%s %s' %(meta_name, from_name)
+                meta_name = re.sub(
+                    "{.*}", "contrail:", link_info['meta'][0].tag)
+                rev_link_key = '%s %s' % (meta_name, from_name)
                 from_type = from_name.split(':')[1]
                 other_type = other_name.split(':')[1]
                 if other_name in cls._graph:
@@ -312,7 +357,7 @@ class FakeIfmapClient(object):
                     if not cls._graph[other_name]['links']:
                         del cls._graph[other_name]
             del cls._graph[from_name]['links'][link_key]
-                
+
         # delete ident if no links left
         if from_name in cls._graph and not cls._graph[from_name]['links']:
             del cls._graph[from_name]
@@ -321,15 +366,16 @@ class FakeIfmapClient(object):
             subscribe_item = etree.Element('resultItem')
             subscribe_item.extend(deepcopy(del_root))
             subscribe_result.append(subscribe_item)
-            
+
         return subscribe_result
-    #end _delete_publish
+    # end _delete_publish
 
     @staticmethod
     def call(method, body):
         cls = FakeIfmapClient
         if method == 'publish':
-            pub_env = cls._PUBLISH_ENVELOPE %{'body': body._PublishRequest__operations}
+            pub_env = cls._PUBLISH_ENVELOPE % {
+                'body': body._PublishRequest__operations}
             env_root = etree.fromstring(pub_env)
             poll_result = etree.Element('pollResult')
             for pub_root in env_root[0]:
@@ -339,14 +385,16 @@ class FakeIfmapClient(object):
                 elif pub_root.tag == 'delete':
                     subscribe_result = cls._delete_publish(pub_root)
                 else:
-                    raise Exception("Unknown ifmap publish: %s" %(etree.tostring(pub_root)))
+                    raise Exception(
+                        "Unknown ifmap publish: %s"
+                        % (etree.tostring(pub_root)))
                 poll_result.append(subscribe_result)
 
             for sl in cls._subscribe_lists:
                 if sl is not None:
                     sl.put(poll_result)
             result = etree.Element('publishReceived')
-            result_env = cls._RSP_ENVELOPE %{'result': etree.tostring(result)}
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
         elif method == 'search':
             # grab ident string; lookup graph with match meta and return
@@ -357,8 +405,10 @@ class FakeIfmapClient(object):
 
             all_link_keys = set()
             for match_link in match_links.split(' or '):
-                link_keys = set([link_key for link_key in cls._graph[start_name]['links'].keys() \
-                                          if re.match(match_link, link_key)])
+                link_keys = set(
+                    [link_key for link_key in cls._graph[start_name]
+                     ['links'].keys()
+                     if re.match(match_link, link_key)])
                 all_link_keys |= link_keys
 
             result_items = []
@@ -378,39 +428,40 @@ class FakeIfmapClient(object):
             search_result = etree.Element('searchResult')
             search_result.extend(result_items)
             search_str = etree.tostring(search_result)
-            search_env = cls._RSP_ENVELOPE %{'result': search_str} 
+            search_env = cls._RSP_ENVELOPE % {'result': search_str}
 
             return search_env
 
             #ifmap_cf = CassandraCFs.get_cf('ifmap_id_table')
-            #srch_uuid = ifmap_cf.get(ifmap_id)['uuid'] 
+            #srch_uuid = ifmap_cf.get(ifmap_id)['uuid']
             #uuid_cf = CassandraCFs.get_cf('uuid_table')
             #obj_json = uuid_cf.get(srch_uuid)['obj_json']
         elif method == 'poll':
             session_id = int(body._PollRequest__session_id)
             item = cls._subscribe_lists[session_id].get(True)
             poll_str = etree.tostring(item)
-            poll_env = cls._RSP_ENVELOPE %{'result': poll_str}
+            poll_env = cls._RSP_ENVELOPE % {'result': poll_str}
             return poll_env
         elif method == 'newSession':
             result = etree.Element('newSessionResult')
             result.set("session-id", str(len(cls._subscribe_lists)))
             result.set("ifmap-publisher-id", "111")
             result.set("max-poll-result-size", "7500000")
-            result_env = cls._RSP_ENVELOPE %{'result': etree.tostring(result)}
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             cls._subscribe_lists.append(None)
             return result_env
         elif method == 'subscribe':
-            session_id=int(body._SubscribeRequest__session_id)
+            session_id = int(body._SubscribeRequest__session_id)
             cls._subscribe_lists[session_id] = cls._subscribe_lists[0]
             result = etree.Element('subscribeReceived')
-            result_env = cls._RSP_ENVELOPE %{'result': etree.tostring(result)}
+            result_env = cls._RSP_ENVELOPE % {'result': etree.tostring(result)}
             return result_env
         else:
             print method
-    #end call
+    # end call
 
-#end class FakeIfmapClient
+# end class FakeIfmapClient
+
 
 def get_free_port():
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -419,7 +470,8 @@ def get_free_port():
     tmp_sock.close()
 
     return free_port
-#end get_free_port
+# end get_free_port
+
 
 def block_till_port_listened(server_ip, server_port):
     svr_running = False
@@ -430,11 +482,12 @@ def block_till_port_listened(server_ip, server_port):
             svr_running = True
         except Exception as err:
             if err.errno == errno.ECONNREFUSED:
-                print "port %s not up, retrying in 2 secs" %(server_port)
+                print "port %s not up, retrying in 2 secs" % (server_port)
                 gevent.sleep(2)
-#end block_till_port_listened
+# end block_till_port_listened
+
 
 def Fake_uuid_to_time(time_uuid_in_db):
     ts = time.mktime(time_uuid_in_db.timetuple())
     return ts
-#end of Fake_uuid_to_time
+# end of Fake_uuid_to_time

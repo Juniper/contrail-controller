@@ -37,7 +37,7 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
         return false;
     }
 
-    intf = InterfaceTable::FindInterface(pkt_info->agent_hdr.ifindex);
+    intf = InterfaceTable::GetInstance()->FindInterface(pkt_info->agent_hdr.ifindex);
     if (intf == NULL) {
         LOG(ERROR, "Invalid interface index <" << pkt_info->agent_hdr.ifindex << ">");
         return true;

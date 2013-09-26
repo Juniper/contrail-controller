@@ -70,7 +70,7 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
             rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
                                         vrf_entry->GetName(),
                                         Agent::GetInstance()->GetVirtualHostInterfaceName(),
-                                        Ip4Address(METADATA_IP_ADDR),
+                                        Ip4Address(METADATA_IP_ADDR), 32,
                                         Agent::GetInstance()->GetLinkLocalVnName(),
                                         true);
         }
@@ -113,7 +113,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto drop;
     }
 
-    intf = InterfaceTable::FindInterface(pkt_info->GetAgentHdr().ifindex);
+    intf = InterfaceTable::GetInstance()->FindInterface(pkt_info->GetAgentHdr().ifindex);
     if (intf == NULL) {
         std::stringstream str;
         str << pkt_info->GetAgentHdr().ifindex;

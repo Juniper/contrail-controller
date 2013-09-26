@@ -12,9 +12,9 @@
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
 
-static MplsTable *mpls_table_;
-
 using namespace std;
+
+MplsTable *MplsTable::mpls_table_;
 
 MplsLabel::~MplsLabel() { 
     if (label_ == MplsTable::kInvalidLabel) {
@@ -38,7 +38,7 @@ void MplsLabel::SetKey(const DBRequestKey *k) {
 }
 
 AgentDBTable *MplsLabel::DBToTable() const {
-    return mpls_table_;
+    return MplsTable::GetInstance();
 }
 
 std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
@@ -111,7 +111,23 @@ void MplsLabel::CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
     MplsLabelData *data = new MplsLabelData(intf_uuid, tag);
     req.data.reset(data);
 
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
+    return;
+}
+
+void MplsLabel::CreateVirtualHostPortLabelReq(uint32_t label,
+                                              const string &ifname,
+                                              bool policy) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
+    req.key.reset(key);
+
+    MplsLabelData *data = new MplsLabelData(ifname, policy);
+    req.data.reset(data);
+
+    MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
 
@@ -126,7 +142,7 @@ void MplsLabel::CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
     MplsLabelData *data = new MplsLabelData(intf_uuid, policy);
     req.data.reset(data);
 
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
 
@@ -141,7 +157,7 @@ void MplsLabel::CreateMcastLabelReq(const string &vrf_name, const Ip4Address &gr
     MplsLabelData *data = new MplsLabelData(vrf_name, grp_addr, src_addr, false);
     req.data.reset(data);
 
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
 
@@ -156,7 +172,7 @@ void MplsLabel::CreateEcmpLabelReq(uint32_t label, const string &vrf_name,
     MplsLabelData *data = new MplsLabelData(vrf_name, addr, true);
     req.data.reset(data);
 
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
                                    
@@ -169,7 +185,7 @@ void MplsLabel::DeleteMcastLabelReq(const string &vrf_name, const Ip4Address &gr
     req.key.reset(key);
     req.data.reset(NULL);
 
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
     return;
 }
 
@@ -180,7 +196,7 @@ void MplsLabel::DeleteReq(uint32_t label) {
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
     req.key.reset(key);
     req.data.reset(NULL);
-    mpls_table_->Enqueue(&req);
+    MplsTable::GetInstance()->Enqueue(&req);
 }
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {

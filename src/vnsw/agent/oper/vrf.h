@@ -135,6 +135,7 @@ public:
     void DeleteVrf(const string &name);
     // Create VRF Table with given name
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static VrfTable *GetInstance() {return vrf_table_;};
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
@@ -142,7 +143,7 @@ public:
     VrfEntry *FindVrfFromId(size_t index) {return index_table_.At(index);};
     Inet4UcRouteTable *GetInet4UcRouteTable(const string &vrf_name);
     Inet4McRouteTable *GetInet4McRouteTable(const string &vrf_name);
-    static void FreeVrfId(size_t index) {index_table_.Remove(index);};
+    void FreeVrfId(size_t index) {index_table_.Remove(index);};
 
     static const string &GetInet4UcSuffix() {
         static const std::string str = ".uc.route.0";
@@ -163,7 +164,8 @@ private:
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMcastBcastDone(DBTableBase *base, Peer *);
     DB *db_;
-    static IndexVector<VrfEntry> index_table_;
+    static VrfTable *vrf_table_;
+    IndexVector<VrfEntry> index_table_;
     VrfNameTree name_tree_;
     // Map from VRF Name to Inet4 Route Tables
     VrfDbTree inet4_uc_dbtree_;

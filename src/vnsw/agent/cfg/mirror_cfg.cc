@@ -144,7 +144,7 @@ const char *MirrorCfgTable::Add(const MirrorCreateReq &cfg) {
     mc_tree_.insert(std::pair<MirrorCfgKey, MirrorCfgEntry *>(key, entry));
 
 
-    IFMapNode *vn_node = AgentConfig::GetVnTable()->FindNode(entry->data.apply_vn);
+    IFMapNode *vn_node = AgentConfig::GetInstance()->GetVnTable()->FindNode(entry->data.apply_vn);
     if (vn_node && CfgListener::CanUseNode(vn_node)) {
         DBRequest req;
         assert(Agent::GetInstance()->GetVnTable()->IFNodeToReq(vn_node, req) == false);
@@ -296,7 +296,7 @@ void MirrorCfgTable::Delete(MirrorCfgKey &key) {
     // delete from vn_acl map
     vn_acl_map_.erase(va_it);
 
-    IFMapNode *vn_node = AgentConfig::GetVnTable()->FindNode(entry->data.apply_vn);
+    IFMapNode *vn_node = AgentConfig::GetInstance()->GetVnTable()->FindNode(entry->data.apply_vn);
     if (vn_node && CfgListener::CanUseNode(vn_node)) {
         DBRequest req;
         assert(Agent::GetInstance()->GetVnTable()->IFNodeToReq(vn_node, req) == false);

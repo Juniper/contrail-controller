@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+ 
+request sandesh SetAgentStatsInterval_InSeconds {
+    1: byte interval;
+}
+
+request sandesh SetFlowStatsInterval_InSeconds {
+    1: byte interval;
+}
+
+response sandesh StatsCfgResp {
+    1: string resp = "  Success  ";
+}
+
+response sandesh StatsCfgErrResp {
+    1: string resp = "  Failure: Value should be greater than 0 ";
+}
+
+request sandesh GetStatsInterval {
+}
+
+response sandesh StatsIntervalResp_InSeconds {
+    1: byte agent_stats_interval;
+    2: byte flow_stats_interval;
+}

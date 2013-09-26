@@ -12,27 +12,29 @@
 
 #include <uve/stats_collector.h>
 #include <uve/uve_init.h>
-#include <uve/uve_client.h>
 #include <uve/vrouter_stats.h>
+#include <uve/uve_client.h>
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
 #include <oper/mirror_table.h>
+#include <uve/agent_uve_types.h>
 
 AgentUve *AgentUve::singleton_;
 
-AgentUve::AgentUve(int time_interval) {
+AgentUve::AgentUve(int agent_stats_intvl, int flow_stats_intvl) {
     EventManager *evm = Agent::GetInstance()->GetEventManager();
-    agent_stats_collector_ = new AgentStatsCollector(*evm->io_service(), time_interval);
+    agent_stats_collector_ = new AgentStatsCollector(*evm->io_service(), agent_stats_intvl);
     vrouter_stats_collector_ = new VrouterStatsCollector(*evm->io_service());
-    flow_stats_collector_ = new FlowStatsCollector(*evm->io_service(), time_interval);
+    flow_stats_collector_ = new FlowStatsCollector(*evm->io_service(), flow_stats_intvl);
     inter_vn_stats_collector_ = new InterVnStatsCollector();
     intf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     vrf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     drop_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
 }
 
-void AgentUve::Init(int time_interval, uint64_t band_intvl) {
-    singleton_ = new AgentUve(time_interval);
+void AgentUve::Init(int agent_stats_intvl, int flow_stats_intvl, 
+                    uint64_t band_intvl) {
+    singleton_ = new AgentUve(agent_stats_intvl, flow_stats_intvl);
     UveClient::Init(band_intvl);
 }
 
@@ -57,4 +59,47 @@ void AgentUve::Shutdown() {
 
     delete drop_stats_sandesh_ctx_;
     drop_stats_sandesh_ctx_ = NULL;
+}
+
+void SetFlowStatsInterval_InSeconds::HandleRequest() const {
+    SandeshResponse *resp;
+    if (get_interval() > 0) {
+        AgentUve::GetInstance()->GetFlowStatsCollector()->
+            SetExpiryTime(get_interval() * 1000);
+        resp = new StatsCfgResp();
+    } else {
+        resp = new StatsCfgErrResp();
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void SetAgentStatsInterval_InSeconds::HandleRequest() const {
+    SandeshResponse *resp;
+    if (get_interval() > 0) {
+        AgentUve::GetInstance()->GetStatsCollector()->
+            SetExpiryTime(get_interval() * 1000);
+        resp = new StatsCfgResp();
+    } else {
+        resp = new StatsCfgErrResp();
+    }
+
+    resp->set_context(context());
+    resp->Response();
+    return;
+}
+
+void GetStatsInterval::HandleRequest() const {
+    StatsIntervalResp_InSeconds *resp = new StatsIntervalResp_InSeconds();
+    resp->set_agent_stats_interval((AgentUve::GetInstance()->
+                                   GetStatsCollector()->
+                                   GetExpiryTime())/1000);
+    resp->set_flow_stats_interval((AgentUve::GetInstance()->
+                                   GetFlowStatsCollector()->
+                                   GetExpiryTime())/1000);
+    resp->set_context(context());
+    resp->Response();
+    return;
 }

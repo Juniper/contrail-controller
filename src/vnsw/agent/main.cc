@@ -33,6 +33,7 @@
 #include <sandesh/common/vns_constants.h>
 #include <base/misc_utils.h>
 #include <cmn/buildinfo.h>
+#include <vgw/vgw.h>
 
 namespace opt = boost::program_options;
 
@@ -62,6 +63,7 @@ bool AgentInit::Run() {
             // Continue with the next state
 
         case STATIC_OBJ_OPERDB: {
+            VGwTable::CreateStaticObjects();
             OperDB::CreateStaticObjects(boost::bind(&AgentInit::Trigger, this));
             state_ = STATIC_OBJ_PKT;
             break;
@@ -200,8 +202,14 @@ int main(int argc, char *argv[]) {
             ("version", "Display version information")
             ;
     opt::variables_map var_map;
+    try {
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
     opt::notify(var_map);
+    } catch (...) {
+        cout << "Invalid arguments. ";
+        cout << desc << endl;
+        exit(0);
+    }
 
     if (var_map.count("help")) {
         cout << desc << endl;
@@ -268,7 +276,7 @@ int main(int argc, char *argv[]) {
     AgentCmdLineParams cmd_line(collector_server, collector_port, log_file, 
                                 init_file, enable_local_logging, log_level, 
                                 log_category, sandesh_http_port, hostname);
-    AgentConfig::Mode mode = AgentConfig::MODE_KVM;
+    AgentConfig::Mode mode = AgentConfig::MODE_INVALID;
     bool xen_config_set = false;
     string port_name = "";
     int plen = -1;
@@ -326,7 +334,8 @@ int main(int argc, char *argv[]) {
     AgentConfig::InitConfig(init_file, cmd_line);
     if (xen_config_set)
         AgentConfig::GetInstance()->SetXenInfo(port_name, addr, plen);
-    AgentConfig::GetInstance()->SetMode(mode);
+    if (mode != AgentConfig::MODE_INVALID)
+        AgentConfig::GetInstance()->SetMode(mode);
     AgentConfig::GetInstance()->LogConfig();
 
     AgentStats::Init();

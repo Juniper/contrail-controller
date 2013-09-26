@@ -270,8 +270,8 @@ TEST_F(CfgTest, NonDbLinkWithoutIdPerms_1) {
 class CfgUuidTest : public CfgTest {
 public:
     virtual void SetUp() {
-        vn_table = AgentConfig::GetVnTable();
-        vm_table = AgentConfig::GetVmTable();
+        vn_table = AgentConfig::GetInstance()->GetVnTable();
+        vm_table = AgentConfig::GetInstance()->GetVmTable();
         link_table = static_cast<IFMapAgentLinkTable *>
             (Agent::GetInstance()->GetDB()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
 

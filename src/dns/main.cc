@@ -72,9 +72,6 @@ static void IFMap_Initialize(IFMapServer *server) {
 
 void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
     if (ds_client) {
-        ds_client->WithdrawPublish(DiscoveryServiceClient::DNSService);
-        ds_client->Unsubscribe(g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
-
         ds_client->Shutdown();
         delete ds_client;
     }

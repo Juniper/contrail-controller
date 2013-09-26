@@ -7,7 +7,11 @@ from setuptools import setup
 setup(
     name='Control-Node',
     version='0.1dev',
-    packages=['control_node'
+    packages=['control_node',
+              'control_node.control_node', 
+              'control_node.control_node.cpuinfo',
+              'control_node.control_node.ifmap_server_show',
+              'control_node.vns'
              ],
     package_data={'':['*.html', '*.css', '*.xml']},
     zip_safe=False,

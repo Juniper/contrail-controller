@@ -178,10 +178,10 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t tunnels, int64_t composites, uint64_t encaps);
+                   uint64_t tunnels, uint64_t composites, uint64_t encaps);
 bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
                        uint64_t receives, uint64_t tunnels, 
-                       int64_t composites, uint64_t encaps);
+                       uint64_t composites, uint64_t encaps);
 bool RouterIdMatch(Ip4Address rid2);
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);

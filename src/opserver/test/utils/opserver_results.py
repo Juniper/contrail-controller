@@ -5,50 +5,53 @@
 import re
 from verification_util import *
 
+
 def _OpResult_get_list_name(lst):
-    sname=""
+    sname = ""
     for sattr in lst.keys():
         if sattr[0] not in ['@']:
             sname = sattr
     return sname
 
+
 def _OpResultFlatten(inp):
     #import pdb; pdb.set_trace()
     sname = ""
-    if (inp['@type']=='struct'):
+    if (inp['@type'] == 'struct'):
         sname = _OpResult_get_list_name(inp)
-        if (sname==""):
+        if (sname == ""):
             return Exception('Struct Parse Error')
         ret = {}
-        for k,v in inp[sname].items():
+        for k, v in inp[sname].items():
             ret[k] = _OpResultFlatten(v)
         return ret
-    elif (inp['@type']=='list'):
+    elif (inp['@type'] == 'list'):
         sname = _OpResult_get_list_name(inp['list'])
         ret = {}
-        if (sname==""):
+        if (sname == ""):
             return ret
         items = inp['list'][sname]
-        if not isinstance(items,list):
+        if not isinstance(items, list):
             items = [items]
         lst = []
         for elem in items:
-            if not isinstance(elem,dict):
+            if not isinstance(elem, dict):
                 lst.append(elem)
             else:
                 lst_elem = {}
-                for k,v in elem.items():
+                for k, v in elem.items():
                     lst_elem[k] = _OpResultFlatten(v)
                 lst.append(lst_elem)
         ret[sname] = lst
         return ret
     else:
         return inp['#text']
-              
+
+
 def _OpResultListParse(dct, match):
     ret = []
     sname = _OpResult_get_list_name(dct)
-    if (sname==""):
+    if (sname == ""):
         return ret
 
     #import pdb; pdb.set_trace()
@@ -58,7 +61,7 @@ def _OpResultListParse(dct, match):
         lst = dct[sname]
 
     for elem in lst:
-        if (match == None):
+        if (match is None):
             isMatch = True
         else:
             isMatch = False
@@ -71,26 +74,26 @@ def _OpResultListParse(dct, match):
         else:
             dret = {}
             isMatcher = True
-            for k,v in elem.items():
-                if v.has_key('#text'):
+            for k, v in elem.items():
+                if '#text' in v:
                     dret[k] = v["#text"]
-                    if v.has_key('@aggtype'):
+                    if '@aggtype' in v:
                         if v['@aggtype'] == 'listkey':
                             if v['#text'] == match:
                                 isMatch = True
-                    if isinstance(match,list):
+                    if isinstance(match, list):
                         #import pdb; pdb.set_trace()
                         for matcher in match:
-                            if not isinstance(matcher,tuple):
+                            if not isinstance(matcher, tuple):
                                 raise Exception('Incorrect matcher')
-                            mk,mv = matcher
-                            if (k==mk):
-                                if (v['#text']!=mv):
+                            mk, mv = matcher
+                            if (k == mk):
+                                if (v['#text'] != mv):
                                     isMatcher = False
                 else:
-                     dret[k] = _OpResultFlatten(v)
+                    dret[k] = _OpResultFlatten(v)
 
-            if isinstance(match,list):
+            if isinstance(match, list):
                 if isMatcher:
                     ret.append(dret)
             else:
@@ -98,10 +101,11 @@ def _OpResultListParse(dct, match):
                     ret.append(dret)
     return ret
 
-def _OpResultGet(dct, p1, p2, match = None):
+
+def _OpResultGet(dct, p1, p2, match=None):
     ret = None
     try:
-        res = dct.xpath(p1,p2)
+        res = dct.xpath(p1, p2)
 
         #import pdb; pdb.set_trace()
         if isinstance(res, list):
@@ -113,10 +117,10 @@ def _OpResultGet(dct, p1, p2, match = None):
             ret = _OpResultListParse(res['list'], match)
         elif res['@type'] in ["struct"]:
             sname = _OpResult_get_list_name(res)
-            ret = _OpResultFlatten(res) 
+            ret = _OpResultFlatten(res)
             #ret = res[sname]
         else:
-            if (match != None):
+            if (match is not None):
                 raise Exception('Match is invalid for non-list')
             ret = res['#text']
     except Exception as e:
@@ -126,10 +130,12 @@ def _OpResultGet(dct, p1, p2, match = None):
 
 
 class OpVNResult (Result):
+
     '''
         This class returns a VN UVE object
     '''
-    def get_attr(self, tier, attr, match = None):
+
+    def get_attr(self, tier, attr, match=None):
         #import pdb; pdb.set_trace ()
         if tier == "Config":
             typ = 'UveVirtualNetworkConfig'
@@ -140,11 +146,14 @@ class OpVNResult (Result):
 
         return _OpResultGet(self, typ, attr, match)
 
+
 class OpVMResult (Result):
+
     '''
         This class returns a VM UVE object
     '''
-    def get_attr(self, tier, attr, match = None):
+
+    def get_attr(self, tier, attr, match=None):
         #import pdb; pdb.set_trace ()
         if tier == "Config":
             typ = 'UveVirtualMachineConfig'
@@ -155,11 +164,14 @@ class OpVMResult (Result):
 
         return _OpResultGet(self, typ, attr, match)
 
+
 class OpCollectorResult (Result):
+
     '''
         This class returns a CollectorInfo object
     '''
-    def get_attr(self, tier, attr, match = None):
+
+    def get_attr(self, tier, attr, match=None):
         #import pdb; pdb.set_trace ()
         if tier == "Analytics":
             typ = 'CollectorState'

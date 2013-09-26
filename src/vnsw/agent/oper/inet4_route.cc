@@ -188,10 +188,22 @@ void Inet4Route::FillTrace(RouteInfo &rt_info, Trace event,
     case ADD_PATH:
     case DELETE_PATH:
     case CHANGE_PATH: {
+        if (event == ADD_PATH) {
+            rt_info.set_op("PATH ADD");
+        } else if (event == CHANGE_PATH) {
+            rt_info.set_op("PATH CHANGE");
+        } else if (event == DELETE_PATH) {
+            rt_info.set_op("PATH DELETE");
+        }
         if (path->GetPeer()) {
             rt_info.set_peer(path->GetPeer()->GetName());
         }
         const NextHop *nh = path->GetNextHop();
+        if (nh == NULL) {
+            rt_info.set_nh_type("<NULL>");
+            break;
+        }
+
         switch (nh->GetType()) {
         case NextHop::TUNNEL: {
             const TunnelNH *tun = static_cast<const TunnelNH *>(nh);
@@ -245,13 +257,6 @@ void Inet4Route::FillTrace(RouteInfo &rt_info, Trace event,
             break;
         }
         
-        if (event == ADD_PATH) {
-            rt_info.set_op("PATH ADD");
-        } else if (event == CHANGE_PATH) {
-            rt_info.set_op("PATH CHANGE");
-        } else if (event == DELETE_PATH) {
-            rt_info.set_op("PATH DELETE");
-        }
         break;
     }
     }

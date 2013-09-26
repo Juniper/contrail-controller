@@ -373,6 +373,7 @@ bool KSyncNetlinkEntry::Change() {
     int         msg_len;
 
     if (Sync() == false) {
+        free(msg);
         return true;
     }
 

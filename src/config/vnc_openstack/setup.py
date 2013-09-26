@@ -11,7 +11,7 @@ setup(
     include_package_data=True,
     zip_safe=False,
     long_description="VNC openstack interface package",
-    entry_points = {
+    entry_points={
         'vnc_cfg_api.resync': [
             'xxx = vnc_openstack:OpenstackDriver',
         ],

@@ -29,5 +29,12 @@
             <xen-ll-ip-address> 169.254.0.1/24</xen-ll-ip-address>
         </hypervisor>
         <tunnel-mode>MPLSoGRE</tunnel-mode>
+
+<!--
+        <gateway virtual-network="default-domain:default-project:public:public">
+            <interface>vgw</interface>
+            <ip-address>1.1.1.1/24</ip-address>
+        </gateway>
+-->
     </agent>
 </config>

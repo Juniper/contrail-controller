@@ -19,6 +19,7 @@ import datetime
 from opserver_util import OpServerUtils
 import re
 
+
 class UVEServer(object):
 
     def __init__(self, host, port):
@@ -37,7 +38,8 @@ class UVEServer(object):
             nstate[key][typ][attr]['previous']['#text'] = str(count)
 
         if UVEServer._is_agg_list(prevdict):
-            sname = ParallelAggregator.get_list_name(state[key][typ][attr]['previous'])
+            sname = ParallelAggregator.get_list_name(
+                state[key][typ][attr]['previous'])
             count = len(prevdict['list'][sname]) + \
                 len(state[key][typ][attr]['previous']['list'][sname])
             nstate[key][typ][attr]['previous']['list'][sname].extend(
@@ -47,20 +49,22 @@ class UVEServer(object):
 
             tstate = {}
             tstate[typ] = {}
-            tstate[typ][attr] = copy.deepcopy(nstate[key][typ][attr]['previous'])
-            nstate[key][typ][attr]['previous'] = ParallelAggregator.consolidate_list(
-                tstate, typ, attr)
+            tstate[typ][attr] = copy.deepcopy(
+                nstate[key][typ][attr]['previous'])
+            nstate[key][typ][attr]['previous'] =\
+                ParallelAggregator.consolidate_list(tstate, typ, attr)
 
-        print "%s Merged val is %s" % (attr, nstate[key][typ][attr]['previous'])
+        print "%s Merged val is %s"\
+            % (attr, nstate[key][typ][attr]['previous'])
         return nstate
 
     def run(self):
         while True:
             try:
-                k,value = self._redis.brpop("DELETED")
+                k, value = self._redis.brpop("DELETED")
                 print "%s del received for " % value
-                info = value.rsplit(":",4)
-                key = info[0].split(":",1)[1]
+                info = value.rsplit(":", 4)
+                key = info[0].split(":", 1)[1]
                 typ = info[3]
 
                 existing = self._redis.hgetall("PREVIOUS:" + key + ":" + typ)
@@ -69,25 +73,28 @@ class UVEServer(object):
                 tstate[key][typ] = {}
                 state = UVEServer.convert_previous(existing, tstate, key, typ)
 
-                for attr,hval in self._redis.hgetall(value).iteritems():
+                for attr, hval in self._redis.hgetall(value).iteritems():
                     snhdict = xmltodict.parse(hval)
 
                     if UVEServer._is_agg_list(snhdict[attr]):
                         if snhdict[attr]['list']['@size'] == "0":
                             continue
                         if snhdict[attr]['list']['@size'] == "1":
-                            sname = ParallelAggregator.get_list_name(snhdict[attr])
-                            if not isinstance(snhdict[attr]['list'][sname], list):
+                            sname = ParallelAggregator.get_list_name(
+                                snhdict[attr])
+                            if not isinstance(
+                                    snhdict[attr]['list'][sname], list):
                                 snhdict[attr]['list'][sname] = \
                                     [snhdict[attr]['list'][sname]]
 
-                    if (not state[key][typ].has_key(attr)):
+                    if (attr not in state[key][typ]):
                         # There is no existing entry for the UVE
                         vstr = json.dumps(snhdict[attr])
                     else:
                         # There is an existing entry
                         # Merge the new entry with the existing one
-                        state = UVEServer.merge_previous(state, key, typ, attr, snhdict[attr])
+                        state = UVEServer.merge_previous(
+                            state, key, typ, attr, snhdict[attr])
                         vstr = json.dumps(state[key][typ][attr]['previous'])
 
                         # Store the merged result back in the database
@@ -109,8 +116,9 @@ class UVEServer(object):
 
     @staticmethod
     def _is_agg_item(attr):
-        if attr['@type'] in ['i8','i16','i32','i64','byte','u8','u16','u32','u64']:
-            if attr.has_key('@aggtype'):
+        if attr['@type'] in ['i8', 'i16', 'i32', 'i64', 'byte',
+                             'u8', 'u16', 'u32', 'u64']:
+            if '@aggtype' in attr:
                 if attr['@aggtype'] == "counter":
                     return True
         return False
@@ -118,27 +126,27 @@ class UVEServer(object):
     @staticmethod
     def _is_agg_list(attr):
         if attr['@type'] in ['list']:
-            if attr.has_key('@aggtype'):
+            if '@aggtype' in attr:
                 if attr['@aggtype'] == "append":
                     return True
         return False
 
     @staticmethod
-    def convert_previous(existing, state, key, typ, afilter = None):
+    def convert_previous(existing, state, key, typ, afilter=None):
         # Take the existing delete record, and load it into the state dict
-        for attr,hval in existing.iteritems():
+        for attr, hval in existing.iteritems():
             hdict = json.loads(hval)
 
-            if afilter != None:
-                if afilter != attr:
+            if afilter is not None and len(afilter):
+                if attr not in afilter:
                     continue
-                            
+
             # When recording deleted attributes, only record those
             # for which delete-time aggregation is needed
             if UVEServer._is_agg_item(hdict):
-                if (not state[key].has_key(typ)):
+                if (typ not in state[key]):
                     state[key][typ] = {}
-                if (not state[key][typ].has_key(attr)):
+                if (attr not in state[key][typ]):
                     state[key][typ][attr] = {}
                 state[key][typ][attr]["previous"] = hdict
 
@@ -146,9 +154,9 @@ class UVEServer(object):
             # to normailize lists of size 1, and ignore those of size 0
             if UVEServer._is_agg_list(hdict):
                 if hdict['list']['@size'] != "0":
-                    if (not state[key].has_key(typ)):
-                        state[key][typ] = {}                    
-                    if (not state[key][typ].has_key(attr)):
+                    if (typ not in state[key]):
+                        state[key][typ] = {}
+                    if (attr not in state[key][typ]):
                         state[key][typ][attr] = {}
                     state[key][typ][attr]["previous"] = hdict
                 if hdict['list']['@size'] == "1":
@@ -158,7 +166,7 @@ class UVEServer(object):
 
         return state
 
-    def get_uve(self, key, flat, sfilter = None, mfilter = None, tfilter = None, afilter = None):
+    def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None):
         try:
             state = {}
             state[key] = {}
@@ -166,50 +174,56 @@ class UVEServer(object):
             redish = redis.StrictRedis(host=self._host, port=self._port, db=0)
             statdict = {}
             for origs in redish.smembers("ORIGINS:" + key):
-                info = origs.rsplit(":",2)
+                info = origs.rsplit(":", 2)
                 source = info[0]
-                if sfilter != None:
+                if sfilter is not None:
                     if sfilter != source:
                         continue
                 mdule = info[1]
-                if mfilter != None:
+                if mfilter is not None:
                     if mfilter != mdule:
                         continue
                 dsource = source + ":" + mdule
 
                 typ = info[2]
-                if tfilter != None:
-                    if tfilter != typ:
+                if tfilter is not None:
+                    if typ not in tfilter:
                         continue
 
                 odict = redish.hgetall("VALUES:" + key + ":" + origs)
 
                 empty = True
-                for attr,value in odict.iteritems():
-                    if afilter != None:
-                        if afilter != attr:
+                afilter_list = set()
+                if tfilter is not None:
+                    afilter_list = tfilter[typ]
+                for attr, value in odict.iteritems():
+                    if len(afilter_list):
+                        if attr not in afilter_list:
                             continue
 
                     if empty:
                         empty = False
-                        #print "Src %s, Mod %s, Typ %s" % (source,mdule,typ)
-                        if not state[key].has_key(typ):
+                        # print "Src %s, Mod %s, Typ %s" % (source, mdule, typ)
+                        if typ not in state[key]:
                             state[key][typ] = {}
-                    
-                    if value[0] == '<':                       
+
+                    if value[0] == '<':
                         snhdict = xmltodict.parse(value)
-                        if snhdict[attr]['@type']  == 'list':
+                        if snhdict[attr]['@type'] == 'list':
                             if snhdict[attr]['list']['@size'] == '0':
                                 continue
                             elif snhdict[attr]['list']['@size'] == '1':
-                                sname = ParallelAggregator.get_list_name(snhdict[attr])
-                                if not isinstance(snhdict[attr]['list'][sname], list):
-                                    snhdict[attr]['list'][sname] = [snhdict[attr]['list'][sname]]
+                                sname = ParallelAggregator.get_list_name(
+                                    snhdict[attr])
+                                if not isinstance(
+                                        snhdict[attr]['list'][sname], list):
+                                    snhdict[attr]['list'][sname] = [
+                                        snhdict[attr]['list'][sname]]
                     else:
                         if not flat:
                             continue
 
-                        if not statdict.has_key(typ):
+                        if typ not in statdict:
                             statdict[typ] = {}
                         statdict[typ][attr] = []
                         statsattr = json.loads(value)
@@ -217,46 +231,52 @@ class UVEServer(object):
                             #import pdb; pdb.set_trace()
                             edict = {}
                             if elem["rtype"] == "list":
-                                elist = redish.lrange(elem["href"],0,-1)
+                                elist = redish.lrange(elem["href"], 0, -1)
                                 for eelem in elist:
                                     jj = json.loads(eelem).items()
                                     edict[jj[0][0]] = jj[0][1]
                             elif elem["rtype"] == "zset":
-                                elist = redish.zrange(elem["href"],0,-1,withscores=True)
+                                elist = redish.zrange(
+                                    elem["href"], 0, -1, withscores=True)
                                 for eelem in elist:
                                     tdict = json.loads(eelem[0])
                                     tval = long(tdict["ts"])
-                                    dt = datetime.datetime.utcfromtimestamp(float(tval)/1000000)
-                                    tms = (tval % 1000000)/1000
+                                    dt = datetime.datetime.utcfromtimestamp(
+                                        float(tval) / 1000000)
+                                    tms = (tval % 1000000) / 1000
                                     tstr = dt.strftime('%Y %b %d %H:%M:%S')
-                                    edict[tstr+"."+str(tms)] = eelem[1]
+                                    edict[tstr + "." + str(tms)] = eelem[1]
                             elif elem["rtype"] == "hash":
                                 elist = redish.hgetall(elem["href"])
                                 edict = elist
-                            statdict[typ][attr].append({elem["aggtype"]:edict})
+                            statdict[typ][attr].append(
+                                {elem["aggtype"]: edict})
                         continue
 
-                    #print "Attr %s Value %s" % (attr,snhdict)
-                    if not state[key][typ].has_key(attr):
+                    # print "Attr %s Value %s" % (attr, snhdict)
+                    if attr not in state[key][typ]:
                         state[key][typ][attr] = {}
-                    if state[key][typ][attr].has_key(dsource):
+                    if dsource in state[key][typ][attr]:
                         print "Found Dup %s:%s:%s:%s:%s = %s" % \
-                           (key,typ,attr,source,mdule,state[key][typ][attr][dsource])
+                            (key, typ, attr, source, mdule, state[
+                             key][typ][attr][dsource])
                     state[key][typ][attr][dsource] = snhdict[attr]
 
-           
-            if sfilter == None and mfilter == None:
+            if sfilter is None and mfilter is None:
                 for ptyp in redish.smembers("PTYPES:" + key):
-                    if tfilter != None:
-                        if tfilter != ptyp:
+                    afilter = None
+                    if tfilter is not None:
+                        if ptyp not in tfilter:
                             continue
+                        afilter = tfilter[ptyp]
                     existing = redish.hgetall("PREVIOUS:" + key + ":" + ptyp)
-                    nstate = UVEServer.convert_previous(existing, state, key, ptyp, afilter)
+                    nstate = UVEServer.convert_previous(
+                        existing, state, key, ptyp, afilter)
                     state = copy.deepcopy(nstate)
 
-            #print
-            #print "Result is as follows"
-            #print json.dumps(state, indent = 4, sort_keys = True)
+            # print
+            # print "Result is as follows"
+            # print json.dumps(state, indent = 4, sort_keys = True)
             pa = ParallelAggregator(state)
             rsp = pa.aggregate(key, flat)
 
@@ -267,68 +287,98 @@ class UVEServer(object):
         else:
             print "Computed %s" % key
 
-        for k,v in statdict.iteritems():
-            if rsp.has_key(k):
+        for k, v in statdict.iteritems():
+            if k in rsp:
                 mp = dict(v.items() + rsp[k].items())
                 statdict[k] = mp
-                
-        return dict(rsp.items() + statdict.items())
-    #end get_uve
 
-    def multi_uve_get(self, key, flat, sfilter, mfilter, tfilter, afilter):
+        return dict(rsp.items() + statdict.items())
+    # end get_uve
+
+    def get_uve_regex(self, key):
+        regex = ''
+        if key[0] != '*':
+            regex += '^'
+        regex += key.replace('*', '.*?')
+        if key[-1] != '*':
+            regex += '$'
+        return re.compile(regex)
+    # end get_uve_regex
+
+    def multi_uve_get(self, key, flat, kfilter, sfilter, mfilter, tfilter):
         tbl_uve = key.split(':', 1)
         table = tbl_uve[0]
 
-        # get_uve_list cannot handle attribute names very efficiently,  
+        # get_uve_list cannot handle attribute names very efficiently,
         # so we don't pass them here
-        uve_list = self.get_uve_list(table, sfilter, mfilter, tfilter, None)
-
-        regex = ''
-        if tbl_uve[1][0] != '*':
-            regex += '^'
-        regex += tbl_uve[1].replace('*', '.*?')
-        if tbl_uve[1][-1] != '*':
-            regex += '$'
-        pattern = re.compile(regex)
+        k1_filter = [tbl_uve[1]]
+        uve_list = self.get_uve_list(table, k1_filter, sfilter,
+                                     mfilter, tfilter, False)
+        if kfilter is not None:
+            patterns = set()
+            for filt in kfilter:
+                patterns.add(self.get_uve_regex(filt))
         for uve_name in uve_list:
-            if pattern.match(uve_name):
-                uve_val = self.get_uve(table+':'+uve_name, flat, sfilter, mfilter, tfilter, afilter)
-                if uve_val == {}:
+            if kfilter is not None:
+                kfilter_match = False
+                for pattern in patterns:
+                    if pattern.match(uve_name):
+                        kfilter_match = True
+                        break
+                if not kfilter_match:
                     continue
-                else:
-                    uve = {'name':uve_name, 'value':uve_val}
-                    yield uve 
-    #end multi_uve_get
+            uve_val = self.get_uve(
+                table + ':' + uve_name, flat,
+                sfilter, mfilter, tfilter)
+            if uve_val == {}:
+                continue
+            else:
+                uve = {'name': uve_name, 'value': uve_val}
+                yield uve
+    # end multi_uve_get
 
-    def get_uve_list(self, key, sfilter, mfilter, tfilter, afilter):
-
+    def get_uve_list(self, key, kfilter, sfilter,
+                     mfilter, tfilter, parse_afilter):
         uve_list = set()
+        if kfilter is not None:
+            patterns = set()
+            for filt in kfilter:
+                patterns.add(self.get_uve_regex(filt))
         try:
             redish = redis.StrictRedis(host=self._host, port=self._port, db=0)
             for entry in redish.smembers("TABLE:" + key):
                 info = (entry.split(':', 1)[1]).rsplit(':', 3)
-
+                uve_key = info[0]
+                if kfilter is not None:
+                    kfilter_match = False
+                    for pattern in patterns:
+                        if pattern.match(uve_key):
+                            kfilter_match = True
+                            break
+                    if not kfilter_match:
+                        continue
                 src = info[1]
-                if sfilter != None:
+                if sfilter is not None:
                     if sfilter != src:
                         continue
                 mdule = info[2]
-                if mfilter != None:
+                if mfilter is not None:
                     if mfilter != mdule:
                         continue
                 typ = info[3]
-                if tfilter != None:
-                    if tfilter != typ:
+                if tfilter is not None:
+                    if typ not in tfilter:
                         continue
-
-                uve_key = info[0]
-               
-                if (afilter != None):
-                    valkey = "VALUES:" + key + ":" + uve_key + ":" + src + ":" + mdule + ":" + typ
-                    attrval = redish.hget(valkey, afilter)
-
-                    if attrval == None:
-                        continue
+                if parse_afilter:
+                    if tfilter is not None and len(tfilter[typ]):
+                        valkey = "VALUES:" + key + ":" + uve_key + ":" + \
+                                 src + ":" + mdule + ":" + typ
+                        for afilter in tfilter[typ]:
+                            attrval = redish.hget(valkey, afilter)
+                            if attrval is not None:
+                                break
+                        if attrval is None:
+                            continue
 
                 uve_list.add(uve_key)
         except Exception as e:
@@ -336,9 +386,10 @@ class UVEServer(object):
             return set()
         else:
             return uve_list
-    #end get_uve_list
+    # end get_uve_list
 
-#end UVEServer
+# end UVEServer
+
 
 class ParallelAggregator:
 
@@ -353,7 +404,7 @@ class ParallelAggregator:
             hdelem = json.dumps(elem)
             if hdelem not in itemset:
                 itemset.add(hdelem)
-                result.append([elem,source])
+                result.append([elem, source])
             else:
                 for items in result:
                     if elem in items:
@@ -362,31 +413,32 @@ class ParallelAggregator:
 
     def _is_sum(self, oattr):
         akey = oattr.keys()[0]
-        if not oattr[akey].has_key('@aggtype'):
+        if '@aggtype' not in oattr[akey]:
             return False
         if oattr[akey]['@aggtype'] in ["sum"]:
             return True
-        if oattr[akey]['@type'] in ['i8','i16','i32','i64','byte','u8','u16','u32','u64']:
+        if oattr[akey]['@type'] in ['i8', 'i16', 'i32', 'i64',
+                                    'byte', 'u8', 'u16', 'u32', 'u64']:
             if oattr[akey]['@aggtype'] in ["counter"]:
                 return True
         return False
 
-    def _is_union(self,oattr):
+    def _is_union(self, oattr):
         akey = oattr.keys()[0]
         if not oattr[akey]['@type'] in ["list"]:
             return False
-        if not oattr[akey].has_key('@aggtype'):
+        if '@aggtype' not in oattr[akey]:
             return False
         if oattr[akey]['@aggtype'] in ["union"]:
             return True
         else:
             return False
 
-    def _is_append(self,oattr):
+    def _is_append(self, oattr):
         akey = oattr.keys()[0]
         if not oattr[akey]['@type'] in ["list"]:
             return False
-        if not oattr[akey].has_key('@aggtype'):
+        if '@aggtype' not in oattr[akey]:
             return False
         if oattr[akey]['@aggtype'] in ["append"]:
             return True
@@ -395,7 +447,7 @@ class ParallelAggregator:
 
     @staticmethod
     def get_list_name(attr):
-        sname=""
+        sname = ""
         for sattr in attr['list'].keys():
             if sattr[0] not in ['@']:
                 sname = sattr
@@ -403,14 +455,14 @@ class ParallelAggregator:
 
     @staticmethod
     def _get_list_key(elem):
-        skey=""
+        skey = ""
         for sattr in elem.keys():
-            if elem[sattr].has_key('@aggtype'):
+            if '@aggtype' in elem[sattr]:
                 if elem[sattr]['@aggtype'] in ["listkey"]:
                     skey = sattr
         return skey
 
-    def _sum_agg(self,oattr):
+    def _sum_agg(self, oattr):
         akey = oattr.keys()[0]
         result = copy.deepcopy(oattr[akey])
         count = 0
@@ -419,7 +471,7 @@ class ParallelAggregator:
         result['#text'] = str(count)
         return result
 
-    def _union_agg(self,oattr):
+    def _union_agg(self, oattr):
         akey = oattr.keys()[0]
         result = copy.deepcopy(oattr[akey])
         itemset = set()
@@ -440,7 +492,7 @@ class ParallelAggregator:
 
         return result
 
-    def _append_agg(self,oattr):
+    def _append_agg(self, oattr):
         akey = oattr.keys()[0]
         result = copy.deepcopy(oattr[akey])
         sname = ParallelAggregator.get_list_name(oattr[akey])
@@ -458,10 +510,11 @@ class ParallelAggregator:
     @staticmethod
     def _list_agg_attrs(item):
         for ctrs in item.keys():
-            if item[ctrs].has_key('@aggtype'):
+            if '@aggtype'in item[ctrs]:
                 if item[ctrs]['@aggtype'] in ["listkey"]:
                     continue
-            if item[ctrs]['@type']  in ['i8','i16','i32','i64','byte','u8','u16','u32','u64']:
+            if item[ctrs]['@type'] in ['i8', 'i16', 'i32', 'i64',
+                                       'byte', 'u8', 'u16', 'u32', 'u64']:
                 yield ctrs
 
     @staticmethod
@@ -507,7 +560,7 @@ class ParallelAggregator:
 
     def aggregate(self, key, flat):
         '''
-        This function does parallel aggregation aggregation of this UVE's state.
+        This function does parallel aggregation of this UVE's state.
         It aggregates across all sources and return the global state of the UVE
         '''
         result = {}
@@ -523,31 +576,40 @@ class ParallelAggregator:
                         else:
                             result[typ][objattr] = sum_res
                     elif self._is_union(self._state[key][typ][objattr]):
-                        union_res = self._union_agg(self._state[key][typ][objattr])
+                        union_res = self._union_agg(
+                            self._state[key][typ][objattr])
                         if flat:
                             result[typ][objattr] = \
                                 OpServerUtils.uve_attr_flatten(union_res)
                         else:
                             result[typ][objattr] = union_res
                     elif self._is_append(self._state[key][typ][objattr]):
-                        result[typ][objattr] = self._append_agg(self._state[key][typ][objattr])
-                        append_res = ParallelAggregator.consolidate_list(result, typ, objattr)
+                        result[typ][objattr] = self._append_agg(
+                            self._state[key][typ][objattr])
+                        append_res = ParallelAggregator.consolidate_list(
+                            result, typ, objattr)
 
                         if flat:
-                            result[typ][objattr] = OpServerUtils.uve_attr_flatten(append_res)
+                            result[typ][objattr] =\
+                                OpServerUtils.uve_attr_flatten(append_res)
                         else:
                             result[typ][objattr] = append_res
 
                     else:
-                        default_res = self._default_agg(self._state[key][typ][objattr])
+                        default_res = self._default_agg(
+                            self._state[key][typ][objattr])
                         if flat:
                             if (len(default_res) == 1):
-                                result[typ][objattr] = OpServerUtils.uve_attr_flatten(default_res[0][0])
+                                result[typ][objattr] =\
+                                    OpServerUtils.uve_attr_flatten(
+                                        default_res[0][0])
                             else:
                                 nres = []
                                 for idx in range(len(default_res)):
                                     nres.append(default_res[idx])
-                                    nres[idx][0] = OpServerUtils.uve_attr_flatten(default_res[idx][0])
+                                    nres[idx][0] =\
+                                        OpServerUtils.uve_attr_flatten(
+                                            default_res[idx][0])
                                 result[typ][objattr] = nres
                         else:
                             result[typ][objattr] = default_res
@@ -558,6 +620,5 @@ class ParallelAggregator:
 if __name__ == '__main__':
     uveserver = UVEServer("127.0.0.1", 6379)
     gevent.spawn(uveserver.run())
-    uve_state = json.loads(uveserver.get_uve("abc-corp:vn02",False))
-    print json.dumps(uve_state, indent = 4, sort_keys = True)
-
+    uve_state = json.loads(uveserver.get_uve("abc-corp:vn02", False))
+    print json.dumps(uve_state, indent=4, sort_keys=True)

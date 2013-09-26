@@ -11,12 +11,12 @@
 #include <ksync/ksync_sock.h>
 
 #include <cmn/agent_cmn.h>
-#include <uve/uve_init.h>
 #include <uve/stats_collector.h>
 #include "vr_message.h"
 
 class AgentStatsCollector : public StatsCollector {
 public:
+    static const uint32_t AgentStatsInterval = (30 * 1000); // time in milliseconds
     struct IfStats {
         IfStats() : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0), 
                   out_pkts(0), out_bytes(0), prev_in_bytes(0), prev_out_bytes(0), 

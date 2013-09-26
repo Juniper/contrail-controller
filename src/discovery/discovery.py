@@ -2,7 +2,8 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey
+monkey.patch_all()
 import gevent
 import requests
 import uuid
@@ -12,6 +13,7 @@ import sys
 from services import *
 from disc_health import HealthCheck
 
+
 def CamelCase(input):
     words = input.replace('_', '-').split('-')
     name = ''
@@ -19,46 +21,51 @@ def CamelCase(input):
         name += w.capitalize()
     return name
 
+
 def str_to_class(class_name):
     return reduce(getattr, class_name.split("."), sys.modules[__name__])
-#end str_to_class
+# end str_to_class
 
-#end CamelCase
+# end CamelCase
+
 
 class DiscoveryService(object):
 
-    def __init__(self, server_ip, server_port, id = None):
+    def __init__(self, server_ip, server_port, id=None):
         self._server_ip = server_ip
         self._server_port = server_port
         self._myid = id or uuid.uuid4()
         self._headers = {
             'Content-type': 'application/json',
-            }
+        }
         self.sig = None
         self.task = None
-    #end __init__
+    # end __init__
 
     def exportJson(self, o):
-        obj_json = json.dumps({k : v for k, v in o.__dict__.iteritems()})
+        obj_json = json.dumps({k: v for k, v in o.__dict__.iteritems()})
         return obj_json
 
     # publish service
-    # Tx {'name':u'ifmap-server', info:{u'ip_addr': u'10.84.7.1', u'port': u'8443'}}
+    # Tx {'name':u'ifmap-server', info:{u'ip_addr': u'10.84.7.1', u'port':
+    # u'8443'}}
     def publish(self, obj):
-        url = "http://%s:%s/publish" %(self._server_ip, self._server_port)
+        url = "http://%s:%s/publish" % (self._server_ip, self._server_port)
         body = json.dumps(obj.exportDict())
-        response = requests.post(url, data = body, headers = self._headers)
+        response = requests.post(url, data=body, headers=self._headers)
         print 'Register response = ', response
 
         # send published information as heartbeat data
         hc = HealthCheck(self._server_ip, int(self._server_port))
         hc.set_heartbeat_data(response.text)
         return gevent.spawn(hc.client)
-    #end publish
+    # end publish
 
-    # info [{u'service_type': u'ifmap-server', u'ip_addr': u'10.84.7.1', u'port': u'8443'}]
+    # info [{u'service_type': u'ifmap-server',
+    #        u'ip_addr': u'10.84.7.1', u'port': u'8443'}]
     def _query(self):
-        r = requests.post(self.url, data = self.post_body, headers = self._headers)
+        r = requests.post(
+            self.url, data=self.post_body, headers=self._headers)
         print 'query resp => ', r.text
 
         # avoid signature on ttl which can change between iterations
@@ -71,12 +78,12 @@ class DiscoveryService(object):
             for k, v in obj_dict.items():
                 obj_dict[k] = v.encode('utf-8')
 
-        self.ttl  = r.json['ttl']
+        self.ttl = r.json['ttl']
         self.change = False
         if sig != self.sig:
-            print 'signature mismatch! old=%s, new=%s' %(self.sig, sig)
+            print 'signature mismatch! old=%s, new=%s' % (self.sig, sig)
             self.info = info
-            self.sig  = sig
+            self.sig = sig
             self.change = True
 
     # loop to periodically re-subscribe after TTL expiry
@@ -109,8 +116,11 @@ class DiscoveryService(object):
         infostr = json.dumps(self.info)
         self.sig = hashlib.md5(infostr).hexdigest()
 
-        self.post_body = json.dumps({'service':service_type, 'instances':count, 'client':self._myid})
-        self.url = "http://%s:%s/subscribe" %(self._server_ip, self._server_port)
+        self.post_body = json.dumps(
+            {'service': service_type, 'instances': count,
+             'client': self._myid})
+        self.url = "http://%s:%s/subscribe" % (
+            self._server_ip, self._server_port)
 
         if f:
             # asynch - callback when new info is received
@@ -128,4 +138,4 @@ class DiscoveryService(object):
             obj = cls.factory(**obj_dict)
             r.append(obj)
         return r
-    #end read
+    # end read

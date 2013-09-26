@@ -118,10 +118,7 @@ void DiscoveryAgentClient::Shutdown() {
     DiscoveryServiceClient *ds_client = Agent::GetInstance()->GetDiscoveryServiceClient(); 
     if (ds_client) {
         //unsubscribe to services 
-        ds_client->Unsubscribe(DiscoveryServiceClient::XmppService);
-        ds_client->Unsubscribe(g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
-        ds_client->Unsubscribe(DiscoveryServiceClient::DNSService);
-
+        ds_client->Shutdown();
         delete ds_client;
         Agent::GetInstance()->SetDiscoveryServiceClient(NULL);
     }

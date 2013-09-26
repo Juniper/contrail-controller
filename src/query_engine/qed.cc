@@ -85,6 +85,18 @@ static void terminate_qe (int param)
   pevm->Shutdown();
 }
 
+static void WaitForIdle() {
+    static const int kTimeout = 15;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    for (int i = 0; i < (kTimeout * 1000); i++) {
+        if (scheduler->IsEmpty()) {
+            break;
+        }
+        usleep(1000);
+    }    
+}
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
@@ -232,20 +244,15 @@ main(int argc, char *argv[]) {
     signal(SIGTERM,terminate_qe);
     evm.Run();
 
-#if 0 
-    if (ds_client){
+    if (ds_client) {
         ds_client->Shutdown();
         delete ds_client;
     }
-#endif
     qe_info_log_timer->Cancel();
     TimerManager::DeleteTimer(qe_info_log_timer);
-    TaskScheduler *scheduler = TaskScheduler::GetInstance();
-    while (!scheduler->IsEmpty()) {
-        usleep(1000);
-    }
+    WaitForIdle();
     delete qe;
     Sandesh::Uninit();
-    usleep(1000000);
+    WaitForIdle();
     return 0;
 }

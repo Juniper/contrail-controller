@@ -32,7 +32,7 @@ class Ruleeng {
 
         bool rule_present(const boost::shared_ptr<VizMsg> vmsgp);
 
-        bool rule_execute(const boost::shared_ptr<VizMsg> vmsgp);
+        bool rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc);
 
         void print(std::ostream& os) {
             rulelist_->print(os);

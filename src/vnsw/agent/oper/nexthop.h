@@ -1166,8 +1166,10 @@ public:
     Interface *FindInterface(const InterfaceKey &key) const;
     VrfEntry *FindVrfEntry(const VrfKey &key) const;
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static NextHopTable *GetInstance() {return nexthop_table_;};
 
 private:
+    static NextHopTable *nexthop_table_;
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);

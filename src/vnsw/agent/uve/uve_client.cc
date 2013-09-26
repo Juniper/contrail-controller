@@ -27,6 +27,7 @@
 #include <controller/controller_peer.h>
 #include <base/misc_utils.h>
 #include "cfg/init_config.h"
+#include <uve/uve_init.h>
 
 using namespace std;
 using namespace boost::asio;

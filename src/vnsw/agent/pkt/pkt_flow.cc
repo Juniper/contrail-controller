@@ -138,6 +138,11 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
         break;
 
+    case NextHop::RECEIVE:
+        out->intf_ = static_cast<const ReceiveNH *>(nh)->GetInterface();
+        out->vrf_ = out->intf_->GetVrf();
+        break;
+
     case NextHop::VLAN: {
         const VlanNH *vlan_nh = static_cast<const VlanNH*>(nh);
         out->intf_ = vlan_nh->GetInterface();
@@ -158,7 +163,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
             ret = false;
         } else if (force_vmport && out->intf_->GetType() != Interface::VMPORT) {
             out->intf_ = NULL;
-            ret = false;
+            out->vrf_ = NULL;
+            ret = true;
         }
     }
 
@@ -172,8 +178,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
 // Decode route and get Interface / ECMP information
 static bool RouteToOutInfo(const Inet4UcRoute *rt, const PktInfo *pkt,
-                           PktFlowInfo *info, PktControlInfo *out,
-                           bool force_vmport) {
+                           PktFlowInfo *info, PktControlInfo *out) {
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
         return false;
@@ -186,7 +191,7 @@ static bool RouteToOutInfo(const Inet4UcRoute *rt, const PktInfo *pkt,
         return false;
     }
 
-    return NhDecode(nh, pkt, info, out, force_vmport);
+    return NhDecode(nh, pkt, info, out, false);
 }
 
 static const VnEntry *InterfaceToVn(const Interface *intf) {
@@ -383,7 +388,7 @@ void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
                                        PktControlInfo *out) {
-    if (RouteToOutInfo(out->rt_, pkt, this, out, false) == false) {
+    if (RouteToOutInfo(out->rt_, pkt, this, out) == false) {
         return;
     }
 
@@ -517,7 +522,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Compute out-intf and ECMP info from out-route
-    if (RouteToOutInfo(out->rt_, pkt, this, out, true) == false) {
+    if (RouteToOutInfo(out->rt_, pkt, this, out) == false) {
         return;
     }
 
@@ -582,7 +587,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     out->rt_ = out->vrf_->GetUcRoute(Ip4Address(pkt->ip_daddr));
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
-        if (RouteToOutInfo(out->rt_, pkt, this, out, true)) {
+        if (RouteToOutInfo(out->rt_, pkt, this, out)) {
             if (out->intf_) {
                 out->vn_ = InterfaceToVn(out->intf_);
                 if (out->vrf_) {
@@ -601,7 +606,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
     
     if (out->rt_ != NULL) {
         // Route is present. If IP-DA is a floating-ip, we need DNAT
-        if (RouteToOutInfo(out->rt_, pkt, this, out, true)) {
+        if (RouteToOutInfo(out->rt_, pkt, this, out)) {
             if (out->intf_ && IntfHasFloatingIp(out->intf_)) {
                 FloatingIpDNat(pkt, in, out);
             }
@@ -616,7 +621,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     // If out-interface was not found, get it based on out-route
     if (out->intf_ == NULL && out->rt_) {
-        RouteToOutInfo(out->rt_, pkt, this, out, true);
+        RouteToOutInfo(out->rt_, pkt, this, out);
     }
 
     return;
@@ -657,7 +662,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         RewritePktInfo(pkt->agent_hdr.cmd_param);
     }
 
-    in->intf_ = InterfaceTable::FindInterface(pkt->agent_hdr.ifindex);
+    in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
     if (in->intf_ == NULL || in->intf_->GetActiveState() == false) {
         LogError(pkt, "Invalid or Inactive ifindex");
         return false;
@@ -819,7 +824,8 @@ bool FlowHandler::Run() {
     if (info.dest_vn == NULL)
         info.dest_vn = FlowHandler::UnknownVn();
 
-    if (in.intf_ && in.intf_->GetType() != Interface::VMPORT) {
+    if (in.intf_ && ((in.intf_->GetType() != Interface::VMPORT) &&
+                     (in.intf_->GetType() != Interface::VHOST))) {
         in.intf_ = NULL;
     }
 

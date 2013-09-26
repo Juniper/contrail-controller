@@ -276,7 +276,7 @@ public:
     virtual ~SandeshServerTest() { }
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
                        const std::string& cmsg, const std::string& message_type,
-                       const SandeshHeader& header, uint32_t xml_offset) {
+                       const SandeshHeader& header, uint32_t xml_offset, bool rsc) {
         return true;
     }
     virtual bool ReceiveMsg(SandeshSession *session, ssm::Message *msg) {

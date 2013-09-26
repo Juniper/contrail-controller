@@ -66,6 +66,7 @@ public:
         client->WaitForIdle();
         //We don't reset bitmaps on removal of flows
         //EXPECT_TRUE(ValidateVrouter(0xFF, 0xFFFF, 0xFFFF));
+        LOG(DEBUG, "Vrf table size " << Agent::GetInstance()->GetVrfTable()->Size());
         WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1));
     }
 
@@ -252,7 +253,6 @@ public:
                   uint8_t proto, uint16_t sport, uint16_t dport) {
         VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(port));
         const VnEntry *vn = intf->GetVnEntry();
-        const VmEntry *vm = intf->GetVmEntry();
         SecurityGroupList empty_sg_id_l;
         flow->data.source_vn = vn->GetName();
         flow->data.dest_vn = dest_vn;

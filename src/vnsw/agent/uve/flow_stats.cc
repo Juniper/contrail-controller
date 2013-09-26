@@ -66,7 +66,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
     s_flow.set_destvn(flow->data.dest_vn);
 
     if (flow->intf_in != Interface::kInvalidIndex) {
-        Interface *intf = InterfaceTable::FindInterface(flow->intf_in);
+        Interface *intf = InterfaceTable::GetInstance()->FindInterface(flow->intf_in);
         if (intf && intf->GetType() == Interface::VMPORT) {
             VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
             const VmEntry *vm = vm_port->GetVmEntry();

@@ -16,7 +16,6 @@
 #include "net/address.h"
 #include "base/queue_task.h"
 #include "ifmap/client/ifmap_manager.h"
-//#include "ifmap/ifmap_server_show_types.h"
 
 class DB;
 class DBGraph;

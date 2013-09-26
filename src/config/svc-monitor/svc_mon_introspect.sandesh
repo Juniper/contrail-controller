@@ -7,11 +7,10 @@
 
 struct ServiceInstance {
     1: string name;
-    2: string instance_name;
-    3: string vm_uuid;
-    4: string mgmt_shared_iip;
-    5: string left_shared_iip;
-    6: string right_shared_iip;
+    2: list<string> vm_list;
+    3: list<string> left_vn;
+    4: list<string> right_vn;
+    5: list<string> management_vn;
 }
 
 request sandesh ServiceInstanceList {

@@ -161,6 +161,7 @@ private:
 
     bool DequeueEvent(EnqueuedCb);
     WorkQueue<EnqueuedCb> work_queue_;
+    bool shutdown_;
 };
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__

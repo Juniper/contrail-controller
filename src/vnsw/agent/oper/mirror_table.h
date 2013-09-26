@@ -95,11 +95,13 @@ public:
     static void DelMirrorEntry(const std::string &analyzer_name);
     virtual void OnZeroRefcount(AgentDBEntry *e);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static MirrorTable *GetInstance() {return mirror_table_;};
     void MirrorSockInit(void);
     void ReadHandler(const boost::system::error_code& error, size_t bytes);
 
 private:
     boost::asio::ip::udp::socket *udp_sock_;
+    static MirrorTable *mirror_table_;
     char rx_buff_[bufLen];
 };
 #endif

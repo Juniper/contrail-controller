@@ -91,6 +91,7 @@ public:
                        DBRequest *req);
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static Inet4McRouteTable *GetInstance() {return mc_route_table_;};
     // Createmulticast route and NH 
     static void AddV4MulticastRoute(const string &vrf_name,
                                     const Ip4Address &src_addr,
@@ -125,6 +126,7 @@ public:
                      const Peer *peer);
     bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, Peer *peer);
 private:
+    static Inet4McRouteTable *mc_route_table_;
     Inet4Route *FindExact(const Ip4Address &src, const Ip4Address &grp);
     NextHop *GetMcNextHop(Inet4McastRoute *key, Inet4RouteData *data);
     DBTableWalker::WalkId walkid_;

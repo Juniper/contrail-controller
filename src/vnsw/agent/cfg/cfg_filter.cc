@@ -64,26 +64,26 @@ void CfgFilter::Init() {
     assert(singleton_ == NULL);
     singleton_ = new CfgFilter();
 
-    AgentConfig::GetVmTable()->RegisterPreFilter
+    AgentConfig::GetInstance()->GetVmTable()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
                      VirtualMachine::ID_PERMS));
 
-    AgentConfig::GetVnTable()->RegisterPreFilter
+    AgentConfig::GetInstance()->GetVnTable()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
                      VirtualNetwork::ID_PERMS));
 
-    AgentConfig::GetVmInterfaceTable()->RegisterPreFilter
+    AgentConfig::GetInstance()->GetVmInterfaceTable()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
                      VirtualMachineInterface::ID_PERMS));
 
-    AgentConfig::GetAclTable()->RegisterPreFilter
+    AgentConfig::GetInstance()->GetAclTable()->RegisterPreFilter
         (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
                      AccessControlList::ID_PERMS));
 }
 
 void CfgFilter::Shutdown() {
-    AgentConfig::GetVmTable()->RegisterPreFilter(NULL);
-    AgentConfig::GetVnTable()->RegisterPreFilter(NULL);
+    AgentConfig::GetInstance()->GetVmTable()->RegisterPreFilter(NULL);
+    AgentConfig::GetInstance()->GetVnTable()->RegisterPreFilter(NULL);
     delete singleton_;
     singleton_ = NULL;
 }

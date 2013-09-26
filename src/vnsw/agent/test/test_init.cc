@@ -149,14 +149,14 @@ void AgentTestInit::InitModules() {
     }
 
     if (uve_init_) {
-        AgentUve::Init(interval_);
+        AgentUve::Init(agent_stats_interval_, flow_stats_interval_);
     }
     MulticastHandler::Register();
 }
 
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
-                     bool services_init, bool uve_init, int interval,
-                     bool asio) {
+                     bool services_init, bool uve_init, int agent_stats_interval,
+                     int flow_stats_interval, bool asio) {
     int sandesh_port = 0;
     bool log_locally = false;
     AgentCmdLineParams cmd_line("", 0, "", "", log_locally, "", "", sandesh_port, "");
@@ -174,7 +174,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     agent_init =
         new AgentTestInit(ksync_init, pkt_init, services_init,
                           init_file, sandesh_port, log_locally, 
-                          client, uve_init, interval);
+                          client, uve_init, agent_stats_interval, 
+                          flow_stats_interval);
     agent_init->Trigger();
 
     while (agent_init->GetState() != AgentTestInit::INIT_DONE) {
@@ -189,7 +190,8 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
         port_count += 2; // vhost, eth
     else {
         Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-        VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(), false);
+        VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                                       VirtualHostInterface::HOST);
         port_count += 1; // vhost
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
@@ -220,12 +222,14 @@ TestClient *StatsTestInit() {
     AgentTestInit *agent_init =
         new AgentTestInit(ksync_init, pkt_init, services_init,
                           init_file, sandesh_port, log_locally, 
-                          client, uve_init, StatsCollector::stats_coll_time);
+                          client, uve_init, AgentStatsCollector::AgentStatsInterval,
+                          FlowStatsCollector::FlowStatsInterval);
     agent_init->Trigger();
 
     sleep(6);
     Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(), false);
+    VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                                   VirtualHostInterface::HOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -265,10 +269,10 @@ static bool WaitForDbFree(const string &name, int msec) {
 
 void TestClient::Shutdown() {
     VnswIfListener::Shutdown();
+    CfgModule::Shutdown();
     AgentConfig::Shutdown();
     MirrorCfgTable::Shutdown();
     AgentUve::GetInstance()->Shutdown();
-    CfgModule::Shutdown();
     UveClient::GetInstance()->Shutdown();
     KSync::NetlinkShutdownTest();
     KSync::Shutdown();

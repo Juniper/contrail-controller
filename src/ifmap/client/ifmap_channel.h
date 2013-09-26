@@ -18,15 +18,28 @@
 #pragma clang diagnostic pop
 #endif
 
+#include <map>
+
 #include <boost/asio/streambuf.hpp>
 #include <boost/function.hpp>
 
 class IFMapStateMachine;
 class IFMapManager;
 class Timer;
+class IFMapPeerTimedoutEntries;
 
 class IFMapChannel {
 public:
+    struct PeerTimedoutInfo {
+        PeerTimedoutInfo() : timedout_cnt(0), last_timeout_at(0) {
+        }
+        PeerTimedoutInfo(uint64_t cnt, uint64_t timeout) : 
+            timedout_cnt(cnt), last_timeout_at(timeout) {
+        }
+        uint64_t timedout_cnt;
+        uint64_t last_timeout_at;
+    };
+    typedef std::map<std::string, PeerTimedoutInfo> TimedoutMap;
     static const int kSocketCloseTimeout;
 
     IFMapChannel(IFMapManager *manager, const std::string& url,
@@ -83,7 +96,7 @@ public:
     uint64_t get_sent_msg_cnt() { return sent_msg_cnt_; }
 
     uint64_t get_reconnect_attempts() { return reconnect_attempts_; }
-
+    
     std::string get_url() { return url_; }
 
     std::string get_publisher_id() { return pub_id_; }
@@ -115,7 +128,16 @@ public:
         return std::string("Invalid");
     }
 
+    void IncrementTimedout();
+
+    void GetTimedoutEntries(IFMapPeerTimedoutEntries *entries);
+
 private:
+    // 75 seconds i.e. 60 + (3*5)s
+    static const int kSessionKeepaliveIdleTime = 60; // in seconds
+    static const int kSessionKeepaliveInterval = 3; // in seconds
+    static const int kSessionKeepaliveProbes = 5; // count
+
     enum ResponseState {
         NONE = 0,
         NEWSESSION = 1,
@@ -136,6 +158,8 @@ private:
     ProcCompleteMsgCb GetCallback(ResponseState response_state);
     void CloseSockets(const boost::system::error_code& error,
                       boost::asio::deadline_timer *socket_close_timer);
+    void SetArcSocketOptions();
+    std::string timeout_to_string(uint64_t timeout);
 
     IFMapManager *manager_;
     boost::asio::ip::tcp::resolver resolver_;
@@ -160,6 +184,7 @@ private:
     uint64_t reconnect_attempts_;
     ConnectionStatus connection_status_;
     boost::asio::ip::tcp::endpoint endpoint_;
+    TimedoutMap timedout_map_;
 };
 
 #endif /* __IFMAP_CHANNEL_H__ */

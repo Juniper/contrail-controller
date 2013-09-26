@@ -57,17 +57,18 @@ public:
         return CmpInterface(rhs);
     };
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
-
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const = 0;
-    AgentDBTable *DBToTable() const;
+    virtual uint32_t GetVrfId() const;
+    virtual void SendTrace(Trace event);
+    virtual void Add() { };
 
+    AgentDBTable *DBToTable() const;
     Type GetType() const {return type_;};
     const uuid &GetUuid() const {return uuid_;};
     const string &GetName() const {return name_;};
     VrfEntry *GetVrf() const {return vrf_.get();};
     bool GetActiveState() const {return active_;};
-    virtual uint32_t GetVrfId() const;
     const uint32_t GetInterfaceId() const {return id_;};
     bool IsDhcpServiceEnabled() const {return dhcp_service_enabled_;};
     bool IsDnsServiceEnabled() const {return dns_service_enabled_;};
@@ -82,7 +83,6 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    virtual void SendTrace(Trace event);
 
     static void SetTestMode(bool mode) {test_mode_ = mode;};
     static bool GetTestMode() {return test_mode_;};
@@ -609,20 +609,20 @@ struct HostInterfaceKey : public InterfaceKey {
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of Virtual Host Interface from VNSW Router to Host OS
 /////////////////////////////////////////////////////////////////////////////
-struct VirtualHostInterfaceData : public InterfaceData {
-    VirtualHostInterfaceData(bool link_local) : InterfaceData(), 
-        link_local_(link_local) { };
-    bool link_local_;
-};
-
 class VirtualHostInterface : public Interface {
 public:
+    enum SubType {
+        HOST,
+        LINK_LOCAL,
+        GATEWAY
+    };
+
     VirtualHostInterface(const string &name, VrfEntry *vrf) :
         Interface(Interface::VHOST, nil_uuid(), name, vrf), 
-        link_local_(false) { };
-    VirtualHostInterface(const string &name, VrfEntry *vrf, bool link_local) :
+        sub_type_(HOST) { };
+    VirtualHostInterface(const string &name, VrfEntry *vrf, SubType sub_type) :
         Interface(Interface::VHOST, nil_uuid(), name, vrf), 
-        link_local_(link_local) { };
+        sub_type_(sub_type) { };
 
     virtual ~VirtualHostInterface() { };
 
@@ -633,14 +633,20 @@ public:
 
     KeyPtr GetDBRequestKey() const;
     virtual string ToString() const {return "VHOST";};
-    bool GetLinkLocal() const { return link_local_;};
+    SubType GetSubType() const { return sub_type_;};
     static void CreateReq(const string &ifname, const string &vrf_name, 
-                          bool link_local);
+                          SubType sub_type);
     // Enqueue DBRequest to delete a Host Interface
     static void DeleteReq(const string &ifname);
 private:
-    bool link_local_;
+    SubType sub_type_;
     DISALLOW_COPY_AND_ASSIGN(VirtualHostInterface);
+};
+
+struct VirtualHostInterfaceData : public InterfaceData {
+    VirtualHostInterfaceData(VirtualHostInterface::SubType sub_type) :
+        InterfaceData(), sub_type_(sub_type) { };
+    VirtualHostInterface::SubType sub_type_;
 };
 
 struct VirtualHostInterfaceKey : public InterfaceKey {
@@ -655,7 +661,7 @@ struct VirtualHostInterfaceKey : public InterfaceKey {
         VrfEntry *vrf =
            static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
         assert(vrf);
-        return new VirtualHostInterface(name_, vrf, vhost_data->link_local_);
+        return new VirtualHostInterface(name_, vrf, vhost_data->sub_type_);
     };
     InterfaceKey *Clone() const {
         return new VirtualHostInterfaceKey(*this);
@@ -687,17 +693,19 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     static void VmInterfaceVrfSync(IFMapNode *node);
 
-    static void FreeInterfaceId(size_t index) {index_table_.Remove(index);};
-    static Interface *FindInterface(size_t index) {return index_table_.At(index);};
+    void FreeInterfaceId(size_t index) {index_table_.Remove(index);};
+    Interface *FindInterface(size_t index) {return index_table_.At(index);};
 
     VrfEntry *FindVrfRef(const string &name) const;
     VnEntry *FindVnRef(const uuid &uuid) const;
     VmEntry *FindVmRef(const uuid &uuid) const;
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static InterfaceTable *GetInstance() {return interface_table_;};
 
 private:
-    static IndexVector<Interface> index_table_;
+    static InterfaceTable *interface_table_;
+    IndexVector<Interface> index_table_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

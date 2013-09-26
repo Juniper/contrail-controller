@@ -111,7 +111,7 @@ public:
         xml_attribute node = items.attribute("node");
 
         std::string nodename(node.value());
-        bool inet_route;
+        bool inet_route = false;
         const char *af = NULL, *safi = NULL, *network;
         char *str = const_cast<char *>(nodename.c_str());
         char *saveptr;

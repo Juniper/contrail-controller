@@ -7,9 +7,10 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
 #include <boost/tokenizer.hpp>
+#include "base/cpuinfo.h"
+#include "boost/python.hpp"
 #include "base/logging.h"
 #include "base/contrail_ports.h"
-#include "base/cpuinfo.h"
 #include "base/task.h"
 #include "base/task_trigger.h"
 #include "base/timer.h"
@@ -162,7 +163,6 @@ static void terminate(int param) {
 
 static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
     if (client) {
-        client->WithdrawPublish(DiscoveryServiceClient::CollectorService);
         client->Shutdown();
         delete client;
     }

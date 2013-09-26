@@ -105,7 +105,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_os_idx(r->get_vifr_os_idx());
     data.set_mtu(r->get_vifr_mtu());
 
-    intf = InterfaceTable::FindInterface(r->get_vifr_idx());
+    intf = InterfaceTable::GetInstance()->FindInterface(r->get_vifr_idx());
     if (!intf) {
         data.set_name(string("NULL"));
     } else {

@@ -118,7 +118,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:complexType name="MatchConditionType">
     <xsd:sequence>
-        <xsd:element name="protocol"    type="ProtocolType"/>
+        <xsd:element name="protocol"    type="xsd:string"/>
         <xsd:element name="src-address" type="AddressType"/>
         <xsd:element name="src-port"    type="PortType" />
         <xsd:element name="dst-address" type="AddressType"/>
@@ -184,7 +184,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="rule-sequence"    type="SequenceType"/> <!-- dummy till ui etc. remove it -->
         <xsd:element name="rule-uuid"        type="xsd:string"/>
         <xsd:element name="direction"        type="DirectionType"/>
-        <xsd:element name="simple-action"    type="SimpleActionType"/>
         <xsd:element name="protocol"         type="ProtocolType"/>
         <xsd:element name="src-addresses"      type="AddressType"
                                              maxOccurs="unbounded"/>

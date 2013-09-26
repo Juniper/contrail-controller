@@ -102,10 +102,17 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     }
 
     case Interface::VHOST: {
-        if (link_local_) {
+        switch (sub_type_) {
+        case VirtualHostInterface::GATEWAY:
+            encoder.set_vifr_type(VIF_TYPE_GATEWAY);
+            break;
+        case VirtualHostInterface::LINK_LOCAL:
             encoder.set_vifr_type(VIF_TYPE_XEN_LL_HOST);
-        } else {
+            break;
+        default:
             encoder.set_vifr_type(VIF_TYPE_HOST); 
+            break;
+
         }
         std::vector<int8_t> intf_mac(GetMac(), GetMac() + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);

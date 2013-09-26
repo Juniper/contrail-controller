@@ -452,7 +452,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t tunnels, int64_t composites, uint64_t encaps) {
+                   uint64_t tunnels, uint64_t composites, uint64_t encaps) {
     const AgentStatsCollector::VrfStats *st = 
                         AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -480,7 +480,7 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
 
 bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
                        uint64_t receives, uint64_t tunnels, 
-                       int64_t composites, uint64_t encaps) {
+                       uint64_t composites, uint64_t encaps) {
     const AgentStatsCollector::VrfStats *st = 
                         AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -1591,8 +1591,8 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
     }
 
     if (hash_id >= 0) {
-        EXPECT_EQ(entry->flow_handle, hash_id);
-        if (entry->flow_handle != hash_id) {
+        EXPECT_EQ(entry->flow_handle, (uint32_t)hash_id);
+        if (entry->flow_handle != (uint32_t)hash_id) {
             return false;
         }
     }
@@ -1636,8 +1636,8 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
             return false;
         }
 
-        EXPECT_EQ(rev->flow_handle, reverse_hash_id);
-        if (rev->flow_handle != reverse_hash_id) {
+        EXPECT_EQ(rev->flow_handle, (uint32_t)reverse_hash_id);
+        if (rev->flow_handle != (uint32_t)reverse_hash_id) {
             return false;
         }
     }

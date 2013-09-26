@@ -10,6 +10,8 @@
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
 
+#define XAPI_INTF_PREFIX "xapi"
+
 namespace local = boost::asio::local;
 
 class VnswRouteEvent {
@@ -18,7 +20,9 @@ public:
         ADD_REQ,
         DEL_REQ,
         ADD_RESP,
-        DEL_RESP
+        DEL_RESP,
+        INTF_UP,
+        INTF_DOWN
     };
 
     VnswRouteEvent(Ip4Address addr, Event event) : addr_(addr), event_(event) {};
@@ -83,6 +87,7 @@ private:
     void InterfaceHandler(struct nlmsghdr *nlh);
     void IfaddrHandler(struct nlmsghdr *nlh);
     int AddAttr(int type, void *data, int alen);
+    int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
 
     static VnswIfListener *instance_;
     uint8_t *read_buf_;
@@ -91,11 +96,11 @@ private:
     int sock_fd_;
     local::datagram_protocol::socket sock_;
     bool ifaddr_listen_;
-    bool iflink_listen_;
     DBTableBase::ListenerId intf_listener_id_;
     Ip4HostTableType    ll_addr_table_;
     WorkQueue<VnswRouteEvent *> *revent_queue_;
     int seqno_;
+    bool vhost_intf_up_;
 };
 
 #endif

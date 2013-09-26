@@ -20,7 +20,7 @@
 using namespace std;
 using namespace boost::asio;
 
-static Inet4McRouteTable *mc_route_table_;
+Inet4McRouteTable *Inet4McRouteTable::mc_route_table_;
 
 Inet4McRouteTable::Inet4McRouteTable(DB *db, const std::string &name) :
     Inet4RouteTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) {
@@ -208,7 +208,7 @@ DBEntryBase::KeyPtr Inet4McRoute::GetDBRequestKey() const {
 
 void Inet4McRoute::SetKey(const DBRequestKey *key) {
     const Inet4McRouteKey *k = static_cast<const Inet4McRouteKey *>(key);
-    SetVrf(mc_route_table_->FindVrfEntry(k->vrf_name_));
+    SetVrf(Inet4McRouteTable::GetInstance()->FindVrfEntry(k->vrf_name_));
     Ip4Address grp(k->addr_);
     SetAddr(grp);
     SetPlen(32);

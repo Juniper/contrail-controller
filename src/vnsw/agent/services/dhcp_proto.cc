@@ -87,7 +87,7 @@ DhcpHandler::DhcpHandler(PktInfo *info, boost::asio::io_service &io) :
 
 bool DhcpHandler::Run() {
     DhcpProto *dhcp_proto = Agent::GetInstance()->GetDhcpProto();
-    Interface *itf = InterfaceTable::FindInterface(GetIntf());
+    Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
     if (itf == NULL) {
         dhcp_proto->IncrStatsOther();
         DHCP_TRACE(Error, "Received DHCP packet on invalid interface : "
@@ -419,7 +419,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
             case DHCP_OPTION_82:
                 if (!is_request) {
                     if (!ReadOption82(read_opt) || !vm_itf_ || 
-                        InterfaceTable::FindInterface(vm_itf_index_) != vm_itf_)
+                        InterfaceTable::GetInstance()->FindInterface(vm_itf_index_) != vm_itf_)
                         return false;
                 }
                 break;

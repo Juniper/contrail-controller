@@ -294,6 +294,7 @@ static inline const std::string duration_usecs_to_string(const uint64_t usecs) {
 static inline std::string GetVNFromRoutingInstance(const std::string &vn) {
     std::vector<std::string> tokens;
     boost::split(tokens, vn, boost::is_any_of(":"), boost::token_compress_on);
+    if (tokens.size() < 3) return "";
     return tokens[0] + ":" + tokens[1] + ":" + tokens[2];
 }
 #endif /* UTIL_H_ */

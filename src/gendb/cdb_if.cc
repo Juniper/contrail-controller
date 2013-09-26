@@ -522,7 +522,11 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
             } catch (SchemaDisagreementException &tx) {
                 CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": SchemaDisagreementException: " << tx.what());
             } catch (InvalidRequestException &tx) {
-                CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                // Ignore EEXIST 
+                size_t eexist = tx.why.find("Cannot add already existing column family");
+                if (eexist == std::string::npos) { 
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                }
             } catch (TApplicationException &tx) {
                 CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TApplicationException: " << tx.what());
             } catch (TException &tx) {
@@ -569,7 +573,11 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
             } catch (SchemaDisagreementException &tx) {
                 CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": SchemaDisagreementException: " << tx.what());
             } catch (InvalidRequestException &tx) {
-                CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                // Ignore EEXIST 
+                size_t eexist = tx.why.find("Cannot add already existing column family");
+                if (eexist == std::string::npos) { 
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                }
             } catch (TApplicationException &tx) {
                 CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TApplicationException: " << tx.what());
             } catch (TException &tx) {
@@ -989,10 +997,12 @@ std::string CdbIf::Db_encode_Unsigned8_non_composite(const DbDataValue& value) {
     int size = 1;
     uint8_t temp1 = temp >> 8;
     while (temp1) {
+        if (temp1 < 256) {
+            if (temp1 > 127) size++;
+        }
         temp1 >>= 8;
         size++;
     }
-    size++;
 
     put_value(data, size, temp);
     std::string output((const char *)data, size);
@@ -1018,10 +1028,12 @@ std::string CdbIf::Db_encode_Unsigned16_non_composite(const DbDataValue& value) 
     int size = 1;
     uint16_t temp1 = temp >> 8;
     while (temp1) {
+        if (temp1 < 256) {
+            if (temp1 > 127) size++;
+        }
         temp1 >>= 8;
         size++;
     }
-    size++;
 
     put_value(data, size, temp);
     std::string output((const char *)data, size);
@@ -1047,10 +1059,12 @@ std::string CdbIf::Db_encode_Unsigned32_non_composite(const DbDataValue& value) 
     int size = 1;
     uint32_t temp1 = temp >> 8;
     while (temp1) {
+        if (temp1 < 256) {
+            if (temp1 > 127) size++;
+        }
         temp1 >>= 8;
         size++;
     }
-    size++;
 
     put_value(data, size, temp);
     std::string output((const char *)data, size);
@@ -1076,10 +1090,12 @@ std::string CdbIf::Db_encode_Unsigned64_non_composite(const DbDataValue& value) 
     int size = 1;
     uint64_t temp1 = temp >> 8;
     while (temp1) {
+        if (temp1 < 256) {
+            if (temp1 > 127) size++;
+        }
         temp1 >>= 8;
         size++;
     }
-    size++;
 
     put_value(data, size, temp);
     std::string output((const char *)data, size);
@@ -1179,10 +1195,14 @@ std::string CdbIf::Db_encode_Unsigned_int_composite(uint64_t input) {
     int size = 1;
     uint64_t temp_input = input >> 8;
     while (temp_input) {
+        if (temp_input < 256) {
+            if (temp_input > 127) {
+                size++; //additional byte to take care of unsigned-ness
+            }
+        }
         temp_input >>= 8;
         size++;
     }
-    size++; //additional byte to take care of unsigned-ness
 
     int i = 0;
     put_value(data+i, 2, size);

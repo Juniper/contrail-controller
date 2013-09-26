@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
     int ret = 0;
 
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, true, false, true, 2);
+    client = TestInit(init_file, ksync_init, true, false, true, 2, 2);
     StatsTestMock::TestSetup();
 
     ret = RUN_ALL_TESTS();

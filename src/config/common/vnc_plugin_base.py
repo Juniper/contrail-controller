@@ -4,6 +4,7 @@
 
 import abc
 
+
 class Resync(object):
     @abc.abstractmethod
     def __init__(self, api_server_ip, api_server_port, conf_sections):
@@ -20,6 +21,7 @@ class Resync(object):
     #end resync_projects
 
 #end class Resync
+
 
 class AuthBase(object):
     __metaclass__ = abc.ABCMeta

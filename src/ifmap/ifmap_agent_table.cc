@@ -481,7 +481,7 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
 
         // left->right entry found defer-list. Find the right->left entry
         LinkDefMap::iterator right_defmap_it = link_def_map_.find(*left_list_entry);
-        assert(link_def_map_.end() != link_defmap_it);
+        assert(link_def_map_.end() != right_defmap_it);
 
         std::list<IFMapTable::RequestKey> *right_list = right_defmap_it->second;
         std::list<IFMapTable::RequestKey>::iterator right_it, right_list_entry;
@@ -492,9 +492,12 @@ void IFMapAgentLinkTable::EvalDefLink(IFMapTable::RequestKey *key) {
             if ((*right_list_entry).id_seq_num < key->id_seq_num)
                 continue;
 
-            RemoveDefListEntry(&link_def_map_, right_defmap_it,
+            if ((*right_list_entry).id_type == key->id_type &&
+                    (*right_list_entry).id_name == key->id_name) { 
+                RemoveDefListEntry(&link_def_map_, right_defmap_it,
                                &right_list_entry);
-            break;
+                break;
+            }
         }
 
         //Remove from deferred list before enqueing

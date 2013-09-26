@@ -13,9 +13,10 @@
 from lxml import etree
 from verification_util import *
 
+
 class VerificationCollector(VerificationUtilBase):
     def __init__(self, ip, port):
-        super (VerificationCollector, self).__init__(ip, port, XmlDrv)
+        super(VerificationCollector, self).__init__(ip, port, XmlDrv)
     #end __init__
 
     def get_generators(self):
@@ -25,4 +26,4 @@ class VerificationCollector(VerificationUtilBase):
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_collector_connection_status
 
-#end class VerificationGenerator 
+#end class VerificationGenerator

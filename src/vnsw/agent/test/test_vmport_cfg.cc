@@ -1170,7 +1170,8 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     EthInterface::CreateReq(eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
-    VirtualHostInterface::CreateReq("vhost10", Agent::GetInstance()->GetDefaultVrf(), false);
+    VirtualHostInterface::CreateReq("vhost10", Agent::GetInstance()->GetDefaultVrf(),
+                                   VirtualHostInterface::HOST);
     client->WaitForIdle();
     //HostInterface::CreateReq("pkt10");
     //client->WaitForIdle();

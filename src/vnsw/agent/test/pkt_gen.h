@@ -263,7 +263,7 @@ public:
     void AddAgentHdr(int if_id, int cmd, int param = 0, int vrf = -1) {
         agent_hdr *hdr= (agent_hdr *)(buff + len);
         if (vrf == -1) {
-            Interface *intf = InterfaceTable::FindInterface(if_id);
+            Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
             if (intf && intf->GetVrf()) {
                 vrf = intf->GetVrf()->GetVrfId();
             }

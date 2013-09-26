@@ -9,8 +9,9 @@
 #include <string>
 #include "viz_message.h"
 #include "base/queue_task.h"
-#include "collector_uve_types.h"
 #include <sandesh/sandesh_state_machine.h>
+#include <sandesh/sandesh.h>
+#include "collector_uve_types.h"
 
 class Sandesh;
 class VizSession;
@@ -43,10 +44,8 @@ public:
     ~Generator();
 
     void ReceiveSandeshCtrlMsg(uint32_t connects);
-    bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg);
-    bool ReceiveMsg(ssm::Message *msg);
+    bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
     void DisconnectSession(VizSession *vsession);
-    void EnqueueRedisMessage(RedisReplyMsg *msg);
 
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
@@ -60,6 +59,9 @@ public:
         state_machine_ = state_machine;
         // Update state machine
         state_machine_->SetGeneratorKey(name_);
+    }
+    SandeshStateMachine * get_state_machine(void) {
+        return state_machine_;
     }
     const std::string State() const;
 

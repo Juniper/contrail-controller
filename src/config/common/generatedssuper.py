@@ -7,9 +7,11 @@ import sys
 ExternalEncoding = sys.getdefaultencoding()
 Tag_pattern_ = re.compile(r'({.*})?(.*)')
 
+
 def showIndent(outfile, level, pretty_print=False):
     for i in range(level - 1):
         outfile.write("    ")
+
 
 def quote_xml(inStr):
     if not inStr:
@@ -20,6 +22,7 @@ def quote_xml(inStr):
     s1 = s1.replace('<', '&lt;')
     s1 = s1.replace('>', '&gt;')
     return s1
+
 
 def quote_attrib(inStr):
     s1 = (isinstance(inStr, basestring) and inStr or
@@ -36,6 +39,7 @@ def quote_attrib(inStr):
         s1 = '"%s"' % s1
     return s1
 
+
 def quote_python(inStr):
     s1 = inStr
     if s1.find("'") == -1:
@@ -51,17 +55,24 @@ def quote_python(inStr):
         else:
             return '\"\"\"%s\"\"\"' % s1
 
+
 class GeneratedsSuper(object):
+
     def gds_format_string(self, input_data, input_name=''):
         return input_data
+
     def gds_validate_string(self, input_data, node, input_name=''):
         return input_data
+
     def gds_format_integer(self, input_data, input_name=''):
         return '%d' % input_data
+
     def gds_validate_integer(self, input_data, node, input_name=''):
         return input_data
+
     def gds_format_integer_list(self, input_data, input_name=''):
         return '%s' % input_data
+
     def gds_validate_integer_list(self, input_data, node, input_name=''):
         values = input_data.split()
         for value in values:
@@ -70,12 +81,16 @@ class GeneratedsSuper(object):
             except (TypeError, ValueError), exp:
                 raise_parse_error(node, 'Requires sequence of integers')
         return input_data
+
     def gds_format_float(self, input_data, input_name=''):
         return '%f' % input_data
+
     def gds_validate_float(self, input_data, node, input_name=''):
         return input_data
+
     def gds_format_float_list(self, input_data, input_name=''):
         return '%s' % input_data
+
     def gds_validate_float_list(self, input_data, node, input_name=''):
         values = input_data.split()
         for value in values:
@@ -84,12 +99,16 @@ class GeneratedsSuper(object):
             except (TypeError, ValueError), exp:
                 raise_parse_error(node, 'Requires sequence of floats')
         return input_data
+
     def gds_format_double(self, input_data, input_name=''):
         return '%e' % input_data
+
     def gds_validate_double(self, input_data, node, input_name=''):
         return input_data
+
     def gds_format_double_list(self, input_data, input_name=''):
         return '%s' % input_data
+
     def gds_validate_double_list(self, input_data, node, input_name=''):
         values = input_data.split()
         for value in values:
@@ -98,20 +117,29 @@ class GeneratedsSuper(object):
             except (TypeError, ValueError), exp:
                 raise_parse_error(node, 'Requires sequence of doubles')
         return input_data
+
     def gds_format_boolean(self, input_data, input_name=''):
         return '%s' % input_data
+
     def gds_validate_boolean(self, input_data, node, input_name=''):
         return input_data
+
     def gds_format_boolean_list(self, input_data, input_name=''):
         return '%s' % input_data
+
     def gds_validate_boolean_list(self, input_data, node, input_name=''):
         values = input_data.split()
         for value in values:
             if value not in ('true', '1', 'false', '0', ):
-                raise_parse_error(node, 'Requires sequence of booleans ("true", "1", "false", "0")')
+                raise_parse_error(
+                    node,
+                    'Requires sequence of booleans'
+                    ' ("true", "1", "false", "0")')
         return input_data
+
     def gds_str_lower(self, instring):
         return instring.lower()
+
     def get_path_(self, node):
         path_list = []
         self.get_path_list_(node, path_list)
@@ -119,6 +147,7 @@ class GeneratedsSuper(object):
         path = '/'.join(path_list)
         return path
     Tag_strip_pattern_ = re.compile(r'\{.*\}')
+
     def get_path_list_(self, node, path_list):
         if node is None:
             return
@@ -126,6 +155,7 @@ class GeneratedsSuper(object):
         if tag:
             path_list.append(tag)
         self.get_path_list_(node.getparent(), path_list)
+
     def get_class_obj_(self, node, default_class=None):
         class_obj1 = default_class
         if 'xsi' in node.nsmap:
@@ -138,11 +168,12 @@ class GeneratedsSuper(object):
                 if class_obj2 is not None:
                     class_obj1 = class_obj2
         return class_obj1
+
     def gds_build_any(self, node, type_name=None):
         return None
 
     @staticmethod
-    def populate_string (name):
+    def populate_string(name):
         if "mac_address" in name:
             return '00:ca:fe:00:ba:be'
         elif "prefix" in name:
@@ -162,29 +193,28 @@ class GeneratedsSuper(object):
             return 'test-' + name
 
     @staticmethod
-    def populate_unsignedLong (name):
+    def populate_unsignedLong(name):
         return 42
 
     @staticmethod
-    def populate_unsignedInt (name):
+    def populate_unsignedInt(name):
         return 42
 
     @staticmethod
-    def populate_integer (name):
+    def populate_integer(name):
         if "prefix" in name:
             return 24
         else:
             return 42
 
     @staticmethod
-    def populate_dateTime (name):
+    def populate_dateTime(name):
         return "2002-05-30T09:30:10.5"
 
     @staticmethod
-    def populate_time (name):
+    def populate_time(name):
         return "09:30:10Z"
 
     @staticmethod
-    def populate_boolean (name):
+    def populate_boolean(name):
         return False
-

@@ -20,7 +20,7 @@
 using namespace std;
 using namespace boost::asio;
 
-static Inet4UcRouteTable *uc_route_table_;
+Inet4UcRouteTable *Inet4UcRouteTable::uc_route_table_;
 
 Inet4UcRouteTable::Inet4UcRouteTable(DB *db, const std::string &name) :
     Inet4RouteTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId) {
@@ -454,7 +454,7 @@ DBEntryBase::KeyPtr Inet4UcRoute::GetDBRequestKey() const {
 
 void Inet4UcRoute::SetKey(const DBRequestKey *key) {
     const Inet4UcRouteKey *k = static_cast<const Inet4UcRouteKey *>(key);
-    SetVrf(uc_route_table_->FindVrfEntry(k->vrf_name_));
+    SetVrf(Inet4UcRouteTable::GetInstance()->FindVrfEntry(k->vrf_name_));
     Ip4Address tmp(k->addr_);
     SetAddr(tmp);
     SetPlen(k->plen_);
@@ -852,14 +852,14 @@ void Inet4UcRouteTable::AddResolveRoute(const string &vrf_name,
 void Inet4UcRouteTable::AddVHostRecvRoute(const Peer *peer,
                                           const string &vm_vrf,
                                           const string &interface_name,
-                                          const Ip4Address &addr,
+                                          const Ip4Address &addr, uint8_t plen,
                                           const string &vn,
                                           bool policy) {
     ReceiveNH::CreateReq(interface_name);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(peer, vm_vrf, addr, 32);
+    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(peer, vm_vrf, addr, plen);
     req.key.reset(rt_key);
     VirtualHostInterfaceKey intf_key(nil_uuid(), interface_name);
     Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key, policy, vn);
@@ -872,7 +872,8 @@ void Inet4UcRouteTable::AddVHostRecvRoute(const string &vm_vrf,
                                           const string &interface_name,
                                           const Ip4Address &addr,
                                           bool policy) {
-    AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(), vm_vrf, interface_name, addr,
+    AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(), vm_vrf,
+                      interface_name, addr, 32,
                       Agent::GetInstance()->GetFabricVnName(), policy);
 }
 

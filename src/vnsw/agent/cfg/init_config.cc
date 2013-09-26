@@ -38,6 +38,9 @@
 #include "sandesh/sandesh_trace.h"
 #include "discovery_agent.h"
 
+#include "vgw/vgw_cfg.h"
+#include "vgw/vgw.h"
+
 using namespace std;
 using namespace autogen;
 using namespace boost::property_tree;
@@ -46,18 +49,6 @@ using boost::optional;
 
 void IFMapAgentSandeshInit(DB *db);
 
-IFMapAgentTable *AgentConfig::cfg_vn_table_;
-IFMapAgentTable *AgentConfig::cfg_sg_table_;
-IFMapAgentTable *AgentConfig::cfg_vm_table_;
-IFMapAgentTable *AgentConfig::cfg_vm_interface_table_;
-IFMapAgentTable *AgentConfig::cfg_acl_table_;
-IFMapAgentTable *AgentConfig::cfg_vrf_table_;
-IFMapAgentTable *AgentConfig::cfg_instanceip_table_;
-IFMapAgentTable *AgentConfig::cfg_floatingip_table_;
-IFMapAgentTable *AgentConfig::cfg_floatingip_pool_table_;
-IFMapAgentTable *AgentConfig::network_ipam_table_;
-IFMapAgentTable *AgentConfig::vn_network_ipam_table_;
-IFMapAgentTable *AgentConfig::vm_port_vrf_table_;
 AgentConfig *AgentConfig::singleton_;
 
 CfgListener         *CfgModule::cfg_listener_;
@@ -541,6 +532,7 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
             " in config file <" << init_file << ">");
         exit(EINVAL);
     }
+    VGwConfig::Init(init_file);
     AgentConfig::GetInstance()->SetMode(mode);
 
     if (mode == MODE_KVM) {
@@ -569,6 +561,7 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
         }
     }
     singleton_->SetXenInfo(xen_ll_name, xen_ll_addr, xen_ll_plen);
+
     return;
 }
 
@@ -634,7 +627,8 @@ void AgentConfig::InitXenLinkLocalIntf() {
     }
 
     VirtualHostInterface::CreateReq(singleton_->xen_ll_.name_, 
-                                    Agent::GetInstance()->GetLinkLocalVrfName(), true);
+                                    Agent::GetInstance()->GetLinkLocalVrfName(), 
+                                    VirtualHostInterface::LINK_LOCAL);
 
     Inet4UcRouteTable *rt_table;
     rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(
@@ -686,7 +680,8 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
         (boost::bind(&AgentConfig::OnItfCreate, singleton_, _2, cb));
 
     VirtualHostInterface::CreateReq(singleton_->GetVHostName(), 
-                                    Agent::GetInstance()->GetDefaultVrf(), false);
+                                    Agent::GetInstance()->GetDefaultVrf(), 
+                                    VirtualHostInterface::HOST);
     InitXenLinkLocalIntf();
     EthInterface::CreateReq(singleton_->GetEthPort(), Agent::GetInstance()->GetDefaultVrf());
     if (singleton_->tunnel_type_ == "MPLSoUDP")
@@ -695,6 +690,7 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
 
     DiscoveryAgentClient::Init();
+    VGwTable::Init();
 }
 
 
@@ -828,54 +824,70 @@ void CfgModule::RegisterDBClients(DB *db) {
         ("global-vrouter-config",
          boost::bind(&TunnelType::EncapPrioritySync, _1), -1);
 
-    AgentConfig::cfg_vm_interface_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-machine-interface"));
-    assert(AgentConfig::cfg_vm_interface_table_);
+    AgentConfig::GetInstance()->
+        SetVmInterfaceTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(),
+        "virtual-machine-interface")));
+    assert(AgentConfig::GetInstance()->GetVmInterfaceTable());
 
-    AgentConfig::cfg_acl_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "access-control-list"));
-    assert(AgentConfig::cfg_acl_table_);
-
-    AgentConfig::cfg_vm_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-machine"));
-    assert(AgentConfig::cfg_vm_table_);
-
-    AgentConfig::cfg_vn_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-network"));
-    assert(AgentConfig::cfg_vn_table_);
-
-    AgentConfig::cfg_sg_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "security-group"));
-    assert(AgentConfig::cfg_sg_table_);         
-
-    AgentConfig::cfg_vrf_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "routing-instance"));
-    assert(AgentConfig::cfg_vrf_table_);
-
-    AgentConfig::cfg_instanceip_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "instance-ip"));
-    assert(AgentConfig::cfg_instanceip_table_);
-
-    AgentConfig::cfg_floatingip_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "floating-ip"));
-    assert(AgentConfig::cfg_floatingip_table_);
-
-    AgentConfig::cfg_floatingip_pool_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "floating-ip-pool"));
-    assert(AgentConfig::cfg_floatingip_pool_table_);
-
-    AgentConfig::network_ipam_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "network-ipam"));
-    assert(AgentConfig::network_ipam_table_);
-
-    AgentConfig::vn_network_ipam_table_ = static_cast<IFMapAgentTable *>
-        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "virtual-network-network-ipam"));
-    assert(AgentConfig::vn_network_ipam_table_);
-
-    AgentConfig::vm_port_vrf_table_ = static_cast<IFMapAgentTable *>
+    AgentConfig::GetInstance()->SetAclTable(static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
-                               "virtual-machine-interface-routing-instance"));
-    assert(AgentConfig::vm_port_vrf_table_);
+                               "access-control-list")));
+    assert(AgentConfig::GetInstance()->GetAclTable());
+
+    AgentConfig::GetInstance()->SetVmTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "virtual-machine")));
+    assert(AgentConfig::GetInstance()->GetVmTable());
+
+    AgentConfig::GetInstance()->SetVnTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "virtual-network")));
+    assert(AgentConfig::GetInstance()->GetVnTable());
+
+    AgentConfig::GetInstance()->SetSgTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "security-group")));
+    assert(AgentConfig::GetInstance()->GetSgTable());         
+
+    AgentConfig::GetInstance()->SetVrfTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "routing-instance")));
+    assert(AgentConfig::GetInstance()->GetVrfTable());
+
+    AgentConfig::GetInstance()->
+        SetInstanceIpTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "instance-ip")));
+    assert(AgentConfig::GetInstance()->GetInstanceIpTable());
+
+    AgentConfig::GetInstance()->
+        SetFloatingIpTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "floating-ip")));
+    assert(AgentConfig::GetInstance()->GetFloatingIpTable());
+
+    AgentConfig::GetInstance()->
+        SetFloatingIpPoolTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "floating-ip-pool")));
+    assert(AgentConfig::GetInstance()->GetFloatingIpPoolTable());
+
+    AgentConfig::GetInstance()->
+        SetNetworkIpamTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), "network-ipam")));
+    assert(AgentConfig::GetInstance()->GetNetworkIpamTable());
+
+    AgentConfig::GetInstance()->
+        SetVnNetworkIpamTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "virtual-network-network-ipam")));
+    assert(AgentConfig::GetInstance()->GetVnNetworkIpamTable());
+
+    AgentConfig::GetInstance()->SetVmPortVrfTable(static_cast<IFMapAgentTable *>
+        (IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+                               "virtual-machine-interface-routing-instance")));
+    assert(AgentConfig::GetInstance()->GetVmPortVrfTable());
 
     InterfaceCfgClient::Init();
     CfgFilter::Init();

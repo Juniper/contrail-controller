@@ -13,9 +13,8 @@ setup(
               'opserver.sandesh.vns',
               'opserver.sandesh.viz',
               'opserver.sandesh.analytics_cpuinfo',
-              'opserver.sandesh.analytics_cpuinfo.cpuinfo'
-             ],
-    package_data={'':['*.html', '*.css', '*.xml']},
+              'opserver.sandesh.analytics_cpuinfo.cpuinfo'],
+    package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC OpServer Implementation",
     install_requires=[

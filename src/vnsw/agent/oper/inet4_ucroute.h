@@ -248,6 +248,7 @@ public:
                      const Peer *peer);
     bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, Peer *peer);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static Inet4UcRouteTable *GetInstance() {return uc_route_table_;};
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                                 const Ip4Address &addr, uint8_t plen);
     // Create Route to trap packets to agent
@@ -313,8 +314,8 @@ public:
 
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf_name,
                                   const string &interface_name,
-                                  const Ip4Address &ip, const string &vn,
-                                  bool policy);
+                                  const Ip4Address &ip, uint8_t plen,
+                                  const string &vn, bool policy);
     static void AddVHostRecvRoute(const string &vrf_name,
                                   const string &interface_name,
                                   const Ip4Address &ip,
@@ -365,6 +366,7 @@ public:
 
     virtual Inet4Route *FindRoute(const Ip4Address &ip) { return FindLPM(ip); };
 private:
+    static Inet4UcRouteTable *uc_route_table_;
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
     Patricia::Node rtnode_;

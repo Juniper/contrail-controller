@@ -482,7 +482,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
          node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (adj_node->table() == AgentConfig::GetVnTable()) {
+        if (adj_node->table() == AgentConfig::GetInstance()->GetVnTable()) {
             VirtualNetwork *vn_cfg = static_cast<VirtualNetwork *>
                 (adj_node->GetObject());
             assert(vn_cfg);
@@ -491,7 +491,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
             }
         }
-        if (adj_node->table() == AgentConfig::GetSgTable()) {
+        if (adj_node->table() == AgentConfig::GetInstance()->GetSgTable()) {
             SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
                     ( adj_node->GetObject());
             assert(sg_cfg);

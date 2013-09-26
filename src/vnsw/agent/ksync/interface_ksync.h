@@ -42,7 +42,7 @@ public:
         policy_enabled_(entry->policy_enabled_),
         analyzer_name_(entry->analyzer_name_),
         active_(false), os_index_(Interface::kInvalidIndex), 
-        link_local_(entry->link_local_) {
+        sub_type_(entry->sub_type_) {
     };
 
     IntfKSyncEntry(const Interface *intf) :
@@ -51,7 +51,8 @@ public:
             vrf_id_(intf->GetVrfId()), fd_(-1), has_service_vlan_(false),
             mac_(intf->GetMacAddr()), ip_(0),
             policy_enabled_(false), analyzer_name_(), active_(false), 
-            os_index_(intf->GetOsIfindex()), link_local_(false) {
+            os_index_(intf->GetOsIfindex()),
+            sub_type_(VirtualHostInterface::HOST) {
         // Max name size supported by kernel
         assert(strlen(ifname_.c_str()) < IF_NAMESIZE);
         if (type_ == Interface::VMPORT) {
@@ -135,7 +136,7 @@ public:
         if (intf->GetType() == Interface::VHOST) {
             VirtualHostInterface *vhost = 
                 static_cast<VirtualHostInterface *>(intf);
-            link_local_ = vhost->GetLinkLocal();
+            sub_type_ = vhost->GetSubType();
         }
 
         if (vrf_id != vrf_id_) {
@@ -184,7 +185,7 @@ private:
     string analyzer_name_;
     bool active_;
     size_t os_index_;
-    bool link_local_;
+    VirtualHostInterface::SubType sub_type_;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
 };
 

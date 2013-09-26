@@ -283,7 +283,7 @@ bool DnsHandler::HandleRequest() {
     dns_proto->IncrStatsReq();
 
     uint16_t ret = DNS_ERR_NO_ERROR;
-    const Interface *itf = InterfaceTable::FindInterface(GetIntf());
+    const Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
     if (!itf || (itf->GetType() != Interface::VMPORT) || dns_->flags.req) {
         dns_proto->IncrStatsDrop();
         DNS_BIND_TRACE(DnsBindError, "Received Invalid DNS request - dropping"

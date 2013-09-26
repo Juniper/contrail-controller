@@ -43,7 +43,7 @@ boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_gener
 tbb::atomic<int> FlowEntry::alloc_count_;
 
 static bool ShouldDrop(uint32_t action) {
-    if (action & TrafficAction::DROP_FLAGS)
+    if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
         return true;
 
     return false;
@@ -109,7 +109,7 @@ bool FlowEntry::ActionRecompute(MatchPolicy *policy) {
 
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
-        action = (action & ~TrafficAction::DROP_FLAGS);
+        action = (action & ~TrafficAction::DROP_FLAGS & ~TrafficAction::PASS_FLAGS);
         action |= (1 << TrafficAction::DROP);
     }
 
@@ -246,6 +246,14 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     FlowEntry *rflow = data.reverse_flow.get();
     if (local_flow == false || rflow == NULL) {
         // Not local flow
+        return;
+    }
+
+    if (rflow->data.intf_entry.get() == NULL) {
+        return;
+    }
+
+    if (rflow->data.intf_entry->GetType() != Interface::VMPORT) {
         return;
     }
 

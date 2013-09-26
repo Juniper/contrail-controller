@@ -75,8 +75,10 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static VmTable *GetInstance() {return vm_table_;};
 
 private:
+    static VmTable *vm_table_;
     DISALLOW_COPY_AND_ASSIGN(VmTable);
 };
 

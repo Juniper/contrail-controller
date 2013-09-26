@@ -17,7 +17,7 @@
 using namespace std;
 using namespace autogen;
 
-static VmTable *vm_table_;
+VmTable *VmTable::vm_table_;
 
 bool VmEntry::IsLess(const DBEntry &rhs) const {
     const VmEntry &a = static_cast<const VmEntry &>(rhs);
@@ -39,7 +39,7 @@ void VmEntry::SetKey(const DBRequestKey *key) {
 }
 
 AgentDBTable *VmEntry::DBToTable() const {
-    return vm_table_;
+    return VmTable::GetInstance();
 }
 
 bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {

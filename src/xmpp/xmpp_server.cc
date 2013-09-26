@@ -198,7 +198,6 @@ XmppConnection *XmppServer::CreateConnection(XmppSession *session) {
     cfg.FromAddr = this->ServerAddr();
     cfg.logUVE = this->log_uve_;
 
-    std::cout << " Port " << session->local_port() << std::endl;
     XMPP_DEBUG(XmppCreateConnection,
                session->remote_endpoint().address().to_string());
     connection = XmppObjectFactory::Create<XmppServerConnection>(this, &cfg);

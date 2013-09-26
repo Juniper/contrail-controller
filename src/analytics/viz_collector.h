@@ -53,6 +53,9 @@ public:
         return osp_.get();
     }
     bool SendRemote(const std::string& destination, const std::string& dec_sandesh);
+    void RedisUpdate(bool rsc) {
+        collector_->RedisUpdate(rsc);
+    }
 
 private:
     EventManager *evm_;

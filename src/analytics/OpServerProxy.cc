@@ -39,15 +39,9 @@ class OpServerProxy::OpServerImpl {
             RAC_CONN_TYPE_FROM_OPS = 2,
         };
 
-        void DelRedisReply(bool res) {
-            is_started_ = true;
-        }
-
         void ToOpsConnUpPostProcess() {
             processor_cb_proc_fn = boost::bind(&OpServerImpl::processorCallbackProcess, this, _1, _2, _3);
             to_ops_conn_.get()->SetClientAsyncCmdCb(processor_cb_proc_fn);
-
-            if (is_started_) return;
 
             string module = g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
             VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
@@ -56,10 +50,14 @@ class OpServerProxy::OpServerImpl {
                 source = vsc->Analytics()->name();
             else 
                 source = Sandesh::source();
-
-            DelRequest * dr = new DelRequest(to_ops_conn_.get(), 
-                boost::bind(&OpServerProxy::OpServerImpl::DelRedisReply, this, _2), source, module, "", 0);
-            dr->RedisSend();
+            
+            if (!started_) {
+                RedisProcessorExec::SyncDeleteUVEs(redis_ip_, redis_port_,
+                    source, module, "", 0);
+                started_=true;
+            }
+            if (collector_) 
+                collector_->RedisUpdate(true);
         }
 
         void ToOpsConnUp() {
@@ -81,6 +79,7 @@ class OpServerProxy::OpServerImpl {
 
         void RAC_ConnectProcess(RacConnType type) {
             if (type == RAC_CONN_TYPE_TO_OPS) {
+                LOG(DEBUG, "Retry Connect to FromOpsConn");
                 to_ops_conn_.get()->RAC_Connect();
             } else if (type == RAC_CONN_TYPE_FROM_OPS) {
                 from_ops_conn_.get()->RAC_Connect();
@@ -89,7 +88,7 @@ class OpServerProxy::OpServerImpl {
 
         void ToOpsConnDown() {
             LOG(DEBUG, "ToOpsConnDown.. DOWN.. Reconnect..");
-            assert(0);
+            collector_->RedisUpdate(false);
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
                         this, RAC_CONN_TYPE_TO_OPS));
         }
@@ -187,8 +186,7 @@ class OpServerProxy::OpServerImpl {
         }
 
         RedisAsyncConnection *to_ops_conn() {
-            if (!is_started_) return NULL;
-            else return (to_ops_conn_.get());
+            return (to_ops_conn_.get());
         }
 
         RedisAsyncConnection *from_ops_conn() {
@@ -199,9 +197,11 @@ class OpServerProxy::OpServerImpl {
                 const std::string & redis_ip, unsigned short redis_port) :
             evm_(evm),
             collector_(collector),
-            is_started_(false),
+            started_(false),
             analytics_cb_proc_fn(NULL),
-            processor_cb_proc_fn(NULL) {
+            processor_cb_proc_fn(NULL),
+            redis_ip_(redis_ip),
+            redis_port_(redis_port) {
                 to_ops_conn_.reset(new RedisAsyncConnection(evm, redis_ip, redis_port,
                             boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
                             boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
@@ -220,12 +220,15 @@ class OpServerProxy::OpServerImpl {
         /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
         VizCollector *collector_;
-        bool is_started_;
         int gen_timeout_;
+        bool started_;
         boost::scoped_ptr<RedisAsyncConnection> to_ops_conn_;
         boost::scoped_ptr<RedisAsyncConnection> from_ops_conn_;
         RedisAsyncConnection::ClientAsyncCmdCbFn analytics_cb_proc_fn;
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
+    public:
+        std::string redis_ip_;
+        unsigned short redis_port_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
@@ -270,7 +273,8 @@ OpServerProxy::UVEDelete(const std::string &type,
 }
 
 bool 
-OpServerProxy::GetSeq(const string &source, const string &module, GetSeqReply gsr) {
+OpServerProxy::GetSeq(const string &source, const string &module, 
+        std::map<std::string,int32_t> & seqReply) {
     if (!impl_->to_ops_conn()) return false;
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
     string coll;
@@ -279,13 +283,12 @@ OpServerProxy::GetSeq(const string &source, const string &module, GetSeqReply gs
     else 
         coll = Sandesh::source();
 
-    TypesQuery * tq = new TypesQuery(impl_->to_ops_conn(), 
-            boost::bind(gsr, _2) , source, module, coll, gen_timeout_);
-    return tq->RedisSend();
+    return RedisProcessorExec::SyncGetSeq(impl_->redis_ip_, impl_->redis_port_,
+            source, module, coll, gen_timeout_, seqReply);
 }
 
 bool 
-OpServerProxy::DeleteUVEs(const string &source, const string &module, DeleteUVEsReply dur) {
+OpServerProxy::DeleteUVEs(const string &source, const string &module) {
     if (!impl_->to_ops_conn()) return false;
 
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
@@ -295,9 +298,8 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module, DeleteUVEs
     else 
         coll = Sandesh::source();
 
-    DelRequest * dr = new DelRequest(impl_->to_ops_conn(), 
-            boost::bind(dur, _2) , source, module, coll, gen_timeout_);
-    return dr->RedisSend();
+    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_ip_, impl_->redis_port_,
+            source, module, coll, gen_timeout_);
 }
 
 bool 

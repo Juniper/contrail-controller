@@ -9,56 +9,64 @@ import requests
 from lxml import etree
 import socket
 
-class JsonDrv (object):
-    def _http_con (self, url):
-        return urllib2.urlopen (url)
 
-    def load (self, url):
-        return json.load (self._http_con (url))
+class JsonDrv (object):
+
+    def _http_con(self, url):
+        return urllib2.urlopen(url)
+
+    def load(self, url):
+        return json.load(self._http_con(url))
+
 
 class XmlDrv (object):
-    def load (self, url):
-        try: 
-            resp=requests.get(url)
+
+    def load(self, url):
+        try:
+            resp = requests.get(url)
             return etree.fromstring(resp.text)
-        except requests.ConnectionError,e:
+        except requests.ConnectionError, e:
             print "Socket Connection error : " + str(e)
             return None
 
+
 class VerificationUtilBase (object):
-    def __init__ (self, ip, port, drv=JsonDrv):
-        self._ip   = ip
+
+    def __init__(self, ip, port, drv=JsonDrv):
+        self._ip = ip
         self._port = port
-        self._drv  = drv ()
+        self._drv = drv()
         self._force_refresh = False
 
-    def get_force_refresh (self):
+    def get_force_refresh(self):
         return self._force_refresh
 
-    def set_force_refresh (self, force=False):
+    def set_force_refresh(self, force=False):
         self._force_refresh = force
-        return self.get_force_refresh ()
+        return self.get_force_refresh()
 
-    def _mk_url_str (self, path):
+    def _mk_url_str(self, path):
         if path:
-            if path.startswith ('http:'):
+            if path.startswith('http:'):
                 return path
             return "http://%s:%d/%s" % (self._ip, self._port, path)
 
-    def dict_get (self, path=''):
-        try: 
+    def dict_get(self, path=''):
+        try:
             if path:
-                return self._drv.load (self._mk_url_str (path))
+                return self._drv.load(self._mk_url_str(path))
         except urllib2.HTTPError:
             return None
-    #end dict_get
+    # end dict_get
+
 
 class Result (dict):
-    def __init__ (self, d={}):
-        super (Result, self).__init__ ()
-        self.update (d)
 
-    def xpath (self, *plist):
+    def __init__(self, d={}):
+        super(Result, self).__init__()
+        self.update(d)
+
+    def xpath(self, *plist):
         ''' basic path '''
         d = self
         for p in plist:
@@ -67,7 +75,9 @@ class Result (dict):
 
 
 class EtreeToDict(object):
+
     """Converts the xml etree to dictionary/list of dictionary."""
+
     def __init__(self, xpath):
         self.xpath = xpath
 
@@ -129,7 +139,6 @@ class EtreeToDict(object):
 
     def find_entry(self, path, match):
         """Looks for a particular entry in the etree.
-    
         Returns the element looked for/None.
         """
         xp = path.xpath(self.xpath)

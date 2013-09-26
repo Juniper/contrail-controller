@@ -25,11 +25,11 @@
 #include <cfg/mirror_cfg.h>
 #include <oper/agent_sandesh.h>
 
-static VnTable *vn_table_;
-
 using namespace autogen;
 using namespace std;
 using namespace boost;
+
+VnTable *VnTable::vn_table_;
 
 bool VnEntry::IsLess(const DBEntry &rhs) const {
     const VnEntry &a = static_cast<const VnEntry &>(rhs);
@@ -53,7 +53,7 @@ void VnEntry::SetKey(const DBRequestKey *key) {
 }
 
 AgentDBTable *VnEntry::DBToTable() const {
-    return vn_table_;
+    return VnTable::GetInstance();
 }
 
 bool VnEntry::GetIpamData(const VmPortInterface *vmitf, 
@@ -241,7 +241,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 continue;
             }
 
-            if (adj_node->table() == AgentConfig::GetAclTable()) {
+            if (adj_node->table() == AgentConfig::GetInstance()->GetAclTable()) {
                 AccessControlList *acl_cfg = static_cast<AccessControlList *>
                     (adj_node->GetObject());
                 assert(acl_cfg);
@@ -255,12 +255,12 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 }
             }
 
-            if ((adj_node->table() == AgentConfig::GetVrfTable()) &&
+            if ((adj_node->table() == AgentConfig::GetInstance()->GetVrfTable()) &&
               (!IsVRFServiceChainingInstance(node->name(), adj_node->name()))) {
                 vrf_name = adj_node->name();
             }
 
-            if (adj_node->table() == AgentConfig::GetVnNetworkIpamTable()) {
+            if (adj_node->table() == AgentConfig::GetInstance()->GetVnNetworkIpamTable()) {
                 if (IFMapNode *ipam_node = FindTarget(table, adj_node, 
                                                       "network-ipam")) {
                     ipam_name = ipam_node->name();
@@ -304,7 +304,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetVmInterfaceTable()) == false) {
+            (adj_node, AgentConfig::GetInstance()->GetVmInterfaceTable()) == false) {
             continue;
         }
 
@@ -356,7 +356,7 @@ void VnTable::IpamVnSync(IFMapNode *node) {
          iter != node->end(graph); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetVnTable()) == false) {
+            (adj_node, AgentConfig::GetInstance()->GetVnTable()) == false) {
             continue;
         }
 

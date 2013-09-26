@@ -26,6 +26,7 @@ RedisAsyncConnection::RedisAsyncConnection(EventManager *evm, const std::string 
     hostname_(redis_ip),
     port_(redis_port),
     context_(NULL),
+    client_(NULL),
     state_(REDIS_ASYNC_CONNECTION_INIT),
     reconnect_timer_(*evm->io_service()),
     client_connect_cb_(client_connect_cb),
@@ -151,7 +152,7 @@ bool RedisAsyncConnection::RAC_Connect(void) {
     assert(!context_);
     context_ = redisAsyncConnect(hostname_.c_str(), port_);
     if (context_->err) {
-        LOG(DEBUG, "RAC_Connect: redisAsyncConnect() failed:" << context_->err);
+        LOG(DEBUG, "RAC_Connect: redisAsyncConnect() failed:" << context_->errstr);
         boost::system::error_code ec;
         reconnect_timer_.expires_from_now(boost::posix_time::seconds(RedisAsyncConnection::RedisReconnectTime), ec);
         reconnect_timer_.async_wait(boost::bind(&RedisAsyncConnection::RAC_Reconnect, this, boost::asio::placeholders::error));

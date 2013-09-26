@@ -23,11 +23,10 @@
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
 
-static VrfTable *vrf_table_;
-IndexVector<VrfEntry> VrfTable::index_table_;
-
 using namespace std;
 using namespace autogen;
+
+VrfTable *VrfTable::vrf_table_;
 
 class VrfEntry::DeleteActor : public LifetimeActor {
   public:
@@ -125,7 +124,7 @@ VrfEntry::VrfEntry(const string &name) :
 
 VrfEntry::~VrfEntry() {
     if (id_ != kInvalidIndex) {
-        VrfTable::FreeVrfId(id_);
+        VrfTable::GetInstance()->FreeVrfId(id_);
         Agent::GetInstance()->GetVrfTable()->VrfReuse(GetName());
     }
 }
@@ -150,7 +149,7 @@ void VrfEntry::SetKey(const DBRequestKey *key) {
 }
 
 AgentDBTable *VrfEntry::DBToTable() const {
-    return vrf_table_;
+    return VrfTable::GetInstance();
 }
 
 Inet4UcRouteTable *VrfEntry::GetInet4UcRouteTable() const {
@@ -674,7 +673,7 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetVmPortVrfTable()) == false) {
+            (adj_node, AgentConfig::GetInstance()->GetVmPortVrfTable()) == false) {
             continue;
         }
 

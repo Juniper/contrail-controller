@@ -11,6 +11,7 @@
 #include "base/task_annotations.h"
 
 #include <boost/asio/buffer.hpp>
+#include <boost/asio/detail/socket_option.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
 
@@ -198,12 +199,10 @@ void IFMapChannel::ReconnectPreparation() {
     clear_sent_msg_cnt();
 
     boost::system::error_code ec;
-    ssrc_socket_->shutdown(ec);
     ssrc_socket_->next_layer().shutdown(
             boost::asio::ip::tcp::socket::shutdown_both, ec);
     ssrc_socket_->next_layer().close(ec);
 
-    arc_socket_->shutdown(ec);
     arc_socket_->next_layer().shutdown(
             boost::asio::ip::tcp::socket::shutdown_both, ec);
     arc_socket_->next_layer().close(ec);
@@ -271,6 +270,9 @@ void IFMapChannel::DoSslHandshake(bool is_ssrc) {
     socket->async_handshake(boost::asio::ssl::stream_base::client,
         boost::bind(&IFMapStateMachine::ProcHandshakeResponse, state_machine_,
                     boost::asio::placeholders::error));
+    if (!is_ssrc) {
+        SetArcSocketOptions();
+    }
 }
 
 void IFMapChannel::SendNewSessionRequest() {
@@ -437,8 +439,8 @@ int IFMapChannel::ReadSubscribeResponseStr() {
 
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_WARN(IFMapServerConnection, 
-                   "Error received instead of SubscribeReceived. Quitting.", "");
+        IFMAP_WARN(IFMapServerConnection,
+                  "Error received instead of SubscribeReceived. Quitting.", "");
         return -1;
     } else if (reply_str.find(string("subscribeReceived")) != string::npos) {
         return 0;
@@ -488,8 +490,8 @@ int IFMapChannel::ReadPollResponse() {
     // Append the new bytes read, if any, to the stringstream
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
-    IFMAP_DEBUG(IFMapServerConnection,
-                "PollResponse message is: \n", reply_str);
+    IFMAP_LOG_POLL_RESP(IFMapServerConnection,
+                        "PollResponse message is: \n", reply_str);
 
     // all possible responses, 3.7.5
     if ((reply_str.find("errorResult") != string::npos) ||
@@ -614,6 +616,93 @@ IFMapChannel::ProcCompleteMsgCb IFMapChannel::GetCallback(
     }
 }
 
+// Get the TCP layer and set the keepalive options on it
+void IFMapChannel::SetArcSocketOptions() {
+    boost::system::error_code ec;
+
+    boost::asio::socket_base::keep_alive option(true);
+    arc_socket_->next_layer().set_option(option, ec);
+    if (ec) {
+        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive option",
+                   ec.message());
+    }
+
+#ifdef TCP_KEEPIDLE
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPIDLE>
+        keepalive_idle_time_option(kSessionKeepaliveIdleTime);
+    arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
+    if (ec) {
+        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive idle time",
+                   ec.message());
+    }
+#endif
+
+#ifdef TCP_KEEPALIVE
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPALIVE>
+        keepalive_idle_time_option(kSessionKeepaliveIdleTime);
+    arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
+    if (ec) {
+        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive idle time",
+                   ec.message());
+    }
+#endif
+
+#ifdef TCP_KEEPINTVL
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPINTVL>
+        keepalive_interval_option(kSessionKeepaliveInterval);
+    arc_socket_->next_layer().set_option(keepalive_interval_option, ec);
+    if (ec) {
+        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive interval",
+                   ec.message());
+    }
+#endif
+
+#ifdef TCP_KEEPCNT
+    boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_KEEPCNT>
+        keepalive_count_option(kSessionKeepaliveProbes);
+    arc_socket_->next_layer().set_option(keepalive_count_option, ec);
+    if (ec) {
+        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive probes",
+                   ec.message());
+    }
+#endif
+}
+
+// The connection to the peer 'host_' has timed-out. Create a new entry for
+// this peer or update the peer's entry if it already exists.
+void IFMapChannel::IncrementTimedout() {
+    TimedoutMap::iterator iter = timedout_map_.find(host_);
+    if (iter == timedout_map_.end()) {
+        PeerTimedoutInfo info(1, UTCTimestampUsec());
+        timedout_map_.insert(make_pair(host_, info));
+    } else {
+        PeerTimedoutInfo info = iter->second;
+        ++info.timedout_cnt;
+        info.last_timeout_at = UTCTimestampUsec();
+        iter->second = info;
+    }
+}
+
+string IFMapChannel::timeout_to_string(uint64_t timeout) {
+    return duration_usecs_to_string(UTCTimestampUsec() - timeout);
+}
+
+void IFMapChannel::GetTimedoutEntries(IFMapPeerTimedoutEntries *entries) {
+    entries->list_count = timedout_map_.size();
+    entries->timedout_list.reserve(entries->list_count);
+    for (TimedoutMap::iterator iter = timedout_map_.begin();
+         iter != timedout_map_.end(); ++iter) {
+        PeerTimedoutInfo info = iter->second;
+
+        IFMapPeerTimedoutEntry entry;
+        entry.set_host(iter->first);
+        entry.set_timeout_count(info.timedout_cnt);
+        entry.set_last_timeout_ago(timeout_to_string(info.last_timeout_at));
+
+        entries->timedout_list.push_back(entry);
+    }
+}
+
 static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
                                          const RequestPipeline::PipeSpec ps,
                                          int stage, int instNum,
@@ -643,6 +732,10 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     server_stats.set_rx_msgs(channel->get_recv_msg_cnt());
     server_stats.set_tx_msgs(channel->get_sent_msg_cnt());
     server_stats.set_reconnect_attempts(channel->get_reconnect_attempts());
+
+    IFMapPeerTimedoutEntries timedout_entries;
+    channel->GetTimedoutEntries(&timedout_entries);
+    server_stats.set_timedout_entries(timedout_entries);
 
     sm_info.set_state(sm->StateName());
     sm_info.set_last_state(sm->LastStateName());

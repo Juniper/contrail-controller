@@ -259,7 +259,7 @@ int AgentStatsSandeshContext::VrResponseMsgHandler(vr_response *r) {
 void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
     AgentStatsCollector *collector = AgentUve::GetInstance()->GetStatsCollector();
     SetMarker(req->get_vifr_idx());
-    const Interface *intf = InterfaceTable::FindInterface(req->get_vifr_idx());
+    const Interface *intf = InterfaceTable::GetInstance()->FindInterface(req->get_vifr_idx());
     if (intf == NULL) {
         return;
      }

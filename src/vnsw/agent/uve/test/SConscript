@@ -24,6 +24,9 @@ if sys.platform != 'darwin':
     test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
     env.Alias('src/vnsw/agent/uve/test:test_port_bitmap', test_port_bitmap)
 
+    #uve_timer = env.Program(target = 'uve_timer', source = ['uve_timer.cc'])
+    #env.Alias('src/vnsw/agent/uve/test:uve_timer', uve_timer)
+
     uve_test_suite = [
                       test_vn_vmlist,
                       test_port_bitmap

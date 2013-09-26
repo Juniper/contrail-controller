@@ -41,11 +41,10 @@ public:
                        const std::string &source, const std::string &module,
                        const std::string &key, int32_t seq);
 
-    typedef boost::function<void(const std::map<std::string,int32_t> &)> GetSeqReply;
-    virtual bool GetSeq(const std::string &source, const std::string &module, GetSeqReply gsr);
+    virtual bool GetSeq(const std::string &source, const std::string &module,
+        std::map<std::string,int32_t> & seqReply);
 
-    typedef boost::function<void(bool)> DeleteUVEsReply;
-    virtual bool DeleteUVEs(const std::string &source, const std::string &module, DeleteUVEsReply dur);
+    virtual bool DeleteUVEs(const std::string &source, const std::string &module);
 
     bool RefreshGenerator(const std::string &source, const std::string &module);
     bool WithdrawGenerator(const std::string &source, const std::string &module);

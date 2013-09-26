@@ -7,10 +7,10 @@ setup(
     name='vnc_cfg_api_server',
     version='0.1dev',
     packages=[
-              'vnc_cfg_api_server', 
-              'vnc_cfg_api_server.gen',
-             ],
-    package_data={'':['*.html', '*.css', '*.xml']},
+        'vnc_cfg_api_server',
+        'vnc_cfg_api_server.gen',
+    ],
+    package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
     long_description="VNC Configuration API Server Implementation",
     install_requires=[

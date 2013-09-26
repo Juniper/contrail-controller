@@ -123,6 +123,7 @@ public:
 
 private:
     void EnqueueEvent(const sc::event_base &ev);
+    bool ProcErrorAndIgnore(const boost::system::error_code& error);
     void connection_attempts_inc() { connection_attempts_++; }
     void connection_attempts_clear() { connection_attempts_ = 0; }
 

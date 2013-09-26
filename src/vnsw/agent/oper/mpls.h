@@ -40,6 +40,9 @@ public:
                                 uint16_t tag);
     static void CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
                                     bool policy);
+    static void CreateVirtualHostPortLabelReq(uint32_t label,
+                                              const string &ifname,
+                                              bool policy);
     static void CreateMcastLabelReq(const string &vrf_name, 
                                     const Ip4Address &grp_addr,
                                     const Ip4Address &src_addr, 
@@ -84,6 +87,12 @@ public:
 
 class MplsLabelData : public AgentData {
 public:
+    MplsLabelData(const string &intf_name, bool policy) :
+        AgentData(), 
+        nh_key(new ReceiveNHKey
+               (new VirtualHostInterfaceKey(nil_uuid(), intf_name), policy)) {
+    }
+
     MplsLabelData(const uuid &intf_uuid, bool policy) : 
         AgentData(), 
         nh_key(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), policy)) {
@@ -142,8 +151,10 @@ public:
     MplsLabel *FindMplsLabel(size_t index) {return label_table_.At(index);};
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
+    static MplsTable *GetInstance() {return mpls_table_;};
 
 private:
+    static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);
     IndexVector<MplsLabel> label_table_;
     DISALLOW_COPY_AND_ASSIGN(MplsTable);

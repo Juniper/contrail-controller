@@ -212,7 +212,7 @@ bool ArpHandler::HandlePacket() {
         return true;
     }
 
-    const Interface *itf = InterfaceTable::FindInterface(GetIntf());
+    const Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
     if (!itf) {
         arp_proto->StatsErrors();
         ARP_TRACE(Error, "Received ARP packet with invalid interface index");

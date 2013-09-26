@@ -12,8 +12,6 @@
 
 class StatsCollector {
 public:
-    static const uint32_t stats_coll_time = (2000); // time in milliseconds
-
     enum StatsInstance {
         FlowStatsCollector,
         AgentStatsCollector,
@@ -25,6 +23,10 @@ public:
                    timer_(TimerManager::CreateTimer(io, timer_name.c_str(), 
                           TaskScheduler::GetInstance()->GetTaskId
                           ("Agent::StatsCollector"), instance)), 
+                   timer_restart_trigger_(new TaskTrigger(
+                          boost::bind(&StatsCollector::RestartTimer, this),
+                          TaskScheduler::GetInstance()->GetTaskId
+                          ("Agent::StatsCollector"), instance)), 
                    expiry_time_(exp) {
         timer_->Start(expiry_time_, 
                       boost::bind(&StatsCollector::TimerExpiry, this));
@@ -33,12 +35,27 @@ public:
     virtual ~StatsCollector() { 
         timer_->Cancel();
         TimerManager::DeleteTimer(timer_);
+        timer_restart_trigger_->Reset();
+        delete timer_restart_trigger_;
     }
 
     virtual bool Run() = 0;
+    int GetExpiryTime() const { return expiry_time_; }
+    void SetExpiryTime(int time) {
+        if (time != expiry_time_) {
+            expiry_time_ = time;
+            timer_restart_trigger_->Set();
+        }
+    }
 
     int run_counter_; //used only in UT code
 private:
+    bool RestartTimer() {
+        timer_->Cancel();
+        timer_->Start(expiry_time_, 
+                      boost::bind(&StatsCollector::TimerExpiry, this));
+        return true;
+    }
     bool TimerExpiry() {
         Run();
         /* Return true to request auto-restart of timer */
@@ -46,6 +63,7 @@ private:
     }
 
     Timer *timer_;
+    TaskTrigger *timer_restart_trigger_;
     int expiry_time_;
     DISALLOW_COPY_AND_ASSIGN(StatsCollector);
 };

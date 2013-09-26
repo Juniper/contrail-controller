@@ -34,7 +34,7 @@ Collector::Collector(EventManager *evm, short server_port,
         db_handler_(db_handler),
         osp_(ruleeng->GetOSP()),
         evm_(evm),
-        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1)) {
+        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2)) {
     SandeshServer::Initialize(server_port);
 }
 
@@ -47,9 +47,58 @@ void Collector::Shutdown() {
     gen_map_.clear();
 }
 
+void Collector::RedisUpdate(bool rsc) {
+    LOG(INFO, "RedisUpdate " << rsc);
+
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    for (GeneratorMap::iterator gen_it = gen_map_.begin(); 
+            gen_it != gen_map_.end(); gen_it++) {
+        Generator *gen = gen_it->second;
+        if (gen->session()) gen->get_state_machine()->ResourceUpdate(rsc);
+    }
+    return;
+}
+
+bool Collector::ReceiveResourceUpdate(SandeshSession *session,
+            bool rsc) {
+    VizSession *vsession = dynamic_cast<VizSession *>(session);
+    if (!vsession) {
+        LOG(ERROR, __func__ << ": NO VizSession");
+        return false;
+    }
+    if (vsession->gen_) {
+        if (!rsc) return true;
+        
+        Generator *gen = vsession->gen_;
+        std::vector<UVETypeInfo> vu;
+        std::map<std::string, int32_t> seqReply;
+        bool retc = osp_->GetSeq(gen->source(), gen->module(), seqReply);
+        if (retc) {
+            for (map<string,int32_t>::const_iterator it = seqReply.begin();
+                    it != seqReply.end(); it++) {
+                UVETypeInfo uti;
+                uti.set_type_name(it->first);
+                uti.set_seq_num(it->second);
+                vu.push_back(uti);
+            }
+            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
+        }
+        if (!retc) {
+            gen->set_session(NULL);
+            return false;
+        }
+
+        return true;
+    } else {
+        LOG(ERROR, __func__ << "Resource State " << rsc <<
+                ": Generator NOT PRESENT: Session: " << vsession->ToString());
+        return false;
+    }     
+}
+
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
                                   const std::string& cmsg, const std::string& message_type,
-                                  const SandeshHeader& header, uint32_t xml_offset) {
+                                  const SandeshHeader& header, uint32_t xml_offset, bool rsc) {
     std::string xml_message(cmsg.c_str() + xml_offset,
                             cmsg.size() - xml_offset);
 
@@ -67,7 +116,7 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
         return false;
     }
     if (vsession->gen_) {
-        return vsession->gen_->ReceiveSandeshMsg(vmsgp);
+        return vsession->gen_->ReceiveSandeshMsg(vmsgp, rsc);
     } else {
         LOG(ERROR, __func__ << ": Sandesh message " << message_type <<
                 ": Generator NOT PRESENT: Session: " << vsession->ToString());
@@ -75,21 +124,7 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
     }
 }
 
-bool Collector::ReceiveMsg(SandeshSession *session, ssm::Message *msg) {
-    VizSession *vsession = dynamic_cast<VizSession *>(session);
-    if (!vsession) {
-        LOG(ERROR, __func__ << ": NO VizSession");
-        return false;
-    }
-    if (vsession->gen_) {
-        return vsession->gen_->ReceiveMsg(msg);
-    } else {
-        LOG(ERROR, __func__ << ": ssm::Message: Generator NOT PRESENT: "
-                << "Session: " << vsession->ToString());
-        return false;
-    }
-}
-
+ 
 TcpSession* Collector::AllocSession(Socket *socket) {
     VizSession *session = new VizSession(this, socket, AllocConnectionIndex(), 
                                          session_task_id());
@@ -143,6 +178,38 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     LOG(DEBUG, "Received Ctrl Message: " << gen->ToString()
             << " Session:" << vsession->ToString());
     vsession->gen_ = gen;
+
+    std::vector<UVETypeInfo> vu;
+    if (snh->get_sucessful_connections() > 1) {
+        std::map<std::string, int32_t> seqReply;
+        bool retc = osp_->GetSeq(snh->get_source(), snh->get_module_name(), seqReply);
+        if (retc) {
+            for (map<string,int32_t>::const_iterator it = seqReply.begin();
+                    it != seqReply.end(); it++) {
+                UVETypeInfo uti;
+                uti.set_type_name(it->first);
+                uti.set_seq_num(it->second);
+                vu.push_back(uti);
+            }
+            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
+        }
+        if (!retc) {
+            gen->set_session(NULL);
+            return false;
+        }
+
+    } else {
+        bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_module_name());
+        if (retc)
+            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
+        if (!retc) {
+            gen->set_session(NULL);
+            return false;
+        }
+    }
+
+    LOG(DEBUG, "Sent good Ctrl Msg: Size " << vu.size() << " " <<
+            snh->get_source() << ":" << snh->get_module_name()); 
     gen->ReceiveSandeshCtrlMsg(snh->get_sucessful_connections());
     return true;
 }
@@ -235,33 +302,4 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     return true;
 }
 
-void Collector::EnqueueSeqRedisReply(Generator::GeneratorId &id,
-        const map<string, int32_t>& typemap) {
-    tbb::mutex::scoped_lock lock(gen_map_mutex_);
-    GeneratorMap::iterator gen_it = gen_map_.find(id);
-    if (gen_it == gen_map_.end()) {
-        LOG(ERROR, "Received SeqRedisReply for " << id.first << ":" <<
-            id.second << " after disconnect");
-    } else {
-        LOG(DEBUG, "Received SeqRedisReply for " << id.first << ":" <<
-            id.second);
-        std::auto_ptr<RedisReplyMsg> rmsg(new RedisReplyMsg(typemap));
-        Generator *gen = gen_it->second;
-        gen->EnqueueRedisMessage(rmsg.release());
-    }
-}
 
-void Collector::EnqueueDelRedisReply(Generator::GeneratorId &id, bool res) {
-    tbb::mutex::scoped_lock lock(gen_map_mutex_);
-    GeneratorMap::iterator gen_it = gen_map_.find(id);
-    if (gen_it == gen_map_.end()) {
-        LOG(ERROR, "Received DelRedisReply for " << id.first << ":" <<
-            id.second << " after disconnect");
-    } else {
-        LOG(DEBUG, "Received DelRedisReply for " << id.first << ":" <<
-            id.second);
-        std::auto_ptr<RedisReplyMsg> rmsg(new RedisReplyMsg(res));
-        Generator *gen = gen_it->second;
-        gen->EnqueueRedisMessage(rmsg.release());
-    }
-}

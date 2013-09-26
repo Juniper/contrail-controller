@@ -5,7 +5,8 @@
 """
 Layer that transforms VNC config objects to ifmap representation
 """
-from gevent import ssl, monkey; monkey.patch_all()
+from gevent import ssl, monkey
+monkey.patch_all()
 import sys
 import time
 from pprint import pformat
@@ -19,9 +20,14 @@ import errno
 import subprocess
 
 from cfgm_common.ifmap.client import client, namespaces
-from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest, EndSessionRequest, PublishRequest, SearchRequest, SubscribeRequest, PurgeRequest, PollRequest
-from cfgm_common.ifmap.id import IPAddress, MACAddress, Device, AccessRequest, Identity, CustomIdentity
-from cfgm_common.ifmap.operations import PublishUpdateOperation, PublishNotifyOperation, PublishDeleteOperation, SubscribeUpdateOperation, SubscribeDeleteOperation
+from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
+    EndSessionRequest, PublishRequest, SearchRequest, SubscribeRequest,\
+    PurgeRequest, PollRequest
+from cfgm_common.ifmap.id import IPAddress, MACAddress, Device,\
+    AccessRequest, Identity, CustomIdentity
+from cfgm_common.ifmap.operations import PublishUpdateOperation,\
+    PublishNotifyOperation, PublishDeleteOperation, SubscribeUpdateOperation,\
+    SubscribeDeleteOperation
 from cfgm_common.ifmap.util import attr, link_ids
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
@@ -43,8 +49,11 @@ from cfgm_common.exceptions import *
 from gen.vnc_ifmap_client_gen import *
 from gen.vnc_cassandra_client_gen import *
 
+
 class VncIfmapClient(VncIfmapClientGen):
-    def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options, ifmap_srv_loc = None):
+
+    def __init__(self, db_client_mgr, ifmap_srv_ip, ifmap_srv_port,
+                 uname, passwd, ssl_options, ifmap_srv_loc=None):
         super(VncIfmapClient, self).__init__()
         # TODO username/passwd from right place
         self._CONTRAIL_XSD = "http://www.contrailsystems.com/vnc_cfg.xsd"
@@ -61,10 +70,11 @@ class VncIfmapClient(VncIfmapClientGen):
             'c': self._CONTRAIL_XSD
         }
         namespaces = {
-            'env'   :   "http://www.w3.org/2003/05/soap-envelope",
-            'ifmap' :   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
-            'meta'  :   "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
-            'contrail'  :   self._CONTRAIL_XSD
+            'env':   "http://www.w3.org/2003/05/soap-envelope",
+            'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
+            'meta':
+            "http://www.trustedcomputinggroup.org/2010/IFMAP-METADATA/2",
+            'contrail':   self._CONTRAIL_XSD
         }
 
         self._db_client_mgr = db_client_mgr
@@ -73,8 +83,8 @@ class VncIfmapClient(VncIfmapClientGen):
         if ifmap_srv_loc:
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
 
-        mapclient = client(("%s" %(ifmap_srv_ip), "%s" %(ifmap_srv_port)),
-                            uname, passwd, namespaces, ssl_options)
+        mapclient = client(("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
+                           uname, passwd, namespaces, ssl_options)
 
         self._mapclient = mapclient
 
@@ -85,7 +95,7 @@ class VncIfmapClient(VncIfmapClientGen):
                 connected = True
             except socket.error as e:
                 time.sleep(3)
-            
+
         mapclient.set_session_id(newSessionResult(result).get_session_id())
         mapclient.set_publisher_id(newSessionResult(result).get_publisher_id())
 
@@ -97,35 +107,35 @@ class VncIfmapClient(VncIfmapClientGen):
         # config-root
         buf = cStringIO.StringIO()
         perms = Provision.defaults.perms['config-root']
-        perms.exportChildren(buf, level = 1, pretty_print = False)
+        perms.exportChildren(buf, level=1, pretty_print=False)
         id_perms_xml = buf.getvalue()
         buf.close()
         meta = str(Metadata(self._IPERMS_NAME, '',
-               {'ifmap-cardinality':'singleValue'}, ns_prefix = 'contrail',
-               elements = id_perms_xml))
+                            {'ifmap-cardinality': 'singleValue'},
+                            ns_prefix='contrail', elements=id_perms_xml))
         self._publish_id_self_meta("contrail:config-root:root", meta)
-    #end __init__
+    # end __init__
 
     def get_imid_handler(self):
         return self._imid_handler
-    #end get_imid_handler
+    # end get_imid_handler
 
-    # Parse ifmap-server returned search results and create list of tuples 
+    # Parse ifmap-server returned search results and create list of tuples
     # of (ident-1, ident-2, link-attribs)
     def parse_result_items(self, srch_result, my_imid):
         xpath_expr = '/a:Envelope/a:Body/b:response/searchResult/resultItem'
         result_items = self._parse(srch_result, xpath_expr)
 
         return cfgm_common.imid.parse_result_items(result_items, my_imid)
-    #end parse_result_items
+    # end parse_result_items
 
     # In list of (ident-1, ident-2, link-attribs) tuples, return list of
-    # ifmap-ids of other idents 
+    # ifmap-ids of other idents
     def get_others_in_result_list(self, result_list, my_imid):
         other_imid_list = []
         for result_elem in result_list:
             ident_1, ident_2, meta = result_elem
-            if (ident_1 == None) or (ident_2 == None):
+            if (ident_1 is None) or (ident_2 is None):
                 continue
 
             other_imid = None
@@ -137,17 +147,18 @@ class VncIfmapClient(VncIfmapClientGen):
             other_imid_list.append(other_imid)
 
         return other_imid_list
-    #end get_others_in_result_list
+    # end get_others_in_result_list
 
     def _ensure_port_not_listened(self, server_ip, server_port):
         try:
             s = socket.create_connection((server_ip, server_port))
             s.close()
-            print "IP %s port %s already listened on" %(server_ip, server_port)
+            print "IP %s port %s already listened on"\
+                % (server_ip, server_port)
         except Exception as err:
             if err.errno == errno.ECONNREFUSED:
-                return # all is well
-    #end _ensure_port_not_listened
+                return  # all is well
+    # end _ensure_port_not_listened
 
     def _block_till_port_listened(self, server_name, server_ip, server_port):
         svr_running = False
@@ -158,11 +169,11 @@ class VncIfmapClient(VncIfmapClientGen):
                 svr_running = True
             except Exception as err:
                 if err.errno == errno.ECONNREFUSED:
-                    print "%s not up, retrying in 2 secs" %(server_name)
+                    print "%s not up, retrying in 2 secs" % (server_name)
                     time.sleep(2)
                 else:
                     raise err
-    #end _block_till_port_listened
+    # end _block_till_port_listened
 
     # launch ifmap server
     def _launch_mapserver(self, ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc):
@@ -171,80 +182,82 @@ class VncIfmapClient(VncIfmapClientGen):
         logf_out = open('ifmap-server.out', 'w')
         logf_err = open('ifmap-server.err', 'w')
         self._mapserver = subprocess.Popen(['java', '-jar', 'build/irond.jar'],
-            cwd=ifmap_srv_loc, stdout = logf_out, stderr = logf_err)
-        self._block_till_port_listened('ifmap-server', ifmap_srv_ip, ifmap_srv_port)
-    #end _launch_mapserver
+                                           cwd=ifmap_srv_loc, stdout=logf_out,
+                                           stderr=logf_err)
+        self._block_till_port_listened(
+            'ifmap-server', ifmap_srv_ip, ifmap_srv_port)
+    # end _launch_mapserver
 
     # Helper routines for IFMAP
     def _publish_id_self_meta(self, self_imid, meta):
         mapclient = self._mapclient
 
         pubreq = PublishRequest(mapclient.get_session_id(),
-                     str(PublishUpdateOperation(
-                             id1 = str(Identity(
-                                           name = self_imid,
-                                           type = "other",
-                                           other_type = "extended")),
-                             metadata = meta,
-                             lifetime = 'forever')))
+                                str(PublishUpdateOperation(
+                                    id1=str(Identity(
+                                            name=self_imid,
+                                            type="other",
+                                            other_type="extended")),
+                                    metadata=meta,
+                                    lifetime='forever')))
         result = mapclient.call('publish', pubreq)
-    #end _publish_id_self_meta
+    # end _publish_id_self_meta
 
     def _delete_id_self_meta(self, self_imid, meta_name):
         mapclient = self._mapclient
 
         pubreq = PublishRequest(mapclient.get_session_id(),
-                     str(PublishDeleteOperation(
-                             id1 = str(Identity(
-                                           name = self_imid,
-                                           type = "other",
-                                           other_type = "extended")),
-                             filter = meta_name)))
+                                str(PublishDeleteOperation(
+                                    id1=str(Identity(
+                                            name=self_imid,
+                                            type="other",
+                                            other_type="extended")),
+                                    filter=meta_name)))
         result = mapclient.call('publish', pubreq)
-    #end _delete_id_self_meta
+    # end _delete_id_self_meta
 
     def _publish_id_pair_meta(self, id1, id2, metadata):
         mapclient = self._mapclient
 
         pubreq = PublishRequest(mapclient.get_session_id(),
-                     str(PublishUpdateOperation(
-                             id1 = str(Identity(name = id1,
-                                                type = "other",
-                                                other_type = "extended")),
-                             id2 = str(Identity(name = id2,
-                                                type = "other",
-                                                other_type = "extended")),
-                             metadata = metadata,
-                             lifetime = 'forever')))
+                                str(PublishUpdateOperation(
+                                    id1=str(Identity(name=id1,
+                                                     type="other",
+                                                     other_type="extended")),
+                                    id2=str(Identity(name=id2,
+                                                     type="other",
+                                                     other_type="extended")),
+                                    metadata=metadata,
+                                    lifetime='forever')))
         result = mapclient.call('publish', pubreq)
-    #end _publish_id_pair_meta
+    # end _publish_id_pair_meta
 
     def _delete_id_pair_meta(self, id1, id2, metadata):
         mapclient = self._mapclient
 
         pubreq = PublishRequest(mapclient.get_session_id(),
-                     str(PublishDeleteOperation(
-                             id1 = str(Identity(
-                                           name = id1,
-                                           type = "other",
-                                           other_type = "extended")),
-                             id2 = str(Identity(
-                                           name = id2,
-                                           type = "other",
-                                           other_type = "extended")),
-                             filter = metadata)))
+                                str(PublishDeleteOperation(
+                                    id1=str(Identity(
+                                            name=id1,
+                                            type="other",
+                                            other_type="extended")),
+                                    id2=str(Identity(
+                                            name=id2,
+                                            type="other",
+                                            other_type="extended")),
+                                    filter=metadata)))
         result = mapclient.call('publish', pubreq)
-    #end _delete_id_pair_meta
- 
-    def _search(self, start_id, match_meta = None, result_meta = None,
-                max_depth = 1):
+    # end _delete_id_pair_meta
+
+    def _search(self, start_id, match_meta=None, result_meta=None,
+                max_depth=1):
         # set ifmap search parmeters
         srch_params = {}
         srch_params['max-depth'] = str(max_depth)
 
-        if match_meta != None:
+        if match_meta is not None:
             srch_params['match-links'] = match_meta
-        if result_meta != None:
+        if result_meta is not None:
             # all => don't set result-filter, so server returns all id + meta
             if result_meta == "all":
                 pass
@@ -256,28 +269,28 @@ class VncIfmapClient(VncIfmapClientGen):
 
         mapclient = self._mapclient
         srch_req = SearchRequest(mapclient.get_session_id(), start_id,
-                                 search_parameters = srch_params
+                                 search_parameters=srch_params
                                  )
         result = mapclient.call('search', srch_req)
 
         return result
-    #end _search
+    # end _search
 
     def _parse(self, srch_result, xpath_expr):
         soap_doc = etree.parse(StringIO.StringIO(srch_result))
         result_items = soap_doc.xpath(xpath_expr,
-                                      namespaces = self._NAMESPACES)
+                                      namespaces=self._NAMESPACES)
 
         return result_items
-    #end _parse
+    # end _parse
 
     def _search_and_parse(self, start_id, xpath_expr,
-                          match_meta = None, result_meta = None, max_depth = 0):
+                          match_meta=None, result_meta=None, max_depth=0):
         result = self._search(start_id, match_meta, result_meta, max_depth)
         result_items = self._parse(result, xpath_expr)
 
         return result_items
-    #end _search_and_parse
+    # end _search_and_parse
 
     def _get_id_meta_refs(self, result_items, self_type, parent_type):
         # Given parsed result items from search, returns # of idents + metadata
@@ -296,7 +309,7 @@ class VncIfmapClient(VncIfmapClientGen):
                 # No action if already encountered
                 if ident_name in ref_set:
                     continue
- 
+
                 ref_cnt = ref_cnt + 1
                 ref_set.add(ident_name)
                 if (ident_type == self_type):
@@ -304,32 +317,34 @@ class VncIfmapClient(VncIfmapClientGen):
                 if (ident_type == parent_type):
                     parent_imid = r_item.attrib['name']
                     continue
- 
+
                 # non-parent, non-self refs
-                ref_names = "%s %s" %(ref_names, ident_name)
+                ref_names = "%s %s" % (ref_names, ident_name)
             elif r_item.tag == 'metadata':
                 # TBI figure out meta only belonging to self
                 ref_cnt = ref_cnt + 1
                 meta_elem = r_item.getchildren()[0]
                 meta_name = re.sub("{.*}", "", meta_elem.tag)
-                ref_names = "%s %s" %(ref_names, meta_name)
- 
+                ref_names = "%s %s" % (ref_names, meta_name)
+
         return ref_cnt, parent_imid, ref_names
-    #end _get_id_meta_refs
+    # end _get_id_meta_refs
 
     def fq_name_to_ifmap_id(self, obj_type, fq_name):
         return cfgm_common.imid.get_ifmap_id_from_fq_name(obj_type, fq_name)
-    #end fq_name_to_ifmap_id
+    # end fq_name_to_ifmap_id
 
     def ifmap_id_to_fq_name(self, ifmap_id):
         return cfgm_common.imid.get_fq_name_from_ifmap_id(ifmap_id)
-    #end ifmap_id_to_fq_name
+    # end ifmap_id_to_fq_name
 
-#end class VncIfmapClient
+# end class VncIfmapClient
+
 
 class Imid(ImidGen):
     pass
-#end class Imid
+# end class Imid
+
 
 class VncCassandraClient(VncCassandraClientGen):
     # Name to ID mapping keyspace + tables
@@ -341,17 +356,21 @@ class VncCassandraClient(VncCassandraClientGen):
     # TODO describe layout
     _OBJ_FQ_NAME_CF_NAME = 'obj_fq_name_table'
 
-    # has obj uuid as rowkey;  ascii as column type; <fq_name>, <ifmap_id> <obj_json> <child_cf_col_name> as column values
+    # has obj uuid as rowkey;  ascii as column type; <fq_name>, <ifmap_id>
+    # <obj_json> <child_cf_col_name> as column values
     _UUID_CF_NAME = 'uuid_table'
 
-    # has type:fq_name as rowkey; ascii as column type; <obj uuid> <ifmap_id> as column values
+    # has type:fq_name as rowkey; ascii as column type; <obj uuid> <ifmap_id>
+    # as column values
     _FQ_NAME_CF_NAME = 'fq_name_table'
 
-    # has ifmap_id as rowkey; ascii as column type <obj uuid>, <fq_name> as column values
+    # has ifmap_id as rowkey; ascii as column type
+    # <obj uuid>, <fq_name> as column values
     # ifmap_id itself is contrail:<type>:<fq-name delimited by ':'>
     _IFMAP_ID_CF_NAME = 'ifmap_id_table'
 
-    # has obj uuid:<child-type> as rowkey; timeuuid column type; <child obj uuid> as column values
+    # has obj uuid:<child-type> as rowkey; timeuuid column type; <child obj
+    # uuid> as column values
     _CHILDREN_CF_NAME = 'children_table'
 
     _SUBNET_CF_NAME = 'subnet_bitmask_table'
@@ -364,7 +383,7 @@ class VncCassandraClient(VncCassandraClientGen):
         self._db_client_mgr = db_client_mgr
         self._reset_config = reset_config
         self._cassandra_init(cass_srv_list)
-    #end __init__
+    # end __init__
 
     # Helper routines for cassandra
     def _cassandra_init(self, server_list):
@@ -378,32 +397,37 @@ class VncCassandraClient(VncCassandraClientGen):
         fq_name_cf_info = (VncCassandraClient._FQ_NAME_CF_NAME, None)
         ifmap_id_cf_info = (VncCassandraClient._IFMAP_ID_CF_NAME, None)
         subnet_cf_info = (VncCassandraClient._SUBNET_CF_NAME, None)
-        children_cf_info = (VncCassandraClient._CHILDREN_CF_NAME, TIME_UUID_TYPE)
-        self._cassandra_ensure_keyspace(server_list, uuid_ks_name,
-                                        [obj_uuid_cf_info, obj_fq_name_cf_info,
-                                         uuid_cf_info, fq_name_cf_info, ifmap_id_cf_info,
-                                         subnet_cf_info, children_cf_info])
+        children_cf_info = (
+            VncCassandraClient._CHILDREN_CF_NAME, TIME_UUID_TYPE)
+        self._cassandra_ensure_keyspace(
+            server_list, uuid_ks_name,
+            [obj_uuid_cf_info, obj_fq_name_cf_info,
+             uuid_cf_info, fq_name_cf_info, ifmap_id_cf_info,
+             subnet_cf_info, children_cf_info])
 
         useragent_ks_name = VncCassandraClient._USERAGENT_KEYSPACE_NAME
         useragent_kv_cf_info = (VncCassandraClient._USERAGENT_KV_CF_NAME, None)
-        self._cassandra_ensure_keyspace(server_list,
-                                        useragent_ks_name, [useragent_kv_cf_info])
+        self._cassandra_ensure_keyspace(server_list, useragent_ks_name,
+                                        [useragent_kv_cf_info])
 
-        uuid_pool = pycassa.ConnectionPool(uuid_ks_name,
-                                           server_list, max_overflow = -1,
-                                           pool_timeout = 300, max_retries = 100, timeout = 300)
-        useragent_pool = pycassa.ConnectionPool(useragent_ks_name,
-                                                server_list, max_overflow = -1,
-                                                pool_timeout = 300, max_retries = 100, timeout = 300)
+        uuid_pool = pycassa.ConnectionPool(
+            uuid_ks_name, server_list, max_overflow=-1,
+            pool_timeout=300, max_retries=100, timeout=300)
+        useragent_pool = pycassa.ConnectionPool(
+            useragent_ks_name, server_list, max_overflow=-1,
+            pool_timeout=300, max_retries=100, timeout=300)
 
-        self._obj_uuid_cf = pycassa.ColumnFamily(uuid_pool, VncCassandraClient._OBJ_UUID_CF_NAME)
-        self._obj_fq_name_cf = pycassa.ColumnFamily(uuid_pool, VncCassandraClient._OBJ_FQ_NAME_CF_NAME)
+        self._obj_uuid_cf = pycassa.ColumnFamily(
+            uuid_pool, VncCassandraClient._OBJ_UUID_CF_NAME)
+        self._obj_fq_name_cf = pycassa.ColumnFamily(
+            uuid_pool, VncCassandraClient._OBJ_FQ_NAME_CF_NAME)
 
-        self._useragent_kv_cf = pycassa.ColumnFamily(useragent_pool,
-                                                     VncCassandraClient._USERAGENT_KV_CF_NAME)
-        self._subnet_cf = pycassa.ColumnFamily(uuid_pool, VncCassandraClient._SUBNET_CF_NAME)
+        self._useragent_kv_cf = pycassa.ColumnFamily(
+            useragent_pool, VncCassandraClient._USERAGENT_KV_CF_NAME)
+        self._subnet_cf = pycassa.ColumnFamily(
+            uuid_pool, VncCassandraClient._SUBNET_CF_NAME)
 
-    #end _cassandra_init
+    # end _cassandra_init
 
     def _cassandra_ensure_keyspace(self, server_list,
                                    keyspace_name, cf_info_list):
@@ -414,7 +438,8 @@ class VncCassandraClient(VncCassandraClientGen):
                 sys_mgr = SystemManager(server_list[0])
                 connected = True
             except Exception as e:
-                # TODO do only for thrift.transport.TTransport.TTransportException
+                # TODO do only for
+                # thrift.transport.TTransport.TTransportException
                 time.sleep(3)
 
         if self._reset_config:
@@ -436,65 +461,84 @@ class VncCassandraClient(VncCassandraClientGen):
             try:
                 (cf_name, comparator_type) = cf_info
                 if comparator_type:
-                    sys_mgr.create_column_family(keyspace_name, cf_name, comparator_type = comparator_type)
+                    sys_mgr.create_column_family(
+                        keyspace_name, cf_name,
+                        comparator_type=comparator_type)
                 else:
                     sys_mgr.create_column_family(keyspace_name, cf_name)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
-    #end _cassandra_ensure_keyspace
+    # end _cassandra_ensure_keyspace
 
     def _create_prop(self, bch, obj_uuid, prop_name, prop_val):
-        bch.insert(obj_uuid, {'prop:%s' %(prop_name): json.dumps(prop_val)})
-    #end _create_prop
+        bch.insert(obj_uuid, {'prop:%s' % (prop_name): json.dumps(prop_val)})
+    # end _create_prop
 
     def _update_prop(self, bch, obj_uuid, prop_name, new_props):
-        if new_props[prop_name] == None:
-            bch.remove(obj_uuid, columns = ['prop:' + prop_name])
+        if new_props[prop_name] is None:
+            bch.remove(obj_uuid, columns=['prop:' + prop_name])
         else:
-            bch.insert(obj_uuid, {'prop:' + prop_name: json.dumps(new_props[prop_name])})
+            bch.insert(
+                obj_uuid,
+                {'prop:' + prop_name: json.dumps(new_props[prop_name])})
 
         # prop has been accounted for, remove so only new ones remain
         del new_props[prop_name]
-    #end _update_prop
+    # end _update_prop
 
-    def _create_child(self, bch, parent_type, parent_uuid, child_type, child_uuid):
-        child_col = {'children:%s:%s' %(child_type, child_uuid) : json.dumps(None)}
+    def _create_child(self, bch, parent_type, parent_uuid,
+                      child_type, child_uuid):
+        child_col = {'children:%s:%s' %
+                     (child_type, child_uuid): json.dumps(None)}
         bch.insert(parent_uuid, child_col)
 
-        parent_col = {'parent:%s:%s' %(parent_type, parent_uuid) : json.dumps(None)}
+        parent_col = {'parent:%s:%s' %
+                      (parent_type, parent_uuid): json.dumps(None)}
         bch.insert(child_uuid, parent_col)
-    #end _create_child
+    # end _create_child
 
-    def _read_child(self, result, obj_uuid, child_type, child_uuid, child_tstamp):
-        if '%ss' %(child_type) not in result:
-            result['%ss' %(child_type)] = []
+    def _read_child(self, result, obj_uuid, child_type,
+                    child_uuid, child_tstamp):
+        if '%ss' % (child_type) not in result:
+            result['%ss' % (child_type)] = []
 
         child_info = {}
         child_info['to'] = self.uuid_to_fq_name(child_uuid)
-        child_info['href'] = self._db_client_mgr.generate_url(child_type, child_uuid)
+        child_info['href'] = self._db_client_mgr.generate_url(
+            child_type, child_uuid)
         child_info['uuid'] = child_uuid
         child_info['tstamp'] = child_tstamp
 
-        result['%ss' %(child_type)].append(child_info)
-    #end _read_child
+        result['%ss' % (child_type)].append(child_info)
+    # end _read_child
 
-    def _delete_child(self, bch, parent_type, parent_uuid, child_type, child_uuid):
-        child_col = {'children:%s:%s' %(child_type, child_uuid) : json.dumps(None)}
-        bch.remove(parent_uuid, columns = ['children:%s:%s' %(child_type, child_uuid)])
-    #end _delete_child
+    def _delete_child(self, bch, parent_type, parent_uuid,
+                      child_type, child_uuid):
+        child_col = {'children:%s:%s' %
+                     (child_type, child_uuid): json.dumps(None)}
+        bch.remove(parent_uuid, columns=[
+                   'children:%s:%s' % (child_type, child_uuid)])
+    # end _delete_child
 
-    def _create_ref(self, bch, obj_type, obj_uuid, ref_type, ref_uuid, ref_data):
-        bch.insert(obj_uuid, {'ref:%s:%s' %(ref_type, ref_uuid): json.dumps(ref_data)})
+    def _create_ref(self, bch, obj_type, obj_uuid, ref_type,
+                    ref_uuid, ref_data):
+        bch.insert(
+            obj_uuid, {'ref:%s:%s' %
+                  (ref_type, ref_uuid): json.dumps(ref_data)})
         if obj_type == ref_type:
-            bch.insert(ref_uuid, {'ref:%s:%s' %(obj_type, obj_uuid): json.dumps(ref_data)})
+            bch.insert(
+                ref_uuid, {'ref:%s:%s' %
+                      (obj_type, obj_uuid): json.dumps(ref_data)})
         else:
-            bch.insert(ref_uuid, {'backref:%s:%s' %(obj_type, obj_uuid): json.dumps(ref_data)})
-    #end _create_ref
+            bch.insert(
+                ref_uuid, {'backref:%s:%s' %
+                      (obj_type, obj_uuid): json.dumps(ref_data)})
+    # end _create_ref
 
     def _read_ref(self, result, obj_uuid, ref_type, ref_uuid, ref_data_json):
-        if '%s_refs' %(ref_type) not in result:
-            result['%s_refs' %(ref_type)] = []
+        if '%s_refs' % (ref_type) not in result:
+            result['%s_refs' % (ref_type)] = []
 
         ref_data = json.loads(ref_data_json)
         try:
@@ -507,18 +551,20 @@ class VncCassandraClient(VncCassandraClientGen):
                     # TODO remove backward compat old format had attr directly
                     ref_info['attr'] = ref_data
 
-            ref_info['href'] = self._db_client_mgr.generate_url(ref_type, ref_uuid)
+            ref_info['href'] = self._db_client_mgr.generate_url(
+                ref_type, ref_uuid)
             ref_info['uuid'] = ref_uuid
 
-            result['%s_refs' %(ref_type)].append(ref_info)
+            result['%s_refs' % (ref_type)].append(ref_info)
         except NoIdError as e:
             if not ref_data['is_weakref']:
                 raise e
-    #end _read_ref
+    # end _read_ref
 
-    def _read_back_ref(self, result, obj_uuid, back_ref_type, back_ref_uuid, back_ref_data_json):
-        if '%s_back_refs' %(back_ref_type) not in result:
-            result['%s_back_refs' %(back_ref_type)] = []
+    def _read_back_ref(self, result, obj_uuid, back_ref_type,
+                       back_ref_uuid, back_ref_data_json):
+        if '%s_back_refs' % (back_ref_type) not in result:
+            result['%s_back_refs' % (back_ref_type)] = []
 
         back_ref_info = {}
         back_ref_info['to'] = self.uuid_to_fq_name(back_ref_uuid)
@@ -530,89 +576,108 @@ class VncCassandraClient(VncCassandraClientGen):
                 # TODO remove backward compat old format had attr directly
                 back_ref_info['attr'] = back_ref_data
 
-        back_ref_info['href'] = self._db_client_mgr.generate_url(back_ref_type, back_ref_uuid)
+        back_ref_info['href'] = self._db_client_mgr.generate_url(
+            back_ref_type, back_ref_uuid)
         back_ref_info['uuid'] = back_ref_uuid
 
-        result['%s_back_refs' %(back_ref_type)].append(back_ref_info)
-    #end _read_back_ref
+        result['%s_back_refs' % (back_ref_type)].append(back_ref_info)
+    # end _read_back_ref
 
-    def _update_ref(self, bch, obj_type, obj_uuid, ref_type, old_ref_uuid, new_ref_infos):
+    def _update_ref(self, bch, obj_type, obj_uuid, ref_type,
+                    old_ref_uuid, new_ref_infos):
         if ref_type not in new_ref_infos:
             # update body didn't touch this type, nop
             return
 
         if old_ref_uuid not in new_ref_infos[ref_type]:
             # remove old ref
-            bch.remove(obj_uuid, columns = ['ref:%s:%s' %(ref_type, old_ref_uuid)])
+            bch.remove(obj_uuid, columns=[
+                       'ref:%s:%s' % (ref_type, old_ref_uuid)])
             if obj_type == ref_type:
-                bch.remove(old_ref_uuid, columns = ['ref:%s:%s' %(obj_type, obj_uuid)])
+                bch.remove(old_ref_uuid, columns=[
+                           'ref:%s:%s' % (obj_type, obj_uuid)])
             else:
-                bch.remove(old_ref_uuid, columns = ['backref:%s:%s' %(obj_type, obj_uuid)])
+                bch.remove(old_ref_uuid, columns=[
+                           'backref:%s:%s' % (obj_type, obj_uuid)])
         else:
             # retain old ref with new ref attr
             new_ref_data = new_ref_infos[ref_type][old_ref_uuid]
-            bch.insert(obj_uuid, {'ref:%s:%s' %(ref_type, old_ref_uuid): json.dumps(new_ref_data)})
+            bch.insert(
+                obj_uuid,
+                {'ref:%s:%s' %
+                 (ref_type, old_ref_uuid): json.dumps(new_ref_data)})
             if obj_type == ref_type:
-                bch.insert(old_ref_uuid, {'ref:%s:%s' %(obj_type, obj_uuid): json.dumps(new_ref_data)})
+                bch.insert(
+                    old_ref_uuid,
+                    {'ref:%s:%s' %
+                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
             else:
-                bch.insert(old_ref_uuid, {'backref:%s:%s' %(obj_type, obj_uuid): json.dumps(new_ref_data)})
+                bch.insert(
+                    old_ref_uuid,
+                    {'backref:%s:%s' %
+                     (obj_type, obj_uuid): json.dumps(new_ref_data)})
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_type][old_ref_uuid]
-    #end _update_ref
+    # end _update_ref
 
     def _delete_ref(self, bch, obj_type, obj_uuid, ref_type, ref_uuid):
-        bch.remove(obj_uuid, columns = ['ref:%s:%s' %(ref_type, ref_uuid)])
+        bch.remove(obj_uuid, columns=['ref:%s:%s' % (ref_type, ref_uuid)])
         if obj_type == ref_type:
-            bch.remove(ref_uuid, columns = ['ref:%s:%s' %(obj_type, obj_uuid)])
+            bch.remove(ref_uuid, columns=[
+                       'ref:%s:%s' % (obj_type, obj_uuid)])
         else:
-            bch.remove(ref_uuid, columns = ['backref:%s:%s' %(obj_type, obj_uuid)])
-    #end _delete_ref
+            bch.remove(ref_uuid, columns=[
+                       'backref:%s:%s' % (obj_type, obj_uuid)])
+    # end _delete_ref
 
     def is_latest(self, id, tstamp):
-        id_perms_json = self._obj_uuid_cf.get(id, columns = ['prop:id_perms'])['prop:id_perms']
+        id_perms_json = self._obj_uuid_cf.get(
+            id, columns=['prop:id_perms'])['prop:id_perms']
         id_perms = json.loads(id_perms_json)
         if id_perms['last_modified'] == tstamp:
             return True
         else:
             return False
-    #end is_latest
+    # end is_latest
 
     def uuid_to_fq_name(self, id):
         try:
-            fq_name_json = self._obj_uuid_cf.get(id, columns = ['fq_name'])['fq_name']
+            fq_name_json = self._obj_uuid_cf.get(
+                id, columns=['fq_name'])['fq_name']
         except pycassa.NotFoundException:
             raise NoIdError(id)
         return json.loads(fq_name_json)
-    #end uuid_to_fq_name
+    # end uuid_to_fq_name
 
     def uuid_to_obj_type(self, id):
         try:
-            type_json = self._obj_uuid_cf.get(id, columns = ['type'])['type']
+            type_json = self._obj_uuid_cf.get(id, columns=['type'])['type']
         except pycassa.NotFoundException:
             raise NoIdError(id)
         return json.loads(type_json)
-    #end uuid_to_fq_name
+    # end uuid_to_fq_name
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         method_name = obj_type.replace('-', '_')
         fq_name_str = ':'.join(fq_name)
-        col_start = '%s:' %(fq_name_str)
-        col_fin = '%s;' %(fq_name_str)
+        col_start = '%s:' % (fq_name_str)
+        col_fin = '%s;' % (fq_name_str)
         try:
-            col_info_iter = self._obj_fq_name_cf.xget(method_name, column_start = col_start, column_finish = col_fin)
+            col_info_iter = self._obj_fq_name_cf.xget(
+                method_name, column_start=col_start, column_finish=col_fin)
         except pycassa.NotFoundException:
-            raise NoIdError('%s %s' %(obj_type, fq_name))
+            raise NoIdError('%s %s' % (obj_type, fq_name))
 
         col_infos = list(col_info_iter)
 
         if len(col_infos) == 0:
-            raise NoIdError('%s %s' %(obj_type, fq_name))
+            raise NoIdError('%s %s' % (obj_type, fq_name))
 
         for (col_name, col_val) in col_infos:
             obj_uuid = col_name.split(':')[-1]
 
         return obj_uuid
-    #end fq_name_to_uuid
+    # end fq_name_to_uuid
 
     def uuid_to_obj_dict(self, id):
         try:
@@ -620,12 +685,12 @@ class VncCassandraClient(VncCassandraClientGen):
         except pycassa.NotFoundException:
             raise NoIdError(id)
         return obj_cols
-    #end uuid_to_obj_dict
+    # end uuid_to_obj_dict
 
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
         self._useragent_kv_cf.insert(key, columns)
-    #end useragent_kv_store
+    # end useragent_kv_store
 
     def useragent_kv_retrieve(self, key):
         if key:
@@ -634,21 +699,21 @@ class VncCassandraClient(VncCassandraClientGen):
             except pycassa.NotFoundException:
                 raise NoUserAgentKey
             return columns['value']
-        else: # no key specified, return entire contents
+        else:  # no key specified, return entire contents
             kv_list = []
             for ua_key, ua_cols in self._useragent_kv_cf.get_range():
                 kv_list.append({'key': ua_key, 'value': ua_cols['value']})
             return kv_list
-    #end useragent_kv_retrieve
+    # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
         self._useragent_kv_cf.remove(key)
-    #end useragent_kv_delete
+    # end useragent_kv_delete
 
     def subnet_store(self, name, bitmask):
         columns = {'bitmask': bitmask}
         self._subnet_cf.insert(name, columns)
-    #end subnet_store
+    # end subnet_store
 
     def subnet_retrieve(self, key):
         try:
@@ -657,7 +722,7 @@ class VncCassandraClient(VncCassandraClientGen):
             # ok to fail as not all subnets will have bitmask allocated
             return None
         return columns['bitmask']
-    #end subnet_retrieve
+    # end subnet_retrieve
 
     def subnet_delete(self, key):
         try:
@@ -665,54 +730,60 @@ class VncCassandraClient(VncCassandraClientGen):
         except pycassa.NotFoundException:
             # ok to fail as not all subnets will have bitmask allocated
             return None
-    #end subnet_delete
+    # end subnet_delete
 
     def walk(self, fn):
         walk_results = []
         for obj_uuid, _ in self._obj_uuid_cf.get_range():
             obj_cols_iter = self._obj_uuid_cf.xget(obj_uuid)
-            obj_cols = dict((k,v) for k,v in obj_cols_iter)
+            obj_cols = dict((k, v) for k, v in obj_cols_iter)
             result = fn(obj_uuid, obj_cols)
             if result:
                 walk_results.append(result)
 
         return walk_results
-    #end walk
-#end class VncCassandraClient
+    # end walk
+# end class VncCassandraClient
+
 
 class VncDbClient(object):
-    def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname, passwd,
-                       cass_srv_list, reset_config = False, ifmap_srv_loc = None):
+
+    def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
+                 passwd, cass_srv_list, reset_config=False,
+                 ifmap_srv_loc=None):
 
         self._api_svr_mgr = api_svr_mgr
 
-	# certificate auth
+        # certificate auth
         ssl_options = None
         if api_svr_mgr._args.use_certs:
             ssl_options = {
-                'keyfile'   : api_svr_mgr._args.keyfile,
-                'certfile'  : api_svr_mgr._args.certfile,
-                'ca_certs'  : api_svr_mgr._args.ca_certs,
-                'cert_reqs' : ssl.CERT_REQUIRED,
-                'ciphers'   : 'ALL'
+                'keyfile': api_svr_mgr._args.keyfile,
+                'certfile': api_svr_mgr._args.certfile,
+                'ca_certs': api_svr_mgr._args.ca_certs,
+                'cert_reqs': ssl.CERT_REQUIRED,
+                'ciphers': 'ALL'
             }
-        self._ifmap_db = VncIfmapClient(self, ifmap_srv_ip, ifmap_srv_port, uname, passwd, ssl_options, ifmap_srv_loc)
+        self._ifmap_db = VncIfmapClient(
+            self, ifmap_srv_ip, ifmap_srv_port,
+            uname, passwd, ssl_options, ifmap_srv_loc)
 
-        self._cassandra_db = VncCassandraClient(self, cass_srv_list, reset_config)
+        self._cassandra_db = VncCassandraClient(
+            self, cass_srv_list, reset_config)
 
-    #end __init__
+    # end __init__
 
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
         self._cassandra_db.walk(self._dbe_resync)
-    #end db_resync
+    # end db_resync
 
     def db_check(self):
         # Read contents from cassandra and report any read exceptions
         check_results = self._cassandra_db.walk(self._dbe_check)
 
         return check_results
-    #end db_check
+    # end db_check
 
     def set_uuid(self, obj_dict, id):
         # set uuid in the perms meta
@@ -725,60 +796,64 @@ class VncDbClient(object):
         obj_dict['uuid'] = str(id)
 
         return True
-    #end set_uuid
+    # end set_uuid
 
     def _alloc_set_uuid(self, obj_dict):
         id = uuid.uuid4()
         ok = self.set_uuid(obj_dict, id)
 
         return (ok, obj_dict['uuid'])
-    #end _alloc_set_uuid
+    # end _alloc_set_uuid
 
     def match_uuid(self, obj_dict, obj_uuid):
-        new_dict = {'id_perms':{}}
+        new_dict = {'id_perms': {}}
         self.set_uuid(new_dict, uuid.UUID(obj_uuid))
         return new_dict['id_perms']['uuid'] == obj_dict['id_perms']['uuid']
-    #end
+    # end
 
     def _dbe_resync(self, obj_uuid, obj_cols):
         obj_type = json.loads(obj_cols['type'])
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" %(obj_type))
+        method = getattr(self._cassandra_db, "_cassandra_%s_read" % (obj_type))
         try:
             (ok, obj_dict) = method(obj_uuid)
         except Exception as e:
-            self.config_object_error(obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
+            self.config_object_error(
+                obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
             return
 
         parent_type = obj_dict.get('parent_type', None)
-        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" %(obj_type))
+        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
         try:
             (ok, result) = method(parent_type, obj_dict['fq_name'])
             (my_imid, parent_imid) = result
         except Exception as e:
-            self.config_object_error(obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
+            self.config_object_error(
+                obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
             return
 
-        obj_ids = {'uuid': obj_uuid, 'imid': my_imid, 'parent_imid': parent_imid}
-        method = getattr(self._ifmap_db, "_ifmap_%s_create" %(obj_type))
+        obj_ids = {'uuid': obj_uuid, 'imid':
+                   my_imid, 'parent_imid': parent_imid}
+        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
         try:
             (ok, result) = method(obj_ids, obj_dict)
         except Exception as e:
-            self.config_object_error(obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
+            self.config_object_error(
+                obj_uuid, None, obj_type, 'dbe_resync:ifmap_create', str(e))
             return
-    #end _dbe_resync
+    # end _dbe_resync
 
     def _dbe_check(self, obj_uuid, obj_cols):
         obj_type = json.loads(obj_cols['type'])
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" %(obj_type))
+        method = getattr(self._cassandra_db, "_cassandra_%s_read" % (obj_type))
         try:
             (ok, obj_dict) = method(obj_uuid)
         except Exception as e:
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
-    #end _dbe_check
+    # end _dbe_check
 
     # Public Methods
     # Returns created ifmap_id
-    def dbe_alloc(self, obj_type, obj_dict, uuid_requested = None):
+    def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
         if uuid_requested:
             ok = self.set_uuid(obj_dict, uuid.UUID(uuid_requested))
         else:
@@ -786,42 +861,46 @@ class VncDbClient(object):
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" %(method_name))
+        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (method_name))
         (ok, result) = method(parent_type, obj_dict['fq_name'])
         if not ok:
             return False, result
 
         (my_imid, parent_imid) = result
-        obj_ids = {'uuid': obj_dict['uuid'], 'imid': my_imid, 'parent_imid': parent_imid}
+        obj_ids = {
+            'uuid': obj_dict['uuid'],
+            'imid': my_imid, 'parent_imid': parent_imid}
 
         return (True, obj_ids)
-    #end dbe_alloc
+    # end dbe_alloc
 
     def dbe_create(self, obj_type, obj_ids, obj_dict):
         #self._cassandra_db.uuid_create(obj_type, obj_ids, obj_dict)
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._cassandra_db, "_cassandra_%s_create" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_create" % (method_name))
         (ok, result) = method(obj_ids, obj_dict)
 
         # publish to ifmap
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_create" %(method_name))
+        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
         (ok, result) = method(obj_ids, obj_dict)
 
         return (ok, result)
-    #end dbe_create
+    # end dbe_create
 
     # input id is ifmap-id + uuid
-    def dbe_read(self, obj_type, obj_ids, obj_fields = None):
+    def dbe_read(self, obj_type, obj_ids, obj_fields=None):
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_read" % (method_name))
         try:
             (ok, cassandra_result) = method(obj_ids['uuid'], obj_fields)
         except NoIdError as e:
             return (False, str(e))
 
         return (ok, cassandra_result)
-    #end dbe_read
+    # end dbe_read
 
     def dbe_is_latest(self, obj_ids, tstamp):
         try:
@@ -829,115 +908,121 @@ class VncDbClient(object):
             return (True, is_latest)
         except Exception as e:
             return (False, str(e))
-    #end dbe_is_latest
+    # end dbe_is_latest
 
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
         method_name = obj_type.replace('-', '_')
         # read old value to get diff for ifmap
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_read" % (method_name))
         try:
             (ok, old_obj_dict) = method(obj_ids['uuid'])
         except NoIdError as e:
             return (False, str(e))
 
-        method = getattr(self._cassandra_db, "_cassandra_%s_update" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_update" % (method_name))
         (ok, cassandra_result) = method(obj_ids['uuid'], None, new_obj_dict)
 
         # publish to ifmap
-        method = getattr(self._ifmap_db, "_ifmap_%s_update" %(method_name))
+        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
         fq_name = self._cassandra_db.uuid_to_fq_name(obj_ids['uuid'])
         ifmap_id = self._ifmap_db.fq_name_to_ifmap_id(obj_type, fq_name)
         (ok, ifmap_result) = method(ifmap_id, old_obj_dict, new_obj_dict)
 
         return (ok, cassandra_result)
-    #end dbe_update
+    # end dbe_update
 
-    def dbe_list(self, obj_type, parent_uuid = None):
+    def dbe_list(self, obj_type, parent_uuid=None):
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._cassandra_db, "_cassandra_%s_list" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_list" % (method_name))
         (ok, cassandra_result) = method(parent_uuid)
 
         return (ok, cassandra_result)
-    #end dbe_list
+    # end dbe_list
 
     def dbe_delete(self, obj_type, obj_ids):
         fq_name = self._cassandra_db.uuid_to_fq_name(obj_ids['uuid'])
         method_name = obj_type.replace('-', '_')
-        method = getattr(self._cassandra_db, "_cassandra_%s_delete" %(method_name))
+        method = getattr(
+            self._cassandra_db, "_cassandra_%s_delete" % (method_name))
         (ok, cassandra_result) = method(obj_ids['uuid'])
 
         # publish to ifmap
-        method = getattr(self._ifmap_db, "_ifmap_%s_delete" %(method_name))
+        method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
         (ok, ifmap_result) = method(obj_ids)
         if not ok:
             return ok, ifmap_result
 
         return ok, ifmap_result
-    #end dbe_delete
+    # end dbe_delete
 
     def useragent_kv_store(self, key, value):
         self._cassandra_db.useragent_kv_store(key, value)
-    #end useragent_kv_store
+    # end useragent_kv_store
 
     def useragent_kv_retrieve(self, key):
         return self._cassandra_db.useragent_kv_retrieve(key)
-    #end useragent_kv_retrieve
+    # end useragent_kv_retrieve
 
     def useragent_kv_delete(self, key):
         return self._cassandra_db.useragent_kv_delete(key)
-    #end useragent_kv_delete
+    # end useragent_kv_delete
 
     def subnet_store(self, name, bitmask):
         self._cassandra_db.subnet_store(name, bitmask)
-    #end subnet_store
+    # end subnet_store
 
     def subnet_retrieve(self, key):
         return self._cassandra_db.subnet_retrieve(key)
-    #end subnet_retrieve
+    # end subnet_retrieve
 
     def subnet_delete(self, key):
         self._cassandra_db.subnet_delete(key)
-    #end subnet_delete
+    # end subnet_delete
 
     def uuid_vnlist(self):
         return self._cassandra_db.uuid_vnlist()
-    #end uuid_vnlist
+    # end uuid_vnlist
 
     def uuid_to_ifmap_id(self, id):
         return self._cassandra_db.uuid_to_ifmap_id(id)
-    #end uuid_to_ifmap_id
+    # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
         return self._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
-    #end fq_name_to_uuid
+    # end fq_name_to_uuid
 
     def uuid_to_fq_name(self, obj_uuid):
         return self._cassandra_db.uuid_to_fq_name(obj_uuid)
-    #end uuid_to_fq_name
+    # end uuid_to_fq_name
 
     def uuid_to_obj_type(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_type(obj_uuid)
-    #end uuid_to_obj_type
+    # end uuid_to_obj_type
 
     def ifmap_id_to_fq_name(self, ifmap_id):
         return self._ifmap_db.ifmap_id_to_fq_name(ifmap_id)
-    #end ifmap_id_to_fq_name
+    # end ifmap_id_to_fq_name
 
-    #def ifmap_id_to_uuid(self, ifmap_id):
+    # def ifmap_id_to_uuid(self, ifmap_id):
     #    return self._cassandra_db.fq_name_to_uuid(fq_name)
-    ##end ifmap_id_to_uuid
+    # end ifmap_id_to_uuid
 
     def uuid_to_obj_dict(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_dict(obj_uuid)
-    #end uuid_to_obj_dict
+    # end uuid_to_obj_dict
 
     # Helper routines for REST
     def generate_url(self, obj_type, obj_uuid):
         return self._api_svr_mgr.generate_url(obj_type, obj_uuid)
-    #end generate_url
+    # end generate_url
 
-    def config_object_error(self, id, fq_name_str, obj_type, operation, err_str):
-        self._api_svr_mgr.config_object_error(id, fq_name_str, obj_type, operation, err_str)
-    #end config_object_error
+    def config_object_error(self, id, fq_name_str, obj_type,
+                            operation, err_str):
+        self._api_svr_mgr.config_object_error(
+            id, fq_name_str, obj_type, operation, err_str)
+    # end config_object_error
 
-#end class VncDbClient
+# end class VncDbClient

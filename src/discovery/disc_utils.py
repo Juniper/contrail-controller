@@ -7,10 +7,11 @@
 import gevent
 import hashlib
 
+
 def publisher_id(remote, infostr):
-    return hashlib.md5(remote+infostr).hexdigest()
-#end publisher_id
+    return hashlib.md5(remote + infostr).hexdigest()
+# end publisher_id
+
 
 def do_html_url(url, name):
-    return '<a href="%s">'%(url) + name + '</a>'
-
+    return '<a href="%s">' % (url) + name + '</a>'

@@ -16,6 +16,7 @@ import test_common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
+
 def parse_args(args_str):
         '''
         Eg. python fake_api_server.py --listen_ip 1.2.3.4 --listen_port 10882
@@ -23,7 +24,7 @@ def parse_args(args_str):
 
         # Source any specified config/ini file
         # Turn off help, so we print all options in response to -h
-        conf_parser = argparse.ArgumentParser(add_help = False)
+        conf_parser = argparse.ArgumentParser(add_help=False)
 
         conf_parser.add_argument("-c", "--conf_file",
                                  help="Specify config file", metavar="FILE")
@@ -50,8 +51,10 @@ def parse_args(args_str):
             )
         parser.set_defaults(**defaults)
 
-        parser.add_argument("--listen_ip", help = "IP address to serve requests on")
-        parser.add_argument("--listen_port", help = "Port to serve requests on")
+        parser.add_argument("--listen_ip",
+                            help="IP address to serve requests on")
+        parser.add_argument("--listen_port",
+                            help="Port to serve requests on")
 
         ret_args = parser.parse_args(remaining_argv)
         ret_args.conf_file = args.conf_file
@@ -59,7 +62,8 @@ def parse_args(args_str):
         return ret_args
 #end parse_args
 
-def main(args_str = None):   
+
+def main(args_str=None):
     if not args_str:
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
@@ -76,11 +80,12 @@ def main(args_str = None):
         api_server_port = args.listen_port
     http_server_port = get_free_port()
 
-    api_srv = gevent.spawn(test_common.launch_api_server, api_server_ip, api_server_port, http_server_port)
+    api_srv = gevent.spawn(test_common.launch_api_server, api_server_ip,
+                           api_server_port, http_server_port)
     gevent.joinall([api_srv])
 
-#end main
-    
+# end main
+
 if __name__ == '__main__':
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
@@ -89,4 +94,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print "Exception %s" %(str(e))
+        print "Exception %s" % (str(e))

@@ -20,7 +20,7 @@
 using namespace std;
 using namespace autogen;
 
-static NextHopTable *nexthop_table_;
+NextHopTable *NextHopTable::nexthop_table_;
 
 /////////////////////////////////////////////////////////////////////////////
 // TunnelTyperoutines
@@ -69,7 +69,7 @@ NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
 }
 
 AgentDBTable *NextHop::DBToTable() const {
-    return nexthop_table_;
+    return NextHopTable::GetInstance();
 }
 
 void NextHop::SendObjectLog(AgentLogEvent::type event) const {
@@ -337,7 +337,7 @@ void ArpNH::SetKey(const DBRequestKey *k) {
     const ArpNHKey *key = static_cast<const ArpNHKey *>(k);
 
     NextHop::SetKey(k);
-    vrf_ = nexthop_table_->FindVrfEntry(key->vrf_key_);
+    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
     ip_ = key->dip_;
 }
 
@@ -356,7 +356,7 @@ bool ArpNH::Change(const DBRequest *req) {
         return ret;
     }
 
-    Interface *interface = nexthop_table_->FindInterface(*data->intf_key_.get());
+    Interface *interface = NextHopTable::GetInstance()->FindInterface(*data->intf_key_.get());
     if (interface_.get() != interface) {
         interface_ = interface;
         ret = true;
@@ -447,7 +447,7 @@ void InterfaceNH::SetKey(const DBRequestKey *k) {
     const InterfaceNHKey *key = static_cast<const InterfaceNHKey *>(k);
 
     NextHop::SetKey(k);
-    interface_ = nexthop_table_->FindInterface(*key->intf_key_.get());
+    interface_ = NextHopTable::GetInstance()->FindInterface(*key->intf_key_.get());
     is_mcast_nh_ = key->is_mcast_nh_;
 }
 
@@ -495,7 +495,7 @@ static void EnqueueAddReq(const uuid &intf_uuid, const struct ether_addr &dmac,
     data = new InterfaceNHData(vrf_name, dmac);
 
     req.data.reset(data);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 // Create 3 InterfaceNH for every VPort. One with policy another without 
@@ -518,7 +518,7 @@ static void EnqueueDelReq(const uuid &intf_uuid, bool policy,
     req.key.reset(key);
 
     req.data.reset(NULL);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
@@ -541,7 +541,7 @@ void InterfaceNH::CreateHostPortReq(const string &ifname) {
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
     InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
     req.data.reset(data);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 void InterfaceNH::DeleteHostPortReq(const string &ifname) {
@@ -553,7 +553,7 @@ void InterfaceNH::DeleteHostPortReq(const string &ifname) {
     req.key.reset(key);
 
     req.data.reset(NULL);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 void InterfaceNH::SendObjectLog(AgentLogEvent::type event) const {
@@ -601,7 +601,7 @@ bool VrfNH::NextHopIsLess(const DBEntry &rhs) const {
 void VrfNH::SetKey(const DBRequestKey *k) {
     const VrfNHKey *key = static_cast<const VrfNHKey *>(k);
     NextHop::SetKey(k);
-    vrf_ = nexthop_table_->FindVrfEntry(key->vrf_key_);
+    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
 }
 
 VrfNH::KeyPtr VrfNH::GetDBRequestKey() const {
@@ -663,7 +663,7 @@ bool TunnelNH::NextHopIsLess(const DBEntry &rhs) const {
 void TunnelNH::SetKey(const DBRequestKey *k) {
     const TunnelNHKey *key = static_cast<const TunnelNHKey *>(k);
     NextHop::SetKey(k);
-    vrf_ = nexthop_table_->FindVrfEntry(key->vrf_key_);
+    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
     sip_ = key->sip_;
     dip_ = key->dip_;
     tunnel_type_ = key->tunnel_type_;
@@ -765,7 +765,7 @@ const uint32_t MirrorNH::GetVrfId() const {
 void MirrorNH::SetKey(const DBRequestKey *k) {
     const MirrorNHKey *key = static_cast<const MirrorNHKey *>(k);
     NextHop::SetKey(k);
-    vrf_ = nexthop_table_->FindVrfEntry(key->vrf_key_);
+    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
     sip_ = key->sip_;
     sport_ = key->sport_;
     dip_ = key->dip_;
@@ -861,7 +861,7 @@ NextHop *ReceiveNHKey::AllocEntry() const {
 void ReceiveNH::SetKey(const DBRequestKey *key) {
     const ReceiveNHKey *nh_key = static_cast<const ReceiveNHKey *>(key);
     NextHop::SetKey(key);
-    interface_ = nexthop_table_->FindInterface(*nh_key->intf_key_.get());
+    interface_ = NextHopTable::GetInstance()->FindInterface(*nh_key->intf_key_.get());
 };
 
 // Create 2 ReceiveNH for every VPort. One with policy another without 
@@ -920,7 +920,7 @@ void ResolveNH::CreateReq( ) {
 
     ResolveNHData *data =new ResolveNHData();
     req.data.reset(data);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -943,7 +943,7 @@ void DiscardNH::CreateReq( ) {
 
     DiscardNHData *data =new DiscardNHData();
     req.data.reset(data);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -983,7 +983,7 @@ void VlanNH::SetKey(const DBRequestKey *k) {
     const VlanNHKey *key = static_cast<const VlanNHKey *>(k);
 
     NextHop::SetKey(k);
-    interface_ = nexthop_table_->FindInterface(*key->intf_key_.get());
+    interface_ = NextHopTable::GetInstance()->FindInterface(*key->intf_key_.get());
     vlan_tag_ = key->vlan_tag_;
 }
 
@@ -1027,7 +1027,7 @@ void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
 
     VlanNHData *data = new VlanNHData(vrf_name, smac, dmac);
     req.data.reset(data);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
@@ -1038,12 +1038,12 @@ void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
     req.key.reset(key);
 
     req.data.reset(NULL);
-    nexthop_table_->Enqueue(&req);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
     VlanNHKey key(intf_uuid, vlan_tag);
-    return static_cast<VlanNH *>(nexthop_table_->FindActiveEntry(&key));
+    return static_cast<VlanNH *>(NextHopTable::GetInstance()->FindActiveEntry(&key));
 }
 
 void VlanNH::SendObjectLog(AgentLogEvent::type event) const {
@@ -1144,7 +1144,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
 void CompositeNH::SetKey(const DBRequestKey *k) {
     const CompositeNHKey *key = static_cast<const CompositeNHKey *>(k);
     NextHop::SetKey(k);
-    vrf_ = nexthop_table_->FindVrfEntry(key->vrf_key_);
+    vrf_ = NextHopTable::GetInstance()->FindVrfEntry(key->vrf_key_);
     src_addr_ = key->sip_;
     grp_addr_ = key->dip_;
     is_local_ecmp_nh_ = key->is_local_ecmp_nh_;
@@ -1463,9 +1463,16 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case DISCARD:
             data.set_type("discard");
             break;
-        case RECEIVE:
+        case RECEIVE: {
             data.set_type("receive");
+            const ReceiveNH *nh = static_cast<const ReceiveNH *>(this);
+            if (nh->GetInterface()) {
+                data.set_itf(nh->GetInterface()->GetName());
+            } else {
+                data.set_itf("<NULL>");
+            }
             break;
+        }
         case RESOLVE:
             data.set_type("resolve");
             break;
