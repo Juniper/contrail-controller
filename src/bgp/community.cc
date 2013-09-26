@@ -28,6 +28,15 @@ std::string CommunitySpec::ToString() const {
     return std::string(repr);
 }
 
+Community::Community(CommunityDB *comm_db, const CommunitySpec spec)
+    : comm_db_(comm_db), communities_(spec.communities) {
+    refcount_ = 0;
+    std::sort(communities_.begin(), communities_.end());
+    std::vector<uint32_t>::iterator it =
+        std::unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
+}
+
 int Community::CompareTo(const Community &rhs) const {
     KEY_COMPARE(communities_, rhs.communities_);
     return 0;
@@ -74,6 +83,9 @@ void ExtCommunity::Remove() {
 void ExtCommunity::Append(const ExtCommunityList &list) {
     communities_.insert(communities_.end(), list.begin(), list.end());
     std::sort(communities_.begin(), communities_.end());
+    ExtCommunityList::iterator it =
+        std::unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
 }
 
 void ExtCommunity::RemoveRTarget() {
@@ -112,13 +124,16 @@ void ExtCommunity::RemoveOriginVn() {
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
         const ExtCommunitySpec spec) : extcomm_db_(extcomm_db) {
     refcount_ = 0;
-    std::vector<uint64_t>::const_iterator it = spec.communities.begin();
-    for (; it < spec.communities.end(); it++) {
+    for (std::vector<uint64_t>::const_iterator it = spec.communities.begin();
+         it < spec.communities.end(); it++) {
         ExtCommunityValue comm;
         put_value(comm.data(), comm.size(), *it);
         communities_.push_back(comm);
     }
     std::sort(communities_.begin(), communities_.end());
+    ExtCommunityList::iterator it =
+        std::unique(communities_.begin(), communities_.end());
+    communities_.erase(it, communities_.end());
 }
 
 ExtCommunityDB::ExtCommunityDB(BgpServer *server) : server_(server) {

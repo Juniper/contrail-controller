@@ -1026,7 +1026,7 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
         BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
                      "Error while parsing message at " << ec.type_name);
-        state_machine_->OnSessionError(session, &ec);
+        state_machine_->OnMessageError(session, &ec);
         return;
     }
 

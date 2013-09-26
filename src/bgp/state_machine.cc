@@ -32,39 +32,34 @@ using namespace std;
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
 
-#define SM_LOG(level, _Msg)                                                  \
-    do {                                                                     \
-        StateMachine *_Xstate_machine = &context<StateMachine>();            \
-        BgpPeer *_Xpeer = _Xstate_machine->peer();                           \
-        std::ostringstream out;                                              \
-        out << _Msg;                                                         \
-        BGP_LOG_SERVER(_Xpeer, (BgpTable *) 0);                              \
-        BGP_LOG(BgpStateMachineSessionMessage, level,                        \
-                BGP_LOG_FLAG_SYSLOG, _Xpeer->ToString(), out.str());         \
-    } while (false)
-
-#define SESSION_LOG(session)                                                  \
-do {                                                                          \
-    std::ostringstream out;                                                   \
-    out << "Enqueue event " << Name();                                     \
-    BGP_LOG_SERVER((session) ? (session)->Peer() : (IPeer *)0, (BgpTable *)0);\
-    BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,            \
-            BGP_LOG_FLAG_SYSLOG,                                              \
-            (session) && (session)->Peer() ? (session)->Peer()->ToString():"",\
-            out.str());                                                       \
+#define SM_LOG(level, _Msg)                                                    \
+do {                                                                           \
+    StateMachine *_Xstate_machine = &context<StateMachine>();                  \
+    BgpPeer *_Xpeer = _Xstate_machine->peer();                                 \
+    std::ostringstream out;                                                    \
+    out << _Msg;                                                               \
+    BGP_LOG_SERVER(_Xpeer, (BgpTable *) 0);                                    \
+    BGP_LOG(BgpStateMachineSessionMessage, level,                              \
+            BGP_LOG_FLAG_SYSLOG, _Xpeer->ToString(), out.str());               \
 } while (false)
 
 namespace fsm {
 
-// events
+// Events for the state machine.  These are listed in roughly the same order
+// as the RFC - Administrative, Timer, Tcp and Message.
+
 struct EvStart : sc::event<EvStart> {
-    static const char * Name() {
+    EvStart() {
+    }
+    static const char *Name() {
         return "EvStart";
     }
 };
 
 struct EvStop : sc::event<EvStop> {
-    static const char * Name() {
+    EvStop() {
+    }
+    static const char *Name() {
         return "EvStop";
     }
 };
@@ -72,19 +67,20 @@ struct EvStop : sc::event<EvStop> {
 struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
     EvIdleHoldTimerExpired(Timer *timer)  : timer_(timer){
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvIdleHoldTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
         return !timer_->cancelled();
     }
+
     Timer *timer_;
 };
 
 struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
     EvConnectTimerExpired(Timer *timer) : timer_(timer) {
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvConnectTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -98,15 +94,14 @@ struct EvConnectTimerExpired : sc::event<EvConnectTimerExpired> {
         }
         return false;
     }
+
     Timer *timer_;
 };
 
 struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
     EvOpenTimerExpired(Timer *timer) : timer_(timer) {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvOpenTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -116,15 +111,14 @@ struct EvOpenTimerExpired : sc::event<EvOpenTimerExpired> {
             return (state_machine->passive_session() != NULL);
         }
     }
+
     Timer *timer_;
 };
 
 struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
     EvHoldTimerExpired(Timer *timer) : timer_(timer) {
-        BGP_LOG(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-                BGP_LOG_FLAG_TRACE, Name());
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvHoldTimerExpired";
     }
     bool validate(StateMachine *state_machine) const {
@@ -136,50 +130,50 @@ struct EvHoldTimerExpired : sc::event<EvHoldTimerExpired> {
             return (state_machine->peer()->session() != NULL);
         }
     }
+
     Timer *timer_;
 };
 
 struct EvTcpConnected : sc::event<EvTcpConnected> {
     EvTcpConnected(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvTcpConnected";
     }
     bool validate(StateMachine *state_machine) const {
         return (state_machine->active_session() == session);
     }
+
     BgpSession *session;
 };
 
 struct EvTcpConnectFail : sc::event<EvTcpConnectFail> {
     EvTcpConnectFail(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvTcpConnectFail";
     }
     bool validate(StateMachine *state_machine) const {
         return (state_machine->active_session() == session);
     }
+
     BgpSession *session;
 };
 
 struct EvTcpPassiveOpen : sc::event<EvTcpPassiveOpen> {
     EvTcpPassiveOpen(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
-    };
-    static const char * Name() {
+    }
+    static const char *Name() {
         return "EvTcpPassiveOpen";
     }
+
     BgpSession *session;
 };
 
 struct EvTcpClose : sc::event<EvTcpClose> {
     EvTcpClose(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
-    };
-    static const char * Name() {
+    }
+    static const char *Name() {
         return "EvTcpClose";
     }
     bool validate(StateMachine *state_machine) const {
@@ -187,30 +181,32 @@ struct EvTcpClose : sc::event<EvTcpClose> {
                 (state_machine->active_session() == session) ||
                 (state_machine->passive_session() == session));
     }
+
     BgpSession *session;
 };
 
 // Used to defer the session delete after all events currently on the queue.
 struct EvTcpDeleteSession : sc::event<EvTcpDeleteSession> {
-    EvTcpDeleteSession(TcpSession *session) : session(session) {
+    EvTcpDeleteSession(BgpSession *session) : session(session) {
     }
     static const char *Name() {
         return "EvTcpDeleteSession";
     }
-    TcpSession *session;
+
+    BgpSession *session;
 };
 
 struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
     EvBgpHeaderError(BgpSession *session, int subcode, const uint8_t *_data,
-            size_t data_size)
-            : session(session), subcode(subcode) {
-                    if (_data)
-                        data = std::string((const char *)_data, data_size);
-        SESSION_LOG(session);
+        size_t data_size)
+        : session(session), subcode(subcode) {
+        if (_data)
+            data = std::string((const char *)_data, data_size);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpHeaderError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
@@ -219,32 +215,32 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
-            SESSION_LOG(session);
-        }
-    static const char * Name() {
+    }
+    static const char *Name() {
         return "EvBgpOpen";
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::OpenMessage> msg;
 };
 
 struct EvBgpOpenError : sc::event<EvBgpOpenError> {
     EvBgpOpenError(BgpSession *session, int subcode,
-                   const uint8_t *_data = NULL, size_t data_size = 0)
+        const uint8_t *_data = NULL, size_t data_size = 0)
         : session(session), subcode(subcode) {
         if (subcode == BgpProto::Notification::UnsupportedVersion) {
             // For unsupported version, we need to send our version in the
-            // data field
+            // data field.
             char version = 4;
             data.push_back(version);
         } else if (_data) {
             data = std::string((const char *)_data, data_size);
         }
-        SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpOpenError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
@@ -252,30 +248,30 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
-        SESSION_LOG(session);
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpKeepalive";
     }
     bool validate(StateMachine *state_machine) const {
         return !session->IsClosed();
     }
+
     BgpSession *session;
 };
 
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-            BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE,
-                    BGP_LOG_FLAG_ALL,
-                    session->Peer() ? session->Peer()->ToString() : "",
-                    BGP_PEER_DIR_IN, this->msg->data.size(),
-                    this->msg->error, this->msg->subcode,
-                    BgpProto::Notification::ToString(
-                        BgpProto::Notification::Code(this->msg->error),
-                        this->msg->subcode));
-        }
-    static const char * Name() {
+        BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE,
+                BGP_LOG_FLAG_ALL,
+                session->Peer() ? session->Peer()->ToString() : "",
+                BGP_PEER_DIR_IN, this->msg->data.size(),
+                this->msg->error, this->msg->subcode,
+                BgpProto::Notification::ToString(
+                BgpProto::Notification::Code(this->msg->error),
+                this->msg->subcode));
+    }
+    static const char *Name() {
         return "EvBgpNotification";
     }
     bool validate(StateMachine *state_machine) const {
@@ -283,30 +279,31 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
                 (state_machine->active_session() == session) ||
                 (state_machine->passive_session() == session));
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::Notification> msg;
 };
 
 struct EvBgpUpdate : sc::event<EvBgpUpdate> {
-    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg) :
-        session(session), msg(msg) {
-            SESSION_LOG(session);
-        }
-    static const char * Name() {
+    EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg)
+        : session(session), msg(msg) {
+    }
+    static const char *Name() {
         return "EvBgpUpdate";
     }
+
     BgpSession *session;
     boost::shared_ptr<const BgpProto::Update> msg;
 };
 
 struct EvBgpUpdateError : sc::event<EvBgpUpdateError> {
     EvBgpUpdateError(BgpSession *session, int subcode, std::string data)
-            : session(session), subcode(subcode), data(data) {
-        SESSION_LOG(session);
+        : session(session), subcode(subcode), data(data) {
     }
-    static const char * Name() {
+    static const char *Name() {
         return "EvBgpUpdateError";
     }
+
     BgpSession *session;
     int subcode;
     std::string data;
@@ -350,12 +347,16 @@ struct IdleError {
             &StateMachine::OnIdleError<Ev, code> > reaction;
 };
 
+//
+// We start out in Idle and progress when we get EvStart. We also come back
+// to Idle when there's any kind of error that we need to recover from.
+//
 struct Idle : sc::state<Idle, StateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvStart>,
         sc::custom_reaction<EvStop>,
-        sc::custom_reaction<EvTcpPassiveOpen>,
-        sc::custom_reaction<EvIdleHoldTimerExpired>
+        sc::custom_reaction<EvIdleHoldTimerExpired>,
+        sc::custom_reaction<EvTcpPassiveOpen>
     > reactions;
 
     Idle(my_context ctx) : my_base(ctx) {
@@ -363,12 +364,12 @@ struct Idle : sc::state<Idle, StateMachine> {
         BgpPeer *peer = state_machine->peer();
         BgpSession *session = peer->session();
         peer->clear_session();
-        state_machine->set_state(StateMachine::IDLE);
         state_machine->set_active_session(NULL);
         state_machine->set_passive_session(NULL);
         state_machine->DeleteSession(session);
         state_machine->CancelOpenTimer();
         state_machine->CancelIdleHoldTimer();
+        state_machine->set_state(StateMachine::IDLE);
     }
 
     ~Idle() {
@@ -376,15 +377,18 @@ struct Idle : sc::state<Idle, StateMachine> {
         state_machine->CancelIdleHoldTimer();
     }
 
+    // Start idle hold timer if it's enabled, else go to Active right away.
     sc::result react(const EvStart &event) {
         StateMachine *state_machine = &context<StateMachine>();
-        if (state_machine->idle_hold_time())
+        if (state_machine->idle_hold_time()) {
             state_machine->StartIdleHoldTimer();
-        else
+        } else {
             return transit<Active>();
+        }
         return discard_event();
     }
 
+    // Stop idle hold timer and stay in Idle.
     sc::result react(const EvStop &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelIdleHoldTimer();
@@ -392,11 +396,12 @@ struct Idle : sc::state<Idle, StateMachine> {
         return discard_event();
     }
 
+    // The idle hold timer expired, go to Active.
     sc::result react(const EvIdleHoldTimerExpired &event) {
         return transit<Active>();
     }
 
-    // Close the session and ignore event
+    // Delete the session and ignore event.
     sc::result react(const EvTcpPassiveOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpSession *session = event.session;
@@ -405,56 +410,49 @@ struct Idle : sc::state<Idle, StateMachine> {
     }
 };
 
+//
+// In Active state, we wait for the connect timer timer to expire before we
+// move to Connect and start the active session. If we get a passive session
+// we accept it and wait for our delayed open timer to expire.
+//
 struct Active : sc::state<Active, StateMachine> {
     typedef mpl::list<
         TransitToIdle<EvStop>::reaction,
-        TransitToIdle<EvBgpNotification>::reaction,
-        TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction,
-        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
-        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
-        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
         sc::custom_reaction<EvConnectTimerExpired>,
         sc::custom_reaction<EvOpenTimerExpired>,
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
-        sc::custom_reaction<EvBgpOpen>
+        sc::custom_reaction<EvBgpOpen>,
+        TransitToIdle<EvBgpNotification>::reaction,
+        TransitToIdle<EvBgpKeepalive>::reaction,
+        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
+        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
+        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
 
+    // Start the connect timer if we don't have a passive session. There may
+    // a passive session if we got here from Connect or OpenSent.
     Active(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
-        state_machine->set_state(StateMachine::ACTIVE);
         if (state_machine->passive_session() == NULL)
             state_machine->StartConnectTimer(state_machine->GetConnectTime());
+        state_machine->set_state(StateMachine::ACTIVE);
     }
 
+    // Stop the connect timer.  If we are going to Connect state, the timer
+    // will be started again from the constructor for that state.
     ~Active() {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelConnectTimer();
     }
 
-    sc::result react(const EvTcpPassiveOpen &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->set_passive_session(event.session);
-        state_machine->CancelConnectTimer();
-        state_machine->StartOpenTimer(StateMachine::kOpenTime);
-        return discard_event();
-    }
-
-    sc::result react(const EvTcpClose &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        if (event.session == state_machine->passive_session()) {
-            state_machine->set_passive_session(NULL);
-            state_machine->CancelOpenTimer();
-            state_machine->StartConnectTimer(state_machine->GetConnectTime());
-        }
-        return discard_event();
-    }
-
+    // The connect timer expired, go to Connect.
     sc::result react(const EvConnectTimerExpired &event) {
         return transit<Connect>();
     }
 
+    // Send an OPEN message on the passive session and go to OpenSent.
     sc::result react(const EvOpenTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpSession *session = state_machine->passive_session();
@@ -466,6 +464,31 @@ struct Active : sc::state<Active, StateMachine> {
         return discard_event();
     }
 
+    // Cancel the connect timer since we now have a passive session. Note
+    // that we get rid of any existing passive session if we get another
+    // one. Also start the open timer in order to implement a delayed open
+    // on the passive session.
+    sc::result react(const EvTcpPassiveOpen &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->set_passive_session(event.session);
+        state_machine->CancelConnectTimer();
+        state_machine->StartOpenTimer(StateMachine::kOpenTime);
+        return discard_event();
+    }
+
+    // Start the connect timer since we don't have a passive session anymore.
+    sc::result react(const EvTcpClose &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+        if (event.session == state_machine->passive_session()) {
+            state_machine->set_passive_session(NULL);
+            state_machine->CancelOpenTimer();
+            state_machine->StartConnectTimer(state_machine->GetConnectTime());
+        }
+        return discard_event();
+    }
+
+    // We received an OPEN message on the passive session. Send OPEN message
+    // and go to OpenConfirm.
     sc::result react(const EvBgpOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -478,6 +501,13 @@ struct Active : sc::state<Active, StateMachine> {
         if (!session)
             return discard_event();
 
+        // Ignore the OPEN if it was received on a stale passive session.
+        // This can happen if we got another passive session between the
+        // original passive session and the OPEN message on that session.
+        if (session != event.session)
+            return discard_event();
+
+        // Send OPEN and go to OpenConfirm.
         int local_holdtime = state_machine->GetDefaultHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->AssignSession(false);
@@ -487,6 +517,10 @@ struct Active : sc::state<Active, StateMachine> {
     }
 };
 
+//
+// In Connect state, we wait for the active session to come up. We also accept
+// a passive session if we get one and start a delayed open timer.
+//
 struct Connect : sc::state<Connect, StateMachine> {
     typedef mpl::list<
         TransitToIdle<EvStop>::reaction,
@@ -497,23 +531,20 @@ struct Connect : sc::state<Connect, StateMachine> {
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
-        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
-        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
-        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
         TransitToIdle<EvBgpNotification>::reaction,
         TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction
+        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
+        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
+        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
-
-    static const int kConnectTimeout = 60;  // seconds
 
     Connect(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
-        state_machine->set_state(StateMachine::CONNECT);
         state_machine->connect_attempts_inc();
         state_machine->StartConnectTimer(state_machine->GetConnectTime());
-        if (!StartSession(state_machine))
-            return;
+        state_machine->StartSession();
+        state_machine->set_state(StateMachine::CONNECT);
     }
 
     ~Connect() {
@@ -521,12 +552,17 @@ struct Connect : sc::state<Connect, StateMachine> {
         state_machine->CancelConnectTimer();
     }
 
+    // Get rid of the active session and go back to Active.
     sc::result react(const EvConnectTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_active_session(NULL);
         return transit<Active>();
     }
 
+    // The open timer for the passive session expired.  Since the active
+    // session has not yet come up we get rid of it and decide to use the
+    // passive session.  Send an OPEN on the passive session and move to
+    // OpenSent.
     sc::result react(const EvOpenTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -535,6 +571,9 @@ struct Connect : sc::state<Connect, StateMachine> {
         return transit<OpenSent>();
     }
 
+    // The active session is up.  Send an OPEN right away and go to OpenSent.
+    // Note that we may also have the open timer running if we have a passive
+    // session.  Things will eventually get resolved in the OpenSent state.
     sc::result react(const EvTcpConnected &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -543,35 +582,47 @@ struct Connect : sc::state<Connect, StateMachine> {
         return transit<OpenSent>();
     }
 
+    // Delete the active session and go to Active.  Note that we may still
+    // have a passive session.
     sc::result react(const EvTcpConnectFail &event) {
-        // delete session; restart connect timer.
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_active_session(NULL);
         return transit<Active>();
     }
 
+    // Start the open timer in order to implement a delayed open on passive
+    // session.  Note that we get rid of any existing passive session if we
+    // had one.
     sc::result react(const EvTcpPassiveOpen &event) {
-        // Connection collision is resolved by looking at the router ids
-        // in the open message. The active connection may have been already
-        // established (and the notification in flight).
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->set_passive_session(event.session);
         state_machine->StartOpenTimer(StateMachine::kOpenTime);
         return discard_event();
     }
 
+    // Either the active or passive session got closed.
     sc::result react(const EvTcpClose &event) {
         StateMachine *state_machine = &context<StateMachine>();
         if (event.session == state_machine->passive_session()) {
+
+            // Get rid of the passive session and cancel the open timer.
+            // Stay in Connect and wait for the active session to come up.
             state_machine->set_passive_session(NULL);
             state_machine->CancelOpenTimer();
             return discard_event();
+
+        } else {
+
+            // Get rid of the active session and go to Active.  Note that we
+            // may still have a passive session at this point.
+            assert(event.session == state_machine->active_session());
+            state_machine->set_active_session(NULL);
+            return transit<Active>();
         }
-        assert(event.session == state_machine->active_session());
-        state_machine->set_active_session(NULL);
-        return transit<Active>();
     }
 
+    // We received an OPEN message on the passive session. Send OPEN message
+    // and go to OpenConfirm.
     sc::result react(const EvBgpOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -584,6 +635,14 @@ struct Connect : sc::state<Connect, StateMachine> {
         if (!session)
             return discard_event();
 
+        // Ignore the OPEN if it was received on a stale passive session.
+        // This can happen if we got another passive session between the
+        // original passive session and the OPEN message on that session.
+        if (session != event.session)
+            return discard_event();
+
+        // Send OPEN and go to OpenConfirm.  Since we've decided to use the
+        // passive session, we get rid of the active one.
         int local_holdtime = state_machine->GetDefaultHoldTime();
         state_machine->set_hold_time(min(event.msg->holdtime, local_holdtime));
         state_machine->set_active_session(NULL);
@@ -592,89 +651,50 @@ struct Connect : sc::state<Connect, StateMachine> {
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
     }
-
-    // Create an active connection request.
-    bool StartSession(StateMachine *state_machine) {
-        BgpPeer *peer = state_machine->peer();
-        BgpSession *session = peer->CreateSession();
-        if (session == NULL) {
-            return false;
-        }
-        state_machine->set_active_session(session);
-        session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
-                                          state_machine, _1, _2));
-        peer->server()->session_manager()->Connect(
-                    session, peer->peer_key().endpoint);
-        return true;
-    }
 };
 
-// The peer reaches OpenSent after sending an immediate OPEN on a active
-// connection or a delayed OPEN on a passive connection. In the first case
-// there may be both a passive and active session. In the later case there
-// is only a passive connection active.
+//
+// In the OpenSent state, we wait for the other end to send an OPEN message.
+// The state machine reaches OpenSent after sending an immediate OPEN message
+// on the active connection or a delayed OPEN on a passive connection. In the
+// former case there may be both a passive and active session. In the latter,
+// there is only a passive connection.
+//
 struct OpenSent : sc::state<OpenSent, StateMachine> {
     typedef mpl::list<
         IdleCease<EvStop>::reaction,
+        sc::custom_reaction<EvOpenTimerExpired>,
+        TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
-        TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
-        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
-        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
-        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
-        IdleFsmError<EvBgpKeepalive>::reaction,
         sc::custom_reaction<EvBgpNotification>,
-        sc::custom_reaction<EvOpenTimerExpired>,
-        IdleFsmError<EvBgpUpdate>::reaction
+        IdleFsmError<EvBgpKeepalive>::reaction,
+        IdleFsmError<EvBgpUpdate>::reaction,
+        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
+        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
+        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
 
+    // Start the hold timer to ensure that we don't get stuck in OpenSent if
+    // the other end never sends an OPEN message.
     OpenSent(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
-        state_machine->set_state(StateMachine::OPENSENT);
         state_machine->set_hold_time(StateMachine::kOpenSentHoldTime);
         state_machine->StartHoldTimer();
+        state_machine->set_state(StateMachine::OPENSENT);
     }
 
+    // Cancel the hold timer.  If we go to OpenConfirm, the timer will get
+    // started again from the constructor for that state.
     ~OpenSent() {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelHoldTimer();
     }
 
-    sc::result react(const EvBgpNotification &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        if (state_machine->ProcessNotificationEvent(event.session)) {
-            if (state_machine->active_session()) {
-                state_machine->CancelOpenTimer();
-                return discard_event();
-            } else if (state_machine->passive_session()) {
-                if (state_machine->OpenTimerRunning()) {
-                    return transit<Active>();
-                } else {
-                    return discard_event();
-                }
-            } else {
-                return transit<Idle, StateMachine, EvBgpNotification>
-                       (&StateMachine::OnIdle<EvBgpNotification, 0>, event);
-            }
-        }
-        return discard_event();
-    }
-
-    sc::result react(const EvTcpPassiveOpen &event) {
-        // Connection collision is resolved by looking at the router ids
-        // in the open message. The active connection may have been already
-        // established (and the notification in flight).
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->set_passive_session(event.session);
-        state_machine->StartOpenTimer(StateMachine::kOpenTime);
-        if (state_machine->active_session() == NULL) {
-            return transit<Active>();
-        } else {
-            return discard_event();
-        }
-    }
-
+    // Send an OPEN message on the passive session.  This means that we must
+    // have got to OpenSent because we sent an OPEN on the active session.
+    // Stay in OpenSent and wait for the other end to send an OPEN message.
     sc::result react(const EvOpenTimerExpired &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
@@ -682,94 +702,144 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
         return discard_event();
     }
 
+    // Update the passive session and start the open timer. Note that any
+    // existing passive session will get deleted.
+    sc::result react(const EvTcpPassiveOpen &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->set_passive_session(event.session);
+        state_machine->StartOpenTimer(StateMachine::kOpenTime);
+
+        // If we don't have an active session, we need to go back to Active
+        // since we haven't sent an OPEN message on the new passive session.
+        // If we have active session, it means that we sent an OPEN message
+        // on it already, so we can stay in OpenSent.
+        if (!state_machine->active_session()) {
+            return transit<Active>();
+        } else {
+            return discard_event();
+        }
+    }
+
+    // Either the passive or the active session closed.
     sc::result react(const EvTcpClose &event) {
         StateMachine *state_machine = &context<StateMachine>();
-        assert(event.session == state_machine->active_session() ||
-                event.session == state_machine->passive_session());
-
         if (event.session == state_machine->active_session()) {
+
+            // Since the active session was closed, we go back to Active if
+            // don't have a passive session or if we haven't yet sent an OPEN
+            // on the passive session.
             state_machine->set_active_session(NULL);
             if (state_machine->passive_session() == NULL ||
                 state_machine->OpenTimerRunning()) {
                 return transit<Active>();
             }
+
         } else {
+
+            // Since the passive session was closed, we cancel the open timer.
+            // We need to go back to Active if don't have a active session.
             state_machine->set_passive_session(NULL);
             state_machine->CancelOpenTimer();
-            if (state_machine->active_session() == NULL) {
+            if (state_machine->active_session() == NULL)
                 return transit<Active>();
-            }
         }
+
         return discard_event();
     }
 
+    // This one is pretty involved.
     sc::result react(const EvBgpOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
         BgpSession *session = NULL;
 
-        // Connection collision occurs when Open message is rxed with 
-        // active session still open.
-        // There are two paths to reach OpenSent from Connect state.
-        // 1. As a response to OpenTimerExpired event. 
-        //    In this case the active session is closed
-        // 2. As a result of TcpConnect event(successful connect to Bgp Server)
-        //    In this case the active session is left open
         if (state_machine->passive_session() &&
             state_machine->active_session()) {
-            // Connection collision
+
+            // Need to resolve connection collision.
             uint32_t local_bgp_id = peer->server()->bgp_identifier();
             if (event.msg->identifier > local_bgp_id) {
+
                 // Passive connection wins, close the active session.
                 peer->SendNotification(state_machine->active_session(),
-                          BgpProto::Notification::Cease,
-                          BgpProto::Notification::ConnectionCollision,
-                          "Connection collision - closing active session");
+                      BgpProto::Notification::Cease,
+                      BgpProto::Notification::ConnectionCollision,
+                      "Connection collision - closing active session");
                 state_machine->set_active_session(NULL);
 
+                // If we haven't already sent an OPEN message on the passive
+                // session, cancel the open timer and send the OPEN message.
                 session = state_machine->passive_session();
-
                 if (state_machine->OpenTimerRunning()) {
                     state_machine->CancelOpenTimer();
                     peer->SendOpen(session);
                 }
 
+                // If the OPEN was not received on the passive session, stay
+                // in OpenSent and wait for the other end to send the OPEN on
+                // on the passive session.
+                // If the OPEN was received on the passive session, we assign
+                // the passive session to the peer and fall through to go to
+                // OpenConfirm.
                 if (event.session != session) {
                     return discard_event();
                 } else {
                     state_machine->AssignSession(false);
                 }
+
             } else {
+
                 // Active connection wins, close the passive session.
                 peer->SendNotification(state_machine->passive_session(),
                           BgpProto::Notification::Cease,
                           BgpProto::Notification::ConnectionCollision,
                           "Connection collision - closing passive session");
                 state_machine->set_passive_session(NULL);
-
-                session = state_machine->active_session();
                 state_machine->CancelOpenTimer();
 
+                // If the OPEN was not received on the active session, stay
+                // in OpenSent and wait for the other end to send the OPEN on
+                // on the active session.
+                // If the OPEN was received on the active session, we assign
+                // the active session to the peer and fall through to go to
+                // OpenConfirm.
+                session = state_machine->active_session();
                 if (event.session != session) {
                     return discard_event();
                 } else {
                     state_machine->AssignSession(true);
                 }
             }
+
         } else if (state_machine->passive_session()) {
+
+            // If the OPEN was not received on the passive session, stay
+            // in OpenSent and wait for the other end to send the OPEN on
+            // on the passive session.
+            // If the OPEN was received on the passive session, we assign
+            // the passive session to the peer and fall through to go to
+            // OpenConfirm.
             session = state_machine->passive_session();
             if (event.session != session) {
                 return discard_event();
+            } else {
+                state_machine->AssignSession(false);
             }
 
-            state_machine->AssignSession(false);
         } else if (state_machine->active_session()) {
+
+            // If the OPEN was not received on the active session, stay
+            // in OpenSent and wait for the other end to send the OPEN on
+            // on the active session.
+            // If the OPEN was received on the active session, we assign
+            // the active session to the peer and fall through to go to
+            // OpenConfirm.
             session = state_machine->active_session();
             if (event.session != session) {
                 return discard_event();
+            } else {
+                state_machine->AssignSession(true);
             }
-
-            state_machine->AssignSession(true);
         }
 
         int local_holdtime = state_machine->GetDefaultHoldTime();
@@ -777,80 +847,133 @@ struct OpenSent : sc::state<OpenSent, StateMachine> {
         peer->SetCapabilities(event.msg.get());
         return transit<OpenConfirm>();
     }
+
+    // Notification received on one of the sessions for this state machine.
+    sc::result react(const EvBgpNotification &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+
+        // Ignore if the NOTIFICATION came in on a stale session.
+        if (!state_machine->ProcessNotificationEvent(event.session))
+            return discard_event();
+
+        // The call to ProcessNotificationEvent above would have closed
+        // the session on the which the message was received.
+        if (state_machine->active_session()) {
+
+            // Since we still have an active session, the passive session
+            // has been closed, so we cancel the open timer.  We stay in
+            // OpenSent since we still have an active session on which we
+            // have already sent an OPEN message.
+            state_machine->CancelOpenTimer();
+            return discard_event();
+
+        } else if (state_machine->passive_session()) {
+
+            // Since we still have the passive session, the active session
+            // has been closed.  If the open timer is still running, we go
+            // back to Active because we don't have an active session now.
+            // If the open timer has already expired, we stay in OpenSent
+            // since we have sent an OPEN on the passive session.
+            if (state_machine->OpenTimerRunning()) {
+                return transit<Active>();
+            } else {
+                return discard_event();
+            }
+
+        } else {
+
+            // We have neither an active or passive session.  Go to Idle.
+            return transit<Idle, StateMachine, EvBgpNotification>(
+                &StateMachine::OnIdle<EvBgpNotification, 0>, event);
+        }
+    }
 };
 
+//
+// In OpenConfirm, we wait for the other end to send a KEEPALIVE.
+//
 struct OpenConfirm : sc::state<OpenConfirm, StateMachine> {
     typedef mpl::list<
         IdleCease<EvStop>::reaction,
-        IdleFsmError<EvBgpOpen>::reaction,
+        IdleFsmError<EvOpenTimerExpired>::reaction,
         TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
-        sc::custom_reaction<EvBgpKeepalive>,
         sc::custom_reaction<EvTcpPassiveOpen>,
         TransitToIdle<EvTcpClose>::reaction,
-        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
-        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
-        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
+        IdleFsmError<EvBgpOpen>::reaction,
         sc::custom_reaction<EvBgpNotification>,
-        IdleFsmError<EvOpenTimerExpired>::reaction,
-        IdleFsmError<EvBgpUpdate>::reaction
+        sc::custom_reaction<EvBgpKeepalive>,
+        IdleFsmError<EvBgpUpdate>::reaction,
+        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
+        IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
+        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
 
+    // Send a KEEPALIVE and start the keepalive timer on the peer. Also start
+    // the hold timer based on the negotiated hold time value.
     OpenConfirm(my_context ctx) : my_base(ctx) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
         peer->SendKeepalive(false);
         peer->StartKeepaliveTimer();
-        state_machine->set_state(StateMachine::OPENCONFIRM);
         state_machine->CancelOpenTimer();
         state_machine->StartHoldTimer();
+        state_machine->set_state(StateMachine::OPENCONFIRM);
     }
 
+    // Cancel the hold timer.  If we go to Established, the timer will get
+    // started again from the constructor for that state.
     ~OpenConfirm() {
         StateMachine *state_machine = &context<StateMachine>();
         state_machine->CancelHoldTimer();
     }
 
+    // Send a notification, delete the new session and stay in OpenConfirm.
     sc::result react(const EvTcpPassiveOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpPeer *peer = state_machine->peer();
         BgpSession *session = event.session;
         peer->SendNotification(session,
-                BgpProto::Notification::Cease,
-                BgpProto::Notification::ConnectionRejected,
-                "Connection rejected - unexpected passive session");
-
+            BgpProto::Notification::Cease,
+            BgpProto::Notification::ConnectionRejected,
+            "Connection rejected - unexpected passive session");
         state_machine->DeleteSession(session);
         return discard_event();
     }
 
+    // Ignore the notification if it's for a stale session, else go to Idle.
     sc::result react(const EvBgpNotification &event) {
         StateMachine *state_machine = &context<StateMachine>();
-        if (state_machine->ProcessNotificationEvent(event.session)) {
-            return transit<Idle, StateMachine, EvBgpNotification>
-                       (&StateMachine::OnIdle<EvBgpNotification, 0>, event);
-        }
-        return discard_event();
+        if (!state_machine->ProcessNotificationEvent(event.session))
+            return discard_event();
+
+        return transit<Idle, StateMachine, EvBgpNotification>(
+            &StateMachine::OnIdle<EvBgpNotification, 0>, event);
     }
 
+    // Go to Established.  The hold timer will be started in the constructor
+    // for that state.
     sc::result react(const EvBgpKeepalive &event) {
         return transit<Established>();
     }
 };
 
+//
+// Established is the final state for an operation peer.
+//
 struct Established : sc::state<Established, StateMachine> {
     typedef mpl::list<
         IdleCease<EvStop>::reaction,
-        TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
-        sc::custom_reaction<EvBgpKeepalive>,
-        TransitToIdle<EvBgpNotification>::reaction,
-        sc::custom_reaction<EvBgpUpdate>,
         IdleFsmError<EvOpenTimerExpired>::reaction,
-        IdleFsmError<EvBgpOpen>::reaction,
-        IdleFsmError<EvBgpOpenError>::reaction,
-        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
-        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction,
+        TransitToIdle<EvHoldTimerExpired, BgpProto::Notification::HoldTimerExp>::reaction,
+        sc::custom_reaction<EvTcpPassiveOpen>,
         TransitToIdle<EvTcpClose>::reaction,
-        sc::custom_reaction<EvTcpPassiveOpen>
+        IdleFsmError<EvBgpOpen>::reaction,
+        TransitToIdle<EvBgpNotification>::reaction,
+        sc::custom_reaction<EvBgpKeepalive>,
+        sc::custom_reaction<EvBgpUpdate>,
+        IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
+        IdleFsmError<EvBgpOpenError>::reaction,
+        IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
     > reactions;
 
     Established(my_context ctx) : my_base(ctx) {
@@ -858,9 +981,9 @@ struct Established : sc::state<Established, StateMachine> {
         BgpPeer *peer = state_machine->peer();
         peer->RegisterAllTables();
         peer->server()->IncUpPeerCount();
-        state_machine->set_state(StateMachine::ESTABLISHED);
         state_machine->connect_attempts_clear();
         state_machine->StartHoldTimer();
+        state_machine->set_state(StateMachine::ESTABLISHED);
     }
 
     ~Established() {
@@ -870,25 +993,27 @@ struct Established : sc::state<Established, StateMachine> {
         state_machine->CancelHoldTimer();
     }
 
-    sc::result react(const EvBgpKeepalive &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->StartHoldTimer();
-        return discard_event();
-    }
-
-    sc::result react(const EvBgpUpdate &event) {
-        StateMachine *state_machine = &context<StateMachine>();
-        state_machine->StartHoldTimer();
-        state_machine->peer()->ProcessUpdate(event.msg.get());
-        return discard_event();
-    }
-
     // A new TCP session request should cause the previous BGP session
     // to be closed, rather than ignoring the event.
     sc::result react(const EvTcpPassiveOpen &event) {
         StateMachine *state_machine = &context<StateMachine>();
         BgpSession *session = event.session;
         state_machine->DeleteSession(session);
+        return discard_event();
+    }
+
+    // Restart the hold timer.
+    sc::result react(const EvBgpKeepalive &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->StartHoldTimer();
+        return discard_event();
+    }
+
+    // Restart the hold timer and process the update.
+    sc::result react(const EvBgpUpdate &event) {
+        StateMachine *state_machine = &context<StateMachine>();
+        state_machine->StartHoldTimer();
+        state_machine->peer()->ProcessUpdate(event.msg.get());
         return discard_event();
     }
 };
@@ -903,21 +1028,21 @@ StateMachine::StateMachine(BgpPeer *peer)
         active_session_(NULL),
         passive_session_(NULL),
         connect_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                 "Connect timer",
-                 TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                 peer->GetIndex())),
+            "Connect timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         open_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                  "Open timer",
-                  TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                  peer->GetIndex())),
+            "Open timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         hold_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                  "Hold timer",
-                  TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                  peer->GetIndex())),
+            "Hold timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         idle_hold_timer_(TimerManager::CreateTimer(*peer->server()->ioservice(), 
-                   "Idle hold timer",
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
-                   peer->GetIndex())),
+            "Idle hold timer",
+            TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
+            peer->GetIndex())),
         hold_time_(GetDefaultHoldTime()),
         idle_hold_time_(0),
         attempts_(0),
@@ -933,16 +1058,14 @@ void StateMachine::DeleteAllTimers() {
     TimerManager::DeleteTimer(idle_hold_timer_);
 }
 
+//
+// Delete timers after state machine is terminated so that there is no
+// possible reference to the timers being deleted any more
+//
 StateMachine::~StateMachine() {
     deleted_ = true;
     work_queue_.Shutdown();
-
     terminate();
-
-    //
-    // Delete timer after state machine is terminated so that there is no
-    // possible reference to the timers being deleted any more
-    //
     DeleteAllTimers();
 }
 
@@ -966,16 +1089,21 @@ void StateMachine::SetAdminState(bool down) {
     }
 }
 
+int StateMachine::GetConnectTime() const {
+    int backoff = min(attempts_, 6);
+    return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
+}
+
 void StateMachine::StartConnectTimer(int seconds) {
     connect_timer_->Cancel();
 
-    // Add some jitter upto +-kJitter percentage to reduce connection collisions.
+    // Add up to +/- kJitter percentage to reduce connection collisions.
     int ms = seconds ? seconds * 1000 : 50;
     ms = (ms * (100 - kJitter))/ 100;
     ms += (ms *(rand() % (kJitter*2)))/100;
     connect_timer_->Start(ms,
-            boost::bind(&StateMachine::ConnectTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+        boost::bind(&StateMachine::ConnectTimerExpired, this),
+        boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
 }
 
 void StateMachine::CancelConnectTimer() {
@@ -989,8 +1117,8 @@ bool StateMachine::ConnectTimerRunning() {
 void StateMachine::StartOpenTimer(int seconds) {
     open_timer_->Cancel();
     open_timer_->Start(seconds * 1000,
-            boost::bind(&StateMachine::OpenTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+        boost::bind(&StateMachine::OpenTimerExpired, this),
+        boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
 }
 
 void StateMachine::CancelOpenTimer() {
@@ -1001,38 +1129,14 @@ bool StateMachine::OpenTimerRunning() {
     return open_timer_->running();
 }
 
-// 
-// Test Only API : Start
-//
-void StateMachine::FireConnectTimer() {
-    connect_timer_->Fire();
-}
-
-void StateMachine::FireOpenTimer() {
-    open_timer_->Fire();
-}
-
-void StateMachine::FireHoldTimer() {
-    hold_timer_->Fire();
-}
-
-void StateMachine::FireIdleHoldTimer() {
-    idle_hold_timer_->Fire();
-}
-
-
-//
-// Test Only API : END
-//
-
 void StateMachine::StartIdleHoldTimer() {
     if (idle_hold_time_ <= 0)
         return;
 
     idle_hold_timer_->Cancel();
     idle_hold_timer_->Start(idle_hold_time_,
-            boost::bind(&StateMachine::IdleHoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+        boost::bind(&StateMachine::IdleHoldTimerExpired, this),
+        boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
 }
 
 void StateMachine::CancelIdleHoldTimer() {
@@ -1049,8 +1153,8 @@ void StateMachine::StartHoldTimer() {
 
     hold_timer_->Cancel();
     hold_timer_->Start(hold_time_ * 1000,
-            boost::bind(&StateMachine::HoldTimerExpired, this),
-            boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
+        boost::bind(&StateMachine::HoldTimerExpired, this),
+        boost::bind(&StateMachine::TimerErrorHanlder, this, _1, _2));
 }
 
 void StateMachine::CancelHoldTimer() {
@@ -1061,12 +1165,69 @@ bool StateMachine::HoldTimerRunning() {
     return hold_timer_->running();
 }
 
+// Test Only APIs : Start
+
+void StateMachine::FireConnectTimer() {
+    connect_timer_->Fire();
+}
+
+void StateMachine::FireOpenTimer() {
+    open_timer_->Fire();
+}
+
+void StateMachine::FireHoldTimer() {
+    hold_timer_->Fire();
+}
+
+void StateMachine::FireIdleHoldTimer() {
+    idle_hold_timer_->Fire();
+}
+
+// Test Only APIs : END
+
+//
+// Create an active session.
+//
+void StateMachine::StartSession() {
+    BgpSession *session = peer_->CreateSession();
+    if (!session)
+        return;
+    set_active_session(session);
+    session->set_observer(
+        boost::bind(&StateMachine::OnSessionEvent, this, _1, _2));
+    peer_->server()->session_manager()->Connect(session,
+        peer_->peer_key().endpoint);
+}
+
+//
+// Post a pseudo event to delete the underlying TcpSession.
+//
+// This ensures that any references to the TcpSession from pending events on
+// the state machine queue are still valid. Since we remove the TCP observer
+// before posting the delete event, we are guaranteed that we won't receive
+// any more events on the TcpSession.
+//
 void StateMachine::DeleteSession(BgpSession *session) {
     if (!session)
         return;
     session->set_observer(NULL);
     session->Close();
     Enqueue(fsm::EvTcpDeleteSession(session));
+}
+
+//
+// Transfer the ownership of the session from state machine to the peer.
+// This is called after we have resolved any connection collision issues
+// and decided that we want to reach ESTABLISHED state via the session.
+//
+void StateMachine::AssignSession(bool active) {
+    if (active) {
+        peer_->set_session(active_session_);
+        active_session_ = NULL;
+    } else {
+        peer_->set_session(passive_session_);
+        passive_session_ = NULL;
+    }
 }
 
 void StateMachine::set_active_session(BgpSession *session) {
@@ -1126,10 +1287,23 @@ template <class Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
     // Release all resources
     SendNotificationAndClose(peer()->session(), code);
-    // Collect before changing state
-
     bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+//
+// The template below must only be called for EvBgpHeaderError, EvBgpOpenError
+// or EvBgpUpdateError.
+//
+template <class Ev, int code>
+void StateMachine::OnIdleError(const Ev &event) {
+    SendNotificationAndClose(event.session,
+                             code, event.subcode, event.data);
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
     set_state(IDLE);
 }
 
@@ -1138,25 +1312,10 @@ void StateMachine::OnIdleNotification(const fsm::EvBgpNotification &event) {
     SendNotificationAndClose(peer()->session(), 0);
     // Collect before changing state
     bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
+    if (flap)
+        peer()->increment_flap_count();
     set_state(IDLE);
-    set_last_notification_in(event.msg->error, event.msg->subcode, event.Name());
-}
-
-
-//The template below must only be called for EvBgpHeaderError, EvBgpOpenError
-//or EvBgpUpdateError
-template <class Ev, int code>
-void StateMachine::OnIdleError(const Ev &event) {
-    SendNotificationAndClose(event.session,
-                             code, event.subcode, event.data);
-    // Collect before changing state
-    bool flap = (state_ == ESTABLISHED);
-    if (flap) peer()->increment_flap_count();
-    set_state(IDLE);
-}
-
-void StateMachine::TimerErrorHanlder(std::string name, std::string error) {
+    set_last_notification_in(event.msg->error,event.msg->subcode, event.Name());
 }
 
 bool StateMachine::ConnectTimerExpired() {
@@ -1194,7 +1353,10 @@ bool StateMachine::IdleHoldTimerExpired() {
     return false;
 }
 
+//
 // Concurrency: ASIO thread.
+// Feed TCP session events into the state machine.
+//
 void StateMachine::OnSessionEvent(
         TcpSession *session, TcpSession::Event event) {
     BgpSession *bgp_session = static_cast<BgpSession *>(session);
@@ -1213,12 +1375,20 @@ void StateMachine::OnSessionEvent(
     }
 }
 
+//
+// Receive TCP Passive Open.
+// Set the observer right away, so that we don't miss any events on the socket
+// that happen before the state machine has processed EvTcpPassiveOpen event.
+//
 bool StateMachine::PassiveOpen(BgpSession *session) {
     session->set_observer(boost::bind(&StateMachine::OnSessionEvent,
-                this, _1, _2));
+        this, _1, _2));
     return Enqueue(fsm::EvTcpPassiveOpen(session));
 }
 
+//
+// Handle incoming message on the session.
+//
 void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     switch (msg->type) {
     case BgpProto::OPEN: {
@@ -1273,7 +1443,10 @@ void StateMachine::OnMessage(BgpSession *session, BgpProto::BgpMessage *msg) {
     if (msg) delete msg;
 }
 
-void StateMachine::OnSessionError(BgpSession *session,
+//
+// Handle errors in incoming message on the session.
+//
+void StateMachine::OnMessageError(BgpSession *session,
         const ParseErrorContext *context) {
     switch (context->error_code) {
     case BgpProto::Notification::MsgHdrErr: {
@@ -1289,7 +1462,8 @@ void StateMachine::OnSessionError(BgpSession *session,
         Enqueue(fsm::EvBgpUpdateError(session, context->error_subcode,
                 std::string((const char *)context->data, context->data_size)));
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -1305,6 +1479,7 @@ static const std::string state_names[] = {
 const string &StateMachine::StateName() const {
     return state_names[state_];
 }
+
 const string &StateMachine::LastStateName() const {
     return state_names[last_state_];
 }
@@ -1312,77 +1487,28 @@ const string &StateMachine::LastStateName() const {
 const std::string StateMachine::last_state_change_at() const {
     return integerToString(UTCUsecToPTime(last_state_change_at_));
 }
-ostream &operator<< (ostream &out, const StateMachine::State &state) {
+
+ostream &operator<<(ostream &out, const StateMachine::State &state) {
     out << state_names[state];
     return out;
 }
 
-void StateMachine::AssignSession(bool active) {
-    if (active) {
-        peer_->set_session(active_session_);
-        active_session_ = NULL;
-    } else {
-        peer_->set_session(passive_session_);
-        passive_session_ = NULL;
-    }
-}
-
 const int StateMachine::kConnectInterval;
 
-int StateMachine::GetConnectTime() const {
-    int backoff = min(attempts_, 6);
-    return std::min(backoff ? 1 << (backoff - 1) : 0, kConnectInterval);
-}
-
-bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
-    const fsm::EvTcpDeleteSession *deferred_delete =
-            dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
-    if (deferred_delete != NULL) {
-        peer_->server()->session_manager()->DeleteSession(
-            deferred_delete->session);
-        return true;
-    }
-    if (deleted_) return true;
-
-    set_last_event(TYPE_NAME(*ec.event));
-    if (ec.validate.empty() || ec.validate(this)) {
-        SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
-
-        //
-        // Reduce log level for periodic keep alive messages.
-        //
-        if (get_state() == ESTABLISHED &&
-                TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive") {
-            log_level = SandeshLevel::UT_DEBUG;
-        }
-        SM_LOG(log_level, "Processing " << TYPE_NAME(*ec.event) << " in state "
-                                        << StateName());
-        process_event(*ec.event);
-    } else {
-        SM_LOG(SandeshLevel::SYS_INFO,
-               "Discarding " << TYPE_NAME(*ec.event) << " in state "
-                                                     << StateName());
-    }
-    ec.event.reset();
-    return true;
-}
-
-void StateMachine::unconsumed_event(const sc::event_base &event) {
-}
-
 // This class determines whether a given class has a method called 'validate'
-template<typename Ev>
-struct HasValidate
-{
-    template<typename T, bool (T::*)(StateMachine *) const> struct SFINAE {};
-    template<typename T> static char Test(SFINAE<T, &T::validate>*);
-    template<typename T> static int Test(...);
+template <typename Ev>
+struct HasValidate {
+    template <typename T, bool (T::*)(StateMachine *) const> struct SFINAE {};
+    template <typename T> static char Test(SFINAE<T, &T::validate>*);
+    template <typename T> static int Test(...);
     static const bool Has = sizeof(Test<Ev>(0)) == sizeof(char);
 };
 
 template <typename Ev, bool has_validate>
 struct ValidateFn {
-    EvValidate operator()(const Ev *event) { return NULL; }
+    EvValidate operator()(const Ev *event) {
+        return NULL;
+    }
 };
 
 template <typename Ev>
@@ -1394,12 +1520,59 @@ struct ValidateFn<Ev, true> {
 
 template <typename Ev>
 bool StateMachine::Enqueue(const Ev &event) {
-    if (deleted_) return false;
+    if (deleted_)
+        return false;
+
+    std::ostringstream out;
+    out << "Enqueueing event " << TYPE_NAME(event);
+    BGP_LOG_SERVER(peer_, (BgpTable *) 0);
+    BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,
+            BGP_LOG_FLAG_SYSLOG, peer_->ToString(), out.str());
 
     EventContainer ec;
     ec.event = event.intrusive_from_this();
-    ec.validate = ValidateFn<Ev, HasValidate<Ev>::Has>()(static_cast<const Ev *>(ec.event.get()));
+    ec.validate = ValidateFn<Ev, HasValidate<Ev>::Has>()(
+        static_cast<const Ev *>(ec.event.get()));
     work_queue_.Enqueue(ec);
+
+    return true;
+}
+
+bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
+    SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
+
+    const fsm::EvTcpDeleteSession *deferred_delete =
+            dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
+    if (deferred_delete != NULL) {
+        SM_LOG(log_level,
+                "Processing event " << TYPE_NAME(*ec.event) <<
+                " in state " << StateName());
+        peer_->server()->session_manager()->DeleteSession(
+            deferred_delete->session);
+        return true;
+    }
+
+    if (deleted_)
+        return true;
+
+    set_last_event(TYPE_NAME(*ec.event));
+    if (ec.validate.empty() || ec.validate(this)) {
+
+        // Reduce log level for periodic keep alive messages.
+        if (get_state() == ESTABLISHED &&
+            TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive") {
+            log_level = SandeshLevel::UT_DEBUG;
+        }
+        SM_LOG(log_level,
+                "Processing event " << TYPE_NAME(*ec.event) <<
+                " in state " << StateName());
+        process_event(*ec.event);
+    } else {
+        SM_LOG(SandeshLevel::SYS_INFO,
+               "Discarding event " << TYPE_NAME(*ec.event) <<
+               " in state " << StateName());
+    }
+    ec.event.reset();
 
     return true;
 }

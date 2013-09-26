@@ -434,7 +434,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::MsgHdrErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
     void EvBgpOpen(BgpSessionMock *session = NULL) {
         session = GetSession(session);
@@ -456,7 +456,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::OpenMsgErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
     void EvBgpKeepalive(BgpSessionMock *session = NULL) {
         session = GetSession(session);
@@ -478,7 +478,7 @@ protected:
         session = GetSession(session);
         ParseErrorContext context;
         context.error_code = BgpProto::Notification::UpdateMsgErr;
-        sm_->OnSessionError(session, &context);
+        sm_->OnMessageError(session, &context);
     }
 
     bool ConnectTimerRunning() { return sm_->connect_timer_->running(); }
@@ -747,23 +747,27 @@ TEST_F(StateMachineIdleTest, TcpPassiveOpen) {
     GetToState(StateMachine::ACTIVE);
 }
 
-
 // Old State: Idle
-// Event:     EvStop + EvIdleHoldTimerExpired
+// Event:     EvAdminUp + EvAdminDown + EvIdleHoldTimerExpired
 // New State: Idle
-TEST_F(StateMachineIdleTest, StopThenIdleHoldTimerExpired) {
+// Intent:    IdleHoldTimer expires right after an AdminDown is enqueued.
+//            We shouldn't proceed beyond the Idle state if this happens.
+// Other:     Need to make sure that IdleHoldTimer is running when we call
+//            EvIdleHoldTimerExpired, otherwise no event will be enqueued.
+TEST_F(StateMachineIdleTest, AdminUpThenAdminDownThenIdleHoldTimerExpired) {
     TaskScheduler::GetInstance()->Stop();
-    EvStop();
+    EvAdminUp();
+    sm_->set_idle_hold_time(StateMachine::kMaxIdleHoldTime);
+    TaskScheduler::GetInstance()->Start();
+    VerifyState(StateMachine::IDLE);
+    TaskScheduler::GetInstance()->Stop();
+    EvAdminDown();
     EvIdleHoldTimerExpired();
     TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::IDLE);
     TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() == NULL);
-
-    // Also verify that we can proceed after this event
-    GetToState(StateMachine::ACTIVE);
 }
-
 
 // Old State: Idle
 // Event:     EvTcpPassiveOpen + EvBgpOpen
@@ -856,6 +860,30 @@ TEST_F(StateMachineActiveTest, TcpPassiveOpen) {
 TEST_F(StateMachineActiveTest, DuplicateTcpPassiveOpen) {
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    VerifyState(StateMachine::ACTIVE);
+    TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(sm_->active_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->duplicate_session() != NULL);
+}
+
+// Old State: Active
+// Event:     EvTcpPassiveOpen + EvTcpPassiveOpen + BgpOpen
+// New State: Active
+// Timers:    Open timer should be running since we have a passive session.
+//            Connect timer must have been cancelled on seeing passive session.
+// Messages:  None.
+// Intent:    BgpOpen should be ignored since it's received on stale session.
+// Other:     Original passive session should get closed and deleted, while
+//            the duplicate passive session becomes the new passive session.
+TEST_F(StateMachineActiveTest, DuplicateTcpPassiveOpenThenStaleBgpOpen) {
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    EvTcpDuplicatePassiveOpen();
+    EvBgpOpen(session_mgr_->passive_session());
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::ACTIVE);
     TASK_UTIL_EXPECT_TRUE(!ConnectTimerRunning());
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
@@ -1034,6 +1062,27 @@ TEST_F(StateMachineConnectTest, TcpPassiveOpen) {
 TEST_F(StateMachineConnectTest, DuplicateTcpPassiveOpen) {
     EvTcpPassiveOpen();
     EvTcpDuplicatePassiveOpen();
+    VerifyState(StateMachine::CONNECT);
+    TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
+    TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->passive_session() == NULL);
+    TASK_UTIL_EXPECT_TRUE(session_mgr_->duplicate_session() != NULL);
+}
+
+// Old State: Connect
+// Event:     EvTcpPassiveOpen + EvTcpPassiveOpen + BgpOpen
+// New State: Connect
+// Timers:    Open timer should be running since we have a passive session.
+// Messages:  None.
+// Intent:    BgpOpen should be ignored since it's received on stale session.
+// Other:     Original passive session should get closed and deleted, while
+//            the duplicate passive session becomes the new passive session.
+TEST_F(StateMachineConnectTest, DuplicateTcpPassiveOpenThenStaleBgpOpen) {
+    TaskScheduler::GetInstance()->Stop();
+    EvTcpPassiveOpen();
+    EvTcpDuplicatePassiveOpen();
+    EvBgpOpen(session_mgr_->passive_session());
+    TaskScheduler::GetInstance()->Start();
     VerifyState(StateMachine::CONNECT);
     TASK_UTIL_EXPECT_TRUE(OpenTimerRunning());
     TASK_UTIL_EXPECT_TRUE(sm_->passive_session() != NULL);

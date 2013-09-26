@@ -65,7 +65,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
 
     if (agg == "stats") {
         std::string sc,sp,ss;
-        int64_t tsbin = (ts / 3600000000) * 3600000000;
+        int64_t tsbin = (ts / 3600000000ULL) * 3600000000ULL;
         std::ostringstream tsbinstr;
         tsbinstr << tsbin;
         std::string lhist = hist;
