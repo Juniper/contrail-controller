@@ -22,8 +22,8 @@ autogen_sources = [
                  '#controller/src/schema/smi-base.xsd',
                 ]
 
-autogen_script = '#tools/generateds/generateDS.py'
-autogen_cmd = '%s -f -o  %s/vnc_api/gen/resourcre -g -ifmap-frontend' % (autogen_script, Dir('../api-lib').path)
+autogen_script = File('#tools/generateds/generateDS.py').path
+autogen_cmd = '%s -f -o %s -g ifmap-frontend' % (autogen_script, Dir('vnc_api/gen/resource').path)
 
 generated_files = [ 
                   'vnc_api/gen/__init__.py',
