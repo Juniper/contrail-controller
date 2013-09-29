@@ -60,7 +60,7 @@ bottle_sources_rules.append(env.Install("discovery", '#/third_party/bottle-0.11.
 
 sandesh_common_dirs = [ 'vns' ]
 
-sandesh_common_files = sandesh_common_dirs # + ['__init__.py'] 
+sandesh_common_files = sandesh_common_dirs + ['__init__.py'] 
 sandesh_common_sources = ['gen_py/' + ssrc for ssrc in sandesh_common_files]
 sandesh_common_sources_rules = []
 for file in sandesh_common_sources:
