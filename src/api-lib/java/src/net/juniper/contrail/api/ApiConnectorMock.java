@@ -109,7 +109,11 @@ public class ApiConnectorMock implements ApiConnector {
 
     ApiConnectorMock() {
         _apiBuilder = new ApiBuilder();
-        initConfig();
+        initConfig();	
+    }
+
+    public ApiConnectorMock(String hostname, int port) {
+	this();
     }
 
     public void initConfig() {

@@ -65,7 +65,7 @@ class ApiConnectorImpl implements ApiConnector {
     private DefaultHttpClientConnection _connection;
     private ConnectionReuseStrategy _connectionStrategy;
 
-    ApiConnectorImpl(String hostname, int port) {
+    public ApiConnectorImpl(String hostname, int port) {
         _api_hostname = hostname;
         _api_port = port;
         initHttpClient();

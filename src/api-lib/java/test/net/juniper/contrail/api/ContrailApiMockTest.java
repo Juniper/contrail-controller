@@ -52,14 +52,14 @@ public class ContrailApiMockTest {
         Logger.getLogger(ContrailApiMockTest.class);
 
     public static final String defaultConfigFile = "test/resources/default_config";
-        
+
     @Before
     public void setUp() throws Exception {
 
         if (_apiTest != null ) return;
 
         initDefaultConfig(); 
-        ApiConnector api = ApiConnectorFactory.build(null, 0);
+        ApiConnector api = new ApiConnectorMock(null, 0);
         ((ApiConnectorMock)api).dumpConfig(VirtualNetwork.class);
         _apiTest = new ApiTestCommon(api);
 
