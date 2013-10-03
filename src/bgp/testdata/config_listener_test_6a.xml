@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name="red">
+        <vrf-target>target:1:1</vrf-target>
+    </routing-instance>
+</config>

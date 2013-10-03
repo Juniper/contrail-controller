@@ -7,6 +7,9 @@
 template <>
 BgpObjectFactory *Factory<BgpObjectFactory>::singleton_ = NULL;
 
+#include "bgp/bgp_config_listener.h"
+FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpConfigListener, BgpConfigListener);
+
 #include "bgp/bgp_export.h"
 FACTORY_STATIC_REGISTER(BgpObjectFactory, BgpExport, BgpExport);
 

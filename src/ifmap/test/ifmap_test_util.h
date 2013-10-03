@@ -29,6 +29,11 @@ void IFMapMsgUnlink(DB *db, const std::string &ltype, const std::string &lid,
                     const std::string &rtype, const std::string &rid,
                     const std::string &metadata);
 
+void IFMapMsgNodeAdd(DB *db, const std::string &type, const std::string &id,
+                     uint64_t sequence_number = 0);
+
+void IFMapMsgNodeDelete(DB *db, const std::string &type, const std::string &id);
+
 void IFMapMsgPropertyAdd(DB *db, const std::string &type, const std::string &id,
                          const std::string &metadata, AutogenProperty *content,
                          uint64_t sequence_number = 0);
@@ -36,7 +41,18 @@ void IFMapMsgPropertyAdd(DB *db, const std::string &type, const std::string &id,
 void IFMapMsgPropertyDelete(DB *db, const std::string &type,
                             const std::string &id, const std::string &metadata);
 
-IFMapNode *NodeLookup(DB *db, const std::string &type, const std::string &name);
+IFMapNode *IFMapNodeLookup(DB *db, const std::string &type,
+                           const std::string &name);
+
+void IFMapNodeNotify(DB *db, const std::string &type, const std::string &name);
+
+IFMapLink *IFMapLinkLookup(DB *db, DBGraph *graph,
+                           const std::string &ltype, const std::string &lid,
+                           const std::string &rtype, const std::string &rid);
+
+void IFMapLinkNotify(DB *db, DBGraph *graph,
+                     const std::string &ltype, const std::string &lid,
+                     const std::string &rtype, const std::string &rid);
 
 }
 

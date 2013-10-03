@@ -9,6 +9,7 @@
 #include "base/task.h"
 #include "base/util.h"
 #include "bgp/bgp_config_listener.h"
+#include "bgp/bgp_factory.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/bgp_config.h"
 #include "ifmap/ifmap_link.h"
@@ -519,7 +520,7 @@ BgpConfigManager::BgpConfigManager()
         : db_(NULL), db_graph_(NULL),
           trigger_(boost::bind(&BgpConfigManager::ConfigHandler, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0),
-          listener_(new BgpConfigListener(this)),
+          listener_(BgpObjectFactory::Create<BgpConfigListener>(this)),
           config_(new BgpConfigData()) {
     IdentifierMapInit();
 
@@ -553,8 +554,7 @@ void BgpConfigManager::DefaultBgpRouterParams(autogen::BgpRouterParams &param) {
 
 void BgpConfigManager::DefaultConfig() {
     BgpInstanceConfig *rti = config_->LocateInstance(kMasterInstance);
-    auto_ptr<autogen::BgpRouter> bgp_config(
-        new autogen::BgpRouter());
+    auto_ptr<autogen::BgpRouter> bgp_config(new autogen::BgpRouter());
     autogen::BgpRouterParams param;
     DefaultBgpRouterParams(param);
     bgp_config->SetProperty("bgp-router-parameters", &param);
