@@ -2,7 +2,7 @@
 
 env = DefaultEnvironment()
 
-vpath = '#/third_party/gperftools-2.0'
+vpath = '#/third_party/gperftools-2.1'
 
 #VariantDir(Dir('.').abspath + '/.libs', vpath + '/.libs')
 
