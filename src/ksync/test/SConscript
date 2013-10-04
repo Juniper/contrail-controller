@@ -11,13 +11,11 @@ def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('..').path + '/../' + x, list)
 
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/include')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
 env.Prepend(CPPPATH = env['TOP'] + '/../include/thrift')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/sandesh/library')
-env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
 env.Prepend(CPPPATH = '#/third_party/thrift-0.8.0/lib/cpp/src/')
 env.Prepend(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
@@ -43,7 +41,7 @@ if sys.platform != 'darwin':
 libs = MapBuildDir(['db', 'bgp', 'xmpp', 'xml', 'pugixml', 'io', 'ksync',
                     'base', 'base/test', 'boost_regex', 'route', 'schema',
                     'ifmap', 'net', 'net', 'discovery/client', 'http/client',
-                    'vnsw/dp/utils', 'vnsw/agent',
+                    'vrouter/utils', 'vnsw/agent',
                     'vnsw/agent/openstack',
                     'vnsw/agent/cfg', 'vnsw/agent/oper', 'vnsw/agent/pkt', 
                     'vnsw/agent/services', 'vnsw/agent/cmn',
