@@ -7,7 +7,7 @@
 Import('BuildEnv')
 env = BuildEnv.Clone()
 
-vpath = '#/src/docs/opserver'
+vpath = '#controller/src/docs/opserver'
 
 build_dir = str(Dir('.').abspath)+'/doc'
 build_dir_doctrees = build_dir+'/doctrees'
