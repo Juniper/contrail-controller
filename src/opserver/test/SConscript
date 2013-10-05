@@ -47,23 +47,35 @@ pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
         'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0',
         'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2',
         'psutil==0.4.1',
+            'thrift==0.8.0',
+            'redis==2.7.1',
+            'xmltodict==0.2',
         Dir(env['TOP']).abspath + '/opserver/dist/opserver-0.1dev.tar.gz']
-build_pkgs = ['third_party/redis-py', 'third_party/xmltodict',
-        'third_party/pycassa', 'src/analytics/test/utils/mockcassandra',
-        'src/analytics/test/utils/mockredis',
-        'build/debug/sandesh/library/python', 'build/debug/opserver/test']
 
-env.Depends (venv, '#third_party/pycassa')
-env.Depends (venv, '#src/analytics')
-env.Depends (venv, '#src/sandesh')
-env.Depends (venv, '#src/opserver')
+build_pkgs = [
+    '#controller/src/analytics/test/utils/mockcassandra',
+    '#controller/src/analytics/test/utils/mockredis',
+    '#tools/sandesh/library/python',
+    '#controller/src/opserver/test']
+
+env.Depends(venv, '#controller/src/analytics')
+env.Depends(venv, '#controller/src/sandesh')
+env.Depends(venv, '#controller/src/opserver')
+
+pip_commands = []
+pip_commands.append(
+    env.venv_add_pip_pkg(venv, pip_pkgs))
+pip_commands.append(
+    env.venv_add_pip_pkg(venv, ['pycassa==1.7.1']))
+env.Depends(pip_commands[1], pip_commands[0])
+
 _deps = []
-_deps += env.venv_add_pip_pkg (venv, pip_pkgs)
-_deps += env.venv_add_build_pkg (venv, map (lambda x: '/'.join (
-            [Dir('#').abspath, x]), build_pkgs))
+_deps += pip_commands
+_deps += env.venv_add_build_pkg(venv,
+                                map(lambda x: Dir(x).abspath, build_pkgs))
 
 test = env.PyTestSuite('opserver-test', local_sources, venv)
 for d in _deps:
-    env.Depends (test, d.name)
+    env.Depends(test, d)
 
 env.Alias('src/opserver:test', test)
