@@ -37,6 +37,8 @@ def setup_venv(build_top = "../../../../../build"):
             local("pip install flexmock==0.9.7")
             local("pip install python-novaclient==2.13.0")
             local("pip install stevedore")
+            local("pip install netifaces")
+            local("pip install requests==2.0.0")
             pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             # 2.6 requirements
             local("pip install ordereddict")
