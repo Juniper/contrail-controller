@@ -412,11 +412,15 @@ LifetimeActor *BgpPeer::deleter() {
     return deleter_.get();
 }
 
-// IsFamilySupported
 //
-// Check if an address family has been negotiated with the peer
+// Check if the given address family has been negotiated with the peer.
 //
-bool BgpPeer::IsFamilySupported(Address::Family family) {
+bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
+    // Bail if the family is not configured locally.
+    if (!LookupFamily(family))
+        return false;
+
+    // Check if the peer advertised it in his Open message.
     switch (family) {
     case Address::INET:
         return MpNlriAllowed(BgpAf::IPv4, BgpAf::Unicast);
@@ -543,7 +547,7 @@ void BgpPeer::RegisterAllTables() {
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
     RoutingInstance *instance = GetRoutingInstance();
 
-    if (IsFamilySupported(Address::INET)) {
+    if (IsFamilyNegotiated(Address::INET)) {
         BgpTable *table = instance->GetTable(Address::INET);
         BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            table, "Register peer with the table");
@@ -554,7 +558,7 @@ void BgpPeer::RegisterAllTables() {
         }
     }
 
-    if (IsFamilySupported(Address::INETVPN)) {
+    if (IsFamilyNegotiated(Address::INETVPN)) {
         BgpTable *vtable = instance->GetTable(Address::INETVPN);
         BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            vtable, "Register peer with the table");
@@ -565,7 +569,7 @@ void BgpPeer::RegisterAllTables() {
         }
     }
 
-    if (IsFamilySupported(Address::EVPN)) {
+    if (IsFamilyNegotiated(Address::EVPN)) {
         BgpTable *vtable = instance->GetTable(Address::EVPN);
         BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            vtable, "Register peer with the table");
@@ -575,6 +579,7 @@ void BgpPeer::RegisterAllTables() {
             membership_req_pending_++;
         }
     }
+
     BgpPeerInfoData peer_info;
     peer_info.set_name(ToUVEKey());
     peer_info.set_send_state("not advertising");
@@ -831,7 +836,8 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         BgpMpNlri *nlri = static_cast<BgpMpNlri *>(*ait);
         if (!nlri) continue;
 
-        if (!MpNlriAllowed(nlri->afi, nlri->safi)) {
+        Address::Family family = BgpAf::AfiSafiToFamily(nlri->afi, nlri->safi);
+        if (!IsFamilyNegotiated(family)) {
             BGP_LOG_PEER(this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
                          BGP_PEER_DIR_IN,
                          "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
@@ -842,10 +848,10 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         if ((*ait)->code == BgpAttribute::MPReachNlri)
             attr = GetMpNlriNexthop(nlri, attr);
 
-        switch (nlri->safi) {
-        case BgpAf::Unicast: {
+        switch (family) {
+        case Address::INET: {
             InetTable *table =
-                static_cast<InetTable *>(instance->GetTable(Address::INET));
+                static_cast<InetTable *>(instance->GetTable(family));
             assert(table);
             BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
                                BGP_LOG_FLAG_SYSLOG, table,
@@ -864,9 +870,9 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             break;
         }
 
-        case BgpAf::Vpn: {
+        case Address::INETVPN: {
             InetVpnTable *table = 
-              static_cast<InetVpnTable *>(instance->GetTable(Address::INETVPN));
+              static_cast<InetVpnTable *>(instance->GetTable(family));
             assert(table);
             BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
                                BGP_LOG_FLAG_SYSLOG, table,
@@ -888,10 +894,9 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             break;
         }
 
-        // TBD: nsheth evpn
-        case BgpAf::EVpn: {
+        case Address::EVPN: {
             EvpnTable *table =
-              static_cast<EvpnTable *>(instance->GetTable(Address::EVPN));
+              static_cast<EvpnTable *>(instance->GetTable(family));
             assert(table);
             BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
                                BGP_LOG_FLAG_SYSLOG, table,
@@ -918,6 +923,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             }
             break;
         }
+
         default:
             continue;
         }
@@ -1232,6 +1238,10 @@ void BgpPeer::inc_rx_update() {
 
 void BgpPeer::inc_rx_notification() {
     peer_stats_->proto_stats_[0].notification++;
+}
+
+size_t BgpPeer::get_rx_notification() {
+    return peer_stats_->proto_stats_[0].notification;
 }
 
 void BgpPeer::inc_rx_route_update() {

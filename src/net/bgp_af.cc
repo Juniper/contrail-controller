@@ -45,3 +45,14 @@ std::string BgpAf::ToString(uint8_t afi, uint16_t safi) {
     return out.str();
 }
 
+Address::Family BgpAf::AfiSafiToFamily(uint8_t afi, uint8_t safi) {
+    if (afi == BgpAf::IPv4 && safi == BgpAf::Unicast)
+        return Address::INET;
+    if (afi == BgpAf::IPv4 && safi == BgpAf::Vpn)
+        return Address::INETVPN;
+    if (afi == BgpAf::L2Vpn && safi == BgpAf::EVpn)
+        return Address::EVPN;
+
+    return Address::UNSPEC;
+}
+

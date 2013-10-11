@@ -73,7 +73,9 @@ public:
         std::vector<OptParam *> opt_params;
         static BgpProto::OpenMessage *Decode(const uint8_t *data, size_t size);
         static int EncodeData(OpenMessage *msg, uint8_t *data, size_t size);
+
     private:
+        int ValidateCapabilities(BgpPeer *peer) const;
         int EncodeCapabilities(OpenMessage *msg, uint8_t *data, size_t size);
     };
 

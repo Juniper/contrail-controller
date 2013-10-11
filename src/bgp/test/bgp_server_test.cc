@@ -87,8 +87,9 @@ protected:
                     string peer_address2 = "127.0.0.1",
                     string bgp_identifier1 = "192.168.0.10",
                     string bgp_identifier2 = "192.168.0.11",
-                    string family = "inet");
-    void VerifyPeers(int peer_count, bool verify_keepalives,
+                    vector<string> families1 = vector<string>(),
+                    vector<string> families2 = vector<string>());
+    void VerifyPeers(int peer_count, bool verify_keepalives = false,
                      uint16_t as_num1 = BgpConfigManager::kDefaultAutonomousSystem,
                      uint16_t as_num2 = BgpConfigManager::kDefaultAutonomousSystem);
     string GetConfigStr(int peer_count,
@@ -96,7 +97,8 @@ protected:
                         uint16_t as_num1, uint16_t as_num2,
                         string peer_address1, string peer_address2,
                         string bgp_identifier1, string bgp_identifier2,
-                        string family, bool delete_config);
+                        vector<string> families1, vector<string> families2,
+                        bool delete_config);
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
@@ -109,21 +111,35 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         as_t as_num1, as_t as_num2,
         string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
-        string family, bool delete_config) {
+        vector<string> families1, vector<string> families2,
+        bool delete_config) {
     ostringstream config;
+
+    if (families1.empty()) families1.push_back("inet");
+    if (families2.empty()) families2.push_back("inet");
 
     config << (!delete_config ? "<config>" : "<delete>");
     config << "<bgp-router name=\'A\'>"
         "<autonomous-system>" << as_num1 << "</autonomous-system>"
         "<identifier>" << bgp_identifier1 << "</identifier>"
         "<address>" << peer_address1 << "</address>"
-        "<address-families><family>" << family << "</family></address-families>"
         "<port>" << port_a << "</port>";
+    config << "<address-families>";
+    for (vector<string>::const_iterator it = families1.begin();
+         it != families1.end(); ++it) {
+            config << "<family>" << *it << "</family>";
+    }
+    config << "</address-families>";
 
     for (int i = 0; i < peer_count; i++) {
-        config << "<session to='B'>"
-        "<address-families><family>" << family << "</family></address-families>"
-        "</session>";
+        config << "<session to='B'>";
+        config << "<address-families>";
+        for (vector<string>::const_iterator it = families2.begin();
+             it != families2.end(); ++it) {
+                config << "<family>" << *it << "</family>";
+        }
+        config << "</address-families>";
+        config << "</session>";
     }
     config << "</bgp-router>";
 
@@ -131,17 +147,27 @@ string BgpServerUnitTest::GetConfigStr(int peer_count,
         "<autonomous-system>" << as_num2 << "</autonomous-system>"
         "<identifier>" << bgp_identifier2 << "</identifier>"
         "<address>" << peer_address2 << "</address>"
-        "<address-families><family>" << family << "</family></address-families>"
         "<port>" << port_b << "</port>";
+    config << "<address-families>";
+    for (vector<string>::const_iterator it = families2.begin();
+         it != families2.end(); ++it) {
+            config << "<family>" << *it << "</family>";
+    }
+    config << "</address-families>";
 
     for (int i = 0; i < peer_count; i++) {
-        config << "<session to='A'>"
-        "<address-families><family>" << family << "</family></address-families>"
-        "</session>";
+        config << "<session to='A'>";
+        config << "<address-families>";
+        for (vector<string>::const_iterator it = families1.begin();
+             it != families1.end(); ++it) {
+                config << "<family>" << *it << "</family>";
+        }
+        config << "</address-families>";
+        config << "</session>";
     }
     config << "</bgp-router>";
     config << (!delete_config ? "</config>" : "</delete>");
-    
+
     return config.str();
 }
 
@@ -150,17 +176,15 @@ void BgpServerUnitTest::SetupPeers(int peer_count,
         bool verify_keepalives, as_t as_num1, as_t as_num2,
         string peer_address1, string peer_address2,
         string bgp_identifier1, string bgp_identifier2,
-        string family) {
+        vector<string> families1, vector<string> families2) {
     string config = GetConfigStr(peer_count, port_a, port_b, as_num1, as_num2,
                                  peer_address1, peer_address2,
                                  bgp_identifier1, bgp_identifier2,
-                                 family, false);
+                                 families1, families2, false);
     a_->Configure(config);
     task_util::WaitForIdle();
     b_->Configure(config);
     task_util::WaitForIdle();
-
-    VerifyPeers(peer_count, verify_keepalives, as_num1, as_num2);
 }
 
 void BgpServerUnitTest::VerifyPeers(int peer_count,
@@ -210,6 +234,7 @@ TEST_F(BgpServerUnitTest, Connection) {
     BgpPeerTest::verbose_name(true);
     SetupPeers(3, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), true);
+    VerifyPeers(3, true);
 }
 
 TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
@@ -222,6 +247,9 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -248,6 +276,9 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber1) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem + 1,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
 
     //
     // Make sure that the peers did flap
@@ -273,6 +304,9 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -299,6 +333,9 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
                BgpConfigManager::kDefaultAutonomousSystem + 1,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
 
     //
     // Make sure that the peers did flap
@@ -325,6 +362,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddress) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -351,6 +389,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddress) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.2",
                "192.168.1.10", "192.168.1.11");
+    VerifyPeers(peer_count);
 
     //
     // Make sure that the peers did flap
@@ -376,6 +415,7 @@ TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -402,6 +442,7 @@ TEST_F(BgpServerUnitTest, ChangeBgpIdentifier) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.1.10", "192.168.1.11");
+    VerifyPeers(peer_count);
 
     //
     // Make sure that the peers did flap
@@ -427,6 +468,7 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -447,12 +489,18 @@ TEST_F(BgpServerUnitTest, ChangePeerAddressFamilies) {
     //
     // Modify peer families and apply
     //
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
     SetupPeers(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false,
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
-               "192.168.0.10", "192.168.0.11", "inet-vpn");
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
 
     //
     // Make sure that the peers did flap
@@ -478,6 +526,7 @@ TEST_F(BgpServerUnitTest, AdminDown) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -547,6 +596,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     vector<uint32_t> flap_count_a;
     vector<uint32_t> flap_count_b;
@@ -571,12 +621,16 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
     //
     // Remove the peers from 'B' as 'A's port shall be changed
     //
+    vector<string> families_a;
+    vector<string> families_b;
     string config = GetConfigStr(peer_count, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(),
                BgpConfigManager::kDefaultAutonomousSystem,
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
-               "192.168.0.10", "192.168.0.11", "inet", true);
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b,
+               true);
     b_->Configure(config);
 
     for (int j = 0; j < peer_count; j++) {
@@ -594,6 +648,7 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
                BgpConfigManager::kDefaultAutonomousSystem,
                "127.0.0.1", "127.0.0.1",
                "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
 
     //
     // Make sure that peers did flap.
@@ -610,9 +665,282 @@ TEST_F(BgpServerUnitTest, DISABLED_ChangeBgpPort) {
     }
 }
 
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation1) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation2) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation3) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_a.push_back("inet-vpn");
+    families_b.push_back("inet-vpn");
+    families_b.push_back("e-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation4) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet-vpn");
+    families_a.push_back("e-vpn");
+    families_b.push_back("inet-vpn");
+    families_b.push_back("e-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation5) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_a.push_back("inet-vpn");
+    families_a.push_back("e-vpn");
+    families_b.push_back("inet-vpn");
+    families_b.push_back("e-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_FALSE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_FALSE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation6) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_a.push_back("inet-vpn");
+    families_a.push_back("e-vpn");
+    families_b.push_back("inet");
+    families_b.push_back("inet-vpn");
+    families_b.push_back("e-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+    VerifyPeers(peer_count);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INET));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::INETVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_a->IsFamilyNegotiated(Address::EVPN));
+        TASK_UTIL_EXPECT_TRUE(peer_b->IsFamilyNegotiated(Address::EVPN));
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation7) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_b.push_back("inet-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_notification() > 2) ||
+                              (peer_b->get_rx_notification() > 2));
+        TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+        TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
+    }
+}
+
+TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
+    int peer_count = 3;
+
+    vector<string> families_a;
+    vector<string> families_b;
+    families_a.push_back("inet");
+    families_b.push_back("inet-vpn");
+    families_b.push_back("e-vpn");
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11",
+               families_a, families_b);
+
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE((peer_a->get_rx_notification() > 2) ||
+                              (peer_b->get_rx_notification() > 2));
+        TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
+        TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
+    }
+}
+
 TEST_F(BgpServerUnitTest, BasicAdvertiseWithdraw) {
     SetupPeers(1, a_->session_manager()->GetPort(),
                b_->session_manager()->GetPort(), false);
+    VerifyPeers(1);
 
     // Find the inet.0 table in A and B.
     DB *db_a = a_.get()->database();
