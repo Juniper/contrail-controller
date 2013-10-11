@@ -352,6 +352,64 @@ TEST_F(BgpServerUnitTest, ChangeAsNumber2) {
     }
 }
 
+TEST_F(BgpServerUnitTest, ChangeAsNumber3) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem + 1,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+    //
+    // Modify AS Number and apply
+    //
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem);
+
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+
+    }
+}
+
 TEST_F(BgpServerUnitTest, ChangePeerAddress) {
     int peer_count = 3;
 
