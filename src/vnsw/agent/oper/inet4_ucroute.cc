@@ -593,7 +593,6 @@ void Inet4UcRouteTable::AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
     uc_route_table_->Enqueue(&req);
 }
 
-
 // Create Route for a local VM
 // Assumes that Interface-NH for "VM Port" is already present
 void Inet4UcRouteTable::AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
@@ -848,6 +847,25 @@ void Inet4UcRouteTable::AddResolveRoute(const string &vrf_name,
     uc_route_table_->Enqueue(&req);
 }
 
+// Create Route for a interface NH.
+// Used to create interface-nh pointing routes to vhost interfaces
+void Inet4UcRouteTable::AddVHostInterfaceRoute
+    (const Peer *peer, const string &vm_vrf, const Ip4Address &addr,
+     uint8_t plen, const string &interface, uint32_t label,
+     const string &vn_name) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    Inet4UcRouteKey *key = new Inet4UcRouteKey(peer, vm_vrf, addr, plen); 
+    req.key.reset(key);
+
+    VirtualHostInterfaceKey intf_key(nil_uuid(), interface);
+    Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key, label,
+		    TunnelType::AllType(), false, vn_name);
+    req.data.reset(data);
+    uc_route_table_->Enqueue(&req);
+}
+
 // Create Route for Vhost interface
 void Inet4UcRouteTable::AddVHostRecvRoute(const Peer *peer,
                                           const string &vm_vrf,
@@ -862,7 +880,9 @@ void Inet4UcRouteTable::AddVHostRecvRoute(const Peer *peer,
     Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(peer, vm_vrf, addr, plen);
     req.key.reset(rt_key);
     VirtualHostInterfaceKey intf_key(nil_uuid(), interface_name);
-    Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key, policy, vn);
+    Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key,
+		    MplsTable::kInvalidLabel, TunnelType::AllType(), policy,
+		    vn);
     data->EnableProxyArp();
     req.data.reset(data);
     uc_route_table_->Enqueue(&req);
@@ -890,8 +910,9 @@ void Inet4UcRouteTable::AddVHostSubnetRecvRoute(
                                               vm_vrf, subnet_addr, 32);
     req.key.reset(rt_key);
     VirtualHostInterfaceKey intf_key(nil_uuid(), interface_name);
-    Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key, policy,
-                                                        Agent::GetInstance()->GetFabricVnName());
+    Inet4UcReceiveRoute *data = new Inet4UcReceiveRoute(intf_key,
+		    MplsTable::kInvalidLabel, TunnelType::AllType(), policy,
+		    Agent::GetInstance()->GetFabricVnName());
     req.data.reset(data);
     uc_route_table_->Enqueue(&req);
 }

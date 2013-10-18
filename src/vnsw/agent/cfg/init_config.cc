@@ -390,6 +390,8 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
         } else if (iter->first == "hypervisor") {
             ParseHypervisor(iter, init_file, mode_str, xen_ll_name,
                             xen_ll_addr_str);
+        } else if (iter->first == "gateway") {
+            continue;
         } else if (iter->first == "<xmlcomment>") {
             continue;
         } else {

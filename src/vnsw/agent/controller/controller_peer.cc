@@ -296,10 +296,24 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                      item->entry.virtual_network, sg_l);
             break;
             }
-        case NextHop:: COMPOSITE: {
+        case NextHop::COMPOSITE: {
             AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
             break;
             }
+
+        case NextHop::RECEIVE: {
+            const ReceiveNH *recv_nh = static_cast<const ReceiveNH *>(nh);
+            const Interface *interface = recv_nh->GetInterface();
+            if (interface) {
+                rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
+                                                 prefix_addr, prefix_len,
+                                                 interface->GetName(),
+                                                 label,
+                                                 item->entry.virtual_network);
+            }
+            break;
+        }
+
 
         default:
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,

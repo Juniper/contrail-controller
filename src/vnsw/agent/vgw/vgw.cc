@@ -59,12 +59,24 @@ void VGwTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry) {
     Inet4UcRouteTable *rt_table;
     rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable
         (cfg->GetVrf());
+
+    // Packets received on fabric vrf and destined to IP address in "public"
+    // network reach kernel. Linux kernel will put back the packets on vgw
+    // interface. Add route to trap the public addresses to linux kernel
+    Ip4Address addr = cfg->GetAddr();
+    addr = Ip4Address(addr.to_ulong() & (0xFFFFFFFF << (32 - cfg->GetPlen())));
+
     rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetLocalVmPeer(),
-                                cfg->GetVrf(), cfg->GetInterface(),
-                                cfg->GetAddr(), 32, cfg->GetVrf(), false);
-    rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetLocalVmPeer(),
-                                cfg->GetVrf(), cfg->GetInterface(), 
-                                Ip4Address(0), 0, cfg->GetVrf(), false);
+                                Agent::GetInstance()->GetDefaultVrf(),
+                                Agent::GetInstance()->GetVirtualHostInterfaceName(),
+                                addr, cfg->GetPlen(), cfg->GetVrf(), false);
+
+    // Add default route in public network. BGP will export this route to
+    // other compute nodes
+    rt_table->AddVHostInterfaceRoute(Agent::GetInstance()->GetLocalVmPeer(),
+                                     cfg->GetVrf(), Ip4Address(0), 0,
+                                     cfg->GetInterface(), label_,
+                                     cfg->GetVrf());
 }
 
 void VGwTable::CreateStaticObjects() {

@@ -200,6 +200,16 @@ bool AgentPath::RouteChange(AgentDBTable *nh_table, Inet4UcRouteKey *rt_key,
             ret = true;
         }
 
+        if (label_ != vhost->label_) {
+            label_ = vhost->label_;
+            ret = true;
+        }
+
+        if (tunnel_bmap_ != vhost->tunnel_bmap_) {
+            tunnel_bmap_ = vhost->tunnel_bmap_;
+            ret = true;
+        }
+
         break;
     }
 

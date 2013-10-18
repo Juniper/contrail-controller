@@ -50,6 +50,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     if (state == NULL) {
         state = new State();
         state->exported_ = false;
+        state->force_chg_ = true;
         vrf->SetState(partition->parent(), id, state);
 
         if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {

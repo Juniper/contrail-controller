@@ -127,15 +127,19 @@ struct Inet4UcEcmpRoute : Inet4RouteData {
 
 // Route for Host operating system
 struct Inet4UcReceiveRoute : Inet4RouteData {
-    Inet4UcReceiveRoute(const VirtualHostInterfaceKey &intf, bool policy,
-                        const string &vn) : 
+    Inet4UcReceiveRoute(const VirtualHostInterfaceKey &intf, uint32_t label,
+                        uint32_t tunnel_bmap, bool policy, const string &vn) : 
         Inet4RouteData(Inet4RouteData::RECEIVE_ROUTE), intf_(intf),
+        label_(label), tunnel_bmap_(tunnel_bmap), 
         policy_(policy ? true : false), proxy_arp_(false), vn_(vn),
         sg_list_() {};
+
     virtual ~Inet4UcReceiveRoute() { };
     void EnableProxyArp() {proxy_arp_ = true;};
 
     VirtualHostInterfaceKey intf_;
+    uint32_t label_;
+    uint32_t tunnel_bmap_;
     bool policy_;
     bool proxy_arp_;
     string vn_;
@@ -311,7 +315,10 @@ public:
 
     static void AddResolveRoute(const string &vrf_name, const Ip4Address &ip,
                                 const uint8_t plen);
-
+    static void AddVHostInterfaceRoute(const Peer *peer, const string &vm_vrf,
+                                       const Ip4Address &addr, uint8_t plen,
+                                       const string &interface, uint32_t label,
+                                       const string &vn_name);
     static void AddVHostRecvRoute(const Peer *peer, const string &vrf_name,
                                   const string &interface_name,
                                   const Ip4Address &ip, uint8_t plen,

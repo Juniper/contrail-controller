@@ -31,9 +31,9 @@
         <tunnel-mode>MPLSoGRE</tunnel-mode>
 
 <!--
-        <gateway virtual-network="default-domain:default-project:public:public">
+        <gateway virtual-network="default-domain:admin:public:public">
             <interface>vgw</interface>
-            <ip-address>1.1.1.1/24</ip-address>
+            <subnet>1.1.1.1/24</subnet>
         </gateway>
 -->
     </agent>
