@@ -134,6 +134,7 @@ protected:
 
     void ResumeChangeListPropagation() {
         task_util::WaitForIdle();
+        ConcurrencyScope scope("db::DBTable");
         listener_->clear_no_processing();
         listener_->manager_->OnChange();
         task_util::WaitForIdle();
