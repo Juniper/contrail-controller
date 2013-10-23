@@ -102,7 +102,6 @@ public:
 
     const BgpPeerKey &peer_key() const { return peer_key_; }
     const std::string &peer_name() const { return peer_name_; }
-    
 
     StateMachine::State GetState() const;
     virtual const std::string GetStateName() const;
@@ -129,6 +128,8 @@ public:
     bool LookupFamily(Address::Family family) {
         return (family_.find(family) != family_.end());
     }
+
+    bool IsFamilyNegotiated(Address::Family family);
 
     RoutingInstance *GetRoutingInstance() {
         return rtinstance_;
@@ -178,6 +179,7 @@ public:
     void inc_tx_route_update();
 
     size_t get_rx_keepalive();
+    size_t get_rx_notification();
     size_t get_tr_keepalive();
 
     static void FillBgpNeighborDebugState(BgpNeighborResp &resp, const IPeerDebugStats *peer);
@@ -210,7 +212,6 @@ private:
 
     virtual bool MpNlriAllowed(uint16_t afi, uint8_t safi);
     BgpAttrPtr GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr);
-    bool IsFamilySupported(Address::Family family);
 
     void PostCloseRelease();
     void CustomClose();

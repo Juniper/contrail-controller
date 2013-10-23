@@ -23,9 +23,58 @@ BgpProto::OpenMessage::~OpenMessage() {
     STLDeleteValues(&opt_params);
 }
 
-//Validate an incoming Open Message
-//Returns 0 if message is OK
-//Returns one of the values from enum OpenMsgSubCode if an error is detected
+//
+// Validate the capabilities in an incoming Open Message.
+//
+// Return the capability code that's missing if a problem is detected.
+// Return 0 if capabilities in the message are OK.
+//
+// Note that we must not generate an error if we see a capability that we
+// do not support.
+//
+// Go through all the capabilities and make sure that there's at least one
+// MpExtension with an (afi, safi) pair that's also configured on the peer.
+//
+//
+int BgpProto::OpenMessage::ValidateCapabilities(BgpPeer *peer) const {
+    bool mp_extension_ok = false;
+
+    // Go through each OptParam in the OpenMessage.
+    for (vector<OptParam *>::const_iterator param_it = opt_params.begin();
+         param_it != opt_params.end(); ++param_it) {
+        const OptParam *param = *param_it;
+
+        // Go through each Capability in the OptParam.
+        for (vector<Capability *>::const_iterator cap_it =
+             param->capabilities.begin();
+             cap_it != param->capabilities.end(); ++cap_it) {
+            const Capability *cap = *cap_it;
+
+            // See if the (afi,safi) in the MpExtension is configured on peer.
+            if (cap->code == Capability::MpExtension) {
+                const uint8_t *data = cap->capability.data();
+                uint16_t afi = get_value(data, 2);
+                uint8_t safi = get_value(data + 3, 1);
+                Address::Family family = BgpAf::AfiSafiToFamily(afi, safi);
+                if (peer->LookupFamily(family))
+                    mp_extension_ok = true;
+            }
+        }
+    }
+
+    if (!mp_extension_ok)
+        return Capability::MpExtension;
+
+    return 0;
+}
+
+//
+// Validate an incoming Open Message.
+//
+// Return one of the values from BgpProto::Notification::OpenMsgSubCode if
+// an error is detected.
+// Return 0 if message is OK.
+//
 int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
     if (identifier == 0) {
         BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
@@ -43,12 +92,18 @@ int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
                      BGP_PEER_DIR_IN, "Bad Peer AS Number: " << as_num);
         return BgpProto::Notification::BadPeerAS;
     }
+
+    int result = ValidateCapabilities(peer);
+    if (result != 0) {
+        BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Unsupported Capability: " << result);
+        return BgpProto::Notification::UnsupportedCapability;
+    }
     return 0;
 }
 
 BgpProto::Notification::Notification()
-: BgpMessage(NOTIFICATION),
-  error(0), subcode(0) {
+    : BgpMessage(NOTIFICATION), error(0), subcode(0) {
 }
 
 const std::string 

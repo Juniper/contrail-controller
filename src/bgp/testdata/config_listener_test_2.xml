@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name="red1">
+        <vrf-target>target:1:1</vrf-target> 
+    </routing-instance>
+    <routing-instance name="red2">
+        <vrf-target>target:1:2</vrf-target> 
+    </routing-instance>
+    <routing-instance name="red3">
+        <vrf-target>target:1:3</vrf-target> 
+    </routing-instance>
+</config>

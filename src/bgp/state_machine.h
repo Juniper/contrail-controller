@@ -42,10 +42,30 @@ typedef boost::function<bool(StateMachine *)> EvValidate;
 // events from the ASIO thread, Timer events from bgp::StateMachine task and
 // BGP Message related events are posted from the io::Reader task.
 //
+// Timers run in the context of the bgp::StateMachine task instead of running
+// directly from the ASIO thread.  This avoids race conditions wherein timers
+// expire at the same time that the state machine task is attempting to cancel
+// them.
+//
+// TCP session related events are posted directly from the ASIO thread.  Race
+// conditions wherein the bgp::StateMachine task tries to delete a session at
+// the same time that the ASIO thread is attempting to notify an event for the
+// session are avoided by have the state machine post a pseudo event to delete
+// the session. See comments for the DeleteSession method for more information.
+//
 // All events on the state machine are processed asynchronously by enqueueing
 // them to a WorkQueue. The WorkQueue is serviced by a bgp::StateMachine task.
 // The BgpPeer index is used as the instance id for the task. This allows the
 // state machines for multiple BgpPeers to run concurrently.
+//
+// Since events are processed asynchronously, it is possible that an event is
+// no longer relevant by the time we get around to processing it. For example,
+// we may see a TCP session close event after we've already decided to delete
+// the session. The optional validate method in the event is used to determine
+// if an event is still valid/relevant before feeding it to the state machine.
+// Note that the validate routine needs to be run right before we process the
+// event i.e. it's not correct to call it when posting the event.  Hence the
+// need for the EventContainer structure.
 //
 class StateMachine : public sc::state_machine<StateMachine, fsm::Idle> {
 public:
@@ -77,7 +97,6 @@ public:
     void Shutdown();
     void SetAdminState(bool down);
 
-    // State transitions
     template <class Ev, int code> void OnIdle(const Ev &event);
     template <class Ev, int code> void OnIdleError(const Ev &event);
     void OnIdleNotification(const fsm::EvBgpNotification &event);
@@ -148,8 +167,6 @@ public:
     const std::string last_notification_out_error() const;
     const std::string last_notification_in_error() const;
     void reset_last_info();
-
-    void unconsumed_event(const sc::event_base &event) { }
 
 private:
     friend class StateMachineTest;

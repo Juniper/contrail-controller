@@ -303,7 +303,9 @@ public:
     void Terminate();
 
 private:
+    friend class BgpConfigListenerTest;
     friend class BgpConfigManagerTest;
+
     typedef std::vector<BgpConfigDelta> ChangeList;
     typedef std::map<std::string,
         boost::function<void(const BgpConfigDelta &)> >IdentifierMap;

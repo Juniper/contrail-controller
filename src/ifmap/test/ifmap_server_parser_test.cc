@@ -75,7 +75,7 @@ class IFMapServerParserTest : public ::testing::Test {
     }
 
     IFMapNode *NodeLookup(const string &type, const string &name) {
-        return ifmap_test_util::NodeLookup(&db_, type, name);
+        return ifmap_test_util::IFMapNodeLookup(&db_, type, name);
     }
 
     IFMapLink *LinkLookup(const IFMapNode *left, const IFMapNode *right) {

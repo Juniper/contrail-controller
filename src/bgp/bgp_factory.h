@@ -8,6 +8,8 @@
 #include <boost/function.hpp>
 #include "base/factory.h"
 
+class BgpConfigListener;
+class BgpConfigManager;
 class BgpExport;
 class BgpInstanceConfig;
 class BgpNeighborConfig;
@@ -28,6 +30,7 @@ class RoutingInstanceMgr;
 class StateMachine;
 
 class BgpObjectFactory : public Factory<BgpObjectFactory> {
+    FACTORY_TYPE_N1(BgpObjectFactory, BgpConfigListener, BgpConfigManager *);
     FACTORY_TYPE_N1(BgpObjectFactory, BgpExport, RibOut *);
     FACTORY_TYPE_N1(BgpObjectFactory, McastTreeManager, InetMcastTable *);
     FACTORY_TYPE_N1(BgpObjectFactory, PeerCloseManager, IPeer *);

@@ -8,6 +8,8 @@
 #include <string>
 #include <inttypes.h>
 
+#include "net/address.h"
+
 class BgpAf {
 public:
     enum Afi {
@@ -23,7 +25,9 @@ public:
         Mcast = 241,
         Enet = 242,
     };
+
     static std::string ToString(uint8_t afi, uint16_t safi);
+    static Address::Family AfiSafiToFamily(uint8_t afi, uint8_t safi);
 };
 
 #endif

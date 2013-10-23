@@ -97,7 +97,7 @@ protected:
         bgp_schema_Server_ModuleInit(&config_db_, &db_graph_);
         server_.config_manager()->Initialize(&config_db_, &db_graph_, "local");
     }
-    
+
     virtual void TearDown() {
         task_util::WaitForIdle();
         TASK_UTIL_ASSERT_EQ(1, server_.routing_instance_mgr()->count());
@@ -175,7 +175,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighbors) {
     TASK_UTIL_ASSERT_EQ(3, neighbors.size());
     BgpNeighborConfig *peer_config = neighbors.begin()->second;
     TASK_UTIL_EXPECT_EQ(102, peer_config->peer_as());
-    
+
     const char config_delete[] = "\
 <delete>\
     <bgp-router name='remote1'>\
