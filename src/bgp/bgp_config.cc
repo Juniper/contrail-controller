@@ -2,25 +2,24 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "bgp/bgp_config.h"
+
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
-#include "base/logging.h"
 #include "base/task.h"
+#include "base/task_annotations.h"
 #include "base/util.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/routing-instance/routing_instance.h"
-#include "bgp/bgp_config.h"
-#include "ifmap/ifmap_link.h"
+#include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
 
 using namespace std;
 
+int BgpConfigManager::config_task_id_ = -1;
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
-const int BgpConfigManager::kDefaultPort = 179;
-const as_t BgpConfigManager::kDefaultAutonomousSystem = 64512;
 
 BgpNeighborConfig::AddressFamilyList
     BgpNeighborConfig::default_addr_family_list_;
@@ -84,12 +83,18 @@ void BgpPeeringConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     }
 }
 
+//
+// Build map of BgpNeighborConfigs based on the data in autogen::BgpPeering.
+//
 void BgpPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
         const string &peername, const autogen::BgpRouter *rt_config,
         const autogen::BgpPeering *peering, NeighborMap *map) {
+
+    // If there are one or more autogen::BgpSessions for the peering, use
+    // those to create the BgpNeighborConfigs.
     const autogen::BgpPeeringAttributes &attr = peering->data();
     for (autogen::BgpPeeringAttributes::const_iterator iter = attr.begin();
-            iter != attr.end(); ++iter) {
+         iter != attr.end(); ++iter) {
         BgpNeighborConfig *neighbor =
                 new BgpNeighborConfig(instance_, peername,
                         manager->localname(), rt_config,
@@ -97,8 +102,8 @@ void BgpPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
         map->insert(make_pair(neighbor->name(), neighbor));
     }
 
-    // When no sessions are present, create a single neighbor with no
-    // per-session configuration.
+    // When no sessions are present, create a single BgpNeighborConfig with
+    // no per-session configuration.
     if (map->empty()) {
         BgpNeighborConfig *neighbor =
                 new BgpNeighborConfig(instance_, peername,
@@ -108,32 +113,46 @@ void BgpPeeringConfig::BuildNeighbors(BgpConfigManager *manager,
     }
 }
 
+//
+// Update BgpPeeringConfig based on updated autogen::BgpPeering.
+//
+// This mainly involves building future BgpNeighborConfigs and doing a diff of
+// the current and future BgpNeighborConfigs.  Note that the BgpInstanceConfig
+// also has references to BgpNeighborConfigs, so it also needs to be updated as
+// part of the process.
+//
 void BgpPeeringConfig::Update(BgpConfigManager *manager,
         const autogen::BgpPeering *peering) {
     IFMapNode *node = node_proxy_.node();
     assert(node != NULL);
     bgp_peering_.reset(peering);
 
+    // Build the future NeighborMap.  The future map should be empty if the
+    // bgp-peering is deleted or if the parameters for the remote bgp-router
+    // are not available.
     NeighborMap future;
     pair<IFMapNode *, IFMapNode *> routers;
     if (!node->IsDeleted() &&
-            GetRouterPair(manager->graph(), manager->localname(), node,
-                    &routers)) {
+        GetRouterPair(manager->graph(), manager->localname(), node, &routers)) {
         const autogen::BgpRouter *rt_config =
                 static_cast<const autogen::BgpRouter *>(
                         routers.second->GetObject());
         if (rt_config != NULL &&
-                rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {
+            rt_config->IsPropertySet(autogen::BgpRouter::PARAMETERS)) {
             BuildNeighbors(manager, routers.second->name(), rt_config,
                     peering, &future);
         }
     }
 
+    // Swap out the NeighborMap in preparation for doing a diff.
     NeighborMap current;
     current.swap(neighbors_);
+
+    // Do a diff on the current and future BgpNeighborConfigs, making sure
+    // that the BgpInstanceConfig is updated accordingly.  We add any new
+    // BgpNeighborConfigs to our NeighborMap.
     NeighborMap::iterator it1 = current.begin();
     NeighborMap::iterator it2 = future.begin();
-
     while (it1 != current.end() && it2 != future.end()) {
         if (it1->first < it2->first) {
             BgpNeighborConfig *prev = it1->second;
@@ -168,21 +187,40 @@ void BgpPeeringConfig::Update(BgpConfigManager *manager,
         neighbors_.insert(*it2);
         it2->second = NULL;
     }
+
+    // Get rid of the current and future NeighborMaps and destroy any mapped
+    // BgpNeighborConfigs. Note that we have carefully reset mapped values to
+    // NULL above when we don't want a BgpNeighborConfig to get destroyed.
     STLDeleteElements(&current);
     STLDeleteElements(&future);
 }
 
+//
+// Delete all state for the given BgpPeeringConfig.
+//
+// This mainly involves getting rid of BgpNeighborConfigs in the NeighborMap.
+//
 void BgpPeeringConfig::Delete(BgpConfigManager *manager) {
     NeighborMap current;
     current.swap(neighbors_);
     for (NeighborMap::iterator iter = current.begin();
-            iter != current.end(); ++iter) {
+         iter != current.end(); ++iter) {
         instance_->NeighborDelete(manager, iter->second);
     }
     STLDeleteElements(&current);
     bgp_peering_.reset();
 }
 
+//
+// Find the IFMapNodes for a bgp-peering.
+//
+// The "node" is the IFMapNode for the bgp-peering link.  The bgp-peering is
+// interesting only if one of the bgp-routers is the local node.
+//
+// Return true if both bgp-routers for the bgp-peering exist and one of them
+// is the local one. Also fill in the local and remote IFMapNode pointers if
+// we return true.
+//
 bool BgpPeeringConfig::GetRouterPair(DBGraph *db_graph,
         const string  &localname, IFMapNode *node,
         pair<IFMapNode *, IFMapNode *> *pair) {
@@ -190,7 +228,7 @@ bool BgpPeeringConfig::GetRouterPair(DBGraph *db_graph,
     IFMapNode *remote = NULL;
 
     for (DBGraphVertex::adjacency_iterator iter = node->begin(db_graph);
-            iter != node->end(db_graph); ++iter) {
+         iter != node->end(db_graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
         if (strcmp(adj->table()->Typename(), "bgp-router") != 0)
             continue;
@@ -205,18 +243,27 @@ bool BgpPeeringConfig::GetRouterPair(DBGraph *db_graph,
     if (local == NULL || remote == NULL) {
         return false;
     }
+
     pair->first = local;
     pair->second = remote;
     return true;
 }
 
+//
+// Constructor for BgpNeighborConfig.
+//
+// Note that we do not add ourselves to the BgpInstanceConfig here. That will
+// done if necessary by the caller.
+//
 BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
                                      const string &remote_name,
                                      const string &local_name,
                                      const autogen::BgpRouter *router,
                                      const autogen::BgpSession *session)
         : instance_(instance) {
-    const autogen::BgpRouterParams &params = router->parameters();
+
+    // If the autogen::BgpSession has a uuid, we append it to the remote
+    // bgp-router's name to make the BgpNeighborConfig's name unique.
     if (session && !session->uuid.empty()) {
         uuid_ = session->uuid;
         name_ = remote_name + ":" + session->uuid;
@@ -224,6 +271,9 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
         name_ = remote_name;
     }
 
+    // Store a copy of the remote bgp-router's autogen::BgpRouterParams and
+    // derive the autogen::BgpSessionAttributes for the session.
+    const autogen::BgpRouterParams &params = router->parameters();
     peer_config_.Copy(params);
     attributes_.Clear();
     if (session != NULL) {
@@ -231,16 +281,25 @@ BgpNeighborConfig::BgpNeighborConfig(const BgpInstanceConfig *instance,
     }
 }
 
+//
+// Destructor for BgpNeighborConfig.
+//
 BgpNeighborConfig::~BgpNeighborConfig() {
 }
 
+//
+// Set the autogen::BgpSessionAttributes for this BgpNeighborConfig.
+//
+// The autogen::BgpSession will have up to 3 session attributes - one that
+// applies to the local router, one that applies the remote router and one
+// that applies to both.
+//
 void BgpNeighborConfig::SetSessionAttributes(const string &localname,
         const autogen::BgpSession *session) {
-    typedef std::vector<autogen::BgpSessionAttributes> AttributeVec;
+    typedef vector<autogen::BgpSessionAttributes> AttributeVec;
     const autogen::BgpSessionAttributes *common = NULL;
     const autogen::BgpSessionAttributes *local = NULL;
-    for (AttributeVec::const_iterator iter =
-                 session->attributes.begin();
+    for (AttributeVec::const_iterator iter = session->attributes.begin();
          iter != session->attributes.end(); ++iter) {
         const autogen::BgpSessionAttributes *attr = iter.operator->();
         if (attr->bgp_router.empty()) {
@@ -249,6 +308,7 @@ void BgpNeighborConfig::SetSessionAttributes(const string &localname,
             local = attr;
         }
     }
+
     // TODO: local should override rather than replace common.
     if (common != NULL) {
         attributes_ = *common;
@@ -258,6 +318,13 @@ void BgpNeighborConfig::SetSessionAttributes(const string &localname,
     }
 }
 
+//
+// Get the address family list for the BgpNeighborConfig.
+//
+// If there's address family configuration specific to this session use that.
+// Otherwise, the local bgp-router's address config if available.
+// Otherwise, use the hard coded default.
+//
 const BgpNeighborConfig::AddressFamilyList &
 BgpNeighborConfig::address_families() const {
     const autogen::BgpSessionAttributes &attr = session_attributes();
@@ -276,11 +343,15 @@ BgpNeighborConfig::address_families() const {
     return default_addr_family_list_;
 }
 
+// TODO: compare peer_config_ and attributes_
 bool BgpNeighborConfig::operator!=(const BgpNeighborConfig &rhs) const {
-    // TODO: compare peer_config_ and attributes_
     return true;
 }
 
+//
+// Update BgpNeighborConfig with the new values of autogen::BgoRouterParams
+// and autogen::BgpSessionAttributes.
+//
 void BgpNeighborConfig::Update(const BgpNeighborConfig *rhs) {
     peer_config_ = rhs->peer_config_;
     attributes_ = rhs->attributes_;
@@ -290,24 +361,39 @@ string BgpNeighborConfig::InstanceName() const {
     return instance_->name();
 }
 
+//
+// Constructor for BgpProtocolConfig.
+//
 BgpProtocolConfig::BgpProtocolConfig(BgpInstanceConfig *instance)
-        : instance_(instance) {
+    : instance_(instance) {
 }
 
+//
+// Destructor for BgpProtocolConfig.
+//
 BgpProtocolConfig::~BgpProtocolConfig() {
 }
 
+//
+// Set the IFMapNodeProxy for the BgpProtocolConfig.
+//
 void BgpProtocolConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     if (proxy != NULL) {
         node_proxy_.Swap(proxy);
     }
 }
 
+//
+// Update BgpProtocolConfig based on a new autogen::BgpRouter object.
+//
 void BgpProtocolConfig::Update(BgpConfigManager *manager,
                                const autogen::BgpRouter *router) {
     bgp_router_.reset(router);
 }
 
+//
+//  BgpProtocolConfig based on a new autogen::BgpRouter object.
+//
 void BgpProtocolConfig::Delete(BgpConfigManager *manager) {
     manager->Notify(this, BgpConfigManager::CFG_DELETE);
     bgp_router_.reset();
@@ -317,19 +403,31 @@ const string &BgpProtocolConfig::InstanceName() const {
     return instance_->name();
 }
 
+//
+// Constructor for BgpInstanceConfig.
+//
 BgpInstanceConfig::BgpInstanceConfig(const string &name)
     : name_(name), bgp_router_(NULL), virtual_network_index_(0) {
 }
 
+//
+// Destructor for BgpInstanceConfig.
+//
 BgpInstanceConfig::~BgpInstanceConfig() {
 }
 
+//
+// Set the IFMapNodeProxy for the BgpInstanceConfig.
+//
 void BgpInstanceConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
     if (proxy != NULL) {
         node_proxy_.Swap(proxy);
     }
 }
 
+//
+// Get the BgpProtocolConfig for this BgpInstanceConfig, create it if needed.
+//
 BgpProtocolConfig *BgpInstanceConfig::BgpConfigLocate() {
     if (bgp_router_.get() == NULL) {
         bgp_router_.reset(new BgpProtocolConfig(this));
@@ -337,10 +435,20 @@ BgpProtocolConfig *BgpInstanceConfig::BgpConfigLocate() {
     return bgp_router_.get();
 }
 
+//
+// Delete the BgpProtocolConfig for this BgpInstanceConfig.
+//
 void BgpInstanceConfig::BgpConfigReset() {
     bgp_router_.reset();
 }
 
+//
+// Get the route-target for an instance-target. The input IFMapNode is the
+// midnode that represents the instance-target link. We traverse the graph
+// the graph edges till we find the adjacency to the route-target.
+//
+// Return true and fill in the target string if we find the route-target.
+//
 static bool GetInstanceTargetRouteTarget(DBGraph *graph, IFMapNode *node,
         string *target) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
@@ -354,6 +462,13 @@ static bool GetInstanceTargetRouteTarget(DBGraph *graph, IFMapNode *node,
     return false;
 }
 
+//
+// Fill in all the export route targets for a routing-instance.  The input
+// IFMapNode represents the routing-instance.  We traverse the graph edges
+// and look for instance-target adjacencies. If the instance-target has is
+// an export target i.e. it's not import-only, add the route-target to the
+// vector.
+//
 static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
         vector<string> *target_list) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
@@ -372,6 +487,10 @@ static void GetRoutingInstanceExportTargets(DBGraph *graph, IFMapNode *node,
     }
 }
 
+//
+// Get the network id for a virtual-network.  The input IFMapNode represents
+// the virtual-network.
+//
 static int GetVirtualNetworkIndex(DBGraph *graph, IFMapNode *node) {
     const autogen::VirtualNetwork *vn =
         static_cast<autogen::VirtualNetwork *>(node->GetObject());
@@ -380,6 +499,19 @@ static int GetVirtualNetworkIndex(DBGraph *graph, IFMapNode *node) {
     return 0;
 }
 
+//
+// Update BgpInstanceConfig based on a new autogen::RoutingInstance object.
+//
+// Rebuild the import and export route target lists and update the virtual
+// network information.
+//
+// Targets that are configured on this routing-instance (which corresponds
+// to all adjacencies to instance-target) are added to the import list or
+// export list or both depending on the import_export attribute.
+//
+// Export targets for all other routing-instances that we are connected to
+// are added to our import list.
+//
 void BgpInstanceConfig::Update(BgpConfigManager *manager,
                                const autogen::RoutingInstance *config) {
     import_list_.clear();
@@ -421,11 +553,18 @@ void BgpInstanceConfig::Update(BgpConfigManager *manager,
     instance_config_.reset(config);
 }
 
+//
+// Reset IFMap related state in the BgpInstanceConfig.
+//
 void BgpInstanceConfig::ResetConfig() {
     instance_config_.reset();
     node_proxy_.Clear();
 }
 
+//
+// Return true if the BgpInstanceConfig is ready to be deleted.  The caller is
+// responsible for actually deleting it.
+//
 bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     if (name_ == BgpConfigManager::kMasterInstance) {
         return false;
@@ -437,50 +576,91 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     return false;
 }
 
+//
+// Add a BgpNeighborConfig to this BgpInstanceConfig.
+//
+// The BgpNeighborConfig is added to the NeighborMap and the BgpConfigManager
+// is notified.
+//
 void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
                                     BgpNeighborConfig *neighbor) {
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
 
+//
+// Change a BgpNeighborConfig that's already in this BgpInstanceConfig.
+//
 void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 
+//
+// Delete a BgpNeighborConfig from this BgpInstanceConfig.
+//
+// The BgpConfigManager is notified and BgpNeighborConfig is removed from the
+// NeighborMap. Note that the caller is responsible for actually deleting the
+// BgpNeighborConfig object.
+//
 void BgpInstanceConfig::NeighborDelete(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     manager->Notify(neighbor, BgpConfigManager::CFG_DELETE);
     neighbors_.erase(neighbor->name());
 }
 
+//
+// Find the BgpNeighborConfig by name in this BgpInstanceConfig.
+//
 const BgpNeighborConfig *BgpInstanceConfig::NeighborFind(string name) const {
     NeighborMap::const_iterator loc = neighbors_.find(name);
     return loc != neighbors_.end() ? loc->second : NULL;
 }
 
+//
+// Constructor for BgpConfigData.
+//
 BgpConfigData::BgpConfigData() {
 }
 
+//
+// Destructor for BgpConfigData.
+//
 BgpConfigData::~BgpConfigData() {
-    STLDeleteElements(&peering_map_);
+    STLDeleteElements(&instances_);
+    STLDeleteElements(&peerings_);
 }
 
+//
+// Locate the BgpInstanceConfig by name, create it if not found.  The newly
+// created BgpInstanceConfig gets added to the BgpInstanceMap.
+//
+// Note that we do not have the IFMapNode representing the routing-instance
+// at this point.
+//
 BgpInstanceConfig *BgpConfigData::LocateInstance(const string &name) {
     BgpInstanceConfig *rti = FindInstance(name);
     if (rti == NULL) {
-        auto_ptr<BgpInstanceConfig> instance(new BgpInstanceConfig(name));
-        rti = instance.get();
-        instances_.insert(name, instance);
+        rti = new BgpInstanceConfig(name);
+        pair<BgpInstanceMap::iterator, bool> result =
+                instances_.insert(make_pair(name, rti));
+        assert(result.second);
     }
     return rti;
 }
 
+//
+// Remove the given BgpInstanceConfig from the BgpInstanceMap and delete it.
+//
 void BgpConfigData::DeleteInstance(BgpInstanceConfig *rti) {
     string name(rti->name());
     instances_.erase(name);
+    delete rti;
 }
 
+//
+// Find the BgpInstanceConfig by name.
+//
 BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) {
     BgpInstanceMap::iterator loc = instances_.find(name);
     if (loc != instances_.end()) {
@@ -489,6 +669,10 @@ BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) {
     return NULL;
 }
 
+//
+// Find the BgpInstanceConfig by name.
+// Const version.
+//
 const BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) const {
     BgpInstanceMap::const_iterator loc = instances_.find(name);
     if (loc != instances_.end()) {
@@ -497,29 +681,54 @@ const BgpInstanceConfig *BgpConfigData::FindInstance(const string &name) const {
     return NULL;
 }
 
+//
+// Create a new BgpPeeringConfig.
+//
+// The IFMapNodeProxy is a proxy for the IFMapNode which is the midnode that
+// represents the bgp-peering. The newly created BgpPeeringConfig gets added
+// to the BgpPeeringMap.
+//
 BgpPeeringConfig *BgpConfigData::CreatePeering(BgpInstanceConfig *rti,
                                                IFMapNodeProxy *proxy) {
-    BgpPeeringConfig *peer = new BgpPeeringConfig(rti);
-    peer->SetNodeProxy(proxy);
+    BgpPeeringConfig *peering = new BgpPeeringConfig(rti);
+    peering->SetNodeProxy(proxy);
     pair<BgpPeeringMap::iterator, bool> result =
-            peering_map_.insert(make_pair(peer->node()->name(), peer));
+            peerings_.insert(make_pair(peering->node()->name(), peering));
     assert(result.second);
-    return peer;
+    return peering;
 }
 
-void BgpConfigData::DeletePeering(BgpPeeringConfig *peer) {
-    peering_map_.erase(peer->node()->name());
-    delete peer;
-    return;
+//
+// Delete a BgpPeeringConfig.
+//
+// The BgpPeeringConfig is removed from the BgpPeeringMap and then deleted.
+// Note that the reference to the IFMapNode for the bgp-peering gets released
+// via the destructor when the IFMapNodeProxy is destroyed.
+//
+void BgpConfigData::DeletePeering(BgpPeeringConfig *peering) {
+    peerings_.erase(peering->node()->name());
+    delete peering;
 }
 
-int BgpConfigManager::config_task_id_ = -1;
-const int BgpConfigManager::kConfigTaskInstanceId;
+//
+// Find the BgpPeeringConfig by name.
+//
+BgpPeeringConfig *BgpConfigData::FindPeering(const string &name) {
+    BgpPeeringMap::iterator loc = peerings_.find(name);
+    if (loc != peerings_.end()) {
+        return loc->second;
+    }
+    return NULL;
+}
 
+//
+// Constructor for BgpConfigManager.
+//
 BgpConfigManager::BgpConfigManager()
         : db_(NULL), db_graph_(NULL),
           trigger_(boost::bind(&BgpConfigManager::ConfigHandler, this),
-                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0),
+                   TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
+                   kConfigTaskInstanceId),
           listener_(BgpObjectFactory::Create<BgpConfigListener>(this)),
           config_(new BgpConfigData()) {
     IdentifierMapInit();
@@ -530,9 +739,15 @@ BgpConfigManager::BgpConfigManager()
     }
 }
 
+//
+// Destructor for BgpConfigManager.
+//
 BgpConfigManager::~BgpConfigManager() {
 }
 
+//
+// Initialize the BgpConfigManager.
+//
 void BgpConfigManager::Initialize(DB *db, DBGraph *db_graph,
                                   const string &localname) {
     db_ = db;
@@ -542,16 +757,27 @@ void BgpConfigManager::Initialize(DB *db, DBGraph *db_graph,
     DefaultConfig();
 }
 
+//
+// Used to trigger a build and subsequent evaluation of the ChangeList.
+//
 void BgpConfigManager::OnChange() {
+    CHECK_CONCURRENCY("db::DBTable");
     trigger_.Set();
 }
 
+//
+// Initialize autogen::BgpRouterParams with default values.
+//
 void BgpConfigManager::DefaultBgpRouterParams(autogen::BgpRouterParams &param) {
     param.Clear();
     param.autonomous_system = BgpConfigManager::kDefaultAutonomousSystem;
     param.port = BgpConfigManager::kDefaultPort;
 }
 
+//
+// Create BgpInsatnceConfig for master routing-instance.  This includes the
+// BgpProtocolConfig for the local bgp-router in the master routing-instance.
+//
 void BgpConfigManager::DefaultConfig() {
     BgpInstanceConfig *rti = config_->LocateInstance(kMasterInstance);
     auto_ptr<autogen::BgpRouter> bgp_config(new autogen::BgpRouter());
@@ -563,6 +789,12 @@ void BgpConfigManager::DefaultConfig() {
     localnode->Update(this, bgp_config.release());
 }
 
+//
+// Initialize IdentifierMap with handlers for interesting identifier types.
+//
+// The IdentifierMap is used when processing BgpConfigDeltas generated by
+// the BgpConfigListener.
+//
 void BgpConfigManager::IdentifierMapInit() {
     id_map_.insert(make_pair("routing-instance",
             boost::bind(&BgpConfigManager::ProcessRoutingInstance, this, _1)));
@@ -572,9 +804,35 @@ void BgpConfigManager::IdentifierMapInit() {
             boost::bind(&BgpConfigManager::ProcessBgpPeering, this, _1)));
 }
 
+//
+// Handler for routing-instance objects.
+//
+// Note that the BgpInstanceConfig object for the master instance is created
+// before we have received any configuration for it i.e. there's no IFMapNode
+// or autogen::RoutingInstance for it. However, we will eventually receive a
+// delta for the master.  The IFMapNodeProxy and autogen::RoutingInstance are
+// set at that time.
+//
+// For other routing-instances the BgpConfigInstance can get created before we
+// see the IFMapNode for the routing-instance if we see the IFMapNode for the
+// local bgp-router in the routing-instance.  In this case, the IFMapNodeProxy
+// and autogen::RoutingInstance are set when we later see the IFMapNode for the
+// routing-instance.
+//
+// In all other cases a BgpConfigInstance is created when we see the IFMapNode
+// for the routing-instance.  The IFMapNodeProxy and autogen::RoutingInstance
+// are set right away.
+//
+// References to the IFMapNode and the autogen::RoutingInstance are released
+// when the IFMapNode is marked deleted.  However the BgpInstanceConfig does
+// not get deleted till the NeighborMap is empty and the BgpProtocolConfig is
+// gone.
+//
 void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
-    string instance_name = delta.id_name;
+    CHECK_CONCURRENCY("bgp::Config");
+
     BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
+    string instance_name = delta.id_name;
     BgpInstanceConfig *rti = config_->FindInstance(instance_name);
     if (rti == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
@@ -608,9 +866,17 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
     Notify(rti, event);
 }
 
+//
+// Handler for bgp protocol config.
+//
+// Note that there's no underlying IFMap object for the bgp protocol config.
+// This is called by the handler for bgp-router objects. The BgpConfigDelta
+// is a delta for the bgp-router object.
+//
 void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
-    BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
+    CHECK_CONCURRENCY("bgp::Config");
 
+    BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
     string instance_name(IdentifierParent(delta.id_name));
     BgpInstanceConfig *rti = config_->FindInstance(instance_name);
     BgpProtocolConfig *bgp_config = NULL;
@@ -663,32 +929,52 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     Notify(bgp_config, event);
 }
 
+//
+// Handler for bgp-router objects.
+//
+// Note that we don't need to explicitly re-evaluate any bgp-peerings as the
+// BgpConfigListener::DependencyTracker adds any relevant bgp-peerings to the
+// change list.
+//
 void BgpConfigManager::ProcessBgpRouter(const BgpConfigDelta &delta) {
+    CHECK_CONCURRENCY("bgp::Config");
+
     string instance_name(IdentifierParent(delta.id_name));
     if (instance_name.empty()) {
-        // TODO: error
         return;
     }
 
+    // Ignore if this change is not for the local router.
     string name = delta.id_name.substr(instance_name.size() + 1);
-    if (name == localname_) {
-        ProcessBgpProtocol(delta);
+    if (name != localname_) {
         return;
     }
 
-    // BgpConfigListener will trigger a notification to any peering sessions
-    // associated with this router. That will cause the BgpNeighborConfig
-    // data structures to be re-generated.
+    ProcessBgpProtocol(delta);
 }
 
-// We are only interested in this node if it is adjacent to the local
+//
+// Handler for bgp-peering objects.
+//
+// We are only interested in this bgp-peering if it is adjacent to the local
 // router node.
+//
+// The BgpPeeringConfig is created the first time we see the bgp-peering.  It
+// is updated on subsequent changes and is deleted when the IFMapNode midnode
+// for the bgp-peering is deleted.
+//
+// Note that we are guaranteed that the IFMapNodes for the 2 bgp-routers for
+// the bgp-peering already exist when we see the bgp-peering.  IFMap creates
+// the nodes for the bgp-routers before creating the midnode.  This in turn
+// guarantees that the BgpInstanceConfig for the routing-instance also exists
+// since we create the BgpInstanceConfig before creating the BgpProtocolConfig
+// for a local bgp-router.
+//
 void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
-    BgpPeeringConfig *peer = NULL;
-    BgpConfigData::BgpPeeringMap *peering_map = config_->peerings_mutable();
-    BgpConfigData::BgpPeeringMap::iterator loc =
-            peering_map->find(delta.id_name);
-    if (loc == peering_map->end()) {
+    CHECK_CONCURRENCY("bgp::Config");
+
+    BgpPeeringConfig *peering = config_->FindPeering(delta.id_name);
+    if (peering == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
         if (proxy == NULL) {
             return;
@@ -707,31 +993,33 @@ void BgpConfigManager::ProcessBgpPeering(const BgpConfigDelta &delta) {
         string instance_name(IdentifierParent(routers.first->name()));
         BgpInstanceConfig *rti = config_->FindInstance(instance_name);
         assert(rti != NULL);
-        peer = config_->CreatePeering(rti, proxy);
+        peering = config_->CreatePeering(rti, proxy);
     } else {
-        peer = loc->second;
-        const IFMapNode *node = peer->node();
+        const IFMapNode *node = peering->node();
         assert(node != NULL);
         if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
-            BgpInstanceConfig *rti = peer->instance();
-            peer->Delete(this);
-
-            //
-            // Delete peering configuration
-            //
-            config_->DeletePeering(peer);
+            BgpInstanceConfig *rti = peering->instance();
+            peering->Delete(this);
+            config_->DeletePeering(peering);
             if (rti->DeleteIfEmpty(this)) {
                 config_->DeleteInstance(rti);
             }
             return;
         }
     }
-    autogen::BgpPeering *peering_config = static_cast<autogen::BgpPeering *>(
-        delta.obj.get());
-    peer->Update(this, peering_config);
+
+    autogen::BgpPeering *peering_config =
+            static_cast<autogen::BgpPeering *>(delta.obj.get());
+    peering->Update(this, peering_config);
 }
 
+//
+// Process the BgpConfigDeltas on the change list. We simply call the handler
+// for each delta based on the object's identifier type.
+//
 void BgpConfigManager::ProcessChanges(const ChangeList &change_list) {
+    CHECK_CONCURRENCY("bgp::Config");
+
     for (ChangeList::const_iterator iter = change_list.begin();
          iter != change_list.end(); ++iter) {
         IdentifierMap::iterator loc = id_map_.find(iter->id_type);
@@ -741,13 +1029,22 @@ void BgpConfigManager::ProcessChanges(const ChangeList &change_list) {
     }
 }
 
+//
+// Build and process the change list of BgpConfigDeltas.  The logic to build
+// the list is in BgpConfigListener and BgpConfigListener::DependencyTracker.
+//
 bool BgpConfigManager::ConfigHandler() {
+    CHECK_CONCURRENCY("bgp::Config");
+
     BgpConfigListener::ChangeList change_list;
     listener_->GetChangeList(&change_list);
     ProcessChanges(change_list);
     return true;
 }
 
+//
+// Terminate the BgpConfigManager.
+//
 void BgpConfigManager::Terminate() {
     listener_->Terminate(db_);
     config_.reset();

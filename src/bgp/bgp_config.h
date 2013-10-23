@@ -5,20 +5,17 @@
 #ifndef __BGP_CONFIG_H__
 #define __BGP_CONFIG_H__
 
-#include <list>
 #include <map>
 #include <set>
 
 #include <boost/function.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
-#include <boost/ptr_container/ptr_map.hpp>
 
-#include "base/util.h"
 #include "base/queue_task.h"
 #include "base/task_trigger.h"
+#include "base/util.h"
 #include "bgp/bgp_common.h"
-#include "bgp/bgp_peer_key.h"
 #include "ifmap/ifmap_node_proxy.h"
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
@@ -28,12 +25,7 @@ class BgpConfigManager;
 class BgpInstanceConfig;
 class BgpPeeringConfig;
 class DB;
-class DBTable;
 class DBGraph;
-class IFMapNodeProxy;
-class IPeer;
-class RoutingInstance;
-class RoutingInstanceMgr;
 
 typedef boost::shared_ptr<IFMapNodeProxy> IFMapNodeRef;
 
@@ -47,11 +39,39 @@ struct BgpConfigDelta {
     IFMapObjectRef obj;
 };
 
-// A BgpNeighbor corresponds to a session between the local bgp-router and
-// a remote bgp-router.
+//
+// BgpNeighborConfig represents a single session between the local bgp-router
+// and a remote bgp-router.  There may be multiple BgpNeighborConfigs for one
+// BgpPeeringConfig, though there's typically just one.
+//
+// Each BgpNeighborConfig causes creation of a BgpPeer. BgpPeer has a pointer
+// to the BgpNeighborConfig. This pointer is invalidated and cleared when the
+// BgpPeer is undergoing deletion.
+//
+// A BgpNeighborConfig is on the NeighborMap in the BgpPeeringConfig as well
+// as the NeighborMap in the BgpInstanceConfig. The BgpInstanceConfig is the
+// routing-instance to which the BgpNeighborConfig belongs.
+//
+// BgpNeighborConfigs get created/updated/deleted when the BgpPeeringConfig is
+// created/updated/deleted.
+//
+// The peer_config_ field stores a copy of the remote bgp-router's properties.
+// The attributes_ field stores a copy of the autogen::BgpSessionAttributes
+// for the autogen::BgpSession.
+//
+// The instance_ field is a back pointer to the BgpInstanceConfig object for
+// the routing-instance to which this neighbor belongs.
+// The uuid_ field is used is there are multiple sessions to the same remote
+// bgp-router i.e. there's multiple BgpNeighborConfigs for a BgpPeeringConfig.
+//
+// The name_ field contains the fully qualified name for the peer.  If uuid_
+// is non-empty i.e. there's multiple sessions to the same remote bgp-router,
+// the uuid_ is appended to the remote peer's name to make it unique.
+//
 class BgpNeighborConfig {
 public:
     typedef std::vector<std::string> AddressFamilyList;
+
     BgpNeighborConfig(const BgpInstanceConfig *instance,
                       const std::string &remote_name,
                       const std::string &local_name,
@@ -98,9 +118,38 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpNeighborConfig);
 };
 
+//
+// A BgpPeeringConfig corresponds to a bgp-peering link in the schema.  Since
+// a bgp-peering is a link with attributes, it's represented as a node in the
+// configuration database.  There's a single BgpPeeringConfig between a given
+// pair of bgp-routers in a particular routing-instance.
+//
+// A bgp-peering link is represented in IFMap DB using a autogen::BgpPeering
+// object. This object has a vector of autogen::BgpSessions, with each entry
+// corresponding to a single session. A BgpNeighborConfig is created for each
+// session.
+//
+// The NeighborMap keeps pointers to all the BgpNeighborConfig objects for a
+// BgpPeeringConfig.  There's typically just a single entry in this map, but
+// we allow for multiple entries if there's more than 1 autogen::BgpSesssion
+// in the autogen::BgpPeering.
+//
+// A BgpPeeringConfig gets created/updated/deleted when the IFMapNode for the
+// bgp-peering is created/updated/deleted.
+//
+// There's no direct operational object corresponding to BgpPeeringConfig. A
+// BgpPeeringConfig results in the creation of one or more BgpNeighborConfigs
+// each of which is associated with a BgpPeer.
+//
+// The instance_ field is a back pointer to the BgpInstanceConfig object for
+// the routing-instance to which this bgp-peering belongs.
+// The IFMapNodeProxy maintains a reference to the IFMapNode object for the
+// bgp-peering in the ifmap metadata table.
+//
 class BgpPeeringConfig {
 public:
     typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
+
     explicit BgpPeeringConfig(BgpInstanceConfig *instance)
         : instance_(instance) {
     }
@@ -109,9 +158,6 @@ public:
     }
 
     void SetNodeProxy(IFMapNodeProxy *proxy);
-    void BuildNeighbors(BgpConfigManager *manager, const std::string &peername,
-                        const autogen::BgpRouter *rt_config,
-                        const autogen::BgpPeering *peering, NeighborMap *map);
     void Update(BgpConfigManager *manager, const autogen::BgpPeering *peering);
     void Delete(BgpConfigManager *manager);
 
@@ -128,6 +174,10 @@ public:
     }
 
 private:
+    void BuildNeighbors(BgpConfigManager *manager, const std::string &peername,
+                        const autogen::BgpRouter *rt_config,
+                        const autogen::BgpPeering *peering, NeighborMap *map);
+
     BgpInstanceConfig *instance_;
     std::string name_;
     IFMapNodeProxy node_proxy_;
@@ -137,7 +187,17 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpPeeringConfig);
 };
 
-// Corresponds to a local ifmap "bgp-router" node in a specific routing-instance.
+//
+// Represents a local IFMap bgp-router node in a specific routing-instance.
+//
+// A BgpProtocolConfig is created/updated/deleted when the IFMapNode for the
+// bgp-router is created/updated/deleted.
+//
+// The instance_ field is a back pointer to the BgpInstanceConfig object for
+// the routing-instance to which this bgp-router belongs.
+// The IFMapNodeProxy maintains a reference to the IFMapNode object for the
+// bgp-router in the ifmap bgp-router table.
+//
 class BgpProtocolConfig {
 public:
     explicit BgpProtocolConfig(BgpInstanceConfig *instance);
@@ -165,16 +225,44 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpProtocolConfig);
 };
 
-// Internal representation of routing instance
+//
+// Internal representation of routing-instance.
+//
+// A BgpInstanceConfig causes creation of a RoutingInstance. RoutingInstance
+// has a pointer to the BgpInstanceConfig. This pointer gets invalidated and
+// cleared when the RoutingInstance is undergoing deletion.
+//
+// The IFMapNodeProxy maintains a reference to the IFMapNode object for the
+// routing-instance in the ifmap routing-instance table.
+//
+// The BgpInstanceConfig for the master instance is manually created when the
+// BgpConfigManager is initialized. It gets deleted when the BgpConfigManager
+// is terminated.
+//
+// For other routing-instances, a BgpInstanceConfig is created when we first
+// see the IFMapNode for the routing-instance or when we see the IFMapNode for
+// the local bgp-router in the routing-instance.
+//
+// BgpInstanceConfig is deleted only when all references to it are gone. The
+// IFMapNode for the routing-instance must be deleted, any BgpProtcolConfig
+// for the local bgp-router in the routing-instance must be deleted and all
+// the BgpNeighborConfigs in the routing-instance must be deleted.
+//
+// The bgp_router_ field is a pointer to the local bgp-router object for the
+// routing-instance.
+// The NeighborMap keeps pointers to all the BgpNeighborConfig objects in a
+// BgpInstanceConfig.
+//
 class BgpInstanceConfig {
 public:
     typedef std::map<std::string, BgpNeighborConfig *> NeighborMap;
     typedef std::set<std::string> RouteTargetList;
+
     explicit BgpInstanceConfig(const std::string &name);
     ~BgpInstanceConfig();
 
     void SetNodeProxy(IFMapNodeProxy *proxy);
-    
+
     void Update(BgpConfigManager *manager,
                 const autogen::RoutingInstance *config);
 
@@ -214,7 +302,6 @@ private:
 
     std::string name_;
     IFMapNodeProxy node_proxy_;
-    // The local configuration parameters in this instance.
     boost::scoped_ptr<BgpProtocolConfig> bgp_router_;
     NeighborMap neighbors_;
 
@@ -228,9 +315,18 @@ private:
     DISALLOW_COPY_AND_ASSIGN(BgpInstanceConfig);
 };
 
+//
+// BgpConfigData contains all the configuration data that's relevant to a
+// node. The BgpConfigManager has a pointer to BgpConfigData.
+//
+// The BgpInstanceMap stores pointers to the BgpInstanceConfigs that have
+// been created for all the routing-instances.
+// The BgpPeeringMap stores pointers to the BgpPeeringConfigs that have
+// been created for all the bgp-peerings.
+//
 class BgpConfigData {
 public:
-    typedef boost::ptr_map<std::string, BgpInstanceConfig> BgpInstanceMap;
+    typedef std::map<std::string, BgpInstanceConfig *> BgpInstanceMap;
     typedef std::map<std::string, BgpPeeringConfig *> BgpPeeringMap;
 
     BgpConfigData();
@@ -245,23 +341,40 @@ public:
     BgpPeeringConfig *CreatePeering(BgpInstanceConfig *rti,
                                     IFMapNodeProxy *proxy);
     void DeletePeering(BgpPeeringConfig *peer);
-
-    const BgpPeeringMap &peerings() const { return peering_map_; }
-    BgpPeeringMap *peerings_mutable() { return &peering_map_; }
+    BgpPeeringConfig *FindPeering(const std::string &name);
+    const BgpPeeringMap &peerings() const { return peerings_; }
 
 private:
     BgpInstanceMap instances_;
-    BgpPeeringMap peering_map_;
+    BgpPeeringMap peerings_;
 
     DISALLOW_COPY_AND_ASSIGN(BgpConfigData);
 };
 
+//
+// This class is responsible for managing all bgp related configuration for
+// a BgpServer. A BgpServer allocates an instance of a BgpConfigManager.
+//
+// BgpConfigManager listens to updates for IFMap objects which are relevant
+// to BGP.  This is accomplished using an instance of the BgpConfigListener.
+// The BgpConfigListener is used to build a ChangeList of BgpConfigDeltas
+// that are then processed by the BgpConfigManager.
+//
+// Internal representations of interesting IFMap objects are generated and
+// updated as BgpConfigDeltas are processed.  An instance of BgpConfigData
+// is used to store the internal representations (the BgpXyzConfig classes).
+//
+// Notifications of changes to the internal representations are sent to the
+// registered Observers. The BgpServer::ConfigUpdater is the only client that
+// registers observers.
+//
 class BgpConfigManager {
 public:
     static const char *kMasterInstance;
-    static const int kDefaultPort;
+    static const int kDefaultPort = 179;
     static const int kConfigTaskInstanceId = 0;
-    static const as_t kDefaultAutonomousSystem;
+    static const as_t kDefaultAutonomousSystem = 64512;
+
     enum EventType {
         CFG_NONE,
         CFG_ADD,
@@ -284,7 +397,12 @@ public:
 
     BgpConfigManager();
     ~BgpConfigManager();
+
     void Initialize(DB *db, DBGraph *db_graph, const std::string &localname);
+    void Terminate();
+
+    void DefaultBgpRouterParams(autogen::BgpRouterParams &param);
+    void OnChange();
 
     template <typename BgpConfigObject>
     void Notify(const BgpConfigObject *, EventType);
@@ -294,13 +412,7 @@ public:
     DB *database() { return db_; }
     DBGraph *graph() { return db_graph_; }
     const BgpConfigData &config() const { return *config_; }
-    void DefaultBgpRouterParams(autogen::BgpRouterParams &param);
-
-    void OnChange();
-
     const std::string &localname() const { return localname_; }
-
-    void Terminate();
 
 private:
     friend class BgpConfigListenerTest;
@@ -312,14 +424,15 @@ private:
 
     void IdentifierMapInit();
     void DefaultConfig();
+
     void ProcessChanges(const ChangeList &change_list);
-    void ProcessVirtualNetwork(const BgpConfigDelta &change);
     void ProcessRoutingInstance(const BgpConfigDelta &change);
     void ProcessBgpRouter(const BgpConfigDelta &change);
     void ProcessBgpProtocol(const BgpConfigDelta &change);
     void ProcessBgpPeering(const BgpConfigDelta &change);
 
     bool ConfigHandler();
+
     static int config_task_id_;
 
     DB *db_;
