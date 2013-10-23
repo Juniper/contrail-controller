@@ -144,6 +144,7 @@ class VrouterProvisioner(object):
     # end add_vrouter
 
     def del_vrouter(self):
+        gsc_obj = self._global_system_config_obj
         vrouter_obj = VirtualRouter(self._args.host_name, gsc_obj)
         self._vnc_lib.virtual_router_delete(
             fq_name=vrouter_obj.get_fq_name())

@@ -242,9 +242,17 @@ class VncApiServer(VncApiServerGen):
             collectors = [(self._args.collector,
                            int(self._args.collector_port))]
         self._sandesh = Sandesh()
-        self._sandesh.init_generator(ModuleNames[Module.API_SERVER],
-                                     socket.gethostname(), collectors,
-                                     'vnc_api_server_context',
+        if self._args.worker_id:
+            # HACK till rest of infra catches up, worker 0 doesn't
+            # encode in name
+            if self._args.worker_id == '0':
+                module = ModuleNames[Module.API_SERVER]
+            else:
+                module = ModuleNames[Module.API_SERVER] + self._args.worker_id
+        else:
+            module = ModuleNames[Module.API_SERVER]
+        self._sandesh.init_generator(module, socket.gethostname(),
+                                     collectors, 'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common', 'sandesh'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
@@ -293,9 +301,14 @@ class VncApiServer(VncApiServerGen):
         for vn_fq_name in vn_fq_names:
             vn_uuid = self._db_conn.fq_name_to_uuid(
                 'virtual-network', vn_fq_name)
-            (ok, vn_dict) = self._db_conn.dbe_read(
-                'virtual-network', {'uuid': vn_uuid})
-            self._addr_mgmt.net_create(vn_dict)
+            try:
+                (ok, vn_dict) = self._db_conn.dbe_read(
+                    'virtual-network', {'uuid': vn_uuid})
+                if ok:
+                    self._addr_mgmt.net_create(vn_dict)
+            except Exception as e:
+                # TODO log
+                pass
 
         # Cpuinfo interface
         sysinfo_req = True
@@ -312,14 +325,17 @@ class VncApiServer(VncApiServerGen):
     # end get_args
 
     def get_server_ip(self):
+        ip_list = []
         for i in netifaces.interfaces():
             try:
                 if netifaces.AF_INET in netifaces.ifaddresses(i):
-                    return netifaces.ifaddresses(i)[netifaces.AF_INET][0][
+                    addr = netifaces.ifaddresses(i)[netifaces.AF_INET][0][
                         'addr']
+                    if addr != '127.0.0.1' and addr not in ip_list:
+                        ip_list.append(addr)
             except ValueError, e:
                 print "Skipping interface %s" % i
-        return None
+        return ip_list
     # end get_server_ip
 
     def get_listen_ip(self):
@@ -423,6 +439,13 @@ class VncApiServer(VncApiServerGen):
         return {'results': result}
     # end fetch_records
 
+    def get_resource_class(self, resource_type):
+        if resource_type in self._resource_classes:
+            return self._resource_classes[resource_type]
+
+        return None
+    # end get_resource_class
+
     # Private Methods
     def _parse_args(self, args_str):
         '''
@@ -432,6 +455,8 @@ class VncApiServer(VncApiServerGen):
                                          --ifmap_password test
                                          --cassandra_server_list\
                                              10.1.2.3:9160 10.1.2.4:9160
+                                         --redis_server_ip 127.0.0.1
+                                         --redis_server_port 6382
                                          --collector 127.0.0.1
                                          --collector_port 8080
                                          --http_server_port 8090
@@ -443,6 +468,7 @@ class VncApiServer(VncApiServerGen):
                                          --log_file <stdout>
                                          --disc_server_ip 127.0.0.1
                                          --disc_server_port 5998
+                                         --worker_id 1
                                          [--auth keystone]
                                          [--ifmap_server_loc
                                           /home/contrail/source/ifmap-server/]
@@ -463,6 +489,8 @@ class VncApiServer(VncApiServerGen):
             'listen_port': _WEB_PORT,
             'ifmap_server_ip': _WEB_HOST,
             'ifmap_server_port': "8443",
+            'redis_server_ip': '127.0.0.1',
+            'redis_server_port': '6382',
             'collector': None,
             'collector_port': None,
             'http_server_port': '8084',
@@ -537,6 +565,12 @@ class VncApiServer(VncApiServerGen):
             help="List of cassandra servers in IP Address:Port format",
             nargs='+')
         parser.add_argument(
+            "--redis_server_ip",
+            help="IP address of redis server")
+        parser.add_argument(
+            "--redis_server_port",
+            help="Port of redis server")
+        parser.add_argument(
             "--auth", choices=['keystone'],
             help="Type of authentication for user-requests")
         parser.add_argument(
@@ -578,6 +612,10 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--multi_tenancy", action="store_true",
             help="Validate resource permissions (implies token validation)")
+        parser.add_argument(
+            "--worker_id",
+            help="Worker Id")
+
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -609,9 +647,12 @@ class VncApiServer(VncApiServerGen):
         user = self._args.ifmap_username
         passwd = self._args.ifmap_password
         cass_server_list = self._args.cassandra_server_list
+        redis_server_ip = self._args.redis_server_ip
+        redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
+                              redis_server_ip, redis_server_port,
                               cass_server_list, reset_config, ifmap_loc)
         self._db_conn = db_conn
     # end _db_connect
@@ -1106,7 +1147,7 @@ class VncApiServer(VncApiServerGen):
                     parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
                         'project', sg['to'][:-1])
                     sg_ids['parent_imid'] = parent_imid
-                    db_conn.dbe_delete('security-group', sg_ids)
+                    db_conn.dbe_delete('security-group', sg_ids, None)
 
         super(VncApiServer, self).project_http_delete(id)
     # end project_http_delete

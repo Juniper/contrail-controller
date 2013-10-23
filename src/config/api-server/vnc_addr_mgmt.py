@@ -4,6 +4,7 @@
 
 from bitarray import bitarray
 from netaddr import *
+import json
 import cfgm_common.exceptions
 
 
@@ -51,6 +52,7 @@ class Subnet(object):
     incarnations of api server. These are also taken out of free pool to
     prevent duplicate assignment.
     """
+    _db_conn = None
 
     def __init__(self, name, prefix, prefix_len, gw=None, db_conn=None):
         self._version = 0
@@ -74,68 +76,143 @@ class Subnet(object):
             exclude.append(gw_ip)
 
         # Initialize in-use bit mask
-        inuse = db_conn.subnet_retrieve(name) if db_conn else None
-        if inuse:
-            self._inuse = bitarray()
-            self._inuse.frombytes(inuse)
-        else:
-            self._inuse = bitarray(network.size)
-            self._inuse.setall(0)
+        cols_dict = Subnet._db_conn.subnet_retrieve(name)
 
-        # build free list of IP addresses
-        free_list = []
-        for addr in network:
-            if (not addr in exclude and
-                    not self._inuse[int(addr) - network.first]):
-                free_list.append(addr)
+        # TODO backward compat start, earlier in-use bitmask was stored, now
+        # actual ip-addrs are stored. handle transition
+        if 'bitmask' in cols_dict:
+            inuse_bitmask = bitarray(cols_dict.pop('bitmask'))
+
+            cols_dict = {}
+            # convert bitmask to ip-addresses
+            subnet_pfx = name.split(':')[3]
+            last_addr = IPNetwork(subnet_pfx).last
+            inuse_bitmask.reverse()
+            while True:
+                try:
+                    addr_off = inuse_bitmask.index(True)
+                except ValueError:
+                    break
+                inuse_bitmask[addr_off] = 0
+                inuse_addr = IPAddress(last_addr - addr_off)
+                cols_dict[str(inuse_addr)] = ''
+
+            self._db_conn.subnet_add_cols(name, cols_dict)
+            self._db_conn.subnet_delete_cols(name, ['bitmask'])
+        # backward compat end
+        inuse_addrs = cols_dict
+
+        # _inuse is a bitmap representing addresses assigned. if bit 0 is 1
+        # it means last addr(i.e. broadcast addr) in subnet is used.
+        self._inuse = bitarray(network.size)
+        self._inuse.setall(0)
+
+        # reserve excluded addresses
+        for addr in exclude:
+            self._inuse[network.last - int(addr)] = 1
+
+        for addr in inuse_addrs.keys():
+            ip_addr = IPAddress(addr)
+            bit_offset = network.last - int(ip_addr)
+            self._inuse[bit_offset] = 1
 
         self._name = name
-        self._free_list = free_list
         self._network = network
         self._exclude = exclude
-        self._db_conn = db_conn
         self.gw_ip = gw_ip
     # end __init__
 
+    def get_name(self):
+        return self._name
+    #end get_name
+
+    def get_exclude(self):
+        return self._exclude
+    # end get_exclude
+
     # allocate IP address from this subnet
-    def ip_alloc(self, ipaddr=None):
+    def _ip_alloc_try(self, ipaddr=None):
         addr = None
-        if len(self._free_list) > 0:
+        if self._inuse.count(0) > 0:
             if ipaddr:
                 ip = IPAddress(ipaddr)
 
                 # TODO: return ip ipaddr passed
                 addr = ip
 
-                if ip in self._network and ip in self._free_list:
-                    self._free_list.remove(ip)
+                if ip in self._network:
                     addr = ip
             else:
-                addr = self._free_list.pop()
+                addr = IPAddress(self._network.last - self._inuse.index(0))
 
         # update inuse mask in DB
+        if addr:
+            self._inuse[self._network.last - int(addr)] = 1
+            return str(addr)
+
+        return None
+    #end _ip_alloc_try
+
+    def ip_alloc(self, ipaddr=None):
+        # optimistically try to allocate an ip, check if any other api-server
+        # didn't pick it while we were processing and if we lost, retry. lock
+        # on win.
+        addr = None
+        while True:
+            candidate_addr = self._ip_alloc_try(ipaddr)
+            if not candidate_addr:
+                break
+            is_unique = self._db_conn.key_test_set('%s:%s'
+                                                   % (self._name,
+                                                      candidate_addr))
+            if is_unique:
+                addr = candidate_addr
+                break
+
+            # need, a retry, if exact addr was requested, fail
+            if ipaddr:
+                return ipaddr
+
+        # end while
+
         if addr and self._db_conn:
-            self._inuse[int(addr) - self._network.first] = 1
-            self._db_conn.subnet_store(self._name, self._inuse.tobytes())
+            self._db_conn.subnet_add_cols(self._name, {'%s' % (str(addr)): ''})
             return str(addr)
 
         return None
     # end ip_alloc
 
     # free IP unless it is invalid, excluded or already freed
-    def ip_free(self, ipaddr):
-        ip = IPAddress(ipaddr)
-        if ((ip in self._network) and (ip not in self._free_list) and
-                (ip not in self._exclude)):
-            if self._db_conn:
-                self._inuse[int(ip) - self._network.first] = 0
-                self._db_conn.subnet_store(self._name, self._inuse.tobytes())
-            self._free_list.append(ip)
+    @classmethod
+    def ip_free_cls(cls, subnet_fq_name, ip_network, exclude_addrs, ip_addr):
+        if ((ip_addr in ip_network) and (ip_addr not in exclude_addrs)):
+            if cls._db_conn:
+                cls._db_conn.subnet_delete_cols(subnet_fq_name,
+                                                ['%s' % (str(ip_addr))])
+                cls._db_conn.key_release('%s:%s'
+                                         % (subnet_fq_name, str(ip_addr)))
+                return True
+
+        return False
+    # end ip_free_cls
+
+    def ip_free(self, ip_addr):
+        freed = Subnet.ip_free_cls(self._name,
+                                   self._network,
+                                   self._exclude,
+                                   ip_addr)
+        if freed:
+            self._inuse[self._network.last - int(ip_addr)] = 0
     # end ip_free
 
     # check if IP address belongs to us
+    @classmethod
+    def ip_belongs_to(cls, ipnet, ipaddr):
+        return IPAddress(ipaddr) in ipnet
+    # end ip_belongs_to
+
     def ip_belongs(self, ipaddr):
-        return IPAddress(ipaddr) in self._network
+        return self.ip_belongs_to(self._network, ipaddr)
     # end ip_belongs
 
     def set_version(self, version):
@@ -148,24 +225,73 @@ class Subnet(object):
 
 # end class Subnet
 
+
 # Address management for virtual network
-
-
 class AddrMgmt(object):
 
     def __init__(self, server_mgr):
-        self.vninfo = {}
+        #self.vninfo = {}
         self.version = 0
         self._server_mgr = server_mgr
         self._db_conn = None
+        self._subnet_objs = {}
     # end __init__
 
     def _get_db_conn(self):
         if not self._db_conn:
             self._db_conn = self._server_mgr.get_db_connection()
+            Subnet._db_conn = self._db_conn
 
         return self._db_conn
     # end _get_db_conn
+
+    def _vninfo_is_present(self, vn_fq_name_str):
+        return self._db_conn.hkey_is_present('vninfo', vn_fq_name_str)
+    # end _vninfo_is_present
+
+    def _vninfo_set(self, vn_fq_name_str, vn_val):
+        self._db_conn.hkey_set('vninfo', vn_fq_name_str, vn_val)
+    # end _vninfo_get
+
+    def _vninfo_get(self, vn_fq_name_str):
+        return self._db_conn.hkey_get('vninfo', vn_fq_name_str)
+    # end _vninfo_get
+
+    def _vninfo_getall(self):
+        return self._db_conn.hkey_getall('vninfo')
+    # end _vninfo_getall
+
+    def _vninfo_delete(self, vn_fq_name_str):
+        self._db_conn.hkey_delete('vninfo', vn_fq_name_str)
+    # end _vninfo_delete
+
+    def _vninfo_subnet_is_present(self, vn_fq_name_str, subnet_name):
+        self._db_conn.hkey_is_present(vn_fq_name_str, subnet_name)
+    # end _vninfo_subnet_is_present
+
+    def _vninfo_subnet_set(self, vn_fq_name_str, subnet_name, subnet_dict):
+        self._db_conn.hkey_set(vn_fq_name_str, subnet_name, subnet_dict)
+    # end _vninfo_subnet_set
+
+    def _vninfo_subnet_get(self, vn_fq_name_str, subnet_name):
+        subnet_dict = self._db_conn.hkey_get(vn_fq_name_str, subnet_name)
+        return subnet_dict
+    # end _vninfo_subnet_get
+
+    def _vninfo_subnet_getall(self, vn_fq_name_str):
+        subnet_dicts = self._db_conn.hkey_getall(vn_fq_name_str)
+        if not subnet_dicts:
+            return None
+
+        for key in subnet_dicts.keys():
+            subnet_dicts[key] = json.loads(subnet_dicts[key])
+
+        return subnet_dicts.items()
+    #end _vninfo_subnet_getall
+
+    def _vninfo_subnet_delete(self, vn_fq_name_str, subnet_name):
+        self._db_conn.hkey_delete(vn_fq_name_str, subnet_name)
+    # end _vninfo_subnet_delete
 
     def net_create(self, obj_dict, obj_uuid=None):
         db_conn = self._get_db_conn()
@@ -174,8 +300,8 @@ class AddrMgmt(object):
         else:
             vn_fq_name_str = ':'.join(obj_dict['fq_name'])
 
-        if vn_fq_name_str not in self.vninfo:
-            self.vninfo[vn_fq_name_str] = {}
+        if not self._vninfo_is_present(vn_fq_name_str):
+            self._vninfo_set(vn_fq_name_str, None)
 
         # using versioning to detect deleted subnets
         version = self.version + 1
@@ -192,35 +318,51 @@ class AddrMgmt(object):
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
                     gateway_ip = ipam_subnet.get('default_gateway', None)
-                    if subnet_name not in self.vninfo[vn_fq_name_str]:
-                        subnet = Subnet(
+                    if not self._vninfo_subnet_is_present(vn_fq_name_str,
+                                                          subnet_name):
+                        subnet_obj = Subnet(
                             '%s:%s' % (vn_fq_name_str, subnet_name),
-                            subnet['ip_prefix'], str(
-                                subnet['ip_prefix_len']),
+                            subnet['ip_prefix'], str(subnet['ip_prefix_len']),
                             gw=gateway_ip,
                             db_conn=db_conn)
-                        ipam_subnet['default_gateway'] = str(subnet.gw_ip)
-                        self.vninfo[vn_fq_name_str][subnet_name] = subnet
-                    else:  # subnet present already
+                        self._subnet_objs[subnet_obj.get_name()] = subnet_obj
+                        ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
+                        subnet_obj.set_version(version)
+                        subnet_dict = {'name': subnet_name,
+                                       'version': version,
+                                       'prefix': subnet['ip_prefix'],
+                                       'prefix_len':
+                                       str(subnet['ip_prefix_len']),
+                                       'gw': gateway_ip,
+                                       'exclude': [str(ip) for ip in
+                                                   subnet_obj.get_exclude()]}
+                    else:  # subnet is present
+                        subnet_dict = self._vninfo_subnet_get(vn_fq_name_str,
+                                                              subnet_name)
+                        # bump up the version
+                        subnet_dict['version'] = version
                         # always ensure default_gateway cannot be reset to NULL
                         if not gateway_ip:
                             subnet = self.vninfo[vn_fq_name_str][subnet_name]
-                            ipam_subnet['default_gateway'] = str(subnet.gw_ip)
+                            ipam_subnet['default_gateway'] = subnet_dict['gw']
 
-                    # bump up the version
-                    self.vninfo[vn_fq_name_str][
-                        subnet_name].set_version(version)
+                    self._vninfo_subnet_set(vn_fq_name_str,
+                                            subnet_name,
+                                            subnet_dict)
 
             # purge old subnets based on version mismatch
-            for name, subnet in self.vninfo[vn_fq_name_str].items():
-                if subnet.get_version() != version:
-                    del self.vninfo[vn_fq_name_str][name]
+            subnet_items = self._vninfo_subnet_getall(vn_fq_name_str)
+            for subnet_name, subnet_dict in subnet_items:
+                if subnet_dict['version'] != version:
+                    self._vninfo_subnet_delete(vn_fq_name_str, subnet_name)
     # end net_create
 
     # purge all subnets associated with a virtual network
     def net_delete(self, obj_dict):
-        vn_name = ':'.join(obj_dict['fq_name'])
-        self.vninfo[vn_name] = {}
+        vn_fq_name_str = ':'.join(obj_dict['fq_name'])
+        self._vninfo_set(vn_fq_name_str, None)
+        #vn_name = ':'.join(obj_dict['fq_name'])
+        #self.vninfo[vn_name] = {}
     # end net_delete
 
     # check subnets associated with a virtual network, return error if
@@ -335,16 +477,35 @@ class AddrMgmt(object):
     # we use the first available subnet unless provided
     def ip_alloc(self, vn_fq_name, sub=None, asked_ip_addr=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        if vn_fq_name_str in self.vninfo:
-            if not self.vninfo[vn_fq_name_str]:
+        subnet_name = ''
+        if self._vninfo_is_present(vn_fq_name_str):
+            subnet_items = self._vninfo_subnet_getall(vn_fq_name_str)
+            if not subnet_items:
                 raise AddrMgmtSubnetUndefined(vn_fq_name_str)
 
-            for subnet_name, subnet in self.vninfo[vn_fq_name_str].items():
+            for subnet_name, subnet_dict in subnet_items:
                 if sub and sub != subnet_name:
                     continue
-                if asked_ip_addr and not subnet.ip_belongs(asked_ip_addr):
+
+                # create subnet_obj internally if it was created by some other
+                # api-server before
+                try:
+                    subnet_obj = self._subnet_objs['%s:%s'
+                                                   % (vn_fq_name_str,
+                                                      subnet_name)]
+                except KeyError:
+                    subnet_obj = Subnet('%s:%s' % (vn_fq_name_str,
+                                                   subnet_name),
+                                        subnet_dict['prefix'],
+                                        subnet_dict['prefix_len'],
+                                        gw=subnet_dict['gw'])
+                    subnet_fq_name = '%s:%s' % (vn_fq_name_str, subnet_name)
+                    self._subnet_objs[subnet_fq_name] = subnet_obj
+
+                if asked_ip_addr and not subnet_obj.ip_belongs(asked_ip_addr):
                     continue
-                ip_addr = subnet.ip_alloc(ipaddr=asked_ip_addr)
+
+                ip_addr = subnet_obj.ip_alloc(ipaddr=asked_ip_addr)
                 if ip_addr is not None or sub:
                     return ip_addr
 
@@ -353,13 +514,30 @@ class AddrMgmt(object):
 
     def ip_free(self, ip_addr, vn_fq_name, sub=None):
         vn_fq_name_str = ':'.join(vn_fq_name)
-        if vn_fq_name_str in self.vninfo:
-            for subnet_name, subnet in self.vninfo[vn_fq_name_str].items():
+        if self._vninfo_is_present(vn_fq_name_str):
+            subnet_items = self._vninfo_subnet_getall(vn_fq_name_str)
+            for subnet_name, subnet_dict in subnet_items:
                 if sub and sub != subnet_name:
                     continue
-                if subnet.ip_belongs(ip_addr):
-                    subnet.ip_free(ip_addr)
-                    break
+
+                # if we have subnet_obj free it via instance method,
+                # updating inuse bitmask, else free it via class method
+                # and there is no inuse bitmask to worry about
+                try:
+                    subnet_obj = self._subnet_objs['%s:%s'
+                                                   % (vn_fq_name_str,
+                                                      subnet_name)]
+                    subnet_obj.ip_free(IPAddress(ip_addr))
+                except KeyError:
+                    exclude_addrs = [IPAddress(x) for x in
+                                     subnet_dict['exclude']]
+                    if Subnet.ip_belongs_to(IPNetwork(subnet_name),
+                                            IPAddress(ip_addr)):
+                        Subnet.ip_free_cls('%s:%s' % (vn_fq_name, subnet_name),
+                                           IPNetwork(subnet_name),
+                                           exclude_addrs,
+                                           IPAddress(ip_addr))
+                        break
     # end ip_free
 
     # Given IP address count on given virtual network, subnet/List of subnet

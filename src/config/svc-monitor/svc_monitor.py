@@ -7,6 +7,7 @@ Service monitor to instantiate/scale/monitor services like firewall, LB, ...
 """
 
 import gevent
+from cfgm_common.discovery import DiscoveryService
 from gevent import monkey
 monkey.patch_all()
 import sys
@@ -21,6 +22,7 @@ import time
 import datetime
 
 import re
+import os
 
 import pycassa
 from pycassa.system_manager import *
@@ -948,6 +950,8 @@ def parse_args(args_str):
                          --cassandra_server_list 10.1.2.3:9160
                          --api_server_ip 10.1.2.3
                          --api_server_port 8082
+                         --zk_server_ip 10.1.2.3
+                         --zk_server_port 2181
                          --collector 127.0.0.1
                          --collector_port 8080
                          --disc_server_ip 127.0.0.1
@@ -976,6 +980,8 @@ def parse_args(args_str):
         'cassandra_server_list': '127.0.0.1:9160',
         'api_server_ip': '127.0.0.1',
         'api_server_port': '8082',
+        'zk_server_ip': '127.0.0.1',
+        'zk_server_port': '2181',
         'collector': None,
         'collector_port': None,
         'disc_server_ip': None,
@@ -1071,7 +1077,7 @@ def parse_args(args_str):
     parser.add_argument("--admin_password",
                         help="Password of keystone admin user")
     parser.add_argument("--admin_tenant_name",
-                        help="Tenamt name for keystone admin user")
+                        help="Tenant name for keystone admin user")
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
@@ -1079,11 +1085,7 @@ def parse_args(args_str):
 # end parse_args
 
 
-def main(args_str=None):
-    if not args_str:
-        args_str = ' '.join(sys.argv[1:])
-    args = parse_args(args_str)
-
+def run_svc_monitor(args=None):
     # Retry till API server is up
     connected = False
     while not connected:
@@ -1100,6 +1102,16 @@ def main(args_str=None):
     timer_task = gevent.spawn(launch_timer, monitor)
     cleanup_task = gevent.spawn(launch_cleanup, monitor)
     gevent.joinall([ssrc_task, timer_task, cleanup_task])
+# end run_svc_monitor
+
+def main(args_str=None):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
+    args = parse_args(args_str)
+
+    _disc_service = DiscoveryService(args.zk_server_ip, args.zk_server_port)
+    _disc_service.master_election("/svc-monitor", os.getpid(),
+                                  run_svc_monitor, args)
 # end main
 
 if __name__ == '__main__':

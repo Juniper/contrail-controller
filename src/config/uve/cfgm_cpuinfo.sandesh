@@ -23,7 +23,7 @@ struct  ModuleCpuState {
     2: optional bool deleted
     3: optional list<ModuleCpuInfo> module_cpu_info (aggtype="union")
     4: optional string build_info
-    5: optional string config_node_ip
+    5: optional list<string> config_node_ip
     6: optional double api_server_cpu_share (aggtype="stats")
     7: optional double schema_xmer_cpu_share (aggtype="stats")
     8: optional double service_monitor_cpu_share (aggtype="stats")

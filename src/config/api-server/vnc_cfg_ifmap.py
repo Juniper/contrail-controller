@@ -7,6 +7,7 @@ Layer that transforms VNC config objects to ifmap representation
 """
 from gevent import ssl, monkey
 monkey.patch_all()
+import gevent
 import sys
 import time
 from pprint import pformat
@@ -18,6 +19,8 @@ import re
 import socket
 import errno
 import subprocess
+import netaddr
+from bitarray import bitarray
 
 from cfgm_common.ifmap.client import client, namespaces
 from cfgm_common.ifmap.request import NewSessionRequest, RenewSessionRequest,\
@@ -31,6 +34,7 @@ from cfgm_common.ifmap.operations import PublishUpdateOperation,\
 from cfgm_common.ifmap.util import attr, link_ids
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
+from cfgm_common import obj_to_json
 
 import copy
 import json
@@ -41,6 +45,8 @@ import pycassa.util
 from pycassa.system_manager import *
 from datetime import datetime
 from pycassa.util import *
+
+import redis
 
 #from cfgm_common import vnc_type_conv
 from provision_defaults import *
@@ -599,6 +605,8 @@ class VncCassandraClient(VncCassandraClientGen):
             else:
                 bch.remove(old_ref_uuid, columns=[
                            'backref:%s:%s' % (obj_type, obj_uuid)])
+                self._db_client_mgr.dbe_cache_invalidate({'uuid':
+                                                         old_ref_uuid})
         else:
             # retain old ref with new ref attr
             new_ref_data = new_ref_infos[ref_type][old_ref_uuid]
@@ -616,6 +624,8 @@ class VncCassandraClient(VncCassandraClientGen):
                     old_ref_uuid,
                     {'backref:%s:%s' %
                      (obj_type, obj_uuid): json.dumps(new_ref_data)})
+                self._db_client_mgr.dbe_cache_invalidate({'uuid':
+                                                         old_ref_uuid})
             # uuid has been accounted for, remove so only new ones remain
             del new_ref_infos[ref_type][old_ref_uuid]
     # end _update_ref
@@ -710,23 +720,29 @@ class VncCassandraClient(VncCassandraClientGen):
         self._useragent_kv_cf.remove(key)
     # end useragent_kv_delete
 
-    def subnet_store(self, name, bitmask):
-        columns = {'bitmask': bitmask}
-        self._subnet_cf.insert(name, columns)
-    # end subnet_store
+    def subnet_add_cols(self, subnet_fq_name, col_dict):
+        self._subnet_cf.insert(subnet_fq_name, col_dict)
+    # end subnet_add_cols
 
-    def subnet_retrieve(self, key):
+    def subnet_delete_cols(self, subnet_fq_name, col_names):
+        self._subnet_cf.remove(subnet_fq_name, col_names)
+    # end subnet_delete_cols
+
+    def subnet_retrieve(self, subnet_fq_name):
         try:
-            columns = self._subnet_cf.get(key)
+            cols_iter = self._subnet_cf.xget(subnet_fq_name)
         except pycassa.NotFoundException:
-            # ok to fail as not all subnets will have bitmask allocated
+            # ok to fail as not all subnets will have in-use addresses
             return None
-        return columns['bitmask']
+
+        cols_dict = dict((k, v) for k, v in cols_iter)
+
+        return cols_dict
     # end subnet_retrieve
 
-    def subnet_delete(self, key):
+    def subnet_delete(self, subnet_fq_name):
         try:
-            self._subnet_cf.remove(key)
+            self._subnet_cf.remove(subnet_fq_name)
         except pycassa.NotFoundException:
             # ok to fail as not all subnets will have bitmask allocated
             return None
@@ -746,11 +762,154 @@ class VncCassandraClient(VncCassandraClientGen):
 # end class VncCassandraClient
 
 
-class VncDbClient(object):
+class VncRedisClient(object):
+    def __init__(self, db_client_mgr, redis_srv_ip, redis_srv_port, ifmap_db):
+        self._db_client_mgr = db_client_mgr
+        self._sync_conn = redis.StrictRedis(host=redis_srv_ip,
+                                            port=int(redis_srv_port))
+        self._async_conn = self._sync_conn.pubsub()
+        self._ifmap_db = ifmap_db
+        gevent.spawn(self._dbe_oper_subscribe)
+    #end __init__
 
+    def dbe_create(self, obj_ids, val):
+        self._sync_conn.set(obj_ids['uuid'], json.dumps(val))
+    #end dbe_create
+
+    def dbe_read(self, obj_ids):
+        val = self._sync_conn.get(obj_ids['uuid'])
+        if val:
+            return (True, json.loads(val))
+        else:
+            return (False, None)
+    #end dbe_read
+
+    def dbe_invalidate(self, obj_ids):
+        self._sync_conn.delete([obj_ids['uuid']])
+    #end dbe_invalidate
+
+    def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
+        oper_info = {'oper': 'CREATE', 'type': obj_type, 'obj_dict': obj_dict}
+        oper_info.update(obj_ids)
+        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
+    #end dbe_create_publish
+
+    def _dbe_create_notification(self, obj_info):
+        obj_dict = obj_info['obj_dict']
+
+        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+        if r_class:
+            r_class.dbe_create_notification(obj_info, obj_dict)
+
+        method_name = obj_info['type'].replace('-', '_')
+        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
+        (ok, result) = method(obj_info, obj_dict)
+    #end _dbe_create_notification
+
+    def dbe_update_publish(self, obj_type, obj_ids):
+        oper_info = {'oper': 'UPDATE', 'type': obj_type}
+        oper_info.update(obj_ids)
+        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
+    #end dbe_update_publish
+
+    def _dbe_update_notification(self, obj_info):
+        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+        if r_class:
+            r_class.dbe_update_notification(obj_info)
+
+        ifmap_id = self._db_client_mgr.uuid_to_ifmap_id(obj_info['type'],
+                                                        obj_info['uuid'])
+
+        (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        new_obj_dict = result
+
+        method_name = obj_info['type'].replace('-', '_')
+        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
+        (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+    #end _dbe_update_notification
+
+    def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
+        oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
+        oper_info.update(obj_ids)
+        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
+    #end dbe_delete_publish
+
+    def _dbe_delete_notification(self, obj_info):
+        obj_dict = obj_info['obj_dict']
+
+        r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
+        if r_class:
+            r_class.dbe_delete_notification(obj_info, obj_dict)
+
+        method_name = obj_info['type'].replace('-', '_')
+        method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
+        (ok, ifmap_result) = method(obj_info)
+    #end _dbe_delete_notification
+
+    def _dbe_oper_subscribe(self):
+        # subscribe early but wait for resync to finish. this ensures that
+        # we capture all updates on objects (since we've subscribed it lies in
+        # channel till read) while resync (essentially a walk) is happening.
+        # if we don't subscribe early, walk might miss updates on already
+        # visited objects
+        self._async_conn.subscribe('dbe_oper_chan')
+        self._db_client_mgr.wait_for_resync_done()
+
+        for msg in self._async_conn.listen():
+            try:
+                if msg['type'] != 'message':
+                    continue
+
+                oper_info = json.loads(msg['data'])
+                if oper_info['oper'] == 'CREATE':
+                    self._dbe_create_notification(oper_info)
+                if oper_info['oper'] == 'UPDATE':
+                    self._dbe_update_notification(oper_info)
+                elif oper_info['oper'] == 'DELETE':
+                    self._dbe_delete_notification(oper_info)
+            except Exception as e:
+                print "Exception in _dbe_oper_subscribe: " + str(e)
+    #end _dbe_oper_subscribe
+
+    def key_test_set(self, key, val):
+        return self._sync_conn.setnx(key, val)
+    #end test_set_key
+
+    def key_release(self, key):
+        return self._sync_conn.delete(key)
+    #end key_release
+
+    def hkey_is_present(self, key, hkey):
+        return self._sync_conn.hexists(key, hkey)
+    #end hkey_is_present
+
+    def hkey_set(self, key, hkey, val):
+        self._sync_conn.hset(key, hkey, json.dumps(val, default=obj_to_json))
+    #end hkey_set
+
+    def hkey_get(self, key, hkey):
+        json_val = self._sync_conn.hget(key, hkey)
+        if json_val:
+            return json.loads(json_val)
+        else:
+            return None
+    #end hkey_get
+
+    def hkey_getall(self, key):
+        return self._sync_conn.hgetall(key)
+    #end hkey_getall
+
+    def hkey_delete(self, key, hkey):
+        return self._sync_conn.hdel(key, hkey)
+    #end hkey_delete
+
+#end class VncRedisClient
+
+
+class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, cass_srv_list, reset_config=False,
-                 ifmap_srv_loc=None):
+                 passwd, redis_srv_ip, redis_srv_port, cass_srv_list,
+                 reset_config=False, ifmap_srv_loc=None):
 
         self._api_svr_mgr = api_svr_mgr
 
@@ -764,6 +923,9 @@ class VncDbClient(object):
                 'cert_reqs': ssl.CERT_REQUIRED,
                 'ciphers': 'ALL'
             }
+
+        self._db_resync_done = gevent.event.Event()
+
         self._ifmap_db = VncIfmapClient(
             self, ifmap_srv_ip, ifmap_srv_port,
             uname, passwd, ssl_options, ifmap_srv_loc)
@@ -771,11 +933,18 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
+        self._redis_db = VncRedisClient(self, redis_srv_ip, redis_srv_port,
+                                        self._ifmap_db)
     # end __init__
 
     def db_resync(self):
         # Read contents from cassandra and publish to ifmap
         self._cassandra_db.walk(self._dbe_resync)
+        self._db_resync_done.set()
+    # end db_resync
+
+    def wait_for_resync_done(self):
+        self._db_resync_done.wait()
     # end db_resync
 
     def db_check(self):
@@ -812,18 +981,20 @@ class VncDbClient(object):
     # end
 
     def _dbe_resync(self, obj_uuid, obj_cols):
-        obj_type = json.loads(obj_cols['type'])
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" % (obj_type))
+        obj_type = None
         try:
+            obj_type = json.loads(obj_cols['type'])
+            method = getattr(self._cassandra_db,
+                             "_cassandra_%s_read" % (obj_type))
             (ok, obj_dict) = method(obj_uuid)
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
             return
 
-        parent_type = obj_dict.get('parent_type', None)
-        method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
         try:
+            parent_type = obj_dict.get('parent_type', None)
+            method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (obj_type))
             (ok, result) = method(parent_type, obj_dict['fq_name'])
             (my_imid, parent_imid) = result
         except Exception as e:
@@ -831,10 +1002,10 @@ class VncDbClient(object):
                 obj_uuid, None, obj_type, 'dbe_resync:ifmap_alloc', str(e))
             return
 
-        obj_ids = {'uuid': obj_uuid, 'imid':
-                   my_imid, 'parent_imid': parent_imid}
-        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
         try:
+            obj_ids = {'uuid': obj_uuid, 'imid': my_imid,
+                       'parent_imid': parent_imid}
+            method = getattr(self._ifmap_db, "_ifmap_%s_create" % (obj_type))
             (ok, result) = method(obj_ids, obj_dict)
         except Exception as e:
             self.config_object_error(
@@ -843,9 +1014,11 @@ class VncDbClient(object):
     # end _dbe_resync
 
     def _dbe_check(self, obj_uuid, obj_cols):
-        obj_type = json.loads(obj_cols['type'])
-        method = getattr(self._cassandra_db, "_cassandra_%s_read" % (obj_type))
+        obj_type = None
         try:
+            obj_type = json.loads(obj_cols['type'])
+            method = getattr(self._cassandra_db,
+                             "_cassandra_%s_read" % (obj_type))
             (ok, obj_dict) = method(obj_uuid)
         except Exception as e:
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
@@ -881,21 +1054,24 @@ class VncDbClient(object):
             self._cassandra_db, "_cassandra_%s_create" % (method_name))
         (ok, result) = method(obj_ids, obj_dict)
 
-        # publish to ifmap
-        method_name = obj_type.replace('-', '_')
-        method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
-        (ok, result) = method(obj_ids, obj_dict)
+        # publish to ifmap via redis
+        self._redis_db.dbe_create_publish(obj_type, obj_ids, obj_dict)
 
         return (ok, result)
     # end dbe_create
 
     # input id is ifmap-id + uuid
     def dbe_read(self, obj_type, obj_ids, obj_fields=None):
+        #(found, redis_result) = self._redis_db.dbe_read(obj_ids)
+        #if found:
+        #    return (True, redis_result)
+
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_read" % (method_name))
         try:
             (ok, cassandra_result) = method(obj_ids['uuid'], obj_fields)
+            self._redis_db.dbe_create(obj_ids, cassandra_result)
         except NoIdError as e:
             return (False, str(e))
 
@@ -912,23 +1088,15 @@ class VncDbClient(object):
 
     def dbe_update(self, obj_type, obj_ids, new_obj_dict):
         method_name = obj_type.replace('-', '_')
-        # read old value to get diff for ifmap
-        method = getattr(
-            self._cassandra_db, "_cassandra_%s_read" % (method_name))
-        try:
-            (ok, old_obj_dict) = method(obj_ids['uuid'])
-        except NoIdError as e:
-            return (False, str(e))
+        method = getattr(self._cassandra_db,
+                         "_cassandra_%s_update" % (method_name))
+        (ok, cassandra_result) = method(obj_ids['uuid'], new_obj_dict)
 
-        method = getattr(
-            self._cassandra_db, "_cassandra_%s_update" % (method_name))
-        (ok, cassandra_result) = method(obj_ids['uuid'], None, new_obj_dict)
+        # nuke cached value
+        self._redis_db.dbe_invalidate(obj_ids)
 
-        # publish to ifmap
-        method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
-        fq_name = self._cassandra_db.uuid_to_fq_name(obj_ids['uuid'])
-        ifmap_id = self._ifmap_db.fq_name_to_ifmap_id(obj_type, fq_name)
-        (ok, ifmap_result) = method(ifmap_id, old_obj_dict, new_obj_dict)
+        # publish to ifmap via redis
+        self._redis_db.dbe_update_publish(obj_type, obj_ids)
 
         return (ok, cassandra_result)
     # end dbe_update
@@ -942,21 +1110,24 @@ class VncDbClient(object):
         return (ok, cassandra_result)
     # end dbe_list
 
-    def dbe_delete(self, obj_type, obj_ids):
-        fq_name = self._cassandra_db.uuid_to_fq_name(obj_ids['uuid'])
+    def dbe_delete(self, obj_type, obj_ids, obj_dict):
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_delete" % (method_name))
         (ok, cassandra_result) = method(obj_ids['uuid'])
 
-        # publish to ifmap
-        method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
-        (ok, ifmap_result) = method(obj_ids)
-        if not ok:
-            return ok, ifmap_result
+        # nuke cached value
+        self._redis_db.dbe_invalidate(obj_ids)
 
-        return ok, ifmap_result
+        # publish to ifmap via redis
+        self._redis_db.dbe_delete_publish(obj_type, obj_ids, obj_dict)
+
+        return ok, cassandra_result
     # end dbe_delete
+
+    def dbe_cache_invalidate(self, obj_ids):
+        self._redis_db.dbe_invalidate(obj_ids)
+    # end dbe_cache_invalidate
 
     def useragent_kv_store(self, key, value):
         self._cassandra_db.useragent_kv_store(key, value)
@@ -970,9 +1141,13 @@ class VncDbClient(object):
         return self._cassandra_db.useragent_kv_delete(key)
     # end useragent_kv_delete
 
-    def subnet_store(self, name, bitmask):
-        self._cassandra_db.subnet_store(name, bitmask)
-    # end subnet_store
+    def subnet_add_cols(self, subnet_fq_name, col_dict):
+        self._cassandra_db.subnet_add_cols(subnet_fq_name, col_dict)
+    # end subnet_add_cols
+
+    def subnet_delete_cols(self, subnet_fq_name, col_names):
+        self._cassandra_db.subnet_delete_cols(subnet_fq_name, col_names)
+    # end subnet_delete_cols
 
     def subnet_retrieve(self, key):
         return self._cassandra_db.subnet_retrieve(key)
@@ -986,8 +1161,9 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_vnlist()
     # end uuid_vnlist
 
-    def uuid_to_ifmap_id(self, id):
-        return self._cassandra_db.uuid_to_ifmap_id(id)
+    def uuid_to_ifmap_id(self, obj_type, id):
+        fq_name = self.uuid_to_fq_name(id)
+        return self.fq_name_to_ifmap_id(obj_type, fq_name)
     # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
@@ -1006,13 +1182,47 @@ class VncDbClient(object):
         return self._ifmap_db.ifmap_id_to_fq_name(ifmap_id)
     # end ifmap_id_to_fq_name
 
-    # def ifmap_id_to_uuid(self, ifmap_id):
-    #    return self._cassandra_db.fq_name_to_uuid(fq_name)
-    # end ifmap_id_to_uuid
+    def fq_name_to_ifmap_id(self, obj_type, fq_name):
+        return self._ifmap_db.fq_name_to_ifmap_id(obj_type, fq_name)
+    # end fq_name_to_ifmap_id
 
     def uuid_to_obj_dict(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_dict(obj_uuid)
     # end uuid_to_obj_dict
+
+    # helper routines for redis service
+    def key_test_set(self, key, val=None):
+        # return true if atomically set'd
+        return self._redis_db.key_test_set(key, val)
+    # end key_test_set
+
+    def key_release(self, key):
+        return self._redis_db.key_release(key)
+    # end key_release
+
+    def hkey_is_present(self, key, hkey):
+        return self._redis_db.hkey_is_present(key, hkey)
+    # end hkey_is_present
+
+    def hkey_set(self, key, hkey, val):
+        self._redis_db.hkey_set(key, hkey, val)
+    # end hkey_set
+
+    def hkey_get(self, key, hkey):
+        return self._redis_db.hkey_get(key, hkey)
+    # end hkey_get
+
+    def hkey_getall(self, key):
+        return self._redis_db.hkey_getall(key)
+    # end hkey_getall
+
+    def hkey_delete(self, key, hkey):
+        return self._redis_db.hkey_delete(key, hkey)
+    # end hkey_delete
+
+    def get_resource_class(self, resource_type):
+        return self._api_svr_mgr.get_resource_class(resource_type)
+    # end get_resource_class
 
     # Helper routines for REST
     def generate_url(self, obj_type, obj_uuid):
