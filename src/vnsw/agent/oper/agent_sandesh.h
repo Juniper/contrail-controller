@@ -141,6 +141,19 @@ private:
     VrfEntry *vrf_;
 };
 
+class AgentLayer2RtSandesh : public AgentSandesh {
+public:
+    AgentLayer2RtSandesh(VrfEntry *vrf, std::string context,
+                          std::string name) : AgentSandesh(context, name), vrf_(vrf){}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+    bool UpdateResp(DBEntryBase *entry);
+
+    VrfEntry *vrf_;
+};
+
 class AgentAclSandesh : public AgentSandesh {
 public:
     AgentAclSandesh(std::string context, std::string name) : AgentSandesh(context, name) {}
@@ -163,6 +176,15 @@ private:
 class AgentVrfAssignSandesh : public AgentSandesh {
 public:
     AgentVrfAssignSandesh(std::string context) : AgentSandesh(context, "") {}
+
+private:
+    DBTable *AgentGetTable();
+    void Alloc();
+};
+
+class AgentVxLanSandesh : public AgentSandesh {
+public:
+    AgentVxLanSandesh(std::string context) : AgentSandesh(context, "") {}
 
 private:
     DBTable *AgentGetTable();

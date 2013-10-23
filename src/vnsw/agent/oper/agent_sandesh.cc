@@ -6,18 +6,16 @@
 #include <cmn/agent_db.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
+#include <oper/agent_route.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface.h>
 #include <oper/nexthop.h>
 #include <oper/vrf.h>
-#include <oper/inet4_route.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
-#include <oper/vm_path.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
 #include <oper/vrf_assign.h>
+#include <oper/vxlan.h>
 #include <filter/acl.h>
 #include <oper/sg.h>
 
@@ -78,7 +76,8 @@ void AgentVrfSandesh::Alloc() {
 }
 
 DBTable *AgentInet4UcRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->GetInet4UcRouteTable());
+    return static_cast<DBTable *>(vrf_->
+       GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
 }
 
 void AgentInet4UcRtSandesh::Alloc() {
@@ -86,7 +85,7 @@ void AgentInet4UcRtSandesh::Alloc() {
 }
 
 bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
-    Inet4UcRoute *rt = static_cast<Inet4UcRoute *>(entry);
+    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>(entry);
     if (dump_table_) {
         return rt->DBEntrySandesh(resp_);
     }
@@ -94,7 +93,8 @@ bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
 }
 
 DBTable *AgentInet4McRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->GetInet4McRouteTable());
+    return static_cast<DBTable *>(vrf_->
+       GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
 }
 
 void AgentInet4McRtSandesh::Alloc() {
@@ -102,7 +102,21 @@ void AgentInet4McRtSandesh::Alloc() {
 }
 
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
-    Inet4Route *rt = static_cast<Inet4Route *>(entry);
+    RouteEntry *rt = static_cast<RouteEntry *>(entry);
+    return rt->DBEntrySandesh(resp_);
+}
+
+DBTable *AgentLayer2RtSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(vrf_->
+       GetRouteTable(AgentRouteTableAPIS::LAYER2));
+}
+
+void AgentLayer2RtSandesh::Alloc() {
+    resp_ = new Layer2RouteResp();
+}
+
+bool AgentLayer2RtSandesh::UpdateResp(DBEntryBase *entry) {
+    RouteEntry *rt = static_cast<RouteEntry *>(entry);
     return rt->DBEntrySandesh(resp_);
 }
 
@@ -133,6 +147,14 @@ DBTable *AgentVrfAssignSandesh::AgentGetTable(){
 
 void AgentVrfAssignSandesh::Alloc(){
     resp_ = new VrfAssignResp();
+}
+
+DBTable *AgentVxLanSandesh::AgentGetTable() {
+    return static_cast<DBTable *>(Agent::GetInstance()->GetVxLanTable());
+}
+
+void AgentVxLanSandesh::Alloc() {
+    resp_ = new VxLanResp();
 }
 
 void AgentSandesh::DoSandesh() {

@@ -16,6 +16,9 @@ void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
     pkt->AddAgentHdr(ifindex, cmd, hash_id, vrf) ;
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
+    if (proto == 1) {
+        pkt->AddIcmpHdr();
+    }
 }
 
 void TxIpPacket(int ifindex, const char *sip, const char *dip, 
@@ -91,6 +94,9 @@ void MakeIpMplsPacket(PktGen *pkt, int ifindex, const char *out_sip,
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
     pkt->AddIpHdr(sip, dip, proto);
+    if (proto == 1) {
+        pkt->AddIcmpHdr();
+    }
 }
 
 void TxIpMplsPacket(int ifindex, const char *out_sip,

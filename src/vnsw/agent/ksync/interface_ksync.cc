@@ -137,8 +137,14 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     }
     if (!analyzer_name_.empty()) {
         uint16_t idx = MirrorKSyncObject::GetIdx(analyzer_name_);
-        flags |= VIF_FLAG_MIRROR_RX;
-        flags |= VIF_FLAG_MIRROR_TX;
+        if (Interface::MIRROR_TX == mirror_direction_) {
+            flags |= VIF_FLAG_MIRROR_TX;
+        } else if (Interface::MIRROR_RX == mirror_direction_) {
+            flags |= VIF_FLAG_MIRROR_RX;
+        } else {
+            flags |= VIF_FLAG_MIRROR_RX;
+            flags |= VIF_FLAG_MIRROR_TX;
+        }
         encoder.set_vifr_mir_id(idx);
     }
 

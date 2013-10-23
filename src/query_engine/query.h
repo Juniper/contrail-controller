@@ -797,7 +797,7 @@ static const int query_result_size_limit = 25000000;
 // main class
 class QueryEngine {
 public:
-    static const uint32_t StartTimeDiffInSec = 12*3600;
+    static const uint64_t StartTimeDiffInSec = 12*3600;
 
     struct QueryParams {
         QueryParams(std::string qi, 

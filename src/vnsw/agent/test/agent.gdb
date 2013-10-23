@@ -31,32 +31,80 @@ define dump_mpls_entries
    pdb_table_entries Agent::singleton_.mpls_table_ mpls_entry_format
 end
 
-define route_entry_format
-    set $__rt = (Inet4Route *)((size_t)($Xnode) - (size_t)&(Route::node_))
+define uc_route_entry_format
+    set $__rt = (Inet4UnicastRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
     set $__ip = $__rt->addr_.addr_.s_addr
     printf "%p  %d.%d.%d.%d/%d\t\t flags=%d\n", $__rt, ($__ip & 0xff),\
                                    ($__ip >> 8 & 0xff), ($__ip >> 16 & 0xff),\
                                    ($__ip >> 24 & 0xff), $__rt->plen_, $__rt->flags
 end
 
-define dump_route_entries
+define mc_route_entry_format
+    set $__rt = (Inet4MulticastRouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
+    set $__ip = $__rt->dst_addr_.addr_.s_addr
+    set $__sip = $__rt->src_addr_.addr_.s_addr
+    printf "%p  %d.%d.%d.%d/%d.%d.%d.%d\t\t flags=%d\n", $__rt, ($__ip & 0xff),\
+                                   ($__ip >> 8 & 0xff), ($__ip >> 16 & 0xff),\
+                                   ($__ip >> 24 & 0xff), ($__sip & 0xff),\
+                                   ($__sip >> 8 & 0xff), ($__sip >> 16 & 0xff),\
+                                   ($__sip >> 24 & 0xff), $__rt->flags
+end
+
+define l2_route_entry_format
+    set $__rt = (Layer2RouteEntry*)((size_t)($Xnode) - (size_t)&(Route::node_))
+    set $__mac = $__rt->mac_
+    printf "%p  %02x:%02x:%02x:%02x:%02x:%02x\t\t flags=%d\n", $__rt,\
+                 ($__mac.ether_addr_octet[0]), ($__mac.ether_addr_octet[1]),\
+                 ($__mac.ether_addr_octet[2]), ($__mac.ether_addr_octet[3]),\
+                 ($__mac.ether_addr_octet[4]), ($__mac.ether_addr_octet[5]),\
+                  $__rt->flags
+end
+
+define dump_uc_v4_route_entries
    if $argc != 1
-       help dump_route_entries
+       help dump_uc_v4_route_entries
    else 
-       pdb_table_entries $arg0 route_entry_format
+       pdb_table_entries $arg0 uc_route_entry_format
    end 
 end
 
-document dump_route_entries
+define dump_mc_v4_route_entries
+   if $argc != 1
+       help dump_mc_v4_route_entries
+   else 
+       pdb_table_entries $arg0 mc_route_entry_format
+   end 
+end
+
+define dump_l2_route_entries
+   if $argc != 1
+       help dump_l2_route_entries
+   else 
+       pdb_table_entries $arg0 l2_route_entry_format
+   end 
+end
+
+document dump_uc_v4_route_entries
      Prints all route entries in given table 
-     Syntax: dump_route_entries <table>: Prints all route entries in route table
+     Syntax: dump_uc_v4_route_entries <table>: Prints all route entries in UC v4 route table
+end
+
+document dump_mc_v4_route_entries
+     Prints all route entries in given table 
+     Syntax: dump_mc_v4_route_entries <table>: Prints all route entries in MC v4 route table
+end
+
+document dump_l2_route_entries
+     Prints all L2 route entries in given table 
+     Syntax: dump_l2_route_entries <table>: Prints all route entries in L2 route table
 end
 
 define vrf_entry_format
     set $__vrf = (VrfEntry *)((size_t)($Xnode) - (size_t)&(VrfEntry::node_))
-    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p\n", $__vrf,\
+    printf "%p    %-20s    idx=%-4d    ref_count=%-4d   flags=%-4d rt_db=%p mcrt_db=%p layer2_db=%p\n", $__vrf,\
            $__vrf->name_._M_dataplus._M_p, $__vrf->id_, $__vrf->refcount_->rep->value,\
-           $__vrf->flags, $__vrf->inet4_uc_db_, $__vrf->inet4_mc_db_
+           $__vrf->flags, $__vrf->rt_table_db_[0], $__vrf->rt_table_db_[1], \
+           $__vrf->rt_table_db_[2]
 end
 
 define dump_vrf_entries
@@ -82,6 +130,15 @@ define dump_vm_entries
    pdb_table_entries Agent::singleton_.vm_table_ vm_entry_format
 end
 
+define vxlan_entry_format
+    set $__vxlan = (VxLanId *)((size_t)($Xnode) - (size_t)&(VxLanId::node_))
+    printf "%p    label=%-4x   nh=%p\n", $__vxlan, $__vxlan->label_, $__vxlan->nh_.px
+end
+  
+define dump_vxlan_entries
+   pdb_table_entries Agent::GetInstance()->GetVxLanTable() vxlan_entry_format
+end
+ 
 define mirror_entry_format
     set $__mirror = (MirrorEntry *)((size_t)($Xnode) - (size_t)&(MirrorEntry::node_))
     set $__sip = $__mirror->sip_.addr_.s_addr
@@ -163,7 +220,7 @@ define pksync_entries
         help pksync_entries
     else
         # set the node equal to first node and end marker
-        set $Xtree = &((KSyncObject *)$arg0)->tree_.tree_
+        set $Xtree = &((RouteKSyncObject *)$arg0)->tree_.tree_
         set $Xnode = $Xtree->data_.node_plus_pred_.header_plus_size_.header_.left_
         set $Xend = &($Xtree->data_.node_plus_pred_.header_plus_size_.header_)
 

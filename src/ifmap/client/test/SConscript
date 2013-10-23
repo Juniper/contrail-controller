@@ -8,6 +8,7 @@ import sys
 env = BuildEnv.Clone()
 
 env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 
 env.Append(LIBPATH = env['TOP'] + '/io')
 env.Append(LIBPATH = env['TOP'] + '/db')
@@ -18,18 +19,23 @@ env.Append(LIBPATH = env['TOP'] + '/ifmap')
 env.Append(LIBPATH = env['TOP'] + '/xml')
 env.Append(LIBPATH = env['TOP'] + '/xmpp')
 env.Append(LIBPATH = env['TOP'] + '/schema')
+env.Append(LIBPATH = env['TOP'] + '/discovery/client')
 
 env.Prepend(LIBS = [
-                    'ifmapio', 'ifmap_server', 'xmpp', 'peer_sandesh', 'sandesh', 'http',
-                    'http_parser', 'sandeshvns', 'io', 'ifmap_common', 
-                    'ifmap_vnc', 'ifmap_server', 'pugixml', 'xml', 'task_test',
-                    'db', 'curl', 'base', 'gunit', 'crypto', 'ssl',
-                    'boost_regex'
+                    'ifmapio', 'ifmap_server', 'ds', 'xmpp', 'peer_sandesh',
+                    'sandesh', 'http', 'http_parser', 'httpc', 'curl',
+                    'sandeshvns', 'io', 'ifmap_common', 'ifmap_vnc', 
+                    'pugixml', 'xml', 'task_test', 'db', 'curl', 'base',
+                    'gunit', 'crypto', 'ssl', 'boost_regex'
                    ])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-ifmap_state_machine_test = env.Program('ifmap_state_machine_test',
-                                       ['ifmap_state_machine_test.cc'])
-env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)
+#ifmap_state_machine_test = env.Program('ifmap_state_machine_test',
+#                                       ['ifmap_state_machine_test.cc'])
+#env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)
+
+peer_server_finder_test = env.Program('peer_server_finder_test',
+                                       ['peer_server_finder_test.cc'])
+env.Alias('src/ifmap/client:peer_server_finder_test', peer_server_finder_test)

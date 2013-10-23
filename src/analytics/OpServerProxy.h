@@ -24,8 +24,8 @@ public:
 
     // To construct this interface, pass in the hostname and port for Redis
     OpServerProxy(EventManager *evm, VizCollector *collector,
-            const std::string & redis_ip,
-            unsigned short redis_port,
+            const std::string & redis_sentinel_ip,
+            unsigned short redis_sentinel_port,
             int gen_timeout = 0);
     OpServerProxy() : impl_(NULL) { }
     virtual ~OpServerProxy();

@@ -49,6 +49,8 @@ struct ItfSandeshData {
    22: string analyzer_name; 
    23: string config_name;
    24: list<VmIntfSgUuid> sg_uuid_list;
+   25: i32 l2_label;
+   26: i32 vxlan_id;
 }
 
 struct VnIpamData {
@@ -93,6 +95,29 @@ struct McastData {
     6: optional i16 vlan_tag
 }
 
+struct FabricCompositeData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional list <McastData> mc_list;  //Multicast sub nh list
+}
+
+struct L2CompositeData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
+    5: optional list <McastData> mc_list;  //Multicast sub nh list
+}
+
+struct L3CompositeData {
+    1: string type;
+    2: optional string sip;
+    3: optional string dip;
+    4: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
+    5: optional list <McastData> mc_list;  //Multicast sub nh list
+}
+
 struct NhSandeshData {
     1: string type;                   // type : tunnel / interface / ...
     2: i32 ref_count;                 // count of NH references
@@ -111,18 +136,22 @@ struct NhSandeshData {
    15: optional i16 vlan_tag;         // VLAN Tag for the interface
    16: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
    17: optional string local_ecmp;    //Is Nexthop for local ecmp 
+   18: optional FabricCompositeData fabric_comp;  //Multicast sub nh list
+   19: optional L2CompositeData l2_comp;  //Multicast sub nh list
+   20: optional L3CompositeData l3_comp;  //Multicast sub nh list
 }
 
 struct PathSandeshData {
     1: NhSandeshData nh;              // next hop info
     2: i32 label;                     // mpls label
-    3: string peer;                   // peer originating the path 
-    4: string dest_vn (link="VnListReq"); // destination VN
-    5: string unresolved;             // true or false
-    6: optional string gw_ip;         // GW IP
-    7: optional string vrf (link="VrfListReq"); // Vrf
-    8: string proxy_arp;              // Proxy ARP for this path
-    9: optional list<i32> sg_list;
+    3: i32 vxlan_id;                // VN ID/VXLAN
+    4: string peer;                   // peer originating the path 
+    5: string dest_vn (link="VnListReq"); // destination VN
+    6: string unresolved;             // true or false
+    7: optional string gw_ip;         // GW IP
+    8: optional string vrf (link="VrfListReq"); // Vrf
+    9: string proxy_arp;              // Proxy ARP for this path
+   10: optional list<i32> sg_list;
 }
 
 struct RouteUcSandeshData {
@@ -138,10 +167,17 @@ struct RouteMcSandeshData {
     3: NhSandeshData nh;                // The NH
 }
 
+struct RouteL2SandeshData {
+    1: string mac;                   // MAC addr
+    2: string src_vrf (link="VrfListReq"); // VRF
+    4: list<PathSandeshData> path_list; // paths
+}
+
 struct VrfSandeshData {
     1: string name;                       // VRF name
-    2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index UC Table
-    3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index MC Table
+    2: i32 ucindex  (link="Inet4UcRouteReq"); // VRF Index INET4 UC Table
+    3: i32 mcindex  (link="Inet4McRouteReq"); // VRF Index INET4 MC Table
+    4: i32 l2index  (link="Layer2RouteReq"); // VRF Index L2 Table
 }
 
 struct MplsSandeshData {
@@ -235,6 +271,15 @@ request sandesh Inet4McRouteReq {
 
 response sandesh Inet4McRouteResp {
     1: list<RouteMcSandeshData> route_list; // routes
+}
+
+request sandesh Layer2RouteReq {
+    1: i32 vrf_index = 0;
+    2: string mac;
+}
+
+response sandesh Layer2RouteResp {
+    1: list<RouteL2SandeshData> route_list; // routes
 }
 
 request sandesh ItfReq {
@@ -343,6 +388,12 @@ struct FlowSandeshData {
     25: string implicit_deny;
     26: optional string short_flow;
     27: optional u64 setup_time_utc;
+}
+
+struct VxLanSandeshData {
+    1: i32 label;                     // vxlan label
+    2: NhSandeshData nh;              // next hop info
+    3: optional string vrf_name;      // vrf name from nh
 }
 
 struct AceIdFlowCnt {
@@ -465,6 +516,13 @@ request sandesh MirrorDeleteReq {
 request sandesh MirrorCfgDisplayReq {
     // Handle
     1: string handle;
+}
+
+request sandesh VxLanReq {
+}
+
+response sandesh VxLanResp {
+    1: list<VxLanSandeshData> vxlan_list;
 }
 
 struct MirrorCfgSandesh {
@@ -641,6 +699,7 @@ struct InterfaceInfo {
     7: optional string ip_address;
     8: optional string mac;
     9: optional list<FloatingIPInfo> fip;
+   10: optional i32 vxlan_id;
 }
 
 struct RouteInfo {
@@ -704,6 +763,17 @@ struct NextHopObjectLogInfo {
     15: optional string mac;   //ArpNH MAC/VLAN NH DMAC/INTF NH DMAC
     16: optional list<ComponentNHLogInfo> nh_list;
     17: optional string tunnel_type;   // Tunnel type : MPLSoGRE, MPLSoUDP, ...
+}
+
+struct VxLanObjectLogInfo {
+    1: string event;
+    2: i32 label;
+    3: optional string nh_type;
+    4: optional string vrf_name;
+}
+
+traceobject sandesh OperVxLan {
+    1: VxLanObjectLogInfo VxLan;
 }
 
 traceobject sandesh OperNextHop {

@@ -711,7 +711,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(),
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port)),
+            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         merge_needed(false),
@@ -781,7 +781,7 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(),
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port)),
+            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
         merge_needed(false),
@@ -865,7 +865,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port) :    
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port)),
+            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port)),
         evm_(evm),
@@ -928,26 +928,32 @@ QueryEngine::QueryEngine(EventManager *evm,
     key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
     bool init_done = false;
-    if (dbif_->Db_GetRow(col_list, cfname, key)) {
-        for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
-                it != col_list.columns_.end(); it++) {
-            std::string col_name;
-            try {
-                col_name = boost::get<std::string>(it->name[0]);
-            } catch (boost::bad_get& ex) {
-                LOG(ERROR, __func__ << ": Exception on col_name get");
-            }
-
-            if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
+    retries = 0;
+    while (!init_done && retries < 5) {
+        if (dbif_->Db_GetRow(col_list, cfname, key)) {
+            for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
+                    it != col_list.columns_.end(); it++) {
+                std::string col_name;
                 try {
-                    stime = boost::get<uint64_t>(it->value.at(0));
-                    init_done = true;
+                    col_name = boost::get<std::string>(it->name[0]);
                 } catch (boost::bad_get& ex) {
-                    LOG(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
-                    break;
+                    LOG(ERROR, __func__ << ": Exception on col_name get");
+                }
+
+                if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
+                    try {
+                        stime = boost::get<uint64_t>(it->value.at(0));
+                        init_done = true;
+                    } catch (boost::bad_get& ex) {
+                        LOG(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                        break;
+                    }
                 }
             }
         }
+        retries++;
+        if (!init_done)
+            sleep(5);
     }
     if (!init_done)
         stime = UTCTimestampUsec()-StartTimeDiffInSec*1000000;

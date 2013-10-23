@@ -1355,7 +1355,7 @@ TEST_F(IFMapConfigTest, InitialConfig) {
                                               "system0001");
     string content = FileRead("src/bgp/testdata/initial-config.xml");
     IFMapServerParser *parser =
-        IFMapServerParser::GetInstance("vnc_cfg");
+        IFMapServerParser::GetInstance("schema");
     parser->Receive(&config_db_, content.data(), content.length(), 0);
     task_util::WaitForIdle();
 }

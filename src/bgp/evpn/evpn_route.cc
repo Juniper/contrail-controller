@@ -30,7 +30,7 @@ using boost::system::error_code;
 
 EvpnPrefix::EvpnPrefix(const BgpProtoPrefix &prefix) {
     size_t rd_size = RouteDistinguisher::kSize;
-    size_t esi_size = 0;
+    size_t esi_size = 10;
     size_t tag_size = 4;
     size_t mac_size = MacAddress::kSize;
     size_t ip_size = 4;
@@ -58,7 +58,7 @@ EvpnPrefix::EvpnPrefix(const BgpProtoPrefix &prefix) {
 void EvpnPrefix::BuildProtoPrefix(uint32_t label,
         BgpProtoPrefix *prefix) const {
     size_t rd_size = RouteDistinguisher::kSize;
-    size_t esi_size = 0;
+    size_t esi_size = 10;
     size_t tag_size = 4;
     size_t mac_size = MacAddress::kSize;
     size_t ip_size = 4;

@@ -40,6 +40,9 @@ public:
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) {
         assert(0);
     }
+    virtual void VxLanMsgHandler(vr_vxlan_req *req) {
+        assert(0);
+    }
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
     

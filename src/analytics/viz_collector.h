@@ -29,7 +29,7 @@ public:
 
     VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
-            std::string redis_ip, unsigned short redis_port, 
+            std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
             int gen_timeout = 0, bool dup=false, int analytics_ttl=g_viz_constants.AnalyticsTTL);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
@@ -73,6 +73,8 @@ private:
     void DbifReinitTimerErrorHandler(std::string error_name, std::string error_message);
     void StartDbifReinitTimer();
     void StartDbifReinit();
+
+    std::string DbifGlobalName(bool dup=false);
 
     DISALLOW_COPY_AND_ASSIGN(VizCollector);
 };

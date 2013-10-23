@@ -26,6 +26,7 @@ local_sources = [
            'opserver.py',
            'opserver_client.py',
            'opserver_util.py',
+           'redis_sentinel_client.py',
            'uveserver.py',
           ]
 

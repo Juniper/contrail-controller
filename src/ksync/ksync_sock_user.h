@@ -46,6 +46,7 @@ public:
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req);
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
+    virtual void VxLanMsgHandler(vr_vxlan_req *req);
     virtual void Process() {}
 private:
     bool response_reqd_; 
@@ -90,6 +91,7 @@ public:
         assert(mpls_map.size() == 0);
         assert(mirror_map.size() == 0);
         assert(vrf_assign_tree.size() == 0);
+        assert(vxlan_map.size() == 0);
     }
 
     typedef std::map<int, vr_nexthop_req> ksync_map_nh;
@@ -109,6 +111,8 @@ public:
     typedef std::map<int, vr_vrf_stats_req> ksync_map_vrf_stats;
     ksync_map_vrf_stats vrf_stats_map; 
     vr_drop_stats_req drop_stats;
+    typedef std::map<int, vr_vxlan_req> ksync_map_vxlan;
+    ksync_map_vxlan vxlan_map; 
 
     typedef std::queue<KSyncUserSockContext *> ksync_map_ctx_queue;
     ksync_map_ctx_queue ctx_queue_;
@@ -133,20 +137,29 @@ public:
     static void IfStatsSet(int, int, int, int, int, int, int);
     static void VrfStatsAdd(int vrf_id);
     static void VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
-                               uint64_t receives, uint64_t tunnels, 
-                               int64_t composites, uint64_t encaps);
+                               uint64_t receives, uint64_t udp_tunnels, 
+                               uint64_t udp_mpls_tunnels, 
+                               uint64_t udp_gre_tunnels, 
+                               int64_t ecmp_composites, 
+                               int64_t fabric_composites,
+                               int64_t l2_mcast_composites,
+                               int64_t l3_mcast_composites,
+                               int64_t multi_proto_composites,
+                               uint64_t encaps, uint64_t l2_encaps);
     static int IfCount();
     static int NHCount();
     static int MplsCount();
     static int RouteCount();
+    static int VxLanCount();
     static KSyncSockTypeMap *GetKSyncSockTypeMap() { return singleton_; };
     static void Init(boost::asio::io_service &ios, int count);
     static void Shutdown();
     static vr_flow_entry *FlowMmapAlloc(int size);
     static void FlowMmapFree();
     static vr_flow_entry *GetFlowEntry(int idx);
-    static void SetFlowEntry(int idx, bool set);
+    static void SetFlowEntry(vr_flow_req *req, bool reverse, bool set);
     static void IncrFlowStats(int idx, int pkts, int bytes);
+    static void SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes);
     static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);
     friend class MockDumpHandlerBase;
     friend class RouteDumpHandler;
@@ -240,6 +253,14 @@ public:
     virtual Sandesh* Get(int idx);
 };
 
+class VxLanDumpHandler : public MockDumpHandlerBase {
+public:
+    VxLanDumpHandler() : MockDumpHandlerBase() {}
+    virtual Sandesh* GetFirst(Sandesh *);
+    virtual Sandesh* GetNext(Sandesh *);
+    virtual Sandesh* Get(int idx);
+};
+ 
 class DropStatsDumpHandler : public MockDumpHandlerBase {
 public:
     DropStatsDumpHandler() : MockDumpHandlerBase() {}
@@ -399,6 +420,27 @@ private:
     vr_vrf_stats_req *req_;
 };
 
+class KSyncUserSockVxLanContext : public KSyncUserSockContext {
+public:
+    KSyncUserSockVxLanContext(uint32_t seq_num, vr_vxlan_req *req) : KSyncUserSockContext(false, seq_num) {
+        if (req) {
+            req_ = new vr_vxlan_req(*req);
+        } else {
+            req_ = NULL;
+        }
+    }
+    ~KSyncUserSockVxLanContext() {
+        if (req_) {
+            delete req_;
+            req_ = NULL;
+        }
+    }
+
+    virtual void Process(); 
+private:
+    vr_vxlan_req *req_;
+};
+ 
 class KSyncUserSockDropStatsContext : public KSyncUserSockContext {
 public:
     KSyncUserSockDropStatsContext(uint32_t seq_num, vr_drop_stats_req *req) : KSyncUserSockContext(false, seq_num) {

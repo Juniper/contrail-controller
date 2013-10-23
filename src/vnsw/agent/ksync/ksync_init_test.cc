@@ -32,6 +32,7 @@
 #include "ksync/flowtable_ksync.h"
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
+#include "ksync/vxlan_ksync.h"
 #include "vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
 
@@ -50,6 +51,7 @@ void KSync::RegisterDBClientsTest(DB *db) {
     MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
     FlowTableKSyncObject::InitTest();
     VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
+    VxLanKSyncObject::Init(Agent::GetInstance()->GetVxLanTable());
     Agent::GetInstance()->SetRouterIdConfigured(false);
 }
 

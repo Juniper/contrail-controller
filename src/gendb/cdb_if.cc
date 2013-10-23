@@ -84,7 +84,7 @@ CdbIf::~CdbIf() {
 }
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
-        std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats, int ttl) :
+        std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats, int ttl, std::string name) :
     socket_(new TSocket(cassandra_ip, cassandra_port)),
     transport_(new TFramedTransport(socket_)),
     protocol_(new TBinaryProtocol(transport_)),
@@ -93,11 +93,9 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     errhandler_(errhandler),
     db_init_done_(false),
     periodic_timer_(TimerManager::CreateTimer(*ioservice, "Cdb Periodic timer")),
+    name_(name),
     enable_stats_(enable_stats),
     cassandra_ttl_(ttl) {
-
-    boost::system::error_code error;
-    name_ = boost::asio::ip::host_name(error);
 }
 
 bool CdbIf::Db_IsInitDone() {
@@ -492,6 +490,7 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 
         cf_def.__set_keyspace(tablespace_);
         cf_def.__set_name(cf.cfname_);
+        cf_def.__set_gc_grace_seconds(0);
 
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class, cf.key_validation_class))
@@ -514,7 +513,24 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            // TBD assert((*cfinfo->cfdef_.get()) == cf_def);
+            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) {
+                cassandra::CfDef cf_def1;
+
+                LOG(DEBUG, __func__ << " cfname: " << cf.cfname_ << " id: " << (*cfinfo->cfdef_.get()).id);
+                cf_def.__set_id((*cfinfo->cfdef_.get()).id);
+
+                try {
+                    client_->system_update_column_family(ret, cf_def);
+                } catch (SchemaDisagreementException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": SchemaDisagreementException: " << tx.what());
+                } catch (InvalidRequestException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                } catch (TApplicationException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TApplicationException: " << tx.what());
+                } catch (TException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TException what: " << tx.what());
+                }
+            }
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
             try {
@@ -547,6 +563,7 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 
         cf_def.__set_keyspace(tablespace_);
         cf_def.__set_name(cf.cfname_);
+        cf_def.__set_gc_grace_seconds(0);
 
         std::string key_valid_class;
         if (!DbDataTypeVecToCompositeType(key_valid_class, cf.key_validation_class))
@@ -565,7 +582,23 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 
         CdbIfCfInfo *cfinfo;
         if (Db_GetColumnfamily(&cfinfo, cf.cfname_)) {
-            // TBD assert((*cfinfo->cfdef_.get()) == cf_def);
+            if ((*cfinfo->cfdef_.get()).gc_grace_seconds != 0) {
+                LOG(DEBUG, __func__ << " cfname: " << cf.cfname_ << " id: " << (*cfinfo->cfdef_.get()).id);
+                cf_def.__set_id((*cfinfo->cfdef_.get()).id);
+
+                try {
+                    client_->system_update_column_family(ret, cf_def);
+                } catch (SchemaDisagreementException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": SchemaDisagreementException: " << tx.what());
+                } catch (InvalidRequestException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": InvalidRequestException: " << tx.why);
+                } catch (TApplicationException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TApplicationException: " << tx.what());
+                } catch (TException &tx) {
+                    CDBIF_HANDLE_EXCEPTION_RETF(__func__ << ": TException what: " << tx.what());
+                }
+            }
+
             cfinfo->cf_.reset(new GenDb::NewCf(cf));
         } else {
             try {
@@ -631,8 +664,12 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
                     DbDataValueToStringFromCf(col_value, new_colp->cfname_, col_name, it->value.at(0));
                     c.__set_value(col_value);
                     c.__set_timestamp(ts);
-                    if (cassandra_ttl_)
-                        c.__set_ttl(cassandra_ttl_);
+                    if (it->ttl == -1) {
+                        if (cassandra_ttl_)
+                            c.__set_ttl(cassandra_ttl_);
+                    } else if (it->ttl) {
+                        c.__set_ttl(it->ttl);
+                    }
 
                     c_or_sc.__set_column(c);
                     mutation.__set_column_or_supercolumn(c_or_sc);
@@ -650,8 +687,12 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
                     c.__set_value(col_value);
 
                     c.__set_timestamp(ts);
-                    if (cassandra_ttl_)
-                        c.__set_ttl(cassandra_ttl_);
+                    if (it->ttl == -1) {
+                        if (cassandra_ttl_)
+                            c.__set_ttl(cassandra_ttl_);
+                    } else if (it->ttl) {
+                        c.__set_ttl(it->ttl);
+                    }
 
                     c_or_sc.__set_column(c);
                     mutation.__set_column_or_supercolumn(c_or_sc);
@@ -695,6 +736,12 @@ bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
     CdbIfColList *qentry(new CdbIfColList(cl));
     cdbq_->Enqueue(qentry);
     return true;
+}
+
+bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
+    CdbIfColList *qentry(new CdbIfColList(cl));
+
+    return (Db_AsyncAddColumn(qentry));
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
@@ -996,6 +1043,9 @@ std::string CdbIf::Db_encode_Unsigned8_non_composite(const DbDataValue& value) {
     uint8_t data[16];
     int size = 1;
     uint8_t temp1 = temp >> 8;
+    if (temp < 256) {
+        if (temp > 127) size++;
+    }
     while (temp1) {
         if (temp1 < 256) {
             if (temp1 > 127) size++;
@@ -1027,6 +1077,9 @@ std::string CdbIf::Db_encode_Unsigned16_non_composite(const DbDataValue& value) 
     uint8_t data[16];
     int size = 1;
     uint16_t temp1 = temp >> 8;
+    if (temp < 256) {
+        if (temp > 127) size++;
+    }
     while (temp1) {
         if (temp1 < 256) {
             if (temp1 > 127) size++;
@@ -1058,6 +1111,9 @@ std::string CdbIf::Db_encode_Unsigned32_non_composite(const DbDataValue& value) 
     uint8_t data[16];
     int size = 1;
     uint32_t temp1 = temp >> 8;
+    if (temp < 256) {
+        if (temp > 127) size++;
+    }
     while (temp1) {
         if (temp1 < 256) {
             if (temp1 > 127) size++;
@@ -1089,6 +1145,9 @@ std::string CdbIf::Db_encode_Unsigned64_non_composite(const DbDataValue& value) 
     uint8_t data[16];
     int size = 1;
     uint64_t temp1 = temp >> 8;
+    if (temp < 256) {
+        if (temp > 127) size++;
+    }
     while (temp1) {
         if (temp1 < 256) {
             if (temp1 > 127) size++;
@@ -1194,6 +1253,9 @@ std::string CdbIf::Db_encode_Unsigned_int_composite(uint64_t input) {
 
     int size = 1;
     uint64_t temp_input = input >> 8;
+    if (input < 256) {
+        if (input > 127) size++;
+    }
     while (temp_input) {
         if (temp_input < 256) {
             if (temp_input > 127) {

@@ -139,6 +139,17 @@ systemlog sandesh IFMapPeerConnError {
     4: string last_event
 }
 
+systemlog sandesh IFMapBestPeer {
+    1: string event
+    2: string peer
+    3: bool valid
+}
+
+systemlog sandesh IFMapDSResp {
+    1: string current_peer
+    2: string new_response
+}
+
 trace sandesh JoinVertexTrace {
     1: "JoinVertex:"
     2: string vertex_name
@@ -274,5 +285,16 @@ trace sandesh IFMapPeerConnErrorTrace {
     2: string last_state
     3: string current_state
     4: string last_event
+}
+
+trace sandesh IFMapBestPeerTrace {
+    1: string event
+    2: string peer
+    3: bool valid
+}
+
+trace sandesh IFMapDSRespTrace {
+    1: string current_peer
+    2: string new_response
 }
 

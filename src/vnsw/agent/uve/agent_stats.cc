@@ -151,8 +151,15 @@ void AgentStatsCollector::DelVrfStatsEntry(const VrfEntry *vrf) {
         stats->prev_discards = stats->k_discards;
         stats->prev_resolves = stats->k_resolves;
         stats->prev_receives = stats->k_receives;
-        stats->prev_tunnels = stats->k_tunnels;
-        stats->prev_composites = stats->k_composites;
+        stats->prev_udp_mpls_tunnels = stats->k_udp_mpls_tunnels;
+        stats->prev_udp_tunnels = stats->k_udp_tunnels;
+        stats->prev_gre_mpls_tunnels = stats->k_gre_mpls_tunnels;
+        stats->prev_fabric_composites = stats->k_fabric_composites;
+        stats->prev_l2_mcast_composites = stats->k_l2_mcast_composites;
+        stats->prev_l3_mcast_composites = stats->k_l3_mcast_composites;
+        stats->prev_multi_proto_composites = stats->k_multi_proto_composites;
+        stats->prev_ecmp_composites = stats->k_ecmp_composites;
+        stats->prev_l2_encaps = stats->k_l2_encaps;
         stats->prev_encaps = stats->k_encaps;
     }
 }
@@ -299,23 +306,41 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
  
     AgentStatsCollector::VrfStats *stats = collector->GetVrfStats(req->get_vsr_vrf());
     if (!stats) {
-        LOG(DEBUG, "Vrf not present in stats tree <" << vrf->GetName() << ">");
+        LOG(DEBUG, "Vrf not present in stats tree <" << req->get_vsr_vrf() << ">");
         return;
     }
     if (!vrf_present) {
         stats->prev_discards = req->get_vsr_discards();
         stats->prev_resolves = req->get_vsr_resolves();
         stats->prev_receives = req->get_vsr_receives();
-        stats->prev_tunnels = req->get_vsr_tunnels();
-        stats->prev_composites = req->get_vsr_composites();
+        stats->prev_udp_tunnels = req->get_vsr_udp_tunnels();
+        stats->prev_udp_mpls_tunnels = req->get_vsr_udp_mpls_tunnels();
+        stats->prev_gre_mpls_tunnels = req->get_vsr_gre_mpls_tunnels();
+        stats->prev_ecmp_composites = req->get_vsr_ecmp_composites();
+        stats->prev_l2_mcast_composites = req->get_vsr_l2_mcast_composites();
+        stats->prev_l3_mcast_composites = req->get_vsr_l3_mcast_composites();
+        stats->prev_fabric_composites = req->get_vsr_fabric_composites();
+        stats->prev_multi_proto_composites = req->get_vsr_multi_proto_composites();
         stats->prev_encaps = req->get_vsr_encaps();
+        stats->prev_l2_encaps = req->get_vsr_l2_encaps();
     } else {
         stats->discards = req->get_vsr_discards() - stats->prev_discards;
         stats->resolves = req->get_vsr_resolves() - stats->prev_resolves;
         stats->receives = req->get_vsr_receives() - stats->prev_receives;
-        stats->tunnels = req->get_vsr_tunnels() - stats->prev_tunnels;
-        stats->composites = req->get_vsr_composites() - stats->prev_composites;
+        stats->udp_tunnels = req->get_vsr_udp_tunnels() - stats->prev_udp_tunnels;
+        stats->gre_mpls_tunnels = req->get_vsr_gre_mpls_tunnels() - stats->prev_gre_mpls_tunnels;
+        stats->udp_mpls_tunnels = req->get_vsr_udp_mpls_tunnels() - stats->prev_udp_mpls_tunnels;
         stats->encaps = req->get_vsr_encaps() - stats->prev_encaps;
+        stats->l2_encaps = req->get_vsr_l2_encaps() - stats->prev_l2_encaps;
+        stats->ecmp_composites = req->get_vsr_ecmp_composites() - stats->prev_ecmp_composites;
+        stats->l2_mcast_composites = 
+            req->get_vsr_l2_mcast_composites() - stats->prev_l2_mcast_composites;
+        stats->l3_mcast_composites = 
+            req->get_vsr_l3_mcast_composites() - stats->prev_l3_mcast_composites;
+        stats->fabric_composites = 
+            req->get_vsr_fabric_composites() - stats->prev_fabric_composites;
+        stats->multi_proto_composites = 
+            req->get_vsr_multi_proto_composites() - stats->prev_multi_proto_composites;
         
         /* Update the last read values from Kernel in the following fields.
          * This will be used to update prev_* fields on receiving vrf delete
@@ -325,9 +350,16 @@ void AgentStatsSandeshContext::VrfStatsMsgHandler(vr_vrf_stats_req *req) {
             stats->k_discards = req->get_vsr_discards();
             stats->k_resolves = req->get_vsr_resolves();
             stats->k_receives = req->get_vsr_receives();
-            stats->k_tunnels = req->get_vsr_tunnels();
-            stats->k_composites = req->get_vsr_composites();
+            stats->k_udp_tunnels = req->get_vsr_udp_tunnels();
+            stats->k_gre_mpls_tunnels = req->get_vsr_gre_mpls_tunnels();
+            stats->k_udp_mpls_tunnels = req->get_vsr_udp_mpls_tunnels();
+            stats->k_l2_mcast_composites = req->get_vsr_l2_mcast_composites();
+            stats->k_l3_mcast_composites = req->get_vsr_l3_mcast_composites();
+            stats->k_ecmp_composites = req->get_vsr_ecmp_composites();
+            stats->k_fabric_composites = req->get_vsr_fabric_composites();
+            stats->k_multi_proto_composites = req->get_vsr_multi_proto_composites();
             stats->k_encaps = req->get_vsr_encaps();
+            stats->k_l2_encaps = req->get_vsr_l2_encaps();
         }
 
     }

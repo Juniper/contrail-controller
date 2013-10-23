@@ -84,7 +84,7 @@ bool Ruleeng::rule_present(const boost::shared_ptr<VizMsg> vmsgp) {
  * field
  */
 void Ruleeng::handle_object_log(const pugi::xml_node& parent, const RuleMsg& rmsg,
-        const boost::uuids::uuid& unm) {
+        const boost::uuids::uuid& unm, DbHandler *db) {
     if (!(rmsg.hdr.get_Hints() & g_sandesh_constants.SANDESH_KEY_HINT)) {
         return;
     }
@@ -111,11 +111,11 @@ void Ruleeng::handle_object_log(const pugi::xml_node& parent, const RuleMsg& rms
         }
     }
     for (it = keymap.begin(); it != keymap.end(); it++) {
-        db_handler_->ObjectTableInsert(it->first, it->second, rmsg, unm);
+        db->ObjectTableInsert(it->first, it->second, rmsg, unm);
     }
     for (pugi::xml_node node = parent.first_child(); node;
          node = node.next_sibling()) {
-        handle_object_log(node, rmsg, unm);
+        handle_object_log(node, rmsg, unm, db);
     }
 }
 
@@ -232,18 +232,18 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg) {
 }
 
 // handle flow message
-bool Ruleeng::handle_flow_object(const RuleMsg& rmsg) {
+bool Ruleeng::handle_flow_object(const RuleMsg& rmsg, DbHandler *db) {
     if (rmsg.hdr.get_Type() != SandeshType::FLOW) {
         return true;
     }
 
-    if (!(db_handler_->FlowTableInsert(rmsg))) {
+    if (!(db->FlowTableInsert(rmsg))) {
         return false;
     }
     return true;
 }
 
-bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc) {
+bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc, DbHandler *db) {
     RuleMsg rmsg(vmsgp);
 
 
@@ -256,11 +256,11 @@ bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc) 
 
     remove_identifier(parent);
 
-    handle_object_log(parent, rmsg, vmsgp->unm);
+    handle_object_log(parent, rmsg, vmsgp->unm, db);
 
     if (uveproc) handle_uve_publish(rmsg);
 
-    handle_flow_object(rmsg);
+    handle_flow_object(rmsg, db);
 
     rulelist_->rule_execute(rmsg);
 

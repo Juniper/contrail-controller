@@ -14,7 +14,7 @@
 
 #include "oper/interface.h"
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
+#include "oper/agent_route.h"
 #include "oper/vrf.h"
 #include "oper/mpls.h"
 #include "oper/vm.h"
@@ -162,19 +162,21 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
 
     // Vrf
     DBRequest rreq;
-    Inet4UcRouteKey *rt_key = new Inet4UcRouteKey(Agent::GetInstance()->GetLocalPeer(), 
+    Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
                                               vrf, ip.to_v4(), 32);    
     rreq.key.reset(rt_key);
 
     uint32_t mpls_label;
+    SecurityGroupList sg_list;
     sscanf(label.c_str(), "%u", &mpls_label);
-    Inet4UcRemoteVmRoute *data = new Inet4UcRemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
-                                                      gw.to_v4(), mpls_label, "",
-                                                      TunnelType::AllType());
+    RemoteVmRoute *data = new RemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
+                                            gw.to_v4(), mpls_label, "",
+                                            TunnelType::AllType(), sg_list);
     rreq.data.reset(data);
     rreq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    Inet4UcRouteTable *rt_table_ = static_cast<Inet4UcRouteTable *>(db_->FindTable("db.uc.route.0"));
+    Inet4UnicastAgentRouteTable *rt_table_ = 
+        static_cast<Inet4UnicastAgentRouteTable *>(db_->FindTable("db.uc.route.0"));
     rt_table_->Enqueue(&rreq);
     return true;
 }
@@ -202,7 +204,7 @@ InstanceServiceAsyncHandler::AddHostRoute(const std::string& ip_address,
 	return false;
     }
 
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddHostRoute(vrf, ip.to_v4(), 32, 
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddHostRoute(vrf, ip.to_v4(), 32, 
                                                        Agent::GetInstance()->GetFabricVnName());
 
     return true;
@@ -241,7 +243,8 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddLocalVmRoute(novaPeer_, vrf, ip.to_v4(), 32,
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddLocalVmRoute(novaPeer_, 
+                                                        vrf, ip.to_v4(), 32,
                                                         intf_uuid, "instance-service",
                                                         mpls_label);
 
@@ -276,7 +279,7 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(novaPeer_, vrf, 
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(novaPeer_, vrf, 
                                                   ip.to_v4(), 32,
                                                   gw.to_v4(),
                                                   TunnelType::AllType(), 

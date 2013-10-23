@@ -29,12 +29,16 @@ std::string Collector::prog_name_;
 std::string Collector::self_ip_;
 
 Collector::Collector(EventManager *evm, short server_port,
-        DbHandler *db_handler, Ruleeng *ruleeng) :
+        DbHandler *db_handler, Ruleeng *ruleeng, std::string cassandra_ip,
+        unsigned short cassandra_port, int analytics_ttl) :
         SandeshServer(evm),
         db_handler_(db_handler),
         osp_(ruleeng->GetOSP()),
         evm_(evm),
-        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2)) {
+        cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
+        cassandra_ip_(cassandra_ip),
+        cassandra_port_(cassandra_port),
+        analytics_ttl_(analytics_ttl) {
     SandeshServer::Initialize(server_port);
 }
 
@@ -108,8 +112,6 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
 
     boost::shared_ptr<VizMsg> vmsgp(new VizMsg(header, message_type, xml_message, unm));
 
-    db_handler_->MessageTableInsert(vmsgp);
-
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
         LOG(ERROR, __func__ << ": NO VizSession");
@@ -127,7 +129,8 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
  
 TcpSession* Collector::AllocSession(Socket *socket) {
     VizSession *session = new VizSession(this, socket, AllocConnectionIndex(), 
-                                         session_task_id());
+                                         session_writer_task_id(),
+                                         session_reader_task_id());
     return session;
 }
 

@@ -49,7 +49,7 @@ char vnet_addr[16][32];
 VirtualHostInterface *vhost;
 char vhost_addr[32];
 
-Inet4UcRouteTable *vnet_table[16];
+Inet4UnicastAgentRouteTable *vnet_table[16];
 EthInterface *eth;
 int hash_id;
 
@@ -202,9 +202,15 @@ static void Setup() {
         ret = false;
     }
     // Get route tables
-    vnet_table[1] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf1");
-    vnet_table[2] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf2");
-    vnet_table[3] = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable("vrf3");
+    vnet_table[1] = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->
+        GetRouteTable("vrf1", AgentRouteTableAPIS::INET4_UNICAST));
+    vnet_table[2] = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->
+        GetRouteTable("vrf2", AgentRouteTableAPIS::INET4_UNICAST));
+    vnet_table[3] = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->
+        GetRouteTable("vrf3", AgentRouteTableAPIS::INET4_UNICAST));
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&
                 vnet_table[3] != NULL);
     if (vnet_table[1] == NULL || vnet_table[2] == NULL ||
@@ -453,12 +459,12 @@ TEST_F(FlowTest, VmToServer_1) {
     client->WaitForIdle();
 
     TxUdpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], "169.254.169.254",
-                10, 20);
+                10, 20, 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vnet[1]->GetVrf()->GetName(), vnet_addr[1], 
                         "169.254.169.254", IPPROTO_UDP, 10, 20, false,
                         unknown_vn_.c_str(), unknown_vn_.c_str(), 1, true,
-                        false));
+                        false, 0));
     EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
                            "169.254.169.254", IPPROTO_UDP, 10, 20));
 
@@ -471,7 +477,7 @@ TEST_F(FlowTest, VmToServer_1) {
     EXPECT_TRUE(FlowGet(vnet[1]->GetVrf()->GetName(), vnet_addr[1], 
                         "169.254.169.254", IPPROTO_TCP, 10, 20, false,
                         unknown_vn_.c_str(), unknown_vn_.c_str(), 1, true,
-                        false));
+                        false, 0));
     EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
                            "169.254.169.254", IPPROTO_TCP, 10, 20));
 

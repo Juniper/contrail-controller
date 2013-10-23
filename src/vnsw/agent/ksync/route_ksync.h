@@ -16,24 +16,26 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
-#include "oper/inet4_mcroute.h"
+#include "oper/agent_route.h"
 #include "ksync/agent_ksync_types.h"
 
 #define RT_UCAST 0
 #define RT_MCAST 1
+#define RT_LAYER2 2
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
     RouteKSyncEntry(const RouteKSyncEntry *entry, uint32_t index) : 
-        KSyncNetlinkDBEntry(index), rt_type_(entry->rt_type_), 
-        vrf_id_(entry->vrf_id_), addr_(entry->addr_),
-        src_addr_(entry->src_addr_), plen_(entry->plen_), nh_(entry->nh_),
-        label_(entry->label_), proxy_arp_(false) {
+        KSyncNetlinkDBEntry(index), 
+        rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
+        addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
+        plen_(entry->plen_), nh_(entry->nh_), label_(entry->label_), 
+        proxy_arp_(false), address_string_(entry->address_string_),
+        tunnel_type_(entry->tunnel_type_) {
     };
 
-    RouteKSyncEntry(const Inet4Route *route);
-    virtual ~RouteKSyncEntry() {};
+    RouteKSyncEntry(const RouteEntry *route);
+    virtual ~RouteKSyncEntry() { };
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
@@ -55,20 +57,25 @@ public:
     }
     void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info);
 private:
-    int Encode(sandesh_op::type op, char *buf, int buf_len);
-    int DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, bool proxy_arp,
-                       char *buf, int buf_len);
+    int Encode(sandesh_op::type op, uint8_t replace_plen,
+               char *buf, int buf_len);
+    int DeleteInternal(NHKSyncEntry *nh, uint32_t lbl, uint8_t replace_plen,
+                       bool proxy_arp, char *buf, int buf_len);
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
+    bool L2IsLess(const KSyncEntry &rhs) const;
     uint32_t rt_type_;
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;
+    struct ether_addr mac_;
     uint32_t plen_;
     KSyncEntryPtr nh_;
     uint32_t label_;
     uint8_t type_;
     bool proxy_arp_;
+    string address_string_;
+    TunnelType::Type tunnel_type_;
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncEntry);
 };
 
@@ -80,7 +87,7 @@ public:
         bool seen_;
     };
 
-    RouteKSyncObject(Inet4RouteTable *rt_table);
+    RouteKSyncObject(AgentRouteTable *rt_table);
     virtual ~RouteKSyncObject();
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
         const RouteKSyncEntry *route = static_cast<const RouteKSyncEntry *>(entry);
@@ -89,7 +96,7 @@ public:
     };
 
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const Inet4Route *route = static_cast<const Inet4Route *>(e);
+        const RouteEntry *route = static_cast<const RouteEntry *>(e);
         RouteKSyncEntry *key = new RouteKSyncEntry(route);
         return static_cast<KSyncEntry *>(key);
     };
@@ -101,7 +108,7 @@ public:
 
 private:
     bool marked_delete_;
-    Inet4RouteTable *rt_table_;
+    AgentRouteTable *rt_table_;
     LifetimeRef<RouteKSyncObject> table_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(RouteKSyncObject);
 };
@@ -133,6 +140,7 @@ private:
     DBTableBase::ListenerId vrf_listener_id_;
     VrfRtObjectMap vrf_ucrt_object_map_;
     VrfRtObjectMap vrf_mcrt_object_map_;
+    VrfRtObjectMap vrf_l2rt_object_map_;
     DISALLOW_COPY_AND_ASSIGN(VrfKSyncObject);
 };
 

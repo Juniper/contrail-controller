@@ -13,9 +13,9 @@ class VrouterStatsCollector : public StatsCollector {
 public:
     static const uint32_t VrouterStatsInterval = (30 * 1000); // time in milliseconds
     VrouterStatsCollector(boost::asio::io_service &io) :
-        StatsCollector(StatsCollector::VrouterStatsCollector, io, 
-                       VrouterStatsInterval,
-                       "Vrouter stats collector") {}
+        StatsCollector(TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 
+                       0, io, VrouterStatsInterval, "Vrouter stats collector") 
+    {}
     virtual ~VrouterStatsCollector() { };
 
     bool Run();

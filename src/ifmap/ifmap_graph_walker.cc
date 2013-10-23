@@ -172,8 +172,11 @@ void IFMapGraphWalker::CleanupInterest(DBGraphVertex *vertex) {
         return;
     }
 
-    IFMAP_DEBUG(CleanupInterest, node->ToString(), state->interest().ToString(),
-                rm_mask_.ToString(), state->nmask().ToString());
+    if (!state->interest().empty() && !state->nmask().empty()) {
+        IFMAP_DEBUG(CleanupInterest, node->ToString(),
+                    state->interest().ToString(), rm_mask_.ToString(),
+                    state->nmask().ToString());
+    }
     BitSet ninterest;
     ninterest.BuildComplement(state->interest(), rm_mask_);
     ninterest |= state->nmask();

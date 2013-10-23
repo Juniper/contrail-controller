@@ -7,10 +7,23 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
 
 <!-- iq from agent to control-node  -->
 
+<xsd:simpleType name="EnetTunnelEncapsulationType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="gre"/>
+        <xsd:enumeration value="udp"/>
+        <xsd:enumeration value="vxlan"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="EnetTunnelEncapsulationListType">
+    <xsd:element name="tunnel-encapsulation" type="EnetTunnelEncapsulationType" maxOccurs="unbounded"/>
+</xsd:complexType> 
+
 <xsd:complexType name="EnetNextHopType">
     <xsd:element name="af" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
+    <xsd:element name="tunnel-encapsulation-list" type="EnetTunnelEncapsulationListType"/>
 </xsd:complexType>
 
 <xsd:complexType name="EnetNextHopListType">

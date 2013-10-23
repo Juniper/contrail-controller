@@ -41,10 +41,10 @@ public:
     };
     typedef std::map<std::string, PeerTimedoutInfo> TimedoutMap;
     static const int kSocketCloseTimeout;
+    static const uint64_t kRetryConnectionMax;
 
-    IFMapChannel(IFMapManager *manager, const std::string& url,
-                 const std::string& user, const std::string& passwd,
-                 const std::string& certstore);
+    IFMapChannel(IFMapManager *manager, const std::string& user,
+                 const std::string& passwd, const std::string& certstore);
 
     virtual ~IFMapChannel() { }
 
@@ -54,8 +54,6 @@ public:
     IFMapStateMachine *state_machine() { return state_machine_; }
 
     void ChannelUseCertAuth(const std::string& url);
-
-    void RetrieveHostPort(const std::string& url);
 
     virtual void ReconnectPreparation();
 
@@ -97,8 +95,6 @@ public:
 
     uint64_t get_reconnect_attempts() { return reconnect_attempts_; }
     
-    std::string get_url() { return url_; }
-
     std::string get_publisher_id() { return pub_id_; }
 
     std::string get_session_id() { return session_id_; }
@@ -109,9 +105,15 @@ public:
 
     void increment_reconnect_attempts() { reconnect_attempts_++; }
 
+    bool RetryNewHost() {
+        return (reconnect_attempts_ > kRetryConnectionMax) ? true : false;
+    }
+
     void clear_recv_msg_cnt() { recv_msg_cnt_ = 0; }
 
     void clear_sent_msg_cnt() { sent_msg_cnt_ = 0; }
+
+    void clear_reconnect_attempts() { reconnect_attempts_ = 0; }
 
     std::string get_connection_status() {
         switch (connection_status_) {
@@ -131,6 +133,16 @@ public:
     void IncrementTimedout();
 
     void GetTimedoutEntries(IFMapPeerTimedoutEntries *entries);
+
+    // temp instrumentation. Remove asap.
+    std::string ArcSocketReadHandleRequest(int bytes_to_read, size_t *bytes);
+
+    const std::string &get_host() { return host_; }
+    const std::string &get_port() { return port_; }
+    void SetHostPort(const std::string &host, const std::string &port) {
+        host_ = host;
+        port_ = port;
+    }
 
 private:
     // 75 seconds i.e. 60 + (3*5)s
@@ -166,7 +178,6 @@ private:
     boost::asio::ssl::context ctx_;
     std::auto_ptr<SslStream> ssrc_socket_;
     std::auto_ptr<SslStream> arc_socket_;
-    std::string url_;
     std::string username_;
     std::string password_;
     std::string b64_auth_str_;
@@ -185,6 +196,11 @@ private:
     ConnectionStatus connection_status_;
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
+
+    // temp instrumentation. Remove asap.
+    boost::asio::streambuf temp_reply_;
+    std::ostringstream temp_reply_ss_;
+    std::string temp_reply_str_;
 };
 
 #endif /* __IFMAP_CHANNEL_H__ */

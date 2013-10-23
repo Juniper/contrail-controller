@@ -58,8 +58,11 @@ class MplsLabel;
 typedef boost::intrusive_ptr<MplsLabel> MplsLabelRef;
 class MirrorEntry;
 typedef boost::intrusive_ptr<MirrorEntry> MirrorEntryRef;
-class Inet4UcRoute;
-class Inet4McRoute;
+class VxLanId;
+typedef boost::intrusive_ptr<VxLanId> VxLanIdRef;
+class Inet4UnicastRouteEntry;
+class Inet4MulticastRouteEntry;
+class Layer2RouteEntry;
 class Route;
 typedef boost::intrusive_ptr<Route> RouteRef;
 class NextHop;
@@ -82,14 +85,18 @@ class SgTable;
 class VrfTable;
 class MplsTable;
 class RouteTable;
-class Inet4UcRouteTable;
-class Inet4McRouteTable;
+class AgentRouteTableAPIS;
+class AgentRouteTable;
+class Inet4UnicastAgentRouteTable;
+class Inet4MulticastAgentRouteTable;
+class Layer2AgentRouteTable;
 class AddrTable;
 class CfgIntTable;
 class AclTable;
 class MirrorTable;
 class VrfAssignTable;
 class DomainConfig;
+class VxLanTable;
 
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
@@ -133,8 +140,13 @@ public:
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
     IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
     NextHopTable *GetNextHopTable() {return nh_table_;};
-    Inet4UcRouteTable *GetDefaultInet4UcRouteTable() {return uc_rt_table_;};
-    Inet4McRouteTable *GetDefaultInet4McRouteTable() {return mc_rt_table_;};
+    Inet4UnicastAgentRouteTable *GetDefaultInet4UnicastRouteTable() {
+        return uc_rt_table_;
+    };
+    Inet4MulticastAgentRouteTable *GetDefaultInet4MulticastRouteTable() {
+        return mc_rt_table_;
+    };
+    Layer2AgentRouteTable *GetLayer2AgentRouteTable() {return l2_rt_table_;};
     VrfTable *GetVrfTable() { return vrf_table_;};
     VmTable *GetVmTable() { return vm_table_;};
     VnTable *GetVnTable() { return vn_table_;};
@@ -146,6 +158,7 @@ public:
     CfgIntTable *GetIntfCfgTable() {return intf_cfg_table_;};
     DomainConfig *GetDomainConfigTable() {return domain_config_table_;};
     VrfAssignTable *GetVrfAssignTable() {return vrf_assign_table_;};
+    VxLanTable *GetVxLanTable() { return vxlan_table_;};
     void SetSandeshPort(int sandesh_port) { sandesh_port_ = sandesh_port; };
     int GetSandeshPort() { return sandesh_port_;};
     std::string GetMgmtIp() { return mgmt_ip_; }
@@ -313,12 +326,30 @@ public:
         nh_table_ = table;
     };
 
-    void SetDefaultInet4UcRouteTable(Inet4UcRouteTable *table) {
+    void SetDefaultInet4UnicastRouteTable(Inet4UnicastAgentRouteTable *
+                                                 table) {
         uc_rt_table_ = table;
     };
 
-    void SetDefaultInet4McRouteTable(Inet4McRouteTable *table) {
+    void SetDefaultInet4UnicastRouteTable(RouteTable * table) {
+        uc_rt_table_ = (Inet4UnicastAgentRouteTable *)table;
+    };
+
+    void SetDefaultInet4MulticastRouteTable(Inet4MulticastAgentRouteTable *
+                                                   table) {
         mc_rt_table_ = table;
+    };
+
+    void SetDefaultInet4MulticastRouteTable(RouteTable *table) {
+        mc_rt_table_ = (Inet4MulticastAgentRouteTable *)table;
+    };
+
+    void SetDefaultLayer2RouteTable(Layer2AgentRouteTable *table) {
+        l2_rt_table_ = table;
+    };
+
+    void SetDefaultLayer2RouteTable(RouteTable *table) {
+        l2_rt_table_ = (Layer2AgentRouteTable *)table;
     };
 
     void SetVrfTable(VrfTable *table) {
@@ -373,6 +404,10 @@ public:
         vrf_assign_table_ = table;
     };
 
+    void SetVxLanTable(VxLanTable *table) { 
+        vxlan_table_ = table;
+    };
+    
     void SetMirrorPort(uint16_t mirr_port) {
         mirror_src_udp_port_ = mirr_port;
     }
@@ -546,8 +581,9 @@ private:
     DB *db_;
     InterfaceTable *intf_table_;
     NextHopTable *nh_table_;
-    Inet4UcRouteTable *uc_rt_table_;
-    Inet4McRouteTable *mc_rt_table_;
+    Inet4UnicastAgentRouteTable *uc_rt_table_;
+    Inet4MulticastAgentRouteTable *mc_rt_table_;
+    Layer2AgentRouteTable *l2_rt_table_;
     VrfTable *vrf_table_;
     VmTable *vm_table_;
     VnTable *vn_table_;
@@ -557,6 +593,7 @@ private:
     AclTable *acl_table_;
     MirrorTable *mirror_table_;
     VrfAssignTable *vrf_assign_table_;
+    VxLanTable *vxlan_table_;
 
     // Mirror config table
     MirrorCfgTable *mirror_cfg_table_;

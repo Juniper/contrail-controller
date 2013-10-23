@@ -9,6 +9,7 @@
 #include "mpls_kstate.h"
 #include "flow_kstate.h"
 #include "mirror_kstate.h"
+#include "vxlan_kstate.h"
 #include "vrf_assign_kstate.h"
 #include "vrf_stats_kstate.h"
 #include "drop_stats_kstate.h"
@@ -98,3 +99,15 @@ void KDropStatsReq::HandleRequest() const {
     DropStatsKState *kstate = new DropStatsKState(resp, context(), req);
     kstate->EncodeAndSend(req);
 }
+
+void KVxLanReq::HandleRequest() const {
+    vr_vxlan_req req;
+    KVxLanResp *resp = new KVxLanResp();
+    resp->set_context(context());
+
+    VxLanKState *kstate = new VxLanKState(resp, context(), req, 
+                                              get_vxlan_label());
+    kstate->EncodeAndSend(req);
+}
+
+

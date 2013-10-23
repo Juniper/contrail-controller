@@ -27,7 +27,7 @@ public:
     typedef std::map<std::string, std::string> RuleMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
-            std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl=7);
+            std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name);
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
 

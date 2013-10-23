@@ -4,6 +4,7 @@
 
 #include "viz_collector.h"
 #include "ruleeng.h" 
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 
@@ -21,14 +22,16 @@ using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
-            std::string redis_ip, unsigned short redis_port,
+            std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
             int gen_timeout, bool dup, int analytics_ttl) :
     evm_(evm),
-    osp_(new OpServerProxy(evm, this, redis_ip, redis_port, gen_timeout)),
+    osp_(new OpServerProxy(evm, this, redis_sentinel_ip, 
+                           redis_sentinel_port, gen_timeout)),
     db_handler_(new DbHandler(evm, boost::bind(&VizCollector::StartDbifReinit, this),
-                cassandra_ip, cassandra_port, analytics_ttl)),
+                cassandra_ip, cassandra_port, analytics_ttl, DbifGlobalName(dup))),
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
-    collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get())),
+    collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get(),
+            cassandra_ip, cassandra_port, analytics_ttl)),
     dbif_timer_(TimerManager::CreateTimer(
             *evm_->io_service(), "Collector DbIf Timer",
             TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
@@ -54,6 +57,17 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
 }
 
 VizCollector::~VizCollector() {
+}
+
+std::string VizCollector::DbifGlobalName(bool dup) {
+    std::string name;
+    error_code error;
+    if (dup)
+        name = boost::asio::ip::host_name(error) + "dup" + ":" + "Global";
+    else
+        name = boost::asio::ip::host_name(error) + ":" + "Global";
+
+    return name;
 }
 
 bool VizCollector::SendRemote(const string& destination,

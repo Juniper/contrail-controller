@@ -8,8 +8,6 @@
 #include <string>
 #include <map>
 #include <tbb/mutex.h>
-#include <db/db.h>
-#include <db/db_table.h>
 #include <db/db_table_walker.h>
 
 #define LOCAL_PEER_NAME "Local"
@@ -51,7 +49,7 @@ public:
     };
     void DelPeerRoutes(DelPeerDone cb);
     void PeerNotifyRoutes();
-    void PeerNotifyMcastBcastRoutes(bool associate);
+    void PeerNotifyMulticastRoutes(bool associate);
     bool ComparePath(const Peer *rhs) const {
         if  (type_ != rhs->type_) {
             return type_ < rhs->type_;

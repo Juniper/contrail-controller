@@ -31,6 +31,10 @@ class AnalyticsFixture(fixtures.Fixture):
         self.redis_port = AnalyticsFixture.get_free_port()
         mockredis.start_redis(self.redis_port)
 
+        self.redis_sentinel_port = AnalyticsFixture.get_free_port()
+        mockredis.start_redis_sentinel(self.redis_sentinel_port,
+                                       self.redis_port)
+
         self.redis_query_port = AnalyticsFixture.get_free_port()
         mockredis.start_redis(self.redis_query_port)
 
@@ -39,7 +43,7 @@ class AnalyticsFixture(fixtures.Fixture):
         args = [self.builddir + '/analytics/vizd',
                 '--cassandra-server-list', '127.0.0.1:' +
                 str(self.cassandra_port),
-                '--redis-port', str(self.redis_port),
+                '--redis-sentinel-port', str(self.redis_sentinel_port),
                 '--listen-port', str(self.listen_port),
                 '--http-server-port', str(self.http_port),
                 '--log-file', '/tmp/vizd.messages.' + str(self.listen_port)]
@@ -47,7 +51,7 @@ class AnalyticsFixture(fixtures.Fixture):
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
         self.logger.info(
-            'Setting up Vizd : redis %d redis_query %d ' +
+            'Setting up Vizd : redis %d redis_query %d ' \
             'cassandra-server-list %s listen %d'
             % (self.redis_port, self.redis_query_port,
                '127.0.0.1:' + str(self.cassandra_port), self.listen_port))
@@ -59,9 +63,11 @@ class AnalyticsFixture(fixtures.Fixture):
             openv = copy.deepcopy(os.environ)
             openv['PYTHONPATH'] = self.builddir + '/sandesh/library/python'
             self.opserver_port = AnalyticsFixture.get_free_port()
-            args = ['python', self.builddir + '/opserver/opserver/opserver.py',
+            args = ['python', self.builddir +
+                    '/opserver/opserver/opserver.py',
                     '--redis_server_port', str(self.redis_port),
                     '--redis_query_port', str(self.redis_query_port),
+                    '--redis_sentinel_port', str(self.redis_sentinel_port),
                     '--collector_port', str(self.listen_port),
                     '--http_server_port', str(0),
                     '--log_file', '/tmp/opserver.messages.' +
@@ -702,19 +708,23 @@ class AnalyticsFixture(fixtures.Fixture):
             self.logger.info('qed returned %d' % rcode)
             self.logger.info('qed terminated stdout: %s' % qe_out)
             self.logger.info('qed terminated stderr: %s' % qe_err)
-            #subprocess.call(['rm','/tmp/qed.messages.' + str(self.listen_port)])
+            subprocess.call(['rm',
+                             '/tmp/qed.messages.' + str(self.listen_port)])
             self.opproc.terminate()
-            (op_out,op_err) = self.opproc.communicate()
+            (op_out, op_err) = self.opproc.communicate()
             ocode = self.opproc.returncode
             self.logger.info('op returned %d' % ocode)
             self.logger.info('op terminated stdout: %s' % op_out)
-            self.logger.info('op terminated stderr: %s' % op_err)           
-            #subprocess.call(['rm','/tmp/opserver.messages.' + str(self.listen_port)])
+            self.logger.info('op terminated stderr: %s' % op_err)
+            subprocess.call(['rm',
+                             '/tmp/opserver.messages.' +
+                             str(self.listen_port)])
 
         self.proc.terminate()
-        #subprocess.call(['rm','/tmp/vizd.messages.' + str(self.listen_port)])
+        subprocess.call(['rm', '/tmp/vizd.messages.' + str(self.listen_port)])
         mockredis.stop_redis(self.redis_port)
         mockredis.stop_redis(self.redis_query_port)
+        mockredis.stop_redis_sentinel(self.redis_sentinel_port)
         assert(rcode == 0)
 
     @staticmethod

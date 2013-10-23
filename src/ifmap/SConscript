@@ -9,7 +9,8 @@ env = BuildEnv.Clone()
 env.AppendUnique(CCFLAGS='-fno-exceptions')
 
 env.Append(CPPPATH = env['TOP'])
-env.Prepend(LIBS=['sandesh', 'http', 'http_parser', 'curl', 'io', 'base'])
+env.Append(CPPPATH = env['TOP'] + '/discovery/client')
+env.Prepend(LIBS=['ds', 'sandesh', 'http', 'http_parser', 'curl', 'io', 'base'])
 
 except_env = BuildEnv.Clone()
 cflags = except_env['CCFLAGS']

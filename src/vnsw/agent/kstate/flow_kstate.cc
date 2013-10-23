@@ -102,7 +102,6 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     data.set_d_vrf_id(k_flow->fe_dvrf);
     data.set_bytes(k_flow->fe_stats.flow_bytes);
     data.set_pkts(k_flow->fe_stats.flow_packets);
-    data.set_insight(k_flow->fe_stats.flow_insight);
     if (k_flow->fe_mirror_id != VR_MAX_MIRROR_INDICES) {
         data.set_mirror_id(k_flow->fe_mirror_id);
     }

@@ -22,7 +22,7 @@
 #include "cmn/agent_cmn.h"
 #include "oper/interface.h"
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
+#include "oper/agent_route.h"
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/sg.h"
@@ -66,6 +66,15 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
                              bool add_implicit_deny) {
     // If there are no ACL to match, make it pass
     if (acl.size() == 0) {
+        return (1 << TrafficAction::PASS);
+    }
+
+    // PASS default GW traffic, if it is ICMP or DNS
+    if ((hdr.protocol == IPPROTO_ICMP ||
+         (hdr.protocol == IPPROTO_UDP && 
+          (hdr.src_port == DNS_SERVER_PORT || hdr.dst_port == DNS_SERVER_PORT))) &&
+        (PktHandler::GetPktHandler()->IsGwPacket(data.intf_entry.get(), hdr.dst_ip) ||
+         PktHandler::GetPktHandler()->IsGwPacket(data.intf_entry.get(), hdr.src_ip))) {
         return (1 << TrafficAction::PASS);
     }
 
@@ -445,10 +454,12 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
 
     if (flow_rev && (flow_rev->data.reverse_flow.get() == NULL)) {
         flow_rev->MakeShortFlow();
+        flow->MakeShortFlow();
     }
 
     if (rflow_rev && (rflow_rev->data.reverse_flow.get() == NULL)) {
         rflow_rev->MakeShortFlow();
+        flow->MakeShortFlow();
     }
 
     if (flow->data.reverse_flow.get() == NULL) {
@@ -534,6 +545,9 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     if (data.ecmp == true && 
             data.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data.component_nh_idx);
+    }
+    if (data.trap) {
+        info.set_trap("true");
     }
 }
 
@@ -747,6 +761,7 @@ void FlowTable::Init() {
     singleton_->vrf_listener_id_ = Agent::GetInstance()->GetVrfTable()->Register
             (boost::bind(&FlowTable::VrfNotify, singleton_, _1, _2));
 
+    singleton_->nh_listener_ = new NhListener();
     return;
 }
 
@@ -869,7 +884,7 @@ void FlowTable::AclNotify(DBTablePartBase *part, DBEntryBase *e)
     }
 }
 
-Inet4RouteUpdate::Inet4RouteUpdate(Inet4UcRouteTable *rt_table):
+Inet4RouteUpdate::Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table):
     rt_table_(rt_table), marked_delete_(false), 
     table_delete_ref_(this, rt_table->deleter()) {
 }
@@ -908,12 +923,102 @@ void Inet4RouteUpdate::Unregister() {
                       boost::bind(&Inet4RouteUpdate::WalkDone, _1, this));
 }
 
+void NhState::Change(NextHop *nh) {
+    if (nh->GetType() != NextHop::COMPOSITE) {
+        return;
+    }
+
+    CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
+    if (comp_nh->IsMcastNH()) {
+        return;
+    }
+
+    bool ingress = true;
+    Inet4UnicastRouteEntry *rt = comp_nh->GetVrf()->GetUcRoute(comp_nh->GetGrpAddr());
+    if (!rt || rt->GetActiveNextHop() != nh) {
+       if (comp_nh->IsLocal() == true) {
+          //Evaluate only packet coming via ethernet
+          //as only those packets hit local composite NH
+          ingress = false;
+       } 
+    }
+
+    int index = 0;
+    CompositeNH::ComponentNHList::const_iterator component_nh_it = comp_nh->begin();
+    std::vector<NextHopRef>::const_iterator state_nh_it = component_nh_list_.begin();
+    RouteFlowKey skey(comp_nh->GetVrf()->GetVrfId(), 
+                      comp_nh->GetGrpAddr().to_ulong());
+
+    //Loop thru all the component NH present in DB state list
+    //against the latest set of nexthop in Composite NH
+    while (state_nh_it != component_nh_list_.end()) {
+        if (component_nh_it != comp_nh->end()) {
+            if (!(*component_nh_it) || 
+                 (*component_nh_it)->GetNH() != *state_nh_it) {
+                //Trap all reverse flow, if component NH is deleted
+                //or if some new nexthop has been added in that index
+                FlowTable::GetFlowTableObject()->TrapReverseEcmpFlow(skey, index,
+                                                                     ingress);
+            }
+            component_nh_it++;
+        } else {
+            FlowTable::GetFlowTableObject()->TrapReverseEcmpFlow(skey, index,
+                                                                 ingress);
+        }
+        index++;
+        state_nh_it++;
+    }
+
+    Copy(nh);
+} 
+
+void NhState::Copy(NextHop *nh) {
+    CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
+    CompositeNH::ComponentNHList::const_iterator component_nh_it = comp_nh->begin();
+    component_nh_list_.clear();
+    //Copy over the latest set of nexthop
+    for (component_nh_it = comp_nh->begin();
+         component_nh_it != comp_nh->end(); component_nh_it++) {
+        if ((*component_nh_it)) {
+            component_nh_list_.push_back(const_cast<NextHop *>
+                                         ((*component_nh_it)->GetNH()));
+        } else {
+            component_nh_list_.push_back(NULL);
+        }
+    }
+}
+
+void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
+    NextHop *nh = static_cast<NextHop *>(e);
+    NhState *state = 
+        static_cast<NhState *>(e->GetState(part->parent(), id_));
+
+    if (nh->IsDeleted()) {
+        if (state) {
+            e->ClearState(part->parent(), id_);
+            delete state;
+        }
+        return;
+    }
+
+    if (nh->GetType() != NextHop::COMPOSITE) {
+        return;
+    }
+
+    if (!state) {
+        state = new NhState();
+    }
+    state->Change(nh);
+    nh->SetState(part->parent(), id_, state);
+    return; 
+}
+
 void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 {
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(e);
+    Inet4UnicastRouteEntry *route = static_cast<Inet4UnicastRouteEntry *>(e);
     State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
 
-    if (route->IsMcast() || route->IsSbcast()) {
+    if (route->IsMulticast()) {
         return;
     }
     
@@ -955,7 +1060,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     FlowTable::GetFlowTableObject()->ResyncRouteFlows(skey, new_sg_l);
 }
 
-Inet4RouteUpdate *Inet4RouteUpdate::UnicastInit(Inet4UcRouteTable *table)
+Inet4RouteUpdate *Inet4RouteUpdate::UnicastInit(
+                              Inet4UnicastAgentRouteTable *table)
 {
     Inet4RouteUpdate *rt_update = new Inet4RouteUpdate(table);
     rt_update->id_ = table->Register(
@@ -980,7 +1086,10 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
     }
     if (state == NULL) {
         state = new VrfFlowHandlerState();
-        state->inet4_unicast_update_ = Inet4RouteUpdate::UnicastInit(vrf->GetInet4UcRouteTable());
+        state->inet4_unicast_update_ = 
+            Inet4RouteUpdate::UnicastInit(
+            static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)));
         vrf->SetState(part->parent(), vrf_listener_id_, state);
     }
     return;
@@ -1034,6 +1143,47 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
         FLOW_TRACE(Trace, "Evaluate Acl Flows", flow_info);
+    }
+}
+
+void FlowTable::TrapReverseEcmpFlow(RouteFlowKey &key, uint32_t index, 
+                                    bool ingress) {
+    RouteFlowTree::iterator rf_it;
+    rf_it = route_flow_tree_.find(key);
+    if (rf_it == route_flow_tree_.end()) {
+        return;
+    }
+    FlowEntryTree fet = rf_it->second->fet;
+    FlowEntryTree::iterator fet_it, it;
+    it = fet.begin();
+    while (it != fet.end()) {
+        fet_it = it++;
+        FlowEntry *fe = (*fet_it).get();
+        //Check only for flows whose destination matches
+        //given route
+        if (fe->data.flow_dest_vrf != key.vrf) {
+            continue;
+        }
+        VrfEntry *vrf = 
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromId(fe->data.flow_dest_vrf);
+        Inet4UnicastRouteEntry *rt = vrf->GetUcRoute(Ip4Address(fe->key.dst.ipv4));
+
+        if (!rt || rt->GetIpAddress() != Ip4Address(key.ip.ipv4)) {
+            continue;
+        }
+
+        if (fe->data.component_nh_idx == index && fe->data.ingress == ingress) {
+            FlowEntry *rev_flow = fe->data.reverse_flow.get();
+            rev_flow->data.trap = true;
+            FlowTableKSyncEntry *entry =
+                FlowTableKSyncObject::GetKSyncObject()->Find(rev_flow);
+            if (entry) {
+                rev_flow->UpdateKSync(entry, false);
+            }
+            FlowInfo flow_info;
+            rev_flow->FillFlowInfo(flow_info);
+            FLOW_TRACE(Trace, "Setting ECMP flow for trap", flow_info);
+        }
     }
 }
 
@@ -1533,7 +1683,7 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
     }
 }
 
-static void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
+void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
 {
     std::bitset<32> bs(action_info.action);
     for (unsigned int i = 0; i <= bs.size(); i++) {
@@ -1793,5 +1943,6 @@ FlowTable::~FlowTable() {
     Agent::GetInstance()->GetVnTable()->Unregister(vn_listener_id_);
     Agent::GetInstance()->GetVmTable()->Unregister(vm_listener_id_);
     Agent::GetInstance()->GetVrfTable()->Unregister(vrf_listener_id_);
+    delete nh_listener_;
 }
 

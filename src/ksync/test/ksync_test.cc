@@ -705,6 +705,41 @@ TEST_F(TestUT, temp_del_req) {
     EXPECT_EQ(Vlan::free_wait_count_, 2);
 }
 
+//add->(del_req)->del->(Reference add)->(add_req)->(del_ack)->renew
+TEST_F(TestUT, renew_dependency_reval) {
+    Vlan *vlan1 = AddVlan(0x1, 0x0, KSyncEntry::SYNC_WAIT, Vlan::ADD, 0);
+    vlan_table_->NotifyEvent(vlan1, KSyncEntry::ADD_ACK);
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::IN_SYNC);
+
+    vlan_table_->Delete(vlan1);
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::DEL_ACK_WAIT);
+    EXPECT_EQ(vlan1->GetOp(), Vlan::DELETE);
+
+    //Add a reference  to vlan1
+    Vlan *vlan2 = AddVlan(0x2, 0x1, KSyncEntry::ADD_DEFER, Vlan::INIT, 1);
+
+    //Request to add vlan1 again
+    ChangeVlan(vlan1, 0x0, KSyncEntry::RENEW_WAIT, Vlan::DELETE);
+    vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::SYNC_WAIT);
+
+    //vlan2 should have been re-evaluated
+    EXPECT_EQ(vlan2->GetState(), KSyncEntry::SYNC_WAIT);
+    vlan_table_->NotifyEvent(vlan1, KSyncEntry::ADD_ACK);
+    vlan_table_->NotifyEvent(vlan2, KSyncEntry::ADD_ACK);
+
+    EXPECT_EQ(vlan1->GetState(), KSyncEntry::IN_SYNC);
+    EXPECT_EQ(vlan2->GetState(), KSyncEntry::IN_SYNC);
+ 
+    vlan_table_->Delete(vlan2);
+    vlan_table_->Delete(vlan1);
+    vlan_table_->NetlinkAck(vlan2, KSyncEntry::DEL_ACK);
+    vlan_table_->NetlinkAck(vlan1, KSyncEntry::DEL_ACK);
+
+    EXPECT_EQ(Vlan::delete_count_, 3);
+    EXPECT_EQ(Vlan::free_wait_count_, 2);
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     LoggingInit();

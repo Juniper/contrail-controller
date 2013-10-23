@@ -23,7 +23,8 @@
 
 #define MAX_VNET 1
 int fd_table[MAX_VNET];
-#define MAX_TEST_FD 5
+#define MAX_TEST_FD 5 
+#define MAX_TEST_MPLS 10 
 int test_fd[MAX_TEST_FD];
 
 TestIfKState *TestIfKState::singleton_;
@@ -67,6 +68,8 @@ public:
                                  SetFlowAgeTime(1000000 * 60 * 10);
 
         client->SetFlowFlushExclusionPolicy();
+        EnableEvpn();
+        client->WaitForIdle();
     }
 
     static void TestTearDown() {
@@ -106,17 +109,17 @@ public:
             WAIT_FOR(1000, 1000, ((oper_if_count) == 
                                 Agent::GetInstance()->GetInterfaceTable()->Size()));
         }
-        WAIT_FOR(1000, 1000, (MAX_TEST_FD == 
+        WAIT_FOR(1000, 1000, (MAX_TEST_MPLS == 
                             Agent::GetInstance()->GetMplsTable()->Size()));
         if (!ksync_init_) {
-            WAIT_FOR(1000, 1000, (MAX_TEST_FD == 
+            WAIT_FOR(1000, 1000, (MAX_TEST_MPLS == 
                                  KSyncSockTypeMap::MplsCount()));
             if (if_count) {
                 WAIT_FOR(1000, 1000, ((MAX_TEST_FD + if_count) == 
                                     KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
-                WAIT_FOR(1000, 1000, ((nh_count + (MAX_TEST_FD * 3)) == 
+                WAIT_FOR(1000, 1000, ((nh_count + (MAX_TEST_FD * 5)) == 
                                     KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
@@ -239,7 +242,8 @@ TEST_F(KStateTest, NHDumpTest) {
 
     CreatePorts(0, nh_count, 0);
     //Two interface nexthops get created for each interface (with and without policy)
-    TestNHKState::Init(-1, true, nh_count + (MAX_TEST_FD * 3));
+    //plus l2 without policy
+    TestNHKState::Init(-1, true, nh_count + (MAX_TEST_FD * 3) + 4);
     client->KStateResponseWait(1);
 
     DeletePorts();
@@ -268,7 +272,7 @@ TEST_F(KStateTest, MplsDumpTest) {
     mpls_count = TestKStateBase::fetched_count_;
     
     CreatePorts(0, 0, 0);
-    TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_FD);
+    TestMplsKState::Init(-1, true, mpls_count + MAX_TEST_MPLS);
     client->KStateResponseWait(1);
 
     DeletePorts();
@@ -344,8 +348,9 @@ TEST_F(KStateTest, RouteDumpTest) {
         //Addition of 2 vm ports in a new VN (VRF) will result in the following routes
         // 2 new routes added during vrf addition (169.254.1.1, 169.254.169.254(meta-data service))
         // 2 routes corresponding to the IP address of VM ports
+        // 1 route for l2 of vm port
         // 2 routes corresponding to 2 vmports in default-vrf using meta-data ip address of VM ports.
-        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 1);
+        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 2);
         client->KStateResponseWait(1);
         DeletePorts();
     }

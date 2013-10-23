@@ -94,6 +94,12 @@ struct KFlowInfo {
    17: optional i16  ecmp_index;
 }
 
+struct KVxLanInfo {
+    1: i16          vxlanid;
+    2: i16          rid;
+    3: i32          nhid (link = "KNHReq");
+}
+
 request sandesh KInterfaceReq {
     1: i32 if_id = -1             // send data for given if-id, send all if -1
 }
@@ -141,6 +147,14 @@ response sandesh KFlowResp {
     1: list<KFlowInfo> flow_list;
 }
 
+request sandesh KVxLanReq {
+    1: i16 vxlan_label = 0;      // send data for given vxlan label, send all if -1
+}
+
+response sandesh KVxLanResp {
+    1: list<KVxLanInfo> vxlan_list;
+}
+
 response sandesh ErrResp {
     1: string resp = "   Invalid Input !!!   ";
 }
@@ -167,9 +181,16 @@ struct KVrfStatsInfo {
     5: i64      vrf_discards;
     6: i64      vrf_resolves;
     7: i64      vrf_receives;
-    8: i64      vrf_tunnels;
-    9: i64      vrf_composites;
-   10: i64      vrf_encaps;
+    8: i64      vrf_udp_tunnels;
+    9: i64      vrf_udp_mpls_tunnels;
+   10: i64      vrf_gre_mpls_tunnels;
+   11: i64      vrf_fabric_composites;
+   12: i64      vrf_l2_mcast_composites;
+   13: i64      vrf_l3_mcast_composites;
+   14: i64      vrf_multi_proto_composites;
+   15: i64      vrf_ecmp_composites;
+   16: i64      vrf_encaps;
+   17: i64      vrf_vxlan_tunnels;
 }
 
 request sandesh KVrfStatsReq {

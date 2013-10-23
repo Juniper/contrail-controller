@@ -898,7 +898,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                                "Process BgpMpNlri::EVpn routes");
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            size_t label_offset = 24;
+            size_t label_offset = 34;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
                 if ((*it)->type != 2) {
                     BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,

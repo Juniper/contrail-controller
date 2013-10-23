@@ -29,7 +29,7 @@ public:
     typedef boost::function<void(Buffer)> ReadHandler;
 
     Reader(TcpSessionPtr session, ReadHandler read_fn, Buffer buffer) 
-        : Task(reader_task_id_, session->GetSessionInstance()), 
+        : Task(session->reader_task_id(), session->GetSessionInstance()), 
           session_(session), read_fn_(read_fn), buffer_(buffer) {
     }
     virtual bool Run() {

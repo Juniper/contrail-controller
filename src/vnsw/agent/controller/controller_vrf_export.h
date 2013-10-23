@@ -10,31 +10,17 @@
 #include <cmn/agent_cmn.h>
 #include <oper/vrf.h>
 
-class Inet4RouteExport;
+class RouteExport;
 class VrfExport {
 public:
     struct State : DBState {
-        State() : DBState(), exported_(false), force_chg_(false),
-                  inet4_uc_walkid_(DBTableWalker::kInvalidWalkerId),
-                  inet4_mc_walkid_(DBTableWalker::kInvalidWalkerId) {};
-        ~State() {
-            DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
-
-            if (inet4_uc_walkid_ != DBTableWalker::kInvalidWalkerId) {
-                walker->WalkCancel(inet4_uc_walkid_);
-            }
-
-            if (inet4_mc_walkid_ != DBTableWalker::kInvalidWalkerId) {
-                walker->WalkCancel(inet4_mc_walkid_);
-            }
-        };
-
+        State();
+        ~State();
         bool exported_;
         bool force_chg_;
-        Inet4RouteExport *inet4_unicast_export_;
-        Inet4RouteExport *inet4_multicast_export_;
-        DBTableWalker::WalkId inet4_uc_walkid_;
-        DBTableWalker::WalkId inet4_mc_walkid_;
+        DBTableWalker::WalkId ucwalkid_[AgentRouteTableAPIS::MAX];
+        DBTableWalker::WalkId mcwalkid_[AgentRouteTableAPIS::MAX];
+        RouteExport *rt_export_[AgentRouteTableAPIS::MAX];
     };
 
     static void Notify(AgentXmppChannel *, 

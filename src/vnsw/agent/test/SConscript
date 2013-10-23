@@ -64,6 +64,9 @@ if sys.platform != 'darwin':
     test_route = env.Program(target = 'test_route', source = ['test_route.cc'])
     env.Alias('src/vnsw/agent/test:test_route', test_route)
 
+    test_l2route = env.Program(target = 'test_l2route', source = ['test_l2route.cc'])
+    env.Alias('src/vnsw/agent/test:test_l2route', test_l2route)
+
     test_cfg = env.Program(target = 'test_cfg', source = ['test_cfg.cc'])
     env.Alias('src/vnsw/agent/test:test_cfg', test_cfg)
 
@@ -138,6 +141,7 @@ test_suite = [test_dummy,
               test_acl,
               test_acl_entry,
               test_route,
+              test_l2route,
               test_cfg,
               test_xmpp,
               test_xmppcs,

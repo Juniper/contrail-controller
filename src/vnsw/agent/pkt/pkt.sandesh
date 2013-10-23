@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+include "vnsw/agent/oper/agent.sandesh"
+
 request sandesh AgentStatsReq {
 }
 
@@ -57,6 +59,7 @@ struct FlowAclUuid {
 struct FlowAclInfo {
     1: i32 action;
     2: list<FlowAclUuid> acl;
+    3: list<agent.ActionStr> action_str;
 }
 
 struct SandeshFlowData {
@@ -93,6 +96,7 @@ struct SandeshFlowData {
     32: FlowAclInfo out_sg;
     33: FlowAclInfo mirror;
     34: FlowAclInfo out_mirror;
+    35: list<agent.ActionStr> action_str;
 }
 
 request sandesh FetchFlowRecord {
@@ -155,6 +159,7 @@ struct FlowInfo {
    20: optional string implicit_deny;
    21: optional string short_flow;
    22: optional u16 ecmp_index;
+   23: optional string trap; 
 }
 
 traceobject sandesh FlowTrace {

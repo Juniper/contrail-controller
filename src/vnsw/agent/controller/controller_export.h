@@ -8,14 +8,13 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
+#include <oper/agent_route.h>
 #include <oper/nexthop.h>
 #include <controller/controller_vrf_export.h>
 
 class AgentPath;
 
-class Inet4RouteExport {
+class RouteExport {
 public:
     struct State : DBState {
         State();
@@ -31,31 +30,31 @@ public:
         bool Changed(const AgentPath *path) const;
         void Update(const AgentPath *path);
     };
+    RouteExport(AgentRouteTable *rt);
+    ~RouteExport();
 
-    Inet4RouteExport(Inet4RouteTable *rt_);
-    Inet4RouteExport(Inet4McRouteTable *rt_);
-    ~Inet4RouteExport();
     void Notify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
+                AgentRouteTableAPIS::TableType type,
                 DBTablePartBase *partition, DBEntryBase *e);
-    static Inet4RouteExport* UnicastInit(Inet4UcRouteTable *table,
-                                  AgentXmppChannel *bgp_xmpp_peer); 
-    static Inet4RouteExport* MulticastInit(Inet4McRouteTable *table,
-                                  AgentXmppChannel *bgp_xmpp_peer); 
     void ManagedDelete();
     DBTableBase::ListenerId GetListenerId() const {return id_;};
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
-    static void Walkdone(DBTableBase *partition, Inet4RouteExport *rt);
-private:
+
+    static void Walkdone(DBTableBase *partition, RouteExport *rt);
+    static RouteExport* Init(AgentRouteTable *table, 
+                             AgentXmppChannel *bgp_xmpp_peer);
+private:    
     DBTableBase::ListenerId id_;
-    Inet4RouteTable *rt_table_;
+    AgentRouteTable *rt_table_;
     bool marked_delete_;
     uint32_t state_added_;
     void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
                 DBTablePartBase *partition, DBEntryBase *e);
     void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
-                DBTablePartBase *partition, DBEntryBase *e);
-    LifetimeRef<Inet4RouteExport> table_delete_ref_;
+                DBTablePartBase *partition, DBEntryBase *e,
+                AgentRouteTableAPIS::TableType type);
+    LifetimeRef<RouteExport> table_delete_ref_;
 };
 
 #endif // __CONTROLLER_EXPORT_H__

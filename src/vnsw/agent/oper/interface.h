@@ -42,6 +42,13 @@ public:
         SERVICE_CHANGE,
     };
 
+    enum MirrorDirection {
+        MIRROR_RX_TX,
+        MIRROR_RX,
+        MIRROR_TX,
+        UNKNOWN,
+    };
+
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
 
     Interface(Type type, const uuid &uuid, const string &name, VrfEntry *vrf);
@@ -75,6 +82,8 @@ public:
     bool IsTunnelEnabled() const { return (type_ == ETH);};
     bool IsLabelValid(uint32_t label) const { return (label_ == label);};
     uint32_t GetLabel() const {return label_;};
+    bool IsL2LabelValid(uint32_t label) const { return (label_ == label);};
+    uint32_t GetL2Label() const {return label_;};
     uint32_t GetOsIfindex() const {return os_index_;};
     const ether_addr &GetMacAddr() const {return mac_;};
 
@@ -96,6 +105,7 @@ protected:
     string name_;
     VrfEntryRef vrf_;
     uint32_t label_;
+    uint32_t l2_label_;
     bool active_;
     size_t id_;
     bool dhcp_service_enabled_;
@@ -238,15 +248,16 @@ struct VmPortInterfaceData : public InterfaceData {
         InterfaceData(), addr_(0), vm_mac_(""), cfg_name_(""), vm_uuid_(), vm_name_(), 
         vn_uuid_(), vrf_name_(""), floating_iplist_(), fabric_port_(true),
         need_linklocal_ip_(false), mirror_enable_(false), ip_addr_update_only_(false),
-        analyzer_name_(""), sg_uuid_l_() { };
+        analyzer_name_(""), mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
     VmPortInterfaceData(const Ip4Address addr, const string &mac, const string vm_name) :
             InterfaceData(), addr_(addr), vm_mac_(mac), cfg_name_(""),
             vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""), floating_iplist_(),
             fabric_port_(true), need_linklocal_ip_(false), mirror_enable_(false), 
-            ip_addr_update_only_(false), analyzer_name_(""), sg_uuid_l_() { };
+            ip_addr_update_only_(false), analyzer_name_(""), 
+            mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
     VmPortInterfaceData(bool mirror_enable, const string &analyzer_name) : 
             mirror_enable_(mirror_enable), ip_addr_update_only_(false),
-            analyzer_name_(analyzer_name) { };
+            analyzer_name_(analyzer_name), mirror_direction_(Interface::UNKNOWN) { };
     virtual ~VmPortInterfaceData() { };
     void SetFabricPort(bool val) {fabric_port_ = val;};
     void SetNeedLinkLocalIp(bool val) {need_linklocal_ip_ = val;};
@@ -269,6 +280,7 @@ struct VmPortInterfaceData : public InterfaceData {
     bool mirror_enable_;
     bool ip_addr_update_only_;        // set to true if only IP address is changing in the data
     string analyzer_name_;
+    Interface::MirrorDirection mirror_direction_;
     SgUuidList sg_uuid_l_;
 };
 
@@ -335,20 +347,20 @@ public:
     VmPortInterface(const uuid &uuid) :
         Interface(Interface::VMPORT, uuid, "", NULL), vm_(NULL), vn_(NULL),
         addr_(0), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(""), 
-        policy_enabled_(false), analyzer_name_(""), mirror_entry_(NULL),
+        policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
         floating_iplist_(), service_vlan_list_(), 
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false), 
-        dhcp_snoop_ip_(false), vm_name_() { 
+        dhcp_snoop_ip_(false), vm_name_(), vxlan_id_(0) { 
         SetActiveState(false);
     };
     VmPortInterface(const uuid &uuid, const string &name, Ip4Address addr,
                     const string &mac, const string vm_name) :
         Interface(Interface::VMPORT, uuid, name, NULL), vm_(NULL), vn_(NULL),
         addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(mac), 
-        policy_enabled_(false), analyzer_name_(""), mirror_entry_(NULL),
+        policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
         floating_iplist_(), service_vlan_list_(), 
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false),
-        dhcp_snoop_ip_(false), vm_name_(vm_name) { 
+        dhcp_snoop_ip_(false), vm_name_(vm_name), vxlan_id_(0) { 
         SetActiveState(false);
     };
     virtual ~VmPortInterface() { };
@@ -366,10 +378,8 @@ public:
     const VmEntry *GetVmEntry() const {return vm_.get();};
     const VnEntry *GetVnEntry() const {return vn_.get();};
     const MirrorEntry *GetMirrorEntry() const {return mirror_entry_.get();};
-    const string &GetAnalyzer() const {return analyzer_name_;};
-    void SetAnalyzer(const string &analyzer_name) {
-        analyzer_name_ = analyzer_name;
-    };
+    Interface::MirrorDirection GetMirrorDirection() const {return mirror_direction_;};
+    const string GetAnalyzer() const; 
     const Ip4Address &GetIpAddr() const {return addr_;};
     void SetIpAddr(const Ip4Address &addr) { addr_ = addr; };
     const Ip4Address &GetMdataIpAddr() const {return mdata_addr_;};
@@ -384,6 +394,9 @@ public:
     bool IsMirrorEnabled() const { return (mirror_entry_.get()) ? true:false;};
     void SetMirrorEntry (MirrorEntry *mirror_entry) {
         mirror_entry_ = mirror_entry;};
+    void SetMirrorDirection(Interface::MirrorDirection mirror_direction) {
+        mirror_direction_ = mirror_direction;
+    }
     const string &GetCfgName() const;
 
     bool HasFloatingIp() const {return floating_iplist_.size()? true : false;};
@@ -436,6 +449,8 @@ public:
     bool IsDhcpSnoopIp() const {return dhcp_snoop_ip_;};
     bool IsDhcpSnoopIp(std::string &name, uint32_t &addr) const;
     bool SgExists(const uuid &id, const SgList &sg_l);
+    void SetVxLanId(int vxlan_id) {vxlan_id_ = vxlan_id;};
+    int GetVxLanId() const {return vxlan_id_;};
 
     void Activate();
     void DeActivate(const string &vrf_name, const Ip4Address &ip);
@@ -458,7 +473,12 @@ public:
     static void FloatingIpSync(IFMapNode *node);
     static void FloatingIpVrfSync(IFMapNode *node);
     void AddRoute(std::string vrf_name, Ip4Address ip, bool policy);
+    void AddL2Route(const std::string vrf_name, 
+                    struct ether_addr mac, const Ip4Address &ip, 
+                    bool policy);
     void DeleteRoute(std::string vrf_name, Ip4Address ip, bool policy);
+    void DeleteL2Route(const std::string vrf_name, 
+                       struct ether_addr mac);
     void ServiceVlanAdd(ServiceVlan &entry);
     void ServiceVlanDel(ServiceVlan &entry);
     void ServiceVlanRouteAdd(ServiceVlan &entry);
@@ -478,8 +498,8 @@ private:
     Ip4Address subnet_bcast_addr_;
     string vm_mac_;
     bool policy_enabled_;
-    string analyzer_name_;
     MirrorEntryRef mirror_entry_;
+    Interface::MirrorDirection mirror_direction_;
     FloatingIpList floating_iplist_;
     ServiceVlanList service_vlan_list_;
     string cfg_name_;
@@ -491,6 +511,9 @@ private:
     // vector of SgUuid
     SgUuidList sg_uuid_l_;
     string vm_name_;
+    int vxlan_id_;
+    void AllocMPLSLabels();
+    void AllocL2Labels(int old_vxlan_id);
     DISALLOW_COPY_AND_ASSIGN(VmPortInterface);
 };
 
@@ -699,6 +722,7 @@ public:
     VrfEntry *FindVrfRef(const string &name) const;
     VnEntry *FindVnRef(const uuid &uuid) const;
     VmEntry *FindVmRef(const uuid &uuid) const;
+    MirrorEntry *FindMirrorRef(const string &name) const;
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static InterfaceTable *GetInstance() {return interface_table_;};

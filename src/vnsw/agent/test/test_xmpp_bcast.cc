@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
 #include "testing/gunit.h"
 
 #include <pugixml/pugixml.hpp>
@@ -428,6 +427,10 @@ protected:
 	};
 	
 	client->Reset();
+
+    EnableEvpn();
+	client->WaitForIdle();
+
     CreateVmportEnv(input, 2, 0);
 	client->WaitForIdle();
 
@@ -435,13 +438,13 @@ protected:
     AddIPAM("vn1", ipam_info, 1);
 	client->WaitForIdle();
 	// expect subscribe message + 2 VM routes+ subnet bcast +
-	// bcast route at the mock server
-	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
+	// v4 bcast route at the mock server + 2 l2 uc routes 
+	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
 
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-	Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
 	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
 
 	// Send route, back to vrf1
@@ -480,8 +483,8 @@ protected:
                               "127.0.0.1", alloc_label+10);
 	// Bcast Route with updated olist 
 	WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 3));
-    client->CompositeNHWait(3);
-    client->MplsWait(3);
+    client->CompositeNHWait(7);
+    client->MplsWait(5);
 
 	NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
 	CompositeNH *cnh = static_cast<CompositeNH *>(nh);
@@ -496,20 +499,24 @@ protected:
     CompositeNH::ComponentNHList::const_iterator component_nh_it =
         cnh->begin();
     ComponentNH *component = *component_nh_it;
-    ASSERT_TRUE(component->GetLabel() == alloc_label+10);
+    CompositeNH *fabric_cnh = ((CompositeNH *)component->GetNH());
+    CompositeNH::ComponentNHList::const_iterator fabric_component_nh_it =
+        fabric_cnh->begin();
+    ComponentNH *fabric_component = *fabric_component_nh_it;
+    ASSERT_TRUE(fabric_component->GetLabel() == alloc_label+10);
 
 	//Verify mpls table
 	MplsLabel *mpls = 
 	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     //Verifying mpls label for mcast does not get stored in UC table
 	ASSERT_TRUE(mpls == NULL); 
-    // 2 unicast label + 1 mc label
-	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 3);
+    // 2 v4 unicast label + 1 mc label + 2 l2 uc
+	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 5);
 
 	// Verify presence of all broadcast route in mcast table
 	addr = Ip4Address::from_string("255.255.255.255");
 	ASSERT_TRUE(MCRouteFind("vrf1", addr));
-	Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+	Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
 	
 	//Send All bcast route
 	SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -517,8 +524,8 @@ protected:
                               "127.0.0.1", alloc_label + 11);
 	// Bcast Route with updated olist
 	WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 4));
-    client->CompositeNHWait(4);
-    client->MplsWait(4);
+    client->CompositeNHWait(11);
+    client->MplsWait(6);
 
 	nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
 	ASSERT_TRUE(nh != NULL);
@@ -532,11 +539,11 @@ protected:
 	//Verify mpls table
 	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+ 1);
 	ASSERT_TRUE(mpls == NULL);
-	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
     }
 
 
-    void XmppSubnetTearDown() {
+    void XmppSubnetTearDown(int cnh_del_cnt) {
 
         client->Reset();
         DelIPAM("vn1");
@@ -544,9 +551,13 @@ protected:
         client->Reset();
         DeleteVmportEnv(input, 2, 1, 0);
         client->WaitForIdle();
-        client->CompositeNHDelWait(2);
+        client->CompositeNHDelWait(cnh_del_cnt);
         client->NextHopReset();
         client->MplsReset();
+    }
+
+    void XmppSubnetTearDown() {
+        XmppSubnetTearDown(6);
     }
 
     EventManager evm_;
@@ -581,31 +592,31 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
 
     //Delete vm-port and route entry in vrf1
     IntfCfgDel(input, 0);
-    client->CompositeNHWait(6);
+    client->CompositeNHWait(16);
     // Route delete send to control-node 
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 7));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 11));
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.1/32", "vrf1");
     // Route delete for vrf1 
-    client->MplsDelWait(1);
+    client->MplsDelWait(2);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
 
     //Verify label deallocated from Mpls Table
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 3);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
 
     //Delete vm-port and route entry in vrf1
     IntfCfgDel(input, 1);
     client->WaitForIdle();
     // Route delete for vm + braodcast
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 10));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 15));
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.2/32", "vrf1");
     // Route delete for vrf1 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
-    client->MplsDelWait(4);
-    client->CompositeNHDelWait(1);
+    client->MplsDelWait(6);
+    client->CompositeNHDelWait(4);
 
     //Confirm route has been cleaned up
     WAIT_FOR(100, 10000, (RouteFind("vrf1", "1.1.1.1", 32) == false));
@@ -618,10 +629,10 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     // ensure subnet broadcast route is deleted 
     Ip4Address sb_addr = Ip4Address::from_string("1.1.1.255");
     if(RouteFind("vrf1", sb_addr, 32) == true) { 
-	Inet4UcRoute *rt = RouteGet("vrf1", sb_addr, 32);
+	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", sb_addr, 32);
         nh = rt->GetActiveNextHop();
         cnh = static_cast<const CompositeNH *>(nh);
-        ASSERT_TRUE(cnh->ComponentNHCount() == 0);
+        ASSERT_TRUE(cnh->ComponentNHCount() == 1);
     }
     
     // send route-delete even though route-deleted at agent
@@ -629,12 +640,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     // Subnet Bcast Route delete for vrf1 
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
-    client->CompositeNHDelWait(1);
+    client->CompositeNHDelWait(4);
 
     //ensure all broadcast route  is deleted
     sb_addr = Ip4Address::from_string("255.255.255.255");
     if(MCRouteFind("vrf1", sb_addr) == true) { 
-	Inet4McRoute *rt = MCRouteGet("vrf1", sb_addr);
+	Inet4MulticastRouteEntry *rt = MCRouteGet("vrf1", sb_addr);
         nh = rt->GetActiveNextHop();
         cnh = static_cast<const CompositeNH *>(nh);
         ASSERT_TRUE(cnh->ComponentNHCount() == 0);
@@ -679,7 +690,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     //ensure route learnt via control-node, path is updated 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
-    Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     WAIT_FOR(100, 10000, (rt->FindPath(ch->GetBgpPeer()) == NULL));
 	client->WaitForIdle();
 
@@ -687,7 +698,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     addr = Ip4Address::from_string("1.1.1.2");
     rt = RouteGet("vrf1", addr, 32);
     WAIT_FOR(100, 10000, (rt->FindPath(ch->GetBgpPeer()) == NULL));
-    client->CompositeNHWait(6);
+    client->CompositeNHWait(17);
 
     //ensure route learnt via control-node is updated
     addr = Ip4Address::from_string("1.1.1.255");
@@ -697,20 +708,20 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
-    ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
 
     //ensure route learnt via control-node is updated 
     addr = Ip4Address::from_string("255.255.255.255");
     ASSERT_TRUE(MCRouteFind("vrf1", addr));
-    Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+    Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    ASSERT_TRUE(cnh->ComponentNHCount() == 2);
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
 
     //Verify label deallocated from Mpls Table
-    EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 2);
+    EXPECT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
 
     //bring-up the channel
     bgp_peer.get()->HandleXmppChannelEvent(xmps::READY);
@@ -722,7 +733,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     // expect subscribe message <default,vrf> + 2 VM routes+ subnet bcast +
     // bcast route at the mock server
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 12));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 17));
 
     // Send route, back to vrf1
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 
@@ -747,8 +758,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
-    client->CompositeNHWait(7);
-    client->MplsWait(7);
+    client->CompositeNHWait(19);
+    client->MplsWait(9);
 
     addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
@@ -767,7 +778,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     MplsLabel *mpls = 
 	Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 3);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 5);
 
     //Send All bcast route
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -775,8 +786,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
-    client->CompositeNHWait(8);
-    client->MplsWait(8);
+    client->CompositeNHWait(23);
+    client->MplsWait(10);
 
     //ensure route learnt via control-node is updated 
     addr = Ip4Address::from_string("255.255.255.255");
@@ -794,9 +805,9 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+ 1);
     ASSERT_TRUE(mpls == NULL);
     //Verify mpls table size
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
-    XmppSubnetTearDown();
+    XmppSubnetTearDown(7);
 
     IntfCfgDel(input, 0);
     IntfCfgDel(input, 1);
@@ -821,12 +832,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
                           "127.0.0.1");
     client->MplsDelWait(2);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 2);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
 
     //ensure route learnt via control-node, path is updated 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     ASSERT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
 
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
@@ -839,7 +850,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
 
     addr = Ip4Address::from_string("255.255.255.255");
     ASSERT_TRUE(MCRouteFind("vrf1", addr));
-    Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+    Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
 
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
@@ -873,7 +884,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -888,7 +899,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     MplsLabel *mpls = 
 	Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
 
     //Send Updated olist label, src-nh label
@@ -897,8 +908,8 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
                           "127.0.0.1", alloc_label + 12);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
-    client->MplsWait(6);
-    client->CompositeNHWait(5);
+    client->MplsWait(8);
+    client->CompositeNHWait(13);
 
     //verify sub-nh list count
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -908,12 +919,12 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+2);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     // Verify presence of all broadcast route in mcast table
     addr = Ip4Address::from_string("255.255.255.255");
     ASSERT_TRUE(MCRouteFind("vrf1", addr));
-    Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+    Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -925,15 +936,15 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
     
     //Send All bcast route
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
 			  "255.255.255.255", alloc_label + 3,  
                           "127.0.0.1", alloc_label+13);
     // Bcast Route with updated olist
-    client->CompositeNHWait(6);
-    client->MplsWait(8);
+    client->CompositeNHWait(17);
+    client->MplsWait(10);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
 
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
@@ -944,7 +955,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+3);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     XmppSubnetTearDown();
 
@@ -969,7 +980,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -984,7 +995,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     MplsLabel *mpls = 
 	Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -994,26 +1005,26 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           alloc_label + 13);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
-    client->CompositeNHWait(5);
-    client->MplsWait(4);
+    client->CompositeNHWait(13);
+    client->MplsWait(6);
 
-    //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
-    ASSERT_TRUE(cnh->ComponentNHCount() == 4);
+    //verify sub-nh list count ( 2 local-VMs + 1 fabric member in olist )
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
 
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
 			  "1.1.1.255", alloc_label,  
                           "127.0.0.1", alloc_label + 14);
     // Bcast Route with updated olist 
-    client->CompositeNHWait(6);
-    client->MplsWait(4);
+    client->CompositeNHWait(15);
+    client->MplsWait(6);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
 
     //verify sub-nh list count ( 2 local-VMs + 1 members in olist )
@@ -1024,13 +1035,13 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
 
     //Verify all-broadcast
     addr = Ip4Address::from_string("255.255.255.255");
     EXPECT_TRUE(MCRouteFind("vrf1", addr));
-    Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+    Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1043,7 +1054,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1053,18 +1064,18 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           alloc_label + 16);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
-    client->CompositeNHWait(7);
-    client->MplsWait(4);
+    client->CompositeNHWait(18);
+    client->MplsWait(6);
 
     //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
-    ASSERT_TRUE(cnh->ComponentNHCount() == 4);
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
 
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1072,8 +1083,8 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           "127.0.0.1", alloc_label + 17);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
-    client->CompositeNHWait(8);
-    client->MplsWait(4);
+    client->CompositeNHWait(21);
+    client->MplsWait(6);
 
     //verify sub-nh list count ( 2 local-VMs + 1 members in olist )
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1083,7 +1094,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
      
 
     XmppSubnetTearDown();
@@ -1108,7 +1119,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     int alloc_label = GetStartLabel();
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
-    Inet4UcRoute *rt = RouteGet("vrf1", addr, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1123,7 +1134,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     MplsLabel *mpls = 
 	Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1133,18 +1144,18 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           alloc_label + 12);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
-    client->CompositeNHWait(5);
-    client->MplsWait(6);
+    client->CompositeNHWait(13);
+    client->MplsWait(8);
 
     //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
-    ASSERT_TRUE(cnh->ComponentNHCount() == 4);
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+40));
 
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+40);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1152,8 +1163,8 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           "127.0.0.1", alloc_label + 14);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
-    client->CompositeNHWait(6);
-    client->MplsWait(8);
+    client->CompositeNHWait(15);
+    client->MplsWait(10);
 
     //verify sub-nh list count ( 2 local-VMs + 1 members in olist )
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1163,13 +1174,13 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+41);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
 
     //Verify all-broadcast
     addr = Ip4Address::from_string("255.255.255.255");
     EXPECT_TRUE(MCRouteFind("vrf1", addr));
-    Inet4McRoute *rt_m = MCRouteGet("vrf1", addr);
+    Inet4MulticastRouteEntry *rt_m = MCRouteGet("vrf1", addr);
     nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
@@ -1182,7 +1193,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+1);
     ASSERT_TRUE(mpls == NULL);
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1192,18 +1203,18 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           alloc_label + 15);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
-    client->CompositeNHWait(7);
-    client->MplsWait(10);
+    client->CompositeNHWait(19);
+    client->MplsWait(12);
 
     //verify sub-nh list count ( 2 local-VMs + 2 members in olist )
-    ASSERT_TRUE(cnh->ComponentNHCount() == 4);
+    ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+50));
 
     //Verify mpls table
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+50);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     //Send Updated olist label, src-nh label
     SendBcastRouteMessage(mock_peer.get(), "vrf1",
@@ -1211,8 +1222,8 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           "127.0.0.1", alloc_label + 17);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
-    client->CompositeNHWait(8);
-    client->MplsWait(12);
+    client->CompositeNHWait(23);
+    client->MplsWait(14);
 
     //verify sub-nh list count ( 2 local-VMs + 1 members in olist )
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1222,7 +1233,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label+51);
     ASSERT_TRUE(mpls == NULL);
     // Detect mpls label leaks
-    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 4);
+    ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
 
     XmppSubnetTearDown();
 

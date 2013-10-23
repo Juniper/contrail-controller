@@ -13,7 +13,7 @@
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
-#include <oper/inet4_ucroute.h>
+#include <oper/agent_route.h>
 #include <oper/interface.h>
 #include <oper/vrf_assign.h>
 
@@ -56,15 +56,27 @@ void VGwTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry) {
     MplsLabel::CreateVirtualHostPortLabelReq(label_, cfg->GetInterface(),
                                              false);
 
-    Inet4UcRouteTable *rt_table;
-    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable
-        (cfg->GetVrf());
+    Inet4UnicastAgentRouteTable *rt_table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (VrfTable::GetInstance()->GetRouteTable(cfg->GetVrf(), 
+                                  AgentRouteTableAPIS::INET4_UNICAST));
+
+    // Packets received on fabric vrf and destined to IP address in "public" 
+    // network reach kernel. Linux kernel will put back the packets on vgw
+    // interface. Add route to trap the public addresses to linux kernel
+    Ip4Address addr = cfg->GetAddr();
+    addr = Ip4Address(addr.to_ulong() & (0xFFFFFFFF << (32 - cfg->GetPlen())));
     rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetLocalVmPeer(),
-                                cfg->GetVrf(), cfg->GetInterface(),
-                                cfg->GetAddr(), 32, cfg->GetVrf(), false);
-    rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetLocalVmPeer(),
-                                cfg->GetVrf(), cfg->GetInterface(), 
-                                Ip4Address(0), 0, cfg->GetVrf(), false);
+                                Agent::GetInstance()->GetDefaultVrf(),
+                                Agent::GetInstance()->GetVirtualHostInterfaceName(),
+                                addr, cfg->GetPlen(), cfg->GetVrf(), false);
+
+    // Add default route in public network. BGP will export this route to
+    // other compute nodes
+    rt_table->AddVHostInterfaceRoute(Agent::GetInstance()->GetLocalVmPeer(),
+                                     cfg->GetVrf(), Ip4Address(0), 0,
+                                     cfg->GetInterface(), label_,
+                                     cfg->GetVrf());
 }
 
 void VGwTable::CreateStaticObjects() {

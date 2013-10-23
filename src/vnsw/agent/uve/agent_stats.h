@@ -40,30 +40,61 @@ public:
     };
     struct VrfStats {
         VrfStats() : name(""), discards(0), resolves(0), receives(0), 
-                     tunnels(0), composites(0), encaps(0),
+                     udp_tunnels(0), udp_mpls_tunnels(0), gre_mpls_tunnels(0),
+                     ecmp_composites(0), l3_mcast_composites(0), 
+                     l2_mcast_composites(0), fabric_composites(0),
+                     multi_proto_composites(0), encaps(0), l2_encaps(0),
                      prev_discards(0), prev_resolves(0), prev_receives(0), 
-                     prev_tunnels(0), prev_composites(0), prev_encaps(0),
+                     prev_udp_tunnels(0), prev_udp_mpls_tunnels(0), 
+                     prev_gre_mpls_tunnels(0), prev_encaps(0),
+                     prev_ecmp_composites(0), prev_l3_mcast_composites(0), 
+                     prev_l2_mcast_composites(0), prev_fabric_composites(0),
+                     prev_multi_proto_composites(0), prev_l2_encaps(0),
                      k_discards(0), k_resolves(0), k_receives(0), 
-                     k_tunnels(0), k_composites(0), k_encaps(0) {}
+                     k_gre_mpls_tunnels(0), k_encaps(0),
+                     k_ecmp_composites(0), k_l3_mcast_composites(0), 
+                     k_l2_mcast_composites(0), k_fabric_composites(0),
+                     k_multi_proto_composites(0), k_l2_encaps(0) {};
         std::string name;
         uint64_t discards;
         uint64_t resolves;
         uint64_t receives;
-        uint64_t tunnels;
-        uint64_t composites;
+        uint64_t udp_tunnels;
+        uint64_t udp_mpls_tunnels;
+        uint64_t gre_mpls_tunnels;
+        uint64_t ecmp_composites;
+        uint64_t l3_mcast_composites;
+        uint64_t l2_mcast_composites;
+        uint64_t fabric_composites;
+        uint64_t multi_proto_composites;
         uint64_t encaps;
+        uint64_t l2_encaps;
         uint64_t prev_discards;
         uint64_t prev_resolves;
         uint64_t prev_receives;
-        uint64_t prev_tunnels;
-        uint64_t prev_composites;
+        uint64_t prev_udp_tunnels;
+        uint64_t prev_udp_mpls_tunnels;
+        uint64_t prev_gre_mpls_tunnels;
         uint64_t prev_encaps;
+        uint64_t prev_ecmp_composites;
+        uint64_t prev_l3_mcast_composites;
+        uint64_t prev_l2_mcast_composites;
+        uint64_t prev_fabric_composites;
+        uint64_t prev_multi_proto_composites;
+        uint64_t prev_l2_encaps;
         uint64_t k_discards;
         uint64_t k_resolves;
         uint64_t k_receives;
-        uint64_t k_tunnels;
-        uint64_t k_composites;
+        uint64_t k_udp_tunnels;
+        uint64_t k_udp_mpls_tunnels;
+        uint64_t k_gre_mpls_tunnels;
         uint64_t k_encaps;
+        uint64_t k_ecmp_composites;
+        uint64_t k_l3_mcast_composites;
+        uint64_t k_l2_mcast_composites;
+        uint64_t k_fabric_composites;
+        uint64_t k_multi_proto_composites;
+        uint64_t k_l2_encaps;
     };
 
     enum StatsType {
@@ -77,7 +108,10 @@ public:
     typedef std::pair<int, VrfStats> VrfStatsPair;
 
     AgentStatsCollector(boost::asio::io_service &io, int intvl) : 
-        StatsCollector(StatsCollector::AgentStatsCollector, io, intvl, "Agent Stats collector"), 
+        StatsCollector(TaskScheduler::GetInstance()->GetTaskId(
+                       "Agent::StatsCollector"), 
+                       StatsCollector::AgentStatsCollector, 
+                       io, intvl, "Agent Stats collector"), 
         vrf_stats_responses_(0), drop_stats_responses_(0) {
         AddNamelessVrfStatsEntry();
     }
@@ -131,6 +165,9 @@ public:
         assert(0);
     }
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) {
+        assert(0);
+    }
+    virtual void VxLanMsgHandler(vr_vxlan_req *req) {
         assert(0);
     }
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);

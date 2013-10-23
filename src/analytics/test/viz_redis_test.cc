@@ -67,6 +67,64 @@ std::string exec(char* cmd) {
     return result;
 }
 
+void SetRedisPath() {
+    char *rpath = getenv("LD_LIBRARY_PATH");
+    if (NULL == rpath) rpath = getenv("DYLD_LIBRARY_PATH");
+    if (rpath != NULL) {
+        string ppath(rpath);
+        ppath.append("/../../src/analytics/test/utils/mockredis/");
+
+        PyObject* sysPath = PySys_GetObject((char*)"path");
+        PyObject *pPath = PyString_FromString(ppath.c_str());
+        PyList_Insert(sysPath, 0, pPath);
+        Py_DECREF(pPath);
+    }  
+}
+
+bool StartRedisSentinel(int port, int redis_port) {
+    SetRedisPath();
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue1, *pValue2;
+
+    pName = PyString_FromString("mockredis");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    pFunc = PyObject_GetAttrString(pModule, "start_redis_sentinel");
+    pValue1 = PyInt_FromLong(port);
+    pValue2 = PyInt_FromLong(redis_port);
+    pArgs = PyTuple_New(2);
+    PyTuple_SetItem(pArgs, 0, pValue1);
+    PyTuple_SetItem(pArgs, 1, pValue2);
+    PyObject_CallObject(pFunc, pArgs);
+    Py_DECREF(pArgs);
+    Py_DECREF(pValue1);
+    Py_DECREF(pValue2);
+    Py_DECREF(pFunc);
+    Py_DECREF(pModule);
+    return true;
+}
+
+bool StopRedisSentinel(int port) {
+    PyObject *pName, *pModule, *pFunc;
+    PyObject *pArgs, *pValue;
+
+    pName = PyString_FromString("mockredis");
+    pModule = PyImport_Import(pName);
+    Py_DECREF(pName);
+
+    pFunc = PyObject_GetAttrString(pModule, "stop_redis_sentinel");
+    pValue = PyInt_FromLong(port);
+    pArgs = PyTuple_New(1);
+    PyTuple_SetItem(pArgs, 0, pValue);
+    PyObject_CallObject(pFunc, pArgs);
+    Py_DECREF(pArgs);
+    Py_DECREF(pValue);
+    Py_DECREF(pFunc);
+    Py_DECREF(pModule);
+    return true;
+}
+
 bool StopRedis(int port) {
     char *rpath = getenv("LD_LIBRARY_PATH");
     if (NULL == rpath) rpath = getenv("DYLD_LIBRARY_PATH");
@@ -194,16 +252,21 @@ public:
         evm_(new EventManager()),
         thread_(new ServerThread(evm_.get())),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm_.get()->io_service(), boost::bind(&VizRedisTest::DbErrorHandlerFn, this),
-                "127.0.0.1", 9191)) {
+                "127.0.0.1", 9191, false, 0, "127.0.0.1:VizRedisTest")) {
         {
-            boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::tcp::v4(), 0);
-            boost::asio::ip::tcp::acceptor acceptor(*evm_.get()->io_service(), endpoint);
-            redis_port_ = acceptor.local_endpoint().port(); 
+            boost::asio::ip::tcp::endpoint endpoint1(boost::asio::ip::tcp::v4(), 0);
+            boost::asio::ip::tcp::acceptor acceptor1(*evm_.get()->io_service(), endpoint1);
+            redis_sentinel_port_ = acceptor1.local_endpoint().port(); 
+            boost::asio::ip::tcp::endpoint endpoint2(boost::asio::ip::tcp::v4(), 0);
+            boost::asio::ip::tcp::acceptor acceptor2(*evm_.get()->io_service(), endpoint2);
+            redis_port_ = acceptor2.local_endpoint().port(); 
         }
 
+        StartRedisSentinel(redis_sentinel_port_, redis_port_);
         StartRedis(redis_port_);
         DbHandler *db_handler(new DbHandler(dbif_));
-        OpServerProxy * osp = new OpServerProxy(evm_.get(), 0, string("127.0.0.1"), redis_port_);
+        OpServerProxy * osp = new OpServerProxy(evm_.get(), 0, string("127.0.0.1"),
+                                                redis_sentinel_port_);
         Ruleeng *ruleeng(new Ruleeng(db_handler, osp));
         collector_ = new Collector(evm_.get(), 0, db_handler, ruleeng);
         collector_port_ = collector_->GetPort();
@@ -223,7 +286,7 @@ public:
         task_util::WaitForIdle();
         analytics_.reset(NULL);
         StopRedis(redis_port_);
-
+        StopRedisSentinel(redis_sentinel_port_);
     }
 
     void DbErrorHandlerFn() {
@@ -242,6 +305,7 @@ public:
     }
 
     unsigned short collector_port_;
+    unsigned short redis_sentinel_port_;
     unsigned short redis_port_;
     std::auto_ptr<EventManager> evm_;
     std::auto_ptr<ServerThread> thread_;

@@ -207,15 +207,23 @@ response sandesh IFMapXmppShowResp {
 request sandesh IFMapPeerServerInfoReq {
 }
 
-struct IFMapPeerServerInfo {
+struct IFMapPeerServerInfoUI {
     1: string url;
     2: string connection_status;
+}
+
+struct IFMapPeerServerInfo {
+    1: string url;
+    3: bool init_done;
 }
 
 struct IFMapPeerServerConnInfo {
     1: string publisher_id;
     2: string session_id;
     3: u64 sequence_number;
+    4: string connection_status;
+    5: string host;
+    6: string port;
 }
 
 struct IFMapPeerTimedoutEntry {
@@ -244,11 +252,30 @@ struct IFMapStateMachineInfo {
     5: string last_event_at;
 }
 
+struct IFMapDSPeerInfoEntry {
+    1: string host;
+    2: string port;
+    3: bool in_use;
+}
+
+struct IFMapDSPeerInfo {
+    1: i32 num_peers;
+    2: list<IFMapDSPeerInfoEntry> ds_peer_list;
+    3: string service_name;
+    4: string subscriber_name;
+    5: string static_peer;
+    6: string current_peer;
+    7: u64 ds_response_count;
+    8: string last_response_ago;
+    9: u64 using_non_ds_peer_count;
+}
+
 response sandesh IFMapPeerServerInfoResp {
     1: IFMapPeerServerInfo server_info;
     2: IFMapPeerServerConnInfo server_conn_info;
     3: IFMapPeerServerStatsInfo stats_info;
     4: IFMapStateMachineInfo sm_info;
+    5: IFMapDSPeerInfo ds_peer_info;
 }
 
 /** Definitions for showing the list of uuid to node mappings **/
@@ -307,5 +334,14 @@ struct IFMapNodeTableListShowEntry {
 
 response sandesh IFMapNodeTableListShowResp {
     1: list<IFMapNodeTableListShowEntry> table_list
+}
+
+request sandesh IFMapPeerServerSocketReadReq {
+    1: i32 bytes_to_read;
+}
+
+response sandesh IFMapPeerServerSocketReadResp {
+    1: i32 socket_bytes;
+    2: string socket_string;
 }
 

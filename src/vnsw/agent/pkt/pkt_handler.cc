@@ -11,7 +11,7 @@
 #include "cmn/agent_cmn.h"
 #include "oper/interface.h"
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
+#include "oper/agent_route.h"
 #include "oper/vrf.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/proto.h"
@@ -58,7 +58,9 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     if (Agent::GetInstance()->GetDefaultVrf() == vrf_entry->GetName())
         return;
 
-    Inet4UcRouteTable *rt_table = vrf_entry->GetInet4UcRouteTable();
+    Inet4UnicastAgentRouteTable *rt_table = 
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
 
     // In XenMode the link-local interface is configured in a separate
     // instance. Otherwise it is available on the VRF as a NATed address.
@@ -78,7 +80,7 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 }
 
 // Check if the packet is destined to the VM's default GW
-bool PktHandler::IsGwPacket(const Interface *intf, PktInfo *pkt_info) {
+bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
     if (intf->GetType() != Interface::VMPORT)
         return false;
 
@@ -92,7 +94,7 @@ bool PktHandler::IsGwPacket(const Interface *intf, PktInfo *pkt_info) {
             if ((vm_intf->GetIpAddr().to_ulong() & mask)
                     != (ipam[i].ip_prefix.to_ulong() & mask))
                 continue;
-            return (ipam[i].default_gw.to_ulong() == pkt_info->ip_daddr);
+            return (ipam[i].default_gw.to_ulong() == dst_ip);
         }
     }
 
@@ -161,7 +163,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     }
 
     // first ping packet will require flow handling, when policy is enabled
-    if (pkt_type == PktType::ICMP && IsGwPacket(intf, pkt_info)) {
+    if (pkt_type == PktType::ICMP && IsGwPacket(intf, pkt_info->ip_daddr)) {
         mod = ICMP;
         goto enqueue;
     }
@@ -257,7 +259,8 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
         pkt_type = PktType::ICMP;
 
         icmphdr *icmp = (icmphdr *)pkt;
-        pkt_info->dport = icmp->type;
+
+        pkt_info->dport = htons(icmp->type);
         if (icmp->type == ICMP_ECHO || icmp->type == ICMP_ECHOREPLY) {
             pkt_info->dport = ICMP_ECHOREPLY;
             pkt_info->sport = htons(icmp->un.echo.id);

@@ -6,7 +6,7 @@
 #include "cmn/agent_cmn.h"
 #include "ksync/ksync_index.h"
 #include "oper/interface.h"
-#include "oper/inet4_ucroute.h"
+#include "oper/agent_route.h"
 #include "oper/mirror_table.h"
 #include "ksync/interface_ksync.h"
 #include "services/dhcp_proto.h"
@@ -255,7 +255,8 @@ bool DhcpHandler::FindLeaseData() {
     client_name_ = vm_itf_->GetVmName();
     if (vm_itf_->GetActiveState()) {
         if (vm_itf_->IsFabricPort()) {
-            Inet4Route *rt = Inet4UcRouteTable::FindResolveRoute(
+            Inet4UnicastRouteEntry *rt = 
+                Inet4UnicastAgentRouteTable::FindResolveRoute(
                              vm_itf_->GetVrf()->GetName(), ip);
             if (rt) {
                 uint8_t plen = rt->GetPlen();

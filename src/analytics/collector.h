@@ -31,10 +31,11 @@ class SandeshStateMachine;
 
 class Collector : public SandeshServer {
 public:
-    typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool)> VizCallback;
+    typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool, DbHandler *)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
-              DbHandler *db_handler, Ruleeng *ruleeng);
+              DbHandler *db_handler, Ruleeng *ruleeng,
+              std::string cassandra_ip="127.0.0.1", unsigned short cassandra_port=9160, int analytics_ttl=7);
     virtual ~Collector();
     virtual void Shutdown();
 
@@ -61,6 +62,10 @@ public:
     static std::string GetSelfIp() { return self_ip_; }
     static void SetSelfIp(std::string ip) { self_ip_ = ip; }
 
+    std::string cassandra_ip() { return cassandra_ip_; }
+    unsigned short cassandra_port() { return cassandra_port_; }
+    int analytics_ttl() { return analytics_ttl_; }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -70,6 +75,10 @@ private:
     OpServerProxy * const osp_;
     EventManager * const evm_;
     VizCallback cb_;
+
+    std::string cassandra_ip_;
+    unsigned short cassandra_port_;
+    int analytics_ttl_;
 
     // Generator map
     typedef boost::ptr_map<Generator::GeneratorId, Generator> GeneratorMap;
@@ -89,8 +98,9 @@ class VizSession : public SandeshSession {
 public:
     Generator *gen_;
     VizSession(TcpServer *client, Socket *socket, int task_instance,
-            int task_id) :
-        SandeshSession(client, socket, task_instance, task_id),
+            int writer_task_id, int reader_task_id) :
+        SandeshSession(client, socket, task_instance, writer_task_id,
+                       reader_task_id),
         gen_(NULL) { }
 };
 

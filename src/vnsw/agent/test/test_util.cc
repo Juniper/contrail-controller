@@ -383,6 +383,26 @@ uint32_t VmPortGetId(int id) {
     return 0;
 }
 
+std::string VmPortGetAnalyzerName(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf) {
+        return intf->GetAnalyzer();
+    }
+    return std::string();
+}
+
+Interface::MirrorDirection VmPortGetMirrorDirection(int id) {
+    VmPortInterface *intf;
+    VmPortInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf) {
+        return intf->GetMirrorDirection();
+    }
+    return Interface::UNKNOWN;
+}
+
 bool VmPortFind(PortInfo *input, int id) {
     return VmPortFind(input[id].intf_id);
 }
@@ -452,7 +472,11 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t tunnels, uint64_t composites, uint64_t encaps) {
+                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels, 
+                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites, 
+                   uint64_t fabric_composites, uint64_t l2_mcast_composites,
+                   uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
+                   uint64_t encaps, uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
                         AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -468,19 +492,37 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
     }
 
     if (st->discards == discards && st->resolves == resolves && 
-        st->receives == receives && st->tunnels == tunnels && 
-        st->composites == composites && st->encaps == encaps) {
+        st->receives == receives && st->udp_tunnels == udp_tunnels && 
+        st->udp_mpls_tunnels == udp_mpls_tunnels &&
+        st->gre_mpls_tunnels == gre_mpls_tunnels &&
+        st->ecmp_composites == ecmp_composites &&
+        st->l3_mcast_composites == l3_mcast_composites &&
+        st->l2_mcast_composites == l2_mcast_composites &&
+        st->fabric_composites == fabric_composites &&
+        st->multi_proto_composites == multi_proto_composites &&
+        st->l2_encaps == l2_encaps && st->encaps == encaps) {
         return true;
     }
     LOG(DEBUG, "discards " << st->discards << " resolves " << st->resolves <<
-        " receives " << st->receives << " tunnels " << st->tunnels << 
-        " composites " << st->composites << " encaps " << st->encaps);
+        " receives " << st->receives << " udp tunnels " << st->udp_tunnels <<
+        " udp mpls tunnels " << st->udp_mpls_tunnels << 
+        " udp gre tunnels " << st->gre_mpls_tunnels << 
+        " ecmp composites " << st->ecmp_composites << 
+        " fabric composites " << st->fabric_composites << 
+        " l2 composites " << st->l2_mcast_composites << 
+        " l3 composites " << st->l3_mcast_composites << 
+        " multi proto composites " << st->multi_proto_composites << 
+        " encaps " << st->encaps << " l2 encals " << st->l2_encaps);
     return false;
 }
 
 bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
-                       uint64_t receives, uint64_t tunnels, 
-                       uint64_t composites, uint64_t encaps) {
+                   uint64_t receives, uint64_t udp_tunnels, 
+                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels, 
+                   uint64_t ecmp_composites, uint64_t fabric_composites, 
+                   uint64_t l2_mcast_composites, uint64_t l3_mcast_composites, 
+                   uint64_t multi_proto_composites, uint64_t encaps, 
+                   uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
                         AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
     if (st == NULL) {
@@ -488,13 +530,27 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
     }
 
     if (st->prev_discards == discards && st->prev_resolves == resolves && 
-        st->prev_receives == receives && st->prev_tunnels == tunnels && 
-        st->prev_composites == composites && st->prev_encaps == encaps) {
+        st->prev_receives == receives && st->prev_udp_tunnels == udp_tunnels && 
+        st->prev_udp_mpls_tunnels == udp_mpls_tunnels &&
+        st->prev_gre_mpls_tunnels == gre_mpls_tunnels &&
+        st->prev_ecmp_composites == ecmp_composites &&
+        st->prev_l3_mcast_composites == l3_mcast_composites &&
+        st->prev_l2_mcast_composites == l2_mcast_composites &&
+        st->prev_fabric_composites == fabric_composites &&
+        st->prev_multi_proto_composites == multi_proto_composites &&
+        st->prev_l2_encaps == l2_encaps && st->prev_encaps == encaps) {
         return true;
     }
     LOG(DEBUG, "discards " << st->prev_discards << " resolves " << st->prev_resolves <<
-        " receives " << st->prev_receives << " tunnels " << st->prev_tunnels << 
-        " composites " << st->prev_composites << " encaps " << st->prev_encaps);
+        " receives " << st->prev_receives << " udp tunnels " << st->prev_udp_tunnels <<
+        " udp mpls tunnels " << st->prev_udp_mpls_tunnels << 
+        " udp gre tunnels " << st->prev_gre_mpls_tunnels << 
+        " ecmp composites " << st->prev_ecmp_composites << 
+        " fabric composites " << st->prev_fabric_composites << 
+        " l2 composites " << st->prev_l2_mcast_composites << 
+        " l3 composites " << st->prev_l3_mcast_composites << 
+        " multi proto composites " << st->prev_multi_proto_composites << 
+        " encaps " << st->prev_encaps << " l2 encals " << st->prev_l2_encaps);
     return false;
 }
 
@@ -715,25 +771,28 @@ void CreateTapInterfaces(const char *name, int count, int *fd) {
 
 void VnAddReq(int id, const char *name) {
     std::vector<VnIpam> ipam;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), name, ipam);
+    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), name, ipam, id);
     usleep(1000);
 }
 
 void VnAddReq(int id, const char *name, int acl_id) {
     std::vector<VnIpam> ipam;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, MakeUuid(acl_id), name, ipam);
+    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, 
+                                              MakeUuid(acl_id), name, ipam, id);
     usleep(1000);
 }
 
 void VnAddReq(int id, const char *name, int acl_id, const char *vrf_name) {
     std::vector<VnIpam> ipam;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, MakeUuid(acl_id), vrf_name, ipam);
+    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, 
+                                              MakeUuid(acl_id), vrf_name, ipam, id);
     usleep(1000);
 }
 
 void VnAddReq(int id, const char *name, const char *vrf_name) {
     std::vector<VnIpam> ipam;
-    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), vrf_name, ipam);
+    Agent::GetInstance()->GetVnTable()->AddVn(MakeUuid(id), name, nil_uuid(), 
+                                              vrf_name, ipam, id);
     usleep(1000);
 }
 
@@ -846,13 +905,32 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     if (vrf == NULL)
         return false;
 
-    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UnicastRouteEntry* route = 
+        static_cast<Inet4UnicastRouteEntry *>
+        (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+         FindActiveEntry(&key));
     return (route != NULL);
 }
 
 bool RouteFind(const string &vrf_name, const string &addr, int plen) {
     return RouteFind(vrf_name, Ip4Address::from_string(addr), plen);
+}
+
+bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
+    VrfEntry *vrf = Agent::GetInstance()->
+        GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return false;
+
+    Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, mac);
+    Layer2RouteEntry *route = 
+        static_cast<Layer2RouteEntry *>
+        (static_cast<Layer2AgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
+                       FindActiveEntry(&key));
+    return (route != NULL);
 }
 
 bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
@@ -861,8 +939,12 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
     if (vrf == NULL)
         return false;
 
-    Inet4McRouteKey key(vrf_name, src_addr, grp_addr);
-    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    Inet4MulticastRouteKey key(vrf_name, src_addr, grp_addr);
+    Inet4MulticastRouteEntry *route = 
+        static_cast<Inet4MulticastRouteEntry *>
+        (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
+                       FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -877,8 +959,12 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
     if (vrf == NULL)
         return false;
 
-    Inet4McRouteKey key(vrf_name, grp_addr, 32);
-    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    Inet4MulticastRouteKey key(vrf_name, grp_addr);
+    Inet4MulticastRouteEntry *route = 
+        static_cast<Inet4MulticastRouteEntry *>
+        (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
+                       FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -887,33 +973,60 @@ bool MCRouteFind(const string &vrf_name, const string &grp_addr) {
 
 }
 
-Inet4UcRoute *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
+Layer2RouteEntry *L2RouteGet(const string &vrf_name, 
+                             const struct ether_addr &mac) {
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, mac);
+    Layer2RouteEntry *route = 
+        static_cast<Layer2RouteEntry *>
+        (static_cast<Layer2AgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
+                       FindActiveEntry(&key));
     return route;
 }
 
-Inet4McRoute *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
+Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr, int plen) {
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Inet4McRouteKey key(vrf_name, grp_addr, 32);
-    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UnicastRouteEntry* route = 
+        static_cast<Inet4UnicastRouteEntry *>
+        (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+                       FindActiveEntry(&key));
     return route;
 }
 
-Inet4McRoute *MCRouteGet(const string &vrf_name, const string &grp_addr) {
+Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr) {
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     if (vrf == NULL)
         return NULL;
 
-    Inet4McRouteKey key(vrf_name, Ip4Address::from_string(grp_addr), 32);
-    Inet4McRoute *route = static_cast<Inet4McRoute *>(vrf->GetInet4McRouteTable()->FindActiveEntry(&key));
+    Inet4MulticastRouteKey key(vrf_name, grp_addr);
+    Inet4MulticastRouteEntry *route = 
+        static_cast<Inet4MulticastRouteEntry *>
+        (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
+                       FindActiveEntry(&key));
+    return route;
+}
+
+Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr) {
+    VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+    if (vrf == NULL)
+        return NULL;
+
+    Inet4MulticastRouteKey key(vrf_name, Ip4Address::from_string(grp_addr));
+    Inet4MulticastRouteEntry *route = 
+        static_cast<Inet4MulticastRouteEntry *>
+        (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
+             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
+                       FindActiveEntry(&key));
     return route;
 }
 
@@ -938,7 +1051,7 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn, TunnelType::TypeBmap bmap) {
     boost::system::error_code ec;
-    Inet4UcRouteTable::AddRemoteVmRoute(bgp_peer_, vm_vrf,
+    Inet4UnicastAgentRouteTable::AddRemoteVmRoute(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, Ip4Address::from_string(server, ec),
                                         bmap, label, vn);
@@ -957,7 +1070,7 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     EthInterfaceKey key(nil_uuid(), ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     boost::system::error_code ec;
-    Inet4UcRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
+    Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
                               Ip4Address::from_string(ip, ec), mac, 
                               Agent::GetInstance()->GetDefaultVrf(),
                               *intf, true, 32);
@@ -971,7 +1084,7 @@ bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     EthInterfaceKey key(nil_uuid(), ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     boost::system::error_code ec;
-    Inet4UcRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
+    Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
                               Ip4Address::from_string(ip, ec),
                               mac, Agent::GetInstance()->GetDefaultVrf(), *intf, false, 32);
     return true;
@@ -994,7 +1107,12 @@ void DelVrf(const char *name) {
 }
 
 void AddVn(const char *name, int id) {
-    AddNode("virtual-network", name, id);
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <network-id>" << id << "</network-id>" << endl;
+    str << "</virtual-network-properties>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str());
 }
 
 void DelVn(const char *name) {
@@ -1220,6 +1338,18 @@ void DelVDNS(const char *vdns_name) {
     DelNodeString(buff, len, "virtual-DNS", vdns_name);
     DelXmlTail(buff, len);
     ApplyXmlString(buff);
+}
+
+void EnableEvpn() {
+    std::stringstream str;
+    str << "<evpn-status>true</evpn-status>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+}
+
+void DisableEvpn() {
+    std::stringstream str;
+    str << "<evpn-status>false</evpn-status>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 
 void AddEncapList(const char *encap1, const char *encap2, const char *encap3) {
@@ -1647,7 +1777,7 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
 
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id) {
+             std::string svn, std::string dvn, uint32_t hash_id, int rflow_vrf) {
 
     FlowTable *table = FlowTable::GetFlowTableObject();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
@@ -1710,9 +1840,13 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         if (entry->nat == true)
             ret = false;
 
-        EXPECT_EQ(entry->key.vrf, rev->key.vrf);
-        if (entry->key.vrf != rev->key.vrf)
-            ret = false;
+        if (rflow_vrf == -1) {
+            EXPECT_EQ(entry->key.vrf, rev->key.vrf);
+            if (entry->key.vrf != rev->key.vrf)
+                ret = false;
+        } else {
+            EXPECT_EQ(rflow_vrf, rev->key.vrf);
+        }
 
         EXPECT_EQ(entry->key.protocol, rev->key.protocol);
         if (entry->key.protocol != rev->key.protocol)
@@ -1733,11 +1867,12 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, bool nat) {
+             std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
+             bool nat, int rflow_vrf) {
 
     bool flow_fwd = false;
     bool ret = FlowGet(vrf_name, sip, dip, proto, sport, dport, rflow,
-                    svn, dvn, hash_id);
+                    svn, dvn, hash_id, rflow_vrf);
 
     FlowTable *table = FlowTable::GetFlowTableObject();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
@@ -1777,7 +1912,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
 
 bool FlowStatsMatch(const string &vrf_name, const char *sip,
                     const char *dip, uint8_t proto, uint16_t sport, 
-                    uint16_t dport, uint16_t pkts, uint16_t bytes) {
+                    uint16_t dport, uint64_t pkts, uint64_t bytes) {
 
     FlowTable *table = FlowTable::GetFlowTableObject();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
@@ -1891,6 +2026,8 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
     pkt->AddAgentHdr(ifindex, AGENT_TRAP_FLOW_MISS, hash_id);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr(sip, dip, proto);
+    if (proto == 1)
+        pkt->AddIcmpHdr();
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
@@ -1940,6 +2077,8 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
     pkt->AddGreHdr();
     pkt->AddMplsHdr(label, true);
     pkt->AddIpHdr(sip, dip, proto);
+    if (proto == 1)
+        pkt->AddIcmpHdr();
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
@@ -1987,8 +2126,12 @@ bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
         return false;
     }
 
-    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UnicastRouteEntry *route = 
+        static_cast<Inet4UnicastRouteEntry *>
+        (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+                       FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Resolve route not found");
         return false;
@@ -2016,8 +2159,12 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
         return false;
     }
 
-    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UnicastRouteEntry* route = 
+        static_cast<Inet4UnicastRouteEntry *>
+        (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+                       FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Vhost Receive route not found");
         return false;
@@ -2041,10 +2188,13 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
 uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
 
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-    Inet4UcRouteKey key(NULL, vrf_name, addr, plen);
+    Inet4UnicastRouteKey key(NULL, vrf_name, addr, plen);
 
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>
-                            (vrf->GetInet4UcRouteTable()->FindActiveEntry(&key));
+    Inet4UnicastRouteEntry* route = 
+        static_cast<Inet4UnicastRouteEntry *>
+        (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+                       FindActiveEntry(&key));
     if (route == NULL) {
         return 0;
     }

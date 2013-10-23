@@ -3,14 +3,38 @@
  */
 
 #include <boost/uuid/uuid_io.hpp>
+
+#include <cmn/agent_cmn.h>
 #include <controller/controller_export.h>
 #include <controller/controller_vrf_export.h>
-#include <cmn/agent_cmn.h>
 #include <oper/vrf.h>
 #include <oper/mirror_table.h>
 #include <controller/controller_peer.h>
 #include "controller/controller_init.h"
 #include "controller/controller_types.h"
+
+VrfExport::State::State() : DBState(), exported_(false), 
+    force_chg_(false), rt_export_() {
+        for (uint32_t rt_table_type = 0; 
+             rt_table_type < AgentRouteTableAPIS::MAX; rt_table_type++) {
+            ucwalkid_[rt_table_type] = DBTableWalker::kInvalidWalkerId;
+            mcwalkid_[rt_table_type] = DBTableWalker::kInvalidWalkerId;
+        }
+};
+
+VrfExport::State::~State() {
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+
+    for (uint32_t rt_table_type = 0; 
+         rt_table_type < AgentRouteTableAPIS::MAX; rt_table_type++)
+    {
+        if (ucwalkid_[rt_table_type] != DBTableWalker::kInvalidWalkerId)
+            walker->WalkCancel(ucwalkid_[rt_table_type]);
+
+        if (mcwalkid_[rt_table_type] != DBTableWalker::kInvalidWalkerId)
+            walker->WalkCancel(mcwalkid_[rt_table_type]);
+    }
+};
 
 void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
                        DBTablePartBase *partition, DBEntryBase *e) {
@@ -19,6 +43,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     DBTableBase::ListenerId id = bgp_peer->GetVrfExportListenerId();
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     State *state = static_cast<State *>(vrf->GetState(partition->parent(), id));
+    uint8_t table_type;
 
     if (vrf->IsDeleted()) {
         if (state == NULL) {
@@ -26,8 +51,10 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         }
 
         if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
-            state->inet4_multicast_export_->Unregister();
-            state->inet4_unicast_export_->Unregister();
+            for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+                 table_type++) {
+                state->rt_export_[table_type]->Unregister();
+            }
         }
  
         if (state->exported_ == false) {
@@ -50,14 +77,20 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     if (state == NULL) {
         state = new State();
         state->exported_ = false;
+        state->force_chg_ = true;
         vrf->SetState(partition->parent(), id, state);
 
         if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
             // Dont export routes belonging to Fabric VRF table
-            state->inet4_unicast_export_ =  
-                Inet4RouteExport::UnicastInit(vrf->GetInet4UcRouteTable(), bgp_xmpp_peer);
-            state->inet4_multicast_export_ =  
-                Inet4RouteExport::MulticastInit(vrf->GetInet4McRouteTable(), bgp_xmpp_peer);
+            for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+                 table_type++)
+            {
+                state->rt_export_[table_type] = 
+                    RouteExport::Init(
+                     static_cast<AgentRouteTable *>                 
+                     (vrf->GetRouteTable(table_type)), 
+                     bgp_xmpp_peer);
+            }
         }
     }
 
@@ -71,14 +104,15 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
             if (state->force_chg_ == true) {
                 if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
                     bool associate = true;
-                    bool subnet_only = false;
-                    Inet4UcRouteTable *table = vrf->GetInet4UcRouteTable();
-                    table->Inet4UcRouteTableWalkerNotify(vrf, bgp_xmpp_peer, state, 
-                                                         subnet_only, associate);
-
-                    Inet4McRouteTable *mc_table = vrf->GetInet4McRouteTable();
-                    mc_table->Inet4McRouteTableWalkerNotify(vrf, bgp_xmpp_peer, state, 
-                                                            associate);
+                    AgentRouteTable *table;
+                    uint8_t table_type;
+                    for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+                         table_type++) {
+                        table = static_cast<AgentRouteTable *>
+                            (vrf->GetRouteTable(table_type));
+                        table->RouteTableWalkerNotify(vrf, bgp_xmpp_peer, state,
+                                                      associate, true, true);
+                    }
                 }
             }
             return;

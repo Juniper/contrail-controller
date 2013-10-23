@@ -81,7 +81,7 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmPortInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddLocalVmRoute
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddLocalVmRoute
             (NULL, vrf, addr, 32, intf->GetUuid(),
              intf->GetVnEntry()->GetName(), label); 
         client->WaitForIdle();
@@ -92,23 +92,25 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(
-                peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute
+            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
 
     void DeleteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, 
-                vrf, addr, 32);
+        Agent::Agent::GetInstance()->
+            GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, 
+                                                vrf, addr, 32);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
 
     void DeleteRemoteRoute(const char *vrf, const char *ip) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(peer_,
+        Agent::Agent::GetInstance()->
+            GetDefaultInet4UnicastRouteTable()->DeleteReq(peer_, 
                 vrf, addr, 32);
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
@@ -148,14 +150,17 @@ public:
 
         vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(hash_id);
 
-        vr_flow->fe_key.key_vrf_id = ntohs(vrf);
-        vr_flow->fe_key.key_src_ip = ntohl(inet_addr(sip));
-        vr_flow->fe_key.key_dest_ip = ntohl(inet_addr(dip));
-        vr_flow->fe_key.key_proto = proto;
-        vr_flow->fe_key.key_src_port = sport;
-        vr_flow->fe_key.key_dst_port = dport;
+        vr_flow_req req;
+        req.set_fr_index(hash_id);
+        req.set_fr_flow_sip(inet_addr(sip));
+        req.set_fr_flow_dip(inet_addr(dip));
+        req.set_fr_flow_proto(proto);
+        req.set_fr_flow_sport(htons(sport));
+        req.set_fr_flow_dport(htons(dport));
+        req.set_fr_flow_vrf(vrf);
+
         vr_flow->fe_action = VR_FLOW_ACTION_HOLD;
-        KSyncSockTypeMap::SetFlowEntry(hash_id, true);
+        KSyncSockTypeMap::SetFlowEntry(&req, false, true);
 
         return true;
     }
@@ -169,8 +174,10 @@ public:
              count < FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
-            vr_flow->fe_action = VR_FLOW_ACTION_DROP;;
-            KSyncSockTypeMap::SetFlowEntry(hash_id, false);
+            vr_flow->fe_action = VR_FLOW_ACTION_DROP;
+            vr_flow_req req;
+            req.set_fr_index(hash_id);
+            KSyncSockTypeMap::SetFlowEntry(&req, false, false);
         }
 
         return;

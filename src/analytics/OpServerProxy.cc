@@ -26,8 +26,10 @@
 #include "redis_processor_vizd.h"
 #include "viz_sandesh.h"
 #include "viz_collector.h"
+#include "redis_sentinel_client.h"
 
 using std::string;
+using boost::shared_ptr;
 using boost::assign::list_of;
 using boost::system::error_code;
 
@@ -97,6 +99,26 @@ class OpServerProxy::OpServerImpl {
             LOG(DEBUG, "FromOpsConnDown.. DOWN.. Reconnect..");
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
                         this, RAC_CONN_TYPE_FROM_OPS));
+        }
+
+        void HandleRedisMasterUpdate(const std::string& service, 
+                                     const std::string& redis_ip,
+                                     unsigned short redis_port) {
+            tbb::mutex::scoped_lock lock(rac_mutex_);
+            to_ops_conn_.reset();
+            from_ops_conn_.reset();
+            redis_ip_ = redis_ip;
+            redis_port_ = redis_port;
+            to_ops_conn_.reset(new RedisAsyncConnection(evm_, 
+                redis_ip, redis_port, 
+                boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
+                boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
+            to_ops_conn_.get()->RAC_Connect();
+            from_ops_conn_.reset(new RedisAsyncConnection(evm_, 
+                redis_ip, redis_port, 
+                boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUp, this),
+                boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnDown, this)));
+            from_ops_conn_.get()->RAC_Connect();
         }
 
         void processorCallbackProcess(const redisAsyncContext *c, void *r, void *privdata) {
@@ -185,33 +207,33 @@ class OpServerProxy::OpServerImpl {
             collector_->SendRemote(destination, dec_sandesh);
         }
 
-        RedisAsyncConnection *to_ops_conn() {
-            return (to_ops_conn_.get());
+        shared_ptr<RedisAsyncConnection> to_ops_conn() {
+            tbb::mutex::scoped_lock lock(rac_mutex_);
+            return to_ops_conn_;
         }
 
-        RedisAsyncConnection *from_ops_conn() {
-            return (from_ops_conn_.get());
+        shared_ptr<RedisAsyncConnection> from_ops_conn() {
+            tbb::mutex::scoped_lock lock(rac_mutex_);
+            return from_ops_conn_;
         }
 
         OpServerImpl(EventManager *evm, VizCollector *collector,
-                const std::string & redis_ip, unsigned short redis_port) :
+                     const std::string & redis_sentinel_ip, 
+                     unsigned short redis_sentinel_port) :
             evm_(evm),
             collector_(collector),
             started_(false),
             analytics_cb_proc_fn(NULL),
             processor_cb_proc_fn(NULL),
-            redis_ip_(redis_ip),
-            redis_port_(redis_port) {
-                to_ops_conn_.reset(new RedisAsyncConnection(evm, redis_ip, redis_port,
-                            boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
-                            boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnDown, this)));
-                to_ops_conn_.get()->RAC_Connect();
-
-                from_ops_conn_.reset(new RedisAsyncConnection(evm, redis_ip,
-                            redis_port, boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnUp, this),
-                            boost::bind(&OpServerProxy::OpServerImpl::FromOpsConnDown, this)));
-                from_ops_conn_.get()->RAC_Connect();
-            }
+            redis_ip_(""),
+            redis_port_(0) {
+            RedisSentinelClient::RedisServices services;
+            services.push_back("mymaster");
+            redis_sentinel_client_.reset(new RedisSentinelClient(evm, 
+                redis_sentinel_ip, redis_sentinel_port, services,
+                boost::bind(&OpServerProxy::OpServerImpl::HandleRedisMasterUpdate, 
+                            this, _1, _2, _3)));
+        }
 
         ~OpServerImpl() {
         }
@@ -222,19 +244,24 @@ class OpServerProxy::OpServerImpl {
         VizCollector *collector_;
         int gen_timeout_;
         bool started_;
-        boost::scoped_ptr<RedisAsyncConnection> to_ops_conn_;
-        boost::scoped_ptr<RedisAsyncConnection> from_ops_conn_;
+        boost::scoped_ptr<RedisSentinelClient> redis_sentinel_client_;
+        shared_ptr<RedisAsyncConnection> to_ops_conn_;
+        shared_ptr<RedisAsyncConnection> from_ops_conn_;
         RedisAsyncConnection::ClientAsyncCmdCbFn analytics_cb_proc_fn;
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
+        tbb::mutex rac_mutex_;
     public:
         std::string redis_ip_;
         unsigned short redis_port_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
-        const std::string & redis_ip, unsigned short redis_port, int gen_timeout) :
+                             const std::string & redis_sentinel_ip, 
+                             unsigned short redis_sentinel_port,
+                             int gen_timeout) :
             gen_timeout_(gen_timeout) {
-    impl_ = new OpServerImpl(evm, collector, redis_ip, redis_port);
+    impl_ = new OpServerImpl(evm, collector, redis_sentinel_ip, 
+                             redis_sentinel_port);
 }
 
 OpServerProxy::~OpServerProxy() {
@@ -249,10 +276,10 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
                        int32_t seq, const std::string& agg, 
                        const std::string& atyp, int64_t ts) {
 
-    if ((!impl_->to_ops_conn()) || (!impl_->to_ops_conn()->IsConnUp()))
-        return false;
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
 
-    RedisProcessorExec::UVEUpdate(impl_->to_ops_conn(), NULL, type, attr,
+    RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
             source, module, key, message, seq, agg, atyp, ts);
 
     return true;
@@ -263,10 +290,10 @@ OpServerProxy::UVEDelete(const std::string &type,
                        const std::string &source, const std::string &module,
                        const std::string &key, int32_t seq) {
 
-    if ((!impl_->to_ops_conn()) || (!impl_->to_ops_conn()->IsConnUp()))
-        return false;
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
 
-    RedisProcessorExec::UVEDelete(impl_->to_ops_conn(), NULL, type, source, 
+    RedisProcessorExec::UVEDelete(prac.get(), NULL, type, source, 
             module, key, seq);
 
     return true;
@@ -275,6 +302,10 @@ OpServerProxy::UVEDelete(const std::string &type,
 bool 
 OpServerProxy::GetSeq(const string &source, const string &module, 
         std::map<std::string,int32_t> & seqReply) {
+
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
+
     if (!impl_->to_ops_conn()) return false;
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
     string coll;
@@ -289,7 +320,9 @@ OpServerProxy::GetSeq(const string &source, const string &module,
 
 bool 
 OpServerProxy::DeleteUVEs(const string &source, const string &module) {
-    if (!impl_->to_ops_conn()) return false;
+
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
 
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
     string coll;
@@ -304,19 +337,22 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module) {
 
 bool 
 OpServerProxy::GeneratorCleanup(GenCleanupReply gcr) {
-    if (!impl_->to_ops_conn()) return false;
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
 
-    GenCleanupReq * dr = new GenCleanupReq(impl_->to_ops_conn(), 
+    GenCleanupReq * dr = new GenCleanupReq(prac.get(),
             boost::bind(gcr, _2));
     return dr->RedisSend();
 }
 
 bool
 OpServerProxy::RefreshGenerator(const std::string &source, const std::string &module) {
-    if ((!impl_->to_ops_conn()) || (!impl_->to_ops_conn()->IsConnUp()))
-        return false;
 
     if (!gen_timeout_) return true;
+
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
+
 
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
     string coll;
@@ -325,15 +361,15 @@ OpServerProxy::RefreshGenerator(const std::string &source, const std::string &mo
     else 
         coll = Sandesh::source();
 
-    RedisProcessorExec::RefreshGenerator(impl_->to_ops_conn(), source, module, coll, gen_timeout_); 
+    RedisProcessorExec::RefreshGenerator(prac.get(), source, module, coll, gen_timeout_); 
 
     return true;    
 }
 
 bool
 OpServerProxy::WithdrawGenerator(const std::string &source, const std::string &module) {
-    if ((!impl_->to_ops_conn()) || (!impl_->to_ops_conn()->IsConnUp()))
-        return false;
+    shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
+    if  (!(prac && prac->IsConnUp())) return false;
 
     VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
     string coll;
@@ -342,7 +378,7 @@ OpServerProxy::WithdrawGenerator(const std::string &source, const std::string &m
     else 
         coll = Sandesh::source();
 
-    RedisProcessorExec::WithdrawGenerator(impl_->to_ops_conn(), source, module, coll);
+    RedisProcessorExec::WithdrawGenerator(prac.get(), source, module, coll);
 
     return true;
 }

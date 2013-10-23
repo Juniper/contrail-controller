@@ -112,6 +112,7 @@
         <xsd:element name='prefix' type='xsd:string' maxOccurs='unbounded'/>
         <xsd:element name='service-chain-address' type='smi:IpAddress'/>
         <xsd:element name='service-instance' type='xsd:string'/>
+        <xsd:element name='source-routing-instance' type='xsd:string'/>
     </xsd:all>
 </xsd:complexType>
 

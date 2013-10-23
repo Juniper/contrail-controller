@@ -43,8 +43,8 @@ KSyncDBObject *NHKSyncEntry::GetObject() {
 NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), type_(nh->GetType()), vrf_id_(0),
     interface_(NULL), valid_(nh->IsValid()), policy_(nh->PolicyEnabled()),
-    is_mcast_nh_(false), nh_(nh), vlan_tag_(0),
-    tunnel_type_(TunnelType::INVALID) {
+    is_mcast_nh_(false), nh_(nh), vlan_tag_(0), is_layer2_(false),
+    tunnel_type_(TunnelType::INVALID)  {
 
     sip_.s_addr = 0;
     memset(&dmac_, 0, sizeof(dmac_));
@@ -63,6 +63,7 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
         interface_ = interface_object->GetReference(&interface);
         assert(interface_);
         is_mcast_nh_ = if_nh->IsMulticastNH();
+        is_layer2_ = if_nh->IsLayer2();
         vrf_id_ = if_nh->GetVrf()->GetVrfId();
         break;
     }
@@ -96,6 +97,8 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     }
 
     case NextHop::VRF: {
+        const VrfNH *vrf_nh = static_cast<const VrfNH *>(nh);
+        vrf_id_ = vrf_nh->GetVrf()->GetVrfId();
         break;
     }
 
@@ -122,11 +125,13 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     case NextHop::COMPOSITE: {
         const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
         //vrf_id_ = comp_nh->GetVrfId();
-        vrf_id_ = (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(comp_nh->GetVrfName()))->GetVrfId();
+        vrf_id_ = (Agent::GetInstance()->GetVrfTable()->
+                   FindVrfFromName(comp_nh->GetVrfName()))->GetVrfId();
         sip_.s_addr = comp_nh->GetSrcAddr().to_ulong();
         dip_.s_addr = comp_nh->GetGrpAddr().to_ulong();
         is_mcast_nh_ = comp_nh->IsMcastNH();
         is_local_ecmp_nh_ = comp_nh->IsLocal();
+        comp_type_ = comp_nh->CompositeType();
         component_nh_list_.clear();
         break;
     }
@@ -152,6 +157,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
         return policy_ < entry.policy_;
     }
 
+    if (type_ == NextHop::VRF) {
+        return vrf_id_ < entry.vrf_id_;
+    }
+
     if (type_ == NextHop::ARP) {
         if (vrf_id_ != entry.vrf_id_) {
             return vrf_id_ < entry.vrf_id_;
@@ -162,6 +171,9 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     if (type_ == NextHop::INTERFACE) {
         if (is_mcast_nh_ != entry.is_mcast_nh_) {
             return is_mcast_nh_ < entry.is_mcast_nh_;
+        }
+        if(is_layer2_ != entry.is_layer2_) {
+            return is_layer2_ < entry.is_layer2_;
         }
         return GetIntf() < entry.GetIntf();
     }
@@ -205,6 +217,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
         if (is_local_ecmp_nh_ != entry.is_local_ecmp_nh_) {
             return is_local_ecmp_nh_ < entry.is_local_ecmp_nh_;
+        }
+
+        if (comp_type_ != entry.comp_type_) {
+            return comp_type_ < entry.comp_type_;
         }
 
         if (sip_.s_addr != entry.sip_.s_addr) {
@@ -371,7 +387,12 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         break;
     }
 
-    case NextHop::VRF:
+    case NextHop::VRF: {
+        VrfNH *vrf_nh = static_cast<VrfNH *>(e);                
+        vrf_id_ = vrf_nh->GetVrf()->GetVrfId();
+        ret = false;
+        break;
+    }
     case NextHop::RECEIVE:
     case NextHop::RESOLVE: {
         valid_ = true;
@@ -449,8 +470,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap(encap);
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
+            if (is_layer2_) {
+                flags |= 0x0004;
+                encoder.set_nhr_family(AF_BRIDGE);
+            }
             if (is_mcast_nh_) {
-                flags |= 0x40;
+                flags |= 0x0020;
                 encoder.set_nhr_flags(flags);
             } 
             break;
@@ -482,8 +507,10 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap(encap);
             if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
                 flags |= NH_FLAG_TUNNEL_UDP_MPLS;
-            } else {
+            } else if (tunnel_type_.GetType() == TunnelType::MPLS_GRE) {
                 flags |= NH_FLAG_TUNNEL_GRE;
+            } else {
+                flags |= NH_FLAG_TUNNEL_VXLAN;
             }
             break;
 
@@ -532,7 +559,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
 
         case NextHop::VRF:
-            encoder.set_nhr_type(NH_DEAD);
+            encoder.set_nhr_type(NH_VXLAN_VRF);
             break;
 
         case NextHop::COMPOSITE: {
@@ -544,10 +571,31 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_tun_dip(htonl(dip_.s_addr));
             encoder.set_nhr_encap_family(ETH_P_ARP);
             /* Proto encode in Network byte order */
-            if (is_mcast_nh_) {
-                flags |= NH_FLAG_COMPOSITE_MCAST;
-            } else {
+            switch (comp_type_) {
+            case Composite::FABRIC: {
+                flags |= NH_FLAG_COMPOSITE_FABRIC;
+                break;
+            }
+            case Composite::L2COMP: {
+                encoder.set_nhr_family(AF_BRIDGE);
+                flags |= NH_FLAG_MCAST;
+                flags |= NH_FLAG_COMPOSITE_L2;
+                break;
+            }
+            case Composite::L3COMP: {
+                flags |= NH_FLAG_MCAST;
+                flags |= NH_FLAG_COMPOSITE_L3;
+                break;
+            }
+            case Composite::MULTIPROTO: {
+                encoder.set_nhr_family(AF_UNSPEC);
+                flags |= NH_FLAG_COMPOSITE_MULTI_PROTO;
+                break;
+            }
+            case Composite::ECMP: {
                 flags |= NH_FLAG_COMPOSITE_ECMP;
+                break;
+            }
             }
             encoder.set_nhr_flags(flags);
             for (KSyncComponentNHList::iterator it = component_nh_list_.begin();
@@ -606,6 +654,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) {
 
     case NextHop::VRF: {
         info.set_type("VRF");
+        info.set_vrf(vrf_id_);
         break;
     }
 
@@ -638,6 +687,7 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) {
     }
     case NextHop::COMPOSITE: {
         info.set_type("Composite");
+        info.set_sub_type(comp_type_);
         info.set_dip(inet_ntoa(dip_));
         info.set_vrf(vrf_id_);
         std::vector<KSyncComponentNHLog> sub_nh_list;

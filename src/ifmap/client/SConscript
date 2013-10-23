@@ -7,6 +7,7 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = env['TOP'] + '/discovery/client')
 env.Prepend(LIBS=['io', 'base'])
 
 except_env = BuildEnv.Clone()
@@ -19,7 +20,8 @@ except_env.Append(CPPPATH = env['TOP'])
 libifmapio = env.Library('ifmapio',
                          ['ifmap_manager.cc',
                           'ifmap_state_machine.cc',
-                          'ifmap_channel.cc'
+                          'ifmap_channel.cc',
+                          'peer_server_finder.cc'
                          ])
 
 env.Install(env['TOP_LIB'], libifmapio)

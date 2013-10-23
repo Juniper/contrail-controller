@@ -196,7 +196,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddVHostRecvRoute(
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
                                          Agent::GetInstance()->GetDefaultVrf(), "vhost0", 
                                          Agent::GetInstance()->GetRouterId(), false);
     }

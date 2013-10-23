@@ -5,25 +5,22 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
+#include <oper/agent_route.h>
 #include <oper/peer.h>
-#include <oper/vm_path.h>
 #include <oper/nexthop.h>
 #include <oper/peer.h>
-#include <oper/vm_path.h>
 #include <oper/mirror_table.h>
 #include <controller/controller_init.h>
 #include <controller/controller_export.h> 
 #include <controller/controller_peer.h>
 #include <controller/controller_types.h>
 
-Inet4RouteExport::State::State() : 
+RouteExport::State::State() : 
     DBState(), exported_(false), force_chg_(false), server_(0),
     label_(MplsTable::kInvalidLabel), vn_(""), sg_list_() {
 }
 
-bool Inet4RouteExport::State::Changed(const AgentPath *path) const {
+bool RouteExport::State::Changed(const AgentPath *path) const {
     if (exported_ == false)
         return true;
 
@@ -42,50 +39,46 @@ bool Inet4RouteExport::State::Changed(const AgentPath *path) const {
     return false;
 }
 
-void Inet4RouteExport::State::Update(const AgentPath *path) {
+void RouteExport::State::Update(const AgentPath *path) {
     force_chg_ = false;
     label_ = path->GetLabel();
     vn_ = path->GetDestVnName();
     sg_list_ = path->GetSecurityGroupList();
 }
 
-Inet4RouteExport::Inet4RouteExport(Inet4RouteTable *rt_table):
+RouteExport::RouteExport(AgentRouteTable *rt_table):
     rt_table_(rt_table), marked_delete_(false), 
     table_delete_ref_(this, rt_table->deleter()) {
 }
 
-Inet4RouteExport::Inet4RouteExport(Inet4McRouteTable *rt_table):
-    rt_table_(static_cast<Inet4RouteTable *>(rt_table)), marked_delete_(false), 
-    table_delete_ref_(this, rt_table->deleter()) {
-}
-
-Inet4RouteExport::~Inet4RouteExport() {
+RouteExport::~RouteExport() {
     if (rt_table_) {
         rt_table_->Unregister(id_);
     }
     table_delete_ref_.Reset(NULL);
 }
 
-void Inet4RouteExport::ManagedDelete() {
+void RouteExport::ManagedDelete() {
     marked_delete_ = true;
 }
 
-void Inet4RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
-                              bool associate, 
-                              DBTablePartBase *partition, DBEntryBase *e) {
-    Inet4Route *route = static_cast<Inet4Route *>(e);
+void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
+                         bool associate, AgentRouteTableAPIS::TableType type,
+                         DBTablePartBase *partition, DBEntryBase *e) {
+    RouteEntry *route = static_cast<RouteEntry *>(e);
 
     //If multicast or subnetbroadcast digress to multicast
-    if (route->IsMcast() || route->IsSbcast()) {
+    if (route->IsMulticast()) {
     	return MulticastNotify(bgp_xmpp_peer, associate, partition, e);
     }
-    return UnicastNotify(bgp_xmpp_peer, partition, e);
+    return UnicastNotify(bgp_xmpp_peer, partition, e, type);
 
 }
 
-void Inet4RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
-                              DBTablePartBase *partition, DBEntryBase *e) {
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(e);
+void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
+                                DBTablePartBase *partition, DBEntryBase *e,
+                                AgentRouteTableAPIS::TableType type) {
+    RouteEntry *route = static_cast<RouteEntry *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
     AgentPath *path = route->FindPath(Agent::GetInstance()->GetLocalVmPeer());
@@ -110,24 +103,25 @@ void Inet4RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
             CONTROLLER_TRACE(RouteExport,
                              bgp_xmpp_peer->GetBgpPeer()->GetName(),
                              route->GetVrfEntry()->GetName(),
-                             route->GetIpAddress().to_string(),
-                             route->GetPlen(), false, path->GetLabel());
+                             route->ToString(),
+                             false, path->GetLabel());
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
-                        static_cast<Inet4UcRoute* >(route), state->vn_, 
-                        state->label_, &path->GetSecurityGroupList(), true);
+                        static_cast<RouteEntry * >(route), state->vn_, 
+                        state->label_, path->GetTunnelBmap(),
+                        &path->GetSecurityGroupList(), true, type);
         }
     } else {
         if (state->exported_ == true) {
             CONTROLLER_TRACE(RouteExport, 
                     bgp_xmpp_peer->GetBgpPeer()->GetName(), 
                     route->GetVrfEntry()->GetName(), 
-                    route->GetIpAddress().to_string(), 
-                    route->GetPlen(), true, 0);
+                    route->ToString(), 
+                    true, 0);
 
             AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
-                    static_cast<Inet4UcRoute* >(route), state->vn_, 
-                    state->label_, NULL, false);
+                    static_cast<RouteEntry *>(route), state->vn_, 
+                    state->label_, TunnelType::AllType(), NULL, false, type);
             state->exported_ = false;
         }
     }
@@ -140,23 +134,17 @@ done:
     }
 }
 
-void Inet4RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, 
-                                       bool associate,
-                                       DBTablePartBase *partition, 
-                                       DBEntryBase *e) {
-
-    Inet4McRoute *route = static_cast<Inet4McRoute *>(e);
+void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, 
+                                  bool associate,
+                                  DBTablePartBase *partition, 
+                                  DBEntryBase *e) {
+    RouteEntry *route = static_cast<RouteEntry *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
-    const NextHop *nh;
-    const CompositeNH *cnh;
 
-    nh = route->GetActiveNextHop();
-    cnh = static_cast<const CompositeNH *>(nh);
-    if ((route->IsDeleted() || cnh->ComponentNHCount() == 0) && 
-        (state != NULL) && (state->exported_ == true)) {
+    if (route->CanBeDeleted() && (state != NULL) && (state->exported_ == true)) {
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
                 route->GetVrfEntry()->GetName(), 
-                route->GetIpAddress().to_string(), 32, true, 0);
+                route->ToString(), true, 0);
 
         AgentXmppChannel::ControllerSendMcastRoute(bgp_xmpp_peer, 
                                                    route, false);
@@ -185,12 +173,12 @@ void Inet4RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         route->SetState(partition->parent(), id_, state);
     }
 
-    if ((cnh->ComponentNHCount() != 0) &&
-        ((state->exported_ == false) || (state->force_chg_ == true))) {
+    if (!route->CanBeDeleted() && ((state->exported_ == false) || 
+                                  (state->force_chg_ == true))) {
 
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
                 route->GetVrfEntry()->GetName(), 
-                route->GetIpAddress().to_string(), 32, associate, 0);
+                route->ToString(), associate, 0);
 
         state->exported_ = 
             AgentXmppChannel::ControllerSendMcastRoute(bgp_xmpp_peer, 
@@ -201,8 +189,8 @@ void Inet4RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
     }
 }
 
-bool Inet4RouteExport::DeleteState(DBTablePartBase *partition,
-                                   DBEntryBase *entry) {
+bool RouteExport::DeleteState(DBTablePartBase *partition,
+                              DBEntryBase *entry) {
     State *state = static_cast<State *>
                        (entry->GetState(partition->parent(), id_));
     if (state) {
@@ -212,34 +200,26 @@ bool Inet4RouteExport::DeleteState(DBTablePartBase *partition,
     return true;
 }
 
-void Inet4RouteExport::Walkdone(DBTableBase *partition,
-                                Inet4RouteExport *rt_export) {
+void RouteExport::Walkdone(DBTableBase *partition,
+                           RouteExport *rt_export) {
     delete rt_export;
 }
 
-void Inet4RouteExport::Unregister() {
+void RouteExport::Unregister() {
     //Start unregister process
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     walker->WalkTable(rt_table_, NULL, 
-            boost::bind(&Inet4RouteExport::DeleteState, this, _1, _2),
-            boost::bind(&Inet4RouteExport::Walkdone, _1, this));
+            boost::bind(&RouteExport::DeleteState, this, _1, _2),
+            boost::bind(&RouteExport::Walkdone, _1, this));
 }
 
-Inet4RouteExport* Inet4RouteExport::UnicastInit(Inet4UcRouteTable *table, 
-                                         AgentXmppChannel *bgp_xmpp_peer) {
-    Inet4RouteExport *rt_export = new Inet4RouteExport(table);
+RouteExport* RouteExport::Init(AgentRouteTable *table, 
+                               AgentXmppChannel *bgp_xmpp_peer) {
+    RouteExport *rt_export = new RouteExport(table);
     bool associate = true;
-    rt_export->id_ = table->Register(boost::bind(&Inet4RouteExport::Notify,
-                                     rt_export, bgp_xmpp_peer, associate, _1, _2));
-    return rt_export;
-}
-
-Inet4RouteExport* Inet4RouteExport::MulticastInit(Inet4McRouteTable *table, 
-                                         AgentXmppChannel *bgp_xmpp_peer) {
-    Inet4RouteExport *rt_export = new Inet4RouteExport(table);
-    bool associate = true;
-    rt_export->id_ = table->Register(boost::bind(&Inet4RouteExport::Notify,
-                                     rt_export, bgp_xmpp_peer, associate, _1, _2));
+    rt_export->id_ = table->Register(boost::bind(&RouteExport::Notify,
+                                     rt_export, bgp_xmpp_peer, associate, 
+                                     table->GetTableType(), _1, _2));
     return rt_export;
 }
 

@@ -43,7 +43,16 @@ RedisAsyncConnection::~RedisAsyncConnection() {
         client_disconnect_cb_ = NULL;
 
     if (context_) {
-        redisAsyncDisconnect(context_);
+      {
+        tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
+
+        RedisAsyncConnection::RAC_CbFnsMap& fns_map = 
+            RedisAsyncConnection::rac_cb_fns_map();
+        RedisAsyncConnection::RAC_CbFnsMap::iterator it = fns_map.find(context_);
+        assert(it != fns_map.end());
+        fns_map.erase(it);
+      }
+      redisAsyncDisconnect(context_);
     }    
     if (client_)
         delete client_;
@@ -52,10 +61,13 @@ RedisAsyncConnection::~RedisAsyncConnection() {
 
 void RedisAsyncConnection::RAC_Reconnect(const boost::system::error_code &error) {
     if (error) {
+        LOG(INFO, "RAC_Reconnect error: " << error.message());
         if (error.value() != boost::system::errc::operation_canceled) {
             LOG(INFO, "OpServerProxy::OpServerImpl::RAC_Reconnect error: "
                     << error.category().name()
                     << " " << error.message());
+        } else {
+            return;
         }
     }
 
@@ -65,15 +77,17 @@ void RedisAsyncConnection::RAC_Reconnect(const boost::system::error_code &error)
 }
 
 void RedisAsyncConnection::RAC_ConnectCallbackProcess(const struct redisAsyncContext *c, int status) {
+    LOG(DEBUG, "RAC_Connect status: " << status);
     if (status != REDIS_OK) {
         if (context_) {
             tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
 
-            RedisAsyncConnection::RAC_CbFnsMap& fns_map = RedisAsyncConnection::rac_cb_fns_map();
+            RedisAsyncConnection::RAC_CbFnsMap& fns_map = 
+                RedisAsyncConnection::rac_cb_fns_map();
             RedisAsyncConnection::RAC_CbFnsMap::iterator it = fns_map.find(context_);
             if (it != fns_map.end()) {
                 fns_map.erase(it);
-            }
+            } 
             context_ = NULL;
         }
 
@@ -131,8 +145,9 @@ void RedisAsyncConnection::RAC_DisconnectCallback(const struct redisAsyncContext
         tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
         RedisAsyncConnection::RAC_CbFnsMap& fns_map = RedisAsyncConnection::rac_cb_fns_map();
         RedisAsyncConnection::RAC_CbFnsMap::iterator it = fns_map.find(c);
-        if (it == fns_map.end())
-            assert(0);
+        if (it == fns_map.end()) {
+            return;
+        }
 
         RedisAsyncConnection::RAC_CbFns *fns = it->second;
         fn = fns->disconnect_cbfn_;
@@ -188,8 +203,9 @@ void RedisAsyncConnection::RAC_AsyncCmdCallback(redisAsyncContext *c, void *r, v
         tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
         RedisAsyncConnection::RAC_CbFnsMap& fns_map = RedisAsyncConnection::rac_cb_fns_map();
         RedisAsyncConnection::RAC_CbFnsMap::iterator it = fns_map.find(c);
-
-        assert(it != fns_map.end());
+        if (it == fns_map.end()) {
+            return;
+        }
         cbfn = it->second->client_async_cmd_cbfn_;
     }
     if (cbfn) {

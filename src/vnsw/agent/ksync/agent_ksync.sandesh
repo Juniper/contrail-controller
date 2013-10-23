@@ -19,7 +19,7 @@ traceobject sandesh KSyncIntf {
 }
 
 struct KSyncRouteInfo {
-    1: string ip;
+    1: string addr;
     2: u32    vrf;
     3: string operation;
     4: optional u32 nh_idx;
@@ -41,8 +41,8 @@ traceobject sandesh KSyncMpls {
 }
 
 struct KSyncComponentNHLog {
-    u32 nh_idx;
-    u32 label;
+    1: u32 nh_idx;
+    2: u32 label;
 }
 
 struct KSyncNhInfo {
@@ -60,6 +60,7 @@ struct KSyncNhInfo {
    12: optional bool vlan_tag;
    13: optional u32 sub_nh_count;
    14: optional list<KSyncComponentNHLog> sub_nh_list;
+   15: optional u32 sub_type;
 }
 
 traceobject sandesh KSyncNH {
@@ -69,3 +70,14 @@ traceobject sandesh KSyncNH {
 trace sandesh KSyncTrace {
     1: string message;
 }
+
+struct KSyncVxLanInfo {
+    1: u32 label;
+    2: string operation;
+    3: u32 nh;
+}
+
+traceobject sandesh KSyncVxLan {
+    1: KSyncVxLanInfo info;
+}
+

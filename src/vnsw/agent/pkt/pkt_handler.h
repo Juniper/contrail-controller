@@ -304,7 +304,7 @@ public:
     void HandleRcvPkt(uint8_t*, std::size_t);  
     void SendMessage(ModuleName mod, IpcMsg *msg); 
 
-    bool IsGwPacket(const Interface *intf, PktInfo *pkt_info);
+    bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
 
     PktStats GetStats() { return stats_; }
     uint32_t GetModuleStats(ModuleName mod);

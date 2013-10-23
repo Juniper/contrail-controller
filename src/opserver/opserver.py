@@ -23,17 +23,17 @@ import argparse
 import time
 import redis
 import base64
-import sys
 import socket
 import struct
 import errno
 import copy
 
+from redis_sentinel_client import RedisSentinelClient
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh.mirror.ttypes import *
-from sandesh.vns.ttypes import Module, Category
+from sandesh.vns.ttypes import Module
 from sandesh.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES
@@ -46,9 +46,18 @@ _ERRORS = {
     errno.EBADMSG: 400,
     errno.EINVAL: 404,
     errno.ENOENT: 410,
-    errno.EIO: 500
+    errno.EIO: 500,
+    errno.EBUSY: 503
 }
 
+@bottle.error(400)
+@bottle.error(404)
+@bottle.error(410)
+@bottle.error(500)
+@bottle.error(503)
+def opserver_error(err):
+    return err.body
+#end opserver_error
 
 class LinkObject(object):
 
@@ -76,14 +85,13 @@ def redis_query_start(host, port, qid, inp):
                 OpServerUtils.utc_timestamp_usec())
     redish.lpush("QUERYQ", qid)
 
-    k, res = redish.blpop("REPLY:" + qid, 10)
-
-    if k is None or res is None:
+    res = redish.blpop("REPLY:" + qid, 10)
+    if res is None:
         return None
     # Put the status back on the queue for the use of the status URI
-    redish.lpush("REPLY:" + qid, res)
+    redish.lpush("REPLY:" + qid, res[1])
 
-    resp = json.loads(res)
+    resp = json.loads(res[1])
     return int(resp["progress"])
 # end redis_query_start
 
@@ -94,6 +102,8 @@ def redis_query_status(host, port, qid):
     chunks = []
     # For now, the number of chunks will be always 1
     res = redish.lrange("REPLY:" + qid, -1, -1)
+    if res is None:
+        return None
     chunk_resp = json.loads(res[0])
     ttl = redish.ttl("REPLY:" + qid)
     if int(ttl) != -1:
@@ -170,10 +180,16 @@ def redis_query_chunk(host, port, qid, chunk_id):
 def redis_query_result(host, port, qid):
     try:
         status = redis_query_status(host, port, qid)
+    except redis.exceptions.ConnectionError:
+        yield bottle.HTTPError(_ERRORS[errno.EIO],
+                'Failure in connection to the query DB')
     except Exception as e:
         self._logger.error("Exception: %s" % e)
-        yield bottle.HTTPError(status=_ERRORS[errno.ENOENT])
+        yield bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
     else:
+        if status is None:
+            yield bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                    'Invalid query id (or) query result purged from DB')
         if status['progress'] == 100:
             for chunk in status['chunks']:
                 chunk_id = int(chunk['href'].rsplit('/', 1)[1])
@@ -222,15 +238,23 @@ def redis_query_info(redish, qid):
 
 class OpStateServer(object):
 
-    def __init__(self, host, port):
-        self._host = host
-        self._port = port
-        self._state = {}
+    def __init__(self, redis_sentinel_client, service):
+        self._redis_sentinel_client = redis_sentinel_client
+        self._service = service
 
     def redis_publisher_init(self):
         print 'Initialize Redis Publisher'
-        self._redis_pub_client = redis.StrictRedis(
-            host=self._host, port=int(self._port), db=0)
+        self._redis_master =\
+            self._redis_sentinel_client.get_redis_master(self._service)
+
+    def set_redis_master(self, redis_master):
+        self._redis_master = redis.StrictRedis(redis_master[0],
+                                               redis_master[1])
+    #end set_redis_master
+
+    def reset_redis_master(self):
+        self._redis_master = None
+    #end reset_redis_master
 
     def redis_publish(self, msg_type, destination, msg):
         # Get the sandesh encoded in XML format
@@ -239,9 +263,13 @@ class OpStateServer(object):
         redis_msg = '{"type":"%s","destination":"%s","message":"%s"}' \
             % (msg_type, destination, msg_encode)
         # Publish message in the Redis bus
-        try:
-            self._redis_pub_client.publish('analytics', redis_msg)
-        except redis.exceptions.ConnectionError:
+        if self._redis_master is not None:
+            try:
+                self._redis_master.publish('analytics', redis_msg)
+            except redis.exceptions.ConnectionError:
+                print 'No Connection to Redis. Failed to publish message.'
+                return False
+        else:
             print 'No Connection to Redis. Failed to publish message.'
             return False
         return True
@@ -321,30 +349,20 @@ class OpServer(object):
             if len(_TABLES[i].columnvalues) > 0:
                 bottle.route('/analytics/table/<table>/column-values',
                              'GET', obj.column_values_process)
-                bottle.route(
-                    '/analytics/table/<table>/column-values/<column>',
-                    'GET', obj.column_process)
+                bottle.route('/analytics/table/<table>/column-values/<column>',
+                             'GET', obj.column_process)
         bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
                      'GET', obj.send_trace_buffer)
-        bottle.route(
-            '/request-analyzer/<name>', 'GET', obj.analyzer_add_request)
-        bottle.route('/delete-analyzer/<name>',
-                     'GET', obj.analyzer_delete_request)
-        bottle.route('/analyzers', 'GET', obj.analyzer_show_request)
-        bottle.route(
-            '/request-mirroring/<name>', 'GET', obj.mirror_add_request)
-        bottle.route('/delete-mirroring/<name>',
-                     'GET', obj.mirror_delete_request)
-        bottle.route('/mirrors', 'GET', obj.mirror_show_request)
-
-        bottle.route('/documentation/<filename:path>',
-                     'GET', obj.documentation_http_get)
+        bottle.route('/documentation/<filename:path>', 'GET',
+                     obj.documentation_http_get)
 
         for uve in UVE_MAP:
             bottle.route(
                 '/analytics/uves/' + uve + 's', 'GET', obj.uve_list_http_get)
             bottle.route(
                 '/analytics/uves/' + uve + '/<name>', 'GET', obj.uve_http_get)
+            bottle.route(
+                '/analytics/uves/' + uve, 'POST', obj.uve_http_post)
 
         return obj
     # end __new__
@@ -355,9 +373,8 @@ class OpServer(object):
         except:
             raise Exception('Could not get Discovery Client')
         else:
-            ipaddr = socket.gethostbyname(socket.gethostname())
             data = {
-                'ip-address': ipaddr,
+                'ip-address': self._args.host_ip,
                 'port': self._args.rest_api_port,
             }
             disc = client.DiscoveryClient(
@@ -404,6 +421,7 @@ class OpServer(object):
 
         self._collector_pool = None
         self._state_server = None
+        self._redis_master = None
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -470,24 +488,12 @@ class OpServer(object):
                      'GET', self.table_schema_process)
         for i in range(0, len(self._VIRTUAL_TABLES)):
             if len(self._VIRTUAL_TABLES[i].columnvalues) > 0:
-                bottle.route('/analytics/table/<table>/column-values', 'GET',
-                             self.column_values_process)
-                bottle.route(
-                    '/analytics/table/<table>/column-values/<column>', 'GET',
-                    self.column_process)
+                bottle.route('/analytics/table/<table>/column-values',
+                             'GET', self.column_values_process)
+                bottle.route('/analytics/table/<table>/column-values/<column>',
+                             'GET', self.column_process)
         bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
                      'GET', self.send_trace_buffer)
-        bottle.route(
-            '/request-analyzer/<name>', 'GET', self.analyzer_add_request)
-        bottle.route('/delete-analyzer/<name>',
-                     'GET', self.analyzer_delete_request)
-        bottle.route('/analyzers', 'GET', self.analyzer_show_request)
-        bottle.route(
-            '/request-mirroring/<name>', 'GET', self.mirror_add_request)
-        bottle.route('/delete-mirroring/<name>',
-                     'GET', self.mirror_delete_request)
-        bottle.route('/mirrors', 'GET', self.mirror_show_request)
-
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
 
@@ -496,14 +502,15 @@ class OpServer(object):
                 '/analytics/uves/' + uve + 's', 'GET', self.uve_list_http_get)
             bottle.route(
                 '/analytics/uves/' + uve + '/<name>', 'GET', self.uve_http_get)
+            bottle.route(
+                '/analytics/uves/' + uve, 'POST', self.uve_http_post)
     # end __init__
 
     def _parse_args(self):
         '''
-        Eg. python opserver.py --cassandra_server_ip 127.0.0.1
-                               --cassandra_server_port 9160
-                               --redis_server_ip 10.1.1.1
+        Eg. python opserver.py --host_ip 127.0.0.1
                                --redis_server_port 6381
+                               --redis_sentinel_port 6381
                                --redis_query_port 6380
                                --collector 127.0.0.1
                                --collector_port 8086
@@ -518,10 +525,9 @@ class OpServer(object):
 
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-        parser.add_argument("--redis_server_ip",
-                            default='127.0.0.1',
-                            help="Redis server IP address")
+        parser.add_argument("--host_ip",
+                            default="127.0.0.1",
+                            help="Host IP address")
         parser.add_argument("--redis_server_port",
                             type=int,
                             default=6381,
@@ -530,6 +536,10 @@ class OpServer(object):
                             type=int,
                             default=6380,
                             help="Redis query port")
+        parser.add_argument("--redis_sentinel_port",
+                            type=int,
+                            default=26379,
+                            help="Redis Sentinel port")
         parser.add_argument("--collector",
                             default='127.0.0.1',
                             help="Collector IP address")
@@ -628,16 +638,37 @@ class OpServer(object):
         return (True, '')
     # end _http_post_common
 
+    @staticmethod
+    def _get_redis_query_ip_from_qid(qid):
+        try:
+            ip = qid.rsplit('-', 1)[1]
+            redis_ip = socket.inet_ntop(socket.AF_INET, 
+                            struct.pack('>I', int(ip, 16)))
+        except Exception as err:
+            return None
+        return redis_ip
+    # end _get_redis_query_ip_from_qid
+
     def _query_status(self, request, qid):
         resp = {}
+        redis_query_ip = OpServer._get_redis_query_ip_from_qid(qid)
+        if redis_query_ip is None:
+            return bottle.HTTPError(_ERRORS[errno.EINVAL], 
+                    'Invalid query id')
         try:
-            resp = redis_query_status(host='127.0.0.1',
+            resp = redis_query_status(host=redis_query_ip,
                                       port=int(self._args.redis_query_port),
                                       qid=qid)
+        except redis.exceptions.ConnectionError:
+            return bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Failure in connection to the query DB')
         except Exception as e:
             self._logger.error("Exception: %s" % e)
-            return bottle.HTTPError(status=_ERRORS[errno.ENOENT])
+            return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % e)
         else:
+            if resp is None:
+                return bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                    'Invalid query id')
             resp_header = {'Content-Type': 'application/json'}
             resp_code = 200
             self._logger.debug("query [%s] status: %s" % (qid, resp))
@@ -646,9 +677,13 @@ class OpServer(object):
     # end _query_status
 
     def _query_chunk(self, request, qid, chunk_id):
+        redis_query_ip = OpServer._get_redis_query_ip_from_qid(qid)
+        if redis_query_ip is None:
+            yield bottle.HTTPError(_ERRORS[errno.EINVAL],
+                    'Invalid query id')
         try:
             done = False
-            gen = redis_query_chunk(host='127.0.0.1',
+            gen = redis_query_chunk(host=redis_query_ip,
                                     port=int(self._args.redis_query_port),
                                     qid=qid, chunk_id=chunk_id)
             bottle.response.set_header('Content-Type', 'application/json')
@@ -657,9 +692,12 @@ class OpServer(object):
                     yield gen.next()
                 except StopIteration:
                     done = True
+        except redis.exceptions.ConnectionError:
+            yield bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Failure in connection to the query DB')
         except Exception as e:
             self._logger.error("Exception: %s" % str(e))
-            yield bottle.HTTPError(status=_ERRORS[errno.ENOENT])
+            yield bottle.HTTPError(_ERRORS[errno.ENOENT], 'Error: %s' % e)
         else:
             self._logger.info(
                 "Query [%s] chunk #%d read at time %d"
@@ -669,10 +707,9 @@ class OpServer(object):
     def _query(self, request):
         reply = {}
         try:
-            remote_addr, = struct.unpack(
-                'I',
-                socket.inet_pton(socket.AF_INET, bottle.request.remote_addr))
-            qid = str(uuid.uuid1(socket.ntohl(remote_addr)))
+            redis_query_ip, = struct.unpack('>I', socket.inet_pton(
+                                        socket.AF_INET, self._args.host_ip))
+            qid = str(uuid.uuid1(redis_query_ip))
             self._logger.info("Starting Query %s" % qid)
 
             tabl = ""
@@ -688,9 +725,10 @@ class OpServer(object):
                     tabn = i
 
             if (tabn is None):
-                reply = bottle.HTTPError(status=_ERRORS[errno.ENOENT])
+                reply = bottle.HTTPError(_ERRORS[errno.ENOENT], 
+                            'Table %s not found' % tabl)
                 yield reply
-                raise Exception('Table %s not found' % tabl)
+                return
 
             tabtypes = {}
             for cols in self._VIRTUAL_TABLES[tabn].schema.columns:
@@ -706,21 +744,26 @@ class OpServer(object):
                                     int(self._args.redis_query_port),
                                     qid, request.json)
             if prg is None:
-                raise Exception('QE Not Responding')
+                self._logger.error('QE Not Responding')
+                yield bottle.HTTPError(_ERRORS[errno.EBUSY], 
+                        'Query Engine is not responding')
+                return
 
+        except redis.exceptions.ConnectionError:
+            yield bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Failure in connection to the query DB')
         except Exception as e:
             self._logger.error("Exception: %s" % str(e))
-
-        finally:
+            yield bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Error: %s' % e)
+        else:
             redish = None
             if prg < 0:
                 cod = -prg
                 self._logger.error(
                     "Query Failed. Found Error %s" % errno.errorcode[cod])
-                reply = bottle.HTTPError(status=501)
-                reply = bottle.HTTPError(status=_ERRORS[cod])
+                reply = bottle.HTTPError(_ERRORS[cod], errno.errorcode[cod])
                 yield reply
-                return
             else:
                 self._logger.info(
                     "Query Accepted at time %d , Progress %d"
@@ -768,8 +811,7 @@ class OpServer(object):
             if prg < 0:
                 cod = -prg
                 self._logger.error("Found Error %s" % errno.errorcode[cod])
-                reply = bottle.HTTPError(status=501)
-                reply = bottle.HTTPError(status=_ERRORS[cod])
+                reply = bottle.HTTPError(_ERRORS[cod], errno.errorcode[cod])
                 yield reply
                 return
 
@@ -794,8 +836,13 @@ class OpServer(object):
             yield json.dumps(final_res)
             '''
 
+        except redis.exceptions.ConnectionError:
+            yield bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Failure in connection to the query DB')
         except Exception as e:
             self._logger.error("Exception: %s" % str(e))
+            yield bottle.HTTPError(_ERRORS[errno.EIO], 
+                    'Error: %s' % e)
         else:
             self._logger.info(
                 "Query Result available at time %d" % time.time())
@@ -852,12 +899,32 @@ class OpServer(object):
                 query_data['progress'] = status['progress']
                 processing_queries_info.append(query_data)
             queries['queries_being_processed'] = processing_queries_info
+        except redis.exceptions.ConnectionError:
+            return bottle.HTTPError(_ERRORS[errno.EIO],
+                    'Failure in connection to the query DB')
         except Exception as err:
             self._logger.error("Exception in show queries: %s" % str(err))
-            return {}
+            return bottle.HTTPError(_ERRORS[errno.EIO], 'Error: %s' % err)
         else:
             return json.dumps(queries)
     # end show_queries
+
+    @staticmethod
+    def _get_tfilter(cfilt):
+        tfilter = {}
+        for tfilt in cfilt:
+            afilt = tfilt.split(':')
+            try:
+                attr_list = tfilter[afilt[0]]
+            except KeyError:
+                tfilter[afilt[0]] = set()
+                attr_list = tfilter[afilt[0]]
+            finally:
+                if len(afilt) > 1:
+                    attr_list.add(afilt[1])
+                    tfilter[afilt[0]] = attr_list
+        return tfilter
+    # end _get_tfilter
 
     @staticmethod
     def _uve_filter_set(req):
@@ -874,24 +941,89 @@ class OpServer(object):
             mfilter = req.mfilt
         if 'cfilt' in req.keys():
             any_filter = True
-            tfilter = {}
             infos = req.cfilt.split(',')
-            for tfilt in infos:
-                afilt = tfilt.split(':')
-                try:
-                    attr_list = tfilter[afilt[0]]
-                except KeyError:
-                    tfilter[afilt[0]] = set()
-                    attr_list = tfilter[afilt[0]]
-                finally:
-                    if len(afilt) > 1:
-                        attr_list.add(afilt[1])
-                        tfilter[afilt[0]] = attr_list
+            tfilter = OpServer._get_tfilter(infos)
         if 'kfilt' in req.keys():
             any_filter = True
             kfilter = req.kfilt.split(',')
-
         return any_filter, kfilter, sfilter, mfilter, tfilter
+    # end _uve_filter_set
+
+    @staticmethod
+    def _uve_http_post_filter_set(req):
+        try:
+            kfilter = req['kfilt']
+            if not isinstance(kfilter, list):
+                raise ValueError('Invalid kfilt')
+        except KeyError:
+            raise KeyError('kfilt not specified')
+        try:
+            sfilter = req['sfilt']
+        except KeyError:
+            sfilter = None
+        try:
+            mfilter = req['mfilt']
+        except KeyError:
+            mfilter = None
+        try:
+            cfilt = req['cfilt']
+            if not isinstance(cfilt, list):
+                raise ValueError('Invalid cfilt')
+        except KeyError:
+            tfilter = None
+        else:
+            tfilter = OpServer._get_tfilter(cfilt)
+        return True, kfilter, sfilter, mfilter, tfilter
+    # end _uve_http_post_filter_set
+
+    def uve_http_post(self):
+        (ok, result) = self._post_common(bottle.request, None)
+        if not ok:
+            (code, msg) = result
+            abort(code, msg)
+        uve_type = bottle.request.url.rsplit('/', 1)[1]
+        try:
+            uve_tbl = UVE_MAP[uve_type]
+        except Exception as e:
+            yield bottle.HTTPError(_ERRORS[errno.EINVAL], 
+                                   'Invalid table name')
+        else:
+            try:
+                req = bottle.request.json
+                _, kfilter, sfilter, mfilter, tfilter = \
+                    OpServer._uve_http_post_filter_set(req)
+            except Exception as err:
+                yield bottle.HTTPError(_ERRORS[errno.EBADMSG], err)
+            bottle.response.set_header('Content-Type', 'application/json')
+            yield u'{"value": ['
+            first = True
+            for key in kfilter:
+                if key.find('*') != -1:
+                    uve_name = uve_tbl + ':*'
+                    for gen in self._uve_server.multi_uve_get(uve_name, True,
+                                                              kfilter, sfilter,
+                                                              mfilter, tfilter):
+                        if first:
+                            yield u'' + json.dumps(gen)
+                            first = False
+                        else:
+                            yield u', ' + json.dumps(gen)
+                    yield u']}'
+                    return
+            first = True
+            for key in kfilter:
+                uve_name = uve_tbl + ':' + key
+                rsp = self._uve_server.get_uve(uve_name, True, sfilter,
+                                               mfilter, tfilter)
+                if rsp != {}:
+                    data = {'name': key, 'value': rsp}
+                    if first:
+                        yield u'' + json.dumps(data)
+                        first = False
+                    else:
+                        yield u', ' + json.dumps(data)
+            yield u']}'
+    # end uve_http_post
 
     def uve_http_get(self, name):
         # common handling for all resource get
@@ -1012,266 +1144,6 @@ class OpServer(object):
         return json.dumps(uvetype_links)
     # end uves_http_get
 
-    def analyzer_init(self):
-        # TODO: Analyzer table and mirror table should be stored in
-        # cassandra/Redis for persistency
-        self._analyzer_tbl = {}
-        self._mirror_tbl = {}
-    # end analyzer_init
-
-    def analyzer_add_request(self, name):
-        response = {'status': 'pass'}
-        try:
-            analyzer = self._analyzer_tbl[name]
-        except KeyError:
-            self._analyzer_tbl[name] = {
-                'ip': socket.gethostbyname(socket.getfqdn()),
-                'udp_port': 8099,
-                'vnc_port': 5941,
-                'mirrors': []
-            }
-            analyzer = self._analyzer_tbl[name]
-        finally:
-            # TODO: Need to pass appropriate values
-            response['vnc'] = 'http://%s:%s' % (
-                analyzer['ip'], analyzer['vnc_port'])
-            return json.dumps(response)
-    # end analyzer_add_request
-
-    def analyzer_delete_request(self, name):
-        response = {'status': 'fail'}
-        try:
-            analyzer = self._analyzer_tbl[name]
-        except KeyError:
-            print 'Analyzer "%s" not present' % (name)
-            response['error'] = 'Analyzer not present'
-            return json.dumps(response)
-        else:
-            if len(analyzer['mirrors']):
-                response['error'] = 'Mirror list not empty'
-                return json.dumps(response)
-            del self._analyzer_tbl[name]
-            response['status'] = 'pass'
-            return json.dumps(response)
-    # end analyzer_delete_request
-
-    def analyzer_show_request(self):
-        req = bottle.request.query
-        if req.name:
-            try:
-                analyzer = self._analyzer_tbl[req.name]
-            except KeyError:
-                bottle.abort(404, 'Analyzer "%s" not present' % (req.name))
-            else:
-                link = 'http://%s:%s' % (analyzer['ip'], analyzer['vnc_port'])
-                analyzer_info = {'name': req.name, 'vnc': link,
-                                 'mirrors': analyzer['mirrors']}
-                response = {'analyzer': analyzer_info}
-                return json.dumps(response)
-        else:
-            analyzer_list = []
-            for analyzer_name, analyzer in self._analyzer_tbl.iteritems():
-                link = 'http://%s:%s' % (analyzer['ip'], analyzer['vnc_port'])
-                analyzer_list.append({'name': analyzer_name, 'vnc': link})
-            response = {'analyzers': analyzer_list}
-            return json.dumps(response)
-    # end analyzer_show_request
-
-    def mirror_add_request(self, name):
-        response = {'status': 'fail'}
-        req = bottle.request.query
-        if not req.apply_vn or not req.analyzer_name:
-            print 'Invalid mirror add request'
-            response[
-                'error'] = '"apply_vn" and/or "analyzer_name" not specified'
-            return json.dumps(response)
-        try:
-            mirror_info = self._mirror_tbl[name]
-        except KeyError:
-            mirror_info = {}
-        else:
-            print 'Mirror [%s] already present' % (name)
-            response['error'] = 'Mirror already present'
-            return json.dumps(response)
-        mirror_req = MirrorCreateReq()
-        mirror_req.handle = name
-        mirror_req.apply_vn = req.apply_vn
-        try:
-            analyzer = self._analyzer_tbl[req.analyzer_name]
-        except KeyError:
-            print 'Invalid analyzer'
-            response['error'] = 'Invalid analyzer'
-            return json.dumps(response)
-        else:
-            mirror_req.ip = analyzer['ip']
-            mirror_req.udp_port = analyzer['udp_port']
-
-        mirror_info['apply_vn'] = mirror_req.apply_vn
-        mirror_info['analyzer_name'] = req.analyzer_name
-        if req.src_vn:
-            mirror_req.src_vn = req.src_vn
-            mirror_info['src_vn'] = req.src_vn
-        if req.src_ip_prefix:
-            mirror_req.src_ip_prefix = req.src_ip_prefix
-            mirror_info['src_ip_prefix'] = req.src_ip_prefix
-        if req.src_ip_prefix_len:
-            try:
-                mirror_req.src_ip_prefix_len = int(req.src_ip_prefix_len)
-            except ValueError:
-                print 'Invalid src ip prefix length [%s]'\
-                    % (req.src_ip_prefix_len)
-                response['error'] = 'Invalid source ip prefix length'
-                return json.dumps(response)
-            else:
-                mirror_info['src_ip_prefix_len'] = mirror_req.src_ip_prefix_len
-        if req.dst_vn:
-            mirror_req.dst_vn = req.dst_vn
-            mirror_info['dst_vn'] = req.dst_vn
-        if req.dst_ip_prefix:
-            mirror_req.dst_ip_prefix = req.dst_ip_prefix
-            mirror_info['dst_ip_prefix'] = req.dst_ip_prefix
-        if req.dst_ip_prefix_len:
-            try:
-                mirror_req.dst_ip_prefix_len = int(req.dst_ip_prefix_len)
-            except ValueError:
-                print 'Invalid dst ip prefix length [%s]'\
-                    % (req.dst_ip_prefix_len)
-                response['error'] = 'Invalid destination ip prefix length'
-                return json.dumps(response)
-            else:
-                mirror_info['dst_ip_prefix_len'] = mirror_req.dst_ip_prefix_len
-        if req.start_src_port:
-            try:
-                mirror_req.start_src_port = int(req.start_src_port)
-            except ValueError:
-                print 'Invalid start src port [%s]' % (req.start_src_port)
-                response['error'] = 'Invalid start source port'
-                return json.dumps(response)
-            else:
-                mirror_info['start_src_port'] = mirror_req.start_src_port
-                if not req.end_src_port:
-                    mirror_req.end_src_port = mirror_req.start_src_port
-        if req.end_src_port:
-            try:
-                mirror_req.end_src_port = int(req.end_src_port)
-            except ValueError:
-                print 'Invalid end src port [%s]' % (req.end_src_port)
-                response['error'] = 'Invalid end source port'
-                return json.dumps(response)
-            else:
-                mirror_info['end_src_port'] = mirror_req.end_src_port
-        if req.start_dst_port:
-            try:
-                mirror_req.start_dst_port = int(req.start_dst_port)
-            except ValueError:
-                print 'Invalid start dst port [%s]' % (req.start_dst_port)
-                response['error'] = 'Invalid start destination port'
-                return json.dumps(response)
-            else:
-                mirror_info['start_dst_port'] = mirror_req.start_dst_port
-                if not req.end_dst_port:
-                    mirror_req.end_dst_port = mirror_req.start_dst_port
-        if req.end_dst_port:
-            try:
-                mirror_req.end_dst_port = int(req.end_dst_port)
-            except ValueError:
-                print 'Invalid end dst port [%s]' % (req.end_dst_port)
-                response['error'] = 'Invalid end destination port'
-                return json.dumps(response)
-            else:
-                mirror_info['end_dst_port'] = mirror_req.end_dst_port
-        if req.protocol:
-            try:
-                mirror_req.protocol = int(req.protocol)
-            except ValueError:
-                print 'Invalid protocol [%s]' % (req.protocol)
-                response['error'] = 'Invalid protocol'
-                return json.dumps(response)
-            else:
-                mirror_info['protocol'] = mirror_req.protocol
-        if req.time_period:
-            try:
-                mirror_req.time_period = int(req.time_period)
-            except ValueError:
-                print 'Invalid time period [%s]' % (req.time_period)
-                response['error'] = 'Invalid time period'
-                return json.dumps(response)
-            else:
-                mirror_info['time_period'] = mirror_req.time_period
-
-        # TODO: Get the appropriate destination, if the src_ip/dst_ip
-        # [based on ingress/egress mirror] is provided.
-        # If the prefix_len is not 32, then set the "destination source"
-        # to "*". If the src_ip/dst_ip is not provided, set the
-        # "destination source" to "*".
-        # We may want to optimize this by specifying the list of destinations
-        # which hosts# the VMs in the specified VN.
-        # destination format is "source:module", where source is the hostname
-        dest = '*:' + ModuleNames[Module.VROUTER_AGENT]
-        if self._state_server.redis_publish(
-                msg_type='Request', destination=dest, msg=mirror_req):
-            print 'Successfully published mirror add [%s] request' % (name)
-            self._mirror_tbl[name] = mirror_info
-            analyzer['mirrors'].append({'name': name})
-            self._analyzer_tbl[req.analyzer_name] = analyzer
-            response['status'] = 'pass'
-            return json.dumps(response)
-        print 'Failed to publish mirror add [%s] request' % (name)
-        response['error'] = 'Failed to publish mirror add request'
-        return json.dumps(response)
-    # end mirror_add_request
-
-    def mirror_delete_request(self, name):
-        response = {'status': 'fail'}
-        try:
-            mirror = self._mirror_tbl[name]
-        except KeyError:
-            print 'Mirror "%s" not present' % (name)
-            response['error'] = 'Mirror not present'
-            return json.dumps(response)
-        mirror_req = MirrorDeleteReq()
-        mirror_req.handle = name
-        dest = '*:' + ModuleNames[Module.VROUTER_AGENT]
-        if self._state_server.redis_publish(msg_type='Request',
-                                            destination=dest, msg=mirror_req):
-            print 'Successfully published mirror delete [%s] request' % (name)
-            analyzer_name = self._mirror_tbl[name]['analyzer_name']
-            try:
-                analyzer = self._analyzer_tbl[analyzer_name]
-            except KeyError:
-                pass
-            else:
-                analyzer['mirrors'].remove({'name': name})
-                self._analyzer_tbl[analyzer_name] = analyzer
-
-            del self._mirror_tbl[name]
-            response['status'] = 'pass'
-            return json.dumps(response)
-        print 'Failed to publish mirror delete [%s] request' % (name)
-        response['error'] = 'Failed to publish mirror delete request'
-        return json.dumps(response)
-    # end mirror_delete_request
-
-    def mirror_show_request(self):
-        req = bottle.request.query
-        if req.name:
-            try:
-                mirror_info = self._mirror_tbl[req.name]
-            except KeyError:
-                bottle.abort(404, 'Mirror "%s" not present' % (req.name))
-            else:
-                mirror_info['name'] = req.name
-                response = {'mirror': mirror_info}
-                return json.dumps(response)
-        else:
-            mirror_list = []
-            for mirror_name, mirror_info in self._mirror_tbl.iteritems():
-                mirror_info['name'] = mirror_name
-                mirror_list.append(mirror_info)
-            response = {'mirrors': mirror_list}
-            return json.dumps(response)
-    # end mirror_show_request
-
     def send_trace_buffer(self, source, module, name):
         response = {}
         trace_req = SandeshTraceRequest(name)
@@ -1369,7 +1241,8 @@ class OpServer(object):
         if ((column == 'ModuleId') or (column == 'Source')):
             try:
                 redish = redis.StrictRedis(
-                    db=0, host=self._args.redis_server_ip,
+                    db=0,
+                    host='127.0.0.1',
                     port=int(self._args.redis_server_port))
                 sources = []
                 moduleids = []
@@ -1408,17 +1281,16 @@ class OpServer(object):
         return (json.dumps([]))
     # end column_process
 
-    def start_state_server(self):
-        self._state_server = OpStateServer(
-            self._args.redis_server_ip, self._args.redis_server_port)
+    def start_state_server(self, redis_sentinel_client):
+        self._state_server = OpStateServer(redis_sentinel_client, 'mymaster')
         self._state_server.redis_publisher_init()
-    # end start_state_server
+    #end start_state_server
 
-    def start_uve_server(self):
-        self._uve_server = UVEServer(
-            self._args.redis_server_ip, self._args.redis_server_port)
-        self._uve_server.run()
-    # end start_uve_server
+    def start_uve_server(self, redis_sentinel_client):
+        self._uve_server = UVEServer('127.0.0.1',
+                                     self._args.redis_server_port,
+                                     redis_sentinel_client, 'mymaster')
+    #end start_uve_server
 
     def start_webserver(self):
         pipe_start_app = bottle.app()
@@ -1442,17 +1314,30 @@ class OpServer(object):
             opserver_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
             opserver_cpu_state_trace.send()
             gevent.sleep(60)
-    # end cpu_info_logger
+    #end cpu_info_logger
 
-# end class OpServer
+    def handle_redis_master_change(self, service, redis_master):
+        self._redis_master = redis_master
+        if self._redis_master:
+            self._state_server.set_redis_master(self._redis_master)
+            self._uve_server.set_redis_master(self._redis_master)
+        else:
+            self._state_server.reset_redis_master()
+            self._uve_server.reset_redis_master()
+    #end handle_redis_master_change
 
 
 def main():
     opserver = OpServer()
-    opserver.start_state_server()
-    opserver.analyzer_init()
+    redis_sentinel_client = RedisSentinelClient(
+        ('127.0.0.1',
+         opserver._args.redis_sentinel_port),
+        ['uve'],
+        opserver.handle_redis_master_change,
+        opserver._logger)
+    opserver.start_state_server(redis_sentinel_client)
+    opserver.start_uve_server(redis_sentinel_client)
     gevent.joinall([
-        gevent.spawn(opserver.start_uve_server),
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger)
     ])

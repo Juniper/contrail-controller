@@ -165,7 +165,6 @@ private:
     NativePort xen_ll_;
     std::string tunnel_type_;
     AgentCmdLineParams cmd_params_;
-    bool XenIntfInitDone;
 
     DISALLOW_COPY_AND_ASSIGN(AgentConfig);
 };

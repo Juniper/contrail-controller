@@ -35,5 +35,6 @@ libkstate = env.Library('kstate',
                          'mirror_kstate.cc',
                          'vrf_assign_kstate.cc',
                          'vrf_stats_kstate.cc',
+                         'vxlan_kstate.cc',
                          'drop_stats_kstate.cc'
                         ])

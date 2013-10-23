@@ -954,10 +954,12 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
         instance_id = rt_instance->index();
 
     DBRequest req;
+    ExtCommunitySpec ext;
     req.key.reset(new EnetTable::RequestKey(enet_prefix, peer_.get()));
 
     IpAddress nh_address(Ip4Address(0));
     uint32_t label = 0;
+    uint32_t flags = 0;
 
     if (add_change) {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -986,6 +988,28 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
                 return;
             }
             label = item.entry.next_hops.next_hop[0].label;
+            // Tunnel Encap list
+            bool no_valid_tunnel_encap = true;
+            for (std::vector<std::string>::const_iterator it = 
+                 item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.begin(); 
+                 it !=
+                 item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.end();
+                 it++) {
+                TunnelEncap tun_encap(*it);
+                if (tun_encap.tunnel_encap() != TunnelEncapType::UNSPEC) {
+                    no_valid_tunnel_encap = false;
+                    ext.communities.push_back(tun_encap.GetExtCommunityValue());
+                }
+            }
+            //
+            // If all of the tunnel encaps published by the agent is invalid, 
+            // mark the path as infeasible
+            // If agent has not published any tunnel encap, default the tunnel 
+            // encap to "gre"
+            //
+            if (!item.entry.next_hops.next_hop[0].tunnel_encapsulation_list.tunnel_encapsulation.empty() &&
+                no_valid_tunnel_encap)
+                flags = BgpPath::NoTunnelEncap;
         }
 
         BgpAttrNextHop nexthop(nh_address.to_v4().to_ulong());
@@ -995,9 +1019,12 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             RouteDistinguisher(peer_->bgp_identifier(), instance_id));
         attrs.push_back(&source_rd);
 
+        if (!ext.communities.empty())
+            attrs.push_back(&ext);
+
         BgpAttrPtr attr = bgp_server_->attr_db()->Locate(attrs);
 
-        req.data.reset(new EnetTable::RequestData(attr, 0, label));
+        req.data.reset(new EnetTable::RequestData(attr, flags, label));
         stats_[0].reach++;
     } else {
         req.oper = DBRequest::DB_ENTRY_DELETE;

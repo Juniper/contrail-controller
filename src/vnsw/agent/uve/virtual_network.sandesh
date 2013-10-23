@@ -7,9 +7,16 @@ struct UveVrfStats {
     2:  i64                 discards;
     3:  i64                 resolves;
     4:  i64                 receives;
-    5:  i64                 tunnels;
-    6:  i64                 composites;
-    7:  i64                 encaps;
+    5:  i64                 udp_tunnels;
+    6:  i64                 udp_mpls_tunnels;
+    7:  i64                 gre_mpls_tunnels;
+    8:  i64                 fabric_composites;
+    9:  i64                 l2_mcast_composites;
+    10:  i64                 l3_mcast_composites;
+    11:  i64                 ecmp_composites;
+    12:  i64                 multi_proto_composites;
+    13:  i64                 encaps;
+    14:  i64                 l2_encaps;
 }
 
 struct UveInterVnStats {

@@ -10,19 +10,19 @@
 class VGwConfig {
 public:
     VGwConfig(const std::string vrf, const std::string interface,
-              const Ip4Address &addr) :
-        vrf_(vrf), interface_(interface), ip_(addr) {};
+              const Ip4Address &addr, uint8_t plen) :
+        vrf_(vrf), interface_(interface), ip_(addr), plen_(plen) {};
     ~VGwConfig() {};
 
     const std::string &GetVrf() const {return vrf_;};
     const std::string &GetInterface() const {return interface_;};
     const Ip4Address &GetAddr() const {return ip_;};
-
+    uint8_t GetPlen() const {return plen_;};
 
     static void Init(const char *init_file);
     static void Shutdown();
     static bool Add(const std::string &vrf, const std::string &interface,
-                    const Ip4Address &addr);
+                    const Ip4Address &addr, uint8_t plen);
     static VGwConfig *GetInstance() {return singleton_;};
 private:
     // Public network name
@@ -31,6 +31,8 @@ private:
     std::string interface_;
     // IP address of interface connecting to host-os
     Ip4Address ip_;
+    // Prefix-Len
+    uint8_t plen_;
 
     static VGwConfig *singleton_;
 

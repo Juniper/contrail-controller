@@ -7,12 +7,11 @@ include "ifmap/ifmap_server_show.sandesh"
 
 struct BgpRouterState {
     1: string name (key="ObjectBgpRouter")
-    2: optional bool                deleted
+    2: optional bool deleted
     7: optional u64 uptime;
     3: optional cpuinfo.CpuLoadInfo cpu_info;
    16: optional double cpu_share (aggtype="stats")
    17: optional u32 virt_mem (aggtype="stats")
-   12: optional ifmap_server_show.IFMapPeerServerInfo ifmap_info;
    13: optional u32 output_queue_depth;
     4: optional u32 num_bgp_peer;
    14: optional u32 num_up_bgp_peer;
@@ -23,7 +22,8 @@ struct BgpRouterState {
     9: optional string collector_ip;
    10: optional list<string> bgp_router_ip_list;
    11: optional list<string> core_files_list; 
-   18: optional list<cpuinfo.ProcessState>         process_state_list (aggtype="union")
+   18: optional list<cpuinfo.ProcessState> process_state_list (aggtype="union")
+   19: optional ifmap_server_show.IFMapPeerServerInfoUI ifmap_info;
 }
 
 uve sandesh BGPRouterInfo {

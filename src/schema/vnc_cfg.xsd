@@ -464,6 +464,10 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('encapsulation-priorities', 'global-vrouter-config') -->
 
+<xsd:element name="evpn-status" type="xsd:string"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('evpn-status', 'global-vrouter-config') -->
+
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
 <!--#IFMAP-SEMANTICS-IDL 

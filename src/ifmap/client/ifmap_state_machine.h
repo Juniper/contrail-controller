@@ -92,6 +92,9 @@ public:
     void ProcResponse(const boost::system::error_code& error,
                       size_t bytes_transferred);
 
+    void ResetConnectionReqEnqueue(const std::string &host,
+                                   const std::string &port);
+
     void set_channel(IFMapChannel *channel) {
         channel_ = channel;
     }
@@ -135,8 +138,8 @@ private:
     boost::asio::deadline_timer response_timer_;
     // how many times we timed out waiting for a response
     int connection_attempts_;
-    IFMapChannel *channel_;
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
+    IFMapChannel *channel_;
 
     State state_;
     State last_state_;

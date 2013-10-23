@@ -8,6 +8,7 @@
 #include <boost/bind.hpp>
 #include "base/timer.h"
 #include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/assign/list_of.hpp>
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -24,6 +25,7 @@
 #include "viz_sandesh.h"
 #include "OpServerProxy.h"
 #include "viz_collector.h"
+#include "vizd_table_desc.h"
 
 extern SandeshTraceBufferPtr UVETraceBuf;
 
@@ -50,18 +52,95 @@ Generator::Generator(Collector * const collector, VizSession *session,
         collector_(collector),
         state_machine_(state_machine),
         viz_session_(session),
-        del_wait_timer_(
-                TimerManager::CreateTimer(*collector->event_manager()->io_service(),
-                    "Delete wait timer" + source + module)),
         source_(source),
         module_(module),
-        name_(source_ + ":" + module_) {
+        name_(source_ + ":" + module_),
+        db_handler_(new DbHandler(collector->event_manager(), boost::bind(&Generator::StartDbifReinit, this),
+                collector->cassandra_ip(), collector->cassandra_port(), collector->analytics_ttl(), name_)),
+        db_connect_timer_(
+                TimerManager::CreateTimer(*collector->event_manager()->io_service(),
+                    "Generator db connect timer" + source + module)),
+        del_wait_timer_(
+                TimerManager::CreateTimer(*collector->event_manager()->io_service(),
+                    "Delete wait timer" + source + module)) {
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
 }
 
 Generator::~Generator() {
     TimerManager::DeleteTimer(del_wait_timer_);
+}
+
+void Generator::StartDbifReinit() {
+    db_handler_.get()->UnInit(false);
+    Start_Db_Connect_Timer();
+}
+
+bool Generator::DbConnectTimerExpired() {
+    if (!(Db_Connection_Init())) {
+        return true;
+    }
+    return false;
+}
+
+void Generator::Start_Db_Connect_Timer() {
+    db_connect_timer_->Start(kDbConnectTimerSec * 1000,
+            boost::bind(&Generator::DbConnectTimerExpired, this),
+            boost::bind(&Generator::TimerErrorHandler, this, _1, _2));
+}
+
+void Generator::Db_Connection_Uninit() {
+    db_handler_.get()->UnInit(false);
+}
+
+bool Generator::Db_Connection_Init() {
+    GenDb::GenDbIf *dbif;
+
+    dbif = db_handler_.get()->get_dbif();
+
+    if (!dbif->Db_Init("Generator::Db_Connection_Init", -1)) {
+        GENERATOR_LOG(ERROR, "Database initialization failed");
+        return false;
+    }
+
+    if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+        GENERATOR_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
+                g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+        return false;
+    }   
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
+            it != vizd_tables.end(); it++) {
+        if (!dbif->Db_UseColumnfamily(*it)) {
+            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    /* setup ObjectTables */
+    for (std::map<std::string, objtable_info>::const_iterator it =
+            g_viz_constants._OBJECT_TABLES.begin();
+            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
+        if (!dbif->Db_UseColumnfamily(
+                    (GenDb::NewCf(it->first,
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type)
+                                  (GenDb::DbDataType::AsciiType),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::LexicalUUIDType))))) {
+            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
+            it != vizd_flow_tables.end(); it++) {
+        if (!dbif->Db_UseColumnfamily(*it)) {
+            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    dbif->Db_SetInitDone(true);
+    return true;
 }
 
 void Generator::TimerErrorHandler(string name, string error) {
@@ -94,6 +173,10 @@ void Generator::ReceiveSandeshCtrlMsg(uint32_t connects) {
     ModuleServerState ginfo;    
     GetGeneratorInfo(ginfo);
     SandeshModuleServerTrace::Send(ginfo);
+
+    if (!Db_Connection_Init()) {
+        Start_Db_Connect_Timer();
+    }
 }
 
 void Generator::DisconnectSession(VizSession *vsession) {
@@ -117,15 +200,18 @@ void Generator::DisconnectSession(VizSession *vsession) {
         GENERATOR_LOG(ERROR, "Disconnect for session:" << vsession->ToString() <<
                 ", generator session:" << viz_session_->ToString());
     }
+    Db_Connection_Uninit();
 }
 
 bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
     // This is a message from the application on the generator side.
     // It will be processed by the rule engine callback after we
     // update statistics
+    db_handler_->MessageTableInsert(vmsg);
+
     UpdateMessageTypeStats(vmsg.get());
     UpdateLogLevelStats(vmsg.get());
-    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc);
+    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc, db_handler_.get());
 }
 
 void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {

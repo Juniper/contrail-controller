@@ -302,7 +302,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
-    IFMapPeerServerInfo server_info;
+    IFMapPeerServerInfoUI server_info;
     ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(server_info);
     if (server_info != prev_state.get_ifmap_info() || first) {
         state.set_ifmap_info(server_info);
@@ -536,21 +536,6 @@ int main(int argc, char *argv[]) {
     LOG(DEBUG, "Starting Bgp Server at port " << bgp_port);
     bgp_server->session_manager()->Initialize(bgp_port);
 
-    if (var_map.count("map-server-url")) {
-        std::string certstore = var_map.count("use-certs") ? 
-                                var_map["use-certs"].as<string>() : string("");
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server,
-                    var_map["map-server-url"].as<string>(),
-                    var_map["map-user"].as<string>(),
-                    var_map["map-password"].as<string>(), 
-                    certstore,
-                    boost::bind(&IFMapServerParser::Receive, parser,
-                                &config_db, _1, _2, _3), evm.io_service());
-        ifmapmgr->Start();
-        ifmap_server.set_ifmap_manager(ifmapmgr);
-    }
-
     XmppServer *xmpp_server = new XmppServer(&evm, hostname);
     XmppInit init;
     XmppChannelConfig xmpp_cfg(false);
@@ -614,7 +599,24 @@ int main(int argc, char *argv[]) {
                                    &sandesh_context);
         }
     }
-     
+
+    std::string certstore = var_map.count("use-certs") ? 
+                            var_map["use-certs"].as<string>() : string("");
+    std::string map_server_url;
+    if (var_map.count("map-server-url")) {
+        map_server_url = var_map["map-server-url"].as<string>();
+    }
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+
+    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, map_server_url,
+                var_map["map-user"].as<string>(),
+                var_map["map-password"].as<string>(), certstore,
+                boost::bind(&IFMapServerParser::Receive, ifmap_parser,
+                            &config_db, _1, _2, _3), evm.io_service(),
+                ds_client,
+                g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second);
+    ifmap_server.set_ifmap_manager(ifmapmgr);
+
     CpuLoadData::Init();
     start_time = UTCTimestampUsec();
     node_info_trigger = 

@@ -11,9 +11,11 @@
 #include <boost/function.hpp>
 #include <boost/system/error_code.hpp>
 #include "xmpp/xmpp_channel.h"
+#include "xmpp_enet_types.h"
 #include "xmpp_unicast_types.h"
+#include <oper/route_types.h>
 
-class Inet4Route;
+class RouteEntry;
 class Peer;
 class VrfEntry;
 class XmlPugi;
@@ -28,6 +30,7 @@ public:
     virtual std::string ToString() const;
     virtual bool SendUpdate(uint8_t *msg, size_t msgsize);
     virtual void ReceiveUpdate(const XmppStanza::XmppMessage *msg);
+    virtual void ReceiveEvpnUpdate(XmlPugi *pugi);
     virtual void ReceiveMulticastUpdate(XmlPugi *pugi);
     XmppChannel *GetXmppChannel() { return channel_; }
     static void HandleXmppClientChannelEvent(AgentXmppChannel *peer, 
@@ -39,11 +42,25 @@ public:
                                         VrfEntry *vrf,
                                         bool subscribe);
     static bool ControllerSendRoute(AgentXmppChannel *peer,
-                                    Inet4UcRoute *route, std::string vn,
-                                    uint32_t mpls_label, const SecurityGroupList *sg_list,
-                                    bool add_route);
+                                    RouteEntry *route, std::string vn,
+                                    uint32_t label, 
+                                    uint32_t tunnel_bmap,
+                                    const SecurityGroupList *sg_list, 
+                                    bool add_route, 
+                                    AgentRouteTableAPIS::TableType type);
     static bool ControllerSendMcastRoute(AgentXmppChannel *peer,
-                                         Inet4Route *route, bool add_route);
+                                         RouteEntry *route, bool add_route);
+    static bool ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
+                                             RouteEntry *route, 
+                                             std::string vn,
+                                             const SecurityGroupList *sg_list,
+                                             uint32_t mpls_label, bool add_route);
+    static bool ControllerSendEvpnRoute(AgentXmppChannel *peer,
+                                        RouteEntry *route, 
+                                        std::string vn,
+                                        uint32_t mpls_label, 
+                                        uint32_t tunnel_bmap, 
+                                        bool add_route);
     Peer *GetBgpPeer() { return bgp_peer_id_; }
     std::string GetXmppServer() { return xmpp_server_; }
     uint8_t GetXmppServerIdx() { return xs_idx_; }
@@ -55,8 +72,12 @@ protected:
 private:
     void ReceiveInternal(const XmppStanza::XmppMessage *msg);
     void BgpPeerDelDone();
+    void AddEvpnRoute(std::string vrf_name, struct ether_addr &mac, 
+                  autogen::EnetItemType *item);
     void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 
                   autogen::ItemType *item);
+    void AddRemoteEvpnRoute(std::string vrf_name, struct ether_addr &mac, 
+                        autogen::EnetItemType *item);
     void AddRemoteRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 
                         autogen::ItemType *item);
     void AddEcmpRoute(std::string vrf_name, Ip4Address ip, uint32_t plen, 

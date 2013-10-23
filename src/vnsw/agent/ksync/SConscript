@@ -48,6 +48,7 @@ libksync = env.Library('vnswksync',
                         'nexthop_ksync.cc',
                         'route_ksync.cc',
                         'flowtable_ksync.cc',
+                        'vxlan_ksync.cc',
                         'sandesh_ksync.cc',
                         'vrf_assign_ksync.cc'
                        ])

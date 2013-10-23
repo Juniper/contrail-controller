@@ -55,6 +55,7 @@ viz_redis_test = env.UnitTest('viz_redis_test',
         '../generator.o',
         '../redis_connection.o',
         '../redis_processor_vizd.o',
+        '../redis_sentinel_client.o',
         viz_redis_test_obj]
         )
 env.Alias('src/analytics:viz_redis_test', viz_redis_test)

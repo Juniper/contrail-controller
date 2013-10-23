@@ -10,7 +10,7 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/address.h>
-#include <oper/inet4_ucroute.h>
+#include <oper/agent_route.h>
 #include "base/logging.h"
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
@@ -70,6 +70,7 @@ void VnswIfListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
 VnswIfListener::VnswIfListener(boost::asio::io_service & io) : sock_(io) {
 
     vhost_intf_up_ = false;
+    seqno_ = 0;
 
     ifaddr_listen_ = !(AgentConfig::IsVHostConfigured());
 
@@ -196,11 +197,13 @@ void VnswIfListener::KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) 
 }
 
 void VnswIfListener::CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
-    Inet4UcRouteTable *rt_table;
+    Inet4UnicastAgentRouteTable *rt_table;
 
     std::string vrf_name = Agent::GetInstance()->GetDefaultVrf();
 
-    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    rt_table = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                         AgentRouteTableAPIS::INET4_UNICAST));
     if (rt_table == NULL) {
         assert(0);
     }
@@ -226,11 +229,13 @@ void VnswIfListener::CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
 }
 
 void VnswIfListener::DeleteVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
-    Inet4UcRouteTable *rt_table;
+    Inet4UnicastAgentRouteTable *rt_table;
 
     std::string vrf_name = Agent::GetInstance()->GetDefaultVrf();
 
-    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    rt_table = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                         AgentRouteTableAPIS::INET4_UNICAST));
     if (rt_table == NULL) {
         assert(0);
     }

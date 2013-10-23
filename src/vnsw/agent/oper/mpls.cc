@@ -132,14 +132,14 @@ void MplsLabel::CreateVirtualHostPortLabelReq(uint32_t label,
 }
 
 void MplsLabel::CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
-                                    bool policy) {
+                                    bool policy, InterfaceNHFlags::Type type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(intf_uuid, policy);
+    MplsLabelData *data = new MplsLabelData(intf_uuid, policy, type);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Enqueue(&req);
@@ -147,14 +147,15 @@ void MplsLabel::CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
 }
 
 void MplsLabel::CreateMcastLabelReq(const string &vrf_name, const Ip4Address &grp_addr,
-                                    const Ip4Address &src_addr, uint32_t src_label) {
+                                    const Ip4Address &src_addr, uint32_t src_label,
+                                    COMPOSITETYPE comp_type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::MCAST_NH, src_label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(vrf_name, grp_addr, src_addr, false);
+    MplsLabelData *data = new MplsLabelData(vrf_name, grp_addr, src_addr, false, comp_type);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Enqueue(&req);
@@ -283,6 +284,9 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
                 vlan_nh = static_cast<const VlanNH *>(nh);
                 intf = vlan_nh->GetInterface();
                 info.set_vlan_tag(vlan_nh->GetVlanTag());
+                break;
+            case NextHop::COMPOSITE:
+                nh_type.assign("Composite");    
                 break;
             default:
                 nh_type.assign("unknown");

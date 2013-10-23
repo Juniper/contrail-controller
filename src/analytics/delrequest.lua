@@ -51,7 +51,11 @@ for k,v in pairs(typ) do
 
         local dval = "VALUES:"..deluve..":"..sm..":"..deltyp
         sub_del(dval)
-        redis.call('rename', dval, dkey)
+
+        local lttt = redis.call('exists', dval)
+        if lttt == 1 then
+            redis.call('rename', dval, dkey)
+        end
 
         dval = "UVES:"..sm..":"..deltyp
         redis.call('zrem', dval, deluve)
@@ -62,7 +66,9 @@ for k,v in pairs(typ) do
         dval = "TABLE:"..deltbl
         redis.call('srem', dval, deluve..":"..sm..":"..deltyp)
 
-        redis.call('lpush',"DELETED", dkey)
+        if lttt == 1 then
+            redis.call('lpush',"DELETED", dkey)
+        end 
         iter = iter + 2
     end
 end

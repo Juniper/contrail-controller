@@ -167,6 +167,92 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 }
 
+TEST_F(StatsTestMock, FlowStatsOverflowTest) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++));
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1",
+                200, 1000, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+                        "vn5", "vn5", hash_id++));
+
+    //Verify flow count
+    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    client->FlowTimerWait(2);
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
+
+    KSyncSockTypeMap::SetOFlowStats(1, 1, 1);
+    KSyncSockTypeMap::SetOFlowStats(2, 1, 1);
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    client->FlowTimerWait(2);
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000000, 0x100000000));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000000, 0x100000000));
+
+    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    client->FlowTimerWait(2);
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000001, 0x100000010));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000001, 0x100000010));
+
+    KSyncSockTypeMap::SetOFlowStats(1, 2, 3);
+    KSyncSockTypeMap::SetOFlowStats(2, 4, 5);
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    client->FlowTimerWait(2);
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x200000001, 0x300000010));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x400000001, 0x500000010));
+
+    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+
+    KSyncSockTypeMap::SetOFlowStats(1, 0xA, 0xB);
+    KSyncSockTypeMap::SetOFlowStats(2, 0xC, 0xD);
+
+    //Wait for stats to be updated
+    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    client->FlowTimerWait(2);
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0xA00000002, 0xB00000020));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0xC00000002, 0xD00000020));
+
+    //cleanup
+    KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
+    KSyncSockTypeMap::SetOFlowStats(2, 0, 0);
+    client->EnqueueFlowFlush();
+    client->WaitForIdle(2);
+    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+}
+
 TEST_F(StatsTestMock, IntfStatsTest) {
     AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
@@ -295,20 +381,26 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     //Create 2 vrfs in mock Kernel and update its stats
     KSyncSockTypeMap::VrfStatsAdd(vrf41_id);
     KSyncSockTypeMap::VrfStatsAdd(vrf42_id);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 10, 11, 12, 13, 14, 15);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 16, 17, 18, 19, 20, 21);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 10, 11, 12, 13, 14, 15, 16, 17,
+                                     18, 19, 20, 21, 22);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 23, 24, 25, 26, 27, 28, 29, 30,
+                                     31, 32, 33, 34, 35);
 
     //Wait for stats to be updated in agent
     AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verfify the stats read from kernel
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 10, 11, 12, 13, 14, 15));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 16, 17, 18, 19, 20, 21));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 10, 11, 12, 13, 
+                              14, 15, 16, 17, 18, 19, 20, 21, 22));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 23, 24, 25, 26,
+                              27, 28, 29, 30, 31, 32, 33, 34, 35));
 
     //Verfify the prev_* fields of vrf_stats are 0
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 0, 0, 0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                                  0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                                  0, 0, 0, 0));
 
     //Delete both the VRFs from agent
     VrfDelReq("vrf41");
@@ -322,24 +414,34 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     EXPECT_FALSE(DBTableFind("vrf42.uc.route.0"));
 
     //Verify that vrf_stats's entry is still present in agent_stats_collector.
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), false, 0, 0, 0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), false, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), false,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), false,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0));
 
     //Verify that prev_* fields of vrf_stats are updated
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 10, 11, 12, 13, 14, 15));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 16, 17, 18, 19, 20, 21));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 10, 11, 12, 13, 
+                              14, 15, 16, 17, 18, 19, 20, 21, 22));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 23, 24, 25, 26,
+                              27, 28, 29, 30, 31, 32, 33, 34, 35));
 
     //Update stats in mock kernel when vrfs are absent in agent
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 20, 21, 22, 23, 24, 25);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 26, 27, 28, 29, 30, 31);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 36, 37, 38, 39, 40, 41, 42, 43, 
+                                     44, 45, 46, 47, 48);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 49, 50, 51, 52, 53, 54, 55, 56,
+                                     57, 58, 59, 60, 61);
 
     //Wait for stats to be updated in agent
     AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 20, 21, 22, 23, 24, 25));
-    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 26, 27, 28, 29, 30, 31));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf41_id, 36, 37, 38, 39, 40, 41, 42, 43,
+                                  44, 45, 46, 47, 48));
+    EXPECT_TRUE(VrfStatsMatchPrev(vrf42_id, 49, 50, 51, 52, 53, 54, 55, 56,
+                                  57, 58, 59, 60, 61));
 
     //Add 2 VRFs in agent. They will re-use the id's allocated earlier
     VrfAddReq("vrf41");
@@ -365,20 +467,28 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats's entry stats are set to 0
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 0, 0, 0, 0, 0, 0));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true,
+                              0, 0, 0, 0, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0));
 
     //Update stats in mock kernel when vrfs are absent in agent
-    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 40, 41, 42, 43, 44, 45);
-    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 46, 47, 48, 49, 50, 51);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf41_id, 62, 63, 64, 65, 66, 67, 68, 69, 
+                                     70, 71, 72, 73, 74);
+    KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 75, 76, 77, 78, 79, 80, 81, 82,
+                                     83, 84, 85, 86, 87);
 
     //Wait for stats to be updated in agent
     AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats_entry's stats are set to values after the vrf was added
-    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 20, 20, 20, 20, 20, 20));
-    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 20, 20, 20, 20, 20, 20));
+    EXPECT_TRUE(VrfStatsMatch(vrf41_id, string("vrf41"), true, 26, 26, 26, 26, 
+                              26, 26, 26, 26, 26, 26, 26, 26, 26));
+    EXPECT_TRUE(VrfStatsMatch(vrf42_id, string("vrf42"), true, 26, 26, 26, 26, 
+                              26, 26, 26, 26, 26, 26, 26, 26, 26));
 
     //Cleanup-Remove the VRFs added 
     VrfDelReq("vrf41");

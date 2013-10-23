@@ -31,6 +31,7 @@
 #include "ksync/flowtable_ksync.h"
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
+#include "ksync/vxlan_ksync.h"
 #include "ksync/sandesh_ksync.h"
 #include "nl_util.h"
 #include "vhost.h"
@@ -67,6 +68,7 @@ void KSync::RegisterDBClients(DB *db) {
     MplsKSyncObject::Init(Agent::GetInstance()->GetMplsTable());
     MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
     VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
+    VxLanKSyncObject::Init(Agent::GetInstance()->GetVxLanTable());
     FlowTableKSyncObject::Init();
     Agent::GetInstance()->SetRouterIdConfigured(false);
 }
@@ -189,5 +191,6 @@ void KSync::Shutdown() {
     FlowTableKSyncObject::Shutdown();
     MirrorKSyncObject::Shutdown();
     VrfAssignKSyncObject::Shutdown();
+    VxLanKSyncObject::Shutdown();
     KSyncObjectManager::Shutdown();
 }

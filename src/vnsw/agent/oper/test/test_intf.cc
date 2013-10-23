@@ -67,6 +67,77 @@ static void FloatingIpAdd(CfgFloatingIpList &list, const char *addr,
     list.insert(CfgFloatingIp(ip.to_v4(), vrf, MakeUuid(1)));
 }
 
+struct AnalyzerInfo {
+    std::string analyzer_name;
+    std::string vrf_name;
+    std::string source_ip;
+    std::string analyzer_ip;
+    uint16_t sport;
+    uint16_t dport;
+    std::string direction;
+};
+
+static void CreateMirror(AnalyzerInfo &analyzer_info) {
+    if (analyzer_info.analyzer_name.empty()) {
+        return;
+    }
+    boost::system::error_code ec;
+    Ip4Address dip = Ip4Address::from_string(analyzer_info.analyzer_ip, ec);
+    if (ec.value() != 0) {
+        return;
+    }
+    Agent::GetInstance()->GetMirrorTable()->AddMirrorEntry(analyzer_info.analyzer_name,
+                                                           std::string(),
+                                                           Agent::GetInstance()->GetRouterId(),
+                                                           Agent::GetInstance()->GetMirrorPort(),
+                                                           dip,
+                                                           analyzer_info.dport);
+}
+
+static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
+                        CfgFloatingIpList list, string vrf_name, string ip,
+                        AnalyzerInfo &analyzer_info) {
+    uuid intf_uuid = MakeUuid(id);
+    uuid vn_uuid = MakeUuid(vn);
+    uuid vm_uuid = MakeUuid(vm);
+
+    std::string cfg_name = cfg_str;
+
+    CreateMirror(analyzer_info);
+
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC,
+                                                     intf_uuid, "");
+    req.key.reset(key);
+
+    VmPortInterfaceData *cfg_data = new VmPortInterfaceData();
+    InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
+    data->VmPortInit();
+
+    cfg_data->cfg_name_ = cfg_name;
+    cfg_data->vn_uuid_ = vn_uuid;
+    cfg_data->vm_uuid_ = vm_uuid;
+    cfg_data->floating_iplist_ = list;
+    cfg_data->vrf_name_ = vrf_name;
+    cfg_data->addr_ = Ip4Address::from_string(ip);
+    cfg_data->fabric_port_ = false;
+    cfg_data->analyzer_name_ = analyzer_info.analyzer_name;
+    if (analyzer_info.direction.compare("egress") == 0) {
+        cfg_data->mirror_direction_ = Interface::MIRROR_TX;
+    } else if (analyzer_info.direction.compare("ingress") == 0) {
+        cfg_data->mirror_direction_ = Interface::MIRROR_RX;
+    } else {
+        cfg_data->mirror_direction_ = Interface::MIRROR_RX_TX;
+    }
+    LOG(DEBUG, "Analyzer name config:" << cfg_data->analyzer_name_);
+    LOG(DEBUG, "Mirror direction config" << cfg_data->mirror_direction_);
+    req.data.reset(cfg_data);
+    Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+}
+
+
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
                         CfgFloatingIpList list, string vrf_name, string ip) {
     uuid intf_uuid = MakeUuid(id);
@@ -314,6 +385,83 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_1) {
     VrfDelReq("vrf1");
     client->WaitForIdle();
     EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
+}
+
+// VM create, VMPort create, VN create, VRF create
+TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2_Mirror) {
+    client->Reset();
+    VmAddReq(1);
+    EXPECT_TRUE(client->VmNotifyWait(1));
+
+    client->Reset();
+    NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_TRUE(VmPortInactive(1));
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVmTable()->Size());
+
+    client->Reset();
+    VnAddReq(1, "vn1", 0, "vrf2");
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, NULL_VRF, ZERO_IP);
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_TRUE(VmPortInactive(1));
+    EXPECT_TRUE(client->VnNotifyWait(1));
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
+
+    client->Reset();
+    VrfAddReq("vrf2");
+    VnAddReq(1, "vn1", 0, "vrf2");
+    
+    AnalyzerInfo analyzer_info;
+    analyzer_info.analyzer_name = "Analyzer1";
+    analyzer_info.vrf_name = std::string();
+    analyzer_info.analyzer_ip = "1.1.1.2";
+    analyzer_info.dport = 8099;
+    analyzer_info.direction = "both";
+    CfgFloatingIpList list;
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf2", "1.1.1.1", analyzer_info);
+    client->WaitForIdle();
+    MirrorEntryKey mirror_key(analyzer_info.analyzer_name);
+    EXPECT_TRUE(Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirror_key) != NULL);
+    EXPECT_EQ(VmPortGetAnalyzerName(1), "Analyzer1");
+    EXPECT_EQ(VmPortGetMirrorDirection(1), Interface::MIRROR_RX_TX);
+
+    analyzer_info.analyzer_name = "Analyzer1";
+    analyzer_info.vrf_name = std::string();
+    analyzer_info.analyzer_ip = "1.1.1.2";
+    analyzer_info.dport = 8099;
+    analyzer_info.direction = "egress";
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf2", "1.1.1.1", analyzer_info);
+    client->WaitForIdle();
+    EXPECT_EQ(VmPortGetMirrorDirection(1), Interface::MIRROR_TX);
+    
+    client->Reset();
+    VmDelReq(1);
+    CfgIntfSync(1, "cfg-vnet1", 1, 1, "vrf2", "1.1.1.1");
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_TRUE(VmPortInactive(1));
+    EXPECT_TRUE(client->VmNotifyWait(1));
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
+
+    client->Reset();
+    NovaDel(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(client->PortNotifyWait(1));
+    EXPECT_FALSE(VmPortFind(1));
+
+    VnDelReq(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(client->VnNotifyWait(1));
+    EXPECT_EQ(0U, Agent::GetInstance()->GetVnTable()->Size());
+
+    client->Reset();
+    VrfDelReq("vrf2");
+    client->WaitForIdle();
+    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
+    EXPECT_TRUE(Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirror_key) == NULL);
 }
 
 // VM create, VMPort create, VN create, VRF create

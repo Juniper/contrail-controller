@@ -172,7 +172,8 @@ int main(int argc, char *argv[]) {
 
     DB config_db;
     DBGraph config_graph;
-    IFMapServer ifmap_server(&config_db, &config_graph, Dns::GetEventManager()->io_service());
+    IFMapServer ifmap_server(&config_db, &config_graph,
+                             Dns::GetEventManager()->io_service());
     sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
@@ -182,31 +183,15 @@ int main(int argc, char *argv[]) {
     DnsConfigParser parser(&config_db);
     parser.Parse(FileRead(var_map["config-file"].as<string>()));
 
-    if (var_map.count("map-server-url")) {
-        std::string certstore = var_map.count("use-certs") ?
-                                var_map["use-certs"].as<string>() : string("");
-        IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
-        IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server,
-                    var_map["map-server-url"].as<string>(),
-                    var_map["map-user"].as<string>(),
-                    var_map["map-password"].as<string>(),
-                    certstore,
-                    boost::bind(&IFMapServerParser::Receive, parser,
-                                &config_db, _1, _2, _3), 
-                    Dns::GetEventManager()->io_service());
-        ifmapmgr->Start();
-        ifmap_server.set_ifmap_manager(ifmapmgr);
-    }
-    ifmap_server.set_ifmap_channel_manager(NULL);
-
     Dns::SetProgramName(argv[0]);
     DnsAgentXmppManager::Init();
     start_time = UTCTimestampUsec();
     dns_info_trigger =
             new TaskTrigger(boost::bind(&DnsInfoLogger),
-                                TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
+                    TaskScheduler::GetInstance()->GetTaskId("dns::Config"), 0);
 
-    dns_info_log_timer = TimerManager::CreateTimer(*(Dns::GetEventManager()->io_service()),
+    dns_info_log_timer = 
+        TimerManager::CreateTimer(*(Dns::GetEventManager()->io_service()),
                                                    "Dns Info log timer");
     dns_info_log_timer->Start(60*1000, boost::bind(&DnsInfoLogTimer), NULL);
 
@@ -214,8 +199,8 @@ int main(int argc, char *argv[]) {
     DiscoveryServiceClient *ds_client = NULL;
     if (var_map.count("discovery-server")) {
         tcp::endpoint dss_ep;
-        dss_ep.address(address::from_string(var_map["discovery-server"].as<string>(),
-                       ec));
+        dss_ep.address(
+            address::from_string(var_map["discovery-server"].as<string>(), ec));
         dss_ep.port(var_map["discovery-port"].as<int>());
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep);
         ds_client->Init();
@@ -244,10 +229,12 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-            string subscriber_name = g_vns_constants.ModuleNames.find(Module::DNS)->second;
+            string subscriber_name = 
+                g_vns_constants.ModuleNames.find(Module::DNS)->second;
 
             Sandesh::CollectorSubFn csf = 0;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client, subscriber_name, _1, _2, _3);
+            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client,
+                              subscriber_name, _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
@@ -259,6 +246,22 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    std::string certstore = var_map.count("use-certs") ? 
+                            var_map["use-certs"].as<string>() : string("");
+    std::string map_server_url;
+    if (var_map.count("map-server-url")) {
+        map_server_url = var_map["map-server-url"].as<string>();
+    }
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+
+    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, map_server_url,
+                        var_map["map-user"].as<string>(),
+                        var_map["map-password"].as<string>(), certstore,
+                        boost::bind(&IFMapServerParser::Receive, ifmap_parser,
+                                &config_db, _1, _2, _3),
+                        Dns::GetEventManager()->io_service(), ds_client,
+                        g_vns_constants.ModuleNames.find(Module::DNS)->second);
+    ifmap_server.set_ifmap_manager(ifmapmgr);
 
     Dns::GetEventManager()->Run();
  

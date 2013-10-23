@@ -58,7 +58,7 @@ public:
     }
 
     void AddRt(Peer *peer, std::string &vrf_name, IpAddress &sip,
-               IpAddress &dip, int label, Inet4UcRouteTable *table) {
+               IpAddress &dip, int label, Inet4UnicastAgentRouteTable *table) {
         Ip4Address s = sip.to_v4();
         Ip4Address d = dip.to_v4();
         table->AddRemoteVmRoute(peer, vrf_name, s, 32, d, TunnelType::AllType(),
@@ -95,9 +95,11 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     VrfEntryRef vrf1 = VrfGet("test_vrf1");
     VrfEntryRef vrf2 = VrfGet("test_vrf2");
 
-    Inet4UcRouteTable *rt_table1, *rt_table2;
-    rt_table1 = vrf1->GetInet4UcRouteTable();
-    rt_table2 = vrf2->GetInet4UcRouteTable();
+    Inet4UnicastAgentRouteTable *rt_table1, *rt_table2;
+    rt_table1 = static_cast<Inet4UnicastAgentRouteTable *>(vrf1->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+    rt_table2 = static_cast<Inet4UnicastAgentRouteTable *>(vrf2->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
     std::size_t old_rt1_entries, old_rt2_entries;
     old_rt1_entries = rt_table1->Size();
     old_rt2_entries = rt_table2->Size();
@@ -163,8 +165,9 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     peer2->SetVrfListenerId(id_peer2);
 
     VrfEntryRef vrf = VrfGet("test_vrf3");
-    Inet4UcRouteTable *rt_table;
-    rt_table = vrf->GetInet4UcRouteTable();
+    Inet4UnicastAgentRouteTable *rt_table =
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
 
     AddRt(peer1, vrf_name, ip1, fabric_ip1, 99, rt_table);
     AddRt(peer1, vrf_name, ip2, fabric_ip2, 75, rt_table);

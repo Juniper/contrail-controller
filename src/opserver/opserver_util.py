@@ -61,7 +61,7 @@ class OpServerUtils(object):
             return ret
         elif (inp['@type'] == 'list'):
             sname = OpServerUtils._get_list_name(inp['list'])
-            ret = {}
+            ret = []
             if (sname == ""):
                 return ret
             items = inp['list'][sname]

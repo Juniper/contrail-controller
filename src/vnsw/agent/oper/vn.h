@@ -67,10 +67,10 @@ struct VnKey : public AgentKey {
 struct VnData : public AgentData {
     VnData(const string &name, const uuid &acl_id, const string &vrf_name,
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
-           const std::vector<VnIpam> &ipam) :
+           const std::vector<VnIpam> &ipam, int vxlan_id) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
-                ipam_(ipam) {
+                ipam_(ipam), vxlan_id_(vxlan_id) {
     };
     virtual ~VnData() { };
 
@@ -80,6 +80,7 @@ struct VnData : public AgentData {
     uuid mirror_acl_id_;
     uuid mirror_cfg_acl_id_;
     std::vector<VnIpam> ipam_;
+    int vxlan_id_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
@@ -105,6 +106,7 @@ public:
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
     bool GetIpamData(const VmPortInterface *vmitf, 
                      autogen::IpamType &ipam_type) const;
+    int GetVxLanId() {return vxlan_id_;};
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -122,6 +124,7 @@ private:
     AclDBEntryRef mirror_cfg_acl_;
     VrfEntryRef vrf_;
     std::vector<VnIpam> ipam_;
+    int vxlan_id_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
@@ -144,7 +147,8 @@ public:
     static VnTable *GetInstance() {return vn_table_;};
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
-               const string &vrf_name, const std::vector<VnIpam> &ipam);
+               const string &vrf_name, const std::vector<VnIpam> &ipam,
+               int vxlan_id);
     void DelVn(const uuid &vn_uuid);
 
     static void IpamVnSync(IFMapNode *node);

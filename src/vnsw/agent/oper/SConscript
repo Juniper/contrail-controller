@@ -25,9 +25,10 @@ for src in SandeshGenSrcs:
 
 vnswoperdb = env.Library('vnswoperdb',
                          sandesh_objs +
-                         ['inet4_route.cc', 
+                         ['route_common.cc', 
                           'inet4_ucroute.cc',
                           'inet4_mcroute.cc',
+                          'layer2_route.cc',
                           'interface.cc',
                           'mirror_table.cc',
                           'mpls.cc',
@@ -35,11 +36,11 @@ vnswoperdb = env.Library('vnswoperdb',
                           'operdb_init.cc',
                           'peer.cc',
                           'vm.cc',
-                          'vm_path.cc',
                           'vn.cc',
                           'vrf.cc',
                           'vrf_assign.cc',
                           'multicast.cc',
+                          'vxlan.cc',
                           'agent_sandesh.cc',
                           'sg.cc'
                          ])

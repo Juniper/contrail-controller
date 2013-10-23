@@ -228,7 +228,8 @@ public:
     enum Type {
         INVALID,
         MPLS_GRE,
-        MPLS_UDP
+        MPLS_UDP,
+        VXLAN
     };
     // Bitmap of supported tunnel types
     typedef uint32_t TypeBmap;
@@ -248,6 +249,8 @@ public:
             return "MPLSoGRE";
         case MPLS_UDP:
             return "MPLSoUDP";
+        case VXLAN:
+            return "VXLAN";    
         default:
             break;
         }
@@ -260,7 +263,9 @@ public:
     static Type ComputeType(TypeBmap bmap);
     static Type DefaultType() {return default_type_;}
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
-    static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));}
+    static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
+    static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
+                                       (1 << VXLAN));}
     static void EncapPrioritySync(IFMapNode *node);
 private:
     Type type_;
@@ -640,16 +645,22 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 // Interface NH definition
 /////////////////////////////////////////////////////////////////////////////
+struct InterfaceNHFlags {
+    enum Type {
+        INET4 = 1,
+        LAYER2 = 2,
+        MULTICAST = 4
+    };
+};
+
 class InterfaceNHKey : public NextHopKey {
 public:
-    InterfaceNHKey(InterfaceKey *intf, bool policy) :
-        NextHopKey(NextHop::INTERFACE, policy),
-        intf_key_(intf), is_mcast_nh_(false) {
-    }
-
-    InterfaceNHKey(InterfaceKey *intf, bool policy, bool is_mcast_nh) :
+    InterfaceNHKey(InterfaceKey *intf, bool policy, uint8_t flags) :
         NextHopKey(NextHop::INTERFACE, policy), intf_key_(intf),
-        is_mcast_nh_(is_mcast_nh) {
+        flags_(flags) {
+            //TODO evpn changes remove this, just extra check
+            assert((flags != 0) || (flags == 1) ||
+                   (flags == 5));
     }
 
     virtual ~InterfaceNHKey() {};
@@ -657,20 +668,23 @@ public:
 
     virtual NextHop *AllocEntry() const;
     virtual NextHopKey *Clone() const {
-        return new InterfaceNHKey(intf_key_->Clone(), policy_, is_mcast_nh_);
+        //TODO evpn changes remove this, just extra check
+        assert((flags_ != 0) || (flags_ == 1) ||
+               (flags_ == 5));
+        return new InterfaceNHKey(intf_key_->Clone(), policy_, flags_);
     }
     virtual bool Compare(const NextHopKey &rhs) const {
         const InterfaceNHKey &key = static_cast<const InterfaceNHKey &>(rhs);
         if (intf_key_->Compare(*key.intf_key_.get()) == false)
             return false;
 
-        return is_mcast_nh_ == key.is_mcast_nh_;
+        return flags_ == key.flags_;
     }
 
 private:
     friend class InterfaceNH;
     boost::scoped_ptr<InterfaceKey> intf_key_;
-    bool is_mcast_nh_;
+    uint8_t flags_;
 };
 
 class InterfaceNHData : public NextHopData {
@@ -688,12 +702,12 @@ private:
 
 class InterfaceNH : public NextHop {
 public:
-    InterfaceNH(Interface *intf, bool policy, bool is_mcast_nh) : 
+    InterfaceNH(Interface *intf, bool policy, uint8_t flags) : 
         NextHop(INTERFACE, true, policy), interface_(intf),
-        is_mcast_nh_(is_mcast_nh), dmac_() { };
+        flags_(flags), dmac_() { };
     InterfaceNH(Interface *intf, bool policy) : 
         NextHop(INTERFACE, true, policy), interface_(intf),
-        is_mcast_nh_(false), dmac_() { };
+        flags_(InterfaceNHFlags::INET4), dmac_() { };
     virtual ~InterfaceNH() { };
 
     virtual std::string ToString() const { 
@@ -709,7 +723,9 @@ public:
 
     const Interface *GetInterface() const {return interface_.get();};
     const struct ether_addr &GetDMac() const {return dmac_;};
-    bool IsMulticastNH() const { return is_mcast_nh_; };
+    bool IsMulticastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
+    bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
+    uint8_t GetFlags() const {return flags_;};
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
@@ -722,7 +738,7 @@ public:
 
 private:
     InterfaceRef interface_;
-    bool is_mcast_nh_;
+    uint8_t flags_;
     struct ether_addr dmac_;
     VrfEntryRef vrf_; 
     DISALLOW_COPY_AND_ASSIGN(InterfaceNH);
@@ -734,14 +750,18 @@ private:
 class VrfNHKey : public NextHopKey {
 public:
     VrfNHKey(const string &vrf_name, bool policy) :
-        NextHopKey(NextHop::VRF, policy), vrf_key_(vrf_name) {
+        NextHopKey(NextHop::VRF, policy), vrf_key_(vrf_name), policy_(policy) {
     }
     virtual ~VrfNHKey() { }
 
     virtual NextHop *AllocEntry() const;
+    virtual NextHopKey *Clone() const {
+        return new VrfNHKey(vrf_key_.name_, policy_); 
+    }
 private:
     friend class VrfNH;
     VrfKey vrf_key_;
+    bool policy_;
     DISALLOW_COPY_AND_ASSIGN(VrfNHKey);
 };
 
@@ -861,9 +881,59 @@ private:
     DISALLOW_COPY_AND_ASSIGN(VlanNH);
 };
 
+//TODO Shift this to class CompositeNH
+struct Composite {
+    enum Type {
+        FABRIC,
+        L2COMP,
+        L3COMP,
+        MULTIPROTO,
+        ECMP
+    };
+};
+
+//TODO remove defines
+#define COMPOSITETYPE Composite::Type
 /////////////////////////////////////////////////////////////////////////////
 // Component NH definition
 /////////////////////////////////////////////////////////////////////////////
+class CompositeNHKey : public NextHopKey {
+public: 
+    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, 
+                   const Ip4Address &sip, bool local, COMPOSITETYPE type) :
+        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(sip),
+        dip_(dip), is_mcast_nh_(true), is_local_ecmp_nh_(local),
+        comp_type_(type) {
+    }
+
+    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, bool local):
+        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(),
+        dip_(dip), is_mcast_nh_(false), is_local_ecmp_nh_(local), comp_type_(Composite::ECMP) {
+    }
+
+    virtual CompositeNHKey *Clone() const {
+        if (is_mcast_nh_) {
+            return new CompositeNHKey(vrf_key_.name_, dip_, sip_,
+                                      is_local_ecmp_nh_, comp_type_);
+        } else {
+            return new CompositeNHKey(vrf_key_.name_, dip_,
+                                      is_local_ecmp_nh_);
+        }
+    }
+
+    virtual ~CompositeNHKey() { }
+    virtual NextHop *AllocEntry() const;
+private:
+    friend class CompositeNH;
+    VrfKey vrf_key_;
+    Ip4Address sip_;
+    Ip4Address dip_;
+    bool is_mcast_nh_;
+    bool is_local_ecmp_nh_;
+    COMPOSITETYPE comp_type_;
+    DISALLOW_COPY_AND_ASSIGN(CompositeNHKey);
+};
+
 struct ComponentNH {
     ComponentNH(uint32_t label, NextHop *nh): label_(label), nh_(nh) {
     };
@@ -898,10 +968,10 @@ public:
         label_(rhs.label_), nh_key_(rhs.nh_key_->Clone()) {
     }
 
-    ComponentNHData(int label, const uuid &intf_uuid, bool is_mcast) :
+    ComponentNHData(int label, const uuid &intf_uuid, uint8_t flags) :
         label_(label), 
-        nh_key_(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), false, 
-                                   is_mcast)) {
+        nh_key_(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), false,
+                                   flags)) {
     }
 
     ComponentNHData(int label, const uuid &intf_uuid, uint16_t tag,
@@ -915,6 +985,13 @@ public:
         label_(label), nh_key_(new TunnelNHKey(vrf_name, sip, dip, policy,
                                                TunnelType::ComputeType(bmap))),
         type_bmap_(bmap) {
+    }
+
+    ComponentNHData(const string &vrf_name, const Ip4Address &dip,
+                    const Ip4Address &sip, bool is_local, 
+                    COMPOSITETYPE type) :
+        label_(0), nh_key_(new CompositeNHKey(vrf_name, dip, sip, 
+                                             is_local, type)) {
     }
 
     ComponentNHData(int label, NextHopKey *key) :
@@ -951,43 +1028,6 @@ public:
 
 private:
 };
-/////////////////////////////////////////////////////////////////////////////
-// Composite NH definition
-/////////////////////////////////////////////////////////////////////////////
-class CompositeNHKey : public NextHopKey {
-public: 
-    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, 
-                   const Ip4Address &sip, bool local):
-        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(sip),
-        dip_(dip), is_mcast_nh_(true), is_local_ecmp_nh_(local) {
-    }
-
-    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, bool local):
-        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(),
-        dip_(dip), is_mcast_nh_(false), is_local_ecmp_nh_(local) {
-    }
-
-    virtual CompositeNHKey *Clone() const {
-        if (is_mcast_nh_) {
-            return new CompositeNHKey(vrf_key_.name_, dip_, sip_,
-                                      is_local_ecmp_nh_);
-        } else {
-            return new CompositeNHKey(vrf_key_.name_, dip_,
-                                      is_local_ecmp_nh_);
-        }
-    }
-
-    virtual ~CompositeNHKey() { }
-    virtual NextHop *AllocEntry() const;
-private:
-    friend class CompositeNH;
-    VrfKey vrf_key_;
-    Ip4Address sip_;
-    Ip4Address dip_;
-    bool is_mcast_nh_;
-    bool is_local_ecmp_nh_;
-    DISALLOW_COPY_AND_ASSIGN(CompositeNHKey);
-};
 
 class CompositeNHData : public NextHopData {
 public:
@@ -1014,17 +1054,17 @@ public:
         const_iterator;
 
     static const uint32_t kInvalidComponentNHIdx = 0xFFFFFFFF;
-    CompositeNH(VrfEntry *vrf_, Ip4Address grp_addr, Ip4Address src_addr)
-        : NextHop(COMPOSITE, true, false), vrf_(vrf_), 
-        grp_addr_(grp_addr), src_addr_(src_addr), is_mcast_nh_(true), 
-        is_local_ecmp_nh_(false), local_comp_nh_(this) {
+    CompositeNH(VrfEntry *vrf_, Ip4Address grp_addr, Ip4Address src_addr,
+        COMPOSITETYPE type) : NextHop(COMPOSITE, true, false), vrf_(vrf_), 
+        grp_addr_(grp_addr), src_addr_(src_addr),  
+        is_local_ecmp_nh_(false), local_comp_nh_(this), comp_type_(type) {
     };
 
-    CompositeNH(VrfEntry *vrf_, Ip4Address dip, bool local_ecmp)
-        : NextHop(COMPOSITE, true, true), vrf_(vrf_), 
-        grp_addr_(dip), src_addr_(0), is_mcast_nh_(false), 
+    CompositeNH(VrfEntry *vrf_, Ip4Address dip, bool local_ecmp,
+        COMPOSITETYPE type) : NextHop(COMPOSITE, true, true), vrf_(vrf_), 
+        grp_addr_(dip), src_addr_(0), 
         is_local_ecmp_nh_(local_ecmp), 
-        local_comp_nh_(this){
+        local_comp_nh_(this), comp_type_(type) {
     };
 
     virtual ~CompositeNH() { };
@@ -1052,6 +1092,7 @@ public:
     static void CreateCompositeNH(const std::string vrf_name, 
                                   const Ip4Address source, 
                                   const Ip4Address group,
+                                  COMPOSITETYPE comp_type,
                                   std::vector<ComponentNHData> comp_nh_list);
     static void CreateComponentNH(std::vector<ComponentNHData> comp_nh_list);
     static void AppendComponentNH(const std::string vrf_name, 
@@ -1094,10 +1135,19 @@ public:
         return NULL;
     }
  
-    bool IsMcastNH() const {
-        return is_mcast_nh_;
+    COMPOSITETYPE CompositeType() const {
+        return comp_type_;
     }
 
+    bool IsEcmpNH() const {
+        return (comp_type_ == Composite::ECMP);
+    }
+
+    bool IsMcastNH() const {
+        return (comp_type_ != Composite::ECMP);
+    }
+
+    uint32_t GetRemoteLabel(Ip4Address ip) const;
     bool IsLocal() const {
         return is_local_ecmp_nh_;
     }
@@ -1106,7 +1156,6 @@ public:
         return local_comp_nh_.get();
     }
 
-    uint32_t GetRemoteLabel(Ip4Address ip) const;
     bool GetOldNH(const CompositeNHData *data, ComponentNH &);
 
 private:
@@ -1114,9 +1163,9 @@ private:
     Ip4Address grp_addr_;
     Ip4Address src_addr_;
     ComponentNHList component_nh_list_;
-    bool is_mcast_nh_;
     bool is_local_ecmp_nh_;
     DependencyRef<CompositeNH, CompositeNH> local_comp_nh_;
+    COMPOSITETYPE comp_type_;
     DEPENDENCY_LIST(CompositeNH, CompositeNH, remote_comp_nh_list_);
     DISALLOW_COPY_AND_ASSIGN(CompositeNH);
 };

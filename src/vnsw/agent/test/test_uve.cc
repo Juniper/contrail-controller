@@ -200,7 +200,8 @@ TEST_F(UveTest, VrfAddDelTest_1) {
 
     //Verify that vrf_stats entry is added vrf_stats_tree of 
     //agent_stats_collector
-    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0, 0, 0, 0, 0));
 
     //Delete vrf - vrf11
     VrfDelReq("vrf11");
@@ -210,7 +211,8 @@ TEST_F(UveTest, VrfAddDelTest_1) {
 
     //Verify that vrf_stats entry is not removed from vrf_stats_tree of 
     //agent_stats_collector after deletion of vrf
-    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf11"), true, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0, 0, 0, 0, 0));
 
     //Create vrf - vrf21
     VrfAddReq("vrf21");
@@ -224,7 +226,8 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     if (vrf11_id == vrf21_id) {
         //When vrf-id is re-used for different vrf verify that vrf-name
         //is updated correctly in the vrf_stats_entry of agent_stats_collector
-        EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf21"), true, 0, 0, 0, 0, 0, 0));
+        EXPECT_TRUE(VrfStatsMatch(vrf11_id, string("vrf21"), true, 0, 0, 0, 0, 0,
+                                  0, 0, 0, 0, 0, 0, 0, 0));
     }
 
     //Delete vrf - vrf21
@@ -232,7 +235,8 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     client->WaitForIdle();
     WAIT_FOR(100, 10000, (VrfFind("vrf21")== false));
     EXPECT_FALSE(DBTableFind("vrf21.uc.route.0"));
-    EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), true, 0, 0, 0, 0, 0, 0));
+    EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), true, 0, 0, 0, 0, 0, 
+                              0, 0, 0, 0, 0, 0, 0, 0));
 }
 
 int main(int argc, char **argv) {

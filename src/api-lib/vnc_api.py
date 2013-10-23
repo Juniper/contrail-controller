@@ -20,6 +20,7 @@ from cfgm_common.exceptions import *
 
 from pprint import pformat
 
+
 def CamelCase(input):
     words = input.replace('_', '-').split('-')
     name = ''
@@ -28,9 +29,11 @@ def CamelCase(input):
     return name
 #end CamelCase
 
+
 def str_to_class(class_name):
     return reduce(getattr, class_name.split("."), sys.modules[__name__])
 #end str_to_class
+
 
 def _read_cfg(cfg_parser, section, option, default):
         try:
@@ -39,16 +42,17 @@ def _read_cfg(cfg_parser, section, option, default):
                 ConfigParser.NoOptionError,
                 ConfigParser.NoSectionError):
             val = default
-        
+
         return val
 #end _read_cfg
+
 
 class VncApi(VncApiClientGen):
     _DEFAULT_WEB_SERVER = "127.0.0.1"
 
     _DEFAULT_HEADERS = {
-               'Content-type': 'application/json; charset="UTF-8"',
-               }
+        'Content-type': 'application/json; charset="UTF-8"',
+    }
 
     _AUTHN_SUPPORTED_TYPES = ["keystone"]
     _DEFAULT_AUTHN_TYPE = "keystone"
@@ -64,32 +68,38 @@ class VncApi(VncApiClientGen):
     _DEFAULT_WEB_PORT = 8082
     _DEFAULT_BASE_URL = "/"
 
-    def __init__(self, username = None, password = None, tenant_name = None,
-                 api_server_host = '127.0.0.1', api_server_port = '8082',
-                 api_server_url = None, conf_file = None, user_info = None, auth_token = None):
+    def __init__(self, username=None, password=None, tenant_name=None,
+                 api_server_host='127.0.0.1', api_server_port='8082',
+                 api_server_url=None, conf_file=None, user_info=None,
+                 auth_token=None):
         # TODO allow for username/password to be present in creds file
 
         cfg_parser = ConfigParser.ConfigParser()
-        clen = len(cfg_parser.read(conf_file or "/etc/contrail/vnc_api_lib.ini"))
+        clen = len(cfg_parser.read(conf_file or
+                                   "/etc/contrail/vnc_api_lib.ini"))
 
         # keystone
-        self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE', self._DEFAULT_AUTHN_TYPE)
+        self._authn_type = _read_cfg(cfg_parser, 'auth', 'AUTHN_TYPE',
+                                     self._DEFAULT_AUTHN_TYPE)
         if self._authn_type == 'keystone':
             self._authn_server = _read_cfg(cfg_parser, 'auth', 'AUTHN_SERVER',
-		        self._DEFAULT_AUTHN_SERVER)
+                                           self._DEFAULT_AUTHN_SERVER)
             self._authn_port = _read_cfg(cfg_parser, 'auth', 'AUTHN_PORT',
-                self._DEFAULT_AUTHN_PORT)
+                                         self._DEFAULT_AUTHN_PORT)
             self._authn_url = _read_cfg(cfg_parser, 'auth', 'AUTHN_URL',
-                self._DEFAULT_AUTHN_URL)
+                                        self._DEFAULT_AUTHN_URL)
             self._username = username or \
-                _read_cfg(cfg_parser, 'auth', 'AUTHN_USER', self._DEFAULT_AUTHN_USER)
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_USER',
+                          self._DEFAULT_AUTHN_USER)
             self._password = password or \
-                _read_cfg(cfg_parser, 'auth', 'AUTHN_PASSWORD', self._DEFAULT_AUTHN_PASSWORD)
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_PASSWORD',
+                          self._DEFAULT_AUTHN_PASSWORD)
             self._tenant_name = tenant_name or \
-                _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT', self._DEFAULT_AUTHN_TENANT)
+                _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
+                          self._DEFAULT_AUTHN_TENANT)
             self._authn_body = \
                 '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' \
-                    %(self._username, self._password, self._tenant_name)
+                % (self._username, self._password, self._tenant_name)
             self._user_info = user_info
 
         if not api_server_host:
@@ -142,26 +152,30 @@ class VncApi(VncApiClientGen):
 
         self._create_api_server_session()
 
-        homepage = self._request_server(rest.OP_GET, self._base_url, retry_on_error = False)
+        homepage = self._request_server(rest.OP_GET, self._base_url,
+                                        retry_on_error=False)
         self._cfg_root_url = self._parse_homepage(homepage)
     #end __init__
-    
+
     def _create_api_server_session(self):
         self._api_server_session = requests.Session()
 
-        adapter = requests.adapters.HTTPAdapter(pool_connections = 100, pool_maxsize = 100)
+        adapter = requests.adapters.HTTPAdapter(pool_connections=100,
+                                                pool_maxsize=100)
         self._api_server_session.mount("http://", adapter)
         self._api_server_session.mount("https://", adapter)
     #end _create_api_server_session
 
     # Authenticate with configured service
-    def _authenticate(self, response = None, headers = None):
+    def _authenticate(self, response=None, headers=None):
         if self._authn_type is None:
             return headers
-        url = "http://%s:%s%s" %(self._authn_server, self._authn_port, self._authn_url)
-        response = requests.post(url, data = self._authn_body, headers = self._DEFAULT_AUTHN_HEADERS)
+        url = "http://%s:%s%s" % (self._authn_server, self._authn_port,
+                                  self._authn_url)
+        response = requests.post(url, data=self._authn_body,
+                                 headers=self._DEFAULT_AUTHN_HEADERS)
         if response.status_code == 200:
-            # plan is to re-issue original request with new token 
+            # plan is to re-issue original request with new token
             new_headers = headers or {}
             authn_content = json.loads(response.text)
             self._auth_token = authn_content['access']['token']['id']
@@ -169,38 +183,43 @@ class VncApi(VncApiClientGen):
             return new_headers
         else:
             raise RuntimeError('Authentication Failure')
-	#end _authenticate
+    #end _authenticate
 
-    def _http_get(self, uri, headers = None, query_params = None):
+    def _http_get(self, uri, headers=None, query_params=None):
         url = "http://%s:%s%s" \
-                      %(self._web_host, self._web_port, uri)
-        response = self._api_server_session.get(url, headers = headers, params = query_params)
+              % (self._web_host, self._web_port, uri)
+        response = self._api_server_session.get(url, headers=headers,
+                                                params=query_params)
         #print 'Sending Request URL: ' + pformat(url)
         #print '                Headers: ' + pformat(headers)
         #print '                QParams: ' + pformat(query_params)
-        #response = self._api_server_session.get(url, headers = headers, params = query_params)
+        #response = self._api_server_session.get(url, headers = headers,
+        #                                        params = query_params)
         #print 'Received Response: ' + pformat(response.text)
         return (response.status_code, response.text)
     #end _http_get
 
     def _http_post(self, uri, body, headers):
         url = "http://%s:%s%s" \
-                      %(self._web_host, self._web_port, uri)
-        response = self._api_server_session.post(url, data = body, headers = headers)
+              % (self._web_host, self._web_port, uri)
+        response = self._api_server_session.post(url, data=body,
+                                                 headers=headers)
         return (response.status_code, response.text)
     #end _http_post
 
     def _http_delete(self, uri, body, headers):
         url = "http://%s:%s%s" \
-                      %(self._web_host, self._web_port, uri)
-        response = self._api_server_session.delete(url, data = body, headers = headers)
+              % (self._web_host, self._web_port, uri)
+        response = self._api_server_session.delete(url, data=body,
+                                                   headers=headers)
         return (response.status_code, response.text)
     #end _http_delete
 
     def _http_put(self, uri, body, headers):
         url = "http://%s:%s%s" \
-                      %(self._web_host, self._web_port, uri)
-        response = self._api_server_session.put(url, data = body, headers = headers)
+              % (self._web_host, self._web_port, uri)
+        response = self._api_server_session.put(url, data=body,
+                                                headers=headers)
         return (response.status_code, response.text)
     #end _http_delete
 
@@ -214,11 +233,11 @@ class VncApi(VncApiClientGen):
             # strip base from *_url to get *_uri
             uri = link['link']['href'].replace(srv_root_url, '')
             if link['link']['rel'] == 'collection':
-                class_name = "%sClientGen" %(CamelCase(link['link']['name']))
+                class_name = "%sClientGen" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
-                class_name = "%sClientGen" %(CamelCase(link['link']['name']))
+                class_name = "%sClientGen" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 resource_type = link['link']['name']
                 cls.resource_uri_base[resource_type] = uri
@@ -236,11 +255,11 @@ class VncApi(VncApiClientGen):
                 return link['link']['href']
 
         return None
-    #end _find_url 
+    #end _find_url
 
-    def _read_args_to_id(self, obj_type, fq_name = None, fq_name_str = None, 
-                         id = None, ifmap_id = None):
-        arg_count = ((fq_name is not None) + (fq_name_str is not None) + 
+    def _read_args_to_id(self, obj_type, fq_name=None, fq_name_str=None,
+                         id=None, ifmap_id=None):
+        arg_count = ((fq_name is not None) + (fq_name_str is not None) +
                      (id is not None) + (ifmap_id is not None))
 
         if (arg_count == 0):
@@ -258,20 +277,20 @@ class VncApi(VncApiClientGen):
             return (True, self.ifmap_to_id(ifmap_id))
     #end _read_args_to_id
 
-    def _request_server(self, op, url, data = None, retry_on_error = True):
+    def _request_server(self, op, url, data=None, retry_on_error=True):
         try:
             if (op == rest.OP_GET):
-                (status, content) = self._http_get(url, headers = self._headers,
-                                                   query_params = data)
+                (status, content) = self._http_get(url, headers=self._headers,
+                                                   query_params=data)
             elif (op == rest.OP_POST):
-                (status, content) = self._http_post(url, body = data,
-                                                    headers = self._headers)
+                (status, content) = self._http_post(url, body=data,
+                                                    headers=self._headers)
             elif (op == rest.OP_DELETE):
-                (status, content) = self._http_delete(url, body = data,
-                                                      headers = self._headers)
+                (status, content) = self._http_delete(url, body=data,
+                                                      headers=self._headers)
             elif (op == rest.OP_PUT):
-                (status, content) = self._http_put(url, body = data,
-                                                   headers = self._headers)
+                (status, content) = self._http_put(url, body=data,
+                                                   headers=self._headers)
             else:
                 raise ValueError
         except ConnectionError:
@@ -281,30 +300,30 @@ class VncApi(VncApiClientGen):
             time.sleep(1)
             self._create_api_server_session()
             return self._request_server(op, url, data)
-        
+
         if status == 200:
             return content
 
         # Exception Response, see if it can be resolved
-        if ((status == 401) and
-            (self._retry_after_authn == False)):
+        if ((status == 401) and (not self._retry_after_authn)):
             self._headers = self._authenticate(content, self._headers)
 
             # Recursive call after authentication (max 1 level)
             self._retry_after_authn = True
-            content = self._request_server(op, url, data = data)
+            content = self._request_server(op, url, data=data)
             self._retry_after_authn = False
 
             return content
         elif status == 404:
-            raise NoIdError('Error: oper %s url %s body %s response %s' %(op, url, data, content))
+            raise NoIdError('Error: oper %s url %s body %s response %s'
+                            % (op, url, data, content))
         elif status == 403:
             raise PermissionDenied(content)
         elif status == 409:
             raise RefsExistError(content)
         elif status == 503:
             raise ResourceExhaustionError(content)
-        else: # Unknown Error
+        else:  # Unknown Error
             raise HttpError(status, content)
 
     #end _request_server
@@ -317,7 +336,7 @@ class VncApi(VncApiClientGen):
         json_body = json.dumps({'type': obj_type, 'fq_name': fq_name})
         uri = self._action_uri['name-to-id']
         try:
-            content = self._request_server(rest.OP_POST, uri, data = json_body)
+            content = self._request_server(rest.OP_POST, uri, data=json_body)
         except HttpError as he:
             if he.status_code == 404:
                 return None
@@ -328,7 +347,7 @@ class VncApi(VncApiClientGen):
     def id_to_fq_name(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
-        content = self._request_server(rest.OP_POST, uri, data = json_body)
+        content = self._request_server(rest.OP_POST, uri, data=json_body)
 
         return json.loads(content)['fq_name']
     #end id_to_fq_name
@@ -336,7 +355,7 @@ class VncApi(VncApiClientGen):
     def id_to_fq_name_type(self, id):
         json_body = json.dumps({'uuid': id})
         uri = self._action_uri['id-to-name']
-        content = self._request_server(rest.OP_POST, uri, data = json_body)
+        content = self._request_server(rest.OP_POST, uri, data=json_body)
 
         json_rsp = json.loads(content)
         return (json_rsp['fq_name'], json_rsp['type'])
@@ -346,7 +365,7 @@ class VncApi(VncApiClientGen):
         json_body = json.dumps({'ifmap_id': ifmap_id})
         uri = self._action_uri['ifmap-to-id']
         try:
-            content = self._request_server(rest.OP_POST, uri, data = json_body)
+            content = self._request_server(rest.OP_POST, uri, data=json_body)
         except HttpError as he:
             if he.status_code == 404:
                 return None
@@ -357,22 +376,22 @@ class VncApi(VncApiClientGen):
     def fetch_records(self):
         json_body = json.dumps({'fetch_records': None})
         uri = self._action_uri['fetch-records']
-        content = self._request_server(rest.OP_POST, uri, data = json_body)
+        content = self._request_server(rest.OP_POST, uri, data=json_body)
 
         return json.loads(content)['results']
     #end fetch_records
 
     def restore_config(self, create, resource, json_body):
-        class_name = "%sClientGen" %(CamelCase(resource))
+        class_name = "%sClientGen" % (CamelCase(resource))
         cls = str_to_class(class_name)
         if create:
             uri = cls.create_uri
-            content = self._request_server(rest.OP_POST, uri, data = json_body)
+            content = self._request_server(rest.OP_POST, uri, data=json_body)
         else:
             obj_dict = json.loads(json_body)
             uri = cls.resource_uri_base[resource] + '/'
             uri += obj_dict[resource]['uuid']
-            content = self._request_server(rest.OP_PUT, uri, data = json_body)
+            content = self._request_server(rest.OP_PUT, uri, data=json_body)
 
         return json.loads(content)
     #end restore_config
@@ -381,20 +400,18 @@ class VncApi(VncApiClientGen):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'STORE',
                                 'key': key,
-                                'value': value,
-                               })
+                                'value': value})
         uri = self._action_uri['useragent-keyvalue']
-        self._request_server(rest.OP_POST, uri, data = json_body)
+        self._request_server(rest.OP_POST, uri, data=json_body)
     #end kv_store
 
-    def kv_retrieve(self, key = None):
+    def kv_retrieve(self, key=None):
         # if key is None, entire collection is retrieved, use with caution!
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'RETRIEVE',
-                                'key': key,
-                               })
+                                'key': key})
         uri = self._action_uri['useragent-keyvalue']
-        content = self._request_server(rest.OP_POST, uri, data = json_body)
+        content = self._request_server(rest.OP_POST, uri, data=json_body)
 
         return json.loads(content)['value']
     #end kv_retrieve
@@ -402,10 +419,9 @@ class VncApi(VncApiClientGen):
     def kv_delete(self, key):
         # TODO move oper value to common
         json_body = json.dumps({'operation': 'DELETE',
-                                'key': key,
-                               })
+                                'key': key})
         uri = self._action_uri['useragent-keyvalue']
-        self._request_server(rest.OP_POST, uri, data = json_body)
+        self._request_server(rest.OP_POST, uri, data=json_body)
     #end kv_delete
 
     # reserve block of IP address from a VN
@@ -413,16 +429,17 @@ class VncApi(VncApiClientGen):
     def virtual_network_ip_alloc(self, vnobj, count=1, subnet=None):
         json_body = json.dumps({'count': count, 'subnet': subnet})
         uri = self._action_uri['virtual-network-ip-alloc'] % vnobj.uuid
-        content = self._request_server(rest.OP_POST, uri, data = json_body)
+        content = self._request_server(rest.OP_POST, uri, data=json_body)
         return json.loads(content)['ip_addr']
     #end virtual_network_ip_alloc
 
     # free previously reserved block of IP address from a VN
-    # Expected format "subnet" : "2.1.1.0/24", "ip_addr" : ["2.1.1.239", "2.1.1.238"]
+    # Expected format "subnet" : "2.1.1.0/24",
+    #                 "ip_addr" : ["2.1.1.239", "2.1.1.238"]
     def virtual_network_ip_free(self, vnobj, ip_list, subnet=None):
         json_body = json.dumps({'ip_addr': ip_list, 'subnet': subnet})
         uri = self._action_uri['virtual-network-ip-free'] % vnobj.uuid
-        rv  = self._request_server(rest.OP_POST, uri, data = json_body)
+        rv = self._request_server(rest.OP_POST, uri, data=json_body)
         return rv
     #end virtual_network_ip_free
 
@@ -431,14 +448,14 @@ class VncApi(VncApiClientGen):
     def virtual_network_subnet_ip_count(self, vnobj, subnet_list):
         json_body = json.dumps({'subnet_list': subnet_list})
         uri = self._action_uri['virtual-network-subnet-ip-count'] % vnobj.uuid
-        rv  = self._request_server(rest.OP_POST, uri, data = json_body)
+        rv = self._request_server(rest.OP_POST, uri, data=json_body)
         return rv
     #end virtual_network_subnet_ip_count
- 
+
     def get_auth_token(self):
         if self._auth_token:
             return self._auth_token
-        self._headers = self._authenticate(headers = self._headers)
+        self._headers = self._authenticate(headers=self._headers)
         return self._auth_token
 
     #end get_auth_token

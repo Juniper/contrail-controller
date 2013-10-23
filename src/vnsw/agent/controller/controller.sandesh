@@ -39,9 +39,8 @@ traceobject sandesh AgentXmppRouteExport {
     1: string peer;
     2: string vrf;
     3: string ip;
-    4: u16 plen;
-    5: bool associate;
-    6: u32 label;
+    4: bool associate;
+    5: u32 label;
 }
 
 traceobject sandesh AgentXmppRouteImport {

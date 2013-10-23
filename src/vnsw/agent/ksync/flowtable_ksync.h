@@ -27,12 +27,12 @@ public:
         fe_(fe), hash_id_(hash_id), 
         old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
         old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-        old_second_mirror_index_(0xFFFF) {
+        old_second_mirror_index_(0xFFFF), trap_flow_(false) {
     };
     FlowTableKSyncEntry() : hash_id_(0), 
         old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
         old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF),
-        old_second_mirror_index_(0xFFFF)  {
+        old_second_mirror_index_(0xFFFF), trap_flow_(false)  {
     };
     ~FlowTableKSyncEntry() {};
 
@@ -69,6 +69,7 @@ private:
     uint32_t old_component_nh_idx_;
     uint32_t old_first_mirror_index_;
     uint32_t old_second_mirror_index_;
+    uint32_t trap_flow_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 

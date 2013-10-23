@@ -57,7 +57,7 @@ class EcmpTest : public ::testing::Test {
         AddLink("virtual-machine-interface", "vnet4", "floating-ip", "fip1");
         client->WaitForIdle();
         Ip4Address ip = Ip4Address::from_string("3.1.1.100");
-        Inet4UcRoute *rt = RouteGet("vrf3", ip, 32);
+        Inet4UnicastRouteEntry *rt = RouteGet("vrf3", ip, 32);
         EXPECT_TRUE(rt != NULL);
         EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
         mpls_label_1 = rt->GetMplsLabel();
@@ -92,18 +92,18 @@ class EcmpTest : public ::testing::Test {
         remote_server_ip_ = Ip4Address::from_string("10.10.1.1");
 
         //Add couple of remote VM routes for generating packet
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
                                                                remote_vm_ip1_,
                                                                32, remote_server_ip_,
                                                                TunnelType::AllType(),
                                                                30, "vn2");
 
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf3", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf3",
                                                                remote_vm_ip2_,
                                                                32, remote_server_ip_,
                                                                TunnelType::AllType(),
                                                                30, "vn3");
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf4", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf4",
                                                                remote_vm_ip3_,
                                                                32, remote_server_ip_,
                                                                TunnelType::AllType(),
@@ -127,11 +127,11 @@ class EcmpTest : public ::testing::Test {
         DeleteVmportEnv(input2, 3, true);
         DeleteVmportEnv(input3, 3, true);
         DeleteVmportEnv(input4, 1, true);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                 remote_vm_ip1_, 32);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf3", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf3", 
                 remote_vm_ip2_, 32);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf4", 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf4", 
                 remote_vm_ip3_, 32);
 
         client->WaitForIdle();
@@ -164,7 +164,7 @@ public:
                 label++;
             }
         }
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(bgp_peer,
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(bgp_peer, 
                 vrf_name, vm_ip, plen, comp_nh_list, -1, vn, false);
     }
 
@@ -173,7 +173,7 @@ public:
         Ip4Address vm_ip = Ip4Address::from_string(ip);
         const VmPortInterface *vm_intf = static_cast<const VmPortInterface *>
             (VmPortGet(intf_uuid));
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddLocalVmRoute(bgp_peer,
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddLocalVmRoute(bgp_peer,
                 vrf_name, vm_ip, plen, vm_intf->GetUuid(), vn, vm_intf->GetLabel(), false);
     }
 
@@ -181,14 +181,14 @@ public:
                           const string vn) {
         Ip4Address vm_ip = Ip4Address::from_string(ip);
         Ip4Address server_ip = Ip4Address::from_string("10.11.1.1");
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(bgp_peer,
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(bgp_peer,
                 vrf_name, vm_ip, plen, server_ip, TunnelType::AllType(), 16, vn);
     }
 
     void DeleteRemoteRoute(const string vrf_name, const string ip,
                                uint32_t plen) {
         Ip4Address server_ip = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(bgp_peer, vrf_name,
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(bgp_peer, vrf_name,
                                                         server_ip, plen);
     } 
 
@@ -391,7 +391,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
                                   server_ip3, false, TunnelType::AllType());
     comp_nh.push_back(comp_nh_data3);
 
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf2", 
                                                            ip, 24,
                                                            comp_nh, -1, "vn2", true);
     client->WaitForIdle();
@@ -421,7 +421,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 1);
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(NULL, "vrf2", ip, 24);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", ip, 24);
     client->WaitForIdle();
 }
 
@@ -493,7 +493,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     //Add a remote VM route for 3.1.1.10
     Ip4Address remote_vm_ip = Ip4Address::from_string("3.1.1.10");
     Ip4Address remote_server_ip = Ip4Address::from_string("10.10.10.10");
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->AddRemoteVmRoute(bgp_peer, "vrf2",
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(bgp_peer, "vrf2",
             remote_vm_ip, 32, remote_server_ip, TunnelType::AllType(),
             16, "vn2");
 
@@ -712,7 +712,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     std::vector<ComponentNHData> comp_nh_list;
     EXPECT_TRUE(rt != NULL);
     const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
@@ -861,7 +861,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
 
     //Leak aggregarete route to vrf10
     Ip4Address service_vm_ip = Ip4Address::from_string("10.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
@@ -1003,7 +1003,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->GetVrfId();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
@@ -1134,7 +1134,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->GetVrfId();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
     uint32_t mpls_label = rt->GetMplsLabel();
 
@@ -1356,7 +1356,7 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->GetVrfId();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
@@ -1447,7 +1447,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName("service-vrf1")->GetVrfId();
 
     Ip4Address service_vm_ip = Ip4Address::from_string("11.1.1.2"); 
-    Inet4UcRoute *rt = RouteGet("service-vrf1", service_vm_ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("service-vrf1", service_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
@@ -1509,6 +1509,222 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
+}
+
+//TCP flow to remote ECMP vip
+TEST_F(EcmpTest, EcmpResolve_1) {
+    std::vector<ComponentNHData> local_comp_nh;
+    AddRemoteEcmpRoute("vrf2", "10.1.1.1", 32, "vn2", 5, local_comp_nh);
+    client->WaitForIdle();
+
+    uint32_t sport = rand() % 65535;
+    uint32_t dport = rand() % 65535;
+    for (uint32_t i = 0; i < 100; i++) {
+        uint32_t hash_id = rand() % 65535;
+        TxTcpPacket(VmPortGetId(1), "1.1.1.1", "10.1.1.1", sport, dport,
+                    hash_id);
+        client->WaitForIdle();
+        sport++;
+    }
+
+    //Component NH at index 4 and 5 have been deleted
+    AddRemoteEcmpRoute("vrf2", "10.1.1.1", 32, "vn2", 3, local_comp_nh);
+    client->WaitForIdle();
+    //All flow going to index 3 and index 4, 
+    //should have their reverse flow set for trap
+    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable::FlowEntryMap::iterator it;
+
+    it = flow_obj->begin();
+    while (it != flow_obj->end()) {
+        FlowEntry *entry = it->second;
+        if (entry->data.component_nh_idx == 3 || 
+            entry->data.component_nh_idx == 4) {
+            EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == true);
+        } else {
+           //EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == false);
+        }
+        it++;
+    }
+}
+
+//TCP flow to ECMP fip
+TEST_F(EcmpTest, EcmpResolve_2) {
+    uint32_t sport = rand() % 65535;
+    uint32_t dport = rand() % 65535;
+    for (uint32_t i = 0; i < 100; i++) {
+        uint32_t hash_id = rand() % 65535;
+        TxTcpPacket(VmPortGetId(5), "3.1.1.1", "3.1.1.100", sport, dport,
+                    hash_id);
+        client->WaitForIdle();
+        sport++;
+    }
+
+    //Get component NH index for vnet2
+    Ip4Address addr = Ip4Address::from_string("3.1.1.100");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf3", addr, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = 
+       static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+
+    uint32_t index = 0;
+    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    while (component_nh_it != comp_nh->end()) {
+        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
+            ((*component_nh_it)->GetNH());
+        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+            break;
+        }
+        index++;
+        component_nh_it++;
+    }
+
+    DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
+    client->WaitForIdle();
+    //All flow going to vnet2 
+    //should have their reverse flow set for trap
+    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable::FlowEntryMap::iterator it;
+
+    it = flow_obj->begin();
+    while (it != flow_obj->end()) {
+        FlowEntry *entry = it->second;
+        if (entry->data.component_nh_idx == index) {
+            EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == true);
+        } else {
+            //EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == false);
+        }
+        it++;
+    }
+}
+
+//TCP flow from remote VM to ECMP vip
+TEST_F(EcmpTest, EcmpResolve_3) {
+    //Get component NH index for vnet2
+    Ip4Address addr = Ip4Address::from_string("2.1.1.1");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", addr, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = 
+       static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+
+    uint32_t index = 0;
+    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    while (component_nh_it != comp_nh->end()) {
+        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
+            ((*component_nh_it)->GetNH());
+        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+            break;
+        }
+        index++;
+        component_nh_it++;
+    }
+
+    //Add a remote path pointing to some more composite NH
+    //Since packets are hitting MPLS label, evaluation should
+    //happen only for local composite NH
+    std::vector<ComponentNHData> comp_nh_list;
+    Ip4Address ip = Ip4Address::from_string("2.1.1.1");
+
+    CompositeNHKey nh_key("vrf2", ip, true);
+    ComponentNHData comp_data(-1, &nh_key);
+    comp_nh_list.push_back(comp_data);
+    AddRemoteEcmpRoute("vrf2", "2.1.1.1", 32, "vn2", 3, comp_nh_list);
+
+    uint32_t sport = rand() % 65535;
+    uint32_t dport = rand() % 65535;
+    for (uint32_t i = 0; i < 100; i++) {
+        uint32_t hash_id = rand() % 65535;
+        TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", 
+                        Agent::GetInstance()->GetRouterId().to_string().c_str(),
+                        mpls_label_2, "2.2.2.2", "2.1.1.1", sport, dport, hash_id);
+        client->WaitForIdle();
+        sport++;
+    }
+
+    //Deactivate vnet2
+    DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
+    client->WaitForIdle();
+
+    //All flow going to vnet2 should be marked for trap
+    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable::FlowEntryMap::iterator it;
+
+    it = flow_obj->begin();
+    while (it != flow_obj->end()) {
+        FlowEntry *entry = it->second;
+        if (entry->data.component_nh_idx == index) {
+            EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == true);
+        } else {
+            //EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == false);
+        }
+        it++;
+    }
+}
+
+//TCP flow from remote VM to ECMP vip
+TEST_F(EcmpTest, EcmpResolve_4) {
+    //Get component NH index for vnet2
+    Ip4Address addr = Ip4Address::from_string("3.1.1.100");
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf3", addr, 32);
+    EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    const CompositeNH *comp_nh = 
+       static_cast<const CompositeNH *>(rt->GetActiveNextHop());
+
+    uint32_t index = 0;
+    CompositeNH::ComponentNHList::const_iterator component_nh_it =
+        comp_nh->begin();
+    while (component_nh_it != comp_nh->end()) {
+        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
+            ((*component_nh_it)->GetNH());
+        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+            break;
+        }
+        index++;
+        component_nh_it++;
+    }
+
+    //Add a remote path pointing to some more composite NH
+    //Since packets are hitting MPLS label, evaluation should
+    //happen only for local composite NH
+    std::vector<ComponentNHData> comp_nh_list;
+    Ip4Address ip = Ip4Address::from_string("3.1.1.100");
+
+    CompositeNHKey nh_key("vrf3", ip, true);
+    ComponentNHData comp_data(-1, &nh_key);
+    comp_nh_list.push_back(comp_data);
+    AddRemoteEcmpRoute("vrf3", "3.1.1.100", 32, "vn3", 3, comp_nh_list);
+
+    uint32_t sport = rand() % 65535;
+    uint32_t dport = rand() % 65535;
+    for (uint32_t i = 0; i < 100; i++) {
+        uint32_t hash_id = rand() % 65535;
+        TxTcpMplsPacket(eth_intf_id_, "10.11.11.1", 
+                        Agent::GetInstance()->GetRouterId().to_string().c_str(),
+                        mpls_label_1, "3.3.3.3", "3.1.1.100", sport, dport, hash_id);
+        client->WaitForIdle();
+        sport++;
+    }
+
+    //Deactivate vnet2
+    DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
+    client->WaitForIdle();
+
+    //All flow going to vnet2 should be marked for trap
+    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable::FlowEntryMap::iterator it;
+
+    it = flow_obj->begin();
+    while (it != flow_obj->end()) {
+        FlowEntry *entry = it->second;
+        if (entry->data.component_nh_idx == index) {
+            EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == true);
+        } else {
+            //EXPECT_TRUE(entry->data.reverse_flow.get()->data.trap == false);
+        }
+        it++;
+    }
 }
 
 int main(int argc, char *argv[]) {

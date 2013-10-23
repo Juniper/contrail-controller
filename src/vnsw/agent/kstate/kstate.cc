@@ -13,6 +13,7 @@
 #include "vrf_assign_kstate.h"
 #include "vrf_stats_kstate.h"
 #include "drop_stats_kstate.h"
+#include "vxlan_kstate.h"
 #include "vr_nexthop.h"
 #include "vr_message.h"
 #include <net/if.h>
@@ -298,12 +299,38 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
     data.set_vrf_discards(r->get_vsr_discards());
     data.set_vrf_resolves(r->get_vsr_resolves());
     data.set_vrf_receives(r->get_vsr_receives());
-    data.set_vrf_tunnels(r->get_vsr_tunnels());
-    data.set_vrf_composites(r->get_vsr_composites());
+    data.set_vrf_udp_tunnels(r->get_vsr_udp_tunnels());
+    data.set_vrf_udp_mpls_tunnels(r->get_vsr_udp_mpls_tunnels());
+    data.set_vrf_gre_mpls_tunnels(r->get_vsr_gre_mpls_tunnels());
+    data.set_vrf_l3_mcast_composites(r->get_vsr_l3_mcast_composites());
+    data.set_vrf_l2_mcast_composites(r->get_vsr_l2_mcast_composites());
+    data.set_vrf_multi_proto_composites(r->get_vsr_multi_proto_composites());
+    data.set_vrf_fabric_composites(r->get_vsr_fabric_composites());
+    data.set_vrf_ecmp_composites(r->get_vsr_ecmp_composites());
     data.set_vrf_encaps(r->get_vsr_encaps());
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vsr_vrf()));
+}
+
+void KState::VxLanMsgHandler(vr_vxlan_req *r) {
+
+    KVxLanInfo data;
+    VxLanKState *mst;
+
+    mst = static_cast<VxLanKState *>(this);
+    KVxLanResp *resp = static_cast<KVxLanResp *>(mst->GetResponseObject());
+
+    vector<KVxLanInfo> &list =
+                        const_cast<std::vector<KVxLanInfo>&>(resp->get_vxlan_list());
+    data.set_vxlanid(r->get_vxlanr_vnid());
+    data.set_rid(r->get_vxlanr_rid());
+    data.set_nhid(r->get_vxlanr_nhid());
+
+    list.push_back(data);
+
+    int label = r->get_vxlanr_vnid();
+    UpdateContext(reinterpret_cast<void *>(label));
 }
 
 void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {

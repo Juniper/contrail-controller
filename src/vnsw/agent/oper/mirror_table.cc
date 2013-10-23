@@ -8,9 +8,10 @@
 #include <db/db_entry.h>
 #include <db/db_table.h>
 
+#include <cmn/agent_cmn.h>
+#include "oper/agent_route.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
-#include "oper/inet4_route.h"
 #include "oper/vrf.h"
 #include "oper/mirror_table.h"
 #include "oper/agent_sandesh.h"

@@ -129,7 +129,7 @@ int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 
 KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
     NHKSyncEntry *nh = GetNH();
-    if ((!nh->IsResolved()) && (nh->GetType() != NextHop::COMPOSITE)) {
+    if (!nh->IsResolved()) {
         return nh;
     }
     return NULL;

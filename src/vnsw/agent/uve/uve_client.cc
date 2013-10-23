@@ -270,21 +270,18 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     switch(intf->GetType()) {
     case Interface::VMPORT: {
         vm_port = static_cast<const VmPortInterface*>(intf);
-        if (vm_port->GetCfgName() == Agent::GetInstance()->NullString()) {
-            return;
-        }
         if (!e->IsDeleted() && !state) {
             set_state = true;
             vmport_active = vm_port->GetActiveState();
-            VrouterObjectIntfNotify(intf, true);
+            VrouterObjectIntfNotify(intf);
         } else if (e->IsDeleted()) {
             if (state) {
                 reset_state = true;
-                VrouterObjectIntfNotify(intf, true);
+                VrouterObjectIntfNotify(intf);
             }
         } else {
             if (state && vm_port->GetActiveState() != state->vmport_active_) { 
-                VrouterObjectIntfNotify(intf, false);
+                VrouterObjectIntfNotify(intf);
                 state->vmport_active_ = vm_port->GetActiveState();
             }
         }
@@ -945,9 +942,16 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
             vrf_stats.set_discards(s->discards);
             vrf_stats.set_resolves(s->resolves);
             vrf_stats.set_receives(s->receives);
-            vrf_stats.set_tunnels(s->tunnels);
-            vrf_stats.set_composites(s->composites);
+            vrf_stats.set_udp_tunnels(s->udp_tunnels);
+            vrf_stats.set_udp_mpls_tunnels(s->udp_mpls_tunnels);
+            vrf_stats.set_gre_mpls_tunnels(s->gre_mpls_tunnels);
+            vrf_stats.set_ecmp_composites(s->ecmp_composites);
+            vrf_stats.set_l2_mcast_composites(s->l2_mcast_composites);
+            vrf_stats.set_l3_mcast_composites(s->l3_mcast_composites);
+            vrf_stats.set_multi_proto_composites(s->multi_proto_composites);
+            vrf_stats.set_fabric_composites(s->fabric_composites);
             vrf_stats.set_encaps(s->encaps);
+            vrf_stats.set_l2_encaps(s->l2_encaps);
             vlist.push_back(vrf_stats);
             if (UveVnVrfStatsChanged(vlist, last_uve)) {
                 uve->uve_info.set_vrf_stats_list(vlist);
@@ -1005,9 +1009,16 @@ void UveClient::SendUnresolvedVnMsg(string vn_name) {
             vrf_stats.set_discards(s->discards);
             vrf_stats.set_resolves(s->resolves);
             vrf_stats.set_receives(s->receives);
-            vrf_stats.set_tunnels(s->tunnels);
-            vrf_stats.set_composites(s->composites);
+            vrf_stats.set_udp_tunnels(s->udp_tunnels);
+            vrf_stats.set_udp_mpls_tunnels(s->udp_mpls_tunnels);
+            vrf_stats.set_gre_mpls_tunnels(s->gre_mpls_tunnels);
+            vrf_stats.set_ecmp_composites(s->ecmp_composites);
+            vrf_stats.set_l2_mcast_composites(s->l2_mcast_composites);
+            vrf_stats.set_l3_mcast_composites(s->l3_mcast_composites);
+            vrf_stats.set_multi_proto_composites(s->multi_proto_composites);
+            vrf_stats.set_fabric_composites(s->fabric_composites);
             vrf_stats.set_encaps(s->encaps);
+            vrf_stats.set_l2_encaps(s->l2_encaps);
             vlist.push_back(vrf_stats);
             if (UveVnVrfStatsChanged(vlist, last_uve)) {
                 uve.uve_info.set_vrf_stats_list(vlist);
@@ -1517,47 +1528,51 @@ void UveClient::VrouterObjectVmNotify(const VmEntry *vm) {
 
 void UveClient::IntfWalkDone(DBTableBase *base, 
                              std::vector<std::string> *intf_list,
-                             std::vector<std::string> *err_if_list) {
+                             std::vector<std::string> *err_if_list,
+                             std::vector<std::string> *nova_if_list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
-    if (intf_list) {
-        vrouter_agent.set_interface_list(*intf_list);
-    }
+    vrouter_agent.set_interface_list(*intf_list);
     vrouter_agent.set_error_intf_list(*err_if_list);
+    vrouter_agent.set_no_config_intf_list(*nova_if_list);
     UveVrouterAgent::Send(vrouter_agent);
-    if (intf_list) {
-        delete intf_list;
-    }
+    delete intf_list;
     delete err_if_list;
+    delete nova_if_list;
 }
 
 bool UveClient::AppendIntf(DBTablePartBase *part, DBEntryBase *entry, 
                          std::vector<std::string> *intf_list,
-                         std::vector<std::string> *err_if_list) {
+                         std::vector<std::string> *err_if_list,
+                         std::vector<std::string> *nova_if_list) {
     Interface *intf = static_cast<Interface *>(entry);
 
     if (intf->GetType() == Interface::VMPORT) {
         const VmPortInterface *port = static_cast<const VmPortInterface *>(intf);
-        if (intf_list && !entry->IsDeleted()) {
-            intf_list->push_back(port->GetCfgName());
-        }
-        if (!intf->GetActiveState() && !entry->IsDeleted()) {
-           err_if_list->push_back(port->GetCfgName());
+        if (!entry->IsDeleted()) {
+            if (port->GetCfgName() == Agent::GetInstance()->NullString()) {
+                nova_if_list->push_back(UuidToString(port->GetUuid()));
+            } else {
+                intf_list->push_back(port->GetCfgName());
+                if (!intf->GetActiveState()) {
+                    err_if_list->push_back(port->GetCfgName());
+                }
+            }
         }
     }
     return true;
 }
 
-void UveClient::VrouterObjectIntfNotify(const Interface *intf, bool if_list) {
-    std::vector<std::string> *intf_list = NULL;
-    if (if_list) {
-        intf_list = new std::vector<std::string>();
-    }
+void UveClient::VrouterObjectIntfNotify(const Interface *intf) {
+    std::vector<std::string> *intf_list = new std::vector<std::string>();
     std::vector<std::string> *err_if_list = new std::vector<std::string>();
+    std::vector<std::string> *nova_if_list = new std::vector<std::string>();
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     walker->WalkTable(Agent::GetInstance()->GetInterfaceTable(), NULL,
-        boost::bind(&UveClient::AppendIntf, singleton_,_1, _2, intf_list, err_if_list),
-        boost::bind(&UveClient::IntfWalkDone, singleton_, _1, intf_list, err_if_list));
+        boost::bind(&UveClient::AppendIntf, singleton_,_1, _2, intf_list, 
+                    err_if_list, nova_if_list),
+        boost::bind(&UveClient::IntfWalkDone, singleton_, _1, intf_list, 
+                    err_if_list, nova_if_list));
 }
 
 string UveClient::GetMacAddress(const ether_addr &mac) {
@@ -1975,11 +1990,11 @@ bool UveClient::SendAgentStats() {
     count++;
     if (first) {
         InitPrevStats();
-        //First time bandwidth is sent at 1.1, 5.1 and 10.1 minutes
+        //First sample of bandwidth is sent after 1.5, 5.5 and 10.5 minutes
         count = 0;
     }
     // 1 minute bandwidth
-    if ((count % 6) == 0) {
+    if (count && ((count % bandwidth_mod_1min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhyIfBand(phy_if_blist, 1);
         if (prev_stats_.get_phy_if_1min_usage() != phy_if_blist) {
@@ -2002,7 +2017,7 @@ bool UveClient::SendAgentStats() {
     }
 
     // 5 minute bandwidth
-    if ((count % 30) == 0) {
+    if (count && ((count % bandwidth_mod_5min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhyIfBand(phy_if_blist, 5);
         if (prev_stats_.get_phy_if_5min_usage() != phy_if_blist) {
@@ -2013,7 +2028,7 @@ bool UveClient::SendAgentStats() {
     }
 
     // 10 minute bandwidth
-    if ((count % 60) == 0) {
+    if (count && ((count % bandwidth_mod_10min) == 0)) {
         vector<AgentIfBandwidth> phy_if_blist;
         BuildPhyIfBand(phy_if_blist, 10);
         if (prev_stats_.get_phy_if_10min_usage() != phy_if_blist) {
@@ -2050,7 +2065,11 @@ bool UveClient::SendAgentStats() {
 
     AgentDropStats drop_stats;
     FetchDropStats(drop_stats);
-    stats.set_drop_stats(drop_stats);
+    if (prev_stats_.get_drop_stats() != drop_stats) {
+        stats.set_drop_stats(drop_stats);
+        prev_stats_.set_drop_stats(drop_stats);
+        change = true;
+    }
     if (first) {
         stats.set_uptime(start_time_);
     }
@@ -2059,17 +2078,7 @@ bool UveClient::SendAgentStats() {
         VrouterStats::Send(stats);
     }
     first = false;
-    agent_stats_timer_->Cancel();
-    agent_stats_timer_->Start(10*1000, 
-                              boost::bind(&UveClient::AgentStatsTimer, this),
-                              NULL);
-
     return true;
-}
-
-bool UveClient::AgentStatsTimer() {
-    agent_stats_trigger_->Set();
-    return false;
 }
 
 void UveClient::AddLastVnUve(string vn_name) {
@@ -2135,32 +2144,20 @@ void UveClient::Init(uint64_t bandwidth_intvl) {
 
     CpuLoadData::Init();
 
-    singleton_->agent_stats_trigger_ = 
-        new TaskTrigger(boost::bind(&UveClient::SendAgentStats, singleton_),
-                TaskScheduler::GetInstance()->GetTaskId("Agent::Uve"), 0);
-
-    singleton_->agent_stats_timer_ = 
-        TimerManager::CreateTimer(*Agent::GetInstance()->GetEventManager()->io_service(),
-                                 "Agent stats collector timer");
-    singleton_->agent_stats_timer_->Start(10*1000,
-                             boost::bind(&UveClient::AgentStatsTimer, singleton_), 
-                             NULL);
     singleton_->InitSigHandler();
 }
 
 UveClient::~UveClient() {
     delete event_queue_;
-    singleton_->agent_stats_timer_->Cancel();
-    singleton_->agent_stats_trigger_->Reset();
     boost::system::error_code ec;
     singleton_->signal_.cancel(ec);
-    delete singleton_->agent_stats_trigger_;
 }
 
 void UveClient::Shutdown(void) {
     Agent::GetInstance()->GetVmTable()->Unregister(singleton_->vm_listener_id_);
     Agent::GetInstance()->GetVnTable()->Unregister(singleton_->vn_listener_id_);
     Agent::GetInstance()->GetInterfaceTable()->Unregister(singleton_->intf_listener_id_);
+    Agent::GetInstance()->GetVrfTable()->Unregister(singleton_->vrf_listener_id_);
     delete singleton_;
     singleton_ = NULL;
 }

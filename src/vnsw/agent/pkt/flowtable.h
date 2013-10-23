@@ -24,7 +24,7 @@
 #include <oper/vm.h>
 #include <oper/interface.h>
 #include <oper/nexthop.h>
-#include <oper/inet4_ucroute.h>
+#include <oper/agent_route.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -40,6 +40,7 @@ class Inet4RouteUpdate;
 class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
+class NhListener;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 
 struct RouteFlowKey {
@@ -69,7 +70,7 @@ struct PktControlInfo {
 
     const VrfEntry *vrf_;
     const Interface *intf_;
-    const Inet4UcRoute *rt_;
+    const Inet4UnicastRouteEntry *rt_;
     const VnEntry *vn_;
     const VmEntry *vm_;
     bool  vlan_nh_;
@@ -85,7 +86,7 @@ public:
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), mdata_flow(false), ecmp(false),
-        in_component_nh_idx(-1), out_component_nh_idx(-1) {
+        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -156,6 +157,7 @@ public:
     bool                ecmp;
     uint32_t            in_component_nh_idx;
     uint32_t            out_component_nh_idx;
+    bool                trap_rev_flow;
 };
 
 struct FlowKey {
@@ -241,7 +243,7 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0) {};
+        bytes(0), packets(0), trap(false) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -268,6 +270,7 @@ struct FlowData {
     // Stats
     uint64_t bytes;
     uint64_t packets;
+    bool trap;
 };
 
 class FlowEntry {
@@ -451,7 +454,8 @@ public:
 
     FlowTable() : 
         flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(), intf_listener_id_(),
-        vn_listener_id_(), vm_listener_id_(), vrf_listener_id_() {};
+        vn_listener_id_(), vm_listener_id_(), vrf_listener_id_(), 
+        nh_listener_(NULL) {};
     virtual ~FlowTable();
     
     static void Init();
@@ -477,10 +481,20 @@ public:
                                const FlowKey &key);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
+   
+    FlowTable::FlowEntryMap::iterator begin() {
+        return flow_entry_map_.begin();
+    }
+
+    FlowTable::FlowEntryMap::iterator end() {
+        return flow_entry_map_.end(); 
+    }
+
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
     friend class Inet4RouteUpdate;
+    friend class NhState;
 private:
     static FlowTable* singleton_;
     FlowEntryMap flow_entry_map_;
@@ -496,6 +510,7 @@ private:
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId vrf_listener_id_;
+    NhListener *nh_listener_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -508,6 +523,7 @@ private:
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
     void ResyncVmPortFlows(const VmPortInterface *intf);
+    void TrapReverseEcmpFlow(RouteFlowKey &key, uint32_t index, bool ingress);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);
@@ -542,22 +558,47 @@ class Inet4RouteUpdate {
 public:
     struct State : DBState {
         SecurityGroupList sg_l_;
+        std::vector<NextHopRef> component_nh_list_;
     };
 
-    Inet4RouteUpdate(Inet4UcRouteTable *rt_table);
+    Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
     Inet4RouteUpdate();
     ~Inet4RouteUpdate();
     void ManagedDelete();
-    static Inet4RouteUpdate *UnicastInit(Inet4UcRouteTable *table);
+    static Inet4RouteUpdate *UnicastInit(Inet4UnicastAgentRouteTable *table);
     void Unregister();
     bool DeleteState(DBTablePartBase *partition, DBEntryBase *entry);
     static void WalkDone(DBTableBase *partition, Inet4RouteUpdate *rt);
 private:
     DBTableBase::ListenerId id_;
-    Inet4UcRouteTable *rt_table_;
+    Inet4UnicastAgentRouteTable *rt_table_;
     bool marked_delete_;
     void UnicastNotify(DBTablePartBase *partition, DBEntryBase *e);
     LifetimeRef<Inet4RouteUpdate> table_delete_ref_;
+};
+
+class NhState : public DBState {
+public:
+    NhState():component_nh_list_() { };
+    ~NhState() {};
+    void Change(NextHop *nh);
+    void Copy(NextHop *nh);
+private:
+    std::vector<NextHopRef> component_nh_list_;
+};
+
+class NhListener {
+public:
+    NhListener() {
+        id_ = Agent::GetInstance()->GetNextHopTable()->
+              Register(boost::bind(&NhListener::Notify, this, _1, _2));
+    }
+    ~NhListener() {
+        Agent::GetInstance()->GetNextHopTable()->Unregister(id_);
+    }
+    void Notify(DBTablePartBase *part, DBEntryBase *e);
+private:
+    DBTableBase::ListenerId id_;
 };
 
 struct AclFlowInfo {
@@ -603,6 +644,7 @@ struct RouteFlowInfo {
 };
 
 extern SandeshTraceBufferPtr FlowTraceBuf;
+extern void SetActionStr(const FlowAction &, std::vector<ActionStr> &);
 
 #define FLOW_TRACE(obj, ...)\
 do {\

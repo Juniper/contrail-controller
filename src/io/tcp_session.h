@@ -55,7 +55,7 @@ class TcpSession {
 
     // TcpSession constructor takes ownership of socket.
     TcpSession(TcpServer *server, Socket *socket,
-               bool async_read_ready_ = true);
+               bool async_read_ready = true);
     // Performs a non-blocking send operation.
     virtual bool Send(const u_int8_t *data, size_t size, size_t *sent);
 
@@ -137,6 +137,10 @@ class TcpSession {
     virtual void OnRead(Buffer buffer) = 0;
     // Callback after socket is ready for write.
     virtual void WriteReady(const boost::system::error_code &error);
+
+    virtual int reader_task_id() const {
+        return reader_task_id_;
+    }
 
     EventObserver observer() { return observer_; }
     boost::system::error_code SetSocketKeepaliveOptions(int keepalive_time,

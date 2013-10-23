@@ -12,6 +12,7 @@
 #include <sandesh/sandesh_state_machine.h>
 #include <sandesh/sandesh.h>
 #include "collector_uve_types.h"
+#include "db_handler.h"
 
 class Sandesh;
 class VizSession;
@@ -66,6 +67,9 @@ public:
     const std::string State() const;
 
     void GetGeneratorInfo(ModuleServerState &genlist) const;
+
+    void StartDbifReinit();
+
 private:
     struct Stats {
         Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
@@ -92,17 +96,27 @@ private:
     void TimerErrorHandler(std::string name, std::string error);
     bool DelWaitTimerExpired();
 
+    bool DbConnectTimerExpired();
+    void Start_Db_Connect_Timer();
+    void Db_Connection_Uninit();
+    bool Db_Connection_Init();
+
     static const uint32_t kWaitTimerSec = 10;
+    static const uint32_t kDbConnectTimerSec = 10;
 
     Collector * const collector_;
     SandeshStateMachine *state_machine_;
     VizSession *viz_session_;
     GeneratorInfoAttr gen_attr_;
 
-    Timer *del_wait_timer_;
     const std::string source_;
     const std::string module_;
     const std::string name_;
+
+    boost::scoped_ptr<DbHandler> db_handler_;
+    Timer *db_connect_timer_;
+
+    Timer *del_wait_timer_;
 };
 
 #endif

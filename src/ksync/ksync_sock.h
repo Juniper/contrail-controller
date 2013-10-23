@@ -39,6 +39,7 @@ public:
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) = 0;
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req) = 0;
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req) = 0;
+    virtual void VxLanMsgHandler(vr_vxlan_req *req) = 0;
 
     void SetErrno(int err) {errno_ = err;};
     int GetErrno() const {return errno_;};

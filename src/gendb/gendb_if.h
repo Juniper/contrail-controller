@@ -61,14 +61,15 @@ struct NewCf {
 };
 
 struct NewCol {
-    NewCol(const DbDataValueVec& n, const DbDataValueVec& v) :
-        cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v) {}
+    NewCol(const DbDataValueVec& n, const DbDataValueVec& v, int ttl=-1) :
+        cftype_(NewCf::COLUMN_FAMILY_NOSQL), name(n), value(v), ttl(ttl) {}
 
-    NewCol(const std::string& n, const DbDataValue& v);
+    NewCol(const std::string& n, const DbDataValue& v, int ttl=-1);
 
     NewCf::ColumnFamilyType cftype_;
     DbDataValueVec name;
     DbDataValueVec value;
+    int ttl;
 };
 
 struct ColList {
@@ -123,6 +124,7 @@ class GenDbIf {
 
         /* api to add a column in the current table space */
         virtual bool NewDb_AddColumn(std::auto_ptr<ColList> cl) = 0;
+        virtual bool AddColumnSync(std::auto_ptr<GenDb::ColList> cl) = 0;
 
         virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
                 const DbDataValueVec& rowkey) = 0;
@@ -133,7 +135,7 @@ class GenDbIf {
                 const std::string& cfname, const ColumnNameRange& crange,
                 const DbDataValueVec& key) = 0;
 
-        static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats = false, int analytics_ttl = 0);
+        static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats, int analytics_ttl, std::string name);
 
         static std::map<GenDb::DbDataType::type, std::string> dbdatatype_strings;
 };

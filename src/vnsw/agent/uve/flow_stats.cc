@@ -130,6 +130,13 @@ bool FlowStatsCollector::ShouldBeAged(FlowEntry *entry,
     return true;
 }
 
+uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data, 
+                                          const uint32_t &data) {
+    uint64_t flow_stats = (uint64_t) oflow_data << (sizeof(uint32_t) * 8);
+    flow_stats |= data;
+    return flow_stats;
+}
+
 bool FlowStatsCollector::Run() {
     FlowTable::FlowEntryMap::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
@@ -154,6 +161,7 @@ bool FlowStatsCollector::Run() {
         assert(entry);
         deleted = false;
 
+        flow_iteration_key_ = entry->key;
         const vr_flow_entry *k_flow = 
             FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
             (entry->flow_handle, false);
@@ -182,6 +190,7 @@ bool FlowStatsCollector::Run() {
             }
             FlowTable::GetFlowTableObject()->DeleteRevFlow
                 (entry->key, reverse_flow != NULL? true : false);
+            entry = NULL;
             if (reverse_flow) {
                 count++;
                 if (count == FlowCountPerPass) {
@@ -192,13 +201,19 @@ bool FlowStatsCollector::Run() {
 
         if (deleted == false && k_flow) {
             if (entry->data.bytes != k_flow->fe_stats.flow_bytes) {
-                diff_bytes = k_flow->fe_stats.flow_bytes - entry->data.bytes;
-                diff_pkts = k_flow->fe_stats.flow_packets - entry->data.packets;
+                uint64_t flow_bytes, flow_packets;
+                flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+                                          k_flow->fe_stats.flow_bytes);
+                flow_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow
+                                            , k_flow->fe_stats.flow_packets);
+
+                diff_bytes = flow_bytes - entry->data.bytes;
+                diff_pkts = flow_packets - entry->data.packets;
                 //Update Inter-VN stats
                 AgentUve::GetInstance()->GetInterVnStatsCollector()->UpdateVnStats(entry, 
                                                                     diff_bytes, diff_pkts);
-                entry->data.bytes = k_flow->fe_stats.flow_bytes;
-                entry->data.packets = k_flow->fe_stats.flow_packets;
+                entry->data.bytes = flow_bytes;
+                entry->data.packets = flow_packets;
                 entry->last_modified_time = curr_time;
                 FlowExport(entry, diff_bytes, diff_pkts);
             }
@@ -217,7 +232,6 @@ bool FlowStatsCollector::Run() {
     
     if (count == FlowCountPerPass) {
         if (it != flow_obj->flow_entry_map_.end()) {
-            flow_iteration_key_ = entry->key;
             key_updation_reqd = false;
         }
     }

@@ -9,6 +9,10 @@ env = AgentEnv.Clone()
 import sys
 SandeshGenFiles = env.SandeshGenCpp('controller.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
+
+except_env = AgentEnv.Clone()
+cflags = except_env['CCFLAGS']
+
 sandesh_objs = []
 for src in SandeshGenSrcs:                    
     objname = src.replace('.cpp', '.o')

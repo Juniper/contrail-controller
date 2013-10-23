@@ -59,6 +59,7 @@ struct VrouterAgent {  // Agent info
    27: optional string ds_addr;
    28: optional i32 ds_xs_instances;
    29: optional string control_ip; 
+   30: optional list<string> no_config_intf_list; 
 }
 
 uve sandesh UveVrouterAgent {

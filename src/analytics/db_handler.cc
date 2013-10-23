@@ -21,9 +21,9 @@
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
-        std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl) :
+        std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), err_handler,
-                cassandra_ip, cassandra_port, true, analytics_ttl*24*3600)) {
+                cassandra_ip, cassandra_port, true, analytics_ttl*3600, name)) {
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
@@ -37,7 +37,8 @@ bool DbHandler::CreateTables() {
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
             it != vizd_tables.end(); it++) {
         if (!dbif_->NewDb_AddColumnfamily(*it)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, __func__ << ": " << it->cfname_ << " FAILED");
+            return false;
         }
     }
 
@@ -52,14 +53,16 @@ bool DbHandler::CreateTables() {
                                   (GenDb::DbDataType::Unsigned32Type),
                                   boost::assign::list_of
                                   (GenDb::DbDataType::LexicalUUIDType))))) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, __func__ << ": " << it->first << " FAILED");
+            return false;
         }
     }
 
     for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
             it != vizd_flow_tables.end(); it++) {
         if (!dbif_->NewDb_AddColumnfamily(*it)) {
-            VIZD_ASSERT(0);
+            LOG(ERROR, __func__ << ": " << it->cfname_ << " FAILED");
+            return false;
         }
     }
 
@@ -95,10 +98,10 @@ bool DbHandler::CreateTables() {
 
         std::vector<GenDb::NewCol>& columns = col_list->columns_;
 
-        columns.push_back(GenDb::NewCol(g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec()));
+        columns.push_back(GenDb::NewCol(g_viz_constants.SYSTEM_OBJECT_START_TIME, UTCTimestampUsec(), 0));
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-        if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+        if (!dbif_->AddColumnSync(col_list_ptr)) {
             VIZD_ASSERT(0);
         }
     }

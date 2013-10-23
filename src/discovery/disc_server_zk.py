@@ -936,8 +936,8 @@ class DiscoveryServer():
         rsp += '        <td>Service Type</td>\n'
         rsp += '        <td>Service Id</td>\n'
         rsp += '        <td>TTL (sec)</td>\n'
-        rsp += '        <td>TTL Refreshes</td>\n'
-        rsp += '        <td>Last refreshed</td>\n'
+        rsp += '        <td>Time Remaining</td>\n'
+        rsp += '        <td>Refresh Count</td>\n'
         rsp += '    </tr>\n'
 
         # lookup subscribers of the service
@@ -965,8 +965,9 @@ class DiscoveryServer():
             link = do_html_url("service/%s/brief" % (service_id), service_id)
             rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + str(ttl) + '</td>\n'
+            remaining = ttl - int(time.time() - mtime)
+            rsp += '        <td>' + str(remaining) + '</td>\n'
             rsp += '        <td>' + str(sdata['ttl_expires']) + '</td>\n'
-            rsp += '        <td>' + time.ctime(mtime) + '</td>\n'
             rsp += '    </tr>\n'
         rsp += ' </table>\n'
 

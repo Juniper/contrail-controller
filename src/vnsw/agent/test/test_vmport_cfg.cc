@@ -1360,8 +1360,9 @@ TEST_F(CfgTest, Basic_2) {
         return;
     }
 
-    Inet4UcRouteTable *table = Agent::GetInstance()->GetDefaultInet4UcRouteTable();
-    Inet4UcRoute *rt = static_cast<Inet4UcRoute *>
+    Inet4UnicastAgentRouteTable *table = 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable();
+    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
         (table->FindRoute(intf->GetMdataIpAddr()));
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
@@ -1376,7 +1377,7 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_TRUE(nh->PolicyEnabled());
 
     Ip4Address addr(Ip4Address::from_string("169.254.169.254"));
-    rt = Inet4UcRouteTable::FindRoute("vrf1", addr);
+    rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;
@@ -1390,7 +1391,7 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_TRUE(nh->PolicyEnabled());
 
     addr = Ip4Address::from_string("1.1.1.1");
-    rt = Inet4UcRouteTable::FindRoute("vrf1", addr);
+    rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;

@@ -24,6 +24,7 @@ env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/oper')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/uve')
 env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Prepend(CPPPATH = env['TOP'])
@@ -37,6 +38,7 @@ env.Prepend(
         'xmpp',
         'peer_sandesh',
         'xmpp_multicast',
+        'xmpp_enet',
         'xmpp_unicast',
         'ds',
         'xml',
@@ -220,9 +222,8 @@ def code_coverage(target, source, env):
         subprocess.call([cmd], stdout=logfile, stderr=logfile, env=ShEnv)
 
     # lcov --base-directory $ROOT -- directory . -c -o bgp_test.info
-    #import pdb; pdb.set_trace()
     os.system('lcov --base-directory . --directory ' + Dir('.').path +
-              ' -c --compat split_crc=on --ignore-errors gcov -o agent_test.info')
+              ' -c --ignore-errors gcov -o agent_test.info')
 
     # genhtml -o bgp/test_coverage bgp_test.info
     os.system('genhtml -o ' + target[0].path +

@@ -8,11 +8,10 @@
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
+#include "oper/agent_route.h"
 #include <oper/operdb_init.h>
 #include "oper/interface.h"
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
-#include "oper/inet4_mcroute.h"
 #include "oper/vrf.h"
 #include "oper/mpls.h"
 #include "oper/vm.h"
@@ -20,6 +19,7 @@
 #include "oper/sg.h"
 #include "oper/mirror_table.h"
 #include "oper/vrf_assign.h"
+#include "oper/vxlan.h"
 #include "cfg/init_config.h"
 #include <base/task_trigger.h>
 
@@ -29,8 +29,9 @@ SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
 void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.interface.0", &InterfaceTable::CreateTable);
     DB::RegisterFactory("db.nexthop.0", &NextHopTable::CreateTable);
-    DB::RegisterFactory("uc.route.0", &Inet4UcRouteTable::CreateTable);
-    DB::RegisterFactory("mc.route.0", &Inet4McRouteTable::CreateTable);
+    DB::RegisterFactory("uc.route.0", &Inet4UnicastAgentRouteTable::CreateTable);
+    DB::RegisterFactory("mc.route.0", &Inet4MulticastAgentRouteTable::CreateTable);
+    DB::RegisterFactory("l2.route.0", &Layer2AgentRouteTable::CreateTable);
     DB::RegisterFactory("db.vrf.0", &VrfTable::CreateTable);
     DB::RegisterFactory("db.vn.0", &VnTable::CreateTable);
     DB::RegisterFactory("db.vm.0", &VmTable::CreateTable);
@@ -39,6 +40,7 @@ void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.acl.0", &AclTable::CreateTable);
     DB::RegisterFactory("db.mirror_table.0", &MirrorTable::CreateTable);
     DB::RegisterFactory("db.vrf_assign.0", &VrfAssignTable::CreateTable);
+    DB::RegisterFactory("db.vxlan.0", &VxLanTable::CreateTable);
 
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
@@ -93,6 +95,11 @@ void OperDB::CreateDBTables(DB *db) {
 
     DomainConfig *domain_config_table = new DomainConfig();
     Agent::GetInstance()->SetDomainConfigTable(domain_config_table);
+
+    VxLanTable *vxlan_table;
+    vxlan_table = static_cast<VxLanTable *>(db->CreateTable("db.vxlan.0"));
+    assert(vxlan_table);
+    Agent::GetInstance()->SetVxLanTable(vxlan_table);
 }
 
 void OperDB::CreateStaticObjects(Callback cb)
@@ -134,8 +141,12 @@ void OperDB::OnVrfCreate(DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (vrf->GetName() == Agent::GetInstance()->GetDefaultVrf() && trigger_ == NULL) {
         // Default VRF created; create nexthops, unregister in DB Task context
-        Agent::GetInstance()->SetDefaultInet4UcRouteTable(vrf->GetInet4UcRouteTable());
-        Agent::GetInstance()->SetDefaultInet4McRouteTable(vrf->GetInet4McRouteTable());
+        Agent::GetInstance()->SetDefaultInet4UnicastRouteTable(vrf->
+                   GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        Agent::GetInstance()->SetDefaultInet4MulticastRouteTable(vrf->
+                   GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+        Agent::GetInstance()->SetDefaultLayer2RouteTable(vrf->
+                   GetRouteTable(AgentRouteTableAPIS::LAYER2));
         DiscardNH::CreateReq();
         ResolveNH::CreateReq();
         trigger_ = SafeDBUnregister(Agent::GetInstance()->GetVrfTable(), vid_);
@@ -193,6 +204,10 @@ void OperDB::Shutdown() {
     Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVrfAssignTable());
     delete Agent::GetInstance()->GetVrfAssignTable();
     Agent::GetInstance()->SetVrfAssignTable(NULL);
+
+    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVxLanTable());
+    delete Agent::GetInstance()->GetVxLanTable();
+    Agent::GetInstance()->SetVxLanTable(NULL);
 
     assert(OperDB::singleton_);
     delete OperDB::singleton_;

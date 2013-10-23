@@ -61,7 +61,8 @@ using GenDb::DbDataValue;
 
 class CdbIf : public GenDbIf {
     public:
-        CdbIf(boost::asio::io_service *, DbErrorHandler, std::string, unsigned short, bool, int ttl);
+        CdbIf(boost::asio::io_service *, DbErrorHandler, std::string, unsigned short, bool, int ttl,
+                std::string name);
         ~CdbIf();
 
         virtual bool Db_Init(std::string task_id, int task_instance);
@@ -78,6 +79,7 @@ class CdbIf : public GenDbIf {
 
         /* api to add a column in the current table space */
         virtual bool NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl);
+        virtual bool AddColumnSync(std::auto_ptr<GenDb::ColList> cl);
 
         virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
                 const GenDb::DbDataValueVec& rowkey);

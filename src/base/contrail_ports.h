@@ -12,6 +12,7 @@ public:
     static const short RedisQueryPort = 6380;
     static const short RedisUvePort = 6381;
     static const short RedisWebuiPort = 6383;
+    static const short AnalyticsRedisSentinelPort = 26379;
     static const short WebConsole = 8080;
     static const short OpServer = 8081;
     static const short ApiServer = 8082;

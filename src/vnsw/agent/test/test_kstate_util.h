@@ -11,6 +11,7 @@
 #include "kstate/mpls_kstate.h"
 #include "kstate/route_kstate.h"
 #include "kstate/flow_kstate.h"
+#include "kstate/vxlan_kstate.h"
 #include <base/patricia.h>
 #include "xmpp/test/xmpp_test_util.h"
 

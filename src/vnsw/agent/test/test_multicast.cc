@@ -5,7 +5,6 @@
 #include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
-
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
@@ -30,7 +29,8 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
 {
     CompositeNHKey key(vrf_name, grp,
-                       IpAddress::from_string("0.0.0.0").to_v4(), false);
+                       IpAddress::from_string("0.0.0.0").to_v4(), false,
+                       Composite::FABRIC);
     NextHop *nh;
     do {
         nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
@@ -68,12 +68,14 @@ TEST_F(CfgTest, McastSubnet_1) {
     int len = 0;
 
     client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 3, 0);
     client->WaitForIdle();
 
     client->Reset();
 
-	Inet4UcRoute *rt;
+	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -99,6 +101,10 @@ TEST_F(CfgTest, McastSubnet_1) {
                                           IpAddress::from_string("1.1.1.255").to_v4(),
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           1111, olist_map);
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("255.255.255.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1112, olist_map);
     AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
@@ -212,6 +218,132 @@ TEST_F(CfgTest, McastSubnet_1) {
     WaitForCompositeNHDelete(IpAddress::from_string("3.3.255.255").to_v4(), "vrf1");
     WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
     client->WaitForIdle();
+    DisableEvpn();
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, L2Broadcast_1) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+        {"vnet3", 3, "3.3.3.1", "00:00:00:03:03:03", 1, 3},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+        {"2.2.2.0", 24, "2.2.2.200"},
+        {"3.3.3.0", 16, "3.3.30.200"},
+    };
+
+    char buf[BUF_SIZE];
+    int len = 0;
+
+    client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
+    CreateVmportEnv(input, 3, 0);
+    client->WaitForIdle();
+
+    client->Reset();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+
+    client->Reset();
+
+    NextHop *nh;
+    CompositeNH *cnh;
+    MulticastGroupObject *mcobj;
+
+	EXPECT_TRUE(VmPortActive(input, 0));
+	EXPECT_TRUE(VmPortActive(input, 1));
+	EXPECT_TRUE(VmPortActive(input, 2));
+
+    while (MCRouteFind("vrf1", "255.255.255.255") != true) {
+        client->WaitForIdle();
+    }
+    EXPECT_TRUE(L2RouteFind("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF")));
+
+    TunnelOlist olist_map;
+    olist_map.push_back(OlistTunnelEntry(2000, 
+                                         IpAddress::from_string("8.8.8.8").to_v4(),
+                                         TunnelType::AllType()));
+    MulticastHandler::ModifyFabricMembers("vrf1",
+                                          IpAddress::from_string("255.255.255.255").to_v4(),
+                                          IpAddress::from_string("0.0.0.0").to_v4(),
+                                          1111, olist_map);
+    AddArp("8.8.8.8", "00:00:08:08:08:08", 
+           Agent::GetInstance()->GetIpFabricItfName().c_str());
+    client->WaitForIdle();
+
+    Inet4MulticastRouteEntry *rt = 
+        MCRouteGet("vrf1", "255.255.255.255");
+    nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    cnh = static_cast<CompositeNH *>(nh);
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+                                              cnh->GetGrpAddr());
+    ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
+	MplsLabel *mpls = NULL; 
+    while (mpls == NULL) {
+        MplsLabelKey key(MplsLabel::MCAST_NH, 1111);
+        mpls = 
+            static_cast<MplsLabel *>(Agent::GetInstance()->GetMplsTable()->
+                                     Find(&key, true));
+    }
+    ASSERT_TRUE((mcobj->GetLocalOlist()).size() == 3);
+    ASSERT_TRUE((mcobj->GetTunnelOlist()).size() == 1);
+    EXPECT_TRUE(cnh->ComponentNHCount() == 4);
+    EXPECT_TRUE(cnh->IsMcastNH() == true);
+    EXPECT_TRUE(cnh->CompositeType() == Composite::L3COMP);
+
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
+    NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
+    CompositeNH *l2_cnh = static_cast<CompositeNH *>(l2_nh);
+    EXPECT_TRUE(l2_cnh->ComponentNHCount() == 4);
+    EXPECT_TRUE(l2_cnh->IsMcastNH() == true);
+    EXPECT_TRUE(l2_cnh->CompositeType() == Composite::L2COMP);
+
+    EXPECT_TRUE(cnh->GetNH(0) == l2_cnh->GetNH(0));
+    for (int i = 1; i < cnh->ComponentNHCount(); i++) {
+        const InterfaceNH *l3_comp_nh = 
+            static_cast<const InterfaceNH *>(cnh->GetNH(i));
+        const InterfaceNH *l2_comp_nh = 
+            static_cast<const InterfaceNH *>(l2_cnh->GetNH(i));
+        EXPECT_TRUE(l3_comp_nh->GetFlags() == 
+                    (InterfaceNHFlags::INET4 | InterfaceNHFlags::MULTICAST));
+        EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+        EXPECT_TRUE(l3_comp_nh->GetIfUuid() == l2_comp_nh->GetIfUuid());
+    }
+
+    const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
+    EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
+    EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
+    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->GetLabel() == 2000);
+
+    const CompositeNH *mpls_cnh = 
+        static_cast<const CompositeNH *>(mpls->GetNextHop());
+    EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
+    EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
+    EXPECT_TRUE(mpls_cnh->GetNH(0) == l2_cnh);
+    EXPECT_TRUE(mpls_cnh->GetNH(1) == cnh);
+
+    IntfCfgDel(input, 0);
+    IntfCfgDel(input, 1);
+    IntfCfgDel(input, 2);
+    client->WaitForIdle();
+
+    client->Reset();
+    DelIPAM("vn1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 3, 1, 0);
+    client->WaitForIdle();
+
+    WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
+    client->WaitForIdle();
+    DisableEvpn();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
@@ -225,6 +357,8 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     };
 
     client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -232,7 +366,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
 
     char buf[BUF_SIZE];
     int len = 0;
-	Inet4UcRoute *rt;
+	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -247,7 +381,8 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     }
     EXPECT_TRUE(RouteFind("vrf1", "1.1.1.255", 32));
     CompositeNHKey key("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-                       IpAddress::from_string("0.0.0.0").to_v4(), false);
+                       IpAddress::from_string("0.0.0.0").to_v4(), false,
+                       Composite::L3COMP);
     nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     cnh = static_cast<CompositeNH *>(nh);
     while(cnh->ComponentNHCount() == 0) {
@@ -295,6 +430,9 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
         client->WaitForIdle();
     }
     client->WaitForIdle();
+    WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
+    DisableEvpn();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
@@ -308,6 +446,8 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
     };
 
     client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -315,7 +455,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
 
     char buf[BUF_SIZE];
     int len = 0;
-	Inet4UcRoute *rt;
+	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -372,6 +512,8 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
         client->WaitForIdle();
     }
     client->WaitForIdle();
+    DisableEvpn();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
@@ -385,6 +527,8 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     };
 
     client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -392,7 +536,7 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
 
     char buf[BUF_SIZE];
     int len = 0;
-	Inet4UcRoute *rt;
+	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     //CompositeNH *cnh;
     //MulticastGroupObject *mcobj;
@@ -415,7 +559,8 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     DBRequest req;
     NextHopKey *key = new CompositeNHKey
         ("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-         IpAddress::from_string("0.0.0.0").to_v4(), false);
+         IpAddress::from_string("0.0.0.0").to_v4(), false, 
+         Composite::L3COMP);
     req.oper = DBRequest::DB_ENTRY_DELETE;
     req.key.reset(key);
     req.data.reset(NULL);
@@ -439,7 +584,8 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     client->WaitForIdle();
 
     CompositeNHKey nhkey("vrf1", IpAddress::from_string("1.1.1.255").to_v4(),
-                         IpAddress::from_string("0.0.0.0").to_v4(), false);
+                         IpAddress::from_string("0.0.0.0").to_v4(), false,
+                         Composite::L3COMP);
     nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->Find(&nhkey, true));
     EXPECT_TRUE(nh->IsDeleted() == true);
 
@@ -457,6 +603,8 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
         client->WaitForIdle();
     }
     client->WaitForIdle();
+    DisableEvpn();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
@@ -466,6 +614,8 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
     };
 
     client->Reset();
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -522,6 +672,8 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
         client->WaitForIdle();
     }
 
+    client->WaitForIdle();
+    DisableEvpn();
     client->WaitForIdle();
 }
 
@@ -603,6 +755,8 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     client->WaitForIdle();
     client->Reset();
 
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -630,6 +784,8 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     EXPECT_FALSE(RouteFind("vrf1", "10.1.1.2", 32));
 
     client->WaitForIdle();
+    DisableEvpn();
+    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
@@ -653,6 +809,8 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
     client->WaitForIdle();
     client->Reset();
 
+    EnableEvpn();
+    client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
 
@@ -674,6 +832,8 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
     client->Reset();
 
     DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    DisableEvpn();
     client->WaitForIdle();
 }
 

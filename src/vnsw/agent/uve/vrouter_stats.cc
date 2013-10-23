@@ -30,5 +30,6 @@
 #include <uve/uve_client.h>
 
 bool VrouterStatsCollector::Run() {
+    UveClient::GetInstance()->SendAgentStats();
     return true;
 }

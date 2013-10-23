@@ -162,8 +162,8 @@ const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 const i32 RowTimeInBits             = 23
 const i32 RowTimeInMask             = 0x7fffff
 
-// analytics data ttl in the db in days
-const i32 AnalyticsTTL              = 0x7
+// analytics data ttl in the db in hours 
+const i32 AnalyticsTTL              = 168 
 
 const map<string, string> UVE_MAP = {
     "virtual-network" : VN_TABLE,

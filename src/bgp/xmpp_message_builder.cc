@@ -202,7 +202,13 @@ void BgpXmppMessage::EncodeEnetNextHop(const BgpRoute *route,
     item_nexthop.af = BgpAf::IPv4;
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
-
+    if (nexthop.encap().empty()) {
+        // If encap list is empty, routes from non-control-node, 
+        // use mpls over gre as default encap
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back(std::string("gre"));
+    } else {
+        item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation= nexthop.encap();
+    }
     item.entry.next_hops.next_hop.push_back(item_nexthop);
 }
 

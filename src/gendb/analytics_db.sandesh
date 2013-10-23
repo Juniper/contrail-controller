@@ -7,7 +7,7 @@
 //
 
 struct DbTxQ_s {
-    1: string                              name (key="ObjectCollectorInfo")
+    1: string                              name (key="ObjectGeneratorInfo")
     2: optional bool                       deleted
     3: optional u64                        count (aggtype="stats", hbin="50")
     4: optional u64                        enqueues

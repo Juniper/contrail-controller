@@ -13,12 +13,11 @@
 #include "controller/controller_vrf_export.h"
 #include "controller/controller_init.h"
 #include "oper/vrf.h"
-#include "oper/inet4_ucroute.h"
 #include "oper/nexthop.h"
 #include "oper/mirror_table.h"
 #include "oper/multicast.h"
 #include "oper/peer.h"
-#include "oper/vm_path.h"
+#include "oper/vxlan.h"
 #include <pugixml/pugixml.hpp>
 #include "xml/xml_pugi.h"
 #include "xmpp/xmpp_init.h"
@@ -63,6 +62,64 @@ bool AgentXmppChannel::SendUpdate(uint8_t *msg, size_t size) {
 			  boost::bind(&AgentXmppChannel::WriteReadyCb, this, _1));
     } else {
         return false; 
+    }
+}
+
+void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
+    pugi::xml_node node = pugi->FindNode("items");
+    pugi::xml_attribute attr = node.attribute("node");
+
+    char *saveptr;
+    strtok_r(const_cast<char *>(attr.value()), "/", &saveptr);
+    strtok_r(NULL, "/", &saveptr);
+    char *vrf_name =  strtok_r(NULL, "", &saveptr);
+    const std::string vrf(vrf_name);
+    Layer2AgentRouteTable *rt_table = 
+        static_cast<Layer2AgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                              AgentRouteTableAPIS::LAYER2));
+
+    pugi::xml_node node_check = pugi->FindNode("retract");
+    if (!pugi->IsNull(node_check)) {
+        for (node = node.first_child(); node; node = node.next_sibling()) {
+            if (strcmp(node.name(), "retract") == 0)  {
+                std::string id = node.first_attribute().value();
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "EVPN Delete Node id:" + id);
+
+                char *mac_str = 
+                    strtok_r(const_cast<char *>(id.c_str()), "-", &saveptr);
+                //char *mac_str = strtok_r(NULL, ",", &saveptr);
+                struct ether_addr mac = *ether_aton(mac_str);;
+                rt_table->DeleteReq(bgp_peer_id_, vrf_name, mac);
+            }
+        }
+        return;
+    }
+
+    //Call Auto-generated Code to return struct
+    auto_ptr<AutogenProperty> xparser(new AutogenProperty());
+    if (EnetItemsType::XmlParseProperty(node, &xparser) == false) {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "Xml Parsing for evpn Failed");
+        return;
+    }
+
+    EnetItemsType *items;
+    EnetItemType *item;
+
+    items = (static_cast<EnetItemsType *>(xparser.get()));
+    std::vector<EnetItemType>::iterator iter;
+    for (vector<EnetItemType>::iterator iter =items->item.begin();
+         iter != items->item.end(); iter++) {
+        item = &*iter;
+        if (item->entry.nlri.mac != "") {
+            struct ether_addr mac = *ether_aton((item->entry.nlri.mac).c_str());
+            AddEvpnRoute(vrf_name, mac, item);
+        } else {
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                        "NLRI missing mac address for evpn, failed parsing");
+        }
     }
 }
 
@@ -181,6 +238,23 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 }
 
 static TunnelType::TypeBmap 
+GetEnetTypeBitmap(const EnetTunnelEncapsulationListType *encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (EnetTunnelEncapsulationListType::const_iterator iter = encap->begin();
+         iter != encap->end(); iter++) {
+        TunnelEncapType::Encap encap = 
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if (encap == TunnelEncapType::MPLS_O_GRE)
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+        if (encap == TunnelEncapType::VXLAN)
+            bmap |= (1 << TunnelType::VXLAN);
+    }
+    return bmap;
+}
+
+static TunnelType::TypeBmap 
 GetTypeBitmap(const TunnelEncapsulationListType *encap) {
     TunnelType::TypeBmap bmap = 0;
     for (TunnelEncapsulationListType::const_iterator iter = encap->begin();
@@ -197,8 +271,10 @@ GetTypeBitmap(const TunnelEncapsulationListType *encap) {
 
 void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr, 
                                     uint32_t prefix_len, ItemType *item) {
-    Inet4UcRouteTable *rt_table = 
-        Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    Inet4UnicastAgentRouteTable *rt_table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                              AgentRouteTableAPIS::INET4_UNICAST));
 
     std::vector<ComponentNHData> comp_nh_list;
     for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
@@ -240,10 +316,92 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                false);
 }
 
+void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name, 
+                                      struct ether_addr &mac, 
+                                      EnetItemType *item) {
+    boost::system::error_code ec; 
+    string nexthop_addr = item->entry.next_hops.next_hop[0].address;
+    uint32_t label = item->entry.next_hops.next_hop[0].label;
+    TunnelType::TypeBmap encap = GetEnetTypeBitmap
+        (&item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+    IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
+    Layer2AgentRouteTable *rt_table = 
+        static_cast<Layer2AgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                              AgentRouteTableAPIS::LAYER2));
+
+    if (ec.value() != 0) {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "Error parsing nexthop ip address");
+        return;
+    }
+
+    stringstream str;
+    str << (ether_ntoa ((struct ether_addr *)&mac)); 
+    CONTROLLER_TRACE(RouteImport, bgp_peer_id_->GetName(), vrf_name, 
+                     str.str(), 0, nexthop_addr, label, "");
+
+    Ip4Address prefix_addr;
+    int prefix_len;
+    ec = Ip4PrefixParse(item->entry.nlri.address, &prefix_addr,
+                        &prefix_len);
+    if (ec.value() != 0) {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "Error parsing route address");
+        return;
+    }
+    if (Agent::GetInstance()->GetRouterId() != addr.to_v4()) {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), nexthop_addr,
+                         "add remote evpn route");
+        rt_table->AddRemoteVmRoute(bgp_peer_id_, vrf_name, encap, 
+                                   addr.to_v4(), label, mac, 
+                                   prefix_addr, prefix_len);
+        return;
+    }
+
+    const NextHop *nh = NULL;
+    if (encap == (1 << TunnelType::VXLAN)) {
+        VrfEntry *vrf = 
+            Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+        Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), 
+                           vrf_name, mac);
+        if (vrf != NULL) {
+            Layer2RouteEntry *route = 
+                static_cast<Layer2RouteEntry *>
+                (static_cast<Layer2AgentRouteTable *>(vrf->
+                GetRouteTable(AgentRouteTableAPIS::LAYER2))->
+                FindActiveEntry(&key));
+            nh = route->GetActiveNextHop();
+        }
+    } else {
+        MplsLabel *mpls = 
+            Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
+        if (mpls != NULL) {
+            nh = mpls->GetNextHop();
+        }
+    }
+    if (nh != NULL) {
+        switch(nh->GetType()) {
+        case NextHop::INTERFACE: {
+            const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
+            rt_table->AddLocalVmRoute(bgp_peer_id_, intf_nh->GetIfUuid(),
+                                          "", vrf_name, label, encap, 
+                                          mac, prefix_addr, prefix_len);
+            break;
+            }
+        default:
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                             "label points to invalid NH");
+        }
+    }
+}
+
 void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr, 
                                       uint32_t prefix_len, ItemType *item) {
-    Inet4UcRouteTable *rt_table = 
-        Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(vrf_name);
+    Inet4UnicastAgentRouteTable *rt_table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
+                              AgentRouteTableAPIS::INET4_UNICAST));
 
     boost::system::error_code ec; 
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
@@ -296,15 +454,40 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                      item->entry.virtual_network, sg_l);
             break;
             }
-        case NextHop:: COMPOSITE: {
+        case NextHop::COMPOSITE: {
             AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
             break;
             }
+
+        case NextHop::RECEIVE: {
+            const ReceiveNH *recv_nh = static_cast<const ReceiveNH *>(nh);
+            const Interface *interface = recv_nh->GetInterface();
+            if (interface) {
+                rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
+                                                 prefix_addr, prefix_len,
+                                                 interface->GetName(),
+                                                 label,
+                                                 item->entry.virtual_network);
+            }
+            break;
+        }
+
 
         default:
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
                              "MPLS label points to invalid NH");
         }
+    }
+}
+
+void AgentXmppChannel::AddEvpnRoute(string vrf_name, 
+                                   struct ether_addr &mac, 
+                                   EnetItemType *item) {
+    if (item->entry.next_hops.next_hop.size() > 1) {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "Multiple NH in evpn not supported");
+    } else {
+        AddRemoteEvpnRoute(vrf_name, mac, item);
     }
 }
 
@@ -339,6 +522,10 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
             ReceiveMulticastUpdate(pugi);
             return;
         }
+        if (atoi(af) == BgpAf::L2Vpn && atoi(safi) == BgpAf::Enet) {
+            ReceiveEvpnUpdate(pugi);
+            return;
+        }
 
         VrfKey vrf_key(vrf_name);
         VrfEntry *vrf = 
@@ -349,7 +536,9 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
             return;
         }
 
-        Inet4UcRouteTable *rt_table = vrf->GetInet4UcRouteTable();
+        Inet4UnicastAgentRouteTable *rt_table = 
+            static_cast<Inet4UnicastAgentRouteTable *>
+            (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
         if (!rt_table) {
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name, 
                              "VRF not found");
@@ -456,7 +645,8 @@ void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
                 MulticastHandler::HandlePeerDown();
                 // Walk route-tables and send dissociate to older peer
                 // for subnet and broadcast routes
-                agent_mcast_builder->GetBgpPeer()->PeerNotifyMcastBcastRoutes(false); 
+                agent_mcast_builder->GetBgpPeer()->
+                    PeerNotifyMulticastRoutes(false); 
                 // Reset Multicast Tree Builder
                 Agent::GetInstance()->SetControlNodeMulticastBuilder(peer);
             }
@@ -517,7 +707,8 @@ void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
                 Agent::GetInstance()->SetControlNodeMulticastBuilder(new_mcast_builder);
                 //Advertise subnet and all broadcast routes to
                 //the new multicast tree builder
-                new_mcast_builder->GetBgpPeer()->PeerNotifyMcastBcastRoutes(true); 
+                new_mcast_builder->GetBgpPeer()->
+                    PeerNotifyMulticastRoutes(true); 
 
                 CONTROLLER_TRACE(Session, peer->GetXmppServer(), "NOT_READY",
                                  Agent::GetInstance()->GetControlNodeMulticastBuilder()->GetBgpPeer()->GetName(),
@@ -659,12 +850,12 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
     return (peer->SendUpdate(data_,datalen_));
 }
 
-bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
-                                           Inet4UcRoute *route, 
-                                           std::string vn, 
-                                           uint32_t mpls_label,
-                                           const SecurityGroupList *sg_list,
-                                           bool add_route) {
+bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
+                                               RouteEntry *route, 
+                                               std::string vn, 
+                                               const SecurityGroupList *sg_list,
+                                               uint32_t mpls_label,
+                                               bool add_route) {
 
     static int id = 0;
     ItemType item;
@@ -680,7 +871,8 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
     item.entry.nlri.af = BgpAf::IPv4; 
     item.entry.nlri.safi = BgpAf::Unicast; 
     stringstream rstr;
-    rstr << route->GetIpAddress().to_string() << "/" << route->GetPlen();
+    //rstr << route->GetAddressString() << "/" << route->GetPlen();
+    rstr << route->ToString();
     item.entry.nlri.address = rstr.str();
 
     string rtr(Agent::GetInstance()->GetRouterId().to_string());
@@ -718,11 +910,12 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
     pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
     pugi->AddChildNode("publish", "");
 
+    //Catering for inet4 and evpn unicast routes
     stringstream ss_node;
     ss_node << item.entry.nlri.af << "/" 
             << item.entry.nlri.safi << "/" 
             << route->GetVrfEntry()->GetName() << "/" 
-            << route->GetIpAddress().to_string();
+            << route->GetAddressString();
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");
@@ -759,8 +952,134 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
     return (peer->SendUpdate(data_,datalen_));
 }
 
+bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
+                                               RouteEntry *route, 
+                                               std::string vn, 
+                                               uint32_t label,
+                                               uint32_t tunnel_bmap,
+                                               bool add_route) {
+    static int id = 0;
+    EnetItemType item;
+    uint8_t data_[4096];
+    size_t datalen_;
+   
+    if (!peer) return false;
+
+    //Build the DOM tree
+    auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+
+    //TODO remove hardcoding
+    item.entry.nlri.af = 25; 
+    item.entry.nlri.safi = 242; 
+    stringstream rstr;
+    //rstr << route->GetAddressString() << "/" << route->GetPlen();
+    rstr << route->ToString();
+    item.entry.nlri.mac = rstr.str();
+    Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);
+    rstr.str("");
+    rstr << l2_route->GetVmIpAddress().to_string() << "/" 
+        << l2_route->GetVmIpPlen();
+    item.entry.nlri.address = rstr.str();
+    assert(item.entry.nlri.address != "0.0.0.0");
+
+    string rtr(Agent::GetInstance()->GetRouterId().to_string());
+
+    autogen::EnetNextHopType nh;
+    nh.af = Address::INET;
+    nh.address = rtr;
+    nh.label = label;
+    if (tunnel_bmap != (1 << TunnelType::VXLAN)) {
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+    } else {
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
+    }
+
+    item.entry.next_hops.next_hop.push_back(nh);
+
+    //item.entry.version = 1; //TODO
+    //item.entry.virtual_network = vn;
+   
+    pugi->AddNode("iq", "");
+    pugi->AddAttribute("type", "set");
+    
+    pugi->AddAttribute("from", peer->channel_->FromString());
+    std::string to(peer->channel_->ToString());
+    to += "/";
+    to += XmppInit::kBgpPeer; 
+    pugi->AddAttribute("to", to);
+
+    stringstream pubsub_id;
+    pubsub_id << "pubsub" << id++;
+    pugi->AddAttribute("id", pubsub_id.str()); 
+
+    pugi->AddChildNode("pubsub", "");
+    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
+    pugi->AddChildNode("publish", "");
+
+    stringstream ss_node;
+    ss_node << item.entry.nlri.af << "/" << item.entry.nlri.safi << "/" 
+        << route->GetAddressString() << "," << item.entry.nlri.address; 
+    std::string node_id(ss_node.str());
+    pugi->AddAttribute("node", node_id);
+    pugi->AddChildNode("item", "");
+
+    pugi::xml_node node = pugi->FindNode("item");
+
+    //Call Auto-generated Code to encode the struct
+    item.Encode(&node);
+
+    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    // send data
+    peer->SendUpdate(data_,datalen_);
+
+    pugi->DeleteNode("pubsub");
+    pugi->ReadNode("iq");
+
+    stringstream collection_id;
+    collection_id << "collection" << id++;
+    pugi->ModifyAttribute("id", collection_id.str()); 
+    pugi->AddChildNode("pubsub", "");
+    pugi->AddAttribute("xmlns", "http://jabber.org/protocol/pubsub");
+    pugi->AddChildNode("collection", "");
+
+    pugi->AddAttribute("node", route->GetVrfEntry()->GetName());
+    if (add_route) {
+        pugi->AddChildNode("associate", "");
+    } else {
+        pugi->AddChildNode("dissociate", "");
+    }
+    pugi->AddAttribute("node", node_id);
+
+    datalen_ = XmppProto::EncodeMessage(impl.get(), data_, sizeof(data_));
+    // send data
+    return (peer->SendUpdate(data_,datalen_));
+}
+
+bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
+                                           RouteEntry *route, 
+                                           std::string vn, 
+                                           uint32_t label,
+                                           TunnelType::TypeBmap bmap,
+                                           const SecurityGroupList *sg_list,
+                                           bool add_route,
+                                           AgentRouteTableAPIS::TableType type) 
+{
+    bool ret = false;
+    if (type == AgentRouteTableAPIS::INET4_UNICAST) {
+        ret = AgentXmppChannel::ControllerSendV4UnicastRoute(peer, route, vn,
+                                          sg_list, label, add_route);
+    } 
+    if (type == AgentRouteTableAPIS::LAYER2) {
+        ret = AgentXmppChannel::ControllerSendEvpnRoute(peer, route, vn, 
+                                         label, bmap, add_route);
+    } 
+    return ret;
+}
+
 bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
-                                                Inet4Route *route, 
+                                                RouteEntry *route, 
                                                 bool add_route) {
 
     static int id = 0;
@@ -778,7 +1097,7 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
 
     CONTROLLER_TRACE(McastSubscribe, peer->GetBgpPeer()->GetName(),
                      route->GetVrfEntry()->GetName(), " ",
-                     route->GetIpAddress().to_string());
+                     route->ToString());
 
     //Build the DOM tree
     auto_ptr<XmlBase> impl(XmppStanza::AllocXmppXmlImpl());
@@ -786,7 +1105,7 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
 
     item.entry.nlri.af = BgpAf::IPv4; 
     item.entry.nlri.safi = BgpAf::Mcast; 
-    item.entry.nlri.group = route->GetIpAddress().to_string();
+    item.entry.nlri.group = route->GetAddressString();
     item.entry.nlri.source = "0.0.0.0";
 
     autogen::McastNextHopType item_nexthop;
@@ -820,7 +1139,7 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
     ss_node << item.entry.nlri.af << "/" 
             << item.entry.nlri.safi << "/" 
             << route->GetVrfEntry()->GetName() << "/" 
-            << route->GetIpAddress().to_string();
+            << route->GetAddressString();
     std::string node_id(ss_node.str());
     pugi->AddAttribute("node", node_id);
     pugi->AddChildNode("item", "");

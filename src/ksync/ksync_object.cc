@@ -924,6 +924,7 @@ KSyncEntry::KSyncState KSyncSM_RenewWait(KSyncObject *obj, KSyncEntry *entry,
 }
 
 void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
+
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
 
@@ -965,6 +966,7 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::DEL_DEFER_REF:
+            dep_reval = true;
             state = KSyncSM_DelPending_Ref(this, entry, event);
             break;
 
@@ -973,6 +975,7 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
             break;
 
         case KSyncEntry::RENEW_WAIT:
+            dep_reval = true;
             state = KSyncSM_RenewWait(this, entry, event);
             break;
 
@@ -982,7 +985,7 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     }
 
     entry->SetState(state);
-    if (dep_reval == true && state >= KSyncEntry::IN_SYNC) {
+    if (dep_reval == true && entry->IsResolved()) {
         BackRefReEval(entry);
     }
 

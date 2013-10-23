@@ -20,6 +20,9 @@ using boost::system::error_code;
     data.set_protocol(fe->key.protocol);		 \
     data.set_dest_vrf(fe->data.dest_vrf);		 \
     data.set_action(fe->data.match_p.action_info.action);	   \
+    std::vector<ActionStr> action_str_l;                       \
+    SetActionStr(fe->data.match_p.action_info, action_str_l);   \
+    data.set_action_str(action_str_l);                         	    \
     std::vector<MirrorActionSpec>::iterator mait;                    \
     std::vector<MirrorInfo> mirror_l;                                \
     for (mait = fe->data.match_p.action_info.mirror_l.begin();       \
@@ -80,6 +83,11 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.policy_action);
+    std::vector<ActionStr> action_str_l;
+    FlowAction action_info;
+    action_info.action = fe->data.match_p.policy_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_policy(policy);
 
@@ -91,6 +99,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.out_policy_action);
+    action_str_l.clear();
+    action_info.action = fe->data.match_p.out_policy_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_out_policy(policy);
 
@@ -102,6 +114,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.sg_action);
+    action_str_l.clear();
+    action_info.action = fe->data.match_p.sg_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_sg(policy);
 
@@ -113,6 +129,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.out_sg_action);
+    action_str_l.clear();
+    action_info.action = fe->data.match_p.out_sg_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_out_sg(policy);
 
@@ -124,6 +144,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.mirror_action);
+    action_str_l.clear();
+    action_info.action = fe->data.match_p.mirror_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_mirror(policy);
 
@@ -135,6 +159,10 @@ static void SetAclInfo(SandeshFlowData &data, FlowEntry *fe) {
         acl.push_back(f);
     }
     policy.set_action(fe->data.match_p.out_mirror_action);
+    action_str_l.clear();
+    action_info.action = fe->data.match_p.out_mirror_action;
+    SetActionStr(action_info, action_str_l);
+    policy.set_action_str(action_str_l);
     policy.set_acl(acl);
     data.set_out_mirror(policy);
 }

@@ -133,15 +133,33 @@ struct EvHandshakeFailed : sc::event<EvHandshakeFailed> {
     }
 };
 
-struct EvProcessResponse : sc::event<EvProcessResponse> {
-    EvProcessResponse(boost::system::error_code error, size_t bytes) :
+struct EvProcResponseSuccess : sc::event<EvProcResponseSuccess> {
+    EvProcResponseSuccess(boost::system::error_code error, size_t bytes) :
         error_(error), bytes_(bytes) {
     }
     static const char * Name() {
-        return "EvProcessResponse";
+        return "EvProcResponseSuccess";
     }
     boost::system::error_code error_;
     size_t bytes_;
+};
+
+struct EvProcResponseFailed : sc::event<EvProcResponseFailed> {
+    EvProcResponseFailed() { }
+    static const char * Name() {
+        return "EvProcResponseFailed";
+    }
+};
+
+struct EvConnectionResetReq : sc::event<EvConnectionResetReq> {
+    EvConnectionResetReq(std::string host, std::string port) :
+        host_(host), port_(port) {
+    }
+    static const char * Name() {
+        return "EvConnectionResetReq";
+    }
+    std::string host_;
+    std::string port_;
 };
 
 // States
@@ -173,7 +191,8 @@ struct Idle : sc::simple_state<Idle, IFMapStateMachine> {
 // go to ServerResolve
 struct SsrcStart : sc::state<SsrcStart, IFMapStateMachine> {
     typedef mpl::list<
-        sc::custom_reaction<EvConnectionCleaned>
+        sc::custom_reaction<EvConnectionCleaned>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SsrcStart(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -183,12 +202,18 @@ struct SsrcStart : sc::state<SsrcStart, IFMapStateMachine> {
     sc::result react(const EvConnectionCleaned &event) {
         return transit<ConnectTimerWait>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // This state is used only on connect retries.
 struct ConnectTimerWait : sc::state<ConnectTimerWait, IFMapStateMachine> {
     typedef mpl::list<
-        sc::custom_reaction<EvConnectTimerExpired>
+        sc::custom_reaction<EvConnectTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     ConnectTimerWait(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -204,13 +229,20 @@ struct ConnectTimerWait : sc::state<ConnectTimerWait, IFMapStateMachine> {
     sc::result react(const EvConnectTimerExpired &event) {
         return transit<ServerResolve>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopConnectTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 struct ServerResolve : sc::state<ServerResolve, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvResolveSuccess>,
         sc::custom_reaction<EvResolveFailed>,
-        sc::custom_reaction<EvResponseTimerExpired>
+        sc::custom_reaction<EvResponseTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     ServerResolve(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -231,6 +263,12 @@ struct ServerResolve : sc::state<ServerResolve, IFMapStateMachine> {
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // Attempt to create the SSRC channel via connect i.e. 3-way HS. On success,
@@ -239,7 +277,8 @@ struct SsrcConnect : sc::state<SsrcConnect, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvConnectSuccess>,
         sc::custom_reaction<EvConnectFailed>,
-        sc::custom_reaction<EvResponseTimerExpired>
+        sc::custom_reaction<EvResponseTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SsrcConnect(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -262,6 +301,12 @@ struct SsrcConnect : sc::state<SsrcConnect, IFMapStateMachine> {
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // Perform the SSL handshake over the SSRC channel. On success, continue to
@@ -271,7 +316,8 @@ struct SsrcSslHandshake :
     typedef mpl::list<
         sc::custom_reaction<EvHandshakeSuccess>,
         sc::custom_reaction<EvHandshakeFailed>,
-        sc::custom_reaction<EvResponseTimerExpired>
+        sc::custom_reaction<EvResponseTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SsrcSslHandshake(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -293,6 +339,12 @@ struct SsrcSslHandshake :
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // Send the newSession request. If the write is successful, continue to
@@ -300,7 +352,8 @@ struct SsrcSslHandshake :
 struct SendNewSession : sc::state<SendNewSession, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvWriteSuccess>,
-        sc::custom_reaction<EvWriteFailed>
+        sc::custom_reaction<EvWriteFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SendNewSession(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -311,6 +364,11 @@ struct SendNewSession : sc::state<SendNewSession, IFMapStateMachine> {
         return transit<NewSessionResponseWait>();
     }
     sc::result react(const EvWriteFailed &event) {
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SetHostPort(event.host_, event.port_);
         return transit<SsrcStart>();
     }
 };
@@ -325,7 +383,9 @@ struct NewSessionResponseWait :
         sc::custom_reaction<EvReadSuccess>,
         sc::custom_reaction<EvReadFailed>,
         sc::custom_reaction<EvResponseTimerExpired>,
-        sc::custom_reaction<EvProcessResponse>
+        sc::custom_reaction<EvProcResponseSuccess>,
+        sc::custom_reaction<EvProcResponseFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     NewSessionResponseWait(my_context ctx) : my_base(ctx) {
         // ask channel to wait for newSession response
@@ -353,10 +413,21 @@ struct NewSessionResponseWait :
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
-    sc::result react(const EvProcessResponse &event) {
+    sc::result react(const EvProcResponseSuccess &event) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
         sm->channel()->ProcResponse(event.error_, event.bytes_);
         return discard_event();
+    }
+    sc::result react(const EvProcResponseFailed &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
     }
 };
 
@@ -365,7 +436,8 @@ struct NewSessionResponseWait :
 struct SendSubscribe : sc::state<SendSubscribe, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvWriteSuccess>,
-        sc::custom_reaction<EvWriteFailed>
+        sc::custom_reaction<EvWriteFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SendSubscribe(my_context ctx) : my_base(ctx) {
         // ask channel to send 'subscribe'
@@ -377,6 +449,11 @@ struct SendSubscribe : sc::state<SendSubscribe, IFMapStateMachine> {
         return transit<SubscribeResponseWait>();
     }
     sc::result react(const EvWriteFailed &event) {
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SetHostPort(event.host_, event.port_);
         return transit<SsrcStart>();
     }
 };
@@ -391,7 +468,9 @@ struct SubscribeResponseWait :
         sc::custom_reaction<EvReadSuccess>,
         sc::custom_reaction<EvReadFailed>,
         sc::custom_reaction<EvResponseTimerExpired>,
-        sc::custom_reaction<EvProcessResponse>
+        sc::custom_reaction<EvProcResponseSuccess>,
+        sc::custom_reaction<EvProcResponseFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SubscribeResponseWait(my_context ctx) : my_base(ctx) {
         // ask channel to wait for newSession response
@@ -418,10 +497,21 @@ struct SubscribeResponseWait :
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
-    sc::result react(const EvProcessResponse &event) {
+    sc::result react(const EvProcResponseSuccess &event) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
         sm->channel()->ProcResponse(event.error_, event.bytes_);
         return discard_event();
+    }
+    sc::result react(const EvProcResponseFailed &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
     }
 };
 
@@ -431,7 +521,8 @@ struct ArcConnect : sc::state<ArcConnect, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvConnectSuccess>,
         sc::custom_reaction<EvConnectFailed>,
-        sc::custom_reaction<EvResponseTimerExpired>
+        sc::custom_reaction<EvResponseTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     ArcConnect(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -454,6 +545,12 @@ struct ArcConnect : sc::state<ArcConnect, IFMapStateMachine> {
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // Perform the SSL handshake over the ARC channel. On success, continue to
@@ -462,7 +559,8 @@ struct ArcSslHandshake : sc::state<ArcSslHandshake, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvHandshakeSuccess>,
         sc::custom_reaction<EvHandshakeFailed>,
-        sc::custom_reaction<EvResponseTimerExpired>
+        sc::custom_reaction<EvResponseTimerExpired>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     ArcSslHandshake(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -484,6 +582,12 @@ struct ArcSslHandshake : sc::state<ArcSslHandshake, IFMapStateMachine> {
     sc::result react(const EvResponseTimerExpired &event) {
         return transit<SsrcStart>();
     }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->StopResponseTimer();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
+    }
 };
 
 // Send the poll request. If the write is successful, continue to
@@ -491,7 +595,8 @@ struct ArcSslHandshake : sc::state<ArcSslHandshake, IFMapStateMachine> {
 struct SendPoll : sc::state<SendPoll, IFMapStateMachine> {
     typedef mpl::list<
         sc::custom_reaction<EvWriteSuccess>,
-        sc::custom_reaction<EvWriteFailed>
+        sc::custom_reaction<EvWriteFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     SendPoll(my_context ctx) : my_base(ctx) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
@@ -502,6 +607,11 @@ struct SendPoll : sc::state<SendPoll, IFMapStateMachine> {
         return transit<PollResponseWait>();
     }
     sc::result react(const EvWriteFailed &event) {
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SetHostPort(event.host_, event.port_);
         return transit<SsrcStart>();
     }
 };
@@ -515,7 +625,9 @@ struct PollResponseWait :
     typedef mpl::list<
         sc::custom_reaction<EvReadSuccess>,
         sc::custom_reaction<EvReadFailed>,
-        sc::custom_reaction<EvProcessResponse>
+        sc::custom_reaction<EvProcResponseSuccess>,
+        sc::custom_reaction<EvProcResponseFailed>,
+        sc::custom_reaction<EvConnectionResetReq>
     > reactions;
     PollResponseWait(my_context ctx) : my_base(ctx) {
         // ask channel to wait for newSession response
@@ -536,10 +648,18 @@ struct PollResponseWait :
     sc::result react(const EvReadFailed &event) {
         return transit<SsrcStart>();
     }
-    sc::result react(const EvProcessResponse &event) {
+    sc::result react(const EvProcResponseSuccess &event) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
         sm->channel()->ProcResponse(event.error_, event.bytes_);
         return discard_event();
+    }
+    sc::result react(const EvProcResponseFailed &event) {
+        return transit<SsrcStart>();
+    }
+    sc::result react(const EvConnectionResetReq &event) {
+        IFMapStateMachine *sm = &context<IFMapStateMachine>();
+        sm->channel()->SetHostPort(event.host_, event.port_);
+        return transit<SsrcStart>();
     }
 };
 
@@ -552,7 +672,7 @@ IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                   "ifmap::StateMachine"),
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
-      state_(IDLE), last_state_(IDLE),
+      channel_(NULL), state_(IDLE), last_state_(IDLE),
       last_state_change_at_(0), last_event_at_(0) {
 }
 
@@ -748,9 +868,7 @@ void IFMapStateMachine::ProcPollWrite(
 void IFMapStateMachine::ProcPollResponseRead(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
-        // Dont need to call ProcErrorAndIgnore() since the error has already
-        // been processed by ProcResponse().
-        if (error == boost::asio::error::operation_aborted) {
+       if (ProcErrorAndIgnore(error)) {
             return;
         }
         EnqueueEvent(ifsm::EvReadFailed());
@@ -763,10 +881,14 @@ void IFMapStateMachine::ProcPollResponseRead(
 // NewSessionResponseWait, SubscribeResponseWait, PollResponseWait
 void IFMapStateMachine::ProcResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
-    if (error && ProcErrorAndIgnore(error)) {
-        return;
+    if (error) {
+        if (ProcErrorAndIgnore(error)) {
+            return;
+        }
+        EnqueueEvent(ifsm::EvProcResponseFailed());
+    } else {
+        EnqueueEvent(ifsm::EvProcResponseSuccess(error, bytes_transferred));
     }
-    EnqueueEvent(ifsm::EvProcessResponse(error, bytes_transferred));
 }
 
 // Returns true if the error can be ignored. False otherwise.
@@ -782,6 +904,11 @@ bool IFMapStateMachine::ProcErrorAndIgnore(
         channel_->IncrementTimedout();
     }
     return done;
+}
+
+void IFMapStateMachine::ResetConnectionReqEnqueue(const std::string &host,
+                                           const std::string &port) {
+    EnqueueEvent(ifsm::EvConnectionResetReq(host, port));
 }
 
 void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {
@@ -843,7 +970,7 @@ const std::string IFMapStateMachine::last_state_change_at() const {
 }
 
 void IFMapStateMachine::set_last_event(const std::string &event) { 
-    last_event_ = event; 
+    last_event_ = event;
     last_event_at_ = UTCTimestampUsec(); 
 }
 

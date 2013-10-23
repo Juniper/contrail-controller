@@ -42,6 +42,7 @@
 #include "bgp/bgp_sandesh.h"
 
 const int IFMapChannel::kSocketCloseTimeout = 2;
+const uint64_t IFMapChannel::kRetryConnectionMax = 2;
 
 using namespace boost::assign;
 using namespace std;
@@ -115,18 +116,16 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
     return;
 }
  
-IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& url,
-                           const std::string& user, const std::string& passwd,
-                           const std::string& certstore)
+IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
+                const std::string& passwd, const std::string& certstore)
     : manager_(manager), resolver_(*(manager->io_service())),
       ctx_(*(manager->io_service()), boost::asio::ssl::context::sslv3_client),
       ssrc_socket_(new SslStream((*manager->io_service()), ctx_)),
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
-      url_(url), username_(user), password_(passwd), response_state_(NONE),
-      sequence_number_(0), recv_msg_cnt_(0), sent_msg_cnt_(0),
-      reconnect_attempts_(0), connection_status_(NOCONN) {
+      username_(user), password_(passwd), state_machine_(NULL),
+      response_state_(NONE), sequence_number_(0), recv_msg_cnt_(0),
+      sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN) {
 
-    RetrieveHostPort(url);
     error_code ec;
     if (certstore.empty()) {
         ctx_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
@@ -138,23 +137,8 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& url,
     IFMAP_DEBUG(IFMapServerConnection, "Base64 auth string is", b64_auth_str_);
 }
 
-// url must be of the format https://host:port
-// Assuming this has been verified while reading command line params 
-void IFMapChannel::RetrieveHostPort(const std::string& url) {
-    string res1("https://");
-
-    // find the second : in the string
-    size_t pos2 = url.find(":", res1.length());
-
-    host_ = url.substr(res1.length(), pos2 - res1.length());
-    // get port starting with the byte after the second colon until the end.
-    port_ = url.substr(pos2 + 1);
-    IFMAP_DEBUG(IFMapUrlInfo, "IFMap server host is", host_,
-                "and port is", port_);
-}
-
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
-                              boost::asio::deadline_timer *socket_close_timer) {
+        boost::asio::deadline_timer *socket_close_timer) {
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
@@ -177,7 +161,18 @@ void IFMapChannel::CloseSockets(const boost::system::error_code& error,
     ssrc_socket_.reset(new SslStream((*manager_->io_service()), ctx_));
     arc_socket_.reset(new SslStream((*manager_->io_service()), ctx_));
 
-    state_machine_->ProcConnectionCleaned();
+    // If we have tried connecting to this peer enough times, lets try
+    // connecting to a new one, if available.
+    if (RetryNewHost()) {
+        clear_reconnect_attempts();
+        bool use_new = manager_->PeerDown();
+        // If a new one is not available, continue trying the current peer
+        if (!use_new) {
+            state_machine_->ProcConnectionCleaned();
+        }
+    } else {
+        state_machine_->ProcConnectionCleaned();
+    }
 }
 
 void IFMapChannel::ReconnectPreparation() {
@@ -712,22 +707,25 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     BgpSandeshContext *bsc = 
         static_cast<BgpSandeshContext *>(request->client_context());
 
-    IFMapChannel *channel =
-        bsc->ifmap_server->get_ifmap_manager()->channel();
-    IFMapStateMachine *sm =
-        bsc->ifmap_server->get_ifmap_manager()->state_machine();
-    IFMapPeerServerInfoResp *response = new IFMapPeerServerInfoResp();
+    IFMapManager *ifmap_manager = bsc->ifmap_server->get_ifmap_manager();
+    IFMapChannel *channel = ifmap_manager->channel();
+    IFMapStateMachine *sm = ifmap_manager->state_machine();
+
     IFMapPeerServerInfo server_info;
     IFMapPeerServerConnInfo server_conn_info;
     IFMapPeerServerStatsInfo server_stats;
     IFMapStateMachineInfo sm_info;
+    IFMapDSPeerInfo ds_peer_info;
 
-    server_info.set_url(channel->get_url());
-    server_info.set_connection_status(channel->get_connection_status());
+    server_info.set_url(ifmap_manager->get_url());
+    server_info.set_init_done(ifmap_manager->get_init_done());
 
     server_conn_info.set_publisher_id(channel->get_publisher_id());
     server_conn_info.set_session_id(channel->get_session_id());
     server_conn_info.set_sequence_number(channel->get_sequence_number());
+    server_conn_info.set_connection_status(channel->get_connection_status());
+    server_conn_info.set_host(channel->get_host());
+    server_conn_info.set_port(channel->get_port());
 
     server_stats.set_rx_msgs(channel->get_recv_msg_cnt());
     server_stats.set_tx_msgs(channel->get_sent_msg_cnt());
@@ -743,10 +741,14 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     sm_info.set_last_event(sm->last_event());
     sm_info.set_last_event_at(sm->last_event_at());
 
+    ifmap_manager->GetAllDSPeerInfo(&ds_peer_info);
+
+    IFMapPeerServerInfoResp *response = new IFMapPeerServerInfoResp();
     response->set_server_info(server_info);
     response->set_server_conn_info(server_conn_info);
     response->set_stats_info(server_stats);
     response->set_sm_info(sm_info);
+    response->set_ds_peer_info(ds_peer_info);
 
     response->set_context(request->context());
     response->set_more(false);
@@ -769,3 +771,63 @@ void IFMapPeerServerInfoReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+// START: temp instrumentation. Remove asap.
+string IFMapChannel::ArcSocketReadHandleRequest(int bytes_to_read,
+                                                size_t *bytes) {
+    if (temp_reply_str_.size()) {
+        *bytes = temp_reply_str_.size();
+    } else {
+        boost::system::error_code ec;
+        *bytes = boost::asio::read(*arc_socket_.get(), temp_reply_,
+                boost::asio::transfer_at_least(bytes_to_read), ec);
+        temp_reply_ss_ << &temp_reply_;
+        temp_reply_str_ = temp_reply_ss_.str();
+    }
+    return temp_reply_str_;
+}
+
+static bool IFMapSocketReadHandleRequest(const Sandesh *sr,
+                                         const RequestPipeline::PipeSpec ps,
+                                         int stage, int instNum,
+                                         RequestPipeline::InstData *data) {
+    const IFMapPeerServerSocketReadReq *request =
+        static_cast<const IFMapPeerServerSocketReadReq *>(ps.snhRequest_.get());
+    BgpSandeshContext *bsc = 
+        static_cast<BgpSandeshContext *>(request->client_context());
+
+    int bytes_to_read = request->get_bytes_to_read();
+
+    IFMapChannel *channel =
+        bsc->ifmap_server->get_ifmap_manager()->channel();
+    IFMapPeerServerSocketReadResp *response =
+        new IFMapPeerServerSocketReadResp();
+
+    size_t num_bytes = 0;
+    string socket_bytes_str = 
+        channel->ArcSocketReadHandleRequest(bytes_to_read, &num_bytes);
+
+    response->set_socket_bytes(num_bytes);
+    response->set_socket_string(socket_bytes_str);
+
+    response->set_context(request->context());
+    response->set_more(false);
+    response->Response();
+
+    // Return 'true' so that we are not called again
+    return true;
+}
+
+void IFMapPeerServerSocketReadReq::HandleRequest() const {
+    RequestPipeline::StageSpec s0;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+
+    s0.taskId_ = scheduler->GetTaskId("ifmap::StateMachine");
+    s0.cbFn_ = IFMapSocketReadHandleRequest;
+    s0.instances_.push_back(0);
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s0);
+    RequestPipeline rp(ps);
+}
+
+// END: temp instrumentation. Remove asap.

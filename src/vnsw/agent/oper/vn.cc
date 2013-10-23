@@ -11,13 +11,12 @@
 
 #include <cmn/agent_cmn.h>
 
+#include <oper/agent_route.h>
 #include <oper/interface.h>
 #include <oper/vn.h>
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
-#include <oper/inet4_route.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
+#include <oper/agent_route.h>
 #include <oper/mirror_table.h>
 
 #include <cfg/init_config.h>
@@ -141,6 +140,11 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
+    if (vn->vxlan_id_ != data->vxlan_id_) {
+        vn->vxlan_id_ = data->vxlan_id_;
+        ret = true;
+    }
+
     return ret;
 }
 
@@ -216,6 +220,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     VirtualNetwork *cfg = static_cast <VirtualNetwork *> (node->GetObject());
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
+    autogen::VirtualNetworkType properties = cfg->properties(); 
+    int vxlan_id = properties.network_id;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
@@ -283,7 +289,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
-                          mirror_cfg_acl_uuid, vn_ipam);
+                          mirror_cfg_acl_uuid, vn_ipam, vxlan_id);
     }
 
     req.key.reset(key);
@@ -324,10 +330,11 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
 void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
-                    const std::vector<VnIpam> &ipam) {
+                    const std::vector<VnIpam> &ipam, int vxlan_id) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
-    VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), nil_uuid(), ipam);
+    VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
+                              nil_uuid(), ipam, vxlan_id);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -431,9 +438,11 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
         if (vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {
             return;
         }
-        vrf->GetInet4UcRouteTable()->AddHostRoute(vrf->GetName(), 
-                                                  ipam.default_gw, 32, 
-                                                  vn->GetName());
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+            AddHostRoute(vrf->GetName(), 
+                         ipam.default_gw, 32, 
+                         vn->GetName());
         ipam.installed = true;
     }
 }
@@ -442,9 +451,11 @@ void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
 void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf && ipam.installed) {
-        vrf->GetInet4UcRouteTable()->DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                                               vrf->GetName(), 
-                                               ipam.default_gw, 32);
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+            DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                      vrf->GetName(), 
+                      ipam.default_gw, 32);
         ipam.installed = false;
     }
 }

@@ -121,7 +121,10 @@ string NHKState::EncapToString(const vector<signed char> &encap) {
 string NHKState::FlagsToString(short nh_flags) {
     unsigned short flags = nh_flags;
     string flag_str, policy_str("POLICY "), gre_str("TUNNEL_GRE ");
-    string multicast("MULTICAST");
+    string fabric_multicast("FABRIC_MULTICAST");
+    string l2_multicast("L2_MULTICAST");
+    string l3_multicast("L3_MULTICAST");
+    string multi_proto_multicast("MULTI_PROTO_MULTICAST");
     string ecmp("ECMP");
     string multicast_encap("MULTICAST_ENCAP");
     string mpls_udp_str("TUNNEL_MPLS_UDP ");
@@ -174,20 +177,38 @@ string NHKState::FlagsToString(short nh_flags) {
         }
     }
 
-    if (flags & NH_FLAG_COMPOSITE_MCAST) {
+    if (flags & NH_FLAG_COMPOSITE_FABRIC) {
         if (assigned) {
-            flag_str.append("| " + multicast);
+            flag_str.append("| " + fabric_multicast);
         } else {
-            flag_str.assign(multicast);
+            flag_str.assign(fabric_multicast);
             assigned = true;
         }
     }
 
-    if (flags & NH_FLAG_ENCAP_MCAST) {
+    if (flags & NH_FLAG_COMPOSITE_MULTI_PROTO) {
         if (assigned) {
-            flag_str.append("| " + multicast_encap);
+            flag_str.append("| " + multi_proto_multicast);
         } else {
-            flag_str.assign(multicast_encap);
+            flag_str.assign(multi_proto_multicast);
+            assigned = true;
+        }
+    }
+
+    if (flags & NH_FLAG_COMPOSITE_L2) {
+        if (assigned) {
+            flag_str.append("| " + l2_multicast);
+        } else {
+            flag_str.assign(l2_multicast);
+            assigned = true;
+        }
+    }
+
+    if (flags & NH_FLAG_COMPOSITE_L3) {
+        if (assigned) {
+            flag_str.append("| " + l3_multicast);
+        } else {
+            flag_str.assign(l3_multicast);
             assigned = true;
         }
     }

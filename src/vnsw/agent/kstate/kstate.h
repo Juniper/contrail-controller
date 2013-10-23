@@ -59,6 +59,7 @@ public:
     virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req);
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
+    virtual void VxLanMsgHandler(vr_vxlan_req *req);
     bool MoreData();
     void ResetCount() { count_ = 0; }
     static int GetMaxResponseCount() {

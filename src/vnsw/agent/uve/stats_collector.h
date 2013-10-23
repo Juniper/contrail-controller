@@ -15,18 +15,15 @@ public:
     enum StatsInstance {
         FlowStatsCollector,
         AgentStatsCollector,
-        VrouterStatsCollector,
     };
 
-    StatsCollector(uint32_t instance, boost::asio::io_service &io, 
+    StatsCollector(int task_id, int32_t instance, boost::asio::io_service &io, 
                    int exp, std::string timer_name) : run_counter_(0),
-                   timer_(TimerManager::CreateTimer(io, timer_name.c_str(), 
-                          TaskScheduler::GetInstance()->GetTaskId
-                          ("Agent::StatsCollector"), instance)), 
+                   timer_(TimerManager::CreateTimer(io, timer_name.c_str(),
+                          task_id, instance)),
                    timer_restart_trigger_(new TaskTrigger(
                           boost::bind(&StatsCollector::RestartTimer, this),
-                          TaskScheduler::GetInstance()->GetTaskId
-                          ("Agent::StatsCollector"), instance)), 
+                          task_id, instance)),
                    expiry_time_(exp) {
         timer_->Start(expiry_time_, 
                       boost::bind(&StatsCollector::TimerExpiry, this));

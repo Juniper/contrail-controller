@@ -6,8 +6,7 @@
 #define multicast_agent_oper_hpp
 
 #include <oper/nexthop.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
+#include <oper/agent_route.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
@@ -24,6 +23,9 @@ extern SandeshTraceBufferPtr MulticastTraceBuf;
 do {                                                                             \
     Multicast##obj::TraceMsg(MulticastTraceBuf, __FILE__, __LINE__, __VA_ARGS__);\
 } while (false);                                                                 \
+
+#define IS_BCAST_MCAST(grp)    ((grp.to_ulong() == 0xFFFFFFFF) || \
+                               ((grp.to_ulong() & 0xF0000000) == 0xE0000000))
 
 struct OlistTunnelEntry {
     OlistTunnelEntry() : label_(0), daddr_(0), tunnel_bmap_(0) { }
@@ -43,8 +45,11 @@ class MulticastGroupObject {
 public:
     MulticastGroupObject(const std::string &vrf_name, 
                          const Ip4Address &grp_addr,
-                         const std::string &vn_name) :
-        vrf_name_(vrf_name), grp_address_(grp_addr), vn_name_(vn_name) {
+                         const std::string &vn_name,
+                         bool multi_proto_support) :
+        vrf_name_(vrf_name), grp_address_(grp_addr), 
+        vn_name_(vn_name), multi_proto_support_(multi_proto_support),
+        layer2_route_added_(false) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -53,8 +58,11 @@ public:
     };     
     MulticastGroupObject(const std::string &vrf_name, 
                          const Ip4Address &grp_addr,
-                         const Ip4Address &src_addr) : 
-        vrf_name_(vrf_name), grp_address_(grp_addr), src_address_(src_addr) {
+                         const Ip4Address &src_addr,
+                         bool multi_proto_support) : 
+        vrf_name_(vrf_name), grp_address_(grp_addr), 
+        src_address_(src_addr), multi_proto_support_(multi_proto_support),
+        layer2_route_added_(false) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;
@@ -106,6 +114,12 @@ public:
     const std::string &GetVnName() { return vn_name_; };
     bool IsDeleted() { return deleted_; };
     void Deleted(bool val) { deleted_ = val; };
+    bool IsMultiProtoSupported() const {
+        return multi_proto_support_; 
+    };
+    bool Layer2RouteAdded() {return layer2_route_added_;};
+    void SetLayer2RouteAdded() {layer2_route_added_ = true;};
+    void ResetLayer2RouteAdded() {layer2_route_added_ = false;};
 
 private:
     std::string vrf_name_;
@@ -116,6 +130,8 @@ private:
     std::list<uuid> local_olist_; /* UUID of local i/f */
     TunnelOlist tunnel_olist_;
     bool deleted_;
+    bool multi_proto_support_;
+    bool layer2_route_added_;
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
@@ -145,6 +161,8 @@ public:
         }
         return obj_; 
     };
+    void AddChangeMultiProtocolCompositeNH(MulticastGroupObject *);
+    void TriggerL2CompositeNHChange(MulticastGroupObject *);
     //For test routines to clear all routes and mpls label
     static void Shutdown();
     //Multicast obj list addition deletion
@@ -162,6 +180,7 @@ private:
     };
 
     //Notification to propagate subnh in compnh list change
+    void AddChangeFabricCompositeNH(MulticastGroupObject *);
     void TriggerCompositeNHChange(MulticastGroupObject *);
     //Delete teh route and mpls label for the object
     void DeleteRouteandMPLS(MulticastGroupObject *);
@@ -209,9 +228,15 @@ private:
     { return vn_ipam_mapping_; };
 
     //broadcast rt add /delete
-    void AddBroadcastRoute(const std::string &vrf_name, const Ip4Address &addr);
+    void AddL2BroadcastRoute(const std::string &vrf_name, 
+                             const std::string &vn_name,
+                             const Ip4Address &addr);
+    void AddBroadcastRoute(const std::string &vrf_name, 
+                           const std::string &vn_name,
+                           const Ip4Address &addr);
     void DeleteBroadcastRoute(const std::string &vrf_name, 
-                              const Ip4Address &addr);
+                              const Ip4Address &addr,
+                              MulticastGroupObject *obj);
 
     //Subnet rt add /delete
     void AddSubnetRoute(const std::string &vrf_name, const Ip4Address &addr,

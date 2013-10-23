@@ -36,7 +36,7 @@ static string FileRead(const char *init_file) {
 // Validate parameters and add gateway configuration
 // Handles one gateway entry right now.
 bool VGwConfig::Add(const string &vrf, const string &interface,
-                    const Ip4Address &addr) {
+                    const Ip4Address &addr, uint8_t plen) {
     if (singleton_ != NULL) {
         delete singleton_;
     }
@@ -45,7 +45,7 @@ bool VGwConfig::Add(const string &vrf, const string &interface,
         return false;
     }
 
-    singleton_ = new VGwConfig(vrf, interface, addr);
+    singleton_ = new VGwConfig(vrf, interface, addr, plen);
     return true;
 }
 
@@ -94,6 +94,7 @@ void VGwConfig::Init(const char *init_file) {
         string vrf = "";
         string interface = "";
         Ip4Address addr = Ip4Address(0);
+        int plen = 0;
 
         try {
             opt_str = iter->second.get<string>("<xmlattr>.virtual-network");
@@ -108,9 +109,8 @@ void VGwConfig::Init(const char *init_file) {
             }
             interface = opt_str.get();
 
-            opt_str = node.get<string>("ip-address");
+            opt_str = node.get<string>("subnet");
             if (opt_str) {
-                int plen;
                 ec = Ip4PrefixParse(opt_str.get(), &addr, &plen);
                 if (ec != 0 || plen >= 32) {
                     continue;
@@ -122,7 +122,7 @@ void VGwConfig::Init(const char *init_file) {
             continue;
         }
 
-        Add(vrf, interface, addr);
+        Add(vrf, interface, addr, plen);
     }
     return;
 }

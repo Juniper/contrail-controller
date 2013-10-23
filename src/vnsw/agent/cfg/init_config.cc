@@ -21,10 +21,9 @@
 #include <oper/vm.h>
 #include <oper/vrf.h>
 #include <oper/nexthop.h>
-#include <oper/inet4_ucroute.h>
-#include <oper/inet4_mcroute.h>
 #include <oper/interface.h>
 #include <oper/mirror_table.h>
+#include <oper/agent_route.h>
 
 #include <cfg/init_config.h>
 #include <cfg/interface_cfg.h>
@@ -65,9 +64,13 @@ static string FileRead(const char *init_file) {
 static void CreateVhostBcastRoute(const string &vrf_name) {
     boost::system::error_code ec;
     Ip4Address bcast_ip = Ip4Address::from_string("255.255.255.255", ec);
-    Inet4McRouteTable *mc_rt_table =
-                Agent::GetInstance()->GetVrfTable()->GetInet4McRouteTable(vrf_name);
-    mc_rt_table->AddVHostRecvRoute(vrf_name, bcast_ip, false);
+    Inet4MulticastAgentRouteTable *mc_rt_table = 
+        static_cast<Inet4MulticastAgentRouteTable *>
+                (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name, 
+                                   AgentRouteTableAPIS::INET4_MULTICAST));
+    mc_rt_table->AddVHostRecvRoute(vrf_name,
+                                   Agent::GetInstance()->GetVirtualHostInterfaceName(),
+                                   bcast_ip, false);
 }
 
 AgentConfig::AgentConfig(const std::string &vhost_name,
@@ -94,7 +97,6 @@ AgentConfig::AgentConfig(const std::string &vhost_name,
       tunnel_type_(tunnel_type), cmd_params_(cmd_line) {
     assert(singleton_ == NULL);
     singleton_ = this;
-    XenIntfInitDone = false;
 }
 
 AgentConfig::~AgentConfig() { 
@@ -263,6 +265,32 @@ static void ParseHypervisor(ptree::const_iterator &iter, const string &fname,
 
 }
 
+static bool interface_exist(string &name)
+{
+	struct if_nameindex *ifs = NULL;
+	struct if_nameindex *head = NULL;
+	bool ret = false;
+	string tname = "";
+
+	ifs = if_nameindex();
+	if (ifs == NULL) {
+		LOG(INFO, "No interface exists!");
+		return ret;
+	}
+	head = ifs;
+	while (ifs->if_name && ifs->if_index) {
+		tname = ifs->if_name;
+		if (string::npos != tname.find(name)) {
+			ret = true;
+			name = tname;
+			break;
+		}
+		ifs++;
+	}
+	if_freenameindex(head);
+	return ret;
+}
+
 void AgentConfig::LogConfig() const {
     LOG(DEBUG, "vhost interface name        : " << vhost_name_);
     LOG(DEBUG, "vhost IP Address            : " << vhost_addr_ << "/" 
@@ -287,10 +315,6 @@ void AgentConfig::LogConfig() const {
 
 void AgentConfig::SetXenInfo(const string &ifname, Ip4Address addr,
                              int plen) {
-    if (XenIntfInitDone) {
-        return;
-    }
-
     if (ifname != "") {
         xen_ll_.name_ = ifname;
     }
@@ -390,6 +414,8 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
         } else if (iter->first == "hypervisor") {
             ParseHypervisor(iter, init_file, mode_str, xen_ll_name,
                             xen_ll_addr_str);
+        } else if (iter->first == "gateway") {
+            continue;
         } else if (iter->first == "<xmlcomment>") {
             continue;
         } else {
@@ -493,7 +519,7 @@ void AgentConfig::InitConfig(const char *init_file, AgentCmdLineParams cmd_line)
         }
     }
 
-    if (tunnel_str != "MPLSoUDP")
+    if ((tunnel_str != "MPLSoUDP") && (tunnel_str != "VXLAN"))
         tunnel_str = "MPLSoGRE";
 
     // Validate Discovery Server
@@ -579,9 +605,12 @@ void AgentConfig::OnItfCreate(DBEntryBase *entry, AgentConfig::Callback cb) {
 
     //Create Receive and resolve route
     if (GetVHostAddr() != "") {
-        Inet4UcRouteTable *rt_table;
+        Inet4UnicastAgentRouteTable *rt_table;
 
-        rt_table =Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(Agent::GetInstance()->GetDefaultVrf());
+        rt_table = static_cast<Inet4UnicastAgentRouteTable *>
+            (Agent::GetInstance()->GetVrfTable()->GetRouteTable(
+                                   Agent::GetInstance()->GetDefaultVrf(),
+                                   AgentRouteTableAPIS::INET4_UNICAST));
         boost::system::error_code ec;
         Ip4Address ip =Ip4Address::from_string(GetVHostAddr(), ec);
         assert(ec.value() == 0);
@@ -609,7 +638,7 @@ void AgentConfig::OnItfCreate(DBEntryBase *entry, AgentConfig::Callback cb) {
 
     Ip4Address default_dest_ip = Ip4Address::from_string("0.0.0.0", ec);
     Agent::GetInstance()->SetGatewayId(gw_ip);
-    Inet4UcRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
+    Inet4UnicastAgentRouteTable::AddGatewayRoute(Agent::GetInstance()->GetLocalPeer(),
                                      Agent::GetInstance()->GetDefaultVrf(),
                                      default_dest_ip, 0, gw_ip);
 
@@ -621,18 +650,20 @@ void AgentConfig::OnItfCreate(DBEntryBase *entry, AgentConfig::Callback cb) {
 SandeshTraceBufferPtr CfgTraceBuf(SandeshTraceBufferCreate("Config", 100));
 
 void AgentConfig::InitXenLinkLocalIntf() {
-    if (!singleton_->isXenMode() || singleton_->XenIntfInitDone ||
-        singleton_->xen_ll_.name_ == "") {
+    if (!singleton_->isXenMode() || singleton_->xen_ll_.name_ == "")
         return;
+    if(!interface_exist(singleton_->xen_ll_.name_)) {
+	LOG(INFO, "Interface " << singleton_->xen_ll_.name_ << " not found");
+	return;
     }
-
     VirtualHostInterface::CreateReq(singleton_->xen_ll_.name_, 
                                     Agent::GetInstance()->GetLinkLocalVrfName(), 
                                     VirtualHostInterface::LINK_LOCAL);
 
-    Inet4UcRouteTable *rt_table;
-    rt_table = Agent::GetInstance()->GetVrfTable()->GetInet4UcRouteTable(
-        Agent::GetInstance()->GetLinkLocalVrfName());
+    Inet4UnicastAgentRouteTable *rt_table;
+    rt_table = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(
+         Agent::GetInstance()->GetLinkLocalVrfName(), AgentRouteTableAPIS::INET4_UNICAST));
     rt_table->AddVHostRecvRoute(rt_table->GetVrfName(),
                                 singleton_->xen_ll_.name_, 
                                 singleton_->xen_ll_.addr_, false);
@@ -645,8 +676,6 @@ void AgentConfig::InitXenLinkLocalIntf() {
     rt_table->AddResolveRoute(rt_table->GetVrfName(),
                               singleton_->xen_ll_.prefix_,
                               singleton_->xen_ll_.plen_);
-
-    singleton_->XenIntfInitDone = true;
 }
 
 void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
@@ -686,6 +715,8 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
     EthInterface::CreateReq(singleton_->GetEthPort(), Agent::GetInstance()->GetDefaultVrf());
     if (singleton_->tunnel_type_ == "MPLSoUDP")
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
+    else if (singleton_->tunnel_type_ == "VXLAN")
+        TunnelType::SetDefaultType(TunnelType::VXLAN);
     else
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
 
@@ -696,23 +727,31 @@ void AgentConfig::Init(DB *db, const char *init_file, Callback cb) {
 
 static void DeleteRoutes() {
    boost::system::error_code ec;
-    Ip4Address ip = Ip4Address::from_string("255.255.255.255", ec);
-    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-                               ip, 32);
-    Inet4McRouteTable::DeleteReq(Agent::GetInstance()->GetDefaultVrf(), ip);
-    ip = Ip4Address::from_string("0.0.0.0", ec);
-    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-                               ip, 0);
+   Ip4Address bcast_ip = Ip4Address::from_string("255.255.255.255", ec);
+   Ip4Address ip = Ip4Address::from_string("0.0.0.0", ec);
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+                                          Agent::GetInstance()->GetDefaultVrf(),
+                                          bcast_ip, 32);
+   Inet4MulticastAgentRouteTable::DeleteMulticastRoute(Agent::GetInstance()->GetDefaultVrf(), 
+                                                       ip, bcast_ip);
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+                                          Agent::GetInstance()->GetDefaultVrf(),
+                                          ip, 0);
 
-   Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-                               Agent::GetInstance()->GetRouterId(), 32);
-    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-                               Agent::GetInstance()->GetGatewayId(), 32);
-    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-                               Agent::GetInstance()->GetRouterId(), Agent::GetInstance()->GetPrefixLen());
-    Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(),
-               Ip4Address(Agent::GetInstance()->GetRouterId().to_ulong() | ~(0xFFFFFFFF << (32 - Agent::GetInstance()->GetPrefixLen()))), 32);
-
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+                                          Agent::GetInstance()->GetDefaultVrf(),
+                                          Agent::GetInstance()->GetRouterId(), 32);
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+                                          Agent::GetInstance()->GetDefaultVrf(),
+                                          Agent::GetInstance()->GetGatewayId(), 32);
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+                                          Agent::GetInstance()->GetDefaultVrf(),
+                                          Agent::GetInstance()->GetRouterId(), 
+                                          Agent::GetInstance()->GetPrefixLen());
+   Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+            Agent::GetInstance()->GetDefaultVrf(),
+            Ip4Address(Agent::GetInstance()->GetRouterId().to_ulong() | 
+            ~(0xFFFFFFFF << (32 - Agent::GetInstance()->GetPrefixLen()))), 32);
 }
 
 
@@ -732,7 +771,8 @@ static void DeleteNextHop() {
     NextHopTable::Delete(key);
 
     key = new InterfaceNHKey(new HostInterfaceKey(nil_uuid(),
-                             Agent::GetInstance()->GetHostInterfaceName()), false);
+                             Agent::GetInstance()->GetHostInterfaceName()), false,
+                             InterfaceNHFlags::INET4);
     NextHopTable::Delete(key);
 }
 

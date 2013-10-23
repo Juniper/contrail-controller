@@ -164,13 +164,15 @@ public:
 
     bool FindArpRoute(uint32_t addr, const string &vrf_name) {
         Ip4Address ip(addr);
-        Inet4UcRouteKey rt_key(Peer::GetPeer(LOCAL_PEER_NAME), vrf_name,
+        Inet4UnicastRouteKey rt_key(Peer::GetPeer(LOCAL_PEER_NAME), vrf_name,
                              ip, 32);
         VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-        if (!vrf || !(vrf->GetInet4UcRouteTable()))
+        if (!vrf || !(vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)))
             return false;
-        Inet4UcRoute *rt =
-            static_cast<Inet4UcRoute *>(vrf->GetInet4UcRouteTable()->FindActiveEntry(&rt_key));
+        Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+            (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+             FindActiveEntry(&rt_key));
         if (rt)
             return true;
         else
@@ -180,10 +182,10 @@ public:
     void ArpNH(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
         ether_addr mac;
-        Inet4UcRouteTable::ArpRoute(op, ip, mac,
-                           Agent::GetInstance()->GetDefaultVrf(), 
-                           *Agent::GetInstance()->GetArpProto()->IPFabricIntf(),
-                           false, 32);
+        Inet4UnicastAgentRouteTable::ArpRoute(op, ip, mac, 
+                              Agent::GetInstance()->GetDefaultVrf(), 
+                              *Agent::GetInstance()->GetArpProto()->IPFabricIntf(),
+                              false, 32);
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
@@ -404,28 +406,30 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
 TEST_F(ArpTest, GratArpSendTest) {
     Ip4Address ip1 = Ip4Address::from_string("1.1.1.1");
     //Add a vhost rcv route and check that grat arp entry gets created
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->
-                          AddVHostRecvRoute(Agent::GetInstance()->GetDefaultVrf(),
-                                            "vhost0", ip1, false);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+                                                    Agent::GetInstance()->GetDefaultVrf(),
+                                                    "vhost0", ip1, false);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip1.to_ulong());
 
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(
-                          Agent::GetInstance()->GetLocalPeer(), 
-                          Agent::GetInstance()->GetDefaultVrf(), ip1, 32);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                                                    Agent::GetInstance()->GetLocalPeer(), 
+                                                    Agent::GetInstance()->GetDefaultVrf(),
+                                                    ip1, 32);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry() == NULL);
 
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->
-                          AddVHostRecvRoute(Agent::GetInstance()->GetDefaultVrf(),
-                                            "vhost0", ip2, false);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+                                                       Agent::GetInstance()->GetDefaultVrf(),
+                                                       "vhost0", ip2, false);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip2.to_ulong());
-    Agent::GetInstance()->GetDefaultInet4UcRouteTable()->DeleteReq(
-                          Agent::GetInstance()->GetLocalPeer(), 
-                          Agent::GetInstance()->GetDefaultVrf(), ip2, 32);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                                                    Agent::GetInstance()->GetLocalPeer(), 
+                                                    Agent::GetInstance()->GetDefaultVrf(),
+                                                    ip2, 32);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry() == NULL);
 }

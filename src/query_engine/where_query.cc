@@ -766,7 +766,7 @@ query_status_t WhereQuery::process_query()
             boost::uuids::uuid u; flow_stats stats;
             query_result[i].get_uuid_stats(u, stats);
 
-            QE_TRACE(DEBUG, "Looking up 8-tuple for UUID : "<<u);
+            //QE_TRACE(DEBUG, "Looking up 8-tuple for UUID : "<<u);
 
             // query UUID map to get 8-tuple
             std::map<boost::uuids::uuid, GenDb::DbDataValueVec>::iterator it;

@@ -32,7 +32,7 @@ class Ruleeng {
 
         bool rule_present(const boost::shared_ptr<VizMsg> vmsgp);
 
-        bool rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc);
+        bool rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc, DbHandler *db);
 
         void print(std::ostream& os) {
             rulelist_->print(os);
@@ -47,10 +47,10 @@ class Ruleeng {
 
         bool handle_uve_publish(const RuleMsg& rmsg);
 
-        bool handle_flow_object(const RuleMsg& rmsg);
+        bool handle_flow_object(const RuleMsg& rmsg, DbHandler *db);
 
         void handle_object_log(const pugi::xml_node& parent, const RuleMsg& rmsg,
-                const boost::uuids::uuid& unm);
+                const boost::uuids::uuid& unm, DbHandler *db);
 
         void remove_identifier(const pugi::xml_node& parent);
 };

@@ -6,7 +6,7 @@
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
 #include "oper/nexthop.h"
-#include "oper/inet4_ucroute.h"
+#include "oper/agent_route.h"
 #include "oper/mirror_table.h"
 #include "pkt/proto.h"
 #include "diag/diag_types.h"
@@ -103,8 +103,8 @@ void Ping::SendRequest() {
         break;
     }
 
-    Inet4Route *rt;
-    rt = Inet4UcRouteTable::FindRoute(vrf_name_, sip_);
+    RouteEntry *rt;
+    rt = Inet4UnicastAgentRouteTable::FindRoute(vrf_name_, sip_);
     if (!rt) {
         delete pkt_handler;
         return;
@@ -224,8 +224,8 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    Inet4Route *rt;
-    rt = Inet4UcRouteTable::FindRoute(get_vrf_name(), sip);
+    RouteEntry *rt;
+    rt = Inet4UnicastAgentRouteTable::FindRoute(get_vrf_name(), sip);
     const NextHop *nh = NULL;
     if (rt) {
         nh = rt->GetActiveNextHop();

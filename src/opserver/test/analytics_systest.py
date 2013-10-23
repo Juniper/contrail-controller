@@ -205,9 +205,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     @staticmethod
     def _check_skip_test():
-        if (sys.platform != "darwin") and \
-           (socket.gethostname() != 'build03') and \
-           (socket.gethostname() != 'build02'):
+        if (socket.gethostname() == 'build01'):
             logging.info("Skipping test")
             return True
         return False

@@ -109,7 +109,8 @@ def RedisLuaBuild(env, scr_name):
   env.Depends('redis_processor_vizd.cc','%s_lua.cpp' % scr_name)
 
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc', 
-                'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc']
+                'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc',
+                'redis_sentinel_client.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')

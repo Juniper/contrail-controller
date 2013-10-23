@@ -246,6 +246,12 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 req.set_fr_rflow_mir_vrf(nat_flow->data.mirror_vrf);
                 SetPcapData(nat_flow, pcap_data);
                 req.set_fr_rflow_pcap_meta_data(pcap_data);
+                if (nat_flow->data.trap) {
+                    req.set_fr_rflow_action(VR_FLOW_ACTION_TRAP);
+                    flags |= VR_FLOW_FLAG_TRAP_ECMP;
+                } else {
+                    req.set_fr_rflow_action(action);
+                }
             }
         }
 
@@ -299,14 +305,25 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             req.set_fr_rflow_mir_vrf(nat_flow->data.mirror_vrf);
             SetPcapData(nat_flow, pcap_data);
             req.set_fr_rflow_pcap_meta_data(pcap_data);
-        }  else {
+            if (nat_data->trap) {
+                req.set_fr_rflow_action(VR_FLOW_ACTION_TRAP);
+                flags |= VR_FLOW_FLAG_TRAP_ECMP;
+            } else {
+                req.set_fr_rflow_action(action);
+            }
+        } else {
             if (fe_->data.ecmp != true) {
                 req.set_fr_rindex(FlowEntry::kInvalidFlowHandle);
             }
         }
 
-        req.set_fr_flags(flags);
-        req.set_fr_action(action);
+        if (fe_->data.trap) {
+            req.set_fr_flags(flags | VR_FLOW_FLAG_TRAP_ECMP);
+            req.set_fr_action(VR_FLOW_ACTION_TRAP);
+        } else {
+            req.set_fr_flags(flags);
+            req.set_fr_action(action);
+        }
     }
 
     FillFlowInfo(op, action, flags);
@@ -318,7 +335,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 std::string FlowTableKSyncEntry::GetActionString(uint16_t action, 
                                                  uint16_t flags) {
     ostringstream action_str;
-    if (action & VR_FLOW_ACTION_DROP) {
+    if (action == VR_FLOW_ACTION_DROP) {
         action_str << "Drop: ";
     } 
 
@@ -407,6 +424,11 @@ bool FlowTableKSyncEntry::Sync() {
         }
     }
 
+    //Trap reverse flow
+    if (trap_flow_ != fe_->data.trap) {
+        trap_flow_ = fe_->data.trap;
+        changed = true;
+    }
     return changed;
 }
 

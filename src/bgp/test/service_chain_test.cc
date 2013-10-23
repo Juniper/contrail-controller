@@ -12,6 +12,7 @@
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
+#include <pugixml/pugixml.hpp>
 
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
@@ -31,7 +32,6 @@
 #include "ifmap/ifmap_server_parser.h"
 #include "ifmap/test/ifmap_test_util.h"
 #include "io/event_manager.h"
-#include <pugixml/pugixml.hpp>
 #include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"

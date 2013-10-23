@@ -12,6 +12,7 @@
 #include "kstate/mirror_kstate.h"
 #include "kstate/route_kstate.h"
 #include "kstate/flow_kstate.h"
+#include "kstate/vxlan_kstate.h"
 
 class TestKStateBase {
 public:

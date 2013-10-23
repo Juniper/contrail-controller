@@ -68,7 +68,7 @@ bool QEInfoLogger(const string &hostname) {
     ModuleCpuStateTrace::Send(state);
 
     qe_info_log_timer->Cancel();
-    qe_info_log_timer->Start(30*1000, boost::bind(&QEInfoLogTimer),
+    qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),
                                NULL);
     return true;
 }

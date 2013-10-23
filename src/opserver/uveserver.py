@@ -13,20 +13,65 @@ import json
 import copy
 import xmltodict
 import redis
-import base64
-import sys
 import datetime
 from opserver_util import OpServerUtils
 import re
+from gevent.coros import BoundedSemaphore
 
 
 class UVEServer(object):
 
-    def __init__(self, host, port):
+    def __init__(self, local_ip, local_port, redis_sentinel_client, service):
+        self._redis_sentinel_client = redis_sentinel_client
+        self._local_ip = local_ip
+        self._local_port = int(local_port)
+        self._service = service
+        self._uve_server_task = None
         self._redis = None
-        self._host = host
-        self._port = int(port)
-        self._redis = redis.StrictRedis(host=self._host, port=self._port, db=0)
+        self._redis_master_info = None
+        self._sem = BoundedSemaphore(1)
+        if redis_sentinel_client is not None:
+            self._redis_master_info = \
+                redis_sentinel_client.get_redis_master(service)
+            if self._redis_master_info is not None:
+                self._redis = redis.StrictRedis(self._redis_master_info[0],
+                                                self._redis_master_info[1],
+                                                db=0)
+                self._uve_server_task = gevent.spawn(self.run)
+    #end __init__
+
+    def set_redis_master(self, redis_master):
+        if self._redis_master_info != redis_master:
+            try:
+                self._sem.acquire()
+                if self._redis_master_info is not None:
+                    gevent.kill(self._uve_server_task)
+                self._redis_master_info = redis_master
+                self._redis = redis.StrictRedis(self._redis_master_info[0],
+                                                self._redis_master_info[1],
+                                                db=0)
+                self._uve_server_task = gevent.spawn(self.run)
+            except Exception as e:
+                print "Failed to set_redis_master: %s" % e
+                raise
+            finally:
+                self._sem.release()
+
+    #end set_redis_master
+
+    def reset_redis_master(self):
+        if self._redis_master_info is not None:
+            try:
+                self._sem.acquire()
+                self._redis_master_info = None
+                gevent.kill(self._uve_server_task)
+                self._redis = None
+            except Exception as e:
+                print "Failed to reset_redis_master: %s" % e
+                raise
+            finally:
+                self._sem.release()
+    #end reset_redis_master
 
     @staticmethod
     def merge_previous(state, key, typ, attr, prevdict):
@@ -59,9 +104,12 @@ class UVEServer(object):
         return nstate
 
     def run(self):
+        lck = False
         while True:
             try:
                 k, value = self._redis.brpop("DELETED")
+                self._sem.acquire()
+                lck = True
                 print "%s del received for " % value
                 info = value.rsplit(":", 4)
                 key = info[0].split(":", 1)[1]
@@ -104,15 +152,16 @@ class UVEServer(object):
 
                 self._redis.delete(value)
             except redis.exceptions.ConnectionError:
+                if lck:
+                    self._sem.release()
+                    lck = False
                 gevent.sleep(5)
-            except Exception as e:
-                print e
             else:
+                if lck:
+                    self._sem.release()
+                    lck = False
                 print "Deleted %s" % value
-
                 print "UVE %s Type %s" % (key, typ)
-            finally:
-                pass
 
     @staticmethod
     def _is_agg_item(attr):
@@ -171,7 +220,8 @@ class UVEServer(object):
             state = {}
             state[key] = {}
 
-            redish = redis.StrictRedis(host=self._host, port=self._port, db=0)
+            redish = redis.StrictRedis(host=self._local_ip,
+                                       port=self._local_port, db=0)
             statdict = {}
             for origs in redish.smembers("ORIGINS:" + key):
                 info = origs.rsplit(":", 2)
@@ -279,10 +329,8 @@ class UVEServer(object):
             # print json.dumps(state, indent = 4, sort_keys = True)
             pa = ParallelAggregator(state)
             rsp = pa.aggregate(key, flat)
-
-        except:
-            raise
-            print "Loss Connection to Redis"
+        except Exception as e:
+            print e
             return {}
         else:
             print "Computed %s" % key
@@ -345,7 +393,8 @@ class UVEServer(object):
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
         try:
-            redish = redis.StrictRedis(host=self._host, port=self._port, db=0)
+            redish = redis.StrictRedis(host=self._local_ip,
+                                       port=self._local_port, db=0)
             for entry in redish.smembers("TABLE:" + key):
                 info = (entry.split(':', 1)[1]).rsplit(':', 3)
                 uve_key = info[0]
@@ -618,7 +667,7 @@ class ParallelAggregator:
         return result
 
 if __name__ == '__main__':
-    uveserver = UVEServer("127.0.0.1", 6379)
+    uveserver = UVEServer(None, 0, None, None)
     gevent.spawn(uveserver.run())
     uve_state = json.loads(uveserver.get_uve("abc-corp:vn02", False))
     print json.dumps(uve_state, indent=4, sort_keys=True)

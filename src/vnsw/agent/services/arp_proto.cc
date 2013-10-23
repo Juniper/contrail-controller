@@ -8,7 +8,7 @@
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"
-#include "oper/inet4_route.h"
+#include "oper/agent_route.h"
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
 #include "services/arp_proto.h"
@@ -61,7 +61,8 @@ void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         ArpHandler::SendArpIpc(ArpHandler::VRF_DELETE, 0, vrf);
         if (state) {
-            vrf->GetInet4UcRouteTable()->Unregister(fabric_route_table_listener_);
+            vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->
+                Unregister(fabric_route_table_listener_);
             entry->ClearState(part->parent(), vid_);
             delete state;
         }
@@ -72,14 +73,15 @@ void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         state = new ArpVrfState;
         //Set state to seen
         state->seen_ = true;
-        fabric_route_table_listener_ = vrf->GetInet4UcRouteTable()->
+        fabric_route_table_listener_ = vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->
             Register(boost::bind(&ArpProto::RouteUpdate, this,  _1, _2));
         entry->SetState(part->parent(), vid_, state);
     }
 }
 
 void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
-    Inet4UcRoute *route = static_cast<Inet4UcRoute *>(entry);
+    Inet4UnicastRouteEntry *route = static_cast<Inet4UnicastRouteEntry *>(entry);
     ArpRouteState *state;
 
     state = static_cast<ArpRouteState *>
@@ -234,15 +236,20 @@ bool ArpHandler::HandlePacket() {
 
     //Look for subnet broadcast
     Ip4Address arp_addr(arp_tpa_);
-    Inet4Route *route = vrf->GetInet4UcRouteTable()->FindLPM(arp_addr);
+    RouteEntry *route = 
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+            FindLPM(arp_addr);
     if (route) {
-        if (route->IsSbcast()) {
+        if (route->IsMulticast()) {
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "ARP : ignoring broadcast address");
             return true;
         }
 
-        uint8_t plen = route->GetPlen();
+        Inet4UnicastRouteEntry *uc_rt = 
+            static_cast<Inet4UnicastRouteEntry *>(route);
+        uint8_t plen = uc_rt->GetPlen();
         uint32_t mask = (plen == 32) ? 0xFFFFFFFF : (0xFFFFFFFF >> plen);
         if (!(arp_tpa_ & mask) || !(arp_tpa_)) {
             arp_proto->StatsErrors();
@@ -610,7 +617,7 @@ void ArpNHClient::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
         assert(0);
     }
 
-	Agent::GetInstance()->GetDefaultInet4UcRouteTable()->ArpRoute(
+	Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
                               op, ip, mac, vrf_name, intf, resolved, 32);
 }
 

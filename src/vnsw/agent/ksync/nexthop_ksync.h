@@ -31,7 +31,8 @@ public:
         component_nh_list_(entry->component_nh_list_),
         nh_(entry->nh_), vlan_tag_(entry->vlan_tag_), 
         is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
-        tunnel_type_(entry->tunnel_type_) {
+        is_layer2_(entry->is_layer2_),
+        comp_type_(entry->comp_type_), tunnel_type_(entry->tunnel_type_) {
     };
 
     NHKSyncEntry(const NextHop *nh);
@@ -48,6 +49,7 @@ public:
     const NextHop *GetNH() { return nh_; };
 
     NextHop::Type GetType() const {return type_;};
+    TunnelType::Type GetTunnelType() const {return tunnel_type_.GetType();};
     IntfKSyncEntry *GetIntf() const { 
         return static_cast<IntfKSyncEntry *>(interface_.get());
     }
@@ -92,6 +94,8 @@ private:
     const NextHop *nh_;
     uint16_t vlan_tag_;
     bool is_local_ecmp_nh_;
+    bool is_layer2_;
+    COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };

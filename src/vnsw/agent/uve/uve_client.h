@@ -97,12 +97,16 @@ struct UveIntfEntry {
 
 class UveClient {
 public:
+    // The below const values are dependent on value of
+    // VrouterStatsCollector::VrouterStatsInterval
+    static const uint8_t bandwidth_mod_1min = 2;
+    static const uint8_t bandwidth_mod_5min = 10;
+    static const uint8_t bandwidth_mod_10min = 20;
     UveClient(uint64_t b_intvl) : 
         vn_vmlist_updates_(0), vn_vm_set_(), vn_intf_map_(),
         vm_intf_map_(), phy_intf_set_(), vn_listener_id_(DBTableBase::kInvalidId),
         vm_listener_id_(DBTableBase::kInvalidId),
-        intf_listener_id_(DBTableBase::kInvalidId),
-        agent_stats_trigger_(NULL), agent_stats_timer_(NULL), prev_stats_(),
+        intf_listener_id_(DBTableBase::kInvalidId), prev_stats_(),
         prev_vrouter_(), last_vm_uve_set_(), last_vn_uve_set_(),
         port_bitmap_(), bandwidth_intvl_(b_intvl), 
         signal_(*(Agent::GetInstance()->GetEventManager()->io_service())) {
@@ -158,12 +162,14 @@ public:
     void AddIntfToIfStatsTree(const Interface *intf);
     void DelIntfFromIfStatsTree(const Interface *intf);
 
-    void VrouterObjectIntfNotify(const Interface *intf, bool if_list);
+    void VrouterObjectIntfNotify(const Interface *intf);
     void IntfWalkDone(DBTableBase *base, std::vector<std::string> *intf_list,
-                      std::vector<std::string> *err_if_list);
+                      std::vector<std::string> *err_if_list,
+                      std::vector<std::string> *nova_if_list);
     bool AppendIntf(DBTablePartBase *part, DBEntryBase *entry,
                     std::vector<std::string> *intf_list,
-                    std::vector<std::string> *err_if_list);
+                    std::vector<std::string> *err_if_list, 
+                    std::vector<std::string> *nova_if_list);
 
     void VrouterObjectVmNotify(const VmEntry *vm);
     void VmWalkDone(DBTableBase *base, std::vector<std::string> *vm_list);
@@ -175,7 +181,6 @@ public:
     bool AppendVn(DBTablePartBase *part, DBEntryBase *entry,
             std::vector<std::string> *vn_list);
     bool SendAgentStats();
-    bool AgentStatsTimer();
 
     // Update flow port bucket information
     void NewFlow(const FlowEntry *flow);
@@ -252,8 +257,6 @@ private:
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     DBTableBase::ListenerId vrf_listener_id_;
-    TaskTrigger *agent_stats_trigger_;
-    Timer *agent_stats_timer_;
     VrouterStatsAgent prev_stats_;
     VrouterAgent prev_vrouter_;
     LastVmUveSet last_vm_uve_set_;

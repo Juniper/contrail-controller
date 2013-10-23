@@ -41,8 +41,9 @@ public:
         mac_(entry->mac_), ip_(entry->ip_),
         policy_enabled_(entry->policy_enabled_),
         analyzer_name_(entry->analyzer_name_),
+        mirror_direction_(entry->mirror_direction_),
         active_(false), os_index_(Interface::kInvalidIndex), 
-        sub_type_(entry->sub_type_) {
+        network_id_(entry->network_id_), sub_type_(entry->sub_type_) {
     };
 
     IntfKSyncEntry(const Interface *intf) :
@@ -55,12 +56,14 @@ public:
             sub_type_(VirtualHostInterface::HOST) {
         // Max name size supported by kernel
         assert(strlen(ifname_.c_str()) < IF_NAMESIZE);
+        network_id_ = 0;
         if (type_ == Interface::VMPORT) {
             const VmPortInterface *vmitf = 
                 static_cast<const VmPortInterface *>(intf);
             if (vmitf->IsDhcpSnoopIp()) {
                 ip_ = vmitf->GetIpAddr().to_ulong();
             }
+            network_id_ = vmitf->GetVxLanId();
         }
     };
 
@@ -112,7 +115,8 @@ public:
 
         uint32_t vrf_id = VIF_VRF_INVALID;
         bool policy_enabled = false;
-        std::string analyzer_name;
+        std::string analyzer_name;    
+        Interface::MirrorDirection mirror_direction;
         bool has_service_vlan = false;
         if (active_) {
             vrf_id = intf->GetVrfId();
@@ -130,6 +134,11 @@ public:
                     policy_enabled = vm_port->IsPolicyEnabled();
                 }
                 analyzer_name = vm_port->GetAnalyzer();
+                mirror_direction = vm_port->GetMirrorDirection();
+                if (network_id_ != vm_port->GetVxLanId()) {
+                    network_id_ = vm_port->GetVxLanId();
+                    ret = true;
+                }
             }
         }
 
@@ -151,7 +160,12 @@ public:
 
         if (analyzer_name_ != analyzer_name) {
             analyzer_name_ = analyzer_name;
-            return true;
+            ret = true;
+        }
+
+        if (mirror_direction_ != mirror_direction) {
+            mirror_direction_ = mirror_direction;
+            ret = true;
         }
 
         if (has_service_vlan_ != has_service_vlan) {
@@ -169,6 +183,7 @@ public:
     const string &GetName() const {return ifname_;};
     void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info);
     bool HasServiceVlan() const {return has_service_vlan_;};
+    int GetNetworkId() const {return network_id_;};
 
 private:
     friend class IntfKSyncObject;
@@ -183,8 +198,10 @@ private:
     uint32_t ip_;
     bool policy_enabled_;
     string analyzer_name_;
+    Interface::MirrorDirection mirror_direction_;
     bool active_;
     size_t os_index_;
+    int network_id_;
     VirtualHostInterface::SubType sub_type_;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
 };

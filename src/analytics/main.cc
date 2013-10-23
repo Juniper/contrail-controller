@@ -203,18 +203,15 @@ int main(int argc, char *argv[])
                  std::vector<std::string>(), "127.0.0.1:9160"),
          "cassandra server list")
         ("analytics-data-ttl", opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
-            "global TTL(days) for analytics data")
+            "global TTL(hours) for analytics data")
         ("discovery-server", opt::value<string>(),
          "IP address of Discovery Server")
         ("discovery-port",
          opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
          "Port of Discovery Server")
-        ("redis-ip",
-         opt::value<string>()->default_value("127.0.0.1"),
-         "redis server ip")
-        ("redis-port",
-         opt::value<int>()->default_value(ContrailPorts::RedisUvePort),
-         "redis server port")
+        ("redis-sentinel-port",
+         opt::value<int>()->default_value(ContrailPorts::AnalyticsRedisSentinelPort),
+         "Redis Sentinel port")
         ("listen-port",
          opt::value<int>()->default_value(ContrailPorts::CollectorPort),
          "vizd listener port")
@@ -282,8 +279,7 @@ int main(int argc, char *argv[])
     }
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << var_map["listen-port"].as<int>());
-    LOG(INFO, "COLLECTOR REDIS SERVER: " << var_map["redis-ip"].as<string>());
-    LOG(INFO, "COLLECTOR REDIS PORT: " << var_map["redis-port"].as<int>());
+    LOG(INFO, "COLLECTOR REDIS SENTINEL PORT: " << var_map["redis-sentinel-port"].as<int>());
     LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
     LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
 
@@ -291,8 +287,8 @@ int main(int argc, char *argv[])
             var_map["listen-port"].as<int>(),
             cassandra_ip,
             cassandra_port,
-            var_map["redis-ip"].as<string>(),
-            var_map["redis-port"].as<int>(),
+            string("127.0.0.1"),
+            var_map["redis-sentinel-port"].as<int>(),
             var_map["gen-timeout"].as<int>(),
             dup,
             var_map["analytics-data-ttl"].as<int>());

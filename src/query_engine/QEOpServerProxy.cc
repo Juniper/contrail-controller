@@ -218,6 +218,7 @@ public:
     struct Stage0Merge {
         Input inp;
         bool ret_code;
+        uint32_t fm_time;
         BufferT result;
     };
     bool QueryMerge(const std::vector<boost::shared_ptr<Stage0Out> > & subs,
@@ -225,7 +226,8 @@ public:
 
         res.ret_code = true;
         res.inp = subs[0]->inp;
-
+        res.fm_time = 0;
+        
         std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> > qsubs;
         for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
                 it!=subs.end(); it++) {
@@ -238,7 +240,10 @@ public:
         if (!res.ret_code) return true;
 
         if (res.inp.need_merge) {
+            uint64_t then = UTCTimestampUsec();
             res.ret_code = qosp_->qe_->QueryFinalMerge(res.inp.qp, qsubs, res.result);
+            uint64_t now = UTCTimestampUsec();
+            res.fm_time = static_cast<uint32_t>((now - then)/1000);
         } else {
             res.result.first = string();
             // TODO : If a merge was not needed, results have been sent to 
@@ -257,6 +262,8 @@ public:
 
     struct Output {
         Input inp;
+        uint32_t redis_time;
+        uint32_t fm_time;
         bool ret_code;
     };
     ExternalBase::Efn QueryResp(uint32_t inst, const vector<RedisT*> & exts,
@@ -277,7 +284,8 @@ public:
                     vector<string> const * const res = jsonresult.get();
                     vector<string>::size_type idx = 0;
                     uint32_t rownum = 0;
-
+                    
+                    uint64_t then = UTCTimestampUsec();
                     char stat[80];
                     string key = "REPLY:" + ret.inp.qp.qid;
                     if (!inp.ret_code) {
@@ -305,6 +313,9 @@ public:
                         sprintf(stat,"{\"progress\":100, \"lines\":%d, \"count\":%d}",
                             (int)rownum, (int)res->size());
                     }
+                    uint64_t now = UTCTimestampUsec();
+                    ret.redis_time = static_cast<uint32_t>((now - then)/1000);
+                    ret.fm_time = inp.fm_time;
                     QE_LOG_NOQID(DEBUG,  "QE Query Result is " << stat);
                     return boost::bind(&RedisAsyncArgCommand,
                             conns_[ret.inp.cnum].get(), _1,
@@ -355,7 +366,9 @@ public:
                     //g_viz_constants.COLLECTOR_GLOBAL_TABLE 
                     QE_LOG_NOQID(INFO, "Finished: QID " << ret.inp.qp.qid <<
                         " Table " << inp.result.first <<
-                        " Time(us) " << qtime <<
+                        " Time(ms) " << qtime <<
+                        " RedisTime(ms) " << ret.redis_time <<
+                        " MergeTime(ms) " << ret.fm_time <<
                         " Rows " << inp.result.second.size() <<
                         " EnQ-delay" << enq_delay);
 

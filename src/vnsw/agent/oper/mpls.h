@@ -39,14 +39,14 @@ public:
     static void CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
                                 uint16_t tag);
     static void CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
-                                    bool policy);
+                                    bool policy, InterfaceNHFlags::Type type);
     static void CreateVirtualHostPortLabelReq(uint32_t label,
                                               const string &ifname,
                                               bool policy);
     static void CreateMcastLabelReq(const string &vrf_name, 
                                     const Ip4Address &grp_addr,
                                     const Ip4Address &src_addr, 
-                                    uint32_t src_label);
+                                    uint32_t src_label, COMPOSITETYPE type);
     static void CreateEcmpLabelReq(uint32_t label, const std::string &vrf_name,
                                    const Ip4Address &addr);
     static void DeleteMcastLabelReq(const string &vrf_name, 
@@ -93,9 +93,11 @@ public:
                (new VirtualHostInterfaceKey(nil_uuid(), intf_name), policy)) {
     }
 
-    MplsLabelData(const uuid &intf_uuid, bool policy) : 
+    MplsLabelData(const uuid &intf_uuid, bool policy, 
+                  InterfaceNHFlags::Type type) : 
         AgentData(), 
-        nh_key(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), policy)) {
+        nh_key(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), 
+               policy, type)) {
     }
 
     MplsLabelData(const uuid &intf_uuid, int tag) : 
@@ -105,14 +107,15 @@ public:
     MplsLabelData(const string &vrf_name, const Ip4Address &grp_addr,
                   bool local_ecmp_nh) : 
          AgentData(), 
-         nh_key(new CompositeNHKey(vrf_name, grp_addr, local_ecmp_nh)){
-    }
+         nh_key(new CompositeNHKey(vrf_name, grp_addr, local_ecmp_nh)) {
+         }
 
     //MplsLabelData(const NextHopKey &nh) : AgentData(), nh_key(nh) { };
     MplsLabelData(const string &vrf_name, const Ip4Address &grp_addr,
-                  const Ip4Address &src_addr, bool local_ecmp_nh) : 
-         AgentData(), 
-         nh_key(new CompositeNHKey(vrf_name, grp_addr, src_addr, local_ecmp_nh)){
+                  const Ip4Address &src_addr, bool local_ecmp_nh, 
+                  COMPOSITETYPE comp_type) : 
+        AgentData(), nh_key(new CompositeNHKey(vrf_name, grp_addr, src_addr, 
+                                               local_ecmp_nh, comp_type)) { 
     }
 
     virtual ~MplsLabelData() { 

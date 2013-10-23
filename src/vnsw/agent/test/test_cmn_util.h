@@ -61,6 +61,8 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
 bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
                   uint64_t out_bytes, uint64_t out_pkts);
 bool VmPortInactive(int id);
+std::string VmPortGetAnalyzerName(int id);
+Interface::MirrorDirection VmPortGetMirrorDirection(int id);
 bool VmPortInactive(PortInfo *input, int id);
 EthInterface *EthInterfaceGet(const char *name);
 VmPortInterface *VmPortInterfaceGet(int id);
@@ -88,15 +90,17 @@ void AclDelReq(int id);
 void AclAddReq(int id, int ace_id, bool drop);
 bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool RouteFind(const string &vrf_name, const string &addr, int plen);
+bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &saddr,
                  const Ip4Address &daddr);
 bool MCRouteFind(const string &vrf_name, const Ip4Address &addr);
 bool MCRouteFind(const string &vrf_name, const string &saddr,
                  const string &daddr);
 bool MCRouteFind(const string &vrf_name, const string &addr);
-Inet4UcRoute *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
-Inet4McRoute *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
-Inet4McRoute *MCRouteGet(const string &vrf_name, const string &grp_addr);
+Inet4UnicastRouteEntry *RouteGet(const string &vrf_name, const Ip4Address &addr, int plen);
+Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &grp_addr);
+Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_addr);
+Layer2RouteEntry *L2RouteGet(const string &vrf_name, const struct ether_addr &mac);
 bool TunnelNHFind(const Ip4Address &server_ip);
 bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type type);
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
@@ -147,11 +151,12 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 const char *nat_dip, uint16_t nat_sport, int16_t nat_dport);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
-             std::string svn, std::string dvn, uint32_t hash_id);
+             std::string svn, std::string dvn, uint32_t hash_id, 
+             int rflow_vrf = -1);
 bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, bool fwd, 
-             bool nat);
+             bool nat, int rflow_vrf = -1);
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id);
@@ -159,7 +164,7 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
                    uint16_t sport, uint16_t dport);
 bool FlowStatsMatch(const string &vrf_name, const char *sip, const char *dip,
                     uint8_t proto, uint16_t sport, uint16_t dport,
-                    uint16_t pkts, uint16_t bytes);
+                    uint64_t pkts, uint64_t bytes);
 bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport, bool nat,
               const string &nat_vrf_name, const char *nat_sip,
@@ -178,10 +183,18 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
 
 bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t discards, uint64_t resolves, uint64_t receives, 
-                   uint64_t tunnels, uint64_t composites, uint64_t encaps);
+                   uint64_t udp_tunnels, uint64_t udp_mpls_tunnels, 
+                   uint64_t gre_mpls_tunnels, uint64_t ecmp_composites, 
+                   uint64_t fabric_composites, uint64_t l2_composites,
+                   uint64_t l3_composites, uint64_t multi_proto_composites,
+                   uint64_t encaps, uint64_t l2_encaps);
 bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves, 
-                       uint64_t receives, uint64_t tunnels, 
-                       uint64_t composites, uint64_t encaps);
+                   uint64_t receives, uint64_t udp_tunnels, 
+                   uint64_t udp_mpls_tunnels, uint64_t gre_mpls_tunnels, 
+                   uint64_t ecmp_composites, uint64_t fabric_composites, 
+                   uint64_t l2_composites, uint64_t l3_composites, 
+                   uint64_t multi_proto_composites, uint64_t encaps, 
+                   uint64_t l2_encaps);
 bool RouterIdMatch(Ip4Address rid2);
 bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
 bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen);
@@ -199,5 +212,7 @@ NextHop *GetNH(NextHopKey *key);
 bool VmPortServiceVlanCount(int id, unsigned int count);
 void AddEncapList(const char *encap1, const char *encap2, const char *encap3);
 void DelEncapList();
+void EnableEvpn();
+void DisableEvpn();
 int MplsToVrfId(int label);
 #endif // vnsw_agent_test_cmn_util_h
