@@ -18,7 +18,7 @@ setup(
         'gevent==0.13.6',
         'geventhttpclient==1.0a',
         'pycassa==1.7.2',
-        'netaddr==0.7.5',
+        'netaddr>=0.7.5',
         'bitarray==0.8.0',
         'psutil==0.4.1',
     ]
