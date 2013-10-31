@@ -371,9 +371,8 @@ private:
 class BgpConfigManager {
 public:
     static const char *kMasterInstance;
-    static const int kDefaultPort = 179;
-    static const int kConfigTaskInstanceId = 0;
-    static const as_t kDefaultAutonomousSystem = 64512;
+    static const int kDefaultPort;
+    static const as_t kDefaultAutonomousSystem;
 
     enum EventType {
         CFG_NONE,
@@ -434,6 +433,7 @@ private:
     bool ConfigHandler();
 
     static int config_task_id_;
+    static const int kConfigTaskInstanceId;
 
     DB *db_;
     DBGraph *db_graph_;
