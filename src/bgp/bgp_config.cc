@@ -18,8 +18,11 @@
 using namespace std;
 
 int BgpConfigManager::config_task_id_ = -1;
+const int BgpConfigManager::kConfigTaskInstanceId = 0;
 const char *BgpConfigManager::kMasterInstance =
         "default-domain:default-project:ip-fabric:__default__";
+const int BgpConfigManager::kDefaultPort = 179;
+const as_t BgpConfigManager::kDefaultAutonomousSystem = 64512;
 
 BgpNeighborConfig::AddressFamilyList
     BgpNeighborConfig::default_addr_family_list_;
