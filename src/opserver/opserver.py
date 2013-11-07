@@ -32,9 +32,8 @@ from redis_sentinel_client import RedisSentinelClient
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
-from sandesh.mirror.ttypes import *
-from sandesh.vns.ttypes import Module
-from sandesh.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES
 from sandesh.viz.constants import *
