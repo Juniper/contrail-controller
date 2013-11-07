@@ -9,8 +9,6 @@ setup(
     version='0.1dev',
     packages=['opserver',
               'opserver.sandesh',
-              'opserver.sandesh.mirror',
-              'opserver.sandesh.vns',
               'opserver.sandesh.viz',
               'opserver.sandesh.analytics_cpuinfo',
               'opserver.sandesh.analytics_cpuinfo.cpuinfo'],

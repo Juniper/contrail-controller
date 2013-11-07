@@ -50,8 +50,8 @@ from cfgm_common.uve.virtual_machine.ttypes import VMLog
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
     UveVirtualNetworkConfigTrace, VnPolicy, VNLog
 from cfgm_common.uve.vrouter.ttypes import VRLog
-from cfgm_common.sandesh.vns.ttypes import Module
-from cfgm_common.sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 from provision_defaults import Provision
 from gen.resource_xsd import *
 from gen.resource_common import *
