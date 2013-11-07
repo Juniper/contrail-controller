@@ -13,8 +13,8 @@ from uve.cfgm_cpuinfo.ttypes import *
 from uve.cfgm_cpuinfo.cpuinfo.ttypes import *
 from buildinfo import build_info
 
-from sandesh.vns.ttypes import Module
-from sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 
 # CpuInfo object for config-node
 

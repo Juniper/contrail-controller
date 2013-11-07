@@ -8,8 +8,6 @@ setup(
     version='0.1dev',
     packages=['cfgm_common',
               'cfgm_common.ifmap',
-              'cfgm_common.sandesh',
-              'cfgm_common.sandesh.vns',
               'cfgm_common.uve',
               'cfgm_common.uve.acl',
               'cfgm_common.uve.service_instance',

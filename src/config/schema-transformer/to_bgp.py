@@ -39,8 +39,8 @@ from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from cfgm_common.sandesh.vns.ttypes import Module
-from cfgm_common.sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
 import discovery.client as client

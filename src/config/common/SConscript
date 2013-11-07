@@ -63,21 +63,6 @@ for file in sandesh_base_sources:
     sandesh_base_sources_rules.append(env.Install("cfgm_common/uve/cfgm_cpuinfo/", file))
 env.Depends(sandesh_base_sources_rules, sandesh_base_gen_py_files)
 
-sandesh_common_dirs = [ 'vns' ]
-for file in sandesh_common_dirs:
-    Dir('../../sandesh/common/gen_py/' + file)
-sandesh_common_files = sandesh_common_dirs 
-sandesh_common_sources = ['gen_py/' + ssrc for ssrc in sandesh_common_files]
-sandesh_common_sources_rules = []
-
-for file in sandesh_common_sources:
-    sandesh_common_sources_rules.append(env.Install("cfgm_common/sandesh", "../../sandesh/common/" + file))
-env.Depends(sandesh_common_sources_rules, Dir('../../sandesh/common/gen_py/'))
-
-sandesh_common_init_rules = [env.Install("cfgm_common/sandesh",
-                                         File('../../sandesh/common/gen_py/__init__.py'))]
-env.Requires(sandesh_common_init_rules, sandesh_common_sources_rules)
-
 rel_path = Dir('cfgm_common').path
 def BuildInfoAction(target, source, env):
     env.GenerateBuildInfoPyCode(path=rel_path)
@@ -90,8 +75,6 @@ sdist_depends.extend(local_sources_rules)
 sdist_depends.extend(ifmap_sources_rules)
 sdist_depends.extend(sandesh_sources_rules)
 sdist_depends.extend(sandesh_init_rules)
-sdist_depends.extend(sandesh_common_init_rules)
-sdist_depends.extend(sandesh_common_sources_rules)
 sdist_depends.extend(sandesh_base_sources_rules)
 sdist_depends.extend(build_info_rules)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
