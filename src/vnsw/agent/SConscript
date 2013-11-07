@@ -52,8 +52,6 @@ env.Prepend(
         'kstate',
         'net',
         'sandeshflow',
-        'sandeshmirror',
-        'sandeshvns',
         'sandeshvns',
         'filter',
         'vgw',
