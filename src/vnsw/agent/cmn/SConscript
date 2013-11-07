@@ -21,8 +21,6 @@ buildinfo_dep_libs = [
     '#build/lib/libpugixml.a',
     '../../../../lib/libsandesh.a',
     '../../../../lib/libsandeshflow.a', 
-    '../../../../lib/libsandeshmirror.a',
-    '../../../../lib/libsandeshvns.a',
     '../../../../lib/libsandeshvns.a',
     '../../../base/libbase.a',
     '../../../base/libcpuinfo.a',
