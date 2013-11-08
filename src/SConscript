@@ -50,7 +50,7 @@ common = DefaultEnvironment().Clone()
 
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
-common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare -Wno-unused-local-typedefs')
 common.Append(CPPPATH = include)
 
 BuildEnv = common.Clone()

@@ -1,6 +1,6 @@
 # -*- mode: python; -*-
 
-vpath = '#/third_party/log4cplus-1.0.4'
+vpath = '#/third_party/log4cplus-1.1.1'
 
 env = DefaultEnvironment()
 
