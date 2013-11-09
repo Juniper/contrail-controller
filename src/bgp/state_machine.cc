@@ -1558,9 +1558,10 @@ bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
 
     if (ec.validate.empty() || ec.validate(this)) {
 
-        // Reduce log level for periodic keep alive messages.
+        // Reduce log level for keepalive and update messages.
         if (get_state() == ESTABLISHED &&
-            TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive") {
+            (TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive" ||
+             TYPE_NAME(*ec.event) == "fsm::EvBgpUpdate")) {
             log_level = SandeshLevel::UT_DEBUG;
         }
         SM_LOG(log_level,
