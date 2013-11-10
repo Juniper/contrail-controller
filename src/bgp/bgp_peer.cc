@@ -782,7 +782,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         }
     }
 
-    
+
     RoutingInstance *instance = GetRoutingInstance();
     if (msg->nlri.size() || msg->withdrawn_routes.size()) {
         InetTable *table =
@@ -793,8 +793,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             return;
         }
 
-        BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-                           table, "Process Nlri::Unicast routes");
         for (vector<BgpProtoPrefix *>::const_iterator it =
              msg->withdrawn_routes.begin(); it != msg->withdrawn_routes.end();
              ++it++) {
@@ -806,7 +804,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             table->Enqueue(&req);
             inc_rx_route_unreach();
         }
-        
+
         for (vector<BgpProtoPrefix *>::const_iterator it = msg->nlri.begin();
              it != msg->nlri.end(); ++it) {
             DBRequest req;
@@ -853,9 +851,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             InetTable *table =
                 static_cast<InetTable *>(instance->GetTable(family));
             assert(table);
-            BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
-                               BGP_LOG_FLAG_SYSLOG, table,
-                               "Process BgpMpNlri::Unicast routes");
 
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
@@ -874,9 +869,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             InetVpnTable *table = 
               static_cast<InetVpnTable *>(instance->GetTable(family));
             assert(table);
-            BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
-                               BGP_LOG_FLAG_SYSLOG, table,
-                               "Process BgpMpNlri::Vpn routes");
 
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
@@ -898,9 +890,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             EvpnTable *table =
               static_cast<EvpnTable *>(instance->GetTable(family));
             assert(table);
-            BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG,
-                               BGP_LOG_FLAG_SYSLOG, table,
-                               "Process BgpMpNlri::EVpn routes");
 
             vector<BgpProtoPrefix *>::const_iterator it;
             size_t label_offset = 34;
