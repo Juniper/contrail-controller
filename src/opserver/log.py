@@ -15,8 +15,8 @@ import argparse
 import json
 import datetime
 from opserver.opserver_util import OpServerUtils
-from opserver.sandesh.vns.ttypes import Module
-from opserver.sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 import opserver.sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
