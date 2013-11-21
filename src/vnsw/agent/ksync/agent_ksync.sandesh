@@ -81,3 +81,13 @@ traceobject sandesh KSyncVxLan {
     1: KSyncVxLanInfo info;
 }
 
+struct KSyncFlowInfo {
+    1: u32 flow_index;
+    2: string op;
+    3: string action;
+}
+
+traceobject sandesh KSyncFlow {
+    1: KSyncFlowInfo info;
+}
+

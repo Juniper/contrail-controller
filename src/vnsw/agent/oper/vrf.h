@@ -96,7 +96,8 @@ private:
     friend class VrfTable;
     class DeleteActor;
     static void DelPeerDone(DBTableBase *base, DBState *state, 
-                            uint8_t table_type, const string &name);
+                            uint8_t table_type, const string &name,
+                            Peer *peer);
     string name_;
     uint32_t id_;
     int vxlan_id_;

@@ -71,7 +71,11 @@ void DnsAgentXmppChannel::HandleAgentUpdate(
                 change = xmpp_data->DelItem(*iter);
                 op = BindUtil::DELETE_UPDATE;
             } else {
-                change = xmpp_data->AddItem(*iter);
+                change = xmpp_data->AddItem(*iter, true);
+                if (!change) {
+                    op = BindUtil::CHANGE_UPDATE;
+                    change = true;
+                }
             }
 
             if (!change) {

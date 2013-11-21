@@ -33,9 +33,6 @@
 #include "vr_interface.h"
 #include "vr_types.h"
 
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
-
 #include "test/test_cmn_util.h"
 #include "test/pkt_gen.h"
 #include <uve/uve_init.h>
@@ -58,15 +55,6 @@ static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
 
 static void TxIpPacket(int ifindex, const char *sip, const char *dip, 
                             int proto) {
-    PktGen *pkt = new PktGen();
-    MakeIpPacket(pkt, ifindex, sip, dip, proto);
-    uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
-    memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
-    delete pkt;
-}
-
-static void TcpIpPacket(int ifindex, const char *sip, const char *dip, int proto, int vlan) {
     PktGen *pkt = new PktGen();
     MakeIpPacket(pkt, ifindex, sip, dip, proto);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
@@ -122,7 +110,8 @@ TEST_F(PktTest, FlowAdd_1) {
     TxIpPacket(intf->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    EthInterface::CreateReq("vnet0", Agent::GetInstance()->GetDefaultVrf());
+    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                            "vnet0", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);
     

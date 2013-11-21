@@ -30,9 +30,11 @@ public:
           address_str_(address_str),
           label_block_(new LabelBlock(1000, 1500 -1)) {
         boost::system::error_code ec;
-        address_ = Ip4Address::from_string(address_str.c_str(), ec);
-        BgpAttrLabelBlock label_block(label_block_);
         BgpAttrSpec attr_spec;
+        address_ = Ip4Address::from_string(address_str.c_str(), ec);
+        BgpAttrNextHop nexthop(address_.to_ulong());
+        attr_spec.push_back(&nexthop);
+        BgpAttrLabelBlock label_block(label_block_);
         attr_spec.push_back(&label_block);
         attr = server_->attr_db()->Locate(attr_spec);
     }
@@ -297,7 +299,7 @@ protected:
         Ip4Address group = Ip4Address::from_string(group_str.c_str(), ec);
         Ip4Address source = Ip4Address::from_string(source_str.c_str(), ec);
 
-        BGP_DEBUG_UT("Table" << tm->table_->name());
+        BGP_DEBUG_UT("Table " << tm->table_->name());
         for (McastTreeManager::PartitionList::iterator it =
                 tm->partitions_.begin();
                 it != tm->partitions_.end(); ++it) {

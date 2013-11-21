@@ -91,6 +91,14 @@ const string FLOW_TABLE_ALL_FIELDS  = "FlowTableAllFields"
 const string FLOW_TABLE_VROUTER     = "FlowTableVRouter"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 
+const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
+const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64Tag"
+const string STATS_TABLE_BY_STR_DBL_TAG     = "StatsTableByStrDblTag"
+const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTag"
+const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64Tag"
+const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTag"
+
+
 enum FlowRecordFields {
    FLOWREC_FLOWUUID,
    FLOWREC_DIRECTION_ING,
@@ -262,6 +270,68 @@ struct query_table
     3: list<string> columnvalues;
     4: string display_name;
 }
+
+struct stat_table
+{
+    1: string stat_type;
+    2: string stat_attr;
+    3: string obj_table;
+    5: list<query_column> attributes;
+}
+
+const string STAT_OBJECTID_FIELD = "name";
+const string STAT_TIME_FIELD     = "T";
+const string STAT_TIMEBIN_FIELD  = "T=";
+const string STAT_UUID_FIELD     = "UUID";
+const string STAT_VT_PREFIX      = "StatTable";
+
+const list<stat_table> _STAT_TABLES  = [
+    {
+      'stat_type' : 'AnalyticsCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'stat_type' : 'QueryPerfInfo',
+      'stat_attr' : 'query_stats',
+      'obj_table' : COLLECTOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'query_stats.time', 'datatype' : 'int',   'index' : true},
+          { 'name' : 'query_stats.rows', 'datatype' : 'int',   'index' : true},
+          { 'name' : 'query_stats.table','datatype' : 'string','index' : true},
+          { 'name' : 'query_stats.qid',  'datatype' : 'string','index' : true},
+          { 'name' : 'query_stats.where'      ,'datatype' : 'string','index' : false},
+          { 'name' : 'query_stats.select'     ,'datatype' : 'string','index' : false},
+          { 'name' : 'query_stats.post'       ,'datatype' : 'string','index' : false},
+          { 'name' : 'query_stats.time_span'  ,'datatype' : 'int',   'index' : false},
+          { 'name' : 'query_stats.chunks'             ,'datatype' : 'int','index' : false},
+          { 'name' : 'query_stats.chunk_where_time'   ,'datatype' : 'int','index' : false},
+          { 'name' : 'query_stats.chunk_select_time'  ,'datatype' : 'int','index' : false},
+          { 'name' : 'query_stats.chunk_postproc_time','datatype' : 'int','index' : false},
+          { 'name' : 'query_stats.chunk_merge_time'   ,'datatype' : 'int','index' : false},
+          { 'name' : 'query_stats.final_merge_time'   ,'datatype' : 'int','index' : false},
+        ]
+    },
+    {
+      'stat_type' : 'UveVirtualNetworkAgent',
+      'stat_attr' : 'vn_stats',
+      'obj_table' : VN_TABLE,
+      'attributes': [
+          { 'name' : 'vn_stats.other_vn',  'datatype' : 'string', 'index' : true},
+          { 'name' : 'vn_stats.vrouter',   'datatype' : 'string', 'index' : true},
+          { 'name' : 'vn_stats.in_tpkts',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'vn_stats.in_bytes',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'vn_stats.out_tpkts', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'vn_stats.out_bytes', 'datatype' : 'int',    'index' : false},
+        ]
+    },
+]
 
 const list<query_table> _TABLES = [
     {

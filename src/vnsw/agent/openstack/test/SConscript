@@ -24,7 +24,7 @@ if sys.platform != 'darwin':
     env.Append(LIBS = ['gunit'])
 
 
-    nova_info_server_test = env.Program('nova_info_server_test',
+    nova_info_server_test = env.Program(target = 'nova_info_server_test',
                                         source = ['instance_service_test.cc'])
     env.Alias('src/vnsw/agent/nova:nova_info_server_test', nova_info_server_test)
 

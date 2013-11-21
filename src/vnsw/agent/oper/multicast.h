@@ -139,6 +139,9 @@ private:
 /* Static class for handling multicast objects common functionalities */
 class MulticastHandler {
 public:
+    MulticastHandler(Agent *agent) : agent_(agent) { obj_ = this; }
+    virtual ~MulticastHandler() { }
+
     /* Called by XMPP to add ctrl node sent olist and label */
     static void ModifyFabricMembers(const std::string &vrf_name, 
                                     const Ip4Address &group,
@@ -156,9 +159,6 @@ public:
 
     //Singleton object reference
     static MulticastHandler *GetInstance() { 
-        if (obj_ == NULL) {
-            obj_ = new MulticastHandler();
-        }
         return obj_; 
     };
     void AddChangeMultiProtocolCompositeNH(MulticastGroupObject *);
@@ -278,10 +278,9 @@ private:
         return this->vm_to_mcobj_list_[uuid];
     };
 
-    MulticastHandler() { };
-    virtual ~MulticastHandler() { };
-
     static MulticastHandler *obj_;
+
+    Agent *agent_;
     //TODO modify to use Backreference tool 
     //VN uuid as key and list of VM interface pointers as data 
     std::map<uuid, std::list<const VmPortInterface *> > unresolved_subnet_vm_list_;
@@ -295,6 +294,7 @@ private:
     std::map<uuid, string> vn_vrf_mapping_;
     //VM uuid <-> VN uuid
     std::map<uuid, uuid> vm_vn_mapping_;
+    DISALLOW_COPY_AND_ASSIGN(MulticastHandler);
 };
 
 #endif /* multicast_agent_oper_hpp */

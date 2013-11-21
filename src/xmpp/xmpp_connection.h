@@ -15,11 +15,11 @@
 #include "xmpp/xmpp_session.h"
 
 class LifetimeActor;
+class TcpServer;
+class TcpSession;
 class XmppChannelConfig;
 class XmppServer;
 class XmppSession;
-class TcpSession;
-class TcpServer;
 
 class XmppConnection {
 public:
@@ -38,6 +38,7 @@ public:
     virtual ~XmppConnection();
 
     void SetConfig(const XmppChannelConfig *);
+
     // Invoked from XmppServer when a session is accepted.
     virtual bool AcceptSession(XmppSession *session);
     virtual void ReceiveMsg(XmppSession *session, const std::string &); 
@@ -210,7 +211,7 @@ private:
 
 class XmppServerConnection : public XmppConnection {
 public:
-    XmppServerConnection(TcpServer *server, const XmppChannelConfig *config);
+    XmppServerConnection(XmppServer *server, const XmppChannelConfig *config);
     virtual ~XmppServerConnection();
     virtual bool IsClient() const;
     virtual void ManagedDelete();

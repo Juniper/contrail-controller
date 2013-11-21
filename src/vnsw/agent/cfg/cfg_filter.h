@@ -5,17 +5,19 @@
 #ifndef vnsw_cfg_filter_h
 #define vnsw_cfg_filter_h
 
+class AgentConfig;
+
 class CfgFilter {
 public:
-    CfgFilter() { };
+    CfgFilter(AgentConfig *cfg) : agent_cfg_(cfg) { };
     virtual ~CfgFilter() { };
 
-    static void Init();
-    static void Shutdown();
+    void Init();
+    void Shutdown();
 private:
+    AgentConfig *agent_cfg_;
     bool CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
                        int property_id);
-    static CfgFilter *singleton_;
     DISALLOW_COPY_AND_ASSIGN(CfgFilter);
 };
 

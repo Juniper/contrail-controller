@@ -46,7 +46,11 @@ void HttpServer::RegisterHandler(const string &path, HttpHandlerFn handler) {
 HttpServer::HttpHandlerFn HttpServer::GetHandler(const string &path) {
     HandlerTrie::iterator iter = http_handlers_.find(path);
     if (iter == http_handlers_.end()) {
-	return NULL;
+        // check if wildcard entry is present
+        iter = http_handlers_.find(HTTP_WILDCARD_ENTRY);
+        if (iter == http_handlers_.end()) {
+    	    return NULL;
+        }
     }
     return iter->second;
 }

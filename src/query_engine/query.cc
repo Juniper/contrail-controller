@@ -16,6 +16,7 @@
 #include <boost/assign/list_of.hpp>
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
+#include "stats_select.h"
 
 using std::map;
 using std::string;
@@ -65,6 +66,8 @@ PostProcessingQuery::PostProcessingQuery(
 
     QE_TRACE(DEBUG, __func__ );
 
+    json_string_ = "";
+
     for (iter = json_api_data.begin(); iter != json_api_data.end(); iter++)
     {
         if (iter->first == QUERY_SORT_OP)
@@ -75,6 +78,8 @@ PostProcessingQuery::PostProcessingQuery(
             sorting_type = (sort_op)tmp;
             m_query->merge_needed = true;
             QE_TRACE(DEBUG, "sorting_type :" << sorting_type);
+            json_string_ += iter->second;
+            json_string_ += " ";
         }
         
         if (iter->first == QUERY_LIMIT)
@@ -82,6 +87,8 @@ PostProcessingQuery::PostProcessingQuery(
             std::istringstream(iter->second) >> limit;
             m_query->merge_needed = true;
             QE_TRACE(DEBUG, "limit :"<< limit);
+            json_string_ += iter->second;
+            json_string_ += " ";
         }
 
         if (iter->first == QUERY_SORT_FIELDS)
@@ -89,6 +96,8 @@ PostProcessingQuery::PostProcessingQuery(
             rapidjson::Document d;
             std::string json_string = "{ \"sort_fields\" : " + 
                 iter->second + " }";
+            json_string_ += json_string;
+            json_string_ += " ";
 
             d.Parse<0>(const_cast<char *>(json_string.c_str()));
             const rapidjson::Value& json_sort_fields =
@@ -114,6 +123,8 @@ PostProcessingQuery::PostProcessingQuery(
             rapidjson::Document d;
             std::string json_string = "{ \"filter\" : " + 
                 iter->second + " }";
+            json_string_ += json_string;
+            json_string_ += " ";
 
             d.Parse<0>(const_cast<char *>(json_string.c_str()));
             const rapidjson::Value& json_filters =
@@ -226,7 +237,13 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 }
 
 // this is to get parallelization details once the query is parsed
-void AnalyticsQuery::get_query_details(bool& is_merge_needed, std::vector<uint64_t>& chunk_sizes, int& parse_status)
+void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_output,
+        std::vector<uint64_t>& chunk_sizes,
+        std::string& where,
+        std::string& select,
+        std::string& post,
+        uint64_t& time_period,
+        int& parse_status)
 {
     QE_TRACE(DEBUG, "time_slice is " << time_slice);
     if (status_details == 0)
@@ -246,7 +263,19 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, std::vector<uint64
 
     parse_status = status_details;
 
-    is_merge_needed = merge_needed;
+    if (is_stat_table_query()) {
+        is_merge_needed = selectquery_->stats_->IsMergeNeeded();
+    } else {
+        is_merge_needed = merge_needed;
+    }
+
+    where = wherequery_->json_string_;
+    if (parse_status == 0) {
+        select = selectquery_->json_string_;
+        post = postprocess_->json_string_;
+    }
+    time_period = (end_time - from_time) / 1000000;
+    is_map_output = is_stat_table_query();
 }
 
 AnalyticsQuery::AnalyticsQuery(GenDb::GenDbIf *db_if, std::string qid,
@@ -254,6 +283,9 @@ AnalyticsQuery::AnalyticsQuery(GenDb::GenDbIf *db_if, std::string qid,
     uint64_t analytics_start_time) : QueryUnit(NULL, this),
     filter_qe_logs(true),
     json_api_data_(json_api_data),
+    where_start_(0),
+    select_start_(0),
+    postproc_start_(0),
     merge_needed(false),
     parallel_batch_num(0),
     total_parallel_batches(1),
@@ -431,6 +463,11 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         QE_LOG_GLOBAL(DEBUG, "Error in PostProcess parsing");
         return;
     }
+
+    if (this->is_stat_table_query()) {
+        selectquery_->stats_->SetSortOrder(postprocess_->sort_fields);
+    }
+
     // just to take care of issues with Analytics start time 
          if (from_time > end_time)
             from_time = end_time - 1; 
@@ -471,6 +508,8 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     } else {
         // No parallelization
         QE_LOG_GLOBAL(DEBUG, "No parallelization for this query");
+        merge_needed = false;
+        parallelize_query_ = false;
         time_slice = end_time - from_time;
     }
 
@@ -550,6 +589,37 @@ void query_result_unit_t::get_uuid_stats(boost::uuids::uuid& u,
     }
 
     return;
+}
+
+void query_result_unit_t::set_stattable_info(
+        const std::string& attribstr,
+        const boost::uuids::uuid& uuid) {
+    info.push_back(attribstr);
+    info.push_back(uuid);
+}
+
+void  query_result_unit_t::get_stattable_info(
+            std::string& attribstr,
+            boost::uuids::uuid& uuid) {
+
+    int index = 0;
+
+    try {
+        attribstr = boost::get<std::string>(info.at(index++));
+    } catch (boost::bad_get& ex) {
+        QE_ASSERT(0);
+    } catch (const std::out_of_range& oor) {
+        QE_ASSERT(0);
+    }
+
+    try {
+        uuid = boost::get<boost::uuids::uuid>(info.at(index++));
+    } catch (boost::bad_get& ex) {
+        QE_ASSERT(0);
+    } catch (const std::out_of_range& oor) {
+        QE_ASSERT(0);
+    }
+
 }
 
 // Get UUID and stats and 8-tuple
@@ -667,7 +737,11 @@ query_status_t AnalyticsQuery::process_query()
     }
 
     QE_TRACE(DEBUG, "Start Where Query Processing");
+    where_start_ = UTCTimestampUsec();
     query_status = wherequery_->process_query();
+    qperf_.chunk_where_time =
+            static_cast<uint32_t>((UTCTimestampUsec() - where_start_)/1000);
+
     status_details = wherequery_->status_details;
     if (query_status != QUERY_SUCCESS) 
     {
@@ -677,8 +751,12 @@ query_status_t AnalyticsQuery::process_query()
     QE_TRACE(DEBUG, "End Where Query Processing");
 
     QE_TRACE(DEBUG, "Start Select Processing");
+    select_start_ = UTCTimestampUsec();
     query_status = selectquery_->process_query();
     status_details = selectquery_->status_details;
+    qperf_.chunk_select_time =
+            static_cast<uint32_t>((UTCTimestampUsec() - select_start_)/1000);
+
     if (query_status != QUERY_SUCCESS)
     {
         QE_LOG(DEBUG, 
@@ -686,12 +764,17 @@ query_status_t AnalyticsQuery::process_query()
         return query_status;
     }
     QE_TRACE(DEBUG, "End Select Processing. row #s:" << 
-            selectquery_->result_->second.size());
+            selectquery_->result_->size());
 
     QE_TRACE(DEBUG, "Start PostProcessing");
+    postproc_start_ = UTCTimestampUsec();
     query_status = postprocess_->process_query();
     status_details = postprocess_->status_details;
+    qperf_.chunk_postproc_time =
+            static_cast<uint32_t>((UTCTimestampUsec() - postproc_start_)/1000);
+
     final_result = postprocess_->result_;
+    final_mresult = postprocess_->mresult_;
     if (query_status != QUERY_SUCCESS)
     {
         QE_LOG(DEBUG, 
@@ -699,7 +782,7 @@ query_status_t AnalyticsQuery::process_query()
         return query_status;
     }
     QE_TRACE(DEBUG, "End PostProcessing. row #s:" << 
-            final_result->second.size());
+            final_result->size());
 
     return QUERY_SUCCESS;
 }
@@ -711,9 +794,12 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(),
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
+            cassandra_ip, cassandra_port, 0, "QueryEngine")),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
+        where_start_(0),
+        select_start_(0),
+        postproc_start_(0),        
         merge_needed(false),
         parallel_batch_num(batch),
         total_parallel_batches(total_batches),
@@ -781,9 +867,12 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
         QueryUnit(NULL, this),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(),
             boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
+            cassandra_ip, cassandra_port, 0, "QueryEngine")),
         filter_qe_logs(true),
         json_api_data_(json_api_data),
+        where_start_(0),
+        select_start_(0),
+        postproc_start_(0),  
         merge_needed(false),
         parallel_batch_num(0),
         total_parallel_batches(1),
@@ -855,17 +944,21 @@ QueryEngine::QueryEngine(EventManager *evm,
     init_vizd_tables();
 
     // Initialize database connection
-    QE_TRACE_NOQID(DEBUG, "Initializing QE without database!");
+    QE_LOG_NOQID(DEBUG, "Initializing QE without database!");
 
-    stime = UTCTimestampUsec();
+    uint64_t curr_time = UTCTimestampUsec();
+    QE_LOG_NOQID(DEBUG, "Could not find analytics start time");
+    uint64_t ttl = QueryEngine::anal_ttl*60*60*1000000;
+    stime = curr_time - ttl;
+    QE_LOG_NOQID(DEBUG, "set stime to " << stime << "and AnalyticsTTL to " << g_viz_constants.AnalyticsTTL);
 }
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
-            const std::string & redis_ip, unsigned short redis_port) :    
+            const std::string & redis_ip, unsigned short redis_port, uint64_t start_time) :    
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), 
             boost::bind(&QueryEngine::db_err_handler, this),
-            cassandra_ip, cassandra_port, false, 0, "QueryEngine")),
+            cassandra_ip, cassandra_port, 0, "QueryEngine")),
         qosp_(new QEOpServerProxy(evm,
             this, redis_ip, redis_port)),
         evm_(evm),
@@ -922,41 +1015,49 @@ QueryEngine::QueryEngine(EventManager *evm,
             sleep(5);
         }
     }
-    GenDb::ColList col_list;
-    std::string cfname = g_viz_constants.SYSTEM_OBJECT_TABLE;
-    GenDb::DbDataValueVec key;
-    key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
+    if (start_time != 0) {
+        stime = start_time;
+    } else {
+        bool init_done = false;
+        retries = 0;
+        while (!init_done && retries < 5) {
+            GenDb::ColList col_list;
+            std::string cfname = g_viz_constants.SYSTEM_OBJECT_TABLE;
+            GenDb::DbDataValueVec key;
+            key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
-    bool init_done = false;
-    retries = 0;
-    while (!init_done && retries < 5) {
-        if (dbif_->Db_GetRow(col_list, cfname, key)) {
-            for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
-                    it != col_list.columns_.end(); it++) {
-                std::string col_name;
-                try {
-                    col_name = boost::get<std::string>(it->name[0]);
-                } catch (boost::bad_get& ex) {
-                    LOG(ERROR, __func__ << ": Exception on col_name get");
-                }
-
-                if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
+            if (dbif_->Db_GetRow(col_list, cfname, key)) {
+                for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
+                        it != col_list.columns_.end(); it++) {
+                    std::string col_name;
                     try {
-                        stime = boost::get<uint64_t>(it->value.at(0));
-                        init_done = true;
+                        col_name = boost::get<std::string>(it->name[0]);
                     } catch (boost::bad_get& ex) {
-                        LOG(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
-                        break;
+                        QE_LOG_NOQID(ERROR, __func__ << ": Exception on col_name get");
+                    }
+
+                    if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
+                        try {
+                            stime = boost::get<uint64_t>(it->value.at(0));
+                            init_done = true;
+                        } catch (boost::bad_get& ex) {
+                            QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
+                            break;
+                        }
                     }
                 }
             }
+            retries++;
+            if (!init_done)
+                sleep(5);
         }
-        retries++;
-        if (!init_done)
-            sleep(5);
+        if (!init_done) {
+            uint64_t ttl = QueryEngine::anal_ttl*60*60*1000000;
+            uint64_t curr_time = UTCTimestampUsec();
+            stime = curr_time - ttl;
+            QE_LOG_NOQID(ERROR, __func__ << "setting start_time manually to" << stime);
+        }
     }
-    if (!init_done)
-        stime = UTCTimestampUsec()-StartTimeDiffInSec*1000000;
     dbif_->Db_SetInitDone(true);
 }
 
@@ -964,7 +1065,11 @@ using std::vector;
 
 int
 QueryEngine::QueryPrepare(QueryParams qp,
-        std::vector<uint64_t> &chunk_size, bool & need_merge) {
+        std::vector<uint64_t> &chunk_size,
+        bool & need_merge, bool & map_output,
+        std::string& where, std::string& select, std::string& post,
+        uint64_t& time_period, 
+        std::string &table) {
     string& qid = qp.qid;
     QE_LOG_NOQID(INFO, 
              " Got Query to prepare for QID " << qid);
@@ -972,13 +1077,17 @@ QueryEngine::QueryPrepare(QueryParams qp,
     if (cassandra_port_ == 0) {
         chunk_size.push_back(999);
         need_merge = false;
+        map_output = false;
         ret_code = 0;
+        table = string("ObjectCollectorInfo");
     } else {
 
         AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
                 cassandra_ip_, cassandra_port_, 0, qp.maxChunks);
         chunk_size.clear();
-        q->get_query_details(need_merge, chunk_size, ret_code);
+        q->get_query_details(need_merge, map_output, chunk_size,
+            where, select, post, time_period, ret_code);
+        table = q->table;
         delete q;
     }
     return ret_code;
@@ -1012,6 +1121,26 @@ QueryEngine::QueryFinalMerge(QueryParams qp,
     return ret;
 }
 
+bool
+QueryEngine::QueryFinalMerge(QueryParams qp,
+        const std::vector<boost::shared_ptr<QEOpServerProxy::OutRowMultimapT> >& inputs,
+        QEOpServerProxy::OutRowMultimapT& output) {
+    QE_TRACE_NOQID(DEBUG, "Creating analytics query object for final_merge_processing");
+    AnalyticsQuery *q = new AnalyticsQuery(qp.qid, qp.terms, stime, evm_,
+        cassandra_ip_, cassandra_port_, 1, qp.maxChunks);
+
+    if (!q->is_stat_table_query()) {
+        QE_TRACE_NOQID(DEBUG, "MultiMap merge_final is for Stats only");
+        delete q;
+        return false;
+    }
+    QE_TRACE_NOQID(DEBUG, "Calling final_merge_processing for Stats");
+
+    q->selectquery_->stats_->MergeFinal(inputs, output);
+    delete q;
+    return true;   
+}
+
 bool 
 QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
 {
@@ -1021,24 +1150,19 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     //GenDb::GenDbIf *db_if = dbif_.get();
     if (cassandra_port_ == 0) {
         std::auto_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
-        final_output->first = string("ObjectCollectorInfo");
+        std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_moutput(new QEOpServerProxy::OutRowMultimapT);
         for (int i = 0 ; i < 100; i++)
-            final_output->second.push_back(map_list_of(
+            final_output->push_back(map_list_of(
             "MessageTS", "1368037623434740")(
             "Messagetype", "IFMapString")(
             "ModuleId", "ControlNode")(
             "Source","b1s1")(
             "ObjectLog","\n<IFMapString type=\"sandesh\"><message type=\"string\" identifier=\"1\">Cancelling Response timer.</message><file type=\"string\" identifier=\"-32768\">src/ifmap/client/ifmap_state_machine.cc</file><line type=\"i32\" identifier=\"-32767\">578</line></IFMapString>")
-#if 0
-            "destvn","abc-cor\"poration:front-end-network:001")(
-            "sourceip","168430090")("destip","3232238090")(
-            "sourcevn","abc-corporation:front-end-network:002")(
-            "protocol","80")("dport","62000")("sport","1000")(
-            "sum(packets)","4294967196")
-#endif
         );
         QE_TRACE_NOQID(DEBUG, " Finished query processing for QID " << qid << " chunk:" << chunk);
-        qosp_->QueryResult(handle, 0, final_output);
+        QEOpServerProxy::QPerfInfo qperf(0,0,0);
+        qperf.error = 0;
+        qosp_->QueryResult(handle, qperf, final_output, final_moutput);
         return true;
     }
 
@@ -1050,7 +1174,8 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     q->process_query(); 
 
     QE_TRACE_NOQID(DEBUG, " Finished query processing for QID " << qid << " chunk:" << chunk);
-    qosp_->QueryResult(handle, q->status_details, q->final_result);
+    q->qperf_.error = q->status_details;
+    qosp_->QueryResult(handle, q->qperf_, q->final_result, q->final_mresult);
     delete q;
     return true;
 }
@@ -1102,8 +1227,24 @@ bool AnalyticsQuery::is_object_table_query()
         (this->table != g_viz_constants.COLLECTOR_GLOBAL_TABLE) &&
         (this->table != g_viz_constants.FLOW_TABLE) &&
         (this->table != g_viz_constants.FLOW_SERIES_TABLE) &&
-        (this->table != g_viz_constants.OBJECT_VALUE_TABLE)
-        );
+        (this->table != g_viz_constants.OBJECT_VALUE_TABLE) &&
+        !is_stat_table_query());
+}
+
+bool AnalyticsQuery::is_stat_table_query() {
+    return (!this->table.compare(0, g_viz_constants.STAT_VT_PREFIX.length(),
+            g_viz_constants.STAT_VT_PREFIX));
+}
+
+int AnalyticsQuery::stat_table_index() {
+    for(size_t i = 0; i < g_viz_constants._STAT_TABLES.size(); i++) {
+        string nm = g_viz_constants.STAT_VT_PREFIX + "." + 
+                g_viz_constants._STAT_TABLES[i].stat_type + "." +
+                g_viz_constants._STAT_TABLES[i].stat_attr;
+        if (nm == this->table) 
+            return i;
+    }
+    return -1;
 }
 
 bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
@@ -1120,6 +1261,9 @@ bool AnalyticsQuery::is_valid_from_field(const std::string& from_field)
         if (it->first == from_field)
             return true;
     }
+    if (stat_table_index()!=-1) 
+        return true;
+
     return false;
 }
 
@@ -1190,6 +1334,18 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
             return false;
         }
     }
+    int i = stat_table_index();
+    if (i != -1) {
+        for (size_t j = 0; 
+             j < g_viz_constants._STAT_TABLES[i].attributes.size(); j++) {
+            if ((g_viz_constants._STAT_TABLES[i].attributes[j].name ==
+                    where_field) & g_viz_constants._STAT_TABLES[i].attributes[j].index) 
+                return true;
+        }
+        if (g_viz_constants.STAT_OBJECTID_FIELD == where_field) 
+            return true;        
+        return false;
+    }
 
     return false;
 }
@@ -1234,6 +1390,22 @@ std::string AnalyticsQuery::get_column_field_datatype(
             return std::string("");
         }
     }
+    int i = stat_table_index();
+    if (i != -1) {
+        std::string sfield;
+        QEOpServerProxy::AggOper agg;
+        QEOpServerProxy::VarType vt = StatsSelect::Parse(i, column_field, 
+            sfield, agg);
+        if (vt == QEOpServerProxy::STRING) 
+            return string("string");
+        else if (vt == QEOpServerProxy::UINT64)
+            return string("int");
+        else if (vt == QEOpServerProxy::DOUBLE)
+            return string("double");
+        else
+            return string("");
+    }
+
     return std::string("");
 }
 

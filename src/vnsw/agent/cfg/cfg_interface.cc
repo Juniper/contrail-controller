@@ -2,14 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "vnsw/agent/cfg/interface_cfg.h"
-#include "sandesh/sandesh_types.h"
-#include "sandesh/sandesh.h"
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
 #include <boost/uuid/string_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include "base/logging.h"
-#include "cfg/cfg_types.h"
-#include "cfg/init_config.h"
+#include <base/logging.h>
+#include <cfg/cfg_interface.h>
+#include <cfg/cfg_types.h>
+#include <cfg/cfg_init.h>
 
 using boost::uuids::uuid;
 

@@ -20,6 +20,7 @@ public:
     static InetMcastPrefix FromString(const std::string &str,
                                       boost::system::error_code *errorp = NULL);
     std::string ToString() const;
+    std::string ToXmppIdString() const;
 
     RouteDistinguisher route_distinguisher() const { return rd_; }
     Ip4Address group() const { return group_; }
@@ -39,7 +40,7 @@ public:
     const InetMcastPrefix &GetPrefix() const {
         return prefix_;
     }
-    
+
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *reqkey);
 

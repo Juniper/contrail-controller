@@ -121,8 +121,10 @@ bool DiagTable::Process(DiagEntryOp *op) {
         break;
 
     case DiagEntryOp::DELETE:
-        op->de_->SendSummary();
-        delete op->de_;
+        if (op->de_->TimerCancel() == true) {
+            op->de_->SendSummary();
+            delete op->de_;
+        }
         break;
 
     case DiagEntryOp::RETRY:

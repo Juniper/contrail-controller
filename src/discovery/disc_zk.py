@@ -42,13 +42,11 @@ class DiscoveryZkClient(object):
         if reset_config:
             self._zk.delete("/services", recursive=True)
             self._zk.delete("/clients", recursive=True)
-            self._zk.delete("/publishers", recursive=True)
             self._zk.delete("/election", recursive=True)
 
         # create default paths
         self.create_node("/services")
         self.create_node("/clients")
-        self.create_node("/publishers")
         self.create_node("/election")
 
         self._debug = {
@@ -62,7 +60,7 @@ class DiscoveryZkClient(object):
         # spawn loop to expire subscriptions
         gevent.Greenlet.spawn(self.inuse_loop)
 
-        # spawn loop to expire publishers
+        # spawn loop to expire services
         gevent.Greenlet.spawn(self.service_oos_loop)
     # end
 
@@ -106,9 +104,6 @@ class DiscoveryZkClient(object):
     def update_service(self, service_type, service_id, data):
         path = '/services/%s/%s' % (service_type, service_id)
         self.create_node(path, value=json.dumps(data), makepath=True)
-
-        path = '/publishers/%s' % (service_id)
-        self.create_node(path, value=json.dumps(data))
     # end
 
     def insert_service(self, service_type, service_id, data):
@@ -361,19 +356,17 @@ class DiscoveryZkClient(object):
 
     def service_oos_loop(self):
         while True:
-            service_ids = self._zk.get_children('/publishers')
-            for service_id in service_ids:
-                data, stat = self._zk.get('/publishers/%s' % (service_id))
-                entry = json.loads(data)
+            for entry in self.service_entries():
                 if not self._ds.service_expired(entry, include_down=False):
                     continue
                 service_type = entry['service_type']
+                service_id   = entry['service_id']
                 path = '/election/%s/node-%s' % (
                     service_type, entry['sequence'])
                 if not self._zk.exists(path):
                     continue
                 self.syslog('Deleting sequence node %s for service %s:%s' %
-                            (path, service_type, service_id))
+                        (path, service_type, service_id))
                 self._zk_sem.acquire()
                 self._zk.delete(path)
                 self._zk_sem.release()

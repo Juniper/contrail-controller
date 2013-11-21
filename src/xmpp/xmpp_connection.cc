@@ -385,7 +385,6 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
 
 
         if (iq->action.compare("publish") == 0) {
-            XMPP_DEBUG(XmppIQPublish, iq->from, iq->to);
             last_msg_.reset(minfo.release());
             return NULL;
         }
@@ -403,7 +402,6 @@ XmppStanza::XmppMessage *XmppConnection::XmppDecode(const string &msg) {
                     last_iq->is_as_node = iq->is_as_node;
                     //Save the complete ass/dissociate node
                     last_iq->as_node = iq->as_node;
-                    XMPP_DEBUG(XmppIQCollection, iq->from, iq->to);
                 } else {
                     XMPP_WARNING(XmppIqMessageInvalid);
                     goto error;
@@ -446,10 +444,11 @@ public:
         return (server_->ConnectionEventCount() == 0 || parent_->MayDelete());
     }
     virtual void Shutdown() {
-    
-        if (parent_->session()) {
-            (static_cast<XmppServer *>(server_))->
-                NotifyConnectionEvent(parent_->ChannelMux(), xmps::NOT_READY);
+
+        // TODO: Separate xmps::NOT_READY and xmps:TERMINATE (for GR).
+        if (parent_->session() || server_->IsPeerCloseGraceful()) {
+            server_->NotifyConnectionEvent(parent_->ChannelMux(),
+                                           xmps::NOT_READY);
         }
 
         if (parent_->logUVE()) {
@@ -480,10 +479,10 @@ private:
 };
 
 XmppServerConnection::XmppServerConnection(
-        TcpServer *server, const XmppChannelConfig *config)
+        XmppServer *server, const XmppChannelConfig *config)
     : XmppConnection(server, config), 
-    deleter_(new DeleteActor(static_cast<XmppServer *>(server), this)),
-    server_delete_ref_(this, static_cast<XmppServer *>(server)->deleter()) {
+    deleter_(new DeleteActor(server, this)),
+    server_delete_ref_(this, server->deleter()) {
     assert(!config->ClientOnly());
     XMPP_UTDEBUG(XmppConnectionCreate, "Server", FromString(), ToString());
 }

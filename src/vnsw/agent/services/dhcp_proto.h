@@ -194,8 +194,9 @@ public:
         DhcpStats() { Reset(); }
     };
 
-    static void Init(boost::asio::io_service &io, bool run_with_vrouter);
-    static void Shutdown();
+    void Init(boost::asio::io_service &io, bool run_with_vrouter);
+    void Shutdown();
+    DhcpProto(boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~DhcpProto();
 
     Interface *IPFabricIntf() { return ip_fabric_intf_; }
@@ -222,7 +223,6 @@ public:
     void ClearStats() { stats_.Reset(); }
 
 private:
-    DhcpProto(boost::asio::io_service &io, bool run_with_vrouter);
     void ItfUpdate(DBEntryBase *entry);
 
     bool run_with_vrouter_;

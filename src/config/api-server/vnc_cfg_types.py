@@ -130,16 +130,22 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
     # end http_post_collection
 
     @classmethod
-    def http_put(cls, id, obj_dict, db_conn):
-        if ((obj_dict['fq_name'] == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
-                (obj_dict['fq_name'] == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
+                (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
             return True,  ""
 
-        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(obj_dict)
+        vn_id = {'uuid': id}
+        (read_ok, read_result) = db_conn.dbe_read('virtual-network', vn_id)
+        if not read_ok:
+            return (False, (503, read_result))
+        (ok, result) = cls.addr_mgmt.net_check_subnet_overlap(read_result,
+                                                              obj_dict)
         if not ok:
             return (ok, (409, result))
-        (ok, result) = cls.addr_mgmt.net_check_subnet_delete(obj_dict)
+        (ok, result) = cls.addr_mgmt.net_check_subnet_delete(read_result,
+                                                             obj_dict)
         if not ok:
             return (ok, (409, result))
         cls.addr_mgmt.net_create(obj_dict, id)
@@ -181,6 +187,61 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 # end class VirtualNetworkServer
 
 
+class NetworkIpamServer(NetworkIpamServerGen):
+
+    @classmethod
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
+        ipam_uuid = obj_dict['uuid']
+        ipam_id = {'uuid': ipam_uuid}
+        (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
+        if not read_ok:
+            return (False, (503, "Internal error : IPAM is not valid"))
+        old_ipam_mgmt = read_result['network_ipam_mgmt']
+        old_dns_method = old_ipam_mgmt['ipam_dns_method']
+        new_ipam_mgmt = obj_dict['network_ipam_mgmt']
+        new_dns_method = new_ipam_mgmt['ipam_dns_method']
+        if not cls.is_change_allowed(old_dns_method, new_dns_method, obj_dict,
+                                     db_conn):
+            return (False, (503, "Cannot change DNS Method from " +
+                    old_dns_method + " to " + new_dns_method +
+                    " with active VMs referring to the IPAM"))
+        return True, ""
+    # end http_put
+
+    @classmethod
+    def is_change_allowed(cls, old, new, obj_dict, db_conn):
+        if (old == "default-dns-server" or old == "virtual-dns-server"):
+            if ((new == "tenant-dns-server" or new == "none") and
+                    cls.is_active_vm_present(obj_dict, db_conn)):
+                return False
+        if (old == "tenant-dns-server" and new != old and
+                cls.is_active_vm_present(obj_dict, db_conn)):
+            return False
+        if (old == "none" and new != old and
+                cls.is_active_vm_present(obj_dict, db_conn)):
+            return False
+        return True
+    # end is_change_allowed
+
+    @classmethod
+    def is_active_vm_present(cls, obj_dict, db_conn):
+        if 'virtual_network_back_refs' in obj_dict:
+            vn_backrefs = obj_dict['virtual_network_back_refs']
+            for vn in vn_backrefs:
+                vn_uuid = vn['uuid']
+                vn_id = {'uuid': vn_uuid}
+                (read_ok, read_result) = db_conn.dbe_read('virtual-network',
+                                                          vn_id)
+                if not read_ok:
+                    continue
+                if 'virtual_machine_interface_back_refs' in read_result:
+                    return True
+        return False
+    # end is_active_vm_present
+
+# end class NetworkIpamServer
+
+
 class VirtualDnsServer(VirtualDnsServerGen):
     generate_default_instance = False
 
@@ -190,7 +251,7 @@ class VirtualDnsServer(VirtualDnsServerGen):
     # end http_post_collection
 
     @classmethod
-    def http_put(cls, id, obj_dict, db_conn):
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_server(obj_dict, db_conn)
     # end http_put
 
@@ -259,6 +320,13 @@ class VirtualDnsServer(VirtualDnsServerGen):
 
     @classmethod
     def validate_dns_server(cls, obj_dict, db_conn):
+        virtual_dns = obj_dict['fq_name'][1]
+        disallowed = re.compile("[^A-Z\d-]", re.IGNORECASE)
+        if disallowed.search(virtual_dns) or virtual_dns.startswith("-"):
+            return (False, (403,
+                    "Special characters are not allowed in " +
+                    "Virtual DNS server name"))
+
         vdns_data = obj_dict['virtual_DNS_data']
         if not cls.is_valid_dns_name(vdns_data['domain_name']):
             return (
@@ -321,7 +389,7 @@ class VirtualDnsRecordServer(VirtualDnsRecordServerGen):
     # end http_post_collection
 
     @classmethod
-    def http_put(cls, id, obj_dict, db_conn):
+    def http_put(cls, id, fq_name, obj_dict, db_conn):
         return cls.validate_dns_record(obj_dict, db_conn)
     # end http_put
 

@@ -15,6 +15,9 @@ setup(
         'vnc_cfg_api.resync': [
             'xxx = vnc_openstack:OpenstackDriver',
         ],
+        'vnc_cfg_api.resourceApi': [
+            'xxx = vnc_openstack:ResourceApiDriver',
+        ],
     },
     install_requires=[
     ]

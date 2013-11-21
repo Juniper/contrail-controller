@@ -16,6 +16,8 @@ public:
     // Invokes user callback.
     // Timer could have been cancelled or delete when task was enqueued
     virtual bool Run() {
+        // cancelled task .. ignore
+        if (task_cancelled()) return true;
         {
             tbb::mutex::scoped_lock lock(timer_->mutex_);
 
@@ -71,7 +73,7 @@ Timer::Timer(boost::asio::io_service &service, const std::string &name,
           int task_id, int task_instance)
     : boost::asio::deadline_timer(service), name_(name), handler_(NULL),
     error_handler_(NULL), state_(Init), timer_task_(NULL), time_(0),
-    task_id_(task_id), task_instance_(task_instance) {
+    task_id_(task_id), task_instance_(task_instance), seq_no_(0) {
     refcount_ = 0;
 }
 
@@ -97,6 +99,7 @@ bool Timer::Start(int time, Handler handler, ErrorHandler error_handler) {
 
     // Restart the timer
     handler_ = handler;
+    seq_no_++;
     error_handler_ = error_handler;
     boost::system::error_code ec;
     expires_from_now(boost::posix_time::milliseconds(time), ec);
@@ -105,8 +108,8 @@ bool Timer::Start(int time, Handler handler, ErrorHandler error_handler) {
     }
 
     SetState(Running);
-    async_wait(boost::bind(Timer::StartTimerTask, this, TimerPtr(this), time,
-                            boost::asio::placeholders::error));
+    async_wait(boost::bind(Timer::StartTimerTask, this, TimerPtr(this), time, 
+                           seq_no_, boost::asio::placeholders::error));
     return true;
 }
 
@@ -134,7 +137,8 @@ bool Timer::Cancel() {
 
 // ASIO callback on timer expiry. Start a task to serve the timer
 void Timer::StartTimerTask(boost::asio::deadline_timer* t, TimerPtr timer,
-                           int time, const boost::system::error_code &ec) {
+                           int time, uint32_t seq_no, 
+                           const boost::system::error_code &ec) {
     tbb::mutex::scoped_lock lock(timer->mutex_);
 
     if (timer->state_ == Cancelled) {
@@ -146,6 +150,10 @@ void Timer::StartTimerTask(boost::asio::deadline_timer* t, TimerPtr timer,
         return;
     }
 
+    // Timer could have fired for previous run. Validate the seq_no_
+    if (timer->seq_no_ != seq_no) {
+        return;
+    }
     // Start a task and add Task reference.
     assert(timer->timer_task_ == NULL);
     timer->timer_task_ = new TimerTask(timer, ec);

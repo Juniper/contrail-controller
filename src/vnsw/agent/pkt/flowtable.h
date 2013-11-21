@@ -119,6 +119,7 @@ public:
     void InitRevFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
                      PktControlInfo *rev_flow);
     void RewritePktInfo(uint32_t index);
+    void SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl);
 public:
     PktInfo             *pkt;
 
@@ -243,7 +244,7 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false) {};
+        bytes(0), packets(0), trap(false), nh(NULL) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -271,6 +272,7 @@ struct FlowData {
     uint64_t bytes;
     uint64_t packets;
     bool trap;
+    NextHopConstRef nh;
 };
 
 class FlowEntry {
@@ -345,7 +347,7 @@ class FlowEntry {
         dport = key.dst_port;
     }
     void SetEgressUuid();
-    bool GetPolicyInfo(MatchPolicy *policy);
+    void GetPolicyInfo(MatchPolicy *policy);
 
     void GetPolicy(const VnEntry *vn, MatchPolicy *policy);
     void GetSgList(const Interface *intf, MatchPolicy *policy);
@@ -373,29 +375,10 @@ inline void intrusive_ptr_release(FlowEntry *fe) {
 
 struct FlowEntryCmp {
     bool operator()(const FlowEntryPtr &l, const FlowEntryPtr &r) {
-        FlowKey lhs = l.get()->key;
-        FlowKey rhs = r.get()->key;
+        FlowEntry *lhs = l.get();
+        FlowEntry *rhs = r.get();
 
-        if (lhs.vrf != rhs.vrf) {
-            return lhs.vrf < rhs.vrf;
-        }
-
-        if (lhs.src.ipv4 != rhs.src.ipv4) {
-            return lhs.src.ipv4 < rhs.src.ipv4;
-        }
-
-        if (lhs.dst.ipv4 != rhs.dst.ipv4) {
-            return lhs.dst.ipv4 < rhs.dst.ipv4;
-        }
-
-        if (lhs.protocol != rhs.protocol) {
-            return lhs.protocol < rhs.protocol;
-        }
-
-        if (lhs.src_port != rhs.src_port) {
-            return lhs.src_port < rhs.src_port;
-        }
-        return lhs.dst_port < rhs.dst_port;
+        return (lhs < rhs);
     }
 };
 
@@ -470,7 +453,8 @@ public:
     bool DeleteRevFlow(FlowKey &key, bool del_reverse_flow);
 
     size_t Size() {return flow_entry_map_.size();};
-    size_t VnFlowSize(const VnEntry *vn);
+    void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
+                        uint32_t *out_count);
 
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key, AclEntryIDList &id_list);
@@ -519,6 +503,8 @@ private:
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
     std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key);
 
+    void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
+    void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
@@ -614,11 +600,13 @@ struct AclFlowInfo {
 };
 
 struct VnFlowInfo {
-    VnFlowInfo() {};
+    VnFlowInfo() : ingress_flow_count(0), egress_flow_count(0) {};
     ~VnFlowInfo() {};
 
     VnEntryConstRef vn_entry;
     FlowTable::FlowEntryTree fet;
+    uint32_t ingress_flow_count;
+    uint32_t egress_flow_count;
 };
 
 struct IntfFlowInfo {

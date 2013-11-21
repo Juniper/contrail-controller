@@ -317,7 +317,7 @@ void StaticRoute::RemoveStaticRoute() {
 
     for (NexthopPathIdList::iterator it = NexthopPathIds()->begin();
          it != NexthopPathIds()->end(); it++) {
-        static_route->RemovePath(*it, BgpPath::StaticRoute);
+        static_route->RemovePath(BgpPath::StaticRoute, NULL, *it);
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
             "Removed Static route path " << static_route->ToString() <<
             " path_id " << BgpPath::PathIdString(*it) <<
@@ -348,7 +348,7 @@ StaticRoute::UpdateStaticRoute() {
     for (NexthopPathIdList::iterator it = NexthopPathIds()->begin();
          it != NexthopPathIds()->end(); it++) {
         BgpPath *existing_path = 
-            static_route->FindPath(*it, BgpPath::StaticRoute);
+            static_route->FindPath(BgpPath::StaticRoute, NULL, *it);
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
             "Update the RTarget list of Static route path " 
             << static_route->ToString() << " path_id " 
@@ -365,7 +365,7 @@ StaticRoute::UpdateStaticRoute() {
             new BgpPath(*it, BgpPath::StaticRoute, new_attr.get(), 
                         existing_path->GetFlags(), existing_path->GetLabel());
 
-        static_route->RemovePath(*it, BgpPath::StaticRoute);
+        static_route->RemovePath(BgpPath::StaticRoute, NULL, *it);
 
         static_route->InsertPath(new_path);
     }
@@ -432,15 +432,15 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
         // Check whether we already have a path with the associated path id.
         uint32_t path_id =
             nexthop_route_path->GetAttr()->nexthop().to_v4().to_ulong();
-        BgpPath *existing_path = static_route->FindPath(path_id, 
-                                                        BgpPath::StaticRoute);
+        BgpPath *existing_path = static_route->FindPath(BgpPath::StaticRoute,
+                                                        NULL, path_id);
         bool is_stale = false;
         if (existing_path != NULL) {
             if ((new_attr.get() != existing_path->GetAttr()) || 
                 (nexthop_route_path->GetLabel() != existing_path->GetLabel())) {
                 // Update Attributes and notify (if needed)
                 is_stale = existing_path->IsStale();
-                static_route->RemovePath(path_id, BgpPath::StaticRoute);
+                static_route->RemovePath(BgpPath::StaticRoute, NULL, path_id);
             } else 
                 continue;
         }
@@ -466,7 +466,7 @@ StaticRoute::AddStaticRoute(NexthopPathIdList *old_path_ids) {
          it != old_path_ids->end(); it++) {
         if (NexthopPathIds()->find(*it) != NexthopPathIds()->end())
             continue;
-        static_route->RemovePath(*it, BgpPath::StaticRoute);
+        static_route->RemovePath(BgpPath::StaticRoute, NULL, *it);
         partition->Notify(static_route);
 
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,

@@ -30,12 +30,9 @@ do {                                                                         \
 ///////////////////////////////////////////////////////////////////////////////
 
 void DhcpProto::Init(boost::asio::io_service &io, bool run_with_vrouter) {
-    Agent::GetInstance()->SetDhcpProto(new DhcpProto(io, run_with_vrouter));
 }
 
 void DhcpProto::Shutdown() {
-    delete Agent::GetInstance()->GetDhcpProto();
-    Agent::GetInstance()->SetDhcpProto(NULL);
 }
 
 DhcpProto::DhcpProto(boost::asio::io_service &io, bool run_with_vrouter) :
@@ -308,7 +305,7 @@ void DhcpHandler::UpdateDnsServer() {
         return;
 
     if (!vm_itf_->GetVnEntry() || 
-        !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_, ipam_type_)) {
+        !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_->GetIpAddr(), ipam_type_)) {
         DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->GetName());
         return;
     }
@@ -340,9 +337,9 @@ void DhcpHandler::UpdateDnsServer() {
         return;
 
     Agent::GetInstance()->GetDnsProto()->UpdateDnsEntry(
-        vm_itf_, client_name_, config_.plen,
-        ipam_type_.ipam_dns_server.virtual_dns_server_name,
-        vdns_type_, false);
+        vm_itf_, client_name_, vm_itf_->GetIpAddr(), config_.plen,
+        ipam_type_.ipam_dns_server.virtual_dns_server_name, vdns_type_,
+        false, false);
 }
 
 void DhcpHandler::WriteOption82(DhcpOptions *opt, uint16_t &optlen) {

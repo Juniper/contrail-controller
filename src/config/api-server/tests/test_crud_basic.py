@@ -28,6 +28,8 @@ from cfgm_common import exceptions as vnc_exceptions
 from cfgm_common.test_utils import *
 import gen.vnc_api_test_gen
 from gen.resource_test import *
+from gen.resource_client import *
+from gen.resource_xsd import *
 import discovery.client as disc_client
 
 import test_common
@@ -35,9 +37,8 @@ import test_common
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# class TestCrudBasic(object):
 
-
+#class TestCrudBasic(object):
 class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
 
     def setUp(self):
@@ -60,6 +61,24 @@ class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
         #gevent.kill(self._api_svr, gevent.GreenletExit)
         # gevent.joinall([self._api_svr])
     # end tearDown
+
+    def test_virtual_DNS_crud(self):
+        pass
+    # end test_virtual_DNS_crud
+
+    def test_virtual_DNS_record_crud(self):
+        pass
+    # end test_virtual_DNS_record_crud
+
+    def test_access_control_list_crud(self):
+        sg_fixt = self.useFixture(SecurityGroupTestFixtureGen(self._vnc_lib))
+        self.useFixture(AccessControlListTestFixtureGen(self._vnc_lib,
+                                                        parent_fixt=sg_fixt))
+
+        vn_fixt = self.useFixture(VirtualNetworkTestFixtureGen(self._vnc_lib))
+        self.useFixture(AccessControlListTestFixtureGen(self._vnc_lib,
+                                                        parent_fixt=vn_fixt))
+    #end test_access_control_list_crud
 
     def test_instance_ip_crud(self):
         pass
@@ -92,8 +111,8 @@ class TestCrudBasic(gen.vnc_api_test_gen.VncApiTestGen):
 # end class TestCrudBasic
 
 
+#class TestFixtures(object):
 class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
-
     def setUp(self):
         super(TestFixtures, self).setUp()
         test_common.setup_flexmock()
@@ -327,6 +346,30 @@ class TestNetAddrAlloc(testtools.TestCase, fixtures.TestWithFixtures):
         self.assertThat(ip_allocated, Equals('2.2.2.254'))
         logger.info("...verified")
 
+        # Create a subnet with ip. try deleting subnet verify it fails.
+        # Remove the ip and retry delete and verify it passes.
+        logger.info("Creating subnet 3.3.3.0/24, and instance-ip in it")
+        vn_obj = vn_fixt.getObj()
+        subnet_vnc_3 = IpamSubnetType(subnet=SubnetType('3.3.3.0', 24))
+        vnsn_data.add_ipam_subnets(subnet_vnc_3)
+        vn_fixt.add_network_ipam(ipam_fixt.getObj(), vnsn_data)
+        iip_obj = InstanceIp(instance_ip_address='3.3.3.1')
+        iip_obj.add_virtual_network(vn_obj)
+        self._vnc_lib.instance_ip_create(iip_obj)
+
+        logger.info("Trying to remove 3.3.3.0/24, expecting failure...")
+        vnsn_data.delete_ipam_subnets(subnet_vnc_3)
+        vn_obj.set_network_ipam(ipam_fixt.getObj(), vnsn_data)
+        #with self.assertRaises(vnc_exceptions.RefsExistError) as e:
+        try:
+            self._vnc_lib.virtual_network_update(vn_obj)
+        except vnc_exceptions.RefsExistError as e:
+            logger.info("...verified")
+
+        logger.info("Removing IIP and delete 3.3.3.0/24, expecting success...")
+        self._vnc_lib.instance_ip_delete(id=iip_obj.uuid)
+        self._vnc_lib.virtual_network_update(vn_obj)
+        logger.info("...verified")
     # end test_ip_alloc_on_net
 
     def test_ip_alloc_on_ip_fabric(self):
@@ -370,9 +413,8 @@ class DemoFixture(fixtures.Fixture):
 
 # end class DemoFixture
 
+
 # class TestDemo(testtools.TestCase, fixtures.TestWithFixtures):
-
-
 class TestDemo(object):
 
     def setUp(self):
@@ -402,9 +444,8 @@ class TestDemo(object):
 
 # end class TestDemo
 
+
 # class TestRefUpdate(unittest.TestCase):
-
-
 class TestRefUpdate(object):
 
     def setUp(self):
@@ -464,9 +505,8 @@ class TestRefUpdate(object):
 
 # end class TestRefUpdate
 
+
 # class TestListUpdate(testtools.TestCase, fixtures.TestWithFixtures):
-
-
 class TestListUpdate(object):
 
     def setUp(self):

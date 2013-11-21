@@ -14,7 +14,7 @@ if '-fno-exceptions' in cflags:
     cflags.remove('-fno-exceptions')
     except_env.Replace(CCFLAGS = cflags)
 
-except_files = [ 'vgw_cfg.cc' ]
+except_files = [ 'cfg_vgw.cc' ]
 except_objs = []
 for except_src in except_files:
     objname = except_src.replace('.cc', '.o')

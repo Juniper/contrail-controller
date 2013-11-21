@@ -157,7 +157,7 @@ public:
     static vr_flow_entry *FlowMmapAlloc(int size);
     static void FlowMmapFree();
     static vr_flow_entry *GetFlowEntry(int idx);
-    static void SetFlowEntry(vr_flow_req *req, bool reverse, bool set);
+    static void SetFlowEntry(vr_flow_req *req, bool set);
     static void IncrFlowStats(int idx, int pkts, int bytes);
     static void SetOFlowStats(int idx, uint8_t pkts, uint16_t bytes);
     static void FlowNatResponse(uint32_t seq_num, vr_flow_req *req);

@@ -10,6 +10,8 @@
 #include "cmn/agent_cmn.h"
 #include "xmpp/xmpp_init.h"
 #include "pugixml/pugixml.hpp"
+#include "oper/vrf.h"
+#include "oper/peer.h"
 #include "controller/controller_types.h"
 #include "controller/controller_init.h"
 #include "controller/controller_peer.h"
@@ -145,17 +147,55 @@ void VNController::Connect() {
     AgentIfMapVmExport::Init();
 }
 
+void VNController::XmppServerDisConnect() {
+    XmppClient *cl;
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        if ((cl = Agent::GetInstance()->GetAgentXmppClient(count)) != NULL) {
+
+            // No of vrf-table entries + No of route-table walks per vrf-entry 
+            VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
+            Peer *peer = Agent::GetInstance()->GetAgentXmppChannel(count)->GetBgpPeer();
+            peer->SetNoOfWalks(vrf_table->Size() + 
+                               (vrf_table->Size() * AgentRouteTableAPIS::MAX));
+       
+            //shutdown triggers cleanup of routes learnt from
+            //the control-node. 
+            cl->Shutdown();
+        }
+        count ++;
+    }
+}
+
+
+void VNController::DnsXmppServerDisConnect() {
+    XmppClient *cl;
+    uint8_t count = 0;
+    while (count < MAX_XMPP_SERVERS) {
+        if ((cl = Agent::GetInstance()->GetAgentDnsXmppClient(count)) != NULL) {
+            cl->Shutdown();
+        }
+        count ++;
+    }
+
+
+}
+
+//Trigger shutdown and cleanup of routes for the client
 void VNController::DisConnect() {
+
+    VNController::XmppServerDisConnect();
+    VNController::DnsXmppServerDisConnect();
+}
+
+void VNController::Cleanup() {
     uint8_t count = 0;
     XmppClient *cl;
     while (count < MAX_XMPP_SERVERS) {
         if ((cl = Agent::GetInstance()->GetAgentXmppClient(count)) != NULL) {
 
-            //shutdown triggers cleanup of routes learnt from
-            //the control-node. 
-            cl->Shutdown();
-
             Agent::GetInstance()->ResetAgentMcastLabelRange(count);
+
             delete Agent::GetInstance()->GetAgentXmppChannel(count);
             Agent::GetInstance()->SetAgentXmppChannel(NULL, count);
 
@@ -163,17 +203,24 @@ void VNController::DisConnect() {
             Agent::GetInstance()->SetAgentIfMapXmppChannel(NULL, count);
 
             Agent::GetInstance()->SetAgentXmppClient(NULL, count);
-
-            delete Agent::GetInstance()->GetAgentXmppInit(count);
+          
+            XmppInit *xmpp = Agent::GetInstance()->GetAgentXmppInit(count);
+            xmpp->Reset();
+            delete xmpp;
             Agent::GetInstance()->SetAgentXmppInit(NULL, count);
         }
         if ((cl = Agent::GetInstance()->GetAgentDnsXmppClient(count)) != NULL) {
-            cl->Shutdown();
+
             delete Agent::GetInstance()->GetAgentDnsXmppChannel(count);
-            delete Agent::GetInstance()->GetAgentDnsXmppInit(count);
             Agent::GetInstance()->SetAgentDnsXmppChannel(NULL, count);
+
             Agent::GetInstance()->SetAgentDnsXmppClient(NULL, count);
+
+            XmppInit *xmpp = Agent::GetInstance()->GetAgentXmppInit(count);
+            xmpp->Reset();
+            delete xmpp;
             Agent::GetInstance()->SetAgentDnsXmppInit(NULL, count);
+
             Agent::GetInstance()->SetDnsXmppPort(0, count); 
             Agent::GetInstance()->SetXmppDnsCfgServer(-1);
         }

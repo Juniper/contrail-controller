@@ -219,7 +219,7 @@ private:
 };
 
 HttpSession::HttpSession(HttpServer *server, Socket *socket)
-    : TcpSession(server, socket) {
+    : TcpSession(server, socket), event_cb_(NULL) {
     if (req_handler_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         req_handler_task_id_ = scheduler->GetTaskId("http::RequestHandlerTask");
@@ -241,6 +241,10 @@ void HttpSession::AcceptSession() {
     GetMap()->insert(std::make_pair(context_str_, this));
     HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
         "Created Session " + context_str_);
+}
+
+void HttpSession::RegisterEventCb(SessionEventCb cb) {
+    event_cb_ = cb;
 }
 
 void HttpSession::OnSessionEvent(TcpSession *session,
@@ -275,6 +279,10 @@ void HttpSession::OnSessionEvent(TcpSession *session,
         break;
     default:
         break;
+    }
+
+    if (event_cb_ && !event_cb_.empty()) {
+        event_cb_(h_session, event);
     }
 }
 

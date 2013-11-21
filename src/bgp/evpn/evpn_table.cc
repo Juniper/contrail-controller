@@ -109,14 +109,16 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
                                                         community);
 
     // Check whether peer already has a path
-    BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt, 
-                                   src_path->GetPeer(), src_path->GetSource());
+    BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt,
+            src_path->GetSource(), src_path->GetPeer(),
+            src_path->GetPathId());
     if (dest_path != NULL) {
         if ((new_attr != dest_path->GetAttr()) ||
             (src_path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
-            assert(dest_route->RemoveSecondaryPath(src_rt, src_path->GetPeer(),
-                                            src_path->GetSource()));
+            assert(dest_route->RemoveSecondaryPath(src_rt,
+                        src_path->GetSource(),
+                        src_path->GetPeer(), src_path->GetPathId()));
         } else {
             return dest_route;
         }
@@ -124,8 +126,9 @@ BgpRoute *EvpnTable::RouteReplicate(BgpServer *server,
 
     // Create replicated path and insert it on the route
     BgpSecondaryPath *replicated_path =
-        new BgpSecondaryPath(src_path->GetPeer(), src_path->GetSource(), 
-                         new_attr, src_path->GetFlags(), src_path->GetLabel());
+        new BgpSecondaryPath(src_path->GetPeer(), src_path->GetPathId(),
+                             src_path->GetSource(), new_attr,
+                             src_path->GetFlags(), src_path->GetLabel());
     replicated_path->SetReplicateInfo(src_table, src_rt);
     dest_route->InsertPath(replicated_path);
 

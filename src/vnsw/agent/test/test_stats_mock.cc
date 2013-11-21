@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "cmn/agent_cmn.h"
 #include "pkt/pkt_init.h"
 #include "pkt/flowtable.h"
 #include "test_cmn_util.h"
@@ -47,10 +48,10 @@ public:
             return false; 
         }
         VnStats *stats = *it;
-        if (out && stats->out_bytes == bytes && stats->out_pkts == pkts) {
+        if (out && stats->out_bytes_ == bytes && stats->out_pkts_ == pkts) {
             return true;
         }
-        if (!out && stats->in_bytes == bytes && stats->in_pkts == pkts) {
+        if (!out && stats->in_bytes_ == bytes && stats->in_pkts_ == pkts) {
             return true;
         }
         return false;
@@ -136,9 +137,8 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     //Verify flow count
     EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
@@ -152,9 +152,8 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     KSyncSockTypeMap::IncrFlowStats(3, 1, 30);
     KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60));
@@ -186,14 +185,14 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     //Verify flow count
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
 
+    /* Verify overflow counter of vrouter-Test1 */
     //Decrement the stats so that they become 0
     KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
     KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
@@ -201,49 +200,82 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(1, 1, 1);
     KSyncSockTypeMap::SetOFlowStats(2, 1, 1);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000000, 0x100000000));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000000, 0x100000000));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000000ULL, 0x100000000ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000000ULL, 0x100000000ULL));
 
+    /* Verify overflow counter of vrouter-Test2 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
     KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000001, 0x100000010));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000001, 0x100000010));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000001ULL, 0x100000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x100000001ULL, 0x100000010ULL));
 
+    /* Verify overflow counter of vrouter-Test3 */
     KSyncSockTypeMap::SetOFlowStats(1, 2, 3);
     KSyncSockTypeMap::SetOFlowStats(2, 4, 5);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x200000001, 0x300000010));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x400000001, 0x500000010));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x200000001ULL, 0x300000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x400000001ULL, 0x500000010ULL));
 
+    /* Verify overflow counter of vrouter-Test4 */
     KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
     KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
 
     KSyncSockTypeMap::SetOFlowStats(1, 0xA, 0xB);
     KSyncSockTypeMap::SetOFlowStats(2, 0xC, 0xD);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify the updated flow stats
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0xA00000002, 0xB00000020));
-    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0xC00000002, 0xD00000020));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0xA00000002ULL, 0xB00000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0xC00000002ULL, 0xD00000020ULL));
+
+    /* Verify overflow counter of agent-Test1 */
+    //Decrement flow stats
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -0x10);
+    KSyncSockTypeMap::IncrFlowStats(2, -1, -0x10);
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000001ULL, 0x1000B00000010ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10C00000001ULL, 0x1000D00000010ULL));
+
+    /* Verify overflow counter of agent-Test2 */
+    KSyncSockTypeMap::IncrFlowStats(1, 1, 0x10);
+    KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000002ULL, 0x1000B00000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10C00000002ULL, 0x1000D00000020ULL));
+
+    /* Verify overflow counter of agent-Test3 */
+    KSyncSockTypeMap::SetOFlowStats(1, 0xA1, 0xB1);
+    KSyncSockTypeMap::SetOFlowStats(2, 0xC1, 0xD1);
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify the updated flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x1A100000002ULL, 0x100B100000020ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x1C100000002ULL, 0x100D100000020ULL));
 
     //cleanup
     KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
@@ -288,9 +320,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false, 
                         "vn5", "vn5", hash_id++));
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, 1, 30));
@@ -307,9 +338,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true, 
                         "vn5", "vn5", hash_id++));
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, 1, 30));
@@ -324,9 +354,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
     client->WaitForIdle(2);
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(3);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", "vn5", 4, 120, true); //outgoing stats
@@ -341,9 +370,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     // Not checking for creation of short flow because it will get removed during 
     // the next flow-age evaluation cycle
 
-    //Wait for stats to be updated
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
-    client->FlowTimerWait(2);
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     /* Make sure that the short flow is removed */
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
@@ -451,7 +479,6 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
-    int new_vrf41_id = vrf->GetVrfId();
 
     VrfAddReq("vrf42");
     client->WaitForIdle();
@@ -460,7 +487,6 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
-    int new_vrf42_id = vrf->GetVrfId();
 
     //Wait for stats to be updated in agent
     AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;

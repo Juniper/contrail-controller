@@ -45,7 +45,7 @@ private:
 class AgentIfMapVmExport {
 public:
     struct VmExportInfo {
-        std::list<uuid> vmi_list_;
+        std::list<boost::uuids::uuid> vmi_list_;
         uint64_t seq_number_;
     };
 
@@ -55,7 +55,7 @@ public:
     static void Shutdown(); 
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     static void NotifyAll(AgentXmppChannel *peer);
-    typedef std::map<uuid, struct VmExportInfo *> VmMap; 
+    typedef std::map<boost::uuids::uuid, struct VmExportInfo *> VmMap; 
 private:
     static AgentIfMapVmExport *singleton_;
     DBTableBase::ListenerId vmi_list_id_;

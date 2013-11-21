@@ -17,6 +17,7 @@
 class Sandesh;
 class VizSession;
 class Collector;
+class SandeshStateMachineStats;
 
 struct RedisReplyMsg : public ssm::Message {
     enum RedisReplyMsgType {
@@ -50,6 +51,9 @@ public:
 
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
+    bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
+    bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats) const;
+    bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const;
 
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
@@ -98,6 +102,7 @@ private:
 
     bool DbConnectTimerExpired();
     void Start_Db_Connect_Timer();
+    void Stop_Db_Connect_Timer();
     void Db_Connection_Uninit();
     bool Db_Connection_Init();
 

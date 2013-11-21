@@ -12,7 +12,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "pkt/pkt_init.h"
@@ -28,8 +29,6 @@
 #include "oper/vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "test_kstate_util.h"
 #include "vr_types.h"
@@ -71,7 +70,8 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        EthInterface::CreateReq(eth_name_, 
+        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                eth_name_, 
                                 Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
@@ -80,15 +80,15 @@ protected:
     virtual void TearDown() {
         TestRouteTable table1(1);
         WAIT_FOR(100, 100, (table1.Size() == 0));
-        EXPECT_EQ(table1.Size(), 0);
+        EXPECT_EQ(table1.Size(), 0U);
 
         TestRouteTable table2(2);
         WAIT_FOR(100, 100, (table2.Size() == 0));
-        EXPECT_EQ(table2.Size(), 0);
+        EXPECT_EQ(table2.Size(), 0U);
 
         TestRouteTable table3(3);
         WAIT_FOR(100, 100, (table3.Size() == 0));
-        EXPECT_EQ(table3.Size(), 0);
+        EXPECT_EQ(table3.Size(), 0U);
 
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();

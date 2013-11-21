@@ -13,7 +13,6 @@
 
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
@@ -189,8 +188,8 @@ TEST_F(IcmpTest, IcmpPingTest) {
             assert(0);
     } while (stats.icmp_gw_ping < 2);
     client->WaitForIdle();
-    EXPECT_EQ(2, stats.icmp_gw_ping);
-    EXPECT_EQ(0, stats.icmp_drop);
+    EXPECT_EQ(2U, stats.icmp_gw_ping);
+    EXPECT_EQ(0U, stats.icmp_drop);
 
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[0].gw)));
     SendIcmp(GetItfId(0), ntohl(inet_addr(ipam_updated_info[1].gw)));
@@ -207,8 +206,8 @@ TEST_F(IcmpTest, IcmpPingTest) {
             assert(0);
     } while (stats.icmp_gw_ping < 3);
     client->WaitForIdle();
-    EXPECT_EQ(3, stats.icmp_gw_ping);
-    EXPECT_EQ(0, stats.icmp_drop);
+    EXPECT_EQ(3U, stats.icmp_gw_ping);
+    EXPECT_EQ(0U, stats.icmp_drop);
     Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     // Send updated Ipam
@@ -239,8 +238,8 @@ TEST_F(IcmpTest, IcmpPingTest) {
             assert(0);
     } while (stats.icmp_gw_ping < 1);
     client->WaitForIdle();
-    EXPECT_EQ(1, stats.icmp_gw_ping);
-    EXPECT_EQ(0, stats.icmp_drop);
+    EXPECT_EQ(1U, stats.icmp_gw_ping);
+    EXPECT_EQ(0U, stats.icmp_drop);
 
     IcmpInfo *sand = new IcmpInfo();
     Sandesh::set_response_callback(
@@ -264,8 +263,8 @@ TEST_F(IcmpTest, IcmpPingTest) {
             assert(0);
     } while (stats.icmp_gw_ping < 3);
     client->WaitForIdle();
-    EXPECT_EQ(3, stats.icmp_gw_ping);
-    EXPECT_EQ(0, stats.icmp_drop);
+    EXPECT_EQ(3U, stats.icmp_gw_ping);
+    EXPECT_EQ(0U, stats.icmp_drop);
     Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     client->Reset();
@@ -278,12 +277,6 @@ TEST_F(IcmpTest, IcmpPingTest) {
 }
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
-                                  Agent::GetInstance()->GetDB());
-
-    // Parse config and then connect
-    VNController::Connect();
-    LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 
 int main(int argc, char *argv[]) {
@@ -293,5 +286,8 @@ int main(int argc, char *argv[]) {
     usleep(100000);
     client->WaitForIdle();
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    //TestShutdown();
+    delete client;
+    return ret;
 }

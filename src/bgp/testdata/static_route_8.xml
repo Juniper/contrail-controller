@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<static-route-entries>
+    <route>
+        <prefix>10.1.1.0/24</prefix>
+        <next-hop>1.1.2.3</next-hop>
+        <route-target>target:64496:2</route-target>
+    </route>
+</static-route-entries>

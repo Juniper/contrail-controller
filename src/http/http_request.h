@@ -17,6 +17,7 @@ public:
     HttpRequest();
 
     void SetMethod(http_method method) { method_ = method; }
+    http_method GetMethod() const { return method_; }
     // clobbers argument
     void SetUrl(std::string *url) {
 	url_.swap(*url);
@@ -29,6 +30,7 @@ public:
 
     std::string UrlPath() const;
     std::string UrlQuery() const;
+    const HeaderMap & Headers() const { return headers_; }
 private:
     http_method method_;
     std::string url_;

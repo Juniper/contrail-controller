@@ -21,6 +21,7 @@
 #include "rapidjson/writer.h"
 #include "query.h"
 #include "analytics_cpuinfo_types.h"
+#include "stats_select.h"
 
 using std::list;
 using std::string;
@@ -46,7 +47,9 @@ RedisAsyncConnection::ClientDisconnectCbFn );
 
 SandeshTraceBufferPtr QeTraceBuf(SandeshTraceBufferCreate(QE_TRACE_BUF, 10000));
 
-typedef pair<int,shared_ptr<QEOpServerProxy::BufferT> > RawResultT; 
+typedef pair<QEOpServerProxy::QPerfInfo,
+             pair<shared_ptr<QEOpServerProxy::BufferT>,
+                  shared_ptr<QEOpServerProxy::OutRowMultimapT> > > RawResultT; 
 typedef pair<redisReply,vector<string> > RedisT;
 
 bool RedisAsyncArgCommand(RedisAsyncConnection * rac,
@@ -67,93 +70,136 @@ public:
         QueryEngine::QueryParams qp;
         vector<uint64_t> chunk_size;
         bool need_merge;
+        bool map_output;
+        string where;
+        string select;
+        string post;
+        uint64_t time_period;
+        string table;
     };
 
-    void QueryJsonify(const BufferT* raw_res, QEOutputT* raw_json) {
+    void JsonInsert(std::vector<query_column> &columns,
+            rapidjson::Document& dd,
+            std::pair<const string,string> * map_it) {
+
+        bool found = false;
+        for (size_t j = 0; j < columns.size(); j++)
+        {
+            if (0 == map_it->first.compare(0,5,string("COUNT"))) {
+                rapidjson::Value val(rapidjson::kNumberType);
+                unsigned long num;
+                stringToInteger(map_it->second, num);
+                val.SetUint64(num);
+                dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                found = true;
+            } else if (columns[j].name == map_it->first) {
+                // find out type and convert
+                if (columns[j].datatype == "string" || 
+                    columns[j].datatype == "uuid")
+                {
+                    rapidjson::Value val(rapidjson::kStringType);
+                    val.SetString(map_it->second.c_str());
+                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                } else if (columns[j].datatype == "ipv4") {
+                    rapidjson::Value val(rapidjson::kStringType);
+                    char str[INET_ADDRSTRLEN];
+                    uint32_t ipaddr;
+
+                    stringToInteger(map_it->second, ipaddr);
+                    ipaddr = htonl(ipaddr);
+                    inet_ntop(AF_INET, &(ipaddr), str, INET_ADDRSTRLEN);
+                    map_it->second = str;
+
+                    val.SetString(map_it->second.c_str(), map_it->second.size());
+                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+
+                } else if (columns[j].datatype == "double") {
+                    rapidjson::Value val(rapidjson::kNumberType);
+                    double dval = (double) strtod(map_it->second.c_str(), NULL);
+                    val.SetDouble(dval);
+                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                } else {
+                    rapidjson::Value val(rapidjson::kNumberType);
+                    unsigned long num;
+                    stringToInteger(map_it->second, num);
+                    val.SetUint64(num);
+                    dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
+                }
+                found = true;
+            }
+        }
+        assert(found);    
+    }
+
+    void QueryJsonify(const string& table, bool map_output,
+        const BufferT* raw_res, const OutRowMultimapT* raw_mres, QEOutputT* raw_json) {
 
         vector<OutRowT>::iterator res_it;
+
         std::vector<query_column>  columns;
 
-        if (!raw_res->first.size()) return;
+        if (!table.size()) return;
         bool found = false;
         for(size_t i = 0; i < g_viz_constants._TABLES.size(); i++)
         {
-            if (g_viz_constants._TABLES[i].name == raw_res->first) {
+            if (g_viz_constants._TABLES[i].name == table) {
                 found = true;
                 columns = g_viz_constants._TABLES[i].schema.columns;
+            }
+        }
+        if (!found) {
+            if (g_viz_constants.OBJECT_VALUE_TABLE == table) {
+                found = true;
+                columns = g_viz_constants._OBJECT_TABLE_SCHEMA.columns; 
             }
         }
         if (!found) {
             for (std::map<std::string, objtable_info>::const_iterator it =
                     g_viz_constants._OBJECT_TABLES.begin();
                     it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-                if (it->first == raw_res->first) {
+                if (it->first == table) {
                     found = true;
                     columns = g_viz_constants._OBJECT_TABLE_SCHEMA.columns;
                 }
             }
         }
-        assert(found);
+        assert(found || map_output);
 
-        //jsonresult.reset(new QEOpServerProxy::BufferT);
-        //QEOpServerProxy::BufferT *raw_json = jsonresult_.get();
-
-        vector<OutRowT>* raw_result = const_cast<vector<OutRowT>*>(&raw_res->second);
-        for (res_it = raw_result->begin(); res_it != raw_result->end(); ++res_it) {
-            std::map<std::string, std::string>::iterator map_it;
-            rapidjson::Document dd;
-            dd.SetObject();
-
-            for (map_it = (*res_it).begin(); map_it != (*res_it).end(); ++map_it) {
-                // search for column name in the schema
-                bool found = false;
-                for (size_t j = 0; j < columns.size(); j++)
-                {
-                    if (columns[j].name == map_it->first)
-                    {
-                        // find out type and convert
-                        if (columns[j].datatype == "string" || 
-                            columns[j].datatype == "uuid")
-                        {
-                            rapidjson::Value val(rapidjson::kStringType);
-                            val.SetString(map_it->second.c_str());
-                            dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
-                        } else if (columns[j].datatype == "ipv4") {
-                            rapidjson::Value val(rapidjson::kStringType);
-                            char str[INET_ADDRSTRLEN];
-                            uint32_t ipaddr;
-
-                            stringToInteger(map_it->second, ipaddr);
-                            ipaddr = htonl(ipaddr);
-                            inet_ntop(AF_INET, &(ipaddr), str, INET_ADDRSTRLEN);
-                            map_it->second = str;
-
-                            val.SetString(map_it->second.c_str(), map_it->second.size());
-                            dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
-                        } else {
-                            rapidjson::Value val(rapidjson::kNumberType);
-                            unsigned long num;
-                            stringToInteger(map_it->second, num);
-                            val.SetUint64(num);
-                            dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
-                        }
-                        found = true;
-                    }
-                }
-                assert(found);
+        if (map_output) {
+            OutRowMultimapT::const_iterator mres_it;
+            for (mres_it = raw_mres->begin(); mres_it != raw_mres->end(); ++mres_it) {
+                string jstr;
+                StatsSelect::Jsonify(mres_it->second.first, mres_it->second.second, jstr);
+                raw_json->push_back(jstr);
             }
-            rapidjson::StringBuffer sb;
-            rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-            dd.Accept(writer);
-            raw_json->push_back(sb.GetString());
-        }
+        } else {
+            vector<OutRowT>* raw_result = const_cast<vector<OutRowT>*>(raw_res);
+            vector<OutRowT>::iterator res_it;
+            for (res_it = raw_result->begin(); res_it != raw_result->end(); ++res_it) {
+                std::map<std::string, std::string>::iterator map_it;
+                rapidjson::Document dd;
+                dd.SetObject();
+
+                for (map_it = (*res_it).begin(); map_it != (*res_it).end(); ++map_it) {
+                    // search for column name in the schema
+                    JsonInsert(columns, dd, &(*map_it));
+                }
+                rapidjson::StringBuffer sb;
+                rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+                dd.Accept(writer);
+                raw_json->push_back(sb.GetString());
+            }
+        }        
     }
 
-    void QECallback(void * qid, int error, auto_ptr<QEOpServerProxy::BufferT> res) {
+
+    void QECallback(void * qid, QPerfInfo qperf, auto_ptr<QEOpServerProxy::BufferT> res, 
+            auto_ptr<QEOpServerProxy::OutRowMultimapT> mres) {
 
         RawResultT* raw(new RawResultT);
-        raw->first = error;
-        raw->second = res;
+        raw->first = qperf;
+        raw->second.first = res;
+        raw->second.second = mres;
 
         ExternalProcIf<RawResultT> * rpi = NULL;
         if (qid)
@@ -170,7 +216,10 @@ public:
     struct Stage0Out {
         Input inp;
         bool ret_code;
+        QPerfInfo ret_info;
+        uint32_t chunk_merge_time;
         shared_ptr<BufferT> result;
+        shared_ptr<OutRowMultimapT> mresult;
     };
     ExternalBase::Efn QueryExec(uint32_t inst, const vector<RawResultT*> & exts,
             const Input & inp, Stage0Out & res) { 
@@ -186,8 +235,11 @@ public:
             sprintf(stat,"{\"progress\":15}");
             RedisAsyncArgCommand(rac, NULL, 
                 list_of(string("RPUSH"))(rkey)(stat));
-
-            res.result = shared_ptr<BufferT>(new BufferT());
+            
+            if (inp.map_output)
+                res.mresult = shared_ptr<OutRowMultimapT>(new OutRowMultimapT());
+            else
+                res.result = shared_ptr<BufferT>(new BufferT());
 
             // TODO : The chunk number should be picked off a queue
             //        This queue may be part of the input for this stage
@@ -197,18 +249,40 @@ public:
                     inst);
         } else {
             QE_ASSERT(step==1);
-            res.ret_code = (exts[0]->first == 0) ? true : false;
+            res.ret_info = exts[0]->first;
+            res.chunk_merge_time = 0;
+            res.ret_code = (exts[0]->first.error == 0) ? true : false;
             if (res.ret_code) {
-                res.result->first = exts[0]->second->first;
                 if (inp.need_merge) {
-                    res.ret_code =
-                        qosp_->qe_->QueryAccumulate(inp.qp, *(exts[0]->second), *(res.result));
+                    uint64_t then = UTCTimestampUsec();
+                    if (inp.map_output) {
+                        // TODO: This interface should not be Stats-Specific
+                        StatsSelect::Merge(*(exts[0]->second.second), *(res.mresult));
+                    } else {
+                        res.ret_code =
+                            qosp_->qe_->QueryAccumulate(inp.qp,
+                                *(exts[0]->second.first), *(res.result));
+                    }
+                    res.chunk_merge_time = 
+                        static_cast<uint32_t>((UTCTimestampUsec() - then)/1000);
+            
                 } else {
                     // TODO : When merge is not needed, we can just send
                     //        a result upto redis at this point.
-                    res.result->second.insert(res.result->second.begin(),
-                        exts[0]->second->second.begin(),
-                        exts[0]->second->second.end());
+
+                    if (inp.map_output) {
+                        OutRowMultimapT::iterator jt = res.mresult->begin();
+                        for (OutRowMultimapT::const_iterator it = exts[0]->second.second->begin();
+                                it != exts[0]->second.second->end(); it++ ) {
+
+                            jt = res.mresult->insert(jt,
+                                    std::make_pair(it->first, it->second));
+                        }
+                    } else {
+                        res.result->insert(res.result->begin(),
+                            exts[0]->second.first->begin(),
+                            exts[0]->second.first->end());                        
+                    }
                 }
             }
         }
@@ -219,7 +293,10 @@ public:
         Input inp;
         bool ret_code;
         uint32_t fm_time;
+        QPerfInfo ret_info;
+        uint32_t chunk_merge_time;
         BufferT result;
+        OutRowMultimapT mresult;
     };
     bool QueryMerge(const std::vector<boost::shared_ptr<Stage0Out> > & subs,
            const boost::shared_ptr<Input> & inp, Stage0Merge & res) {
@@ -227,34 +304,70 @@ public:
         res.ret_code = true;
         res.inp = subs[0]->inp;
         res.fm_time = 0;
-        
+      
+        res.ret_info.chunk_where_time = 0;
+        res.ret_info.chunk_select_time = 0;
+        res.ret_info.chunk_postproc_time = 0;
+        res.chunk_merge_time = 0; 
+        std::vector<boost::shared_ptr<OutRowMultimapT> > mqsubs;
         std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> > qsubs;
         for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
                 it!=subs.end(); it++) {
+            res.ret_info.chunk_where_time += (*it)->ret_info.chunk_where_time;
+            res.ret_info.chunk_select_time += (*it)->ret_info.chunk_select_time;
+            res.ret_info.chunk_postproc_time += (*it)->ret_info.chunk_postproc_time;
+            res.chunk_merge_time += (*it)->chunk_merge_time;
+
             if ((*it)->ret_code == false) {
                 res.ret_code = false;
             } else {
-                qsubs.push_back((*it)->result);
+                if (res.inp.map_output)
+                    mqsubs.push_back((*it)->mresult);
+                else
+                    qsubs.push_back((*it)->result);
             }
         }
+        if (subs.size()) {
+           res.ret_info.chunk_where_time /= subs.size();
+           res.ret_info.chunk_select_time /= subs.size();
+           res.ret_info.chunk_postproc_time /= subs.size();
+           res.chunk_merge_time /= subs.size();
+        }
+
         if (!res.ret_code) return true;
 
         if (res.inp.need_merge) {
             uint64_t then = UTCTimestampUsec();
-            res.ret_code = qosp_->qe_->QueryFinalMerge(res.inp.qp, qsubs, res.result);
+
+            if (res.inp.map_output) {
+                res.ret_code =
+                    qosp_->qe_->QueryFinalMerge(res.inp.qp, mqsubs, res.mresult);
+
+            } else {
+                res.ret_code =
+                    qosp_->qe_->QueryFinalMerge(res.inp.qp, qsubs, res.result);
+            }
+
             uint64_t now = UTCTimestampUsec();
             res.fm_time = static_cast<uint32_t>((now - then)/1000);
         } else {
-            res.result.first = string();
             // TODO : If a merge was not needed, results have been sent to 
             //        redis already. The only thing still needed is the status
             for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
                     it!=subs.end(); it++) {
-                if ((*it)->result->first.size())
-                    res.result.first = (*it)->result->first;
-                res.result.second.insert(res.result.second.begin(),
-                    (*it)->result->second.begin(),
-                    (*it)->result->second.end());
+
+                if (res.inp.map_output) {
+                    OutRowMultimapT::iterator jt = res.mresult.begin();
+                    for (OutRowMultimapT::const_iterator kt = (*it)->mresult->begin();
+                            kt != (*it)->mresult->end(); kt++) {
+                        jt = res.mresult.insert(jt,
+                                std::make_pair(kt->first, kt->second));
+                    }
+                } else {
+                    res.result.insert(res.result.begin(),
+                        (*it)->result->begin(),
+                        (*it)->result->end());
+                }
             }
         }
         return true;
@@ -263,7 +376,6 @@ public:
     struct Output {
         Input inp;
         uint32_t redis_time;
-        uint32_t fm_time;
         bool ret_code;
     };
     ExternalBase::Efn QueryResp(uint32_t inst, const vector<RedisT*> & exts,
@@ -277,13 +389,17 @@ public:
                     RedisAsyncConnection * rac = conns_[ret.inp.cnum].get();
                     std::stringstream keystr;
                     auto_ptr<QEOutputT> jsonresult(new QEOutputT);
-                    // TODO : QueryMergeFinal needs to be called at this point
-                    //        For now, I'm assuming a single chunk
-                    QueryJsonify(&inp.result, jsonresult.get());
+
+                    QE_LOG_NOQID(INFO,  "Will Jsonify #rows " << 
+                        inp.result.size() + inp.mresult.size());
+                    QueryJsonify(inp.inp.table, inp.inp.map_output,
+                        &inp.result, &inp.mresult, jsonresult.get());
                         
                     vector<string> const * const res = jsonresult.get();
                     vector<string>::size_type idx = 0;
                     uint32_t rownum = 0;
+
+                    QE_LOG_NOQID(INFO,  "Did Jsonify #rows " << res->size());
                     
                     uint64_t then = UTCTimestampUsec();
                     char stat[80];
@@ -315,7 +431,6 @@ public:
                     }
                     uint64_t now = UTCTimestampUsec();
                     ret.redis_time = static_cast<uint32_t>((now - then)/1000);
-                    ret.fm_time = inp.fm_time;
                     QE_LOG_NOQID(DEBUG,  "QE Query Result is " << stat);
                     return boost::bind(&RedisAsyncArgCommand,
                             conns_[ret.inp.cnum].get(), _1,
@@ -341,35 +456,52 @@ public:
                     uint32_t enq_delay = static_cast<uint32_t>(
                             (ret.inp.qp.query_starttm - enqtm)/1000);
                     qpi.set_enq_delay(enq_delay);
-                    if (g_viz_constants.COLLECTOR_GLOBAL_TABLE == inp.result.first) {
-                        qpi.set_log_query_time(qtime);
-                        qpi.set_log_query_rows(static_cast<uint32_t>(inp.result.second.size()));
-                    } else if ((g_viz_constants.FLOW_TABLE == inp.result.first) ||
-                            (g_viz_constants.FLOW_SERIES_TABLE == inp.result.first)) {
-                        qpi.set_flow_query_time(qtime);
-                        qpi.set_flow_query_rows(static_cast<uint32_t>(inp.result.second.size()));                                
-                    } else {
-                        qpi.set_object_query_time(qtime);
-                        qpi.set_object_query_rows(static_cast<uint32_t>(inp.result.second.size()));                        
-                    }
+
+                    QueryStats qs;
+                    qs.set_table(inp.inp.table);
+                    size_t outsize;
+
+                    if (ret.inp.map_output)
+                        outsize = inp.mresult.size();
+                    else
+                        outsize = inp.result.size();
+
+                    qs.set_rows(static_cast<uint32_t>(outsize));                                           
+
+
+                    qs.set_time(qtime);
+                    qs.set_qid(ret.inp.qp.qid);
+                    qs.set_chunks(inp.inp.chunk_size.size());
+                    qs.set_chunk_where_time(inp.ret_info.chunk_where_time);
+                    qs.set_chunk_select_time(inp.ret_info.chunk_select_time);
+                    qs.set_chunk_postproc_time(inp.ret_info.chunk_postproc_time);
+                    qs.set_chunk_merge_time(inp.chunk_merge_time);
+                    qs.set_final_merge_time(inp.fm_time);
+                    qs.set_where(inp.inp.where);
+                    qs.set_select(inp.inp.select);
+                    qs.set_post(inp.inp.post);
+                    qs.set_time_span(inp.inp.time_period);
+                    std::vector<QueryStats> vqs;
+                    vqs.push_back(qs);
+                    qpi.set_query_stats(vqs);
                     QueryPerfInfoTrace::Send(qpi);
 
-		    QueryObjectData qo;
-		    qo.set_qid(ret.inp.qp.qid);
-		    qo.set_table(inp.result.first);
-		    qo.set_ops_start_ts(enqtm);
-		    qo.set_qed_start_ts(ret.inp.qp.query_starttm);
-		    qo.set_qed_end_ts(now);
-		    qo.set_flow_query_rows(static_cast<uint32_t>(inp.result.second.size()));
-		    QUERY_OBJECT_SEND(qo);
+        		    QueryObjectData qo;
+        		    qo.set_qid(ret.inp.qp.qid);
+        		    qo.set_table(inp.inp.table);
+        		    qo.set_ops_start_ts(enqtm);
+        		    qo.set_qed_start_ts(ret.inp.qp.query_starttm);
+        		    qo.set_qed_end_ts(now);
+                    qo.set_flow_query_rows(static_cast<uint32_t>(outsize));
+        		    QUERY_OBJECT_SEND(qo);
 
                     //g_viz_constants.COLLECTOR_GLOBAL_TABLE 
                     QE_LOG_NOQID(INFO, "Finished: QID " << ret.inp.qp.qid <<
-                        " Table " << inp.result.first <<
+                        " Table " << inp.inp.table <<
                         " Time(ms) " << qtime <<
                         " RedisTime(ms) " << ret.redis_time <<
-                        " MergeTime(ms) " << ret.fm_time <<
-                        " Rows " << inp.result.second.size() <<
+                        " MergeTime(ms) " << inp.fm_time <<
+                        " Rows " << outsize <<
                         " EnQ-delay" << enq_delay);
 
                     ret.ret_code = true;
@@ -501,7 +633,15 @@ public:
        
         vector<uint64_t> chunk_size;
         bool need_merge;
-        int ret = qosp_->qe_->QueryPrepare(qp, chunk_size, need_merge);
+        bool map_output;
+        string table;
+        string where;
+        string select;
+        string post;
+        uint64_t time_period;
+
+        int ret = qosp_->qe_->QueryPrepare(qp, chunk_size, need_merge, map_output,
+            where, select, post, time_period, table);
 
         if (ret!=0) {
             QueryError(qid, ret);
@@ -518,8 +658,14 @@ public:
         shared_ptr<Input> inp(new Input());
         inp.get()->hostname = hostname_;
         inp.get()->qp = qp;
+        inp.get()->map_output = map_output;
         inp.get()->need_merge = need_merge;
         inp.get()->chunk_size = chunk_size;
+        inp.get()->where = where;
+        inp.get()->select = select;
+        inp.get()->post = post;
+        inp.get()->time_period = time_period;
+        inp.get()->table = table;
   
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<chunk_size.size(); idx++) {
@@ -672,8 +818,10 @@ QEOpServerProxy::QEOpServerProxy(EventManager *evm, QueryEngine *qe,
 QEOpServerProxy::~QEOpServerProxy() {}
 
 void
-QEOpServerProxy::QueryResult(void * qid, int error, auto_ptr<BufferT> res) {
-    impl_->QECallback(qid, error, res);
+QEOpServerProxy::QueryResult(void * qid, QPerfInfo qperf,
+        auto_ptr<BufferT> res, auto_ptr<OutRowMultimapT> mres) {
+        
+    impl_->QECallback(qid, qperf, res, mres);
 }
 
 

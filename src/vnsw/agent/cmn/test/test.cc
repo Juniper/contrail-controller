@@ -19,6 +19,9 @@ static TableC *table_c_;
 //DBTable *TableC::table_c_;
 DB *db_;
 
+void RouterIdDepInit() {
+}
+
 DBEntryBase::KeyPtr EntryA::GetDBRequestKey() const {
     EntryKey *key = new EntryKey(id_);
     return DBEntryBase::KeyPtr(key);

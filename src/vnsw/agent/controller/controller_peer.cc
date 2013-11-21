@@ -613,6 +613,9 @@ void AgentXmppChannel::WriteReadyCb(const boost::system::error_code &ec) {
 }
 
 void AgentXmppChannel::BgpPeerDelDone() {
+    if (GetBgpPeer()->NoOfWalks() == 0) {
+        VNController::Cleanup();
+    }
 }
 
 void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
@@ -879,7 +882,6 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
 
     autogen::NextHopType nh;
     nh.af = BgpAf::IPv4;
-    nh.safi= BgpAf::Unicast;
     nh.address = rtr;
     nh.label = mpls_label;
     nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
@@ -1110,7 +1112,6 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
 
     autogen::McastNextHopType item_nexthop;
     item_nexthop.af = BgpAf::IPv4;
-    item_nexthop.safi = BgpAf::Mcast;
     string rtr(Agent::GetInstance()->GetRouterId().to_string());
     item_nexthop.address = rtr;
     item_nexthop.label = peer->GetMcastLabelRange();

@@ -8,14 +8,8 @@ Import('BuildEnv')
 
 env = BuildEnv.Clone()
 env.Append(CPPPATH = env['TOP'])
-
-except_env = BuildEnv.Clone()
-except_env.Append(CPPPATH = env['TOP'])
-except_env.Append(CPPPATH = [env['TOP'] + '/bgp'])
-cflags = except_env['CCFLAGS']
-if '-fno-exceptions' in cflags:
-    cflags.remove('-fno-exceptions')
-except_env.Replace(CCFLAGS = cflags)
+env.Append(CPPPATH = [env['TOP'] + '/bgp'])
+env.Append(CPPPATH = [env['TOP'] + '/io'])
 
 # Generate the source files
 SandeshGenFiles = env.SandeshGenCpp('routing_instance_analytics.sandesh')
@@ -23,11 +17,10 @@ SandeshGenFiles += env.SandeshGenCpp('service_chaining.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('static_route.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
-librouting_instance = except_env.Library('routing_instance', SandeshGenSrcs + 
+librouting_instance = env.Library('routing_instance', SandeshGenSrcs + 
                                          ['peer_manager.cc', 
                                          'routing_instance.cc', 
                                          'routepath_replicator.cc', 
                                          'service_chaining.cc', 
                                          'static_route.cc'])
 
-env.Append(CPPPATH = env['TOP'])

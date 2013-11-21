@@ -383,34 +383,27 @@ void FlowEntry::MakeShortFlow() {
     }
 }
 
-bool FlowEntry::GetPolicyInfo(MatchPolicy *policy) {
+void FlowEntry::GetPolicyInfo(MatchPolicy *policy) {
     // Default make it false
     data.match_p.nw_policy = false;
 
     if (short_flow == true) {
         data.match_p.action_info.action = (1 << TrafficAction::DROP);
-        return true;
+        return;
     }
 
     // ACL supported on VMPORT interfaces only
     if (data.intf_entry == NULL)
-        return false;
+        return;
 
     if  (data.intf_entry->GetType() != Interface::VMPORT)
-        return false;
+        return;
 
     // Get Network policy/mirror cfg policy/mirror policies 
     GetPolicy(data.vn_entry.get(), policy);
 
     // Get Sg list
     GetSgList(data.intf_entry.get(), policy);
-
-    return ((data.match_p.m_acl_l.size() || 
-             data.match_p.m_out_acl_l.size() || 
-             data.match_p.m_sg_acl_l.size() ||
-             data.match_p.m_out_sg_acl_l.size() ||
-             data.match_p.m_mirror_acl_l.size() || 
-             data.match_p.m_out_mirror_acl_l.size()) ?  true : false);
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
@@ -418,8 +411,18 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
 
     MatchPolicy policy;
     flow->GetPolicyInfo(&policy);
-    ResyncAFlow(flow, policy, true);
-    AddFlowInfo(flow);
+    // Add the forward flow after adding the reverse flow first to avoid 
+    // following sequence
+    // 1. Agent adds forward flow
+    // 2. vrouter releases the packet
+    // 3. Packet reaches destination VM and destination VM replies
+    // 4. Agent tries adding reverse flow. vrouter processes request in core-0
+    // 5. vrouter gets reverse packet in core-1
+    // 6. If (4) and (3) happen together, vrouter can allocate 2 hash entries
+    //    for the flow.
+    //
+    // While the scenario above cannot be totally avoided, programming reverse
+    // flow first will reduce the probability
 
     if (rflow) {
         MatchPolicy rpolicy;
@@ -428,6 +431,9 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
         AddFlowInfo(rflow);
     }
 
+
+    ResyncAFlow(flow, policy, true);
+    AddFlowInfo(flow);
 }
 
 void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
@@ -1322,7 +1328,10 @@ void FlowTable::DeleteVnFlowInfo(FlowEntry *fe)
         vn_it = vn_flow_tree_.find(fe->data.vn_entry.get());
         if (vn_it != vn_flow_tree_.end()) {
             VnFlowInfo *vn_flow_info = vn_it->second;
-            vn_flow_info->fet.erase(fe);
+            int count = vn_flow_info->fet.erase(fe);
+            if (count > 0) {
+                DecrVnFlowCounter(vn_flow_info, fe);
+            }
             if (vn_flow_info->fet.empty()) {
                 delete vn_flow_info;
                 vn_flow_tree_.erase(vn_it);
@@ -1533,6 +1542,34 @@ void FlowTable::AddVmFlowInfo (FlowEntry *fe)
     }
 }
 
+void FlowTable::IncrVnFlowCounter(VnFlowInfo *vn_flow_info, 
+                                  const FlowEntry *fe) {
+    if (fe->local_flow) {
+        vn_flow_info->ingress_flow_count++;
+        vn_flow_info->egress_flow_count++;
+    } else {
+        if (fe->data.ingress) {
+            vn_flow_info->ingress_flow_count++;
+        } else {
+            vn_flow_info->egress_flow_count++;
+        }
+    }
+}
+
+void FlowTable::DecrVnFlowCounter(VnFlowInfo *vn_flow_info, 
+                                  const FlowEntry *fe) {
+    if (fe->local_flow) {
+        vn_flow_info->ingress_flow_count--;
+        vn_flow_info->egress_flow_count--;
+    } else {
+        if (fe->data.ingress) {
+            vn_flow_info->ingress_flow_count--;
+        } else {
+            vn_flow_info->egress_flow_count--;
+        }
+    }
+}
+
 void FlowTable::AddVnFlowInfo (FlowEntry *fe)
 {
     if (!fe->data.vn_entry) {
@@ -1545,23 +1582,31 @@ void FlowTable::AddVnFlowInfo (FlowEntry *fe)
         vn_flow_info = new VnFlowInfo();
         vn_flow_info->vn_entry = fe->data.vn_entry;
         vn_flow_info->fet.insert(fe);
+        IncrVnFlowCounter(vn_flow_info, fe);
         vn_flow_tree_.insert(VnFlowPair(fe->data.vn_entry.get(), vn_flow_info));
     } else {
         vn_flow_info = it->second;
         /* fe can already exist. In that case it won't be inserted */
-        vn_flow_info->fet.insert(fe);
+        pair<FlowTable::FlowEntryTree::iterator, bool> ret = 
+                                            vn_flow_info->fet.insert(fe);
+        if (ret.second) {
+            IncrVnFlowCounter(vn_flow_info, fe);
+        }
     }
 }
 
-
-size_t FlowTable::VnFlowSize(const VnEntry *vn) {
+void FlowTable::VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
+                               uint32_t *out_count) {
     VnFlowTree::iterator it;
     it = vn_flow_tree_.find(vn);
     if (it == vn_flow_tree_.end()) {
-        return 0;
+        *in_count = 0;
+        *out_count = 0;
+        return;
     }
     VnFlowInfo *vn_flow_info = it->second;
-    return vn_flow_info->fet.size();
+    *in_count = vn_flow_info->ingress_flow_count;
+    *out_count = vn_flow_info->egress_flow_count;
 }
 
 void FlowTable::AddRouteFlowInfo (FlowEntry *fe)

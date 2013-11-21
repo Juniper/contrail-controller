@@ -93,6 +93,7 @@ db_query_obj = env_excep.Object('db_query.o', 'db_query.cc');
 select_fs_query_obj = env_excep.Object('select_fs_query.o', 'select_fs_query.cc');
 select_obj = env_excep.Object('select.o', 'select.cc');
 post_processing_obj = env_excep.Object('post_processing.o', 'post_processing.cc');
+stats_select_obj = env_excep.Object('stats_select.o', 'stats_select.cc');
 
 env.Install('', '../analytics/analytics_cpuinfo.sandesh') 
 # Generate the source files
@@ -126,6 +127,7 @@ env.Command(target='buildinfo.cc', source = [buildinfo_dep_libs + qed_sources +
                                              '../analytics/redis_connection.cc',
                                              'select_fs_query.cc',
                                              'select.cc',
+                                             'stats_select.cc',
                                              'post_processing.cc',
                                              '../analytics/vizd_table_desc.cc']],
                                              action=BuildInfoAction)
@@ -146,9 +148,28 @@ qed = env.Program(target = 'qed',
           select_fs_query_obj,
           select_obj,
           post_processing_obj,
+          stats_select_obj,
           '../analytics/vizd_table_desc.o',
         ]])
-qedt = env.UnitTest(target = 'qedt', 
+if env['OPT'] == 'coverage':
+    qedt = env.UnitTest(target = 'qedt', 
+        source = [ qe_obj +
+          [bi_obj, 
+          SandeshGenObjs,
+          'rac_alloc.cc',
+          query_obj,
+          set_operation_obj,
+          where_query_obj,
+          db_query_obj,
+          RedisConn_obj,
+          select_fs_query_obj,
+          select_obj,
+          post_processing_obj,
+          stats_select_obj,
+          '../analytics/vizd_table_desc.o',
+        ]])
+else:
+    qedt = env.UnitTest(target = 'qedt', 
         source = [ qe_obj +
           [bi_obj, 
           SandeshGenObjs,
@@ -161,6 +182,7 @@ qedt = env.UnitTest(target = 'qedt',
           select_fs_query_obj,
           select_obj,
           post_processing_obj,
+          stats_select_obj,
           '../analytics/vizd_table_desc.o',
         ]])
 
@@ -172,3 +194,5 @@ env.Depends(qedt, '#/build/include/hiredis/hiredis.h')
 env.Depends(rac_obj, '#/build/lib/libtcmalloc' + env['LIBSUFFIX'])
 QueryEnv = env.Clone()
 env.Default(qed)
+
+#test_suite = env.SConscript('test/SConscript', exports='QueryEnv', duplicate = 0)

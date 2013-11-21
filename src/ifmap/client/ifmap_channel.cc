@@ -124,7 +124,8 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
       arc_socket_(new SslStream((*manager->io_service()), ctx_)),
       username_(user), password_(passwd), state_machine_(NULL),
       response_state_(NONE), sequence_number_(0), recv_msg_cnt_(0),
-      sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN) {
+      sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN),
+      connection_status_change_at_(UTCTimestampUsec()) {
 
     error_code ec;
     if (certstore.empty()) {
@@ -135,6 +136,11 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
     IFMAP_DEBUG(IFMapServerConnection, "Base64 auth string is", b64_auth_str_);
+}
+
+void IFMapChannel::set_connection_status(ConnectionStatus status) {
+    connection_status_ = status;
+    connection_status_change_at_ = UTCTimestampUsec();
 }
 
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
@@ -164,20 +170,20 @@ void IFMapChannel::CloseSockets(const boost::system::error_code& error,
     // If we have tried connecting to this peer enough times, lets try
     // connecting to a new one, if available.
     if (RetryNewHost()) {
-        clear_reconnect_attempts();
         bool use_new = manager_->PeerDown();
-        // If a new one is not available, continue trying the current peer
-        if (!use_new) {
-            state_machine_->ProcConnectionCleaned();
+        // If a new peer is available, the manager has already queued it up for
+        // the SM. Queue the connection-cleaned event for the SM.
+        if (use_new) {
+            clear_reconnect_attempts();
         }
-    } else {
-        state_machine_->ProcConnectionCleaned();
+        // If a new one is not available, continue trying the current peer.
     }
+    state_machine_->ProcConnectionCleaned();
 }
 
 void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
-    if (connection_status_ == DOWN) {
+    if (ConnectionStatusIsDown()) {
         IFMAP_DEBUG(IFMapServerConnection, 
                     "Retrying connection to Ifmap-server.", "");
     } else {
@@ -185,9 +191,8 @@ void IFMapChannel::ReconnectPreparation() {
                     "Connection to Ifmap-server went down.", "");
     }
 
-    // Move the status to 'down' as we are re-starting the connection
     increment_reconnect_attempts();
-    connection_status_ = DOWN;
+    set_connection_status(DOWN);
     pub_id_ = std::string();
     session_id_ = std::string();
     clear_recv_msg_cnt();
@@ -246,11 +251,11 @@ void IFMapChannel::DoConnect(bool is_ssrc) {
     // likely everything else will go through since ssrc went through the same
     // steps earlier successfully
     if (!is_ssrc) {
-        if (connection_status_ == DOWN) {
+        if (ConnectionStatusIsDown()) {
             sequence_number_++;
             manager_->ifmap_server()->StaleNodesCleanup();
         }
-        connection_status_ = UP;
+        set_connection_status(UP);
         IFMAP_DEBUG(IFMapServerConnection,
                     "Connection to Ifmap-server came up.", "");
     }
@@ -472,6 +477,8 @@ void IFMapChannel::SendPollRequest() {
 void IFMapChannel::PollResponseWait() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Read the http header. Might get extra bytes beyond the header.
+    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::PollResponseWait",
+                GetSizeAsString(reply_.size(), " bytes in reply_."));
     response_state_ = POLLRESPONSE;
     boost::asio::async_read_until(*arc_socket_.get(), reply_, "\r\n\r\n",
         boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
@@ -483,10 +490,14 @@ int IFMapChannel::ReadPollResponse() {
 
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Append the new bytes read, if any, to the stringstream
+    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::ReadPollResponse",
+                GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
     IFMAP_LOG_POLL_RESP(IFMapServerConnection,
-                        "PollResponse message is: \n", reply_str);
+                   GetSizeAsString(reply_.size(), " bytes in reply_. ") +
+                   GetSizeAsString(reply_str.size(), " bytes in reply_str. ") +
+                   "PollResponse message is: \n", reply_str);
 
     // all possible responses, 3.7.5
     if ((reply_str.find("errorResult") != string::npos) ||
@@ -503,6 +514,7 @@ int IFMapChannel::ReadPollResponse() {
             (manager_->pollreadcb())(poll_string.c_str(), poll_string.length(),
                                      sequence_number_);
         }
+        response_state_ = NONE;
         return 0;
     } else {
         assert(0);
@@ -525,6 +537,8 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     reply_ss_.str(std::string());
     reply_ss_.clear();
 
+    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::ProcResponse",
+                GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
 
@@ -565,8 +579,9 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     size_t lenlen = pos2 - pos1 - srch1.length();
     string content_len_str = reply_str.substr(start_pos, lenlen);
     int content_len = atoi(content_len_str.c_str());
-    IFMAP_DEBUG(IFMapIntString, content_len,
-                "bytes of content length received.");
+    IFMAP_DEBUG(IFMapChannelProcResp, "Http header length is", header_length,
+                "Content length is", content_len,
+                "Total bytes read are", reply_str.length());
 
     // If both header and body are completely read, goto the next state
     if ((header_length + content_len) == reply_str.length()) {
@@ -666,16 +681,28 @@ void IFMapChannel::SetArcSocketOptions() {
 // The connection to the peer 'host_' has timed-out. Create a new entry for
 // this peer or update the peer's entry if it already exists.
 void IFMapChannel::IncrementTimedout() {
-    TimedoutMap::iterator iter = timedout_map_.find(host_);
+    string key = host_ + ":" + port_;
+    TimedoutMap::iterator iter = timedout_map_.find(key);
     if (iter == timedout_map_.end()) {
         PeerTimedoutInfo info(1, UTCTimestampUsec());
-        timedout_map_.insert(make_pair(host_, info));
+        timedout_map_.insert(make_pair(key, info));
     } else {
         PeerTimedoutInfo info = iter->second;
         ++info.timedout_cnt;
         info.last_timeout_at = UTCTimestampUsec();
         iter->second = info;
     }
+}
+
+IFMapChannel::PeerTimedoutInfo IFMapChannel::GetTimedoutInfo(const string &host,
+                                                        const string &port) {
+    PeerTimedoutInfo timedout_info;
+    string key = host + ":" + port;
+    TimedoutMap::iterator iter = timedout_map_.find(key);
+    if (iter != timedout_map_.end()) {
+        timedout_info = iter->second;
+    }
+    return timedout_info;
 }
 
 string IFMapChannel::timeout_to_string(uint64_t timeout) {
@@ -690,7 +717,7 @@ void IFMapChannel::GetTimedoutEntries(IFMapPeerTimedoutEntries *entries) {
         PeerTimedoutInfo info = iter->second;
 
         IFMapPeerTimedoutEntry entry;
-        entry.set_host(iter->first);
+        entry.set_peer(iter->first);
         entry.set_timeout_count(info.timedout_cnt);
         entry.set_last_timeout_ago(timeout_to_string(info.last_timeout_at));
 
@@ -723,7 +750,8 @@ static bool IFMapServerInfoHandleRequest(const Sandesh *sr,
     server_conn_info.set_publisher_id(channel->get_publisher_id());
     server_conn_info.set_session_id(channel->get_session_id());
     server_conn_info.set_sequence_number(channel->get_sequence_number());
-    server_conn_info.set_connection_status(channel->get_connection_status());
+    server_conn_info.set_connection_status(
+        channel->get_connection_status_and_time());
     server_conn_info.set_host(channel->get_host());
     server_conn_info.set_port(channel->get_port());
 

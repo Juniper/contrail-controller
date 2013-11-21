@@ -243,6 +243,30 @@ struct CfgServiceVlan {
 };
 typedef std::map<int, CfgServiceVlan> CfgServiceVlanList;
 
+struct CfgStaticRoute {
+    CfgStaticRoute() : vrf_(""), addr_(0), plen_(0) { }
+    CfgStaticRoute(const string &vrf, const Ip4Address &addr, uint32_t plen): 
+        vrf_(vrf), addr_(addr), plen_(plen) { }
+    ~CfgStaticRoute() { }
+
+    bool operator< (const CfgStaticRoute &rhs) const{
+        if (addr_ != rhs.addr_) {
+            return addr_ < rhs.addr_;
+        }
+
+        if (plen_ != rhs.plen_) {
+            return plen_ < rhs.plen_;
+        }
+
+        return vrf_ < rhs.vrf_;
+    }
+
+    string vrf_;
+    Ip4Address addr_;   
+    uint32_t plen_;
+};
+typedef std::set<CfgStaticRoute> CfgStaticRouteList;
+
 struct VmPortInterfaceData : public InterfaceData {
     VmPortInterfaceData() : 
         InterfaceData(), addr_(0), vm_mac_(""), cfg_name_(""), vm_uuid_(), vm_name_(), 
@@ -275,6 +299,7 @@ struct VmPortInterfaceData : public InterfaceData {
     string vrf_name_;
     CfgFloatingIpList floating_iplist_;
     CfgServiceVlanList service_vlan_list_;
+    CfgStaticRouteList static_route_list_;
     bool fabric_port_;
     bool need_linklocal_ip_;
     bool mirror_enable_;
@@ -335,6 +360,25 @@ public:
     };
     typedef std::map<int, ServiceVlan> ServiceVlanList;
 
+    struct StaticRoute {
+        StaticRoute(): vrf_(""), addr_(0), plen_(0) { }
+        StaticRoute(std::string vrf, const Ip4Address &addr, uint32_t plen) : 
+            vrf_(vrf), addr_(addr), plen_(plen) { }
+        ~StaticRoute() { }
+         bool operator() (const StaticRoute &lhs, const StaticRoute &rhs) {
+             if (lhs.vrf_ != rhs.vrf_) {
+                 return lhs.vrf_ < rhs.vrf_;
+             }
+
+             return lhs.addr_ < rhs.addr_;
+         }
+
+         std::string vrf_;
+         Ip4Address  addr_;
+         uint32_t    plen_;
+    };
+    typedef std::set<StaticRoute, StaticRoute> StaticRouteList;
+
     enum Trace {
         ADD,
         DELETE,
@@ -348,7 +392,7 @@ public:
         Interface(Interface::VMPORT, uuid, "", NULL), vm_(NULL), vn_(NULL),
         addr_(0), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(""), 
         policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
-        floating_iplist_(), service_vlan_list_(), 
+        floating_iplist_(), service_vlan_list_(), static_route_list_(),
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false), 
         dhcp_snoop_ip_(false), vm_name_(), vxlan_id_(0) { 
         SetActiveState(false);
@@ -358,7 +402,7 @@ public:
         Interface(Interface::VMPORT, uuid, name, NULL), vm_(NULL), vn_(NULL),
         addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(mac), 
         policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
-        floating_iplist_(), service_vlan_list_(), 
+        floating_iplist_(), service_vlan_list_(), static_route_list_(),
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false),
         dhcp_snoop_ip_(false), vm_name_(vm_name), vxlan_id_(0) { 
         SetActiveState(false);
@@ -457,6 +501,7 @@ public:
     bool OnResyncFloatingIp(VmPortInterfaceData *data, bool new_active);
     bool OnResyncSecurityGroupList(VmPortInterfaceData *data, bool new_active);
     bool OnResyncServiceVlan(VmPortInterfaceData *data);
+    bool OnResyncStaticRoute(VmPortInterfaceData *data, bool new_active);
     void UpdateAllRoutes();
     virtual void SendTrace(Trace ev);
 
@@ -472,11 +517,12 @@ public:
     static void FloatingIpPoolSync(IFMapNode *node);
     static void FloatingIpSync(IFMapNode *node);
     static void FloatingIpVrfSync(IFMapNode *node);
-    void AddRoute(std::string vrf_name, Ip4Address ip, bool policy);
+    void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
+                  bool policy);
     void AddL2Route(const std::string vrf_name, 
                     struct ether_addr mac, const Ip4Address &ip, 
                     bool policy);
-    void DeleteRoute(std::string vrf_name, Ip4Address ip, bool policy);
+    void DeleteRoute(std::string vrf_name, Ip4Address ip, uint32_t plen);
     void DeleteL2Route(const std::string vrf_name, 
                        struct ether_addr mac);
     void ServiceVlanAdd(ServiceVlan &entry);
@@ -502,6 +548,7 @@ private:
     Interface::MirrorDirection mirror_direction_;
     FloatingIpList floating_iplist_;
     ServiceVlanList service_vlan_list_;
+    StaticRouteList static_route_list_;
     string cfg_name_;
     bool fabric_port_;
     bool alloc_linklocal_ip_;
@@ -557,9 +604,10 @@ public:
 
     KeyPtr GetDBRequestKey() const;
     virtual string ToString() const {return "ETH";};
-    static void CreateReq(const string &ifname, const string &vrf_name);
+    static void CreateReq(InterfaceTable *table, const string &ifname,
+                          const string &vrf_name);
     // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(const string &ifname);
+    static void DeleteReq(InterfaceTable *table, const string &ifname);
 private:
     DISALLOW_COPY_AND_ASSIGN(EthInterface);
 };
@@ -608,9 +656,9 @@ public:
     virtual uint32_t GetVrfId() const {return VrfEntry::kInvalidIndex;};
    
     // Enqueue DBRequest to create a Host Interface
-    static void CreateReq(const string &ifname);
+    static void CreateReq(InterfaceTable *table, const string &ifname);
     // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(const string &ifname);
+    static void DeleteReq(InterfaceTable *table, const string &ifname);
 private:
     DISALLOW_COPY_AND_ASSIGN(HostInterface);
 };
@@ -657,10 +705,10 @@ public:
     KeyPtr GetDBRequestKey() const;
     virtual string ToString() const {return "VHOST";};
     SubType GetSubType() const { return sub_type_;};
-    static void CreateReq(const string &ifname, const string &vrf_name, 
-                          SubType sub_type);
+    static void CreateReq(InterfaceTable *table, const string &ifname,
+                          const string &vrf_name, SubType sub_type);
     // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(const string &ifname);
+    static void DeleteReq(InterfaceTable *table, const string &ifname);
 private:
     SubType sub_type_;
     DISALLOW_COPY_AND_ASSIGN(VirtualHostInterface);
@@ -718,6 +766,10 @@ public:
 
     void FreeInterfaceId(size_t index) {index_table_.Remove(index);};
     Interface *FindInterface(size_t index) {return index_table_.At(index);};
+    Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
+    bool FindVmUuidFromMetadataIp(const Ip4Address &ip, std::string *vm_ip,
+                                  std::string *vm_uuid);
+    void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address *addr);
 
     VrfEntry *FindVrfRef(const string &name) const;
     VnEntry *FindVnRef(const uuid &uuid) const;

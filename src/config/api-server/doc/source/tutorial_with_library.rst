@@ -31,7 +31,7 @@ To create virtual-networks *vn-red* and *vn-blue* and network-policy *policy-red
 
     >>> policy_obj = vnc_api.NetworkPolicy('policy-red-blue',
     ...                  network_policy_entries = vnc_api.PolicyEntriesType([vnc_api.PolicyRuleType(direction='<>',
-    ...                      simple_action = 'pass', protocol = 'tcp',
+    ...                      action_list = vnc_api.ActionListType(simple_action='pass'), protocol = 'tcp',
     ...                      src_addresses = [vnc_api.AddressType(virtual_network = vn_blue_obj.get_fq_name_str())],
     ...                      src_ports = [vnc_api.PortType(-1, -1)],
     ...                      dst_addresses = [vnc_api.AddressType(virtual_network = vn_red_obj.get_fq_name_str())],

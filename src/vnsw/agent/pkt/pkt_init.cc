@@ -29,7 +29,7 @@ void PktModule::Shutdown() {
     FlowTable::Shutdown();
 }
 
-void PktModule::CreateStaticObjects() {
+void PktModule::CreateInterfaces() {
     std::string ifname(Agent::GetInstance()->GetHostIfname());
     PktHandler::CreateHostInterface(ifname);
 }

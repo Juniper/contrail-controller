@@ -66,6 +66,7 @@ enum Category {
     DISCOVERY,
     DNSAGENT,
     DISCOVERYCLIENT,
+    UDP,
 }
 
 const map<Category, string> CategoryNames = {
@@ -80,6 +81,7 @@ const map<Category, string> CategoryNames = {
     Category.DISCOVERY        : "Discovery",
     Category.DNSAGENT         : "DnsAgent",
     Category.DISCOVERYCLIENT  : "DiscoveryClient",
+    Category.UDP              : "UDP",
 }
     
 const map<Module, list<Category>> ModuleCategoryMap = {

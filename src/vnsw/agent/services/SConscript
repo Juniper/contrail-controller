@@ -31,6 +31,7 @@ if sys.platform != 'darwin':
                       'dhcp_proto.cc',
                       'dns_proto.cc',
                       'arp_proto.cc',
+                      'metadata_proxy.cc',
                       'icmp_proto.cc',
                       'services_init.cc',
                       'services_sandesh.cc',

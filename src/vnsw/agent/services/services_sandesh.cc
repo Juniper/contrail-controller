@@ -622,6 +622,14 @@ void IcmpInfo::HandleRequest() const {
     ssandesh.HandleRequest(PktHandler::ICMP, context());
 }
 
+void MetadataInfo::HandleRequest() const {
+    MetadataResponse *resp = new MetadataResponse();
+    resp->set_metadata_server_port(
+          Agent::GetInstance()->GetMetadataServerPort());
+    resp->set_context(context());
+    resp->Response();
+}
+
 void ShowAllInfo::HandleRequest() const {
     ServicesSandesh ssandesh;
     ssandesh.PktStatsSandesh(context(), true);
@@ -649,6 +657,39 @@ void ClearAllInfo::HandleRequest() const {
     Agent::GetInstance()->GetIcmpProto()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
+    resp->set_context(context());
+    resp->Response();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void ShowDnsEntries::HandleRequest() const {
+    AgentDnsEntries *resp = new AgentDnsEntries();
+    std::vector<VmDnsSandesh> dns_list;
+    const DnsProto::DnsUpdateSet &dns_update_set = 
+                    Agent::GetInstance()->GetDnsProto()->GetUpdateRequestSet();
+    for (DnsProto::DnsUpdateSet::const_iterator it = dns_update_set.begin();
+         it != dns_update_set.end(); ++it) {
+        VmDnsSandesh vmdata;
+        vmdata.vm = (*it)->itf->GetName();
+        vmdata.is_floating = ((*it)->floatingIp ? "yes" : "no");
+        if ((*it)->xmpp_data) {
+            vmdata.virtual_dns = (*it)->xmpp_data->virtual_dns;
+            vmdata.zone = (*it)->xmpp_data->zone;
+            for (DnsItems::iterator item = (*it)->xmpp_data->items.begin();
+                 item != (*it)->xmpp_data->items.end(); ++item) {
+                VmDnsRecord record;
+                record.name = (*item).name;
+                record.type = BindUtil::DnsType((*item).type);
+                record.data = (*item).data;
+                record.ttl = (*item).ttl;
+                record.eclass = BindUtil::DnsClass((*item).eclass);
+                vmdata.records.push_back(record);
+            }
+        }
+        dns_list.push_back(vmdata);
+    }
+    resp->set_dns_list(dns_list);
     resp->set_context(context());
     resp->Response();
 }

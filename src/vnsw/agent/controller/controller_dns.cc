@@ -42,9 +42,7 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
                                              code, xmpp_data.get())) {
-            std::string domain;
-            DnsHandler::SendDnsUpdateIpc(xmpp_data.release(), xmpp_type, 
-                                         NULL, domain);
+            DnsHandler::SendDnsUpdateIpc(xmpp_data.release(), xmpp_type, NULL);
         }
     }
 }

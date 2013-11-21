@@ -339,7 +339,6 @@ void ControlNodeMock::SendRoute(string vrf, RouteEntry *rt, bool add) {
     std::vector<NHEntry>::iterator it = rt->nh_list_.begin();
     for (;it != rt->nh_list_.end(); it++) {
         item_nexthop.af = BgpAf::IPv4;
-        item_nexthop.safi = BgpAf::Unicast;
         item_nexthop.address = it->nh;
         item_nexthop.label = it->label;
         item.entry.next_hops.next_hop.push_back(item_nexthop);

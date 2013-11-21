@@ -89,16 +89,12 @@ class SvcMonitor(object):
                                                 client_type='Service Monitor')
 
         #sandesh init
-        collectors = None
-        if self._args.collector and self._args.collector_port:
-            collectors = [(self._args.collector,
-                           int(self._args.collector_port))]
         self._sandesh = Sandesh()
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
         self._sandesh.init_generator(
             ModuleNames[Module.SVC_MONITOR], socket.gethostname(),
-            collectors, 'svc_monitor_context',
+            self._args.collectors, 'svc_monitor_context',
             int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
             self._disc)
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
@@ -952,8 +948,7 @@ def parse_args(args_str):
                          --api_server_port 8082
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
-                         --collector 127.0.0.1
-                         --collector_port 8080
+                         --collectors 127.0.0.1:8086
                          --disc_server_ip 127.0.0.1
                          --disc_server_port 5998
                          --http_server_port 8090
@@ -982,8 +977,7 @@ def parse_args(args_str):
         'api_server_port': '8082',
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
-        'collector': None,
-        'collector_port': None,
+        'collectors': None,
         'disc_server_ip': None,
         'disc_server_port': None,
         'http_server_port': '8088',
@@ -1051,10 +1045,9 @@ def parse_args(args_str):
                         help="IP address of API server")
     parser.add_argument("--api_server_port",
                         help="Port of API server")
-    parser.add_argument("--collector",
-                        help="IP address of VNC collector server")
-    parser.add_argument("--collector_port",
-                        help="Port of VNC collector server")
+    parser.add_argument("--collectors",
+                        help="List of VNC collectors in ip:port format",
+                        nargs="+")
     parser.add_argument("--disc_server_ip",
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
@@ -1081,6 +1074,8 @@ def parse_args(args_str):
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
     return args
 # end parse_args
 
@@ -1109,7 +1104,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService(args.zk_server_ip, args.zk_server_port)
+    _disc_service = DiscoveryService(args.zk_server_ip)
     _disc_service.master_election("/svc-monitor", os.getpid(),
                                   run_svc_monitor, args)
 # end main

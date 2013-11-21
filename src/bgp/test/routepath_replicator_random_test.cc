@@ -510,7 +510,8 @@ protected:
                                             rt->ToString());
                     }
                     assert(replicated_route->FindSecondaryPath(rt, 
-                                           path->GetPeer(), path->GetSource()));
+                                           path->GetSource(), path->GetPeer(),
+                                           path->GetPathId()));
                     string route_to_insert(dest->routing_instance()->name());
                     route_to_insert += ":";
                     route_to_insert += path->GetPeer()->ToString();

@@ -5,13 +5,24 @@
 xmlns:ct="http://www.contrailsystems.com/xmpp-multicast.xsd"
 xsd:targetNamespace="http://www.contrailsystems.com/xmpp-multicast.xsd">
 
+<xsd:simpleType name="McastTunnelEncapsulationType">
+    <xsd:restriction base="xsd:string">
+        <xsd:enumeration value="gre"/>
+        <xsd:enumeration value="udp"/>
+    </xsd:restriction>
+</xsd:simpleType>
+
+<xsd:complexType name="McastTunnelEncapsulationListType">
+    <xsd:element name="tunnel-encapsulation" type="McastTunnelEncapsulationType" maxOccurs="unbounded"/>
+</xsd:complexType> 
+
 <xsd:complexType name="McastNextHopType">
     <xsd:element name="af" type="xsd:integer"/>
-    <xsd:element name="safi" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
-    <xsd:element name="label" type="xsd:string"/>
     <!-- label-range for messages from agent to control-node -->
     <!-- destination label for messages from control-node to agent-->
+    <xsd:element name="label" type="xsd:string"/>
+    <xsd:element name="tunnel-encapsulation-list" type="McastTunnelEncapsulationListType"/>
 </xsd:complexType>
 
 <xsd:complexType name="OlistType">

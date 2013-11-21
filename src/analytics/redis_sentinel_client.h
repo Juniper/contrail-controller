@@ -6,11 +6,14 @@
 #define __REDIS_SENTINEL_CLIENT_H__
 
 #include <string>
+#include <boost/asio.hpp>
 #include "io/event_manager.h"
 #include "redis_connection.h"
 
 class RedisSentinelClient {
 public:
+
+    static const int kGetMasterTime = 4;
     typedef std::vector<std::string> RedisServices;
     typedef boost::function<void (const std::string& service, 
             const std::string& redis_ip,
@@ -58,6 +61,7 @@ private:
     RedisMasterMap redis_master_map_;
     boost::scoped_ptr<RedisAsyncConnection> sentinel_conn_;
     RedisAsyncConnection::ClientAsyncCmdCbFn sentinel_msg_cb_;
+    boost::asio::deadline_timer getmaster_timer_;
 };
 
 #endif //__REDIS_SENTINEL_CLIENT_H__

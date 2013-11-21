@@ -128,10 +128,6 @@ bool RouteKSyncEntry::L2IsLess(const KSyncEntry &rhs) const {
 
 bool RouteKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const RouteKSyncEntry &entry = static_cast<const RouteKSyncEntry &>(rhs);
-
-    LOG(DEBUG, "Compare " << ToString() << "\n"
-               << rhs.ToString()); 
-         
     if (rt_type_ != entry.rt_type_) 
         return rt_type_ < entry.rt_type_;
 

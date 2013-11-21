@@ -7,17 +7,27 @@
 
 #include <discovery_client.h>
 
-class DiscoveryAgentClient {
-    public:
-        static void Init();
-        static void Shutdown();
-        static void DiscoverServices();
-        static void DiscoverController(); //subscribe to XMPP server on controller
-        static void DiscoverDNS();        //subscribe to DN server
+class AgentParam;
+class AgentConfig;
 
-        // subscribe callbacks
-        static void DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp);
-        static void DiscoverySubscribeDNSHandler(std::vector<DSResponse> resp);
+class DiscoveryAgentClient {
+public:
+    DiscoveryAgentClient(AgentConfig *cfg) : agent_cfg_(cfg) { }
+    ~DiscoveryAgentClient() { }
+
+    void Init(AgentParam *param);
+    void Shutdown();
+    void DiscoverServices();
+    void DiscoverController(); //subscribe to XMPP server on controller
+    void DiscoverDNS();        //subscribe to DN server
+
+    // subscribe callbacks
+    void DiscoverySubscribeXmppHandler(std::vector<DSResponse> resp);
+    void DiscoverySubscribeDNSHandler(std::vector<DSResponse> resp);
+private:
+    AgentConfig *agent_cfg_;
+    AgentParam *param_;
+    DISALLOW_COPY_AND_ASSIGN(DiscoveryAgentClient);
 };
 
 #endif

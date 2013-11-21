@@ -15,88 +15,272 @@ from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
 
-#builddir = sys.path[0] + '/../../../build/debug'
+class Collector(object):
+    def __init__(self, analytics_fixture, logger, is_dup=False):
+        self.analytics_fixture = analytics_fixture
+        self.listen_port = AnalyticsFixture.get_free_port()
+        self.http_port = AnalyticsFixture.get_free_port()
+        self.hostname = socket.gethostname()
+        self._instance = None
+        self._logger = logger
+        self._is_dup = is_dup
+        if self._is_dup is True:
+            self.hostname = self.hostname+'dup'
+    # end __init__
 
+    def get_addr(self):
+        return '127.0.0.1:'+str(self.listen_port)
+    # end get_addr
+
+    def start(self):
+        assert(self._instance == None)
+        self._log_file = '/tmp/vizd.messages.' + str(self.listen_port)
+        args = [self.analytics_fixture.builddir + '/analytics/vizd',
+            '--cassandra-server-list', '127.0.0.1:' +
+            str(self.analytics_fixture.cassandra_port),
+            '--redis-sentinel-port', 
+            str(self.analytics_fixture.redis_sentinel_port),
+            '--listen-port', str(self.listen_port),
+            '--http-server-port', str(self.http_port),
+            '--log-file', self._log_file]
+        if self._is_dup is True:
+            args.append('--dup')
+        self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE)
+        self._logger.info('Setting up Vizd: 127.0.0.1:%d' % (self.listen_port)) 
+    # end start
+
+    def stop(self):
+        if self._instance is not None:
+            self._logger.info('Shutting down Vizd: 127.0.0.1:%d' 
+                              % (self.listen_port))
+            self._instance.terminate()
+            (vizd_out, vizd_err) = self._instance.communicate()
+            vcode = self._instance.returncode
+            if vcode != 0:
+                self._logger.info('vizd returned %d' % vcode)
+                self._logger.info('vizd terminated stdout: %s' % vizd_out)
+                self._logger.info('vizd terminated stderr: %s' % vizd_err)
+            subprocess.call(['rm', self._log_file])
+            assert(vcode == 0)
+            self._instance = None
+    # end stop
+
+# end class Collector
+
+class OpServer(object):
+    def __init__(self, primary_collector, secondary_collector, redis_port, 
+                 analytics_fixture, logger, is_dup=False):
+        self.primary_collector = primary_collector
+        self.secondary_collector = secondary_collector
+        self.analytics_fixture = analytics_fixture
+        self.listen_port = AnalyticsFixture.get_free_port()
+        self.http_port = AnalyticsFixture.get_free_port()
+        self._redis_port = redis_port
+        self._instance = None
+        self._logger = logger
+        self._is_dup = is_dup
+    # end __init__
+
+    def set_primary_collector(self, collector):
+        self.primary_collector = collector
+    # end set_primary_collector
+
+    def set_secondary_collector(self, collector):
+        self.secondary_collector = collector
+    # end set_secondary_collector
+
+    def start(self):
+        assert(self._instance == None)
+        openv = copy.deepcopy(os.environ)
+        openv['PYTHONPATH'] = self.analytics_fixture.builddir + \
+            '/sandesh/library/python'
+        self._log_file = '/tmp/opserver.messages.' + str(self.listen_port)
+        args = ['python', self.analytics_fixture.builddir + \
+                '/opserver/opserver/opserver.py',
+                '--redis_server_port', str(self._redis_port),
+                '--redis_query_port', 
+                str(self.analytics_fixture.redis_query.port),
+                '--redis_sentinel_port', 
+                str(self.analytics_fixture.redis_sentinel_port),
+                '--http_server_port', str(self.http_port),
+                '--log_file', self._log_file,
+                '--rest_api_port', str(self.listen_port),
+                '--collectors', self.primary_collector]
+        if self.secondary_collector is not None:
+            args.append(self.secondary_collector)
+        if self._is_dup:
+            args.append('--dup')
+
+        self._instance = subprocess.Popen(args, env=openv,
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE)
+        self._logger.info('Setting up OpServer: %s' % ' '.join(args))
+    # end start
+
+    def stop(self):
+        if self._instance is not None:
+            self._logger.info('Shutting down OpServer 127.0.0.1:%d' 
+                              % (self.listen_port))
+            self._instance.terminate()
+            (op_out, op_err) = self._instance.communicate()
+            ocode = self._instance.returncode
+            if ocode != 0:
+                self._logger.info('OpServer returned %d' % ocode)
+                self._logger.info('OpServer terminated stdout: %s' % op_out)
+                self._logger.info('OpServer terminated stderr: %s' % op_err)
+            subprocess.call(['rm', self._log_file])
+            self._instance = None
+    # end stop
+
+# end class OpServer
+
+class QueryEngine(object):
+    def __init__(self, primary_collector, secondary_collector, 
+                 analytics_fixture, logger):
+        self.primary_collector = primary_collector
+        self.secondary_collector = secondary_collector
+        self.analytics_fixture = analytics_fixture
+        self.listen_port = AnalyticsFixture.get_free_port()
+        self.http_port = AnalyticsFixture.get_free_port()
+        self._instance = None
+        self._logger = logger
+    # end __init__
+
+    def set_primary_collector(self, collector):
+        self.primary_collector = collector
+    # end set_primary_collector
+
+    def set_secondary_collector(self, collector):
+        self.secondary_collector = collector
+    # end set_secondary_collector
+
+    def start(self, analytics_start_time=None):
+        assert(self._instance == None)
+        self._log_file = '/tmp/qed.messages.' + str(self.listen_port)
+        args = [self.analytics_fixture.builddir + '/query_engine/qedt',
+                '--redis-port', str(self.analytics_fixture.redis_query.port),
+                '--cassandra-server-list', '127.0.0.1:' +
+                str(self.analytics_fixture.cassandra_port),
+                '--http-server-port', str(self.listen_port),
+                '--log-local', '--log-level', 'SYS_DEBUG',
+                '--log-file', self._log_file,
+                '--collectors', self.primary_collector]
+        if self.secondary_collector is not None:
+            args.append(self.secondary_collector)
+        if analytics_start_time is not None:
+            args += ['--start-time', str(analytics_start_time)]
+        self._instance = subprocess.Popen(args,
+                                          stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE)
+        self._logger.info('Setting up QueryEngine: %s' % ' '.join(args))
+    # end start
+
+    def stop(self):
+        if self._instance is not None:
+            self._logger.info('Shutting down QueryEngine: 127.0.0.1:%d'
+                              % (self.listen_port))
+            self._instance.terminate()
+            (qe_out, qe_err) = self._instance.communicate()
+            rcode = self._instance.returncode
+            if rcode != 0:
+                self._logger.info('QueryEngine returned %d' % rcode)
+                self._logger.info('QueryEngine terminated stdout: %s' % qe_out)
+                self._logger.info('QueryEngine terminated stderr: %s' % qe_err)
+            subprocess.call(['rm', self._log_file])
+            assert(rcode == 0)
+            self._instance = None
+    # end stop
+
+# end class QueryEngine
+
+class Redis(object):
+    def __init__(self, master_port=None):
+        self.port = AnalyticsFixture.get_free_port()
+        self.master_port = master_port
+        self.running = False
+    # end __init__
+
+    def start(self):
+        assert(self.running == False)
+        self.running = True
+        mockredis.start_redis(self.port, self.master_port) 
+    # end start
+
+    def stop(self):
+        if self.running:
+            mockredis.stop_redis(self.port)
+            self.running =  False
+    #end stop
+
+# end class Redis
 
 class AnalyticsFixture(fixtures.Fixture):
 
-    def __init__(self, logger, builddir, cassandra_port):
+    def __init__(self, logger, builddir, cassandra_port, 
+                 noqed=False, collector_ha_test=False, 
+                 redis_ha_test=False): 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
         self.logger = logger
+        self.noqed = noqed
+        self.collector_ha_test = collector_ha_test
+        self.redis_ha_test = redis_ha_test
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis(self.redis_port)
-
+        self.redis_uve_master = Redis()
+        self.redis_uve_master.start()
+        if self.redis_ha_test:
+            self.redis_uve_slave = Redis(self.redis_uve_master.port)
+            self.redis_uve_slave.start()
+        self.redis_query = Redis()
+        self.redis_query.start()
         self.redis_sentinel_port = AnalyticsFixture.get_free_port()
         mockredis.start_redis_sentinel(self.redis_sentinel_port,
-                                       self.redis_port)
+                                       self.redis_uve_master.port)
 
-        self.redis_query_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis(self.redis_query_port)
-
-        self.http_port = AnalyticsFixture.get_free_port()
-        self.listen_port = AnalyticsFixture.get_free_port()
-        args = [self.builddir + '/analytics/vizd',
-                '--cassandra-server-list', '127.0.0.1:' +
-                str(self.cassandra_port),
-                '--redis-sentinel-port', str(self.redis_sentinel_port),
-                '--listen-port', str(self.listen_port),
-                '--http-server-port', str(self.http_port),
-                '--log-file', '/tmp/vizd.messages.' + str(self.listen_port)]
-        self.proc = subprocess.Popen(args,
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE)
-        self.logger.info(
-            'Setting up Vizd : redis %d redis_query %d ' \
-            'cassandra-server-list %s listen %d'
-            % (self.redis_port, self.redis_query_port,
-               '127.0.0.1:' + str(self.cassandra_port), self.listen_port))
+        self.collectors = [Collector(self, self.logger)] 
+        self.collectors[0].start()
 
         self.opserver_port = None
+        if self.verify_collector_gen(self.collectors[0]):
+            primary_collector = self.collectors[0].get_addr()
+            secondary_collector = None
+            if self.collector_ha_test:
+                self.collectors.append(Collector(self, self.logger, True))
+                self.collectors[1].start()
+                secondary_collector = self.collectors[1].get_addr()
+            self.opserver = OpServer(primary_collector, secondary_collector, 
+                                     self.redis_uve_master.port, 
+                                     self, self.logger)
+            self.opserver.start()
+            self.opserver_port = self.opserver.listen_port
+            if self.redis_ha_test:
+                self.opserver_dup = OpServer(primary_collector, 
+                                             secondary_collector,
+                                             self.redis_uve_slave.port, 
+                                             self, self.logger)
+                self.opserver_dup.start()
+            self.query_engine = QueryEngine(primary_collector, 
+                                            secondary_collector, 
+                                            self, self.logger)
+            if not self.noqed:
+                self.query_engine.start()
+    # end setUp
 
-        if self.verify_collector_gen():
+    def get_collector(self):
+        return '127.0.0.1:'+str(self.collectors[0].listen_port)
+    # end get_collector
 
-            openv = copy.deepcopy(os.environ)
-            openv['PYTHONPATH'] = self.builddir + '/sandesh/library/python'
-            self.opserver_port = AnalyticsFixture.get_free_port()
-            args = ['python', self.builddir +
-                    '/opserver/opserver/opserver.py',
-                    '--redis_server_port', str(self.redis_port),
-                    '--redis_query_port', str(self.redis_query_port),
-                    '--redis_sentinel_port', str(self.redis_sentinel_port),
-                    '--collector_port', str(self.listen_port),
-                    '--http_server_port', str(0),
-                    '--log_file', '/tmp/opserver.messages.' +
-                    str(self.listen_port),
-                    '--rest_api_port', str(self.opserver_port)]
-            self.opproc = subprocess.Popen(args, env=openv,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.PIPE)
-            self.logger.info('Setting up OpServer: %d' % self.opserver_port)
-
-            args = [self.builddir + '/query_engine/qedt',
-                    '--redis-port', str(self.redis_query_port),
-                    '--collectors', "127.0.0.1:" + str(self.listen_port),
-                    '--cassandra-server-list', '127.0.0.1:' +
-                    str(self.cassandra_port),
-                    '--http-server-port', str(0),
-                    '--log-local', '--log-level', 'SYS_DEBUG',
-                    '--log-file', '/tmp/qed.messages.' + str(self.listen_port)]
-            self.qeproc = subprocess.Popen(args,
-                                           stdout=subprocess.PIPE,
-                                           stderr=subprocess.PIPE)
-            self.logger.info('Setting up qed')
-
-    def get_collector_port(self):
-        return self.listen_port
-    # end get_collector_port
+    def get_collectors(self):
+        return ['127.0.0.1:'+str(self.collectors[0].listen_port), 
+                '127.0.0.1:'+str(self.collectors[1].listen_port)]
+    # end get_collectors 
 
     def get_opserver_port(self):
-        return self.opserver_port
+        return self.opserver.listen_port
     # end get_opserver_port
 
     def verify_on_setup(self):
@@ -114,14 +298,14 @@ class AnalyticsFixture(fixtures.Fixture):
         return result
 
     @retry(delay=2, tries=20)
-    def verify_collector_gen(self):
+    def verify_collector_gen(self, collector):
         '''
         See if the SandeshClient within vizd has been able to register
         with the collector within vizd
         '''
-        vcl = VerificationCollector('127.0.0.1', self.http_port)
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
         try:
-            genlist = vcl.get_generators()['genlist']
+            genlist = vcl.get_generators()['generators']
             src = genlist[0]['source']
         except:
             return False
@@ -167,6 +351,66 @@ class AnalyticsFixture(fixtures.Fixture):
             assert(len(res) > 0)
             self.logger.info(str(res))
             return True
+
+    @retry(delay=1, tries=10)
+    def verify_generator_list(self, collector, exp_genlist):
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            genlist = vcl.get_generators()['generators']
+            self.logger.info('generator list: ' + str(genlist))
+            self.logger.info('exp generator list: ' + str(exp_genlist))
+            if len(genlist) != len(exp_genlist):
+                return False
+            for mod in exp_genlist:
+                gen_found = False
+                for gen in genlist:
+                    if mod == gen['module_id']:
+                        gen_found = True
+                        if gen['state'] != 'Established':
+                            return False
+                        break
+                if gen_found is not True:
+                    return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
+
+    @retry(delay=3, tries=10)
+    def verify_collector_redis_uve_master(self, collector, 
+                                          exp_redis_uve_master):
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            redis_uve_master = vcl.get_redis_uve_master()['RedisUveMasterInfo']
+            self.logger.info('redis uve master: ' + str(redis_uve_master))
+            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
+                             (exp_redis_uve_master.port))
+            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
+                return False
+            if redis_uve_master['status'] != 'Connected':
+                return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
+
+    @retry(delay=3, tries=10)
+    def verify_opserver_redis_uve_master(self, opserver,
+                                         exp_redis_uve_master):
+        vop = VerificationOpsSrv('127.0.0.1', opserver.http_port) 
+        try:
+            redis_uve_master = vop.get_redis_uve_master()['RedisUveMasterInfo']
+            self.logger.info('redis uve master: ' + str(redis_uve_master))
+            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
+                             (exp_redis_uve_master.port))
+            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
+                return False
+            if redis_uve_master['status'] != 'Connected':
+                return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
 
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
@@ -366,6 +610,34 @@ class AnalyticsFixture(fixtures.Fixture):
                 return True
             else:
                 return False
+
+    @retry(delay=1, tries=8)
+    def verify_intervn_all(self, gen_obj):
+        self.logger.info("verify_intervn_all")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = vns.post_query('StatTable.UveVirtualNetworkAgent.vn_stats',
+                             start_time='-10m',
+                             end_time='now',
+                             select_fields=['T', 'name', 'vn_stats.other_vn', 'vn_stats.vrouter', 'vn_stats.in_tpkts'],
+                             where_clause=gen_obj.vn_all_rows['whereclause'])
+        self.logger.info(str(res))
+        if len(res) == gen_obj.vn_all_rows['rows']:
+            return True
+        return False      
+
+    @retry(delay=1, tries=8)
+    def verify_intervn_sum(self, gen_obj):
+        self.logger.info("verify_intervn_sum")
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        res = vns.post_query('StatTable.UveVirtualNetworkAgent.vn_stats',
+                             start_time='-10m',
+                             end_time='now',
+                             select_fields=gen_obj.vn_sum_rows['select'],
+                             where_clause=gen_obj.vn_sum_rows['whereclause'])
+        self.logger.info(str(res))
+        if len(res) == gen_obj.vn_sum_rows['rows']:
+            return True
+        return False 
 
     @retry(delay=1, tries=10)
     def verify_flow_samples(self, generator_obj):
@@ -700,32 +972,17 @@ class AnalyticsFixture(fixtures.Fixture):
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
-        rcode = 0
-        if self.opserver_port is not None:
-            self.qeproc.terminate()
-            (qe_out, qe_err) = self.qeproc.communicate()
-            rcode = self.qeproc.returncode
-            self.logger.info('qed returned %d' % rcode)
-            self.logger.info('qed terminated stdout: %s' % qe_out)
-            self.logger.info('qed terminated stderr: %s' % qe_err)
-            subprocess.call(['rm',
-                             '/tmp/qed.messages.' + str(self.listen_port)])
-            self.opproc.terminate()
-            (op_out, op_err) = self.opproc.communicate()
-            ocode = self.opproc.returncode
-            self.logger.info('op returned %d' % ocode)
-            self.logger.info('op terminated stdout: %s' % op_out)
-            self.logger.info('op terminated stderr: %s' % op_err)
-            subprocess.call(['rm',
-                             '/tmp/opserver.messages.' +
-                             str(self.listen_port)])
 
-        self.proc.terminate()
-        subprocess.call(['rm', '/tmp/vizd.messages.' + str(self.listen_port)])
-        mockredis.stop_redis(self.redis_port)
-        mockredis.stop_redis(self.redis_query_port)
+        self.opserver.stop()
+        self.query_engine.stop()
+        for collector in self.collectors:
+            collector.stop()
+        self.redis_uve_master.stop()
+        if self.redis_ha_test:
+            self.redis_uve_slave.stop()
+            self.opserver_dup.stop()
+        self.redis_query.stop()
         mockredis.stop_redis_sentinel(self.redis_sentinel_port)
-        assert(rcode == 0)
 
     @staticmethod
     def get_free_port():

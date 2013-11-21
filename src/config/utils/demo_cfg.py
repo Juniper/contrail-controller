@@ -81,12 +81,11 @@ class DemoCfg(object):
 
         print "Creating policy front-end-to-back-end"
         np_rules = [PolicyRuleType(
-            direction='<>', simple_action='pass', protocol='any',
-            src_addresses=[
-                AddressType(virtual_network=net1_fq_name_str)],
+            direction='<>',
+            action_list=ActionListType(simple_action='pass'), protocol='any',
+            src_addresses=[AddressType(virtual_network=net1_fq_name_str)],
             src_ports=[PortType(-1, -1)],
-            dst_addresses=[
-                AddressType(virtual_network=net2_fq_name_str)],
+            dst_addresses=[AddressType(virtual_network=net2_fq_name_str)],
             dst_ports=[PortType(-1, -1)])]
         pol_entries = PolicyEntriesType(np_rules)
         pol_entries_dict = \

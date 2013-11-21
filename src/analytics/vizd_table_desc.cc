@@ -262,6 +262,120 @@ void init_vizd_tables() {
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
                      ))
+/* Stats Table by String,Str tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : String TagValue, String Tag2 Value, T1, SampleUUID 
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_STR_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
+/* Stats Table by String,U64 tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : String TagValue, U64 Tag2 Value, T1, SampleUUID 
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_U64_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned64Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
+/* Stats Table by String,Double tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : String TagValue, Double Tag2 Value, T1, SampleUUID
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_STR_DBL_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::DoubleType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
+/* Stats Table by U64,Str tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : U64 TagValue, String Tag2 Value, T1, SampleUUID
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_U64_STR_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned64Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
+/* Stats Table by U64,U64 tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : U64 TagValue, U64 Tag2 Value, T1, SampleUUID
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_U64_U64_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned64Type)
+                      (GenDb::DbDataType::Unsigned64Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
+/* Stats Table by Double,Str tag
+ * The schema is as follows:
+ *   RowKey      : T2, StatName, StatAttr, TagName
+ *   ColumnName  : Double TagValue, String Tag2 Value, T1, SampleUUID
+ *   ColumnValue : JSON of attrib:value */
+        (GenDb::NewCf(g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG,
+                      boost::assign::list_of
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::DoubleType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
+                      boost::assign::list_of
+                      (GenDb::DbDataType::AsciiType)
+                     ))
 /* Allfields Index table 
  * row key - (t2, dir)
  * column name - (t1, vrouter, svn, dvn, sip, dip, prot, sp, dp) 

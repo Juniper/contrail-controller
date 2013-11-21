@@ -35,11 +35,14 @@ from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module
 from sandesh_common.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
-    _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES
+    _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
+    _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
+    STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD
 from sandesh.viz.constants import *
 from sandesh.analytics_cpuinfo.ttypes import *
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
+from sandesh_req_impl import OpserverSandeshReqImpl
 
 _ERRORS = {
     errno.EBADMSG: 400,
@@ -398,12 +401,11 @@ class OpServer(object):
         super(OpServer, self).__init__()
         self._moduleid = ModuleNames[Module.OPSERVER]
         self._hostname = socket.gethostname()
-        collectors = None
-        if self._args.collector and self._args.collector_port:
-            collectors = [
-                (self._args.collector, int(self._args.collector_port))]
+        if self._args.dup:
+            self._hostname += 'dup'
+        opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
         sandesh_global.init_generator(self._moduleid, self._hostname,
-                                      collectors, 'opserver_context',
+                                      self._args.collectors, 'opserver_context',
                                       int(self._args.http_server_port),
                                       ['sandesh'])
         sandesh_global.set_logging_params(
@@ -445,6 +447,42 @@ class OpServer(object):
                 schema=_OBJECT_TABLE_SCHEMA,
                 columnvalues=_OBJECT_TABLE_COLUMN_VALUES)
             self._VIRTUAL_TABLES.append(obj)
+
+        for t in _STAT_TABLES:
+            stat_id = t.stat_type + "." + t.stat_attr
+            scols = []
+
+            keyln = query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
+            scols.append(keyln)
+
+            tln = query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
+            scols.append(tln)
+
+            teln = query_column(name=STAT_TIMEBIN_FIELD, datatype='int', index=False)
+            scols.append(teln)
+
+            uln = query_column(name=STAT_UUID_FIELD, datatype='uuid', index=False)
+            scols.append(uln)
+
+            cln = query_column(name="COUNT(" + t.stat_attr + ")",
+                    datatype='int', index=False)
+            scols.append(cln)
+
+            for aln in t.attributes:
+                scols.append(aln)
+                if aln.datatype in ['int','double']:
+                    sln = query_column(name= "SUM(" + aln.name + ")",
+                            datatype=aln.datatype, index=False)
+                    scols.append(sln)
+
+            sch = query_schema_type(type='STAT', columns=scols)
+
+            stt = query_table(
+                name = STAT_VT_PREFIX + "." + stat_id,
+                display_name = STAT_VT_PREFIX + "." + stat_id,
+                schema = sch,
+                columnvalues = [STAT_OBJECTID_FIELD])
+            self._VIRTUAL_TABLES.append(stt)
 
         bottle.route('/', 'GET', self.homepage_http_get)
         bottle.route('/analytics', 'GET', self.analytics_http_get)
@@ -511,8 +549,7 @@ class OpServer(object):
                                --redis_server_port 6381
                                --redis_sentinel_port 6381
                                --redis_query_port 6380
-                               --collector 127.0.0.1
-                               --collector_port 8086
+                               --collectors 127.0.0.1:8086
                                --http_server_port 8090
                                --rest_api_port 8081
                                --rest_api_ip 0.0.0.0
@@ -525,41 +562,38 @@ class OpServer(object):
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument("--host_ip",
-                            default="127.0.0.1",
-                            help="Host IP address")
+            default="127.0.0.1",
+            help="Host IP address")
         parser.add_argument("--redis_server_port",
-                            type=int,
-                            default=6381,
-                            help="Redis server port")
+            type=int,
+            default=6381,
+            help="Redis server port")
         parser.add_argument("--redis_query_port",
-                            type=int,
-                            default=6380,
-                            help="Redis query port")
+            type=int,
+            default=6380,
+            help="Redis query port")
         parser.add_argument("--redis_sentinel_port",
-                            type=int,
-                            default=26379,
-                            help="Redis Sentinel port")
-        parser.add_argument("--collector",
-                            default='127.0.0.1',
-                            help="Collector IP address")
-        parser.add_argument("--collector_port",
-                            type=int,
-                            default=8086,
-                            help="Collector port")
+            type=int,
+            default=26379,
+            help="Redis Sentinel port")
+        parser.add_argument("--collectors",
+            default='127.0.0.1:8086',
+            help="List of Collector IP addresses in ip:port format",
+            nargs="+")
         parser.add_argument("--http_server_port",
-                            type=int,
-                            default=8090,
-                            help="HTTP server port")
+            type=int,
+            default=8090,
+            help="HTTP server port")
         parser.add_argument("--rest_api_port",
-                            type=int,
-                            default=8081,
-                            help="REST API port")
+            type=int,
+            default=8081,
+            help="REST API port")
         parser.add_argument("--rest_api_ip",
-                            default='0.0.0.0',
-                            help="REST API IP address")
+            default='0.0.0.0',
+            help="REST API IP address")
         parser.add_argument("--log_local", action="store_true",
-                            default=False,
-                            help="Enable local logging of sandesh messages")
+            default=False,
+            help="Enable local logging of sandesh messages")
         parser.add_argument(
             "--log_level", default='SYS_DEBUG',
             help="Severity level for local logging of sandesh messages")
@@ -567,34 +601,35 @@ class OpServer(object):
             "--log_category", default='',
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
-                            default=Sandesh._DEFAULT_LOG_FILE,
-                            help="Filename for the logs to be written to")
+            default=Sandesh._DEFAULT_LOG_FILE,
+            help="Filename for the logs to be written to")
         parser.add_argument("--disc_server_ip",
-                            default=None,
-                            help="Discovery Server IP address")
+            default=None,
+            help="Discovery Server IP address")
         parser.add_argument("--disc_server_port",
-                            type=int,
-                            default=5998,
-                            help="Discovery Server port")
+            type=int,
+            default=5998,
+            help="Discovery Server port")
+        parser.add_argument("--dup", action="store_true",
+            default=False,
+            help="Internal use")
 
         self._args = parser.parse_args()
+        if type(self._args.collectors) is str:
+            self._args.collectors = self._args.collectors.split()
     # end _parse_args
 
     def get_args(self):
         return self._args
     # end get_args
 
-    def get_collector(self):
-        return self._args.collector
-    # end get_collector
-
-    def get_collector_port(self):
-        return int(self._args.collector_port)
-    # end get_collector_port
-
     def get_http_server_port(self):
         return int(self._args.http_server_port)
     # end get_http_server_port
+
+    def get_uve_server(self):
+        return self._uve_server
+    # end get_uve_server
 
     def homepage_http_get(self):
         json_body = {}
@@ -955,7 +990,7 @@ class OpServer(object):
             if not isinstance(kfilter, list):
                 raise ValueError('Invalid kfilt')
         except KeyError:
-            raise KeyError('kfilt not specified')
+            kfilter = ['*']
         try:
             sfilter = req['sfilt']
         except KeyError:
@@ -1262,6 +1297,18 @@ class OpServer(object):
             return self._CATEGORY_MAP
         elif (column == 'Level'):
             return self._LEVEL_LIST
+        elif (column == STAT_OBJECTID_FIELD):
+            objtab = None
+            for t in _STAT_TABLES:
+                stat_table = STAT_VT_PREFIX + "." + \
+                    t.stat_type + "." + t.stat_attr
+                if (table == stat_table):
+                    objtab = t.obj_table
+                    break
+            if (objtab != None): 
+            #import pdb; pdb.set_trace()
+                return list(self._uve_server.get_uve_list(objtab,
+                        None, None, None, None, False))
 
         return []
     # end generator_info
@@ -1306,12 +1353,29 @@ class OpServer(object):
                 system=False)
             mod_cpu_state = ModuleCpuState()
             mod_cpu_state.name = self._hostname
+
+            # At some point, the following attributes will be deprecated in favor of cpu_info
             mod_cpu_state.module_cpu_info = [mod_cpu_info]
             mod_cpu_state.opserver_cpu_share = mod_cpu_info.cpu_info.cpu_share
             mod_cpu_state.opserver_mem_virt =\
                 mod_cpu_info.cpu_info.meminfo.virt
+
             opserver_cpu_state_trace = ModuleCpuStateTrace(data=mod_cpu_state)
             opserver_cpu_state_trace.send()
+
+            aly_cpu_state = AnalyticsCpuState()
+            aly_cpu_state.name = self._hostname
+
+            aly_cpu_info = AnalyticsCpuInfo()
+            aly_cpu_info.module_id = self._moduleid
+            aly_cpu_info.inst_id = 0
+            aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
+            aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
+            aly_cpu_state.cpu_info = [aly_cpu_info]
+
+            aly_cpu_state_trace = AnalyticsCpuStateTrace(data=aly_cpu_state)
+            aly_cpu_state_trace.send()
+
             gevent.sleep(60)
     #end cpu_info_logger
 
@@ -1331,7 +1395,7 @@ def main():
     redis_sentinel_client = RedisSentinelClient(
         ('127.0.0.1',
          opserver._args.redis_sentinel_port),
-        ['uve'],
+        ['mymaster'],
         opserver.handle_redis_master_change,
         opserver._logger)
     opserver.start_state_server(redis_sentinel_client)

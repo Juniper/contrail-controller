@@ -202,7 +202,8 @@ int main(int argc, char *argv[]) {
         dss_ep.address(
             address::from_string(var_map["discovery-server"].as<string>(), ec));
         dss_ep.port(var_map["discovery-port"].as<int>());
-        ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep);
+        ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
+            g_vns_constants.ModuleNames.find(Module::DNS)->second);
         ds_client->Init();
 
         // Publish DNServer Service
@@ -234,7 +235,7 @@ int main(int argc, char *argv[]) {
 
             Sandesh::CollectorSubFn csf = 0;
             csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client,
-                              subscriber_name, _1, _2, _3);
+                              _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
@@ -259,8 +260,7 @@ int main(int argc, char *argv[]) {
                         var_map["map-password"].as<string>(), certstore,
                         boost::bind(&IFMapServerParser::Receive, ifmap_parser,
                                 &config_db, _1, _2, _3),
-                        Dns::GetEventManager()->io_service(), ds_client,
-                        g_vns_constants.ModuleNames.find(Module::DNS)->second);
+                        Dns::GetEventManager()->io_service(), ds_client);
     ifmap_server.set_ifmap_manager(ifmapmgr);
 
     Dns::GetEventManager()->Run();

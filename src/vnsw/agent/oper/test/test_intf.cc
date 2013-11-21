@@ -19,7 +19,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "pkt/pkt_init.h"
@@ -35,8 +36,6 @@
 #include "uve/uve_init.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 #include <controller/controller_export.h> 
@@ -519,7 +518,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     client->Reset();
     VrfDelReq("vrf2");
     client->WaitForIdle();
-    EXPECT_EQ(1U, Agent::GetInstance()->GetVrfTable()->Size());
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1U));
 }
 
 #if 0
@@ -1146,6 +1145,198 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
     EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//Add and delete static route 
+TEST_F(IntfTest, IntfStaticRoute) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+                          static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,   
+                          static_route[1].plen_));
+   
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+//Add static route, deactivate interface and make static routes are deleted 
+TEST_F(IntfTest, IntfStaticRoute_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+
+   //Delete the link between interface and route table
+   DelLink("virtual-machine-interface", "vnet1",
+           "virtual-network", "vn1");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+                          static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,   
+                          static_route[1].plen_));
+
+   //Activate interface and make sure route are added again
+   AddLink("virtual-machine-interface", "vnet1",
+           "virtual-network", "vn1");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+//Add static route, change static route entries and verify its reflected
+TEST_F(IntfTest, IntfStaticRoute_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+       { Ip4Address::from_string("8.1.1.0"),  8}
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+
+   //Verify all 3 routes are present
+   AddInterfaceRouteTable("static_route", 1, static_route, 3);
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[2].addr_,
+                         static_route[2].plen_));
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+//Add static route, add acl on interface, check static routes also point to
+//policy enabled interface NH
+TEST_F(IntfTest, IntfStaticRoute_3) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   const NextHop *nh;
+   nh = RouteGet("vrf1", static_route[0].addr_,
+                 static_route[0].plen_)->GetActiveNextHop();
+   EXPECT_FALSE(nh->PolicyEnabled());
+
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+   nh = RouteGet("vrf1", static_route[1].addr_,
+           static_route[1].plen_)->GetActiveNextHop();
+   EXPECT_FALSE(nh->PolicyEnabled());
+
+   //Add a acl to interface and verify NH policy changes
+   AddAcl("Acl", 1, "vn1", "vn1");
+   AddLink("virtual-network", "vn1", "access-control-list", "Acl");
+   client->WaitForIdle();
+   nh = RouteGet("vrf1", static_route[0].addr_,
+                 static_route[0].plen_)->GetActiveNextHop();
+   EXPECT_TRUE(nh->PolicyEnabled());
+
+   nh = RouteGet("vrf1", static_route[1].addr_,
+                 static_route[1].plen_)->GetActiveNextHop();
+   EXPECT_TRUE(nh->PolicyEnabled());
+
+   DelLink("virtual-network", "vn1", "access-control-list", "Acl");
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
 }
 
 int main(int argc, char **argv) {

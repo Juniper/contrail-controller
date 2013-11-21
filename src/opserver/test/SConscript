@@ -11,11 +11,13 @@ env = OpEnv.Clone()
 local_sources = [
                  'uveserver_test.py',
                  'analytics_systest.py',
+                 'analytics_perftest.py',
                  ]
 local_sources_rules = []
 for file in local_sources:
     local_sources_rules.append(env.Install('.', '#controller/src/opserver/test/' + file))
 local_sources_rules.append(env.Install('', '#controller/src/opserver/test/setup.py'))
+local_sources_rules.append(env.Install('', '#controller/src/opserver/test/data'))
 
 local_dirs = ['utils']
 local_dirs_rules = []
@@ -23,11 +25,12 @@ for dir in local_dirs:
     files = Glob('#controller/src/opserver/test/' + dir + '/*.py')  
     local_dirs_rules.append(env.Install(dir, files))    
           
-generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh') 
+generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh')
+generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_network.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
 
-generator_sandesh_dirs = ['virtual_machine', 'flow']
+generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network']
 generator_sandesh_srcs = ['gen_py/' + src for src in generator_sandesh_dirs]
 generator_sandesh_rules = []
 for file in generator_sandesh_srcs:

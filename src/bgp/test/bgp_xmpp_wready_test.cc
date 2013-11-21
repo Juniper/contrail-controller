@@ -196,10 +196,11 @@ protected:
 
 
     virtual void TearDown() {
-        a_->Shutdown();
         agent_a_->Delete();
         task_util::WaitForIdle();
         xs_a_->Shutdown();
+        task_util::WaitForIdle();
+        a_->Shutdown();
         task_util::WaitForIdle();
         delete bgp_channel_manager_;
         task_util::WaitForIdle();

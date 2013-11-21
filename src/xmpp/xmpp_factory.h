@@ -12,11 +12,12 @@ class XmppChannelConfig;
 class XmppChannelMux;
 class XmppConnection;
 class XmppClientConnection;
+class XmppServer;
 class XmppServerConnection;
 
 class XmppObjectFactory : public Factory<XmppObjectFactory> {
     FACTORY_TYPE_N2(XmppObjectFactory, XmppServerConnection,
-                    TcpServer *, const XmppChannelConfig *);
+                    XmppServer *, const XmppChannelConfig *);
     FACTORY_TYPE_N2(XmppObjectFactory, XmppClientConnection,
                     TcpServer *, const XmppChannelConfig *);
     FACTORY_TYPE_N1(XmppObjectFactory, XmppChannelMux, XmppConnection *);

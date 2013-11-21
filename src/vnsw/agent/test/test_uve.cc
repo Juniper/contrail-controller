@@ -2,7 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <cfg/init_config.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
@@ -14,8 +15,6 @@
 #include <base/util.h>
 #include <ifmap_agent_parser.h>
 #include <ifmap_agent_table.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface.h>

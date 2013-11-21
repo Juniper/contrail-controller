@@ -3,7 +3,7 @@
 #
 
 import abc
-
+from vnc_api.gen.vnc_api_extension_gen import ResourceApiGen
 
 class Resync(object):
     @abc.abstractmethod
@@ -22,6 +22,12 @@ class Resync(object):
 
 #end class Resync
 
+
+class ResourceApi(ResourceApiGen):
+    @abc.abstractmethod
+    def __init__(self):
+        pass
+    #end __init__
 
 class AuthBase(object):
     __metaclass__ = abc.ABCMeta

@@ -16,15 +16,16 @@ import fixtures
 import socket
 import uuid
 import random
+import time
 from util import retry
 from pysandesh.sandesh_base import *
 from pysandesh.util import UTCTimestampUsec
 from sandesh.virtual_machine.ttypes import *
+from sandesh.virtual_network.ttypes import *
 from sandesh.flow.ttypes import *
 from analytics_fixture import AnalyticsFixture
 from generator_introspect_utils import VerificationGenerator
 from opserver_introspect_utils import VerificationOpsSrv
-
 
 class GeneratorFixture(fixtures.Fixture):
     _BYTES_PER_PACKET = 1024
@@ -32,12 +33,13 @@ class GeneratorFixture(fixtures.Fixture):
     _INITIAL_PKT_COUNT = 20
     _VM_IF_PREFIX = 'vhost'
     _KSECINMSEC = 1000 * 1000
+    _VN_PREFIX = 'default-domain:vn'
 
-    def __init__(self, name, collector, logger,
+    def __init__(self, name, collectors, logger,
                  opserver_port, start_time=None):
         self._name = name
         self._logger = logger
-        self._collector = collector
+        self._collectors = collectors
         self._opserver_port = opserver_port
         self._start_time = start_time
     # end __init__
@@ -47,7 +49,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
         self._sandesh_instance.init_generator(
-            self._name, socket.gethostname(), [self._collector],
+            self._name, socket.gethostname(), self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)
@@ -90,6 +92,7 @@ class GeneratorFixture(fixtures.Fixture):
             flow_object._timestamp = ts
         flow_object.send(sandesh=self._sandesh_instance)
     # end send_flow_stat
+
 
     def generate_flow_samples(self):
         self.flows = []
@@ -154,6 +157,44 @@ class GeneratorFixture(fixtures.Fixture):
             cnt += 1
     # end generate_flow_samples
 
+
+    def send_vn_uve(self, vrouter, vn_id, num_vns):
+        intervn_list = []
+        for num in range(num_vns):
+            intervn = InterVnStats()
+            intervn.other_vn = self._VN_PREFIX + str(num)
+            intervn.vrouter = vrouter
+            intervn.in_tpkts = num
+            intervn.in_bytes = num * self._BYTES_PER_PACKET
+            intervn.out_tpkts = num
+            intervn.out_bytes = num * self._BYTES_PER_PACKET
+            intervn_list.append(intervn)
+        vn_agent = UveVirtualNetworkAgent(vn_stats=intervn_list)
+        vn_agent.name = self._VN_PREFIX + str(vn_id)
+        uve_agent_vn = UveVirtualNetworkAgentTrace(
+            data=vn_agent,
+            sandesh=self._sandesh_instance)
+        uve_agent_vn.send(sandesh=self._sandesh_instance)
+        self._logger.info(
+                'Sent UveVirtualNetworkAgentTrace:%s .. %d .. size %d' % (vn_id, num, len(vn_agent.vn_stats)))
+
+    def generate_intervn(self):
+        self.send_vn_uve(socket.gethostname(), 0, 2)
+        time.sleep(1)
+        self.send_vn_uve(socket.gethostname(), 1, 3)
+        time.sleep(1)
+        self.send_vn_uve(socket.gethostname(), 0, 3)
+        time.sleep(1)
+
+        self.vn_all_rows = {}
+        self.vn_all_rows['whereclause'] = 'vn_stats.vrouter=' + socket.gethostname()
+        self.vn_all_rows['rows'] = 8
+
+        self.vn_sum_rows = {}
+        self.vn_sum_rows['select'] = ['name','COUNT(vn_stats)']
+        self.vn_sum_rows['whereclause'] = 'vn_stats.other_vn=' + self._VN_PREFIX + str(1) 
+        self.vn_sum_rows['rows'] = 2
+
     def send_vm_uve(self, vm_id, num_vm_ifs, msg_count):
         vm_if_list = []
         vm_if_stats_list = []
@@ -186,8 +227,11 @@ class GeneratorFixture(fixtures.Fixture):
     # end send_uve_vm
 
     @retry(delay=2, tries=5)
-    def verify_vm_uve(self, vm_id, num_vm_ifs, msg_count):
-        vns = VerificationOpsSrv('127.0.0.1', self._opserver_port)
+    def verify_vm_uve(self, vm_id, num_vm_ifs, msg_count, opserver_port=None):
+        if opserver_port is not None:
+            vns = VerificationOpsSrv('127.0.0.1', opserver_port)
+        else:
+            vns = VerificationOpsSrv('127.0.0.1', self._opserver_port)
         res = vns.get_ops_vm(vm_id)
         if res == {}:
             return False

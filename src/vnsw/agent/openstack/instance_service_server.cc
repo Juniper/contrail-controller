@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/logging.h"
-#include "instance_service_server.h"
+#include <net/address.h>
+#include <base/logging.h>
 #include <boost/uuid/string_generator.hpp>
 #include <io/event_manager.h>
 #include <tbb/task.h>
@@ -12,24 +12,22 @@
 #include <db/db_entry.h>
 #include <db/db_table.h>
 
-#include "oper/interface.h"
-#include "oper/nexthop.h"
-#include "oper/agent_route.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "oper/mirror_table.h"
-#include "cfg/cfg_types.h"
-#include "cmn/agent_cmn.h"
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
+#include <cfg/cfg_types.h>
 
-#include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
-#include "cfg/cfg_types.h"
-
-#include "net/address.h"
-
+#include <instance_service_server.h>
+#include <oper/interface.h>
+#include <oper/nexthop.h>
+#include <oper/agent_route.h>
+#include <oper/vrf.h>
+#include <oper/mpls.h>
+#include <oper/vm.h>
+#include <oper/vn.h>
+#include <oper/mirror_table.h>
+#include <cfg/cfg_types.h>
+#include <openstack/instance_service_server.h>
 
 InstanceServiceAsyncIf::AddPort_shared_future_t 
 InstanceServiceAsyncHandler::AddPort(const PortList& port_list)

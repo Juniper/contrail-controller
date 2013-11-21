@@ -29,9 +29,12 @@ public:
     IFMapManager(IFMapServer *ifmap_server, const std::string& url,
                  const std::string& user, const std::string& passwd,
                  const std::string& certstore, PollReadCb readcb,
+                 boost::asio::io_service *io_service);
+    IFMapManager(IFMapServer *ifmap_server, const std::string& url,
+                 const std::string& user, const std::string& passwd,
+                 const std::string& certstore, PollReadCb readcb,
                  boost::asio::io_service *io_service,
-                 DiscoveryServiceClient *ds_client,
-                 const std::string &subscriber_name);
+                 DiscoveryServiceClient *ds_client);
 
     virtual ~IFMapManager();
 

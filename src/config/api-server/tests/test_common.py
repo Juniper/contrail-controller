@@ -3,6 +3,7 @@
 #
 from flexmock import flexmock, Mock
 
+import redis
 from cfgm_common.test_utils import *
 import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
@@ -40,4 +41,5 @@ def setup_flexmock():
     flexmock(disc_client.DiscoveryClient, __init__=stub)
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
 
+    flexmock(redis.StrictRedis, __new__=FakeRedis)
 #end setup_flexmock

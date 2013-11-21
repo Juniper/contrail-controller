@@ -11,7 +11,6 @@
 
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
@@ -702,12 +701,6 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
 }
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
-                                  Agent::GetInstance()->GetDB());
-
-    // Parse config and then connect
-    VNController::Connect();
-    LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 
 int main(int argc, char *argv[]) {
@@ -717,5 +710,8 @@ int main(int argc, char *argv[]) {
     usleep(100000);
     client->WaitForIdle();
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    TestShutdown();
+    delete client;
+    return ret;
 }

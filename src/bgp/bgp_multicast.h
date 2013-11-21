@@ -13,6 +13,7 @@
 #include "base/label_block.h"
 #include "base/lifetime.h"
 #include "base/queue_task.h"
+#include "bgp/bgp_attr.h"
 #include "db/db_entry.h"
 #include "net/address.h"
 #include "net/rd.h"
@@ -68,6 +69,7 @@ public:
     McastForwarder(InetMcastRoute *route);
     ~McastForwarder();
 
+    bool Update(InetMcastRoute *route);
     std::string ToString() const;
 
     McastForwarder *FindLink(McastForwarder *forwarder);
@@ -82,6 +84,7 @@ public:
 
     uint32_t label() const { return label_; }
     Ip4Address address() const { return address_; }
+    std::vector<std::string> encap() const { return encap_; }
     InetMcastRoute *route() { return route_; }
     RouteDistinguisher route_distinguisher() const { return rd_; }
 
@@ -96,6 +99,7 @@ private:
     uint32_t label_;
     RouteDistinguisher rd_;
     Ip4Address address_;
+    std::vector<std::string> encap_;
     McastForwarderList tree_links_;
 
     DISALLOW_COPY_AND_ASSIGN(McastForwarder);

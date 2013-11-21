@@ -19,7 +19,7 @@ import socket
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
-def start_cassandra(cport):
+def start_cassandra(cport, sport_arg=None):
     '''
     Client uses this function to start an instance of Cassandra
     Arguments:
@@ -38,9 +38,12 @@ def start_cassandra(cport):
     output,_ = call_command_("mkdir " + cassbase + "data/")
     output,_ = call_command_("mkdir " + cassbase + "saved_caches/")
 
-    ss = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ss.bind(("",0))
-    sport = ss.getsockname()[1]
+    if not sport_arg:
+        ss = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ss.bind(("",0))
+        sport = ss.getsockname()[1]
+    else:
+        sport = sport_arg
 
     js = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     js.bind(("",0))
@@ -68,9 +71,13 @@ def start_cassandra(cport):
         [('#MAX_HEAP_SIZE="4G"', 'MAX_HEAP_SIZE="256M"'), \
         ('#HEAP_NEWSIZE="800M"', 'HEAP_NEWSIZE="100M"')])
 
-    ss.close()
+    if not sport_arg:
+        ss.close()
+
     js.close()
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
+
+    return cassbase, basefile
 
 
 def stop_cassandra(cport):

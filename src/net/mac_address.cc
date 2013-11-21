@@ -32,7 +32,7 @@ MacAddress MacAddress::FromString(const string &str, error_code *errorp) {
     char extra;
     int ret = sscanf(str.c_str(), "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx%c",
         &data[0], &data[1], &data[2], &data[3], &data[4], &data[5], &extra);
-    if (ret != kSize) {
+    if (ret != kSize || strchr(str.c_str(), 'x') || strchr(str.c_str(), 'X')) {
         if (errorp != NULL)
             *errorp = make_error_code(boost::system::errc::invalid_argument);
         return MacAddress();

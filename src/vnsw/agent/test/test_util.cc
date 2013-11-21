@@ -219,7 +219,7 @@ void DelLink(const char *node_name1, const char *name1,
 }
 
 void AddNode(const char *node_name, const char *name, int id) {
-    char buff[1024];
+    char buff[10240];
     int len = 0;
 
     AddXmlHdr(buff, len);
@@ -234,7 +234,7 @@ void AddNode(const char *node_name, const char *name, int id) {
 
 void AddNode(const char *node_name, const char *name, int id, 
                     const char *attr) {
-    char buff[1024];
+    char buff[10240];
     int len = 0;
 
     AddXmlHdr(buff, len);
@@ -1127,6 +1127,27 @@ void DelPort(const char *name) {
     DelNode("virtual-machine-interface", name);
 }
 
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *rt, 
+                            int count) {
+    std::ostringstream o_str;
+
+    for (int i = 0; i < count; i++) {
+        o_str << "<route>\n" 
+              << "<prefix>\n" << rt->addr_.to_string() 
+              << "/" << rt->plen_ << " \n"  << "</prefix>\n"
+              << "<next-hop>\" \"</next-hop>\n" 
+              << "<next-hop-type>\" \"</next-hop-type>\n"
+              << "</route>\n";
+        rt++;
+    }
+
+    char buff[10240];
+    sprintf(buff, "<interface-route-table-routes>\n"
+                  "%s"
+                  "</interface-route-table-routes>\n", o_str.str().c_str());
+    AddNode("interface-route-table", name, id, buff);
+}
+
 static string AddAclXmlString(const char *node_name, const char *name, int id, 
                               const char *src_vn, const char *dest_vn) {
     char buff[10240];
@@ -1845,7 +1866,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
             if (entry->key.vrf != rev->key.vrf)
                 ret = false;
         } else {
-            EXPECT_EQ(rflow_vrf, rev->key.vrf);
+            EXPECT_EQ((uint32_t) rflow_vrf, rev->key.vrf);
         }
 
         EXPECT_EQ(entry->key.protocol, rev->key.protocol);

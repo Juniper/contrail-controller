@@ -22,8 +22,8 @@ public:
     }
 
     static void Init() {
-        CfgModule::cfg_listener_->Unregister("network-ipam");
-        CfgModule::cfg_listener_->Register
+        Agent::GetInstance()->cfg()->cfg_listener()->Unregister("network-ipam");
+        Agent::GetInstance()->cfg()->cfg_listener()->Register
             ("network-ipam", boost::bind(&CfgTest::IpamNotify, _1),
              autogen::NetworkIpam::ID_PERMS);
     }
@@ -270,8 +270,8 @@ TEST_F(CfgTest, NonDbLinkWithoutIdPerms_1) {
 class CfgUuidTest : public CfgTest {
 public:
     virtual void SetUp() {
-        vn_table = AgentConfig::GetInstance()->GetVnTable();
-        vm_table = AgentConfig::GetInstance()->GetVmTable();
+        vn_table = Agent::GetInstance()->cfg()->cfg_vn_table();
+        vm_table = Agent::GetInstance()->cfg()->cfg_vm_table();
         link_table = static_cast<IFMapAgentLinkTable *>
             (Agent::GetInstance()->GetDB()->FindTable(IFMAP_AGENT_LINK_DB_NAME));
 
@@ -313,9 +313,9 @@ TEST_F(CfgUuidTest, AddNoUuid_1) {
     client->WaitForIdle();
 
     // VM, VN and Link should not be present in DB
-    EXPECT_EQ(vn_table->Size(), 0);
-    EXPECT_EQ(vm_table->Size(), 0);
-    EXPECT_EQ(link_table->Size(), 0);
+    EXPECT_EQ(vn_table->Size(), 0U);
+    EXPECT_EQ(vm_table->Size(), 0U);
+    EXPECT_EQ(link_table->Size(), 0U);
 
     client->WaitForIdle();
     // Add VN with UUID. VN must be added. Link is still not added

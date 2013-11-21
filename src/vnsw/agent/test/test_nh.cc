@@ -4,7 +4,8 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include <cfg/init_config.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
@@ -14,8 +15,6 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface.h>
@@ -293,7 +292,6 @@ TEST_F(CfgTest, EcmpNH_1) {
     //that mpls label also has 5 component NH
     uint32_t mpls_label = rt->GetMplsLabel();
     EXPECT_TRUE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
-    MplsLabel *label = GetMplsLabel(MplsLabel::VPORT_NH, mpls_label);
     EXPECT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     comp_nh = static_cast<const CompositeNH *>(nh);
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);

@@ -243,7 +243,7 @@ protected:
         if (peer) {
             BGP_DEBUG_UT("Wait for path from peer");
             TASK_UTIL_EXPECT_NE_MSG(static_cast<BgpPath *>(NULL),
-                              vpn_rt->FindPath(peer),
+                              vpn_rt->FindPath(BgpPath::BGP_XMPP, peer, 0),
                               "Wait for BGP path from peer");
         }
     }

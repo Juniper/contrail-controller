@@ -96,6 +96,7 @@ request sandesh ShowVirtualDnsRecords {
 response sandesh VirtualDnsRecordsResponse {
     1: string virtual_dns_server;
     2: list<VirtualDnsRecordTraceData> records;
+    3: string getnext_record_set (link="ShowVirtualDnsRecords");
 }
 
 request sandesh ShowDnsConfig {

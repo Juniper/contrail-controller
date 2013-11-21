@@ -10,11 +10,10 @@ configuration model/schema to a representation needed by VNC Control Plane
 
 import gevent
 # Import kazoo.client before monkey patching
-from cfgm_common.discovery import DiscoveryService
-from gevent import ssl, monkey
+from cfgm_common.discovery import DiscoveryService,IndexAllocator
+from gevent import monkey
 monkey.patch_all()
 import sys
-import signal
 import requests
 import ConfigParser
 import cgitb
@@ -25,7 +24,6 @@ import socket
 
 from lxml import etree
 import re
-import cfgm_common
 from cfgm_common import vnc_cpu_info
 import pycassa
 from pycassa.system_manager import *
@@ -33,6 +31,7 @@ from pycassa.system_manager import *
 import cfgm_common as common
 from cfgm_common.exceptions import *
 from cfgm_common.imid import *
+from cfgm_common import svc_info
 
 from vnc_api.vnc_api import *
 
@@ -166,6 +165,11 @@ class VirtualNetworkST(DictST):
     _sc_ip_cf = None
     _autonomous_system = 0
 
+    _vn_id_allocator = None
+    _sg_id_allocator = None
+    _rt_allocator = None
+    _sc_vlan_allocator_dict = {}
+    
     def __init__(self, name):
         self.obj = _vnc_lib.virtual_network_read(fq_name_str=name)
         self.name = name
@@ -191,8 +195,7 @@ class VirtualNetworkST(DictST):
         prop = self.obj.get_virtual_network_properties(
         ) or VirtualNetworkType()
         if prop.network_id is None:
-            vn_id_str = _disc_service.alloc_from_str(_VN_ID_ALLOC_PATH, name)
-            prop.network_id = int(vn_id_str) % _VN_MAX_ID + 1
+            prop.network_id = self._vn_id_allocator.alloc(name) + 1
             self.obj.set_virtual_network_properties(prop)
             _vnc_lib.virtual_network_update(self.obj)
         if self.obj.get_fq_name() == common.IP_FABRIC_VN_FQ_NAME:
@@ -225,9 +228,7 @@ class VirtualNetworkST(DictST):
                 _vnc_lib.access_control_list_delete(id=vn.dynamic_acl.uuid)
             props = vn.obj.get_virtual_network_properties()
             if props and props.network_id:
-                # convert the vn id number to a 10 digit string
-                vn_id_str = "%(#)010d" % {'#': props.network_id - 1}
-                _disc_service.delete(_VN_ID_ALLOC_PATH + vn_id_str)
+                cls._vn_id_allocator.delete(props.network_id - 1)
             del cls._dict[name]
     # end delete
 
@@ -253,8 +254,7 @@ class VirtualNetworkST(DictST):
                 continue
             ri = vn.get_primary_routing_instance()
             ri_fq_name = ri.get_fq_name_str()
-            rtgt_str = str(cls._rt_cf.get(ri_fq_name)['rtgt_num'])
-            rtgt_num = int(rtgt_str)
+            rtgt_num = int(cls._rt_cf.get(ri_fq_name)['rtgt_num'])
             old_rtgt_name = "target:%d:%d" % (cls._autonomous_system, rtgt_num)
             new_rtgt_name = "target:%s:%d" % (new_asn, rtgt_num)
             new_rtgt_obj = RouteTargetST.locate(new_rtgt_name)
@@ -401,12 +401,17 @@ class VirtualNetworkST(DictST):
     @classmethod
     def allocate_service_chain_vlan(cls, service_vm, service_chain):
         alloc_new = False
+        if service_vm not in cls._sc_vlan_allocator_dict:
+            cls._sc_vlan_allocator_dict[service_vm] = IndexAllocator(
+                _disc_service, _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm,
+                _SERVICE_CHAIN_MAX_VLAN)
+
+        vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
+
         try:
-            vlan_str = str(
+            vlan = int(
                 cls._service_chain_cf.get(service_vm)[service_chain])
-            vlan_num = int(vlan_str) % _SERVICE_CHAIN_MAX_VLAN
-            db_sc = _disc_service.read(
-                _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm + vlan_str)
+            db_sc = vlan_ia.read(vlan)
             if (db_sc is None) or (db_sc != service_chain):
                 alloc_new = True
         except (KeyError, pycassa.NotFoundException):
@@ -414,24 +419,22 @@ class VirtualNetworkST(DictST):
 
         if alloc_new:
             # TODO handle overflow + check alloc'd id is not in use
-            vlan_str = _disc_service.alloc_from_str(
-                _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm, service_chain)
-            vlan_num = int(vlan_str) % _SERVICE_CHAIN_MAX_VLAN
-
-            cls._service_chain_cf.insert(service_vm, {service_chain: vlan_str})
+            vlan = vlan_ia.alloc(service_chain)
+            cls._service_chain_cf.insert(service_vm, {service_chain: str(vlan)})
 
         # Since vlan tag 0 is not valid, increment before returning
-        return vlan_num + 1
+        return vlan + 1
     # end allocate_service_chain_vlan
 
     @classmethod
     def free_service_chain_vlan(cls, service_vm, service_chain):
         try:
-            vlan_str = str(
-                cls._service_chain_cf.get(service_vm)[service_chain])
+            vlan_ia = cls._sc_vlan_allocator_dict[service_vm]
+            vlan = int(cls._service_chain_cf.get(service_vm)[service_chain])
             cls._service_chain_cf.remove(service_vm, [service_chain])
-            _disc_service.delete(
-                _SERVICE_CHAIN_VLAN_ALLOC_PATH + service_vm + vlan_str)
+            vlan_ia.delete(vlan)
+            if vlan_ia.empty():
+                del cls._sc_vlan_allocator_dict[service_vm]
         except (KeyError, pycassa.NotFoundException):
             pass
     # end free_service_chain_vlan
@@ -484,22 +487,17 @@ class VirtualNetworkST(DictST):
         alloc_new = False
         rinst_fq_name_str = '%s:%s' % (self.obj.get_fq_name_str(), rinst_name)
         try:
-            rtgt_str = self._rt_cf.get(rinst_fq_name_str)['rtgt_num']
-            rtgt_num = int(rtgt_str)
-            rtgt_ri_fq_name_str = _disc_service.read(
-                _BGP_RTGT_ALLOC_PATH + rtgt_str)
-            if ((rtgt_ri_fq_name_str is None) or
-                    (rtgt_ri_fq_name_str != rinst_fq_name_str)):
+            rtgt_num = int(self._rt_cf.get(rinst_fq_name_str)['rtgt_num'])
+            rtgt_ri_fq_name_str = self._rt_allocator.read(rtgt_num)
+            if (rtgt_ri_fq_name_str != rinst_fq_name_str):
                 alloc_new = True
         except pycassa.NotFoundException:
             alloc_new = True
 
         if (alloc_new):
             # TODO handle overflow + check alloc'd id is not in use
-            rtgt_str = _disc_service.alloc_from_str(
-                _BGP_RTGT_ALLOC_PATH, rinst_fq_name_str)
-            rtgt_num = int(rtgt_str) % _BGP_RTGT_MAX_ID
-            self._rt_cf.insert(rinst_fq_name_str, {'rtgt_num': rtgt_str})
+            rtgt_num = self._rt_allocator.alloc(rinst_fq_name_str)
+            self._rt_cf.insert(rinst_fq_name_str, {'rtgt_num': str(rtgt_num)})
 
         rt_key = "target:%s:%d" % (self.get_autonomous_system(), rtgt_num)
         rtgt_obj = RouteTargetST.locate(rt_key)
@@ -547,9 +545,9 @@ class VirtualNetworkST(DictST):
                     ri2.delete_connection(ri)
         rtgt_list = ri.obj.get_route_target_refs()
         ri_fq_name_str = ri.obj.get_fq_name_str()
-        rtgt_str = str(self._rt_cf.get(ri_fq_name_str)['rtgt_num'])
+        rtgt = int(self._rt_cf.get(ri_fq_name_str)['rtgt_num'])
         self._rt_cf.remove(ri_fq_name_str)
-        _disc_service.delete(_BGP_RTGT_ALLOC_PATH + rtgt_str)
+        self._rt_allocator.delete(rtgt)
         service_chain = ri.service_chain
         if service_chain is not None:
             # self.free_service_chain_ip(service_chain)
@@ -652,17 +650,19 @@ class VirtualNetworkST(DictST):
             _sandesh._logger.debug("%s: route table next hop must be service "
                                    "instance with auto policy", self.name)
             return (None, None)
-        if (not si_props.left_virtual_network or
-                not si_props.right_virtual_network):
+        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
+            si_props.left_virtual_network)
+        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
+            si_props.right_virtual_network)
+        if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug("%s: route table next hop service instance "
                                    "must have left and right virtual networks",
                                    self.name)
             return (None, None)
-        left_vn = VirtualNetworkST.get(
-            fq_name_str=si_props.left_virtual_network)
+        left_vn = VirtualNetworkST.get(left_vn_str)
         if left_vn is None:
             _sandesh._logger.debug("Virtual network %s not present",
-                                   si_props.left_virtual_network)
+                                   left_vn_str)
             return (None, None)
         left_ri_name = left_vn.get_service_name(
             si_props.right_virtual_network, next_hop)
@@ -798,14 +798,14 @@ class VirtualNetworkST(DictST):
 
             vm_analyzer = si.get_virtual_machine_back_refs()
             if vm_analyzer is None:
-                return
+                return (None, None)
             vm_analyzer_obj = _vnc_lib.virtual_machine_read(
                 id=vm_analyzer[0]['uuid'])
             if vm_analyzer_obj is None:
-                return
+                return (None, None)
             vmi_refs = vm_analyzer_obj.get_virtual_machine_interfaces()
             if vmi_refs is None:
-                return
+                return (None, None)
             for vmi_ref in vmi_refs:
                 vmi = _vnc_lib.virtual_machine_interface_read(
                     id=vmi_ref['uuid'])
@@ -997,15 +997,14 @@ class RouteTableST(DictST):
 
 class SecurityGroupST(DictST):
     _dict = {}
+    _sg_id_allocator = None
 
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
         if self.obj.get_security_group_id() is None:
             # TODO handle overflow + check alloc'd id is not in use
-            sg_id_str = _disc_service.alloc_from_str(
-                _SECURITY_GROUP_ID_ALLOC_PATH, name)
-            sg_id_num = int(sg_id_str) % _SECURITY_GROUP_MAX_ID
+            sg_id_num = self._sg_id_allocator.alloc(name)
             self.obj.set_security_group_id(sg_id_num)
             _vnc_lib.security_group_update(self.obj)
         acl = self.obj.get_access_control_lists()
@@ -1033,9 +1032,7 @@ class SecurityGroupST(DictST):
             return
         sg_id = sg.obj.get_security_group_id()
         if sg_id is not None:
-            # convert the sg id number to a 10 digit string
-            sg_id_str = "%(#)010d" % {'#': sg.obj.get_security_group_id()}
-            _disc_service.delete(_SECURITY_GROUP_ID_ALLOC_PATH + sg_id_str)
+            cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
         del cls._dict[name]
         for sg in cls._dict.values():
             if sg.acl is None:
@@ -1159,7 +1156,7 @@ class RoutingInstanceST(object):
     # end delete_connection_fq_name
 
     def add_service_info(self, remote_vn, service_instance=None,
-                         service_chain_address=None):
+                         service_chain_address=None, source_ri=None):
         service_info = self.obj.get_service_chain_information(
         ) or ServiceChainInfo()
         if service_instance:
@@ -1168,6 +1165,8 @@ class RoutingInstanceST(object):
             service_info.set_routing_instance(
                 remote_vn.get_primary_routing_instance().get_fq_name_str())
             service_info.set_service_chain_address(service_chain_address)
+        if source_ri:
+            service_info.set_source_routing_instance(source_ri)
         prefix = []
         ipams = remote_vn.ipams
         prefix = [s.subnet.ip_prefix + '/' + str(s.subnet.ip_prefix_len)
@@ -1451,11 +1450,12 @@ class ServiceChain(DictST):
                         "%s: %s", if_obj.get_fq_name_str(), str(e))
                     return False
 
-            ri_refs = if_obj.get_routing_instance_refs()
             if interface_type == 'left':
                 if ip_obj:
                     ip_addr = ip_obj.get_instance_ip_address()
-                    service_ri1.add_service_info(vn2_obj, service, ip_addr)
+                    service_ri1.add_service_info(vn2_obj, service, ip_addr,
+                         vn1_obj.get_primary_routing_instance(
+                             ).get_fq_name_str())
                 else:
                     _sandesh._logger.debug(
                         "No ip address found for interface " + if_obj.name)
@@ -1464,7 +1464,9 @@ class ServiceChain(DictST):
                     not self.nat_service):
                 if ip_obj:
                     ip_addr = ip_obj.get_instance_ip_address()
-                    service_ri2.add_service_info(vn1_obj, service, ip_addr)
+                    service_ri2.add_service_info(vn1_obj, service, ip_addr,
+                         vn2_obj.get_primary_routing_instance(
+                             ).get_fq_name_str())
                 else:
                     _sandesh._logger.debug(
                         "No ip address found for interface " + if_obj.name)
@@ -1995,7 +1997,7 @@ class VirtualMachineInterfaceST(DictST):
                 fq_name_str=self.name)
         except NoIdError:
             _sandesh._logger.debug("NoIdError while reading interface " +
-                                   vmi_name)
+                                   self.name)
             return
         ri = virtual_network.get_primary_routing_instance().obj
         refs = if_obj.get_routing_instance_refs()
@@ -2006,7 +2008,7 @@ class VirtualMachineInterfaceST(DictST):
                 _vnc_lib.virtual_machine_interface_update(if_obj)
             except NoIdError:
                 _sandesh._logger.debug("NoIdError while updating interface " +
-                                       vmi_name)
+                                       self.name)
                 return
     #end set_virtual_network
     
@@ -2098,6 +2100,14 @@ class SchemaTransformer(object):
 
         self._fabric_rt_inst_obj = None
         self._cassandra_init()
+        VirtualNetworkST._vn_id_allocator = IndexAllocator(_disc_service,
+                                                    _VN_ID_ALLOC_PATH,
+                                                    _VN_MAX_ID)
+        SecurityGroupST._sg_id_allocator = IndexAllocator(_disc_service,
+            _SECURITY_GROUP_ID_ALLOC_PATH, _SECURITY_GROUP_MAX_ID)
+        VirtualNetworkST._rt_allocator = IndexAllocator(_disc_service,
+            _BGP_RTGT_ALLOC_PATH, _BGP_RTGT_MAX_ID)
+
         # Initialize discovery client
         self._disc = None
         if self._args.disc_server_ip and self._args.disc_server_port:
@@ -2110,13 +2120,9 @@ class SchemaTransformer(object):
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request =\
             self.sandesh_ri_handle_request
-        collectors = None
-        if self._args.collector and self._args.collector_port:
-            collectors = [(self._args.collector,
-                           int(self._args.collector_port))]
         _sandesh.init_generator(
             ModuleNames[Module.SCHEMA_TRANSFORMER], socket.gethostname(),
-            collectors, 'to_bgp_context', int(args.http_server_port),
+            self._args.collectors, 'to_bgp_context', int(args.http_server_port),
             ['cfgm_common', 'schema_transformer.sandesh'], self._disc)
         _sandesh.set_logging_params(enable_local_log=args.log_local,
                                     category=args.log_category,
@@ -2255,7 +2261,6 @@ class SchemaTransformer(object):
     # end add_virtual_machine_interface_virtual_network
 
     def add_instance_ip_virtual_machine_interface(self, idents, meta):
-        ip_name = idents['instance-ip']
         vmi_name = idents['virtual-machine-interface']
         vmi = VirtualMachineInterfaceST.locate(vmi_name)
         if vmi is not None:
@@ -2274,7 +2279,6 @@ class SchemaTransformer(object):
     #end add_virtual_machine_interface_properties
 
     def add_virtual_machine_service_instance(self, idents, meta):
-        vm_name = idents['virtual-machine']
         si_name = idents['service-instance']
         for sc in ServiceChain._dict.values():
             if si_name in sc.service_list:
@@ -2392,20 +2396,23 @@ class SchemaTransformer(object):
         if not si_props.auto_policy:
             self.delete_service_instance_properties(idents, meta)
             return
-        if (not si_props.left_virtual_network or
-                not si_props.right_virtual_network):
+        si = _vnc_lib.service_instance_read(fq_name_str=si_name)
+        si_props = si.get_service_instance_properties()
+        left_vn_str = svc_info.get_left_vn(si.get_parent_fq_name_str(),
+            si_props.left_virtual_network)
+        right_vn_str = svc_info.get_right_vn(si.get_parent_fq_name_str(),
+            si_props.right_virtual_network)
+        if (not left_vn_str or not right_vn_str):
             _sandesh._logger.debug(
                 "%s: route table next hop service instance must "
-                "have left and right virtual networks", self.name)
+                "have left and right virtual networks", si_name)
             self.delete_service_instance_properties(idents, meta)
             return
 
-        left_vn_fq_name = si_props.left_virtual_network
-        right_vn_fq_name = si_props.right_virtual_network
         policy_name = "_internal_" + si_name
         policy = NetworkPolicyST.locate(policy_name)
-        addr1 = AddressType(virtual_network=left_vn_fq_name)
-        addr2 = AddressType(virtual_network=right_vn_fq_name)
+        addr1 = AddressType(virtual_network=left_vn_str)
+        addr2 = AddressType(virtual_network=right_vn_str)
         ports = PortType(0, -1)
         action_list = ActionListType(apply_service=[si_name])
 
@@ -2415,16 +2422,16 @@ class SchemaTransformer(object):
                                action_list=action_list)
         pentry = PolicyEntriesType([prule])
         policy.obj = NetworkPolicy(policy_name, network_policy_entries=pentry)
-        policy.network_back_ref = set([left_vn_fq_name, right_vn_fq_name])
+        policy.network_back_ref = set([left_vn_str, right_vn_str])
         policy.internal = True
-        vn1 = VirtualNetworkST.get(left_vn_fq_name)
+        vn1 = VirtualNetworkST.get(left_vn_str)
         if vn1:
             vn1.add_policy(policy_name)
-            self.current_network_set.add(left_vn_fq_name)
-        vn2 = VirtualNetworkST.get(right_vn_fq_name)
+            self.current_network_set.add(left_vn_str)
+        vn2 = VirtualNetworkST.get(right_vn_str)
         if vn2:
             vn2.add_policy(policy_name)
-            self.current_network_set.add(right_vn_fq_name)
+            self.current_network_set.add(right_vn_str)
     # end add_service_instance_properties
 
     def delete_service_instance_properties(self, idents, meta):
@@ -2774,7 +2781,7 @@ class SchemaTransformer(object):
                 sandesh_ri = self.sandesh_ri_build(vn, req.ri_name)
                 ri_resp.routing_instances.extend(sandesh_ri)
         elif req.vn_name in VirtualNetworkST:
-            sandesh_vn = self.sandesh_ri_build(req.vn_name, req.ri_name)
+            self.sandesh_ri_build(req.vn_name, req.ri_name)
             ri_resp.routing_instances.extend(sandesh_ri)
         ri_resp.response(req.context())
     # end sandesh_ri_handle_request
@@ -2842,8 +2849,7 @@ def parse_args(args_str):
                          --api_server_port 8082
                          --zk_server_ip 10.1.2.3
                          --zk_server_port 2181
-                         --collector 127.0.0.1
-                         --collector_port 8080
+                         --collectors 127.0.0.1:8086
                          --disc_server_ip 127.0.0.1
                          --disc_server_port 5998
                          --http_server_port 8090
@@ -2872,8 +2878,7 @@ def parse_args(args_str):
         'api_server_port': '8082',
         'zk_server_ip': '127.0.0.1',
         'zk_server_port': '2181',
-        'collector': None,
-        'collector_port': None,
+        'collectors': None,
         'disc_server_ip': None,
         'disc_server_port': None,
         'http_server_port': '8087',
@@ -2940,14 +2945,11 @@ def parse_args(args_str):
                         help="IP address of API server")
     parser.add_argument("--api_server_port",
                         help="Port of API server")
-    parser.add_argument("--zookeeper_server_ip",
-                        help="IP address of zookeeper server")
-    parser.add_argument("--zookeeper_server_port",
-                        help="Port of zookeeper server")
-    parser.add_argument("--collector",
-                        help="IP address of VNC collector server")
-    parser.add_argument("--collector_port",
-                        help="Port of VNC collector server")
+    parser.add_argument("--zk_server_ip",
+                        help="IP address:port of zookeeper server")
+    parser.add_argument("--collectors",
+                        help="List of VNC collectors in ip:port format",
+                        nargs="+")
     parser.add_argument("--disc_server_ip",
                         help="IP address of the discovery server")
     parser.add_argument("--disc_server_port",
@@ -2973,6 +2975,8 @@ def parse_args(args_str):
     args = parser.parse_args(remaining_argv)
     if type(args.cassandra_server_list) is str:
         args.cassandra_server_list = args.cassandra_server_list.split()
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
 
     return args
 # end parse_args
@@ -2988,7 +2992,7 @@ def run_schema_transformer(args):
                 args.admin_user, args.admin_password, args.admin_tenant_name,
                 args.api_server_ip, args.api_server_port)
             connected = True
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError:
             time.sleep(3)
 
     transformer = SchemaTransformer(args)
@@ -3003,7 +3007,7 @@ def main(args_str=None):
         args_str = ' '.join(sys.argv[1:])
     args = parse_args(args_str)
 
-    _disc_service = DiscoveryService(args.zk_server_ip, args.zk_server_port)
+    _disc_service = DiscoveryService(args.zk_server_ip)
     _disc_service.master_election("/schema-transformer", os.getpid(),
                                   run_schema_transformer, args)
 # end main

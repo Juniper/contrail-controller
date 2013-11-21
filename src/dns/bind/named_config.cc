@@ -22,9 +22,8 @@ const char NamedConfig::NamedLogFile[] = "/var/log/named/bind.log";
 const char NamedConfig::RndcSecret[] = "xvysmOR8lnUQRBcunkC6vg==";
 NamedConfig *NamedConfig::singleton_;
 const string NamedConfig::NamedZoneFileSuffix = "zone";
-const string NamedConfig::NamedZoneNSPrefix = "ns";
-const string NamedConfig::NamedZoneMXPrefix = "mx";
-const string NamedConfig::NamedZoneNSIP = "127.0.0.1";
+const string NamedConfig::NamedZoneNSPrefix = "contrail-ns";
+const string NamedConfig::NamedZoneMXPrefix = "contrail-mx";
 const char NamedConfig::ZoneFileDirectory[] = "/etc/contrail/dns/";
 const char NamedConfig::pid_file_name[] = "named.pid";
 
@@ -186,19 +185,11 @@ void NamedConfig::WriteLoggingConfig() {
 }
 
 void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
-    // Create a default view first for any requests which do not have 
-    // view name TXT record
-    file_ << "view \"_default_view_\" {" << endl;
-    file_ << "    match-clients {any;};" << endl;
-    file_ << "    match-destinations {any;};" << endl;
-    file_ << "    match-recursive-only no;" << endl;
-    if (!default_forwarders_.empty()) {
-        file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
-    }
-    file_ << "};" << endl << endl;
-
-    if (reset_flag_)
+    ViewZoneMap view_zone_map;
+    if (reset_flag_) {
+        WriteDefaultView(view_zone_map);
         return;
+    }
 
     VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
     for (VirtualDnsConfig::DataMap::iterator it = vdns.begin(); it != vdns.end(); ++it) {
@@ -211,7 +202,9 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
             continue;
         }
 
-        file_ << "view \"" << curr_vdns->GetViewName() << "\" {" << endl;
+        std::string view_name = curr_vdns->GetViewName();
+        view_zone_map.insert(ViewZonePair(view_name, zones));
+        file_ << "view \"" << view_name << "\" {" << endl;
 
         std::string order = curr_vdns->GetRecordOrder();
         if (!order.empty()) {
@@ -235,7 +228,7 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
         }
 
         for (unsigned int i = 0; i < zones.size(); i++) {
-            WriteZone(curr_vdns, zones[i]);
+            WriteZone(view_name, zones[i], true);
         }
 
         file_ << "};" << endl << endl;
@@ -243,14 +236,41 @@ void NamedConfig::WriteViewConfig(const VirtualDnsConfig *updated_vdns) {
         if (curr_vdns == updated_vdns || all_zone_files_)
             AddZoneFiles(zones, curr_vdns);
     }
+
+    WriteDefaultView(view_zone_map);
 }
 
-void NamedConfig::WriteZone(const VirtualDnsConfig *vdns, std::string &name) {
+void NamedConfig::WriteDefaultView(ViewZoneMap &view_zone_map) {
+    // Create a default view first for any requests which do not have 
+    // view name TXT record
+    file_ << "view \"_default_view_\" {" << endl;
+    file_ << "    match-clients {any;};" << endl;
+    file_ << "    match-destinations {any;};" << endl;
+    file_ << "    match-recursive-only no;" << endl;
+    if (!default_forwarders_.empty()) {
+        file_ << "    forwarders {" << default_forwarders_ << "};" << endl;
+    }
+    for (ViewZoneMap::iterator it = view_zone_map.begin(); 
+         it != view_zone_map.end(); ++it) {
+        std::string view_name = it->first;
+        for (unsigned int i = 0; i < it->second.size(); i++) {
+            WriteZone(view_name, it->second[i], false);
+        }
+    }
+    file_ << "};" << endl << endl;
+}
+
+void NamedConfig::WriteZone(string &vdns, std::string &name, bool is_master) {
     file_ << "    zone \"" << name << "\" IN \{" << endl;
-    file_ << "        type master;" << endl;
-    file_ << "        file \"" << GetZoneFilePath(vdns->GetViewName(), name) 
-          << "\";" << endl;
-    file_ << "        allow-update {127.0.0.1;};" << endl;
+    if (is_master) {
+        file_ << "        type master;" << endl;
+        file_ << "        file \"" << GetZoneFilePath(vdns, name) << "\";" << endl;
+        file_ << "        allow-update {127.0.0.1;};" << endl;
+    } else {
+        file_ << "        type static-stub;" << endl;
+        file_ << "        virtual-server-name \"" << vdns << "\";" << endl;
+        file_ << "        server-addresses {127.0.0.1;};" << endl;
+    }
     file_ << "    };" << endl;
 }
 
@@ -311,7 +331,7 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
     } else {
         zfile << "$TTL " << Defaults::GlobalTTL << endl;
     }
-    zfile << left << setw(NameWidth) << zone_name << "IN  SOA " <<
+    zfile << left << setw(NameWidth) << zone_name << " IN  SOA " <<
                 GetZoneNSName(vdns->GetDomainName()) << "  " << 
                 GetZoneMXName(vdns->GetDomainName()) << " (" << endl;
     zfile << setw(NameWidth + 8) << "" << setw(NumberWidth) << Defaults::Serial << endl;
@@ -325,12 +345,12 @@ void NamedConfig::CreateZoneFile(std::string &zone_name,
           of the DNS message.
        2. Name servers use the NS records to determine where to send NOTIFY messages.
      */
-    zfile << setw(NameWidth + 4) << "" << setw(TypeWidth) << "NS" << 
+    zfile << setw(NameWidth + 4) << "" << setw(TypeWidth) << " NS " << 
                 setw(NameWidth) << GetZoneNSName(vdns->GetDomainName()) << endl;
     zfile << "$ORIGIN " << zone_name << endl;
     //Write the NS record
     if (ns)
-        zfile << setw(NameWidth) << NamedZoneNSPrefix << "IN  A   " << NamedZoneNSIP << endl;
+        zfile << setw(NameWidth) << NamedZoneNSPrefix << " IN  A   " << Dns::GetSelfIp() << endl;
     zfile.flush();
     zfile.close();
 }
@@ -392,8 +412,7 @@ void NamedConfig::GetDefaultForwarders() {
             std::string ip;
             ss >> ip;
             boost::system::error_code ec;
-            boost::asio::ip::address_v4 
-                addr(boost::asio::ip::address_v4::from_string(ip, ec));
+            boost::asio::ip::address_v4::from_string(ip, ec);
             if (!ec.value()) {
                 default_forwarders_ += ip + "; ";
             }

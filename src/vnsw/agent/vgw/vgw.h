@@ -6,16 +6,20 @@
 
 class VGwTable {
 public:
-    VGwTable();
+    VGwTable(Agent *agent);
     ~VGwTable() {};
 
     static void Init();
     static void Shutdown();
     static void CreateStaticObjects();
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry);
+    void CreateVrf();
+    void CreateInterfaces();
+    void RegisterDBClients();
 
     static VGwTable *GetObject() {return singleton_;};
 private:
+    Agent *agent_;
     DBTableBase::ListenerId lid_;
     uint32_t label_;
     static VGwTable *singleton_;

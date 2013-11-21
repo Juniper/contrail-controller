@@ -432,8 +432,13 @@ void PeerRibMembershipManager::Leave(BgpTable *table,
         }
 
         IPeerRib *peer_rib = IPeerRibFind(request->ipeer, table);
+
         if (peer_rib) {
-            peer_rib->DeactivateRibOut();
+
+            // 
+            // Ignore peer ribs which are already in close process
+            //
+            if (peer_rib->IsRibOutActive()) peer_rib->DeactivateRibOut();
         }
     }
 
@@ -653,11 +658,6 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
             it++) {
         if (it->first != event->ipeer) break;
         IPeerRib *peer_rib = it->second;
-
-        // 
-        // Ignore peer ribs which are already in close process
-        //
-        if (!peer_rib->IsRibOutActive()) continue;
 
         // 
         // We need to track the completion of each of these rib close process
@@ -952,7 +952,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
             request_list->begin(); iter != request_list->end(); iter++) {
         MembershipRequest *request = iter.operator->();
         IPeerRib *peer_rib = IPeerRibFind(request->ipeer, table);
-        if (!peer_rib || !peer_rib->IsRibOutActive()) continue;
+        if (!peer_rib) continue;
         complete = false;
 
         BGP_LOG_TABLE_PEER(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,

@@ -31,6 +31,8 @@ class SandeshStateMachine;
 
 class Collector : public SandeshServer {
 public:
+    const static std::string kDbTask;
+
     typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool, DbHandler *)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
@@ -38,6 +40,7 @@ public:
               std::string cassandra_ip="127.0.0.1", unsigned short cassandra_port=9160, int analytics_ttl=7);
     virtual ~Collector();
     virtual void Shutdown();
+    virtual void SessionShutdown();
 
     virtual bool ReceiveResourceUpdate(SandeshSession *session,
             bool rsc);
@@ -65,12 +68,14 @@ public:
     std::string cassandra_ip() { return cassandra_ip_; }
     unsigned short cassandra_port() { return cassandra_port_; }
     int analytics_ttl() { return analytics_ttl_; }
+    int db_task_id();
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
+
     DbHandler *db_handler_;
     OpServerProxy * const osp_;
     EventManager * const evm_;
@@ -79,6 +84,7 @@ private:
     std::string cassandra_ip_;
     unsigned short cassandra_port_;
     int analytics_ttl_;
+    int db_task_id_;
 
     // Generator map
     typedef boost::ptr_map<Generator::GeneratorId, Generator> GeneratorMap;
@@ -90,6 +96,7 @@ private:
     boost::uuids::random_generator umn_gen_;
     static std::string prog_name_;
     static std::string self_ip_;
+    static bool task_policy_set_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };

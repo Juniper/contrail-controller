@@ -12,7 +12,6 @@
 #include "base/index_map.h"
 #include "bgp/bgp_attr.h"
 #include "bgp/bgp_proto.h"
-#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "db/db_entry.h"
 #include "net/tunnel_encap_type.h"
 
@@ -37,8 +36,10 @@ public:
     class NextHop {
         public:
             NextHop(IpAddress address, uint32_t label, 
-                    std::vector<std::string> encap)
-                : address_(address), label_(label), encap_(encap) {
+                    const ExtCommunity *ext_community)
+                : address_(address), label_(label) {
+                if (ext_community)
+                    encap_ = ext_community->GetTunnelEncap();
             }
             const IpAddress address() const { return address_; }
             uint32_t label() const { return label_; }
@@ -75,33 +76,7 @@ public:
     typedef std::vector<NextHop> NextHopList;
 
     RibOutAttr() : attr_out_(NULL) { }
-    RibOutAttr(const BgpAttr *attr, uint32_t label) : attr_out_(attr) {
-        if (attr) {
-            nexthop_list_.push_back(NextHop(attr->nexthop(), label, 
-                                        GetTunnelEncap(attr->ext_community())));
-        }
-    }
-
-    std::vector<std::string> GetTunnelEncap(const ExtCommunity *ext_community) {
-        std::vector<std::string> encap_list;
-        if (ext_community == NULL)
-            return encap_list;
-
-        for (ExtCommunity::ExtCommunityList::const_iterator iter =
-             ext_community->communities().begin();
-             iter != ext_community->communities().end(); ++iter) {
-            if (ExtCommunity::is_tunnel_encap(*iter)) {
-                TunnelEncap encap(*iter);
-                TunnelEncapType::Encap id = encap.tunnel_encap();
-                if (id == TunnelEncapType::UNSPEC) continue;
-                encap_list.push_back(TunnelEncapType::TunnelEncapToString(id));
-            }
-        }
-        std::sort(encap_list.begin(), encap_list.end());
-        return encap_list;
-    }
-
-
+    RibOutAttr(const BgpAttr *attr, uint32_t label);
     RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp);
 
     bool IsReachable() const { return attr_out_.get() != NULL; }

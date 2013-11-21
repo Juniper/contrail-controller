@@ -808,11 +808,13 @@ trace sandesh OperVrf {
 trace sandesh AgentDBWalkLog {
     1: string message;
     2: string table_name;
-    3: "walkid:"
+    3: "walkid:";
     4: i32 walk_id;
-    5: "peer:"
+    5: "peer:";
     6: string peer;
     7: string add_del_route; 
+    8: "pending walks:"; 
+    9: i32 pending_walks;
 }
 
 systemlog sandesh InterfaceConfiguration {

@@ -41,6 +41,9 @@ private:
 
 class NamedConfig {
 public:
+    typedef std::map<std::string, ZoneList> ViewZoneMap;
+    typedef std::pair<std::string, ZoneList> ViewZonePair;
+
     static const char NamedConfigFile[];
     static const char NamedLogFile[];
     static const char RndcSecret[];
@@ -49,12 +52,9 @@ public:
     static const std::string NamedZoneMXPrefix;
     static const char ZoneFileDirectory[];
     static const char pid_file_name[];
-    static const std::string NamedZoneNSIP;
     static const int NameWidth = 30;
     static const int NumberWidth = 10;
     static const int TypeWidth = 4;
-    static const int ClassWidth = 4;
-    static const int IpWidth = 15;
 
     struct Defaults {
         static const int GlobalTTL = 86400;
@@ -101,7 +101,8 @@ protected:
     void WriteRndcConfig();
     void WriteLoggingConfig();
     void WriteViewConfig(const VirtualDnsConfig *updated_vdns);
-    void WriteZone(const VirtualDnsConfig *vdns, std::string &name);
+    void WriteDefaultView(ViewZoneMap &view_zone_map);
+    void WriteZone(std::string &vdns, std::string &name, bool is_master);
     void AddZoneFiles(ZoneList &zones, const VirtualDnsConfig *vdns);
     void RemoveZoneFile(const VirtualDnsConfig *vdns, std::string &zone);
     std::string GetZoneNSName(const std::string domain_name);

@@ -115,6 +115,10 @@ public:
 
     void clear_reconnect_attempts() { reconnect_attempts_ = 0; }
 
+    bool ConnectionStatusIsDown() const {
+        return (connection_status_ == DOWN) ? true : false;
+    }
+
     std::string get_connection_status() {
         switch (connection_status_) {
         case NOCONN:
@@ -123,6 +127,27 @@ public:
             return std::string("Down");
         case UP:
             return std::string("Up");
+        default:
+            break;
+        }
+
+        return std::string("Invalid");
+    }
+
+    uint64_t get_connection_status_change_at() {
+        return connection_status_change_at_;
+    }
+
+    std::string get_connection_status_and_time() {
+        switch (connection_status_) {
+        case NOCONN:
+            return std::string("No Connection");
+        case DOWN:
+            return std::string("Down since ") + 
+                   timeout_to_string(connection_status_change_at_);
+        case UP:
+            return std::string("Up since ") +
+                   timeout_to_string(connection_status_change_at_);
         default:
             break;
         }
@@ -143,6 +168,8 @@ public:
         host_ = host;
         port_ = port;
     }
+    PeerTimedoutInfo GetTimedoutInfo(const std::string &host,
+                                     const std::string &port);
 
 private:
     // 75 seconds i.e. 60 + (3*5)s
@@ -172,6 +199,7 @@ private:
                       boost::asio::deadline_timer *socket_close_timer);
     void SetArcSocketOptions();
     std::string timeout_to_string(uint64_t timeout);
+    void set_connection_status(ConnectionStatus status);
 
     IFMapManager *manager_;
     boost::asio::ip::tcp::resolver resolver_;
@@ -194,10 +222,16 @@ private:
     uint64_t sent_msg_cnt_;
     uint64_t reconnect_attempts_;
     ConnectionStatus connection_status_;
+    uint64_t connection_status_change_at_;
     boost::asio::ip::tcp::endpoint endpoint_;
     TimedoutMap timedout_map_;
 
     // temp instrumentation. Remove asap.
+    std::string GetSizeAsString(size_t stream_sz, std::string log) {
+        std::ostringstream ss;
+        ss << stream_sz << log;
+        return ss.str();
+    }
     boost::asio::streambuf temp_reply_;
     std::ostringstream temp_reply_ss_;
     std::string temp_reply_str_;

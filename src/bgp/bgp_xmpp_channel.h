@@ -61,6 +61,7 @@ public:
 
 private:
     friend class BgpXmppChannelMock;
+    friend class BgpXmppChannelManager;
     class XmppPeer;
     class PeerClose;
     class PeerStats;

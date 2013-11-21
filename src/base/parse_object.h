@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <string.h>
 #include <map>
 
 static inline uint32_t get_short(const uint8_t *data) {
@@ -50,6 +51,16 @@ static inline void put_value(uint8_t *data, int size, uint64_t value) {
             *data++ = ((value >> offset) & 0xff);
         }
     }
+}
+
+static inline double get_double(const uint8_t *data) {
+    double value;
+    memcpy(&value, data, sizeof(double));
+    return value;
+}
+
+static inline void put_double(uint8_t *data, double value) {
+    memcpy(data, &value, sizeof(double));
 }
 
 struct ParseErrorContext {

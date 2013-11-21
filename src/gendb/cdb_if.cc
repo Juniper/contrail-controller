@@ -13,7 +13,6 @@
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include "analytics_db_types.h"
 
 using boost::lexical_cast;
 namespace cassandra = ::org::apache::cassandra;
@@ -75,16 +74,20 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
                                                      CdbIf::Db_decode_Unsigned64_composite,
                                                      CdbIf::Db_encode_Unsigned64_non_composite,
                                                      CdbIf::Db_decode_Unsigned64_non_composite))
+        (GenDb::DbDataType::DoubleType, CdbIf::CdbIfTypeInfo("DoubleType",
+                                                     CdbIf::Db_encode_Double_composite,
+                                                     CdbIf::Db_decode_Double_composite,
+                                                     CdbIf::Db_encode_Double_non_composite,
+                                                     CdbIf::Db_decode_Double_non_composite))
         ;
 
 CdbIf::~CdbIf() { 
-    transport_->close();
-    TimerManager::DeleteTimer(periodic_timer_);
-    periodic_timer_ = NULL;
+    if (transport_)
+        transport_->close();
 }
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
-        std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats, int ttl, std::string name) :
+        std::string cassandra_ip, unsigned short cassandra_port, int ttl, std::string name) :
     socket_(new TSocket(cassandra_ip, cassandra_port)),
     transport_(new TFramedTransport(socket_)),
     protocol_(new TBinaryProtocol(transport_)),
@@ -92,13 +95,14 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     ioservice_(ioservice),
     errhandler_(errhandler),
     db_init_done_(false),
-    periodic_timer_(TimerManager::CreateTimer(*ioservice, "Cdb Periodic timer")),
     name_(name),
-    enable_stats_(enable_stats),
     cassandra_ttl_(ttl) {
 }
 
-bool CdbIf::Db_IsInitDone() {
+CdbIf::CdbIf()
+{ }
+
+bool CdbIf::Db_IsInitDone() const {
     return db_init_done_;
 }
 
@@ -124,12 +128,6 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
             boost::bind(&CdbIf::Db_IsInitDone, this)));
     }
 
-    if (enable_stats_) {
-        periodic_timer_->Start(PeriodicTimeSec * 1000,
-                boost::bind(&CdbIf::PeriodicTimerExpired, this),
-                boost::bind(&CdbIf::PeriodicTimerErrorHandler, this, _1, _2));
-    }
-
     try {
         transport_->open();
     } catch (TTransportException &tx) {
@@ -148,9 +146,6 @@ void CdbIf::Db_Uninit(bool shutdown) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << tx.what());
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
-    }
-    if (enable_stats_) {
-        periodic_timer_->Cancel();
     }
     if (shutdown) {
         cdbq_->Shutdown();
@@ -826,7 +821,8 @@ bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
 }
 
 bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
-        const std::string& cfname, const std::vector<DbDataValueVec>& rowkeys) {
+        const std::string& cfname, const std::vector<DbDataValueVec>& rowkeys,
+        GenDb::ColumnNameRange *crange_ptr) {
 
     std::vector<DbDataValueVec>::const_iterator it = rowkeys.begin();
 
@@ -846,6 +842,23 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
         std::map<std::string, std::vector<ColumnOrSuperColumn> > ret_c;
         cassandra::SliceRange slicer;
         cassandra::SlicePredicate slicep;
+
+        if (crange_ptr)
+        {
+            // column range specified, set appropriate variables
+            std::string start_string;
+            std::string finish_string;
+            if (!ConstructDbDataValueColumnName(start_string, cfname, crange_ptr->start_)) {
+                CDBIF_CONDCHECK_LOG_RETF(0);
+            }
+            if (!ConstructDbDataValueColumnName(finish_string, cfname, crange_ptr->finish_)) {
+                CDBIF_CONDCHECK_LOG_RETF(0);
+            }
+
+            slicer.__set_start(start_string);
+            slicer.__set_finish(finish_string);
+            slicer.__set_count(crange_ptr->count);
+        }
 
         /* slicer has start_column and end_column as null string, which
          * means return all columns
@@ -988,6 +1001,15 @@ bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
         CdbIf::ColListFromColumnOrSuper(col_list, ks.columns, cfname);
     }
 
+    return true;
+}
+
+bool CdbIf::Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const {
+    if (!Db_IsInitDone()) {
+        return false;
+    }
+    queue_count = cdbq_->QueueCount();
+    enqueues = cdbq_->EnqueueCount();
     return true;
 }
 
@@ -1167,6 +1189,27 @@ DbDataValue CdbIf::Db_decode_Unsigned64_non_composite(const std::string& input) 
     return (output);
 }
 
+std::string CdbIf::Db_encode_Double_non_composite(const DbDataValue& value) {
+    double temp = 0;
+    
+    try {
+        temp = boost::get<double>(value);
+    } catch (boost::bad_get& ex) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
+    }
+
+    uint8_t data[16];
+    put_double(data, temp);
+    std::string output((const char *)data, sizeof(double));
+
+    return output;
+}
+
+DbDataValue CdbIf::Db_decode_Double_non_composite(const std::string& input) {
+    double output = get_double((const uint8_t *)(input.c_str()));
+    return (output);
+}
+
 /* encode/decode for composite */
 std::string CdbIf::Db_encode_string_composite(const DbDataValue& value) {
     std::string input;
@@ -1215,6 +1258,7 @@ std::string CdbIf::Db_encode_UUID_composite(const DbDataValue& value) {
     try {
         u = boost::get<boost::uuids::uuid>(value);
     } catch (boost::bad_get& ex) {
+        assert(0);
         CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
     }
     uint8_t data[32];
@@ -1382,19 +1426,38 @@ DbDataValue CdbIf::Db_decode_Unsigned64_composite(const char *input, int& used) 
     return output;
 }
 
-/* restart the timer on error */
-void CdbIf::PeriodicTimerErrorHandler(std::string name, std::string error) {
-    LOG(ERROR, __FILE__ << ":" << __LINE__ << ": " << name + " error: " + error);
+std::string CdbIf::Db_encode_Double_composite(const DbDataValue& value) {
+    uint8_t data[16];
+
+    double input = 0;
+    try {
+        input = boost::get<double>(value);
+    } catch (boost::bad_get& ex) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
+    }
+
+    int size = sizeof(double);
+    int i = 0;
+    put_value(data+i, 2, size);
+    i += 2;
+    put_double(data+i, input);
+    i += size;
+    data[i++] = '\0';
+
+    std::string output((const char *)data, i);
+
+    return output;
 }
 
-bool CdbIf::PeriodicTimerExpired() {
-    DbTxQ_s qinfo;
+DbDataValue CdbIf::Db_decode_Double_composite(const char *input, int& used) {
+    used = 0;
+    uint16_t len = get_value((const uint8_t *)input, 2);
+    used += 2;
 
-    qinfo.set_name(name_);
-    qinfo.set_count(cdbq_->QueueCount());
-    qinfo.set_enqueues(cdbq_->EnqueueCount());
-    DbTxQ::Send(qinfo);
+    double output = get_double((const uint8_t *)&input[used]);
+    used += sizeof(double);
 
-    return true;
+    used++; // skip eoc
+
+    return output;
 }
-

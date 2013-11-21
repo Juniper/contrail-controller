@@ -16,26 +16,24 @@
 #include <uve/uve_client.h>
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
-#include <oper/mirror_table.h>
 #include <uve/agent_uve_types.h>
+#include <init/agent_param.h>
+#include <oper/mirror_table.h>
 
 AgentUve *AgentUve::singleton_;
 
-AgentUve::AgentUve(int agent_stats_intvl, int flow_stats_intvl) {
-    EventManager *evm = Agent::GetInstance()->GetEventManager();
-    agent_stats_collector_ = new AgentStatsCollector(*evm->io_service(), agent_stats_intvl);
+AgentUve::AgentUve(Agent *agent) {
+    singleton_ = this;
+    EventManager *evm = agent->GetEventManager();
+    agent_stats_collector_ = new AgentStatsCollector
+        (*evm->io_service(), agent->params()->agent_stats_interval()),
     vrouter_stats_collector_ = new VrouterStatsCollector(*evm->io_service());
-    flow_stats_collector_ = new FlowStatsCollector(*evm->io_service(), flow_stats_intvl);
+    flow_stats_collector_ = new FlowStatsCollector
+        (*evm->io_service(), agent->params()->flow_stats_interval()),
     inter_vn_stats_collector_ = new InterVnStatsCollector();
     intf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     vrf_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
     drop_stats_sandesh_ctx_ = new AgentStatsSandeshContext();
-}
-
-void AgentUve::Init(int agent_stats_intvl, int flow_stats_intvl, 
-                    uint64_t band_intvl) {
-    singleton_ = new AgentUve(agent_stats_intvl, flow_stats_intvl);
-    UveClient::Init(band_intvl);
 }
 
 void AgentUve::Shutdown() {
@@ -102,4 +100,8 @@ void GetStatsInterval::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
     return;
+}
+
+void AgentUve::Init() {
+    UveClient::Init();
 }

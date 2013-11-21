@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+//
+//  redis.sandesh
+//
+
+struct RedisUveMasterInfo {
+    1: optional string              ip
+    2: optional u16                 port
+    3: optional string              status 
+    4: optional u64                 master_last_updated
+    5: optional u64                 num_of_mastership_changes       
+}
+
+request sandesh RedisUVEMasterRequest {
+}
+
+response sandesh RedisUVEMasterResponse {
+    1: RedisUveMasterInfo     redis_uve_master
+}

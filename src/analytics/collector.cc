@@ -2,10 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "collector.h"
-
+#include <boost/assign/list_of.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
+#include <boost/assign.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -17,16 +17,23 @@
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
+#include <sandesh/request_pipeline.h>
+#include "collector.h"
 #include "viz_collector.h"
 #include "ruleeng.h"
+#include "viz_sandesh.h"
 
 using std::string;
 using std::map;
 using std::vector;
 using boost::shared_ptr;
+using namespace boost::assign;
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
+
+bool Collector::task_policy_set_ = false;
+const std::string Collector::kDbTask = "analytics::DbHandler";
 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, Ruleeng *ruleeng, std::string cassandra_ip,
@@ -38,17 +45,35 @@ Collector::Collector(EventManager *evm, short server_port,
         cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
         cassandra_ip_(cassandra_ip),
         cassandra_port_(cassandra_port),
-        analytics_ttl_(analytics_ttl) {
+        analytics_ttl_(analytics_ttl),
+        db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)) {
+
+    if (!task_policy_set_) {
+        TaskPolicy db_task_policy = boost::assign::list_of
+                (TaskExclusion(lifetime_mgr_task_id()));
+        TaskScheduler::GetInstance()->SetPolicy(db_task_id_, db_task_policy);
+        task_policy_set_ = true;
+    }
+
     SandeshServer::Initialize(server_port);
 }
 
 Collector::~Collector() {
 }
 
-void Collector::Shutdown() {
-    SandeshServer::Shutdown();
+int Collector::db_task_id() {
+    return db_task_id_;
+}
+
+void Collector::SessionShutdown() {
+    SandeshServer::SessionShutdown();
+
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     gen_map_.clear();
+}
+
+void Collector::Shutdown() {
+    SandeshServer::Shutdown();
 }
 
 void Collector::RedisUpdate(bool rsc) {
@@ -236,6 +261,10 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         const Generator * const gen = gm_it->second;
+        // Only send if generator is connected 
+        if (!gen->session()) {
+            continue;
+        }
         vector<SandeshStats> ssv;
         gen->GetMessageTypeStats(ssv);
         vector<SandeshLogLevelStats> lsv;
@@ -248,9 +277,23 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         ssiv.push_back(ssi);
 
         ModuleServerState ginfo;
+        uint64_t sm_queue_count;
+        if (gen->GetSandeshStateMachineQueueCount(sm_queue_count)) {
+            ginfo.set_sm_queue_count(sm_queue_count);
+        } 
+	SandeshStateMachineStats sm_stats;
+        if (gen->GetSandeshStateMachineStats(sm_stats)) {
+            ginfo.set_sm_stats(sm_stats);
+        }
+        uint64_t db_queue_count;
+        uint64_t db_enqueues;
+        if (gen->GetDbStats(db_queue_count, db_enqueues)) {
+            ginfo.set_db_queue_count(db_queue_count);
+            ginfo.set_db_enqueues(db_enqueues);
+        } 
         ginfo.set_msg_stats(ssiv);
         ginfo.set_name(gen->source() + ":" + gen->module());
-        if (ssiv.size()) genlist.push_back(ginfo);
+        genlist.push_back(ginfo);
     }
 }
 
@@ -305,4 +348,50 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     return true;
 }
 
+class ShowCollectorServerHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+            const RequestPipeline::PipeSpec ps, int stage, int instNum,
+            RequestPipeline::InstData *data) {
+        const ShowCollectorServerReq *req =
+            static_cast<const ShowCollectorServerReq *>(ps.snhRequest_.get());
+        ShowCollectorServerResp *resp = new ShowCollectorServerResp;
+        VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(req->client_context());
+        if (!vsc) {
+            LOG(ERROR, __func__ << ": Sandesh client context NOT PRESENT");
+            resp->Response();
+            return true;
+        }
+        // Socket statistics
+        TcpServerSocketStats rx_socket_stats;
+        vsc->Analytics()->GetCollector()->GetRxSocketStats(rx_socket_stats);
+        resp->set_rx_socket_stats(rx_socket_stats);
+        TcpServerSocketStats tx_socket_stats;
+        vsc->Analytics()->GetCollector()->GetTxSocketStats(tx_socket_stats);
+        resp->set_tx_socket_stats(tx_socket_stats);
+        // Generator summary info
+        vector<GeneratorSummaryInfo> generators;
+        vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(generators);
+        resp->set_generators(generators);
+        // Send the response
+        resp->set_context(req->context());
+        resp->Response();
+        return true;
+    }
+};
+
+void ShowCollectorServerReq::HandleRequest() const {
+    RequestPipeline::PipeSpec ps(this);
+
+    // Request pipeline has single stage to collect neighbor config info
+    // and respond to the request
+    RequestPipeline::StageSpec s1;
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    s1.taskId_ = scheduler->GetTaskId("collector::ShowCommand");
+    s1.cbFn_ = ShowCollectorServerHandler::CallbackS1;
+    s1.instances_.push_back(0);
+    ps.stages_ = list_of(s1);
+    RequestPipeline rp(ps);
+}
 

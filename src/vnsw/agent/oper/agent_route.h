@@ -162,8 +162,8 @@ public:
                               bool multicast_walk,
                               DBTablePartBase *part,
                               DBEntryBase *entry);
-    void UnicastRouteNotifyDone(DBTableBase *base, DBState *);
-    void MulticastRouteNotifyDone(DBTableBase *base, DBState *);
+    void UnicastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
+    void MulticastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
 
     void AddUnresolvedRoute(const RouteEntry *rt);
     void RemoveUnresolvedRoute(const RouteEntry *rt);

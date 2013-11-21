@@ -176,6 +176,7 @@ env.Append(LIBPATH = env['TOP'] + '/schema')
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = env['TOP'] + '/control-node')
 env.Append(CPPPATH = env['TOP'] + '/discovery/client')
+env.Append(CPPPATH = env['TOP'] + '/io')
 
 lib_l3vpn = File('../bgp/l3vpn/libbgp_l3vpn.a')
 lib_inet = File('../bgp/inet/libbgp_inet.a')

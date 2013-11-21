@@ -14,7 +14,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "controller/controller_peer.h"
@@ -29,12 +30,9 @@
 #include "oper/vm.h"
 #include "oper/vn.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include "cfg/init_config.h"
 #include "vr_types.h"
 #include "vnc_cfg_types.h"
 #include "bgp_schema_types.h"

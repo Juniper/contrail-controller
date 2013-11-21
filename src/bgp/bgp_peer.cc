@@ -395,9 +395,9 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     }
 
     if (clear_session) {
-        BGP_LOG_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_SYSLOG,
-                     BGP_PEER_DIR_NA, "Session cleared due to changes in "
-                     "peer configuration");
+        BGP_LOG_PEER(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA,
+                     "Session cleared due to configuration change");
         BGPPeerInfo::Send(peer_info);
         Clear();
     }
@@ -553,7 +553,7 @@ void BgpPeer::RegisterAllTables() {
                            table, "Register peer with the table");
         if (table) {
             membership_mgr->Register(this, table, policy_, -1,
-             boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
             membership_req_pending_++;
         }
     }
@@ -564,7 +564,7 @@ void BgpPeer::RegisterAllTables() {
                            vtable, "Register peer with the table");
         if (vtable) {
             membership_mgr->Register(this, vtable, policy_, -1,
-             boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
             membership_req_pending_++;
         }
     }
@@ -575,7 +575,7 @@ void BgpPeer::RegisterAllTables() {
                            vtable, "Register peer with the table");
         if (vtable) {
             membership_mgr->Register(this, vtable, policy_, -1,
-             boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
+                boost::bind(&BgpPeer::MembershipRequestCallback, this, _1, _2));
             membership_req_pending_++;
         }
     }
@@ -892,7 +892,6 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             assert(table);
 
             vector<BgpProtoPrefix *>::const_iterator it;
-            size_t label_offset = 34;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
                 if ((*it)->type != 2) {
                     BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
@@ -900,6 +899,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                                  "EVPN: Unsupported route type " << (*it)->type);
                     continue;
                 }
+                size_t label_offset = EvpnPrefix::label_offset(**it);
                 uint32_t label = ((*it)->prefix[label_offset] << 16 |
                                   (*it)->prefix[label_offset + 1] << 8 |
                                   (*it)->prefix[label_offset + 2]) >> 4;

@@ -53,9 +53,10 @@ class RedisSentinelClient(object):
             self._logger.error(
                 'Failed to get redis master for service "%s" from sentinel'
                 % (service))
-        finally:
+        else:
             self._logger.info('Redis master for service %s is %s:%d'
                               % (service, redis_master[0], redis_master[1]))
+        finally:
             self._update_redis_master(service, redis_master)
             return redis_master
     #end _get_redis_master_from_sentinel
@@ -152,7 +153,7 @@ class RedisSentinelClient(object):
                                 'Failed to decode sentinel message')
                             continue
                         self._logger.info(
-                            'Redis master change for service %s' +
+                            'Redis master change for service %s' \
                             '[%s:%s => %s:%s]'
                             % (data[0], data[1], data[2], data[3], data[4]))
                         if data[0] in self._services:

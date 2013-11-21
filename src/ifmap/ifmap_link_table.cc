@@ -33,13 +33,30 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
                              IFMapNode *left, IFMapNode *right,
                              const string &metadata, uint64_t sequence_number,
                              const IFMapOrigin &origin) {
-    IFMapLink *link = new IFMapLink(edge);
+    DBTablePartition *partition =
+        static_cast<DBTablePartition *>(GetTablePartition(0));
+
+    IFMapLink *link = FindLink(edge);
+    if (link) {
+        assert(link->IsDeleted());
+        link->ClearDelete();
+        link->set_last_change_at_to_now();
+        partition->Change(link);
+    } else {
+        link = new IFMapLink(edge);
+        partition->Add(link);
+    }
     link->SetProperties(left, right, metadata, sequence_number, origin);
     graph_->SetEdgeProperty(link);
+}
+
+IFMapLink *IFMapLinkTable::FindLink(DBGraphBase::edge_descriptor edge) {
 
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
-    partition->Add(link);
+    RequestKey key;
+    key.edge = edge;
+    return static_cast<IFMapLink *>(partition->Find(&key));
 }
 
 void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {

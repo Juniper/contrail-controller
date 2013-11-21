@@ -12,7 +12,8 @@ products = [ str(File('#/build/lib/librndc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisccc' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libisccfg' + env['LIBSUFFIX'])),
              str(File('#/build/lib/libbind9' + env['LIBSUFFIX'])),
-             str(File('#/build/lib/libdns' + env['LIBSUFFIX'])) ]
+             str(File('#/build/lib/libdns' + env['LIBSUFFIX'])),
+             '#build/include/isc']
 
 bind_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 env.SideEffect(products, bind_cfg)

@@ -5,7 +5,6 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <route/route.h>
 #include <oper/agent_route.h>
 #include <oper/vrf.h>
@@ -228,6 +227,7 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&req);
 }
+
 // Create Route with VLAN NH
 void 
 Inet4UnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer, 

@@ -19,16 +19,19 @@
 #include <async/TAsioAsync.h>
 #include <async/TFuture.h>
 
-#include "io/event_manager.h"
-#include "db/db.h"
+#include <io/event_manager.h>
+#include <db/db.h>
 
-#include "vnsw/agent/cfg/interface_cfg.h"
-#include "vnsw/agent/cmn/agent_cmn.h"
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_interface.h>
 
 using namespace apache::thrift;
 using boost::shared_ptr;
 
 extern void InstanceInfoServiceServerInit(EventManager &evm, DB *db);
+
+void RouterIdDepInit() {
+}
 
 namespace {
 class NovaInfoServerTest : public ::testing::Test {

@@ -463,6 +463,89 @@ class FakeIfmapClient(object):
 # end class FakeIfmapClient
 
 
+class FakeRedis(object):
+    class Pubsub(object):
+        def __init__(self, *args, **kwargs):
+            self._event = gevent.event.Event()
+        # end __init__
+
+        def subscribe(self, *args, **kwargs):
+            pass
+        # end subscribe
+
+        def listen(self, *args, **kwargs):
+            self._event.wait()
+        # end listen
+    # end FakePubsub
+
+    def __init__(self, *args, **kwargs):
+        self._kv_store = {}
+    # end __init__
+
+    def pubsub(self, *args, **kwargs):
+        return FakeRedis.Pubsub()
+    # end pubsub
+
+    def publish(self, *args, **kwargs):
+        pass
+    # end publish
+
+    def set(self, key, value):
+        self._kv_store[key] = deepcopy(value)
+    # end set
+
+    def get(self, key):
+        return deepcopy(self._kv_store[key])
+    # end get
+
+    def delete(self, keys):
+        for key in keys:
+            try:
+                del self._kv_store[key]
+            except KeyError:
+                pass
+    # end delete
+
+    def setnx(self, key, value):
+        self.set(key, deepcopy(value))
+        return True
+    # end setnx
+
+    def hexists(self, key, hkey):
+        if key in self._kv_store:
+            if hkey in self._kv_store[key]:
+                return True
+
+        return False
+    # end hexists
+
+    def hset(self, key, hkey, value):
+        if key not in self._kv_store:
+            self._kv_store[key] = {}
+
+        self._kv_store[key][hkey] = deepcopy(value)
+    # end hset
+
+    def hget(self, key, hkey):
+        if key not in self._kv_store:
+            return json.dumps(None)
+        if hkey not in self._kv_store[key]:
+            return json.dumps(None)
+
+        return deepcopy(self._kv_store[key][hkey])
+    # end hget
+
+    def hgetall(self, key):
+        return deepcopy(self._kv_store[key])
+    # end hgetall
+
+    def hdel(self, key, hkey):
+        del self._kv_store[key][hkey]
+    # end hdel
+
+# end FakeRedis
+
+
 def get_free_port():
     tmp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     tmp_sock.bind(('', 0))

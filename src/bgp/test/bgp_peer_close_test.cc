@@ -35,6 +35,8 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
+
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
@@ -278,6 +280,9 @@ public:
         server_->GetIsPeerCloseGraceful_fnc_ =
                     boost::bind(&BgpPeerCloseTest::IsPeerCloseGraceful, this,
                                 graceful);
+        xmpp_server_->GetIsPeerCloseGraceful_fnc_ =
+                    boost::bind(&BgpPeerCloseTest::IsPeerCloseGraceful, this,
+                                graceful);
     }
 
 protected:
@@ -286,7 +291,7 @@ protected:
     virtual void SetUp() {
 
         server_.reset(new BgpServerTest(&evm_, "test"));
-        xmpp_server_ = new XmppServer(&evm_, XMPP_CONTROL_SERV);
+        xmpp_server_ = new XmppServerTest(&evm_, XMPP_CONTROL_SERV);
 
         channel_manager_.reset(new BgpXmppChannelManagerMock(
                                        xmpp_server_, server_.get()));
@@ -398,7 +403,7 @@ protected:
     EventManager evm_;
     ServerThread thread_;
     boost::scoped_ptr<BgpServerTest> server_;
-    XmppServer *xmpp_server_;
+    XmppServerTest *xmpp_server_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> channel_manager_;
     scoped_ptr<BgpInstanceConfigTest> master_cfg_;
     RoutingInstance *rtinstance_;
@@ -1011,7 +1016,7 @@ TEST_P(BgpPeerCloseTest, DeleteRoutingInstances) {
         "Waiting for the completion of routing-instances' deletion");
 }
 
-TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStalingAndDelete) {
+TEST_P(BgpPeerCloseTest, ClosePeersWithRouteStalingAndDelete) {
     SCOPED_TRACE(__FUNCTION__);
     InitParams();
     AddPeersWithRoutes(master_cfg_.get());
@@ -1044,7 +1049,7 @@ TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStalingAndDelete) {
     VerifyRoutes(0);
 }
 
-TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStaling) {
+TEST_P(BgpPeerCloseTest, ClosePeersWithRouteStaling) {
     SCOPED_TRACE(__FUNCTION__);
     InitParams();
 
@@ -1060,11 +1065,12 @@ TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStaling) {
     SetPeerCloseGraceful(true);
 
     // Trigger ribin deletes
-    BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-        npeer->peer()->Close();
-    }
-
+    BOOST_FOREACH(BgpNullPeer *npeer, peers_) { npeer->peer()->Close(); }
     XmppPeerClose();
+
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        TASK_UTIL_EXPECT_FALSE(agent->IsEstablished());
+    }
 
     // Verify that routes are still there (staled)
     VerifyRoutes(n_routes_);
@@ -1076,10 +1082,12 @@ TEST_P(BgpPeerCloseTest, DISABLED_ClosePeersWithRouteStaling) {
 
     WaitForIdle();
 
-    if (false) {
-        BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
-            TASK_UTIL_EXPECT_EQ(true, agent->IsEstablished());
-        }
+    BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
+        TASK_UTIL_EXPECT_TRUE(npeer->peer()->IsReady());
+    }
+
+    BOOST_FOREACH(test::NetworkAgentMock *agent, xmpp_agents_) {
+        TASK_UTIL_EXPECT_TRUE(agent->IsEstablished());
     }
 
     // Feed the routes again - stale flag should be reset now

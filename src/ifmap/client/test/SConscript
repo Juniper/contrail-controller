@@ -32,10 +32,16 @@ env.Prepend(LIBS = [
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
 
-#ifmap_state_machine_test = env.Program('ifmap_state_machine_test',
-#                                       ['ifmap_state_machine_test.cc'])
-#env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)
+ifmap_state_machine_test = env.UnitTest('ifmap_state_machine_test',
+                                        ['ifmap_state_machine_test.cc'])
+env.Alias('src/ifmap/client:ifmap_state_machine_test', ifmap_state_machine_test)
 
-peer_server_finder_test = env.Program('peer_server_finder_test',
+peer_server_finder_test = env.UnitTest('peer_server_finder_test',
                                        ['peer_server_finder_test.cc'])
 env.Alias('src/ifmap/client:peer_server_finder_test', peer_server_finder_test)
+
+client_test = env.TestSuite('ifmap-client-test',
+                            [ifmap_state_machine_test,
+                             peer_server_finder_test])
+
+env.Alias('src/ifmap/client:test', client_test)

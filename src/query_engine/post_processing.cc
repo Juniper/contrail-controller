@@ -53,7 +53,8 @@ bool PostProcessingQuery::sort_field_comparator(
 
 bool PostProcessingQuery::flowseries_merge_processing(
         const std::vector<QEOpServerProxy::OutRowT> *raw_result,
-        std::vector<QEOpServerProxy::OutRowT> *merged_result) {
+        std::vector<QEOpServerProxy::OutRowT> *merged_result, 
+        fcid_rrow_map_t *fcid_rrow_map) {
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
 
     switch(mquery->selectquery_->flowseries_query_type()) {
@@ -61,7 +62,7 @@ bool PostProcessingQuery::flowseries_merge_processing(
         fs_stats_merge_processing(raw_result, merged_result);
         break;
     case SelectQuery::FS_SELECT_FLOW_TUPLE_STATS:
-        fs_tuple_stats_merge_processing(raw_result, merged_result);
+        fs_tuple_stats_merge_processing(raw_result, merged_result, fcid_rrow_map);
         break;
     default:
         return false;
@@ -115,17 +116,12 @@ void PostProcessingQuery::fs_stats_merge_processing(
 
 void PostProcessingQuery::fs_tuple_stats_merge_processing(
         const std::vector<QEOpServerProxy::OutRowT> *raw_result, 
-        std::vector<QEOpServerProxy::OutRowT> *merged_result) {
+        std::vector<QEOpServerProxy::OutRowT> *merged_result,
+        fcid_rrow_map_t *fcid_rrow_map) {
     if (!raw_result->size()) {
         return;
     }
-    if (!merged_result->size()) {
-        merged_result->reserve(raw_result->size());
-        copy(raw_result->begin(), raw_result->end(),
-             std::back_inserter(*merged_result));
-        return;
-    }
-    size_t merged_result_size = merged_result->size();
+
     for (size_t r = 0; r < raw_result->size(); ++r) {
         const QEOpServerProxy::OutRowT& rresult_row = raw_result->at(r);
         QEOpServerProxy::OutRowT::const_iterator rfc_it = 
@@ -133,20 +129,13 @@ void PostProcessingQuery::fs_tuple_stats_merge_processing(
         assert(rfc_it != rresult_row.end());
         uint64_t rfc_id;
         stringToInteger(rfc_it->second, rfc_id);
-        size_t m;
-        for (m = 0; m < merged_result_size; ++m) {
-            QEOpServerProxy::OutRowT& mresult_row = merged_result->at(m);
-            QEOpServerProxy::OutRowT::const_iterator mfc_it = 
-                mresult_row.find(SELECT_FLOW_CLASS_ID);
-            uint64_t mfc_id;
-            stringToInteger(mfc_it->second, mfc_id);
-            if (rfc_id == mfc_id) {
-                fs_merge_stats(rresult_row, mresult_row);
-                break;
-            }
-        }
-        if (m == merged_result_size) {
-            merged_result->push_back(rresult_row);
+        if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
+            // flow_class_id rfc_id not found, add the result row to the map
+            fcid_rrow_map->insert(std::pair<uint64_t, QEOpServerProxy::OutRowT>(rfc_id, rresult_row));
+        } else {
+            // found an existing flow class id in the map
+            QEOpServerProxy::OutRowT& mresult_row = (fcid_rrow_map->find(rfc_id))->second;
+            fs_merge_stats(rresult_row, mresult_row);
         }
     }
 }
@@ -164,11 +153,15 @@ bool PostProcessingQuery::merge_processing(
         return false;
     }
 
-    // set the right table name
-    output.first = input.first;
 
     if (mquery->table == g_viz_constants.FLOW_SERIES_TABLE) {
-        if (flowseries_merge_processing(&input.second, &output.second)) {
+        fcid_rrow_map_t fcid_rrow_map;
+        if (flowseries_merge_processing(&input, &output, &fcid_rrow_map)) {
+            if (fcid_rrow_map.size() != 0) {
+                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); it != fcid_rrow_map.end(); ++it ) {
+                    output.push_back(it->second);
+                }
+            }
             status_details = 0;
             return true;
         }
@@ -177,10 +170,10 @@ bool PostProcessingQuery::merge_processing(
     // Check if the result has to be sorted
     if (sorted) {
         std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output.second;
+            &output;
 
         const std::vector<QEOpServerProxy::OutRowT> *raw_result1 = 
-            &(input.second);
+            &(input);
 
         if (result_.get() == NULL)
         {
@@ -190,7 +183,7 @@ bool PostProcessingQuery::merge_processing(
             goto sort_done;
         }
 
-        std::vector<QEOpServerProxy::OutRowT> *raw_result2 = &(result_->second);
+        std::vector<QEOpServerProxy::OutRowT> *raw_result2 = result_.get();
         size_t size1 = raw_result1->size();
         size_t size2 = raw_result2->size();
         QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
@@ -217,10 +210,10 @@ sort_done:
     {
         QE_TRACE(DEBUG, "Merge_Processing: Adding inputs to output");
         std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output.second;
+            &output;
 
         const std::vector<QEOpServerProxy::OutRowT> *raw_result1 = 
-            &(input.second);
+            &(input);
 
         if (result_.get() == NULL)
         {
@@ -229,7 +222,7 @@ sort_done:
                 std::back_inserter(*merged_result));
         } else {
 
-            std::vector<QEOpServerProxy::OutRowT> *raw_result2 = &(result_->second);
+            std::vector<QEOpServerProxy::OutRowT> *raw_result2 = result_.get();
             size_t size1 = raw_result1->size();
             size_t size2 = raw_result2->size();
             QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
@@ -261,20 +254,23 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         return false;
     }
 
-    // set the right table name
-    if (inputs.size() >= 1)
-        output.first = inputs[0]->first;
-
     if (mquery->table == g_viz_constants.FLOW_SERIES_TABLE) {
+        fcid_rrow_map_t fcid_rrow_map;
         bool status = false;
         for (size_t i = 0; i < inputs.size(); i++) {
-            status = flowseries_merge_processing(&inputs[i]->second, 
-                                                 &output.second);
+            status = flowseries_merge_processing(inputs[i].get(), 
+                                    &output, &fcid_rrow_map);
         }
         if (status) {
+            if (fcid_rrow_map.size() != 0) {
+                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); it != fcid_rrow_map.end(); ++it ) {
+                    output.push_back(it->second);
+                }
+            }
+
             if (sorted) {
                 std::vector<QEOpServerProxy::OutRowT> *merged_result =
-                    &output.second;
+                    &output;
                 if (sorting_type == ASCENDING) {
                     std::sort(merged_result->begin(), merged_result->end(), 
                               boost::bind(
@@ -301,12 +297,12 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         for (size_t i = 0; i < inputs.size(); i++)
         {
             std::vector<QEOpServerProxy::OutRowT> *raw_result = 
-                &inputs[i]->second;
+                inputs[i].get();
             result_row_set.insert(raw_result->begin(), raw_result->end());
         }
 
         std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output.second;
+            &output;
 
         merged_result->reserve(result_row_set.size());
         copy(result_row_set.begin(), result_row_set.end(), 
@@ -329,11 +325,11 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         // Check if the result has to be sorted
         if (sorted) {
             std::vector<QEOpServerProxy::OutRowT> *merged_result =
-                &output.second;
+                &output;
 
             size_t final_vector_size = 0;
             for (size_t i = 0; i < inputs.size(); i++)
-                final_vector_size += inputs[i]->second.size();
+                final_vector_size += inputs[i]->size();
         
             QE_TRACE(DEBUG, "Merging results between " << inputs.size() 
                     << " vectors with final vector size:" << final_vector_size);
@@ -343,7 +339,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
             for (size_t i = 0; i < inputs.size(); i++)
             {
                 std::vector<QEOpServerProxy::OutRowT> *raw_result = 
-                    &inputs[i]->second;
+                    inputs[i].get();
 
                 if (sorting_type == ASCENDING) {
                     std::vector<QEOpServerProxy::OutRowT>::iterator
@@ -369,7 +365,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 limit:
     if (limit) {
         std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output.second;
+            &output;
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
         if (merged_result->size() > (size_t)limit) {
             merged_result->resize(limit);
@@ -391,8 +387,69 @@ query_status_t PostProcessingQuery::process_query() {
 
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
     result_ = mquery->selectquery_->result_;
-    std::vector<QEOpServerProxy::OutRowT> *raw_result = &result_->second;
+    mresult_ = mquery->selectquery_->mresult_;
+    std::vector<QEOpServerProxy::OutRowT> *raw_result = result_.get();
 
+    if (filter_list.size()) {
+        size_t num_filtered=0;
+        MapBufT::iterator kt = mresult_->end();
+        for (MapBufT::iterator it = mresult_->begin();
+                it!= mresult_->end(); it++) {
+
+            if (kt!=mresult_->end()) {
+                mresult_->erase(kt);
+                kt = mresult_->end();
+            }
+            std::map<std::string, QEOpServerProxy::SubVal>& attrs = it->second.first;
+            bool delete_row = false;
+            std::string unknown_attr; 
+            for (size_t j = 0; j < filter_list.size(); j++) {
+                std::map<std::string, QEOpServerProxy::SubVal>::const_iterator iter =
+                        attrs.find(filter_list[j].name);
+                if (iter == attrs.end()) {
+                    unknown_attr = filter_list[j].name;
+                    break;
+                } else {
+                    unknown_attr.clear();
+                }
+                std::ostringstream vstream;
+                vstream << iter->second;
+
+                switch(filter_list[j].op) {
+                    case EQUAL:
+                        if (filter_list[j].value != vstream.str())
+                        {
+                            delete_row = true;
+                        }
+                        break;
+                    case  NOT_EQUAL:
+                        if (filter_list[j].value == vstream.str())
+                        {
+                            delete_row = true;
+                        }
+                        break;
+                    default:
+                        // upsupported filter operation
+                        QE_TRACE(DEBUG, "Unsupported filter operation " << filter_list[j].op);
+                        break;
+                }
+
+            }
+            if (unknown_attr.size()) {
+                QE_TRACE(DEBUG, "Unknown filter attr in row " << unknown_attr);
+            }
+            if (delete_row) {
+                num_filtered++;
+                kt = it;
+            } 
+        }
+        if (kt!=mresult_->end()) {
+            mresult_->erase(kt);
+            kt = mresult_->end();
+        }
+        QE_TRACE(DEBUG, "# of entries filtered is " << num_filtered);
+
+    }
     if (filter_list.size() != 0)
     {
         std::vector<std::map<std::string, std::string> > filtered_table;

@@ -150,6 +150,15 @@ systemlog sandesh IFMapDSResp {
     2: string new_response
 }
 
+systemlog sandesh IFMapChannelProcResp {
+    1: string str1
+    2: u32 header_length
+    3: string str2
+    4: u32 content_length
+    5: string str3
+    6: u32 total_length
+}
+
 trace sandesh JoinVertexTrace {
     1: "JoinVertex:"
     2: string vertex_name
@@ -296,5 +305,14 @@ trace sandesh IFMapBestPeerTrace {
 trace sandesh IFMapDSRespTrace {
     1: string current_peer
     2: string new_response
+}
+
+trace sandesh IFMapChannelProcRespTrace {
+    1: string str1
+    2: u32 header_length
+    3: string str2
+    4: u32 content_length
+    5: string str3
+    6: u32 total_length
 }
 

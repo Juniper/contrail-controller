@@ -25,12 +25,9 @@ do {                                                                        \
 ///////////////////////////////////////////////////////////////////////////////
 
 void ArpProto::Init(boost::asio::io_service &io, bool run_with_vrouter) {
-    Agent::GetInstance()->SetArpProto(new ArpProto(io, run_with_vrouter));
 }
 
 void ArpProto::Shutdown() {
-    delete Agent::GetInstance()->GetArpProto();
-    Agent::GetInstance()->SetArpProto(NULL);
 }
 
 ArpProto::ArpProto(boost::asio::io_service &io, bool run_with_vrouter) :

@@ -10,7 +10,6 @@
 
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
@@ -207,7 +206,8 @@ public:
     }
 
     void ItfDelete(const string &itf_name) {
-        EthInterface::DeleteReq(itf_name);
+        EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+                                itf_name);
     }
 
     void WaitForCompletion(unsigned int size) {
@@ -471,14 +471,6 @@ TEST_F(ArpTest, ArpItfDeleteTest) {
 #endif
 
 void RouterIdDepInit() {
-#if 0
-    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
-                                  Agent::GetInstance()->GetDB());
-
-    // Parse config and then connect
-    VNController::Connect();
-    LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
-#endif
 }
 
 int main(int argc, char *argv[]) {
@@ -503,8 +495,7 @@ int main(int argc, char *argv[]) {
     Agent::GetInstance()->GetArpProto()->RetryTimeout(50);
 
     int ret = RUN_ALL_TESTS();
-    Agent::GetInstance()->GetEventManager()->Shutdown();
-    PktHandler::Shutdown();
-    AsioStop();
+    TestShutdown();
+    delete client;
     return ret;
 }

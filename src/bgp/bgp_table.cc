@@ -58,9 +58,9 @@ BgpTable::BgpTable(DB *db, const string &name)
         : RouteTable(db, name),
           rtinstance_(NULL),
           instance_delete_ref_(this, NULL) {
-	primary_path_count_ = 0;
-	secondary_path_count_ = 0;
-	infeasible_path_count_ = 0;
+    primary_path_count_ = 0;
+    secondary_path_count_ = 0;
+    infeasible_path_count_ = 0;
 }
 
 BgpTable::~BgpTable() {
@@ -236,7 +236,7 @@ bool BgpTable::PathSelection(const Path &path1, const Path &path2) {
 void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                            const IPeer *peer, DBRequest *req,
                            DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                           uint32_t flags, uint32_t label) {
+                           uint32_t path_id, uint32_t flags, uint32_t label) {
     bool is_stale = false;
 
     switch (oper) {
@@ -245,36 +245,30 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
         // Skip if this peer is down/deleted.
         if (peer && !peer->IsReady()) return;
 
-        if (rt) {
+        assert(rt);
 
-            // The entry may currently be marked as deleted.
-            rt->ClearDelete();
+        // The entry may currently be marked as deleted.
+        rt->ClearDelete();
 
-            // Check whether peer already has a path
-            if (path != NULL) {
-                if ((path->GetAttr() != attrs.get()) || 
-                    (path->GetFlags() != flags) ||
-                    (path->GetLabel() != label)) {
-                    // Update Attributes and notify (if needed)
-                    is_stale = path->IsStale();
-                    rt->DeletePath(path);
-                } else {
+        // Check whether peer already has a path
+        if (path != NULL) {
+            if ((path->GetAttr() != attrs.get()) ||
+                (path->GetFlags() != flags) ||
+                (path->GetLabel() != label)) {
+                // Update Attributes and notify (if needed)
+                is_stale = path->IsStale();
+                rt->DeletePath(path);
+            } else {
 
-                    //
-                    // Ignore duplicate update
-                    //
-                    break;
-                }
+                //
+                // Ignore duplicate update
+                //
+                break;
             }
-            BGP_LOG_ROUTE(this, peer, rt, "Update existing BGP path");
-        } else {
-            rt = static_cast<BgpRoute *>(Add(req));
-            static_cast<DBTablePartition *>(root)->Add(rt);
-            BGP_LOG_ROUTE(this, peer, rt, "Insert new BGP path");
         }
 
         BgpPath *new_path;
-        new_path = new BgpPath(peer, BgpPath::BGP_XMPP, attrs, flags, label);
+        new_path = new BgpPath(peer, path_id, BgpPath::BGP_XMPP, attrs, flags, label);
 
         //
         // If the path is being staled (by bringing down the local pref,
@@ -294,7 +288,7 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
             BGP_LOG_ROUTE(this, peer, rt, "Delete BGP path");
 
             // Remove the Path from the route
-            rt->RemovePath(peer, BgpPath::BGP_XMPP);
+            rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
 
             if (rt->front() == NULL) {
                 // Delete the route only if all paths are gone
@@ -313,23 +307,90 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
     }
 }
 
-void BgpTable::Input(DBTablePartition *root, DBClient *client, DBRequest *req) {
-    BgpRoute *rt = NULL;
-    const IPeer *peer = (static_cast<RequestKey *>(req->key.get()))->GetPeer();
+void BgpTable::Input(DBTablePartition *root, DBClient *client,
+                     DBRequest *req) {
+    BgpRoute *rt = TableFind(root, req->key.get());
+    const IPeer *peer =
+        (static_cast<RequestKey *>(req->key.get()))->GetPeer();
     RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
 
-    rt = TableFind(root, req->key.get());
-    if (rt) {
-        path = rt->FindPath(peer, BgpPath::BGP_XMPP);
-        if (path && path->IsStale()) {
-            path->ResetStale();
+    // First mark all paths from this request source as deleted.
+    // Apply all paths provided in this request data and add them. If path
+    // already exists, reset from it getting deleted. Finally walk the paths
+    // list again to purge any stale paths originated from this peer.
+
+    // Create rt if it is not already there for adds/updates.
+    if (!rt) {
+        if (req->oper == DBRequest::DB_ENTRY_DELETE) return;
+
+        rt = static_cast<BgpRoute *>(Add(req));
+        static_cast<DBTablePartition *>(root)->Add(rt);
+        BGP_LOG_ROUTE(this, peer, rt, "Insert new BGP path");
+    }
+
+    // Use a map to mark and sweep deleted paths, update the rest.
+    map<BgpPath *, bool> deleted_paths;
+
+    // Mark this peer's all paths as deleted.
+    for (Route::PathList::iterator it = rt->GetPathList().begin();
+         it != rt->GetPathList().end(); ++it) {
+
+        // Skip secondary paths.
+        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
+
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->GetPeer() == peer &&
+                path->GetSource() == BgpPath::BGP_XMPP) {
+            deleted_paths.insert(make_pair(path, true));
         }
     }
-    InputCommon(root, rt, path, peer, req, req->oper,
-                data ? data->attrs_ : NULL,
-                data ? data->flags_ : 0,
-                data ? data->label_ : 0);
+
+    int count = 0;
+    ExtCommunityDB *extcomm_db = rtinstance_->server()->extcomm_db();
+    BgpAttrPtr attr = data ? data->attrs() : NULL;
+
+    // Process each of the paths sourced and create/update paths accordingly.
+    if (data) {
+        for (RequestData::NextHops::iterator iter = data->nexthops().begin(),
+                next = iter;
+                iter != data->nexthops().end(); iter = next, ++count) {
+            next++;
+            RequestData::NextHop nexthop = *iter;
+            path = rt->FindPath(BgpPath::BGP_XMPP, peer,
+                                nexthop.address_.to_v4().to_ulong());
+
+            if (path && req->oper != DBRequest::DB_ENTRY_DELETE) {
+                if (path->IsStale()) {
+                    path->ResetStale();
+                }
+                deleted_paths.erase(path);
+            }
+            if (data && data->attrs() && count > 0) {
+                BgpAttr *clone = new BgpAttr(*data->attrs());
+                clone->set_ext_community(
+                    extcomm_db->ReplaceTunnelEncapsulationAndLocate(
+                        clone->ext_community(),
+                        nexthop.tunnel_encapsulations_));
+                clone->set_nexthop(IpAddress(Ip4Address(
+                                    nexthop.address_.to_v4().to_ulong())));
+                clone->set_source_rd(nexthop.source_rd_);
+                attr = data->attrs()->attr_db()->Locate(clone);
+            }
+
+            InputCommon(root, rt, path, peer, req, req->oper, attr,
+                        nexthop.address_.to_v4().to_ulong(), nexthop.flags_,
+                        nexthop.label_);
+        }
+    }
+
+    // Flush remaining paths that remain marked for deletion.
+    for (std::map<BgpPath *, bool>::iterator it = deleted_paths.begin();
+            it != deleted_paths.end(); it++) {
+        BgpPath *path = it->first;
+        InputCommon(root, rt, path, peer, req, DBRequest::DB_ENTRY_DELETE,
+                    NULL, path->GetPathId(), 0, 0);
+    }
 }
 
 bool BgpTable::MayDelete() const {

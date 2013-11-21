@@ -25,7 +25,7 @@ Response ::
 
 Request for *policy-red-blue* create ::
 
-    curl -X POST -H "Content-Type: application/json; charset=UTF-8" -d '{"network-policy": {"parent_type": "project", "fq_name": ["default-domain", "admin", "policy-red-blue"], "network_policy_entries": {"policy_rule": [{"direction": "<>", "protocol": "tcp", "dst_addresses": [{"virtual_network": "default-domain:admin:vn-blue"}], "dst_ports": [{"start_port": 80, "end_port": 80}], "simple_action": "pass", "src_addresses": [{"virtual_network": "default-domain:admin:vn-red"}], "src_ports": [{"end_port": -1, "start_port": -1}]}] }}}' http://10.84.14.2:8082/network-policys
+    curl -X POST -H "Content-Type: application/json; charset=UTF-8" -d '{"network-policy": {"parent_type": "project", "fq_name": ["default-domain", "admin", "policy-red-blue"], "network_policy_entries": {"policy_rule": [{"direction": "<>", "protocol": "tcp", "dst_addresses": [{"virtual_network": "default-domain:admin:vn-blue"}], "dst_ports": [{"start_port": 80, "end_port": 80}], "action_list": {"simple_action": "pass"}, "src_addresses": [{"virtual_network": "default-domain:admin:vn-red"}], "src_ports": [{"end_port": -1, "start_port": -1}]}] }}}' http://10.84.14.2:8082/network-policys
 
 Response ::
 
@@ -45,7 +45,7 @@ Response ::
 
 Request for *vn-red* update ::
 
-    curl -X PUT -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-doma"vn-red"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
+    curl -X PUT -H "Content-Type: application/json; charset=UTF-8" -d '{"virtual-network": {"fq_name": ["default-domain", "admin", "vn-red"],"network_policy_refs": [{"to": ["default-domain", "admin", "policy-red-blue"], "attr":{"sequence":{"major":0, "minor": 0}}}]}}' http://10.84.14.2:8082/virtual-network/47a91732-629b-4cbe-9aa5-45ba4d7b0e99
 
 Response ::
 

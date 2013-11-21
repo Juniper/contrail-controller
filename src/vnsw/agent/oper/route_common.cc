@@ -6,7 +6,6 @@
 #include <boost/lexical_cast.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <route/route.h>
 
 #include <cmn/agent_cmn.h>
@@ -490,26 +489,26 @@ bool AgentRouteTable::NotifyRouteEntryWalk(AgentXmppChannel *bgp_xmpp_peer,
 }
 
 void AgentRouteTable::MulticastRouteNotifyDone(DBTableBase *base,
-                                      DBState *state) {
+                                      DBState *state, Peer *peer) {
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
 
     AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done walk ", GetTableName(),
                     vrf_state->mcwalkid_[GetTableType()], 
-                    "peer-unknown", 
-                    "Add/Del Route");
+                    peer->GetName(),
+                    "Add/Del Route", peer->NoOfWalks());
 
     vrf_state->mcwalkid_[GetTableType()] = 
         DBTableWalker::kInvalidWalkerId;
 }
 
 void AgentRouteTable::UnicastRouteNotifyDone(DBTableBase *base,
-                                             DBState *state) {
+                                             DBState *state, Peer *peer) {
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
 
     AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done walk ", GetTableName(),
                     vrf_state->ucwalkid_[GetTableType()], 
-                    "peer-unknown", 
-                    "Add/Del Route");
+                    peer->GetName(),
+                    "Add/Del Route", peer->NoOfWalks());
 
     vrf_state->ucwalkid_[GetTableType()] = 
         DBTableWalker::kInvalidWalkerId;
@@ -530,7 +529,8 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
             AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel multicast/bcast walk ", 
                   GetTableName(), vrf_state->mcwalkid_[GetTableType()], 
                   bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  "Add/Withdraw Route");
+                  "Add/Withdraw Route",
+                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks()); 
             walker->WalkCancel(vrf_state->mcwalkid_[GetTableType()]);
         }
         vrf_state->mcwalkid_[GetTableType()] = 
@@ -538,12 +538,13 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
              boost::bind(&AgentRouteTable::NotifyRouteEntryWalk, this,
              bgp_xmpp_peer, state, associate, false, true, _1, _2),
              boost::bind(&AgentRouteTable::MulticastRouteNotifyDone, 
-                        this, _1, state));
+                        this, _1, state, bgp_xmpp_peer->GetBgpPeer()));
 
         AGENT_DBWALK_TRACE(AgentDBWalkLog, "Start multicast/bcast walk ", 
                   GetTableName(), vrf_state->mcwalkid_[GetTableType()], 
                   bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  (associate)? "Add route": "Withdraw Route");
+                  (associate)? "Add route": "Withdraw Route",
+                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
     } 
     
     if (unicast_walk) {
@@ -553,7 +554,8 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
                   GetTableName(),
                   vrf_state->ucwalkid_[GetTableType()], 
                   bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  "Add/Withdraw Route");
+                  "Add/Withdraw Route",
+                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
             walker->WalkCancel(vrf_state->ucwalkid_[GetTableType()]);
         }
         vrf_state->ucwalkid_[GetTableType()] = 
@@ -561,12 +563,13 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
              boost::bind(&AgentRouteTable::NotifyRouteEntryWalk, this,
              bgp_xmpp_peer, state, associate, true, false, _1, _2),
              boost::bind(&AgentRouteTable::UnicastRouteNotifyDone, 
-                        this, _1, state));
+                        this, _1, state, bgp_xmpp_peer->GetBgpPeer()));
 
         AGENT_DBWALK_TRACE(AgentDBWalkLog, "Start ucast walk ", 
                   GetTableName(), vrf_state->ucwalkid_[GetTableType()], 
                   bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                  (associate)? "Add route": "Withdraw Route");
+                  (associate)? "Add route": "Withdraw Route",
+                  bgp_xmpp_peer->GetBgpPeer()->NoOfWalks());
     }
 }
 

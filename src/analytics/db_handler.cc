@@ -18,12 +18,18 @@
 #include "sandesh/sandesh_session.h"
 #include "viz_constants.h"
 #include "vizd_table_desc.h"
+#include "collector.h"
+#include "rapidjson/document.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/writer.h"
+
+using std::string;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), err_handler,
-                cassandra_ip, cassandra_port, true, analytics_ttl*3600, name)) {
+                cassandra_ip, cassandra_port, analytics_ttl*3600, name)) {
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
@@ -119,7 +125,7 @@ bool DbHandler::Init() {
     init_vizd_tables();
 
     LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
-    if (!dbif_->Db_Init("collector::DbHandler", -1)) {
+    if (!dbif_->Db_Init(Collector::kDbTask, -1)) {
         LOG(ERROR, __func__ << ": Connection to DB FAILED");
         return false;
     }
@@ -139,6 +145,10 @@ bool DbHandler::Init() {
     LOG(DEBUG, "DbHandler::" << __func__ << " Done");
 
     return true;
+}
+
+bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues) const {
+    return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 
 inline bool DbHandler::AllowMessageTableInsert(std::string& message_type) {
@@ -323,6 +333,112 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
             return;
         }
       }
+}
+
+
+void DbHandler::StatTableInsert(uint64_t ts, 
+        const std::string& statName,
+        const std::string& statAttr,
+        const TagMap & attribs_tag,
+        const AttribMap & attribs) {
+
+    uint64_t temp_u64 = ts;
+    uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
+    rand_mutex_.lock();
+    boost::uuids::uuid unm(umn_gen_());
+    rand_mutex_.unlock();
+
+    // This is very primitive JSON encoding.
+    // Should replace with rapidJson at some point.
+
+    // Encoding of all attribs
+
+    rapidjson::Document dd;
+    dd.SetObject();
+
+    for (AttribMap::const_iterator it = attribs.begin();
+            it != attribs.end(); it++) {
+        switch (it->second.type) {
+            case STRING: {
+                    rapidjson::Value val(rapidjson::kStringType);
+                    val.SetString(it->second.str.c_str());
+                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                }
+                break;
+            case UINT64: {
+                    rapidjson::Value val(rapidjson::kNumberType);
+                    val.SetUint64(it->second.num);
+                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());
+                }
+                break;
+            case DOUBLE: {
+                    rapidjson::Value val(rapidjson::kNumberType);
+                    val.SetDouble(it->second.dbl);
+                    dd.AddMember(it->first.c_str(), val, dd.GetAllocator());                    
+                }
+                break;                
+            default:
+                assert(0);                                
+        }
+    }
+
+    rapidjson::StringBuffer sb;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+    dd.Accept(writer);
+    string jsonline(sb.GetString());
+
+    for (TagMap::const_iterator it = attribs_tag.begin();
+            it != attribs_tag.end(); it++) {
+        if (it->second.second.empty()) {
+
+            GenDb::ColList *col_list(new GenDb::ColList);
+
+            GenDb::DbDataValue pv;
+
+            if (it->second.first.type == UINT64) {
+                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                pv = it->second.first.num;
+            } else if (it->second.first.type == DOUBLE) {
+                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
+                pv = it->second.first.dbl;
+            } else {
+                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                pv = it->second.first.str;
+            }
+
+            GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
+
+            rowkey.push_back(temp_u32);
+            rowkey.push_back(statName);
+            rowkey.push_back(statAttr);
+            rowkey.push_back(it->first);
+
+            std::vector<GenDb::NewCol>& columns = col_list->columns_;
+
+            GenDb::DbDataValueVec col_name;
+            col_name.push_back(pv);
+            col_name.push_back(string());
+            col_name.push_back((uint32_t)(temp_u64& g_viz_constants.RowTimeInMask));
+            col_name.push_back(unm);
+
+            GenDb::DbDataValueVec col_value;
+            col_value.push_back(jsonline);
+
+            columns.push_back(GenDb::NewCol(col_name, col_value));
+
+            std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
+            if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
+                LOG(ERROR, __func__ << ": Addition of " << statName <<
+                        ", " << statAttr << " attrib " << it->first << " into table "
+                        << col_list->cfname_ << " FAILED");
+            }
+
+        } else {
+            // TODO: add support for suffix tagging
+            assert(0);
+        }
+    }
+
 }
 
 /* walker to go through all nodes and insert the node that matches listed fields
@@ -709,7 +825,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
 
             GenDb::DbDataValueVec col_name;
             /* setup the column-name */
-            col_name.push_back(t1);
+            col_name.push_back((uint32_t)0);
 
             col_name.push_back(rmsg.hdr.get_Source());
 

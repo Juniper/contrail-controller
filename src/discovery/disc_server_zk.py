@@ -43,28 +43,13 @@ from sandesh.vns.constants import ModuleNames
 from sandesh.discovery_introspect import ttypes as sandesh
 
 from gevent.coros import BoundedSemaphore
+from cfgm_common.rest import LinkObject
 
 
 def obj_to_json(obj):
     # Non-null fields in object get converted to json fields
     return lambda obj: dict((k, v) for k, v in obj.__dict__.iteritems())
 # end obj_to_json
-
-
-class LinkObject(object):
-
-    def __init__(self, rel, href, name):
-        self.rel = rel
-        self.href = href
-        self.name = name
-    # end __init__
-
-    def to_dict(self):
-        return {'rel': self.rel,
-                'href': self.href,
-                'name': self.name}
-# class LinkObject
-
 
 class DiscoveryServer():
 
@@ -100,33 +85,33 @@ class DiscoveryServer():
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/publish', 'publish service'))
+                self._base_url , '/publish', 'publish service'))
 
         # subscribe service
         bottle.route('/subscribe',  'POST', self.api_subscribe)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/subscribe', 'subscribe service'))
+                self._base_url , '/subscribe', 'subscribe service'))
 
         # query service
         bottle.route('/query',  'POST', self.api_query)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/query', 'query service'))
+                self._base_url , '/query', 'query service'))
 
         # collection - services
         bottle.route('/services', 'GET', self.show_all_services)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/services', 'show published services'))
+                self._base_url , '/services', 'show published services'))
         bottle.route('/services.json', 'GET', self.services_json)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/services.json',
+                self._base_url , '/services.json',
                 'List published services in JSON format'))
         # show a specific service type
         bottle.route('/services/<service_type>', 'GET', self.show_all_services)
@@ -146,12 +131,12 @@ class DiscoveryServer():
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/clients', 'list all subscribers'))
+                self._base_url , '/clients', 'list all subscribers'))
         bottle.route('/clients.json', 'GET', self.clients_json)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/clients.json',
+                self._base_url , '/clients.json',
                 'list all subscribers in JSON format'))
 
         # show config
@@ -159,33 +144,29 @@ class DiscoveryServer():
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/config', 'show discovery service config'))
+                self._base_url , '/config', 'show discovery service config'))
 
         # show debug
         bottle.route('/stats', 'GET', self.show_stats)
         self._homepage_links.append(
             LinkObject(
                 'action',
-                self._base_url + '/stats', 'show discovery service stats'))
+                self._base_url , '/stats', 'show discovery service stats'))
 
         # cleanup 
         bottle.route('/cleanup', 'GET', self.cleanup_http_get)
         self._homepage_links.append(LinkObject('action',
-            self._base_url + '/cleanup', 'Purge inactive publishers'))
+            self._base_url , '/cleanup', 'Purge inactive publishers'))
 
         if not self._pipe_start_app:
             self._pipe_start_app = bottle.app()
 
         # sandesh init
-        collectors = None
-        if self._args.collector and self._args.collector_port:
-            collectors = [(self._args.collector,
-                          int(self._args.collector_port))]
         self._sandesh = Sandesh()
         self._sandesh.init_generator(
             ModuleNames[Module.DISCOVERY_SERVICE], socket.gethostname(),
-            collectors, 'discovery_context', int(self._args.http_server_port),
-            ['sandesh', 'uve'])
+            self._args.collectors, 'discovery_context', 
+            int(self._args.http_server_port), ['sandesh', 'uve'])
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
                                          category=self._args.log_category,
                                          level=self._args.log_level,
@@ -270,8 +251,9 @@ class DiscoveryServer():
 
     def homepage_http_get(self):
         json_links = []
+        url = bottle.request.url[:-1]
         for link in self._homepage_links:
-            json_links.append({'link': link.to_dict()})
+            json_links.append({'link': link.to_dict(with_url=url)})
 
         json_body = \
             {"href": self._base_url,
@@ -311,8 +293,7 @@ class DiscoveryServer():
             'ttl_short': 0,
             'hc_interval': disc_consts.HC_INTERVAL,
             'hc_max_miss': disc_consts.HC_MAX_MISS,
-            'collector': '127.0.0.1',
-            'collector_port': '8086',
+            'collectors': '127.0.0.1:8086',
             'http_server_port': '5997',
             'log_local': False,
             'log_level': SandeshLevel.SYS_DEBUG,
@@ -384,10 +365,9 @@ class DiscoveryServer():
             "--hc_max_miss", type=int,
             help="Maximum heartbeats to miss before declaring out-of-service, "
             "default %d" % (disc_consts.HC_MAX_MISS))
-        parser.add_argument("--collector",
-                            help="IP address of VNC collector server")
-        parser.add_argument("--collector_port",
-                            help="Port of VNC collector server")
+        parser.add_argument("--collectors",
+                            help="List of VNC collectors in ip:port format",
+                            nargs="+")
         parser.add_argument("--http_server_port",
                             help="Port of local HTTP server")
         parser.add_argument(
@@ -403,7 +383,8 @@ class DiscoveryServer():
                             help="Filename for the logs to be written to")
         self._args = parser.parse_args(remaining_argv)
         self._args.conf_file = args.conf_file
-
+        if type(self._args.collectors) is str:
+            self._args.collectors = self._args.collectors.split()
     # end _parse_args
 
     def get_service_config(self, service_type, item):
@@ -631,15 +612,30 @@ class DiscoveryServer():
             }
             self.create_sub_data(client_id, service_type)
             self._db_conn.insert_client_data(service_type, client_id, cl_entry)
-            self.syslog(
-                'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d'
-                % (service_type, client_type, client_id, ttl, count))
 
         sdata = self.get_sub_data(client_id, service_type)
         sdata['ttl_expires'] += 1
 
+        # acquire lock to update use count and TS
+        self._sem.acquire()
+
+        # need to send short ttl?
+        pubs = self._db_conn.lookup_service(service_type) or []
+        pubs_active = [item for item in pubs if not self.service_expired(item)]
+        if len(pubs_active) < reqcnt:
+            ttl_short = self.get_service_config(service_type, 'ttl_short')
+            if ttl_short:
+                ttl = self.get_ttl_short( client_id, service_type, ttl_short)
+                self._debug['ttl_short'] += 1
+
         # check existing subscriptions
-        subs = self._db_conn.lookup_subscription(service_type, client_id)
+        subs = self._db_conn.lookup_subscription(service_type, client_id) or []
+
+        self.syslog(
+            'subscribe: service type=%s, client=%s:%s, ttl=%d, asked=%d pubs=%d/%d, subs=%d'
+            % (service_type, client_type, client_id, ttl, count,
+            len(pubs), len(pubs_active), len(subs)))
+
         if subs:
             for service_id, result in subs:
                 entry = self._db_conn.lookup_service(
@@ -655,30 +651,9 @@ class DiscoveryServer():
                     response = {'ttl': ttl, service_type: r}
                     if ctype == 'application/xml':
                         response = xmltodict.unparse({'response': response})
+                    self._sem.release()
                     return response
 
-        # acquire lock to update use count and TS
-        self._sem.acquire()
-
-        # lookup publishers of the service
-        pubs = self._db_conn.lookup_service(service_type)
-        if not pubs:
-            # force client to come back soon if service expectation is not met
-            if len(r) < reqcnt:
-                ttl_short = self.get_service_config(service_type, 'ttl_short')
-                if ttl_short:
-                    ttl = self.get_ttl_short(
-                        client_id, service_type, ttl_short)
-                    self._debug['ttl_short'] += 1
-
-            response = {'ttl': ttl, service_type: r}
-            if ctype == 'application/xml':
-                response = xmltodict.unparse({'response': response})
-            self._sem.release()
-            return response
-
-        # eliminate inactive services
-        pubs_active = [item for item in pubs if not self.service_expired(item)]
 
         # find least loaded instances
         pubs = self.service_list(service_type, pubs_active)
@@ -715,13 +690,6 @@ class DiscoveryServer():
                 service_type, entry['service_id'], entry)
 
         self._sem.release()
-
-        # force client to come back soon if service expectation is not met
-        if len(r) < reqcnt:
-            ttl_short = self.get_service_config(service_type, 'ttl_short')
-            if ttl_short:
-                ttl = self.get_ttl_short(client_id, service_type, ttl_short)
-                self._debug['ttl_short'] += 1
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
             response = xmltodict.unparse({'response': response})

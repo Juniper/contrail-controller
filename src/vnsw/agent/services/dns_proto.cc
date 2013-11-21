@@ -22,12 +22,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 void DnsProto::Init(boost::asio::io_service &io) {
-    Agent::GetInstance()->SetDnsProto(new DnsProto(io));
 }
 
 void DnsProto::Shutdown() {
-    delete Agent::GetInstance()->GetDnsProto();
-    Agent::GetInstance()->SetDnsProto(NULL);
+    BindResolver::Shutdown();
 }
 
 void DnsProto::ConfigInit() {
@@ -55,7 +53,6 @@ DnsProto::DnsProto(boost::asio::io_service &io) :
 }
 
 DnsProto::~DnsProto() {
-    BindResolver::Shutdown();
     Agent::GetInstance()->GetInterfaceTable()->Unregister(lid_);
     Agent::GetInstance()->GetVnTable()->Unregister(Vnlid_);
 }
@@ -65,23 +62,27 @@ void DnsProto::ItfUpdate(DBEntryBase *entry) {
     if (itf->GetType() != Interface::VMPORT)
         return;
 
-    VmPortInterface *vmitf = static_cast<VmPortInterface *>(entry);
+    const VmPortInterface *vmitf = static_cast<VmPortInterface *>(entry);
     if (entry->IsDeleted()) {
-        DnsHandler::SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, "");
+        DnsHandler::SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf);
+        DnsHandler::SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, true);
         all_vms_.erase(vmitf);
     } else {
-        std::string vdns_name = GetVdnsName(vmitf);
+        uint32_t ttl = kDnsDefaultTtl;
+        std::string vdns_name, domain;
+        GetVdnsData(vmitf->GetVnEntry(), vmitf->GetIpAddr(),
+                    vdns_name, domain, ttl);
         VmDataMap::iterator it = all_vms_.find(vmitf);
         if (it == all_vms_.end()) {
-            std::string dummy;
-            if (!UpdateDnsEntry(vmitf, vdns_name, dummy))
+            if (!UpdateDnsEntry(vmitf, vmitf->GetVnEntry(), vdns_name,
+                                vmitf->GetIpAddr(), false, false))
                 vdns_name = "";
-            all_vms_.insert(VmDataPair(vmitf, vdns_name));
+            IpVdnsMap vmdata;
+            vmdata.insert(IpVdnsPair(vmitf->GetIpAddr().to_ulong(), vdns_name));
+            all_vms_.insert(VmDataPair(vmitf, vmdata));
         } else {
-            if (it->second != vdns_name) {
-                if (UpdateDnsEntry(vmitf, vdns_name, it->second))
-                    it->second = vdns_name;
-            }
+            CheckForUpdate(it->second, vmitf, vmitf->GetVnEntry(),
+                           vmitf->GetIpAddr(), vdns_name, domain, ttl, false);
         }
     }
 }
@@ -92,10 +93,21 @@ void DnsProto::VnUpdate(DBEntryBase *entry) {
         return;
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
         if (it->first->GetVnEntry() == vn) {
-            std::string vdns_name = GetVdnsName(it->first);
-            if (it->second != vdns_name) {
-                if (UpdateDnsEntry(it->first, vdns_name, it->second))
-                    it->second = vdns_name;
+            uint32_t ttl = kDnsDefaultTtl;
+            std::string vdns_name, domain;
+            GetVdnsData(vn, it->first->GetIpAddr(), vdns_name, domain, ttl);
+            CheckForUpdate(it->second, it->first, it->first->GetVnEntry(),
+                           it->first->GetIpAddr(), vdns_name, domain, ttl, false);
+        }
+        const VmPortInterface::FloatingIpList &fip_list = it->first->GetFloatingIpList();
+        for (VmPortInterface::FloatingIpList::iterator fip = fip_list.begin();
+             fip != fip_list.end(); ++fip) {
+            if (fip->vn_.get() == vn) {
+                uint32_t ttl = kDnsDefaultTtl;
+                std::string vdns_name, domain;
+                GetVdnsData(vn, fip->floating_ip_, vdns_name, domain, ttl);
+                CheckForUpdate(it->second, it->first, vn,
+                               fip->floating_ip_, vdns_name, domain, ttl, true);
             }
         }
     }
@@ -104,41 +116,75 @@ void DnsProto::VnUpdate(DBEntryBase *entry) {
 void DnsProto::IpamUpdate(IFMapNode *node) {
     if (node->IsDeleted())
         return;
-    CheckForUpdate(node->name(), node->IsDeleted());
+    ProcessUpdate(node->name(), node->IsDeleted(), true);
 }
 
 void DnsProto::VdnsUpdate(IFMapNode *node) {
-    CheckForUpdate(node->name(), node->IsDeleted());
+    // Update any existing records prior to checking for new ones
+    if (!node->IsDeleted()) {
+        autogen::VirtualDns *virtual_dns =
+                 static_cast <autogen::VirtualDns *> (node->GetObject());
+        autogen::VirtualDnsType vdns_type = virtual_dns->data();
+        std::string name = node->name();
+        UpdateDnsEntry(NULL, name, name, vdns_type.domain_name,
+                       (uint32_t)vdns_type.default_ttl_seconds, false);
+    }
+    ProcessUpdate(node->name(), node->IsDeleted(), false);
 }
 
-void DnsProto::CheckForUpdate(std::string name, bool is_deleted) {
+void DnsProto::ProcessUpdate(std::string name, bool is_deleted, bool is_ipam) {
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
-        std::string vdns_name = GetVdnsName(it->first);
+        uint32_t ttl = kDnsDefaultTtl;
+        std::string vdns_name, domain;
+        GetVdnsData(it->first->GetVnEntry(), it->first->GetIpAddr(),
+                    vdns_name, domain, ttl);
         // in case of VDNS delete, clear the name
-        if (is_deleted && vdns_name == name)
+        if (!is_ipam && is_deleted && vdns_name == name)
             vdns_name.clear();
-        if (it->second != vdns_name) {
-            if (UpdateDnsEntry(it->first, vdns_name, it->second))
-                it->second = vdns_name;
+        CheckForUpdate(it->second, it->first, it->first->GetVnEntry(),
+                       it->first->GetIpAddr(), vdns_name, domain, ttl, false);
+
+        const VmPortInterface::FloatingIpList &fip_list = it->first->GetFloatingIpList();
+        for (VmPortInterface::FloatingIpList::iterator fip = fip_list.begin();
+             fip != fip_list.end(); ++fip) {
+            VnEntry *vn = fip->vn_.get();
+            ttl = kDnsDefaultTtl;
+            GetVdnsData(vn, fip->floating_ip_, vdns_name, domain, ttl);
+            CheckForUpdate(it->second, it->first, vn,
+                           fip->floating_ip_, vdns_name, domain, ttl, true);
         }
     }
 }
 
-std::string DnsProto::GetVdnsName(const VmPortInterface *vmitf) {
-    autogen::IpamType ipam_type;
-    if (vmitf->GetVnEntry())
-        vmitf->GetVnEntry()->GetIpamData(vmitf, ipam_type);
-    if (ipam_type.ipam_dns_method == "virtual-dns-server")
-        return ipam_type.ipam_dns_server.virtual_dns_server_name;
-    else
-        return "";
+void DnsProto::CheckForUpdate(IpVdnsMap &ipvdns, const VmPortInterface *vmitf,
+                              const VnEntry *vn, const Ip4Address &ip,
+                              std::string &vdns_name, std::string &domain, 
+                              uint32_t ttl, bool is_floating) {
+    IpVdnsMap::iterator vmdata_it = ipvdns.find(ip.to_ulong());
+    if (vmdata_it == ipvdns.end()) {
+	if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
+            ipvdns.insert(IpVdnsPair(ip.to_ulong(), vdns_name));
+        else
+            ipvdns.insert(IpVdnsPair(ip.to_ulong(), ""));
+	return;
+    }
+    if (vmdata_it->second.empty() && vmdata_it->second != vdns_name) {
+	if (UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
+	    vmdata_it->second = vdns_name;
+    } else if (vmdata_it->second != vdns_name) {
+	if (UpdateDnsEntry(vmitf, vdns_name, vmdata_it->second, domain,
+                           ttl, is_floating))
+	    vmdata_it->second = vdns_name;
+    }
 }
 
+// Send A & PTR record entries
 void DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf,
-                              const std::string &name, uint32_t plen,
+                              const std::string &name,
+                              const Ip4Address &ip, uint32_t plen,
                               const std::string &vdns_name,
                               const autogen::VirtualDnsType &vdns_type,
-                              bool is_delete) {
+                              bool is_floating, bool is_delete) {
     if (!name.size() || !vdns_type.dynamic_records_from_client) {
         DNS_BIND_TRACE(DnsBindTrace, "Not adding DNS entry; Name = " <<
                        name << "Dynamic records allowed = " <<
@@ -151,94 +197,139 @@ void DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf,
     data->zone = vdns_type.domain_name;
 
     // Add a DNS record
-    uint32_t ip = vmitf->GetIpAddr().to_ulong();
     DnsItem item;
     item.eclass = is_delete ? DNS_CLASS_NONE : DNS_CLASS_IN;
     item.type = DNS_A_RECORD;
     item.ttl = is_delete ? 0 : vdns_type.default_ttl_seconds;
     item.name = name;
     boost::system::error_code ec;
-    item.data = vmitf->GetIpAddr().to_string(ec);
+    item.data = ip.to_string(ec);
     data->items.push_back(item);
 
-    DnsHandler::SendDnsUpdateIpc(data, DnsAgentXmpp::Update, 
-                                 vmitf, vdns_type.domain_name);
-    DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString());
+    DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
+                   " VDNS : " << data->virtual_dns << " Zone : " << data->zone);
+    DnsHandler::SendDnsUpdateIpc(data, DnsAgentXmpp::Update, vmitf, is_floating);
 
     // Add a PTR record as well
     DnsUpdateData *ptr_data = new DnsUpdateData();
     ptr_data->virtual_dns = vdns_name;
-    BindUtil::GetReverseZone(ip, plen, ptr_data->zone);
+    BindUtil::GetReverseZone(ip.to_ulong(), plen, ptr_data->zone);
 
     item.type = DNS_PTR_RECORD;
     item.data.swap(item.name);
     std::stringstream str;
     for (int i = 0; i < 4; i++) {
-        str << ((ip >> (i * 8)) & 0xFF);
+        str << ((ip.to_ulong() >> (i * 8)) & 0xFF);
         str << ".";
     }
     item.name = str.str() + "in-addr.arpa";
     ptr_data->items.push_back(item);
 
-    DnsHandler::SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, 
-                                 vmitf, vdns_type.domain_name);
-    DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString());
+    DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
+                   " VDNS : " << ptr_data->virtual_dns <<
+                   " Zone : " << ptr_data->zone);
+    DnsHandler::SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, vmitf, is_floating);
 }
 
-bool DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf,
-                              std::string &new_vdns_name,
-                              std::string &old_vdns_name) {
-    if (!vmitf->GetVnEntry()) {
-        DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
-                       vmitf->GetVmName() << "> not done; VN is empty");
-        return false;
-    }
-
-    Ip4Address ip = vmitf->GetIpAddr();
-    uint32_t plen = 0;
-    const std::vector<VnIpam> &ipam = vmitf->GetVnEntry()->GetVnIpam();
-    unsigned int i;
-    for (i = 0; i < ipam.size(); ++i) {
-        uint32_t mask = ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-        if ((ip.to_ulong() & mask) == (ipam[i].ip_prefix.to_ulong() & mask)) {
-            plen = ipam[i].plen;
-            break;
+// Update the floating ip entries
+bool DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+                              const Ip4Address &ip, bool is_deleted) {
+    bool is_floating = true;
+    uint32_t ttl = kDnsDefaultTtl;
+    std::string vdns_name, domain;
+    GetVdnsData(vn, ip, vdns_name, domain, ttl);
+    VmDataMap::iterator it = all_vms_.find(vmitf);
+    if (it == all_vms_.end()) {
+        if (is_deleted)
+            return true;
+        if (!UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, false))
+            vdns_name = "";
+        IpVdnsMap vmdata;
+        vmdata.insert(IpVdnsPair(ip.to_ulong(), vdns_name));
+        all_vms_.insert(VmDataPair(vmitf, vmdata));
+    } else {
+        if (is_deleted) {
+            UpdateDnsEntry(vmitf, vn, vdns_name, ip, is_floating, true);
+            it->second.erase(ip.to_ulong());
+        } else {
+            CheckForUpdate(it->second, vmitf, vn, ip, vdns_name, domain,
+                           ttl, is_floating);
         }
     }
-    if (i == ipam.size()) {
-        DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
-                       vmitf->GetVmName() << "> not done; IPAM doesnt have the subnet");
-        return false;
-    }
+    return true;
+}
 
-    if (!old_vdns_name.empty()) {
-        autogen::VirtualDnsType old_vdns_type;
-        if (Agent::GetInstance()->GetDomainConfigTable()->
-            GetVDns(old_vdns_name, old_vdns_type)) {
-            UpdateDnsEntry(vmitf, vmitf->GetVmName(), plen,
-                           old_vdns_name, old_vdns_type, true);
-        } else {
-            DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
-                           vmitf->GetVmName() << "> old entry not removed; " <<
-                           "VDNS info for " << old_vdns_name << " not present");
-            // return false;
+bool DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+                              const std::string &vdns_name, const Ip4Address &ip,
+                              bool is_floating, bool is_deleted) {
+    if (!vdns_name.empty()) {
+        uint32_t plen = 0;
+        const std::vector<VnIpam> &ipam = vn->GetVnIpam();
+        unsigned int i;
+        for (i = 0; i < ipam.size(); ++i) {
+            uint32_t mask = ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
+            if ((ip.to_ulong() & mask) == (ipam[i].ip_prefix.to_ulong() & mask)) {
+                plen = ipam[i].plen;
+                break;
+            }
         }
-    }
+        if (i == ipam.size()) {
+            DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
+                           vmitf->GetVmName() << "> not done for vn <" <<
+                           vn->GetName() << "> IPAM doesnt have the subnet; " <<
+                           ((is_deleted)? "delete" : "update"));
+            return false;
+        }
 
-    if (!new_vdns_name.empty()) {
-        autogen::VirtualDnsType new_vdns_type;
+        autogen::VirtualDnsType vdns_type;
         if (Agent::GetInstance()->GetDomainConfigTable()->
-            GetVDns(new_vdns_name, new_vdns_type)) {
-            UpdateDnsEntry(vmitf, vmitf->GetVmName(), plen,
-                           new_vdns_name, new_vdns_type, false);
+            GetVDns(vdns_name, vdns_type)) {
+            UpdateDnsEntry(vmitf, vmitf->GetVmName(), ip, plen,
+                           vdns_name, vdns_type, is_floating, is_deleted);
         } else {
             DNS_BIND_TRACE(DnsBindTrace, "UpdateDnsEntry for VM <" <<
-                           vmitf->GetVmName() << "> new entry not added; " <<
-                           "VDNS info for " << new_vdns_name << " not present");
+                           vmitf->GetVmName() << "> entry not " <<
+                           ((is_deleted)? "deleted; " : "updated; ") <<
+                           "VDNS info for " << vdns_name << " not present");
             return false;
         }
     }
 
+    return true;
+}
+
+// Move DNS entries for a VM from one VDNS to another
+bool DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf,
+                              std::string &new_vdns_name, std::string &old_vdns_name,
+                              std::string &new_domain, uint32_t ttl, bool is_floating) {
+    std::string name = (vmitf ? vmitf->GetVmName() : "All Vms");
+    DNS_BIND_TRACE(DnsBindTrace, "VDNS modify for VM <" << name <<
+                   " old VDNS : " << old_vdns_name <<
+                   " new VDNS : " << new_vdns_name <<
+                   " ttl : " << ttl <<
+                   " floating : " << (is_floating ? "yes" : "no"));
+    DnsHandler::SendDnsUpdateIpc(vmitf, new_vdns_name,
+                                 old_vdns_name, new_domain, ttl, is_floating);
+    return true;
+}
+
+bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
+                           std::string &vdns_name, std::string &domain,
+                           uint32_t &ttl) {
+    if (!vn)
+        return false;
+
+    autogen::IpamType ipam_type;
+    autogen::VirtualDnsType vdns_type;
+    if (!vn->GetIpamVdnsData(vm_addr, ipam_type, vdns_type)) {
+        DNS_BIND_TRACE(DnsBindTrace, "Unable to retrieve VDNS data; VN : " <<
+                   vn->GetName() << " IP : " << vm_addr.to_string());
+        return false;
+    }
+
+    vdns_name = ipam_type.ipam_dns_server.virtual_dns_server_name;
+    domain = vdns_type.domain_name;
+    ttl = (uint32_t)vdns_type.default_ttl_seconds;
     return true;
 }
 
@@ -305,7 +396,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (!vmitf->GetVnEntry() || 
-        !vmitf->GetVnEntry()->GetIpamData(vmitf, ipam_type_)) {
+        !vmitf->GetVnEntry()->GetIpamData(vmitf->GetIpAddr(), ipam_type_)) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
                        << vmitf->GetVmName());
         ret = DNS_ERR_SERVER_FAIL;
@@ -398,7 +489,7 @@ bool DnsHandler::HandleDefaultDnsRequest(const VmPortInterface *vmitf) {
                                " interface = " << vmitf->GetVmName() <<
                                " Ignoring unsupported type : " << 
                                items_[i].type);
-                break;
+                continue;
         }
         resolv_list_.push_back(resolv);
         pend_req_++;
@@ -520,8 +611,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmPortInterface *vmitf) {
             if (vdns_type_.dynamic_records_from_client) {
                 DnsUpdateData *update_data = new DnsUpdateData();
                 DnsUpdateIpc *update = new DnsUpdateIpc(DnsAgentXmpp::Update, 
-                                           update_data, vmitf, 
-                                           vdns_type_.domain_name);
+                                                        update_data, vmitf, false);
                 if (BindUtil::ParseDnsUpdate((uint8_t *)dns_, *update_data)) {
                     update_data->virtual_dns = ipam_type_.ipam_dns_server.
                                                virtual_dns_server_name;
@@ -584,9 +674,7 @@ bool DnsHandler::SendDnsQuery() {
 
 cleanup:
     dns_proto->IncrStatsDrop();
-    if (in_progress) {
-        dns_proto->DelDnsQuery(xid_);
-    }
+    dns_proto->DelDnsQuery(xid_);
     return false;
 }
 
@@ -603,6 +691,9 @@ bool DnsHandler::HandleMessage() {
 
         case DnsHandler::DNS_XMPP_SEND_UPDATE:
             return HandleUpdate();
+
+        case DnsHandler::DNS_XMPP_MODIFY_VDNS:
+            return HandleModifyVdns();
 
         case DnsHandler::DNS_XMPP_UPDATE_RESPONSE:
             return HandleUpdateResponse();
@@ -687,6 +778,60 @@ bool DnsHandler::HandleUpdate() {
     } else {
         Update(ipc);
     }
+    return true;
+}
+
+bool DnsHandler::HandleModifyVdns() {
+    DnsUpdateIpc *ipc = static_cast<DnsUpdateIpc *>(pkt_info_->ipc);
+    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    std::vector<DnsHandler::DnsUpdateIpc *> change_list;
+    const DnsProto::DnsUpdateSet &update_set = dns_proto->GetUpdateRequestSet();
+    for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
+         it != update_set.end(); ++it) {
+        if ((ipc->itf &&
+             ((*it)->itf != ipc->itf || (*it)->floatingIp != ipc->floatingIp)) ||
+            !((*it)->xmpp_data) || (*it)->xmpp_data->virtual_dns != ipc->old_vdns)
+            continue;
+
+        change_list.push_back(*it);
+        // if the server ttl changes, we only readd with the new values
+        if (!ipc->itf && ipc->new_vdns == ipc->old_vdns)
+            continue;
+
+        for (DnsItems::iterator item = (*it)->xmpp_data->items.begin(); 
+             item != (*it)->xmpp_data->items.end(); ++item) {
+            // in case of delete, set the class to NONE and ttl to 0
+            (*item).eclass = DNS_CLASS_NONE;
+            (*item).ttl = 0;
+        }
+        for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
+            AgentDnsXmppChannel *channel = 
+                        Agent::GetInstance()->GetAgentDnsXmppChannel(i);
+            SendXmppUpdate(channel, (*it)->xmpp_data);
+        }
+    }
+    for (unsigned int i = 0; i < change_list.size(); i++) {
+        dns_proto->DelUpdateRequest(change_list[i]);
+        if (ipc->new_vdns.empty())
+            delete change_list[i];
+    }
+    if (ipc->new_vdns.empty())
+        goto done;
+    for (unsigned int i = 0; i < change_list.size(); i++) {
+        change_list[i]->xmpp_data->virtual_dns = ipc->new_vdns;
+        if (change_list[i]->xmpp_data->zone.find(".in-addr.arpa") ==
+                                                 std::string::npos)
+            change_list[i]->xmpp_data->zone = ipc->new_domain;
+        for (DnsItems::iterator item = change_list[i]->xmpp_data->items.begin();
+             item != change_list[i]->xmpp_data->items.end(); ++item) {
+            (*item).eclass = DNS_CLASS_IN;
+            (*item).ttl = ipc->ttl;
+        }
+        Update(change_list[i]);
+    }
+
+done:
+    delete ipc;
     return true;
 }
 
@@ -811,7 +956,7 @@ void DnsHandler::SendDnsResponse() {
                          (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (pkt_itf) {
         UpdateStats();
-        Send(dns_resp_size_, GetIntf(), pkt_info_->vrf,
+        Send(dns_resp_size_, pkt_itf->GetInterfaceId(), pkt_info_->vrf,
              AGENT_CMD_ROUTE, PktHandler::DNS);
     } else
         Agent::GetInstance()->GetDnsProto()->IncrStatsDrop();
@@ -856,7 +1001,9 @@ void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
 
 void DnsHandler::UpdateGWAddress(DnsItem &item) {
     boost::system::error_code ec;
-    if (item.type == DNS_A_RECORD && item.data == "127.0.0.1") {
+    if (item.type == DNS_A_RECORD && 
+        (item.data == Agent::GetInstance()->GetDnsXmppServer(0) ||
+         item.data == Agent::GetInstance()->GetDnsXmppServer(1))) {
         boost::asio::ip::address_v4 addr(pkt_info_->ip_daddr);
         item.data = addr.to_string(ec);
     }
@@ -973,9 +1120,18 @@ void DnsHandler::SendDnsIpc(IpcCommand cmd, uint16_t xid, uint8_t *msg,
 
 void DnsHandler::SendDnsUpdateIpc(DnsUpdateData *data,
                                   DnsAgentXmpp::XmppType type,
-                                  const VmPortInterface *vm,
-                                  const std::string &domain) {
-    DnsUpdateIpc *ipc = new DnsUpdateIpc(type, data, vm, domain);
+                                  const VmPortInterface *vm, bool floating) {
+    DnsUpdateIpc *ipc = new DnsUpdateIpc(type, data, vm, floating);
+    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsHandler::SendDnsUpdateIpc(const VmPortInterface *vm,
+                                  const std::string &new_vdns,
+                                  const std::string &old_vdns,
+                                  const std::string &new_dom,
+                                  uint32_t ttl, bool is_floating) {
+    DnsUpdateIpc *ipc = new DnsUpdateIpc(vm, new_vdns, old_vdns, new_dom,
+                                         ttl, is_floating);
     PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
 }
 

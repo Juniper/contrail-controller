@@ -14,7 +14,8 @@
 #include <cmn/agent_cmn.h>
 #include "base/test/task_test_util.h"
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "controller/controller_ifmap.h"
@@ -30,12 +31,9 @@
 #include "oper/vn.h"
 #include "oper/peer.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include "cfg/init_config.h"
 #include "vr_types.h"
 
 #include "xml/xml_pugi.h"
@@ -117,11 +115,18 @@ public:
 
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
+        if (!channel_ && state == xmps::NOT_READY) {
+            return;
+        }
         if (state != xmps::READY) {
             assert(channel_ && channel == channel_);
             channel->UnRegisterReceive(xmps::BGP);
             channel_ = NULL;
         } else {
+            if (channel_) {
+                assert(channel == channel_);
+            }
+            //assert(channel_ && channel == channel_);
             channel->RegisterReceive(xmps::BGP,
                     boost::bind(&ControlNodeMockBgpXmppPeer::ReceiveUpdate,
                                 this, _1));
@@ -272,7 +277,6 @@ protected:
 
         autogen::NextHopType item_nexthop;
         item_nexthop.af = BgpAf::IPv4;
-        item_nexthop.safi = BgpAf::Unicast;
         item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
         item_nexthop.label = label;
         
@@ -299,7 +303,6 @@ protected:
 
         autogen::NextHopType item_nexthop;
         item_nexthop.af = BgpAf::IPv4;
-        item_nexthop.safi = BgpAf::Unicast;
         item_nexthop.address = Agent::GetInstance()->GetRouterId().to_string();;
         item_nexthop.label = label;
         

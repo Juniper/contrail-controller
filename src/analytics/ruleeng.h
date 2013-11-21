@@ -45,7 +45,7 @@ class Ruleeng {
         t_rulelist *rulelist_;
         std::vector<std::string> rulesrc_;
 
-        bool handle_uve_publish(const RuleMsg& rmsg);
+        bool handle_uve_publish(const RuleMsg& rmsg, DbHandler *db);
 
         bool handle_flow_object(const RuleMsg& rmsg, DbHandler *db);
 

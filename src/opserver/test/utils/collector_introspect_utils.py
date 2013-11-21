@@ -20,10 +20,17 @@ class VerificationCollector(VerificationUtilBase):
     #end __init__
 
     def get_generators(self):
-        path = 'Snh_GeneratorListReq'
-        xpath = '/GeneratorListResp/genlist'
+        path = 'Snh_ShowCollectorServerReq'
+        xpath = '/ShowCollectorServerResp/generators'
         p = self.dict_get(path)
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_collector_connection_status
 
-#end class VerificationGenerator
+    def get_redis_uve_master(self):
+        path = 'Snh_RedisUVEMasterRequest'
+        xpath = '/RedisUVEMasterResponse/redis_uve_master'
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+    # end get_redis_uve_master
+
+#end class VerificationCollector

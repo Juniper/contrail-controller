@@ -2,7 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <cfg/init_config.h>
+#include <cfg/cfg_interface.h>
+#include <cfg/cfg_init.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <pkt/pkt_init.h>
@@ -14,8 +15,6 @@
 #include <base/util.h>
 #include <ifmap_agent_parser.h>
 #include <ifmap_agent_table.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface.h>
@@ -191,7 +190,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.2"), 32));
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
 
-    EthInterface::CreateReq("enet1", Agent::GetInstance()->GetDefaultVrf());
+    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                            "enet1", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
@@ -231,7 +231,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
 
-    EthInterface::DeleteReq("enet1");
+    EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(), "enet1");
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortInactive(input, 0));

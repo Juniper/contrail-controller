@@ -21,6 +21,9 @@ request sandesh DnsInfo {
 request sandesh IcmpInfo {
 }
 
+request sandesh MetadataInfo {
+}
+
 request sandesh ShowAllInfo {
 }
 
@@ -80,6 +83,10 @@ response sandesh IcmpStats {
     1: i32 icmp_gw_ping;
     2: i32 icmp_gw_ping_err;
     3: i32 icmp_drop;
+}
+
+response sandesh MetadataResponse {
+    1: i32 metadata_server_port;
 }
 
 response sandesh PktErrorResp {
@@ -247,6 +254,31 @@ response sandesh PktSandesh {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+struct VmDnsRecord {
+    1: string type;
+    2: string name;
+    3: string data;
+    4: i32 ttl;
+    5: string eclass;
+}
+
+struct VmDnsSandesh {
+    1: string vm;
+    2: string virtual_dns;
+    3: string zone;
+    4: string is_floating;
+    5: list<VmDnsRecord> records;
+}
+
+request sandesh ShowDnsEntries {
+}
+
+response sandesh AgentDnsEntries {
+    1: list<VmDnsSandesh> dns_list;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 struct ArpSandeshData {
     1: string ip;                // IP Address
     2: string vrf;               // VRF name
@@ -279,5 +311,9 @@ trace sandesh DhcpError {
 }
 
 trace sandesh DhcpTrace {
+    1: string msg;
+}
+
+trace sandesh MetadataTrace {
     1: string msg;
 }

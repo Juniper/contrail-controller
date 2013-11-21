@@ -5,6 +5,7 @@
 """
 Layer that transforms VNC config objects to ifmap representation
 """
+from cfgm_common.discovery import DiscoveryService,IndexAllocator
 from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
@@ -35,6 +36,7 @@ from cfgm_common.ifmap.util import attr, link_ids
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
 from cfgm_common import obj_to_json
+from cfgm_common.exceptions import ResourceExhaustionError
 
 import copy
 import json
@@ -71,11 +73,6 @@ class VncIfmapClient(VncIfmapClientGen):
         self._POLICY_ENTRY_NAME = "contrail:policy_entry"
 
         self._NAMESPACES = {
-            'a': 'http://www.w3.org/2003/05/soap-envelope',
-            'b': 'http://www.trustedcomputinggroup.org/2010/IFMAP/2',
-            'c': self._CONTRAIL_XSD
-        }
-        namespaces = {
             'env':   "http://www.w3.org/2003/05/soap-envelope",
             'ifmap':   "http://www.trustedcomputinggroup.org/2010/IFMAP/2",
             'meta':
@@ -90,7 +87,7 @@ class VncIfmapClient(VncIfmapClientGen):
             self._launch_mapserver(ifmap_srv_ip, ifmap_srv_port, ifmap_srv_loc)
 
         mapclient = client(("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
-                           uname, passwd, namespaces, ssl_options)
+                           uname, passwd, self._NAMESPACES, ssl_options)
 
         self._mapclient = mapclient
 
@@ -129,7 +126,8 @@ class VncIfmapClient(VncIfmapClientGen):
     # Parse ifmap-server returned search results and create list of tuples
     # of (ident-1, ident-2, link-attribs)
     def parse_result_items(self, srch_result, my_imid):
-        xpath_expr = '/a:Envelope/a:Body/b:response/searchResult/resultItem'
+        xpath_expr = \
+            '/env:Envelope/env:Body/ifmap:response/searchResult/resultItem'
         result_items = self._parse(srch_result, xpath_expr)
 
         return cfgm_common.imid.parse_result_items(result_items, my_imid)
@@ -697,6 +695,16 @@ class VncCassandraClient(VncCassandraClientGen):
         return obj_cols
     # end uuid_to_obj_dict
 
+    def uuid_to_obj_perms(self, id):
+        try:
+            id_perms_json = self._obj_uuid_cf.get(
+                id, columns=['prop:id_perms'])['prop:id_perms']
+            id_perms = json.loads(id_perms_json)
+        except pycassa.NotFoundException:
+            raise NoIdError(id)
+        return id_perms
+    # end uuid_to_obj_perms
+
     def useragent_kv_store(self, key, value):
         columns = {'value': value}
         self._useragent_kv_cf.insert(key, columns)
@@ -873,7 +881,7 @@ class VncRedisClient(object):
 
     def key_test_set(self, key, val):
         return self._sync_conn.setnx(key, val)
-    #end test_set_key
+    #end key_test_set
 
     def key_release(self, key):
         return self._sync_conn.delete(key)
@@ -906,10 +914,51 @@ class VncRedisClient(object):
 #end class VncRedisClient
 
 
+class VncZkClient(object):
+    _SUBNET_PATH = "/api-server/subnets/"
+    def __init__(self, zk_server_ip):
+        self._zk_client = DiscoveryService(zk_server_ip)
+        self._subnet_allocators = {}
+    # end __init__
+
+    def create_subnet_allocator(self, subnet, first, last):
+        if subnet not in self._subnet_allocators:
+            self._subnet_allocators[subnet] = IndexAllocator(
+                 self._zk_client, self._SUBNET_PATH+subnet+'/',
+                 size=last-first, start_idx=first, reverse=True)
+    # end create_subnet_allocator
+    
+    def _get_subnet_allocator(self, subnet):
+        return self._subnet_allocators.get(subnet)
+    # end _get_subnet_allocator
+
+    def subnet_alloc(self, subnet, addr=None):
+        allocator = self._get_subnet_allocator(subnet)
+        try:
+            if addr is not None:
+                if allocator.read(addr):
+                    return addr
+                else:
+                    return allocator.reserve(addr, '')
+            else:
+                return allocator.alloc('')
+        except ResourceExhaustionError:
+            return None
+    # end subnet_alloc
+    
+    def subnet_free(self, subnet, addr):
+        allocator = self._get_subnet_allocator(subnet)
+        if allocator:
+            allocator.delete(addr)
+    # end subnet_free
+        
+# end VncZkClient
+
+
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
                  passwd, redis_srv_ip, redis_srv_port, cass_srv_list,
-                 reset_config=False, ifmap_srv_loc=None):
+                 reset_config=False, ifmap_srv_loc=None, zk_server_ip=None):
 
         self._api_svr_mgr = api_svr_mgr
 
@@ -935,6 +984,7 @@ class VncDbClient(object):
 
         self._redis_db = VncRedisClient(self, redis_srv_ip, redis_srv_port,
                                         self._ifmap_db)
+        self._zk_db = VncZkClient(zk_server_ip)
     # end __init__
 
     def db_resync(self):
@@ -1157,6 +1207,18 @@ class VncDbClient(object):
         self._cassandra_db.subnet_delete(key)
     # end subnet_delete
 
+    def subnet_alloc(self, subnet, addr=None):
+        return self._zk_db.subnet_alloc(subnet, addr)
+    # end subnet_alloc
+
+    def subnet_free(self, subnet, addr):
+        self._zk_db.subnet_free(subnet, addr)
+    # end subnet_free
+
+    def subnet_create_allocator(self, subnet, first, last):
+        self._zk_db.create_subnet_allocator(subnet, first, last)
+    # end subnet_create_allocator
+
     def uuid_vnlist(self):
         return self._cassandra_db.uuid_vnlist()
     # end uuid_vnlist
@@ -1189,6 +1251,10 @@ class VncDbClient(object):
     def uuid_to_obj_dict(self, obj_uuid):
         return self._cassandra_db.uuid_to_obj_dict(obj_uuid)
     # end uuid_to_obj_dict
+
+    def uuid_to_obj_perms(self, obj_uuid):
+        return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
+    # end uuid_to_obj_perms
 
     # helper routines for redis service
     def key_test_set(self, key, val=None):

@@ -13,6 +13,9 @@
 
 #include "net/address.h"
 
+void RouterIdDepInit() {
+}
+
 namespace {
 class AclEntryTest : public ::testing::Test {
 protected:

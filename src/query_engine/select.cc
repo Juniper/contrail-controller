@@ -9,17 +9,21 @@
 #include "rapidjson/document.h"
 
 #include "analytics/vizd_table_desc.h"
+#include "stats_select.h"
+
+using std::string;
 
 SelectQuery::SelectQuery(QueryUnit *main_query,
         std::map<std::string, std::string> json_api_data):
-    QueryUnit(main_query, main_query), provide_timeseries(false),
+    QueryUnit(main_query, main_query),
+    provide_timeseries(false),
     granularity(0),
     fs_query_type_(SelectQuery::FS_SELECT_INVALID) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    result_.reset(new BufT(m_query->table, 
-                           std::vector<QEOpServerProxy::OutRowT>()));
-    
+    result_.reset(new BufT);
+    mresult_.reset(new MapBufT);
+
     // initialize Cassandra related fields
     if (
             (m_query->table == g_viz_constants.COLLECTOR_GLOBAL_TABLE) ||
@@ -31,7 +35,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             (m_query->table == (g_viz_constants.OBJECT_VALUE_TABLE))) {
         cfname = m_query->table;
     } else {
-        // this is a flow series query
+        // this is a flow series query or stats query
     }
 
     QE_TRACE(DEBUG,  "cfname :" << cfname);
@@ -44,13 +48,21 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
     rapidjson::Document d;
     std::string json_string = "{ \"select\" : " + 
         iter->second + " }";
-
+    json_string_ = json_string;
     QE_TRACE(DEBUG, "parsing through rapidjson: " << json_string);
     d.Parse<0>(const_cast<char *>(json_string.c_str()));
     const rapidjson::Value& json_select_fields = d["select"]; 
     QE_PARSE_ERROR(json_select_fields.IsArray());
     QE_TRACE(DEBUG, "# of select fields is " << json_select_fields.Size());
 
+    if (m_query->is_stat_table_query()) {
+        for (rapidjson::SizeType i = 0; i < json_select_fields.Size(); i++) {
+            select_column_fields.push_back(json_select_fields[i].GetString());
+        }
+        stats_.reset(new StatsSelect(m_query, select_column_fields));
+        QE_INVALIDARG_ERROR(stats_->Status());
+        return;
+    }     
     // whether uuid key was provided in select field
     bool uuid_key_selected = false;
 
@@ -66,7 +78,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         {
             provide_timeseries = true;
             select_column_fields.push_back(TIMESTAMP_FIELD);
-            QE_INVALIDARG_ERROR(m_query->is_flow_query());
+            QE_INVALIDARG_ERROR(m_query->is_flow_query() ||
+                m_query->is_stat_table_query());
         } else if (boost::starts_with(json_select_fields[i].GetString(),
                     TIMESTAMP_GRANULARITY))
         {
@@ -77,7 +90,8 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             granularity = granularity * kMicrosecInSec;
             select_column_fields.push_back(TIMESTAMP_GRANULARITY);
             QE_INVALIDARG_ERROR(
-                m_query->table == g_viz_constants.FLOW_SERIES_TABLE);
+                m_query->table == g_viz_constants.FLOW_SERIES_TABLE ||
+                m_query->is_stat_table_query());
         } 
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_PACKETS)) {
@@ -405,8 +419,74 @@ query_status_t SelectQuery::process_query() {
 
                 cmap.insert(std::make_pair(kt->first, elem_value));
             }
-            result_->second.push_back(cmap);
+            result_->push_back(cmap);
         }
+    } else if (m_query->is_stat_table_query()) {
+        QE_ASSERT(stats_.get());
+        // can not handle query result of huge size
+        if (query_result.size() > (size_t)query_result_size_limit)
+        {
+            QE_LOG(DEBUG, 
+            "Can not handle query result of size:" << query_result.size());
+            QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+        }
+
+        int idx = m_query->stat_table_index();
+        QE_ASSERT(idx!=-1);
+
+        for (std::vector<query_result_unit_t>::iterator it = query_result.begin();
+                it != query_result.end(); it++) {
+
+            string json_string;
+            GenDb::DbDataValue value;
+            boost::uuids::uuid u;
+
+            it->get_stattable_info(json_string, u);
+
+            StatsSelect::StatMap attribs;
+
+            QE_TRACE(DEBUG, "parsing through rapidjson samples: " << json_string << " ts " << it->timestamp << " uuid " << u);
+            {
+                rapidjson::Document d;
+                d.Parse<0>(const_cast<char *>(json_string.c_str()));
+
+                for (rapidjson::Value::ConstMemberIterator itr = d.MemberBegin();
+                        itr != d.MemberEnd(); ++itr) {
+                    QE_ASSERT(itr->name.IsString());
+
+                    std::string vname(itr->name.GetString());
+                    std::string sfield;
+                    QEOpServerProxy::AggOper agg;
+                    QEOpServerProxy::VarType vt = StatsSelect::Parse(idx, vname, 
+                        sfield, agg);
+
+                    if (vt == QEOpServerProxy::STRING) {
+                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetString()));
+                    } else if (vt == QEOpServerProxy::UINT64) {
+                        attribs.insert(std::make_pair(itr->name.GetString(),(uint64_t)itr->value.GetUint()));
+                    } else if (vt == QEOpServerProxy::DOUBLE) {
+                        if (itr->value.IsDouble())
+                            attribs.insert(std::make_pair(itr->name.GetString(),(double) itr->value.GetDouble()));
+                        else
+                            attribs.insert(std::make_pair(itr->name.GetString(),(double) itr->value.GetUint()));
+                    } else {
+                        QE_ASSERT(0);
+                    }
+
+                    if (itr->value.IsString()) {
+                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetString()));
+                    } else if (itr->value.IsUint()) {
+                        attribs.insert(std::make_pair(itr->name.GetString(),(uint64_t)itr->value.GetUint()));
+                    } else if (itr->value.IsDouble()) {
+                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetDouble()));
+                    } else {
+                        QE_ASSERT(0);
+                    }
+                }
+            }
+            stats_->LoadRow(u, it->timestamp, attribs, *mresult_);
+        }
+
     } else if (m_query->table == (g_viz_constants.OBJECT_VALUE_TABLE)) {
         uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
         uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
@@ -470,7 +550,7 @@ query_status_t SelectQuery::process_query() {
                 it != unique_values.end(); it++) {
             std::map<std::string, std::string> cmap;
             cmap.insert(std::make_pair(g_viz_constants.OBJECT_ID, *it));
-            result_->second.push_back(cmap);
+            result_->push_back(cmap);
         }
 
     } else {
@@ -588,7 +668,7 @@ query_status_t SelectQuery::process_query() {
                 }
             }
             if (jt == select_column_fields.end()) {
-                result_->second.push_back(cmap);
+                result_->push_back(cmap);
             } 
         }
     }

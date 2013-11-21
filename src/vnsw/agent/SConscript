@@ -23,13 +23,13 @@ env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/init')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/openstack')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/oper')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/uve')
 env.Prepend(CPPPATH = env['TOP'] + '/vrouter/sandesh')
 env.Prepend(CPPPATH = env['TOP'])
 env.Prepend(CPPPATH = env['TOP_INCLUDE'] + '/thrift')
-
 
 env.Prepend(
     LIBS=[
@@ -40,6 +40,8 @@ env.Prepend(
         'xmpp_multicast',
         'xmpp_enet',
         'xmpp_unicast',
+        'isc',
+        'xml2',
         'ds',
         'xml',
         'pugixml',
@@ -81,7 +83,8 @@ if sys.platform != 'darwin':
         'agentuve',
         ])
 
-env.Prepend(LIBS=['vnswoperdb', 'cfg', 'vnswctrl', 'vnswcmn', 'filter'])
+env.Prepend(LIBS=['vnswoperdb', 'vnswctrl', 'vnswcmn', 'vnswinit', 'cfg',
+                  'filter'])
 
 if sys.platform == 'darwin':
     kstate_lib =  Dir('./kstate').path + '/libkstate.a'
@@ -118,6 +121,7 @@ libpath = MapBuildDir(
      'vnsw/agent/controller',
      'vnsw/agent/diag',
      'vnsw/agent/filter',
+     'vnsw/agent/init',
      'vnsw/agent/kstate', 
      'vnsw/agent/ksync',
      'vnsw/agent/openstack',
@@ -128,7 +132,8 @@ libpath = MapBuildDir(
      'vnsw/agent/vgw',
      'vrouter/utils',
      'xml',
-     'xmpp'
+     'xmpp',
+     'third_party/bind-9.9.2-P1/lib/isc',
 ])
 
 env.Append(LIBPATH=libpath)
@@ -151,17 +156,18 @@ Export('AgentEnv')
 subdirs = ['cmn',
            'cfg',
            'controller',
+           'diag',
            'filter',
-           'vgw',
+           'init',
+           'kstate',
            'ksync',
            'openstack',
            'oper',
            'pkt',
            'services',
+           'test',
            'uve',
-           'kstate',
-           'diag',
-           'test'
+           'vgw'
            ]
 
 for dir in subdirs:

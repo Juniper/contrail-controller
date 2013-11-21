@@ -37,7 +37,7 @@ def redis_version():
         return 2.4
 
 
-def start_redis(port):
+def start_redis(port, master_port=None):
     '''
     Client uses this function to start an instance of redis
     Arguments:
@@ -64,6 +64,10 @@ def start_redis(port):
                      ("port 6379", "port " + str(port)),
                      ("/var/log/redis_6379.log", redisbase + "log"),
                      ("/var/lib/redis/6379", redisbase + "cache")])
+    if master_port is not None:
+        replace_string_(redisbase + redis_conf,
+                        [("# slaveof <masterip> <masterport>", 
+                          "slaveof 127.0.0.1 " + str(master_port))])
     output, _ = call_command_("redis-server " + redisbase + redis_conf)
     r = redis.StrictRedis(host='localhost', port=port, db=0)
     done = False

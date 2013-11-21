@@ -29,7 +29,7 @@
 #include "Thrift.h"
 #include <base/misc_utils.h>
 #include <analytics/buildinfo.h>
-#include "discovery_client.h"
+#include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
 using namespace ::apache::thrift;
@@ -54,24 +54,39 @@ bool CollectorVersion(string &version) {
 
 bool CollectorCPULogger(const string & hostname) {
 
+    CpuLoadInfo cpu_load_info;
+    CpuLoadData::FillCpuInfo(cpu_load_info, false);
+
     ModuleCpuState state;
     state.set_name(hostname);
 
     ModuleCpuInfo cinfo;
     cinfo.set_module_id(
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
-
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
     cinfo.set_cpu_info(cpu_load_info);
-
     vector<ModuleCpuInfo> cciv;
     cciv.push_back(cinfo);
+
+    // At some point, the following attributes will be deprecated
+    // in favor of AnalyticsCpuState
     state.set_module_cpu_info(cciv);
     state.set_collector_cpu_share(cpu_load_info.get_cpu_share());
     state.set_collector_mem_virt(cpu_load_info.get_meminfo().get_virt());
-
     ModuleCpuStateTrace::Send(state);
+
+    AnalyticsCpuState  astate;
+    astate.set_name(hostname);
+
+    AnalyticsCpuInfo ainfo;
+    ainfo.set_module_id(
+            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
+    ainfo.set_inst_id(0);
+    ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
+    ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
+    vector<AnalyticsCpuInfo> aciv;
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    AnalyticsCpuStateTrace::Send(astate);
 
     return true;
 }
@@ -117,18 +132,25 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     osp->GeneratorCleanup(HandleGenCleanup);
 
     state.set_generator_infos(infos);
+
+    // Get socket stats
+    TcpServerSocketStats rx_stats;
+    collector->GetRxSocketStats(rx_stats);
+    state.set_rx_socket_stats(rx_stats);
+    TcpServerSocketStats tx_stats;
+    collector->GetTxSocketStats(tx_stats);
+    state.set_tx_socket_stats(tx_stats);
+
     CollectorInfo::Send(state);
     return true;
 }
 
 bool CollectorInfoLogger(VizSandeshContext &ctx) {
     VizCollector *analytics = ctx.Analytics();
-    CollectorState state;
 
     CollectorCPULogger(analytics->name());
     CollectorSummaryLogger(analytics->GetCollector(), analytics->name(),
             analytics->GetOsp());
-    state.set_name(analytics->name());
 
     vector<ModuleServerState> sinfos;    
     analytics->GetCollector()->GetGeneratorSandeshStatsInfo(sinfos);
@@ -324,7 +346,9 @@ int main(int argc, char *argv[])
         dss_ep.address(address::from_string(var_map["discovery-server"].as<string>(),
                        error));
         dss_ep.port(var_map["discovery-port"].as<int>());
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep);
+        string sname = 
+            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
+        ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
         ds_client->Init();
 
         // Get local ip address
@@ -339,7 +363,6 @@ int main(int argc, char *argv[])
         }
         Collector::SetSelfIp(self_ip);
         stringstream pub_ss;
-        string sname = g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         pub_ss << "<" << sname << "><ip-address>" << self_ip <<
                   "</ip-address><port>" << var_map["listen-port"].as<int>() <<
                   "</port></" << sname << ">";

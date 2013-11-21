@@ -241,6 +241,7 @@ void IFMapGraphWalker::AddNodesToWhitelist() {
     traversal_white_list_->include_vertex.push_back("virtual-DNS");
     traversal_white_list_->include_vertex.push_back("network-ipam");
     traversal_white_list_->include_vertex.push_back("virtual-DNS-record");
+    traversal_white_list_->include_vertex.push_back("interface-route-table");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
@@ -274,6 +275,8 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
         "source=virtual-machine-interface,target=customer-attachment");
     traversal_white_list_->include_edge.push_back(
         "source=virtual-machine-interface,target=virtual-machine-interface-routing-instance");
+    traversal_white_list_->include_edge.push_back(
+        "source=virtual-machine-interface,target=interface-route-table");       
     traversal_white_list_->include_edge.push_back(
         "source=physical-router,target=physical-interface");
     traversal_white_list_->include_edge.push_back(

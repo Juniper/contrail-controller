@@ -1461,9 +1461,6 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     //Leak route a for remote server to service vrf
     AddRemoteVmRoute("service-vrf1", "11.1.1.1", 32, "vn11");
     client->WaitForIdle();
-    Ip4Address vn10_agg_ip = Ip4Address::from_string("10.1.1.0");
-    const CompositeNH *comp_nh = static_cast<const CompositeNH *>
-        (RouteGet("service-vrf1", vn10_agg_ip, 24)->GetActiveNextHop());
 
     //Choose some random source and destination port
     uint32_t sport = rand() % 65535;

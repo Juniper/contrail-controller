@@ -11,7 +11,8 @@
 #include "db/db_table.h"
 #include "ifmap/ifmap_node.h"
 
-#include <cfg/init_config.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
 #include <oper/agent_route.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
@@ -25,13 +26,14 @@
 #include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
-#include <cfg/interface_cfg.h>
 #include <oper/agent_sandesh.h>
 #include <oper/sg.h>
 #include <ksync/interface_ksync.h>
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+
+#include <services/dns_proto.h>
 
 using namespace std;
 using namespace boost::uuids;
@@ -191,7 +193,8 @@ DBTableBase *InterfaceTable::CreateTable(DB *db, const std::string &name) {
 
 // Build one Floating IP entry for a virtual-machine-interface
 void BuildFloatingIpList(VmPortInterfaceData *data, IFMapNode *node) {
-    if (CfgListener::CanUseNode(node) == false) {
+    CfgListener *cfg_listener = Agent::GetInstance()->cfg_listener();
+    if (cfg_listener->CanUseNode(node) == false) {
         return;
     }
 
@@ -210,8 +213,9 @@ void BuildFloatingIpList(VmPortInterfaceData *data, IFMapNode *node) {
         }
 
         IFMapNode *pool_node = static_cast<IFMapNode *>(fip_iter.operator->());
-        if (CfgListener::CanUseNode
-            (pool_node, AgentConfig::GetInstance()->GetFloatingIpPoolTable()) == false) {
+        if (cfg_listener->CanUseNode
+            (pool_node, Agent::GetInstance()->cfg()->cfg_floatingip_pool_table())
+            == false) {
             continue;
         }
 
@@ -230,7 +234,7 @@ void BuildFloatingIpList(VmPortInterfaceData *data, IFMapNode *node) {
 
             IFMapNode *vn_node = 
                 static_cast<IFMapNode *>(pool_iter.operator->());
-            if (CfgListener::CanUseNode(vn_node, AgentConfig::GetInstance()->GetVnTable()) 
+            if (cfg_listener->CanUseNode(vn_node, Agent::GetInstance()->cfg()->cfg_vn_table()) 
                 == false) {
                 continue;
             }
@@ -258,8 +262,9 @@ void BuildFloatingIpList(VmPortInterfaceData *data, IFMapNode *node) {
 
                 IFMapNode *vrf_node = 
                     static_cast<IFMapNode *>(vn_iter.operator->());
-                if (CfgListener::CanUseNode
-                    (vrf_node, AgentConfig::GetInstance()->GetVrfTable()) == false) {
+                if (cfg_listener->CanUseNode
+                    (vrf_node, Agent::GetInstance()->cfg()->cfg_vrf_table())
+                    == false){
                     continue;
                 }
 
@@ -283,6 +288,25 @@ void BuildFloatingIpList(VmPortInterfaceData *data, IFMapNode *node) {
         break;
     }
     return;
+}
+
+void BuildStaticRoute(VmPortInterfaceData *data, IFMapNode *node) {
+    InterfaceRouteTable *entry = 
+        static_cast<InterfaceRouteTable*>(node->GetObject());
+    assert(entry);
+
+    std::vector<RouteType>::const_iterator it = entry->routes().begin();
+    for (std::vector<RouteType>::const_iterator it = entry->routes().begin();
+         it != entry->routes().end(); it++) {
+        int plen;
+        Ip4Address ip(0);
+        boost::system::error_code ec;
+        ec = Ip4PrefixParse(it->prefix, &ip, &plen);
+        if (ec.value() == 0) {
+            CfgStaticRoute static_route(data->vrf_name_, ip, plen);
+            data->static_route_list_.insert(static_route);
+        }
+    }
 }
 
 // Build one Service Vlan entry for virtual-machine-interface
@@ -315,8 +339,9 @@ void BuildVmPortVrfInfo(VmPortInterfaceData *data, IFMapNode *node) {
         }
 
         IFMapNode *vrf_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (vrf_node, AgentConfig::GetInstance()->GetVrfTable()) == false) {
+    
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (vrf_node, Agent::GetInstance()->cfg()->cfg_vrf_table()) == false) {
             continue;
         }
 
@@ -465,11 +490,12 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             continue;
         }
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode(adj_node) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
+            == false) {
             continue;
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetSgTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_sg_table()) {
             SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
                     (adj_node->GetObject());
             assert(sg_cfg);
@@ -480,7 +506,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             sg_list.push_back(sg_uuid);
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetVnTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vn_table()) {
             VirtualNetwork *vn = static_cast<VirtualNetwork *>
                 (adj_node->GetObject());
             assert(vn);
@@ -498,7 +524,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             }
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetVmTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vm_table()) {
             VirtualMachine *vm = static_cast<VirtualMachine *>
                 (adj_node->GetObject());
             assert(vm);
@@ -516,16 +542,20 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             }
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetInstanceIpTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_instanceip_table()) {
             ReadInstanceIp(data, adj_node);
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetFloatingIpTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_floatingip_table()) {
             BuildFloatingIpList(data, adj_node);
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetVmPortVrfTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vm_port_vrf_table()) {
             BuildVmPortVrfInfo(data, adj_node);
+        }
+
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_route_table()) {
+            BuildStaticRoute(data, adj_node);
         }
     }
 
@@ -538,7 +568,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         data->SetNeedLinkLocalIp(false);
     } 
 
-    if (AgentConfig::GetInstance()->isXenMode()) {
+    if (Agent::GetInstance()->isXenMode()) {
         data->SetNeedLinkLocalIp(false);
     }
 
@@ -550,7 +580,7 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 // Handle virtual-machine-interface-routing-instance config node
 // Find the interface-node and enqueue RESYNC of service-vlans to interface
 void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
-    if (CfgListener::CanUseNode(node) == false) {
+    if (Agent::GetInstance()->cfg_listener()->CanUseNode(node) == false){
         return;
     }
     // Walk the node to get neighbouring interface 
@@ -563,11 +593,12 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
         }
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode(adj_node) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node) 
+            == false) {
             continue;
         }
 
-        if (adj_node->table() == AgentConfig::GetInstance()->GetVmInterfaceTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vm_interface_table()) {
             DBRequest req;
             InterfaceTable *interface_table = static_cast<InterfaceTable *>
                 (Agent::GetInstance()->GetInterfaceTable());
@@ -578,6 +609,35 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
             }
         }
     }
+}
+
+Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
+    uint32_t addr = ip.to_ulong();
+    if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
+        return NULL;
+    return index_table_.At(addr & 0xFF);
+}
+
+bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
+                                              std::string *vm_ip,
+                                              std::string *vm_uuid) {
+    Interface *itf = FindInterfaceFromMetadataIp(ip);
+    if (itf && itf->GetType() == Interface::VMPORT) {
+        const VmPortInterface *vitf = static_cast<const VmPortInterface *>(itf);
+        *vm_ip = vitf->GetIpAddr().to_string();
+        if (vitf->GetVmEntry()) {
+            *vm_uuid = UuidToString(vitf->GetVmEntry()->GetUuid());
+            return true;
+        }
+    }
+    return false;
+}
+
+void InterfaceTable::VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid,
+                                        Ip4Address *addr) {
+    uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
+    ip += ((vrfid & 0xFF) << 8) + (ifindex & 0xFF);
+    *addr = Ip4Address(ip);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -641,7 +701,7 @@ AgentDBTable *Interface::DBToTable() const {
 /////////////////////////////////////////////////////////////////////////////
 
 // Enqueue DBRequest to create a Host Interface
-void HostInterface::CreateReq(const string &ifname) {
+void HostInterface::CreateReq(InterfaceTable *table, const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -651,25 +711,27 @@ void HostInterface::CreateReq(const string &ifname) {
     HostInterfaceData *data = new HostInterfaceData();
     data->HostInit();
     req.data.reset(data);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Host Interface
-void HostInterface::DeleteReq(const string &ifname) {
+void HostInterface::DeleteReq(InterfaceTable *table,
+                              const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     InterfaceKey *key = new HostInterfaceKey(nil_uuid(), ifname);
     req.key.reset(key);
     req.data.reset(NULL);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Virtual Host Interface routines
 /////////////////////////////////////////////////////////////////////////////
 // Enqueue DBRequest to create a Host Interface
-void VirtualHostInterface::CreateReq(const string &ifname,
+void VirtualHostInterface::CreateReq(InterfaceTable *table,
+                                     const string &ifname,
                                      const string &vrf_name, SubType sub_type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -680,25 +742,27 @@ void VirtualHostInterface::CreateReq(const string &ifname,
     VirtualHostInterfaceData *data = new VirtualHostInterfaceData(sub_type);
     data->VirtualHostInit(vrf_name);
     req.data.reset(data);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Host Interface
-void VirtualHostInterface::DeleteReq(const string &ifname) {
+void VirtualHostInterface::DeleteReq(InterfaceTable *table, 
+                                     const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     InterfaceKey *key = new VirtualHostInterfaceKey(nil_uuid(), ifname);
     req.key.reset(key);
     req.data.reset(NULL);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Ethernet Interface routines
 /////////////////////////////////////////////////////////////////////////////
 // Enqueue DBRequest to create a Host Interface
-void EthInterface::CreateReq(const string &ifname, const string &vrf_name) {
+void EthInterface::CreateReq(InterfaceTable *table, const string &ifname,
+                             const string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -708,18 +772,18 @@ void EthInterface::CreateReq(const string &ifname, const string &vrf_name) {
     HostInterfaceData *data = new HostInterfaceData();
     data->EthInit(vrf_name);
     req.data.reset(data);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Host Interface
-void EthInterface::DeleteReq(const string &ifname) {
+void EthInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     InterfaceKey *key = new EthInterfaceKey(nil_uuid(), ifname);
     req.key.reset(key);
     req.data.reset(NULL);
-    InterfaceTable::GetInstance()->Enqueue(&req);
+    table->Enqueue(&req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -731,12 +795,6 @@ string VmPortInterface::ToString() const {
 
 const string &VmPortInterface::GetCfgName() const {
     return cfg_name_;
-}
-
-void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address &addr) {
-    uint32_t ip = METADATA_IP_ADDR & 0xFFFF0000;
-    ip += ((vrfid & 0xFF) << 8) + (ifindex & 0xFF);
-    addr = Ip4Address(ip);
 }
 
 void VmPortInterface::SgIdList(SecurityGroupList &sg_id_list) const {
@@ -810,7 +868,7 @@ void VmPortInterface::DeleteL2Route(const std::string vrf_name,
 //Add a route for VM port
 //If ECMP route, add new composite NH and mpls label for same
 void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr, 
-                               bool policy) {
+                               uint32_t plen, bool policy) {
     ComponentNHData component_nh_data(label_, GetUuid(), 
                                       InterfaceNHFlags::INET4);
     VrfEntry *vrf_entry = 
@@ -828,7 +886,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
         SgIdList(sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute(Agent::GetInstance()->GetLocalVmPeer(), 
                                                      vrf_name, 
-                                                     addr, 32, GetUuid(), vn_->GetName(),
+                                                     addr, plen, GetUuid(), vn_->GetName(),
                                                      label_, sg_id_list);
     } else if (nh_count > 1) {
         //Update composite NH pointed by MPLS label
@@ -851,7 +909,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
 
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddRemoteVmRoute(Agent::GetInstance()->GetLocalVmPeer(),
-                                                      vrf_name, addr, 32,
+                                                      vrf_name, addr, plen,
                                                       component_nh_list, 
                                                       new_label,
                                                       vn_->GetName(), true);
@@ -868,7 +926,7 @@ void VmPortInterface::AddRoute(const std::string vrf_name, Ip4Address addr,
 }
 
 void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr, 
-                                  bool policy) {
+                                  uint32_t plen) {
     ComponentNHData component_nh_data(label_, GetUuid(), 
                                       InterfaceNHFlags::INET4);
     VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
@@ -883,7 +941,7 @@ void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr,
 
     if (vrf_entry->GetNHCount(addr) == 1) {
         Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(),
-                                     vrf_name, addr, 32);
+                                     vrf_name, addr, plen);
     } else if (vrf_entry->GetNHCount(addr) == 2) {
         uint32_t label = vrf_entry->GetLabel(addr);
         uint32_t index = 0;
@@ -902,7 +960,7 @@ void VmPortInterface::DeleteRoute(const std::string vrf_name, Ip4Address addr,
         SgIdList(sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute(Agent::GetInstance()->GetLocalVmPeer(), 
                                                      vrf_name, 
-                                                     addr, 32, vm_port->GetUuid(), 
+                                                     addr, plen, vm_port->GetUuid(), 
                                                      vm_port->GetVnEntry()->GetName(),
                                                      vm_port->GetLabel(), sg_id_list);
 
@@ -931,7 +989,7 @@ void VmPortInterface::Activate() {
     // Allocate MPLS Label for non-fabric interfaces
     AllocMPLSLabels();
     // Add route for the interface-ip
-    AddRoute(vrf_->GetName(), addr_, policy_enabled_);
+    AddRoute(vrf_->GetName(), addr_, 32, policy_enabled_);
     // Add route for the interface-ip
     if (AgentRouteTableAPIS::GetInstance()->GetLayer2Status()) {
         AllocL2Labels(vxlan_id_);
@@ -942,13 +1000,24 @@ void VmPortInterface::Activate() {
     while (it != floating_iplist_.end()) {
         const FloatingIp &ip = *it;
         assert(ip.vrf_.get() != NULL);
-        AddRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, true);
+        AddRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, 32, true);
+        DnsProto *dns = Agent::GetInstance()->GetDnsProto();
+        dns && dns->UpdateDnsEntry(this, ip.vn_.get(), ip.floating_ip_, false);
         it++;
     }
 
+    StaticRouteList::iterator static_rt_it = static_route_list_.begin();
+    while (static_rt_it != static_route_list_.end()) {
+        const StaticRoute &rt = *static_rt_it;
+        AddRoute(rt.vrf_, rt.addr_, rt.plen_, true);
+        static_rt_it++;
+    }
+    
     // Allocate Link Local IP if ncessary
     if (alloc_linklocal_ip_) {
-        VmPortToMetaDataIp(GetInterfaceId(), vrf_->GetVrfId(), mdata_addr_);
+        Agent::GetInstance()->GetInterfaceTable()->VmPortToMetaDataIp(GetInterfaceId(),
+                                                                      vrf_->GetVrfId(),
+                                                                      &mdata_addr_);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute(
             Agent::GetInstance()->GetMdataPeer(), Agent::GetInstance()->GetDefaultVrf(),
             mdata_addr_, 32, GetUuid(), vn_->GetName(), label_, true);
@@ -966,7 +1035,7 @@ void VmPortInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
                                                Agent::GetInstance()->GetDefaultVrf(), 
                                                mdata_addr_, 32);
     }
-    DeleteRoute(vrf_name, ip, policy_enabled_);
+    DeleteRoute(vrf_name, ip, 32);
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
     //if (AgentRouteTableAPIS::GetInstance()->GetLayer2Status()) {
         DeleteL2Route(vrf_name, *addrp);
@@ -976,7 +1045,9 @@ void VmPortInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
     while (it != floating_iplist_.end()) {
         const FloatingIp &ip = *it;
         assert(ip.vrf_.get() != NULL);
-        DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, true);
+        DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, 32);
+        DnsProto *dns = Agent::GetInstance()->GetDnsProto();
+        dns && dns->UpdateDnsEntry(this, ip.vn_.get(), ip.floating_ip_, true);
         it++;
     }
     //Clear list of floating IP
@@ -991,6 +1062,15 @@ void VmPortInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
     }
     //Clear list of service vlan entry
     service_vlan_list_.clear();
+
+    StaticRouteList::iterator static_rt_it = static_route_list_.begin();
+    while (static_rt_it != static_route_list_.end()) {
+        const StaticRoute &rt = *static_rt_it;
+        DeleteRoute(rt.vrf_, rt.addr_, rt.plen_);
+        static_rt_it++;
+    }
+    static_route_list_.clear();
+    
 
     if (label_ != MplsTable::kInvalidLabel) {
         MplsLabel::DeleteReq(label_);
@@ -1010,6 +1090,37 @@ void VmPortInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
     }
     InterfaceNH::DeleteVportReq(GetUuid());
     SendTrace(DEACTIVATED);
+}
+
+static int CmpStaticRoute(const VmPortInterface::StaticRoute &rt,
+                          const CfgStaticRoute &cfg_rt) {
+    if (rt.plen_ < cfg_rt.plen_) {
+        return -1;
+    }
+
+    if (rt.plen_ > cfg_rt.plen_) {
+        return 1;
+    }
+
+    if (rt.addr_ < cfg_rt.addr_) {
+        return -1;
+    }
+
+    if (rt.addr_ > cfg_rt.addr_) {
+        return 1;
+    }
+
+#if 0
+    //Enable once we can add static routes across vrf
+    if (rt.vrf_ < cfg_rt.vrf_) {
+        return -1;
+    }
+
+    if (rt.vrf_ > cfg_rt.vrf_) {
+        return 1;
+    }
+#endif
+    return 0;
 }
 
 static int CmpFloatingIp(const VmPortInterface::FloatingIp &ip,
@@ -1045,6 +1156,7 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
     FloatingIpList::iterator it = floating_iplist_.begin();
     CfgFloatingIpList::iterator cfg_it = data->floating_iplist_.begin();
     bool install_route = (active_ && new_active);
+    DnsProto *dns = Agent::GetInstance()->GetDnsProto();
 
     while (it != floating_iplist_.end() && 
            cfg_it != data->floating_iplist_.end()) {
@@ -1062,7 +1174,9 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
         if (cmp < 0) {
             FloatingIpList::iterator current = it++;
             assert(ip.vrf_.get());
-            DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, true);
+            DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, 32);
+            dns && dns->UpdateDnsEntry(this, ip.vn_.get(),
+                                       ip.floating_ip_, true);
             floating_iplist_.erase(current);
             ret = true;
             continue;
@@ -1074,7 +1188,8 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
             VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
             assert(vrf);
             if (install_route) {
-                AddRoute(cfg_ip.vrf_, cfg_ip.addr_, true);
+                AddRoute(cfg_ip.vrf_, cfg_ip.addr_, 32, true);
+                dns && dns->UpdateDnsEntry(this, vn, cfg_ip.addr_, false);
             }
             floating_iplist_.insert(FloatingIp(cfg_ip.addr_, vrf, vn, install_route));
             ret = true;
@@ -1086,7 +1201,8 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
     while (it != floating_iplist_.end()) {
         const FloatingIp &ip = *it;
         FloatingIpList::iterator current = it++;
-        DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, true);
+        DeleteRoute(ip.vrf_.get()->GetName(), ip.floating_ip_, 32);
+        dns && dns->UpdateDnsEntry(this, ip.vn_.get(), ip.floating_ip_, true);
         floating_iplist_.erase(current);
         ret = true;
     }
@@ -1098,7 +1214,8 @@ bool VmPortInterface::OnResyncFloatingIp(VmPortInterfaceData *data,
         VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_ip.vrf_);
         assert(vrf);
         if (install_route) {
-            AddRoute(cfg_ip.vrf_, cfg_ip.addr_, true);
+            AddRoute(cfg_ip.vrf_, cfg_ip.addr_, 32, true);
+            dns && dns->UpdateDnsEntry(this, vn, cfg_ip.addr_, false);
         }
         floating_iplist_.insert(FloatingIp(cfg_ip.addr_, vrf, vn, install_route));
         ret = true;
@@ -1371,11 +1488,80 @@ bool VmPortInterface::OnResyncServiceVlan(VmPortInterfaceData *data) {
     return ret;
 }
 
+bool VmPortInterface::OnResyncStaticRoute(VmPortInterfaceData *data, 
+                                          bool new_active) {
+    bool ret = false;
+    StaticRouteList::iterator it = static_route_list_.begin();
+    CfgStaticRouteList::iterator cfg_it = data->static_route_list_.begin();
+    bool install_route = (active_ && new_active);
+
+    if (install_route == false) {
+        return ret;
+    }
+    while (it != static_route_list_.end() && 
+           cfg_it != data->static_route_list_.end()) {
+        const StaticRoute &rt = *it;
+        const CfgStaticRoute &cfg_rt = *cfg_it;
+        
+        int cmp = 0;
+        cmp = CmpStaticRoute(rt, cfg_rt);
+        if (cmp == 0) {
+            it++;
+            cfg_it++;
+            continue;
+        }
+
+        if (cmp < 0) {
+            StaticRouteList::iterator current = it++;
+            DeleteRoute(rt.vrf_, rt.addr_, rt.plen_);
+            static_route_list_.erase(current);
+            ret = true;
+            continue;
+        }
+
+        if (cmp > 0) {
+            if (install_route) {
+                AddRoute(data->vrf_name_, cfg_rt.addr_, 
+                         cfg_rt.plen_, policy_enabled_);
+            }
+            static_route_list_.insert(StaticRoute(data->vrf_name_,
+                                                  cfg_rt.addr_,
+                                                  cfg_rt.plen_));
+            ret = true;
+            cfg_it++;
+            continue;
+        }
+    }
+
+    while (it != static_route_list_.end()) {
+        const StaticRoute &rt = *it;
+        StaticRouteList::iterator current = it++;
+        DeleteRoute(rt.vrf_, rt.addr_, rt.plen_);
+        static_route_list_.erase(current);
+        ret = true;
+    }
+
+    while (cfg_it != data->static_route_list_.end()) {
+        const CfgStaticRoute &cfg_rt = *cfg_it;
+        if (install_route) {
+            AddRoute(data->vrf_name_, cfg_rt.addr_, 
+                     cfg_rt.plen_, policy_enabled_);
+        }
+        static_route_list_.insert(StaticRoute(data->vrf_name_, 
+                                              cfg_rt.addr_,
+                                              cfg_rt.plen_));
+        ret = true;
+        cfg_it++;
+    }
+
+    return ret;
+}
+
 // Update all Interface routes, floating-ip routes and service-vlan routes
 void VmPortInterface::UpdateAllRoutes() {
     FloatingIpList::iterator fip_it = floating_iplist_.begin();
     while (fip_it != floating_iplist_.end()) {
-        AddRoute(fip_it->vrf_.get()->GetName(), fip_it->floating_ip_, true);
+        AddRoute(fip_it->vrf_.get()->GetName(), fip_it->floating_ip_, 32, true);
         fip_it++;
     }
     SendTrace(FLOATING_IP_CHANGE);
@@ -1386,7 +1572,7 @@ void VmPortInterface::UpdateAllRoutes() {
         svlan_it++;
     };
 
-    AddRoute(vrf_->GetName(), addr_, policy_enabled_);
+    AddRoute(vrf_->GetName(), addr_, 32, policy_enabled_);
 }
 
 // Update VM and VN references. Interface can potentially change 
@@ -1411,6 +1597,7 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
     MirrorDirection mirror_direction = Interface::UNKNOWN;
     VrfEntryRef old_vrf = GetVrf();
     Ip4Address old_addr = addr_;
+    string cfg_name = "";
 
     if (data) {
         vm = InterfaceTable::GetInstance()->FindVmRef(data->vm_uuid_);
@@ -1418,6 +1605,7 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
         vrf = InterfaceTable::GetInstance()->FindVrfRef(data->vrf_name_);
         mirror = InterfaceTable::GetInstance()->FindMirrorRef(data->analyzer_name_);
         mirror_direction = data->mirror_direction_;
+        cfg_name = data->cfg_name_;
         uint32_t ipaddr = 0;
         if (data->addr_.to_ulong()) {
             dhcp_snoop_ip_ = false;
@@ -1472,6 +1660,11 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
         ret = true;
     }
 
+    if (cfg_name_ != cfg_name) {
+        cfg_name_ = cfg_name;
+        ret = true;
+    }
+
     if (os_index_ == kInvalidIndex) {
         GetOsParams(name_, test_mode_, mac_, os_index_);
     }
@@ -1487,6 +1680,10 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
             ret = true;
         }
 
+        if (OnResyncStaticRoute(data, active)) {
+            ret = true;
+        }
+
         if (OnResyncSecurityGroupList(data, active)) {
             // There is change in SG-List. Update all interface route,
             // FIP Route and Service VLAN Routes to have new SG List
@@ -1496,10 +1693,6 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
             ret = true;
         }
 
-        if (cfg_name_ != data->cfg_name_) {
-            cfg_name_ = data->cfg_name_;
-            ret = true;
-        }
     }
 
     if (sg_entry_l_.size()) {
@@ -1532,6 +1725,14 @@ bool VmPortInterface::OnResync(const DBRequest *req) {
                                            InterfaceNHFlags::INET4);
             //Update path pointed to by BGP to account for NH change
             Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_->GetName(), addr_, 32);
+            //Resync all static routes
+            StaticRouteList::iterator static_rt_it = static_route_list_.begin();
+            while (static_rt_it != static_route_list_.end()) {
+                const StaticRoute &rt = *static_rt_it;
+                Inet4UnicastAgentRouteTable::RouteResyncReq(rt.vrf_, rt.addr_, 
+                                                            rt.plen_);
+                static_rt_it++;
+            }
         }
         if (AgentRouteTableAPIS::GetInstance()->GetLayer2Status() && 
             vxlan_id_changed) {
@@ -1579,9 +1780,9 @@ bool VmPortInterface::OnIpAddrResync(const DBRequest *req) {
     } else if (active) {
         if (old_addr != addr_) {
             if (old_addr.to_ulong())
-                DeleteRoute(old_vrf->GetName(), old_addr, policy_enabled_);
+                DeleteRoute(old_vrf->GetName(), old_addr, 32);
             if (addr_.to_ulong())
-                AddRoute(vrf_->GetName(), addr_, policy_enabled_);
+                AddRoute(vrf_->GetName(), addr_, 32, policy_enabled_);
         }
     }
 
@@ -1649,8 +1850,8 @@ void VmPortInterface::FloatingIpSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *if_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (if_node, AgentConfig::GetInstance()->GetVmInterfaceTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (if_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table()) == false) {
             continue;
         }
 
@@ -1678,8 +1879,8 @@ void VmPortInterface::FloatingIpPoolSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *fip_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (fip_node, AgentConfig::GetInstance()->GetFloatingIpTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (fip_node, Agent::GetInstance()->cfg()->cfg_floatingip_table()) == false) {
             continue;
         }
 
@@ -1700,11 +1901,11 @@ void VmPortInterface::InstanceIpSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
-        if (!CfgListener::CanUseNode(adj)) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj) == false) {
             continue;
         }
 
-        if (adj->table() == AgentConfig::GetInstance()->GetVmInterfaceTable()) {
+        if (adj->table() == Agent::GetInstance()->cfg()->cfg_vm_interface_table()) {
             InterfaceTable *interface_table = 
                     static_cast<InterfaceTable *>(Agent::GetInstance()->GetInterfaceTable());
             DBRequest req;
@@ -1726,8 +1927,9 @@ void VmPortInterface::FloatingIpVnSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *pool_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (pool_node, AgentConfig::GetInstance()->GetFloatingIpPoolTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (pool_node, Agent::GetInstance()->cfg()->cfg_floatingip_pool_table())
+            == false) {
             continue;
         }
 
@@ -1744,8 +1946,8 @@ void VmPortInterface::FloatingIpVrfSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *vn_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (vn_node, AgentConfig::GetInstance()->GetVnTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (vn_node, Agent::GetInstance()->cfg()->cfg_vn_table()) == false) {
             continue;
         }
 

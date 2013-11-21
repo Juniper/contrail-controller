@@ -19,7 +19,6 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
 
 <xsd:complexType name="NextHopType">
     <xsd:element name="af" type="xsd:integer"/>
-    <xsd:element name="safi" type="xsd:integer"/>
     <xsd:element name="address" type="xsd:string"/>
     <xsd:element name="label" type="xsd:integer"/>
     <xsd:element name="tunnel-encapsulation-list" type="TunnelEncapsulationListType"/>
@@ -81,7 +80,6 @@ xsd:targetNamespace="http://www.contrailsystems.com/bgp-l3vpn-unicast-cfg.xsd">
           <next-hops>
             <next-hop>
               <af>1</af>
-              <safi>1</safi>
               <address>10.1.1.1</address>
               <label>10000</label>
             </next-hop>

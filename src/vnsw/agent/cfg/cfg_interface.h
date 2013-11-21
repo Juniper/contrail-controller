@@ -22,14 +22,11 @@ struct CfgIntKey : public DBRequestKey {
 };
 
 struct CfgIntData : public DBRequestData {
-    static const uint32_t kInvalidIndex = -1;
-
     CfgIntData() {};
     virtual ~CfgIntData() {};
     void Init(const boost::uuids::uuid &vm_id, const boost::uuids::uuid &vn_id,
-	      const std::string &tname, const IpAddress &ip,
-	      const std::string &mac,
-              const std::string &vm_name,
+              const std::string &tname, const IpAddress &ip,
+              const std::string &mac, const std::string &vm_name,
               const int32_t version);
     boost::uuids::uuid vm_id_;
     boost::uuids::uuid vn_id_;
@@ -78,9 +75,7 @@ public:
     // Map with CfgVnPortKey
     typedef std::map<CfgVnPortKey, CfgIntEntry *> CfgVnPortTree;
 
-    static const uint32_t kMaxInterfaces = 1000;
-
-    CfgIntTable(DB *db, const std::string &name) : DBTable(db, name) { };
+    CfgIntTable(DB *db, const std::string &name) : DBTable(db, name){ };
     virtual ~CfgIntTable() { };
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -100,4 +95,3 @@ private:
 };
 
 #endif // __AGENT_INTERFACE_CFG_H__
-

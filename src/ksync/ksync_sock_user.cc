@@ -84,10 +84,6 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nlh->nlmsg_seq = seq_num;
 
     req->set_fr_op(flow_op::FLOW_SET);
-    /* Send reverse-flow index as one more than fwd-flow index */
-    int fwd_flow_idx = req->get_fr_index();
-    req->set_fr_rindex(fwd_flow_idx + 1000);
-
     encode_len = req->WriteBinary(buf, buf_len, &error);
     if (error != 0) {
         SimulateResponse(seq_num, -ENOENT, 0); 
@@ -96,13 +92,11 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     }
 
     nl_update_header(&cl, encode_len);
-    LOG(DEBUG, "Sending mock Flow Set Response with seq num " << seq_num << 
-        " for fwd-flow " << fwd_flow_idx);
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
 
     //Activate the reverse flow-entry in flow mmap
-    KSyncSockTypeMap::SetFlowEntry(req, true, true);
+    KSyncSockTypeMap::SetFlowEntry(req, true);
 }
 
 void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
@@ -374,16 +368,10 @@ vr_flow_entry *KSyncSockTypeMap::GetFlowEntry(int idx) {
     return &flow_table_[idx];
 }
 
-void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool reverse, bool set) {
-    uint32_t idx = 0;
-    if (reverse) {
-        idx = req->get_fr_rindex();
-    } else {
-        idx = req->get_fr_index();
-    }
+void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool set) {
+    uint32_t idx = req->get_fr_index();
 
     vr_flow_entry *f = &flow_table_[idx];
-
     if (!set) {
         f->fe_flags &= ~VR_FLOW_FLAG_ACTIVE;
         f->fe_stats.flow_bytes = 0;
@@ -394,21 +382,12 @@ void KSyncSockTypeMap::SetFlowEntry(vr_flow_req *req, bool reverse, bool set) {
     f->fe_flags |= VR_FLOW_FLAG_ACTIVE;
     f->fe_stats.flow_bytes = 30;
     f->fe_stats.flow_packets = 1;
-    if (!reverse) {
-        f->fe_key.key_src_ip = req->get_fr_flow_sip();
-        f->fe_key.key_dest_ip = req->get_fr_flow_dip();
-        f->fe_key.key_src_port = req->get_fr_flow_sport();
-        f->fe_key.key_dst_port = req->get_fr_flow_dport();
-        f->fe_key.key_vrf_id = req->get_fr_flow_vrf();
-        f->fe_key.key_proto = req->get_fr_flow_proto();
-    } else {
-        f->fe_key.key_src_port = req->get_fr_rflow_sport();
-        f->fe_key.key_dst_port = req->get_fr_rflow_dport();
-        f->fe_key.key_src_ip = req->get_fr_rflow_sip();
-        f->fe_key.key_dest_ip = req->get_fr_rflow_dip();
-        f->fe_key.key_vrf_id = req->get_fr_rflow_vrf();
-        f->fe_key.key_proto = req->get_fr_rflow_proto();
-    }
+    f->fe_key.key_src_ip = req->get_fr_flow_sip();
+    f->fe_key.key_dest_ip = req->get_fr_flow_dip();
+    f->fe_key.key_src_port = req->get_fr_flow_sport();
+    f->fe_key.key_dst_port = req->get_fr_flow_dport();
+    f->fe_key.key_vrf_id = req->get_fr_flow_vrf();
+    f->fe_key.key_proto = req->get_fr_flow_proto();
 }
 
 void KSyncSockTypeMap::IncrFlowStats(int idx, int pkts, int bytes) {
@@ -516,22 +495,27 @@ void KSyncUserSockFlowContext::Process() {
     if (!flags) {
         sock->flow_map.erase(req_->get_fr_index());
         //Deactivate the flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req_, false, false);
+        KSyncSockTypeMap::SetFlowEntry(req_, false);
     } else {
+        /* Send reverse-flow index as one more than fwd-flow index */
+        uint32_t fwd_flow_idx = req_->get_fr_index();
+        if (fwd_flow_idx == 0xFFFFFFFF) {
+            fwd_flow_idx = rand() % 50000;
+            req_->set_fr_index(fwd_flow_idx);
+        }          
         //store info from binary sandesh message
         vr_flow_req flow_info(*req_);
+
         sock->flow_map[req_->get_fr_index()] = flow_info;
 
         //Activate the flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req_, false, true);
+        KSyncSockTypeMap::SetFlowEntry(req_, true);
 
         // For NAT flow, don't send vr_response, instead send
         // vr_flow_req with index of reverse_flow
-        if (flags & VR_FLOW_FLAG_VRFT) {
-            SetResponseReqd(false);
-            KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
-            return;
-        }
+        SetResponseReqd(false);
+        KSyncSockTypeMap::FlowNatResponse(GetSeqNum(), req_);
+        return;
     }
     KSyncSockTypeMap::SimulateResponse(GetSeqNum(), 0, 0); 
 }

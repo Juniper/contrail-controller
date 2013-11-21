@@ -34,7 +34,7 @@
 #include <uve/uve_client.h>
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
-
+#include <algorithm>
 #include <pkt/pkt_flow.h>
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
@@ -137,6 +137,26 @@ uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data,
     return flow_stats;
 }
 
+uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowEntry *fe, 
+                                                 uint64_t k_flow_bytes) {
+    uint64_t oflow_bytes = 0xffff000000000000ULL & fe->data.bytes;
+    uint64_t old_bytes = 0x0000ffffffffffffULL & fe->data.bytes;
+    if (old_bytes > k_flow_bytes) {
+        oflow_bytes += 0x0001000000000000ULL;
+    }
+    return (oflow_bytes |= k_flow_bytes);
+}
+
+uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowEntry *fe, 
+                                                   uint64_t k_flow_pkts) {
+    uint64_t oflow_pkts = 0xffffff0000000000ULL & fe->data.packets;
+    uint64_t old_pkts = 0x000000ffffffffffULL & fe->data.packets;
+    if (old_pkts > k_flow_pkts) {
+        oflow_pkts += 0x0000010000000000ULL;
+    }
+    return (oflow_pkts |= k_flow_pkts);
+}
+
 bool FlowStatsCollector::Run() {
     FlowTable::FlowEntryMap::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
@@ -144,7 +164,7 @@ bool FlowStatsCollector::Run() {
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
     FlowTable *flow_obj = FlowTable::GetFlowTableObject();
-   
+  
     run_counter_++;
     if (!flow_obj->Size()) {
         return true;
@@ -193,7 +213,7 @@ bool FlowStatsCollector::Run() {
             entry = NULL;
             if (reverse_flow) {
                 count++;
-                if (count == FlowCountPerPass) {
+                if (count == flow_count_per_pass_) {
                     break;
                 }
             }
@@ -202,11 +222,13 @@ bool FlowStatsCollector::Run() {
         if (deleted == false && k_flow) {
             if (entry->data.bytes != k_flow->fe_stats.flow_bytes) {
                 uint64_t flow_bytes, flow_packets;
+                
                 flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
                                           k_flow->fe_stats.flow_bytes);
                 flow_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow
                                             , k_flow->fe_stats.flow_packets);
-
+                flow_bytes = GetUpdatedFlowBytes(entry, flow_bytes);
+                flow_packets = GetUpdatedFlowPackets(entry, flow_packets);
                 diff_bytes = flow_bytes - entry->data.bytes;
                 diff_pkts = flow_packets - entry->data.packets;
                 //Update Inter-VN stats
@@ -225,12 +247,12 @@ bool FlowStatsCollector::Run() {
         }
 
         count++;
-        if (count == FlowCountPerPass) {
+        if (count == flow_count_per_pass_) {
             break;
         }
     }
     
-    if (count == FlowCountPerPass) {
+    if (count == flow_count_per_pass_) {
         if (it != flow_obj->flow_entry_map_.end()) {
             key_updation_reqd = false;
         }
@@ -240,5 +262,25 @@ bool FlowStatsCollector::Run() {
     if (key_updation_reqd) {
         flow_iteration_key_.Reset();
     }
+    /* Update the flow_timer_interval and flow_count_per_pass_ based on 
+     * total flows that we have
+     */
+    uint32_t total_flows = flow_obj->Size();
+    uint32_t flow_timer_interval;
+
+    uint32_t age_time_millisec = GetFlowAgeTime() / 1000;
+
+    if (total_flows > 0) {
+        flow_timer_interval = std::min((age_time_millisec * flow_multiplier_)/total_flows, 1000U);
+    } else {
+        flow_timer_interval = flow_default_interval_;
+    }
+
+    if (age_time_millisec > 0) {
+        flow_count_per_pass_ = std::max((flow_timer_interval * total_flows)/age_time_millisec, 100U);
+    } else {
+        flow_count_per_pass_ = 100U;
+    }
+    SetExpiryTime(flow_timer_interval);
     return true;
 }

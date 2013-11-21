@@ -3,14 +3,18 @@
  */
 
 #include <vector>
-#include "vnsw/agent/filter/acl.h"
+#include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/string_generator.hpp>
+
 #include <base/parse_object.h>
 #include <ifmap/ifmap_link.h>
 #include <ifmap/ifmap_table.h>
-#include <vnc_cfg_types.h>
-#include <cfg/init_config.h>
 #include <base/logging.h>
+#include <vnc_cfg_types.h>
 
+#include <cfg/cfg_init.h>
+
+#include <filter/acl.h>
 #include <cmn/agent_cmn.h>
 #include <oper/vn.h>
 #include <oper/sg.h>
@@ -19,9 +23,6 @@
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
 #include <pkt/flowtable.h>
-
-#include <boost/uuid/uuid_io.hpp>
-#include <boost/uuid/string_generator.hpp>
 
 static AclTable *acl_table_;
 
@@ -482,7 +483,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
          node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (adj_node->table() == AgentConfig::GetInstance()->GetVnTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vn_table()) {
             VirtualNetwork *vn_cfg = static_cast<VirtualNetwork *>
                 (adj_node->GetObject());
             assert(vn_cfg);
@@ -491,7 +492,7 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 Agent::GetInstance()->GetVnTable()->IFNodeToReq(adj_node, req);
             }
         }
-        if (adj_node->table() == AgentConfig::GetInstance()->GetSgTable()) {
+        if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_sg_table()) {
             SecurityGroup *sg_cfg = static_cast<SecurityGroup *>
                     ( adj_node->GetObject());
             assert(sg_cfg);

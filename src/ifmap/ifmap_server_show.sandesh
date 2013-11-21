@@ -210,6 +210,7 @@ request sandesh IFMapPeerServerInfoReq {
 struct IFMapPeerServerInfoUI {
     1: string url;
     2: string connection_status;
+    3: u64 connection_status_change_at;
 }
 
 struct IFMapPeerServerInfo {
@@ -227,7 +228,7 @@ struct IFMapPeerServerConnInfo {
 }
 
 struct IFMapPeerTimedoutEntry {
-    1: string host
+    1: string peer
     2: u64 timeout_count;
     3: string last_timeout_ago
 }
@@ -268,6 +269,7 @@ struct IFMapDSPeerInfo {
     7: u64 ds_response_count;
     8: string last_response_ago;
     9: u64 using_non_ds_peer_count;
+    10: u64 no_best_peer_count;
 }
 
 response sandesh IFMapPeerServerInfoResp {

@@ -5,7 +5,7 @@
 
 #include <base/logging.h>
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
+#include <cfg/cfg_init.h>
 
 #include <oper/vm.h>
 #include <oper/vn.h>
@@ -17,14 +17,17 @@
 #include <oper/interface.h>
 #include <oper/vrf_assign.h>
 
-#include <vgw/vgw_cfg.h>
+#include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
 
 using namespace std;
 
 VGwTable *VGwTable::singleton_;
 
-VGwTable::VGwTable() : lid_(0), label_(MplsTable::kInvalidLabel) {
+VGwTable::VGwTable(Agent *agent) : agent_(agent), lid_(0),
+    label_(MplsTable::kInvalidLabel) {
+    assert(singleton_ == NULL);
+    singleton_ = this;
 }
 
 void VGwTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry) {
@@ -79,28 +82,29 @@ void VGwTable::InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry) {
                                      cfg->GetVrf());
 }
 
-void VGwTable::CreateStaticObjects() {
+void VGwTable::RegisterDBClients() {
+    singleton_->lid_ = agent_->GetInterfaceTable()->Register
+        (boost::bind(&VGwTable::InterfaceNotify, singleton_, _1, _2));
 }
 
-
-void VGwTable::Init() {
-    assert(singleton_ == NULL);
-    singleton_ = new VGwTable();
-
-    singleton_->lid_ = Agent::GetInstance()->GetInterfaceTable()->Register
-        (boost::bind(&VGwTable::InterfaceNotify, singleton_, _1, _2));
-
+void VGwTable::CreateVrf() {
     VGwConfig *cfg = VGwConfig::GetInstance();
     if (cfg == NULL) {
         return;
     }
     Agent::GetInstance()->GetVrfTable()->CreateVrf(cfg->GetVrf());
-    VirtualHostInterface::CreateReq(cfg->GetInterface(), cfg->GetVrf(), 
+}
+
+void VGwTable::CreateInterfaces() {
+    VGwConfig *cfg = VGwConfig::GetInstance();
+    if (cfg == NULL) {
+        return;
+    }
+    VirtualHostInterface::CreateReq(agent_->GetInterfaceTable(),
+                                    cfg->GetInterface(), cfg->GetVrf(), 
                                     VirtualHostInterface::GATEWAY);
 }
 
 void VGwTable::Shutdown() {
     Agent::GetInstance()->GetInterfaceTable()->Unregister(singleton_->lid_);
-    delete singleton_;
-    singleton_ = NULL;
 }

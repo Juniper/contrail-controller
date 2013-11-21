@@ -413,7 +413,6 @@ TEST_F(PktParseTest, GRE_On_Enet_1) {
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     EthInterface *eth = EthInterfaceGet("vnet0");
-    unsigned int drop_count = AgentStats::GetInstance()->GetPktDropped();
     VmPortInterface *vnet1 = VmPortInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;

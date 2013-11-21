@@ -17,6 +17,9 @@ class HttpServer;
 
 class HttpSession: public TcpSession {
   public:
+    typedef boost::function<void(HttpSession *session,
+                                 enum TcpSession::Event event)> SessionEventCb;
+
     explicit HttpSession(HttpServer *server, Socket *socket);
     virtual ~HttpSession();
     const std::string get_context() { return context_str_; }
@@ -47,6 +50,7 @@ class HttpSession: public TcpSession {
     }
 
     void AcceptSession();
+    void RegisterEventCb(SessionEventCb cb);
 
   protected:
     virtual void OnRead(Buffer buffer);
@@ -78,6 +82,7 @@ class HttpSession: public TcpSession {
     tbb::concurrent_queue<HttpRequest *> request_queue_;
     std::string context_str_;
     std::string client_context_str_;
+    SessionEventCb event_cb_;
 
     static int req_handler_task_id_;
     static map_type* context_map_;

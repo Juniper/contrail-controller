@@ -2,22 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-systemlog sandesh XmppIQPublish {
-    1: "Received IQ publish ";
-    2: "From: ";
-    3: string f1;
-    4: "To: ";
-    5: string f2;
-}
-
-systemlog sandesh XmppIQCollection {
-    1: "Received IQ collection ";
-    2: "From: ";
-    3: string f1;
-    4: "To: ";
-    5: string f2;
-}
-
 systemlog sandesh XmppChatMessage {
     1: "Received chat message ";
     2: "From: ";

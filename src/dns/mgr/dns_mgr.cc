@@ -98,6 +98,11 @@ void DnsManager::ProcessAgentUpdate(BindUtil::Operation event,
             config->OnAdd();
             break;
 
+        case BindUtil::CHANGE_UPDATE:
+            if (config)
+                config->OnChange(item);
+            break;
+
         case BindUtil::DELETE_UPDATE:
             if (config) {
                 config->OnDelete();
@@ -457,22 +462,42 @@ void ShowVirtualDnsRecords::HandleRequest() const {
     VirtualDnsRecordsResponse *resp = new VirtualDnsRecordsResponse();
     VirtualDnsConfig::DataMap vdns = VirtualDnsConfig::GetVirtualDnsMap();
 
+    std::stringstream ss(get_virtual_dns_server());
+    std::string vdns_server, next_iterator;
+    VirtualDnsRecordConfig *next_iterator_key = NULL;
+    std::getline(ss, vdns_server, '@');
+    std::getline(ss, next_iterator);
+    if (!next_iterator.empty()) {
+        std::stringstream next_iter(next_iterator);
+        uint64_t value = 0;
+        next_iter >> value;
+        next_iterator_key = (VirtualDnsRecordConfig *) value;
+    }
     std::vector<VirtualDnsRecordTraceData> rec_list_sandesh;
-    VirtualDnsConfig::DataMap::iterator vdns_it = 
-                        vdns.find(get_virtual_dns_server());
+    VirtualDnsConfig::DataMap::iterator vdns_it = vdns.find(vdns_server);
     if (vdns_it != vdns.end()) {
         VirtualDnsConfig *vdns_config = vdns_it->second;
+        int count = 0;
         for (VirtualDnsConfig::VDnsRec::iterator rec_it = 
-             vdns_config->virtual_dns_records_.begin();
+             vdns_config->virtual_dns_records_.lower_bound(next_iterator_key);
              rec_it != vdns_config->virtual_dns_records_.end(); ++rec_it) {
             VirtualDnsRecordTraceData rec_trace_data;
             (*rec_it)->VirtualDnsRecordTrace(rec_trace_data);
             rec_list_sandesh.push_back(rec_trace_data);
+            if (++count == DnsManager::max_records_per_sandesh) {
+                if (++rec_it == vdns_config->virtual_dns_records_.end())
+                    break;
+                std::stringstream str;
+                uint64_t value = (uint64_t)(*rec_it);
+                str << vdns_server << "@" << value;
+                resp->set_getnext_record_set(str.str());
+                break;
+            }
         }
     }
 
     resp->set_context(context());
-    resp->set_virtual_dns_server(get_virtual_dns_server());
+    resp->set_virtual_dns_server(vdns_server);
     resp->set_records(rec_list_sandesh);
     resp->Response();
 }

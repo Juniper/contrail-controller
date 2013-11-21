@@ -49,6 +49,7 @@ BindResolver::BindResolver(boost::asio::io_service &io,
 
 BindResolver::~BindResolver() {
     boost::system::error_code ec;
+    sock_.cancel(ec);
     sock_.close(ec);
     for (unsigned int i = 0; i < dns_ep_.size(); ++i)
         delete dns_ep_[i];
@@ -118,6 +119,9 @@ void BindResolver::DnsRcvHandler(const boost::system::error_code &error,
         DNS_BIND_TRACE(DnsBindError, "Error receiving DNS response : " <<
                        boost::system::system_error(error).what() << ";");
         delete [] pkt_buf_;
+        if (error.value() == boost::asio::error::operation_aborted) {
+            return;
+        }
     }
     AsyncRead();
 }

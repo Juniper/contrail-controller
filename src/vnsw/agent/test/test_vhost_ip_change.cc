@@ -50,5 +50,8 @@ int main(int argc, char *argv[]) {
     client = TestInit(init_file, ksync_init, true, true, false);
     IpChangeTest::TestSetup(ksync_init);
     
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    TestShutdown();
+    delete client;
+    return ret;
 }

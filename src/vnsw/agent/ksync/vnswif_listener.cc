@@ -10,14 +10,17 @@
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/address.h>
+
+#include <base/logging.h>
+#include <cmn/agent_cmn.h>
+#include <init/agent_param.h>
+#include <init/agent_init.h>
+#include <cfg/cfg_init.h>
 #include <oper/agent_route.h>
-#include "base/logging.h"
-#include "ksync/ksync_index.h"
-#include "ksync/interface_ksync.h"
-#include "cmn/agent_cmn.h"
-#include "cfg/init_config.h"
-#include "vnswif_listener.h"
-#include "oper/mirror_table.h"
+#include <oper/mirror_table.h>
+#include <ksync/ksync_index.h>
+#include <ksync/interface_ksync.h>
+#include <ksync/vnswif_listener.h>
 
 extern void RouterIdDepInit();
 
@@ -72,7 +75,7 @@ VnswIfListener::VnswIfListener(boost::asio::io_service & io) : sock_(io) {
     vhost_intf_up_ = false;
     seqno_ = 0;
 
-    ifaddr_listen_ = !(AgentConfig::IsVHostConfigured());
+    ifaddr_listen_ = !(Agent::GetInstance()->params()->IsVHostConfigured());
 
     intf_listener_id_ = Agent::GetInstance()->GetInterfaceTable()->Register
         (boost::bind(&VnswIfListener::IntfNotify, this, _1, _2));
@@ -474,7 +477,7 @@ void VnswIfListener::InterfaceHandler(struct nlmsghdr *nlh)
             is_vhost_intf = (0 == 
                     Agent::GetInstance()->GetVirtualHostInterfaceName().compare(port_name));
             /* required only for Xen Mode */
-            if (AgentConfig::GetInstance()->isXenMode()) {
+            if (Agent::GetInstance()->isXenMode()) {
                 is_xapi_intf = (string::npos != port_name.find(XAPI_INTF_PREFIX));
             }
             break;
@@ -497,9 +500,8 @@ void VnswIfListener::InterfaceHandler(struct nlmsghdr *nlh)
         switch (nlh->nlmsg_type) {
         case RTM_NEWLINK:
             LOG(INFO, "Received interface add for interface: " << port_name);
-            AgentConfig::GetInstance()->SetXenInfo(port_name,
-                    Ip4Address::from_string("0.0.0.0"), -1);
-            AgentConfig::InitXenLinkLocalIntf();
+            Agent::GetInstance()->params()->set_xen_ll_name(port_name);
+            Agent::GetInstance()->init()->InitXenLinkLocalIntf();
             break;
         case RTM_DELLINK:
             LOG(INFO, "Received interface delete for interface: " << port_name);

@@ -19,6 +19,7 @@
 
 class EventManager;
 class TcpSession;
+class TcpServerSocketStats;
 
 class TcpServer {
   public:
@@ -92,6 +93,9 @@ class TcpServer {
 
     // wait until the server has deleted all sessions.
     void WaitForEmpty();
+
+    void GetRxSocketStats(TcpServerSocketStats &socket_stats);
+    void GetTxSocketStats(TcpServerSocketStats &socket_stats);
 
   protected:
     // Create a session object.

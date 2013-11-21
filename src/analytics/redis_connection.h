@@ -62,7 +62,8 @@ private:
     enum RedisState {
         REDIS_ASYNC_CONNECTION_INIT      = 0,
         REDIS_ASYNC_CONNECTION_PENDING   = 1,
-        REDIS_ASYNC_CONNECTION_CONNECTED = 2
+        REDIS_ASYNC_CONNECTION_CONNECTED = 2,
+        REDIS_ASYNC_CONNECTION_DISCONNECTED = 3,
     };
 
     EventManager *evm_;

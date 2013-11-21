@@ -12,7 +12,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
@@ -27,17 +28,12 @@
 #include "uve/uve_init.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include "cfg/init_config.h"
 #include "vr_types.h"
 #include "control_node_mock.h"
 #include "xml/xml_pugi.h"
@@ -71,7 +67,6 @@ protected:
     virtual void TearDown() {
         VNController::DisConnect();
         client->WaitForIdle();
-        TcpServerManager::DeleteServer(Agent::GetInstance()->GetAgentXmppClient(0));
 
         bgp_peer1->Shutdown();
         client->WaitForIdle();
@@ -301,9 +296,7 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
 
 int main(int argc, char **argv) {
     GETUSERARGS();
-    client = TestInit(init_file, ksync_init, false, false, false);
+    client = TestInit(init_file, ksync_init, false, true, false);
 
-    int ret = RUN_ALL_TESTS();
-
-    return ret;
+    return RUN_ALL_TESTS();
 }

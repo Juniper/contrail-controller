@@ -14,7 +14,14 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
+#include <base/cpuinfo.h>
+#include <base/timer.h>
+#include <base/misc_utils.h>
+
 #include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
+#include <init/agent_param.h>
+
 #include <oper/interface.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
@@ -22,11 +29,7 @@
 #include <uve/uve_client.h>
 #include <uve/inter_vn_stats.h>
 #include <uve/flow_uve.h>
-#include <base/cpuinfo.h>
-#include <base/timer.h>
 #include <controller/controller_peer.h>
-#include <base/misc_utils.h>
-#include "cfg/init_config.h"
 #include <uve/uve_init.h>
 
 using namespace std;
@@ -567,30 +570,53 @@ void UveClient::VmNotify(DBTablePartBase *partition, DBEntryBase *e) {
 bool UveClient::PopulateInterVnStats(string vn_name,
                                      UveVirtualNetworkAgent *s_vn) {
     bool changed = false;
-    InterVnStatsCollector::VnStatsSet *stats_set = 
-            AgentUve::GetInstance()->GetInterVnStatsCollector()->Find(vn_name);
-
-    if (!stats_set) {
-        return false;
-    }
+    /* Aggregate/total current stats are sent in the following fields */
     vector<UveInterVnStats> in_list;
     vector<UveInterVnStats> out_list;
-    
-    InterVnStatsCollector::VnStatsSet::iterator it = stats_set->begin();
-    VnStats *stats;
-    while (it != stats_set->end()) {
-        stats = *it;
-        UveInterVnStats uve_stats;
-        uve_stats.set_other_vn(stats->dst_vn);
+    /* Only diff since previous dispatch, is sent as part of the following 
+     * list */
+    vector<InterVnStats> vn_stats_list;
 
-        uve_stats.set_tpkts(stats->in_pkts);
-        uve_stats.set_bytes(stats->in_bytes);
-        in_list.push_back(uve_stats);
+    {
+        tbb::mutex::scoped_lock lock(AgentUve::GetInstance()->
+                                     GetInterVnStatsCollector()->mutex());
+        InterVnStatsCollector::VnStatsSet *stats_set = 
+            AgentUve::GetInstance()->GetInterVnStatsCollector()->Find(vn_name);
 
-        uve_stats.set_tpkts(stats->out_pkts);
-        uve_stats.set_bytes(stats->out_bytes);
-        out_list.push_back(uve_stats);
-        it++;
+        if (!stats_set) {
+            return false;
+        }
+
+        InterVnStatsCollector::VnStatsSet::iterator it = stats_set->begin();
+        VnStats *stats;
+        while (it != stats_set->end()) {
+            stats = *it;
+            UveInterVnStats uve_stats;
+            uve_stats.set_other_vn(stats->dst_vn_);
+
+            uve_stats.set_tpkts(stats->in_pkts_);
+            uve_stats.set_bytes(stats->in_bytes_);
+            in_list.push_back(uve_stats);
+
+            uve_stats.set_tpkts(stats->out_pkts_);
+            uve_stats.set_bytes(stats->out_bytes_);
+            out_list.push_back(uve_stats);
+
+            InterVnStats diff_stats;
+            diff_stats.set_other_vn(stats->dst_vn_);
+            diff_stats.set_vrouter(Agent::GetInstance()->GetHostName());
+            diff_stats.set_in_tpkts(stats->in_pkts_ - stats->prev_in_pkts_);
+            diff_stats.set_in_bytes(stats->in_bytes_ - stats->prev_in_bytes_);
+            diff_stats.set_out_tpkts(stats->out_pkts_ - stats->prev_out_pkts_);
+            diff_stats.set_out_bytes(stats->out_bytes_ - stats->prev_out_bytes_);
+            vn_stats_list.push_back(diff_stats);
+
+            stats->prev_in_pkts_ = stats->in_pkts_;
+            stats->prev_in_bytes_ = stats->in_bytes_;
+            stats->prev_out_pkts_ = stats->out_pkts_;
+            stats->prev_out_bytes_ = stats->out_bytes_;
+            it++;
+        }
     }
     LastVnUveSet::iterator uve_it = last_vn_uve_set_.find(s_vn->get_name());
     UveVirtualNetworkAgent &last_uve = uve_it->second.uve_info;
@@ -608,6 +634,15 @@ bool UveClient::PopulateInterVnStats(string vn_name,
             UveInterVnOutStatsChanged(out_list, last_uve)) {
             s_vn->set_out_stats(out_list);
             last_uve.set_out_stats(out_list);
+            changed = true;
+        }
+    }
+
+    if (!vn_stats_list.empty()) {
+        if (uve_it == last_vn_uve_set_.end() ||
+            UveInterVnStatsChanged(vn_stats_list, last_uve)) {
+            s_vn->set_vn_stats(vn_stats_list);
+            last_uve.set_vn_stats(vn_stats_list);
             changed = true;
         }
     }
@@ -778,13 +813,20 @@ bool UveClient::FrameVnMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
 
 bool UveClient::UpdateVnFlowCount(const VnEntry *vn, LastVnUveSet::iterator &it,
                                   UveVirtualNetworkAgent *s_vn) {
-    int flow_count = FlowTable::GetFlowTableObject()->VnFlowSize(vn);
-    if (UveVnFlowCountChanged(flow_count, it->second.uve_info)) {
-        s_vn->set_flow_count(flow_count);
-        it->second.uve_info.set_flow_count(flow_count);
-        return true;
+    bool changed = false;
+    uint32_t in_count, out_count;
+    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    if (UveVnInFlowCountChanged(in_count, it->second.uve_info)) {
+        s_vn->set_ingress_flow_count(in_count);
+        it->second.uve_info.set_ingress_flow_count(in_count);
+        changed = true;
     }
-    return false;
+    if (UveVnOutFlowCountChanged(out_count, it->second.uve_info)) {
+        s_vn->set_egress_flow_count(out_count);
+        it->second.uve_info.set_egress_flow_count(out_count);
+        changed = true;
+    }
+    return changed;
 }
 
 bool UveClient::UpdateVnFipCount(LastVnUveSet::iterator &it, int count, 
@@ -1044,12 +1086,23 @@ bool UveClient::UveVnAclRuleCountChanged(int32_t size,
     return false;
 }
 
-bool UveClient::UveVnFlowCountChanged(int32_t size, 
-                                const UveVirtualNetworkAgent &s_vn) {
-    if (!s_vn.__isset.flow_count) {
+bool UveClient::UveVnInFlowCountChanged
+    (uint32_t size, const UveVirtualNetworkAgent &s_vn) {
+    if (!s_vn.__isset.ingress_flow_count) {
         return true;
     }
-    if (size != s_vn.get_flow_count()) {
+    if (size != s_vn.get_ingress_flow_count()) {
+        return true;
+    }
+    return false;
+}
+
+bool UveClient::UveVnOutFlowCountChanged
+    (uint32_t size, const UveVirtualNetworkAgent &s_vn) {
+    if (!s_vn.__isset.egress_flow_count) {
+        return true;
+    }
+    if (size != s_vn.get_egress_flow_count()) {
         return true;
     }
     return false;
@@ -1155,6 +1208,18 @@ bool UveClient::UveVnIfListChanged(vector<string> new_list,
         return true;
     }
     if (new_list != s_vn.get_interface_list()) {
+        return true;
+    }
+    return false;
+}
+
+bool UveClient::UveInterVnStatsChanged(const vector<InterVnStats> &new_list, 
+                                       const UveVirtualNetworkAgent &s_vn) 
+                                       const {
+    if (!s_vn.__isset.vn_stats) {
+        return true;
+    }
+    if (new_list != s_vn.get_vn_stats()) {
         return true;
     }
     return false;
@@ -1268,6 +1333,10 @@ void UveClient::SendVrouterUve() {
     vrouter_agent.set_name(Agent::GetInstance()->GetHostName());
     Ip4Address rid = Agent::GetInstance()->GetRouterId();
 
+    if (Agent::GetInstance()->IsTestMode()) {
+        return;
+    }
+    AgentParam *param = Agent::GetInstance()->params();
     if (first) {
         vector<string> core_list;
         MiscUtils::GetCoreFileList(Agent::GetInstance()->GetProgramName(), core_list);
@@ -1298,7 +1367,7 @@ void UveClient::SendVrouterUve() {
             vitf.set_mac_address(GetMacAddress(vhost->GetMacAddr()));
             vrouter_agent.set_vhost_if(vitf);
         }
-        vrouter_agent.set_control_ip(Agent::GetInstance()->GetMgmtIp());
+        vrouter_agent.set_control_ip(param->mgmt_ip().to_string());
         first = false;
         changed = true;
     }
@@ -1358,60 +1427,55 @@ void UveClient::SendVrouterUve() {
         changed = true;
     }
 
-    AgentConfig *config = AgentConfig::GetInstance();
-    const AgentCmdLineParams cmd_line = config->GetCmdLineParams();
     AgentVhostConfig vhost_cfg;
     AgentXenConfig xen_cfg;
     vector<string> dns_list;
-    string xen_ll_name;
-    Ip4Address xen_ll_addr;
-    int xen_ll_plen;
 
     if (!prev_vrouter_.__isset.log_file ||
-        prev_vrouter_.get_log_file() != cmd_line.log_file_) {
-        vrouter_agent.set_log_file(cmd_line.log_file_);
-        prev_vrouter_.set_log_file(cmd_line.log_file_);
+        prev_vrouter_.get_log_file() != param->log_file()) {
+        vrouter_agent.set_log_file(param->log_file());
+        prev_vrouter_.set_log_file(param->log_file());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.config_file ||
-        prev_vrouter_.get_config_file() != cmd_line.cfg_file_) {
-        vrouter_agent.set_config_file(cmd_line.cfg_file_);
-        prev_vrouter_.set_config_file(cmd_line.cfg_file_);
+        prev_vrouter_.get_config_file() != param->config_file()) {
+        vrouter_agent.set_config_file(param->config_file());
+        prev_vrouter_.set_config_file(param->config_file());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.log_local ||
-        prev_vrouter_.get_log_local() != cmd_line.log_local_) {
-        vrouter_agent.set_log_local(cmd_line.log_local_);
-        prev_vrouter_.set_log_local(cmd_line.log_local_);
+        prev_vrouter_.get_log_local() != param->log_local()) {
+        vrouter_agent.set_log_local(param->log_local());
+        prev_vrouter_.set_log_local(param->log_local());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.log_category ||
-        prev_vrouter_.get_log_category() != cmd_line.log_category_) {
-        vrouter_agent.set_log_category(cmd_line.log_category_);
-        prev_vrouter_.set_log_category(cmd_line.log_category_);
+        prev_vrouter_.get_log_category() != param->log_category()) {
+        vrouter_agent.set_log_category(param->log_category());
+        prev_vrouter_.set_log_category(param->log_category());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.log_level ||
-        prev_vrouter_.get_log_level() != cmd_line.log_level_) {
-        vrouter_agent.set_log_level(cmd_line.log_level_);
-        prev_vrouter_.set_log_level(cmd_line.log_level_);
+        prev_vrouter_.get_log_level() != param->log_level()) {
+        vrouter_agent.set_log_level(param->log_level());
+        prev_vrouter_.set_log_level(param->log_level());
         changed = true;
     }
     if (!prev_vrouter_.__isset.sandesh_http_port ||
-        prev_vrouter_.get_sandesh_http_port() != cmd_line.http_server_port_) {
-        vrouter_agent.set_sandesh_http_port(cmd_line.http_server_port_);
-        prev_vrouter_.set_sandesh_http_port(cmd_line.http_server_port_);
+        prev_vrouter_.get_sandesh_http_port() != param->http_server_port()) {
+        vrouter_agent.set_sandesh_http_port(param->http_server_port());
+        prev_vrouter_.set_sandesh_http_port(param->http_server_port());
         changed = true;
     }
 
-    vhost_cfg.set_name(config->GetVHostName());
+    vhost_cfg.set_name(param->vhost_name());
     vhost_cfg.set_ip(rid.to_string());
-    vhost_cfg.set_ip_prefix_len(config->GetVHostPlen());
-    vhost_cfg.set_gateway(config->GetVHostGateway());
+    vhost_cfg.set_ip_prefix_len(param->vhost_plen());
+    vhost_cfg.set_gateway(param->vhost_gw().to_string());
     if (!prev_vrouter_.__isset.vhost_cfg ||
         prev_vrouter_.get_vhost_cfg() != vhost_cfg) {
         vrouter_agent.set_vhost_cfg(vhost_cfg);
@@ -1420,28 +1484,27 @@ void UveClient::SendVrouterUve() {
     }
 
     if (!prev_vrouter_.__isset.eth_name ||
-        prev_vrouter_.get_eth_name() != config->GetEthPort()) {
-        vrouter_agent.set_eth_name(config->GetEthPort());
-        prev_vrouter_.set_eth_name(config->GetEthPort());
+        prev_vrouter_.get_eth_name() != param->eth_port()) {
+        vrouter_agent.set_eth_name(param->eth_port());
+        prev_vrouter_.set_eth_name(param->eth_port());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.tunnel_type ||
-        prev_vrouter_.get_tunnel_type() != config->GetTunnelType()) {
-        vrouter_agent.set_tunnel_type(config->GetTunnelType());
-        prev_vrouter_.set_tunnel_type(config->GetTunnelType());
+        prev_vrouter_.get_tunnel_type() != param->tunnel_type()) {
+        vrouter_agent.set_tunnel_type(param->tunnel_type());
+        prev_vrouter_.set_tunnel_type(param->tunnel_type());
         changed = true;
     }
 
     string hypervisor;
-    if (config->isKvmMode()) {
+    if (param->isKvmMode()) {
         hypervisor = "kvm";
-    } else if (config->isXenMode()) {
+    } else if (param->isXenMode()) {
         hypervisor = "xen";
-        config->GetXenInfo(xen_ll_name, xen_ll_addr, xen_ll_plen);
-        xen_cfg.set_xen_ll_port(xen_ll_name);
-        xen_cfg.set_xen_ll_ip(xen_ll_addr.to_string());
-        xen_cfg.set_xen_ll_prefix_len(xen_ll_plen);
+        xen_cfg.set_xen_ll_port(param->xen_ll_name());
+        xen_cfg.set_xen_ll_ip(param->xen_ll_addr().to_string());
+        xen_cfg.set_xen_ll_prefix_len(param->xen_ll_plen());
         if (!prev_vrouter_.__isset.xen_cfg ||
             prev_vrouter_.get_xen_cfg() != xen_cfg) {
             vrouter_agent.set_xen_cfg(xen_cfg);
@@ -1458,16 +1521,16 @@ void UveClient::SendVrouterUve() {
     }
 
     if (!prev_vrouter_.__isset.ds_addr ||
-        prev_vrouter_.get_ds_addr() != config->GetDiscoveryServer()) {
-        vrouter_agent.set_ds_addr(config->GetDiscoveryServer());
-        prev_vrouter_.set_ds_addr(config->GetDiscoveryServer());
+        prev_vrouter_.get_ds_addr() != param->discovery_server().to_string()) {
+        vrouter_agent.set_ds_addr(param->discovery_server().to_string());
+        prev_vrouter_.set_ds_addr(param->discovery_server().to_string());
         changed = true;
     }
 
     if (!prev_vrouter_.__isset.ds_xs_instances ||
-        prev_vrouter_.get_ds_xs_instances() != config->GetDiscoveryXmppServerInstances()) {
-        vrouter_agent.set_ds_xs_instances(config->GetDiscoveryXmppServerInstances());
-        prev_vrouter_.set_ds_xs_instances(config->GetDiscoveryXmppServerInstances());
+        prev_vrouter_.get_ds_xs_instances() != param->xmpp_instance_count()) {
+        vrouter_agent.set_ds_xs_instances(param->xmpp_instance_count());
+        prev_vrouter_.set_ds_xs_instances(param->xmpp_instance_count());
         changed = true;
     }
 
@@ -1535,6 +1598,10 @@ void UveClient::IntfWalkDone(DBTableBase *base,
     vrouter_agent.set_interface_list(*intf_list);
     vrouter_agent.set_error_intf_list(*err_if_list);
     vrouter_agent.set_no_config_intf_list(*nova_if_list);
+    vrouter_agent.set_total_interface_count((intf_list->size() + 
+                                             nova_if_list->size()));
+    vrouter_agent.set_down_interface_count((err_if_list->size() + 
+                                            nova_if_list->size()));
     UveVrouterAgent::Send(vrouter_agent);
     delete intf_list;
     delete err_if_list;
@@ -1768,6 +1835,11 @@ void UveClient::FetchDropStats(AgentDropStats &ds) {
     ds.ds_misc = stats.get_vds_misc();
     ds.ds_invalid_packet = stats.get_vds_invalid_packet();
     ds.ds_cksum_err = stats.get_vds_cksum_err();
+    ds.ds_clone_fail = stats.get_vds_clone_fail();
+    ds.ds_no_fmd = stats.get_vds_no_fmd();
+    ds.ds_cloned_original = stats.get_vds_cloned_original();
+    ds.ds_invalid_vnid = stats.get_vds_invalid_vnid();
+    ds.ds_frag_err = stats.get_vds_frag_err();
 }
 
 void UveClient::NewFlow(const FlowEntry *flow) {
@@ -2123,8 +2195,8 @@ void UveClient::EnqueueVmStatData(VmStatData *data) {
     singleton_->event_queue_->Enqueue(data);
 }
 
-void UveClient::Init(uint64_t bandwidth_intvl) {
-    singleton_ = new UveClient(bandwidth_intvl);
+void UveClient::Init() {
+    singleton_ = new UveClient(AgentUve::band_intvl);
 
     VmTable *vm_table = Agent::GetInstance()->GetVmTable();
     singleton_->vm_listener_id_ = vm_table->Register

@@ -51,7 +51,15 @@ struct VnIpam {
                              ~(0xFFFFFFFF << (32 - plen)));
         return broadcast;
     }
-    bool IsSubnetMember(Ip4Address &ip) const {
+    Ip4Address GetSubnetAddress() const {
+        return GetIp4SubnetAddress(ip_prefix, plen);
+        /*
+        Ip4Address subnet(ip_prefix.to_ulong() & 
+                             (0xFFFFFFFF << (32 - plen)));
+        return subnet;
+        */
+    }
+    bool IsSubnetMember(const Ip4Address &ip) const {
         return ((ip_prefix.to_ulong() | ~(0xFFFFFFFF << (32 - plen))) == 
                  (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen)))); 
     }
@@ -85,7 +93,7 @@ struct VnData : public AgentData {
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
-    VnEntry(uuid id) : uuid_(id) { };
+    VnEntry(uuid id) : uuid_(id), vxlan_id_(0) { };
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -104,8 +112,12 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
-    bool GetIpamData(const VmPortInterface *vmitf, 
+    bool GetIpamName(const Ip4Address &vm_addr, std::string &ipam_name) const;
+    bool GetIpamData(const Ip4Address &vm_addr,
                      autogen::IpamType &ipam_type) const;
+    bool GetIpamVdnsData(const Ip4Address &vm_addr, 
+                         autogen::IpamType &ipam_type,
+                         autogen::VirtualDnsType &vdns_type) const;
     int GetVxLanId() {return vxlan_id_;};
 
     AgentDBTable *DBToTable() const;
@@ -157,7 +169,11 @@ private:
     static VnTable *vn_table_;
     bool IpamChangeNotify(std::vector<VnIpam> &old_ipam, 
                           std::vector<VnIpam> &new_ipam, VnEntry *vn);
-    void DeleteIpamHostRoutes(VnEntry *vn);
+    void AddIPAMRoutes(VnEntry *vn, VnIpam &ipam);
+    void DelIPAMRoutes(VnEntry *vn, VnIpam &ipam);
+    void DeleteAllIpamRoutes(VnEntry *vn);
+    void AddSubnetRoute(VnEntry *vn, VnIpam &ipam);
+    void DelSubnetRoute(VnEntry *vn, VnIpam &ipam);
     void AddHostRouteForGw(VnEntry *vn, VnIpam &ipam);
     void DelHostRouteForGw(VnEntry *vn, VnIpam &ipam);
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);

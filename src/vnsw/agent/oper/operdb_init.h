@@ -14,23 +14,22 @@ class DBEntryBase;
 
 class OperDB {
 public:
-    typedef boost::function<void(void)> Callback;
-    OperDB();
+    OperDB(Agent *agent);
     virtual ~OperDB();
 
-    static void CreateDBTables(DB *);
-    static void CreateStaticObjects(Callback cb = NULL);
-    static void Shutdown();
-
-private:
-    OperDB(Callback cb);
+    void CreateDBTables(DB *);
+    void CreateDBClients();
+    void Init();
     void CreateDefaultVrf();
-    void OnVrfCreate(DBEntryBase *entry);
+    void Shutdown();
+
+    MulticastHandler *multicast() const { return multicast_.get(); }
+private:
+    OperDB();
     static OperDB *singleton_;
 
-    DBTableBase::ListenerId vid_;
-    Callback cb_;
-    TaskTrigger *trigger_;
+    Agent *agent_;
+    std::auto_ptr<MulticastHandler> multicast_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

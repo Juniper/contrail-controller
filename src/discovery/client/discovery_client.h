@@ -24,9 +24,7 @@ class DiscoveryServiceClient;
 class DiscoveryServiceClientMock;
 
 struct DSResponse {
-
    boost::asio::ip::tcp::endpoint  ep;
-   uint32_t ttl;
 };
 
 struct DSResponseHeader {
@@ -88,6 +86,7 @@ struct DSPublishResponse {
     boost::asio::ip::udp::socket socket_;
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
+    std::string publish_hdr_;
     int attempts_;
     uint8_t recv_buf[MAX_HB_SIZE];
 
@@ -107,7 +106,8 @@ public:
     static const char *CollectorService;
     static const char *DNSService;
 
-    DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint);
+    DiscoveryServiceClient(EventManager *evm, boost::asio::ip::tcp::endpoint,
+                           std::string client_name);
     virtual ~DiscoveryServiceClient();
     
     void Init();
@@ -120,7 +120,7 @@ public:
     void WithdrawPublish(std::string serviceName);
 
     typedef boost::function<void(std::vector<DSResponse>)> ServiceHandler;
-    void Subscribe(std::string subscriber_name, std::string serviceName, 
+    void Subscribe(std::string serviceName, 
                    uint8_t numbOfInstances, ServiceHandler);
     void Subscribe(std::string serviceName, uint8_t numbOfInstances);
     void SubscribeResponseHandler(std::string &msg, boost::system::error_code &, 
@@ -162,6 +162,8 @@ private:
     bool DequeueEvent(EnqueuedCb);
     WorkQueue<EnqueuedCb> work_queue_;
     bool shutdown_;
+
+    std::string subscriber_name_;
 };
 
 #endif  // __DISCOVERY_SERVICE_CLIENT_H__

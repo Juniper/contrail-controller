@@ -186,7 +186,7 @@ public:
     void NewFlow(const FlowEntry *flow);
     void DeleteFlow(const FlowEntry *flow);
 
-    static void Init(uint64_t b_intvl);
+    static void Init();
     void Shutdown();
     void RegisterSigHandler();
     uint32_t GetCpuCount();
@@ -211,7 +211,10 @@ private:
     bool UveVnFipCountChanged(int32_t size, const UveVirtualNetworkAgent &s_vn);
     bool UpdateVnFipCount(LastVnUveSet::iterator &it, int count, 
                           UveVirtualNetworkAgent *s_vn);
-    bool UveVnFlowCountChanged(int32_t size, const UveVirtualNetworkAgent &s_vn);
+    bool UveVnInFlowCountChanged(uint32_t size, 
+                                 const UveVirtualNetworkAgent &s_vn);
+    bool UveVnOutFlowCountChanged(uint32_t size, 
+                                  const UveVirtualNetworkAgent &s_vn);
     bool UpdateVnFlowCount(const VnEntry *vn, LastVnUveSet::iterator &it, UveVirtualNetworkAgent *s_vn);
     bool BuildPhyIfList(std::vector<AgentIfStats> &phy_if_list);
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list);
@@ -236,6 +239,8 @@ private:
                                   const UveVirtualNetworkAgent &s_vn);
     bool UveInterVnOutStatsChanged(vector<UveInterVnStats> new_list, 
                                    const UveVirtualNetworkAgent &s_vn);
+    bool UveInterVnStatsChanged(const vector<InterVnStats> &new_list, 
+                                const UveVirtualNetworkAgent &s_vn) const;
     bool FrameVnStatsMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
                          UveVnEntry *uve);
     void SendVmAndVnMsg(const VmPortInterface* vm_port);

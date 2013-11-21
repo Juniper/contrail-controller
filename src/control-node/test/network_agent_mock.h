@@ -16,6 +16,7 @@
 namespace autogen {
 struct ItemType;
 struct EnetItemType;
+struct McastItemType;
 class VirtualRouter;
 class VirtualMachine;
 }
@@ -32,6 +33,46 @@ class BgpXmppChannelManager;
 
 namespace test {
 
+struct NextHop {
+    NextHop() : label_(0) { }
+    NextHop(std::string address, uint32_t label, std::string tun1 = "gre") :
+            address_(address), label_(label) {
+        if (tun1 == "all") {
+            tunnel_encapsulations_.push_back("gre");
+            tunnel_encapsulations_.push_back("udp");
+            tunnel_encapsulations_.push_back("vxlan");
+        } else {
+            tunnel_encapsulations_.push_back(tun1);
+        }
+    }
+
+    bool operator==(NextHop other) {
+        if (address_ != other.address_) return false;
+        if (label_ != other.label_) return false;
+        if (tunnel_encapsulations_.size() !=
+                other.tunnel_encapsulations_.size()) {
+            return false;
+        }
+
+        std::vector<std::string>::iterator i;
+        for (i = tunnel_encapsulations_.begin();
+                i != tunnel_encapsulations_.end(); i++) {
+            if (std::find(other.tunnel_encapsulations_.begin(),
+                          other.tunnel_encapsulations_.end(), *i) ==
+                    other.tunnel_encapsulations_.end()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    std::string address_;
+    int label_;
+    std::vector<std::string> tunnel_encapsulations_;
+};
+
+typedef std::vector<NextHop> NextHops;
+
 class XmppDocumentMock {
 public:
     static const char *kControlNodeJID;
@@ -42,20 +83,21 @@ public:
     XmppDocumentMock(const std::string &hostname);
     pugi::xml_document *RouteAddXmlDoc(const std::string &network, 
                                        const std::string &prefix,
-                                       const std::string nexthop = "");
+        NextHops nexthops = NextHops());
     pugi::xml_document *RouteDeleteXmlDoc(const std::string &network, 
                                           const std::string &prefix,
-                                          const std::string nexthop = "");
+        NextHops nexthops = NextHops());
     pugi::xml_document *RouteEnetAddXmlDoc(const std::string &network,
                                            const std::string &prefix,
-                                           const std::string nexthop = "");
+        NextHops nexthops = NextHops());
     pugi::xml_document *RouteEnetDeleteXmlDoc(const std::string &network,
                                               const std::string &prefix,
-                                              const std::string nexthop = "");
+        NextHops nexthops = NextHops());
     pugi::xml_document *RouteMcastAddXmlDoc(const std::string &network, 
                                             const std::string &sg,
                                             const std::string &nexthop,
-                                            const std::string &label_range);
+                                            const std::string &label_range,
+                                            const std::string &encap);
     pugi::xml_document *RouteMcastDeleteXmlDoc(const std::string &network, 
                                                const std::string &sg);
     pugi::xml_document *SubscribeXmlDoc(const std::string &network, int id,
@@ -74,11 +116,15 @@ private:
             const std::string &network, int id, bool sub, std::string type);
     pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, bool add, const std::string nexthop);
+    pugi::xml_document *RouteAddDeleteXmlDoc(const std::string &network,
+            const std::string &prefix, bool add, NextHops nexthop);
     pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
             const std::string &prefix, const std::string nexthop, bool add);
+    pugi::xml_document *RouteEnetAddDeleteXmlDoc(const std::string &network,
+            const std::string &prefix, NextHops nexthop, bool add);
     pugi::xml_document *RouteMcastAddDeleteXmlDoc(const std::string &network,
             const std::string &sg, const std::string &nexthop,
-            const std::string &label_range, bool add);
+            const std::string &label_range, const std::string &encap, bool add);
 
     std::string hostname_;
     int label_alloc_;
@@ -95,6 +141,9 @@ public:
 
     typedef autogen::EnetItemType EnetRouteEntry;
     typedef std::map<std::string, EnetRouteEntry *> EnetRouteTable;
+
+    typedef autogen::McastItemType McastRouteEntry;
+    typedef std::map<std::string, McastRouteEntry *> McastRouteTable;
 
     typedef autogen::VirtualRouter VRouterEntry;
     typedef std::map<std::string, VRouterEntry *> VRouterTable;
@@ -184,6 +233,11 @@ public:
     void DeleteRoute(const std::string &network, const std::string &prefix,
                      const std::string nexthop = "");
 
+    void AddRoute(const std::string &network, const std::string &prefix,
+                  NextHops nexthops);
+    void DeleteRoute(const std::string &network, const std::string &prefix,
+                  NextHops nexthops);
+
     void EnetSubscribe(const std::string &network, int id = -1,
                        bool wait_for_established = true) {
         enet_route_mgr_->Subscribe(network, id, wait_for_established);
@@ -204,10 +258,31 @@ public:
                       const std::string nexthop = "");
     void DeleteEnetRoute(const std::string &network, const std::string &prefix,
                          const std::string nexthop = "");
+    void AddEnetRoute(const std::string &network, const std::string &prefix,
+                      NextHops nexthops);
+    void DeleteEnetRoute(const std::string &network, const std::string &prefix,
+                         NextHops nexthops);
+
+    void McastSubscribe(const std::string &network, int id = -1,
+                        bool wait_for_established = true) {
+        mcast_route_mgr_->Subscribe(network, id, wait_for_established);
+    }
+    void McastUnsubscribe(const std::string &network, int id = -1,
+                          bool wait_for_established = true) {
+        mcast_route_mgr_->Unsubscribe(network, id, wait_for_established);
+    }
+
+    int McastRouteCount(const std::string &network) const;
+    int McastRouteCount() const;
+    const McastRouteEntry *McastRouteLookup(const std::string &network,
+                                            const std::string &prefix) const {
+        return mcast_route_mgr_->Lookup(network, prefix);
+    }
 
     void AddMcastRoute(const std::string &network, const std::string &sg,
                        const std::string &nexthop,
-                       const std::string &label_range);
+                       const std::string &label_range,
+                       const std::string &encap = "");
     void DeleteMcastRoute(const std::string &network, const std::string &sg);
 
     bool IsEstablished();
@@ -217,14 +292,14 @@ public:
     const std::string &hostname() const { return impl_->hostname(); }
     const std::string &localaddr() const { return impl_->localaddr(); }
     const std::string ToString() const;
-
     void set_localaddr(const std::string &addr) { impl_->set_localaddr(addr); }
+    XmppDocumentMock *GetXmlHandler() { return impl_.get(); }
+
     XmppClient *client() { return client_; }
     void Delete();
     tbb::mutex &get_mutex() { return mutex_; }
     bool down() { return down_; }
 
-    XmppDocumentMock *GetXmlHandler() { return impl_.get(); }
     const std::string local_address() const { return local_address_; }
     void DisableRead(bool disable_read);
 
@@ -240,6 +315,7 @@ public:
 
     boost::scoped_ptr<InstanceMgr<RouteEntry> > route_mgr_;
     boost::scoped_ptr<InstanceMgr<EnetRouteEntry> > enet_route_mgr_;
+    boost::scoped_ptr<InstanceMgr<McastRouteEntry> > mcast_route_mgr_;
     boost::scoped_ptr<InstanceMgr<VRouterEntry> > vrouter_mgr_;
     boost::scoped_ptr<InstanceMgr<VMEntry> > vm_mgr_;
 

@@ -16,12 +16,13 @@ struct MirrorCfgKey {
 };
 
 struct MirrorCfgData {
-  MirrorCfgData() : apply_vn(), src_vn(), src_ip_prefix(), src_ip_prefix_len(0),
-    dst_vn(), dst_ip_prefix(), dst_ip_prefix_len(0),
-    start_src_port(0), end_src_port(0), start_dst_port(0),
-    end_dst_port(0), protocol(0), ip(), udp_port(0),
-    time_period(60) {};
-  ~MirrorCfgData() {};
+    MirrorCfgData() : 
+        apply_vn(), src_vn(), src_ip_prefix(), src_ip_prefix_len(0),
+        dst_vn(), dst_ip_prefix(), dst_ip_prefix_len(0), start_src_port(0),
+        end_src_port(0), start_dst_port(0), end_dst_port(0), protocol(0),
+        ip(), udp_port(0), time_period(60) {};
+    ~MirrorCfgData() {};
+
     std::string apply_vn;
     std::string src_vn;
     std::string src_ip_prefix;
@@ -41,10 +42,10 @@ struct MirrorCfgData {
     // if there is no end_dst_port, end_dst_port will be same as start_dst_port
     int start_dst_port;
     int end_dst_port;
-  
+
     // Protocol, -1 means any
     int protocol;
-  
+
     // Mirror destination
     std::string ip;   
     int udp_port;
@@ -86,30 +87,29 @@ public:
     typedef std::map<MirrorCfgKey, MirrorCfgEntry *, MirrorCfgKeyCmp> MirrorCfgTree;
     typedef std::map<VnIdStr, AclIdInfo> VnAclMap;
 
-    MirrorCfgTable() : mc_tree_(), vn_acl_map_() {};
+    MirrorCfgTable(AgentConfig *cfg) :
+        agent_cfg_(cfg), mc_tree_(), vn_acl_map_() {};
     ~MirrorCfgTable() {};
 
-    static MirrorCfgTable *CreateMirrorCfgTable();
-    static void Shutdown();
-    static void Init(MirrorCfgTable *table);
+    void Shutdown();
+    void Init();
     void SetMirrorCfgSandeshData(std::string &handle, 
-				 MirrorCfgDisplayResp &resp);
+                                 MirrorCfgDisplayResp &resp);
     void SetMirrorCfgVnSandeshData(std::string &vn_name,
-				   MirrorCfgVnInfoResp &resp);
+                                   MirrorCfgVnInfoResp &resp);
     const boost::uuids::uuid GetMirrorUuid(const std::string &vn_name) const;
 
     const char *Add(const MirrorCreateReq &cfg);
     void Delete(MirrorCfgKey &key);
 private:
-    static MirrorCfgTable *singleton_;
-
+    AgentConfig *agent_cfg_;
     MirrorCfgTree mc_tree_;
     VnAclMap vn_acl_map_;
 
-    const char *UpdateAclEntry (AclUuid &id, bool create, MirrorCfgEntry *e, int ace_id);
+    const char *UpdateAclEntry(AclUuid &id, bool create, MirrorCfgEntry *e,
+                               int ace_id);
 
-DISALLOW_COPY_AND_ASSIGN(MirrorCfgTable);
-
+    DISALLOW_COPY_AND_ASSIGN(MirrorCfgTable);
 };
 
 struct MirrorDestination {
@@ -138,21 +138,20 @@ struct IntfMirrorCfgEntry {
 
 class IntfMirrorCfgTable {
 public:
-    IntfMirrorCfgTable() {};
+    IntfMirrorCfgTable(AgentConfig *cfg) : agent_cfg_(cfg) {};
     ~IntfMirrorCfgTable() {};
     typedef std::map<MirrorCfgKey, IntfMirrorCfgEntry *, MirrorCfgKeyCmp> IntfMirrorCfgTree;
     const char *Add(const IntfMirrorCreateReq &cfg);
     void Delete(MirrorCfgKey &key);
-    static void Init(IntfMirrorCfgTable *table);
-    static IntfMirrorCfgTable *CreateIntfMirrorCfgTable();
-    static void Shutdown();
+    IntfMirrorCfgTable *CreateIntfMirrorCfgTable();
+    void Init();
+    void Shutdown();
     void SetIntfMirrorCfgSandeshData(std::string &handle, 
                                      IntfMirrorCfgDisplayResp &resp);
 private:
-    static IntfMirrorCfgTable *singleton_;
+    AgentConfig *agent_cfg_;
     IntfMirrorCfgTree intf_mc_tree_;
-DISALLOW_COPY_AND_ASSIGN(IntfMirrorCfgTable);
-
+    DISALLOW_COPY_AND_ASSIGN(IntfMirrorCfgTable);
 };
 
 #endif // __AGENT_MIRROR_CFG_H__

@@ -57,6 +57,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
 }
 
 VizCollector::~VizCollector() {
+    TimerManager::DeleteTimer(dbif_timer_);
 }
 
 std::string VizCollector::DbifGlobalName(bool dup) {

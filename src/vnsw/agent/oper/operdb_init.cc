@@ -8,19 +8,20 @@
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
-#include "oper/agent_route.h"
+#include <cfg/cfg_init.h>
+#include <oper/agent_route.h>
 #include <oper/operdb_init.h>
-#include "oper/interface.h"
-#include "oper/nexthop.h"
-#include "oper/vrf.h"
-#include "oper/mpls.h"
-#include "oper/vm.h"
-#include "oper/vn.h"
-#include "oper/sg.h"
-#include "oper/mirror_table.h"
-#include "oper/vrf_assign.h"
-#include "oper/vxlan.h"
-#include "cfg/init_config.h"
+#include <oper/interface.h>
+#include <oper/nexthop.h>
+#include <oper/vrf.h>
+#include <oper/mpls.h>
+#include <oper/vm.h>
+#include <oper/vn.h>
+#include <oper/sg.h>
+#include <oper/mirror_table.h>
+#include <oper/vrf_assign.h>
+#include <oper/vxlan.h>
+#include <oper/multicast.h>
 #include <base/task_trigger.h>
 
 OperDB *OperDB::singleton_ = NULL;
@@ -45,183 +46,141 @@ void OperDB::CreateDBTables(DB *db) {
     InterfaceTable *intf_table;
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
     assert(intf_table);
-    Agent::GetInstance()->SetInterfaceTable(intf_table);
+    agent_->SetInterfaceTable(intf_table);
 
     NextHopTable *nh_table;
     nh_table = static_cast<NextHopTable *>(db->CreateTable("db.nexthop.0"));
     assert(nh_table);
-    Agent::GetInstance()->SetNextHopTable(nh_table);
+    agent_->SetNextHopTable(nh_table);
 
     VrfTable *vrf_table;
     vrf_table = static_cast<VrfTable *>(db->CreateTable("db.vrf.0"));
     assert(vrf_table);
-    Agent::GetInstance()->SetVrfTable(vrf_table);
+    agent_->SetVrfTable(vrf_table);
 
     VmTable *vm_table;
     vm_table = static_cast<VmTable *>(db->CreateTable("db.vm.0"));
     assert(vm_table);
-    Agent::GetInstance()->SetVmTable(vm_table);
+    agent_->SetVmTable(vm_table);
 
     SgTable *sg_table;
     sg_table = static_cast<SgTable *>(db->CreateTable("db.sg.0"));
     assert(sg_table);
-    Agent::GetInstance()->SetSgTable(sg_table);
+    agent_->SetSgTable(sg_table);
 
     VnTable *vn_table;
     vn_table = static_cast<VnTable *>(db->CreateTable("db.vn.0"));
     assert(vn_table);
-    Agent::GetInstance()->SetVnTable(vn_table);
+    agent_->SetVnTable(vn_table);
 
     MplsTable *mpls_table;
     mpls_table = static_cast<MplsTable *>(db->CreateTable("db.mpls.0"));
     assert(mpls_table);
-    Agent::GetInstance()->SetMplsTable(mpls_table);
+    agent_->SetMplsTable(mpls_table);
 
     AclTable *acl_table;
     acl_table = static_cast<AclTable *>(db->CreateTable("db.acl.0"));
     assert(acl_table);
-    Agent::GetInstance()->SetAclTable(acl_table);
+    agent_->SetAclTable(acl_table);
 
     MirrorTable *mirror_table;
     mirror_table = static_cast<MirrorTable *>
                    (db->CreateTable("db.mirror_table.0"));
     assert(mirror_table);
-    Agent::GetInstance()->SetMirrorTable(mirror_table);
+    agent_->SetMirrorTable(mirror_table);
 
     VrfAssignTable *vassign_table = static_cast<VrfAssignTable *>
                    (db->CreateTable("db.vrf_assign.0"));
     assert(vassign_table);
-    Agent::GetInstance()->SetVrfAssignTable(vassign_table);
+    agent_->SetVrfAssignTable(vassign_table);
 
     DomainConfig *domain_config_table = new DomainConfig();
-    Agent::GetInstance()->SetDomainConfigTable(domain_config_table);
+    agent_->SetDomainConfigTable(domain_config_table);
 
     VxLanTable *vxlan_table;
     vxlan_table = static_cast<VxLanTable *>(db->CreateTable("db.vxlan.0"));
     assert(vxlan_table);
-    Agent::GetInstance()->SetVxLanTable(vxlan_table);
+    agent_->SetVxLanTable(vxlan_table);
+
+    multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
 }
 
-void OperDB::CreateStaticObjects(Callback cb)
-{
+void OperDB::Init() {
     Peer *local_peer;
-    Peer *local_vm_peer;
-
     local_peer = new Peer(Peer::LOCAL_PEER, LOCAL_PEER_NAME);
-    Agent::GetInstance()->SetLocalPeer(local_peer);
+    agent_->SetLocalPeer(local_peer);
 
+    Peer *local_vm_peer;
     local_vm_peer = new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME);
-    Agent::GetInstance()->SetLocalVmPeer(local_vm_peer);
+    agent_->SetLocalVmPeer(local_vm_peer);
 
-    Agent::GetInstance()->SetMdataPeer(new Peer(Peer::MDATA_PEER, MDATA_PEER_NAME));
-
-    // Create "DEFAULT" VRF and trigger init after entry is created
-    OperDB *oper_inst = new OperDB(cb);
-    oper_inst->CreateDefaultVrf();
-
-    //Open up mirror socket
-    Agent::GetInstance()->GetMirrorTable()->MirrorSockInit();
+    Peer *mdata_peer;
+    mdata_peer = new Peer(Peer::MDATA_PEER, MDATA_PEER_NAME);
+    agent_->SetMdataPeer(mdata_peer);
 }
 
-void OperDB::CreateDefaultVrf() {
-    AgentConfig *config = AgentConfig::GetInstance();
-
-    VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
-    vid_ = vrf_table->Register(boost::bind(&OperDB::OnVrfCreate, this, _2));
-    vrf_table->CreateVrf(Agent::GetInstance()->GetDefaultVrf());
-    if (config->isXenMode()) {
-        vrf_table->CreateVrf(Agent::GetInstance()->GetLinkLocalVrfName());
-    }
+void OperDB::CreateDBClients() {
+    multicast_.get()->Register();
 }
 
-void OperDB::OnVrfCreate(DBEntryBase *entry) {
-    if (entry->IsDeleted())
-        return;
-
-    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    if (vrf->GetName() == Agent::GetInstance()->GetDefaultVrf() && trigger_ == NULL) {
-        // Default VRF created; create nexthops, unregister in DB Task context
-        Agent::GetInstance()->SetDefaultInet4UnicastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-        Agent::GetInstance()->SetDefaultInet4MulticastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
-        Agent::GetInstance()->SetDefaultLayer2RouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::LAYER2));
-        DiscardNH::CreateReq();
-        ResolveNH::CreateReq();
-        trigger_ = SafeDBUnregister(Agent::GetInstance()->GetVrfTable(), vid_);
-
-        if (cb_)
-            cb_();
-    }
-}
-
-
-OperDB::OperDB(Callback cb) : vid_(-1), cb_(cb), trigger_(NULL) {
+OperDB::OperDB(Agent *agent) : agent_(agent) {
     assert(singleton_ == NULL);
     singleton_ = this;
 }
 
 OperDB::~OperDB() {
-    assert(trigger_);
-    trigger_->Reset();
-    delete trigger_;
 }
 
 void OperDB::Shutdown() {
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVnTable());
-    delete Agent::GetInstance()->GetVnTable();
-    Agent::GetInstance()->SetVnTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetVnTable());
+    delete agent_->GetVnTable();
+    agent_->SetVnTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVmTable());
-    delete Agent::GetInstance()->GetVmTable();
-    Agent::GetInstance()->SetVmTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetVmTable());
+    delete agent_->GetVmTable();
+    agent_->SetVmTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetSgTable());
-    delete Agent::GetInstance()->GetSgTable();
-    Agent::GetInstance()->SetSgTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetSgTable());
+    delete agent_->GetSgTable();
+    agent_->SetSgTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetInterfaceTable());
-    delete Agent::GetInstance()->GetInterfaceTable();
-    Agent::GetInstance()->SetInterfaceTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetInterfaceTable());
+    delete agent_->GetInterfaceTable();
+    agent_->SetInterfaceTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVrfTable());
-    delete Agent::GetInstance()->GetVrfTable();
-    Agent::GetInstance()->SetVrfTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetVrfTable());
+    delete agent_->GetVrfTable();
+    agent_->SetVrfTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetMplsTable());
-    delete Agent::GetInstance()->GetMplsTable();
-    Agent::GetInstance()->SetMplsTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetMplsTable());
+    delete agent_->GetMplsTable();
+    agent_->SetMplsTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetNextHopTable());
-    delete Agent::GetInstance()->GetNextHopTable();
-    Agent::GetInstance()->SetNextHopTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetNextHopTable());
+    delete agent_->GetNextHopTable();
+    agent_->SetNextHopTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetMirrorTable());
-    delete Agent::GetInstance()->GetMirrorTable();
-    Agent::GetInstance()->SetMirrorTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetMirrorTable());
+    delete agent_->GetMirrorTable();
+    agent_->SetMirrorTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVrfAssignTable());
-    delete Agent::GetInstance()->GetVrfAssignTable();
-    Agent::GetInstance()->SetVrfAssignTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetVrfAssignTable());
+    delete agent_->GetVrfAssignTable();
+    agent_->SetVrfAssignTable(NULL);
 
-    Agent::GetInstance()->GetDB()->RemoveTable(Agent::GetInstance()->GetVxLanTable());
-    delete Agent::GetInstance()->GetVxLanTable();
-    Agent::GetInstance()->SetVxLanTable(NULL);
+    agent_->GetDB()->RemoveTable(agent_->GetVxLanTable());
+    delete agent_->GetVxLanTable();
+    agent_->SetVxLanTable(NULL);
 
-    assert(OperDB::singleton_);
-    delete OperDB::singleton_;
-    OperDB::singleton_ = NULL;
+    delete agent_->GetLocalPeer();
+    agent_->SetLocalPeer(NULL);
 
-    delete Agent::GetInstance()->GetLocalPeer();
-    Agent::GetInstance()->SetLocalPeer(NULL);
+    delete agent_->GetLocalVmPeer();
+    agent_->SetLocalVmPeer(NULL);
 
-    delete Agent::GetInstance()->GetLocalVmPeer();
-    Agent::GetInstance()->SetLocalVmPeer(NULL);
+    delete agent_->GetMdataPeer();
+    agent_->SetMdataPeer(NULL);
 
-    delete Agent::GetInstance()->GetMdataPeer();
-    Agent::GetInstance()->SetMdataPeer(NULL);
-
-    delete Agent::GetInstance()->GetDomainConfigTable();
-    Agent::GetInstance()->SetDomainConfigTable(NULL);
+    delete agent_->GetDomainConfigTable();
+    agent_->SetDomainConfigTable(NULL);
 }

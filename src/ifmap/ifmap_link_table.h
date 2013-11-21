@@ -10,6 +10,7 @@
 
 struct IFMapOrigin;
 class DBGraph;
+class IFMapLink;
 class IFMapNode;
 class IFMapTable;
 
@@ -42,6 +43,7 @@ public:
 
     static DBTable *CreateTable(DB *db, const std::string &name,
                                 DBGraph *graph);
+    IFMapLink *FindLink(DBGraphBase::edge_descriptor edge);
 
 private:
     DBGraph *graph_;

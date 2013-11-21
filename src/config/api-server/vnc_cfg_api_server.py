@@ -163,6 +163,8 @@ class VncApiServer(VncApiServerGen):
             vnc_cfg_types.VirtualMachineInterfaceServer
         self._resource_classes['virtual-network'] = \
             vnc_cfg_types.VirtualNetworkServer
+        self._resource_classes['network-ipam'] = \
+            vnc_cfg_types.NetworkIpamServer
         self._resource_classes['virtual-DNS'] = vnc_cfg_types.VirtualDnsServer
         self._resource_classes['virtual-DNS-record'] = \
             vnc_cfg_types.VirtualDnsRecordServer
@@ -237,10 +239,6 @@ class VncApiServer(VncApiServerGen):
                                                 ModuleNames[Module.API_SERVER])
 
         # sandesh init
-        collectors = None
-        if self._args.collector and self._args.collector_port:
-            collectors = [(self._args.collector,
-                           int(self._args.collector_port))]
         self._sandesh = Sandesh()
         if self._args.worker_id:
             # HACK till rest of infra catches up, worker 0 doesn't
@@ -252,7 +250,8 @@ class VncApiServer(VncApiServerGen):
         else:
             module = ModuleNames[Module.API_SERVER]
         self._sandesh.init_generator(module, socket.gethostname(),
-                                     collectors, 'vnc_api_server_context',
+                                     self._args.collectors,
+                                     'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common', 'sandesh'], self._disc)
         self._sandesh.trace_buffer_create(name="VncCfgTraceBuf", size=1000)
@@ -457,8 +456,7 @@ class VncApiServer(VncApiServerGen):
                                              10.1.2.3:9160 10.1.2.4:9160
                                          --redis_server_ip 127.0.0.1
                                          --redis_server_port 6382
-                                         --collector 127.0.0.1
-                                         --collector_port 8080
+                                         --collectors 127.0.0.1:8086
                                          --http_server_port 8090
                                          --listen_ip_addr 127.0.0.1
                                          --listen_port 8082
@@ -491,8 +489,7 @@ class VncApiServer(VncApiServerGen):
             'ifmap_server_port': "8443",
             'redis_server_ip': '127.0.0.1',
             'redis_server_port': '6382',
-            'collector': None,
-            'collector_port': None,
+            'collectors': None,
             'http_server_port': '8084',
             'log_local': False,
             'log_level': SandeshLevel.SYS_DEBUG,
@@ -501,6 +498,7 @@ class VncApiServer(VncApiServerGen):
             'multi_tenancy': False,
             'disc_server_ip': None,
             'disc_server_port': None,
+            'zk_server_ip':'127.0.0.1:2181'
         }
         # ssl options
         secopts = {
@@ -586,11 +584,9 @@ class VncApiServer(VncApiServerGen):
             "--listen_port",
             help="Port to provide service on, default %s" % (_WEB_PORT))
         parser.add_argument(
-            "--collector",
-            help="IP address of VNC collector server")
-        parser.add_argument(
-            "--collector_port",
-            help="Port of VNC collector server")
+            "--collectors",
+            help="List of VNC collectors in ip:port format",
+            nargs="+")
         parser.add_argument(
             "--http_server_port",
             help="Port of local HTTP server")
@@ -615,12 +611,16 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
-
+        parser.add_argument(
+            "--zk_server_ip",
+            help="Ip address:port of zookeeper server")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
             self._args.cassandra_server_list =\
                 self._args.cassandra_server_list.split()
+        if type(self._args.collectors) is str:
+            self._args.collectors = self._args.collectors.split()
     # end _parse_args
 
     # sigchld handler is currently not engaged. See comment @sigchld
@@ -637,6 +637,11 @@ class VncApiServer(VncApiServerGen):
                 'vnc_cfg_api.resync', api_server_ip=self._args.listen_ip_addr,
                 api_server_port=self._args.listen_port,
                 conf_sections=conf_sections)
+            self._extension_mgrs['resourceApi'] = ExtensionManager(
+                'vnc_cfg_api.resourceApi',
+                api_server_ip=self._args.listen_ip_addr,
+                api_server_port=self._args.listen_port,
+                conf_sections=conf_sections)
         except Exception as e:
             pass
     # end _load_extensions
@@ -650,10 +655,12 @@ class VncApiServer(VncApiServerGen):
         redis_server_ip = self._args.redis_server_ip
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
+        zk_server = self._args.zk_server_ip
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
                               redis_server_ip, redis_server_port,
-                              cass_server_list, reset_config, ifmap_loc)
+                              cass_server_list, reset_config, ifmap_loc,
+                              zk_server)
         self._db_conn = db_conn
     # end _db_connect
 
@@ -722,7 +729,7 @@ class VncApiServer(VncApiServerGen):
         try:
             id = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
         except NoIdError:
-            obj_dict = s_obj.__dict__
+            obj_dict = s_obj.serialize_to_json()
             obj_dict['id_perms'] = self._get_default_id_perms(obj_type)
             (ok, result) = self._db_conn.dbe_alloc(obj_type, obj_dict)
             obj_ids = result
@@ -784,6 +791,7 @@ class VncApiServer(VncApiServerGen):
         if not 'network_policy_refs' in obj_dict:
             return
         pols = obj_dict['network_policy_refs']
+        vn_log.attached_policies = []
         for pol_ref in pols:
             pol_name = ":".join(pol_ref['to'])
             maj_num = pol_ref['attr']['sequence']['major']
@@ -802,9 +810,10 @@ class VncApiServer(VncApiServerGen):
         return (True, '')
     # end _http_get_common
 
-    def _http_put_common(self, request, obj_type, obj_dict, obj_uuid):
+    def _http_put_common(self, request, obj_type, obj_uuid, obj_fq_name,
+                         obj_dict):
         if obj_dict:
-            fq_name_str = ":".join(obj_dict['fq_name'])
+            fq_name_str = ":".join(obj_fq_name)
 
             # TODO keep _id_perms.uuid_xxlong immutable in future
             # dsetia - check with ajay regarding comment above
@@ -833,8 +842,7 @@ class VncApiServer(VncApiServerGen):
                 log = VMLog(api_log=apiConfig, sandesh=self._sandesh)
             elif ((obj_type == "virtual_network") or
                   (obj_type == "virtual-network")):
-                vn_log = UveVirtualNetworkConfig(name=fq_name_str,
-                                                 attached_policies=[])
+                vn_log = UveVirtualNetworkConfig(name=fq_name_str)
                 self.add_virtual_network_refs(vn_log, obj_dict)
                 uveLog = UveVirtualNetworkConfigTrace(data=vn_log,
                                                       sandesh=self._sandesh)
@@ -1080,77 +1088,6 @@ class VncApiServer(VncApiServerGen):
         self.ifmap_task = self._disc.publish(
             ModuleNames[Module.IFMAP_SERVER], data)
     # end
-
-    def _create_default_security_group(self, proj_obj):
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              subnet=SubnetType(
-                                                  '0.0.0.0', 0))],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)])
-        sg_rules.add_policy_rule(egress_rule)
-
-        # create security group
-        sg_obj = SecurityGroup(name='default', parent_obj=proj_obj,
-                               id_perms=self._get_default_id_perms(
-                                   'project'),
-                               security_group_entries=sg_rules)
-        sg_obj_json = json.dumps(sg_obj, default=lambda o: dict((k, v)
-                                 for k, v in o.__dict__.iteritems()))
-        sg_obj_dict = json.loads(sg_obj_json)
-
-        (ok, result) = self._db_conn.dbe_alloc('security_group', sg_obj_dict)
-        obj_ids = result
-        (ok, result) = self._db_conn.dbe_create(
-            'security_group', obj_ids, sg_obj_dict)
-    # end _create_default_security_group
-
-    def projects_http_post(self):
-        resp = super(VncApiServer, self).projects_http_post()
-        proj_obj = Project.factory(**resp['project'])
-        self._create_default_security_group(proj_obj)
-        return resp
-    # end projects_http_post
-
-    def project_http_delete(self, id):
-        # delete the 'default' security group on project delete in openstack
-        # TBD do this in openstack extension package
-        obj_ids = {'uuid': id}
-        db_conn = self._db_conn
-        (read_ok, read_result) = db_conn.dbe_read('project', obj_ids)
-        if read_ok:
-            security_groups = read_result.get('security_groups', [])
-            for sg in security_groups:
-                sg_name = sg['to'][-1]
-                sg_ids = {'uuid': sg['uuid']}
-                if sg_name == 'default':
-                    ifmap_id = cfgm_common.imid.get_ifmap_id_from_fq_name(
-                        'security-group', sg['to'])
-                    sg_ids['imid'] = ifmap_id
-                    parent_imid = cfgm_common.imid.get_ifmap_id_from_fq_name(
-                        'project', sg['to'][:-1])
-                    sg_ids['parent_imid'] = parent_imid
-                    db_conn.dbe_delete('security-group', sg_ids, None)
-
-        super(VncApiServer, self).project_http_delete(id)
-    # end project_http_delete
 
 # end class VncApiServer
 

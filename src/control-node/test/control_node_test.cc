@@ -104,13 +104,17 @@ void ControlNodeTest::IFMapMessage(const std::string &msg) {
     parser->Receive(bgp_server_->config_db(), msg.data(), msg.length(), 0);
 }
 
-void ControlNodeTest::VerifyRoutingInstance(const std::string instance) {
+void ControlNodeTest::VerifyRoutingInstance(const std::string instance,
+                                            bool verify_network_index) {
     const RoutingInstanceMgr *ri_mgr = bgp_server_->routing_instance_mgr();
     TASK_UTIL_WAIT_NE_NO_MSG(ri_mgr->GetRoutingInstance(instance),
         NULL, 1000, 10000, "Wait for routing instance..");
     const RoutingInstance *rti = ri_mgr->GetRoutingInstance(instance);
-    TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
-        0, 1000, 10000, "Wait for vn index..");
+
+    if (verify_network_index) {
+        TASK_UTIL_WAIT_NE_NO_MSG(rti->virtual_network_index(),
+            0, 1000, 10000, "Wait for vn index..");
+    }
 }
 
 int ControlNodeTest::BgpEstablishedCount() const {
@@ -130,7 +134,7 @@ int ControlNodeTest::BgpEstablishedCount() const {
     return count;
 }
 
-BgpServer *ControlNodeTest::bgp_server() {
+BgpServerTest *ControlNodeTest::bgp_server() {
     return bgp_server_.get();
 }
 

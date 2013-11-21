@@ -7,6 +7,8 @@
 
 #include <string>
 #include "io/event_manager.h"
+#include <sandesh/sandesh.h>
+#include "redis_types.h"
 
 // This class can be used to send UVE Traces from vizd to the OpSever(s)
 // Currently, this is done via Redis. 
@@ -50,7 +52,7 @@ public:
     bool WithdrawGenerator(const std::string &source, const std::string &module);
     typedef boost::function<void(int)> GenCleanupReply;
     bool GeneratorCleanup(GenCleanupReply gcr);
-
+    void FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info);
 private:
     class OpServerImpl;
     OpServerImpl *impl_;

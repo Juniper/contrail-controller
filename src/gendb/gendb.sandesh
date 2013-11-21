@@ -14,5 +14,7 @@ enum DbDataType {
     Unsigned16Type    = 5, // uint16_t
     Unsigned32Type    = 6, // uint32_t
     Unsigned64Type    = 7, // uint64_t
+
+    DoubleType        = 8, // double
 }
 

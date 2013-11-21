@@ -1,0 +1,3 @@
+include services.py
+recursive-include sandesh *.html *.xml *.css
+recursive-include doc *

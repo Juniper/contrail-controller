@@ -18,6 +18,7 @@
 #include "bgp/bgp_peer_close.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "xmpp/xmpp_server.h"
 
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -57,6 +58,51 @@ public:
 
 private:
     std::map<std::string, boost::any> user_data_;
+};
+
+class XmppServerTest : public XmppServer {
+public:
+
+    XmppServerTest(EventManager *evm) : XmppServer(evm) {
+        GetIsPeerCloseGraceful_fnc_ =
+            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
+    }
+    XmppServerTest(EventManager *evm, const std::string &server_addr) :
+            XmppServer(evm, server_addr) {
+        GetIsPeerCloseGraceful_fnc_ =
+            boost::bind(&XmppServerTest::XmppServerIsPeerCloseGraceful, this);
+    }
+    virtual ~XmppServerTest() { }
+
+    virtual bool IsPeerCloseGraceful() {
+        return GetIsPeerCloseGraceful_fnc_();
+    }
+
+    bool XmppServerIsPeerCloseGraceful() {
+        return XmppServer::IsPeerCloseGraceful();
+    }
+
+    // Protect connection db with mutex as it is queried from main thread which
+    // does not adhere to control-node scheduler policy.
+    XmppConnection *FindConnection(const std::string &peer_addr) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return XmppServer::FindConnection(peer_addr);
+    }
+
+    void InsertConnection(XmppConnection *connection) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        XmppServer::InsertConnection(connection);
+    }
+
+    void RemoveConnection(XmppConnection *connection) {
+        tbb::mutex::scoped_lock lock(mutex_);
+        XmppServer::RemoveConnection(connection);
+    }
+
+    boost::function<bool()> GetIsPeerCloseGraceful_fnc_;
+
+private:
+    tbb::mutex mutex_;
 };
 
 class BgpServerTest : public BgpServer {

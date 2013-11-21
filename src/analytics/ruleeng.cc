@@ -5,7 +5,7 @@
 #include "ruleeng.h"
 #include <sstream>
 #include <exception>
-
+#include <cstdlib>
 #include <boost/lexical_cast.hpp>
 #include <boost/assign/list_of.hpp>
 
@@ -19,6 +19,9 @@
 #include <sandesh/sandesh.h> 
 #include <sandesh/sandesh_trace.h> 
 #include "collector_uve_types.h"
+#include "viz_constants.h"
+
+using std::string;
 
 int Ruleeng::RuleBuilderID = 0;
 int Ruleeng::RuleWorkerID = 0;
@@ -127,8 +130,22 @@ void Ruleeng::remove_identifier(const pugi::xml_node &parent) {
     }
 }
 
+static DbHandler::Var ParseNode(const pugi::xml_node& node) {
+    string attype = node.attribute("type").value();
+    DbHandler::Var sample;
+    if (attype == "string") {
+        sample = string(node.child_value());
+    } else if (attype == "double") {   
+        sample = (double) strtod(node.child_value(), NULL);
+    } else if ((attype == "u16") ||  (attype == "u32") || (attype == "u64")) {
+        sample = (uint64_t) strtoul(node.child_value(), NULL, 10);
+    } else {
+        LOG(ERROR, __func__ << " Bad Stat Type " << attype << " for attr " << node.name());
+    }
+    return sample;
+}
 
-bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg) {
+bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
     if (rmsg.hdr.get_Type() != SandeshType::UVE) {
         return true;
     }
@@ -151,26 +168,29 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg) {
     object = object.child("data");
     object = object.first_child();
 
-    std::string key;
+    std::string barekey;
     const char *tempstr, *rowkey;
+    std::string table;
 
     for (pugi::xml_node node = object.first_child(); node;
             node = node.next_sibling()) {
         tempstr = node.attribute("key").value();
         if (strcmp(tempstr, "")) {
             rowkey = node.child_value();
-            if (!key.empty()) {
-                key.append(":");
-                key.append(rowkey);
+            if (!barekey.empty()) {
+                barekey.append(":");
+                barekey.append(rowkey);
             } else {
-                key.append(tempstr);
-                key.append(":");
-                key.append(rowkey);
+                table = std::string(tempstr);
+                barekey.append(rowkey);
+                
             }
         }
     }
 
-    if (key.empty()) {
+    std::string key = table + ":" + barekey;
+
+    if (table.empty()) {
         LOG(ERROR, __func__ << " Message: " << type << " Source: " << source <<
             " key NOT PRESENT");
         return false;
@@ -206,6 +226,135 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg) {
             agg = std::string("None");
         }
 
+        if (!node.attribute("tags").empty()) {
+
+            // We only process tags for lists of structs
+            string ltype;
+            pugi::xml_node subs;
+            if (strcmp(node.attribute("type").value(), "list") == 0) {
+                subs = node.child("list");
+                ltype = subs.attribute("type").value();
+            }
+
+            if (ltype == "struct") {
+                                    
+                string tstr(node.attribute("tags").value());
+
+                for (pugi::xml_node elem = subs.first_child(); elem;
+                        elem = elem.next_sibling()) {
+
+                    DbHandler::TagMap tmap;
+                    size_t pos;
+                    size_t npos = 0;
+                    do {
+                        if (npos)
+                            pos = npos+1;
+                        else
+                            pos = 0;
+                        
+                        npos = tstr.find(',' , pos);
+                        string term;
+                        if (npos == string::npos)
+                            term = tstr.substr(pos, string::npos);
+                        else 
+                            term = tstr.substr(pos, npos - pos);
+
+                        // TODO : check for timestamp character sequence
+                        //        If it is found, use it as timestamp
+
+                        // Separating this term into a prefix and suffix
+                        // Read the suffix here as well
+                        size_t spos = term.find(':');
+                        string pterm, sterm, sname, pname;
+                        DbHandler::Var sv;
+                        if (spos == string::npos) {
+                            pterm = term;
+                        } else {
+                            pterm = term.substr(0,spos);
+                            sterm = term.substr(spos+1,string::npos);
+                           
+                            if (!sterm.empty()) {
+                                pugi::xml_node anode_s;
+                                string sname;
+                                if (sterm[0] != '.') {
+                                    anode_s = object.child(sterm.c_str());
+                                    sname = sterm;
+                                } else {
+                                    string cattr = sterm.substr(1,string::npos);
+                                    anode_s = elem.child(cattr.c_str());
+                                    sname = string(node.name()) + sterm;
+                                }
+                                sv = ParseNode(anode_s);
+                            }
+                        }
+
+                        if (pterm[0] != '.') {
+                            pname = pterm;
+                        } else {
+                            pname = string(node.name()) + pterm;
+                        }
+
+                        // Look for an existing prefix entry
+                        // Add the suffix to it if suffix was present
+                        // If prefix doesn't exist, create it.
+                        DbHandler::TagMap::iterator tr = tmap.find(pname);
+                        if (tr == tmap.end()) {
+                            
+                            pugi::xml_node anode_p;
+                            if (pterm[0] != '.') {
+                                anode_p = object.child(pterm.c_str());
+                            } else {
+                                string cattr = pterm.substr(1,string::npos);
+                                anode_p = elem.child(cattr.c_str());
+                            }
+                            DbHandler::Var pv = ParseNode(anode_p);
+
+                            DbHandler::AttribMap amap;
+                            if (!sterm.empty()) {
+                                amap.insert(make_pair(sname, sv));
+                            }
+                            tmap.insert(make_pair(pname,
+                                                  make_pair(pv, amap))); 
+                        } else {
+                            DbHandler::AttribMap& amap = tr->second.second;
+                            if (!sterm.empty()) {
+                                amap.insert(make_pair(sname, sv));
+                            }                    
+                        }
+
+                    } while (npos != string::npos);
+
+                    DbHandler::AttribMap attribs;
+                    if (tmap.find(g_viz_constants.STAT_OBJECTID_FIELD) == tmap.end()) {
+                        DbHandler::AttribMap amap;
+                        pugi::xml_node anode_p = object.child(g_viz_constants.STAT_OBJECTID_FIELD.c_str());
+                        DbHandler::Var pv = ParseNode(anode_p);
+
+                        tmap.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, make_pair(pv, amap)));
+                        attribs.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, pv));
+                    }
+
+                    // Load all tags and non-tags
+                    for (pugi::xml_node sattr = elem.first_child(); sattr;
+                            sattr = sattr.next_sibling()) {
+                        string sattrname(".");
+                        sattrname.append(sattr.name());
+                        DbHandler::Var sample = ParseNode(sattr);
+
+                        string tname = string(node.name()) + sattrname;
+                        attribs.insert(make_pair(tname, sample));
+                    }
+                    db->StatTableInsert(ts, object.name(), node.name(), tmap, attribs);
+                }
+
+            } else {
+                LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                  " Name: " << object.name() <<  " Node: " << node.name()  <<
+                  " Bad Stat type " << ltype); 
+            }
+
+        }
+        
         if (!osp_->UVEUpdate(object.name(), node.name(),
                              source, module,
                              key, ostr.str(), seq,
@@ -258,7 +407,7 @@ bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc, 
 
     handle_object_log(parent, rmsg, vmsgp->unm, db);
 
-    if (uveproc) handle_uve_publish(rmsg);
+    if (uveproc) handle_uve_publish(rmsg, db);
 
     handle_flow_object(rmsg, db);
 

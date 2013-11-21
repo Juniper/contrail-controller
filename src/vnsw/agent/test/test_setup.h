@@ -19,7 +19,7 @@
 #include <db/db_table_partition.h>
 #include <io/event_manager.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
 #include "oper/operdb_init.h"
 
 #include "pkt/pkt_init.h"

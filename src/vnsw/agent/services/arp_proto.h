@@ -165,8 +165,9 @@ public:
         ArpStats() { Reset(); }
     };
 
-    static void Init(boost::asio::io_service &io, bool run_with_vrouter);
-    static void Shutdown();
+    void Init(boost::asio::io_service &io, bool run_with_vrouter);
+    void Shutdown();
+    ArpProto(boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
 
     bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
@@ -212,7 +213,6 @@ public:
     void AgingTimeout(uint32_t timeout) { aging_timeout_ = timeout; }
 
 private:
-    ArpProto(boost::asio::io_service &io, bool run_with_vrouter);
     void VrfUpdate(DBTablePartBase *part, DBEntryBase *entry);
     void ItfUpdate(DBEntryBase *entry);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);

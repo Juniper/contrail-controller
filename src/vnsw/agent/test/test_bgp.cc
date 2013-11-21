@@ -11,7 +11,6 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "pkt/pkt_init.h"
@@ -26,8 +25,6 @@
 #include "oper/vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 

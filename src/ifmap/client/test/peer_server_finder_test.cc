@@ -6,6 +6,7 @@
 
 #include "base/logging.h"
 #include "base/task.h"
+#include "base/task_annotations.h"
 
 #include <sandesh/sandesh.h>
 
@@ -39,7 +40,7 @@ class PeerIFMapServerTestFinder : public PeerIFMapServerFinder {
 public:
     PeerIFMapServerTestFinder(IFMapManager *ifmap_manager,
                 DiscoveryServiceClient *client, std::string url) :
-        PeerIFMapServerFinder(ifmap_manager, "test_ds_client", client, url) {
+        PeerIFMapServerFinder(ifmap_manager, client, url) {
     }
 
     virtual bool DSExists() {
@@ -72,6 +73,7 @@ protected:
     void AddResponseEntryAndProc(std::vector<DSResponse> &ds_resp,
                                  const std::string &host, unsigned short port) {
         AddResponseEntry(ds_resp, host, port);
+        ConcurrencyScope scope("http client");
         peer_finder_->ProcPeerIFMapDSResp(ds_resp);
     }
 
@@ -91,6 +93,7 @@ protected:
     void DeleteResponseEntryAndProc(std::vector<DSResponse> &ds_resp,
                                 const std::string &host, unsigned short port) {
         DeleteResponseEntry(ds_resp, host, port);
+        ConcurrencyScope scope("http client");
         peer_finder_->ProcPeerIFMapDSResp(ds_resp);
     }
 
@@ -776,6 +779,409 @@ TEST_F(PeerServerFinderTest, DSResp7) {
     EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 4);
     EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
     EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+}
+
+// +1, PD, [-1 +2], PD
+TEST_F(PeerServerFinderTest, PeerDown) {
+    InitFinder("");
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+
+    std::string host1 = "1.1.1.1";
+    unsigned short port1 = 1111;
+    std::string host1str = "1.1.1.1:1111";
+    std::string host2 = "1.1.1.2";
+    unsigned short port2 = 1112;
+    std::string host2str = "1.1.1.2:1112";
+
+    std::string stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+
+    // Add host1
+    std::vector<DSResponse> ds_resp;
+    AddResponseEntryAndProc(ds_resp, host1, port1);
+    std::string curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+
+    // host1 down but it will still be the current peer
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+
+    // Delete host1 and add host2. host2 should become current
+    DeleteResponseEntry(ds_resp, host1, port1);
+    AddResponseEntryAndProc(ds_resp, host2, port2);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 2);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // host2 down but it will still be the current peer
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 3);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+}
+
+// [+1 +2], PD, PD, -1, [+1 -2]
+TEST_F(PeerServerFinderTest, PeerDown1) {
+    InitFinder("");
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+
+    std::string host1 = "1.1.1.1";
+    unsigned short port1 = 1111;
+    std::string host1str = "1.1.1.1:1111";
+    std::string host2 = "1.1.1.2";
+    unsigned short port2 = 1112;
+    std::string host2str = "1.1.1.2:1112";
+
+    std::string stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+
+    // Add host1 and host2
+    std::vector<DSResponse> ds_resp;
+    AddResponseEntry(ds_resp, host1, port1);
+    AddResponseEntryAndProc(ds_resp, host2, port2);
+    std::string curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // host1 down but not removed from DB. host2 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_NE(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // host2 down but not removed from DB. host1 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_NE(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 2);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Delete host1. host2 should become current
+    DeleteResponseEntryAndProc(ds_resp, host1, port1);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 3);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Add host1 and delete host2. host1 should become current
+    AddResponseEntry(ds_resp, host1, port1);
+    DeleteResponseEntryAndProc(ds_resp, host2, port2);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 4);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+}
+
+// +1, -1, PD, +2, +1, PD
+TEST_F(PeerServerFinderTest, PeerDown2) {
+    InitFinder("");
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+
+    std::string host1 = "1.1.1.1";
+    unsigned short port1 = 1111;
+    std::string host1str = "1.1.1.1:1111";
+    std::string host2 = "1.1.1.2";
+    unsigned short port2 = 1112;
+    std::string host2str = "1.1.1.2:1112";
+
+    std::string stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+
+    // Add host1
+    std::vector<DSResponse> ds_resp;
+    AddResponseEntryAndProc(ds_resp, host1, port1);
+    std::string curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Delete host1
+    DeleteResponseEntryAndProc(ds_resp, host1, port1);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    // both the following counters should go up
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 1);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // The DB is empty. 'reset_connection' will not go up.
+    EXPECT_FALSE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_NE(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Add host2. host2 should become current.
+    AddResponseEntryAndProc(ds_resp, host2, port2);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_NE(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Add host1. No change in current.
+    AddResponseEntryAndProc(ds_resp, host1, port1);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_NE(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Peerdown. host1 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_NE(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 2);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+}
+
+// +1, -1, PD, [+2 +1], PD
+TEST_F(PeerServerFinderTest, PeerDown3) {
+    InitFinder("");
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+
+    std::string host1 = "1.1.1.1";
+    unsigned short port1 = 1111;
+    std::string host1str = "1.1.1.1:1111";
+    std::string host2 = "1.1.1.2";
+    unsigned short port2 = 1112;
+    std::string host2str = "1.1.1.2:1112";
+
+    std::string stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+
+    // Add host1
+    std::vector<DSResponse> ds_resp;
+    AddResponseEntryAndProc(ds_resp, host1, port1);
+    std::string curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Delete host1
+    DeleteResponseEntryAndProc(ds_resp, host1, port1);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 1);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // The DB is empty. 'reset_connection' will not go up.
+    EXPECT_FALSE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_NE(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_FALSE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Add host2 and host1. Since host1 is current from before, PeerExistsInDb()
+    // will make us keep using it.
+    AddResponseEntry(ds_resp, host2, port2);
+    AddResponseEntryAndProc(ds_resp, host1, port1);
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_NE(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    // Peerdown. host2 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_NE(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 2);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 1);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 2);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+
+    stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+}
+
+// [+1 +2 +3], PD, PD, PD
+TEST_F(PeerServerFinderTest, PeerDown4) {
+    InitFinder("");
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 0);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+
+    std::string host1 = "1.1.1.1";
+    unsigned short port1 = 1111;
+    std::string host1str = "1.1.1.1:1111";
+    std::string host2 = "1.1.1.2";
+    unsigned short port2 = 1112;
+    std::string host2str = "1.1.1.2:1112";
+    std::string host3 = "1.1.1.3";
+    unsigned short port3 = 1113;
+    std::string host3str = "1.1.1.3:1113";
+
+    std::string stat_peer = peer_finder_->get_static_peer();
+    EXPECT_EQ(stat_peer.size(), 0);
+
+    // Add host1
+    std::vector<DSResponse> ds_resp;
+    AddResponseEntry(ds_resp, host1, port1);
+    AddResponseEntry(ds_resp, host2, port2);
+    AddResponseEntryAndProc(ds_resp, host3, port3);
+    std::string curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 3);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 0);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host3, port3));
+
+    // Peerdown. host2 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host2str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 3);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 1);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host3, port3));
+
+    // Peerdown. host3 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host3str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 3);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 2);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host3, port3));
+
+    // Peerdown. host1 should become current
+    EXPECT_TRUE(peer_finder_->PeerDown());
+    curr_peer = peer_finder_->get_current_peer();
+    EXPECT_EQ(curr_peer.compare(host1str), 0);
+    EXPECT_EQ(peer_finder_->get_peer_ifmap_servers_count(), 3);
+    EXPECT_EQ(ifmap_manager_.get_start_connection_count(), 1);
+    EXPECT_EQ(ifmap_manager_.get_reset_connection_count(), 3);
+    EXPECT_EQ(peer_finder_->get_using_non_ds_peer_count(), 0);
+    EXPECT_EQ(peer_finder_->get_no_best_peer_count(), 0);
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host1, port1));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host2, port2));
+    EXPECT_TRUE(peer_finder_->HostPortInDSDb(host3, port3));
 
     stat_peer = peer_finder_->get_static_peer();
     EXPECT_EQ(stat_peer.size(), 0);

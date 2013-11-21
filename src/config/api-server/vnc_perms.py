@@ -24,10 +24,9 @@ class VncPermissions(object):
     def validate_perms(self, request, uuid, mode=PERMS_R):
         # retrieve object and permissions
         try:
-            obj_dict = self._server_mgr._db_conn.uuid_to_obj_dict(uuid)
+            id_perms = self._server_mgr._db_conn.uuid_to_obj_perms(uuid)
         except NoIdError:
             return (True, '')
-        id_perms = json.loads(obj_dict['prop:id_perms'])
 
         err_msg = (403, 'Permission Denied')
 

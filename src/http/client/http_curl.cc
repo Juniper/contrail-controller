@@ -344,7 +344,8 @@ void del_conn(HttpConnection *connection, GlobalInfo *g) {
 }
 
 /* Create a new easy handle, and add it to the global curl_multi */
-ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
+ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
+                   bool header, bool timeout)
 {
   ConnInfo *conn = (ConnInfo *)calloc(1, sizeof(ConnInfo));
   memset(conn, 0, sizeof(ConnInfo));
@@ -367,9 +368,16 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
   curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
-  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
-  curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+  if (timeout) {
+      /* set the timeout limits to abort the connection */
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
+      curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_LIMIT, 10L);
+  }
   curl_easy_setopt(conn->easy, CURLOPT_FORBID_REUSE, 1L);
+
+  /* to include the header in the body */
+  if (header)
+      curl_easy_setopt(conn->easy, CURLOPT_HEADER, 1);
 
   /* call this function to get a socket */
   curl_easy_setopt(conn->easy, CURLOPT_OPENSOCKETFUNCTION, opensocket);
@@ -384,6 +392,11 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g)
 void set_url(ConnInfo *conn, const char *url) {
   conn->url = strdup(url);
   curl_easy_setopt(conn->easy, CURLOPT_URL, conn->url);
+}
+
+void set_header_options(ConnInfo *conn, const char *options) { 
+    conn->headers = curl_slist_append(conn->headers, options);
+    curl_easy_setopt(conn->easy, CURLOPT_HTTPHEADER, conn->headers);
 }
 
 void set_put_string(ConnInfo *conn, const char *post) { 

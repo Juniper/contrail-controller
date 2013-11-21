@@ -26,7 +26,7 @@ for src in SandeshGenSrcs:
     sandesh_objs.append(obj)
 
 except_files = [
-                'init_config.cc'
+                'cfg_init.cc'
                 ]
 
 except_objs = []
@@ -40,13 +40,13 @@ libcfg = env.Library('cfg',
                      sandesh_objs +
                      ['cfg_listener.cc',
                       'cfg_filter.cc',
-                      'interface_cfg.cc',
-                      'interface_cfg_listener.cc',
-                      'mirror_cfg.cc',
+                      'cfg_interface.cc',
+                      'cfg_interface_listener.cc',
+                      'cfg_mirror.cc',
                       'discovery_agent.cc',
                       ])
 
 libcfg_int = env.Library('cfg_int',
-                         ['interface_cfg.cc',
+                         ['cfg_interface.cc',
                           ])
 

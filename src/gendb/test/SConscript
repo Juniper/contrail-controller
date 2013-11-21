@@ -1,0 +1,34 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+Import('BuildEnv')
+Import('BuildEnv')
+env = BuildEnv.Clone()
+cflags = env['CCFLAGS']
+while env['CCFLAGS'].count('-Werror') > 0:
+    env['CCFLAGS'].remove('-Werror')
+
+env.Append(CPPPATH = ['#/build/include/thrift'])
+def MapBuildDir(list):
+    return map(lambda x: env['TOP']+'/'+x, list)
+
+includes = ['cdb', 'gendb']
+env.Append(CPPPATH = [MapBuildDir(includes)])
+
+env.Append(LIBPATH=['#/build/lib'])
+libs=['gendb', 'cdb', 'base', 'gunit', 'thrift']
+env.Append(LIBS=libs)
+libpaths=['gendb', 'cdb', 'base']
+env.Append(LIBPATH = [MapBuildDir(libpaths)])
+
+cdb_if_test = env.UnitTest('cdb_if_test',
+        ['cdb_if_test.cc'])
+
+test_suite = [ cdb_if_test,
+             ]
+test = env.TestSuite('gendb_test_suite', test_suite)
+
+env.Alias('src/gendb:test', test)
+

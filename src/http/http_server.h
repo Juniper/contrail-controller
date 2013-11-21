@@ -13,6 +13,8 @@
 #include "io/tcp_server.h"
 #include "base/util.h"
 
+#define HTTP_WILDCARD_ENTRY "_match_any_"
+
 class EventManager;
 class HttpRequest;
 class HttpSession;

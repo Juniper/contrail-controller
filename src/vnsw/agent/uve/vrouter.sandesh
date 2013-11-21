@@ -59,7 +59,9 @@ struct VrouterAgent {  // Agent info
    27: optional string ds_addr;
    28: optional i32 ds_xs_instances;
    29: optional string control_ip; 
-   30: optional list<string> no_config_intf_list; 
+   30: optional list<string> no_config_intf_list;
+   31: optional u16 total_interface_count;
+   32: optional u16 down_interface_count;
 }
 
 uve sandesh UveVrouterAgent {
@@ -103,6 +105,11 @@ struct AgentDropStats {
     34: u64   ds_misc;
     35: u64   ds_invalid_packet;
     36: u64   ds_cksum_err;
+    37: u64   ds_clone_fail;
+    38: u64   ds_no_fmd;
+    39: u64   ds_cloned_original;
+    40: u64   ds_invalid_vnid;
+    41: u64   ds_frag_err;
 }
 
 struct AgentXmppStats {

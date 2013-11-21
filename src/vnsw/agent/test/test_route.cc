@@ -9,7 +9,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "pkt/pkt_init.h"
@@ -25,8 +26,6 @@
 #include "oper/vn.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "test_kstate_util.h"
 #include "vr_types.h"
@@ -76,6 +75,9 @@ protected:
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
         server2_ip_ = Ip4Address::from_string("10.1.122.11");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
+        subnet_vm_ip_1_ = Ip4Address::from_string("1.1.1.0");
+        subnet_vm_ip_2_ = Ip4Address::from_string("2.2.2.96");
+        subnet_vm_ip_3_ = Ip4Address::from_string("3.3.0.0");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
         trap_ip_ = Ip4Address::from_string("1.1.1.100");
         lpm1_ip_ = Ip4Address::from_string("2.0.0.0");
@@ -89,7 +91,8 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        EthInterface::CreateReq(eth_name_, Agent::GetInstance()->GetDefaultVrf());
+        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                eth_name_, Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
@@ -97,15 +100,15 @@ protected:
     virtual void TearDown() {
         TestRouteTable table1(1);
         WAIT_FOR(100, 100, (table1.Size() == 0));
-        EXPECT_EQ(table1.Size(), 0);
+        EXPECT_EQ(table1.Size(), 0U);
 
         TestRouteTable table2(2);
         WAIT_FOR(100, 100, (table2.Size() == 0));
-        EXPECT_EQ(table2.Size(), 0);
+        EXPECT_EQ(table2.Size(), 0U);
 
         TestRouteTable table3(3);
         WAIT_FOR(100, 100, (table3.Size() == 0));
-        EXPECT_EQ(table3.Size(), 0);
+        EXPECT_EQ(table3.Size(), 0U);
 
         VrfDelReq(vrf_name_.c_str());
         client->WaitForIdle();
@@ -191,6 +194,9 @@ protected:
     Inet4UnicastAgentRouteTable *rt_table_;
     Ip4Address  default_dest_ip_;
     Ip4Address  local_vm_ip_;
+    Ip4Address  subnet_vm_ip_1_;
+    Ip4Address  subnet_vm_ip_2_;
+    Ip4Address  subnet_vm_ip_3_;
     Ip4Address  remote_vm_ip_;
     Ip4Address  vhost_ip_;
     Ip4Address  fabric_gw_ip_;
@@ -222,6 +228,113 @@ TEST_F(RouteTest, HostRoute_1) {
 
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, trap_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, trap_ip_, 32));
+}
+
+TEST_F(RouteTest, SubnetRoute_1) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+        {"2.2.2.100", 28, "2.2.2.200"},
+        {"3.3.3.0", 16, "3.3.30.200"},
+    };
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    Inet4UnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    Inet4UnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+}
+
+/* Change IPAM list and verify clear/add of subnet route */
+TEST_F(RouteTest, SubnetRoute_2) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+        {"2.2.2.100", 28, "2.2.2.200"},
+        {"3.3.3.0", 16, "3.3.30.200"},
+    };
+
+    IpamInfo ipam_info_2[] = {
+        {"2.2.2.100", 28, "2.2.2.200"},
+    };
+
+    IpamInfo ipam_info_3[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3);
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    Inet4UnicastRouteEntry *rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    Inet4UnicastRouteEntry *rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 != NULL);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+    EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+
+    AddIPAM("vn1", ipam_info_2, 1);
+    client->WaitForIdle();
+
+    rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt1 == NULL);
+    EXPECT_TRUE(rt2 != NULL);
+    EXPECT_TRUE(rt3 == NULL);
+    EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+
+    AddIPAM("vn1", ipam_info_3, 1);
+    client->WaitForIdle();
+
+    rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt1 != NULL);
+    EXPECT_TRUE(rt2 == NULL);
+    EXPECT_TRUE(rt3 == NULL);
+    EXPECT_TRUE(rt1->GetActiveNextHop()->GetType() == NextHop::DISCARD);
+
+    client->Reset();
+    DelIPAM("vn1");
+    client->WaitForIdle();
+    rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
+    rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
+    rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
+    EXPECT_TRUE(rt1 == NULL);
+    EXPECT_TRUE(rt2 == NULL);
+    EXPECT_TRUE(rt3 == NULL);
+
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
 }
 
 TEST_F(RouteTest, VhostRecvRoute_1) {
@@ -622,7 +735,6 @@ TEST_F(RouteTest, VlanNHRoute_1) {
 
     // Add a route using NH created for service interface
     client->WaitForIdle();
-    const VlanNH *vlan_nh = static_cast<const VlanNH *>(rt->GetActiveNextHop());
     AddVlanNHRoute("vrf1", "2.2.2.0", 24, 1, 1, rt->GetMplsLabel(), "TestVn");
     rt = RouteGet("vrf1", Ip4Address::from_string("2.2.2.0"), 24);
     EXPECT_TRUE(rt != NULL);

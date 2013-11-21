@@ -28,7 +28,8 @@ public:
 
     void BgpConfig(const std::string &config);
     void IFMapMessage(const std::string &msg);
-    void VerifyRoutingInstance(const std::string instance);
+    void VerifyRoutingInstance(const std::string instance,
+                               bool verify_network_index = true);
 
     int BgpEstablishedCount() const;
 
@@ -39,7 +40,7 @@ public:
 
     DB *config_db();
 
-    BgpServer *bgp_server();
+    BgpServerTest *bgp_server();
     XmppServer *xmpp_server();
     BgpXmppChannelManager *xmpp_channel_manager();
     void Shutdown();

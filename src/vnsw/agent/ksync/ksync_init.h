@@ -7,7 +7,11 @@
 
 class KSync {
 public:
+    KSync(Agent *agent) : agent_(agent) {}
+    virtual ~KSync() {}
+
     static void RegisterDBClients(DB *db);
+    static void InitFlowMem();
     static void NetlinkInit();
     static void VRouterInterfaceSnapshot();
     static void ResetVRouter();
@@ -19,6 +23,10 @@ public:
     static void NetlinkInitTest();
     static void NetlinkShutdownTest();
     static void UpdateVhostMac();
+
+private:
+    Agent *agent_;
+    DISALLOW_COPY_AND_ASSIGN(KSync);
 };
 
 int GenenericNetlinkFamily();

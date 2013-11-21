@@ -10,8 +10,8 @@ import json
 import sys
 import time
 
+import gen.resource_common
 from gen.resource_xsd import *
-from gen.resource_common import *
 from gen.resource_client import *
 from gen.vnc_api_client_gen import VncApiClientGen
 
@@ -74,6 +74,8 @@ class VncApi(VncApiClientGen):
                  auth_token=None):
         # TODO allow for username/password to be present in creds file
 
+        super(VncApi, self).__init__(self._obj_serializer_diff)
+
         cfg_parser = ConfigParser.ConfigParser()
         clen = len(cfg_parser.read(conf_file or
                                    "/etc/contrail/vnc_api_lib.ini"))
@@ -98,8 +100,10 @@ class VncApi(VncApiClientGen):
                 _read_cfg(cfg_parser, 'auth', 'AUTHN_TENANT',
                           self._DEFAULT_AUTHN_TENANT)
             self._authn_body = \
-                '{"auth":{"passwordCredentials":{"username": "%s", "password": "%s"}, "tenantName":"%s"}}' \
-                % (self._username, self._password, self._tenant_name)
+                '{"auth":{"passwordCredentials":{' + \
+                '"username": "%s",' % (self._username) + \
+                ' "password": "%s"},' % (self._password) + \
+                ' "tenantName":"%s"}}' % (self._tenant_name)
             self._user_info = user_info
 
         if not api_server_host:
@@ -156,6 +160,20 @@ class VncApi(VncApiClientGen):
                                         retry_on_error=False)
         self._cfg_root_url = self._parse_homepage(homepage)
     #end __init__
+
+    def _obj_serializer_diff(self, obj):
+        if hasattr(obj, 'serialize_to_json'):
+            return obj.serialize_to_json(obj.get_pending_updates())
+        else:
+            return dict((k, v) for k, v in obj.__dict__.iteritems())
+    #end _obj_serializer_diff
+
+    def _obj_serializer_all(self, obj):
+        if hasattr(obj, 'serialize_to_json'):
+            return obj.serialize_to_json()
+        else:
+            return dict((k, v) for k, v in obj.__dict__.iteritems())
+    #end _obj_serializer_all
 
     def _create_api_server_session(self):
         self._api_server_session = requests.Session()
@@ -233,11 +251,11 @@ class VncApi(VncApiClientGen):
             # strip base from *_url to get *_uri
             uri = link['link']['href'].replace(srv_root_url, '')
             if link['link']['rel'] == 'collection':
-                class_name = "%sClientGen" % (CamelCase(link['link']['name']))
+                class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 cls.create_uri = uri
             elif link['link']['rel'] == 'resource-base':
-                class_name = "%sClientGen" % (CamelCase(link['link']['name']))
+                class_name = "%s" % (CamelCase(link['link']['name']))
                 cls = str_to_class(class_name)
                 resource_type = link['link']['name']
                 cls.resource_uri_base[resource_type] = uri
@@ -372,6 +390,14 @@ class VncApi(VncApiClientGen):
 
         return json.loads(content)['uuid']
     #end ifmap_to_id
+
+    def obj_to_json(self, obj):
+        return json.dumps(obj, default=self._obj_serializer_all)
+    # end obj_to_json
+
+    def obj_to_dict(self, obj):
+        return json.loads(self.obj_to_json(obj))
+    # end obj_to_dict
 
     def fetch_records(self):
         json_body = json.dumps({'fetch_records': None})

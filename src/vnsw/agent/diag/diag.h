@@ -43,6 +43,9 @@ public:
     uint32_t GetCount() {return count_;};
     void SetKey(DiagKey key) {key_ = key;};
     void Retry();
+    bool TimerCancel() {
+        return timer_->Cancel();
+    }
 
 protected:
     DiagKey key_;

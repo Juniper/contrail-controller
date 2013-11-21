@@ -12,6 +12,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
+
 #include "Thrift.h"
 #include "base/parse_object.h"
 #include "io/event_manager.h"
@@ -24,7 +25,29 @@ class DbHandler {
 public:
     static const int DefaultDbTTL = 0;
 
+    typedef enum {
+        INVALID = 0,
+        UINT64 = 1,
+        STRING = 2,
+        DOUBLE = 3,
+        MAXVAL 
+    } VarType;
+
+    struct Var {
+        Var() : type(INVALID), str(""), num(0), dbl(0) {}
+        Var(const std::string &s) : type(STRING), str(s), num(0), dbl(0) {}
+        Var(uint64_t v) : type(UINT64), str(""), num(v), dbl(0) {}
+        Var(double d) : type(DOUBLE), str(""), num(0), dbl(d) {}
+        VarType type;
+        std::string str;
+        uint64_t num;
+        double dbl;
+    };
+
     typedef std::map<std::string, std::string> RuleMap;
+
+    typedef std::map<std::string, Var > AttribMap;
+    typedef std::map<std::string, std::pair<Var, AttribMap> > TagMap;
 
     DbHandler(EventManager *evm, GenDb::GenDbIf::DbErrorHandler err_handler,
             std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name);
@@ -45,7 +68,14 @@ public:
     void ObjectTableInsert(const std::string table, const std::string rowkey,
             const RuleMsg& rmsg, const boost::uuids::uuid& unm);
 
+    void StatTableInsert(uint64_t ts, 
+            const std::string& statName,
+            const std::string& statAttr,
+            const TagMap & attribs_tag,
+            const AttribMap & attribs_all);
+
     bool FlowTableInsert(const RuleMsg& rmsg);
+    bool GetStats(uint64_t &queue_count, uint64_t &enqueues) const;
 
     GenDb::GenDbIf *get_dbif() {
         return dbif_.get();
@@ -53,6 +83,10 @@ public:
 
 private:
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
+
+    // Random generator for UUIDs
+    tbb::mutex rand_mutex_;
+    boost::uuids::random_generator umn_gen_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

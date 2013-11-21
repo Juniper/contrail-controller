@@ -242,4 +242,9 @@ response sandesh KDropStatsResp {
     35: u64             ds_misc;
     36: u64             ds_invalid_packet;
     37: u64             ds_cksum_err;
+    38: u64             ds_clone_fail;
+    39: u64             ds_no_fmd;
+    40: u64             ds_cloned_original;
+    41: u64             ds_invalid_vnid;
+    42: u64             ds_frag_err;
 }

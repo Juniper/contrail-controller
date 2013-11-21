@@ -6,6 +6,7 @@
 #include "oper/mirror_table.h"
 
 static AgentTestInit *agent_init;
+namespace opt = boost::program_options;
 
 pthread_t asio_thread;
 
@@ -29,206 +30,108 @@ void AsioStop() {
     pthread_join(asio_thread, NULL);
 }
 
-bool AgentTestInit::Run() {
-
-    /*
-     * Initialization sequence
-     * 0> Read config store from kernel, if available, to replay the Nova config
-     * 1> Create all DB table
-     * 2> Register listener for DB tables
-     * 3> Initialize data which updates entries in DB table
-     * By above init sequence no notification to client will be lost
-     */
-
-    switch(state_) {
-        case MOD_INIT:
-            Sandesh::InitGeneratorTest("VNSWAgent", "Agent", 
-                                   Agent::GetInstance()->GetEventManager(), 
-                                   sandesh_port_, NULL);
-            Sandesh::SetLoggingParams(log_locally_, "", "");
-            InitModules();
-            state_ = STATIC_OBJ_OPERDB;
-            // Continue with the next state
-
-        case STATIC_OBJ_OPERDB: {
-            OperDB::CreateStaticObjects(boost::bind(&AgentTestInit::Trigger, this));
-            state_ = STATIC_OBJ_PKT;
-            break;
-        }
-
-        case STATIC_OBJ_PKT:
-            PktModule::CreateStaticObjects();
-            state_ = CONFIG_INIT;
-            // Continue with the next state
-
-        case CONFIG_INIT:
-            state_ = CONFIG_RUN;
-            if (init_file_) {
-                AgentConfig::Init(Agent::GetInstance()->GetDB(), init_file_, 
-                                  boost::bind(&AgentTestInit::Trigger, this));
-                // ServicesModule::ConfigInit();
-                break;
-            }
-            // else Continue with the next state
-
-        case CONFIG_RUN:
-            if (ksync_init_) {
-                KSync::VnswIfListenerInit();
-            } else {
-                //KSync::VnswIfListenerInit();
-            }
-
-            if (ksync_init_) {
-                //Update MAC address of vhost interface
-                //with that of ethernet interface
-                KSync::UpdateVhostMac();
-            }
-
-            if (Agent::GetInstance()->GetRouterIdConfigured()) {
-                // RouterIdDepInit();
-            } else {
-                LOG(DEBUG, 
-                    "Router ID Dependent modules (Nova & BGP) not initialized");
-            }
-
-            state_ = INIT_DONE;
-            // Continue with the next state
-
-        case INIT_DONE: {
-            break;
-        }
-
-        case SHUTDOWN: {
-            client->Shutdown();
-            state_ = SHUTDOWN_DONE;
-            break;
-        }
-
-        default:
-            assert(0);
-    }
-
-    return true;
-}
-
-void AgentTestInit::InitModules() {
-    if (ksync_init_) {
-        KSync::NetlinkInit();
-        KSync::ResetVRouter();
-        KSync::CreateVhostIntf();
-    } else {
-        KSync::NetlinkInitTest();
-    }
-
-    CfgModule::CreateDBTables(Agent::GetInstance()->GetDB());
-    OperDB::CreateDBTables(Agent::GetInstance()->GetDB());
- 
-    CfgModule::RegisterDBClients(Agent::GetInstance()->GetDB());
-
-    MirrorCfgTable *mtable = MirrorCfgTable::CreateMirrorCfgTable();
-    Agent::GetInstance()->SetMirrorCfgTable(mtable);
-    
-    Agent::GetInstance()->SetIntfMirrorCfgTable(IntfMirrorCfgTable::CreateIntfMirrorCfgTable());
-
-    if (ksync_init_) {
-        KSync::RegisterDBClients(Agent::GetInstance()->GetDB());
-    } else {
-        KSync::RegisterDBClientsTest(Agent::GetInstance()->GetDB());
-    }
-
-    if (client_)
-        client_->Init();
-
-    if (pkt_init_) {
-        // if ksync_init_, use normal tap, otherwise test_tap
-        PktModule::Init(ksync_init_);  
-    }
-
-    if (services_init_) {
-        ServicesModule::Init(ksync_init_);
-    }
-
-    if (uve_init_) {
-        AgentUve::Init(agent_stats_interval_, flow_stats_interval_);
-    }
-    MulticastHandler::Register();
-}
-
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
-                     bool services_init, bool uve_init, int agent_stats_interval,
-                     int flow_stats_interval, bool asio) {
+                     bool services_init, bool uve_init,
+                     int agent_stats_interval, int flow_stats_interval,
+                     bool asio) {
+    TestClient *client = new TestClient();
+    agent_init = new AgentTestInit(client);
+
+    // Read agent parameters from config file and arguments
+    Agent *agent = agent_init->agent();
+    AgentParam *param = agent_init->param();
+    AgentInit *init = agent_init->init();
+
+    opt::variables_map var_map;
+    param->Init(init_file, "test", var_map);
+    param->set_agent_stats_interval(agent_stats_interval);
+    param->set_flow_stats_interval(flow_stats_interval);
+
+    // Initialize the agent-init control class
     int sandesh_port = 0;
     bool log_locally = false;
-    AgentCmdLineParams cmd_line("", 0, "", "", log_locally, "", "", sandesh_port, "");
-    LoggingInit();
-    Agent::Init();
-    AgentConfig::InitConfig(init_file, cmd_line);
-    Agent::GetInstance()->SetTestMode();
-    AgentStats::Init();
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+                               Agent::GetInstance()->GetEventManager(),
+                               sandesh_port, NULL);
+
+    init->Init(param, agent, var_map);
+    init->set_ksync_enable(ksync_init);
+    init->set_packet_enable(true);
+    init->set_services_enable(services_init);
+    init->set_create_vhost(false);
+    init->set_uve_enable(uve_init);
+    init->set_vgw_enable(false);
+    init->set_router_id_dep_enable(false);
+
+    // Initialize agent and kick start initialization
+    agent->Init(param, init);
+
+    while (init->state() != AgentInit::INIT_DONE) {
+        usleep(1000);
+    }
+
+    client->Init();
+    client->WaitForIdle();
+
     if (asio) {
         AsioRun();
     }
 
-    TestClient *client = new TestClient();
-
-    agent_init =
-        new AgentTestInit(ksync_init, pkt_init, services_init,
-                          init_file, sandesh_port, log_locally, 
-                          client, uve_init, agent_stats_interval, 
-                          flow_stats_interval);
-    agent_init->Trigger();
-
-    while (agent_init->GetState() != AgentTestInit::INIT_DONE) {
-        usleep(1000);
-    }
-
-    client->WaitForIdle();
-    int port_count = 0;
-    if (pkt_init)
-        port_count++; // pkt0
-    if (init_file)
-        port_count += 2; // vhost, eth
-    else {
-        Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-        VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(),
-                                       VirtualHostInterface::HOST);
-        port_count += 1; // vhost
+    if (init_file == NULL) {
+        agent->SetVirtualHostInterfaceName("vhost0");
+        VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                        "vhost0",
+                                        Agent::GetInstance()->GetDefaultVrf(),
+                                        VirtualHostInterface::HOST);
         boost::system::error_code ec;
-        Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+        Agent::GetInstance()->SetRouterId
+            (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
-                                         Agent::GetInstance()->GetDefaultVrf(), "vhost0", 
-                                         Agent::GetInstance()->GetRouterId(), false);
+        agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
+            (Agent::GetInstance()->GetDefaultVrf(), "vhost0",
+             Agent::GetInstance()->GetRouterId(), false);
     }
 
     return client;
 }
 
 TestClient *StatsTestInit() {
-    LoggingInit();
-    Agent::GetInstance()->Init();
-    AgentStats::Init();
-    AsioRun();
-
     TestClient *client = new TestClient();
+    agent_init = new AgentTestInit(client);
+    Agent *agent = agent_init->agent();
+    AgentParam *param = agent_init->param();
+    AgentInit *init = agent_init->init();
 
-    bool ksync_init = true;
-    bool pkt_init = true;
-    bool services_init = true;
-    char *init_file = NULL;
+    // Read agent parameters from config file and arguments
+    opt::variables_map var_map;
+    param->Init("src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
+
+    // Initialize the agent-init control class
     int sandesh_port = 0;
     bool log_locally = false;
-    bool uve_init = true;
-    AgentTestInit *agent_init =
-        new AgentTestInit(ksync_init, pkt_init, services_init,
-                          init_file, sandesh_port, log_locally, 
-                          client, uve_init, AgentStatsCollector::AgentStatsInterval,
-                          FlowStatsCollector::FlowStatsInterval);
-    agent_init->Trigger();
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+                               Agent::GetInstance()->GetEventManager(),
+                               sandesh_port, NULL);
 
-    sleep(6);
+    init->Init(param, agent, var_map);
+    init->set_ksync_enable(true);
+    init->set_packet_enable(true);
+    init->set_services_enable(true);
+    init->set_create_vhost(false);
+    init->set_uve_enable(true);
+    init->set_vgw_enable(false);
+    init->set_router_id_dep_enable(false);
+
+    // Initialize agent and kick start initialization
+    agent->Init(param, init);
+
+    AsioRun();
+
+    sleep(1);
     Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq("vhost0", Agent::GetInstance()->GetDefaultVrf(),
+    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                    "vhost0",
+                                    Agent::GetInstance()->GetDefaultVrf(),
                                    VirtualHostInterface::HOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
@@ -269,17 +172,15 @@ static bool WaitForDbFree(const string &name, int msec) {
 
 void TestClient::Shutdown() {
     VnswIfListener::Shutdown();
-    CfgModule::Shutdown();
-    AgentConfig::Shutdown();
-    MirrorCfgTable::Shutdown();
+    Agent::GetInstance()->init()->Shutdown();
     AgentUve::GetInstance()->Shutdown();
     UveClient::GetInstance()->Shutdown();
     KSync::NetlinkShutdownTest();
     KSync::Shutdown();
     PktModule::Shutdown();  
-    ServicesModule::Shutdown();
+    Agent::GetInstance()->services()->Shutdown();
     MulticastHandler::Shutdown();
-    OperDB::Shutdown();
+    Agent::GetInstance()->oper_db()->Shutdown();
     Agent::GetInstance()->GetDB()->Clear();
     Agent::GetInstance()->GetDB()->ClearFactoryRegistry();
 }
@@ -290,7 +191,7 @@ void TestShutdown() {
     VNController::DisConnect();
     client->WaitForIdle();
 
-    AgentConfig::DeleteStaticEntries();
+    Agent::GetInstance()->init()->DeleteStaticEntries();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);

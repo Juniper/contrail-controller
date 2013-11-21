@@ -332,6 +332,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     //trigger a TCP close event on the server
     agent_a_->SessionDown();
     TASK_UTIL_EXPECT_EQ(2, bgp_channel_manager_->Count());
+
     //wait for channel to be deleted in the context of config-task
     task_util::WaitForIdle();
 
@@ -506,7 +507,7 @@ TEST_F(BgpXmppSerializeMembershipReqTest, SerializedMembershipReq0) {
     task_util::WaitForIdle();
 
     TASK_UTIL_EXPECT_TRUE(PeerRegistered(bgp_channel_manager_->channel_, 
-                                            "red", 1));
+                                            "red", 2));
     TASK_UTIL_EXPECT_EQ(1, agent_a_->RouteCount());
     ASSERT_TRUE(agent_a_->RouteCount() == 1);
 }

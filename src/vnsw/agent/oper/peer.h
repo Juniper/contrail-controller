@@ -33,6 +33,7 @@ public:
     Peer(Type type, std::string name) : type_(type), name_(name),
         vrf_uc_walkid_(DBTableWalker::kInvalidWalkerId),
         vrf_mc_walkid_(DBTableWalker::kInvalidWalkerId) {
+        num_walks_ = -1;
         tbb::mutex::scoped_lock lock(mutex_);
         peer_map_.insert(PeerPair(name, this));
     };
@@ -78,6 +79,21 @@ public:
         vrf_mc_walkid_ = DBTableWalker::kInvalidWalkerId;
     }
     
+    void SetNoOfWalks(int walks) {
+        num_walks_ = walks;
+    }
+
+    void DecrementWalks() { 
+        if (num_walks_ > 0) {
+            num_walks_--; 
+        }
+    }
+
+    tbb::atomic<int> NoOfWalks() { return num_walks_; }
+
+    void ResetWalks() { 
+        num_walks_ = 0; 
+    }
 
 private:
     Type type_;
@@ -86,6 +102,7 @@ private:
     static tbb::mutex mutex_;
     DBTableWalker::WalkId vrf_uc_walkid_;
     DBTableWalker::WalkId vrf_mc_walkid_;
+    tbb::atomic<int> num_walks_;
     DISALLOW_COPY_AND_ASSIGN(Peer);
 };
 

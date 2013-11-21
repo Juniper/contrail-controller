@@ -38,6 +38,8 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     info.set_peer(peer->ToString());
     ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
+    BGP_LOG_PEER(peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Created peer");
     ROUTING_INSTANCE_TRACE(PeerLocate, server, name(),
                            peer->peer_key().endpoint.address().to_string());
     return peer;
@@ -95,6 +97,8 @@ void PeerManager::DestroyIPeer(IPeer *ipeer) {
 
     BgpPeer *peer = static_cast<BgpPeer *>(ipeer);
     string peer_name = peer->peer_name();
+    BGP_LOG_PEER(peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA, "Destroyed peer");
     ROUTING_INSTANCE_TRACE(PeerDestroy, server(), name(),
                            peer->peer_key().endpoint.address().to_string());
     RemovePeerByKey(peer->peer_key(), peer);

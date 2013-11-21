@@ -18,16 +18,15 @@
 
 #include <base/parse_object.h>
 
-#include "cmn/agent_cmn.h"
-#include "cmn/agent_db.h"
-#include "cfg/cfg_listener.h"
-#include "cfg/init_config.h"
-#include "cfg/cfg_filter.h"
+#include <cmn/agent_cmn.h>
+#include <cmn/agent_db.h>
+
+#include <cfg/cfg_listener.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_filter.h>
 
 using namespace std;
 using namespace autogen;
-
-CfgFilter *CfgFilter::singleton_;
 
 bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
                               int property_id) {
@@ -61,29 +60,24 @@ bool CfgFilter::CheckProperty(DBTable *table, IFMapNode *node, DBRequest *req,
 }
 
 void CfgFilter::Init() {
-    assert(singleton_ == NULL);
-    singleton_ = new CfgFilter();
-
-    AgentConfig::GetInstance()->GetVmTable()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
+    agent_cfg_->cfg_vm_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
                      VirtualMachine::ID_PERMS));
 
-    AgentConfig::GetInstance()->GetVnTable()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
+    agent_cfg_->cfg_vn_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
                      VirtualNetwork::ID_PERMS));
 
-    AgentConfig::GetInstance()->GetVmInterfaceTable()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
+    agent_cfg_->cfg_vm_interface_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
                      VirtualMachineInterface::ID_PERMS));
 
-    AgentConfig::GetInstance()->GetAclTable()->RegisterPreFilter
-        (boost::bind(&CfgFilter::CheckProperty, singleton_, _1, _2, _3, 
+    agent_cfg_->cfg_acl_table()->RegisterPreFilter
+        (boost::bind(&CfgFilter::CheckProperty, this, _1, _2, _3, 
                      AccessControlList::ID_PERMS));
 }
 
 void CfgFilter::Shutdown() {
-    AgentConfig::GetInstance()->GetVmTable()->RegisterPreFilter(NULL);
-    AgentConfig::GetInstance()->GetVnTable()->RegisterPreFilter(NULL);
-    delete singleton_;
-    singleton_ = NULL;
+    agent_cfg_->cfg_vm_table()->RegisterPreFilter(NULL);
+    agent_cfg_->cfg_vn_table()->RegisterPreFilter(NULL);
 }

@@ -158,8 +158,9 @@ struct BgpAttrLabelBlock : public BgpAttribute {
 
 class BgpOListElem {
 public:
-    BgpOListElem(Ip4Address address, uint32_t label)
-        : address(address), label(label) {
+    BgpOListElem(Ip4Address address, uint32_t label,
+        std::vector<std::string> encap)
+        : address(address), label(label), encap(encap) {
     }
 
     friend std::size_t hash_value(BgpOListElem const &elem) {
@@ -171,6 +172,7 @@ public:
 
     Ip4Address address;
     uint32_t label;
+    std::vector<std::string> encap;
 };
 
 class BgpOList {

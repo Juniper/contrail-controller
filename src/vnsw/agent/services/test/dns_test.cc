@@ -10,7 +10,6 @@
 
 #include <io/event_manager.h>
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
@@ -173,8 +172,8 @@ public:
         return itf_id_; 
     }
 
-    void CHECK_STATS(DnsProto::DnsStats &stats, int req, int res,
-                     int rexmit, int unsupp, int fail, int drop) {
+    void CHECK_STATS(DnsProto::DnsStats &stats, uint32_t req, uint32_t res,
+                     uint32_t rexmit, uint32_t unsupp, uint32_t fail, uint32_t drop) {
         EXPECT_EQ(req, stats.requests);
         EXPECT_EQ(res, stats.resolved);
         EXPECT_EQ(rexmit, stats.retransmit_reqs);
@@ -592,21 +591,17 @@ TEST_F(DnsTesting, DnsDropTest) {
 #endif
 
 void RouterIdDepInit() {
-    InstanceInfoServiceServerInit(*(Agent::GetInstance()->GetEventManager()), 
-                                  Agent::GetInstance()->GetDB());
-
-    // Parse config and then connect
-    VNController::Connect();
-    LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
     client = TestInit(init_file, ksync_init, true, true);
-    ServicesModule::ConfigInit();
     usleep(100000);
     client->WaitForIdle();
 
-    return RUN_ALL_TESTS();
+    int ret = RUN_ALL_TESTS();
+    //TestShutdown();
+    delete client;
+    return ret;
 }

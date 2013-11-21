@@ -51,7 +51,6 @@ public:
     typedef std::vector<PeerIFMapServerInfo>::iterator PeerIterator;
 
     PeerIFMapServerFinder(IFMapManager *ifmap_manager,
-                          const std::string &subscriber_name,
                           DiscoveryServiceClient *client,
                           const std::string &url);
     PeerIFMapServerFinder(IFMapManager *ifmap_manager, const std::string &url);
@@ -65,8 +64,8 @@ public:
         return peer_ifmap_ds_resp_count_;
     }
     uint64_t get_using_non_ds_peer_count() { return using_non_ds_peer_count_; }
+    uint64_t get_no_best_peer_count() { return no_best_peer_count_; }
     const std::string &get_service_name() { return service_name_; }
-    const std::string &get_subscriber_name() { return subscriber_name_; }
     std::string get_static_peer() {
         if (static_peer_.host.size()) {
             return static_peer_.host + ":" + static_peer_.port;
@@ -92,12 +91,12 @@ private:
     bool ValidStaticConfig() { return !url_.empty(); }
     bool DSPeerExists();
     void RetrieveStaticHostPort(const std::string& url);
-    bool GetBestPeer(PeerIFMapServerInfo *srv_info, bool get_first);
-    bool FirstDSPeerAvailable(size_t *index);
-    bool NextDSPeerAvailable(size_t *index);
+    bool GetBestPeer(PeerIFMapServerInfo *srv_info);
+    bool DSPeerAvailable(size_t *index);
     bool PeerExistsInDb(const PeerIFMapServerInfo &current, size_t *index);
     void incr_peer_ifmap_ds_resp_count() { ++peer_ifmap_ds_resp_count_; }
     void incr_using_non_ds_peer_count() { ++using_non_ds_peer_count_; }
+    void incr_no_best_peer_count() { ++no_best_peer_count_; }
     void set_last_response_at_to_now() {
         last_response_at_ = UTCTimestampUsec();
     }
@@ -111,7 +110,6 @@ private:
     DiscoveryServiceClient *ds_client_;
     std::string url_;
     std::string service_name_;
-    std::string subscriber_name_;
     PeerIFMapServerInfo static_peer_;
     PeerIFMapServerInfo current_peer_;
     std::vector<PeerIFMapServerInfo> peer_ifmap_servers_;
@@ -120,6 +118,7 @@ private:
     uint64_t peer_ifmap_ds_resp_count_;
     uint64_t last_response_at_;
     uint64_t using_non_ds_peer_count_;
+    uint64_t no_best_peer_count_;
 };
 
 #endif // ctrlplane_peer_server_finder_h

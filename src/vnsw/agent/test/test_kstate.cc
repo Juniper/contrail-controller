@@ -396,7 +396,7 @@ TEST_F(KStateTest, FlowDumpTest) {
                         "vn3", "vn3", hash_id++));
     EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
 
-    TestFlowKState::Init(true, -1, 4);
+    TestFlowKState::Init(true, -1, 6);
     client->KStateResponseWait(1);
 
     //cleanup

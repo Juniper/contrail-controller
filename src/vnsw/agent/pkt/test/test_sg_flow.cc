@@ -186,11 +186,11 @@ class SgTest : public ::testing::Test {
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
         const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0);
+        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
         AddSgEntry("sg1", "sg_acl1", 10, 1, "pass");
         AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         client->WaitForIdle();
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 1);
+        EXPECT_EQ(port->GetSecurityGroupList().size(), 1U);
     }
 
     virtual void TearDown() {
@@ -205,7 +205,7 @@ class SgTest : public ::testing::Test {
         client->WaitForIdle();
 
         const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0);
+        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
     }
 };
 

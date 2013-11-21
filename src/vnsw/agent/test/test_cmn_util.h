@@ -215,4 +215,6 @@ void DelEncapList();
 void EnableEvpn();
 void DisableEvpn();
 int MplsToVrfId(int label);
+void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
+                            int count);
 #endif // vnsw_agent_test_cmn_util_h

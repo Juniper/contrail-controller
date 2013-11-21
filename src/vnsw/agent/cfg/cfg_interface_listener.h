@@ -7,10 +7,12 @@
 
 #include <cmn/agent_cmn.h>
 #include <oper/vn.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
+#include <cfg/cfg_interface.h>
+#include <cfg/cfg_init.h>
 
 using namespace boost::uuids;
+
+class AgentConfig;
 
 class InterfaceCfgClient {
 public:
@@ -18,21 +20,23 @@ public:
     typedef std::map<uuid, IFMapNode *> UuidToIFNodeTree;
     typedef std::pair<uuid, IFMapNode *> UuidIFNodePair;
 
-    InterfaceCfgClient() { };
+    InterfaceCfgClient(AgentConfig *cfg) : agent_cfg_(cfg) { };
     virtual ~InterfaceCfgClient() { };
 
     void Notify(DBTablePartBase *partition, DBEntryBase *e);
     void CfgNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void RouteTableNotify(DBTablePartBase *partition, DBEntryBase *e);
     IFMapNode *UuidToIFNode(const uuid &u);
-    static void Init();
-    static void Shutdown();
+    void Init();
+    void Shutdown();
 private:
     struct CfgState : DBState {
         bool seen_;
     };
 
-    static InterfaceCfgClient *singleton_;
+    AgentConfig *agent_cfg_;
     DBTableBase::ListenerId cfg_listener_id_;
+    DBTableBase::ListenerId cfg_route_table_listener_id_;
     UuidToIFNodeTree uuid_ifnode_tree_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceCfgClient);
 };

@@ -252,7 +252,7 @@ public:
         evm_(new EventManager()),
         thread_(new ServerThread(evm_.get())),
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm_.get()->io_service(), boost::bind(&VizRedisTest::DbErrorHandlerFn, this),
-                "127.0.0.1", 9191, false, 0, "127.0.0.1:VizRedisTest")) {
+                "127.0.0.1", 9191, 0, "127.0.0.1:VizRedisTest")) {
         {
             boost::asio::ip::tcp::endpoint endpoint1(boost::asio::ip::tcp::v4(), 0);
             boost::asio::ip::tcp::acceptor acceptor1(*evm_.get()->io_service(), endpoint1);

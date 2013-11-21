@@ -20,7 +20,10 @@ output,error = subprocess.Popen(["python","-V"],stdout = subprocess.PIPE, stderr
 full_version = error.split()[1].split('.')
 python = 'python'+full_version[0]+'.'+full_version[1]
 
-AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+python])
+AnalyticsEnv.Append(CPPPATH = ['/usr/include/'+ python,
+                               AnalyticsEnv['TOP'] + '/tools/sandesh/library/common',
+                               AnalyticsEnv['TOP'] + '/io',
+                              ])
 AnalyticsEnv.Append(LIBS=['boost_python', python])
 
 def MapBuildDir(list):
@@ -78,6 +81,7 @@ SandeshGenPyFiles  += AnalyticsEnv.SandeshGenPy('collector_uve.sandesh')
 AnalyticsVizSandeshGenFiles = AnalyticsEnv.SandeshGenOnlyCpp('viz.sandesh')
 AnalyticsSandeshGenFiles  = AnalyticsEnv.SandeshGenCpp('collector_uve.sandesh')
 AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenOnlyCpp('analytics_cpuinfo.sandesh')
+AnalyticsSandeshGenFiles += AnalyticsEnv.SandeshGenCpp('redis.sandesh')
 AnalyticsVizSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsVizSandeshGenFiles)
 AnalyticsSandeshGenSrcs = AnalyticsEnv.ExtractCpp(AnalyticsSandeshGenFiles)
 AnalyticsSandeshGenSrcs += AnalyticsVizSandeshGenSrcs
@@ -177,3 +181,4 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     test_coverage = AnalyticsEnv.Command(Dir('test_coverage'), '', code_coverage)
     AnalyticsEnv.AlwaysBuild(test_coverage)
     AnalyticsEnv.Alias('src/analytics:test_coverage', test_coverage)
+

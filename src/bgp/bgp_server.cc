@@ -242,7 +242,15 @@ bool BgpServer::IsPeerCloseGraceful() {
     //
     if (deleter()->IsDeleted()) return false;
 
-    return false;
+    static bool init = false;
+    static bool enabled = false;
+
+    if (!init) {
+        init = true;
+        char *p = getenv("BGP_GRACEFUL_RESTART_ENABLE");
+        if (p && !strcasecmp(p, "true")) enabled = true;
+    }
+    return enabled;
 }
 
 uint32_t BgpServer::num_routing_instance() const {

@@ -5,7 +5,6 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <cfg/init_config.h>
 #include <route/route.h>
 
 #include <oper/agent_route.h>

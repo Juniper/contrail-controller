@@ -41,36 +41,6 @@ static void LogError(const PktInfo *pkt, const char *str) {
                pkt->agent_hdr.vrf, pkt->ip_saddr, pkt->ip_daddr, str);
 }
 
-static void PktFlowTrace(const struct PktInfo *pkt_info,
-                  const PktFlowInfo *flow_info) {
-    FlowHandlerFlow finfo;
-    //MatchPolicy *policy = flow_info->match_p;
-    std::string saddr = Ip4Address(pkt_info->ip_saddr).to_string();
-    std::string daddr = Ip4Address(pkt_info->ip_daddr).to_string();
-    finfo.set_vrf(pkt_info->vrf);
-    finfo.set_src_ip(saddr);
-    finfo.set_dst_ip(daddr);
-    finfo.set_src_port(pkt_info->sport);
-    finfo.set_dst_port(pkt_info->dport);
-    finfo.set_proto(pkt_info->ip_proto);
-    finfo.set_src_vn(*(flow_info->source_vn));
-    finfo.set_src_vrf(flow_info->flow_source_vrf);
-    finfo.set_dst_vn(*(flow_info->dest_vn));
-    finfo.set_dst_vrf(flow_info->flow_dest_vrf);
-    if (flow_info->source_sg_id_l->size()) {
-        finfo.set_src_sg_id_l(*(flow_info->source_sg_id_l));
-    }
-    if (flow_info->dest_sg_id_l) {
-        finfo.set_dst_sg_id_l(*(flow_info->dest_sg_id_l));
-    }
-    //finfo.set_num_acls(policy->m_acl_l.size());
-    //finfo.set_num_sgs(policy->m_sg_acl_l.size());
-    finfo.set_ingress(flow_info->ingress);
-    //finfo.set_implicit_deny(policy->action_info.implicit_deny);
-    finfo.set_short_flow(flow_info->short_flow);
-    PKTFLOW_TRACE(Trace, "Packet flow tracing:", finfo);
-}
-
 // Traffic from IPFabric to VM is treated as EGRESS
 // Any other traffic is INGRESS
 bool PktFlowInfo::ComputeDirection(const Interface *intf) {
@@ -381,7 +351,7 @@ void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_ip_saddr = vm_port->GetMdataIpAddr().to_ulong();
     nat_ip_daddr = Agent::GetInstance()->GetRouterId().to_ulong();
     if (pkt->ip_proto == IPPROTO_TCP) {
-        nat_dport = METADATA_PORT;
+        nat_dport = Agent::GetInstance()->GetMetadataServerPort();
     } else {
         nat_dport = pkt->dport;
     }
@@ -425,7 +395,7 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
     nat_ip_saddr = METADATA_IP_ADDR;
     nat_ip_daddr = vm_port->GetIpAddr().to_ulong();
     nat_dport = pkt->dport;
-    if (pkt->sport == METADATA_PORT) {
+    if (pkt->sport == Agent::GetInstance()->GetMetadataServerPort()) {
         nat_sport = METADATA_NAT_PORT;
     } else {
         nat_sport = pkt->sport;
@@ -761,7 +731,6 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     InitFwdFlow(flow.get(), pkt, in, out);
     InitRevFlow(rflow.get(), pkt, out, in);
 
-    PktFlowTrace(pkt, this);
     FlowTable::GetFlowTableObject()->Add(flow.get(), rflow.get());
 }
 
@@ -876,8 +845,29 @@ bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
     flow->data.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     flow->data.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     flow->data.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
+    SetRpfNH(flow, ctrl);
 
     return true;
+}
+
+void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
+    if (ctrl->rt_ == NULL) {
+        return;
+    }
+    const NextHop *nh = ctrl->rt_->GetActiveNextHop();
+    if (nh->GetType() == NextHop::COMPOSITE && flow->local_flow == false && 
+        ctrl->intf_) {
+        //Get nexthop pointed by local mpls label
+        if (ctrl->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
+            nh = ctrl->rt_->FindPath(
+                    Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
+        } else {
+            const CompositeNH *comp_nh = 
+                static_cast<const CompositeNH *>(nh);
+            nh = comp_nh->GetLocalCompositeNH();
+        }
+    }
+    flow->data.nh = nh;
 }
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,

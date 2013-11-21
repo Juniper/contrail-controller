@@ -212,7 +212,7 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
     }
 
     // Finally, push the row into the result table 
-    result_->second.push_back(cmap);
+    result_->push_back(cmap);
 }
 
 inline uint64_t SelectQuery::fs_get_time_slice(const uint64_t& t) {

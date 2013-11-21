@@ -10,7 +10,7 @@ env = BuildEnv.Clone()
 env.AppendUnique(CCFLAGS='-fno-exceptions')
 env.Append(CPPPATH = [env['TOP']])
 
-SandeshGenFiles = env.SandeshGenCpp('io_log.sandesh')
+SandeshGenFiles = env.SandeshGenCpp('io.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 libio = env.Library('io',
@@ -19,6 +19,7 @@ libio = env.Library('io',
              'tcp_message_write.cc',
              'tcp_server.cc',
              'tcp_session.cc',
+             'udp_server.cc',
             ])
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)

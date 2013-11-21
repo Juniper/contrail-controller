@@ -32,6 +32,7 @@ using std::map;
 using std::vector;
 using boost::assign::list_of;
 using boost::system::error_code;
+using namespace boost::asio;
 namespace opt = boost::program_options;
 // This is to force qed to wait for a gdbattach
 // before proceeding.
@@ -48,24 +49,40 @@ bool QEInfoLogTimer() {
 
 bool QEInfoLogger(const string &hostname) {
 
+    CpuLoadInfo cpu_load_info;
+    CpuLoadData::FillCpuInfo(cpu_load_info, false);
+
     ModuleCpuState state;
     state.set_name(hostname);
 
     ModuleCpuInfo cinfo;
     cinfo.set_module_id(
             g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second);
-
-    CpuLoadInfo cpu_load_info;
-    CpuLoadData::FillCpuInfo(cpu_load_info, false);
     cinfo.set_cpu_info(cpu_load_info);
-
     vector<ModuleCpuInfo> cciv;
     cciv.push_back(cinfo);
+
+    // At some point, the following attributes will be deprecated
+    // in favor of AnalyticsCpuState
     state.set_module_cpu_info(cciv);
     state.set_queryengine_cpu_share(cpu_load_info.get_cpu_share());
     state.set_queryengine_mem_virt(cpu_load_info.get_meminfo().get_virt());
 
     ModuleCpuStateTrace::Send(state);
+
+    AnalyticsCpuState  astate;
+    astate.set_name(hostname);
+
+    AnalyticsCpuInfo ainfo;
+    ainfo.set_module_id(
+            g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second);
+    ainfo.set_inst_id(0);
+    ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
+    ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
+    vector<AnalyticsCpuInfo> aciv;
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    AnalyticsCpuStateTrace::Send(astate);
 
     qe_info_log_timer->Cancel();
     qe_info_log_timer->Start(60*1000, boost::bind(&QEInfoLogTimer),
@@ -97,6 +114,8 @@ static void WaitForIdle() {
     }    
 }
 
+uint64_t QueryEngine::anal_ttl = 0;
+
 int
 main(int argc, char *argv[]) {
     EventManager evm;
@@ -113,6 +132,8 @@ main(int argc, char *argv[]) {
          opt::value<vector<string> >()->default_value(
                  vector<string>(), "127.0.0.1:9160"),
          "cassandra server list")
+        ("analytics-data-ttl", opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
+            "global TTL(hours) for analytics data")
         ("redis-ip",
          opt::value<string>()->default_value("127.0.0.1"),
          "redis server ip")
@@ -141,6 +162,9 @@ main(int argc, char *argv[]) {
         ("log-file", opt::value<string>()->default_value(default_log_file),
          "Filename for the logs to be written to")
         ("version", "Display version information")
+        ("start-time",
+         opt::value<uint64_t>(),
+         "Lowest start time for queries")
         ;
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
@@ -163,25 +187,30 @@ main(int argc, char *argv[]) {
     } else {
         LoggingInit(var_map["log-file"].as<string>());
     }
+    QueryEngine::anal_ttl = var_map["analytics-data-ttl"].as<int>();
 
     error_code error;
-    string hostname(boost::asio::ip::host_name(error));
+    string hostname(ip::host_name(error));
     DiscoveryServiceClient *ds_client = NULL;
-    boost::asio::ip::tcp::endpoint dss_ep;
+    ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
     if (var_map.count("discovery-server")) {
         error_code error;
-        dss_ep.address(boost::asio::ip::address::from_string(var_map["discovery-server"].as<string>(),
-                       error));
+        dss_ep.address(
+            ip::address::from_string(var_map["discovery-server"].as<string>(),
+            error));
         if (error) {
             LOG(ERROR, __func__ << ": Invalid discovery-server: " << 
                     var_map["discovery-server"].as<string>());
         } else {
             dss_ep.port(var_map["discovery-port"].as<int>());
-            ds_client = new DiscoveryServiceClient(&evm, dss_ep);
+            string subscriber_name =
+                g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
+            ds_client = new DiscoveryServiceClient(&evm, dss_ep, 
+                                                   subscriber_name);
             ds_client->Init();
-            string subscriber_name = g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client, subscriber_name, _1, _2, _3);
+            csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
+                              ds_client, _1, _2, _3);
         }
     }
 
@@ -225,7 +254,14 @@ main(int argc, char *argv[]) {
         qe = new QueryEngine(&evm,
             var_map["redis-ip"].as<string>(),
             var_map["redis-port"].as<int>());
-    } else { 
+    } else if (var_map.count("start-time")) { 
+        qe = new QueryEngine(&evm,
+            cassandra_ip,
+            cassandra_port,
+            var_map["redis-ip"].as<string>(),
+            var_map["redis-port"].as<int>(),
+            var_map["start-time"].as<uint64_t>());
+    } else {
         qe = new QueryEngine(&evm,
             cassandra_ip,
             cassandra_port,

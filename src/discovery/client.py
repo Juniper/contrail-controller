@@ -16,7 +16,7 @@ from disc_consts import *
 import xmltodict
 import services
 import hashlib
-
+import socket
 
 def CamelCase(input):
     words = input.replace('_', '-').split('-')
@@ -134,7 +134,7 @@ class DiscoveryClient(object):
     def __init__(self, server_ip, server_port, client_type):
         self._server_ip = server_ip
         self._server_port = server_port
-        self._myid = str(uuid.uuid4())
+        self._myid = socket.getfqdn() + ':' + client_type
         self._client_type = client_type
         self._headers = {
             'Content-type': 'application/json',

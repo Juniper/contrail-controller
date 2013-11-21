@@ -57,3 +57,7 @@ class HttpError(VncError):
         return 'HTTP Status: %s Content: %s' % (self.status_code, self.content)
     # end __str__
 # end class HttpError
+
+
+class AmbiguousParentError(VncError):
+    pass

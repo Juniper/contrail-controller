@@ -12,8 +12,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
-#include "oper/operdb_init.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
@@ -28,17 +28,12 @@
 #include "uve/uve_init.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
 
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include "cfg/init_config.h"
 #include "vr_types.h"
 #include "control_node_mock.h"
 #include "xml/xml_pugi.h"

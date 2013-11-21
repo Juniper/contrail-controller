@@ -200,10 +200,12 @@ struct VirtualDnsRecordConfig : public DnsConfig {
     void OnAdd(IFMapNode *node = NULL);
     void OnDelete();
     void OnChange(IFMapNode *node);
+    void OnChange(const DnsItem &new_rec);
     void UpdateVdns(IFMapNode *node);
 
     bool CanNotify();
     bool HasChanged(DnsItem &rhs);
+    bool OnlyTtlChange(DnsItem &rhs);
     autogen::VirtualDnsType GetVDns() const;
     const DnsItem &GetRecord() const { return rec_; }
     std::string GetViewName() const;

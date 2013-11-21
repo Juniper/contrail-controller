@@ -205,7 +205,7 @@ struct SsrcStart : sc::state<SsrcStart, IFMapStateMachine> {
     sc::result react(const EvConnectionResetReq &event) {
         IFMapStateMachine *sm = &context<IFMapStateMachine>();
         sm->channel()->SetHostPort(event.host_, event.port_);
-        return transit<SsrcStart>();
+        return discard_event();
     }
 };
 
@@ -668,7 +668,7 @@ struct PollResponseWait :
 IFMapStateMachine::IFMapStateMachine(IFMapManager *manager)
     : manager_(manager), connect_timer_(*manager->io_service()),
       ssrc_connect_attempts_(0), arc_connect_attempts_(0),
-      response_timer_(*manager->io_service()), connection_attempts_(0),
+      response_timer_(*manager->io_service()), response_timer_expired_count_(0),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(
                   "ifmap::StateMachine"),
                   0, boost::bind(&IFMapStateMachine::DequeueEvent, this, _1)),
@@ -746,7 +746,7 @@ void IFMapStateMachine::ResponseTimerExpired(
         return;
     }
     IFMAP_DEBUG(IFMapSmExpiredTimerMessage, "Response timer expired.");
-    connection_attempts_inc();
+    response_timer_expired_count_inc();
     EnqueueEvent(ifsm::EvResponseTimerExpired());
 }
 
@@ -907,7 +907,7 @@ bool IFMapStateMachine::ProcErrorAndIgnore(
 }
 
 void IFMapStateMachine::ResetConnectionReqEnqueue(const std::string &host,
-                                           const std::string &port) {
+                                                  const std::string &port) {
     EnqueueEvent(ifsm::EvConnectionResetReq(host, port));
 }
 
@@ -915,6 +915,8 @@ void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {
 }
 
 void IFMapStateMachine::EnqueueEvent(const sc::event_base &event) {
+    IFMAP_DEBUG(IFMapSmEventMessage, "Enqueuing", TYPE_NAME(event),
+                "in state", StateName());
     work_queue_.Enqueue(event.intrusive_from_this());
 }
 

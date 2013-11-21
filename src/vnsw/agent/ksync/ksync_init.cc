@@ -73,6 +73,10 @@ void KSync::RegisterDBClients(DB *db) {
     Agent::GetInstance()->SetRouterIdConfigured(false);
 }
 
+void KSync::InitFlowMem() {
+    FlowTableKSyncObject::InitFlowMem();
+}
+
 void KSync::NetlinkInit() {
     EventManager *event_mgr;
 

@@ -17,6 +17,8 @@ struct VirtualDnsRecordConfig;
 
 class DnsManager {
 public:
+    static const int max_records_per_sandesh = 200;
+
     DnsManager();
     virtual ~DnsManager();
     void Initialize(DB *config_db, DBGraph *config_graph);

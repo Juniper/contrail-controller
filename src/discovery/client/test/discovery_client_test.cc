@@ -26,8 +26,10 @@ namespace ip = boost::asio::ip;
 
 class DiscoveryServiceClientMock: public DiscoveryServiceClient {
 public:
-    DiscoveryServiceClientMock(EventManager *evm, boost::asio::ip::tcp::endpoint ep) :
-        DiscoveryServiceClient(evm, ep) , xmpp_instances_(0), ifmap_instances_(0),
+    DiscoveryServiceClientMock(EventManager *evm, boost::asio::ip::tcp::endpoint ep,
+                               std::string client_name) :
+        DiscoveryServiceClient(evm, ep, client_name) , 
+        xmpp_instances_(0), ifmap_instances_(0),
         xmpp_cb_count_(0), ifmap_cb_count_(0) {
     }
 
@@ -161,7 +163,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_no_publish_cb) {
     dss_ep.address(ip::address::from_string("10.84.7.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc_publish->Init();
  
     std::string msg;
@@ -187,7 +190,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_with_publish_cb) {
     dss_ep.address(ip::address::from_string("10.84.7.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc_publish->Init();
  
     std::string msg;
@@ -217,11 +221,12 @@ TEST_F(DiscoveryServiceClientTest, DSS_with_subscribe_cb) {
     dss_ep.address(ip::address::from_string("10.84.7.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_subscribe = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc_subscribe->Init();
 
     //subscribe to service
-    dsc_subscribe->Subscribe("Test", "xmpp-server-test", 1, 
+    dsc_subscribe->Subscribe("xmpp-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, 
                     dsc_subscribe, _1));
 
@@ -251,7 +256,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_clients) {
     dss_ep.address(ip::address::from_string("10.84.7.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc_publish->Init();
  
     std::string msg;
@@ -261,11 +267,12 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_clients) {
 
     //Subscribe DS client
     DiscoveryServiceClientMock *dsc_subscribe = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test2"));
     dsc_subscribe->Init();
 
     //subscribe to service
-    dsc_subscribe->Subscribe("Test", xmpp-server-test, 1, 
+    dsc_subscribe->Subscribe("xmpp-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, 
                     dsc_subscribe, _1));
 
@@ -297,7 +304,8 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_client) {
     dss_ep.address(ip::address::from_string("10.84.7.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_pubsub = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc_pubsub->Init();
  
     //Publish xmpp-server service
@@ -306,7 +314,7 @@ TEST_F(DiscoveryServiceClientTest, DSS_pubsub_client) {
     dsc_pubsub->Publish("xmpp-server-test", msg);
 
     //subscribe to service
-    dsc_pubsub->Subscribe("Test", "collector-server-test", 1, 
+    dsc_pubsub->Subscribe("collector-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncCollectorHandler, 
                     dsc_pubsub, _1));
 
@@ -330,12 +338,13 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5997);
     DiscoveryServiceClientMock *dsc = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc->Init();
  
     int ifmap_instances = 1;
     //subscribe to service
-    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+    dsc->Subscribe("ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
 
@@ -366,7 +375,7 @@ TEST_F(DiscoveryServiceClientTest, Publish_1_Service) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5997);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test")); 
     dsc_publish->Init();
  
     //publish a service
@@ -399,17 +408,17 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_Services) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test"));
     dsc->Init();
  
     int xmpp_instances = 2;
     int ifmap_instances = 1;
 
     //subscribe to service
-    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+    dsc->Subscribe("ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
-    dsc->Subscribe("Test", "xmpp-server-test", xmpp_instances, 
+    dsc->Subscribe("xmpp-server-test", xmpp_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, dsc, _1));
 
     std::string msg;
@@ -441,7 +450,7 @@ TEST_F(DiscoveryServiceClientTest, Publish_Services) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test")); 
     dsc_publish->Init();
 
     //publish a service
@@ -480,11 +489,12 @@ TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5998);
     DiscoveryServiceClientMock *dsc_publish = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test1"));
     dsc_publish->Init();
 
     DiscoveryServiceClientMock *dsc_subscribe = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test2"));
     dsc_subscribe->Init();
 
     //publish a service
@@ -500,7 +510,7 @@ TEST_F(DiscoveryServiceClientTest, Publish_Subscribe_1_Service) {
 
 
     //subscribe a service
-    dsc_subscribe->Subscribe("Test", "xmpp-server-test", 1, 
+    dsc_subscribe->Subscribe("xmpp-server-test", 1, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeXmppHandler, dsc_subscribe, _1));
     task_util::WaitForIdle(); 
 
@@ -535,12 +545,13 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5997);
     DiscoveryServiceClientMock *dsc = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc->Init();
  
     int ifmap_instances = 1;
     //subscribe to service
-    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+    dsc->Subscribe("ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
 
@@ -553,7 +564,7 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_nopublisher) {
     task_util::WaitForIdle(); 
 
     //Resubscribe assume ttl/connect-time expired
-    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+    dsc->Subscribe("ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
    
@@ -583,12 +594,13 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_badresponse) {
     dss_ep.address(ip::address::from_string("127.0.0.1"));
     dss_ep.port(5997);
     DiscoveryServiceClientMock *dsc = 
-        (new DiscoveryServiceClientMock(evm_.get(), dss_ep));
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep,
+         "DS-Test"));
     dsc->Init();
  
     int ifmap_instances = 1;
     //subscribe to service
-    dsc->Subscribe("Test", "ifmap-server-test", ifmap_instances, 
+    dsc->Subscribe("ifmap-server-test", ifmap_instances, 
         boost::bind(&DiscoveryServiceClientMock::AsyncSubscribeIfMapHandler, dsc, _1));
     task_util::WaitForIdle(); 
 

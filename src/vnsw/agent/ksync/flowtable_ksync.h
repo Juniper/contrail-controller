@@ -21,18 +21,20 @@
 #include <vr_types.h>
 #include <vr_flow.h>
 
+class NHKSyncEntry;
+
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
 public:
     FlowTableKSyncEntry(FlowEntryPtr fe, uint32_t hash_id) : 
         fe_(fe), hash_id_(hash_id), 
         old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
         old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-        old_second_mirror_index_(0xFFFF), trap_flow_(false) {
+        old_second_mirror_index_(0xFFFF), trap_flow_(false), nh_(NULL){
     };
     FlowTableKSyncEntry() : hash_id_(0), 
         old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
         old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF),
-        old_second_mirror_index_(0xFFFF), trap_flow_(false)  {
+        old_second_mirror_index_(0xFFFF), trap_flow_(false), nh_(NULL){
     };
     ~FlowTableKSyncEntry() {};
 
@@ -48,7 +50,6 @@ public:
     };
 
     KSyncObject *GetObject();
-    KSyncEntry *UnresolvedReference() {return NULL;};
     int AddMsg(char *buf, int buf_len);
     int ChangeMsg(char *buf, int buf_len);
     int DeleteMsg(char *buf, int buf_len);
@@ -60,6 +61,8 @@ public:
     std::string GetActionString(uint16_t action, uint16_t flag);
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
     virtual bool Sync();
+    virtual KSyncEntry *UnresolvedReference();
+    NHKSyncEntry *GetNH() const;
 private:
     FlowEntryPtr fe_;
     uint32_t hash_id_;
@@ -70,6 +73,7 @@ private:
     uint32_t old_first_mirror_index_;
     uint32_t old_second_mirror_index_;
     uint32_t trap_flow_;
+    KSyncEntryPtr nh_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 
@@ -99,8 +103,12 @@ public:
     static void Init() {
         assert(singleton_ == NULL);
         singleton_ = new FlowTableKSyncObject();
-        singleton_->MapFlowMem();
     };
+
+    static void InitFlowMem() {
+        singleton_->MapFlowMem();
+    }
+
     static void InitTest() {
         assert(singleton_ == NULL);
         singleton_ = new FlowTableKSyncObject();
@@ -112,10 +120,14 @@ public:
         singleton_->singleton_ = NULL;
     };
 
+    vr_flow_req &GetFlowReq() { return flow_req_; }
+
 private:
     friend class KSyncSandeshContext;
     static FlowTableKSyncObject *singleton_;
-    vr_flow_req flow_info_;
+    int major_devid_;
+    int flow_table_size_;
+    vr_flow_req flow_req_;
     vr_flow_entry *flow_table_;
     uint32_t flow_table_entries_;
     int audit_yeild_;

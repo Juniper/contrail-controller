@@ -6,6 +6,8 @@
 //  collector_uve.sandesh
 //
 
+include "io/io.sandesh"
+include "sandesh/library/common/sandesh_uve.sandesh"
 
 struct SandeshStats {
     1: string                              message_type
@@ -25,8 +27,8 @@ struct SandeshStatsInfo {
     1: string                          hostname
     2: list<SandeshStats>              msgtype_stats
     3: list<SandeshLogLevelStats>      log_level_stats 
-
 }
+
 struct GeneratorInfoAttr {
     1: u32                                 connects
     5: u64                                 connect_time
@@ -34,11 +36,11 @@ struct GeneratorInfoAttr {
     6: u64                                 reset_time
     4: bool                                in_clear
 }
+
 struct GeneratorInfo {
     1: string                              hostname
     3: GeneratorInfoAttr                   gen_attr
 }
-
 
 // This struct is part of the Generator UVE (key is <source>:<module>)
 //
@@ -51,23 +53,29 @@ struct ModuleServerState {
     2: optional bool                       deleted
     3: optional list<SandeshStatsInfo>     msg_stats (aggtype="union")
     4: optional list<GeneratorInfo>        generator_info (aggtype="union")
+    5: optional u64                        sm_queue_count (aggtype="stats" hbin="50") 
+    6: optional sandesh_uve.SandeshStateMachineStats sm_stats
+    7: optional u64                        db_queue_count (aggtype="stats" hbin="50")
+    8: optional u64                        db_enqueues
 }
+
 uve sandesh SandeshModuleServerTrace {
     1: ModuleServerState                   data
 }
-
-
 
 struct GeneratorSummaryInfo {
     1: string                              source
     2: string                              module_id    
     3: string                              state    
 }
-request sandesh GeneratorListReq {
+
+request sandesh ShowCollectorServerReq {
 }
 
-response sandesh GeneratorListResp {
-    1: list<GeneratorSummaryInfo>          genlist
+response sandesh ShowCollectorServerResp {
+    1: io.TcpServerSocketStats             rx_socket_stats
+    2: io.TcpServerSocketStats             tx_socket_stats
+    3: list<GeneratorSummaryInfo>          generators
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this
@@ -84,6 +92,8 @@ struct CollectorState {
     5: optional string                     build_info
     6: optional list<string>               self_ip_list
     7: optional list<string>               core_files_list
+    8: optional io.TcpServerSocketStats    rx_socket_stats
+    9: optional io.TcpServerSocketStats    tx_socket_stats
 }
 
 uve sandesh CollectorInfo {
@@ -118,3 +128,4 @@ trace sandesh generator_deluves {
     2: string mdule
     3: bool success    
 }
+

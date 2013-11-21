@@ -126,6 +126,7 @@ void Ping::SendRequest() {
     pkt_handler->SetDiagChkSum();
     pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
                       AGENT_CMD_ROUTE, PktHandler::DIAG);
+    delete pkt_handler;
     return;
 }
 

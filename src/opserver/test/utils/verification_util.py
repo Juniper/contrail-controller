@@ -51,9 +51,11 @@ class VerificationUtilBase (object):
                 return path
             return "http://%s:%d/%s" % (self._ip, self._port, path)
 
-    def dict_get(self, path=''):
+    def dict_get(self, path='', drv=None):
         try:
             if path:
+                if drv is not None:
+                    return drv().load(self._mk_url_str(path))
                 return self._drv.load(self._mk_url_str(path))
         except urllib2.HTTPError:
             return None

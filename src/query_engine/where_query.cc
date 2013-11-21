@@ -2,14 +2,16 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <cstdlib>
 #include "rapidjson/document.h"
 #include "query.h"
 #include "json_parse.h"
 
 
-WhereQuery::WhereQuery(std::string where_json_string, int direction,
+WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         QueryUnit *main_query): 
-    QueryUnit(main_query, main_query), direction_ing(direction) {
+    QueryUnit(main_query, main_query), direction_ing(direction),
+    json_string_(where_json_string) {
 
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
 
@@ -26,7 +28,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
         ((m_query->table == g_viz_constants.FLOW_TABLE)
         || (m_query->table == g_viz_constants.FLOW_SERIES_TABLE)) {
 
-            db_query->row_key_suffix = (uint8_t)direction_ing;
+            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
 
             // starting value for protocol/port field
@@ -119,6 +121,12 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                     uint_value = value_value.GetUint();
                     convert << uint_value;
                     value = convert.str();
+                } else if (value_value.IsDouble()) {
+                    double dbl_value;
+                    std::ostringstream convert;
+                    dbl_value = value_value.GetDouble();
+                    convert << dbl_value;
+                    value = convert.str();
                 }
             }
 
@@ -149,6 +157,12 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                     uint_value = value_value2.GetUint();
                     convert << uint_value;
                     value2 = convert.str();
+                } else if (value_value2.IsDouble()) {
+                    double dbl_value;
+                    std::ostringstream convert;
+                    dbl_value = value_value2.GetDouble();
+                    convert << dbl_value;
+                    value2 = convert.str();
                 }
             }
 
@@ -163,7 +177,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
-                db_query->row_key_suffix = value;
+                db_query->row_key_suffix.push_back(value);
 
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
@@ -178,7 +192,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
-                db_query->row_key_suffix = value;
+                db_query->row_key_suffix.push_back(value);
 
                 // dont filter query engine logs if the query is about query
                 // engine
@@ -199,7 +213,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
-                db_query->row_key_suffix = value;
+                db_query->row_key_suffix.push_back(value);
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
@@ -215,7 +229,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
-                db_query->row_key_suffix = value;
+                db_query->row_key_suffix.push_back(value);
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
@@ -233,7 +247,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
 
                 // int encoding
                 std::istringstream(value) >> level;
-                db_query->row_key_suffix = level;
+                db_query->row_key_suffix.push_back(level);
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << level);
             }
@@ -250,7 +264,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(op == EQUAL);
 
                 // string encoding
-                db_query->row_key_suffix = value;
+                db_query->row_key_suffix.push_back(value);
 
                 QE_TRACE(DEBUG, "where match term for objectid " << value);
                 object_id_specified = true;
@@ -397,6 +411,59 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
 
                 QE_TRACE(DEBUG, "where match term for dport " << value);
             }
+
+
+            int idx = m_query->stat_table_index();
+            if (idx != -1)
+            {
+                GenDb::DbDataValue smpl;
+                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
+                if (name == g_viz_constants.STAT_OBJECTID_FIELD) {
+                    db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                    smpl = value;
+                } else {
+                    int at_idx = -1;
+                    for (size_t j = 0; 
+                            j < g_viz_constants._STAT_TABLES[idx].attributes.size();
+                            j++) {
+                        if ((g_viz_constants._STAT_TABLES[idx].attributes[j].name ==
+                                name) && g_viz_constants._STAT_TABLES[idx].attributes[j].index) {
+                            at_idx = j;
+                            break;
+                        } 
+                    }
+                    QE_INVALIDARG_ERROR(at_idx != -1);
+
+                    if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "string") { 
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                        smpl = value;
+                    } else if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "int") {
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                        smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
+                    } else if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "double") {
+                        db_query->cfname = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
+                        smpl = (double) strtod(value.c_str(), NULL);
+                    } else
+                        QE_ASSERT(0);
+                }
+                db_query->t_only_col = false;
+                db_query->t_only_row = false;
+
+                // only EQUAL op supported currently 
+                QE_INVALIDARG_ERROR(op == EQUAL);
+                // string encoding
+                db_query->row_key_suffix.push_back(g_viz_constants._STAT_TABLES[idx].stat_type);
+                db_query->row_key_suffix.push_back(g_viz_constants._STAT_TABLES[idx].stat_attr);
+                db_query->row_key_suffix.push_back(name);
+
+                db_query->cr.start_.push_back(smpl);
+                db_query->cr.finish_.push_back(smpl);
+                db_query->cr.start_.push_back(std::string());
+                db_query->cr.finish_.push_back(std::string());
+                QE_TRACE(DEBUG, "where match term for stat name: " <<
+                    name << " value: " << value);
+                object_id_specified = true;
+            }
         }
 
         // do some validation checks
@@ -439,7 +506,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
         if (vr_match) 
         {
             DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-            db_query->row_key_suffix = (uint8_t)direction_ing;
+            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_VROUTER;
             db_query->cr.start_.push_back(vr);
             if (vr_op == EQUAL) {
@@ -461,7 +528,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
         if (svn_match) 
         {
             DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-            db_query->row_key_suffix = (uint8_t)direction_ing;
+            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_SVN_SIP;
             db_query->cr.start_.push_back(svn);
             if (svn_op == EQUAL) {
@@ -494,7 +561,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
         if (dvn_match) 
         {
             DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-            db_query->row_key_suffix = (uint8_t)direction_ing;
+            db_query->row_key_suffix.push_back((uint8_t)direction_ing);
             db_query->cfname = g_viz_constants.FLOW_TABLE_DVN_DIP;
             db_query->cr.start_.push_back(dvn);
             if (dvn_op == EQUAL)
@@ -525,7 +592,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
             if (sport_match)
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-                db_query->row_key_suffix = (uint8_t)direction_ing;
+                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_SP;
 
                 if (sport_op == EQUAL) {
@@ -549,7 +616,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
             if (dport_match)
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-                db_query->row_key_suffix = (uint8_t)direction_ing;
+                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
                 if (dport_op == EQUAL) {
                     db_query->cr.start_.push_back(proto);
@@ -573,7 +640,7 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
             {
                 // no port specified, just query for protocol
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, m_query);
-                db_query->row_key_suffix = (uint8_t)direction_ing;
+                db_query->row_key_suffix.push_back((uint8_t)direction_ing);
                 db_query->cfname = g_viz_constants.FLOW_TABLE_PROT_DP;
                 db_query->cr.start_.push_back(proto);
                 // only equal op
@@ -603,8 +670,10 @@ WhereQuery::WhereQuery(std::string where_json_string, int direction,
                 QE_INVALIDARG_ERROR(0);
             }
         }
+        
     }
 }
+
 
 // Create UUID to 8-tuple map by querying special flow table for the given 
 // time range
@@ -614,7 +683,6 @@ void WhereQuery::create_uuid_tuple_map(
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
     uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
-    GenDb::ColumnNameRange cr; cr.count = MAX_DB_QUERY_ENTRIES;
 
     QE_TRACE(DEBUG, "WhereQuery: Creating UUID tuple map");
 
@@ -622,52 +690,34 @@ void WhereQuery::create_uuid_tuple_map(
 
     QE_TRACE(DEBUG, "Querying " << (t2_end - t2_start + 1) << " rows");
 
+    std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get
+    std::vector<GenDb::ColList> mget_res;   // vector of result for each row
     for (uint32_t t2 = t2_start; t2 <= t2_end; t2++)
     {
-        GenDb::ColList result;
         GenDb::DbDataValueVec rowkey;
 
         rowkey.push_back(t2);
         rowkey.push_back(row_key_suffix);
+        keys.push_back(rowkey);
+    }
 
-#if TBD
-        QE_TRACE(DEBUG,  " Database query for row_start:"
-                << kr.start_key
-                << " row_end:" << kr.end_key
-                << " t2:"<< t2
-                << " cf:" << g_viz_constants.FLOW_TABLE_ALL_FIELDS
-                << " column_start:" << cr.start_
-                << " column_end:" << cr.finish_);
-#endif
-
-        if (m_query->dbif->Db_GetRangeSlices(result, g_viz_constants.FLOW_TABLE_ALL_FIELDS, cr, rowkey))
-        {
+    GenDb::ColumnNameRange cr; cr.count = MAX_DB_QUERY_ENTRIES;
+    if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.FLOW_TABLE_ALL_FIELDS, keys, &cr)) {
+        QE_IO_ERROR(0);
+    } else {
+        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+                it != mget_res.end(); it++) {
+            uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
             QE_TRACE(DEBUG, "For T2: " << t2 << " # of rows: " << 
-                    result.columns_.size());
+                    it->columns_.size());
 
             std::vector<GenDb::NewCol>::iterator i;
-            for (i = result.columns_.begin(); i != result.columns_.end(); i++)
+            for (i = it->columns_.begin(); i != it->columns_.end(); i++)
             {
                 {
                     query_result_unit_t result_unit;
                     
                     assert(i->name.size() > 0);
-                    uint32_t t1;
-                    try {
-                        t1 = boost::get<uint32_t>(i->name.at(0));
-                    } catch (boost::bad_get& ex) {
-                        assert(0);
-                    }
-                    result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
-
-                    if 
-                    ((result_unit.timestamp < m_query->from_time) ||
-                     (result_unit.timestamp > m_query->end_time))
-                    {
-                        // got a result outside of the time range
-                        continue;
-                    }
-
                     result_unit.info = i->value;
 
                     boost::uuids::uuid u; flow_stats stats;

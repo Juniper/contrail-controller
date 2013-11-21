@@ -4,28 +4,19 @@
 
 #include <sstream>
 
-#include "base/util.h"
 #include "base/test/task_test_util.h"
-#include "bgp/bgp_config.h"
-#include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
-#include "bgp/bgp_server.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
-#include "bgp/test/bgp_server_test_util.h"
 #include "bgp/enet/enet_route.h"
 #include "bgp/enet/enet_table.h"
-#include "bgp/routing-instance/routing_instance.h"
+#include "bgp/test/bgp_server_test_util.h"
 #include "control-node/control_node.h"
 #include "control-node/test/network_agent_mock.h"
 #include "io/test/event_manager_test.h"
-#include "net/bgp_af.h"
 #include "schema/xmpp_enet_types.h"
-#include "xmpp/xmpp_client.h"
-#include "xmpp/xmpp_init.h"
-#include "xmpp/xmpp_server.h"
-
 #include "testing/gunit.h"
+#include "xmpp/xmpp_server.h"
 
 using namespace std;
 
@@ -145,9 +136,9 @@ protected:
     }
 
     virtual void TearDown() {
-        bs_x_->Shutdown();
-        task_util::WaitForIdle();
         xs_x_->Shutdown();
+        task_util::WaitForIdle();
+        bs_x_->Shutdown();
         task_util::WaitForIdle();
         bgp_channel_manager_.reset();
         TcpServerManager::DeleteServer(xs_x_);
@@ -267,13 +258,14 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteUpdate) {
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(rt2 != NULL);
-    int label2 = rt2->entry.next_hops.next_hop[0].label;
-    string nh2 = rt2->entry.next_hops.next_hop[0].address;
-    TASK_UTIL_EXPECT_EQ("192.168.2.1", nh2);
+    TASK_UTIL_EXPECT_EQ("192.168.2.1",
+        agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
 
     // Verify that next hop and label have changed.
-    TASK_UTIL_EXPECT_NE(nh1, nh2);
-    TASK_UTIL_EXPECT_NE(label1, label2);
+    TASK_UTIL_EXPECT_NE(nh1,
+        agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
+    TASK_UTIL_EXPECT_NE(label1,
+        agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].label);
 
     // Delete route from agent.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -463,13 +455,14 @@ TEST_F(BgpXmppEvpnTest1, 2AgentRouteUpdate) {
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(rt2 != NULL);
-    int label2 = rt2->entry.next_hops.next_hop[0].label;
-    string nh2 = rt2->entry.next_hops.next_hop[0].address;
-    TASK_UTIL_EXPECT_EQ("192.168.2.1", nh2);
+    TASK_UTIL_EXPECT_EQ("192.168.2.1",
+        agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
 
     // Verify that next hop and label have changed.
-    TASK_UTIL_EXPECT_NE(nh1, nh2);
-    TASK_UTIL_EXPECT_NE(label1, label2);
+    TASK_UTIL_EXPECT_NE(nh1,
+        agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
+    TASK_UTIL_EXPECT_NE(label1,
+        agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].label);
 
     // Delete route from agent.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -978,7 +971,11 @@ TEST_F(BgpXmppEvpnTest1, 2AgentSessionDown) {
     agent_b_->SessionDown();
 
     // Verify that the route sent by B is gone.
-    TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    if (!xs_x_->IsPeerCloseGraceful()) {
+        TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    } else {
+        TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    }
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
 
     // Delete route from agent A.
@@ -986,7 +983,13 @@ TEST_F(BgpXmppEvpnTest1, 2AgentSessionDown) {
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.
-    TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    if (!xs_x_->IsPeerCloseGraceful()) {
+        TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    } else {
+
+        // agent_b's routes shall remain if agent_a is under graceful-restart.
+        TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    }
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
 
     // Close the sessions.
@@ -1218,15 +1221,15 @@ protected:
     }
 
     virtual void TearDown() {
-        bs_x_->Shutdown();
-        task_util::WaitForIdle();
         xs_x_->Shutdown();
+        task_util::WaitForIdle();
+        bs_x_->Shutdown();
         task_util::WaitForIdle();
         cm_x_.reset();
 
-        bs_y_->Shutdown();
-        task_util::WaitForIdle();
         xs_y_->Shutdown();
+        task_util::WaitForIdle();
+        bs_y_->Shutdown();
         task_util::WaitForIdle();
         cm_y_.reset();
 
@@ -1452,13 +1455,13 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
     TASK_UTIL_EXPECT_TRUE(rt2 != NULL);
-    int label2 = rt2->entry.next_hops.next_hop[0].label;
-    string nh2 = rt2->entry.next_hops.next_hop[0].address;
-    TASK_UTIL_EXPECT_EQ("192.168.2.1", nh2);
+
+    TASK_UTIL_EXPECT_EQ("192.168.2.1",
+         agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
 
     // Verify that next hop and label have changed.
-    TASK_UTIL_EXPECT_NE(nh1, nh2);
-    TASK_UTIL_EXPECT_NE(label1, label2);
+    TASK_UTIL_EXPECT_NE(label1,
+            agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].label);
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -1959,11 +1962,33 @@ TEST_F(BgpXmppEvpnTest2, XmppSessionDown) {
     agent_b_->SessionDown();
 
     // Verify that the route sent by B is gone.
-    TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    if (!xs_y_->IsPeerCloseGraceful()) {
+        TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    } else {
+        TASK_UTIL_EXPECT_EQ(2, agent_a_->EnetRouteCount());
+    }
     TASK_UTIL_EXPECT_EQ(0, agent_b_->EnetRouteCount());
 
     // Delete route from agent A.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
+    task_util::WaitForIdle();
+
+    if (!xs_y_->IsPeerCloseGraceful()) {
+        TASK_UTIL_EXPECT_EQ(0, agent_a_->EnetRouteCount());
+    } else {
+        TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
+    }
+
+    // Clear agent_b_'s stale routes.
+    if (xs_y_->IsPeerCloseGraceful()) {
+        agent_b_->SessionUp();
+        task_util::WaitForIdle();
+        agent_b_->EnetSubscribe("blue", 1);
+        task_util::WaitForIdle();
+        agent_b_->AddEnetRoute("blue", eroute_b.str(), "192.168.1.2");
+        task_util::WaitForIdle();
+        agent_b_->DeleteEnetRoute("blue", eroute_b.str());
+    }
     task_util::WaitForIdle();
 
     // Verify that there are no routes on the agents.

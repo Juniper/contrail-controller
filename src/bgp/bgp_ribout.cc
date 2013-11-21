@@ -53,6 +53,13 @@ bool RibExportPolicy::operator<(const RibExportPolicy &rhs) const {
     return false;
 }
 
+RibOutAttr::RibOutAttr(const BgpAttr *attr, uint32_t label) : attr_out_(attr) {
+    if (attr) {
+        nexthop_list_.push_back(
+                NextHop(attr->nexthop(), label, attr->ext_community()));
+    }
+}
+
 RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
 
     //
@@ -88,8 +95,8 @@ RibOutAttr::RibOutAttr(BgpRoute *route, const BgpAttr *attr, bool is_xmpp) {
         //
         // We have an eligible ECMP path.
         //
-        NextHop nexthop(path->GetAttr()->nexthop(), path->GetLabel(), 
-                        GetTunnelEncap(path->GetAttr()->ext_community()));
+        NextHop nexthop(path->GetAttr()->nexthop(), path->GetLabel(),
+                path->GetAttr()->ext_community());
 
         //
         // Skip if we have already encoded this next-hop
@@ -132,8 +139,8 @@ void RibOutAttr::set_attr(const BgpAttrPtr &attrp, uint32_t label) {
     if (!attr_out_) {
         attr_out_ = attrp;
         assert(nexthop_list_.empty());
-        nexthop_list_.push_back(NextHop(attrp->nexthop(), label, 
-                                    GetTunnelEncap(attrp->ext_community())));
+        nexthop_list_.push_back(
+                NextHop(attrp->nexthop(), label, attrp->ext_community()));
         return;
     }
 

@@ -191,24 +191,6 @@ class StateMachineTest : public StateMachine {
         void StartIdleHoldTimer();
 };
 
-//
-// Test verison of XmppServer class
-//
-// Protect connection db with mutex as it is queried from main thread which
-// does not adhere to control-node scheduler policy.
-//
-class XmppServerTest : public XmppServer {
-public:
-    XmppServerTest(EventManager *evm, const std::string &server_addr);
-    virtual ~XmppServerTest();
-    virtual XmppConnection *FindConnection(const std::string &peer_addr);
-    virtual void InsertConnection(XmppConnection *connection);
-    virtual void RemoveConnection(XmppConnection *connection);
-
-private:
-    tbb::mutex mutex_;
-};
-
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {
 public:
     BgpXmppChannelManagerMock(XmppServerTest *x, BgpServer *b);

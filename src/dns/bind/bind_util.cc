@@ -455,6 +455,7 @@ int BindUtil::BuildDnsUpdate(uint8_t *buf, Operation op, uint16_t xid,
     // Add Updates
     switch (op) {
         case ADD_UPDATE:
+        case CHANGE_UPDATE:
             for (DnsItems::const_iterator it = items.begin(); 
                  it != items.end(); ++it) {
                 ptr = AddUpdate(ptr, *it, (*it).eclass, (*it).ttl, len);

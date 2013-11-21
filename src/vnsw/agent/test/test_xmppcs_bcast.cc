@@ -16,7 +16,8 @@
 
 #include <cmn/agent_cmn.h>
 
-#include "cfg/init_config.h"
+#include "cfg/cfg_init.h"
+#include "cfg/cfg_interface.h"
 #include "oper/operdb_init.h"
 #include "controller/controller_init.h"
 #include "controller/controller_ifmap.h"
@@ -32,12 +33,9 @@
 #include "oper/vn.h"
 #include "oper/peer.h"
 #include "openstack/instance_service_server.h"
-#include "cfg/interface_cfg.h"
-#include "cfg/init_config.h"
 #include "test_cmn_util.h"
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
-#include "cfg/init_config.h"
 #include "vr_types.h"
 
 #include "xmpp_multicast_types.h"
@@ -283,7 +281,6 @@ protected:
 
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
-        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
         stringstream label;
         label << dest_label;
@@ -319,7 +316,6 @@ protected:
 
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
-        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
         stringstream label1;
         label1 << dest_label1;
@@ -330,7 +326,6 @@ protected:
 
         autogen::McastNextHopType nh2;
         nh2.af = item.entry.nlri.af;
-        nh2.safi = item.entry.nlri.safi;
         nh2.address = "127.0.0.3"; // agent-c, does not exist
         stringstream label2;
         label2 << dest_label2;

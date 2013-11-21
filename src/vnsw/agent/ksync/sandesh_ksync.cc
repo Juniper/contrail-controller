@@ -42,24 +42,26 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
            r->get_fr_op() == flow_op::FLOW_SET);
 
     if (r->get_fr_op() == flow_op::FLOW_TABLE_GET) {
-        FlowTableKSyncObject::GetKSyncObject()->flow_info_ = *r;
+        FlowTableKSyncObject::GetKSyncObject()->major_devid_ = r->get_fr_ftable_dev();
+        FlowTableKSyncObject::GetKSyncObject()->flow_table_size_ = r->get_fr_ftable_size();
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
+        FlowKey key;
+        key.vrf = r->get_fr_flow_vrf();
+        key.src.ipv4 = ntohl(r->get_fr_flow_sip());
+        key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
+        key.src_port = ntohs(r->get_fr_flow_sport());
+        key.dst_port = ntohs(r->get_fr_flow_dport());
+        key.protocol = r->get_fr_flow_proto();
+        FlowEntry *entry = FlowTable::GetFlowTableObject()->Find(key);
+        in_addr src;
+        in_addr dst;
+        src.s_addr = r->get_fr_flow_sip();
+        dst.s_addr = r->get_fr_flow_dip();
+        string src_str = inet_ntoa(src);
+        string dst_str = inet_ntoa(dst);
+
         if (GetErrno() == EBADF) {
-            FlowKey key;
-            key.vrf = r->get_fr_flow_vrf();
-            key.src.ipv4 = ntohl(r->get_fr_flow_sip());
-            key.dst.ipv4 = ntohl(r->get_fr_flow_dip());
-            key.src_port = ntohs(r->get_fr_flow_sport());
-            key.dst_port = ntohs(r->get_fr_flow_dport());
-            key.protocol = r->get_fr_flow_proto();
-            FlowEntry *entry = FlowTable::GetFlowTableObject()->Find(key);
-            in_addr src;
-            in_addr dst;
-            src.s_addr = r->get_fr_flow_sip();
-            dst.s_addr = r->get_fr_flow_dip();
-            string src_str = inet_ntoa(src);
-            string dst_str = inet_ntoa(dst);
             string op;
             if (r->get_fr_flags() != 0) {
                 op = "Add/Update";
@@ -75,30 +77,26 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             if (entry && (int)entry->flow_handle == r->get_fr_index()) {
                 entry->flow_handle = FlowEntry::kInvalidFlowHandle;
             }
-            
-            // When NAT forward flow is deleted, vrouter will delete reverse
-            // flow also. When agent tries to delete reverse flow, it will get
-            // error from vrouter. Ignore the error for delete of NAT case
-            SetErrno(0);
             return;
         }
-        FlowKey key;
-        key.vrf = r->get_fr_rflow_vrf();
-        key.src.ipv4 = ntohl(r->get_fr_rflow_sip());
-        key.dst.ipv4 = ntohl(r->get_fr_rflow_dip());
-        key.src_port = ntohs(r->get_fr_rflow_sport());
-        key.dst_port = ntohs(r->get_fr_rflow_dport());
-        key.protocol = r->get_fr_rflow_proto();
-        FlowEntry *entry = FlowTable::GetFlowTableObject()->Find(key);
 
         if (entry) {
             if (entry->flow_handle != FlowEntry::kInvalidFlowHandle) {
-                if ((int)entry->flow_handle != r->get_fr_rindex()) {
+                if ((int)entry->flow_handle != r->get_fr_index()) {
                     LOG(DEBUG, "Flow index changed from <" << entry->flow_handle
                         << "> to <" << r->get_fr_rindex() << ">");
                 }
             }
-            entry->flow_handle = r->get_fr_rindex();
+            entry->flow_handle = r->get_fr_index();
+            //Tie forward flow and reverse flow
+            if (entry->nat || entry->data.ecmp) {
+                 FlowEntry *rev_flow = entry->data.reverse_flow.get();
+                 if (rev_flow) {
+                     FlowTableKSyncEntry *rev_ksync_entry =
+                         FlowTableKSyncObject::GetKSyncObject()->Find(rev_flow);
+                     rev_flow->UpdateKSync(rev_ksync_entry, false);
+                 }
+            }
         }
     } else {
         assert(!("Invalid Flow operation"));

@@ -101,6 +101,9 @@ public:
 
     void HandleXmppChannelEvent(XmppChannel *channel,
                                 xmps::PeerState state) {
+        if (!channel_ && (state == xmps::NOT_READY))
+            return;
+
         if (state != xmps::READY) {
             assert(channel_ && channel == channel_);
             channel->UnRegisterReceive(xmps::BGP);
@@ -270,7 +273,6 @@ protected:
 
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
-        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
         stringstream label;
         label << dest_label;
@@ -306,7 +308,6 @@ protected:
 
         autogen::McastNextHopType nh;
         nh.af = item.entry.nlri.af;
-        nh.safi = item.entry.nlri.safi;
         nh.address = "127.0.0.2"; // agent-b, does not exist
         stringstream label1;       
         label1 << dest_label1;
@@ -317,7 +318,6 @@ protected:
 
         autogen::McastNextHopType nh2;
         nh2.af = item.entry.nlri.af;
-        nh2.safi = item.entry.nlri.safi;
         nh2.address = "127.0.0.3"; // agent-c, does not exist
         stringstream label2;       
         label2 << dest_label2;
@@ -503,7 +503,7 @@ protected:
     CompositeNH::ComponentNHList::const_iterator fabric_component_nh_it =
         fabric_cnh->begin();
     ComponentNH *fabric_component = *fabric_component_nh_it;
-    ASSERT_TRUE(fabric_component->GetLabel() == alloc_label+10);
+    ASSERT_TRUE(fabric_component->GetLabel() == (uint32_t) alloc_label+10);
 
 	//Verify mpls table
 	MplsLabel *mpls = 

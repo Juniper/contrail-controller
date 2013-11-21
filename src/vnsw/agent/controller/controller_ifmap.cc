@@ -2,20 +2,26 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/util.h"
-#include "base/logging.h"
-#include "controller/controller_init.h"
-#include "controller/controller_ifmap.h"
-#include "controller/controller_peer.h"
-#include "xmpp/xmpp_channel.h"
-#include "ifmap/ifmap_agent_parser.h"
-#include "cmn/agent_cmn.h"
-#include "pugixml/pugixml.hpp"
-#include "xml/xml_pugi.h"
-#include <cfg/interface_cfg.h>
+#include <stdint.h>
+#include <string.h>
+#include <pugixml/pugixml.hpp>
+#include <xml/xml_base.h>
+#include <xml/xml_pugi.h>
+
+#include <base/util.h>
+#include <base/logging.h>
+#include <xmpp/xmpp_channel.h>
+#include <ifmap/ifmap_agent_parser.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
-#include "controller/controller_types.h"
+
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_interface.h>
+
+#include <controller/controller_init.h>
+#include <controller/controller_ifmap.h>
+#include <controller/controller_peer.h>
+#include <controller/controller_types.h>
 
 
 uint64_t AgentIfMapXmppChannel::seq_number_;
@@ -97,7 +103,7 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         if (!info)
             return;
 
-        std::list<uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
+        std::list<boost::uuids::uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
                     info->vmi_list_.end(), entry->GetUuid());
         if (vmi_it == info->vmi_list_.end())
             return;
@@ -134,7 +140,7 @@ void AgentIfMapVmExport::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         }
 
         //If VMI is not found, insert in the list
-        std::list<uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
+        std::list<boost::uuids::uuid>::iterator vmi_it = std::find(info->vmi_list_.begin(), 
                     info->vmi_list_.end(), entry->GetUuid());
 
         if (vmi_it == info->vmi_list_.end()) {

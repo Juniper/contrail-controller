@@ -16,8 +16,13 @@ class VNController {
         static void Connect();
         static void DisConnect();
 
+        static void Cleanup();
+
         static void XmppServerConnect();
         static void DnsXmppServerConnect();
+
+        static void XmppServerDisConnect();
+        static void DnsXmppServerDisConnect();
 
         static AgentXmppChannel *FindAgentXmppChannel(std::string server_ip);
         static void ApplyDiscoveryXmppServices(std::vector<DSResponse> resp); 

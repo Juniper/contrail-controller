@@ -368,8 +368,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:complexType name="VnSubnetsType">
     <xsd:all>
         <xsd:element name="ipam-subnets" type="IpamSubnetType" maxOccurs="unbounded"/>
+        <xsd:element name="host-routes" type="RouteTableType"/>
     </xsd:all>
 </xsd:complexType>
+<!-- 
+    host-routes will normally have no next hop. Next hop sent in DHCP will be
+    default gateway address in the given subnet
+-->
 <!-- Ip address mngmt type End -->
 
 <!-- domain limits type -->
@@ -922,4 +927,20 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <xsd:element name="routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('routes', 'route-table') -->
+
+<!--Semantically virtual network route table and interface route table quite
+different
+ -->
+<xsd:element name="interface-route-table" type="ifmap:IdentityType"/>
+<xsd:element name="project-interface-route-table"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-interface-route-table',
+          'project', 'interface-route-table', ['has']) -->
+<xsd:element name="virtual-machine-interface-route-table"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-interface-route-table',
+          'virtual-machine-interface', 'interface-route-table', ['ref']) -->
+<xsd:element name="interface-route-table-routes" type="RouteTableType"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Property('interface-route-table-routes', 'interface-route-table') -->
 </xsd:schema>

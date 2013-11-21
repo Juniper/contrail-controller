@@ -39,6 +39,7 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
 
 #include "db/db.h"
@@ -248,27 +249,6 @@ BgpNullPeer::BgpNullPeer(BgpServerTest *server, int peer_id) {
                 server->FindPeerByUuid(BgpConfigManager::kMasterInstance,
                                        uuid));
     peer_id_ = peer_id;
-}
-
-XmppServerTest::XmppServerTest(EventManager *evm,
-                               const std::string &server_addr) :
-            XmppServer(evm, server_addr) {
-}
-XmppServerTest::~XmppServerTest() { }
-
-XmppConnection *XmppServerTest::FindConnection(const string &peer_addr) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    return XmppServer::FindConnection(peer_addr);
-}
-
-void XmppServerTest::InsertConnection(XmppConnection *connection) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    XmppServer::InsertConnection(connection);
-}
-
-void XmppServerTest::RemoveConnection(XmppConnection *connection) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    XmppServer::RemoveConnection(connection);
 }
 
 BgpXmppChannelManagerMock::BgpXmppChannelManagerMock(XmppServerTest *x,

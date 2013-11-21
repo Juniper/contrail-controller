@@ -18,7 +18,8 @@ RedisSentinelClient::RedisSentinelClient(
         redis_master_update_cb_(redis_master_update_cb),
         rx_msg_count_(0),
         rx_msg_cnt_since_last_conn_(0),
-        sentinel_msg_cb_(NULL) {
+        sentinel_msg_cb_(NULL),
+        getmaster_timer_(*evm->io_service()) {
     sentinel_conn_.reset(new RedisAsyncConnection(evm, sentinel_ip, sentinel_port, 
             boost::bind(&RedisSentinelClient::ConnUp, this),
             boost::bind(&RedisSentinelClient::ConnDown, this)));
@@ -26,6 +27,8 @@ RedisSentinelClient::RedisSentinelClient(
 }
 
 RedisSentinelClient::~RedisSentinelClient() {
+    boost::system::error_code ec;
+    getmaster_timer_.cancel(ec);
 }
 
 void RedisSentinelClient::Connect() {
@@ -48,6 +51,8 @@ void RedisSentinelClient::ConnUpPostProcess() {
 
 void RedisSentinelClient::ConnDown() {
     LOG(DEBUG, "Redis Sentinel Connection Down");
+    boost::system::error_code ec;
+    getmaster_timer_.cancel(ec);
     rx_msg_cnt_since_last_conn_ = 0;
     evm_->io_service()->post(boost::bind(&RedisSentinelClient::Connect, this));
 }
@@ -106,9 +111,9 @@ void RedisSentinelClient::ProcessSentinelMsg(const redisAsyncContext *c,
         }
     } else {
         LOG(DEBUG, "Redis Sentinel message type == " << sentinel_msg->type);
-        // TODO: Find a way to retry getting the master a few times before
-        // giving up
-        assert(0);
+        boost::system::error_code ec;
+        getmaster_timer_.expires_from_now(boost::posix_time::seconds(RedisSentinelClient::kGetMasterTime), ec);
+        getmaster_timer_.async_wait(boost::bind(&RedisSentinelClient::GetRedisMasters, this));
         return;
     }
 

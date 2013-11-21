@@ -34,12 +34,36 @@ public:
     };
 
     struct RequestData : DBRequestData {
+        struct NextHop {
+            NextHop() : flags_(0), address_(Ip4Address(0)), label_(0) { }
+            NextHop(uint32_t flags, IpAddress address, uint32_t label) :
+                    flags_(flags), address_(address), label_(label) { }
+            uint32_t flags_;
+            IpAddress address_;
+            uint32_t label_;
+            RouteDistinguisher source_rd_;
+            ExtCommunity::ExtCommunityList tunnel_encapsulations_;
+        };
+
+        typedef std::vector<NextHop> NextHops;
+
         RequestData(const BgpAttrPtr &attrs, uint32_t flags, uint32_t label)
-            : attrs_(attrs), flags_(flags), label_(label) {
+            : attrs_(attrs) {
+            nexthops_.push_back(NextHop(flags,
+                                   attrs ? attrs->nexthop() : Ip4Address(0),
+                                   label));
         }
+        RequestData(const BgpAttrPtr &attrs, NextHops nexthops) :
+            attrs_(attrs), nexthops_(nexthops) {
+        }
+
+        NextHops &nexthops() { return nexthops_; }
+        BgpAttrPtr &attrs() { return attrs_; }
+        void set_attrs(BgpAttrPtr attrs) { attrs_ = attrs; }
+
+    private:
         BgpAttrPtr attrs_;
-        uint32_t flags_;
-        uint32_t label_;
+        NextHops nexthops_;
     };
 
     BgpTable(DB *db, const std::string &name);
@@ -81,7 +105,7 @@ public:
     void InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
                      const IPeer *peer, DBRequest *req,
                      DBRequest::DBOperation oper, BgpAttrPtr attrs,
-                     uint32_t flags, uint32_t label);
+                     uint32_t path_id, uint32_t flags, uint32_t label);
 
     LifetimeActor *deleter();
     size_t GetPendingRiboutsCount(size_t &markers);

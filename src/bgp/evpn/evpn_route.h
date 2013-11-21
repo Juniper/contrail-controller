@@ -36,6 +36,7 @@ public:
     uint32_t tag() const { return tag_; }
     MacAddress mac_addr() const { return mac_addr_; }
     Ip4Prefix ip_prefix() const { return ip_prefix_; }
+    static size_t label_offset(const BgpProtoPrefix &prefix);
 
 private:
     RouteDistinguisher rd_;

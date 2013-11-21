@@ -62,6 +62,8 @@ class GeneratedsSuper(object):
         return input_data
 
     def gds_validate_string(self, input_data, node, input_name=''):
+        if input_data is None:
+            return ""
         return input_data
 
     def gds_format_integer(self, input_data, input_name=''):

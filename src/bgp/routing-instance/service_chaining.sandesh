@@ -26,6 +26,7 @@ struct ShowServicechainInfo {
     8: string dest_virtual_network;
     9: string service_instance;
     1: string src_rt_instance;
+   11: string connected_rt_instance;
     2: string dest_rt_instance;
    10: string state;
     3: ConnectedRouteInfo connected_route;

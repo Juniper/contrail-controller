@@ -17,20 +17,21 @@
         <dns-server>
             <ip-address>127.0.0.1</ip-address>
         </dns-server>
+        <metadata-proxy>
+            <shared-secret>contrail</shared-secret>
+        </metadata-proxy>
 <!--
         <discovery-server>
              <ip-address>10.3.1.1</ip-address>
-             <port>5998</port>
-             <xs-instances>2</xs-instances>
+             <control-instances>2</control-instances>
         </discovery-server>
--->
-        <hypervisor mode="kvm">
+
+        <hypervisor mode="xen">
             <xen-ll-port> xenapi</xen-ll-port>
             <xen-ll-ip-address> 169.254.0.1/24</xen-ll-ip-address>
         </hypervisor>
-        <tunnel-mode>MPLSoGRE</tunnel-mode>
+        <tunnel-type>MPLSoGRE</tunnel-type>
 
-<!--
         <gateway virtual-network="default-domain:admin:public:public">
             <interface>vgw</interface>
             <subnet>1.1.1.1/24</subnet>

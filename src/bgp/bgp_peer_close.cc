@@ -6,6 +6,7 @@
 
 #include <boost/assign/list_of.hpp>
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 #include <tbb/recursive_mutex.h>
 
 #include "bgp/bgp_export.h"
@@ -290,7 +291,6 @@ void PeerCloseManager::Close() {
 //
 void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
                                     BgpTable *table, int action_mask) {
-    BgpPath *path;
     DBRequest::DBOperation oper;
     BgpAttrPtr attrs;
     MembershipRequest::Action  action;
@@ -303,54 +303,56 @@ void PeerCloseManager::ProcessRibIn(DBTablePartBase *root, BgpRoute *rt,
 
     if (action == MembershipRequest::INVALID) return;
 
-    // If there is no path, stop. (Deletion may already have been enqueued)
-    if (rt->front() == NULL) {
-        return;
-    }
+    // Process all paths sourced from this peer_. Multiple paths could exist
+    // in ecmp cases.
+    for (Route::PathList::iterator it = rt->GetPathList().begin(), next = it;
+         it != rt->GetPathList().end(); it = next) {
+        next++;
 
-    // If there is no path learned from this peer, ignore
-    if ((path = rt->FindPath(peer_)) == NULL) {
-        return;
-    }
+        // Skip secondary paths.
+        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) continue;
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
+        if (path->GetPeer() != peer_) continue;
 
-    switch (action) {
-        case MembershipRequest::RIBIN_SWEEP:
+        switch (action) {
+            case MembershipRequest::RIBIN_SWEEP:
 
-            // Stale paths must be deleted
-            if (!path->IsStale()) {
+                // Stale paths must be deleted
+                if (!path->IsStale()) {
+                    return;
+                }
+
+                // Fall through to delete case as the path is still stale
+                // and we are sweeping such paths from the table
+            case MembershipRequest::RIBIN_DELETE:
+
+                // This path must be deleted. Hence attr is not required
+                oper = DBRequest::DB_ENTRY_DELETE;
+                attrs = NULL;
+                break;
+
+            case MembershipRequest::RIBIN_STALE:
+
+                // This path must be marked for staling. Update the local
+                // preference and update the route accordingly
+                oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+                // Update attrs with maximum local preference so that this path
+                // is least preferred
+                // TODO: Check for the right local-pref value to use
+                attrs = peer_->server()->attr_db()->\
+                        ReplaceLocalPreferenceAndLocate(path->GetAttr(), 1);
+                path->SetStale();
+                break;
+
+            default:
                 return;
-            }
+        }
 
-            // Fall through to delete case as the path is still stale
-            // and we are sweeping such paths from the table
-        case MembershipRequest::RIBIN_DELETE:
-
-            // This path must be deleted. Hence attr is not required
-            oper = DBRequest::DB_ENTRY_DELETE;
-            attrs = NULL;
-            break;
-
-        case MembershipRequest::RIBIN_STALE:
-
-            // This path must be marked for staling. Update the local
-            // preference and update the route accordingly
-            oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-            // Update attrs with maximum local preference so that this path
-            // is least preferred
-            // TODO: Check for the right local-pref value to use
-            attrs = peer_->server()->attr_db()->\
-                    ReplaceLocalPreferenceAndLocate(path->GetAttr(), 1);
-            path->SetStale();
-            break;
-
-        default:
-            return;
+        // Feed the route modify/delete request to the table input process
+        table->InputCommon(root, rt, path, peer_, NULL, oper, attrs,
+                        path->GetPathId(), path->GetFlags(), path->GetLabel());
     }
-
-    // Feed the route modify/delete request to the table input process
-    table->InputCommon(root, rt, path, peer_, NULL, oper, attrs,
-                       path->GetFlags(), path->GetLabel());
 
     return;
 }

@@ -92,6 +92,8 @@ public:
     // return a pointer to the current task the code is executing under.
     static Task *Running();
 
+    bool task_cancelled() const { return task_cancel_; };
+
 private:
     friend class TaskEntry;
     friend class TaskScheduler;

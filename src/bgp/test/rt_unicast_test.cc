@@ -42,7 +42,7 @@ public:
         EndpointLookupFn;
 
     XmppServerConnectionTest(
-            TcpServer *server, const XmppChannelConfig *config)
+            XmppServer *server, const XmppChannelConfig *config)
         : XmppServerConnection(server, config) {
     }
     virtual tcp::endpoint endpoint() const {

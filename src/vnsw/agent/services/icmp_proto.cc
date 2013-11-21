@@ -12,12 +12,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 void IcmpProto::Init(boost::asio::io_service &io) {
-    Agent::GetInstance()->SetIcmpProto(new IcmpProto(io));
 }
 
 void IcmpProto::Shutdown() {
-    delete Agent::GetInstance()->GetIcmpProto();
-    Agent::GetInstance()->SetIcmpProto(NULL);
 }
 
 IcmpProto::IcmpProto(boost::asio::io_service &io) :

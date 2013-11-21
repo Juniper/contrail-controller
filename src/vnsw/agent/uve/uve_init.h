@@ -18,21 +18,34 @@ class AgentStatsSandeshContext;
 class AgentUve {
 public:
     static const uint64_t band_intvl = (1000000); // time in microseconds
-    AgentUve(int agent_stats_intvl, int flow_stats_intvl);
-    static void Init(int agent_stats_intvl = AgentStatsCollector::AgentStatsInterval, 
-                     int flow_stats_intvl = FlowStatsCollector::FlowStatsInterval,
-                     uint64_t b_intvl = AgentUve::band_intvl);
+    AgentUve(Agent *agent);
+
     void Shutdown();
     AgentStatsCollector *GetStatsCollector() {return agent_stats_collector_;};
-    VrouterStatsCollector *GetVrouterStatsCollector() {return vrouter_stats_collector_;};
-    FlowStatsCollector *GetFlowStatsCollector() {return flow_stats_collector_;};
-    InterVnStatsCollector *GetInterVnStatsCollector() {return inter_vn_stats_collector_;}
-    AgentStatsSandeshContext *GetIntfStatsSandeshContext() { return intf_stats_sandesh_ctx_; }
-    AgentStatsSandeshContext *GetVrfStatsSandeshContext() { return vrf_stats_sandesh_ctx_; }
-    AgentStatsSandeshContext *GetDropStatsSandeshContext() { return drop_stats_sandesh_ctx_; }
+    VrouterStatsCollector *GetVrouterStatsCollector() {
+        return vrouter_stats_collector_;
+    };
+    FlowStatsCollector *GetFlowStatsCollector() {
+        return flow_stats_collector_;
+    };
+    InterVnStatsCollector *GetInterVnStatsCollector() {
+        return inter_vn_stats_collector_;
+    }
+    AgentStatsSandeshContext *GetIntfStatsSandeshContext() {
+        return intf_stats_sandesh_ctx_;
+    }
+    AgentStatsSandeshContext *GetVrfStatsSandeshContext() {
+        return vrf_stats_sandesh_ctx_;
+    }
+    AgentStatsSandeshContext *GetDropStatsSandeshContext() {
+        return drop_stats_sandesh_ctx_;
+    }
     static AgentUve *GetInstance() {return singleton_;}
+
+    void Init();
 private:
     static AgentUve *singleton_;
+    Agent *agent_;
     AgentStatsCollector *agent_stats_collector_;
     VrouterStatsCollector *vrouter_stats_collector_;
     FlowStatsCollector *flow_stats_collector_;

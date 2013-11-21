@@ -5,6 +5,8 @@
 #include "bgp/community.h"
 
 #include "bgp/bgp_proto.h"
+#include "bgp/bgp_proto.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 
 void CommunitySpec::ToCanonical(BgpAttr *attr) {
     attr->set_community(this);
@@ -121,6 +123,34 @@ void ExtCommunity::RemoveOriginVn() {
     }
 }
 
+void ExtCommunity::RemoveTunnelEncapsulation() {
+    for (ExtCommunityList::iterator it = communities_.begin();
+         it != communities_.end(); ) {
+        if (ExtCommunity::is_tunnel_encap(*it)) {
+            it = communities_.erase(it);
+        } else {
+            it++;
+        }
+    }
+}
+
+std::vector<std::string> ExtCommunity::GetTunnelEncap() const {
+    std::vector<std::string> encap_list;
+    for (ExtCommunityList::const_iterator iter = communities_.begin();
+         iter != communities_.end(); ++iter) {
+        if (!ExtCommunity::is_tunnel_encap(*iter))
+            continue;
+        TunnelEncap encap(*iter);
+        TunnelEncapType::Encap id = encap.tunnel_encap();
+        if (id == TunnelEncapType::UNSPEC)
+            continue;
+        encap_list.push_back(TunnelEncapType::TunnelEncapToString(id));
+    }
+
+    std::sort(encap_list.begin(), encap_list.end());
+    return encap_list;
+}
+
 ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
         const ExtCommunitySpec spec) : extcomm_db_(extcomm_db) {
     refcount_ = 0;
@@ -187,7 +217,8 @@ ExtCommunityPtr ExtCommunityDB::ReplaceSGIDListAndLocate(const ExtCommunity *src
     return Locate(clone);
 }
 
-ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(const ExtCommunity *src,
+ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(
+        const ExtCommunity *src,
         const ExtCommunity::ExtCommunityList &origin_vn_list) {
     ExtCommunity *clone;
     if (src) {
@@ -198,5 +229,20 @@ ExtCommunityPtr ExtCommunityDB::ReplaceOriginVnAndLocate(const ExtCommunity *src
 
     clone->RemoveOriginVn();
     clone->Append(origin_vn_list);
+    return Locate(clone);
+}
+
+ExtCommunityPtr ExtCommunityDB::ReplaceTunnelEncapsulationAndLocate(
+        const ExtCommunity *src,
+        const ExtCommunity::ExtCommunityList &tunnel_encaps) {
+    ExtCommunity *clone;
+    if (src) {
+        clone = new ExtCommunity(*src);
+    } else {
+        clone = new ExtCommunity(this);
+    }
+
+    clone->RemoveTunnelEncapsulation();
+    clone->Append(tunnel_encaps);
     return Locate(clone);
 }

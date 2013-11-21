@@ -29,27 +29,23 @@ env_excep = env.Clone()
 while env_excep['CCFLAGS'].count('-fno-exceptions') > 0:
     env_excep['CCFLAGS'].remove('-fno-exceptions')
 
+env_nocov = env.Clone()
+while env_nocov['CCFLAGS'].count('--coverage') > 0:
+    env_nocov['CCFLAGS'].remove('--coverage')
+
 t_ruleparser_obj = env_excep.Object('t_ruleparser.o', 't_ruleparser.cc')
+
+#gcov has issues with flex generated file, skipping coverage for this file
+ruleparserl_obj = env_nocov.Object('ruleparserl.o', 'ruleparserl.cc')
 env.Library(target = 'ruleparser',
             source = [
                       'ruleutil.cc',
                       'ruleparsery.cc',
-                      'ruleparserl.cc',
+                      ruleparserl_obj,
                       t_ruleparser_obj,
                      ])
 import sys
 if sys.platform != 'darwin':
     env['LIBS'] = []
-ruleparserpy_obj = env_excep.SharedObject('ruleparserpy.os', 'ruleparserpy.cc')
-ruleengpy = env.SharedLibrary(target = 'ruleparserpy',
-            source = [
-                      ruleparserpy_obj,
-                      'ruleutil.cc',
-                      'ruleparsery.cc',
-                      'ruleparserl.cc',
-                      '../viz_message.cc',
-                     ], SHLIBPREFIX='', SHLIBSUFFIX='.so')
-
-env.Depends(ruleengpy, '#/build/lib/' + 'libtbb_debug' + env['SHLIBSUFFIX'])
 
 env.SConscript('test/SConscript', exports='AnalyticsEnv', duplicate = 0)

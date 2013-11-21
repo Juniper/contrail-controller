@@ -6,7 +6,9 @@
 Import('BuildEnv')
 
 env = BuildEnv.Clone()
-env.Prepend(CPPPATH = env['TOP'])
+env.Prepend(CPPPATH = [env['TOP'],
+                       env['TOP'] + '/io'
+                      ])
 
 libcontrol_test = env.Library('control_test',
                               ['control_node_test.cc',

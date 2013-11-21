@@ -66,13 +66,13 @@ public:
         int i = 1000;
         while (i > 0) {
             i--;
-            if (FlowTable::GetFlowTableObject()->Size() == count) {
+            if (FlowTable::GetFlowTableObject()->Size() == (size_t) count) {
                 break;
             }
             client->WaitForIdle();
             usleep(1);
         }
-        return (FlowTable::GetFlowTableObject()->Size() == count);
+        return (FlowTable::GetFlowTableObject()->Size() == (size_t) count);
     }
 
     void FlushFlowTable() {
@@ -176,8 +176,8 @@ public:
         }
 
         if (flow->local_flow == false) {
-            EXPECT_EQ(flow->data.match_p.m_out_acl_l.size(), 0);
-            EXPECT_EQ(flow->data.match_p.m_out_sg_acl_l.size(), 0);
+            EXPECT_EQ(flow->data.match_p.m_out_acl_l.size(), 0U);
+            EXPECT_EQ(flow->data.match_p.m_out_sg_acl_l.size(), 0U);
             if ((flow->data.match_p.m_out_acl_l.size() != 0) || 
                 (flow->data.match_p.m_out_sg_acl_l.size() != 0)) {
                 ret = false;
@@ -266,7 +266,7 @@ public:
         EXPECT_EQ(7U, Agent::GetInstance()->GetInterfaceTable()->Size());
         EXPECT_EQ(3U, Agent::GetInstance()->GetVmTable()->Size());
 
-        EXPECT_EQ(2, Agent::GetInstance()->GetVnTable()->Size());
+        EXPECT_EQ(2U,  Agent::GetInstance()->GetVnTable()->Size());
         EXPECT_EQ(3U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
         vif1 = VmPortInterfaceGet(tap1[0].intf_id);
@@ -287,7 +287,8 @@ public:
         DeleteVmportEnv(tap2, 1, true, 2);
         DeleteVmportEnv(tap3, 1, true, 3);
         FlowTableTest::eth_itf = "eth0";
-        EthInterface::DeleteReq(FlowTableTest::eth_itf);
+        EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+                                FlowTableTest::eth_itf);
         client->WaitForIdle();
 
         EXPECT_FALSE(VmPortFind(tap1, 0));
@@ -387,7 +388,8 @@ int main(int argc, char *argv[]) {
         FlowTableTest::eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         FlowTableTest::eth_itf = "eth0";
-        EthInterface::CreateReq(FlowTableTest::eth_itf, Agent::GetInstance()->GetDefaultVrf());
+        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                FlowTableTest::eth_itf, Agent::GetInstance()->GetDefaultVrf());
         client->WaitForIdle();
     }
 

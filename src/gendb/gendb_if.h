@@ -20,7 +20,7 @@
 namespace GenDb {
 
 /* New stuff */
-typedef boost::variant<std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t> DbDataValue;
+typedef boost::variant<std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
@@ -129,15 +129,17 @@ class GenDbIf {
         virtual bool Db_GetRow(ColList& ret, const std::string& cfname,
                 const DbDataValueVec& rowkey) = 0;
         virtual bool Db_GetMultiRow(std::vector<ColList>& ret,
-                const std::string& cfname, const std::vector<DbDataValueVec>& key) = 0;
+                const std::string& cfname, const std::vector<DbDataValueVec>& key,
+                GenDb::ColumnNameRange *crange_ptr = NULL) = 0;
         /* api to get range of column data for a range of rows */
         virtual bool Db_GetRangeSlices(ColList& col_list,
                 const std::string& cfname, const ColumnNameRange& crange,
                 const DbDataValueVec& key) = 0;
+        virtual bool Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const = 0;
 
-        static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, std::string cassandra_ip, unsigned short cassandra_port, bool enable_stats, int analytics_ttl, std::string name);
-
-        static std::map<GenDb::DbDataType::type, std::string> dbdatatype_strings;
+        static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, 
+                std::string cassandra_ip, unsigned short cassandra_port, 
+                int analytics_ttl, std::string name);
 };
 
 } // namespace GenDb

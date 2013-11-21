@@ -23,6 +23,7 @@ SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 env.Append(CPPPATH = env['TOP'])
 env.Append(CPPPATH = [env['TOP'] + '/bgp'])
+env.Append(CPPPATH = [env['TOP'] + '/io'])
 
 SandeshPeerFiles = env.SandeshGenCpp('peer_info.sandesh')
 SandeshPeerGenSrcs = env.ExtractCpp(SandeshPeerFiles)

@@ -9,6 +9,9 @@
 #include <ifmap/ifmap_table.h>
 #include <vnc_cfg_types.h>
 
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
+#include <cfg/cfg_mirror.h>
 #include <cmn/agent_cmn.h>
 
 #include <oper/agent_route.h>
@@ -16,12 +19,7 @@
 #include <oper/vn.h>
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
-#include <oper/agent_route.h>
 #include <oper/mirror_table.h>
-
-#include <cfg/init_config.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/mirror_cfg.h>
 #include <oper/agent_sandesh.h>
 
 using namespace autogen;
@@ -55,23 +53,42 @@ AgentDBTable *VnEntry::DBToTable() const {
     return VnTable::GetInstance();
 }
 
-bool VnEntry::GetIpamData(const VmPortInterface *vmitf, 
+bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
+                          std::string &ipam_name) const {
+    for (unsigned int i = 0; i < ipam_.size(); i++) {
+        if (ipam_[i].IsSubnetMember(vm_addr)) {
+            ipam_name = ipam_[i].ipam_name;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool VnEntry::GetIpamData(const Ip4Address &vm_addr,
                           autogen::IpamType &ipam_type) const {
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
-    if (!vmitf)
+    std::string ipam_name;
+    if (!GetIpamName(vm_addr, ipam_name) ||
+        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type))
         return false;
 
-    Ip4Address vm_addr = vmitf->GetIpAddr();
-    unsigned int i;
-    for (i = 0; i < ipam_.size(); i++) {
-        if (ipam_[i].IsSubnetMember(vm_addr))
-            break;
-    }
-    if (i == ipam_.size() ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_[i].ipam_name, ipam_type))
-        return false;
+    return true;
+}
 
+bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr, 
+                              autogen::IpamType &ipam_type,
+                              autogen::VirtualDnsType &vdns_type) const {
+    std::string ipam_name;
+    if (!GetIpamName(vm_addr, ipam_name) ||
+        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type) ||
+        ipam_type.ipam_dns_method != "virtual-dns-server")
+        return false;
+    
+    if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(
+                ipam_type.ipam_dns_server.virtual_dns_server_name, vdns_type))
+        return false;
+        
     return true;
 }
 
@@ -130,7 +147,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
     if (vrf != vn->vrf_.get()) {
         if (!vrf)
-            DeleteIpamHostRoutes(vn);
+            DeleteAllIpamRoutes(vn);
         vn->vrf_ = vrf;
         ret = true;
     }
@@ -150,7 +167,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
 void VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
-    DeleteIpamHostRoutes(vn);
+    DeleteAllIpamRoutes(vn);
 }
 
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {
@@ -243,11 +260,12 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 node->begin(table->GetGraph()); 
                 iter != node->end(table->GetGraph()); ++iter) {
             IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (CfgListener::CanUseNode(adj_node) == false) {
+            if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
+                == false) {
                 continue;
             }
 
-            if (adj_node->table() == AgentConfig::GetInstance()->GetAclTable()) {
+            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
                 AccessControlList *acl_cfg = static_cast<AccessControlList *>
                     (adj_node->GetObject());
                 assert(acl_cfg);
@@ -261,12 +279,12 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 }
             }
 
-            if ((adj_node->table() == AgentConfig::GetInstance()->GetVrfTable()) &&
+            if ((adj_node->table() == Agent::GetInstance()->cfg()->cfg_vrf_table()) &&
               (!IsVRFServiceChainingInstance(node->name(), adj_node->name()))) {
                 vrf_name = adj_node->name();
             }
 
-            if (adj_node->table() == AgentConfig::GetInstance()->GetVnNetworkIpamTable()) {
+            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_vn_network_ipam_table()) {
                 if (IFMapNode *ipam_node = FindTarget(table, adj_node, 
                                                       "network-ipam")) {
                     ipam_name = ipam_node->name();
@@ -309,8 +327,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             node->begin(table->GetGraph()); 
             iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetInstance()->GetVmInterfaceTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table()) == false) {
             continue;
         }
 
@@ -362,8 +380,8 @@ void VnTable::IpamVnSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetInstance()->GetVnTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vn_table()) == false) {
             continue;
         }
 
@@ -387,12 +405,12 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
     while (it_old != old_ipam.end() && it_new != new_ipam.end()) {
         if (*it_old < *it_new) {
             // old entry is deleted
-            DelHostRouteForGw(vn, *it_old);
+            DelIPAMRoutes(vn, *it_old);
             change = true;
             it_old++;
         } else if (*it_new < *it_old) {
             // new entry
-            AddHostRouteForGw(vn, *it_new);
+            AddIPAMRoutes(vn, *it_new);
             change = true;
             it_new++;
         } else {
@@ -400,7 +418,7 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
             if ((*it_old).installed)
                 (*it_new).installed = true;
             else {
-                AddHostRouteForGw(vn, *it_new);
+                AddIPAMRoutes(vn, *it_new);
                 (*it_old).installed = (*it_new).installed;
             }
             it_old++;
@@ -410,13 +428,13 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
 
     // delete remaining old entries
     for (; it_old != old_ipam.end(); ++it_old) {
-        DelHostRouteForGw(vn, *it_old);
+        DelIPAMRoutes(vn, *it_old);
         change = true;
     }
 
     // add remaining new entries
     for (; it_new != new_ipam.end(); ++it_new) {
-        AddHostRouteForGw(vn, *it_new);
+        AddIPAMRoutes(vn, *it_new);
         change = true;
     }
 
@@ -424,40 +442,70 @@ bool VnTable::IpamChangeNotify(std::vector<VnIpam> &old_ipam,
     return change;
 }
 
-void VnTable::DeleteIpamHostRoutes(VnEntry *vn) {
+void VnTable::DeleteAllIpamRoutes(VnEntry *vn) {
     std::vector<VnIpam> &ipam = vn->ipam_;
-    for (unsigned int i = 0; i < ipam.size(); ++i)
-        DelHostRouteForGw(vn, ipam[i]);
+    for (unsigned int i = 0; i < ipam.size(); ++i) {
+        DelIPAMRoutes(vn, ipam[i]);
+    }
 }
 
-// Add receive route for default gw
-void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
+void VnTable::AddIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
         // Do not let the gateway configuration overwrite the receive nh.
         if (vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {
             return;
         }
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-            AddHostRoute(vrf->GetName(), 
-                         ipam.default_gw, 32, 
-                         vn->GetName());
+        AddHostRouteForGw(vn, ipam);
+        AddSubnetRoute(vn, ipam);
         ipam.installed = true;
     }
+}
+
+void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
+    VrfEntry *vrf = vn->GetVrf();
+    if (vrf && ipam.installed) {
+        DelHostRouteForGw(vn, ipam);
+        DelSubnetRoute(vn, ipam);
+        ipam.installed = false;
+    }
+}
+
+// Add receive route for default gw
+void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
+    VrfEntry *vrf = vn->GetVrf();
+    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+        AddHostRoute(vrf->GetName(), 
+                     ipam.default_gw, 32, 
+                     vn->GetName());
 }
 
 // Del receive route for default gw
 void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    if (vrf && ipam.installed) {
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-            DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                      vrf->GetName(), 
-                      ipam.default_gw, 32);
-        ipam.installed = false;
-    }
+    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                  vrf->GetName(), 
+                  ipam.default_gw, 32);
+}
+
+void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
+    VrfEntry *vrf = vn->GetVrf();
+    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+        AddDropRoute(vrf->GetName(), ipam.GetSubnetAddress(),
+                     ipam.plen);
+}
+
+// Del receive route for default gw
+void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
+    VrfEntry *vrf = vn->GetVrf();
+    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
+        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
+        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                  vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {

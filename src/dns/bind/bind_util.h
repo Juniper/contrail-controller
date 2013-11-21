@@ -203,10 +203,13 @@ struct DnsUpdateData {
         }
     };
 
-    bool AddItem(DnsItem &item) const {
+    bool AddItem(DnsItem &item, bool replace = false) const {
         for (DnsItems::iterator it = items.begin(); it != items.end(); ++it) {
-            if (item == *it)
+            if (item == *it) {
+                if (replace)
+                    *it = item;
                 return false;
+            }
         }
         items.push_back(item);
         return true;
@@ -262,6 +265,7 @@ class BindUtil {
 public:
     enum Operation {
         ADD_UPDATE,
+        CHANGE_UPDATE,
         DELETE_UPDATE
     };
 

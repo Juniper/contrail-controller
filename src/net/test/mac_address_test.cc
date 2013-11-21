@@ -163,6 +163,22 @@ TEST_F(MacAddressTest, Error12) {
     EXPECT_EQ("00:00:00:00:00:00", mac.ToString());
 }
 
+// Contains extra non hex digit in the middle.
+TEST_F(MacAddressTest, Error13) {
+    boost::system::error_code ec;
+    MacAddress mac = MacAddress::FromString("01:02:0x:04:05:06", &ec);
+    EXPECT_NE(0, ec.value());
+    EXPECT_EQ("00:00:00:00:00:00", mac.ToString());
+}
+
+// Contains extra non hex digit in the middle.
+TEST_F(MacAddressTest, Error14) {
+    boost::system::error_code ec;
+    MacAddress mac = MacAddress::FromString("01:02:0X:04:05:06", &ec);
+    EXPECT_NE(0, ec.value());
+    EXPECT_EQ("00:00:00:00:00:00", mac.ToString());
+}
+
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     int result = RUN_ALL_TESTS();

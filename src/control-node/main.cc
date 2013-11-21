@@ -555,10 +555,13 @@ int main(int argc, char *argv[]) {
     DiscoveryServiceClient *ds_client = NULL; 
     if (var_map.count("discovery-server")) { 
         tcp::endpoint dss_ep;
-        dss_ep.address(address::from_string(var_map["discovery-server"].as<string>(), 
-                       error));
+        dss_ep.address(
+            address::from_string(var_map["discovery-server"].as<string>(), 
+            error));
         dss_ep.port(var_map["discovery-port"].as<int>()); 
-        ds_client = new DiscoveryServiceClient(&evm, dss_ep); 
+        string subscriber_name = 
+            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
+        ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name); 
         ds_client->Init();
   
         // publish xmpp-server service
@@ -585,10 +588,10 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-            string subscriber_name = g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
            
             Sandesh::CollectorSubFn csf = 0;
-            csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client, subscriber_name, _1, _2, _3);
+            csf = boost::bind(&DiscoveryServiceClient::Subscribe,
+                              ds_client, _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
@@ -613,8 +616,7 @@ int main(int argc, char *argv[]) {
                 var_map["map-password"].as<string>(), certstore,
                 boost::bind(&IFMapServerParser::Receive, ifmap_parser,
                             &config_db, _1, _2, _3), evm.io_service(),
-                ds_client,
-                g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second);
+                ds_client);
     ifmap_server.set_ifmap_manager(ifmapmgr);
 
     CpuLoadData::Init();

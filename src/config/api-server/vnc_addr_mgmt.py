@@ -54,7 +54,12 @@ class Subnet(object):
     """
     _db_conn = None
 
-    def __init__(self, name, prefix, prefix_len, gw=None, db_conn=None):
+    @classmethod
+    def set_db_conn(cls, db_conn):
+        cls._db_conn = db_conn
+    # end set_db_conn
+
+    def __init__(self, name, prefix, prefix_len, gw=None):
         self._version = 0
 
         """
@@ -96,26 +101,19 @@ class Subnet(object):
                 inuse_bitmask[addr_off] = 0
                 inuse_addr = IPAddress(last_addr - addr_off)
                 cols_dict[str(inuse_addr)] = ''
-
-            self._db_conn.subnet_add_cols(name, cols_dict)
-            self._db_conn.subnet_delete_cols(name, ['bitmask'])
         # backward compat end
         inuse_addrs = cols_dict
 
-        # _inuse is a bitmap representing addresses assigned. if bit 0 is 1
-        # it means last addr(i.e. broadcast addr) in subnet is used.
-        self._inuse = bitarray(network.size)
-        self._inuse.setall(0)
+        self._db_conn.subnet_create_allocator(name, network.first, network.last)
 
         # reserve excluded addresses
         for addr in exclude:
-            self._inuse[network.last - int(addr)] = 1
+            self._db_conn.subnet_alloc(name, int(addr))
 
         for addr in inuse_addrs.keys():
-            ip_addr = IPAddress(addr)
-            bit_offset = network.last - int(ip_addr)
-            self._inuse[bit_offset] = 1
+            self._db_conn.subnet_alloc(name, int(addr))
 
+        self._db_conn.subnet_delete(name)
         self._name = name
         self._network = network
         self._exclude = exclude
@@ -130,55 +128,15 @@ class Subnet(object):
         return self._exclude
     # end get_exclude
 
-    # allocate IP address from this subnet
-    def _ip_alloc_try(self, ipaddr=None):
-        addr = None
-        if self._inuse.count(0) > 0:
-            if ipaddr:
-                ip = IPAddress(ipaddr)
-
-                # TODO: return ip ipaddr passed
-                addr = ip
-
-                if ip in self._network:
-                    addr = ip
-            else:
-                addr = IPAddress(self._network.last - self._inuse.index(0))
-
-        # update inuse mask in DB
-        if addr:
-            self._inuse[self._network.last - int(addr)] = 1
-            return str(addr)
-
-        return None
-    #end _ip_alloc_try
-
     def ip_alloc(self, ipaddr=None):
-        # optimistically try to allocate an ip, check if any other api-server
-        # didn't pick it while we were processing and if we lost, retry. lock
-        # on win.
-        addr = None
-        while True:
-            candidate_addr = self._ip_alloc_try(ipaddr)
-            if not candidate_addr:
-                break
-            is_unique = self._db_conn.key_test_set('%s:%s'
-                                                   % (self._name,
-                                                      candidate_addr))
-            if is_unique:
-                addr = candidate_addr
-                break
-
-            # need, a retry, if exact addr was requested, fail
-            if ipaddr:
-                return ipaddr
-
-        # end while
-
-        if addr and self._db_conn:
-            self._db_conn.subnet_add_cols(self._name, {'%s' % (str(addr)): ''})
-            return str(addr)
-
+        req = None
+        if ipaddr:
+            ip = IPAddress(ipaddr)
+            req = int(ip)
+    
+        addr = self._db_conn.subnet_alloc(self._name, req)
+        if addr:
+            return str(IPAddress(addr))
         return None
     # end ip_alloc
 
@@ -187,22 +145,14 @@ class Subnet(object):
     def ip_free_cls(cls, subnet_fq_name, ip_network, exclude_addrs, ip_addr):
         if ((ip_addr in ip_network) and (ip_addr not in exclude_addrs)):
             if cls._db_conn:
-                cls._db_conn.subnet_delete_cols(subnet_fq_name,
-                                                ['%s' % (str(ip_addr))])
-                cls._db_conn.key_release('%s:%s'
-                                         % (subnet_fq_name, str(ip_addr)))
+                cls._db_conn.subnet_free(subnet_fq_name, int(ip_addr))
                 return True
 
         return False
     # end ip_free_cls
 
     def ip_free(self, ip_addr):
-        freed = Subnet.ip_free_cls(self._name,
-                                   self._network,
-                                   self._exclude,
-                                   ip_addr)
-        if freed:
-            self._inuse[self._network.last - int(ip_addr)] = 0
+        Subnet.ip_free_cls(self._name, self._network, self._exclude, ip_addr)
     # end ip_free
 
     # check if IP address belongs to us
@@ -240,10 +190,18 @@ class AddrMgmt(object):
     def _get_db_conn(self):
         if not self._db_conn:
             self._db_conn = self._server_mgr.get_db_connection()
-            Subnet._db_conn = self._db_conn
+            Subnet.set_db_conn(self._db_conn)
 
         return self._db_conn
     # end _get_db_conn
+
+    def _vninfo_is_present(self, vn_fq_name_str):
+        return self._db_conn.hkey_is_present('vninfo', vn_fq_name_str)
+    # end _vninfo_is_present
+
+    def _vninfo_set(self, vn_fq_name_str, vn_val):
+        self._db_conn.hkey_set('vninfo', vn_fq_name_str, vn_val)
+    # end _vninfo_get
 
     def _vninfo_is_present(self, vn_fq_name_str):
         return self._db_conn.hkey_is_present('vninfo', vn_fq_name_str)
@@ -323,8 +281,7 @@ class AddrMgmt(object):
                         subnet_obj = Subnet(
                             '%s:%s' % (vn_fq_name_str, subnet_name),
                             subnet['ip_prefix'], str(subnet['ip_prefix_len']),
-                            gw=gateway_ip,
-                            db_conn=db_conn)
+                            gw=gateway_ip)
                         self._subnet_objs[subnet_obj.get_name()] = subnet_obj
                         ipam_subnet['default_gateway'] = str(subnet_obj.gw_ip)
                         subnet_obj.set_version(version)
@@ -365,110 +322,115 @@ class AddrMgmt(object):
         #self.vninfo[vn_name] = {}
     # end net_delete
 
-    # check subnets associated with a virtual network, return error if
-    # any two subnets have overlap ip addresses
-    def net_check_subnet_overlap(self, obj_dict):
-        # get all subnets and check overlap condition for each pair
+    def _vn_to_subnets(self, obj_dict):
+        # given a VN return its subnets in list of net/prefixlen strings
+
         ipam_refs = obj_dict.get('network_ipam_refs', None)
-        new_subnet_list = []
+        subnet_list = None
         if ipam_refs:
             for ref in ipam_refs:
                 vnsn_data = ref['attr']
                 ipam_subnets = vnsn_data['ipam_subnets']
                 for ipam_subnet in ipam_subnets:
+                    if not subnet_list:
+                        subnet_list = []
                     subnet = ipam_subnet['subnet']
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
-                    new_subnet_list.append(subnet_name)
+                    subnet_list.append(subnet_name)
 
-        size = len(new_subnet_list)
-        for index, subnet in enumerate(new_subnet_list):
-            next_index = index + 1
-            # check if IPSet intersects
-            while (next_index < size):
-                if IPSet([str(subnet)]) &\
-                        IPSet([str(new_subnet_list[next_index])]):
-                    msg = new_subnet_list[index] +\
-                        'and' + new_subnet_list[next_index] +\
-                        'are overalap IP Blocks'
-                    return False, msg
-                next_index = next_index + 1
+        return subnet_list
+    # end _vn_to_subnets
+
+    # check subnets associated with a virtual network, return error if
+    # any two subnets have overlap ip addresses
+    def net_check_subnet_overlap(self, db_vn_dict, req_vn_dict):
+        # get all subnets existing + requested and check any non-exact overlaps
+        requested_subnets = self._vn_to_subnets(req_vn_dict)
+        if not requested_subnets:
+            return True, ""
+
+        existing_subnets = self._vn_to_subnets(db_vn_dict)
+        if not existing_subnets:
+            existing_subnets = []
+
+        # literal/string sets
+        # eg. existing [1.1.1.0/24],
+        #     requested [1.1.1.0/24, 2.2.2.0/24] OR
+        #     requested [1.1.1.0/16, 2.2.2.0/24]
+        existing_set = set([sn for sn in existing_subnets])
+        requested_set = set([sn for sn in requested_subnets])
+        new_set = requested_set - existing_set
+
+        # IPSet to find any overlapping subnets
+        overlap_set = IPSet(existing_set) & IPSet(new_set)
+        if overlap_set:
+            err_msg = "Overlapping addresses between requested and existing: "
+            return False, err_msg + str(overlap_set)
 
         return True, ""
     # end net_check_subnet_overlap
 
     # check subnets associated with a virtual network, return error if
-    # any subnet is being deleted
-    def net_check_subnet_delete(self, obj_dict):
-        # get all new subnets
-        ipam_refs = obj_dict.get('network_ipam_refs', None)
-        new_subnet_list = []
-        if ipam_refs:
-            for ref in ipam_refs:
-                vnsn_data = ref['attr']
-                ipam_subnets = vnsn_data['ipam_subnets']
-                for ipam_subnet in ipam_subnets:
-                    subnet = ipam_subnet['subnet']
-                    subnet_name = subnet['ip_prefix'] + '/' + str(
-                        subnet['ip_prefix_len'])
-                    new_subnet_list.append(subnet_name)
+    # any subnet is being deleted and has backref to instance-ip/floating-ip
+    def net_check_subnet_delete(self, db_vn_dict, req_vn_dict):
+        # if all instance-ip/floating-ip are part of requested list
+        # things are ok.
+        # eg. existing [1.1.1.0/24, 2.2.2.0/24],
+        #     requested [1.1.1.0/24] OR
+        #     requested [1.1.1.0/28, 2.2.2.0/24]
+        requested_subnets = self._vn_to_subnets(req_vn_dict)
+        if not requested_subnets:
+            return True, ""
 
-        # check each instance-ip presence in new subnets
-        instip_refs = obj_dict.get('instance_ip_back_refs', None)
-        if instip_refs:
-            for ref in instip_refs:
-                uuid = ref['uuid']
+        instip_refs = db_vn_dict.get('instance_ip_back_refs', [])
+        for ref in instip_refs:
+            try:
+                db_conn = self._db_conn
+                (ok, result) = db_conn.dbe_read(
+                    'instance-ip', {'uuid': ref['uuid']})
+            except cfgm_common.exceptions.NoIdError:
+                continue
+
+            if not ok:
+                continue
+
+            inst_ip = result.get('instance_ip_address', None)
+            if not all_matching_cidrs(inst_ip, requested_subnets):
+                return False,\
+                    "Cannot Delete IP Block, IP(%s) is in use"\
+                    % (inst_ip)
+
+        fip_pool_refs = db_vn_dict.get('floating_ip_pools', [])
+        for ref in fip_pool_refs:
+            try:
+                db_conn = self._db_conn
+                (ok, result) = db_conn.dbe_read(
+                    'floating-ip-pool', {'uuid': ref['uuid']})
+            except cfgm_common.exceptions.NoIdError:
+                continue
+
+            if not ok:
+                continue
+
+            floating_ips = result.get('floating_ips', [])
+            for floating_ip in floating_ips:
+                # get floating_ip_address and this should be in
+                # new subnet_list
                 try:
-                    db_conn = self._db_conn
-                    (ok, result) = db_conn.dbe_read(
-                        'instance-ip', {'uuid': uuid})
+                    (read_ok, read_result) = db_conn.dbe_read(
+                        'floating-ip', {'uuid': floating_ip['uuid']})
                 except cfgm_common.exceptions.NoIdError:
-                    msg = 'ID ' + uuid + ' not found'
-                    return False, msg
-                if not ok:
-                    # Not present in DB
-                    return ok, result
+                    continue
 
-                inst_ip = result.get('instance_ip_address', None)
-                if not all_matching_cidrs(inst_ip, new_subnet_list):
+                if not ok:
+                    continue
+
+                fip_addr = read_result.get('floating_ip_address', None)
+                if not all_matching_cidrs(fip_addr, requested_subnets):
                     return False,\
-                        "Cannot Delete Ip Block, IP(%s) is in use"\
-                        % (inst_ip)
-
-        # check each floating-ip presence in new subnets
-        fip_pool_refs = obj_dict.get('floating_ip_pools', None)
-        if fip_pool_refs:
-            for ref in fip_pool_refs:
-                uuid = ref['uuid']
-                try:
-                    db_conn = self._db_conn
-                    (ok, result) = db_conn.dbe_read(
-                        'floating-ip-pool', {'uuid': uuid})
-                except cfgm_common.exceptions.NoIdError:
-                    msg = 'ID ' + uuid + ' not found'
-                    return False, msg
-                if not ok:
-                    # Not present in DB
-                    return ok, result
-
-                floating_ips = result.get('floating_ips', None)
-                if floating_ips:
-                    for floating_ip in floating_ips:
-                        fip_uuid = floating_ip['uuid']
-                        # get floating_ip_address and this should be in
-                        # new subnet_list
-                        (read_ok, read_result) = db_conn.dbe_read(
-                            'floating-ip', {'uuid': fip_uuid})
-                        fip_addr = read_result.get('floating_ip_address', None)
-                        if not fip_addr:
-                            msg = 'ID' + fip_uuid + \
-                                'does not have floating_ip_address'
-                            return False, msg
-
-                        if not all_matching_cidrs(fip_addr, new_subnet_list):
-                            return False,\
-                                "Cannot Delete Ip Block, IP(%s) is in use"\
-                                % (fip_addr)
+                        "Cannot Delete IP Block, Floating IP(%s) is in use"\
+                        % (fip_addr)
 
         return True, ""
     # end net_check_subnet_delete
@@ -533,7 +495,7 @@ class AddrMgmt(object):
                                      subnet_dict['exclude']]
                     if Subnet.ip_belongs_to(IPNetwork(subnet_name),
                                             IPAddress(ip_addr)):
-                        Subnet.ip_free_cls('%s:%s' % (vn_fq_name, subnet_name),
+                        Subnet.ip_free_cls('%s:%s' % (vn_fq_name_str, subnet_name),
                                            IPNetwork(subnet_name),
                                            exclude_addrs,
                                            IPAddress(ip_addr))

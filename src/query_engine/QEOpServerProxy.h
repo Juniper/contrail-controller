@@ -11,6 +11,8 @@
 #include <map>
 #include <vector>
 #include <memory>
+#include <boost/variant.hpp>
+#include <boost/uuid/uuid.hpp>
 
 class EventManager;
 class QueryEngine;
@@ -55,11 +57,51 @@ public:
     //    EIO             Input/output error (Cassandra is down)
     typedef std::map<std::string /* Col Name */,
                      std::string /* Col Value */> OutRowT;
-    typedef std::pair<std::string,
-                      std::vector<OutRowT> > BufferT;
-    
-    void QueryResult(void *, int error, std::auto_ptr<BufferT> res);
+    typedef std::vector<OutRowT> BufferT;
 
+    typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid> SubVal;
+    enum VarType {
+        BLANK=0,
+        STRING=1,
+        UINT64=2,
+        DOUBLE=3,
+        UUID=4
+    };
+    enum AggOper {
+        INVALID = 0,
+        SUM = 1,
+        COUNT = 2,
+    };
+
+    // This is a map of aggregations for an output row
+    // The key is the operation type and attribute name
+    // The value is a vector of attribute values (or a single agg'ed value)
+    typedef std::map<std::pair<AggOper,std::string>, SubVal> AggRowT;
+
+    // The key of the multimap is a vector of sort-by values.
+    // The last element of this vector is a hash of all unique cols
+    typedef std::multimap<std::vector<SubVal>, 
+                // The first element of this pair is itself a map
+                // which includes all unique cols
+                std::pair<std::map<std::string, SubVal>,
+                          // This second element of the pair is a map of aggregations
+                          AggRowT> > OutRowMultimapT;
+
+    struct QPerfInfo {
+        QPerfInfo(uint32_t w, uint32_t s, uint32_t p) :
+            chunk_where_time(w), chunk_select_time(s), chunk_postproc_time(p),
+            error(0) {}
+        QPerfInfo() : 
+            chunk_where_time(0), chunk_select_time(0), chunk_postproc_time(0),
+            error(0) {}
+        uint32_t chunk_where_time;
+        uint32_t chunk_select_time; 
+        uint32_t chunk_postproc_time;
+        int error; 
+    };
+
+    void QueryResult(void *, QPerfInfo qperf, std::auto_ptr<BufferT> res,
+            std::auto_ptr<OutRowMultimapT> mres);
 private:
     EventManager * const evm_;
     QueryEngine * const qe_;
@@ -69,4 +111,5 @@ private:
 
     friend class QEOpServerImpl;
 };
+
 #endif

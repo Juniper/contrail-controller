@@ -33,10 +33,13 @@ enum Event {
 typedef boost::function<void()> EnqueuedCb;
 class HttpClientSession : public TcpSession {
 public:
+    typedef boost::function<void(HttpClientSession *session,
+                                 TcpSession::Event event)> SessionEventCb;
 
     HttpClientSession(HttpClient *client, Socket *socket);
     virtual ~HttpClientSession() { assert(delete_called_ != 0xdeadbeaf); delete_called_ = 0xdeadbeaf; }
     virtual void OnRead(Buffer buffer);
+    void RegisterEventCb(SessionEventCb cb);
 
     void SetConnection(HttpConnection *conn) { connection_ = conn; }
     HttpConnection *Connection() { return connection_; }
@@ -47,6 +50,7 @@ private:
     HttpConnection *connection_;
     uint32_t delete_called_;
     tbb::mutex mutex_;
+    SessionEventCb event_cb_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpClientSession);
 };
@@ -60,7 +64,11 @@ public:
 
     typedef boost::function<void(std::string &, boost::system::error_code &)> HttpCb;
     int HttpPut(std::string &put_string, std::string &path, HttpCb);
+    int HttpPut(std::string &put_string, std::string &path,
+                bool header, bool timeout, std::string &hdr_options, HttpCb cb);
     int HttpGet(std::string &path, HttpCb);
+    int HttpGet(std::string &path, bool header, bool timeout,
+                std::string &hdr_options, HttpCb cb);
 
     struct _ConnInfo *curl_handle() { return curl_handle_; }
     HttpClient *client() { return client_; }
@@ -77,11 +85,14 @@ public:
     void UpdateOffset(size_t bytes);
     size_t GetOffset();
     HttpCb HttpClientCb() { return cb_; }
+    void RegisterEventCb(HttpClientSession::SessionEventCb cb) { event_cb_ = cb; }
 
 private:
     std::string make_url(std::string &path);
-    void HttpPutInternal(std::string put_string, std::string path, HttpCb);
-    void HttpGetInternal(std::string path, HttpCb);
+    void HttpPutInternal(std::string put_string, std::string path,
+                         bool header, bool timeout, std::string hdr_option, HttpCb);
+    void HttpGetInternal(std::string path, bool header, bool timeout,
+                         std::string hdr_option, HttpCb);
 
     // key = endpoint_ + id_ 
     boost::asio::ip::tcp::endpoint endpoint_;
@@ -93,6 +104,7 @@ private:
     HttpClientSession *session_;
     HttpClient *client_;
     mutable tbb::mutex mutex_;
+    HttpClientSession::SessionEventCb event_cb_;
 
     DISALLOW_COPY_AND_ASSIGN(HttpConnection);
 };

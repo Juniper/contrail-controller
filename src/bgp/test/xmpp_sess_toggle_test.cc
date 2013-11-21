@@ -234,14 +234,22 @@ TEST_F(BgpXmppUnitTest, TestSessionUpDown) {
 
     //bring-down client session
     agent_a_->SessionDown();
+    TASK_UTIL_EXPECT_FALSE(agent_a_->IsEstablished());
+    TASK_UTIL_EXPECT_EQ(0, ts->GetSessionCount());
 
-    TASK_UTIL_EXPECT_TRUE((sconnection = xs_a_->FindConnection(SUB_ADDR)) ==
-                              NULL);
-    EXPECT_TRUE(bgp_channel_manager_->FindChannel(SUB_ADDR) == NULL);
-    EXPECT_EQ(0, ts->GetSessionCount());
+    if (!xs_a_->IsPeerCloseGraceful()) {
+        TASK_UTIL_EXPECT_TRUE((sconnection = xs_a_->FindConnection(SUB_ADDR)) ==
+                NULL);
+        EXPECT_TRUE(bgp_channel_manager_->FindChannel(SUB_ADDR) == NULL);
+    } else {
+        TASK_UTIL_EXPECT_TRUE((sconnection = xs_a_->FindConnection(SUB_ADDR)) !=
+                NULL);
+        EXPECT_TRUE(bgp_channel_manager_->FindChannel(SUB_ADDR) != NULL);
+    }
 
     //bring-up client session
     agent_a_->SessionUp();
+    TASK_UTIL_EXPECT_TRUE(agent_a_->IsEstablished());
 
     TASK_UTIL_EXPECT_TRUE(
         (sconnection = xs_a_->FindConnection(SUB_ADDR)) != NULL);

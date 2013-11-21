@@ -163,6 +163,19 @@ do {                                                                       \
             instance, _os.str());                                          \
 } while (false)
 
+#define BGP_TRACE_XMPP_PEER_INSTANCE(peer, instance, arg)                  \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+                                                                           \
+    _os << arg;                                                            \
+    BGP_LOG(BgpXmppInstanceMessage, SandeshLevel::SYS_DEBUG,               \
+            BGP_LOG_FLAG_TRACE,                                            \
+            (peer) ? (peer)->ToString() : "",                              \
+            instance, _os.str());                                          \
+} while (false)
+
+
 #define BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer, arg)                        \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \

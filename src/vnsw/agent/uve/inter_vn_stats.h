@@ -9,33 +9,39 @@
 #include "pkt/flowtable.h"
 #include <set>
 #include <map>
+#include <tbb/mutex.h>
 
 struct VnStats {
-    std::string dst_vn;
-    uint64_t in_pkts;
-    uint64_t in_bytes;
-    uint64_t out_pkts;
-    uint64_t out_bytes;
-    VnStats(std::string vn, uint64_t bytes, uint64_t pkts, bool out) {
-        dst_vn = vn;
+    VnStats(std::string vn, uint64_t bytes, uint64_t pkts, bool out) :
+        prev_in_pkts_(0), prev_in_bytes_(0), prev_out_pkts_(0), prev_out_bytes_(0) {
+        dst_vn_ = vn;
         if (out) {
-            out_bytes = bytes;
-            out_pkts = pkts;
-            in_bytes = 0;
-            in_pkts = 0;
+            out_bytes_ = bytes;
+            out_pkts_ = pkts;
+            in_bytes_ = 0;
+            in_pkts_ = 0;
         } else {
-            in_bytes = bytes;
-            in_pkts = pkts;
-            out_bytes = 0;
-            out_pkts = 0;
+            in_bytes_ = bytes;
+            in_pkts_ = pkts;
+            out_bytes_ = 0;
+            out_pkts_ = 0;
         }
     }
+    std::string dst_vn_;
+    uint64_t in_pkts_;
+    uint64_t in_bytes_;
+    uint64_t out_pkts_;
+    uint64_t out_bytes_;
+    uint64_t prev_in_pkts_;
+    uint64_t prev_in_bytes_;
+    uint64_t prev_out_pkts_;
+    uint64_t prev_out_bytes_;
 };
 
 class VnStatsCmp {
 public:
     bool operator()(const VnStats *lhs, const VnStats *rhs) const {
-         if (lhs->dst_vn.compare(rhs->dst_vn) < 0)
+         if (lhs->dst_vn_.compare(rhs->dst_vn_) < 0)
              return true;
          return false;
     }
@@ -55,8 +61,10 @@ public:
     void Remove(std::string vn);
     void PrintAll();
     void PrintVn(std::string vn);
+    tbb::mutex & mutex() { return mutex_; }
 private:
     VnStatsMap inter_vn_stats_;
+    tbb::mutex mutex_;
     void VnStatsUpdateInternal(std::string src_vn, std::string dst_vn, uint64_t bytes, 
                                uint64_t pkts, bool outgoing);
     DISALLOW_COPY_AND_ASSIGN(InterVnStatsCollector);

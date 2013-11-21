@@ -9,14 +9,11 @@ import os
 Import('BuildEnv')
 env = BuildEnv.Clone()
 cflags = env['CCFLAGS']
-cflags.remove('-Werror')
-env['CCFLAGS'] = cflags
+while env['CCFLAGS'].count('-Werror') > 0:
+    env['CCFLAGS'].remove('-Werror')
 
 GenDbSandeshGenFiles = env.SandeshGenCpp('gendb.sandesh')
 GenDbSandeshGenSrcs = env.ExtractCpp(GenDbSandeshGenFiles)
-
-GenDbSandeshGenFiles = env.SandeshGenCpp('analytics_db.sandesh')
-GenDbSandeshGenSrcs += env.ExtractCpp(GenDbSandeshGenFiles)
 
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
@@ -34,5 +31,5 @@ env.Append(CPPPATH = ['#/build/include/thrift'])
 includes = ['cdb', 'gendb']
 env.Append(CPPPATH = [MapBuildDir(includes)])
 
-#env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 

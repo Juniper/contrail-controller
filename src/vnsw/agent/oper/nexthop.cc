@@ -58,6 +58,16 @@ void TunnelType::EncapPrioritySync(IFMapNode *node) {
             if (*it == "VXLAN")
                 l.push_back(VXLAN);
         }
+        const std::vector<LinklocalServiceEntryType> &linklocal_list = 
+            cfg->linklocal_services();
+        for (std::vector<LinklocalServiceEntryType>::const_iterator it =
+             linklocal_list.begin(); it != linklocal_list.end(); it++) {
+            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
+                Agent::GetInstance()->SetIpFabricMetadataServerAddress(
+                                      *(it->ip_fabric_service_ip.begin()));
+                Agent::GetInstance()->SetIpFabricMetadataServerPort(
+                                      it->ip_fabric_service_port);
+        }
     }
 
     priority_list_ = l;
@@ -1320,7 +1330,7 @@ bool CompositeNH::Change(const DBRequest* req) {
         }
 
         CompositeNH *comp_nh = static_cast<CompositeNH *>(nh);
-        if (comp_nh->IsEcmpNH() && (nh->GetType() == NextHop::COMPOSITE)) {
+        if ((nh->GetType() == NextHop::COMPOSITE) && comp_nh->IsEcmpNH()) {
             //Add all the members in composite NH
             ComponentNHList::iterator it = comp_nh->begin();
             for(;it != comp_nh->end(); it++) {

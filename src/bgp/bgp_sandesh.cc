@@ -11,6 +11,7 @@
 #include <sandesh/request_pipeline.h>
 
 #include "base/util.h"
+#include "io/tcp_server.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_multicast.h"
 #include "bgp/bgp_path.h"
@@ -1277,46 +1278,7 @@ void ShowBgpNeighborConfigReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-class ShowTcpServerHandler {
-public:
-        static void GetRxSocketStats(TcpServer *server,
-                              TcpServerSocketStats &peer_socket_stats) {
-            TcpServer::SocketStats socket_stats;
-
-            socket_stats = server->GetSocketStats();
-            peer_socket_stats.calls = socket_stats.read_calls;
-            peer_socket_stats.bytes = socket_stats.read_bytes;
-            if (socket_stats.read_calls) {
-                peer_socket_stats.average_bytes =
-                    socket_stats.read_bytes/socket_stats.read_calls;
-            }
-        }
-
-        static void GetTxSocketStats(TcpServer *server,
-                              TcpServerSocketStats &peer_socket_stats) {
-            TcpServer::SocketStats socket_stats;
-
-            socket_stats = server->GetSocketStats();
-            peer_socket_stats.calls = socket_stats.write_calls;
-            peer_socket_stats.bytes = socket_stats.write_bytes;
-            if (socket_stats.read_calls) {
-                peer_socket_stats.average_bytes =
-                    socket_stats.write_bytes/socket_stats.write_calls;
-            }
-            peer_socket_stats.blocked_count = socket_stats.write_blocked;
-            peer_socket_stats.blocked_duration = duration_usecs_to_string(
-                socket_stats.write_blocked_duration_usecs);
-            if (socket_stats.write_blocked) {
-                peer_socket_stats.average_blocked_duration =
-                    duration_usecs_to_string(
-                        socket_stats.write_blocked_duration_usecs/
-                        socket_stats.write_blocked);
-            }
-        }
-
-};
-
-class ShowBgpServerHandler : public ShowTcpServerHandler {
+class ShowBgpServerHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps, int stage, int instNum,
@@ -1328,10 +1290,10 @@ public:
 
         ShowBgpServerResp *resp = new ShowBgpServerResp;
         TcpServerSocketStats peer_socket_stats;
-        GetRxSocketStats(bsc->bgp_server->session_manager(), peer_socket_stats);
+        bsc->bgp_server->session_manager()->GetRxSocketStats(peer_socket_stats);
         resp->set_rx_socket_stats(peer_socket_stats);
 
-        GetTxSocketStats(bsc->bgp_server->session_manager(), peer_socket_stats);
+        bsc->bgp_server->session_manager()->GetTxSocketStats(peer_socket_stats);
         resp->set_tx_socket_stats(peer_socket_stats);
 
         resp->set_context(req->context());
@@ -1354,7 +1316,7 @@ void ShowBgpServerReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
-class ShowXmppServerHandler : public ShowTcpServerHandler {
+class ShowXmppServerHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
             const RequestPipeline::PipeSpec ps, int stage, int instNum,
@@ -1366,11 +1328,11 @@ public:
 
         ShowXmppServerResp *resp = new ShowXmppServerResp;
         TcpServerSocketStats peer_socket_stats;
-        GetRxSocketStats(bsc->xmpp_peer_manager->xmpp_server(),
+        bsc->xmpp_peer_manager->xmpp_server()->GetRxSocketStats(
                          peer_socket_stats);
         resp->set_rx_socket_stats(peer_socket_stats);
 
-        GetTxSocketStats(bsc->xmpp_peer_manager->xmpp_server(),
+        bsc->xmpp_peer_manager->xmpp_server()->GetTxSocketStats(
                          peer_socket_stats);
         resp->set_tx_socket_stats(peer_socket_stats);
 

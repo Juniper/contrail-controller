@@ -8,8 +8,8 @@
 #include <vnc_cfg_types.h>
 
 #include <cmn/agent_cmn.h>
-#include <cfg/interface_cfg_listener.h>
-#include <cfg/interface_cfg.h>
+#include <cfg/cfg_interface_listener.h>
+#include <cfg/cfg_interface.h>
 #include <oper/agent_types.h>
 #include <oper/interface.h>
 #include <oper/vm.h>
@@ -19,8 +19,6 @@
 using namespace std;
 using namespace boost::uuids;
 using namespace autogen;
-
-InterfaceCfgClient *InterfaceCfgClient::singleton_;
 
 void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
@@ -36,8 +34,40 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         if (node != NULL) {
             DBRequest req;
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            if (Agent::GetInstance()->GetInterfaceTable()->IFNodeToReq(node, req)) {
-                Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+            if (agent_cfg_->agent()->GetInterfaceTable()->IFNodeToReq(node, req)) {
+                agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
+            }
+        }
+    }
+}
+
+void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition, 
+                                          DBEntryBase *e) {
+    IFMapNode *node = static_cast<IFMapNode *>(e);
+    if (node->IsDeleted()) {
+       return;
+    } 
+
+    //Trigger change on all interface entries
+    IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+    for (DBGraphVertex::adjacency_iterator iter =
+         node->begin(table->GetGraph());
+         iter != node->end(table->GetGraph()); ++iter) {
+        if (iter->IsDeleted()) {
+            continue;
+        }
+        IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
+            == false) {
+            continue;
+        }
+
+        if (adj_node->table() == 
+            Agent::GetInstance()->cfg()->cfg_vm_interface_table()) {
+            DBRequest req;
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            if (agent_cfg_->agent()->GetInterfaceTable()->IFNodeToReq(adj_node, req)) {
+                agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
             }
         }
     }
@@ -96,22 +126,30 @@ IFMapNode *InterfaceCfgClient::UuidToIFNode(const uuid &u) {
 }
 
 void InterfaceCfgClient::Init() {
-    singleton_ = new InterfaceCfgClient();
-    DBTableBase *table = Agent::GetInstance()->GetIntfCfgTable();
-    table->Register(boost::bind(&InterfaceCfgClient::Notify, singleton_, _1, _2));
+    DBTableBase *table = agent_cfg_->agent()->GetIntfCfgTable();
+    table->Register(boost::bind(&InterfaceCfgClient::Notify, this, _1, _2));
 
     // Register with config DB table for vm-port UUID to IFNode mapping
-    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
                                                 "virtual-machine-interface");
     assert(cfg_db);
-    singleton_->cfg_listener_id_ = cfg_db->Register
-        (boost::bind(&InterfaceCfgClient::CfgNotify, singleton_, _1, _2));
+    cfg_listener_id_ = cfg_db->Register
+        (boost::bind(&InterfaceCfgClient::CfgNotify, this, _1, _2));
+
+    // Register with config DB table for static route table changes
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+                                                      "interface-route-table");
+    assert(cfg_route_db);
+    cfg_route_table_listener_id_ = cfg_route_db->Register
+        (boost::bind(&InterfaceCfgClient::RouteTableNotify, this, _1, _2));
 }
 
 void InterfaceCfgClient::Shutdown() {
-    DBTableBase *cfg_db = IFMapTable::FindTable(Agent::GetInstance()->GetDB(), 
+    DBTableBase *cfg_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
                                                 "virtual-machine-interface");
-    cfg_db->Unregister(singleton_->cfg_listener_id_);
-    delete singleton_;
-    singleton_ = NULL;
+    cfg_db->Unregister(cfg_listener_id_);
+
+    DBTableBase *cfg_route_db = IFMapTable::FindTable(agent_cfg_->agent()->GetDB(), 
+                                                      "interface-route-table");
+    cfg_route_db->Unregister(cfg_route_table_listener_id_);
 }

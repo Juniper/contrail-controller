@@ -149,11 +149,14 @@ public:
     void RemoveRTarget();
     void RemoveSGID();
     void RemoveOriginVn();
+    void RemoveTunnelEncapsulation();
 
     // Return vector of communities
     const ExtCommunityList &communities() const {
         return communities_;
     }
+
+    std::vector<std::string> GetTunnelEncap() const;
 
     static bool is_origin_vn(const ExtCommunityValue &val) {
         //
@@ -250,6 +253,9 @@ public:
             const ExtCommunity::ExtCommunityList &sgid_list);
     ExtCommunityPtr ReplaceOriginVnAndLocate(const ExtCommunity *src,
             const ExtCommunity::ExtCommunityList &origin_vn_list);
+    ExtCommunityPtr ReplaceTunnelEncapsulationAndLocate(
+            const ExtCommunity *src,
+            const ExtCommunity::ExtCommunityList &tunnel_encaps);
 
 private:
     BgpServer *server_;

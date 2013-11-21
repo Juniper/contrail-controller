@@ -375,6 +375,31 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
                     TcpSessionPtr(session), boost::asio::placeholders::error));
 }
 
+void TcpServer::GetRxSocketStats(TcpServerSocketStats &socket_stats) {
+    socket_stats.calls = stats_.read_calls;
+    socket_stats.bytes = stats_.read_bytes;
+    if (stats_.read_calls) {
+        socket_stats.average_bytes = stats_.read_bytes/stats_.read_calls;
+    }
+}
+
+void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) {
+    socket_stats.calls = stats_.write_calls;
+    socket_stats.bytes = stats_.write_bytes;
+    if (stats_.write_calls) {
+        socket_stats.average_bytes = stats_.write_bytes/stats_.write_calls;
+    }
+    socket_stats.blocked_count = stats_.write_blocked;
+    socket_stats.blocked_duration = duration_usecs_to_string(
+        stats_.write_blocked_duration_usecs);
+    if (stats_.write_blocked) {
+        socket_stats.average_blocked_duration =
+                 duration_usecs_to_string(
+                     stats_.write_blocked_duration_usecs/
+                     stats_.write_blocked);
+    }
+}
+
 //
 // TcpServerManager class routines
 //

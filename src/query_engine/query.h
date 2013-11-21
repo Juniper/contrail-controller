@@ -272,9 +272,18 @@ struct query_result_unit_t {
     // UUID is in case of database queries for flow-records/flow-series
     // stats+UUID after database queries for flow-records WHERE queries
     // stats+UUID+8-tuple afer flow-series WHERE query
+    // AttribJSON+UUID for StatsTable queries
     GenDb::DbDataValueVec info;
 
     // Following APIs will be invoked based on the table being queried
+
+    void set_stattable_info(
+            const std::string& attribstr,
+            const boost::uuids::uuid& uuid);
+
+    void get_stattable_info(
+            std::string& attribstr,
+            boost::uuids::uuid& uuid);
 
     // Get UUID from the info field
     void get_uuid(boost::uuids::uuid& u);
@@ -309,6 +318,7 @@ public:
     virtual query_status_t process_query() = 0;
 
     typedef QEOpServerProxy::BufferT BufT;
+    typedef QEOpServerProxy::OutRowMultimapT MapBufT;
 
     // following callback function is called whenever a subquery 
     // is prcoessed
@@ -332,7 +342,7 @@ public:
 }; 
 
 // max number of entries to extract from db
-#define MAX_DB_QUERY_ENTRIES 10000000
+#define MAX_DB_QUERY_ENTRIES 100000000
 // This class provides interface for doing single index database query
 class DbQueryUnit : public QueryUnit {
 public:
@@ -351,7 +361,7 @@ public:
     GenDb::ColumnNameRange cr;
     // row key suffix will be used to append DIR to flow 
     // series/records query
-    GenDb::DbDataValue row_key_suffix;
+    GenDb::DbDataValueVec row_key_suffix;
     bool t_only_col;    // only T is in column name
     bool t_only_row;    // only T2 is in row key
 };
@@ -384,18 +394,21 @@ private:
 
 class WhereQuery : public QueryUnit {
 public:
-    WhereQuery(std::string where_json_string, int direction,
+    WhereQuery(const std::string& where_json_string, int direction,
             QueryUnit *main_query);
     virtual query_status_t process_query();
 
+    
     // 0 is for egress and 1 for ingress
     int32_t direction_ing;
-
+    const std::string json_string_;
 private:
     // Create UUID to 8-tuple map by querying special flow table for
     // the given time range
     void create_uuid_tuple_map(
             std::map<boost::uuids::uuid, GenDb::DbDataValueVec>& uuid_map);
+
+
 };
 
 typedef std::vector<std::string> final_result_row_t;
@@ -424,6 +437,7 @@ struct agg_stats_t {
     stat_type_t stat_type;
 };
 
+class StatsSelect;
 
 // following data structure does the processing of SELECT portion of query
 class SelectQuery : public QueryUnit {
@@ -434,6 +448,7 @@ public:
     virtual query_status_t process_query();
 
     // Query related fields
+    std::string json_string_;
     std::vector<std::string> select_column_fields;
     std::vector<agg_stats_t> agg_stats;
     // Whethere timestamp will be one of the columns
@@ -446,7 +461,10 @@ public:
     std::string cfname; 
 
     std::auto_ptr<BufT> result_;
-    
+    std::auto_ptr<MapBufT> mresult_;
+   
+    std::auto_ptr<StatsSelect> stats_;
+
     enum fs_query_type {
         FS_SELECT_INVALID = 0x0,
         FS_SELECT_T = 0x1,
@@ -642,6 +660,8 @@ public:
 
     // Query related fields
 
+    std::string json_string_;
+
     // filter list
     std::vector<filter_match_t> filter_list;
 
@@ -656,6 +676,7 @@ public:
     // result after post processing
 
     std::auto_ptr<BufT> result_;
+    std::auto_ptr<MapBufT> mresult_;
 
     bool sort_field_comparator(const std::map<std::string, std::string>& lhs,
                                const std::map<std::string, std::string>& rhs);
@@ -671,9 +692,11 @@ public:
 const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output);
 private:
+    typedef std::map<uint64_t, QEOpServerProxy::OutRowT> fcid_rrow_map_t;
     bool flowseries_merge_processing(
                 const std::vector<QEOpServerProxy::OutRowT> *raw_result,
-                std::vector<QEOpServerProxy::OutRowT> *merged_result);
+                std::vector<QEOpServerProxy::OutRowT> *merged_result,
+                fcid_rrow_map_t *fcid_rrow_map = NULL);
     void fs_merge_stats(const QEOpServerProxy::OutRowT& input, 
                         QEOpServerProxy::OutRowT& output);
     void fs_stats_merge_processing(
@@ -681,7 +704,8 @@ private:
                 std::vector<QEOpServerProxy::OutRowT> *output);
     void fs_tuple_stats_merge_processing(
                 const std::vector<QEOpServerProxy::OutRowT> *input,
-                std::vector<QEOpServerProxy::OutRowT> *output);
+                std::vector<QEOpServerProxy::OutRowT> *output,
+                fcid_rrow_map_t *fcid_rrow_map = NULL);
 };
 
 class AnalyticsQuery: public QueryUnit {
@@ -739,8 +763,15 @@ public:
 
     // final result of the query
     std::auto_ptr<QEOpServerProxy::BufferT> final_result;
+    std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_mresult;
 
-    std::map<std::string, std::string> json_api_data_; 
+    std::map<std::string, std::string> json_api_data_;
+
+    uint64_t where_start_;
+    uint64_t select_start_;
+    uint64_t postproc_start_;
+    QEOpServerProxy::QPerfInfo qperf_;
+
     WhereQuery *wherequery_;
     SelectQuery *selectquery_;
     PostProcessingQuery *postprocess_;
@@ -768,13 +799,21 @@ public:
     bool final_merge_processing(
 const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output);
-    // this is to get parallelization details once the query is parsed
-    void get_query_details(bool& merge_needed, std::vector<uint64_t>& chunk_sizes, int& parse_status);
 
+    // this is to get parallelization details once the query is parsed
+    void get_query_details(bool& is_merge_needed, bool& is_map_output,
+        std::vector<uint64_t>& chunk_sizes,
+        std::string& where,
+        std::string& select,
+        std::string& post,
+        uint64_t& time_period,
+        int& parse_status);
 
     // validation functions
     bool is_valid_from_field(const std::string& from_field);
     bool is_object_table_query();
+    bool is_stat_table_query();
+    int  stat_table_index();
     bool is_valid_select_field(const std::string& select_field);
     bool is_valid_where_field(const std::string& where_field);
     bool is_valid_sort_field(const std::string& sort_field);
@@ -809,18 +848,24 @@ public:
         uint32_t maxChunks;
         uint64_t query_starttm;
     };
+
     uint64_t stime;
+    static uint64_t anal_ttl; // TTL of analytics data in hours
 
     QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
-            const std::string & redis_ip, unsigned short redis_port);
+            const std::string & redis_ip, unsigned short redis_port, uint64_t start_time=0);
 
     QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port);
-
+    
     int
     QueryPrepare(QueryParams qp,
-        std::vector<uint64_t> &chunk_size, bool & need_merge);
+        std::vector<uint64_t> &chunk_size,
+        bool & need_merge, bool & map_output,
+        std::string& where, std::string& select, std::string& post,
+        uint64_t& time_period, 
+        std::string &table);
 
     bool
     QueryExec(void * handle, QueryParams qp, uint32_t chunk);
@@ -834,6 +879,11 @@ public:
     QueryFinalMerge(QueryParams qp,
         const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
         QEOpServerProxy::BufferT& output);
+
+    bool
+    QueryFinalMerge(QueryParams qp,
+        const std::vector<boost::shared_ptr<QEOpServerProxy::OutRowMultimapT> >& inputs,
+        QEOpServerProxy::OutRowMultimapT& output);
 
     // Unit test function
     void QueryEngine_Test();

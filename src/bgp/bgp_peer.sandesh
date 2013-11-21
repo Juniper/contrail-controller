@@ -3,6 +3,7 @@
  */
 
 include "bgp/peer_info.sandesh"
+include "io/io.sandesh"
 
 struct address_family {
     1: u32 afi;            // address family identifier
@@ -324,27 +325,18 @@ uve sandesh BGPPeerInfo {
     1: BgpPeerInfoData data;
 }
 
-struct TcpServerSocketStats {
-    1: u64 bytes;
-    2: u64 calls;
-    3: double average_bytes;
-    4: string blocked_duration;
-    5: u64 blocked_count;
-    6: string average_blocked_duration;
-}
-
 request sandesh ShowBgpServerReq {
 }
 
 response sandesh ShowBgpServerResp {
-    1: TcpServerSocketStats rx_socket_stats;
-    2: TcpServerSocketStats tx_socket_stats;
+    1: io.TcpServerSocketStats rx_socket_stats;
+    2: io.TcpServerSocketStats tx_socket_stats;
 }
 
 request sandesh ShowXmppServerReq {
 }
 
 response sandesh ShowXmppServerResp {
-    1: TcpServerSocketStats rx_socket_stats;
-    2: TcpServerSocketStats tx_socket_stats;
+    1: io.TcpServerSocketStats rx_socket_stats;
+    2: io.TcpServerSocketStats tx_socket_stats;
 }

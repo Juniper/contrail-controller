@@ -33,24 +33,22 @@ EvpnPrefix::EvpnPrefix(const BgpProtoPrefix &prefix) {
     size_t esi_size = 10;
     size_t tag_size = 4;
     size_t mac_size = MacAddress::kSize;
-    size_t ip_size = 4;
     size_t label_size = 3;
-
-    int num_bytes = rd_size + esi_size + tag_size ;
-    num_bytes += 1 + mac_size + 1 + ip_size + label_size;
-    assert(prefix.prefixlen == (num_bytes * 8));
+    size_t ip_size = (prefix.prefixlen / 8) - 
+        (rd_size + esi_size + tag_size + 1 + mac_size + 1 + label_size);
 
     size_t rd_offset = 0;
-    size_t tag_offset = rd_offset + rd_size + esi_size;
-    size_t mac_offset = tag_offset + tag_size + 1;
-    size_t ip_offset = mac_offset + mac_size + 1;
-
     rd_ = RouteDistinguisher(&prefix.prefix[rd_offset]);
+
+    size_t tag_offset = rd_offset + rd_size + esi_size;
     tag_ = get_value(&prefix.prefix[tag_offset], 4);
+
+    size_t mac_offset = tag_offset + tag_size + 1;
     mac_addr_ = MacAddress(&prefix.prefix[mac_offset]);
 
+    size_t ip_offset = mac_offset + mac_size + 1;
     uint8_t plen = prefix.prefix[ip_offset - 1];
-    uint32_t addr = get_value(&prefix.prefix[ip_offset], 4);
+    uint32_t addr = ip_size ? get_value(&prefix.prefix[ip_offset], ip_size) : 0;
     Ip4Address ip4_addr(addr);
     ip_prefix_ = Ip4Prefix(ip4_addr, plen);
 }
@@ -150,6 +148,21 @@ string EvpnPrefix::ToString() const {
     str += "-" + mac_addr_.ToString();
     str += "," + ip_prefix_.ToString();
     return str;
+}
+
+size_t EvpnPrefix::label_offset(const BgpProtoPrefix &prefix) {
+    size_t rd_size = RouteDistinguisher::kSize;
+    size_t esi_size = 10;
+    size_t tag_size = 4;
+    size_t label_size = 3;
+    size_t mac_size = MacAddress::kSize;
+
+    size_t ip_size = (prefix.prefixlen / 8) - 
+        (rd_size + esi_size + tag_size + 1 + mac_size + 1 + label_size);
+
+    size_t label_at = rd_size + esi_size + tag_size + 1 + mac_size + 1 + ip_size;
+
+    return label_at;
 }
 
 EvpnRoute::EvpnRoute(const EvpnPrefix &prefix)

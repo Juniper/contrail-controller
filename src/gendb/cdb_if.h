@@ -61,8 +61,9 @@ using GenDb::DbDataValue;
 
 class CdbIf : public GenDbIf {
     public:
-        CdbIf(boost::asio::io_service *, DbErrorHandler, std::string, unsigned short, bool, int ttl,
+        CdbIf(boost::asio::io_service *, DbErrorHandler, std::string, unsigned short, int ttl,
                 std::string name);
+        CdbIf();
         ~CdbIf();
 
         virtual bool Db_Init(std::string task_id, int task_instance);
@@ -84,14 +85,17 @@ class CdbIf : public GenDbIf {
         virtual bool Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
                 const GenDb::DbDataValueVec& rowkey);
         virtual bool Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
-                const std::string& cfname, const std::vector<GenDb::DbDataValueVec>& key);
+                const std::string& cfname, const std::vector<GenDb::DbDataValueVec>& key,
+                GenDb::ColumnNameRange *crange_ptr = NULL);
         /* api to get range of column data for a range of rows */
         bool Db_GetRangeSlices(GenDb::ColList& col_list,
                 const std::string& cfname,
                 const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& key);
+        virtual bool Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const;
 
     private:
+        friend class CdbIfTest;
 
         /* api to get range of column data for a range of rows 
          * Number of columns returned is less than or equal to count field
@@ -178,7 +182,7 @@ class CdbIf : public GenDbIf {
         bool Db_AsyncAddColumn(CdbIfColList *cl);
         bool Db_Columnfamily_present(const std::string& cfname);
         bool Db_GetColumnfamily(CdbIfCfInfo **info, const std::string& cfname);
-        bool Db_IsInitDone();
+        bool Db_IsInitDone() const;
         bool Db_FindColumnfamily(const std::string& cfname);
 
         /* encode/decode for non-composite */
@@ -192,6 +196,8 @@ class CdbIf : public GenDbIf {
         static DbDataValue Db_decode_Unsigned32_non_composite(const std::string& input);
         static std::string Db_encode_Unsigned64_non_composite(const DbDataValue& value);
         static DbDataValue Db_decode_Unsigned64_non_composite(const std::string& input);
+        static std::string Db_encode_Double_non_composite(const DbDataValue& value);
+        static DbDataValue Db_decode_Double_non_composite(const std::string& input);
         static std::string Db_encode_UUID_non_composite(const DbDataValue& value);
         static DbDataValue Db_decode_UUID_non_composite(const std::string& input);
 
@@ -207,6 +213,8 @@ class CdbIf : public GenDbIf {
         static DbDataValue Db_decode_Unsigned32_composite(const char *input, int& used);
         static std::string Db_encode_Unsigned64_composite(const DbDataValue& value);
         static DbDataValue Db_decode_Unsigned64_composite(const char *input, int& used);
+        static std::string Db_encode_Double_composite(const DbDataValue& value);
+        static DbDataValue Db_decode_Double_composite(const char *input, int& used);
         static std::string Db_encode_UUID_composite(const DbDataValue& value);
         static DbDataValue Db_decode_UUID_composite(const char *input, int& used);
 
@@ -223,9 +231,6 @@ class CdbIf : public GenDbIf {
         boost::scoped_ptr<WorkQueue<CdbIfColList *> > cdbq_;
         Timer *periodic_timer_;
         std::string name_;
-        bool enable_stats_;
-        bool PeriodicTimerExpired();
-        void PeriodicTimerErrorHandler(std::string name, std::string error);
 
         int cassandra_ttl_;
 };

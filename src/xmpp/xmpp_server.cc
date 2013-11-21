@@ -60,6 +60,24 @@ XmppServer::XmppServer(EventManager *evm)
     log_uve_ = false;
 }
 
+bool XmppServer::IsPeerCloseGraceful() {
+
+    //
+    // If the server is deleted, do not do graceful restart
+    //
+    if (deleter()->IsDeleted()) return false;
+
+    static bool init = false;
+    static bool enabled = false;
+
+    if (!init) {
+        init = true;
+        char *p = getenv("XMPP_GRACEFUL_RESTART_ENABLE");
+        if (p && !strcasecmp(p, "true")) enabled = true;
+    }
+    return enabled;
+}
+
 void XmppServer::SessionShutdown() {
     TcpServer::Shutdown();
 }
@@ -239,37 +257,37 @@ bool XmppServer::DequeueSession(XmppConnection *connection) {
         InsertConnection(connection);
         connection->AcceptSession(session);
     } else {
-        // Close the newly created session
-        XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection" + 
-                   session->remote_endpoint().address().to_string());
-        DeleteSession(session);
+        if (!IsPeerCloseGraceful()) {
 
-        // XXX Do this the right way.
-        delete connection;
+            // Close the newly created session
+            XMPP_DEBUG(XmppCreateConnection, "Close duplicate connection" +
+                       session->remote_endpoint().address().to_string());
+            DeleteSession(session);
+        } else {
 
-        // TODO GR case: associate the new session
-        // ShutdownPending() is set in bgp::config task context via LTM
-        // TCP Close event enqueues an event to xmpp::StateMachine task, which
-        // may have not yet run, which enqueues event to LTM to set the
-        // ShutdownPending() flag. 
-        // In such a case  where xmpp::StateMachine task did not
-        // run, connection->ShutdownPending() will not be set.
-        // 
-        // Hence ShutdownPending() should be set in ioReader task on
-        // TCP close event and also while calling XmppServer Shutdown()
-        // Also appropriately take care of asserts in bgp_xmpp_channel.cc
-        // for ReceiveUpdate
-        //
-        // XmppConnection *connection;
-        // connection = loc->second;
-        // if (connection->ShutdownPending()) {
-        //     DeleteSession(session);
-        // } else if (connection->session() != NULL) {
-        //     DeleteSession(session);
-        // } else {
-        //     connection->Initialize();
-        //     connection->AcceptSession(session);
-        // }
+            // XXX Do this the right way.
+            delete connection;
+
+            // TODO GR case: associate the new session
+            // ShutdownPending() is set in bgp::config task context via LTM
+            // TCP Close event enqueues an event to xmpp::StateMachine task, which
+            // may have not yet run, which enqueues event to LTM to set the
+            // ShutdownPending() flag. 
+            // In such a case  where xmpp::StateMachine task did not
+            // run, connection->ShutdownPending() will not be set.
+            // 
+            // Hence ShutdownPending() should be set in ioReader task on
+            // TCP close event and also while calling XmppServer Shutdown()
+            // Also appropriately take care of asserts in bgp_xmpp_channel.cc
+            // for ReceiveUpdate
+            //
+            connection = loc->second;
+            if (connection->session()) {
+                DeleteSession(connection->session());
+            }
+            connection->Initialize();
+            connection->AcceptSession(session);
+        }
     }
 
     return true;

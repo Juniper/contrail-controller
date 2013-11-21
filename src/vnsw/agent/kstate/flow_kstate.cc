@@ -30,8 +30,6 @@ string FlowKState::FlagToStr(unsigned int flag) {
             return " MIRROR ";
         case VR_FLOW_FLAG_VRFT:
             return " VRFT ";
-        case VR_FLOW_FLAG_UNUSABLE:
-            return " UNUSABLE ";
         case VR_FLOW_FLAG_SNAT:
             return " SNAT ";
         case VR_FLOW_FLAG_SPAT:
@@ -92,7 +90,6 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_ACTIVE);
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_MIRROR);
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_VRFT);
-    UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_UNUSABLE);
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_SNAT);
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_SPAT);
     UpdateFlagStr(flag_str, assigned, k_flow->fe_flags, VR_FLOW_FLAG_DNAT);

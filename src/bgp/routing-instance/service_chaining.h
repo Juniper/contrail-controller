@@ -48,6 +48,7 @@ public:
     typedef std::set<uint32_t> ConnectedPathIdList;
 
     ServiceChain(RoutingInstance *src, RoutingInstance *dest, 
+                 RoutingInstance *connected,
                  const std::vector<std::string> &subnets, IpAddress addr);
 
     // Compare config and return whether cfg has updated
@@ -85,6 +86,10 @@ public:
 
     RoutingInstance *src_routing_instance() const {
         return src_;
+    }
+
+    RoutingInstance *connected_routing_instance() const {
+        return connected_;
     }
 
     RoutingInstance *dest_routing_instance() const {
@@ -130,6 +135,8 @@ public:
 
     BgpTable *src_table() const;
 
+    BgpTable *connected_table() const;
+
     BgpTable *dest_table() const;
 
     const PrefixToRouteListMap &prefix_to_route_list_map() const {
@@ -145,8 +152,8 @@ public:
 
     void FillServiceChainInfo(ShowServicechainInfo &info) const; 
 
-    void src_table_unregistered() {
-        src_table_unregistered_ = true;
+    void connected_table_unregistered() {
+        connected_table_unregistered_ = true;
     }
 
     void dest_table_unregistered() {
@@ -154,7 +161,7 @@ public:
     }
 
     bool unregistered() const {
-        return src_table_unregistered_ && dest_table_unregistered_;
+        return connected_table_unregistered_ && dest_table_unregistered_;
     }
 
     void set_dest_stopped() {
@@ -165,12 +172,12 @@ public:
         return dest_stopped_;
     }
 
-    void set_src_stopped() {
-        src_stopped_ = true;
+    void set_connected_stopped() {
+        connected_stopped_ = true;
     }
 
-    bool src_stopped() const {
-        return src_stopped_;
+    bool connected_stopped() const {
+        return connected_stopped_;
     }
 
     const ExtConnectRouteList &ext_connecting_routes() const {
@@ -192,15 +199,16 @@ public:
 private:
     RoutingInstance *src_;
     RoutingInstance *dest_;
+    RoutingInstance *connected_;
     ConnectedPathIdList connected_path_ids_;
     BgpRoute *connected_route_;
     IpAddress service_chain_addr_;
     PrefixToRouteListMap prefix_to_routelist_map_;
     // List of routes from Destination VN for external connectivity
     ExtConnectRouteList ext_connect_routes_;
-    bool src_table_unregistered_;
+    bool connected_table_unregistered_;
     bool dest_table_unregistered_;
-    bool src_stopped_;
+    bool connected_stopped_;
     bool dest_stopped_;
     bool aggregate_; // Whether the host route needs to be aggregated
 

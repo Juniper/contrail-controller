@@ -59,7 +59,9 @@ Generator::Generator(Collector * const collector, VizSession *session,
                 collector->cassandra_ip(), collector->cassandra_port(), collector->analytics_ttl(), name_)),
         db_connect_timer_(
                 TimerManager::CreateTimer(*collector->event_manager()->io_service(),
-                    "Generator db connect timer" + source + module)),
+                    "Generator db connect timer" + source + module,
+                    TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
+                    session->GetSessionInstance())),
         del_wait_timer_(
                 TimerManager::CreateTimer(*collector->event_manager()->io_service(),
                     "Delete wait timer" + source + module)) {
@@ -68,11 +70,14 @@ Generator::Generator(Collector * const collector, VizSession *session,
 }
 
 Generator::~Generator() {
+    TimerManager::DeleteTimer(db_connect_timer_);
+    db_connect_timer_ = NULL;
     TimerManager::DeleteTimer(del_wait_timer_);
+    db_handler_->UnInit(true);
 }
 
 void Generator::StartDbifReinit() {
-    db_handler_.get()->UnInit(false);
+    db_handler_->UnInit(false);
     Start_Db_Connect_Timer();
 }
 
@@ -89,16 +94,22 @@ void Generator::Start_Db_Connect_Timer() {
             boost::bind(&Generator::TimerErrorHandler, this, _1, _2));
 }
 
+void Generator::Stop_Db_Connect_Timer() {
+    db_connect_timer_->Cancel();
+}
+
 void Generator::Db_Connection_Uninit() {
-    db_handler_.get()->UnInit(false);
+    db_handler_->UnInit(false);
+    Stop_Db_Connect_Timer();
 }
 
 bool Generator::Db_Connection_Init() {
     GenDb::GenDbIf *dbif;
 
-    dbif = db_handler_.get()->get_dbif();
+    dbif = db_handler_->get_dbif();
 
-    if (!dbif->Db_Init("Generator::Db_Connection_Init", -1)) {
+    if (!dbif->Db_Init(Collector::kDbTask, 
+                       viz_session_->GetSessionInstance())) {
         GENERATOR_LOG(ERROR, "Database initialization failed");
         return false;
     }
@@ -250,6 +261,25 @@ void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
     }
 }
 
+bool Generator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
+    if (!state_machine_) {
+        return false;
+    }
+    return state_machine_->GetQueueCount(queue_count);
+}
+
+bool Generator::GetSandeshStateMachineStats(
+                    SandeshStateMachineStats &sm_stats) const {
+    if (!state_machine_) {
+        return false;
+    }
+    return state_machine_->GetStatistics(sm_stats);
+}
+
+bool Generator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const {
+    return db_handler_->GetStats(queue_count, enqueues);
+}
+    
 void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
     for (MessageTypeStatsMap::const_iterator mt_it = stats_map_.begin();
          mt_it != stats_map_.end();
@@ -284,22 +314,6 @@ void Generator::GetGeneratorInfo(ModuleServerState &genlist) const {
     giv.push_back(gi);
     genlist.set_generator_info(giv);
     genlist.set_name(source_ + ":" + module_);
-}
-
-void GeneratorListReq::HandleRequest() const {
-    GeneratorListResp *resp(new GeneratorListResp);
-    vector<GeneratorSummaryInfo> genlist;
-    VizSandeshContext *vsc = dynamic_cast<VizSandeshContext *>
-                                 (Sandesh::client_context());
-    if (!vsc) {
-        LOG(ERROR, __func__ << ": Sandesh client context NOT PRESENT");
-        resp->Response();
-        return;
-    }
-    vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(genlist);
-    resp->set_genlist(genlist);
-    resp->set_context(context());
-    resp->Response();
 }
 
 const std::string Generator::State() const {

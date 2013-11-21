@@ -41,7 +41,7 @@ private:
 
 //
 // Constructor for McastForwarder. We get the address of the forwarder
-// from the IPeer.  The RD also ought to contains the same information.
+// from the nexthop. The RD also ought to contain the same information.
 // The LabelBlockPtr from the InetMcastRoute is copied for convenience.
 //
 McastForwarder::McastForwarder(InetMcastRoute *route)
@@ -51,6 +51,8 @@ McastForwarder::McastForwarder(InetMcastRoute *route)
     const BgpPath *path = route->BestPath();
     label_block_ = path->GetAttr()->label_block();
     address_ = path->GetAttr()->nexthop().to_v4();
+    if (path->GetAttr()->ext_community())
+        encap_ = path->GetAttr()->ext_community()->GetTunnelEncap();
 }
 
 //
@@ -60,6 +62,29 @@ McastForwarder::McastForwarder(InetMcastRoute *route)
 McastForwarder::~McastForwarder() {
     FlushLinks();
     ReleaseLabel();
+}
+
+//
+// Update the` McastForwarder based on information in the InetMcastRoute.
+// Return true if something changed.
+//
+bool McastForwarder::Update(InetMcastRoute *route) {
+    McastForwarder forwarder(route);
+    bool changed = false;
+    if (label_block_ != forwarder.label_block_) {
+        label_block_ = forwarder.label_block_;
+        changed = true;
+    }
+    if (address_ != forwarder.address_) {
+        address_ = forwarder.address_;
+        changed = true;
+    }
+    if (encap_ != forwarder.encap_) {
+        encap_ = forwarder.encap_;
+        changed = true;
+    }
+
+    return changed;
 }
 
 //
@@ -152,7 +177,7 @@ UpdateInfo *McastForwarder::GetUpdateInfo(InetMcastTable *table) {
     BgpOList *olist = new BgpOList;
     for (McastForwarderList::const_iterator it = tree_links_.begin();
          it != tree_links_.end(); ++it) {
-        BgpOListElem elem((*it)->address(), (*it)->label());
+        BgpOListElem elem((*it)->address(), (*it)->label(), (*it)->encap());
         olist->elements.push_back(elem);
     }
 
@@ -294,7 +319,7 @@ McastSGEntry *McastManagerPartition::FindSGEntry(
 }
 
 //
-// Find or create tthe McastSGEntry for the given group and source.
+// Find or create the McastSGEntry for the given group and source.
 //
 McastSGEntry *McastManagerPartition::LocateSGEntry(
         Ip4Address group, Ip4Address source) {
@@ -436,7 +461,6 @@ void McastTreeManager::RouteListener(
 
     McastManagerPartition *partition = partitions_[tpart->index()];
     InetMcastRoute *route = dynamic_cast<InetMcastRoute *>(db_entry);
-    assert(route);
 
     DBState *dbstate = db_entry->GetState(table_, listener_id_);
     if (!dbstate) {
@@ -454,19 +478,25 @@ void McastTreeManager::RouteListener(
 
     } else {
 
-        // Skip since we already have DBState and the entry still exists.
-        if (!db_entry->IsDeleted())
-            return;
-
-        // Delete the McastForwarder associated with the route.
         McastSGEntry *sg_entry = partition->FindSGEntry(
             route->GetPrefix().group(), route->GetPrefix().source());
         assert(sg_entry);
         McastForwarder *forwarder = dynamic_cast<McastForwarder *>(dbstate);
         assert(forwarder);
-        db_entry->ClearState(table_, listener_id_);
-        sg_entry->DeleteForwarder(forwarder);
-        delete forwarder;
+
+        if (db_entry->IsDeleted()) {
+
+            // Delete the McastForwarder associated with the route.
+            db_entry->ClearState(table_, listener_id_);
+            sg_entry->DeleteForwarder(forwarder);
+            delete forwarder;
+
+        } else if (forwarder->Update(route)) {
+
+            // Trigger update of the distribution tree.
+            partition->EnqueueSGEntry(sg_entry);
+        }
+
     }
 }
 

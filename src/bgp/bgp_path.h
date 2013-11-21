@@ -24,6 +24,7 @@ public:
  
     // Ordered in the ascending order of path preference 
     enum PathSource {
+        None = 0,
         BGP_XMPP = 1,
         ServiceChain = 2,
         StaticRoute = 3,
@@ -33,6 +34,7 @@ public:
         (AsPathLooped|NoNeighborAs|NoTunnelEncap);
 
     static std::string PathIdString(uint32_t path_id);
+    static std::string PathSourceString(PathSource source);
 
     BgpPath();
     BgpPath(const IPeer *peer, uint32_t path_id, PathSource src, 
@@ -107,8 +109,8 @@ public:
 
 private:
     const IPeer *peer_;
-    uint32_t path_id_;
-    PathSource source_;
+    const uint32_t path_id_;
+    const PathSource source_;
     const BgpAttrPtr attr_;
     uint32_t flags_;
     uint32_t label_;
@@ -118,8 +120,6 @@ class BgpSecondaryPath : public BgpPath {
 public:
     BgpSecondaryPath(const IPeer *peer, uint32_t path_id, PathSource src, 
                      const BgpAttrPtr attr, uint32_t flags, uint32_t label);
-    BgpSecondaryPath(const IPeer *peer, PathSource src, const BgpAttrPtr attr,
-                     uint32_t flags, uint32_t label);
     BgpSecondaryPath(uint32_t path_id, PathSource src, const BgpAttrPtr attr,
                      uint32_t flags, uint32_t label);
 

@@ -10,10 +10,10 @@
 #include <vnc_cfg_types.h>
 
 #include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
 #include <oper/sg.h>
 #include <filter/acl.h>
 
-#include <cfg/init_config.h>
 #include <oper/interface.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
@@ -119,11 +119,12 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 node->begin(table->GetGraph()); 
                 iter != node->end(table->GetGraph()); ++iter) {
             IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (CfgListener::CanUseNode(adj_node) == false) {
+            if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
+                == false) {
                 continue;
             }
 
-            if (adj_node->table() == AgentConfig::GetInstance()->GetAclTable()) {
+            if (adj_node->table() == Agent::GetInstance()->cfg()->cfg_acl_table()) {
                 AccessControlList *acl_cfg = static_cast<AccessControlList *>
                     (adj_node->GetObject());
                 assert(acl_cfg);
@@ -148,8 +149,8 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                  node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (CfgListener::CanUseNode
-            (adj_node, AgentConfig::GetInstance()->GetVmInterfaceTable()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->CanUseNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table()) == false) {
             continue;
         }
         if (adj_node->GetObject() == NULL) {

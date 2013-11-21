@@ -47,7 +47,8 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
-    HostInterface::CreateReq(if_name);
+    HostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                             if_name);
     InterfaceNH::CreateHostPortReq(if_name);
 }
 

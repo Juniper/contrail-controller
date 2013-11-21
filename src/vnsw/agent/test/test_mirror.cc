@@ -32,7 +32,8 @@ protected:
 
     virtual void SetUp() {
         client->Reset();
-        EthInterface::CreateReq(eth_itf, Agent::GetInstance()->GetDefaultVrf());
+        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                eth_itf, Agent::GetInstance()->GetDefaultVrf());
         fabric_gw_ip_ = Ip4Address::from_string("10.1.1.254");
         uint16_t sport = 10000;
         unsigned long ip = 0x0a010102;

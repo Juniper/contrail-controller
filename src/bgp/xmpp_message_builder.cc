@@ -136,7 +136,6 @@ void BgpXmppMessage::EncodeNextHop(const BgpRoute *route,
     autogen::NextHopType item_nexthop;
 
     item_nexthop.af = route->Afi();
-    item_nexthop.safi = route->Safi();
     item_nexthop.address = nexthop.address().to_v4().to_string();
     item_nexthop.label = nexthop.label();
     if (nexthop.encap().empty()) {
@@ -174,13 +173,13 @@ void BgpXmppMessage::AddInetReach(const BgpRoute *route, const RibOutAttr *roatt
     }
 
     xml_node node = xitems_.append_child("item");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
 }
 
 void BgpXmppMessage::AddInetUnreach(const BgpRoute *route) {
     xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
 bool BgpXmppMessage::AddInetRoute(const BgpRoute *route, const RibOutAttr *roattr) {
@@ -229,13 +228,13 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
     }
 
     xml_node node = xitems_.append_child("item");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
 }
 
 void BgpXmppMessage::AddEnetUnreach(const BgpRoute *route) {
     xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
 bool BgpXmppMessage::AddEnetRoute(const BgpRoute *route, const RibOutAttr *roattr) {
@@ -269,22 +268,22 @@ void BgpXmppMessage::AddMcastReach(const BgpRoute *route, const RibOutAttr *roat
 
         autogen::McastNextHopType nh;
         nh.af = BgpAf::IPv4;
-        nh.safi = BgpAf::Mcast;
         nh.address = elem.address.to_string();
         stringstream label;
         label << elem.label;
         nh.label = label.str();
+        nh.tunnel_encapsulation_list.tunnel_encapsulation = elem.encap;
         item.entry.olist.next_hop.push_back(nh);
     }
 
     xml_node node = xitems_.append_child("item");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
     item.Encode(&node);
 }
 
 void BgpXmppMessage::AddMcastUnreach(const BgpRoute *route) {
     xml_node node = xitems_.append_child("retract");
-    node.append_attribute("id") = route->ToString().c_str();
+    node.append_attribute("id") = route->ToXmppIdString().c_str();
 }
 
 bool BgpXmppMessage::AddMcastRoute(const BgpRoute *route, const RibOutAttr *roattr) {

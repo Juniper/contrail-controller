@@ -31,6 +31,9 @@ def setup_venv(build_top = "../../../../../build"):
             local(
                 "pip install --upgrade "
                 "../../../discovery/dist/discovery-0.1dev.tar.gz")
+            local("pip install redis==2.7.1")
+            local("pip install stevedore==0.11")
+            local("pip install netifaces==0.8")
             local("pip install xmltodict")
             local("pip install fixtures==0.3.12")
             local("pip install testtools==0.9.32")

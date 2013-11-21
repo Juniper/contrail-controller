@@ -17,7 +17,7 @@ import datetime
 from opserver_util import OpServerUtils
 import re
 from gevent.coros import BoundedSemaphore
-
+from pysandesh.util import UTCTimestampUsec
 
 class UVEServer(object):
 
@@ -29,11 +29,15 @@ class UVEServer(object):
         self._uve_server_task = None
         self._redis = None
         self._redis_master_info = None
+        self._master_last_updated = None
+        self._num_mastership_changes = 0
         self._sem = BoundedSemaphore(1)
         if redis_sentinel_client is not None:
             self._redis_master_info = \
                 redis_sentinel_client.get_redis_master(service)
             if self._redis_master_info is not None:
+                self._num_mastership_changes += 1
+                self._master_last_updated = UTCTimestampUsec()
                 self._redis = redis.StrictRedis(self._redis_master_info[0],
                                                 self._redis_master_info[1],
                                                 db=0)
@@ -47,6 +51,8 @@ class UVEServer(object):
                 if self._redis_master_info is not None:
                     gevent.kill(self._uve_server_task)
                 self._redis_master_info = redis_master
+                self._num_mastership_changes += 1
+                self._master_last_updated = UTCTimestampUsec()
                 self._redis = redis.StrictRedis(self._redis_master_info[0],
                                                 self._redis_master_info[1],
                                                 db=0)
@@ -72,6 +78,20 @@ class UVEServer(object):
             finally:
                 self._sem.release()
     #end reset_redis_master
+
+    def fill_redis_uve_master_info(self, uve_master_info):
+        if self._redis_master_info is not None:
+            uve_master_info.ip = self._redis_master_info[0]
+            uve_master_info.port = int(self._redis_master_info[1])
+            try:
+                self._redis.ping()
+            except redis.exceptions.ConnectionError:
+                uve_master_info.status = 'DisConnected'
+            else:
+                uve_master_info.status = 'Connected'
+        uve_master_info.master_last_updated = self._master_last_updated
+        uve_master_info.num_of_mastership_changes = self._num_mastership_changes
+    #end fill_redis_uve_master_info
 
     @staticmethod
     def merge_previous(state, key, typ, attr, prevdict):

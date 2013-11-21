@@ -3,15 +3,13 @@
  */
 
 #include <boost/uuid/uuid_io.hpp>
+#include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 
-#include "ifmap/ifmap_node.h"
+#include <ifmap/ifmap_node.h>
 #include <oper/interface.h>
 #include <oper/vm.h>
 #include <oper/mirror_table.h>
-
-#include <vnc_cfg_types.h>
-#include <cfg/interface_cfg.h>
 #include <oper/agent_sandesh.h>
 
 using namespace std;

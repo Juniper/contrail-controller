@@ -131,6 +131,7 @@ void RedisAsyncConnection::RAC_DisconnectCallbackProcess(const struct redisAsync
         RedisAsyncConnection::RAC_CbFnsMap::iterator it = fns_map.find(context_);
         if (it != fns_map.end())
             fns_map.erase(it);
+        state_ = REDIS_ASYNC_CONNECTION_DISCONNECTED;
         context_ = NULL;
       }
 

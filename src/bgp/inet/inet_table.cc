@@ -89,14 +89,15 @@ BgpRoute *InetTable::RouteReplicate(BgpServer *server,
         path->GetAttr(), community);
 
     // Check whether there's already a path with the given peer and path id.
-    BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt, path->GetPeer(),
-                                          path->GetPathId(), path->GetSource());
+    BgpPath *dest_path = dest_route->FindSecondaryPath(src_rt,
+                                          path->GetSource(), path->GetPeer(),
+                                          path->GetPathId());
     if (dest_path != NULL) {
         if ((new_attr != dest_path->GetAttr()) || 
             (path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
-            assert(dest_route->RemoveSecondaryPath(src_rt, path->GetPeer(), 
-                                        path->GetPathId(), path->GetSource()));
+            assert(dest_route->RemoveSecondaryPath(src_rt, path->GetSource(),
+                        path->GetPeer(), path->GetPathId()));
         } else {
             return dest_route;
         }

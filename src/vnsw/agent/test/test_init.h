@@ -21,23 +21,26 @@
 #include <boost/uuid/string_generator.hpp>
 #include <boost/program_options.hpp>
 #include <pugixml/pugixml.hpp>
+#include <base/task.h>
+#include <base/task_trigger.h>
+#include <io/event_manager.h>
+#include <base/util.h>
 
-#include <cfg/init_config.h>
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
+#include "cfg/cfg_mirror.h"
+
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <ksync/vnswif_listener.h>
-#include <cmn/agent_cmn.h>
-#include <base/task.h>
-#include <base/task_trigger.h>
-#include <io/event_manager.h>
-#include <base/util.h>
 #include <ifmap_agent_parser.h>
 #include <ifmap_agent_table.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
+#include <init/agent_param.h>
+#include <init/agent_init.h>
 #include <oper/vn.h>
 #include <oper/multicast.h>
 #include <oper/vm.h>
@@ -55,7 +58,6 @@
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
-#include "cfg/mirror_cfg.h"
 #include "test_kstate.h"
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
@@ -122,8 +124,6 @@ public:
     FlowAge() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowAge")), 0) {
     }
     virtual bool Run() {
-        AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(100);
-        usleep(100);
         AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
         return true;
     }
@@ -133,6 +133,11 @@ struct IpamInfo {
     char ip_prefix[32];
     int plen;
     char gw[32];
+};
+
+struct TestIp4Prefix {
+    Ip4Address addr_;
+    int plen_;
 };
 
 class TestClient {
@@ -246,20 +251,6 @@ public:
             }
         }
     };
-
-    void FlowTimerWait(int count) {
-        int i = 0;
-
-        while (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ <= count) {
-            if (i++ < 1000) {
-                usleep(1000);
-            } else {
-                break;
-            }
-        }
-        EXPECT_TRUE(AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ > count);
-        WaitForIdle(2);
-    }
 
     void IfStatsTimerWait(int count) {
         int i = 0;
@@ -408,7 +399,7 @@ public:
             }
         }
 
-        WaitForIdle();
+        WaitForIdle(2);
         EXPECT_EQ(port_count, port_del_notify_);
         return (port_del_notify_ == port_count);
     }
@@ -601,6 +592,7 @@ public:
 
 class AgentTestInit {
 public:
+#if 0
     enum State {
         MOD_INIT,
         STATIC_OBJ_OPERDB,
@@ -611,17 +603,9 @@ public:
         SHUTDOWN,
         SHUTDOWN_DONE,
     };
+#endif
 
-    AgentTestInit(bool ksync_init, bool pkt_init, bool services_init,
-                  const char *init_file, int sandesh_port, bool log,
-                  TestClient *client, bool uve_init, 
-                  int agent_stats_interval, int flow_stats_interval) 
-        : state_(MOD_INIT), ksync_init_(ksync_init), pkt_init_(pkt_init),
-        services_init_(services_init), init_file_(init_file),
-        sandesh_port_(sandesh_port), log_locally_(log),
-        trigger_(NULL), client_(client), uve_init_(uve_init),
-        agent_stats_interval_(agent_stats_interval), 
-        flow_stats_interval_(flow_stats_interval) {}
+    AgentTestInit(TestClient *client) : client_(client) { }
     ~AgentTestInit() {
         for (std::vector<TaskTrigger *>::iterator it = list_.begin();
              it != list_.end(); ++it) {
@@ -631,39 +615,38 @@ public:
     }
 
     bool Run();
-    void Trigger() {
+    void TriggerShutdown() {
+        shutdown_done_ = false;
         trigger_ = new TaskTrigger
-            (boost::bind(&AgentTestInit::Run, this), 
+            (boost::bind(&AgentTestInit::Shutdown, this), 
              TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0);
         list_.push_back(trigger_);
         trigger_->Set();
-    }
-
-    void Shutdown() {
-        state_ = AgentTestInit::SHUTDOWN;
-        Trigger();
-        while (state_ != SHUTDOWN_DONE) {
+        while (shutdown_done_ != true) {
             usleep(1000);
         }
         usleep(1000);
     }
 
-    State GetState() {return state_;};
+    bool Shutdown() {
+        client_->Shutdown();
+        shutdown_done_ = true;
+        return true;
+    }
+
+    //State GetState() {return state_;};
+    Agent *agent() {return &agent_;}
+    AgentParam *param() {return &param_;}
+    AgentInit *init() {return &init_;}
 
 private:
-    void InitModules();
-    State state_;
-    bool ksync_init_;
-    bool pkt_init_;
-    bool services_init_;
-    const char *init_file_;
-    int sandesh_port_;
-    bool log_locally_;
-    TaskTrigger *trigger_;
+    Agent agent_;
+    AgentInit init_;
+    AgentParam param_;
     TestClient *client_;
-    bool uve_init_;
-    int agent_stats_interval_;
-    int flow_stats_interval_;
+    bool shutdown_done_;
+
+    TaskTrigger *trigger_;
     std::vector<TaskTrigger *> list_;
 };
 

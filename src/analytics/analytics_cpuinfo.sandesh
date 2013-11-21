@@ -13,6 +13,13 @@ struct  ModuleCpuInfo {
     4: cpuinfo.CpuLoadInfo                 cpu_info
 }
 
+struct AnalyticsCpuInfo {
+    1: string                              module_id
+    2: u16                                 inst_id
+    3: u32                                 mem_virt
+    4: double                              cpu_share
+}
+
 // This struct is part of the Collector UVE. (key is hostname of the Analytics Node)
 // This part of the UVE externally refers to cpu-stats of all modules that belong to
 // this Analytics node.
@@ -26,7 +33,7 @@ struct  ModuleCpuState {
     5: optional double                     collector_cpu_share (aggtype="stats",hbin="0.1")
     6: optional double                     queryengine_cpu_share (aggtype="stats",hbin="0.1")
     7: optional double                     opserver_cpu_share (aggtype="stats",hbin="0.1")
-    8: optional list<cpuinfo.ProcessState>         process_state_list (aggtype="union")
+    8: optional list<cpuinfo.ProcessState> process_state_list (aggtype="union")
     9: optional u32                        collector_mem_virt (aggtype="stats", hbin="100000")
     10: optional u32                       queryengine_mem_virt (aggtype="stats", hbin="100000")
     11: optional u32                       opserver_mem_virt (aggtype="stats", hbin="100000")
@@ -35,16 +42,37 @@ uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState                   data
 }
 
+struct  AnalyticsCpuState {
+    1: string                              name (key="ObjectCollectorInfo")
+    2: optional bool                       deleted
+    3: optional list<AnalyticsCpuInfo>     cpu_info (tags=".module_id")
+}
+uve sandesh AnalyticsCpuStateTrace {
+    1: AnalyticsCpuState data
+}
+
+struct QueryStats {
+    1: string                      table
+    2: string                      qid
+    20: string                     where
+    21: string                     select
+    22: string                     post
+    23: u32                        time_span
+    3: u32                         chunks
+    4: u32                         chunk_where_time;
+    5: u32                         chunk_select_time; 
+    6: u32                         chunk_postproc_time; 
+    7: u32                         chunk_merge_time; 
+    8: u32                         final_merge_time;
+    9: u32                         time
+    10: u32                        rows
+}
+
 struct QueryPerfInfo {
     1: string                      name (key="ObjectCollectorInfo")
     2: optional bool               deleted	
-    3: optional u32                log_query_time (aggtype="stats",hbin="1000")
-    4: optional u32                log_query_rows (aggtype="stats",hbin="1000")
-    5: optional u32                flow_query_time (aggtype="stats",hbin="1000")
-    6: optional u32                flow_query_rows (aggtype="stats",hbin="1000")
-    7: optional u32                object_query_time (aggtype="stats",hbin="1000")
-    8: optional u32                object_query_rows (aggtype="stats",hbin="1000")
     9: optional u32                enq_delay (aggtype="stats",hbin="1000")
+    10: optional list<QueryStats>  query_stats (tags=".table,.qid,.rows,.time")
 }
 
 uve sandesh QueryPerfInfoTrace {

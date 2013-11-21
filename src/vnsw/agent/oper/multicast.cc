@@ -838,6 +838,4 @@ void MulticastHandler::Shutdown() {
         //Delete the multicast object
         delete (*it);
     }
-    //Release the multicasthandler singleton object 
-    delete (MulticastHandler::GetInstance()->obj_);
 }

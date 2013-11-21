@@ -117,8 +117,8 @@ TEST_F(TimerUT, basic_1) {
 TEST_F(TimerUT, basic_reuse_1) {
     TimerTest *timer1 = new TimerTest(*evm_->io_service(), "Basic-1");
 
-    timer_count_ = 10;
-    timer1->Start(10, PeriodicTimerCb);
+    timer_count_ = 100;
+    timer1->Start(1, PeriodicTimerCb);
     ValidateTimerCount(0, 100);
 
     task_util::WaitForIdle();
@@ -229,6 +229,24 @@ TEST_F(TimerUT, destroy_fired_1) {
     task_util::WaitForIdle();
     EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
 }
+
+TEST_F(TimerUT, cancel_fired) {
+    TimerTest *timer1 = new TimerTest(*evm_->io_service(), "cancel-fired-1");
+
+    timer_count_ = 1000;
+    for (int i = 0; i < 1000; i++) {
+        timer1->Start(1, PeriodicTimerCb);
+        usleep(1000);
+        timer1->Cancel();
+    }
+
+    usleep(1000);
+    TASK_UTIL_EXPECT_NE(0, timer_count_);
+
+    task_util::WaitForIdle();
+    EXPECT_TRUE(TimerManager::DeleteTimer(timer1));
+}
+
 
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);

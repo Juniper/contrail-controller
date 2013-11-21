@@ -194,12 +194,14 @@ static void WaitForIdle() {
 
 /******************* DiscoveryServiceClient ************************************/
 DiscoveryServiceClient::DiscoveryServiceClient(EventManager *evm,
-                                               boost::asio::ip::tcp::endpoint ep) 
+                                               boost::asio::ip::tcp::endpoint ep,
+                                               std::string client_name) 
     : http_client_(new HttpClient(evm)),
       evm_(evm), ds_endpoint_(ep), 
       work_queue_(TaskScheduler::GetInstance()->GetTaskId("http client"), 0,
                   boost::bind(&DiscoveryServiceClient::DequeueEvent, this, _1)),
-      shutdown_(false) {
+      shutdown_(false),
+      subscriber_name_(client_name)  {
 }
 
 void DiscoveryServiceClient::Init() {
@@ -290,9 +292,25 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     //Extract cookie from message
     XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node = pugi->FindNode("cookie");
-    resp->cookie_ = node.child_value();
-    //Start periodic heartbeat, timer per service 
-    resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+    if (!pugi->IsNull(node)) {
+        resp->cookie_ = node.child_value();
+        //Start periodic heartbeat, timer per service 
+        resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
+    } else {
+        // Backward compatibility support, newer client and older
+        // discovery server, fallback to older publish api
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler",
+            serviceName, "404 Not Found, fallback to older publish api");
+        pugi::xml_node node = pugi->FindNode("title");
+        if (!pugi->IsNull(node)) {
+            std::string response = node.child_value(); 
+            if (response.compare("Error: 404 Not Found") == 0) {
+                resp->publish_hdr_.clear();
+                resp->publish_hdr_ = "publish";
+                Publish(serviceName); 
+            }
+        }
+    }
 
 }
 
@@ -302,12 +320,14 @@ void DiscoveryServiceClient::Publish(std::string serviceName, std::string &msg) 
     pub_msg->dss_ep_.address(ds_endpoint_.address());
     pub_msg->dss_ep_.port(ds_endpoint_.port());
     pub_msg->publish_msg_ = msg;
+    boost::system::error_code ec;
+    pub_msg->publish_hdr_ = "publish/" + boost::asio::ip::host_name(ec);
     pub_msg->pub_sent_++;
 
     //save it in a map
     publish_response_map_.insert(make_pair(serviceName, pub_msg)); 
      
-    SendHttpPostMessage("publish", serviceName, msg); 
+    SendHttpPostMessage(pub_msg->publish_hdr_, serviceName, msg); 
 }
 
 void DiscoveryServiceClient::Publish(std::string serviceName) {
@@ -317,7 +337,7 @@ void DiscoveryServiceClient::Publish(std::string serviceName) {
     if (loc != publish_response_map_.end()) {
 
         DSPublishResponse *resp = loc->second;
-        SendHttpPostMessage("publish", serviceName, resp->publish_msg_);
+        SendHttpPostMessage(resp->publish_hdr_, serviceName, resp->publish_msg_);
     }
 }
 
@@ -351,8 +371,8 @@ void DiscoveryServiceClient::UnRegisterSubscribeResponseHandler(std::string serv
     subscribe_map_.erase(serviceName);
 }
 
-void DiscoveryServiceClient::Subscribe(std::string subscriber_name,
-                                       std::string serviceName, uint8_t numbOfInstances, 
+void DiscoveryServiceClient::Subscribe(std::string serviceName,
+                                       uint8_t numbOfInstances, 
                                        ServiceHandler cb) {
     //Register the callback handler
     RegisterSubscribeResponseHandler(serviceName, cb); 
@@ -368,13 +388,14 @@ void DiscoveryServiceClient::Subscribe(std::string subscriber_name,
     pugi->AddChildNode("instances", inst.str());
     pugi->ReadNode(serviceName); //Reset parent
 
-    boost::uuids::uuid u = boost::uuids::random_generator()();
-    std::string uuid_str = to_string(u);
-    if (!subscriber_name.empty()) {
-        pugi->AddChildNode("client-type", subscriber_name);
+    if (!subscriber_name_.empty()) {
+        pugi->AddChildNode("client-type", subscriber_name_);
         pugi->ReadNode(serviceName); //Reset parent
     }
-    pugi->AddChildNode("client", uuid_str);
+    boost::system::error_code error;
+    string client_id = boost::asio::ip::host_name(error) + ":" + 
+                       subscriber_name_;
+    pugi->AddChildNode("client", client_id);
         
     stringstream ss; 
     impl->PrintDoc(ss);
@@ -561,12 +582,16 @@ void DiscoveryServiceClient::SendHttpPostMessage(std::string msg_type,
                         this, _1, _2, serviceName, conn));
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
                                msg_type, serviceName, msg);
-    } else if (msg_type.compare("publish") == 0) {
+    } else if (msg_type.find("publish") != string::npos) {
         conn->HttpPut(msg, msg_type,
             boost::bind(&DiscoveryServiceClient::PublishResponseHandler,
                         this, _1, _2, serviceName, conn));
         DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
                                msg_type, serviceName, msg);
+    } else {
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
+                               msg_type, serviceName, 
+                               "Invalid message type");
     }
 
 }

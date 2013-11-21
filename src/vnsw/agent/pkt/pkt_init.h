@@ -9,9 +9,14 @@
 
 class PktModule {
 public:
+    PktModule(Agent *agent) : agent_(agent) { }
+    ~PktModule() { }
+
     static void Init(bool run_with_vrouter);
     static void Shutdown();
-    static void CreateStaticObjects();
+    void CreateInterfaces();
+private:
+    Agent *agent_;
 };
 
 extern SandeshTraceBufferPtr PacketTraceBuf;

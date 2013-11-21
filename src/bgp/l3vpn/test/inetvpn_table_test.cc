@@ -220,7 +220,8 @@ TEST_F(InetVpnTableTest, TableNotification) {
     InetVpnTable::RequestKey key(prefix, NULL);
     TASK_UTIL_EXPECT_TRUE(static_cast<BgpRoute *>(rib_->Find(&key)) != NULL);
     BgpRoute *rt = static_cast<BgpRoute *>(rib_->Find(&key));
-    TASK_UTIL_EXPECT_EQ(rt->FindPath(&peer1), rt->BestPath());
+    TASK_UTIL_EXPECT_EQ(rt->FindPath(BgpPath::BGP_XMPP, &peer1, 0),
+                                     rt->BestPath());
 
     //
     // Add another non-best path and make sure that notification is still
@@ -234,7 +235,8 @@ TEST_F(InetVpnTableTest, TableNotification) {
     addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rib_->Enqueue(&addReq);
     TASK_UTIL_EXPECT_EQ(2, adc_notification_);
-    TASK_UTIL_EXPECT_EQ(rt->FindPath(&peer1), rt->BestPath());
+    TASK_UTIL_EXPECT_EQ(rt->FindPath(BgpPath::BGP_XMPP, &peer1, 0),
+                        rt->BestPath());
 
     //
     // Add new best path and make sure that notification is still received
@@ -247,7 +249,8 @@ TEST_F(InetVpnTableTest, TableNotification) {
     addReq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     rib_->Enqueue(&addReq);
     TASK_UTIL_EXPECT_EQ(3, adc_notification_);
-    TASK_UTIL_EXPECT_EQ(rt->FindPath(&peer3), rt->BestPath());
+    TASK_UTIL_EXPECT_EQ(rt->FindPath(BgpPath::BGP_XMPP, &peer3, 0),
+                        rt->BestPath());
 
     //
     // Delete all the paths
@@ -258,13 +261,15 @@ TEST_F(InetVpnTableTest, TableNotification) {
     delReq.oper = DBRequest::DB_ENTRY_DELETE;
     rib_->Enqueue(&delReq);
     TASK_UTIL_EXPECT_EQ(4, adc_notification_);
-    TASK_UTIL_EXPECT_EQ(rt->FindPath(&peer1), rt->BestPath());
+    TASK_UTIL_EXPECT_EQ(rt->FindPath(BgpPath::BGP_XMPP, &peer1, 0),
+                                     rt->BestPath());
 
     delReq.key.reset(new InetVpnTable::RequestKey(prefix, &peer2));
     delReq.oper = DBRequest::DB_ENTRY_DELETE;
     rib_->Enqueue(&delReq);
     TASK_UTIL_EXPECT_EQ(5, adc_notification_);
-    TASK_UTIL_EXPECT_EQ(rt->FindPath(&peer1), rt->BestPath());
+    TASK_UTIL_EXPECT_EQ(rt->FindPath(BgpPath::BGP_XMPP, &peer1, 0),
+                                     rt->BestPath());
 
     delReq.key.reset(new InetVpnTable::RequestKey(prefix, &peer1));
     delReq.oper = DBRequest::DB_ENTRY_DELETE;

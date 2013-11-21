@@ -41,6 +41,67 @@ class OpServerProxy::OpServerImpl {
             RAC_CONN_TYPE_FROM_OPS = 2,
         };
 
+        enum RacStatus {
+            RAC_UP = 1,
+            RAC_DOWN = 2
+        };
+
+        static const char* RacStatusToString(RacStatus status) {
+            switch(status) {
+            case RAC_UP:
+                return "Connected";
+            case RAC_DOWN:
+                return "Disconnected";
+            default:
+                return "Invalid";
+            }
+        }
+
+        struct RedisMasterInfo {
+            RedisMasterInfo() :
+                ip(""), port(0), master_last_updated(0),
+                num_mastership_changes(0) {
+            }
+            
+            void RedisMasterUpdate(const std::string& redis_ip, 
+                                   unsigned short redis_port) {
+                ip = redis_ip;
+                port = redis_port;
+                status = RacStatusToString(RAC_DOWN);
+                master_last_updated = UTCTimestampUsec();
+                num_mastership_changes++;
+            }
+
+            void RedisStatusUpdate(RacStatus connection_status) {
+                status = RacStatusToString(connection_status);
+            }
+
+            std::string& GetIp() {
+                return ip;
+            }
+
+            unsigned short GetPort() {
+                return port;
+            }
+
+            std::string ip;
+            unsigned short port;
+            std::string status;
+            uint64_t master_last_updated;
+            uint64_t num_mastership_changes;
+        };
+
+        void FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info) {
+            tbb::mutex::scoped_lock lock(rac_mutex_); 
+            redis_uve_info.set_ip(redis_uve_.ip);
+            redis_uve_info.set_port(redis_uve_.port);
+            redis_uve_info.set_status(redis_uve_.status);
+            redis_uve_info.set_master_last_updated(
+                                    redis_uve_.master_last_updated);
+            redis_uve_info.set_num_of_mastership_changes(
+                                    redis_uve_.num_mastership_changes);
+        }
+
         void ToOpsConnUpPostProcess() {
             processor_cb_proc_fn = boost::bind(&OpServerImpl::processorCallbackProcess, this, _1, _2, _3);
             to_ops_conn_.get()->SetClientAsyncCmdCb(processor_cb_proc_fn);
@@ -54,8 +115,9 @@ class OpServerProxy::OpServerImpl {
                 source = Sandesh::source();
             
             if (!started_) {
-                RedisProcessorExec::SyncDeleteUVEs(redis_ip_, redis_port_,
-                    source, module, "", 0);
+                RedisProcessorExec::SyncDeleteUVEs(redis_uve_.GetIp(), 
+                                                   redis_uve_.GetPort(),
+                                                   source, module, "", 0);
                 started_=true;
             }
             if (collector_) 
@@ -64,6 +126,10 @@ class OpServerProxy::OpServerImpl {
 
         void ToOpsConnUp() {
             LOG(DEBUG, "ToOpsConnUp.. UP");
+            {
+                tbb::mutex::scoped_lock lock(rac_mutex_); 
+                redis_uve_.RedisStatusUpdate(RAC_UP);
+            }
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUpPostProcess, this));
         }
 
@@ -90,6 +156,10 @@ class OpServerProxy::OpServerImpl {
 
         void ToOpsConnDown() {
             LOG(DEBUG, "ToOpsConnDown.. DOWN.. Reconnect..");
+            {
+                tbb::mutex::scoped_lock lock(rac_mutex_);
+                redis_uve_.RedisStatusUpdate(RAC_DOWN);
+            }
             collector_->RedisUpdate(false);
             evm_->io_service()->post(boost::bind(&OpServerProxy::OpServerImpl::RAC_ConnectProcess,
                         this, RAC_CONN_TYPE_TO_OPS));
@@ -107,8 +177,7 @@ class OpServerProxy::OpServerImpl {
             tbb::mutex::scoped_lock lock(rac_mutex_);
             to_ops_conn_.reset();
             from_ops_conn_.reset();
-            redis_ip_ = redis_ip;
-            redis_port_ = redis_port;
+            redis_uve_.RedisMasterUpdate(redis_ip, redis_port);
             to_ops_conn_.reset(new RedisAsyncConnection(evm_, 
                 redis_ip, redis_port, 
                 boost::bind(&OpServerProxy::OpServerImpl::ToOpsConnUp, this),
@@ -224,9 +293,7 @@ class OpServerProxy::OpServerImpl {
             collector_(collector),
             started_(false),
             analytics_cb_proc_fn(NULL),
-            processor_cb_proc_fn(NULL),
-            redis_ip_(""),
-            redis_port_(0) {
+            processor_cb_proc_fn(NULL) {
             RedisSentinelClient::RedisServices services;
             services.push_back("mymaster");
             redis_sentinel_client_.reset(new RedisSentinelClient(evm, 
@@ -238,6 +305,7 @@ class OpServerProxy::OpServerImpl {
         ~OpServerImpl() {
         }
 
+        RedisMasterInfo redis_uve_;
     private:
         /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
@@ -250,9 +318,6 @@ class OpServerProxy::OpServerImpl {
         RedisAsyncConnection::ClientAsyncCmdCbFn analytics_cb_proc_fn;
         RedisAsyncConnection::ClientAsyncCmdCbFn processor_cb_proc_fn;
         tbb::mutex rac_mutex_;
-    public:
-        std::string redis_ip_;
-        unsigned short redis_port_;
 };
 
 OpServerProxy::OpServerProxy(EventManager *evm, VizCollector *collector,
@@ -314,8 +379,9 @@ OpServerProxy::GetSeq(const string &source, const string &module,
     else 
         coll = Sandesh::source();
 
-    return RedisProcessorExec::SyncGetSeq(impl_->redis_ip_, impl_->redis_port_,
-            source, module, coll, gen_timeout_, seqReply);
+    return RedisProcessorExec::SyncGetSeq(impl_->redis_uve_.GetIp(), 
+            impl_->redis_uve_.GetPort(), source, module, coll, 
+            gen_timeout_, seqReply);
 }
 
 bool 
@@ -331,8 +397,8 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module) {
     else 
         coll = Sandesh::source();
 
-    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_ip_, impl_->redis_port_,
-            source, module, coll, gen_timeout_);
+    return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(), 
+            impl_->redis_uve_.GetPort(), source, module, coll, gen_timeout_);
 }
 
 bool 
@@ -381,5 +447,23 @@ OpServerProxy::WithdrawGenerator(const std::string &source, const std::string &m
     RedisProcessorExec::WithdrawGenerator(prac.get(), source, module, coll);
 
     return true;
+}
+
+void 
+OpServerProxy::FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info) {
+    impl_->FillRedisUVEMasterInfo(redis_uve_info);
+}
+
+void 
+RedisUVEMasterRequest::HandleRequest() const {
+    RedisUVEMasterResponse *resp(new RedisUVEMasterResponse);
+    VizSandeshContext *vsc = static_cast<VizSandeshContext *>(
+                                        Sandesh::client_context());
+    assert(vsc); 
+    RedisUveMasterInfo redis_uve_info; 
+    vsc->Analytics()->GetOsp()->FillRedisUVEMasterInfo(redis_uve_info);
+    resp->set_redis_uve_master(redis_uve_info);
+    resp->set_context(context());
+    resp->Response();
 }
 

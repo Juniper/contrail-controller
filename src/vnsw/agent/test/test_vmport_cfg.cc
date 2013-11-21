@@ -4,7 +4,8 @@
 
 #include <boost/assign/list_of.hpp>
 
-#include <cfg/init_config.h>
+#include <cfg/cfg_init.h>
+#include <cfg/cfg_interface.h>
 #include <oper/operdb_init.h>
 #include <controller/controller_init.h>
 #include <controller/controller_ifmap.h>
@@ -15,8 +16,6 @@
 #include <base/task.h>
 #include <io/event_manager.h>
 #include <base/util.h>
-#include <cfg/interface_cfg.h>
-#include <cfg/init_config.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/agent_sandesh.h>
@@ -587,14 +586,25 @@ TEST_F(CfgTest, VmPortPolicy_1) {
     // VM not deleted. Interface still refers to it
     EXPECT_FALSE(VmFind(1));
 
+    client->Reset();
     DelNode("virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface", "vnet2");
+    EXPECT_TRUE(client->PortNotifyWait(2));
+
+    //After deleting vmport interface config, verify config name is set to ""
+    const Interface *intf = VmPortGet(1);
+    const VmPortInterface *vm_intf = static_cast<const VmPortInterface *>(intf);
+    EXPECT_TRUE((vm_intf->GetCfgName() == ""));
+
+    intf = VmPortGet(2);
+    vm_intf = static_cast<const VmPortInterface *>(intf);
+    EXPECT_TRUE((vm_intf->GetCfgName() == ""));
 
     // Delete Nova Port entry.
     client->Reset();
     IntfCfgDel(input, 0);
     IntfCfgDel(input, 1);
-    EXPECT_TRUE(client->PortNotifyWait(2));
+    EXPECT_TRUE(client->PortDelNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
     EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
@@ -748,7 +758,7 @@ TEST_F(CfgTest, VmPortPolicy_2) {
     client->Reset();
     IntfCfgDel(input, 0);
     IntfCfgDel(input, 1);
-    EXPECT_TRUE(client->PortNotifyWait(2));
+    EXPECT_TRUE(client->PortDelNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
     EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
@@ -1166,15 +1176,16 @@ TEST_F(CfgTest, Basic_1) {
     };
 
     client->Reset();
-    EthInterface::CreateReq(eth_intf, vrf_name);
+    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                            eth_intf, vrf_name);
     client->WaitForIdle();
-    EthInterface::CreateReq(eth_intf, Agent::GetInstance()->GetDefaultVrf());
+    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                            eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
-    VirtualHostInterface::CreateReq("vhost10", Agent::GetInstance()->GetDefaultVrf(),
+    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                    "vhost10", Agent::GetInstance()->GetDefaultVrf(),
                                    VirtualHostInterface::HOST);
     client->WaitForIdle();
-    //HostInterface::CreateReq("pkt10");
-    //client->WaitForIdle();
 
     AddVn("vn5", 5);
     client->WaitForIdle();
@@ -1280,12 +1291,12 @@ TEST_F(CfgTest, Basic_1) {
     sand_4->DoSandesh();
     client->WaitForIdle();
 
-    VirtualHostInterface::DeleteReq("vhost10");
+    VirtualHostInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+                                    "vhost10");
     client->WaitForIdle();
-    EthInterface::DeleteReq(eth_intf);
+    EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+                            eth_intf);
     client->WaitForIdle();
-    //HostInterface::DeleteReq("pkt10");
-    //client->WaitForIdle();
 
     client->Reset();
     DelLink("virtual-network", "vn5", "routing-instance", "vrf10");
@@ -1343,7 +1354,6 @@ TEST_F(CfgTest, Basic_1) {
 }
 
 TEST_F(CfgTest, Basic_2) {
-    uint32_t    intf_idx;
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
     };

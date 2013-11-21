@@ -120,7 +120,8 @@ private:
 
     // ASIO callback on timer expiry. Start a task to serve the timer
     static void StartTimerTask(boost::asio::deadline_timer* t, TimerPtr t_ptr,
-                               int time, const boost::system::error_code &ec);
+                               int time, uint32_t seq_no,
+                               const boost::system::error_code &ec);
 
     void SetState(TimerState s) { state_ = s; }
     static int GetTimerInstanceId() { return -1; }
@@ -143,6 +144,7 @@ private:
     int time_;
     int task_id_;
     int task_instance_;
+    uint32_t seq_no_;
     tbb::atomic<int> refcount_;
 };
 

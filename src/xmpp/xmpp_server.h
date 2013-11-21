@@ -26,6 +26,7 @@ public:
     XmppServer(EventManager *evm, const std::string &server_addr);
     explicit XmppServer(EventManager *evm);
     virtual ~XmppServer();
+    virtual bool IsPeerCloseGraceful();
 
     typedef boost::function<void(XmppChannelMux *, xmps::PeerState)> ConnectionEventCb;
     void RegisterConnectionEvent(xmps::PeerId, ConnectionEventCb);

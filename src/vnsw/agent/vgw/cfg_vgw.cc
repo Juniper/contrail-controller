@@ -11,13 +11,12 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/uuid/string_generator.hpp>
 
-#include <base/logging.h>
-#include <cmn/agent_cmn.h>
-
-#include <cfg/init_config.h>
 #include <pugixml/pugixml.hpp>
+#include <base/logging.h>
 
-#include <vgw/vgw_cfg.h>
+#include <cmn/agent_cmn.h>
+#include <cfg/cfg_init.h>
+#include <vgw/cfg_vgw.h>
 
 using namespace std;
 using namespace boost::property_tree;

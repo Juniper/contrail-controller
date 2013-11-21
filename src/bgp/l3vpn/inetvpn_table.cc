@@ -101,14 +101,16 @@ BgpRoute *InetVpnTable::RouteReplicate(BgpServer *server,
 
     // Check whether there's already a path with the given peer and path id.
     BgpPath *dest_path =
-        dest_route->FindSecondaryPath(src_rt, src_path->GetPeer(), 
-                                  src_path->GetPathId(), src_path->GetSource());
+        dest_route->FindSecondaryPath(src_rt, src_path->GetSource(),
+                                      src_path->GetPeer(),
+                                      src_path->GetPathId());
     if (dest_path != NULL) {
         if ((new_attr != dest_path->GetAttr()) || 
             (src_path->GetLabel() != dest_path->GetLabel())) {
             // Update Attributes and notify (if needed)
-            assert(dest_route->RemoveSecondaryPath(src_rt, src_path->GetPeer(), 
-                                src_path->GetPathId(), src_path->GetSource()));
+            assert(dest_route->RemoveSecondaryPath(src_rt,
+                                src_path->GetSource(), src_path->GetPeer(), 
+                                src_path->GetPathId()));
         } else {
             return dest_route;
         }

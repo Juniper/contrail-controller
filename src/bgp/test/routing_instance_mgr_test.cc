@@ -15,6 +15,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/test/bgp_server_test_util.h"
+#include "bgp/tunnel_encap/tunnel_encap.h"
 #include "control-node/control_node.h"
 #include "io/test/event_manager_test.h"
 

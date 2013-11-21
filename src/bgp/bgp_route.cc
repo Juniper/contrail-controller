@@ -67,56 +67,11 @@ void BgpRoute::DeletePath(BgpPath *path) {
 }
 
 //
-// Find path added by peer with given path id.  Skips secondary paths.
-//
-BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id) {
-    for (Route::PathList::iterator it = GetPathList().begin();
-         it != GetPathList().end(); ++it) {
-
-        //
-        // Skip secondary paths.
-        //
-        if (dynamic_cast<BgpSecondaryPath *>(it.operator->())) {
-            continue;
-        }
-
-        BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer && path->GetPathId() == path_id) {
-            return path;
-        }
-    }
-    return NULL;
-}
-
-//
-// Find path added by peer with given path id.  Skips secondary paths.
-// Const version.
-//
-const BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id) const {
-    for (Route::PathList::const_iterator it = GetPathList().begin();
-         it != GetPathList().end(); ++it) {
-
-        //
-        // Skip secondary paths.
-        //
-        if (dynamic_cast<const BgpSecondaryPath *>(it.operator->())) {
-            continue;
-        }
-
-        const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer && path->GetPathId() == path_id) {
-            return path;
-        }
-    }
-    return NULL;
-}
-
-//
-// Find path added by peer with given path id and path source.  
+// Find path added by peer with given path id and path source.
 // Skips secondary paths.
 //
-BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id, 
-                            BgpPath::PathSource src) {
+BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
+                            uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); ++it) {
 
@@ -126,7 +81,7 @@ BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id,
         }
 
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer && path->GetPathId() == path_id && 
+        if (path->GetPeer() == peer && path->GetPathId() == path_id &&
             path->GetSource() == src) {
             return path;
         }
@@ -135,12 +90,12 @@ BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id,
 }
 
 //
-// Find path added by peer with given path id and source.  
+// Find path added by peer with given path id and source.
 // Skips secondary paths.
 // Const version.
 //
-const BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id, 
-                                  BgpPath::PathSource src) const {
+const BgpPath *BgpRoute::FindPath(BgpPath::PathSource src, const IPeer *peer,
+                                  uint32_t path_id) const {
     for (Route::PathList::const_iterator it = GetPathList().begin();
          it != GetPathList().end(); ++it) {
 
@@ -150,7 +105,7 @@ const BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id,
         }
 
         const BgpPath *path = static_cast<const BgpPath *>(it.operator->());
-        if (path->GetPeer() == peer && path->GetPathId() == path_id && 
+        if (path->GetPeer() == peer && path->GetPathId() == path_id &&
             path->GetSource() == src) {
             return path;
         }
@@ -159,10 +114,12 @@ const BgpPath *BgpRoute::FindPath(const IPeer *peer, uint32_t path_id,
 }
 
 //
-// Remove path added by peer with given path id.  Skips secondary paths.
+// Remove path added by peer with given path id and source.
+// Skips secondary paths.
 // Return true if the path is found and removed, false otherwise.
 //
-bool BgpRoute::RemovePath(const IPeer *peer, uint32_t path_id) {
+bool BgpRoute::RemovePath(BgpPath::PathSource src,const IPeer *peer,
+                          uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
          BgpPath *path = static_cast<BgpPath *>(it.operator->());
@@ -174,7 +131,8 @@ bool BgpRoute::RemovePath(const IPeer *peer, uint32_t path_id) {
             continue;
         }
 
-        if (path->GetPeer() == peer && path->GetPathId() == path_id) {
+        if (path->GetPeer() == peer && path->GetPathId() == path_id &&
+            path->GetSource() == src) {
             DeletePath(path);
             return true;
         }
@@ -183,15 +141,17 @@ bool BgpRoute::RemovePath(const IPeer *peer, uint32_t path_id) {
 }
 
 //
-// Remove path added by peer with given path id and source.  
+// Remove path added by peer with given path id and source.
 // Skips secondary paths.
 // Return true if the path is found and removed, false otherwise.
 //
-bool BgpRoute::RemovePath(const IPeer *peer, uint32_t path_id, 
-                          BgpPath::PathSource src) {
-    for (Route::PathList::iterator it = GetPathList().begin();
-         it != GetPathList().end(); it++) {
-         BgpPath *path = static_cast<BgpPath *>(it.operator->());
+bool BgpRoute::RemovePath(const IPeer *peer) {
+    bool ret = false;
+
+    for (Route::PathList::iterator it = GetPathList().begin(), next = it;
+         it != GetPathList().end(); it = next) {
+        next++;
+        BgpPath *path = static_cast<BgpPath *>(it.operator->());
 
         //
         // Skip secondary paths.
@@ -200,14 +160,14 @@ bool BgpRoute::RemovePath(const IPeer *peer, uint32_t path_id,
             continue;
         }
 
-        if (path->GetPeer() == peer && path->GetPathId() == path_id && 
-            path->GetSource() == src) {
+        if (path->GetPeer() == peer) {
             DeletePath(path);
-            return true;
+            ret = true;
         }
     }
-    return false;
+    return ret;
 }
+
 //
 // Check if there's a better path with the same forwarding information.
 // The forwarding information we look at is the label and the next hop.
@@ -236,13 +196,13 @@ bool BgpRoute::DuplicateForwardingPath(const BgpPath *in_path) const {
 // Find the secondary path matching secondary replicated info.
 //
 BgpPath *BgpRoute::FindSecondaryPath(BgpRoute *src_rt,
-        const IPeer *peer, uint32_t path_id, BgpPath::PathSource src) {
+        BgpPath::PathSource src, const IPeer *peer, uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); ++it) {
         BgpSecondaryPath *path = dynamic_cast<BgpSecondaryPath *>(
             it.operator->());
         if (path && path->src_rt() == src_rt &&
-            path->GetPeer() == peer && path->GetPathId() == path_id && 
+            path->GetPeer() == peer && path->GetPathId() == path_id &&
             path->GetSource() == src) {
             return path;
         }
@@ -255,7 +215,7 @@ BgpPath *BgpRoute::FindSecondaryPath(BgpRoute *src_rt,
 // Return true if the path is found and removed, false otherwise.
 //
 bool BgpRoute::RemoveSecondaryPath(const BgpRoute *src_rt,
-        const IPeer *peer, uint32_t path_id, BgpPath::PathSource src) {
+        BgpPath::PathSource src, const IPeer *peer, uint32_t path_id) {
     for (Route::PathList::iterator it = GetPathList().begin();
          it != GetPathList().end(); it++) {
          BgpSecondaryPath *path =
@@ -294,7 +254,7 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
         if (path->GetSource() == BgpPath::BGP_XMPP) {
             if (peer)
                 srp.set_protocol(peer->IsXmppPeer() ? "XMPP" : "BGP");
-            else 
+            else
                 srp.set_protocol("Local");
         } else if (path->GetSource() == BgpPath::ServiceChain) {
             srp.set_protocol("ServiceChain");
@@ -303,7 +263,7 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
         }
 
         const BgpAttr *attr = path->GetAttr();
-        if (attr->as_path() != NULL) 
+        if (attr->as_path() != NULL)
             srp.set_as_path(attr->as_path()->path().ToString());
         srp.set_local_preference(attr->local_pref());
         srp.set_next_hop(attr->nexthop().to_string());
@@ -351,7 +311,7 @@ void BgpRoute::FillRouteInfo(BgpTable *table, ShowRoute *show_route) {
                     int len = snprintf(temp, sizeof(temp), "ext community: ");
 
                     for (size_t i=0; i < it->size(); i++) {
-                        len += snprintf(temp+len, sizeof(temp) - len, "%02x", 
+                        len += snprintf(temp+len, sizeof(temp) - len, "%02x",
                                         (*it)[i]);
                     }
                     srp.communities.push_back(std::string(temp));

@@ -308,12 +308,16 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
     RtReplicated::ReplicatedRtPathList::iterator cur_it = current.begin();
     RtReplicated::ReplicatedRtPathList::iterator dbstate_next_it, dbstate_it;
     dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
+    std::pair<RtReplicated::ReplicatedRtPathList::iterator, bool> r;
+
     while (cur_it != current.end() && 
            dbstate_it != dbstate->GetMutableList()->end()) {
         if (*cur_it < *dbstate_it) {
             // Add to DBstate
-            dbstate->GetMutableList()->insert(*cur_it);
+            r = dbstate->GetMutableList()->insert(*cur_it);
+            assert(r.second);
             cur_it++;
+
         } else if (*cur_it > *dbstate_it) {
             // Remove from DBstate
             dbstate_next_it++;
@@ -328,7 +332,8 @@ RoutePathReplicator::DBStateSync(BgpTable *table, BgpRoute *rt,
         dbstate_next_it = dbstate_it;
     }
     for (; cur_it != current.end(); ++cur_it) {
-        dbstate->GetMutableList()->insert(*cur_it);
+        r = dbstate->GetMutableList()->insert(*cur_it);
+        assert(r.second);
     }
     for (dbstate_next_it = dbstate_it; 
          dbstate_it != dbstate->GetMutableList()->end(); 
@@ -454,14 +459,21 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
 
         RtGroup::RtGroupMemberList super_set;
 
-        // For each RouteTarget extended community, get the list of tables to
-        // replicate to.
+        // Go through all extended communities.
+        //
+        // Get the vn_index from the OriginVn extended community.
+        // For each RouteTarget extended community, get the list of tables
+        // to which we need to replicate the path.
+        int vn_index = 0;
         BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
                       ext_community->communities()) {
-            if (!ExtCommunity::is_route_target(comm))
-                continue;
-            RtGroup *rtgroup = GetRtGroup(comm);
-            if (rtgroup) {
+            if (ExtCommunity::is_origin_vn(comm)) {
+                OriginVn origin_vn(comm);
+                vn_index = origin_vn.vn_index();
+            } else if (ExtCommunity::is_route_target(comm)) {
+                RtGroup *rtgroup = GetRtGroup(comm);
+                if (!rtgroup)
+                    continue;
                 super_set.insert(super_set.end(), 
                                  rtgroup->GetImportTables().begin(),
                                  rtgroup->GetImportTables().end());
@@ -479,12 +491,32 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
             // same as source table... skip
             if (dest == table) continue;
 
-            BgpRoute *replicated = dest->RouteReplicate(server(), table,
-                                        rt, path, extcomm_ptr);
+            const RoutingInstance *dest_rtinstance = dest->routing_instance();
+            ExtCommunityPtr new_extcomm_ptr = extcomm_ptr;
+
+            // If the origin vn is unresolved, see if route has a RouteTarget
+            // that's in the set of export RouteTargets for the dest instance.
+            // If so, we set the origin vn for the replicated route to be the
+            // vn for the dest instance.
+            if (!vn_index &&
+                dest_rtinstance->HasExportTarget(ext_community)) {
+                int dest_vn_index = dest_rtinstance->virtual_network_index();
+                OriginVn origin_vn(server_->autonomous_system(), dest_vn_index);
+                ExtCommunity::ExtCommunityList origin_vn_list;
+                origin_vn_list.push_back(origin_vn.GetExtCommunity());
+                new_extcomm_ptr =
+                        server_->extcomm_db()->ReplaceOriginVnAndLocate(
+                                extcomm_ptr.get(), origin_vn_list);
+            }
+
+            BgpRoute *replicated = dest->RouteReplicate(
+                    server_, table, rt, path, new_extcomm_ptr);
             if (replicated) {
                 RtReplicated::SecondaryRouteInfo rtinfo(dest, path->GetPeer(),
                             path->GetPathId(), path->GetSource(), replicated);
-                replicated_path_list.insert(rtinfo);
+                std::pair<RtReplicated::ReplicatedRtPathList::iterator, bool> r;
+                r = replicated_path_list.insert(rtinfo);
+                assert(r.second);
                 RPR_TRACE_ONLY(Replicate, table->name(), rt->ToString(),
                           path->ToString(),
                           BgpPath::PathIdString(path->GetPathId()),
@@ -516,7 +548,7 @@ void RoutePathReplicator::DeleteSecondaryPath(BgpTable *table, BgpRoute *rt,
     uint32_t path_id = rtinfo.path_id_;
     BgpPath::PathSource src = rtinfo.src_;
 
-    assert(rt_secondary->RemoveSecondaryPath(rt, peer, path_id, src));
+    assert(rt_secondary->RemoveSecondaryPath(rt, src, peer, path_id));
     DBTablePartBase *partition = 
         secondary_table->GetTablePartition(rt_secondary);
     if (rt_secondary->count() == 0) {

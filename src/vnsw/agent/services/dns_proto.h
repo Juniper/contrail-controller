@@ -54,6 +54,7 @@ public:
         DNS_XMPP_SEND_UPDATE,
         DNS_XMPP_SEND_UPDATE_ALL,
         DNS_XMPP_UPDATE_RESPONSE,
+        DNS_XMPP_MODIFY_VDNS,
     };
 
     struct DnsIpc : IpcMsg {
@@ -76,17 +77,27 @@ public:
     struct DnsUpdateIpc : IpcMsg {
         DnsUpdateData *xmpp_data;
         const VmPortInterface *itf;
-        std::string domain;
+        bool floatingIp;
+        uint32_t ttl;
+        std::string new_vdns;
+        std::string old_vdns;
+        std::string new_domain;
+
+        DnsUpdateIpc(const VmPortInterface *vm, const std::string &nvdns,
+                     const std::string &ovdns, const std::string &dom,
+                     uint32_t ttl_value, bool is_floating)
+                   : IpcMsg(DnsHandler::DNS_XMPP_MODIFY_VDNS), xmpp_data(NULL),
+                     itf(vm), floatingIp(is_floating), ttl(ttl_value),
+                     new_vdns(nvdns), old_vdns(ovdns), new_domain(dom) {}
 
         DnsUpdateIpc(DnsAgentXmpp::XmppType type, DnsUpdateData *data,
-                     const VmPortInterface *vm, const std::string &dom)
-                   : IpcMsg(DnsHandler::DNS_NONE), itf(vm), domain(dom) {
+                     const VmPortInterface *vm, bool floating)
+                   : IpcMsg(DnsHandler::DNS_NONE), xmpp_data(data), itf(vm),
+                     floatingIp(floating), ttl(0) {
             if (type == DnsAgentXmpp::Update)
                 cmd = DnsHandler::DNS_XMPP_SEND_UPDATE;
             else if (type == DnsAgentXmpp::UpdateResponse)
                 cmd = DnsHandler::DNS_XMPP_UPDATE_RESPONSE;
-
-            xmpp_data = data;
         }
 
         virtual ~DnsUpdateIpc() {
@@ -101,6 +112,8 @@ public:
                 return lhs < rhs;
             if (lhs->itf != rhs->itf)
                 return lhs->itf < rhs->itf;
+            if (lhs->floatingIp != rhs->floatingIp)
+                return lhs->floatingIp < rhs->floatingIp;
             DnsUpdateData::Compare tmp;
             return tmp(lhs->xmpp_data, rhs->xmpp_data);
         }
@@ -127,7 +140,12 @@ public:
     static void SendDnsUpdateIpc(DnsUpdateData *data,
                                  DnsAgentXmpp::XmppType type,
                                  const VmPortInterface *vm,
-                                 const std::string &domain);
+                                 bool floating = false);
+    static void SendDnsUpdateIpc(const VmPortInterface *vm,
+                                 const std::string &new_vdns,
+                                 const std::string &old_vdns,
+                                 const std::string &new_dom,
+                                 uint32_t ttl, bool is_floating);
     static void SendDnsUpdateIpc(AgentDnsXmppChannel *channel);
 
 private:
@@ -141,6 +159,7 @@ private:
     bool HandleUpdateResponse();
     bool HandleRetryExpiry();
     bool HandleUpdate();
+    bool HandleModifyVdns();
     bool UpdateAll();
     void SendXmppUpdate(AgentDnsXmppChannel *channel, DnsUpdateData *xmpp_data);
     void ParseQuery();
@@ -182,14 +201,17 @@ class DnsProto : public Proto<DnsHandler> {
 public:
     static const uint32_t kDnsTimeout = 2000;   // milli seconds
     static const uint32_t kDnsMaxRetries = 2;
+    static const uint32_t kDnsDefaultTtl = 84600;
 
     typedef std::map<uint32_t, DnsHandler *> DnsBindQueryMap;
     typedef std::pair<uint32_t, DnsHandler *> DnsBindQueryPair;
     typedef std::set<DnsHandler::QueryKey> DnsVmRequestSet;
     typedef std::set<DnsHandler::DnsUpdateIpc *,
                      DnsHandler::UpdateCompare> DnsUpdateSet;
-    typedef std::map<const VmPortInterface *, std::string> VmDataMap;
-    typedef std::pair<const VmPortInterface *, std::string> VmDataPair;
+    typedef std::map<uint32_t, std::string> IpVdnsMap;
+    typedef std::pair<uint32_t, std::string> IpVdnsPair;
+    typedef std::map<const VmPortInterface *, IpVdnsMap> VmDataMap;
+    typedef std::pair<const VmPortInterface *, IpVdnsMap> VmDataPair;
 
     struct DnsStats {
         uint32_t requests;
@@ -205,18 +227,18 @@ public:
         DnsStats() { Reset(); }
     };
 
-    static void Init(boost::asio::io_service &io);
-    static void ConfigInit();
-    static void Shutdown();
+    void Init(boost::asio::io_service &io);
+    void ConfigInit();
+    void Shutdown();
+    DnsProto(boost::asio::io_service &io);
     virtual ~DnsProto();
     void UpdateDnsEntry(const VmPortInterface *vmitf,
-                        const std::string &name, uint32_t plen,
+                        const std::string &name, const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type,
-                        bool is_delete);
-    bool UpdateDnsEntry(const VmPortInterface *vmitf,
-                        std::string &new_vdns_name,
-                        std::string &old_vdns_name);
+                        bool is_floating, bool is_delete);
+    bool UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+                        const Ip4Address &ip, bool is_deleted);
     void IpamUpdate(IFMapNode *node);
     void VdnsUpdate(IFMapNode *node);
     uint16_t GetTransId();
@@ -266,11 +288,23 @@ public:
     void ClearStats() { stats_.Reset(); }
 
 private:
-    DnsProto(boost::asio::io_service &io);
     void ItfUpdate(DBEntryBase *entry);
     void VnUpdate(DBEntryBase *entry);
-    void CheckForUpdate(std::string name, bool is_deleted);
-    std::string GetVdnsName(const VmPortInterface *vmitf);
+    void ProcessUpdate(std::string name, bool is_deleted, bool is_ipam);
+    void CheckForUpdate(IpVdnsMap &ipvdns, const VmPortInterface *vmitf,
+                        const VnEntry *vn, const Ip4Address &ip,
+                        std::string &vdns_name, std::string &domain,
+                        uint32_t ttl, bool is_floating);
+    bool UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+                        const std::string &vdns_name, const Ip4Address &ip,
+                        bool is_floating, bool is_deleted);
+    bool UpdateDnsEntry(const VmPortInterface *vmitf,
+                        std::string &new_vdns_name,
+                        std::string &old_vdns_name,
+                        std::string &new_domain,
+                        uint32_t ttl, bool is_floating);
+    bool GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr, 
+                     std::string &vdns_name, std::string &domain, uint32_t &ttl);
 
     uint16_t xid_;
     DnsUpdateSet update_set_;

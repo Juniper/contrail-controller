@@ -109,6 +109,10 @@ def get_fq_name_str_from_ifmap_id(ifmap_id):
 
 
 def get_fq_name_from_ifmap_id(ifmap_id):
+    type = get_type_from_ifmap_id(ifmap_id)
+    # route-target has ':' in the name, so handle it as a special case
+    if type=='route-target':
+        return [':'.join(ifmap_id.split(':')[2:])]
     return ifmap_id.split(':')[2:]
 # end get_fq_name_from_ifmap_id
 

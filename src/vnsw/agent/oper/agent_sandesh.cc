@@ -4,6 +4,8 @@
 
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_db.h>
+#include <init/agent_param.h>
+#include <init/agent_init.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
 #include <oper/agent_route.h>
@@ -211,6 +213,6 @@ void AgentSandesh::SandeshDone() {
 void AgentInitStateReq::HandleRequest() const {
     AgentInitState *resp = new AgentInitState();
     resp->set_context(context());
-    resp->set_state(AgentInit::GetInstance()->GetState());
+    resp->set_state(Agent::GetInstance()->init()->StateToString());
     resp->Response();
 }

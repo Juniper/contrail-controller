@@ -51,7 +51,8 @@ public:
             type_(intf->GetType()), intf_id_(intf->GetInterfaceId()), 
             vrf_id_(intf->GetVrfId()), fd_(-1), has_service_vlan_(false),
             mac_(intf->GetMacAddr()), ip_(0),
-            policy_enabled_(false), analyzer_name_(), active_(false), 
+            policy_enabled_(false), analyzer_name_(),
+            mirror_direction_(Interface::UNKNOWN), active_(false),
             os_index_(intf->GetOsIfindex()),
             sub_type_(VirtualHostInterface::HOST) {
         // Max name size supported by kernel

@@ -511,10 +511,16 @@ void VirtualDnsRecordConfig::OnChange(IFMapNode *node) {
         UpdateVdns(node);
     }
     // For records, notify a change with a delete of the old record
-    // followed by addition of new record
-    if (IsNotified()) {
+    // followed by addition of new record; If only TTL has changed,
+    // do not delete, as the order of delete and add processing is
+    // not controlled and we might end up with deleted record
+    if (IsNotified() && !OnlyTtlChange(new_rec)) {
         VdnsRecordCallback(this, DnsConfig::CFG_DELETE);
     }
+    OnChange(new_rec);
+}
+
+void VirtualDnsRecordConfig::OnChange(const DnsItem &new_rec) {
     rec_ = new_rec;
     if (CanNotify()) {
         VdnsRecordCallback(this, DnsConfig::CFG_ADD);
@@ -569,6 +575,14 @@ bool VirtualDnsRecordConfig::HasChanged(DnsItem &rhs) {
         rec_.ttl == rhs.ttl && rec_.priority == rhs.priority)
         return false;
     return true;
+}
+
+bool VirtualDnsRecordConfig::OnlyTtlChange(DnsItem &rhs) {
+    if (rec_.name == rhs.name && rec_.type == rhs.type &&
+        rec_.eclass == rhs.eclass && rec_.data == rhs.data &&
+        rec_.ttl != rhs.ttl && rec_.priority == rhs.priority)
+        return true;
+    return false;
 }
 
 autogen::VirtualDnsType VirtualDnsRecordConfig::GetVDns() const { 

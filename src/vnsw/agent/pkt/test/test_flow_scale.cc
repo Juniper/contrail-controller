@@ -71,7 +71,7 @@ TEST_F(FlowTest, FlowScaling_1) {
 
     count = count * 2;
     WAIT_FOR(count, 10000,
-             (count == flow_count + FlowTable::GetFlowTableObject()->Size()));
+             (count == flow_count + (int) FlowTable::GetFlowTableObject()->Size()));
 }
 
 int main(int argc, char *argv[]) {

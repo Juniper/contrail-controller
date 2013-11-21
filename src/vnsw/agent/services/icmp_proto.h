@@ -38,8 +38,9 @@ public:
         void Reset() { icmp_gw_ping = icmp_gw_ping_err = icmp_drop = 0; }
     };
 
-    static void Init(boost::asio::io_service &io);
-    static void Shutdown();
+    void Init(boost::asio::io_service &io);
+    void Shutdown();
+    IcmpProto(boost::asio::io_service &io);
     virtual ~IcmpProto();
 
     void IncrStatsGwPing() { stats_.icmp_gw_ping++; }
@@ -49,8 +50,6 @@ public:
     void ClearStats() { stats_.Reset(); }
 
 private:
-    IcmpProto(boost::asio::io_service &io);
-
     IcmpStats stats_;
     DISALLOW_COPY_AND_ASSIGN(IcmpProto);
 };

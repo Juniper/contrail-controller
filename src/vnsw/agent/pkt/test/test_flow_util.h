@@ -104,7 +104,7 @@ public:
         } else {
             assert(0);
         }
-        client->WaitForIdle();
+        client->WaitForIdle(2);
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
         EXPECT_TRUE(fe != NULL);
@@ -128,6 +128,11 @@ public:
         client->WaitForIdle();
         EXPECT_TRUE(FlowTable::GetFlowTableObject()->Find(key) == NULL);
     };
+
+    const FlowEntry *FlowFetch() {
+        FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
+        return fe;
+    }
 
 private:
     std::string    sip_;
@@ -237,18 +242,18 @@ public:
 
         if (fwd_flow_is_ecmp_) {
             EXPECT_TRUE(fe->data.ecmp == true);
-            EXPECT_TRUE(fe->data.component_nh_idx != -1);
+            EXPECT_TRUE(fe->data.component_nh_idx != (uint32_t) -1);
         } else {
             EXPECT_TRUE(fe->data.ecmp == false);
-            EXPECT_TRUE(fe->data.component_nh_idx == -1);
+            EXPECT_TRUE(fe->data.component_nh_idx == (uint32_t) -1);
         }
 
         if (rev_flow_is_ecmp_) {
             EXPECT_TRUE(rev->data.ecmp == true);
-            EXPECT_TRUE(rev->data.component_nh_idx != -1);
+            EXPECT_TRUE(rev->data.component_nh_idx != (uint32_t) -1);
         } else {
             EXPECT_TRUE(rev->data.ecmp == false);
-            EXPECT_TRUE(rev->data.component_nh_idx == -1);
+            EXPECT_TRUE(rev->data.component_nh_idx == (uint32_t) -1);
         }
     };
 
@@ -259,7 +264,6 @@ private:
 
 struct TestFlow {
     ~TestFlow() {
-        int i = 0;
         for (int i = 0; i < 10; i++) {
             if (action_[i]) {
                 delete action_[i];
@@ -288,7 +292,7 @@ struct TestFlow {
 };
 
 void CreateFlow(TestFlow *tflow, uint32_t count) {
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         FlowEntry *fe = tflow->Send();
         tflow->Verify(fe);
         tflow = tflow + 1;
@@ -296,7 +300,7 @@ void CreateFlow(TestFlow *tflow, uint32_t count) {
 }
 
 void DeleteFlow(TestFlow *tflow, uint32_t count) {
-    for (int i = 0; i < count; i++) {
+    for (uint32_t i = 0; i < count; i++) {
         tflow->Delete();
     }
 }

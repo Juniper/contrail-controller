@@ -23,6 +23,8 @@ query_status_t DbQueryUnit::process_query()
     GenDb::DbDataValue timestamp_end = (uint32_t)(0xffffffff);
     cr.finish_.push_back(timestamp_end);
 
+    std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get
+    std::vector<GenDb::ColList> mget_res;   // vector of result for each row
     for (uint32_t t2 = t2_start; t2 <= t2_end; t2++)
     {
         GenDb::ColList result;
@@ -33,28 +35,48 @@ query_status_t DbQueryUnit::process_query()
             rowkey.push_back(t2);
         } else {
             rowkey.push_back(t2);
-            rowkey.push_back(row_key_suffix);
+            for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
+                    it!=row_key_suffix.end(); it++) {
+                rowkey.push_back(*it);
+            }
         }
+        keys.push_back(rowkey);
+    }
         
-        if (m_query->dbif->Db_GetRangeSlices(result, cfname, cr, rowkey))
-        {
+    if (!m_query->dbif->Db_GetMultiRow(mget_res, cfname, keys, &cr)) {
+        QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+    } else {
+        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+                it != mget_res.end(); it++) {
+            uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
             std::vector<GenDb::NewCol>::iterator i;
 
             QE_TRACE(DEBUG, "For T2:" << t2 <<
-                " Database returned " << result.columns_.size() << " cols");
+                " Database returned " << it->columns_.size() << " cols");
 
-            for (i = result.columns_.begin(); i != result.columns_.end(); i++)
+            for (i = it->columns_.begin(); i != it->columns_.end(); i++)
             {
                 {
                     query_result_unit_t result_unit;
-
-                    int ts_at = i->name.size() - 1;
-                    assert(ts_at >= 0);
                     uint32_t t1;
-                    try {
-                        t1 = boost::get<uint32_t>(i->name.at(ts_at));
-                    } catch (boost::bad_get& ex) {
-                        assert(0);
+                    
+                    if (m_query->is_stat_table_query()) {
+                        assert(i->name.size()==4);
+                        assert(i->value.size()==1);                        
+                        try {
+                            t1 = boost::get<uint32_t>(i->name[2]);
+                        } catch (boost::bad_get& ex) {
+                            assert(0);
+                        }
+                    } else {
+                        int ts_at = i->name.size() - 1;
+                        assert(ts_at >= 0);
+                        
+                        try {
+                            t1 = boost::get<uint32_t>(i->name.at(ts_at));
+                        } catch (boost::bad_get& ex) {
+                            assert(0);
+                        }
                     }
                     result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
 
@@ -69,7 +91,33 @@ query_status_t DbQueryUnit::process_query()
                     }
 
                     // Add to result vector
-                    result_unit.info = i->value;
+                    if (m_query->is_stat_table_query()) {
+                        std::string attribstr;
+                        boost::uuids::uuid uuid;
+
+                        try {
+                            uuid = boost::get<boost::uuids::uuid>(i->name[3]);
+                        } catch (boost::bad_get& ex) {
+                            QE_ASSERT(0);
+                        } catch (const std::out_of_range& oor) {
+                            QE_ASSERT(0);
+                        }
+
+                        try {
+                            attribstr = boost::get<std::string>(i->value[0]);
+                        } catch (boost::bad_get& ex) {
+                            QE_ASSERT(0);
+                        } catch (const std::out_of_range& oor) {
+                            QE_ASSERT(0);
+                        }
+
+                        result_unit.set_stattable_info(
+                            attribstr,
+                            uuid);
+                    } else {
+                        result_unit.info = i->value;
+                    }
+
                     query_result.push_back(result_unit);
                 }
             }
@@ -82,8 +130,6 @@ query_status_t DbQueryUnit::process_query()
 
     QE_TRACE(DEBUG,  " Database query completed with "
             << query_result.size() << " rows");
-    for (unsigned int i = 0; i < query_result.size(); i++)
-        QE_TRACE(DEBUG, (i+1) << " : " << query_result[i]);
 
     status_details = 0;
     parent_query->subquery_processed(this);

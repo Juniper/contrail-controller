@@ -10,6 +10,21 @@ std::string BgpPath::PathIdString(uint32_t path_id) {
     return addr.to_string();
 }
 
+std::string BgpPath::PathSourceString(PathSource source) {
+    switch (source) {
+        case BGP_XMPP:
+            return "BGP_XMPP";
+        case None:
+            return "none";
+        case StaticRoute:
+            return "StaticRoute";
+        case ServiceChain:
+            return "SericeChain";
+        default:
+            assert(0);
+    }
+}
+
 BgpPath::BgpPath() : peer_(NULL), path_id_(0), source_(BGP_XMPP), 
     flags_(0), label_(0) {
 }
@@ -103,11 +118,6 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, uint32_t path_id,
         PathSource src, const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
     : BgpPath(peer, path_id, src, ptr, flags, label) {
-}
-
-BgpSecondaryPath::BgpSecondaryPath(const IPeer *peer, PathSource src,
-        const BgpAttrPtr ptr, uint32_t flags, uint32_t label)
-    : BgpPath(peer, src, ptr, flags, label) {
 }
 
 BgpSecondaryPath::BgpSecondaryPath(uint32_t path_id, PathSource src,

@@ -376,5 +376,10 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
     resp->set_ds_misc(req->get_vds_misc());
     resp->set_ds_invalid_packet(req->get_vds_invalid_packet());
     resp->set_ds_cksum_err(req->get_vds_cksum_err());
+    resp->set_ds_clone_fail(req->get_vds_clone_fail());
+    resp->set_ds_no_fmd(req->get_vds_no_fmd());
+    resp->set_ds_cloned_original(req->get_vds_cloned_original());
+    resp->set_ds_invalid_vnid(req->get_vds_invalid_vnid());
+    resp->set_ds_frag_err(req->get_vds_frag_err());
 }
 

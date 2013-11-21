@@ -9,7 +9,9 @@ import sys
 
 env = BuildEnv.Clone()
 
-env.Append(CPPPATH = env['TOP'])
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/io',
+                     ])
 
 env.Append(LIBPATH = env['TOP'] + '/base')
 env.Append(LIBPATH = env['TOP'] + '/base/test')

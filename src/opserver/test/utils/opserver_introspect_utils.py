@@ -4,7 +4,6 @@
 
 import sys
 vizdtestdir = sys.path[0]
-sys.path.insert(1, vizdtestdir + '/../../')
 
 import urllib2
 import xmltodict
@@ -48,6 +47,39 @@ class VerificationOpsSrv (VerificationUtilBase):
             print e
         finally:
             return res
+
+    def get_redis_uve_master(self):
+        path = 'Snh_RedisUVEMasterRequest'
+        xpath = '/RedisUVEMasterResponse/redis_uve_master'
+        p = self.dict_get(path, XmlDrv)
+        return EtreeToDict(xpath).get_all_entry(p)
+    
+    def post_query_json(self, json_str, sync=True):
+        '''
+        this module is to support raw query given in json format
+        '''
+        res = None
+        try:
+            flows_url = OpServerUtils.opserver_query_url(self._ip, str(self._port))
+            print flows_url
+            print "query is: ", json_str
+            res = []
+            resp = OpServerUtils.post_url_http(flows_url, json_str, sync)
+            if sync:
+                if resp is not None:
+                    res = json.loads(resp)
+                    res = res['value']
+            else: 
+                if resp is not None:
+                    resp = json.loads(resp)
+                    qid = resp['href'].rsplit('/', 1)[1]
+                    result = OpServerUtils.get_query_result(self._ip, str(self._port), qid, 30)
+                    for item in result:
+                        res.append(item)
+        except Exception as e:
+            print str(e) 
+        finally:
+            return res        
 
     def post_query(self, table, start_time=None, end_time=None,
                    select_fields=None, where_clause=None,

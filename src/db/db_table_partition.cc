@@ -72,7 +72,8 @@ void DBTablePartition::Process(DBClient *client, DBRequest *req) {
 
 void DBTablePartition::Add(DBEntry *entry) {
     tbb::mutex::scoped_lock lock(mutex_);
-    tree_.insert(*entry);
+    std::pair<Tree::iterator, bool> ret = tree_.insert(*entry);
+    assert(ret.second);
     entry->set_table(static_cast<DBTableBase *>(table()));
     Notify(entry);
 }
@@ -86,7 +87,7 @@ void DBTablePartition::Remove(DBEntryBase *db_entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     DBEntry *entry = static_cast<DBEntry *>(db_entry);
 
-    tree_.erase(*entry);
+    assert(tree_.erase(*entry));
     delete entry;
 
     //

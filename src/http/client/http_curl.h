@@ -30,8 +30,10 @@ typedef struct _ConnInfo
 int http_get(ConnInfo *conn, GlobalInfo *g); 
 void set_url(ConnInfo *conn, const char *url); 
 int curl_init(HttpClient *);
-ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g);
+ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
+                   bool header, bool timeout);
 void del_conn(HttpConnection *connection, GlobalInfo *g);
+void set_header_options(ConnInfo *conn, const char *options);
 void set_put_string(ConnInfo *conn, const char *post); 
 int http_put(ConnInfo *conn, GlobalInfo *g); 
 void timer_cb(GlobalInfo *g);

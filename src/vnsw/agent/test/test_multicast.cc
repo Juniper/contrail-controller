@@ -236,9 +236,6 @@ TEST_F(CfgTest, L2Broadcast_1) {
         {"3.3.3.0", 16, "3.3.30.200"},
     };
 
-    char buf[BUF_SIZE];
-    int len = 0;
-
     client->Reset();
     EnableEvpn();
     client->WaitForIdle();
@@ -304,7 +301,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
     EXPECT_TRUE(l2_cnh->CompositeType() == Composite::L2COMP);
 
     EXPECT_TRUE(cnh->GetNH(0) == l2_cnh->GetNH(0));
-    for (int i = 1; i < cnh->ComponentNHCount(); i++) {
+    for (uint8_t i = 1; i < cnh->ComponentNHCount(); i++) {
         const InterfaceNH *l3_comp_nh = 
             static_cast<const InterfaceNH *>(cnh->GetNH(i));
         const InterfaceNH *l2_comp_nh = 
@@ -364,9 +361,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
 
     client->Reset();
 
-    char buf[BUF_SIZE];
-    int len = 0;
-	Inet4UnicastRouteEntry *rt;
+    Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
     MulticastGroupObject *mcobj;
@@ -453,8 +448,6 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
 
     client->Reset();
 
-    char buf[BUF_SIZE];
-    int len = 0;
 	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     CompositeNH *cnh;
@@ -534,8 +527,6 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
 
     client->Reset();
 
-    char buf[BUF_SIZE];
-    int len = 0;
 	Inet4UnicastRouteEntry *rt;
     NextHop *nh;
     //CompositeNH *cnh;
@@ -632,9 +623,6 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
 
     client->Reset();
 	EXPECT_TRUE(VmPortActive(input, 0));
-
-    char buf[BUF_SIZE];
-    int len = 0;
 
     AddIPAM("vn1", ipam_info, 2);
     client->WaitForIdle();

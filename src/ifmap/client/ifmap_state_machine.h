@@ -101,11 +101,14 @@ public:
 
     void ssrc_connect_attempts_inc() { ssrc_connect_attempts_++; }
     void ssrc_connect_attempts_clear() { ssrc_connect_attempts_ = 0; }
+    int ssrc_connect_attempts_get() { return ssrc_connect_attempts_; }
 
     void arc_connect_attempts_inc() { arc_connect_attempts_++; }
     void arc_connect_attempts_clear() { arc_connect_attempts_ = 0; }
 
-    int connection_attempts_get() { return connection_attempts_; }
+    int response_timer_expired_count_get() {
+        return response_timer_expired_count_;
+    }
 
     void OnStart(const ifsm::EvStart &event);
     bool DequeueEvent(boost::intrusive_ptr<const sc::event_base> &event);
@@ -127,8 +130,10 @@ public:
 private:
     void EnqueueEvent(const sc::event_base &ev);
     bool ProcErrorAndIgnore(const boost::system::error_code& error);
-    void connection_attempts_inc() { connection_attempts_++; }
-    void connection_attempts_clear() { connection_attempts_ = 0; }
+    void response_timer_expired_count_inc() { response_timer_expired_count_++; }
+    void response_timer_expired_count_clear() {
+        response_timer_expired_count_ = 0;
+    }
 
     IFMapManager *manager_;
     boost::asio::deadline_timer connect_timer_;
@@ -137,7 +142,7 @@ private:
     // used to limit the wait time for a response
     boost::asio::deadline_timer response_timer_;
     // how many times we timed out waiting for a response
-    int connection_attempts_;
+    int response_timer_expired_count_;
     WorkQueue<boost::intrusive_ptr<const sc::event_base> > work_queue_;
     IFMapChannel *channel_;
 
