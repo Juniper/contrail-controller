@@ -8,6 +8,8 @@
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
+env.Depends('metadata_proxy.o', '#build/include/isc')
+
 import sys
 if sys.platform != 'darwin':
     SandeshGenFiles = env.SandeshGenCpp('services.sandesh')
