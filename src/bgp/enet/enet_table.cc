@@ -70,7 +70,8 @@ DBTableBase *EnetTable::CreateTable(DB *db, const std::string &name) {
 BgpRoute *EnetTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
-    assert(src_table->family() == Address::EVPN);
+    if (src_table->family() != Address::EVPN)
+        return NULL;
 
     EnetRoute *enet= dynamic_cast<EnetRoute *>(src_rt);
     boost::scoped_ptr<EnetPrefix> enet_prefix;
