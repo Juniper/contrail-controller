@@ -1,0 +1,72 @@
+Following files
+a3s40.tgz
+a3s41.tgz
+are created by
+- using the testbed_setup2.py
+- running setup_8vm.py to create VMs
+- running start_traffic for traffic
+- analytics_start_time = 1383679241156742
+
+relevant portions of testbed_setup2.py
+--------------------------------------
+
+host1 = 'root@10.84.12.11'
+host2 = 'root@10.84.12.12'
+host3 = 'root@10.84.12.13'
+host4 = 'root@10.84.12.14'
+host5 = 'root@10.84.12.15'
+
+env.roledefs = { 
+    'all': [host1, host2, host3, host4, host5],
+    'cfgm':      [host2],
+    'openstack': [host2],
+    'webui':     [host2],
+    'control':   [host3, host4],
+    'collector': [host3, host4],
+    'database':  [host3, host4],
+    'compute':   [host1, host5],
+    'build': [host_build],
+}
+
+env.hostnames = {
+    'all': ['a3s43', 'a3s42', 'a3s41','a3s40', 'a3s39']
+}
+
+relevant portions of setup_8vm.py
+---------------------------------
+
+    for i in range(2):
+       vn1 = "vn" + str(i)
+       vn2 = "vn" + str(i+16)
+       subnet1 = "192.168." + str(i) + ".0/24"
+       subnet2 = "192.168." + str(i+16) + ".0/24"
+       setup._create_two_linked_vns(vn1, vn2, subnet1, subnet2)
+    for j in range(2):
+          vn = 'vn' + str(j);
+          vm = vn + '_vm'
+          setup._create_vm(vm, "ubuntu-traffic", setup._net_to_netid[vn])
+          vn = 'vn' + str(j+16);
+          vm = vn + '_vm'
+          setup._create_vm(vm, "ubuntu-traffic", setup._net_to_netid[vn])
+
+relevant portions of traffic_profile.py
+---------------------------------------
+
+traffic_servers = {}
+traffic_clients = {}
+
+for i in range(2):
+    ip_prefix1 = "192.168." + str(i) + "."
+    ip_prefix2 = "192.168." + str(i+16) + "."
+    traffic_servers_per_client = {}
+    for serv_idx in range(252, 254):
+        server = ip_prefix2 + str(serv_idx)
+        tcp_list = [str(i) for i in range(9100, 9110)]
+        udp_list = [str(i) for i in range(9200, 9210)]
+        traffic_servers[server] = {'tcp': tcp_list, 'udp': udp_list}
+        traffic_servers_per_client[server] = {'tcp': tcp_list, 'udp': udp_list}
+
+    for client_idx in range(252, 254):
+        client = ip_prefix1 + str(client_idx)
+        traffic_clients[client] = traffic_servers_per_client
+
