@@ -37,7 +37,7 @@ KSyncDBObject *VxLanIdKSyncEntry::GetObject() {
 }
 
 VxLanIdKSyncEntry::VxLanIdKSyncEntry(const VxLanId *vxlan_id) :
-    KSyncNetlinkDBEntry(kInvalidIndex), label_(vxlan_id->GetLabel()), 
+    KSyncNetlinkDBEntry(kInvalidIndex), label_(vxlan_id->vxlan_id()), 
     nh_(NULL) {
 }
 

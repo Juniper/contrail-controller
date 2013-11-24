@@ -28,6 +28,14 @@ IcmpProto::~IcmpProto() {
 
 bool IcmpHandler::Run() {
     IcmpProto *icmp_proto = Agent::GetInstance()->GetIcmpProto();
+    Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
+    if (itf == NULL) {
+        return true;
+    }
+    VmPortInterface *vm_itf = static_cast<VmPortInterface *>(itf);
+    if (!vm_itf->ipv4_forwarding()) { 
+        return true;
+    } 
     switch (icmp_->type) {
         case ICMP_ECHO:
             if (CheckPacket()) {

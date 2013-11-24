@@ -119,7 +119,7 @@ VrfEntry::VrfEntry(const string &name) :
         name_(name), id_(kInvalidIndex), 
         walkid_(DBTableWalker::kInvalidWalkerId), 
         deleter_(new DeleteActor(this)), nh_map_(new VrfNHMap),
-        rt_table_db_(), delete_timeout_timer_(NULL) {
+        rt_table_db_(), delete_timeout_timer_(NULL) { 
 }
 
 VrfEntry::~VrfEntry() {
@@ -399,7 +399,7 @@ std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
 
 DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
-    VrfData *data = static_cast<VrfData *>(req->data.get());
+    //VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_);
 
     // Add VRF into name based tree
@@ -422,16 +422,12 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     }
 
     vrf->id_ = index_table_.Insert(vrf);
-    vrf->vxlan_id_ = data->vxlan_id_;
     vrf->SendObjectLog(AgentLogEvent::ADD);
     return vrf;
 }
 
 // No Change expected for VRF
 bool VrfTable::OnChange(DBEntry *entry, const DBRequest *req) {
-    VrfEntry *vrf = static_cast<VrfEntry *>(entry);
-    VrfData *data = static_cast<VrfData *>(req->data.get());
-    vrf->vxlan_id_ = data->vxlan_id_;
     return false;
 }
 

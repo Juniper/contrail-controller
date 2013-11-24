@@ -105,6 +105,11 @@ bool DhcpHandler::Run() {
         return true;
     }
     vm_itf_ = static_cast<VmPortInterface *>(itf);
+    if (!vm_itf_->ipv4_forwarding()) {
+        DHCP_TRACE(Error, "DHCP request on VM port with disabled ipv4 service: "
+                   << GetIntf());
+        return true;
+    }
 
     // For VM interfaces in default VRF, if the config doesnt have IP address,
     // send the request to fabric

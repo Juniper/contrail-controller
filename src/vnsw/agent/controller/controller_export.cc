@@ -63,7 +63,7 @@ void RouteExport::ManagedDelete() {
 }
 
 void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
-                         bool associate, AgentRouteTableAPIS::TableType type,
+                         bool associate, AgentRouteTableAPIS::TableType type, 
                          DBTablePartBase *partition, DBEntryBase *e) {
     RouteEntry *route = static_cast<RouteEntry *>(e);
 
@@ -135,13 +135,14 @@ done:
 }
 
 void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, 
-                                  bool associate,
+                                  bool associate, 
                                   DBTablePartBase *partition, 
                                   DBEntryBase *e) {
     RouteEntry *route = static_cast<RouteEntry *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
+    bool route_can_be_dissociated = route->CanDissociate();
 
-    if (route->CanBeDeleted() && (state != NULL) && (state->exported_ == true)) {
+    if (route_can_be_dissociated && (state != NULL) && (state->exported_ == true)) {
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
                 route->GetVrfEntry()->GetName(), 
                 route->ToString(), true, 0);
@@ -173,7 +174,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
         route->SetState(partition->parent(), id_, state);
     }
 
-    if (!route->CanBeDeleted() && ((state->exported_ == false) || 
+    if (!route_can_be_dissociated && ((state->exported_ == false) || 
                                   (state->force_chg_ == true))) {
 
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
@@ -182,11 +183,10 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
         state->exported_ = 
             AgentXmppChannel::ControllerSendMcastRoute(bgp_xmpp_peer, 
-                                                       route, associate);
+                                                           route, associate);
         state->force_chg_ = false;
-
         return;
-    }
+    } 
 }
 
 bool RouteExport::DeleteState(DBTablePartBase *partition,

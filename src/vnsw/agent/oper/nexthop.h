@@ -266,7 +266,7 @@ public:
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
-    static void EncapPrioritySync(IFMapNode *node);
+    static void EncapPrioritySync(const std::vector<std::string> &cfg_list);
 private:
     Type type_;
     static PriorityList priority_list_;
@@ -732,9 +732,11 @@ public:
     static void CreateVportReq(const uuid &intf_uuid,
                                const struct ether_addr &dmac, 
                                const string &vrf_name);
-    static void CreateHostPortReq(const string &ifname);
     static void DeleteVportReq(const uuid &intf_uuid);
+    static void CreateHostPortReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
+    static void CreateVirtualHostPortReq(const string &ifname);
+    static void DeleteVirtualHostPortReq(const string &ifname);
 
 private:
     InterfaceRef interface_;

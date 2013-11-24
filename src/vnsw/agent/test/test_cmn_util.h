@@ -212,8 +212,7 @@ NextHop *GetNH(NextHopKey *key);
 bool VmPortServiceVlanCount(int id, unsigned int count);
 void AddEncapList(const char *encap1, const char *encap2, const char *encap3);
 void DelEncapList();
-void EnableEvpn();
-void DisableEvpn();
+void VxLanNetworkIdentifierMode(bool config);
 int MplsToVrfId(int label);
 void AddInterfaceRouteTable(const char *name, int id, TestIp4Prefix *addr, 
                             int count);

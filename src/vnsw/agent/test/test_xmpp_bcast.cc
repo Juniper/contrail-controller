@@ -428,7 +428,7 @@ protected:
 	
 	client->Reset();
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
 	client->WaitForIdle();
 
     CreateVmportEnv(input, 2, 0);
@@ -438,8 +438,10 @@ protected:
     AddIPAM("vn1", ipam_info, 1);
 	client->WaitForIdle();
 	// expect subscribe message + 2 VM routes+ subnet bcast +
-	// v4 bcast route at the mock server + 2 l2 uc routes 
-	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 9));
+	// v4 bcast route at the mock server + 1/2 l2 uc routes 
+    // For broadcast request from IPv4 and L2 will be treated as 
+    // one export and not two. 
+	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 8));
 
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
 	EXPECT_TRUE(VmPortActive(input, 0));
@@ -594,7 +596,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     IntfCfgDel(input, 0);
     client->CompositeNHWait(16);
     // Route delete send to control-node 
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 11));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 10));
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.1/32", "vrf1");
@@ -609,7 +611,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     IntfCfgDel(input, 1);
     client->WaitForIdle();
     // Route delete for vm + braodcast
-    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 15));
+    WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 14));
 
     //Send route delete
     SendRouteDeleteMessage(mock_peer.get(), "1.1.1.2/32", "vrf1");
@@ -733,7 +735,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
 
     // expect subscribe message <default,vrf> + 2 VM routes+ subnet bcast +
     // bcast route at the mock server
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 17));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 16));
 
     // Send route, back to vrf1
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 

@@ -5,6 +5,7 @@
 //
 
 #include <cmn/agent_cmn.h>
+#include <base/task_annotations.h>
 #include <oper/vrf.h>
 #include <oper/nexthop.h>
 #include <oper/vxlan.h>
@@ -16,19 +17,19 @@ static VxLanTable *vxlan_id_table_;
 using namespace std;
 
 VxLanId::~VxLanId() { 
-    if (label_ == VxLanTable::kInvalidLabel) {
+    if (vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
         return;
     }
 }
 
 DBEntryBase::KeyPtr VxLanId::GetDBRequestKey() const {
-    VxLanIdKey *key = new VxLanIdKey(label_);
+    VxLanIdKey *key = new VxLanIdKey(vxlan_id_);
     return DBEntryBase::KeyPtr(key);
 }
 
 void VxLanId::SetKey(const DBRequestKey *k) { 
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
-    label_ = key->label_;
+    vxlan_id_ = key->vxlan_id();
 }
 
 AgentDBTable *VxLanId::DBToTable() const {
@@ -37,13 +38,20 @@ AgentDBTable *VxLanId::DBToTable() const {
 
 std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
-    VxLanId *vxlan_id = new VxLanId(key->label_);
+    VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vxlan_id));
+}
+
+void VxLanTable::Create(DBRequest &req) {
+    CHECK_CONCURRENCY("db::DBTable");
+    DBTablePartition *tpart =
+        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+    Input(tpart, NULL, &req);
 }
 
 DBEntry *VxLanTable::Add(const DBRequest *req) {
     VxLanIdKey *key = static_cast<VxLanIdKey *>(req->key.get());
-    VxLanId *vxlan_id = new VxLanId(key->label_);
+    VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
 
     ChangeHandler(vxlan_id, req);
     vxlan_id->SendObjectLog(AgentLogEvent::ADD);
@@ -58,11 +66,11 @@ bool VxLanTable::OnChange(DBEntry *entry, const DBRequest *req) {
     return ret;
 }
 
-// No Change expected for vxlan_id Label
+// No Change expected for vxlan_id vxlan_id
 bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
     bool ret = false;
     VxLanIdData *data = static_cast<VxLanIdData *>(req->data.get());
-    VrfNHKey nh_key(data->vrf_name_, false);
+    VrfNHKey nh_key(data->vrf_name(), false);
     NextHop *nh = static_cast<NextHop *>
         (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
 
@@ -79,6 +87,11 @@ void VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
     vxlan_id->SendObjectLog(AgentLogEvent::DELETE);
 }
 
+void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
+    const VxLanId *vxlan_id = static_cast<const VxLanId *>(e);
+    VxLanId::DeleteReq(vxlan_id->vxlan_id());
+}
+
 DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
     vxlan_id_table_ = new VxLanTable(db, name);
     vxlan_id_table_->Init();
@@ -86,7 +99,7 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
     return vxlan_id_table_;
 }
 
-void VxLanId::CreateReq(uint32_t label, const string &vrf_name) {
+void VxLanId::CreateReq(uint32_t vxlan_id, const string &vrf_name) {
     //Enqueue creation of NH 
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -99,31 +112,33 @@ void VxLanId::CreateReq(uint32_t label, const string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VxLanIdKey *key = new VxLanIdKey(label);
+    VxLanIdKey *key = new VxLanIdKey(vxlan_id);
     req.key.reset(key);
 
     VxLanIdData *data = new VxLanIdData(vrf_name);
     req.data.reset(data);
 
+    //vxlan_id_table_->Create(req);
     vxlan_id_table_->Enqueue(&req);
     return;
 }
                                    
-void VxLanId::DeleteReq(uint32_t label) {
+void VxLanId::DeleteReq(uint32_t vxlan_id) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    VxLanIdKey *key = new VxLanIdKey(label);
+    VxLanIdKey *key = new VxLanIdKey(vxlan_id);
     req.key.reset(key);
     req.data.reset(NULL);
     vxlan_id_table_->Enqueue(&req);
+    //vxlan_id_table_->Create(req);
 }
 
 bool VxLanId::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VxLanResp *resp = static_cast<VxLanResp *>(sresp);
 
     VxLanSandeshData data;
-    data.set_label(label_);
+    data.set_vxlan_id(vxlan_id_);
     nh_->SetNHSandeshData(data.nh);
     std::vector<VxLanSandeshData> &list =
             const_cast<std::vector<VxLanSandeshData>&>(resp->get_vxlan_list());
@@ -136,7 +151,7 @@ void VxLanId::SendObjectLog(AgentLogEvent::type event) const {
     VxLanObjectLogInfo info;
     string str, nh_type;
     
-    info.set_label((int)label_);
+    info.set_vxlan_id((int)vxlan_id_);
     switch (event) {
         case AgentLogEvent::ADD:
             str.assign("Addition ");

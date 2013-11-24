@@ -68,7 +68,7 @@ TEST_F(CfgTest, McastSubnet_1) {
     int len = 0;
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 3, 0);
     client->WaitForIdle();
@@ -218,8 +218,6 @@ TEST_F(CfgTest, McastSubnet_1) {
     WaitForCompositeNHDelete(IpAddress::from_string("3.3.255.255").to_v4(), "vrf1");
     WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
     client->WaitForIdle();
-    DisableEvpn();
-    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, L2Broadcast_1) {
@@ -237,7 +235,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
     };
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 3, 0);
     client->WaitForIdle();
@@ -321,11 +319,13 @@ TEST_F(CfgTest, L2Broadcast_1) {
         static_cast<const CompositeNH *>(mpls->GetNextHop());
     EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
-    EXPECT_TRUE(mpls_cnh->GetNH(0) == l2_cnh);
-    EXPECT_TRUE(mpls_cnh->GetNH(1) == cnh);
+    EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
+    EXPECT_TRUE(mpls_cnh->GetNH(1) == l2_cnh);
 
     IntfCfgDel(input, 0);
+    client->WaitForIdle();
     IntfCfgDel(input, 1);
+    client->WaitForIdle();
     IntfCfgDel(input, 2);
     client->WaitForIdle();
 
@@ -338,8 +338,6 @@ TEST_F(CfgTest, L2Broadcast_1) {
     client->WaitForIdle();
 
     WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
-    client->WaitForIdle();
-    DisableEvpn();
     client->WaitForIdle();
 }
 
@@ -354,7 +352,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     };
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -426,8 +424,6 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     }
     client->WaitForIdle();
     WaitForCompositeNHDelete(IpAddress::from_string("255.255.255.255").to_v4(), "vrf1");
-    DisableEvpn();
-    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
@@ -441,7 +437,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
     };
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -505,8 +501,6 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnIPAMDeleteofVN) {
         client->WaitForIdle();
     }
     client->WaitForIdle();
-    DisableEvpn();
-    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
@@ -520,7 +514,7 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
     };
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -594,8 +588,6 @@ TEST_F(CfgTest, McastSubnet_DeleteCompNHThenModifyFabricList) {
         client->WaitForIdle();
     }
     client->WaitForIdle();
-    DisableEvpn();
-    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
@@ -605,7 +597,7 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
     };
 
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -660,8 +652,6 @@ TEST_F(CfgTest, McastSubnet_SubnetIPAMAddDel) {
         client->WaitForIdle();
     }
 
-    client->WaitForIdle();
-    DisableEvpn();
     client->WaitForIdle();
 }
 
@@ -743,7 +733,7 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     client->WaitForIdle();
     client->Reset();
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -772,8 +762,6 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_ignore_unknown_vrf) {
     EXPECT_FALSE(RouteFind("vrf1", "10.1.1.2", 32));
 
     client->WaitForIdle();
-    DisableEvpn();
-    client->WaitForIdle();
 }
 
 TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
@@ -797,7 +785,7 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
     client->WaitForIdle();
     client->Reset();
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 1, 0);
     client->WaitForIdle();
@@ -820,8 +808,6 @@ TEST_F(CfgTest, McastSubnet_VN2MultipleVRFtest_negative) {
     client->Reset();
 
     DeleteVmportEnv(input, 1, 1, 0);
-    client->WaitForIdle();
-    DisableEvpn();
     client->WaitForIdle();
 }
 

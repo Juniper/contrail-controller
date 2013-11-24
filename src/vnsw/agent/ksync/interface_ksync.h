@@ -43,7 +43,9 @@ public:
         analyzer_name_(entry->analyzer_name_),
         mirror_direction_(entry->mirror_direction_),
         active_(false), os_index_(Interface::kInvalidIndex), 
-        network_id_(entry->network_id_), sub_type_(entry->sub_type_) {
+        network_id_(entry->network_id_), sub_type_(entry->sub_type_),
+        ipv4_forwarding_(entry->ipv4_forwarding_), 
+        layer2_forwarding_(entry->layer2_forwarding_) {
     };
 
     IntfKSyncEntry(const Interface *intf) :
@@ -54,7 +56,8 @@ public:
             policy_enabled_(false), analyzer_name_(),
             mirror_direction_(Interface::UNKNOWN), active_(false),
             os_index_(intf->GetOsIfindex()),
-            sub_type_(VirtualHostInterface::HOST) {
+            sub_type_(VirtualHostInterface::HOST), 
+            ipv4_forwarding_(true), layer2_forwarding_(true) {
         // Max name size supported by kernel
         assert(strlen(ifname_.c_str()) < IF_NAMESIZE);
         network_id_ = 0;
@@ -204,6 +207,8 @@ private:
     size_t os_index_;
     int network_id_;
     VirtualHostInterface::SubType sub_type_;
+    bool ipv4_forwarding_;
+    bool layer2_forwarding_;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
 };
 

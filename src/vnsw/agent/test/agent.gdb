@@ -132,7 +132,7 @@ end
 
 define vxlan_entry_format
     set $__vxlan = (VxLanId *)((size_t)($Xnode) - (size_t)&(VxLanId::node_))
-    printf "%p    label=%-4x   nh=%p\n", $__vxlan, $__vxlan->label_, $__vxlan->nh_.px
+    printf "%p    label=%-4x   nh=%p\n", $__vxlan, $__vxlan->vxlan_id_, $__vxlan->nh_.px
 end
   
 define dump_vxlan_entries

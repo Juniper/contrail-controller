@@ -68,6 +68,8 @@ struct VnSandeshData {
     5: string mirror_cfg_acl_uuid (link="AclReq"); // mirror cfg acl uuid
     6: string vrf_name (link="VrfListReq"); // VRF name
     7: list<VnIpamData> ipam_data;
+    8: bool layer2_forwarding;
+    9: bool ipv4_forwarding;
 }
 
 struct SgSandeshData {
@@ -391,7 +393,7 @@ struct FlowSandeshData {
 }
 
 struct VxLanSandeshData {
-    1: i32 label;                     // vxlan label
+    1: i32 vxlan_id;                  // vxlan label
     2: NhSandeshData nh;              // next hop info
     3: optional string vrf_name;      // vrf name from nh
 }
@@ -668,6 +670,8 @@ struct VnObjectLogInfo {
     6: optional string mirror_cfg_acl_uuid;
     7: optional string vrf;
     8: optional list <VnObjectLogIpam> ipam_list;
+    9: optional bool ipv4_forwarding;
+   10: optional bool layer2_forwarding;
 }
 
 objectlog sandesh VnObjectLog {
@@ -767,7 +771,7 @@ struct NextHopObjectLogInfo {
 
 struct VxLanObjectLogInfo {
     1: string event;
-    2: i32 label;
+    2: i32 vxlan_id;
     3: optional string nh_type;
     4: optional string vrf_name;
 }

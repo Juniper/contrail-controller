@@ -68,7 +68,7 @@ public:
                                  SetFlowAgeTime(1000000 * 60 * 10);
 
         client->SetFlowFlushExclusionPolicy();
-        EnableEvpn();
+        VxLanNetworkIdentifierMode(false);
         client->WaitForIdle();
     }
 

@@ -21,6 +21,7 @@
 #include <oper/peer.h>
 #include <oper/mpls.h>
 #include <oper/agent_types.h>
+#include <oper/multicast.h>
 #include <controller/controller_peer.h>
 #include <sandesh/sandesh_trace.h>
 #include <oper/route_types.h>
@@ -37,8 +38,8 @@ public:
         CHANGE_PATH,
     };
 
-    //TODO Remove false in is_multicast and let caller specify
-    RouteEntry(VrfEntry *vrf) : Route(), vrf_(vrf), is_multicast_(false) { };
+    RouteEntry(VrfEntry *vrf, bool is_multicast) : Route(), vrf_(vrf), 
+        is_multicast_(is_multicast) { };
     virtual ~RouteEntry() { };
 
     //TODO Rename iterator as gw_route-ITERATOR
@@ -65,13 +66,11 @@ public:
     //TODO Move dependantroutes and nh  to inet4
     void UpdateDependantRoutes();// analogous to updategatewayroutes
     void UpdateNH();
-    bool IsMulticast() const {return is_multicast_;};;
-    //TODO Move this to key and non changeable
-    void SetMulticast(bool is_mcast) {is_multicast_ = is_mcast;};
+    bool IsMulticast() const {return is_multicast_;};
     //TODO remove setvrf
     void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; };
     uint32_t GetVrfId() const;
-    const VrfEntry *GetVrfEntry() const {return vrf_.get();};
+    VrfEntry *GetVrfEntry() const {return vrf_.get();};
     bool Sync(void);
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
@@ -80,8 +79,7 @@ public:
     bool HasUnresolvedPath();
     uint32_t GetMplsLabel() const; 
     const string &GetDestVnName() const;
-    //TODO rename this canunsubscribe
-    bool CanBeDeleted() const;
+    bool CanDissociate() const;
 
     iterator begin() { return dependant_routes_.begin(); };
     iterator end() { return dependant_routes_.end(); };
@@ -192,9 +190,10 @@ public:
 
     LifetimeActor *deleter();
     void ManagedDelete();
-    bool DelWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
+    bool DelExplicitRouteWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
     void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
-    void DeleteAllRoutes();
+    void DeleteAllLocalVmRoutes();
+    void DeleteAllPeerRoutes();
     void MayResumeDelete(bool is_empty);
 
     static bool PathSelection(const Path &path1, const Path &path2);
@@ -223,7 +222,7 @@ public:
         dest_vn_name_(""), unresolved_(true), sync_(false), vrf_name_(""), 
         dependant_rt_(rt), proxy_arp_(false), force_policy_(false),
         tunnel_bmap_(0), interfacenh_flags_(0) { };
-    virtual ~AgentPath() { };
+    virtual ~AgentPath() { }; 
 
     const Peer *GetPeer() const {return peer_;};
     const NextHop *GetNextHop() const; 
@@ -291,11 +290,12 @@ public:
 
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) = 0; 
     virtual AgentRouteTableAPIS::TableType GetRouteTableType() = 0;
-    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf) const = 0;
+    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf, 
+                                        bool is_multicast) const = 0;
+    virtual string ToString() const = 0;
 
     const string &GetVrfName() const { return vrf_name_; };
     const Peer *GetPeer() const { return peer_; };
-    virtual string ToString() const = 0;
 private:
     const Peer *peer_;
     string vrf_name_;
@@ -310,26 +310,24 @@ public:
         CHANGE,
         RESYNC,
     };
-    RouteData(Op op) : op_(op), is_mcast_(false) { };
-    RouteData(Op op, bool is_mcast) : op_(op), is_mcast_(is_mcast) { };
+    RouteData(Op op, bool is_multicast) : op_(op), 
+        is_multicast_(is_multicast) { }; 
     virtual ~RouteData() { };
     virtual string ToString() const = 0;
-
     virtual bool AddChangePath(AgentPath *path) = 0;
+    bool IsMulticast() {return is_multicast_;};
 
-    bool IsMulticast() const {return is_mcast_;};
-    void SetMulticast(bool is_mcast) {is_mcast_ = is_mcast;};
     Op GetOp() const { return op_; };
 
 private:
     Op op_;
-    bool is_mcast_;
+    bool is_multicast_;
     DISALLOW_COPY_AND_ASSIGN(RouteData);
 };
 
 class ResolveRoute : public RouteData {
 public:
-    ResolveRoute(Op op  = RouteData::CHANGE) : RouteData(op) { };
+    ResolveRoute(Op op  = RouteData::CHANGE) : RouteData(op, false) { };
     virtual ~ResolveRoute() { };
     virtual bool AddChangePath(AgentPath *path);
     virtual string ToString() const {return "Resolve";};;
@@ -343,7 +341,8 @@ public:
                  int tunnel_bmap, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
                  Op op = RouteData::CHANGE) :
-        RouteData(op), intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
+        RouteData(op, false), intf_(intf), 
+        label_(label), tunnel_bmap_(tunnel_bmap),
         force_policy_(force_policy), dest_vn_name_(vn_name),
         proxy_arp_(true), sync_route_(false), 
         flags_(flags), sg_list_(sg_list) { };
@@ -372,7 +371,7 @@ public:
                   uint32_t label, const string &dest_vn_name,
                   int bmap, const SecurityGroupList &sg_list,
                   Op op = RouteData::CHANGE) :
-        RouteData(op), server_vrf_(vrf_name),
+        RouteData(op, false), server_vrf_(vrf_name),
         server_ip_(addr), tunnel_bmap_(bmap), 
         label_(label), dest_vn_name_(dest_vn_name), sg_list_(sg_list) { };
     virtual ~RemoteVmRoute() { };
@@ -390,11 +389,31 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RemoteVmRoute);
 };
 
+class VirtualHostInterfaceRoute : public RouteData {
+public:
+    VirtualHostInterfaceRoute(const VirtualHostInterfaceKey &intf,
+                              uint32_t label, int tunnel_bmap,
+                              const string &dest_vn_name,
+                              Op op = RouteData::CHANGE) : 
+        RouteData(op,false), intf_(intf), label_(label), 
+        tunnel_bmap_(tunnel_bmap), dest_vn_name_(dest_vn_name) { };
+    virtual ~VirtualHostInterfaceRoute() { };
+    virtual bool AddChangePath(AgentPath *path);
+    virtual string ToString() const {return "host";};;
+
+private:
+    VirtualHostInterfaceKey intf_;
+    uint32_t label_;
+    int tunnel_bmap_;
+    string dest_vn_name_;
+    DISALLOW_COPY_AND_ASSIGN(VirtualHostInterfaceRoute);
+};
+
 class HostRoute : public RouteData {
 public:
     HostRoute(const HostInterfaceKey &intf, const string &dest_vn_name,
               Op op  = RouteData::CHANGE) : 
-        RouteData(op), intf_(intf),
+        RouteData(op, false), intf_(intf),
         dest_vn_name_(dest_vn_name), proxy_arp_(false) { };
     virtual ~HostRoute() { };
     void EnableProxyArp() {proxy_arp_ = true;};
@@ -413,7 +432,7 @@ public:
     VlanNhRoute(const VmPortInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const string &dest_vn_name, const SecurityGroupList &sg_list,
                 Op op  = RouteData::CHANGE) :
-        RouteData(op), intf_(intf),
+        RouteData(op, false), intf_(intf),
         tag_(tag), label_(label), dest_vn_name_(dest_vn_name), 
         sg_list_(sg_list) { };
     virtual ~VlanNhRoute() { };
@@ -434,8 +453,7 @@ public:
     MulticastRoute(const Ip4Address &src_addr, 
                    const Ip4Address &grp_addr,
                    const string &vn_name, const string &vrf_name,
-                   COMPOSITETYPE type,
-                   Op op  = RouteData::CHANGE) :
+                   COMPOSITETYPE type, Op op  = RouteData::CHANGE) :
         RouteData(op, true), 
         src_addr_(src_addr), grp_addr_(grp_addr),
         vn_name_(vn_name), vrf_name_(vrf_name),
@@ -458,7 +476,8 @@ public:
     ReceiveRoute(const VirtualHostInterfaceKey &intf, uint32_t label,
                  uint32_t tunnel_bmap, bool policy, const string &vn,
                  Op op  = RouteData::CHANGE) : 
-        RouteData(op), intf_(intf), label_(label), tunnel_bmap_(tunnel_bmap),
+        RouteData(op, false), intf_(intf), 
+        label_(label), tunnel_bmap_(tunnel_bmap),
         policy_(policy), proxy_arp_(false), vn_(vn), sg_list_() {};
     virtual ~ReceiveRoute() { };
     void EnableProxyArp() {proxy_arp_ = true;};
@@ -483,7 +502,7 @@ public:
                           uint32_t label, bool local_ecmp_nh, 
                           const string &vrf_name,
                           Op op  = RouteData::CHANGE) : 
-        RouteData(op), dest_addr_(dest_addr),
+        RouteData(op, false), dest_addr_(dest_addr),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
         vrf_name_(vrf_name) {
         };
@@ -506,7 +525,7 @@ public:
     Inet4UnicastArpRoute(const string &vrf_name, 
                          const Ip4Address &addr,
                          Op op  = RouteData::CHANGE) :
-        RouteData(op), vrf_name_(vrf_name), addr_(addr) { };
+        RouteData(op, false), vrf_name_(vrf_name), addr_(addr) { };
     virtual ~Inet4UnicastArpRoute() { };
 
     virtual bool AddChangePath(AgentPath *path);
@@ -522,7 +541,8 @@ public:
     Inet4UnicastGatewayRoute(const Ip4Address &gw_ip, 
                              const string &vrf_name,
                              Op op  = RouteData::CHANGE) :
-        RouteData(op), gw_ip_(gw_ip), vrf_name_(vrf_name) { };
+        RouteData(op, false), gw_ip_(gw_ip), 
+        vrf_name_(vrf_name) { };
     virtual ~Inet4UnicastGatewayRoute() { };
     virtual bool AddChangePath(AgentPath *path);
     virtual string ToString() const {return "gateway";};;
@@ -536,7 +556,7 @@ private:
 class DropRoute : public RouteData {
 public:
     DropRoute(Op op  = RouteData::CHANGE) :
-        RouteData(op) { };
+        RouteData(op, false) { };
     virtual ~DropRoute() { };
     virtual bool AddChangePath(AgentPath *path);
     virtual string ToString() const {return "drop";};;
@@ -572,14 +592,14 @@ private:
 class Inet4UnicastRouteEntry : public RouteEntry {
 public:
     Inet4UnicastRouteEntry(VrfEntry *vrf, const Ip4Address &addr) : 
-        RouteEntry(vrf), addr_(addr) { 
+        RouteEntry(vrf, false), addr_(addr) { 
             plen_ = 32; 
         };
-    Inet4UnicastRouteEntry(VrfEntry *vrf, 
-                           const Ip4Address &addr, uint8_t plen) : 
-        RouteEntry(vrf), addr_(addr), plen_(plen) { 
+    Inet4UnicastRouteEntry(VrfEntry *vrf, const Ip4Address &addr, 
+                           uint8_t plen, bool is_multicast) : 
+        RouteEntry(vrf, is_multicast), addr_(addr), plen_(plen) { 
             addr_ = boost::asio::ip::address_v4(addr.to_ulong() & 
-                                                (plen ? (0xFFFFFFFF << (32 - plen)) : 0));
+                                    (plen ? (0xFFFFFFFF << (32 - plen)) : 0));
         };
     virtual ~Inet4UnicastRouteEntry() { };
 
@@ -677,7 +697,7 @@ public:
                                         const string &vrf_name,
                                         const Ip4Address &src_addr, 
                                         const Ip4Address &grp_addr,
-                                        const string &vn_name); 
+                                        const string &vn_name);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf, 
                                 const Ip4Address &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
@@ -757,12 +777,11 @@ private:
 class Inet4UnicastRouteKey : public RouteKey {
 public:
     Inet4UnicastRouteKey(const Peer *peer, const string &vrf_name, 
-                         const Ip4Address &dip, 
-                         uint8_t plen) : RouteKey(peer, vrf_name), dip_(dip), 
-                         plen_(plen) { };
+                         const Ip4Address &dip, uint8_t plen) : 
+        RouteKey(peer, vrf_name), dip_(dip), plen_(plen) { };
     virtual ~Inet4UnicastRouteKey() { };
     //Called from oute creation in input of route table
-    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf) const;
+    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
         return (static_cast<AgentRouteTable *>(vrf->
@@ -814,7 +833,7 @@ public:
     static void AddMulticastRoute(const string &vrf_name, 
                                   const string &vn_name,
                                   const Ip4Address &src_addr,
-                                  const Ip4Address &grp_addr); 
+                                  const Ip4Address &grp_addr);
     static void DeleteMulticastRoute(const string &vrf_name, 
                                      const Ip4Address &src_addr,
                                      const Ip4Address &grp_addr); 
@@ -828,7 +847,7 @@ class Inet4MulticastRouteEntry : public RouteEntry {
 public:
     Inet4MulticastRouteEntry(VrfEntry *vrf, const Ip4Address &dst, 
                              const Ip4Address &src) :
-        RouteEntry(vrf), dst_addr_(dst), src_addr_(src) { }; 
+        RouteEntry(vrf, true), dst_addr_(dst), src_addr_(src) { }; 
     virtual ~Inet4MulticastRouteEntry() { };
 
     virtual int CompareTo(const Route &rhs) const;
@@ -858,8 +877,7 @@ public:
     Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip, 
                            const Ip4Address &sip) :
                          RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
-                                  vrf_name), dip_(dip), 
-                         sip_(sip) { };
+                                  vrf_name), dip_(dip), sip_(sip) { };
     Inet4MulticastRouteKey(const string &vrf_name, const Ip4Address &dip) : 
         RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name), dip_(dip) { 
             boost::system::error_code ec;
@@ -872,7 +890,7 @@ public:
             sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
     };
     virtual ~Inet4MulticastRouteKey() { };
-    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf) const;
+    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
         return (static_cast<Inet4MulticastAgentRouteTable *>
@@ -948,7 +966,8 @@ class Layer2RouteEntry : public RouteEntry {
 public:
     Layer2RouteEntry(VrfEntry *vrf, const struct ether_addr &mac,
                      const Ip4Address &vm_ip, uint32_t plen,
-                     Peer::Type type) : RouteEntry(vrf), mac_(mac){ 
+                     Peer::Type type, bool is_multicast) : 
+        RouteEntry(vrf, is_multicast), mac_(mac){ 
         if (type != Peer::BGP_PEER) {
             vm_ip_ = vm_ip;
             plen_ = plen;
@@ -956,11 +975,6 @@ public:
             //TODO Add the IP prefix sent by BGP peer to add IP route 
         }
     };
-    Layer2RouteEntry(VrfEntry *vrf, const struct ether_addr &mac):
-        RouteEntry(vrf), mac_(mac), plen_(0) { 
-            boost::system::error_code ec;
-            vm_ip_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
-        };
     virtual ~Layer2RouteEntry() { };
 
     virtual int CompareTo(const Route &rhs) const;
@@ -971,7 +985,11 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual void RouteResyncReq() const;
     virtual const string GetAddressString() const {
-        return ToString();};
+        //For multicast use the same tree as of 255.255.255.255
+        if (IsMulticast()) 
+            return "255.255.255.255";
+        return ToString();
+    };
     virtual AgentRouteTableAPIS::TableType GetTableType() const {
         return AgentRouteTableAPIS::LAYER2;};;
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
@@ -1002,11 +1020,11 @@ public:
         };
     virtual ~Layer2RouteKey() { };
 
-    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf) const;
+    virtual RouteEntry *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
         return (static_cast<AgentRouteTable *>(vrf->
-                                               GetRouteTable(AgentRouteTableAPIS::LAYER2)));
+                            GetRouteTable(AgentRouteTableAPIS::LAYER2)));
     };
     virtual AgentRouteTableAPIS::TableType GetRouteTableType() {
         return AgentRouteTableAPIS::LAYER2;
@@ -1028,7 +1046,7 @@ public:
                     const string &vrf_name, uint32_t label, 
                     bool local_ecmp_nh,
                     Op op  = RouteData::CHANGE) : 
-        RouteData(op), dest_addr_(dest_addr),
+        RouteData(op , false), dest_addr_(dest_addr),
         vn_name_(vn_name), vrf_name_(vrf_name),
         label_(label), local_ecmp_nh_(local_ecmp_nh) {
         };

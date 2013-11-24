@@ -1110,6 +1110,8 @@ void AddVn(const char *name, int id) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
     str << "    <network-id>" << id << "</network-id>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2_l3</forwarding-mode>" << endl;
     str << "</virtual-network-properties>" << endl;
 
     AddNode("virtual-network", name, id, str.str().c_str());
@@ -1361,15 +1363,13 @@ void DelVDNS(const char *vdns_name) {
     ApplyXmlString(buff);
 }
 
-void EnableEvpn() {
+void VxLanNetworkIdentifierMode(bool config) {
     std::stringstream str;
-    str << "<evpn-status>true</evpn-status>" << endl;
-    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
-}
-
-void DisableEvpn() {
-    std::stringstream str;
-    str << "<evpn-status>false</evpn-status>" << endl;
+    if (config) {
+        str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    } else {
+        str << "<vxlan-network-identifier-mode>automatic</vxlan-network-identifier-mode>" << endl;
+    }
     AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
 }
 

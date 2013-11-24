@@ -144,7 +144,7 @@ void AgentConfig::RegisterDBClients(DB *db) {
 
     cfg_listener_.get()->Register
         ("global-vrouter-config",
-         boost::bind(&TunnelType::EncapPrioritySync, _1), -1);
+         boost::bind(&Agent::GlobalVrouterConfig, Agent::GetInstance(), _1), -1);
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->GetDB(), "virtual-machine-interface")));

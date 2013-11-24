@@ -10,6 +10,7 @@ if __name__ == "__main__":
     handle= VncApi(username=sys.argv[2], password= sys.argv[3], tenant_name=sys.argv[4], api_server_host= sys.argv[5], api_server_port= '8082')
     encap_obj=EncapsulationPrioritiesType(encapsulation=['MPLSoGRE','MPLSoUDP','VXLAN'])
     conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj, evpn_status='true')
+    #conf_obj=GlobalVrouterConfig(encapsulation_priorities=encap_obj,vxlan_network_identifier_mode='automatic')
     if sys.argv[1] == "add":
         result=handle.global_vrouter_config_create(conf_obj)
         print 'Created.UUID is %s'%(result)

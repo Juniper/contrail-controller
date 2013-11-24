@@ -4,26 +4,31 @@
 #ifndef vnsw_agent_vgw_h
 #define vnsw_agent_vgw_h
 
-class VGwTable {
+// Simple Virtual Gateway operational class
+// Creates the interface, route and nexthop for virtual-gateway
+class VirtualGateway {
 public:
-    VGwTable(Agent *agent);
-    ~VGwTable() {};
+    VirtualGateway(Agent *agent);
+    ~VirtualGateway() {};
 
-    static void Init();
-    static void Shutdown();
-    static void CreateStaticObjects();
+    void Init();
+    void Shutdown();
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void CreateVrf();
     void CreateInterfaces();
     void RegisterDBClients();
-
-    static VGwTable *GetObject() {return singleton_;};
 private:
+    // Cached entries
     Agent *agent_;
+    VirtualGatewayConfig *vgw_config_;
+
+    // Listener to interface oper-db. Waits for interface creation
+    // before adding route and nexthop
     DBTableBase::ListenerId lid_;
-    uint32_t label_;
-    static VGwTable *singleton_;
-    DISALLOW_COPY_AND_ASSIGN(VGwTable);
+
+    uint32_t label_;   // Label for vgw interface
+
+    DISALLOW_COPY_AND_ASSIGN(VirtualGateway);
 };
 
 #endif //vnsw_agent_vgw_h

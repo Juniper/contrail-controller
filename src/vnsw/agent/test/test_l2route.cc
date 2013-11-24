@@ -62,8 +62,12 @@ protected:
         server1_ip_ = Ip4Address::from_string("10.1.1.11");
         local_vm_ip_ = Ip4Address::from_string("1.1.1.10");
         remote_vm_ip_ = Ip4Address::from_string("1.1.1.11");
-        local_vm_mac_ = ether_aton("00:00:01:01:01:10");
-        remote_vm_mac_ = ether_aton("00:00:01:01:01:11");
+        local_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+        remote_vm_mac_ = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+        memcpy (local_vm_mac_, ether_aton("00:00:01:01:01:10"), 
+                sizeof(struct ether_addr));
+        memcpy (remote_vm_mac_, ether_aton("00:00:01:01:01:11"), 
+                sizeof(struct ether_addr));
     }
 
     virtual void SetUp() {
@@ -137,6 +141,7 @@ protected:
 };
 TunnelType::Type RouteTest::type_;
 
+#if 0
 TEST_F(RouteTest, EvpnStatusOff) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
@@ -153,13 +158,14 @@ TEST_F(RouteTest, EvpnStatusOff) {
     EXPECT_FALSE(VmPortFind(input, 0));
     client->WaitForIdle();
 }
+#endif
 
 TEST_F(RouteTest, LocalVmRoute_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(true);
     client->WaitForIdle();
     client->Reset();
     CreateVmportEnv(input, 1);
@@ -189,13 +195,13 @@ TEST_F(RouteTest, LocalVmRoute_1) {
         client->WaitForIdle();
     }
     EXPECT_FALSE(VmPortFind(input, 0));
-    DisableEvpn();
     client->WaitForIdle();
 }
 
 TEST_F(RouteTest, RemoteVmRoute_1) {
     client->Reset();
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
     AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
     client->WaitForIdle();
 
@@ -216,12 +222,11 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), 
                 vrf_name_, remote_vm_mac_);
     client->WaitForIdle();
-    DisableEvpn();
     DelEncapList();
     client->WaitForIdle();
 }
 
-TEST_F(RouteTest, RemoteVmRoute_VxLan_1) {
+TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     struct PortInfo input[] = {
         {"vnet2", 2, "2.2.2.10", "00:00:02:02:02:10", 2, 2},
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
@@ -230,7 +235,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_1) {
     client->Reset();
     RouteTest::SetTunnelType(TunnelType::VXLAN);
     AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
@@ -269,7 +274,55 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_1) {
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
-    DisableEvpn();
+}
+
+TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
+    struct PortInfo input[] = {
+        {"vnet2", 2, "2.2.2.10", "00:00:02:02:02:10", 2, 2},
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    RouteTest::SetTunnelType(TunnelType::VXLAN);
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    VxLanNetworkIdentifierMode(true);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 2);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+
+    struct ether_addr *vxlan_vm_mac = ether_aton("00:00:01:01:01:10");
+    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
+    const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
+    EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetLabel() == 101);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
+                TunnelType::VXLAN);
+
+    vxlan_vm_mac = ether_aton("00:00:02:02:02:22");
+    TunnelType::TypeBmap bmap;
+    bmap = 1 << TunnelType::VXLAN;
+    AddRemoteVmRoute(vxlan_vm_mac, server1_ip_, 1, bmap);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, *vxlan_vm_mac));
+
+    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    const TunnelNH *tnh = ((const TunnelNH *)nh); 
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::VXLAN);
+    EXPECT_TRUE(rt->GetActivePath()->GetLabel() == 1);
+    EXPECT_TRUE(rt->GetActivePath()->GetTunnelType() == 
+                TunnelType::VXLAN);
+    EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
+
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 2, true);
+    client->WaitForIdle();
+    DelEncapList();
     client->WaitForIdle();
 }
 

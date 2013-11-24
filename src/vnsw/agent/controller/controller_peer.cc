@@ -151,6 +151,11 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
                 strtok_r(NULL, ":", &saveptr);
                 char *group = strtok_r(NULL, ",", &saveptr);
                 char *source = strtok_r(NULL, "", &saveptr);
+                if (group == NULL || source == NULL) {
+                    CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name, 
+                       "Error parsing multicast group address from retract id");
+                    return;
+                }
 
                 boost::system::error_code ec;
                 IpAddress g_addr =
@@ -435,10 +440,29 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
         switch(nh->GetType()) {
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            rt_table->AddLocalVmRoute(bgp_peer_id_, vrf_name, prefix_addr, 
-                                      prefix_len, intf_nh->GetIfUuid(),
-                                      item->entry.virtual_network, label,
-                                      item->entry.security_group_list.security_group);
+            const Interface *interface = intf_nh->GetInterface();
+            if (interface == NULL) {
+                break;
+            }
+
+            if (interface->GetType() == Interface::VMPORT) {
+                rt_table->AddLocalVmRoute(bgp_peer_id_, vrf_name, prefix_addr,
+                                          prefix_len, intf_nh->GetIfUuid(),
+                                          item->entry.virtual_network, label,
+                                          item->entry.security_group_list.security_group);
+            } else if (interface->GetType() == Interface::VHOST) {
+                rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
+                                                 prefix_addr, prefix_len,
+                                                 interface->GetName(),
+                                                 label,
+                                                 item->entry.virtual_network);
+            } else {
+                // Unsupported scenario
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "MPLS label points to invalid interface type");
+                 break;
+            }
+
             break;
             }
 
@@ -458,20 +482,6 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
             AddEcmpRoute(vrf_name, prefix_addr, prefix_len, item);
             break;
             }
-
-        case NextHop::RECEIVE: {
-            const ReceiveNH *recv_nh = static_cast<const ReceiveNH *>(nh);
-            const Interface *interface = recv_nh->GetInterface();
-            if (interface) {
-                rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
-                                                 prefix_addr, prefix_len,
-                                                 interface->GetName(),
-                                                 label,
-                                                 item->entry.virtual_network);
-            }
-            break;
-        }
-
 
         default:
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,

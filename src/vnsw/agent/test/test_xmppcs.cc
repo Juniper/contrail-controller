@@ -364,7 +364,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     client->WaitForIdle();
     xmpp_req->Release();
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
 	client->WaitForIdle();
     // Create vm-port and vn
     struct PortInfo input[] = {
@@ -399,7 +399,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() 
                 == Peer::LOCAL_VM_PEER);
 
-    n++; n++; n++;
+    n++; n++; n++; n++;
     n_s++; n_s++; n_s++;
     //expect subscribe vrf1 ,vm route at the mock server
     WAIT_FOR(100, 10000, (mock_peer.get()->Count() == n));
@@ -457,8 +457,9 @@ TEST_F(AgentXmppUnitTest, Connection) {
     VmDelReq(1);
     client->WaitForIdle();
     // Route delete   
+    n++; n_s++; 
     n++; n_s++;
-    n++; n_s++;
+    n++;
     WAIT_FOR(100, 10000, (mock_peer.get()->Count() == n));
     WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == n_s));
 

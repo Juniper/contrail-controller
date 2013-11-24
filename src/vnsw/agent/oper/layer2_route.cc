@@ -39,10 +39,10 @@ Layer2AgentRouteTable::FindRoute(const string &vrf_name,
 }
 
 RouteEntry *
-Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf) const 
+Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Layer2RouteEntry * entry = new Layer2RouteEntry(vrf, dmac_, vm_ip_, plen_, 
-                                                    GetPeer()->GetType()); 
+                                                    GetPeer()->GetType(), is_multicast); 
     return static_cast<RouteEntry *>(entry);
 }
 
@@ -59,11 +59,9 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, 32);
-    assert(vm_ip.to_string() != "0.0.0.0");
     req.key.reset(key);
 
     VmPortInterfaceKey intf_key(intf_uuid, "");
-    assert(vm_ip.to_string() != "0.0.0.0");
     SecurityGroupList sg_list;
     LocalVmRoute *data = new LocalVmRoute(intf_key, label, tunnel_bmap,
                                           false, vn_name,
@@ -87,7 +85,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
     req.key.reset(key);
 
     MulticastRoute *data = new MulticastRoute(sip, dip, vn_name, vrf_name,
-                                              Composite::L2COMP);
+                                              Composite::L2COMP); 
     req.data.reset(data);
 
     AgentRouteTableAPIS::GetInstance()->

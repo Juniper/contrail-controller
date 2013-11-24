@@ -19,11 +19,12 @@ using namespace std;
 using namespace boost::asio;
 
 RouteEntry *
-Inet4UnicastRouteKey::AllocRouteEntry(VrfEntry *vrf) const 
+Inet4UnicastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Inet4UnicastRouteEntry * entry = new Inet4UnicastRouteEntry(vrf, 
                                                                 GetAddress(),
-                                                                GetPlen()); 
+                                                                GetPlen(),
+                                                                is_multicast); 
     return static_cast<RouteEntry *>(entry);
 }
 
@@ -49,7 +50,7 @@ Inet4UnicastAgentRouteTable::FindResolveRoute(const Ip4Address &ip) {
     uint8_t plen = 32;
     Inet4UnicastRouteEntry *rt = NULL;
     do {
-        Inet4UnicastRouteEntry key(NULL, ip, plen);
+        Inet4UnicastRouteEntry key(NULL, ip, plen, false);
         rt = tree_.LPMFind(&key);
         if (rt) {
             const NextHop *nh = rt->GetActiveNextHop();
@@ -315,7 +316,8 @@ Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer,
                                                      const string &vrf_name,
                                                      const Ip4Address &src_addr,
                                                      const Ip4Address &grp_addr,
-                                                     const string &vn_name) {
+                                                     const string &vn_name)
+{
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -413,8 +415,9 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRoute(const Peer *peer,
     // Enqueue request for route pointing to Interface NH created above
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, vm_vrf, 
-                                                            vm_addr, plen);
+    Inet4UnicastRouteKey *rt_key = 
+        new Inet4UnicastRouteKey(peer, vm_vrf, 
+                                 vm_addr, plen);
     req.key.reset(rt_key);
 
     RemoteVmRoute *rt_data = 
@@ -567,9 +570,8 @@ void Inet4UnicastAgentRouteTable::AddVHostInterfaceRoute
     req.key.reset(key);
 
     VirtualHostInterfaceKey intf_key(nil_uuid(), interface);
-    ReceiveRoute *data = new ReceiveRoute(intf_key, label,
-                                          TunnelType::AllType(),
-                                          false, vn_name);
+    VirtualHostInterfaceRoute *data = new VirtualHostInterfaceRoute
+        (intf_key, label, TunnelType::AllType(), vn_name);
     req.data.reset(data);
 
     AgentRouteTableAPIS::GetInstance()->

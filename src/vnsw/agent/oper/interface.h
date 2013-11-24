@@ -13,6 +13,8 @@
 #include <oper/sg.h>
 #include <oper/agent_types.h>
 
+//#include "db/db.h"
+//#include "db/db_table_walker.h"
 using namespace boost::uuids;
 using namespace std;
 
@@ -272,15 +274,18 @@ struct VmPortInterfaceData : public InterfaceData {
         InterfaceData(), addr_(0), vm_mac_(""), cfg_name_(""), vm_uuid_(), vm_name_(), 
         vn_uuid_(), vrf_name_(""), floating_iplist_(), fabric_port_(true),
         need_linklocal_ip_(false), mirror_enable_(false), ip_addr_update_only_(false),
+        layer2_forwarding_(true), ipv4_forwarding_(true),
         analyzer_name_(""), mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
     VmPortInterfaceData(const Ip4Address addr, const string &mac, const string vm_name) :
             InterfaceData(), addr_(addr), vm_mac_(mac), cfg_name_(""),
             vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""), floating_iplist_(),
             fabric_port_(true), need_linklocal_ip_(false), mirror_enable_(false), 
-            ip_addr_update_only_(false), analyzer_name_(""), 
+            ip_addr_update_only_(false), layer2_forwarding_(true), 
+            ipv4_forwarding_(true), analyzer_name_(""), 
             mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
     VmPortInterfaceData(bool mirror_enable, const string &analyzer_name) : 
             mirror_enable_(mirror_enable), ip_addr_update_only_(false),
+            layer2_forwarding_(true), ipv4_forwarding_(true), 
             analyzer_name_(analyzer_name), mirror_direction_(Interface::UNKNOWN) { };
     virtual ~VmPortInterfaceData() { };
     void SetFabricPort(bool val) {fabric_port_ = val;};
@@ -304,6 +309,8 @@ struct VmPortInterfaceData : public InterfaceData {
     bool need_linklocal_ip_;
     bool mirror_enable_;
     bool ip_addr_update_only_;        // set to true if only IP address is changing in the data
+    bool layer2_forwarding_;
+    bool ipv4_forwarding_;
     string analyzer_name_;
     Interface::MirrorDirection mirror_direction_;
     SgUuidList sg_uuid_l_;
@@ -394,7 +401,8 @@ public:
         policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
         floating_iplist_(), service_vlan_list_(), static_route_list_(),
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false), 
-        dhcp_snoop_ip_(false), vm_name_(), vxlan_id_(0) { 
+        dhcp_snoop_ip_(false), vm_name_(), vxlan_id_(0), layer2_forwarding_(true),
+        ipv4_forwarding_(true) { 
         SetActiveState(false);
     };
     VmPortInterface(const uuid &uuid, const string &name, Ip4Address addr,
@@ -404,7 +412,8 @@ public:
         policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
         floating_iplist_(), service_vlan_list_(), static_route_list_(),
         cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false),
-        dhcp_snoop_ip_(false), vm_name_(vm_name), vxlan_id_(0) { 
+        dhcp_snoop_ip_(false), vm_name_(vm_name), vxlan_id_(0), 
+        layer2_forwarding_(true), ipv4_forwarding_(true) { 
         SetActiveState(false);
     };
     virtual ~VmPortInterface() { };
@@ -495,6 +504,8 @@ public:
     bool SgExists(const uuid &id, const SgList &sg_l);
     void SetVxLanId(int vxlan_id) {vxlan_id_ = vxlan_id;};
     int GetVxLanId() const {return vxlan_id_;};
+    bool Layer2Forwarding() const {return layer2_forwarding_;};
+    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 
     void Activate();
     void DeActivate(const string &vrf_name, const Ip4Address &ip);
@@ -517,12 +528,12 @@ public:
     static void FloatingIpPoolSync(IFMapNode *node);
     static void FloatingIpSync(IFMapNode *node);
     static void FloatingIpVrfSync(IFMapNode *node);
+    static void VnSync(IFMapNode *node);
+
     void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
                   bool policy);
-    void AddL2Route(const std::string vrf_name, 
-                    struct ether_addr mac, const Ip4Address &ip, 
-                    bool policy);
     void DeleteRoute(std::string vrf_name, Ip4Address ip, uint32_t plen);
+    void AddL2Route();
     void DeleteL2Route(const std::string vrf_name, 
                        struct ether_addr mac);
     void ServiceVlanAdd(ServiceVlan &entry);
@@ -533,9 +544,16 @@ public:
     const SgUuidList &GetSecurityGroupUuidList() const {return sg_uuid_l_;};
     void SgIdList(SecurityGroupList &sg_id_list) const;
     const string &GetVmName() const {return vm_name_;};
+    void AllocL2MPLSLabels();
+    bool layer2_forwarding() const {return layer2_forwarding_;}
+    bool ipv4_forwarding() const {return ipv4_forwarding_;}
 private:
-    inline bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm);
+    inline bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm, 
+                         bool ipv4_addr_compare);
     inline bool SetIpAddress(Ip4Address &addr);
+    void AllocMPLSLabels();
+    void ActivateServices();
+    void DeActivateServices();
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -559,8 +577,8 @@ private:
     SgUuidList sg_uuid_l_;
     string vm_name_;
     int vxlan_id_;
-    void AllocMPLSLabels();
-    void AllocL2Labels(int old_vxlan_id);
+    bool layer2_forwarding_;
+    bool ipv4_forwarding_;
     DISALLOW_COPY_AND_ASSIGN(VmPortInterface);
 };
 
@@ -747,7 +765,8 @@ public:
     // Map from intf-uuid to intf-name
     typedef std::pair<uuid, string> UuidNamePair;
 
-    InterfaceTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    InterfaceTable(DB *db, const std::string &name) : AgentDBTable(db, name),
+        walkid_(DBTableWalker::kInvalidWalkerId) { }
     virtual ~InterfaceTable() { 
     };
 
@@ -765,6 +784,9 @@ public:
     static void VmInterfaceVrfSync(IFMapNode *node);
 
     void FreeInterfaceId(size_t index) {index_table_.Remove(index);};
+    bool VmPortInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void VmPortInterfaceWalkDone(DBTableBase *partition);
+    void UpdateVxLanNetworkIdentifierMode();
     Interface *FindInterface(size_t index) {return index_table_.At(index);};
     Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
     bool FindVmUuidFromMetadataIp(const Ip4Address &ip, std::string *vm_ip,
@@ -782,6 +804,7 @@ public:
 private:
     static InterfaceTable *interface_table_;
     IndexVector<Interface> index_table_;
+    DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 

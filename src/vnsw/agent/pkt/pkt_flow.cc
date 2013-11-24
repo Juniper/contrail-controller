@@ -646,6 +646,15 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         return false;
     }
 
+    if (in->intf_->GetType() == Interface::VMPORT) {
+        const VmPortInterface *vm_intf = 
+            static_cast<const VmPortInterface *>(in->intf_);
+        if (!vm_intf->ipv4_forwarding()) {
+            LogError(pkt, "ipv4 service not enabled for ifindex");
+            return false;
+        }
+    }
+
     in->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
         LogError(pkt, "Invalid or Inactive VRF");

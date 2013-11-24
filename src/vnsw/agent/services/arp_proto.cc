@@ -217,6 +217,14 @@ bool ArpHandler::HandlePacket() {
         ARP_TRACE(Error, "Received ARP packet with invalid interface index");
         return true;
     }
+    if (itf->GetType() == Interface::VMPORT) {
+        const VmPortInterface *vm_itf = static_cast<const VmPortInterface *>(itf);
+        if (!vm_itf->ipv4_forwarding()) {
+            ARP_TRACE(Error, "Received ARP packet on ipv4 disabled interface");
+            return true;
+        }
+    }
+
     const VrfEntry *vrf = itf->GetVrf();
     if (!vrf) {
         arp_proto->StatsErrors();

@@ -12,23 +12,23 @@ using namespace std;
 
 class VxLanId : AgentRefCount<VxLanId>, public AgentDBEntry {
 public:
-    VxLanId(uint32_t label) : label_(label){ }
+    VxLanId(uint32_t vxlan_id) : AgentDBEntry(), vxlan_id_(vxlan_id){ }
     virtual ~VxLanId();
 
     bool IsLess(const DBEntry &rhs) const {
         const VxLanId &vxlan_id = static_cast<const VxLanId &>(rhs);
-        return label_ < vxlan_id.label_;
+        return vxlan_id_ < vxlan_id.vxlan_id_;
     };
     virtual string ToString() const { return "vxlan_id"; };
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
     
-    uint32_t GetLabel() const {return label_;};
+    uint32_t vxlan_id() const {return vxlan_id_;};
     const NextHop *GetNextHop() const {return nh_.get();};
 
-    static void CreateReq(uint32_t label, const std::string &vrf_name);
-    // Delete vxlan_id Label entry
-    static void DeleteReq(uint32_t label);
+    static void CreateReq(uint32_t vxlan_id, const std::string &vrf_name);
+    // Delete vxlan_id vxlan_id entry
+    static void DeleteReq(uint32_t vxlan_id);
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -39,7 +39,7 @@ public:
     void SendObjectLog(AgentLogEvent::type event) const;
 
 private:
-    uint32_t label_;
+    uint32_t vxlan_id_;
     NextHopRef nh_;
     friend class VxLanTable;
     DISALLOW_COPY_AND_ASSIGN(VxLanId);
@@ -47,18 +47,23 @@ private:
 
 class VxLanIdKey : public AgentKey {
 public:
-    VxLanIdKey(uint32_t label) :
-        AgentKey(), label_(label) { };
+    VxLanIdKey(uint32_t vxlan_id) :
+        AgentKey(), vxlan_id_(vxlan_id) { };
     virtual ~VxLanIdKey() { };
+    uint32_t vxlan_id() const {return vxlan_id_;}
 
-    uint32_t label_;
+private:
+    uint32_t vxlan_id_;
 };
 
 class VxLanIdData : public AgentData {
 public:
-    VxLanIdData(const string &vrf_name) {vrf_name_ = vrf_name;};
+    VxLanIdData(const string &vrf_name) :
+        vrf_name_(vrf_name) { }; 
     virtual ~VxLanIdData() { };
+    string &vrf_name() {return vrf_name_;}
 
+private:
     string vrf_name_;
 };
 
@@ -67,7 +72,7 @@ public:
 /////////////////////////////////////////////////////////////////////////////
 class VxLanTable : public AgentDBTable {
 public:
-    static const uint32_t kInvalidLabel = 0;
+    static const uint32_t kInvalidvxlan_id = 0;
     VxLanTable(DB *db, const std::string &name) : AgentDBTable(db, name) { };
     virtual ~VxLanTable() { };
 
@@ -78,8 +83,11 @@ public:
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual void OnZeroRefcount(AgentDBEntry *e);
 
-    // Allocate and Free label from the label_table
+    void Create(DBRequest &req);
+
+    // Allocate and Free vxlan_id from the vxlan_id_table
     static DBTableBase *CreateTable(DB *db, const std::string &name);
 
 private:

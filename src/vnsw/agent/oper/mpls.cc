@@ -117,14 +117,15 @@ void MplsLabel::CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
 
 void MplsLabel::CreateVirtualHostPortLabelReq(uint32_t label,
                                               const string &ifname,
-                                              bool policy) {
+                                              bool policy, 
+                                              InterfaceNHFlags::Type type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(ifname, policy);
+    MplsLabelData *data = new MplsLabelData(ifname, policy, type);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Enqueue(&req);
