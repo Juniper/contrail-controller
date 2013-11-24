@@ -14,6 +14,7 @@
 #include <cmn/index_vector.h>
 #include <ksync/ksync_index.h>
 #include <oper/peer.h>
+//#include <oper/vxlan.h>
 #include <oper/agent_types.h>
 
 using namespace std;
@@ -36,8 +37,6 @@ struct VrfKey : public AgentKey {
 struct VrfData : public AgentData {
     VrfData() : AgentData() { };
     virtual ~VrfData() { }
-
-    int vxlan_id_;
 };
 
 class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
@@ -51,11 +50,9 @@ public:
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    void SetVxLanId(int id) {vxlan_id_ = id;};
     virtual string ToString() const;
 
     const uint32_t GetVrfId() const {return id_;};
-    const uint32_t GetVxLanId() const {return vxlan_id_;};
     const string &GetName() const {return name_;};
 
     AgentDBTable *DBToTable() const;
@@ -100,7 +97,6 @@ private:
                             Peer *peer);
     string name_;
     uint32_t id_;
-    int vxlan_id_;
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
     boost::scoped_ptr<VrfNHMap> nh_map_;

@@ -34,7 +34,7 @@ public:
     ~RouteExport();
 
     void Notify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
-                AgentRouteTableAPIS::TableType type,
+                AgentRouteTableAPIS::TableType type, 
                 DBTablePartBase *partition, DBEntryBase *e);
     void ManagedDelete();
     DBTableBase::ListenerId GetListenerId() const {return id_;};
@@ -49,7 +49,7 @@ private:
     AgentRouteTable *rt_table_;
     bool marked_delete_;
     uint32_t state_added_;
-    void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
+    void MulticastNotify(AgentXmppChannel *bgp_xmpp_peer, bool associate, 
                 DBTablePartBase *partition, DBEntryBase *e);
     void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
                 DBTablePartBase *partition, DBEntryBase *e,

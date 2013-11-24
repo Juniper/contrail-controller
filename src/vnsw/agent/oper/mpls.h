@@ -42,7 +42,8 @@ public:
                                     bool policy, InterfaceNHFlags::Type type);
     static void CreateVirtualHostPortLabelReq(uint32_t label,
                                               const string &ifname,
-                                              bool policy);
+                                              bool policy,
+                                              InterfaceNHFlags::Type type);
     static void CreateMcastLabelReq(const string &vrf_name, 
                                     const Ip4Address &grp_addr,
                                     const Ip4Address &src_addr, 
@@ -87,10 +88,12 @@ public:
 
 class MplsLabelData : public AgentData {
 public:
-    MplsLabelData(const string &intf_name, bool policy) :
+    MplsLabelData(const string &intf_name, bool policy,
+                  InterfaceNHFlags::Type type) : 
         AgentData(), 
-        nh_key(new ReceiveNHKey
-               (new VirtualHostInterfaceKey(nil_uuid(), intf_name), policy)) {
+        nh_key(new InterfaceNHKey
+               (new VirtualHostInterfaceKey(nil_uuid(), intf_name), policy,
+               type)) {
     }
 
     MplsLabelData(const uuid &intf_uuid, bool policy, 

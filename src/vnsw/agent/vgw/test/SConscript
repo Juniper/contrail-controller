@@ -1,0 +1,31 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+import re
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+env.Prepend(LIBS=['gunit'])
+cflags = env['CCFLAGS']
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+import sys
+if sys.platform != 'darwin':
+    env.Append(LIBPATH=['../../test'])
+    env.Prepend(LIBS=['agent_test']);
+
+    test_vgw = env.Program(target = 'test_vgw', source = ['test_vgw.cc'])
+    env.Alias('src/vnsw/agent/vgw/test:test_vgw', test_vgw)
+
+    vgw_suite = [test_vgw]
+
+test = env.TestSuite('agent-test', vgw_suite)
+env.Alias('src/vnsw/agent:test', test)
+Return('vgw_suite')
+

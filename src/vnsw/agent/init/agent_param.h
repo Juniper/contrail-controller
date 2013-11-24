@@ -6,6 +6,8 @@
 #define vnsw_agent_param_hpp
 
 #include <boost/program_options.hpp>
+class VirtualGatewayConfig;
+
 // Class handling agent configuration parameters from config file and 
 // arguments
 class AgentParam  {
@@ -77,6 +79,7 @@ public:
     int flow_stats_interval() const { return flow_stats_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
+    VirtualGatewayConfig *vgw_config() const { return vgw_config_.get(); }
 
     Mode mode() const { return mode_; }
     bool isXenMode() const { return mode_ == MODE_XEN; }
@@ -121,6 +124,8 @@ private:
     std::string host_name_;
     int agent_stats_interval_;
     int flow_stats_interval_;
+
+    std::auto_ptr<VirtualGatewayConfig> vgw_config_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

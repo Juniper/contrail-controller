@@ -11,6 +11,7 @@
 #include <oper/agent_types.h>
 #include <filter/acl.h>
 #include <oper/vrf.h>
+#include <oper/vxlan.h>
 
 using namespace boost::uuids;
 using namespace std;
@@ -75,10 +76,13 @@ struct VnKey : public AgentKey {
 struct VnData : public AgentData {
     VnData(const string &name, const uuid &acl_id, const string &vrf_name,
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
-           const std::vector<VnIpam> &ipam, int vxlan_id) :
+           const std::vector<VnIpam> &ipam, int vxlan_id, int vnid,
+           bool layer2_forwarding, bool ipv4_forwarding) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
-                ipam_(ipam), vxlan_id_(vxlan_id) {
+                ipam_(ipam), vxlan_id_(vxlan_id), vnid_(vnid), 
+                layer2_forwarding_(layer2_forwarding), 
+                ipv4_forwarding_(ipv4_forwarding) {  
     };
     virtual ~VnData() { };
 
@@ -89,11 +93,15 @@ struct VnData : public AgentData {
     uuid mirror_cfg_acl_id_;
     std::vector<VnIpam> ipam_;
     int vxlan_id_;
+    int vnid_;
+    bool layer2_forwarding_;
+    bool ipv4_forwarding_;
 };
 
 class VnEntry : AgentRefCount<VnEntry>, public AgentDBEntry {
 public:
-    VnEntry(uuid id) : uuid_(id), vxlan_id_(0) { };
+    VnEntry(uuid id) : uuid_(id), vxlan_id_(0), vnid_(0), layer2_forwarding_(true), 
+    ipv4_forwarding_(true) { };
     virtual ~VnEntry() { };
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -118,7 +126,9 @@ public:
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
                          autogen::IpamType &ipam_type,
                          autogen::VirtualDnsType &vdns_type) const;
-    int GetVxLanId() {return vxlan_id_;};
+    int GetVxLanId() const;
+    bool Layer2Forwarding() const {return layer2_forwarding_;};
+    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -137,12 +147,17 @@ private:
     VrfEntryRef vrf_;
     std::vector<VnIpam> ipam_;
     int vxlan_id_;
+    int vnid_;
+    bool layer2_forwarding_;
+    bool ipv4_forwarding_;
+    VxLanIdRef vxlan_id_ref_;
     DISALLOW_COPY_AND_ASSIGN(VnEntry);
 };
 
 class VnTable : public AgentDBTable {
 public:
-    VnTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    VnTable(DB *db, const std::string &name) : AgentDBTable(db, name),
+        walkid_(DBTableWalker::kInvalidWalkerId) { }
     virtual ~VnTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
@@ -162,6 +177,9 @@ public:
                const string &vrf_name, const std::vector<VnIpam> &ipam,
                int vxlan_id);
     void DelVn(const uuid &vn_uuid);
+    void UpdateVxLanNetworkIdentifierMode();
+    bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void VnEntryWalkDone(DBTableBase *partition);
 
     static void IpamVnSync(IFMapNode *node);
 
@@ -179,6 +197,7 @@ private:
     bool ChangeHandler(DBEntry *entry, const DBRequest *req);
     IFMapNode *FindTarget(IFMapAgentTable *table, IFMapNode *node, 
                           std::string node_type);
+    DBTableWalker::WalkId walkid_;
 
     DISALLOW_COPY_AND_ASSIGN(VnTable);
 };

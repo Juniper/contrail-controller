@@ -469,9 +469,16 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('encapsulation-priorities', 'global-vrouter-config') -->
 
-<xsd:element name="evpn-status" type="xsd:string"/>
+<xsd:simpleType name="VxlanNetworkIdentifierModeType">
+    <xsd:restriction base='xsd:string'>
+        <xsd:enumeration value='configured'/>
+        <xsd:enumeration value='automatic'/>
+    </xsd:restriction>
+</xsd:simpleType>
+<xsd:element name="vxlan-network-identifier-mode" 
+                                 type="VxlanNetworkIdentifierModeType"/>
 <!--#IFMAP-SEMANTICS-IDL 
-     Property('evpn-status', 'global-vrouter-config') -->
+     Property('vxlan-network-identifier-mode', 'global-vrouter-config') -->
 
 <xsd:element name="domain"        type="ifmap:IdentityType"/>
 <xsd:element name="config-root-domain"/>
@@ -531,6 +538,13 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      </xsd:restriction>
 </xsd:simpleType> 
 
+<xsd:simpleType name="ForwardingModeType">
+     <xsd:restriction base='xsd:string'>
+         <xsd:enumeration value='l2_l3'/>
+         <xsd:enumeration value='l2'/>
+     </xsd:restriction>
+</xsd:simpleType>
+
 <xsd:complexType name='VirtualNetworkType'>
     <xsd:all>
         <!-- This indicates whether this virtual-network will be extended to
@@ -541,6 +555,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <!-- VNI for the network, configured by user -->
         <xsd:element name='vxlan-network-identifier'
                      type='VxlanNetworkIdentifierType'/>
+        <!-- Forwarding mode for virtual-network  -->
+        <xsd:element name='forwarding-mode' type='ForwardingModeType'/>
     </xsd:all>
 </xsd:complexType>
 

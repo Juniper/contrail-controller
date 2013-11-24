@@ -558,17 +558,19 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
 }
 
 FlowEntry *FlowTable::Allocate(const FlowKey &key) {
-    FlowEntry *flow = Find(key);
-    if (flow == NULL) {
-        flow = new FlowEntry(key);
+    FlowEntry *flow = new FlowEntry(key);
+    std::pair<FlowEntryMap::iterator, bool> ret;
+    ret = flow_entry_map_.insert(std::pair<FlowKey, FlowEntry*>(key, flow));
+    if (ret.second == false) {
+        delete flow;
+        flow = ret.first->second;
+        DeleteFlowInfo(flow);
+    } else {
         flow->flow_uuid = FlowTable::rand_gen_();
         flow->egress_uuid = FlowTable::rand_gen_();
         flow->setup_time = UTCTimestampUsec();
-        flow_entry_map_.insert(std::pair<FlowKey, FlowEntry*>(key, flow));
         AgentStats::GetInstance()->IncrFlowActive();
         AgentStats::GetInstance()->IncrFlowCreated();
-    } else {
-        DeleteFlowInfo(flow);
     }
 
     return flow;

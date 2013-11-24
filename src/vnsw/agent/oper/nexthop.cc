@@ -18,7 +18,6 @@
 #include <oper/agent_sandesh.h>
 
 using namespace std;
-using namespace autogen;
 
 NextHopTable *NextHopTable::nexthop_table_;
 
@@ -40,34 +39,17 @@ TunnelType::Type TunnelType::ComputeType(TunnelType::TypeBmap bmap) {
 }
 
 // Confg triggers for change in encapsulation priority
-void TunnelType::EncapPrioritySync(IFMapNode *node) {
+void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
     PriorityList l;
 
-    if (node->IsDeleted() == false) {
-        GlobalVrouterConfig *cfg = 
-            static_cast<GlobalVrouterConfig *>(node->GetObject());
-        const std::vector<std::string> &cfg_list = 
-            cfg->encapsulation_priorities();
-        AgentRouteTableAPIS::GetInstance()->SetLayer2Status(cfg->evpn_status());
-        for (std::vector<std::string>::const_iterator it = cfg_list.begin();
-             it != cfg_list.end(); it++) {
-            if (*it == "MPLSoGRE")
-                l.push_back(MPLS_GRE);
-            if (*it == "MPLSoUDP")
-                l.push_back(MPLS_UDP);
-            if (*it == "VXLAN")
-                l.push_back(VXLAN);
-        }
-        const std::vector<LinklocalServiceEntryType> &linklocal_list = 
-            cfg->linklocal_services();
-        for (std::vector<LinklocalServiceEntryType>::const_iterator it =
-             linklocal_list.begin(); it != linklocal_list.end(); it++) {
-            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
-                Agent::GetInstance()->SetIpFabricMetadataServerAddress(
-                                      *(it->ip_fabric_service_ip.begin()));
-                Agent::GetInstance()->SetIpFabricMetadataServerPort(
-                                      it->ip_fabric_service_port);
-        }
+    for (std::vector<std::string>::const_iterator it = cfg_list.begin();
+         it != cfg_list.end(); it++) {
+        if (*it == "MPLSoGRE")
+            l.push_back(MPLS_GRE);
+        if (*it == "MPLSoUDP")
+            l.push_back(MPLS_UDP);
+        if (*it == "VXLAN")
+            l.push_back(VXLAN);
     }
 
     priority_list_ = l;
@@ -559,6 +541,36 @@ void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
     EnqueueDelReq(intf_uuid, true, InterfaceNHFlags::INET4);
     EnqueueDelReq(intf_uuid, false, InterfaceNHFlags::MULTICAST | 
                   InterfaceNHFlags::INET4);
+}
+
+void InterfaceNH::CreateVirtualHostPortReq(const string &ifname) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    NextHopKey *key = new InterfaceNHKey(new VirtualHostInterfaceKey(nil_uuid(),
+                                                                     ifname),
+                                         false, InterfaceNHFlags::INET4);
+    req.key.reset(key);
+
+    struct ether_addr mac;
+    memset(&mac, 0, sizeof(mac));
+    mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
+    InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
+    req.data.reset(data);
+    NextHopTable::GetInstance()->Enqueue(&req);
+}
+
+void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    NextHopKey *key = new InterfaceNHKey
+        (new VirtualHostInterfaceKey(nil_uuid(), ifname), false,
+         InterfaceNHFlags::INET4);
+    req.key.reset(key);
+
+    req.data.reset(NULL);
+    NextHopTable::GetInstance()->Enqueue(&req);
 }
 
 void InterfaceNH::CreateHostPortReq(const string &ifname) {
@@ -1524,7 +1536,7 @@ static void FillComponentNextHop(const CompositeNH *comp_nh,
     for (CompositeNH::ComponentNHList::const_iterator it =
          comp_nh->begin(); it != comp_nh->end(); it++) {
         ComponentNH *component_nh = *it;
-        if (component_nh == NULL) {
+        if ((component_nh == NULL) || (component_nh->GetNH() == NULL)) {
             continue;
         }
         McastData sdata;

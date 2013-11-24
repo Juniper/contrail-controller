@@ -440,7 +440,7 @@ protected:
 	
 	client->Reset();
 
-    EnableEvpn();
+    VxLanNetworkIdentifierMode(false);
 	client->WaitForIdle();
 
     CreateVmportEnv(input, 2, 0);
@@ -450,10 +450,11 @@ protected:
     AddIPAM("vn1", ipam_info, 1);
 	client->WaitForIdle(5);
 
-	// expect subscribe message + 2 VM routes+ subnet bcast +
+	// expect subscribe message + 2 VM v4 routes + 2 VM l2 routes + subnet bcast +
 	// bcast route at the mock server
 	WAIT_FOR(1000, 10000, (mock_peer_s.get()->Count() == 9));
-	// expect subscribe message + 2 VM routes at the mock server
+	// expect subscribe message + 2 VM v4 routes at the mock server +
+	// 2 VM l2 routes + subnet + bcast
 	WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 6));
 
 	Ip4Address addr = Ip4Address::from_string("1.1.1.1");
@@ -622,7 +623,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 9));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 11));
 
     //we could add olists from mock_peer due to
     //local-vms on another agent attached to mock_peer
@@ -639,12 +640,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect dissociate to the older peer, 127.0.0.2
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 11));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 13));
 
     //expect subscribe, 2VM routes, 
     //subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 17));
+    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 19));
 
     //bring-down non multicast builder
     bgp_peer.get()->AgentBgpXmppPeerTest::HandleXmppChannelEvent(xmps::NOT_READY);
@@ -658,7 +659,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect no messages except config subscribe
     //control-node as 127.0.0.2 came up first
-    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 17));
+    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 22));
 
 
     //bring-up non multicast builder
@@ -672,7 +673,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect subscribe + 2VM routes
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 17));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 21));
 
     //cleanup all config links via config
     XmppSubnetTearDown();

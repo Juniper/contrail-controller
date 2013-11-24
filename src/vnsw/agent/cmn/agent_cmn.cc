@@ -8,7 +8,9 @@
 #include <base/lifetime.h>
 #include <base/misc_utils.h>
 #include <io/event_manager.h>
+#include <ifmap/ifmap_link.h>
 
+#include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/buildinfo.h>
 
@@ -296,7 +298,7 @@ void Agent::CreateModules() {
     }
 
     if (init_->vgw_enable()) {
-        vgw_table_ = std::auto_ptr<VGwTable>(new VGwTable(this));
+        vgw_ = std::auto_ptr<VirtualGateway>(new VirtualGateway(this));
     }
 }
 
@@ -314,8 +316,8 @@ void Agent::CreateDBClients() {
         ksync_.get()->RegisterDBClientsTest(db_);
     }
 
-    if (vgw_table_.get()) {
-        vgw_table_.get()->RegisterDBClients();
+    if (vgw_.get()) {
+        vgw_.get()->RegisterDBClients();
     }
 
 }
@@ -351,8 +353,8 @@ void Agent::CreateVrf() {
     init_->CreateDefaultVrf();
 
     // Create VRF for VGw
-    if (vgw_table_.get()) {
-        vgw_table_.get()->CreateVrf();
+    if (vgw_.get()) {
+        vgw_.get()->CreateVrf();
     }
 }
 
@@ -362,12 +364,42 @@ void Agent::CreateInterfaces() {
     }
 
     // Create VRF for VGw
-    if (vgw_table_.get()) {
-        vgw_table_.get()->CreateInterfaces();
+    if (vgw_.get()) {
+        vgw_.get()->CreateInterfaces();
     }
 
     init_->CreateInterfaces(db_);
     cfg_.get()->CreateInterfaces();
+}
+
+void Agent::GlobalVrouterConfig(IFMapNode *node) {
+    if (node->IsDeleted() == false) {
+        autogen::GlobalVrouterConfig *cfg = 
+            static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
+        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
+        VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode;
+        if (cfg->vxlan_network_identifier_mode() == "configured") {
+            cfg_vxlan_network_identifier_mode = 
+                Agent::CONFIGURED;
+        } else {
+            cfg_vxlan_network_identifier_mode =
+                Agent::AUTOMATIC; 
+        }
+        if (cfg_vxlan_network_identifier_mode != 
+            vxlan_network_identifier_mode_) {
+            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
+            GetVnTable()->UpdateVxLanNetworkIdentifierMode();
+            GetInterfaceTable()->UpdateVxLanNetworkIdentifierMode();
+        }
+        const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 
+            cfg->linklocal_services();
+        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it =
+             linklocal_list.begin(); it != linklocal_list.end(); it++) {
+            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
+                SetIpFabricMetadataServerAddress(*(it->ip_fabric_service_ip.begin()));
+                SetIpFabricMetadataServerPort(it->ip_fabric_service_port);
+        }
+    }
 }
 
 void Agent::InitDone() {
@@ -455,3 +487,4 @@ Agent::~Agent() {
     delete db_;
     db_ = NULL;
 }
+

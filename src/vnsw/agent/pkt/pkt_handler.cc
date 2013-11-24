@@ -44,12 +44,53 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
     assert(tap_ != NULL);
     Agent::GetInstance()->GetVrfTable()->Register(
             boost::bind(&PktHandler::VrfUpdate, this, _1, _2));
+    Agent::GetInstance()->GetVnTable()->Register(
+            boost::bind(&PktHandler::VnUpdate, this, _1, _2));
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
     HostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                              if_name);
     InterfaceNH::CreateHostPortReq(if_name);
+}
+
+//Take action for forwarding mode change in VN
+void PktHandler::VnUpdate(DBTablePartBase *part, DBEntryBase *entry) {
+    VnEntry *vn_entry = static_cast<VnEntry *>(entry);
+
+    if (entry->IsDeleted()) {
+        return;
+    }
+
+    VrfEntry *vrf_entry = vn_entry->GetVrf();
+    if (!vrf_entry) {
+        return;
+    }
+
+    // Do not create the routes for the default VRF
+    if (Agent::GetInstance()->GetDefaultVrf() == vrf_entry->GetName())
+        return;
+
+    if (Agent::GetInstance()->isXenMode()) {
+        return;
+    }
+
+    Inet4UnicastAgentRouteTable *rt_table = 
+        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+
+    if (vn_entry->Ipv4Forwarding()) {
+        rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
+                                    vrf_entry->GetName(),
+                                    Agent::GetInstance()->GetVirtualHostInterfaceName(),
+                                    Ip4Address(METADATA_IP_ADDR), 32,
+                                    Agent::GetInstance()->GetLinkLocalVnName(),
+                                    true);
+    } else {
+        rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), 
+                            vrf_entry->GetName(),
+                            Ip4Address(METADATA_IP_ADDR), 32);
+    }
 }
 
 void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
@@ -69,6 +110,8 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         if (entry->IsDeleted()) {
             rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), vrf_entry->GetName(),
                                 Ip4Address(METADATA_IP_ADDR), 32);
+        }
+#if 0
         } else {
             rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
                                         vrf_entry->GetName(),
@@ -77,6 +120,7 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
                                         Agent::GetInstance()->GetLinkLocalVnName(),
                                         true);
         }
+#endif
     }
 }
 
@@ -124,6 +168,19 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         AgentStats::GetInstance()->IncrPktInvalidInterface();
         goto enqueue;
     }
+
+    if (intf->GetType() == Interface::VMPORT) {
+        VmPortInterface *vm_itf = static_cast<VmPortInterface *>(intf);
+        if (!vm_itf->ipv4_forwarding()) {
+            std::stringstream str;
+            str << pkt_info->GetAgentHdr().ifindex;
+            PKT_TRACE(Err, 
+                 "ipv4 not enabled for interface index <" + str.str() + ">");
+            AgentStats::GetInstance()->IncrPktDropped();
+            goto drop;
+        }
+    }
+
     ParseUserPkt(pkt_info, intf, pkt_type, pkt);
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
 

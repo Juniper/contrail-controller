@@ -7,23 +7,19 @@
 #include <net/address.h>
 
 // Simple Virtual Gateway config class
-class VGwConfig {
+// Supports virtual-gateway for single virtual-network for now.
+class VirtualGatewayConfig {
 public:
-    VGwConfig(const std::string vrf, const std::string interface,
-              const Ip4Address &addr, uint8_t plen) :
-        vrf_(vrf), interface_(interface), ip_(addr), plen_(plen) {};
-    ~VGwConfig() {};
+    VirtualGatewayConfig() : vrf_(""), interface_(""), ip_(0), plen_(0) { }
+    ~VirtualGatewayConfig() {};
 
-    const std::string &GetVrf() const {return vrf_;};
-    const std::string &GetInterface() const {return interface_;};
-    const Ip4Address &GetAddr() const {return ip_;};
-    uint8_t GetPlen() const {return plen_;};
+    const std::string &vrf() const {return vrf_;};
+    const std::string &interface() const {return interface_;};
+    const Ip4Address &ip() const {return ip_;};
+    uint8_t plen() const {return plen_;};
 
-    static void Init(const char *init_file);
-    static void Shutdown();
-    static bool Add(const std::string &vrf, const std::string &interface,
-                    const Ip4Address &addr, uint8_t plen);
-    static VGwConfig *GetInstance() {return singleton_;};
+    void Init(const char *init_file);
+    void Shutdown();
 private:
     // Public network name
     std::string vrf_;
@@ -34,9 +30,7 @@ private:
     // Prefix-Len
     uint8_t plen_;
 
-    static VGwConfig *singleton_;
-
     void OnIntfCreate(DBEntryBase *entry);
-    DISALLOW_COPY_AND_ASSIGN(VGwConfig);
+    DISALLOW_COPY_AND_ASSIGN(VirtualGatewayConfig);
 };
 #endif //vnsw_agent_vgw_cfg_h

@@ -435,7 +435,7 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromConfig();
     InitFromArguments(var_map);
     Validate();
-    VGwConfig::Init(config_file.c_str());
+    vgw_config_->Init(config_file.c_str());
     LogConfig();
 }
 
@@ -473,4 +473,6 @@ AgentParam::AgentParam() :
         host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval) {
+    vgw_config_ = std::auto_ptr<VirtualGatewayConfig>
+        (new VirtualGatewayConfig());
 }

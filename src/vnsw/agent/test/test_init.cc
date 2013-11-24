@@ -4,6 +4,8 @@
 
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
+#include "vgw/cfg_vgw.h"
+#include "vgw/vgw.h"
 
 static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
@@ -49,7 +51,6 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    bool log_locally = false;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
@@ -108,7 +109,6 @@ TestClient *StatsTestInit() {
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    bool log_locally = false;
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
@@ -118,7 +118,7 @@ TestClient *StatsTestInit() {
     init->set_packet_enable(true);
     init->set_services_enable(true);
     init->set_create_vhost(false);
-    init->set_uve_enable(true);
+    init->set_uve_enable(false);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
 
@@ -133,6 +133,58 @@ TestClient *StatsTestInit() {
                                     "vhost0",
                                     Agent::GetInstance()->GetDefaultVrf(),
                                    VirtualHostInterface::HOST);
+    boost::system::error_code ec;
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
+
+    // Wait for host and vhost interface creation
+    client->WaitForIdle();
+
+    return client;
+}
+
+TestClient *VGwInit(const string &init_file, bool ksync_init) {
+    TestClient *client = new TestClient();
+    agent_init = new AgentTestInit(client);
+    Agent *agent = agent_init->agent();
+    AgentParam *param = agent_init->param();
+    AgentInit *init = agent_init->init();
+
+    // Read agent parameters from config file and arguments
+    opt::variables_map var_map;
+    param->Init(init_file, "test", var_map);
+
+    // Initialize the agent-init control class
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+                               Agent::GetInstance()->GetEventManager(),
+                               0, NULL);
+
+    init->Init(param, agent, var_map);
+    init->set_ksync_enable(ksync_init);
+    init->set_packet_enable(true);
+    init->set_services_enable(true);
+    init->set_create_vhost(false);
+    init->set_uve_enable(true);
+    init->set_vgw_enable(true);
+    init->set_router_id_dep_enable(false);
+
+    // Initialize agent and kick start initialization
+    agent->Init(param, init);
+
+    while (init->state() != AgentInit::INIT_DONE) {
+        usleep(1000);
+    }
+
+    client->Init();
+    client->WaitForIdle();
+
+    AsioRun();
+
+    usleep(100);
+    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
+    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                    "vhost0",
+                                    Agent::GetInstance()->GetDefaultVrf(),
+                                    VirtualHostInterface::HOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -191,6 +243,9 @@ void TestShutdown() {
     VNController::DisConnect();
     client->WaitForIdle();
 
+    if (Agent::GetInstance()->vgw()) {
+        Agent::GetInstance()->vgw()->Shutdown();
+    }
     Agent::GetInstance()->init()->DeleteStaticEntries();
     client->WaitForIdle();
 

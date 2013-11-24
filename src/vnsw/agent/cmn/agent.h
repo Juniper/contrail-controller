@@ -12,7 +12,7 @@ class AgentStats;
 class KSync;
 class AgentUve;
 class PktModule;
-class VGwTable;
+class VirtualGateway;
 class ServicesModule;
 class MulticastHandler;
 class DiscoveryAgentClient;
@@ -77,6 +77,7 @@ class MirrorTable;
 class VrfAssignTable;
 class DomainConfig;
 class VxLanTable;
+class MulticastGroupObject;
 
 class MirrorCfgTable;
 class IntfMirrorCfgTable;
@@ -113,6 +114,10 @@ extern void RouterIdDepInit();
 
 class Agent {
 public:
+    enum VxLanNetworkIdentifierMode {
+        AUTOMATIC,
+        CONFIGURED
+    };
     Agent();
     virtual ~Agent();
     const std::string &GetHostName();
@@ -299,7 +304,9 @@ public:
     const Peer *GetLocalPeer() {return local_peer_;};
     const Peer *GetLocalVmPeer() {return local_vm_peer_;};
     const Peer *GetMdataPeer() {return mdata_vm_peer_;};
-
+    VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
+        return vxlan_network_identifier_mode_;
+    }
     void SetInterfaceTable(InterfaceTable *table) {
          intf_table_ = table;
     };
@@ -473,11 +480,16 @@ public:
         event_mgr_ = evm;
     }
 
+    void set_vxlan_network_identifier_mode(VxLanNetworkIdentifierMode mode) {
+        vxlan_network_identifier_mode_ = mode;
+    }
+
     std::string GetUuidStr(boost::uuids::uuid uuid_val) {
         std::ostringstream str;
         str << uuid_val;
         return str.str();
     }
+    void GlobalVrouterConfig(IFMapNode *node);
 
     bool IsTestMode() {
         return test_mode_;
@@ -517,7 +529,7 @@ public:
     PktModule *pkt() const { return pkt_.get(); }
     ServicesModule *services() const { return services_.get(); }
     DiscoveryAgentClient *discovery_client() const;
-    VGwTable *vgw() const {return vgw_table_.get(); }
+    VirtualGateway *vgw() const {return vgw_.get(); }
     OperDB *oper_db() const {return oper_db_.get(); }
 
 private:
@@ -531,7 +543,7 @@ private:
     std::auto_ptr<AgentUve> uve_;
     std::auto_ptr<PktModule> pkt_;
     std::auto_ptr<ServicesModule> services_;
-    std::auto_ptr<VGwTable> vgw_table_;
+    std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
 
     EventManager *event_mgr_;
@@ -618,6 +630,7 @@ private:
     bool test_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
+    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_; 
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;

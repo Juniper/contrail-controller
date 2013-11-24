@@ -49,7 +49,7 @@ public:
                          bool multi_proto_support) :
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         vn_name_(vn_name), multi_proto_support_(multi_proto_support),
-        layer2_route_added_(false) {
+        layer2_forwarding_(true), ipv4_forwarding_(true) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -62,12 +62,18 @@ public:
                          bool multi_proto_support) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         src_address_(src_addr), multi_proto_support_(multi_proto_support),
-        layer2_route_added_(false) {
+        layer2_forwarding_(true), ipv4_forwarding_(true) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;
     };     
     virtual ~MulticastGroupObject() { };
+
+    //void IncrRefCount() {refcount_++;}; 
+    //void DecrRefCount() {refcount_--;}; 
+    //uint32_t GetRefCount() const {
+    //    return refcount_; 
+    //}
 
     void SetSourceMPLSLabel(uint32_t label); 
     uint32_t GetSourceMPLSLabel() const { return src_mpls_label_; };
@@ -117,9 +123,12 @@ public:
     bool IsMultiProtoSupported() const {
         return multi_proto_support_; 
     };
-    bool Layer2RouteAdded() {return layer2_route_added_;};
-    void SetLayer2RouteAdded() {layer2_route_added_ = true;};
-    void ResetLayer2RouteAdded() {layer2_route_added_ = false;};
+    bool Layer2Forwarding() const {return layer2_forwarding_;};
+    void SetLayer2Forwarding(bool enable) {layer2_forwarding_ = enable;};
+    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
+    void SetIpv4Forwarding(bool enable) {ipv4_forwarding_ = enable;};
+    bool CanUnsubscribe() const {return (deleted_ || !multi_proto_support_ || 
+                                  (!layer2_forwarding_ && !ipv4_forwarding_));}
 
 private:
     std::string vrf_name_;
@@ -131,7 +140,10 @@ private:
     TunnelOlist tunnel_olist_;
     bool deleted_;
     bool multi_proto_support_;
-    bool layer2_route_added_;
+    bool layer2_forwarding_;
+    bool ipv4_forwarding_;
+    //uint8_t refcount_;
+
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
 };
@@ -151,7 +163,7 @@ public:
     /* Ctrl node went down, flush all source label and tunnel sent by it */
     static void HandlePeerDown();
     //Registered for VN notification
-    static void ModifyVNIpam(DBTablePartBase *partition, DBEntryBase *e);
+    static void ModifyVN(DBTablePartBase *partition, DBEntryBase *e);
     //Registered for VM notification
     static void ModifyVmInterface(DBTablePartBase *partition, DBEntryBase *e); 
     //Register VM and VN notification
@@ -162,10 +174,14 @@ public:
         return obj_; 
     };
     void AddChangeMultiProtocolCompositeNH(MulticastGroupObject *);
+    void TriggerCompositeNHChange(MulticastGroupObject *);
     void TriggerL2CompositeNHChange(MulticastGroupObject *);
+    void TriggerL3CompositeNHChange(MulticastGroupObject *);
+    void HandleFamilyConfig(const VnEntry *vn);
     //For test routines to clear all routes and mpls label
     static void Shutdown();
     //Multicast obj list addition deletion
+    MulticastGroupObject *FindFloodGroupObject(const std::string &vrf_name);
     MulticastGroupObject *FindGroupObject(const std::string &vrf_name,
                                           const Ip4Address &dip);
 private:
@@ -181,14 +197,15 @@ private:
 
     //Notification to propagate subnh in compnh list change
     void AddChangeFabricCompositeNH(MulticastGroupObject *);
-    void TriggerCompositeNHChange(MulticastGroupObject *);
     //Delete teh route and mpls label for the object
     void DeleteRouteandMPLS(MulticastGroupObject *);
 
     //VM intf add-delete
     void DeleteVmInterface(const Interface *intf);
-    void AddVmInterface(const std::string &vrf_name, const Ip4Address &addr, 
-                        const uuid &itf_uuid, const string &vn_name);
+    void AddVmInterfaceInFloodGroup(const std::string &vrf_name, const uuid &itf_uuid, 
+                                    const VnEntry *vn);
+    void AddVmInterfaceInSubnet(const std::string &vrf_name, const Ip4Address &addr, 
+                                const uuid &itf_uuid, const string &vn_name);
 
     //Unresolved VM list, waiting on ipam for subnet broadcast
     void VisitUnresolvedVMList(const VnEntry *vn);
@@ -235,11 +252,11 @@ private:
                            const std::string &vn_name,
                            const Ip4Address &addr);
     void DeleteBroadcastRoute(const std::string &vrf_name, 
-                              const Ip4Address &addr,
-                              MulticastGroupObject *obj);
+                              const Ip4Address &addr);
 
     //Subnet rt add /delete
-    void AddSubnetRoute(const std::string &vrf_name, const Ip4Address &addr,
+    void AddSubnetRoute(const std::string &vrf_name, 
+                        const Ip4Address &addr,
                         const std::string &vn_name);
     void DeleteSubnetRoute(const std::string &vrf_name, 
                            const Ip4Address &addr);

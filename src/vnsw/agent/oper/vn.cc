@@ -92,6 +92,46 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
     return true;
 }
 
+int VnEntry::GetVxLanId() const {
+    if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
+        Agent::CONFIGURED) {
+        return vxlan_id_;
+    } else {
+        return vnid_;
+    }
+}
+
+bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
+    VnEntry *vn_entry = static_cast<VnEntry *>(entry);
+    if (vn_entry->GetVrf()) {
+        VxLanId::CreateReq(vn_entry->GetVxLanId(), 
+                           vn_entry->GetVrf()->GetName());
+        VxLanIdKey key(vn_entry->GetVxLanId());
+        VxLanId *vxlan_id = 
+            static_cast<VxLanId *>(Agent::GetInstance()->
+                                   GetVxLanTable()->FindActiveEntry(&key));
+        if (vxlan_id) {
+            vn_entry->vxlan_id_ref_ = vxlan_id;
+        }
+    }
+    return true;
+}
+
+void VnTable::VnEntryWalkDone(DBTableBase *partition) {
+    walkid_ = DBTableWalker::kInvalidWalkerId;
+}
+
+void VnTable::UpdateVxLanNetworkIdentifierMode() {
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        walker->WalkCancel(walkid_);
+    }
+    walkid_ = walker->WalkTable(VnTable::GetInstance(), NULL,
+                      boost::bind(&VnTable::VnEntryWalk, 
+                                  this, _1, _2),
+                      boost::bind(&VnTable::VnEntryWalkDone, this, _1));
+}
+
 std::auto_ptr<DBEntry> VnTable::AllocEntry(const DBRequestKey *k) const {
     const VnKey *key = static_cast<const VnKey *>(k);
     VnEntry *vn = new VnEntry(key->uuid_);
@@ -117,6 +157,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     VnEntry *vn = static_cast<VnEntry *>(entry);
     VnData *data = static_cast<VnData *>(req->data.get());
+    bool vxlan_rebake = false;
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
@@ -149,7 +190,18 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         if (!vrf)
             DeleteAllIpamRoutes(vn);
         vn->vrf_ = vrf;
+        vxlan_rebake = true;
         ret = true;
+    }
+
+    if (vn->ipv4_forwarding_ != data->ipv4_forwarding_) {
+        vn->ipv4_forwarding_ = data->ipv4_forwarding_;
+        ret = true;
+    }
+
+    //Ignore IPAM changes if layer3 is not enabled
+    if (!vn->ipv4_forwarding_) {
+        data->ipam_.clear();
     }
 
     if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
@@ -159,7 +211,55 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 
     if (vn->vxlan_id_ != data->vxlan_id_) {
         vn->vxlan_id_ = data->vxlan_id_;
+        if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
+            Agent::CONFIGURED) {
+            vxlan_rebake = true;
+        }
         ret = true;
+    }
+
+    if (vn->vnid_ != data->vnid_) {
+        vn->vnid_ = data->vnid_;
+        if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
+            Agent::AUTOMATIC) {
+            vxlan_rebake = true;
+        }
+        ret = true;
+    }
+
+    if (vn->layer2_forwarding_ != data->layer2_forwarding_) {
+        vn->layer2_forwarding_ = data->layer2_forwarding_;
+        vxlan_rebake = true;
+        ret = true;
+    }
+
+    if (vn->GetVrf()) {
+        if (vxlan_rebake) {
+            VxLanId::CreateReq(vn->GetVxLanId(), vn->GetVrf()->GetName());
+        }
+        VxLanId *vxlan_id = NULL;
+        VxLanIdKey vxlan_key(vn->GetVxLanId());
+        vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
+                                          GetVxLanTable()->FindActiveEntry(&vxlan_key));
+        if (vxlan_id) {
+            vn->vxlan_id_ref_ = vxlan_id;
+        }
+
+        if (!vxlan_id) {
+
+            DBRequest req;
+            VnKey *key = new VnKey(vn->GetUuid());
+            VnData *vndata = new VnData(data->name_, data->acl_id_, 
+                                        data->vrf_name_, nil_uuid(), 
+                                        nil_uuid(), data->ipam_, data->vxlan_id_, 
+                                        data->vnid_, data->layer2_forwarding_,
+                                        data->ipv4_forwarding_);
+
+            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+            req.key.reset(key);
+            req.data.reset(vndata);
+            Enqueue(&req);
+        }
     }
 
     return ret;
@@ -238,10 +338,16 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     assert(cfg);
     autogen::IdPermsType id_perms = cfg->id_perms();
     autogen::VirtualNetworkType properties = cfg->properties(); 
-    int vxlan_id = properties.network_id;
+    int vnid = properties.network_id;
+    int vxlan_id = properties.vxlan_network_identifier;
+    bool layer2_forwarding = true;
+    bool ipv4_forwarding = true;
     boost::uuids::uuid u;
     CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong, u);
 
+    if (properties.forwarding_mode == "l2") {
+        ipv4_forwarding = false;
+    }
     VnKey *key = new VnKey(u);
     VnData *data = NULL;
     if (node->IsDeleted()) {
@@ -307,7 +413,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
-                          mirror_cfg_acl_uuid, vn_ipam, vxlan_id);
+                          mirror_cfg_acl_uuid, vn_ipam, vxlan_id, vnid, 
+                          layer2_forwarding, ipv4_forwarding);
     }
 
     req.key.reset(key);
@@ -342,6 +449,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
     // Trigger Floating-IP resync
     VmPortInterface::FloatingIpVnSync(node);
+    VmPortInterface::VnSync(node);
 
     return false;
 }
@@ -352,7 +460,7 @@ void VnTable::AddVn(const uuid &vn_uuid, const string &name,
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
-                              nil_uuid(), ipam, vxlan_id);
+                              nil_uuid(), ipam, vxlan_id, vxlan_id, true, true);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -550,6 +658,8 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             vn_ipam_data.push_back(entry);
         } 
         data.set_ipam_data(vn_ipam_data);
+        data.set_ipv4_forwarding(Ipv4Forwarding());
+        data.set_layer2_forwarding(Layer2Forwarding());
 
         std::vector<VnSandeshData> &list =
             const_cast<std::vector<VnSandeshData>&>(resp->get_vn_list());
@@ -623,6 +733,8 @@ void VnEntry::SendObjectLog(AgentLogEvent::type event) const {
     if (ipam_list.size()) {
         info.set_ipam_list(ipam_list);
     }
+    info.set_layer2_forwarding(Layer2Forwarding());
+    info.set_ipv4_forwarding(Ipv4Forwarding());
     VN_OBJECT_LOG_LOG("AgentVn", SandeshLevel::SYS_INFO, info);
 }
 

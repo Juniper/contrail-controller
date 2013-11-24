@@ -657,6 +657,7 @@ TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false,
                      int flow_stats_interval = FlowStatsCollector::FlowStatsInterval,
                      bool asio = true);
 
+TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();
 TestClient *StatsTestInit();
 

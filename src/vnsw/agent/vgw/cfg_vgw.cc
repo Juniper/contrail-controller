@@ -23,8 +23,6 @@ using namespace boost::property_tree;
 using namespace boost::uuids;
 using boost::optional;
 
-VGwConfig *VGwConfig::singleton_;
-
 static string FileRead(const char *init_file) {
     ifstream ifs(init_file);
     string content ((istreambuf_iterator<char>(ifs) ),
@@ -32,24 +30,9 @@ static string FileRead(const char *init_file) {
     return content;
 }
 
-// Validate parameters and add gateway configuration
-// Handles one gateway entry right now.
-bool VGwConfig::Add(const string &vrf, const string &interface,
-                    const Ip4Address &addr, uint8_t plen) {
-    if (singleton_ != NULL) {
-        delete singleton_;
-    }
-
-    if (vrf == "" || interface == "" || addr.to_ulong() == 0) {
-        return false;
-    }
-
-    singleton_ = new VGwConfig(vrf, interface, addr, plen);
-    return true;
-}
-
 // Config init. Read the "gateway" node and add the configuration
-void VGwConfig::Init(const char *init_file) {
+// Handle only one gateway config for now
+void VirtualGatewayConfig::Init(const char *init_file) {
     boost::system::error_code ec;
 
     string str = FileRead(init_file);
@@ -90,6 +73,7 @@ void VGwConfig::Init(const char *init_file) {
 
         optional<string> opt_str;
         ptree node = iter->second;
+        
         string vrf = "";
         string interface = "";
         Ip4Address addr = Ip4Address(0);
@@ -121,12 +105,17 @@ void VGwConfig::Init(const char *init_file) {
             continue;
         }
 
-        Add(vrf, interface, addr, plen);
+        if (vrf == "" || interface == "" || addr.to_ulong() == 0) {
+            return;
+        }
+
+        vrf_ = vrf;
+        interface_ = interface;
+        ip_ = addr;
+        plen_ = plen;
     }
     return;
 }
 
-void VGwConfig::Shutdown() {
-    delete singleton_;
-    singleton_ = NULL;
+void VirtualGatewayConfig::Shutdown() {
 }

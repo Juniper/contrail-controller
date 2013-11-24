@@ -385,6 +385,11 @@ bool DnsHandler::HandleRequest() {
     }
 
     const VmPortInterface *vmitf = static_cast<const VmPortInterface *>(itf);
+    if (!vmitf->ipv4_forwarding()) {
+        DNS_BIND_TRACE(DnsBindError, "DNS request on VM port with disabled" 
+                       "ipv4 service: " << itf);
+        return true;
+    }
     // Handle requests (req == 0), queries (op code == 0), updates, non auth
     if ((dns_->flags.op && dns_->flags.op != DNS_OPCODE_UPDATE) || 
         (dns_->flags.cd)) {

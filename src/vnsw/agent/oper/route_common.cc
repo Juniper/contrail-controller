@@ -141,7 +141,8 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     VrfEntry *vrf = 
         static_cast<VrfEntry *>(Agent::GetInstance()->
                                 GetVrfTable()->Find(&vrf_key, true));
-    RouteEntry *route = static_cast<RouteEntry *>(key->AllocRouteEntry(vrf));
+    RouteEntry *route = 
+        static_cast<RouteEntry *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
 }
 
@@ -169,17 +170,17 @@ void AgentRouteTable::DeleteRouteDone(DBTableBase *base,
     delete state;
 }
 
-bool AgentRouteTable::DelWalkerCb(DBTablePartBase *part,
+bool AgentRouteTable::DelExplicitRouteWalkerCb(DBTablePartBase *part,
                                   DBEntryBase *entry) {
     return DelExplicitRoute(part, entry);
 }
 
-void AgentRouteTable::DeleteAllRoutes() {
+void AgentRouteTable::DeleteAllPeerRoutes() {
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
-            boost::bind(&AgentRouteTable::DelWalkerCb, this, _1, _2),
-            boost::bind(&AgentRouteTable::DeleteRouteDone, this, _1, state));
+         boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, this, _1, _2),
+         boost::bind(&AgentRouteTable::DeleteRouteDone, this, _1, state));
 }
 
 // Algorithm to select an active path from multiple potential paths.
@@ -340,9 +341,9 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 //if its corresponding direct route is present
                 //or not, if not present dont add the route
                 //just maintain it in unresolved list
-                rt = static_cast<RouteEntry *>(key->AllocRouteEntry(vrf));
+                rt = static_cast<RouteEntry *>(key->AllocRouteEntry(vrf, 
+                                               data->IsMulticast()));
                 assert(rt->GetVrfEntry() != NULL);
-                rt->SetMulticast(data->IsMulticast());
                 part->Add(rt);
                 // Mark path as NULL so that its allocated below
                 path = NULL;
@@ -435,7 +436,7 @@ LifetimeActor *AgentRouteTable::deleter() {
 
 void AgentRouteTable::ManagedDelete() {
     //Delete all the routes
-    DeleteAllRoutes();
+    DeleteAllPeerRoutes();
     deleter_->Delete();
 }
 
@@ -646,14 +647,32 @@ const Peer *RouteEntry::GetActivePeer() const {
     return path->GetPeer();
 }
 
-bool RouteEntry::CanBeDeleted() const {
-    bool can_be_deleted = IsDeleted();
+bool RouteEntry::CanDissociate() const {
+    bool can_dissociate = IsDeleted();
     if (IsMulticast()) {
         const NextHop *nh = GetActiveNextHop();
         const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
-        return (can_be_deleted || (cnh->ComponentNHCount() == 0));
+        if (cnh && cnh->ComponentNHCount() == 0) 
+            return true;
+        if (GetTableType() == AgentRouteTableAPIS::LAYER2) {
+            const MulticastGroupObject *obj = 
+                MulticastHandler::GetInstance()->
+                FindFloodGroupObject(GetVrfEntry()->GetName());
+            if (obj) {
+                can_dissociate &= !obj->Ipv4Forwarding();
+            }
+        }
+
+        if (GetTableType() == AgentRouteTableAPIS::INET4_MULTICAST) {
+            const MulticastGroupObject *obj = 
+                MulticastHandler::GetInstance()->
+                FindFloodGroupObject(GetVrfEntry()->GetName());
+            if (obj) {
+                can_dissociate &= !obj->Layer2Forwarding();
+            }
+        }
     }
-    return can_be_deleted;
+    return can_dissociate;
 }
 
 //If a direct route has changed, invoke a change on
@@ -818,6 +837,34 @@ bool HostRoute::AddChangePath(AgentPath *path) {
 
     return ret;
 } 
+
+bool VirtualHostInterfaceRoute::AddChangePath(AgentPath *path) {
+    bool ret = false;
+    NextHop *nh = NULL;
+    InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
+    nh = static_cast<NextHop *>(Agent::GetInstance()->
+                                GetNextHopTable()->FindActiveEntry(&key));
+    if (path->GetDestVnName() != dest_vn_name_) {
+        path->SetDestVnName(dest_vn_name_);
+        ret = true;
+    }
+
+    if (path->GetLabel() != label_) {
+        path->SetLabel(label_);
+        ret = true;
+    }
+
+    if (path->GetTunnelBmap() != tunnel_bmap_) {
+        path->SetTunnelBmap(tunnel_bmap_);
+        ret = true;
+    }
+
+    path->SetUnresolved(false);
+    if (path->ChangeNH(nh) == true)
+        ret = true;
+
+    return ret;
+}
 
 bool DropRoute::AddChangePath(AgentPath *path) {
     NextHop *nh = NULL;

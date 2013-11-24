@@ -71,22 +71,12 @@ public:
     AgentRouteTable *GetRouteTable(TableType type) {
         return RouteTableTree[type];
     };
-    void SetLayer2Status(std::string status) {
-        if ((status =="True") || (status == "true")) {
-            layer2_status = true;
-        } else {
-            layer2_status = false;
-        }
-    };
-    //void SetLayer2Status(bool status) {layer2_status = status;};
-    bool GetLayer2Status() {return layer2_status;};
 private:
-    AgentRouteTableAPIS() : RouteTableTree(), layer2_status(false) { };
+    AgentRouteTableAPIS() : RouteTableTree() { };
    
     DBTableBase *CreateRouteTable(DB *db, const string &name, TableType type);
     //Still need to see better way currently it takes first table
     AgentRouteTable *RouteTableTree[MAX];
-    bool layer2_status;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTableAPIS);
 };
 

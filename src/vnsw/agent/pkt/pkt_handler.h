@@ -323,6 +323,7 @@ private:
     PktHandler(DB *, const std::string &, boost::asio::io_service &, bool);
 
     // update the routes in each VRF, when it is created / deleted
+    void VnUpdate(DBTablePartBase *, DBEntryBase *);
     void VrfUpdate(DBTablePartBase *, DBEntryBase *);
 
     uint8_t *ParseAgentHdr(PktInfo *pkt_info);

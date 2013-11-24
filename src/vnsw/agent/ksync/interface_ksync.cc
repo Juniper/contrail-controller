@@ -91,6 +91,8 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         encoder.set_vifr_type(VIF_TYPE_VIRTUAL); 
         std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
+        //encoder.set_ipv4_forwarding(ipv4_forwarding_);
+        //encoder.set_layer2_forwarding(layer2_forwarding_);
         break;
     }
 
