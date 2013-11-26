@@ -310,7 +310,8 @@ void DhcpHandler::UpdateDnsServer() {
         return;
 
     if (!vm_itf_->GetVnEntry() || 
-        !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_->GetIpAddr(), ipam_type_)) {
+        !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_->GetIpAddr(),
+                                            ipam_name_, ipam_type_)) {
         DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->GetName());
         return;
     }
@@ -663,6 +664,34 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
                     DHCP_TRACE(Error, "Unsupported DHCP option in Ipam : " +
                                options[i].dhcp_option_name);
                     break;
+            }
+        }
+
+        // Add classless route option
+        if (vm_itf_->GetVnEntry()) {
+            std::set<VnSubnet> host_routes;
+	    vm_itf_->GetVnEntry()->GetVnHostRoutes(ipam_name_, &host_routes);
+            if (host_routes.size()) {
+                opt = GetNextOptionPtr(opt_len);
+                opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
+                uint8_t *ptr = opt->data;
+                uint8_t len = 0;
+                for (std::set<VnSubnet>::iterator it = host_routes.begin();
+                     it != host_routes.end(); ++it) {
+                    uint32_t prefix = it->prefix.to_ulong();
+                    uint32_t plen = it->plen;
+                    *ptr++ = plen;
+                    len++;
+                    for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
+                        *ptr++ = (prefix >> 8 * (3 - i)) & 0xFF;
+                        len++;
+                    }
+                    *(uint32_t *)ptr = htonl(config_.gw_addr);
+                    ptr += sizeof(uint32_t);
+                    len += sizeof(uint32_t);
+                }
+                opt->len = len;
+                opt_len += 2 + len;
             }
         }
     }

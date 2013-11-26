@@ -53,6 +53,16 @@ AgentDBTable *VnEntry::DBToTable() const {
     return VnTable::GetInstance();
 }
 
+bool VnEntry::GetVnHostRoutes(const std::string &ipam,
+                              std::set<VnSubnet> *routes) const { 
+    VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.find(ipam);
+    if (it != vn_ipam_data_.end()) {
+        *routes = it->second.host_routes;
+        return true;
+    }
+    return false;
+}
+
 bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
                           std::string &ipam_name) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
@@ -64,11 +74,10 @@ bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
     return false;
 }
 
-bool VnEntry::GetIpamData(const Ip4Address &vm_addr,
+bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string &ipam_name,
                           autogen::IpamType &ipam_type) const {
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
-    std::string ipam_name;
     if (!GetIpamName(vm_addr, ipam_name) ||
         !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type))
         return false;
@@ -202,10 +211,16 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     //Ignore IPAM changes if layer3 is not enabled
     if (!vn->ipv4_forwarding_) {
         data->ipam_.clear();
+        data->vn_ipam_data_.clear();
     }
 
     if (IpamChangeNotify(vn->ipam_, data->ipam_, vn)) {
         vn->ipam_ = data->ipam_;
+        ret = true;
+    }
+
+    if (vn->vn_ipam_data_ != data->vn_ipam_data_) {
+        vn->vn_ipam_data_ = data->vn_ipam_data_;
         ret = true;
     }
 
@@ -251,7 +266,8 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
             VnKey *key = new VnKey(vn->GetUuid());
             VnData *vndata = new VnData(data->name_, data->acl_id_, 
                                         data->vrf_name_, nil_uuid(), 
-                                        nil_uuid(), data->ipam_, data->vxlan_id_, 
+                                        nil_uuid(), data->ipam_,
+                                        data->vn_ipam_data_, data->vxlan_id_, 
                                         data->vnid_, data->layer2_forwarding_,
                                         data->ipv4_forwarding_);
 
@@ -358,6 +374,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         uuid mirror_cfg_acl_uuid = nil_uuid();
         string vrf_name = "";
         std::vector<VnIpam> vn_ipam;
+        VnData::VnIpamDataMap vn_ipam_data;
         std::string ipam_name;
 
         // Find link with ACL / VRF adjacency
@@ -406,6 +423,20 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
                                   subnets.ipam_subnets[i].default_gateway, ipam_name));
                     }
+                    VnIpamData ipam_data;
+                    for (unsigned int i = 0;
+                         i < subnets.host_routes.route.size(); ++i) {
+                        VnSubnet subnet;
+                        boost::system::error_code ec =
+                            Ip4PrefixParse(subnets.host_routes.route[i].prefix,
+                                           &subnet.prefix, (int *)&subnet.plen);
+                        if (ec) {
+                            continue;
+                        }
+                        subnet.plen = (subnet.plen > 32) ? 32 : subnet.plen;
+                        ipam_data.AddRoute(subnet);
+                    }
+                    vn_ipam_data.insert(VnData::VnIpamDataPair(ipam_name, ipam_data));
                 }
             }
         }
@@ -413,8 +444,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         uuid mirror_acl_uuid = Agent::GetInstance()->GetMirrorCfgTable()->GetMirrorUuid(node->name());
         std::sort(vn_ipam.begin(), vn_ipam.end());
         data = new VnData(node->name(), acl_uuid, vrf_name, mirror_acl_uuid, 
-                          mirror_cfg_acl_uuid, vn_ipam, vxlan_id, vnid, 
-                          layer2_forwarding, ipv4_forwarding);
+                          mirror_cfg_acl_uuid, vn_ipam, vn_ipam_data,
+                          vxlan_id, vnid, layer2_forwarding, ipv4_forwarding);
     }
 
     req.key.reset(key);
@@ -456,11 +487,14 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 
 void VnTable::AddVn(const uuid &vn_uuid, const string &name,
                     const uuid &acl_id, const string &vrf_name, 
-                    const std::vector<VnIpam> &ipam, int vxlan_id) {
+                    const std::vector<VnIpam> &ipam,
+                    const VnData::VnIpamDataMap &vn_ipam_data,
+                    int vxlan_id) {
     DBRequest req;
     VnKey *key = new VnKey(vn_uuid);
     VnData *data = new VnData(name, acl_id, vrf_name, nil_uuid(), 
-                              nil_uuid(), ipam, vxlan_id, vxlan_id, true, true);
+                              nil_uuid(), ipam, vn_ipam_data,
+                              vxlan_id, vxlan_id, true, true);
  
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -647,17 +681,31 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             data.set_mirror_cfg_acl_uuid("");
         }
 
-        std::vector<VnIpamData> vn_ipam_data;
+        std::vector<VnSubnetSandeshData> vn_subnet_sandesh_list;
         const std::vector<VnIpam> &vn_ipam = GetVnIpam();
         for (unsigned int i = 0; i < vn_ipam.size(); ++i) {
-            VnIpamData entry;
+            VnSubnetSandeshData entry;
             entry.set_ip_prefix(vn_ipam[i].ip_prefix.to_string());
             entry.set_prefix_len(vn_ipam[i].plen);
             entry.set_gateway(vn_ipam[i].default_gw.to_string());
             entry.set_ipam_name(vn_ipam[i].ipam_name);
-            vn_ipam_data.push_back(entry);
+            vn_subnet_sandesh_list.push_back(entry);
         } 
-        data.set_ipam_data(vn_ipam_data);
+        data.set_ipam_data(vn_subnet_sandesh_list);
+
+        std::vector<VnIpamSandeshData> vn_ipam_sandesh_list;
+        for (VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.begin();
+             it != vn_ipam_data_.end(); ++it) {
+            VnIpamSandeshData vn_ipam_sandesh;
+            vn_ipam_sandesh.ipam_name = it->first;
+            for (std::set<VnSubnet>::iterator iter =
+                 it->second.host_routes.begin();
+                 iter != it->second.host_routes.end(); ++iter) {
+                vn_ipam_sandesh.host_routes.push_back(iter->ToString());
+            }
+            vn_ipam_sandesh_list.push_back(vn_ipam_sandesh);
+        }
+        data.set_vn_ipam_data(vn_ipam_sandesh_list);
         data.set_ipv4_forwarding(Ipv4Forwarding());
         data.set_layer2_forwarding(Layer2Forwarding());
 

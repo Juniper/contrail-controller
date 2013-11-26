@@ -401,7 +401,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (!vmitf->GetVnEntry() || 
-        !vmitf->GetVnEntry()->GetIpamData(vmitf->GetIpAddr(), ipam_type_)) {
+        !vmitf->GetVnEntry()->GetIpamData(vmitf->GetIpAddr(), ipam_name_, ipam_type_)) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
                        << vmitf->GetVmName());
         ret = DNS_ERR_SERVER_FAIL;

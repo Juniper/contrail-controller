@@ -36,6 +36,7 @@
 #define BUF_SIZE 8192
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
+#define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
 
 #define DHCP_CHECK(condition)                                                  \
                     do {                                                       \
@@ -98,7 +99,17 @@ public:
         return itf_id_[index]; 
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh) {
+    void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes) {
+        if (memcmp(sandesh->Name(), "DhcpPktSandesh", strlen("DhcpPktSandesh")) == 0) {
+            DhcpPktSandesh *dhcp_pkt = (DhcpPktSandesh *)sandesh;
+            if (check_host_routes) {
+                DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
+                if (pkt.dhcp_hdr.dhcp_options.find(HOST_ROUTE_STRING) ==
+                    std::string::npos) {
+		    assert(0);
+                }
+            }
+        }
     }
 
     void SendDhcp(short ifindex, uint16_t flags, uint8_t msg_type,
@@ -333,7 +344,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1));
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -695,6 +706,74 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
                     Agent::GetInstance()->GetDefaultVrf().c_str()); 
+    client->WaitForIdle();
+
+    Agent::GetInstance()->GetDhcpProto()->ClearStats();
+}
+
+TEST_F(DhcpTest, DhcpHostRoutesTest) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
+        {"vnet2", 2, "1.1.1.2", "00:00:00:02:02:02", 1, 2},
+    };
+    uint8_t options[] = {
+        DHCP_OPTION_MSG_TYPE,
+        DHCP_OPTION_HOST_NAME,
+        DHCP_OPTION_DOMAIN_NAME,
+        DHCP_OPTION_END
+    };
+    DhcpProto::DhcpStats stats;
+
+    IpamInfo ipam_info[] = {
+        {"1.2.3.128", 27, "1.2.3.129"},
+        {"7.8.9.0", 24, "7.8.9.12"},
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+    char vdns_attr[] = "<virtual-DNS-data>\n <domain-name>test.contrail.juniper.net</domain-name>\n <dynamic-records-from-client>true</dynamic-records-from-client>\n <record-order>fixed</record-order>\n <default-ttl-seconds>120</default-ttl-seconds>\n </virtual-DNS-data>\n";
+    char ipam_attr[] = "<network-ipam-mgmt>\n <ipam-dns-method>virtual-dns-server</ipam-dns-method>\n <ipam-dns-server><virtual-dns-server-name>vdns1</virtual-dns-server-name></ipam-dns-server>\n </network-ipam-mgmt>\n";
+    std::vector<std::string> vm_host_routes;
+    vm_host_routes.push_back("10.1.1.0/24");
+    vm_host_routes.push_back("10.1.2.0/24");
+    vm_host_routes.push_back("192.168.1.128/28");
+    vm_host_routes.push_back("150.25.75.0/24");
+
+    CreateVmportEnv(input, 2, 0);
+    client->WaitForIdle();
+    client->Reset();
+    AddVDNS("vdns1", vdns_attr);
+    client->WaitForIdle();
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
+    client->WaitForIdle();
+
+    ClearAllInfo *clear_info = new ClearAllInfo();
+    clear_info->HandleRequest();
+    client->WaitForIdle();
+    clear_info->Release();
+
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    int count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, true));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
+    client->Reset();
+    DelIPAM("vn1", "vdns1"); 
+    client->WaitForIdle();
+    DelVDNS("vdns1"); 
+    client->WaitForIdle();
+
+    client->Reset();
+    DeleteVmportEnv(input, 2, 1, 0); 
     client->WaitForIdle();
 
     Agent::GetInstance()->GetDhcpProto()->ClearStats();

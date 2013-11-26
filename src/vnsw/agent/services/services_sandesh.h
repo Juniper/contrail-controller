@@ -56,6 +56,7 @@ private:
     std::string FillOptionString(char *data, int32_t len, std::string msg);
     std::string FillOptionInteger(uint32_t data, std::string msg);
     std::string FillOptionIp(uint32_t data, std::string msg);
+    void FillHostRoutes(uint8_t *data, int len, std::string &resp);
 
     DISALLOW_COPY_AND_ASSIGN(ServicesSandesh);
 };

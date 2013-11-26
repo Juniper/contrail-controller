@@ -21,7 +21,8 @@ void AddNodeString(char *buff, int &len, const char *node_name, const char *name
 void AddNodeString(char *buff, int &len, const char *node_name,
                    const char *name, int id);
 void AddNodeString(char *buff, int &len, const char *nodename, const char *name,
-                   IpamInfo *ipam, int count);
+                   IpamInfo *ipam, int count,
+                   const std::vector<std::string> *vm_host_routes = NULL);
 void AddVmPortVrfNodeString(char *buff, int &len, const char *name, int id);
 void DelNodeString(char *buff, int &len, const char *node_name, const char *name);
 void ApplyXmlString(const char *buff); 
@@ -126,7 +127,8 @@ void DelFloatingIp(const char *name);
 void AddFloatingIpPool(const char *name, int id);
 void DelFloatingIpPool(const char *name);
 void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr = NULL,
-             const char *vdns_name = NULL);
+             const char *vdns_name = NULL,
+             const std::vector<std::string> *vm_host_routes = NULL);
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);

@@ -184,6 +184,7 @@ private:
     Action action_;
     QueryKey *rkey_;
     Timer *timer_;
+    std::string ipam_name_;
     autogen::IpamType ipam_type_;
     autogen::VirtualDnsType vdns_type_;
     std::vector<DnsItem> items_;

@@ -31,6 +31,7 @@
 #define DHCP_OPTION_MESSAGE           56
 #define DHCP_OPTION_CLIENT_FQDN       81
 #define DHCP_OPTION_82                82
+#define DHCP_OPTION_CLASSLESS_ROUTE   121
 #define DHCP_OPTION_END               255
 
 #define DHCP_SUBOP_CKTID              1
@@ -107,7 +108,7 @@ struct ConfigRecord {
 struct DhcpOptions {
     uint8_t code;
     uint8_t len;
-    char data[0];
+    uint8_t data[0];
 
     void WriteData(uint8_t c, uint8_t l, const void *d, uint16_t &optlen) {
         code = c;
@@ -167,6 +168,7 @@ private:
     in_addr_t req_ip_addr_;
     std::string nak_msg_;
     ConfigRecord config_;
+    std::string ipam_name_;
     autogen::IpamType ipam_type_;
     autogen::VirtualDnsType vdns_type_;
     DISALLOW_COPY_AND_ASSIGN(DhcpHandler);
