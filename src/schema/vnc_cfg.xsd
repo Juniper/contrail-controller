@@ -657,6 +657,15 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='shared-ip' type='xsd:boolean' default='false'/>
+        <xsd:element name='static-routes' type='xsd:boolean' default='false'/>
+    </xsd:all>
+</xsd:complexType>
+
+<xsd:complexType name='ServiceInstanceInterfaceType'>
+    <xsd:all>
+        <xsd:element name='virtual-network' type='xsd:string'/>
+        <xsd:element name='ip-address' type='IpAddressType'/>
+        <xsd:element name='static-routes' type='RouteTableType' />
     </xsd:all>
 </xsd:complexType>
 
@@ -865,6 +874,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='left-ip-address' type='IpAddressType'/>
         <xsd:element name='right-virtual-network' type='xsd:string'/>
         <xsd:element name='right-ip-address' type='IpAddressType'/>
+        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
     </xsd:sequence>
 </xsd:complexType>
@@ -944,9 +954,6 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('routes', 'route-table') -->
 
-<!--Semantically virtual network route table and interface route table quite
-different
- -->
 <xsd:element name="interface-route-table" type="ifmap:IdentityType"/>
 <xsd:element name="project-interface-route-table"/>
 <!--#IFMAP-SEMANTICS-IDL 
@@ -959,4 +966,14 @@ different
 <xsd:element name="interface-route-table-routes" type="RouteTableType"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Property('interface-route-table-routes', 'interface-route-table') -->
+
+<xsd:element name="logical-router" type="ifmap:IdentityType"/>
+<xsd:element name="project-logical-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('project-logical-router',
+          'project', 'logical-router', ['has']) -->
+<xsd:element name="virtual-network-logical-router"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-network-logical-router',
+          'virtual-network', 'logical-router', ['ref']) -->
 </xsd:schema>
