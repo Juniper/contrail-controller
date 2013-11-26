@@ -753,6 +753,12 @@ query_status_t WhereQuery::process_query()
     QE_TRACE(DEBUG, "Starting processing of " << sub_queries.size() <<
             " subqueries");
 
+    if (m_query->table == g_viz_constants.OBJECT_VALUE_TABLE) {
+        status_details = 0;
+        parent_query->subquery_processed(this);
+        return QUERY_SUCCESS;
+    }
+
     // invoke processing of all the sub queries
     // TBD: Handle ASYNC processing
     for (unsigned int i = 0; i < sub_queries.size(); i++)
