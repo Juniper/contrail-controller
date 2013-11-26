@@ -227,6 +227,7 @@ query_status_t SelectQuery::process_query() {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
     std::vector<query_result_unit_t>& query_result =
         m_query->wherequery_->query_result;
+    boost::shared_ptr<QueryResultMetaData> nullmetadata;
 
     if (m_query->table == g_viz_constants.FLOW_SERIES_TABLE) {
         QE_TRACE(DEBUG, "Flow Series query type: " << fs_query_type_);
@@ -419,7 +420,7 @@ query_status_t SelectQuery::process_query() {
 
                 cmap.insert(std::make_pair(kt->first, elem_value));
             }
-            result_->push_back(cmap);
+            result_->push_back(std::make_pair(cmap, nullmetadata));
         }
     } else if (m_query->is_stat_table_query()) {
         QE_ASSERT(stats_.get());
@@ -550,7 +551,7 @@ query_status_t SelectQuery::process_query() {
                 it != unique_values.end(); it++) {
             std::map<std::string, std::string> cmap;
             cmap.insert(std::make_pair(g_viz_constants.OBJECT_ID, *it));
-            result_->push_back(cmap);
+            result_->push_back(std::make_pair(cmap, nullmetadata));
         }
 
     } else {
@@ -668,7 +669,7 @@ query_status_t SelectQuery::process_query() {
                 }
             }
             if (jt == select_column_fields.end()) {
-                result_->push_back(cmap);
+                result_->push_back(std::make_pair(cmap, nullmetadata));
             } 
         }
     }

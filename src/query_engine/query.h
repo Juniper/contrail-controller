@@ -341,6 +341,23 @@ public:
     std::vector<query_result_unit_t> query_result;
 }; 
 
+class QueryResultMetaData {
+public:
+    QueryResultMetaData() { 
+    }
+    virtual ~QueryResultMetaData() = 0;
+};
+
+class fsMetaData : public QueryResultMetaData {
+public:
+    fsMetaData(const std::set<boost::uuids::uuid>& flows) 
+    : uuids(flows.begin(), flows.end()) {
+    }
+    ~fsMetaData() {
+    }
+    std::set<boost::uuids::uuid> uuids;
+};
+
 // max number of entries to extract from db
 #define MAX_DB_QUERY_ENTRIES 100000000
 // This class provides interface for doing single index database query
@@ -545,7 +562,8 @@ private:
 
     void fs_write_final_result_row(const uint64_t *t, const flow_tuple *tuple,
             const flow_stats *raw_stats, const flow_stats *sum_stats, 
-            const flow_stats *avg_stats, const size_t flow_count = 0);
+            const flow_stats *avg_stats,
+            const std::set<boost::uuids::uuid> *flow_list = NULL);
     
     uint64_t fs_get_time_slice(const uint64_t& t);
     // Common Flow series queries
@@ -678,12 +696,12 @@ public:
     std::auto_ptr<BufT> result_;
     std::auto_ptr<MapBufT> mresult_;
 
-    bool sort_field_comparator(const std::map<std::string, std::string>& lhs,
-                               const std::map<std::string, std::string>& rhs);
+    bool sort_field_comparator(const QEOpServerProxy::ResultRowT& lhs,
+                               const QEOpServerProxy::ResultRowT& rhs);
 
     // compare flow records based on UUID
-    static bool flow_record_comparator(const QEOpServerProxy::OutRowT& lhs,
-                               const QEOpServerProxy::OutRowT& rhs);
+    static bool flow_record_comparator(const QEOpServerProxy::ResultRowT& lhs,
+                                       const QEOpServerProxy::ResultRowT& rhs);
 
     bool merge_processing(
         const QEOpServerProxy::BufferT& input, 
@@ -692,20 +710,21 @@ public:
 const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                         QEOpServerProxy::BufferT& output);
 private:
-    typedef std::map<uint64_t, QEOpServerProxy::OutRowT> fcid_rrow_map_t;
+    typedef std::map<uint64_t, QEOpServerProxy::ResultRowT> fcid_rrow_map_t;
     bool flowseries_merge_processing(
-                const std::vector<QEOpServerProxy::OutRowT> *raw_result,
-                std::vector<QEOpServerProxy::OutRowT> *merged_result,
+                const QEOpServerProxy::BufferT *raw_result,
+                QEOpServerProxy::BufferT *merged_result,
                 fcid_rrow_map_t *fcid_rrow_map = NULL);
-    void fs_merge_stats(const QEOpServerProxy::OutRowT& input, 
-                        QEOpServerProxy::OutRowT& output);
+    void fs_merge_stats(const QEOpServerProxy::ResultRowT& input, 
+                        QEOpServerProxy::ResultRowT& output);
     void fs_stats_merge_processing(
-                const std::vector<QEOpServerProxy::OutRowT> *input,
-                std::vector<QEOpServerProxy::OutRowT> *output);
+                const QEOpServerProxy::BufferT *input,
+                QEOpServerProxy::BufferT *output);
     void fs_tuple_stats_merge_processing(
-                const std::vector<QEOpServerProxy::OutRowT> *input,
-                std::vector<QEOpServerProxy::OutRowT> *output,
+                const QEOpServerProxy::BufferT *input,
+                QEOpServerProxy::BufferT* output,
                 fcid_rrow_map_t *fcid_rrow_map = NULL);
+    void fs_update_flow_count(QEOpServerProxy::ResultRowT& rrow);
 };
 
 class AnalyticsQuery: public QueryUnit {

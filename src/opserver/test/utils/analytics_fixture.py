@@ -828,12 +828,13 @@ class AnalyticsFixture(fixtures.Fixture):
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
 
         # 1. stats
-        self.logger.info('Flowseries: [sum(bytes),sum(packets)]')
+        self.logger.info('Flowseries: [sum(bytes), sum(packets), flow_count]')
         res = vns.post_query(
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sum(bytes)', 'sum(packets)'], where_clause='')
+            select_fields=['sum(bytes)', 'sum(packets)', 'flow_count'], 
+            where_clause='')
         self.logger.info(str(res))
         assert(len(res) == 1)
         exp_sum_pkts = exp_sum_bytes = 0
@@ -842,17 +843,19 @@ class AnalyticsFixture(fixtures.Fixture):
             exp_sum_bytes += f.bytes
         assert(res[0]['sum(packets)'] == exp_sum_pkts)
         assert(res[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
 
         # 2. flow tuple + stats
         self.logger.info(
-            'Flowseries: [sport, dport, sum(bytes), sum(packets)]')
+            'Flowseries: [sport, dport, sum(bytes), sum(packets), flow_count]')
         # Each flow has unique (sport, dport). Therefore, the following query
         # should return # records equal to the # flows.
         res = vns.post_query(
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sport', 'dport', 'sum(bytes)', 'sum(packets)'],
+            select_fields=['sport', 'dport', 'sum(bytes)', 
+                           'sum(packets)', 'flow_count'],
             where_clause='')
         self.logger.info(str(res))
         assert(len(res) == generator_obj.flow_cnt)
@@ -862,6 +865,7 @@ class AnalyticsFixture(fixtures.Fixture):
                 if r['sport'] == f.sport and r['dport'] == f.dport:
                     assert(r['sum(packets)'] == f.packets)
                     assert(r['sum(bytes)'] == f.bytes)
+                    assert(r['flow_count'] == 1)
                     break
                 cnt += 1
             assert(cnt < generator_obj.flow_cnt)
@@ -872,7 +876,8 @@ class AnalyticsFixture(fixtures.Fixture):
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
-            select_fields=['sourcevn', 'destvn', 'sum(bytes)', 'sum(packets)'],
+            select_fields=['sourcevn', 'destvn', 'sum(bytes)', 
+                           'sum(packets)', 'flow_count'],
             where_clause='')
         self.logger.info(str(res))
         assert(len(res) == 1)
@@ -882,6 +887,7 @@ class AnalyticsFixture(fixtures.Fixture):
             exp_sum_bytes += f.bytes
         assert(res[0]['sum(packets)'] == exp_sum_pkts)
         assert(res[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
 
         # top 3 flows
         res = vns.post_query('FlowSeriesTable',

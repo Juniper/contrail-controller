@@ -11,13 +11,14 @@
 using boost::assign::map_list_of;
 
 // compare flow records based on UUID
-bool PostProcessingQuery::flow_record_comparator(const QEOpServerProxy::OutRowT& lhs,
-    const QEOpServerProxy::OutRowT& rhs) {
+bool PostProcessingQuery::flow_record_comparator(
+                            const QEOpServerProxy::ResultRowT& lhs,
+                            const QEOpServerProxy::ResultRowT& rhs) {
     std::map<std::string, std::string>::const_iterator lhs_it, rhs_it;
-    lhs_it = lhs.find(g_viz_constants.UUID_KEY);
-    QE_ASSERT(lhs_it != lhs.end());
-    rhs_it = rhs.find(g_viz_constants.UUID_KEY);
-    QE_ASSERT(rhs_it != rhs.end());
+    lhs_it = lhs.first.find(g_viz_constants.UUID_KEY);
+    QE_ASSERT(lhs_it != lhs.first.end());
+    rhs_it = rhs.first.find(g_viz_constants.UUID_KEY);
+    QE_ASSERT(rhs_it != rhs.first.end());
     if (lhs_it->second < rhs_it->second) return true;
     if (lhs_it->second > rhs_it->second) return false;
 
@@ -25,15 +26,15 @@ bool PostProcessingQuery::flow_record_comparator(const QEOpServerProxy::OutRowT&
 }
 
 bool PostProcessingQuery::sort_field_comparator(
-        const std::map<std::string, std::string>& lhs,
-        const std::map<std::string, std::string>& rhs) {
+        const QEOpServerProxy::ResultRowT& lhs,
+        const QEOpServerProxy::ResultRowT& rhs) {
     std::map<std::string, std::string>::const_iterator lhs_it, rhs_it;
     for (std::vector<sort_field_t>::iterator sort_it = sort_fields.begin();
          sort_it != sort_fields.end(); sort_it++) {
-        lhs_it = lhs.find((*sort_it).name);
-        QE_ASSERT(lhs_it != lhs.end());
-        rhs_it = rhs.find((*sort_it).name);
-        QE_ASSERT(rhs_it != rhs.end());
+        lhs_it = lhs.first.find((*sort_it).name);
+        QE_ASSERT(lhs_it != lhs.first.end());
+        rhs_it = rhs.first.find((*sort_it).name);
+        QE_ASSERT(rhs_it != rhs.first.end());
         if ((*sort_it).type == std::string("int") || 
             (*sort_it).type == std::string("long") ||
             (*sort_it).type == std::string("ipv4")) {
@@ -52,8 +53,8 @@ bool PostProcessingQuery::sort_field_comparator(
 }
 
 bool PostProcessingQuery::flowseries_merge_processing(
-        const std::vector<QEOpServerProxy::OutRowT> *raw_result,
-        std::vector<QEOpServerProxy::OutRowT> *merged_result, 
+        const QEOpServerProxy::BufferT *raw_result,
+        QEOpServerProxy::BufferT* merged_result, 
         fcid_rrow_map_t *fcid_rrow_map) {
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
 
@@ -72,31 +73,39 @@ bool PostProcessingQuery::flowseries_merge_processing(
 }
 
 void PostProcessingQuery::fs_merge_stats(
-            const QEOpServerProxy::OutRowT& input,
-            QEOpServerProxy::OutRowT& output) {
-    QEOpServerProxy::OutRowT::iterator pit = output.find(SELECT_SUM_PACKETS);
-    if (pit != output.end()) {
+            const QEOpServerProxy::ResultRowT& input,
+            QEOpServerProxy::ResultRowT& output) {
+    QEOpServerProxy::OutRowT::iterator pit = 
+            output.first.find(SELECT_SUM_PACKETS);
+    if (pit != output.first.end()) {
         uint64_t sum_pkts;
         stringToInteger(pit->second, sum_pkts);
         uint64_t pkts;
-        stringToInteger(input.find(SELECT_SUM_PACKETS)->second, pkts);
+        stringToInteger(input.first.find(SELECT_SUM_PACKETS)->second, pkts);
         sum_pkts += pkts;
         pit->second = integerToString(sum_pkts);
     }
-    QEOpServerProxy::OutRowT::iterator bit = output.find(SELECT_SUM_BYTES);
-    if (bit != output.end()) {
+    QEOpServerProxy::OutRowT::iterator bit = 
+            output.first.find(SELECT_SUM_BYTES);
+    if (bit != output.first.end()) {
         uint64_t sum_bytes;
         stringToInteger(bit->second, sum_bytes);
         uint64_t bytes;
-        stringToInteger(input.find(SELECT_SUM_BYTES)->second, bytes);
+        stringToInteger(input.first.find(SELECT_SUM_BYTES)->second, bytes);
         sum_bytes += bytes;
         bit->second = integerToString(sum_bytes);
+    }
+    if (input.second.get()) {
+        fsMetaData *imetadata = static_cast<fsMetaData*>(input.second.get());
+        fsMetaData *ometadata = static_cast<fsMetaData*>(output.second.get());
+        ometadata->uuids.insert(imetadata->uuids.begin(), 
+                                imetadata->uuids.end());
     }
 }
 
 void PostProcessingQuery::fs_stats_merge_processing(
-        const std::vector<QEOpServerProxy::OutRowT> *raw_result, 
-        std::vector<QEOpServerProxy::OutRowT> *merged_result) {
+        const QEOpServerProxy::BufferT *raw_result, 
+        QEOpServerProxy::BufferT *merged_result) {
     if (!raw_result->size()) {
         return;
     }
@@ -108,36 +117,50 @@ void PostProcessingQuery::fs_stats_merge_processing(
     }
     assert(raw_result->size() == 1);
     assert(merged_result->size() == 1);
-    QEOpServerProxy::OutRowT& mresult_row = merged_result->at(0);
-    const QEOpServerProxy::OutRowT& rresult_row = raw_result->at(0);
+    QEOpServerProxy::ResultRowT& mresult_row = merged_result->at(0);
+    const QEOpServerProxy::ResultRowT& rresult_row = raw_result->at(0);
     QE_TRACE(DEBUG, "fs_stats_merge_processing: merge_stats.");
     fs_merge_stats(rresult_row, mresult_row);
 }
 
 void PostProcessingQuery::fs_tuple_stats_merge_processing(
-        const std::vector<QEOpServerProxy::OutRowT> *raw_result, 
-        std::vector<QEOpServerProxy::OutRowT> *merged_result,
+        const QEOpServerProxy::BufferT *raw_result, 
+        QEOpServerProxy::BufferT *merged_result,
         fcid_rrow_map_t *fcid_rrow_map) {
     if (!raw_result->size()) {
         return;
     }
 
     for (size_t r = 0; r < raw_result->size(); ++r) {
-        const QEOpServerProxy::OutRowT& rresult_row = raw_result->at(r);
+        const QEOpServerProxy::ResultRowT& rresult_row = raw_result->at(r);
+        const QEOpServerProxy::OutRowT& ro_row = rresult_row.first;
         QEOpServerProxy::OutRowT::const_iterator rfc_it = 
-            rresult_row.find(SELECT_FLOW_CLASS_ID);
-        assert(rfc_it != rresult_row.end());
+            rresult_row.first.find(SELECT_FLOW_CLASS_ID);
+        assert(rfc_it != ro_row.end());
         uint64_t rfc_id;
         stringToInteger(rfc_it->second, rfc_id);
         if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
             // flow_class_id rfc_id not found, add the result row to the map
-            fcid_rrow_map->insert(std::pair<uint64_t, QEOpServerProxy::OutRowT>(rfc_id, rresult_row));
+            fcid_rrow_map->insert(std::pair<uint64_t, 
+                QEOpServerProxy::ResultRowT>(rfc_id, rresult_row));
         } else {
             // found an existing flow class id in the map
-            QEOpServerProxy::OutRowT& mresult_row = (fcid_rrow_map->find(rfc_id))->second;
+            QEOpServerProxy::ResultRowT& mresult_row = 
+                (fcid_rrow_map->find(rfc_id))->second;
             fs_merge_stats(rresult_row, mresult_row);
         }
     }
+}
+
+void PostProcessingQuery::fs_update_flow_count(
+            QEOpServerProxy::ResultRowT& rrow) {
+    QEOpServerProxy::OutRowT::iterator fit = 
+        rrow.first.find(SELECT_FLOW_COUNT);
+    assert(fit != rrow.first.end());
+    assert(rrow.second.get());
+    fsMetaData *mdata = 
+        static_cast<fsMetaData*>(rrow.second.get());
+    fit->second = integerToString(mdata->uuids.size());
 }
 
 bool PostProcessingQuery::merge_processing(
@@ -169,11 +192,8 @@ bool PostProcessingQuery::merge_processing(
 
     // Check if the result has to be sorted
     if (sorted) {
-        std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output;
-
-        const std::vector<QEOpServerProxy::OutRowT> *raw_result1 = 
-            &(input);
+        QEOpServerProxy::BufferT *merged_result = &output;
+        const QEOpServerProxy::BufferT *raw_result1 = &(input);
 
         if (result_.get() == NULL)
         {
@@ -183,7 +203,7 @@ bool PostProcessingQuery::merge_processing(
             goto sort_done;
         }
 
-        std::vector<QEOpServerProxy::OutRowT> *raw_result2 = result_.get();
+        QEOpServerProxy::BufferT *raw_result2 = result_.get();
         size_t size1 = raw_result1->size();
         size_t size2 = raw_result2->size();
         QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
@@ -191,29 +211,25 @@ bool PostProcessingQuery::merge_processing(
         merged_result->reserve(raw_result1->size() + raw_result2->size());
         if (sorting_type == ASCENDING) {
             std::merge(raw_result1->begin(), raw_result1->end(), 
-                    raw_result2->begin(), raw_result2->end(),
-                    std::back_inserter(*merged_result),
-                      boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                                  this, _1, _2)); 
+                raw_result2->begin(), raw_result2->end(),
+                std::back_inserter(*merged_result),
+                boost::bind(&PostProcessingQuery::sort_field_comparator, 
+                            this, _1, _2)); 
         } else {
             std::merge(raw_result1->rbegin(), raw_result1->rend(), 
-                    raw_result2->rbegin(), raw_result2->rend(),
-                    std::back_inserter(*merged_result),
-                      boost::bind(&PostProcessingQuery::sort_field_comparator, 
-                                  this, _1, _2)); 
+                raw_result2->rbegin(), raw_result2->rend(),
+                std::back_inserter(*merged_result),
+                boost::bind(&PostProcessingQuery::sort_field_comparator, 
+                            this, _1, _2)); 
         }
-
     } 
 
 sort_done:
     if (!sorted && (mquery->table == g_viz_constants.FLOW_TABLE))
     {
         QE_TRACE(DEBUG, "Merge_Processing: Adding inputs to output");
-        std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output;
-
-        const std::vector<QEOpServerProxy::OutRowT> *raw_result1 = 
-            &(input);
+        QEOpServerProxy::BufferT *merged_result = &output;
+        const QEOpServerProxy::BufferT *raw_result1 = &(input);
 
         if (result_.get() == NULL)
         {
@@ -222,7 +238,7 @@ sort_done:
                 std::back_inserter(*merged_result));
         } else {
 
-            std::vector<QEOpServerProxy::OutRowT> *raw_result2 = result_.get();
+            QEOpServerProxy::BufferT *raw_result2 = result_.get();
             size_t size1 = raw_result1->size();
             size_t size2 = raw_result2->size();
             QE_TRACE(DEBUG, "Merging results from vectors of size:" <<
@@ -262,15 +278,28 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                                     &output, &fcid_rrow_map);
         }
         if (status) {
+            bool is_select_flow_count = 
+                mquery->selectquery_->is_present_in_select_column_fields(
+                                                        SELECT_FLOW_COUNT);
             if (fcid_rrow_map.size() != 0) {
-                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); it != fcid_rrow_map.end(); ++it ) {
+                for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); 
+                    it != fcid_rrow_map.end(); ++it ) {
+                    if (is_select_flow_count) {
+                        fs_update_flow_count(it->second);
+                    }
                     output.push_back(it->second);
                 }
             }
 
+            if (mquery->selectquery_->flowseries_query_type() == 
+                SelectQuery::FS_SELECT_STATS && is_select_flow_count) {
+                if (output.size()) {
+                    fs_update_flow_count(output[0]);
+                }
+            }
+
             if (sorted) {
-                std::vector<QEOpServerProxy::OutRowT> *merged_result =
-                    &output;
+                QEOpServerProxy::BufferT *merged_result = &output;
                 if (sorting_type == ASCENDING) {
                     std::sort(merged_result->begin(), merged_result->end(), 
                               boost::bind(
@@ -291,19 +320,18 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     {
         QE_TRACE(DEBUG, "Final_Merge_Processing: Uniquify flow records");
         // uniquify the records
-        std::set<QEOpServerProxy::OutRowT, bool(*)(const QEOpServerProxy::OutRowT&, const QEOpServerProxy::OutRowT&)>
-            result_row_set(&PostProcessingQuery::flow_record_comparator);
+        std::set<QEOpServerProxy::ResultRowT, 
+                 bool(*)(const QEOpServerProxy::ResultRowT&,
+                         const QEOpServerProxy::ResultRowT&)>
+                 result_row_set(&PostProcessingQuery::flow_record_comparator);
 
         for (size_t i = 0; i < inputs.size(); i++)
         {
-            std::vector<QEOpServerProxy::OutRowT> *raw_result = 
-                inputs[i].get();
+            QEOpServerProxy::BufferT *raw_result = inputs[i].get();
             result_row_set.insert(raw_result->begin(), raw_result->end());
         }
 
-        std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output;
-
+        QEOpServerProxy::BufferT *merged_result = &output;
         merged_result->reserve(result_row_set.size());
         copy(result_row_set.begin(), result_row_set.end(), 
             std::back_inserter(*merged_result));
@@ -324,9 +352,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     } else {  // For non-flow-record queries
         // Check if the result has to be sorted
         if (sorted) {
-            std::vector<QEOpServerProxy::OutRowT> *merged_result =
-                &output;
-
+            QEOpServerProxy::BufferT *merged_result = &output;
             size_t final_vector_size = 0;
             for (size_t i = 0; i < inputs.size(); i++)
                 final_vector_size += inputs[i]->size();
@@ -338,11 +364,9 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
 
             for (size_t i = 0; i < inputs.size(); i++)
             {
-                std::vector<QEOpServerProxy::OutRowT> *raw_result = 
-                    inputs[i].get();
-
+                QEOpServerProxy::BufferT *raw_result = inputs[i].get();
                 if (sorting_type == ASCENDING) {
-                    std::vector<QEOpServerProxy::OutRowT>::iterator
+                    QEOpServerProxy::BufferT::iterator
                         current_result_end = merged_result->end();
                     copy(raw_result->begin(), raw_result->end(), 
                         std::back_inserter(*merged_result));
@@ -350,7 +374,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
                     current_result_end, merged_result->end(),
     boost::bind(&PostProcessingQuery::sort_field_comparator, this, _1, _2)); 
                 } else {
-                    std::vector<QEOpServerProxy::OutRowT>::reverse_iterator
+                    QEOpServerProxy::BufferT::reverse_iterator
                         current_result_end = merged_result->rbegin();
                     copy(raw_result->begin(), raw_result->end(), 
                         std::back_inserter(*merged_result));
@@ -364,8 +388,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
    
 limit:
     if (limit) {
-        std::vector<QEOpServerProxy::OutRowT> *merged_result =
-            &output;
+        QEOpServerProxy::BufferT *merged_result = &output;
         QE_TRACE(DEBUG, "Apply Limit [" << limit << "]");
         if (merged_result->size() > (size_t)limit) {
             merged_result->resize(limit);
@@ -388,7 +411,7 @@ query_status_t PostProcessingQuery::process_query() {
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
     result_ = mquery->selectquery_->result_;
     mresult_ = mquery->selectquery_->mresult_;
-    std::vector<QEOpServerProxy::OutRowT> *raw_result = result_.get();
+    QEOpServerProxy::BufferT *raw_result = result_.get();
 
     if (filter_list.size()) {
         size_t num_filtered=0;
@@ -452,19 +475,19 @@ query_status_t PostProcessingQuery::process_query() {
     }
     if (filter_list.size() != 0)
     {
-        std::vector<std::map<std::string, std::string> > filtered_table;
+        QEOpServerProxy::BufferT filtered_table;
         // do filter operation
         QE_TRACE(DEBUG, "Doing filter operation");
         for (size_t i = 0; i < raw_result->size(); i++)
         {
             bool delete_row = false;
-            std::map<std::string, std::string> row = (*raw_result)[i];
+            QEOpServerProxy::ResultRowT row = (*raw_result)[i];
 
             for (size_t j = 0; j < filter_list.size(); j++)
             {
                 std::map<std::string, std::string>::iterator iter;
-                iter = row.find(filter_list[j].name);
-                if (iter == row.end())
+                iter = row.first.find(filter_list[j].name);
+                if (iter == row.first.end())
                 {
                     if (!(filter_list[j].ignore_col_absence))
                         delete_row = true;
@@ -537,7 +560,6 @@ query_status_t PostProcessingQuery::process_query() {
                 filtered_table.push_back(row);
             }
         }
-
         *raw_result = filtered_table;
     }
 
@@ -568,12 +590,14 @@ query_status_t PostProcessingQuery::process_query() {
 
     if (IS_TRACE_ENABLED(POSTPROCESS_RESULT_TRACE))
     {
-        std::vector<QEOpServerProxy::OutRowT>::iterator res_it;
+        std::vector<QEOpServerProxy::ResultRowT>::iterator res_it;
         QE_TRACE(DEBUG, "== Post Processing Result ==");
-        for (res_it = raw_result->begin(); res_it != raw_result->end(); ++res_it) {
+        for (res_it = raw_result->begin(); res_it != raw_result->end(); 
+             ++res_it) {
             std::vector<final_result_col> row_entry;
             std::map<std::string, std::string>::iterator map_it;
-            for (map_it = (*res_it).begin(); map_it != (*res_it).end(); ++map_it) {
+            for (map_it = (*res_it).first.begin(); 
+                 map_it != (*res_it).first.end(); ++map_it) {
                 final_result_col col;
                 col.set_col(map_it->first); col.set_value(map_it->second);
                 row_entry.push_back(col);

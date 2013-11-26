@@ -57,6 +57,9 @@ std::string get_query_string(std::string column_name)
     return column_name;
 }
 
+QueryResultMetaData::~QueryResultMetaData() {
+}
+
 PostProcessingQuery::PostProcessingQuery(
     std::map<std::string, std::string>& json_api_data,
     QueryUnit *main_query) :  QueryUnit(main_query, main_query), 
@@ -296,18 +299,7 @@ AnalyticsQuery::AnalyticsQuery(GenDb::GenDbIf *db_if, std::string qid,
 
 bool AnalyticsQuery::can_parallelize_query() {
     parallelize_query_ = true;
-    // <1> Cannot parallelize flowseries query, if the flow_count is 
-    //     present in the select list unless the list of flow uuids are
-    //     carried in the result. 
-    // <2> For flowseries query with time granularity, there is a workaround.
-    //     We divide the query based on the time granularity.
-    if (table == g_viz_constants.FLOW_SERIES_TABLE && 
-        !selectquery_->provide_timeseries) {
-        if (selectquery_->is_present_in_select_column_fields(
-                                            SELECT_FLOW_COUNT)) {
-            parallelize_query_ = false;
-        }
-    } else if (table == g_viz_constants.OBJECT_VALUE_TABLE) {
+    if (table == g_viz_constants.OBJECT_VALUE_TABLE) {
         parallelize_query_ = false;
     }
     return parallelize_query_;
@@ -1150,22 +1142,22 @@ QueryEngine::QueryExec(void * handle, QueryParams qp, uint32_t chunk)
     //GenDb::GenDbIf *db_if = dbif_.get();
     if (cassandra_port_ == 0) {
         std::auto_ptr<QEOpServerProxy::BufferT> final_output(new QEOpServerProxy::BufferT);
-        std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_moutput(new QEOpServerProxy::OutRowMultimapT);
-        for (int i = 0 ; i < 100; i++)
-            final_output->push_back(map_list_of(
+        QEOpServerProxy::OutRowT outrow = boost::assign::map_list_of(
             "MessageTS", "1368037623434740")(
             "Messagetype", "IFMapString")(
             "ModuleId", "ControlNode")(
             "Source","b1s1")(
-            "ObjectLog","\n<IFMapString type=\"sandesh\"><message type=\"string\" identifier=\"1\">Cancelling Response timer.</message><file type=\"string\" identifier=\"-32768\">src/ifmap/client/ifmap_state_machine.cc</file><line type=\"i32\" identifier=\"-32767\">578</line></IFMapString>")
-        );
+            "ObjectLog","\n<IFMapString type=\"sandesh\"><message type=\"string\" identifier=\"1\">Cancelling Response timer.</message><file type=\"string\" identifier=\"-32768\">src/ifmap/client/ifmap_state_machine.cc</file><line type=\"i32\" identifier=\"-32767\">578</line></IFMapString>");
+        QEOpServerProxy::MetadataT metadata;
+        std::auto_ptr<QEOpServerProxy::OutRowMultimapT> final_moutput(new QEOpServerProxy::OutRowMultimapT);
+        for (int i = 0 ; i < 100; i++)
+            final_output->push_back(std::make_pair(outrow, metadata));
         QE_TRACE_NOQID(DEBUG, " Finished query processing for QID " << qid << " chunk:" << chunk);
         QEOpServerProxy::QPerfInfo qperf(0,0,0);
         qperf.error = 0;
         qosp_->QueryResult(handle, qperf, final_output, final_moutput);
         return true;
     }
-
 
     AnalyticsQuery *q = new AnalyticsQuery(qid, qp.terms, stime, evm_,
             cassandra_ip_, cassandra_port_, chunk, qp.maxChunks);

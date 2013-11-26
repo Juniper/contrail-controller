@@ -173,14 +173,16 @@ public:
                 raw_json->push_back(jstr);
             }
         } else {
-            vector<OutRowT>* raw_result = const_cast<vector<OutRowT>*>(raw_res);
-            vector<OutRowT>::iterator res_it;
+            QEOpServerProxy::BufferT* raw_result = 
+                const_cast<QEOpServerProxy::BufferT*>(raw_res);
+            QEOpServerProxy::BufferT::iterator res_it;
             for (res_it = raw_result->begin(); res_it != raw_result->end(); ++res_it) {
                 std::map<std::string, std::string>::iterator map_it;
                 rapidjson::Document dd;
                 dd.SetObject();
 
-                for (map_it = (*res_it).begin(); map_it != (*res_it).end(); ++map_it) {
+                for (map_it = (*res_it).first.begin(); 
+                     map_it != (*res_it).first.end(); ++map_it) {
                     // search for column name in the schema
                     JsonInsert(columns, dd, &(*map_it));
                 }
