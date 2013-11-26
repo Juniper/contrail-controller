@@ -16,6 +16,7 @@
 
 class EventManager;
 class QueryEngine;
+class QueryResultMetaData;
 // This class represents the interface between the Query Engine and 
 // the OpServer. It will internally talk to the OpServer using Redis
 
@@ -57,7 +58,9 @@ public:
     //    EIO             Input/output error (Cassandra is down)
     typedef std::map<std::string /* Col Name */,
                      std::string /* Col Value */> OutRowT;
-    typedef std::vector<OutRowT> BufferT;
+    typedef boost::shared_ptr<QueryResultMetaData> MetadataT;
+    typedef std::pair<OutRowT, MetadataT> ResultRowT; 
+    typedef std::vector<ResultRowT> BufferT;
 
     typedef boost::variant<boost::blank, std::string, uint64_t, double, boost::uuids::uuid> SubVal;
     enum VarType {

@@ -96,11 +96,12 @@ void SelectQuery::get_flow_class(const flow_tuple& tuple, flow_tuple& flowclass)
 void SelectQuery::fs_write_final_result_row(const uint64_t *t, 
         const flow_tuple *tuple, const flow_stats *raw_stats,
         const flow_stats *sum_stats, const flow_stats *avg_stats,
-        const size_t flow_count) {
+        const std::set<boost::uuids::uuid> *flow_list) {
     AnalyticsQuery *mquery = (AnalyticsQuery *)main_query;
     bool insert_flow_class_id = false;
     bool insert_flow_count = false;
     std::map<std::string, std::string> cmap;
+    boost::shared_ptr<fsMetaData> metadata;
 
     // first add flow tuple select fields
     for (std::vector<std::string>::const_iterator it = 
@@ -159,6 +160,17 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
     }
 
     if (insert_flow_count) {
+        size_t flow_count = 0;
+        if (mquery->is_query_parallelized() && 
+            ((fs_query_type_ == FS_SELECT_STATS) || 
+             (fs_query_type_ == FS_SELECT_FLOW_TUPLE_STATS))) {
+            assert(flow_list);
+            metadata.reset(new fsMetaData(*flow_list));
+        } else {
+            if (flow_list) {
+                flow_count = flow_list->size();
+            }
+        }
         cmap.insert(std::make_pair(SELECT_FLOW_COUNT, 
                     integerToString(flow_count)));
     }
@@ -212,7 +224,7 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
     }
 
     // Finally, push the row into the result table 
-    result_->push_back(cmap);
+    result_->push_back(std::make_pair(cmap, metadata));
 }
 
 inline uint64_t SelectQuery::fs_get_time_slice(const uint64_t& t) {
@@ -278,7 +290,7 @@ void SelectQuery::populate_fs_query_result_with_ts_stats_fields() {
          map_it != fs_ts_stats_map_.end(); ++map_it) {
         fs_write_final_result_row(&map_it->first, NULL, NULL, 
                                   &map_it->second, NULL, 
-                                  map_it->second.flow_list.size());
+                                  &map_it->second.flow_list);
     }
 }
 
@@ -308,7 +320,7 @@ void SelectQuery::populate_fs_query_result_with_tuple_stats_fields() {
     for (map_it = fs_tuple_stats_map_.begin(); 
          map_it != fs_tuple_stats_map_.end(); ++map_it) {
         fs_write_final_result_row(NULL, &map_it->first, NULL, 
-                &map_it->second, NULL, map_it->second.flow_list.size());
+                &map_it->second, NULL, &map_it->second.flow_list);
     }
 }
 
@@ -358,7 +370,7 @@ void SelectQuery::populate_fs_query_result_with_ts_tuple_stats_fields() {
              imap_it != omap_it->second.end(); ++imap_it) {
             fs_write_final_result_row(&imap_it->first, &omap_it->first, NULL, 
                                       &imap_it->second, NULL, 
-                                      imap_it->second.flow_list.size());
+                                      &imap_it->second.flow_list);
         }
     }
 }
@@ -375,7 +387,7 @@ void SelectQuery::process_fs_query_with_stats_fields(
 void SelectQuery::populate_fs_query_result_with_stats_fields() {
     QE_TRACE(DEBUG, ""); 
     fs_write_final_result_row(NULL, NULL, NULL, &fs_flow_stats_, NULL,
-                              fs_flow_stats_.flow_list.size());
+                              &fs_flow_stats_.flow_list);
 }
 
 void SelectQuery::process_fs_query_with_ts_tuple_fields(
