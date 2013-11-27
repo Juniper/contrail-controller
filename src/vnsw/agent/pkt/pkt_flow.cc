@@ -865,18 +865,34 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
     }
     const NextHop *nh = ctrl->rt_->GetActiveNextHop();
     if (nh->GetType() == NextHop::COMPOSITE && flow->local_flow == false && 
-        ctrl->intf_) {
+        ctrl->intf_ && ctrl->intf_->GetType() == Interface::VMPORT) {
+        const CompositeNH *comp_nh = 
+            static_cast<const CompositeNH *>(nh);
         //Get nexthop pointed by local mpls label
         if (ctrl->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
             nh = ctrl->rt_->FindPath(
                     Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
-        } else {
+        } else if (comp_nh->GetLocalCompositeNH()) {
             const CompositeNH *comp_nh = 
                 static_cast<const CompositeNH *>(nh);
             nh = comp_nh->GetLocalCompositeNH();
+        } else {
+            //Get interface NH inside composite NH
+            CompositeNH::ComponentNHList::const_iterator component_nh_it = 
+                comp_nh->begin();
+            while (component_nh_it != comp_nh->begin()) {
+                if (*component_nh_it && 
+                    (*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE) {
+                    nh = (*component_nh_it)->GetNH();
+                    break;
+                }
+                component_nh_it++;
+            }
         }
     }
-    flow->data.nh = nh;
+    flow->data.nh_state_ = static_cast<const NhState *>(
+                           nh->GetState(Agent::GetInstance()->GetNextHopTable(),
+                           FlowTable::GetFlowTableObject()->nh_listener_id()));
 }
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,

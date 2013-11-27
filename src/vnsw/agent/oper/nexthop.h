@@ -315,6 +315,11 @@ public:
         return ret;
     }
 
+    virtual bool DeleteOnZeroRefCount() const {
+        return false;
+    }
+    virtual void OnZeroRefCount() {};
+
     uint32_t GetRefCount() const {
         return AgentRefCount<NextHop>::GetRefCount();
     }
@@ -584,7 +589,9 @@ public:
     const Ip4Address *GetIp() const {return &ip_;};
     const VrfEntry *GetVrf() const {return vrf_.get();};
     bool GetResolveState() const {return valid_;}
-
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
 private:
     VrfEntryRef vrf_;
     Ip4Address ip_;
@@ -729,13 +736,13 @@ public:
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
-    static void CreateVportReq(const uuid &intf_uuid,
-                               const struct ether_addr &dmac, 
-                               const string &vrf_name);
+    static void CreateVport(const uuid &intf_uuid,
+                            const struct ether_addr &dmac, 
+                            const string &vrf_name);
     static void DeleteVportReq(const uuid &intf_uuid);
     static void CreateHostPortReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateVirtualHostPortReq(const string &ifname);
+    static void CreateVirtualHostPort(const string &ifname);
     static void DeleteVirtualHostPortReq(const string &ifname);
 
 private:
@@ -793,6 +800,9 @@ public:
     virtual bool CanAdd() const;
 
     const VrfEntry *GetVrf() const {return vrf_.get();};
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
 
 private:
     VrfEntryRef vrf_;
@@ -869,10 +879,10 @@ public:
     const struct ether_addr &GetDMac() const {return dmac_;};
     static VlanNH *Find(const uuid &intf_uuid, uint16_t vlan_tag);
 
-    static void CreateReq(const uuid &intf_uuid, uint16_t vlan_tag, 
+    static void Create(const uuid &intf_uuid, uint16_t vlan_tag, 
                           const std::string &vrf_name, const ether_addr &smac,
                           const ether_addr &dmac);
-    static void DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag);
+    static void Delete(const uuid &intf_uuid, uint16_t vlan_tag);
 
 private:
     InterfaceRef interface_;
@@ -1160,6 +1170,12 @@ public:
 
     bool GetOldNH(const CompositeNHData *data, ComponentNH &);
 
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
+    virtual void OnZeroRefCount() {
+        component_nh_list_.clear();
+    }
 private:
     VrfEntryRef vrf_;
     Ip4Address grp_addr_;
@@ -1214,6 +1230,7 @@ public:
     }
 
     virtual void OnZeroRefcount(AgentDBEntry *e);
+    void Process(DBRequest &req);
     Interface *FindInterface(const InterfaceKey &key) const;
     VrfEntry *FindVrfEntry(const VrfKey &key) const;
     static DBTableBase *CreateTable(DB *db, const std::string &name);

@@ -5,6 +5,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <cmn/agent_cmn.h>
 
+#include <base/task_annotations.h>
 #include <oper/interface.h>
 #include <oper/vrf.h>
 #include <oper/nexthop.h>
@@ -100,8 +101,15 @@ DBTableBase *MplsTable::CreateTable(DB *db, const std::string &name) {
     return mpls_table_;
 };
 
-void MplsLabel::CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
-                                uint16_t tag) {
+void MplsTable::Process(DBRequest &req) {
+    CHECK_CONCURRENCY("db::DBTable");
+    DBTablePartition *tpart =
+        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+    tpart->Process(NULL, &req);
+}
+
+void MplsLabel::CreateVlanNh(uint32_t label, const uuid &intf_uuid,
+                             uint16_t tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -111,14 +119,14 @@ void MplsLabel::CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
     MplsLabelData *data = new MplsLabelData(intf_uuid, tag);
     req.data.reset(data);
 
-    MplsTable::GetInstance()->Enqueue(&req);
+    MplsTable::GetInstance()->Process(req);
     return;
 }
 
-void MplsLabel::CreateVirtualHostPortLabelReq(uint32_t label,
-                                              const string &ifname,
-                                              bool policy, 
-                                              InterfaceNHFlags::Type type) {
+void MplsLabel::CreateVirtualHostPortLabel(uint32_t label,
+                                           const string &ifname,
+                                           bool policy, 
+                                           InterfaceNHFlags::Type type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -128,12 +136,12 @@ void MplsLabel::CreateVirtualHostPortLabelReq(uint32_t label,
     MplsLabelData *data = new MplsLabelData(ifname, policy, type);
     req.data.reset(data);
 
-    MplsTable::GetInstance()->Enqueue(&req);
+    MplsTable::GetInstance()->Process(req);
     return;
 }
 
-void MplsLabel::CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
-                                    bool policy, InterfaceNHFlags::Type type) {
+void MplsLabel::CreateVPortLabel(uint32_t label, const uuid &intf_uuid,
+                                 bool policy, InterfaceNHFlags::Type type) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -143,7 +151,7 @@ void MplsLabel::CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
     MplsLabelData *data = new MplsLabelData(intf_uuid, policy, type);
     req.data.reset(data);
 
-    MplsTable::GetInstance()->Enqueue(&req);
+    MplsTable::GetInstance()->Process(req);
     return;
 }
 
@@ -163,7 +171,7 @@ void MplsLabel::CreateMcastLabelReq(const string &vrf_name, const Ip4Address &gr
     return;
 }
 
-void MplsLabel::CreateEcmpLabelReq(uint32_t label, const string &vrf_name,
+void MplsLabel::CreateEcmpLabel(uint32_t label, const string &vrf_name,
                                    const Ip4Address &addr) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -174,7 +182,7 @@ void MplsLabel::CreateEcmpLabelReq(uint32_t label, const string &vrf_name,
     MplsLabelData *data = new MplsLabelData(vrf_name, addr, true);
     req.data.reset(data);
 
-    MplsTable::GetInstance()->Enqueue(&req);
+    MplsTable::GetInstance()->Process(req);
     return;
 }
                                    
@@ -191,6 +199,17 @@ void MplsLabel::DeleteMcastLabelReq(const string &vrf_name, const Ip4Address &gr
     return;
 }
 
+void MplsLabel::Delete(uint32_t label) {
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+
+    MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
+    req.key.reset(key);
+    req.data.reset(NULL);
+
+    MplsTable::GetInstance()->Process(req);
+}
+
 void MplsLabel::DeleteReq(uint32_t label) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -198,8 +217,10 @@ void MplsLabel::DeleteReq(uint32_t label) {
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::INVALID, label);
     req.key.reset(key);
     req.data.reset(NULL);
+
     MplsTable::GetInstance()->Enqueue(&req);
 }
+
 
 bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MplsResp *resp = static_cast<MplsResp *>(sresp);

@@ -104,7 +104,7 @@ protected:
                           uint32_t label, TunnelType::TypeBmap bmap) {
         //Use any toher peer than localvmpeer
 
-        Layer2AgentRouteTable::AddRemoteVmRoute(
+        Layer2AgentRouteTable::AddRemoteVmRouteReq(
             Agent::GetInstance()->GetLocalPeer(), vrf_name_,
             bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
         client->WaitForIdle();

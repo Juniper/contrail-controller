@@ -82,9 +82,9 @@ public:
     void CreateLocalRoute(const char *vrf, const char *ip,
                           VmPortInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddLocalVmRoute
-            (NULL, vrf, addr, 32, intf->GetUuid(),
-             intf->GetVnEntry()->GetName(), label); 
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+            AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
+                               intf->GetVnEntry()->GetName(), label); 
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -93,7 +93,7 @@ public:
                            const char *serv, int label, const char *vn) {
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
             (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));

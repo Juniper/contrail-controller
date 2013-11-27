@@ -387,9 +387,9 @@ bool FlowTableKSyncEntry::Sync() {
         changed = true;
     }
 
-    if (fe_->data.nh.get()) {
+    if (fe_->data.nh_state_.get() && fe_->data.nh_state_->nh()) {
         NHKSyncObject *nh_object = NHKSyncObject::GetKSyncObject();
-        NHKSyncEntry tmp_nh(fe_->data.nh.get());
+        NHKSyncEntry tmp_nh(fe_->data.nh_state_->nh());
         NHKSyncEntry *nh = 
             static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
         if (nh_ != nh) {

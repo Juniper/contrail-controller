@@ -36,26 +36,27 @@ public:
     uint32_t GetLabel() const {return label_;};
     const NextHop *GetNextHop() const {return nh_.get();};
 
-    static void CreateVlanNhReq(uint32_t label, const uuid &intf_uuid,
-                                uint16_t tag);
-    static void CreateVPortLabelReq(uint32_t label, const uuid &intf_uuid,
-                                    bool policy, InterfaceNHFlags::Type type);
-    static void CreateVirtualHostPortLabelReq(uint32_t label,
-                                              const string &ifname,
-                                              bool policy,
-                                              InterfaceNHFlags::Type type);
+    static void CreateVlanNh(uint32_t label, const uuid &intf_uuid,
+                             uint16_t tag);
+    static void CreateVPortLabel(uint32_t label, const uuid &intf_uuid,
+                                 bool policy, InterfaceNHFlags::Type type);
+    static void CreateVirtualHostPortLabel(uint32_t label,
+                                           const string &ifname,
+                                           bool policy,
+                                           InterfaceNHFlags::Type type);
     static void CreateMcastLabelReq(const string &vrf_name, 
                                     const Ip4Address &grp_addr,
                                     const Ip4Address &src_addr, 
                                     uint32_t src_label, COMPOSITETYPE type);
-    static void CreateEcmpLabelReq(uint32_t label, const std::string &vrf_name,
-                                   const Ip4Address &addr);
+    static void CreateEcmpLabel(uint32_t label, const std::string &vrf_name,
+                                const Ip4Address &addr);
     static void DeleteMcastLabelReq(const string &vrf_name, 
                                     const Ip4Address &grp_addr,
                                     const Ip4Address &src_addr, 
                                     uint32_t src_label);
     // Delete MPLS Label entry
     static void DeleteReq(uint32_t label);
+    static void Delete(uint32_t label);
 
     AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
@@ -158,7 +159,7 @@ public:
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static MplsTable *GetInstance() {return mpls_table_;};
-
+    void Process(DBRequest &req);
 private:
     static MplsTable *mpls_table_;
     bool ChangeHandler(MplsLabel *mpls, const DBRequest *req);

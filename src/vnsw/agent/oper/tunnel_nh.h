@@ -34,7 +34,9 @@ public:
     const RouteEntry *GetRt() const {return arp_rt_.get();};
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
     virtual void SendObjectLog(AgentLogEvent::type event) const;
-
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
 private:
     VrfEntryRef vrf_;
     Ip4Address sip_;
@@ -101,7 +103,9 @@ public:
     const RouteEntry *GetRt() const {return arp_rt_.get();};
     virtual std::string ToString() const { return "Mirror to " + dip_.to_string(); };
     virtual void SendObjectLog(AgentLogEvent::type event) const;
-
+    virtual bool DeleteOnZeroRefCount() const {
+        return true;
+    }
 private:
     VrfEntryRef vrf_;
     Ip4Address sip_;

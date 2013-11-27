@@ -143,14 +143,13 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
 					   const std::string& vrf,
 					   const std::string& label)
 {
-
     LOG(DEBUG, "IP Address " << ip_address);
     LOG(DEBUG, "Gw IP Address " << gw_ip);
     LOG(DEBUG, "Vrf " << vrf);
     LOG(DEBUG, "Label " << label);
     
-    IpAddress ip = IpAddress::from_string(ip_address);
-    IpAddress gw = IpAddress::from_string(gw_ip);
+    IpAddress ip = Ip4Address::from_string(ip_address);
+    IpAddress gw = Ip4Address::from_string(gw_ip);
 
     // IPv4 check
     if (!(ip.is_v4()) || !(gw.is_v4())) {
@@ -158,24 +157,17 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
 	return false;
     }
 
-    // Vrf
-    DBRequest rreq;
-    Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
-                                              vrf, ip.to_v4(), 32);    
-    rreq.key.reset(rt_key);
+    Ip4Address ipv4 = Ip4Address::from_string(ip_address);
+    Ip4Address gwv4 = Ip4Address::from_string(gw_ip);
 
     uint32_t mpls_label;
-    SecurityGroupList sg_list;
+    const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
-    RemoteVmRoute *data = new RemoteVmRoute(Agent::GetInstance()->GetDefaultVrf(),
-                                            gw.to_v4(), mpls_label, "",
-                                            TunnelType::AllType(), sg_list);
-    rreq.data.reset(data);
-    rreq.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    Inet4UnicastAgentRouteTable *rt_table_ = 
-        static_cast<Inet4UnicastAgentRouteTable *>(db_->FindTable("db.uc.route.0"));
-    rt_table_->Enqueue(&rreq);
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(
+                                     Agent::GetInstance()->GetLocalPeer(),
+                                     vrf, ipv4, 32, gwv4,
+                                     TunnelType::AllType(),
+                                     mpls_label, vn);
     return true;
 }
 
@@ -241,19 +233,17 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddLocalVmRoute(novaPeer_, 
-                                                        vrf, ip.to_v4(), 32,
-                                                        intf_uuid, "instance-service",
-                                                        mpls_label);
-
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddLocalVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32, intf_uuid, 
+                           "instance-service", mpls_label);
     return true;
 }
 
 InstanceServiceAsyncIf::AddRemoteVmRoute_shared_future_t
 InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
-					      const std::string& gw_ip,
-					      const std::string& vrf,
-					      const std::string& label)
+                                              const std::string& gw_ip,
+                                              const std::string& vrf,
+                                              const std::string& label)
 {
     LOG(DEBUG, "AddRemoteVmRoute");
     LOG(DEBUG, "IP Address " << ip_address);
@@ -267,7 +257,7 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
     // IPv4 check
     if (!(ip.is_v4()) || !(gw.is_v4())) {
         LOG(ERROR, "Error < Support only IPv4");
-	return false;
+        return false;
     }
 
     uint32_t mpls_label;
@@ -277,11 +267,9 @@ InstanceServiceAsyncHandler::AddRemoteVmRoute(const std::string& ip_address,
         sscanf(label.c_str(), "%u", &mpls_label);
     }
 
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(novaPeer_, vrf, 
-                                                  ip.to_v4(), 32,
-                                                  gw.to_v4(),
-                                                  TunnelType::AllType(), 
-                                                  mpls_label, "");
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddRemoteVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32,
+                            gw.to_v4(), TunnelType::AllType(), mpls_label, "");
     return true;
 }
 

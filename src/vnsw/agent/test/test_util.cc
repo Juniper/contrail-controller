@@ -1051,7 +1051,7 @@ bool VlanNhFind(int id, uint16_t tag) {
 bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
                     int label, const char *vn, TunnelType::TypeBmap bmap) {
     boost::system::error_code ec;
-    Inet4UnicastAgentRouteTable::AddRemoteVmRoute(bgp_peer_, vm_vrf,
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, vm_vrf,
                                         Ip4Address::from_string(vmip, ec),
                                         32, Ip4Address::from_string(server, ec),
                                         bmap, label, vn);

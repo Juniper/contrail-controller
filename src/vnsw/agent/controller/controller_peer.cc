@@ -315,10 +315,9 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
         }
     }
     //ECMP create component NH
-    rt_table->AddRemoteVmRoute(bgp_peer_id_, vrf_name,
-                               prefix_addr, prefix_len, comp_nh_list, -1,
-                               item->entry.virtual_network,
-                               false);
+    rt_table->AddRemoteVmRouteReq(bgp_peer_id_, vrf_name,
+                                  prefix_addr, prefix_len, comp_nh_list, -1,
+                                  item->entry.virtual_network);
 }
 
 void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name, 
@@ -358,9 +357,9 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     if (Agent::GetInstance()->GetRouterId() != addr.to_v4()) {
         CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), nexthop_addr,
                          "add remote evpn route");
-        rt_table->AddRemoteVmRoute(bgp_peer_id_, vrf_name, encap, 
-                                   addr.to_v4(), label, mac, 
-                                   prefix_addr, prefix_len);
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id_, vrf_name, encap,
+                                      addr.to_v4(), label, mac,
+                                      prefix_addr, prefix_len);
         return;
     }
 
@@ -389,7 +388,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
         switch(nh->GetType()) {
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            rt_table->AddLocalVmRoute(bgp_peer_id_, intf_nh->GetIfUuid(),
+            rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
                                           "", vrf_name, label, encap, 
                                           mac, prefix_addr, prefix_len);
             break;
@@ -427,10 +426,10 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                      item->entry.virtual_network);
 
     if (Agent::GetInstance()->GetRouterId() != addr.to_v4()) {
-        rt_table->AddRemoteVmRoute(bgp_peer_id_, vrf_name,
-                                   prefix_addr, prefix_len, addr.to_v4(), 
-                                   encap, label, item->entry.virtual_network,  
-                                   item->entry.security_group_list.security_group);
+        rt_table->AddRemoteVmRouteReq(bgp_peer_id_, vrf_name,
+                                      prefix_addr, prefix_len, addr.to_v4(),
+                                      encap, label, item->entry.virtual_network,
+                                      item->entry.security_group_list.security_group);
         return;
     }
 
@@ -446,10 +445,10 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
             }
 
             if (interface->GetType() == Interface::VMPORT) {
-                rt_table->AddLocalVmRoute(bgp_peer_id_, vrf_name, prefix_addr,
-                                          prefix_len, intf_nh->GetIfUuid(),
-                                          item->entry.virtual_network, label,
-                                          item->entry.security_group_list.security_group);
+                rt_table->AddLocalVmRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
+                                             prefix_len, intf_nh->GetIfUuid(),
+                                             item->entry.virtual_network, label,
+                                             item->entry.security_group_list.security_group);
             } else if (interface->GetType() == Interface::VHOST) {
                 rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
                                                  prefix_addr, prefix_len,
@@ -472,10 +471,10 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                 static_cast<const VmPortInterface *>(vlan_nh->GetInterface());
             std::vector<int> sg_l;
             vm_port->SgIdList(sg_l);
-            rt_table->AddVlanNHRoute(bgp_peer_id_, vrf_name, prefix_addr, 
-                                     prefix_len, vlan_nh->GetIfUuid(), 
-                                     vlan_nh->GetVlanTag(), label,
-                                     item->entry.virtual_network, sg_l);
+            rt_table->AddVlanNHRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
+                                        prefix_len, vlan_nh->GetIfUuid(),
+                                        vlan_nh->GetVlanTag(), label,
+                                        item->entry.virtual_network, sg_l);
             break;
             }
         case NextHop::COMPOSITE: {
