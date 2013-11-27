@@ -295,7 +295,6 @@ void BuildStaticRoute(VmPortInterfaceData *data, IFMapNode *node) {
         static_cast<InterfaceRouteTable*>(node->GetObject());
     assert(entry);
 
-    std::vector<RouteType>::const_iterator it = entry->routes().begin();
     for (std::vector<RouteType>::const_iterator it = entry->routes().begin();
          it != entry->routes().end(); it++) {
         int plen;
