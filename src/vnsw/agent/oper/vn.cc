@@ -64,38 +64,38 @@ bool VnEntry::GetVnHostRoutes(const std::string &ipam,
 }
 
 bool VnEntry::GetIpamName(const Ip4Address &vm_addr,
-                          std::string &ipam_name) const {
+                          std::string *ipam_name) const {
     for (unsigned int i = 0; i < ipam_.size(); i++) {
         if (ipam_[i].IsSubnetMember(vm_addr)) {
-            ipam_name = ipam_[i].ipam_name;
+            *ipam_name = ipam_[i].ipam_name;
             return true;
         }
     }
     return false;
 }
 
-bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string &ipam_name,
-                          autogen::IpamType &ipam_type) const {
+bool VnEntry::GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
+                          autogen::IpamType *ipam_type) const {
     // This will be executed from non DB context; task policy will ensure that
     // this is not run while DB task is updating the map
     if (!GetIpamName(vm_addr, ipam_name) ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type))
+        !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(*ipam_name, ipam_type))
         return false;
 
     return true;
 }
 
 bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr, 
-                              autogen::IpamType &ipam_type,
-                              autogen::VirtualDnsType &vdns_type) const {
+                              autogen::IpamType *ipam_type,
+                              autogen::VirtualDnsType *vdns_type) const {
     std::string ipam_name;
-    if (!GetIpamName(vm_addr, ipam_name) ||
+    if (!GetIpamName(vm_addr, &ipam_name) ||
         !Agent::GetInstance()->GetDomainConfigTable()->GetIpam(ipam_name, ipam_type) ||
-        ipam_type.ipam_dns_method != "virtual-dns-server")
+        ipam_type->ipam_dns_method != "virtual-dns-server")
         return false;
     
     if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(
-                ipam_type.ipam_dns_server.virtual_dns_server_name, vdns_type))
+                ipam_type->ipam_dns_server.virtual_dns_server_name, vdns_type))
         return false;
         
     return true;
@@ -423,7 +423,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                                   subnets.ipam_subnets[i].subnet.ip_prefix_len,
                                   subnets.ipam_subnets[i].default_gateway, ipam_name));
                     }
-                    VnIpamData ipam_data;
+                    VnIpamLinkData ipam_data;
                     for (unsigned int i = 0;
                          i < subnets.host_routes.route.size(); ++i) {
                         VnSubnet subnet;
@@ -681,10 +681,10 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
             data.set_mirror_cfg_acl_uuid("");
         }
 
-        std::vector<VnSubnetSandeshData> vn_subnet_sandesh_list;
+        std::vector<VnIpamData> vn_subnet_sandesh_list;
         const std::vector<VnIpam> &vn_ipam = GetVnIpam();
         for (unsigned int i = 0; i < vn_ipam.size(); ++i) {
-            VnSubnetSandeshData entry;
+            VnIpamData entry;
             entry.set_ip_prefix(vn_ipam[i].ip_prefix.to_string());
             entry.set_prefix_len(vn_ipam[i].plen);
             entry.set_gateway(vn_ipam[i].default_gw.to_string());
@@ -693,19 +693,19 @@ bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
         } 
         data.set_ipam_data(vn_subnet_sandesh_list);
 
-        std::vector<VnIpamSandeshData> vn_ipam_sandesh_list;
+        std::vector<VnIpamHostRoutes> vn_ipam_host_routes_list;
         for (VnData::VnIpamDataMap::const_iterator it = vn_ipam_data_.begin();
              it != vn_ipam_data_.end(); ++it) {
-            VnIpamSandeshData vn_ipam_sandesh;
-            vn_ipam_sandesh.ipam_name = it->first;
+            VnIpamHostRoutes vn_ipam_host_routes;
+            vn_ipam_host_routes.ipam_name = it->first;
             for (std::set<VnSubnet>::iterator iter =
                  it->second.host_routes.begin();
                  iter != it->second.host_routes.end(); ++iter) {
-                vn_ipam_sandesh.host_routes.push_back(iter->ToString());
+                vn_ipam_host_routes.host_routes.push_back(iter->ToString());
             }
-            vn_ipam_sandesh_list.push_back(vn_ipam_sandesh);
+            vn_ipam_host_routes_list.push_back(vn_ipam_host_routes);
         }
-        data.set_vn_ipam_data(vn_ipam_sandesh_list);
+        data.set_ipam_host_routes(vn_ipam_host_routes_list);
         data.set_ipv4_forwarding(Ipv4Forwarding());
         data.set_layer2_forwarding(Layer2Forwarding());
 
@@ -832,7 +832,7 @@ void DomainConfig::CallVdnsCb(IFMapNode *node) {
     }
 }
 
-bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType &ipam) {
+bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType *ipam) {
     DomainConfigMap::iterator it = ipam_config_.find(name);
     if (it == ipam_config_.end())
         return false;
@@ -840,12 +840,12 @@ bool DomainConfig::GetIpam(const std::string &name, autogen::IpamType &ipam) {
             static_cast <autogen::NetworkIpam *> (it->second->GetObject());
     assert(network_ipam);
 
-    ipam = network_ipam->mgmt();
+    *ipam = network_ipam->mgmt();
     return true;
 }
 
 bool DomainConfig::GetVDns(const std::string &vdns, 
-                           autogen::VirtualDnsType &vdns_type) {
+                           autogen::VirtualDnsType *vdns_type) {
     DomainConfigMap::iterator it = vdns_config_.find(vdns);
     if (it == vdns_config_.end())
         return false;
@@ -853,6 +853,6 @@ bool DomainConfig::GetVDns(const std::string &vdns,
             static_cast <autogen::VirtualDns *> (it->second->GetObject());
     assert(virtual_dns);
 
-    vdns_type = virtual_dns->data();
+    *vdns_type = virtual_dns->data();
     return true;
 }

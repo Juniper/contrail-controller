@@ -106,7 +106,7 @@ public:
                 DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
                 if (pkt.dhcp_hdr.dhcp_options.find(HOST_ROUTE_STRING) ==
                     std::string::npos) {
-		    assert(0);
+                    assert(0);
                 }
             }
         }

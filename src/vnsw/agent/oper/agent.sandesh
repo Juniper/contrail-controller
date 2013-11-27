@@ -53,14 +53,14 @@ struct ItfSandeshData {
    26: i32 vxlan_id;
 }
 
-struct VnSubnetSandeshData {
+struct VnIpamData {
     1: string ip_prefix;
     2: i32 prefix_len;
     3: string gateway;
     4: string ipam_name;
 }
 
-struct VnIpamSandeshData {
+struct VnIpamHostRoutes {
     1: string ipam_name;
     2: list<string> host_routes;
 }
@@ -72,8 +72,8 @@ struct VnSandeshData {
     4: string mirror_acl_uuid (link="AclReq"); // mirror acl uuid
     5: string mirror_cfg_acl_uuid (link="AclReq"); // mirror cfg acl uuid
     6: string vrf_name (link="VrfListReq"); // VRF name
-    7: list<VnSubnetSandeshData> ipam_data;
-    8: list<VnIpamSandeshData> vn_ipam_data;
+    7: list<VnIpamData> ipam_data;
+    8: list<VnIpamHostRoutes> ipam_host_routes;
     9: bool layer2_forwarding;
     10: bool ipv4_forwarding;
 }

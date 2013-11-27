@@ -311,14 +311,14 @@ void DhcpHandler::UpdateDnsServer() {
 
     if (!vm_itf_->GetVnEntry() || 
         !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_->GetIpAddr(),
-                                            ipam_name_, ipam_type_)) {
+                                            &ipam_name_, &ipam_type_)) {
         DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->GetName());
         return;
     }
 
     if (ipam_type_.ipam_dns_method != "virtual-dns-server" ||
         !Agent::GetInstance()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
-                                        virtual_dns_server_name, vdns_type_))
+                                        virtual_dns_server_name, &vdns_type_))
         return;
 
     if (domain_name_.size() && domain_name_ != vdns_type_.domain_name) {
@@ -524,6 +524,34 @@ void DhcpHandler::RelayResponseFromFabric() {
     Agent::GetInstance()->GetDhcpProto()->IncrStatsRelayResps();
 }
 
+uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
+    std::set<VnSubnet> host_routes;
+    vm_itf_->GetVnEntry()->GetVnHostRoutes(ipam_name_, &host_routes);
+    if (host_routes.size()) {
+        DhcpOptions *opt = GetNextOptionPtr(opt_len);
+        opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
+        uint8_t *ptr = opt->data;
+        uint8_t len = 0;
+        for (std::set<VnSubnet>::iterator it = host_routes.begin();
+             it != host_routes.end(); ++it) {
+            uint32_t prefix = it->prefix.to_ulong();
+            uint32_t plen = it->plen;
+            *ptr++ = plen;
+            len++;
+            for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
+                *ptr++ = (prefix >> 8 * (3 - i)) & 0xFF;
+                len++;
+            }
+            *(uint32_t *)ptr = htonl(config_.gw_addr);
+            ptr += sizeof(uint32_t);
+            len += sizeof(uint32_t);
+        }
+        opt->len = len;
+        opt_len += 2 + len;
+    }
+    return opt_len;
+}
+
 uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr, 
                               in_addr_t siaddr, uint8_t *chaddr) {
     int num_domain_name = 0;
@@ -669,30 +697,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
 
         // Add classless route option
         if (vm_itf_->GetVnEntry()) {
-            std::set<VnSubnet> host_routes;
-	    vm_itf_->GetVnEntry()->GetVnHostRoutes(ipam_name_, &host_routes);
-            if (host_routes.size()) {
-                opt = GetNextOptionPtr(opt_len);
-                opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
-                uint8_t *ptr = opt->data;
-                uint8_t len = 0;
-                for (std::set<VnSubnet>::iterator it = host_routes.begin();
-                     it != host_routes.end(); ++it) {
-                    uint32_t prefix = it->prefix.to_ulong();
-                    uint32_t plen = it->plen;
-                    *ptr++ = plen;
-                    len++;
-                    for (unsigned int i = 0; plen && i <= (plen - 1) / 8; ++i) {
-                        *ptr++ = (prefix >> 8 * (3 - i)) & 0xFF;
-                        len++;
-                    }
-                    *(uint32_t *)ptr = htonl(config_.gw_addr);
-                    ptr += sizeof(uint32_t);
-                    len += sizeof(uint32_t);
-                }
-                opt->len = len;
-                opt_len += 2 + len;
-            }
+            opt_len = AddClasslessRouteOption(opt_len);
         }
     }
 

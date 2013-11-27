@@ -152,6 +152,7 @@ private:
     void RelayRequestToFabric();
     void RelayResponseFromFabric();
     uint16_t DhcpHdr(in_addr_t, in_addr_t, uint8_t *);
+    uint16_t AddClasslessRouteOption(uint16_t opt_len);
     void SendDhcpResponse();
     void UpdateStats();
     DhcpOptions *GetNextOptionPtr(uint16_t optlen) {
