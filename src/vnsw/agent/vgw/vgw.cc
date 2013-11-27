@@ -53,11 +53,11 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
     label_ = agent_->GetMplsTable()->AllocLabel();
 
     // Create InterfaceNH before MPLS is created
-    InterfaceNH::CreateVirtualHostPortReq(vgw_config_->interface());
+    InterfaceNH::CreateVirtualHostPort(vgw_config_->interface());
 
     // Create MPLS entry pointing to virtual host interface-nh
-    MplsLabel::CreateVirtualHostPortLabelReq(label_, vgw_config_->interface(),
-                                             false, InterfaceNHFlags::INET4);
+    MplsLabel::CreateVirtualHostPortLabel(label_, vgw_config_->interface(),
+                                          false, InterfaceNHFlags::INET4);
 
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>

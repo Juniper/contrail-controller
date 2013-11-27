@@ -681,19 +681,17 @@ TEST_F(CfgTest, EcmpNH_5) {
     Ip4Address remote_server_ip1 = Ip4Address::from_string("10.10.10.100");
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
     //Add a remote VM route
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL,
-                                                  "vrf2", remote_vm_ip,
-                                                  32, remote_server_ip1,
-                                                  TunnelType::AllType(),
-                                                  30, "vn2");
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32, remote_server_ip1,
+                            TunnelType::DefaultType(), 30, "vn2");
     client->WaitForIdle();
     //Create component NH list
     //Transition remote VM route to ECMP route
-    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+    NextHopKey *nh_key1 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
                                           Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip1, false,
                                           TunnelType::DefaultType());
-    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
+    NextHopKey *nh_key2 = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
                                           Agent::GetInstance()->GetRouterId(),
                                           remote_server_ip2, false,
                                           TunnelType::DefaultType());
@@ -706,10 +704,9 @@ TEST_F(CfgTest, EcmpNH_5) {
     comp_nh_list.push_back(nh_data2);
     comp_nh_list.push_back(nh_data1);
 
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
-                                                  remote_vm_ip, 32,
-                                                  comp_nh_list, -1, 
-                                                  "vn2", false);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32,
+                            comp_nh_list, -1, "vn2");
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -751,7 +748,8 @@ TEST_F(CfgTest, EcmpNH_6) {
     Ip4Address remote_server_ip2 = Ip4Address::from_string("10.10.10.101");
     Ip4Address remote_server_ip3 = Ip4Address::from_string("10.10.10.102");
     //Add a remote VM route
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq(
+                                                  NULL, "vrf2",
                                                   remote_vm_ip,
                                                   32, remote_server_ip1,
                                                   TunnelType::AllType(),
@@ -776,10 +774,9 @@ TEST_F(CfgTest, EcmpNH_6) {
     comp_nh_list.push_back(nh_data1);
     comp_nh_list.push_back(nh_data2);
 
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRoute(NULL, "vrf2",
-                                                  remote_vm_ip, 32,
-                                                  comp_nh_list, -1, 
-                                                  "vn2", false);
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+        AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32,
+                            comp_nh_list, -1, "vn2");
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);

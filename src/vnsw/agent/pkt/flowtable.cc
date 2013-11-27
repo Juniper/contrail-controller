@@ -942,7 +942,8 @@ void NhState::Change(NextHop *nh) {
     }
 
     bool ingress = true;
-    Inet4UnicastRouteEntry *rt = comp_nh->GetVrf()->GetUcRoute(comp_nh->GetGrpAddr());
+    Inet4UnicastRouteEntry *rt = 
+        comp_nh->GetVrf()->GetUcRoute(comp_nh->GetGrpAddr());
     if (!rt || rt->GetActiveNextHop() != nh) {
        if (comp_nh->IsLocal() == true) {
           //Evaluate only packet coming via ethernet
@@ -952,8 +953,10 @@ void NhState::Change(NextHop *nh) {
     }
 
     int index = 0;
-    CompositeNH::ComponentNHList::const_iterator component_nh_it = comp_nh->begin();
-    std::vector<NextHopRef>::const_iterator state_nh_it = component_nh_list_.begin();
+    CompositeNH::ComponentNHList::const_iterator component_nh_it = 
+                                                               comp_nh->begin();
+    std::vector<NextHop*>::const_iterator state_nh_it = 
+                                                  component_nh_list_.begin();
     RouteFlowKey skey(comp_nh->GetVrf()->GetVrfId(), 
                       comp_nh->GetGrpAddr().to_ulong());
 
@@ -1002,19 +1005,15 @@ void NhListener::Notify(DBTablePartBase *part, DBEntryBase *e) {
         static_cast<NhState *>(e->GetState(part->parent(), id_));
 
     if (nh->IsDeleted()) {
-        if (state) {
+        if (state && state->refcount() == 0) {
             e->ClearState(part->parent(), id_);
             delete state;
         }
         return;
     }
 
-    if (nh->GetType() != NextHop::COMPOSITE) {
-        return;
-    }
-
     if (!state) {
-        state = new NhState();
+        state = new NhState(nh);
     }
     state->Change(nh);
     nh->SetState(part->parent(), id_, state);
@@ -1728,6 +1727,10 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
     for (fet_it = fet.begin(); fet_it != fet.end(); ++fet_it) {
         DeleteNatFlow((*fet_it)->key, true);
     }
+}
+
+DBTableBase::ListenerId FlowTable::nh_listener_id() {
+    return nh_listener_->id();
 }
 
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)

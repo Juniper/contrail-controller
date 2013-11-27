@@ -221,24 +221,26 @@ static void Setup() {
     /* Add remote VN route to VN1 */
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     Ip4Address gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRoute(NULL, "vrf1", addr, 32, gw, 
-                                    TunnelType::AllType(), 8, "vn1");
+    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
+                                       TunnelType::AllType(), 8, "vn1");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
     /* Add Local VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.10");
-    vnet_table[2]->AddLocalVmRoute(NULL, "vrf2", addr, 32, vnet[3]->GetUuid(),
-                                   vnet[3]->GetVnEntry()->GetName(), vnet[3]->GetLabel(),
-                                   0);
+    vnet_table[2]->AddLocalVmRouteReq(NULL, "vrf2", addr, 32, 
+                                      vnet[3]->GetUuid(),
+                                      vnet[3]->GetVnEntry()->GetName(),
+                                      vnet[3]->GetLabel(),
+                                      0);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", addr, 32));
 
     /* Add Remote VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.11");
     gw = Ip4Address::from_string("10.1.1.2");
-    vnet_table[1]->AddRemoteVmRoute(NULL, "vrf1", addr, 32, gw, 
-                                    TunnelType::AllType(), 8, "vn2");
+    vnet_table[1]->AddRemoteVmRouteReq(NULL, "vrf1", addr, 32, gw, 
+                                       TunnelType::AllType(), 8, "vn2");
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 
@@ -444,7 +446,9 @@ TEST_F(FlowTest, VmToServer_1) {
                                 IPPROTO_TCP, 10000, 80, 1, 
                                 vhost->GetVrf()->GetName().c_str(),
                                 vnet[1]->GetMdataIpAddr().to_string().c_str(),
-                                vhost_addr, 10000, 8775, "vn1",
+                                vhost_addr, 10000, 
+                                Agent::GetInstance()->GetMetadataServerPort(),
+                                "vn1",
                                 Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
@@ -820,7 +824,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
                 "169.254.169.254", 6, 10, 80,
                 "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
                 vhost->GetVrf()->GetName().c_str(), 
-                vnet[7]->GetMdataIpAddr().to_string().c_str(), vhost_addr, 10, 8775));
+                vnet[7]->GetMdataIpAddr().to_string().c_str(), vhost_addr, 10, 
+                Agent::GetInstance()->GetMetadataServerPort()));
     char mdata_ip[32];
     strcpy(mdata_ip, vnet[7]->GetMdataIpAddr().to_string().c_str());
 
@@ -855,7 +860,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
                            "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
                            vhost->GetVrf()->GetName().c_str(), mdata_ip,
-                           vhost_addr, 10, 8775));
+                           vhost_addr, 10, 
+                           Agent::GetInstance()->GetMetadataServerPort()));
     client->WaitForIdle();
     DelLink("virtual-machine-interface", "vnet8", "virtual-network", "vn8");
     client->WaitForIdle();
@@ -870,10 +876,10 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
 //which was leaked due to policy
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from vrf3 to vrf2
-    vnet_table[2]->AddLocalVmRoute(NULL, "vrf2", vnet[5]->GetIpAddr(), 32,
-                                   vnet[5]->GetUuid(), 
-                                   vnet[5]->GetVnEntry()->GetName(),
-                                   vnet[5]->GetLabel(), 0);
+    vnet_table[2]->AddLocalVmRouteReq(NULL, "vrf2", vnet[5]->GetIpAddr(), 32,
+                                      vnet[5]->GetUuid(), 
+                                      vnet[5]->GetVnEntry()->GetName(),
+                                      vnet[5]->GetLabel(), 0);
     client->WaitForIdle();
 
   // HTTP packet from VM to Server

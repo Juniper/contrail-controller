@@ -6,7 +6,7 @@
 #include <cmn/agent_cmn.h>
 #include "ifmap/ifmap_node.h"
 #include <vnc_cfg_types.h>
-
+#include "base/task_annotations.h"
 #include <base/logging.h>
 #include <oper/agent_route.h>
 #include <oper/interface.h>
@@ -226,85 +226,29 @@ VrfEntry *NextHopTable::FindVrfEntry(const VrfKey &key) const {
     return static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
 }
 
+void NextHopTable::Process(DBRequest &req) {
+    CHECK_CONCURRENCY("db::DBTable");
+    DBTablePartition *tpart = 
+        static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+    tpart->Process(NULL, &req);
+}
+
 void NextHopTable::OnZeroRefcount(AgentDBEntry *e) {
-    const NextHop *nh = static_cast<const NextHop *>(e);
+    NextHop *nh = static_cast<NextHop *>(e);
 
-    switch (nh->GetType()) {
-        case NextHop::TUNNEL: {
-            DBRequest req;
-            const TunnelNH *tunnel = static_cast<const TunnelNH *>(e);
-            NextHopKey *key = new TunnelNHKey(tunnel->GetVrf()->GetName(),
-                                              *tunnel->GetSip(),
-                                              *tunnel->GetDip(),
-                                              tunnel->PolicyEnabled(),
-                                              tunnel->GetTunnelType());
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.key.reset(key);
-            req.data.reset(NULL);
-            Enqueue(&req);
-            break;
-        }
-
-        case NextHop::ARP: {
-            DBRequest req;
-            const ArpNH *arp_nh = static_cast<const ArpNH *>(e);
-            NextHopKey *key = new ArpNHKey(arp_nh->GetVrf()->GetName(),
-                                           *arp_nh->GetIp());
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.key.reset(key);
-            req.data.reset(NULL);
-            Enqueue(&req);
-            break;
-        }
-
-        case NextHop::MIRROR: {
-            DBRequest req;
-            const MirrorNH *mirr_nh = static_cast<const MirrorNH *>(e);
-            NextHopKey *key = new MirrorNHKey
-                (mirr_nh->GetVrf() ? mirr_nh->GetVrf()->GetName() : "",
-                 *mirr_nh->GetSip(), mirr_nh->GetSPort(), *mirr_nh->GetDip(),
-                 mirr_nh->GetDPort());
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.key.reset(key);
-            req.data.reset(NULL);
-            Enqueue(&req);
-            break;
-        }
-
-        case NextHop::COMPOSITE: {
-            DBRequest req;
-            const CompositeNH *cnh = static_cast<const CompositeNH *>(e);
-            NextHopKey *key = NULL;
-            if (cnh->CompositeType() != Composite::ECMP) {
-                key = new CompositeNHKey(cnh->GetVrfName(), cnh->GetGrpAddr(),
-                                          cnh->GetSrcAddr(), cnh->IsLocal(), 
-                                          cnh->CompositeType());
-            } else {
-                key = new CompositeNHKey(cnh->GetVrfName(), cnh->GetGrpAddr(), 
-                                         cnh->IsLocal());
-            }
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.key.reset(key);
-            req.data.reset(NULL);
-            Enqueue(&req);
-            break;
-        }
-
-        case NextHop::VRF: {
-            DBRequest req;
-            const VrfNH *vrf_nh = static_cast<const VrfNH *>(e);
-            NextHopKey *key = new VrfNHKey(vrf_nh->GetVrf()->GetName(),
-                                           vrf_nh->PolicyEnabled());
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-            req.key.reset(key);
-            req.data.reset(NULL);
-            Enqueue(&req);
-            break;
-        }
-
-        default:
-            return;
+    if (nh->DeleteOnZeroRefCount() == false) {
+        return;
     }
+
+    CHECK_CONCURRENCY("db::DBTable");
+    nh->OnZeroRefCount();
+    
+    DBRequest req;
+    req.oper = DBRequest::DB_ENTRY_DELETE;
+    DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+    req.key = key;
+    req.data.reset(NULL);
+    Process(req);
 }
 
 void NextHop::SetKey(const DBRequestKey *key) {
@@ -418,6 +362,12 @@ void ArpNH::SendObjectLog(AgentLogEvent::type event) const {
 NextHop *InterfaceNHKey::AllocEntry() const {
     Interface *intf = static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->Find(intf_key_.get(), true));
+    if (intf && intf->IsDeleted() && intf->GetRefCount() == 0) {
+        //Ignore interface which are  deleted, and there are no reference to it
+        //taking reference on deleted interface with refcount 0, would result 
+        //in DB state set on deleted interface entry
+        intf = NULL;
+    }
     return new InterfaceNH(intf, policy_, flags_);
 }
 
@@ -491,7 +441,7 @@ const uuid &InterfaceNH::GetIfUuid() const {
     return interface_->GetUuid();
 }
 
-static void EnqueueAddReq(const uuid &intf_uuid, const struct ether_addr &dmac,
+static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
                           uint8_t flags, bool policy, const string vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -504,23 +454,23 @@ static void EnqueueAddReq(const uuid &intf_uuid, const struct ether_addr &dmac,
     data = new InterfaceNHData(vrf_name, dmac);
 
     req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
 // Create 3 InterfaceNH for every VPort. One with policy another without 
 // policy, third one is for multicast.
-void InterfaceNH::CreateVportReq(const uuid &intf_uuid,
-                                 const struct ether_addr &dmac, 
-                                 const string &vrf_name) {
-    EnqueueAddReq(intf_uuid, dmac, InterfaceNHFlags::INET4 | 
+void InterfaceNH::CreateVport(const uuid &intf_uuid,
+                              const struct ether_addr &dmac, 
+                              const string &vrf_name) {
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4 | 
                   InterfaceNHFlags::MULTICAST, false,vrf_name);
-    EnqueueAddReq(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
-    EnqueueAddReq(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
-    EnqueueAddReq(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
-    EnqueueAddReq(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
 }
 
-static void EnqueueDelReq(const uuid &intf_uuid, bool policy, 
+static void DeleteNH(const uuid &intf_uuid, bool policy, 
                           uint8_t flags) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -530,20 +480,20 @@ static void EnqueueDelReq(const uuid &intf_uuid, bool policy,
     req.key.reset(key);
 
     req.data.reset(NULL);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
 void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
-    EnqueueDelReq(intf_uuid, false, InterfaceNHFlags::LAYER2);
-    EnqueueDelReq(intf_uuid, true, InterfaceNHFlags::LAYER2);
-    EnqueueDelReq(intf_uuid, false, InterfaceNHFlags::INET4);
-    EnqueueDelReq(intf_uuid, true, InterfaceNHFlags::INET4);
-    EnqueueDelReq(intf_uuid, false, InterfaceNHFlags::MULTICAST | 
-                  InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::LAYER2);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::LAYER2);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST | 
+             InterfaceNHFlags::INET4);
 }
 
-void InterfaceNH::CreateVirtualHostPortReq(const string &ifname) {
+void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -557,7 +507,7 @@ void InterfaceNH::CreateVirtualHostPortReq(const string &ifname) {
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
     InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
     req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
 void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
@@ -1070,9 +1020,9 @@ const uuid &VlanNH::GetIfUuid() const {
 }
 
 // Create VlanNH for a VPort
-void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag, 
-                       const string &vrf_name, const ether_addr &smac, 
-                       const ether_addr &dmac) {
+void VlanNH::Create(const uuid &intf_uuid, uint16_t vlan_tag, 
+                    const string &vrf_name, const ether_addr &smac, 
+                    const ether_addr &dmac) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -1081,10 +1031,10 @@ void VlanNH::CreateReq(const uuid &intf_uuid, uint16_t vlan_tag,
 
     VlanNHData *data = new VlanNHData(vrf_name, smac, dmac);
     req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
-void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
+void VlanNH::Delete(const uuid &intf_uuid, uint16_t vlan_tag) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -1092,7 +1042,7 @@ void VlanNH::DeleteReq(const uuid &intf_uuid, uint16_t vlan_tag) {
     req.key.reset(key);
 
     req.data.reset(NULL);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
 VlanNH *VlanNH::Find(const uuid &intf_uuid, uint16_t vlan_tag) {
@@ -1456,16 +1406,6 @@ void CompositeNH::CreateCompositeNH(const string vrf_name,
                                     bool local_ecmp_nh,
                                     std::vector<ComponentNHData> comp_nh_list) {
     CreateComponentNH(comp_nh_list);
-    DBRequest req;
-    NextHopKey *key;
-    CompositeNHData *data;
-
-    key = new CompositeNHKey(vrf_name, ip, local_ecmp_nh);
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req.key.reset(key);
-    data = new CompositeNHData(comp_nh_list, CompositeNHData::REPLACE);
-    req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 }
 
 //Create composite NH of type ECMP
@@ -1485,7 +1425,7 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
     req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::ADD);
     req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
 //Delete composite NH of type ECMP
@@ -1504,7 +1444,7 @@ void CompositeNH::DeleteComponentNH(const string vrf_name,
     req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::DELETE);
     req.data.reset(data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+    Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
 //Create composite NH of type multicast

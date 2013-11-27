@@ -26,7 +26,7 @@ public:
         strcpy(vnet_addr, vnet->GetIpAddr().to_string().c_str());
 
         boost::system::error_code ec;
-        Inet4UnicastAgentRouteTable::AddRemoteVmRoute(bgp_peer_, "vrf1", 
+        Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf1", 
                                         Ip4Address::from_string("5.0.0.0", ec),
                                         8, Ip4Address::from_string("1.1.1.2", ec),
                                         TunnelType::AllType(), 16, "TestVn");

@@ -12,6 +12,7 @@
 #include <netinet/ether.h>
 #include <base/lifetime.h>
 #include <base/patricia.h>
+#include <base/task_annotations.h>
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 #include <route/table.h>
@@ -197,7 +198,12 @@ public:
     void MayResumeDelete(bool is_empty);
 
     static bool PathSelection(const Path &path1, const Path &path2);
-
+    void Process(DBRequest &req) {
+        CHECK_CONCURRENCY("db::DBTable");
+        DBTablePartition *tpart =
+            static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
+        tpart->Process(NULL, &req);
+    };
 private:
     class DeleteActor;
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
@@ -370,10 +376,11 @@ public:
     RemoteVmRoute(const string &vrf_name, const Ip4Address &addr,
                   uint32_t label, const string &dest_vn_name,
                   int bmap, const SecurityGroupList &sg_list,
-                  Op op = RouteData::CHANGE) :
+                  DBRequest &req, Op op = RouteData::CHANGE):
         RouteData(op, false), server_vrf_(vrf_name),
         server_ip_(addr), tunnel_bmap_(bmap), 
-        label_(label), dest_vn_name_(dest_vn_name), sg_list_(sg_list) { };
+        label_(label), dest_vn_name_(dest_vn_name), sg_list_(sg_list)
+        {nh_req_.Swap(&req);}
     virtual ~RemoteVmRoute() { };
     virtual bool AddChangePath(AgentPath *path);
     virtual string ToString() const {return "remote VM";};;
@@ -386,6 +393,7 @@ private:
     uint32_t label_;
     string dest_vn_name_;
     SecurityGroupList sg_list_;
+    DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(RemoteVmRoute);
 };
 
@@ -500,11 +508,12 @@ public:
     Inet4UnicastEcmpRoute(const Ip4Address &dest_addr, 
                           const string &vn_name, 
                           uint32_t label, bool local_ecmp_nh, 
-                          const string &vrf_name,
-                          Op op  = RouteData::CHANGE) : 
+                          const string &vrf_name, DBRequest &nh_req,
+                          Op op  = RouteData::CHANGE) :
         RouteData(op, false), dest_addr_(dest_addr),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
         vrf_name_(vrf_name) {
+            nh_req_.Swap(&nh_req);
         };
     virtual ~Inet4UnicastEcmpRoute() { };
     virtual bool AddChangePath(AgentPath *path);
@@ -516,6 +525,7 @@ private:
     uint32_t label_;
     bool local_ecmp_nh_;
     string vrf_name_;
+    DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastEcmpRoute);
 };
 
@@ -680,50 +690,71 @@ public:
                                const Ip4Address &ip, uint8_t plen);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const Ip4Address &addr, uint8_t plen);
+    static void Delete(const Peer *peer, const string &vrf_name,
+                       const Ip4Address &addr, uint8_t plen);
     static void AddHostRoute(const string &vrf_name,
                              const Ip4Address &addr, uint8_t plen,
                              const std::string &dest_vn_name);
+    static void AddVlanNHRouteReq(const Peer *peer, const string &vm_vrf,
+                                  const Ip4Address &addr, uint8_t plen,
+                                  const uuid &intf_uuid, uint16_t tag,
+                                  uint32_t label, const string &dest_vn_name,
+                                  const SecurityGroupList &sg_list_);
     static void AddVlanNHRoute(const Peer *peer, const string &vm_vrf,
                                const Ip4Address &addr, uint8_t plen,
                                const uuid &intf_uuid, uint16_t tag,
                                uint32_t label, const string &dest_vn_name,
                                const SecurityGroupList &sg_list_);
+   static void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                  const Ip4Address &addr, uint8_t plen,
+                                  const uuid &intf_uuid,
+                                  const string &vn_name,
+                                  uint32_t label, bool force_policy);
     static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const Ip4Address &addr, uint8_t plen,
                                 const uuid &intf_uuid,
                                 const string &vn_name,
-                                uint32_t label, bool force_policy); 
+                                uint32_t label, bool force_policy);
     static void AddSubnetBroadcastRoute(const Peer *peer, 
                                         const string &vrf_name,
                                         const Ip4Address &src_addr, 
                                         const Ip4Address &grp_addr,
                                         const string &vn_name);
-    static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf, 
+    static void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                   const Ip4Address &addr, uint8_t plen,
+                                   const uuid &intf_uuid, const string &vn_name,
+                                   uint32_t label, 
+                                   const SecurityGroupList &sg_list_);
+    static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
                                 const Ip4Address &addr, uint8_t plen,
                                 const uuid &intf_uuid, const string &vn_name,
                                 uint32_t label, 
                                 const SecurityGroupList &sg_list_);
-    static void AddLocalVmRoute(const Peer *peer, const string &vm_vrf,
-                                const Ip4Address &addr, uint8_t plen,
-                                const uuid &intf_uuid, const string &vn_name,
-                                uint32_t label);
-    static void AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
-                                 const Ip4Address &vm_addr,uint8_t plen,
-                                 const Ip4Address &server_ip,
-                                 TunnelType::TypeBmap bmap, uint32_t label,
-                                 const string &dest_vn_name); 
-    static void AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
-                                 const Ip4Address &vm_addr, uint8_t plen,
-                                 const Ip4Address &server_ip, 
-                                 TunnelType::TypeBmap bmap,uint32_t label,
-                                 const string &dest_vn_name,
-                                 const SecurityGroupList &sg_list_);
-    static void AddRemoteVmRoute(const Peer *peer, const string &vm_vrf,
-                                 const Ip4Address &vm_addr,uint8_t plen,
-                                 std::vector<ComponentNHData> comp_nh_list,
-                                 uint32_t label,
-                                 const string &dest_vn_name, 
-                                 bool local_ecmp_nh);
+    static void AddLocalVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                   const Ip4Address &addr, uint8_t plen,
+                                   const uuid &intf_uuid, const string &vn_name,
+                                   uint32_t label);
+    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                    const Ip4Address &vm_addr,uint8_t plen,
+                                    const Ip4Address &server_ip,
+                                    TunnelType::TypeBmap bmap, uint32_t label,
+                                    const string &dest_vn_name);
+    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                    const Ip4Address &vm_addr, uint8_t plen,
+                                    const Ip4Address &server_ip,
+                                    TunnelType::TypeBmap bmap,uint32_t label,
+                                    const string &dest_vn_name,
+                                    const SecurityGroupList &sg_list_);
+    static void AddRemoteVmRouteReq(const Peer *peer, const string &vm_vrf,
+                                    const Ip4Address &vm_addr,uint8_t plen,
+                                    std::vector<ComponentNHData> comp_nh_list,
+                                    uint32_t label,
+                                    const string &dest_vn_name);
+    static void AddLocalEcmpRoute(const Peer *peer, const string &vm_vrf,
+                                  const Ip4Address &vm_addr,uint8_t plen,
+                                  std::vector<ComponentNHData> comp_nh_list,
+                                  uint32_t label,
+                                  const string &dest_vn_name);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
                          const Ip4Address &ip, 
@@ -935,13 +966,21 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static Layer2RouteEntry *FindRoute(const string &vrf_name, 
                                        const struct ether_addr &mac);
-    static void AddRemoteVmRoute(const Peer *peer,
-                                 const string &vrf_name,
-                                 TunnelType::TypeBmap bmap,
-                                 const Ip4Address &server_ip,
-                                 uint32_t label,
-                                 struct ether_addr &mac,
-                                 const Ip4Address &vm_ip, uint32_t plen);
+    static void AddRemoteVmRouteReq(const Peer *peer,
+                                    const string &vrf_name,
+                                    TunnelType::TypeBmap bmap,
+                                    const Ip4Address &server_ip,
+                                    uint32_t label,
+                                    struct ether_addr &mac,
+                                    const Ip4Address &vm_ip, uint32_t plen);
+    static void AddLocalVmRouteReq(const Peer *peer,
+                                   const uuid &intf_uuid,
+                                   const string &vn_name, 
+                                   const string &vrf_name,
+                                   uint32_t label, int bmap, 
+                                   struct ether_addr &mac,
+                                   const Ip4Address &vm_ip,
+                                   uint32_t plen); 
     static void AddLocalVmRoute(const Peer *peer,
                                 const uuid &intf_uuid,
                                 const string &vn_name, 
@@ -956,6 +995,8 @@ public:
                                         const Ip4Address &sip);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           struct ether_addr &mac);
+    static void Delete(const Peer *peer, const string &vrf_name,
+                       struct ether_addr &mac);
     static void DeleteBroadcastReq(const string &vrf_name);
 private:
     DBTableWalker::WalkId walkid_;

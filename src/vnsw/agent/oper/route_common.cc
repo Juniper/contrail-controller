@@ -999,6 +999,12 @@ bool RemoteVmRoute::AddChangePath(AgentPath *path) {
                     server_ip_, false, TunnelType::ComputeType(tunnel_bmap_)); 
     nh = static_cast<NextHop *>(Agent::GetInstance()->
                                 GetNextHopTable()->FindActiveEntry(&key));
+    if (!nh) {
+        Agent::GetInstance()->GetNextHopTable()->Process(nh_req_);
+        nh = static_cast<NextHop *>(Agent::GetInstance()->
+                                    GetNextHopTable()->FindActiveEntry(&key));
+    }
+
     if (path->GetLabel() != label_) {
         path->SetLabel(label_);
         ret = true;

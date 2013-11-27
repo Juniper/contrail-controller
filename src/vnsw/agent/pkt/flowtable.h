@@ -41,8 +41,9 @@ class FlowEntry;
 class FlowTable;
 class FlowTableKSyncEntry;
 class NhListener;
+class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
-
+typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 struct RouteFlowKey {
     RouteFlowKey() : vrf(0) { ip.ipv4 = 0;};
     RouteFlowKey(uint32_t v, uint32_t ipv4) : vrf(v) { ip.ipv4 = ipv4;};
@@ -244,7 +245,7 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false), nh(NULL) {};
+        bytes(0), packets(0), trap(false), nh_state_(NULL) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -272,7 +273,7 @@ struct FlowData {
     uint64_t bytes;
     uint64_t packets;
     bool trap;
-    NextHopConstRef nh;
+    NhStatePtr nh_state_;
 };
 
 class FlowEntry {
@@ -474,6 +475,7 @@ public:
         return flow_entry_map_.end(); 
     }
 
+    DBTableBase::ListenerId nh_listener_id();
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -544,7 +546,6 @@ class Inet4RouteUpdate {
 public:
     struct State : DBState {
         SecurityGroupList sg_l_;
-        std::vector<NextHopRef> component_nh_list_;
     };
 
     Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
@@ -565,13 +566,32 @@ private:
 
 class NhState : public DBState {
 public:
-    NhState():component_nh_list_() { };
+    NhState(NextHop *nh):refcount_(), nh_(nh), component_nh_list_() { };
     ~NhState() {};
     void Change(NextHop *nh);
     void Copy(NextHop *nh);
+    const NextHop* nh() const { return nh_; }
+    uint32_t refcount() const { return refcount_; }
 private:
-    std::vector<NextHopRef> component_nh_list_;
+    friend void intrusive_ptr_add_ref(const NhState *nh);
+    friend void intrusive_ptr_release(const NhState *nh);
+    mutable tbb::atomic<uint32_t> refcount_;
+    NextHop *nh_;
+    std::vector<NextHop *> component_nh_list_;
 };
+
+inline void intrusive_ptr_add_ref(const NhState *nh_state) {
+    nh_state->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(const NhState *nh_state) {
+    int prev = nh_state->refcount_.fetch_and_decrement();
+    if (prev == 1 && nh_state->nh()->IsDeleted()) {
+        AgentDBTable *table = nh_state->nh_->DBToTable();
+        nh_state->nh_->ClearState(table, 
+            FlowTable::GetFlowTableObject()->nh_listener_id());
+        delete nh_state; 
+    }
+}
 
 class NhListener {
 public:
@@ -583,6 +603,9 @@ public:
         Agent::GetInstance()->GetNextHopTable()->Unregister(id_);
     }
     void Notify(DBTablePartBase *part, DBEntryBase *e);
+    DBTableBase::ListenerId id() {
+        return id_;
+    }
 private:
     DBTableBase::ListenerId id_;
 };
