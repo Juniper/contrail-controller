@@ -309,6 +309,32 @@ ServicesSandesh::FillOptionIp(uint32_t data, std::string msg) {
     return msg + addr.to_string() + "; ";
 }
 
+void
+ServicesSandesh::FillHostRoutes(uint8_t *data, int len,
+                                std::string &resp) {
+    std::stringstream routes;
+    int parsed = 0;
+    uint8_t *ptr = data;
+    while (parsed < len) {
+        uint32_t addr = 0;
+        int plen = *ptr++;
+        parsed++;
+        int j;
+        for (j = 0; plen && j <= (plen - 1) / 8; ++j) {
+            addr = (addr << 8) | *ptr++;
+            parsed++;
+        }
+        addr = addr << (4 - j) * 8;
+        Ip4Address prefix(addr);
+        Ip4Address route(get_val(ptr));
+        routes << prefix.to_string() << "/" << plen << " -> "
+               << route.to_string() << ";";
+        ptr += 4;
+        parsed += 4;
+    }
+    resp += routes.str();
+}
+
 void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
                                       std::string &other, int32_t len) {
     while (opt->code != DHCP_OPTION_END && len > 0) {
@@ -382,6 +408,13 @@ void ServicesSandesh::FillDhcpOptions(DhcpOptions *opt, std::string &resp,
             case DHCP_OPTION_SERVER_IDENTIFIER:
                 if (len >= (2 + opt->len))
                     resp += FillOptionIp(get_val(opt->data), "Server : ");
+                break;
+
+            case DHCP_OPTION_CLASSLESS_ROUTE:
+                if (len >= (2 + opt->len)) {
+                    resp += "Host Routes : ";
+                    FillHostRoutes(opt->data, opt->len, resp);
+                }
                 break;
 
             default:

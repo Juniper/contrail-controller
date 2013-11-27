@@ -283,7 +283,7 @@ bool DnsProto::UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
 
         autogen::VirtualDnsType vdns_type;
         if (Agent::GetInstance()->GetDomainConfigTable()->
-            GetVDns(vdns_name, vdns_type)) {
+            GetVDns(vdns_name, &vdns_type)) {
             UpdateDnsEntry(vmitf, vmitf->GetVmName(), ip, plen,
                            vdns_name, vdns_type, is_floating, is_deleted);
         } else {
@@ -321,7 +321,7 @@ bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr,
 
     autogen::IpamType ipam_type;
     autogen::VirtualDnsType vdns_type;
-    if (!vn->GetIpamVdnsData(vm_addr, ipam_type, vdns_type)) {
+    if (!vn->GetIpamVdnsData(vm_addr, &ipam_type, &vdns_type)) {
         DNS_BIND_TRACE(DnsBindTrace, "Unable to retrieve VDNS data; VN : " <<
                    vn->GetName() << " IP : " << vm_addr.to_string());
         return false;
@@ -401,7 +401,7 @@ bool DnsHandler::HandleRequest() {
     }
 
     if (!vmitf->GetVnEntry() || 
-        !vmitf->GetVnEntry()->GetIpamData(vmitf->GetIpAddr(), ipam_type_)) {
+        !vmitf->GetVnEntry()->GetIpamData(vmitf->GetIpAddr(), &ipam_name_, &ipam_type_)) {
         DNS_BIND_TRACE(DnsBindError, "Unable to find Ipam data; interface = "
                        << vmitf->GetVmName());
         ret = DNS_ERR_SERVER_FAIL;
@@ -418,7 +418,7 @@ bool DnsHandler::HandleRequest() {
         return HandleDefaultDnsRequest(vmitf);
     } else if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
         if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
-            virtual_dns_server_name, vdns_type_)) {
+            virtual_dns_server_name, &vdns_type_)) {
             DNS_BIND_TRACE(DnsBindError, "Unable to find domain; interface = "
                            << vmitf->GetVmName());
             ret = DNS_ERR_SERVER_FAIL;

@@ -60,6 +60,11 @@ struct VnIpamData {
     4: string ipam_name;
 }
 
+struct VnIpamHostRoutes {
+    1: string ipam_name;
+    2: list<string> host_routes;
+}
+
 struct VnSandeshData {
     1: string name;                   // vn name
     2: string uuid;                   // vn uuid
@@ -68,8 +73,9 @@ struct VnSandeshData {
     5: string mirror_cfg_acl_uuid (link="AclReq"); // mirror cfg acl uuid
     6: string vrf_name (link="VrfListReq"); // VRF name
     7: list<VnIpamData> ipam_data;
-    8: bool layer2_forwarding;
-    9: bool ipv4_forwarding;
+    8: list<VnIpamHostRoutes> ipam_host_routes;
+    9: bool layer2_forwarding;
+    10: bool ipv4_forwarding;
 }
 
 struct SgSandeshData {

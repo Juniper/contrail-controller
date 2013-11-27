@@ -66,6 +66,41 @@ struct VnIpam {
     }
 };
 
+struct VnSubnet {
+    Ip4Address prefix;
+    uint32_t plen;
+
+    VnSubnet() : prefix(), plen(0) {}
+    bool operator<(const VnSubnet &rhs) const {
+        if (prefix != rhs.prefix)
+            return prefix < rhs.prefix;
+        return (plen < rhs.plen);
+    }
+    bool operator==(const VnSubnet &rhs) const {
+        if (prefix == rhs.prefix && plen == rhs.plen)
+            return true;
+        return false;
+    }
+    std::string ToString() const { 
+        char len[32];
+        snprintf(len, sizeof(len), "%u", plen);
+        return prefix.to_string() + "/" + std::string(len);
+    }
+};
+
+// Per IPAM data of the VN
+// TODO: move the subnet, gw data here
+struct VnIpamLinkData {
+    std::set<VnSubnet> host_routes;
+
+    void AddRoute(const VnSubnet &route) { host_routes.insert(route); }
+    bool operator==(const VnIpamLinkData &rhs) const {
+        if (host_routes == rhs.host_routes)
+            return true;
+        return false;
+    }
+};
+
 struct VnKey : public AgentKey {
     VnKey(uuid id) : AgentKey(), uuid_(id) {} ;
     virtual ~VnKey() { };
@@ -74,14 +109,18 @@ struct VnKey : public AgentKey {
 };
 
 struct VnData : public AgentData {
+    typedef std::map<std::string, VnIpamLinkData> VnIpamDataMap;
+    typedef std::pair<std::string, VnIpamLinkData> VnIpamDataPair;
+
     VnData(const string &name, const uuid &acl_id, const string &vrf_name,
            const uuid &mirror_acl_id, const uuid &mc_acl_id, 
-           const std::vector<VnIpam> &ipam, int vxlan_id, int vnid,
-           bool layer2_forwarding, bool ipv4_forwarding) :
+           const std::vector<VnIpam> &ipam, const VnIpamDataMap &vn_ipam_data,
+           int vxlan_id, int vnid, bool layer2_forwarding,
+           bool ipv4_forwarding) :
                 AgentData(), name_(name), vrf_name_(vrf_name), acl_id_(acl_id),
                 mirror_acl_id_(mirror_acl_id), mirror_cfg_acl_id_(mc_acl_id),
-                ipam_(ipam), vxlan_id_(vxlan_id), vnid_(vnid), 
-                layer2_forwarding_(layer2_forwarding), 
+                ipam_(ipam), vn_ipam_data_(vn_ipam_data), vxlan_id_(vxlan_id),
+                vnid_(vnid), layer2_forwarding_(layer2_forwarding), 
                 ipv4_forwarding_(ipv4_forwarding) {  
     };
     virtual ~VnData() { };
@@ -92,6 +131,7 @@ struct VnData : public AgentData {
     uuid mirror_acl_id_;
     uuid mirror_cfg_acl_id_;
     std::vector<VnIpam> ipam_;
+    VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
@@ -120,12 +160,13 @@ public:
     const AclDBEntry *GetMirrorCfgAcl() const {return mirror_cfg_acl_.get();};
     VrfEntry *GetVrf() const {return vrf_.get();};
     const std::vector<VnIpam> &GetVnIpam() const { return ipam_; };
-    bool GetIpamName(const Ip4Address &vm_addr, std::string &ipam_name) const;
-    bool GetIpamData(const Ip4Address &vm_addr,
-                     autogen::IpamType &ipam_type) const;
+    bool GetVnHostRoutes(const std::string &ipam, std::set<VnSubnet> *routes) const;
+    bool GetIpamName(const Ip4Address &vm_addr, std::string *ipam_name) const;
+    bool GetIpamData(const Ip4Address &vm_addr, std::string *ipam_name,
+                     autogen::IpamType *ipam_type) const;
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
-                         autogen::IpamType &ipam_type,
-                         autogen::VirtualDnsType &vdns_type) const;
+                         autogen::IpamType *ipam_type,
+                         autogen::VirtualDnsType *vdns_type) const;
     int GetVxLanId() const;
     bool Layer2Forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
@@ -146,6 +187,7 @@ private:
     AclDBEntryRef mirror_cfg_acl_;
     VrfEntryRef vrf_;
     std::vector<VnIpam> ipam_;
+    VnData::VnIpamDataMap vn_ipam_data_;
     int vxlan_id_;
     int vnid_;
     bool layer2_forwarding_;
@@ -175,7 +217,7 @@ public:
 
     void AddVn(const uuid &vn_uuid, const string &name, const uuid &acl_id,
                const string &vrf_name, const std::vector<VnIpam> &ipam,
-               int vxlan_id);
+               const VnData::VnIpamDataMap &vn_ipam_data, int vxlan_id);
     void DelVn(const uuid &vn_uuid);
     void UpdateVxLanNetworkIdentifierMode();
     bool VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
@@ -215,8 +257,8 @@ public:
     void IpamSync(IFMapNode *node);
     void VDnsSync(IFMapNode *node);
 
-    bool GetIpam(const std::string &name, autogen::IpamType &ipam);
-    bool GetVDns(const std::string &vdns, autogen::VirtualDnsType &vdns_type);
+    bool GetIpam(const std::string &name, autogen::IpamType *ipam);
+    bool GetVDns(const std::string &vdns, autogen::VirtualDnsType *vdns_type);
 
 private:
     void CallVdnsCb(IFMapNode *node);
