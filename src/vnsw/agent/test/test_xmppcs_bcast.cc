@@ -623,7 +623,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 11));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 9));
 
     //we could add olists from mock_peer due to
     //local-vms on another agent attached to mock_peer
@@ -640,12 +640,12 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect dissociate to the older peer, 127.0.0.2
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 13));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 11));
 
     //expect subscribe, 2VM routes, 
     //subnet and all braodcast routes to newly elected
     //multicast builder
-    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 19));
+    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 17));
 
     //bring-down non multicast builder
     bgp_peer.get()->AgentBgpXmppPeerTest::HandleXmppChannelEvent(xmps::NOT_READY);
@@ -659,7 +659,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
 
     //expect no messages except config subscribe
     //control-node as 127.0.0.2 came up first
-    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 22));
+    WAIT_FOR(100, 10000, (mock_peer_s.get()->Count() == 17));
 
 
     //bring-up non multicast builder
@@ -673,7 +673,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_FailOver) {
     EXPECT_STREQ(ch->GetXmppServer().c_str(), "127.0.0.1");
 
     //expect subscribe + 2VM routes
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 21));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 17));
 
     //cleanup all config links via config
     XmppSubnetTearDown();
