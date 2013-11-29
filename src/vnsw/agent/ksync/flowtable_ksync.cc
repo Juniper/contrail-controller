@@ -175,6 +175,9 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t flags = 0;
 
     if (op == sandesh_op::DELETE) {
+        if (fe_->flow_handle == FlowEntry::kInvalidFlowHandle) {
+            return 0;
+        }
         req.set_fr_flags(0);
     } else {
         flags = VR_FLOW_FLAG_ACTIVE;
