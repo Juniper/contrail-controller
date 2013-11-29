@@ -123,6 +123,52 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     }
 }
 
+static TunnelType::TypeBmap 
+GetEnetTypeBitmap(const EnetTunnelEncapsulationListType *encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (EnetTunnelEncapsulationListType::const_iterator iter = encap->begin();
+         iter != encap->end(); iter++) {
+        TunnelEncapType::Encap encap = 
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if (encap == TunnelEncapType::MPLS_O_GRE)
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+        if (encap == TunnelEncapType::VXLAN)
+            bmap |= (1 << TunnelType::VXLAN);
+    }
+    return bmap;
+}
+
+static TunnelType::TypeBmap 
+GetTypeBitmap(const TunnelEncapsulationListType *encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (TunnelEncapsulationListType::const_iterator iter = encap->begin();
+         iter != encap->end(); iter++) {
+        TunnelEncapType::Encap encap = 
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if (encap == TunnelEncapType::MPLS_O_GRE)
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+    }
+    return bmap;
+}
+static TunnelType::TypeBmap 
+GetMcastTypeBitmap(const McastTunnelEncapsulationListType *encap) {
+    TunnelType::TypeBmap bmap = 0;
+    for (McastTunnelEncapsulationListType::const_iterator iter = encap->begin();
+         iter != encap->end(); iter++) {
+        TunnelEncapType::Encap encap = 
+            TunnelEncapType::TunnelEncapFromString(*iter);
+        if (encap == TunnelEncapType::MPLS_O_GRE)
+            bmap |= (1 << TunnelType::MPLS_GRE);
+        if (encap == TunnelEncapType::MPLS_O_UDP)
+            bmap |= (1 << TunnelType::MPLS_UDP);
+    }
+    return bmap;
+}
+
 void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 
     pugi::xml_node node = pugi->FindNode("items");
@@ -232,46 +278,16 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             int label;
             stringstream nh_label(nh.label);
             nh_label >> label;
-            olist.push_back(OlistTunnelEntry(label, addr.to_v4(), 
-                                             TunnelType::DefaultTypeBmap()));
+            TunnelType::TypeBmap encap = 
+                GetMcastTypeBitmap(&nh.tunnel_encapsulation_list);
+            olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap)); 
+                                             //TunnelType::DefaultTypeBmap()));
         }
 
         MulticastHandler::ModifyFabricMembers(vrf, g_addr.to_v4(),
                 s_addr.to_v4(), item->entry.nlri.source_label,
                 olist);
     }
-}
-
-static TunnelType::TypeBmap 
-GetEnetTypeBitmap(const EnetTunnelEncapsulationListType *encap) {
-    TunnelType::TypeBmap bmap = 0;
-    for (EnetTunnelEncapsulationListType::const_iterator iter = encap->begin();
-         iter != encap->end(); iter++) {
-        TunnelEncapType::Encap encap = 
-            TunnelEncapType::TunnelEncapFromString(*iter);
-        if (encap == TunnelEncapType::MPLS_O_GRE)
-            bmap |= (1 << TunnelType::MPLS_GRE);
-        if (encap == TunnelEncapType::MPLS_O_UDP)
-            bmap |= (1 << TunnelType::MPLS_UDP);
-        if (encap == TunnelEncapType::VXLAN)
-            bmap |= (1 << TunnelType::VXLAN);
-    }
-    return bmap;
-}
-
-static TunnelType::TypeBmap 
-GetTypeBitmap(const TunnelEncapsulationListType *encap) {
-    TunnelType::TypeBmap bmap = 0;
-    for (TunnelEncapsulationListType::const_iterator iter = encap->begin();
-         iter != encap->end(); iter++) {
-        TunnelEncapType::Encap encap = 
-            TunnelEncapType::TunnelEncapFromString(*iter);
-        if (encap == TunnelEncapType::MPLS_O_GRE)
-            bmap |= (1 << TunnelType::MPLS_GRE);
-        if (encap == TunnelEncapType::MPLS_O_UDP)
-            bmap |= (1 << TunnelType::MPLS_UDP);
-    }
-    return bmap;
 }
 
 void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr, 
@@ -1124,6 +1140,8 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
     string rtr(Agent::GetInstance()->GetRouterId().to_string());
     item_nexthop.address = rtr;
     item_nexthop.label = peer->GetMcastLabelRange();
+    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+    item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
 
     item.entry.next_hops.next_hop.push_back(item_nexthop);
 
