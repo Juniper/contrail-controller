@@ -85,14 +85,16 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         return 0;
     }
 
+    uint32_t flags = 0;
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VMPORT: {
         encoder.set_vifr_type(VIF_TYPE_VIRTUAL); 
         std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
-        //encoder.set_ipv4_forwarding(ipv4_forwarding_);
-        //encoder.set_layer2_forwarding(layer2_forwarding_);
+        if (layer2_forwarding_) {
+            flags |= VIF_FLAG_L2_ENABLED;
+        }
         break;
     }
 
@@ -100,6 +102,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL); 
         std::vector<int8_t> intf_mac(GetMac(), GetMac() + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
+        flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
 
@@ -118,6 +121,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         }
         std::vector<int8_t> intf_mac(GetMac(), GetMac() + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
+        flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
 
@@ -125,6 +129,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         encoder.set_vifr_type(VIF_TYPE_AGENT); 
         std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
+        flags |= VIF_FLAG_L3_ENABLED;
         break;
     }
 
@@ -133,25 +138,27 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         break;
     }
 
-    uint32_t flags = 0;
-    if (policy_enabled_) {
-        flags |= VIF_FLAG_POLICY_ENABLED;
-    }
-    if (!analyzer_name_.empty()) {
-        uint16_t idx = MirrorKSyncObject::GetIdx(analyzer_name_);
-        if (Interface::MIRROR_TX == mirror_direction_) {
-            flags |= VIF_FLAG_MIRROR_TX;
-        } else if (Interface::MIRROR_RX == mirror_direction_) {
-            flags |= VIF_FLAG_MIRROR_RX;
-        } else {
-            flags |= VIF_FLAG_MIRROR_RX;
-            flags |= VIF_FLAG_MIRROR_TX;
+    if (ipv4_forwarding_) {
+        flags |= VIF_FLAG_L3_ENABLED;
+        if (policy_enabled_) {
+            flags |= VIF_FLAG_POLICY_ENABLED;
         }
-        encoder.set_vifr_mir_id(idx);
-    }
+        if (!analyzer_name_.empty()) {
+            uint16_t idx = MirrorKSyncObject::GetIdx(analyzer_name_);
+            if (Interface::MIRROR_TX == mirror_direction_) {
+                flags |= VIF_FLAG_MIRROR_TX;
+            } else if (Interface::MIRROR_RX == mirror_direction_) {
+                flags |= VIF_FLAG_MIRROR_RX;
+            } else {
+                flags |= VIF_FLAG_MIRROR_RX;
+                flags |= VIF_FLAG_MIRROR_TX;
+            }
+            encoder.set_vifr_mir_id(idx);
+        }
 
-    if (has_service_vlan_) {
-        flags |= VIF_FLAG_SERVICE_IF;
+        if (has_service_vlan_) {
+            flags |= VIF_FLAG_SERVICE_IF;
+        }
     }
     encoder.set_vifr_flags(flags);
 
