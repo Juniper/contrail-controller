@@ -1097,6 +1097,7 @@ bool MulticastRoute::AddChangePath(AgentPath *path) {
                                 GetNextHopTable()->FindActiveEntry(&key));
     path->SetDestVnName(vn_name_);
     path->SetUnresolved(false);
+    path->SetLabel(vxlan_id_);
     ret = true;
 
     if (path->ChangeNH(nh) == true)
