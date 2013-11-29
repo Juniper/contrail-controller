@@ -124,10 +124,10 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
 }
 
 static TunnelType::TypeBmap 
-GetEnetTypeBitmap(const EnetTunnelEncapsulationListType *encap) {
+GetEnetTypeBitmap(const EnetTunnelEncapsulationListType &encap) {
     TunnelType::TypeBmap bmap = 0;
-    for (EnetTunnelEncapsulationListType::const_iterator iter = encap->begin();
-         iter != encap->end(); iter++) {
+    for (EnetTunnelEncapsulationListType::const_iterator iter = encap.begin();
+         iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap = 
             TunnelEncapType::TunnelEncapFromString(*iter);
         if (encap == TunnelEncapType::MPLS_O_GRE)
@@ -141,10 +141,10 @@ GetEnetTypeBitmap(const EnetTunnelEncapsulationListType *encap) {
 }
 
 static TunnelType::TypeBmap 
-GetTypeBitmap(const TunnelEncapsulationListType *encap) {
+GetTypeBitmap(const TunnelEncapsulationListType &encap) {
     TunnelType::TypeBmap bmap = 0;
-    for (TunnelEncapsulationListType::const_iterator iter = encap->begin();
-         iter != encap->end(); iter++) {
+    for (TunnelEncapsulationListType::const_iterator iter = encap.begin();
+         iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap = 
             TunnelEncapType::TunnelEncapFromString(*iter);
         if (encap == TunnelEncapType::MPLS_O_GRE)
@@ -155,10 +155,10 @@ GetTypeBitmap(const TunnelEncapsulationListType *encap) {
     return bmap;
 }
 static TunnelType::TypeBmap 
-GetMcastTypeBitmap(const McastTunnelEncapsulationListType *encap) {
+GetMcastTypeBitmap(const McastTunnelEncapsulationListType &encap) {
     TunnelType::TypeBmap bmap = 0;
-    for (McastTunnelEncapsulationListType::const_iterator iter = encap->begin();
-         iter != encap->end(); iter++) {
+    for (McastTunnelEncapsulationListType::const_iterator iter = encap.begin();
+         iter != encap.end(); iter++) {
         TunnelEncapType::Encap encap = 
             TunnelEncapType::TunnelEncapFromString(*iter);
         if (encap == TunnelEncapType::MPLS_O_GRE)
@@ -279,7 +279,7 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             stringstream nh_label(nh.label);
             nh_label >> label;
             TunnelType::TypeBmap encap = 
-                GetMcastTypeBitmap(&nh.tunnel_encapsulation_list);
+                GetMcastTypeBitmap(nh.tunnel_encapsulation_list);
             olist.push_back(OlistTunnelEntry(label, addr.to_v4(), encap)); 
                                              //TunnelType::DefaultTypeBmap()));
         }
@@ -323,7 +323,7 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
             }
         } else {
             TunnelType::TypeBmap encap = GetTypeBitmap
-                (&item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
+                (item->entry.next_hops.next_hop[i].tunnel_encapsulation_list);
             ComponentNHData nh_data(label, Agent::GetInstance()->GetDefaultVrf(),
                                     Agent::GetInstance()->GetRouterId(), 
                                     addr.to_v4(), false, encap);
@@ -343,7 +343,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     TunnelType::TypeBmap encap = GetEnetTypeBitmap
-        (&item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+        (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
     IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
     Layer2AgentRouteTable *rt_table = 
         static_cast<Layer2AgentRouteTable *>
@@ -428,7 +428,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
     uint32_t label = item->entry.next_hops.next_hop[0].label;
     IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
     TunnelType::TypeBmap encap = GetTypeBitmap
-        (&item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
+        (item->entry.next_hops.next_hop[0].tunnel_encapsulation_list);
 
     if (ec.value() != 0) {
         CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
