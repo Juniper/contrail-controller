@@ -119,7 +119,7 @@ public:
                                     KSyncSockTypeMap::IfCount()));
             }
             if (nh_count) {
-                WAIT_FOR(1000, 1000, ((nh_count + (MAX_TEST_FD * 5)) == 
+                WAIT_FOR(1000, 1000, ((nh_count + (MAX_TEST_FD * 6) - 1) == 
                                     KSyncSockTypeMap::NHCount()));
             }
             if (rt_count) {
@@ -243,7 +243,7 @@ TEST_F(KStateTest, NHDumpTest) {
     CreatePorts(0, nh_count, 0);
     //Two interface nexthops get created for each interface (with and without policy)
     //plus l2 without policy
-    TestNHKState::Init(-1, true, nh_count + (MAX_TEST_FD * 3) + 4);
+    TestNHKState::Init(-1, true, nh_count + (MAX_TEST_FD * 3) + 3);
     client->KStateResponseWait(1);
 
     DeletePorts();
@@ -350,7 +350,7 @@ TEST_F(KStateTest, RouteDumpTest) {
         // 2 routes corresponding to the IP address of VM ports
         // 1 route for l2 of vm port
         // 2 routes corresponding to 2 vmports in default-vrf using meta-data ip address of VM ports.
-        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 2);
+        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 3);
         client->KStateResponseWait(1);
         DeletePorts();
     }
