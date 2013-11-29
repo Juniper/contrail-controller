@@ -249,6 +249,10 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     }
 
     if (vn->GetVrf()) {
+        if (!vn->GetVxLanId()) {
+            vn->vxlan_id_ref_ = NULL;
+            return ret;
+        }
         if (vxlan_rebake) {
             VxLanId::CreateReq(vn->GetVxLanId(), vn->GetVrf()->GetName());
         }
@@ -258,23 +262,6 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
                                           GetVxLanTable()->FindActiveEntry(&vxlan_key));
         if (vxlan_id) {
             vn->vxlan_id_ref_ = vxlan_id;
-        }
-
-        if (!vxlan_id) {
-
-            DBRequest req;
-            VnKey *key = new VnKey(vn->GetUuid());
-            VnData *vndata = new VnData(data->name_, data->acl_id_, 
-                                        data->vrf_name_, nil_uuid(), 
-                                        nil_uuid(), data->ipam_,
-                                        data->vn_ipam_data_, data->vxlan_id_, 
-                                        data->vnid_, data->layer2_forwarding_,
-                                        data->ipv4_forwarding_);
-
-            req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            req.key.reset(key);
-            req.data.reset(vndata);
-            Enqueue(&req);
         }
     }
 

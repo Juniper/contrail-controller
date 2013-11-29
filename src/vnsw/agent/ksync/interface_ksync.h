@@ -120,7 +120,7 @@ public:
         uint32_t vrf_id = VIF_VRF_INVALID;
         bool policy_enabled = false;
         std::string analyzer_name;    
-        Interface::MirrorDirection mirror_direction;
+        Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
         bool has_service_vlan = false;
         if (active_) {
             vrf_id = intf->GetVrfId();

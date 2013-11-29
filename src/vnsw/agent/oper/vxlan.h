@@ -58,13 +58,17 @@ private:
 
 class VxLanIdData : public AgentData {
 public:
-    VxLanIdData(const string &vrf_name) :
-        vrf_name_(vrf_name) { }; 
+    VxLanIdData(const string &vrf_name, DBRequest &req) :
+        vrf_name_(vrf_name) { 
+            nh_req_.Swap(&req);
+        }; 
     virtual ~VxLanIdData() { };
     string &vrf_name() {return vrf_name_;}
+    DBRequest &nh_req() {return nh_req_;}
 
 private:
     string vrf_name_;
+    DBRequest nh_req_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -85,7 +89,7 @@ public:
     virtual void Delete(DBEntry *entry, const DBRequest *req);
     virtual void OnZeroRefcount(AgentDBEntry *e);
 
-    void Create(DBRequest &req);
+    void Process(DBRequest &req);
 
     // Allocate and Free vxlan_id from the vxlan_id_table
     static DBTableBase *CreateTable(DB *db, const std::string &name);

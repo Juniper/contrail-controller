@@ -42,7 +42,7 @@ std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
     return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(vxlan_id));
 }
 
-void VxLanTable::Create(DBRequest &req) {
+void VxLanTable::Process(DBRequest &req) {
     CHECK_CONCURRENCY("db::DBTable");
     DBTablePartition *tpart =
         static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
@@ -70,6 +70,9 @@ bool VxLanTable::OnChange(DBEntry *entry, const DBRequest *req) {
 bool VxLanTable::ChangeHandler(VxLanId *vxlan_id, const DBRequest *req) {
     bool ret = false;
     VxLanIdData *data = static_cast<VxLanIdData *>(req->data.get());
+
+    Agent::GetInstance()->GetNextHopTable()->Process(data->nh_req());
+
     VrfNHKey nh_key(data->vrf_name(), false);
     NextHop *nh = static_cast<NextHop *>
         (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
@@ -100,26 +103,22 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
 }
 
 void VxLanId::CreateReq(uint32_t vxlan_id, const string &vrf_name) {
-    //Enqueue creation of NH 
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false);
     nh_req.key.reset(vrf_nh_key);
     nh_req.data.reset(NULL);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
 
-    //Enqueue vxlan_id addition
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     VxLanIdKey *key = new VxLanIdKey(vxlan_id);
     req.key.reset(key);
 
-    VxLanIdData *data = new VxLanIdData(vrf_name);
+    VxLanIdData *data = new VxLanIdData(vrf_name, nh_req);
     req.data.reset(data);
 
-    //vxlan_id_table_->Create(req);
-    vxlan_id_table_->Enqueue(&req);
+    vxlan_id_table_->Process(req);
     return;
 }
                                    
@@ -130,8 +129,7 @@ void VxLanId::DeleteReq(uint32_t vxlan_id) {
     VxLanIdKey *key = new VxLanIdKey(vxlan_id);
     req.key.reset(key);
     req.data.reset(NULL);
-    vxlan_id_table_->Enqueue(&req);
-    //vxlan_id_table_->Create(req);
+    vxlan_id_table_->Process(req);
 }
 
 bool VxLanId::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
