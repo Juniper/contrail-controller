@@ -30,6 +30,7 @@
 
 #include <pkt/pkt_flow.h>
 #include <oper/agent_types.h>
+#include <uve/stats_collector.h>
 
 FlowTableKSyncObject *FlowTableKSyncObject::singleton_;
 
@@ -39,7 +40,8 @@ FlowTableKSyncObject::FlowTableKSyncObject() :
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
-                  ("Agent::StatsCollector"))) { 
+                  ("Agent::StatsCollector"),
+                  StatsCollector::FlowStatsCollector)) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
@@ -48,7 +50,8 @@ FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
-                  ("Agent::StatsCollector"))) {
+                  ("Agent::StatsCollector"),
+                  StatsCollector::FlowStatsCollector)) {
 };
 FlowTableKSyncObject::~FlowTableKSyncObject() {
     TimerManager::DeleteTimer(audit_timer_);
