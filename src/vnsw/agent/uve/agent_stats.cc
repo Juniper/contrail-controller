@@ -68,7 +68,7 @@ bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
 
 void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
-    uint32_t seq = sock->AllocSeqNo();
+    uint32_t seq = sock->AllocSeqNo(true);
     AgentStatsSandeshContext *ctx;
 
     IoContext *ioc = NULL;

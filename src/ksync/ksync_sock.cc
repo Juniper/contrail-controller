@@ -287,6 +287,7 @@ KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
     }
     rx_buff_ = NULL;
     seqno_ = 0;
+    uve_seqno_ = 0;
 }
 
 KSyncSock::~KSyncSock() {
@@ -380,9 +381,12 @@ Tree::iterator KSyncSock::GetIoContext(char *data) {
 bool KSyncSock::ValidateAndEnqueue(char *data) {
     Validate(data);
 
-    IoContext *context = GetIoContext(data).operator->();
-
-    IoContext::IoContextWorkQId q_id = context->GetWorkQId();
+    IoContext::IoContextWorkQId q_id;
+    if ((GetSeqno(data) & KSYNC_DEFAULT_Q_ID_SEQ) == KSYNC_DEFAULT_Q_ID_SEQ) {
+        q_id = IoContext::DEFAULT_Q_ID;
+    } else {
+        q_id = IoContext::UVE_Q_ID;
+    }
     work_queue_[q_id]->Enqueue(data);
     return true;
 }
@@ -461,7 +465,7 @@ bool KSyncSock::BlockingRecv() {
 
 void KSyncSock::SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                           KSyncEntry::KSyncEvent event) {
-    uint32_t seq = seqno_++;
+    uint32_t seq = AllocSeqNo(false);
     KSyncIoContext *ioc = new KSyncIoContext(entry, msg_len, msg, seq, event);
     SendAsyncImpl(msg_len, msg, ioc);
 }
