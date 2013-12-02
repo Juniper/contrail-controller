@@ -38,7 +38,7 @@ bool PostProcessingQuery::sort_field_comparator(
         if ((*sort_it).type == std::string("int") || 
             (*sort_it).type == std::string("long") ||
             (*sort_it).type == std::string("ipv4")) {
-            uint64_t lhs_val, rhs_val;
+            uint64_t lhs_val = 0, rhs_val = 0;
             stringToInteger(lhs_it->second, lhs_val);
             stringToInteger(rhs_it->second, rhs_val);
             if (lhs_val < rhs_val) return true;
