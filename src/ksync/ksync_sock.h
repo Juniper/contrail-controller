@@ -19,6 +19,7 @@
 #include "vr_types.h"
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
+#define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
 class KSyncEntry;
 
 /* Base class to hold sandesh context information which is passed to 
@@ -141,8 +142,14 @@ public:
     static uint32_t GetPid() {return pid_;};
     static int GetNetlinkFamilyId() {return vnsw_netlink_family_id_;};
     static void SetNetlinkFamilyId(int id) {vnsw_netlink_family_id_ = id;};
-    int AllocSeqNo() { 
-        int seq = seqno_++;
+    int AllocSeqNo(bool is_uve) { 
+        int seq;
+        if (is_uve) {
+            seq = uve_seqno_.fetch_and_add(2);
+        } else {
+            seq = seqno_.fetch_and_add(2);
+            seq |= KSYNC_DEFAULT_Q_ID_SEQ;
+        }
         return seq;
     }
     void GenericSend(int msg_len, char *msg, IoContext *ctx);
@@ -193,6 +200,7 @@ private:
 
     char *rx_buff_;
     tbb::atomic<int> seqno_;
+    tbb::atomic<int> uve_seqno_;
 
     // Debug stats
     int tx_count_;
