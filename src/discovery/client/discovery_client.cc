@@ -38,7 +38,8 @@ DSResponseHeader::DSResponseHeader(std::string serviceName, uint8_t numbOfInstan
       subscribe_timer_(TimerManager::CreateTimer(*evm->io_service(), "Subscribe Timer",
                        TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       ds_client_(ds_client), subscribe_msg_(""), attempts_(0),
-      sub_sent_(0), sub_rcvd_(0), sub_ttl_sent_(0) {
+      sub_sent_(0), sub_rcvd_(0), sub_ttl_sent_(0),
+      subscribe_cb_called_(false) {
 }
 
 DSResponseHeader::~DSResponseHeader() {
@@ -74,7 +75,8 @@ DSPublishResponse::DSPublishResponse(std::string serviceName,
       publish_conn_timer_(TimerManager::CreateTimer(*evm->io_service(), "Publish Conn Timer",
                           TaskScheduler::GetInstance()->GetTaskId("http client"), 0)),
       socket_(*evm->io_service()), ds_client_(ds_client), publish_msg_(""), attempts_(0),
-      pub_sent_(0), pub_rcvd_(0), pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0) {
+      pub_sent_(0), pub_rcvd_(0), pub_hb_sent_(0), pub_hb_fail_(0), pub_hb_rcvd_(0),
+      publish_cb_called_(false) {
 
     socket_.open(ip::udp::v4());
     socket_.async_receive(boost::asio::buffer(recv_buf, MAX_HB_SIZE),
@@ -245,13 +247,8 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
                                                     std::string serviceName,
                                                     HttpConnection *conn) {
 
-    // Delete the connection
-    // Revisit Connection deletion for error cases  
-    //       i.e, no response from DSS
-    // handled in http client libarary
-    if (conn) { 
-        http_client_->RemoveConnection(conn);
-    }
+    // Connection will be deleted on complete transfer 
+    // on indication by the http client code.
 
     // Get Response Header
     DSPublishResponse *resp = NULL;
@@ -261,29 +258,48 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
     } else {
         DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
                                    "Stray Publish Response");
+        if (conn) {
+            http_client_->RemoveConnection(conn);
+        }
         return;
     }
 
     resp->pub_rcvd_++;
     if (xmls.empty()) {
-        // No response from DSS
-       
-        if (ec.value() > 0) {
+
+        if (conn) {
+            http_client_->RemoveConnection(conn);
+        }
+
+        // Errorcode is of type CURLcode
+        if (ec.value() != 0) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "PublishResponseHandler Error", serviceName, ec.value());
             // exponential back-off and retry
             resp->attempts_++; 
             resp->StartPublishConnectTimer(resp->GetConnectTime());
-        } else {
-            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
-                "PublishResponseHandler: Empty Response or Timeout");
+        } else if ((resp->publish_cb_called_ == false)) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "PublishResponseHandler, Only header received",
+                 serviceName, ec.value());
+            // exponential back-off and retry
+            resp->attempts_++; 
+            resp->StartPublishConnectTimer(resp->GetConnectTime());
         }
+
         return;
     }
 
+    resp->publish_cb_called_ = true;
     //Parse the xml string and build DSResponse
     auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
-        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName,
-            "PublishResponseHandler: Loading Xml Doc failed!!");
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+            "PublishResponseHandler: Loading Xml Doc failed!!",
+            serviceName, ec.value());
+        // exponential back-off and retry
+        resp->attempts_++; 
+        resp->StartPublishConnectTimer(resp->GetConnectTime());
         return;
     }
 
@@ -452,13 +468,9 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
                                                       HttpConnection *conn)
 {
 
-    // Delete the connection
-    // Revisit Connection deletion for error cases  
-    //       i.e, no response from DSS
-    // handled in http client libarary
-    if (conn) { 
-        http_client_->RemoveConnection(conn);
-    } 
+
+    // Connection will be deleted on complete transfer 
+    // on indication by the http client code.
 
     // Get Response Header
     DSResponseHeader *hdr = NULL; 
@@ -468,37 +480,59 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
     } else {
         DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
                                    "Stray Subscribe Response");
+        if (conn) {
+            http_client_->RemoveConnection(conn);
+        }
         return;
     }
 
     hdr->sub_rcvd_++;
     if (xmls.empty()) {
-        // No response from DSS
-        if (ec.value() != 0) {
-            hdr->attempts_++;
-            //Use subscribe timer as connect timer 
-            hdr->StartSubscribeTimer(hdr->GetConnectTime());
-        } else {
-            DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
-                "SubscribeResponseHandler: Empty Response or Timeout");
+
+        if (conn) {
+            http_client_->RemoveConnection(conn);
         }
+
+        // Errorcode is of type CURLcode
+        if (ec.value() != 0) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "SubscribeResponseHandler Error",
+                 serviceName, ec.value());
+            // exponential back-off and retry
+            hdr->attempts_++; 
+            hdr->StartSubscribeTimer(hdr->GetConnectTime());
+        } else  if ((hdr->subscribe_cb_called_ == false)) {
+            DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+                "SubscribeResponseHandler, Only header received",
+                 serviceName, ec.value());
+            // exponential back-off and retry
+            hdr->attempts_++; 
+            hdr->StartSubscribeTimer(hdr->GetConnectTime());
+        }
+
         return;
     }
 
+    hdr->subscribe_cb_called_= true;
     //Parse the xml string and build DSResponse
     auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
     if (impl->LoadDoc(xmls) == -1) {
-        DISCOVERY_CLIENT_LOG_ERROR(DiscoveryClientLog, serviceName, 
-            "SubscribeResponseHandler: Loading Xml Doc failed!!");
+        DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
+            "SubscribeResponseHandler: Loading Xml Doc failed!!",
+            serviceName, ec.value());
+        // exponential back-off and retry
+        hdr->attempts_++; 
+        hdr->StartSubscribeTimer(hdr->GetConnectTime());
         return;
     }
 
     DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "SubscribeResponseHandler",
                            serviceName, xmls);
-    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     //Extract ttl
     uint32_t ttl = 0;
     stringstream docs;
+
+    XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
     pugi::xml_node node_ttl = pugi->FindNode("ttl");
     if (!pugi->IsNull(node_ttl)) {
         string value(node_ttl.child_value());

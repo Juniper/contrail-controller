@@ -53,6 +53,8 @@ struct DSResponseHeader {
     int sub_sent_;
     int sub_rcvd_;
     int sub_ttl_sent_;
+
+    bool subscribe_cb_called_;
 };
 
 #define MAX_HB_SIZE 16
@@ -96,6 +98,8 @@ struct DSPublishResponse {
     int pub_hb_sent_;
     int pub_hb_fail_;
     int pub_hb_rcvd_;
+
+    bool publish_cb_called_;
 };
 
 typedef boost::function<void()> EnqueuedCb;
