@@ -36,7 +36,7 @@ ServiceChain::ServiceChain(RoutingInstance *src, RoutingInstance *dest,
     : src_(src), dest_(dest), connected_(connected), connected_route_(NULL),
     service_chain_addr_(addr), connected_table_unregistered_(false),
     dest_table_unregistered_(false), connected_stopped_(false), dest_stopped_(false),
-    aggregate_(false) {
+    aggregate_(false), src_table_delete_ref_(this, src_table()->deleter()) {
     for(std::vector<std::string>::const_iterator it = subnets.begin();
         it != subnets.end(); it++) {
         error_code ec;
