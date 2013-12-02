@@ -254,6 +254,10 @@ int RouteKSyncEntry::Encode(sandesh_op::type op, uint8_t replace_plen,
 
     if (rt_type_ == RT_LAYER2) {
         flags |= 0x02;
+        label = label_;
+        if (nh != NULL && nh->GetType() == NextHop::COMPOSITE) {
+            flags |= VR_RT_LABEL_VALID_FLAG;
+        }
     }
 
     if (proxy_arp_) {
