@@ -185,9 +185,9 @@ bool FlowStatsCollector::Run() {
         const vr_flow_entry *k_flow = 
             FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
             (entry->flow_handle, false);
+        reverse_flow = entry->data.reverse_flow.get();
         // Can the flow be aged?
         if (ShouldBeAged(entry, k_flow, curr_time)) {
-            reverse_flow = entry->data.reverse_flow.get();
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
@@ -242,8 +242,19 @@ bool FlowStatsCollector::Run() {
         }
 
         if ((!deleted) && entry->ShortFlow()) {
-            deleted = true;
-            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, false);
+            if (it != flow_obj->flow_entry_map_.end()) {
+                if (it->second == reverse_flow) {
+                    it++;
+                }
+            }
+            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, true);
+            entry = NULL;
+            if (reverse_flow) {
+                count++;
+                if (count == flow_count_per_pass_) {
+                    break;
+                }
+            }
         }
 
         count++;
