@@ -2196,6 +2196,7 @@ void UveClient::EnqueueVmStatData(VmStatData *data) {
 }
 
 void UveClient::Init() {
+    FlowUve::Init();
     singleton_ = new UveClient(AgentUve::band_intvl);
 
     VmTable *vm_table = Agent::GetInstance()->GetVmTable();
