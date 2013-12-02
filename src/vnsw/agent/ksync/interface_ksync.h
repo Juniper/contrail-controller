@@ -115,6 +115,14 @@ public:
                     ret = true;
                 }
             }
+            if (ipv4_forwarding_ != vm_port->ipv4_forwarding()) {
+                ipv4_forwarding_ = vm_port->ipv4_forwarding();
+                ret = true;
+            }
+            if (layer2_forwarding_ != vm_port->layer2_forwarding()) {
+                layer2_forwarding_ = vm_port->layer2_forwarding();
+                ret = true;
+            }
         }
 
         uint32_t vrf_id = VIF_VRF_INVALID;
