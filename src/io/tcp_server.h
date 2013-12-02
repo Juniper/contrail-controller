@@ -66,6 +66,9 @@ class TcpServer {
             write_blocked_duration_usecs = 0;
         }
 
+        void GetRxStats(TcpServerSocketStats &socket_stats) const;
+        void GetTxStats(TcpServerSocketStats &socket_stats) const;
+
         tbb::atomic<uint64_t> read_calls;
         tbb::atomic<uint64_t> read_bytes;
         tbb::atomic<uint64_t> write_calls;
@@ -94,8 +97,8 @@ class TcpServer {
     // wait until the server has deleted all sessions.
     void WaitForEmpty();
 
-    void GetRxSocketStats(TcpServerSocketStats &socket_stats);
-    void GetTxSocketStats(TcpServerSocketStats &socket_stats);
+    void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
+    void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
 
   protected:
     // Create a session object.

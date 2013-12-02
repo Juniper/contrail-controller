@@ -18,6 +18,7 @@
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
+#include <sandesh/sandesh_uve_types.h>
 
 #include "viz_types.h"
 #include "generator.h"
@@ -65,6 +66,7 @@ Generator::Generator(Collector * const collector, VizSession *session,
         del_wait_timer_(
                 TimerManager::CreateTimer(*collector->event_manager()->io_service(),
                     "Delete wait timer" + source + module)) {
+    disconnected_ = false;
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
 }
@@ -82,6 +84,9 @@ void Generator::StartDbifReinit() {
 }
 
 bool Generator::DbConnectTimerExpired() {
+    if (disconnected_) {
+        return false;
+    }
     if (!(Db_Connection_Init())) {
         return true;
     }
@@ -192,6 +197,7 @@ void Generator::ReceiveSandeshCtrlMsg(uint32_t connects) {
 
 void Generator::DisconnectSession(VizSession *vsession) {
     GENERATOR_LOG(INFO, "Session:" << vsession->ToString());
+    disconnected_ = true;
     if (vsession == viz_session_) {
         // This Generator's session is now gone.
         // Start a timer to delete all its UVEs
@@ -269,11 +275,12 @@ bool Generator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
 }
 
 bool Generator::GetSandeshStateMachineStats(
-                    SandeshStateMachineStats &sm_stats) const {
+                    SandeshStateMachineStats &sm_stats,
+                    SandeshGeneratorStats &sm_msg_stats) const {
     if (!state_machine_) {
         return false;
     }
-    return state_machine_->GetStatistics(sm_stats);
+    return state_machine_->GetStatistics(sm_stats, sm_msg_stats);
 }
 
 bool Generator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const {
@@ -321,4 +328,10 @@ const std::string Generator::State() const {
         return state_machine_->StateName();
     }
     return "Disconnected";
+}
+
+void Generator::ConnectSession(VizSession *session, SandeshStateMachine *state_machine) {
+    set_session(session);
+    set_state_machine(state_machine);
+    disconnected_ = false;
 }

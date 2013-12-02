@@ -57,6 +57,10 @@ struct ModuleServerState {
     6: optional sandesh_uve.SandeshStateMachineStats sm_stats
     7: optional u64                        db_queue_count (aggtype="stats" hbin="50")
     8: optional u64                        db_enqueues
+    9: optional sandesh_uve.SandeshSessionStats session_stats
+    10: optional io.TcpServerSocketStats   session_rx_socket_stats
+    11: optional io.TcpServerSocketStats   session_tx_socket_stats
+    12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
 }
 
 uve sandesh SandeshModuleServerTrace {
@@ -66,7 +70,15 @@ uve sandesh SandeshModuleServerTrace {
 struct GeneratorSummaryInfo {
     1: string                              source
     2: string                              module_id    
-    3: string                              state    
+    3: string                              state
+}
+
+struct CollectorStats {
+    1: u64                                 no_session_error
+    2: u64                                 no_generator_error
+    3: u64                                 redis_error
+    4: u64                                 session_mismatch_error
+    5: u64                                 sandesh_type_mismatch_error
 }
 
 request sandesh ShowCollectorServerReq {
@@ -76,6 +88,7 @@ response sandesh ShowCollectorServerResp {
     1: io.TcpServerSocketStats             rx_socket_stats
     2: io.TcpServerSocketStats             tx_socket_stats
     3: list<GeneratorSummaryInfo>          generators
+    4: CollectorStats                      stats
 }
 
 // This struct is part of the CollectorInfo UVE. (key is hostname on which this

@@ -129,6 +129,8 @@ class TcpSession {
     void AsyncReadStart();
 
     const TcpServer::SocketStats &GetSocketStats() const { return stats_; }
+    void GetRxSocketStats(TcpServerSocketStats &socket_stats) const;
+    void GetTxSocketStats(TcpServerSocketStats &socket_stats) const;
 
   protected:
     virtual ~TcpSession();

@@ -375,29 +375,37 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
                     TcpSessionPtr(session), boost::asio::placeholders::error));
 }
 
-void TcpServer::GetRxSocketStats(TcpServerSocketStats &socket_stats) {
-    socket_stats.calls = stats_.read_calls;
-    socket_stats.bytes = stats_.read_bytes;
-    if (stats_.read_calls) {
-        socket_stats.average_bytes = stats_.read_bytes/stats_.read_calls;
+void TcpServer::SocketStats::GetRxStats(TcpServerSocketStats &socket_stats) const {
+    socket_stats.calls = read_calls;
+    socket_stats.bytes = read_bytes;
+    if (read_calls) {
+        socket_stats.average_bytes = read_bytes/read_calls;
     }
 }
 
-void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) {
-    socket_stats.calls = stats_.write_calls;
-    socket_stats.bytes = stats_.write_bytes;
-    if (stats_.write_calls) {
-        socket_stats.average_bytes = stats_.write_bytes/stats_.write_calls;
+void TcpServer::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetRxStats(socket_stats);
+}
+
+void TcpServer::SocketStats::GetTxStats(TcpServerSocketStats &socket_stats) const {
+    socket_stats.calls = write_calls;
+    socket_stats.bytes = write_bytes;
+    if (write_calls) {
+        socket_stats.average_bytes = write_bytes/write_calls;
     }
-    socket_stats.blocked_count = stats_.write_blocked;
+    socket_stats.blocked_count = write_blocked;
     socket_stats.blocked_duration = duration_usecs_to_string(
-        stats_.write_blocked_duration_usecs);
-    if (stats_.write_blocked) {
+        write_blocked_duration_usecs);
+    if (write_blocked) {
         socket_stats.average_blocked_duration =
                  duration_usecs_to_string(
-                     stats_.write_blocked_duration_usecs/
-                     stats_.write_blocked);
+                     write_blocked_duration_usecs/
+                     write_blocked);
     }
+}
+
+void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetTxStats(socket_stats);
 }
 
 //
