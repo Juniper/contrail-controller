@@ -310,6 +310,11 @@ query_status_t SelectQuery::process_query() {
 
                 col_res_map.insert(std::make_pair(col_name, jt->value[0]));
             }
+            if (!col_res_map.size()) {
+                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
+                       " in Analytics db");
+                continue;
+            }
 
             std::map<std::string, std::string> cmap;
             for (std::vector<std::string>::iterator jt = select_column_fields.begin();
@@ -576,7 +581,8 @@ query_status_t SelectQuery::process_query() {
         }
 
         std::vector<GenDb::ColList> mget_res;
-        if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
+        if (!m_query->dbif->Db_GetMultiRow(mget_res, 
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
@@ -592,6 +598,19 @@ query_status_t SelectQuery::process_query() {
                 }
 
                 col_res_map.insert(std::make_pair(col_name, jt->value[0]));
+            }
+            if (!col_res_map.size()) {
+                boost::uuids::uuid u;
+                assert(it->rowkey_.size() > 0);
+                try {
+                    u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                } catch (boost::bad_get& ex) {
+                    QE_LOG(ERROR, "Invalid rowkey/uuid");
+                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+                }
+                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
+                       " in Analytics db");
+                continue;
             }
 
             std::map<std::string, std::string> cmap;
