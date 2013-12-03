@@ -67,6 +67,8 @@ Generator::Generator(Collector * const collector, VizSession *session,
                 TimerManager::CreateTimer(*collector->event_manager()->io_service(),
                     "Delete wait timer" + source + module)) {
     disconnected_ = false;
+    gen_attr_.set_connects(1);
+    gen_attr_.set_connect_time(UTCTimestampUsec());
     // Update state machine
     state_machine_->SetGeneratorKey(name_);
 }
@@ -182,10 +184,6 @@ void Generator::ReceiveSandeshCtrlMsg(uint32_t connects) {
     del_wait_timer_->Cancel();
      
     // This is a control message during Generator-Collector negotiation
-    uint32_t tmp = gen_attr_.get_connects();
-    gen_attr_.set_connects(tmp+1);
-    gen_attr_.set_connect_time(UTCTimestampUsec());
-
     ModuleServerState ginfo;    
     GetGeneratorInfo(ginfo);
     SandeshModuleServerTrace::Send(ginfo);
@@ -334,4 +332,7 @@ void Generator::ConnectSession(VizSession *session, SandeshStateMachine *state_m
     set_session(session);
     set_state_machine(state_machine);
     disconnected_ = false;
+    uint32_t tmp = gen_attr_.get_connects();
+    gen_attr_.set_connects(tmp+1);
+    gen_attr_.set_connect_time(UTCTimestampUsec());
 }
