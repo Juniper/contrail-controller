@@ -153,6 +153,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="gateway-name" type="xsd:string"/>
         <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
+        <xsd:element name="assign-routing-instance" type="xsd:string"/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
@@ -630,6 +631,23 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Property('virtual-machine-interface-mac-addresses',
              'virtual-machine-interface') -->
+
+<xsd:complexType name="VrfAssignRuleType">
+    <xsd:all>
+        <xsd:element name="match-condition" type="MatchConditionType"/>
+        <xsd:element name="vlan-tag" type="xsd:integer"/>
+        <xsd:element name="routing-instance" type="xsd:string"/>
+        <xsd:element name="ignore-acl" type="xsd:boolean"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="VrfAssignTableType">
+    <xsd:sequence>
+        <xsd:element name="vrf-assign-rule" type="VrfAssignRuleType" maxOccurs="unbounded"/>
+    </xsd:sequence>
+</xsd:complexType>
+<xsd:element name="vrf-assign-table" type="VrfAssignTableType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('vrf-assign-table', 'virtual-machine-interface') -->
 
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
