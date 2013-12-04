@@ -216,7 +216,7 @@ void VNController::Cleanup() {
 
             Agent::GetInstance()->SetAgentDnsXmppClient(NULL, count);
 
-            XmppInit *xmpp = Agent::GetInstance()->GetAgentXmppInit(count);
+            XmppInit *xmpp = Agent::GetInstance()->GetAgentDnsXmppInit(count);
             xmpp->Reset();
             delete xmpp;
             Agent::GetInstance()->SetAgentDnsXmppInit(NULL, count);

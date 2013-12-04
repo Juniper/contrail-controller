@@ -460,11 +460,13 @@ class MulticastRoute : public RouteData {
 public:
     MulticastRoute(const Ip4Address &src_addr, 
                    const Ip4Address &grp_addr,
-                   const string &vn_name, const string &vrf_name,
+                   const string &vn_name, 
+                   const string &vrf_name,
+                   int vxlan_id,
                    COMPOSITETYPE type, Op op  = RouteData::CHANGE) :
         RouteData(op, true), 
         src_addr_(src_addr), grp_addr_(grp_addr),
-        vn_name_(vn_name), vrf_name_(vrf_name),
+        vn_name_(vn_name), vrf_name_(vrf_name), vxlan_id_(vxlan_id),
         comp_type_(type) { };
     virtual ~MulticastRoute() { };
     virtual bool AddChangePath(AgentPath *path);
@@ -475,6 +477,7 @@ private:
     Ip4Address grp_addr_;
     string vn_name_;
     string vrf_name_;
+    int vxlan_id_;
     COMPOSITETYPE comp_type_;
     DISALLOW_COPY_AND_ASSIGN(MulticastRoute);
 };
@@ -992,7 +995,8 @@ public:
     static void AddLayer2BroadcastRoute(const string &vrf_name,
                                         const string &vn_name,
                                         const Ip4Address &dip,
-                                        const Ip4Address &sip);
+                                        const Ip4Address &sip,
+                                        int vxlan_id);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           struct ether_addr &mac);
     static void Delete(const Peer *peer, const string &vrf_name,

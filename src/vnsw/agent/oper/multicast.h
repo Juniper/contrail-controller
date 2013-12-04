@@ -49,7 +49,7 @@ public:
                          bool multi_proto_support) :
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         vn_name_(vn_name), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true) {
+        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -62,7 +62,7 @@ public:
                          bool multi_proto_support) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         src_address_(src_addr), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true) {
+        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;
@@ -129,6 +129,8 @@ public:
     void SetIpv4Forwarding(bool enable) {ipv4_forwarding_ = enable;};
     bool CanUnsubscribe() const {return (deleted_ || !multi_proto_support_ || 
                                   (!layer2_forwarding_ && !ipv4_forwarding_));}
+    void set_vxlan_id(int vxlan_id) {vxlan_id_ = vxlan_id;}
+    int vxlan_id() const {return vxlan_id_;}
 
 private:
     std::string vrf_name_;
@@ -142,7 +144,7 @@ private:
     bool multi_proto_support_;
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
-    //uint8_t refcount_;
+    int vxlan_id_;
 
     friend class MulticastHandler;
     DISALLOW_COPY_AND_ASSIGN(MulticastGroupObject);
@@ -178,6 +180,7 @@ public:
     void TriggerL2CompositeNHChange(MulticastGroupObject *);
     void TriggerL3CompositeNHChange(MulticastGroupObject *);
     void HandleFamilyConfig(const VnEntry *vn);
+    void HandleVxLanChange(const VnEntry *vn);
     //For test routines to clear all routes and mpls label
     static void Shutdown();
     //Multicast obj list addition deletion
@@ -247,7 +250,8 @@ private:
     //broadcast rt add /delete
     void AddL2BroadcastRoute(const std::string &vrf_name, 
                              const std::string &vn_name,
-                             const Ip4Address &addr);
+                             const Ip4Address &addr,
+                             int vxlan_id);
     void AddBroadcastRoute(const std::string &vrf_name, 
                            const std::string &vn_name,
                            const Ip4Address &addr);
