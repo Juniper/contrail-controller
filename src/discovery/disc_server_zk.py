@@ -530,6 +530,10 @@ class DiscoveryServer():
             }
             self.create_pub_data(sig, service_type)
 
+        # update TS in case publisher has rebooted and hasn't sent heartbeat yet
+        pdata = self.get_pub_data(sig)
+        pdata['heartbeat'] = int(time.time())
+
         entry['admin_state'] = 'up'
         self._db_conn.insert_service(service_type, sig, entry)
 
