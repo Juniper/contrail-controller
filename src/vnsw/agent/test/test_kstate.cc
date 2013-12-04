@@ -362,34 +362,34 @@ TEST_F(KStateTest, FlowDumpTest) {
 
     CreatePortsWithPolicy();
 
-    VmPortInterface *test0, *test1;
-    test0 = VmPortInterfaceGet(input[0].intf_id);
+    VmInterface *test0, *test1;
+    test0 = VmInterfaceGet(input[0].intf_id);
     assert(test0);
-    test1 = VmPortInterfaceGet(input[1].intf_id);
+    test1 = VmInterfaceGet(input[1].intf_id);
     assert(test1);
 
     int hash_id = 1;
     //Flow creation using IP packet
-    TxIpPacketUtil(test0->GetInterfaceId(), vm1_ip, vm2_ip, 0, hash_id);
+    TxIpPacketUtil(test0->id(), vm1_ip, vm2_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 0, 0, 0, false, 
                         "vn3", "vn3", hash_id++));
 
     //Create flow in reverse direction
-    TxIpPacketUtil(test1->GetInterfaceId(), vm2_ip, vm1_ip, 0, hash_id);
+    TxIpPacketUtil(test1->id(), vm2_ip, vm1_ip, 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 0, 0, 0, true, 
                         "vn3", "vn3", hash_id++));
 
     //Flow creation using TCP packet
-    TxTcpPacketUtil(test0->GetInterfaceId(), vm1_ip, vm2_ip, 1000, 200, 
+    TxTcpPacketUtil(test0->id(), vm1_ip, vm2_ip, 1000, 200, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm1_ip, vm2_ip, 6, 1000, 200, false,
                         "vn3", "vn3", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(test1->GetInterfaceId(), vm2_ip, vm1_ip, 200, 1000, 
+    TxTcpPacketUtil(test1->id(), vm2_ip, vm1_ip, 200, 1000, 
                     hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true, 

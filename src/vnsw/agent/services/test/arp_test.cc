@@ -206,7 +206,7 @@ public:
     }
 
     void ItfDelete(const string &itf_name) {
-        EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
                                 itf_name);
     }
 

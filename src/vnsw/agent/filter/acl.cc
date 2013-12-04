@@ -85,10 +85,6 @@ void AclDBEntry::SetAclSandeshData(AclSandeshData &data) const {
     return;
 }
 
-AgentDBTable *AclDBEntry::DBToTable() const {
-    return acl_table_;
-}
-
 std::auto_ptr<DBEntry> AclTable::AllocEntry(const DBRequestKey *k) const {
     const AclKey *key = static_cast<const AclKey *>(k);
     AclDBEntry *acl = new AclDBEntry(key->uuid_);
@@ -99,6 +95,7 @@ DBEntry *AclTable::Add(const DBRequest *req) {
     AclKey *key = static_cast<AclKey *>(req->key.get());
     AclData *data = static_cast<AclData *>(req->data.get());
     AclDBEntry *acl = new AclDBEntry(key->uuid_);
+    acl->set_table(this);
     acl->SetName(data->cfg_name_);
     acl->SetDynamicAcl(data->acl_spec_.dynamic_acl);
     std::vector<AclEntrySpec>::iterator it;
@@ -581,7 +578,7 @@ AclEntry *AclDBEntry::AddAclEntry(const AclEntrySpec &acl_entry_spec, AclEntries
                     (Agent::GetInstance()->GetMirrorTable()->FindActiveEntry(&mirr_key));
             assert(mirr_entry);
             // Store the mirror entry
-            entry->SetMirrorEntry(mirr_entry);
+            entry->set_mirror_entry(mirr_entry);
         }
     }
     entries.insert(iter, *entry);

@@ -5,7 +5,7 @@
 #include "base/logging.h"
 #include "cmn/agent_cmn.h"
 #include "ksync/ksync_index.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/agent_route.h"
 #include "oper/mirror_table.h"
 #include "ksync/interface_ksync.h"
@@ -51,18 +51,18 @@ DhcpProto::~DhcpProto() {
 void DhcpProto::ItfUpdate(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
-        if (itf->GetType() == Interface::ETH && 
-            itf->GetName() == Agent::GetInstance()->GetIpFabricItfName()) {
+        if (itf->type() == Interface::PHYSICAL && 
+            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
             IPFabricIntf(NULL);
             IPFabricIntfIndex(-1);
         }
     } else {
-        if (itf->GetType() == Interface::ETH && 
-            itf->GetName() == Agent::GetInstance()->GetIpFabricItfName()) {
+        if (itf->type() == Interface::PHYSICAL && 
+            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
             IPFabricIntf(itf);
-            IPFabricIntfIndex(itf->GetInterfaceId());
+            IPFabricIntfIndex(itf->id());
             if (run_with_vrouter_) {
-                IPFabricIntfMac((char *)itf->GetMacAddr().ether_addr_octet);
+                IPFabricIntfMac((char *)itf->mac().ether_addr_octet);
             } else {
                 char mac[MAC_ALEN];
                 memset(mac, 0, MAC_ALEN);
@@ -98,13 +98,13 @@ bool DhcpHandler::Run() {
         return true;
     }
 
-    if (itf->GetType() != Interface::VMPORT) {
+    if (itf->type() != Interface::VM_INTERFACE) {
         dhcp_proto->IncrStatsErrors();
         DHCP_TRACE(Error, "Received DHCP packet on non VM port interface : "
                    << GetIntf());
         return true;
     }
-    vm_itf_ = static_cast<VmPortInterface *>(itf);
+    vm_itf_ = static_cast<VmInterface *>(itf);
     if (!vm_itf_->ipv4_forwarding()) {
         DHCP_TRACE(Error, "DHCP request on VM port with disabled ipv4 service: "
                    << GetIntf());
@@ -113,9 +113,9 @@ bool DhcpHandler::Run() {
 
     // For VM interfaces in default VRF, if the config doesnt have IP address,
     // send the request to fabric
-    if (vm_itf_->GetVrf() &&
-        vm_itf_->GetVrf()->GetName() == Agent::GetInstance()->GetDefaultVrf() &&
-        (!vm_itf_->GetIpAddr().to_ulong() || vm_itf_->IsDhcpSnoopIp())) {
+    if (vm_itf_->vrf() &&
+        vm_itf_->vrf()->GetName() == Agent::GetInstance()->GetDefaultVrf() &&
+        (!vm_itf_->ip_addr().to_ulong() || vm_itf_->dhcp_snoop_ip())) {
         RelayRequestToFabric();
         return true;
     }
@@ -128,21 +128,21 @@ bool DhcpHandler::Run() {
             out_msg_type_ = DHCP_OFFER;
             dhcp_proto->IncrStatsDiscover();
             DHCP_TRACE(Trace, "DHCP discover received on interface : "
-                       << vm_itf_->GetName());
+                       << vm_itf_->name());
             break;
 
         case DHCP_REQUEST:
             out_msg_type_ = DHCP_ACK;
             dhcp_proto->IncrStatsRequest();
             DHCP_TRACE(Trace, "DHCP request received on interface : "
-                       << vm_itf_->GetName());
+                       << vm_itf_->name());
             break;
 
         case DHCP_INFORM:
             out_msg_type_ = DHCP_ACK;
             dhcp_proto->IncrStatsInform();
             DHCP_TRACE(Trace, "DHCP inform received on interface : "
-                       << vm_itf_->GetName());
+                       << vm_itf_->name());
             break;
 
         case DHCP_DECLINE:
@@ -160,7 +160,7 @@ bool DhcpHandler::Run() {
         case DHCP_LEASE_ACTIVE:
         default:
             DHCP_TRACE(Trace, ServicesSandesh::DhcpMsgType(msg_type_) <<
-                       " received on interface : " << vm_itf_->GetName() <<
+                       " received on interface : " << vm_itf_->name() <<
                        "; ignoring");
             dhcp_proto->IncrStatsOther();
             return true;
@@ -252,14 +252,14 @@ void DhcpHandler::FillDhcpInfo(uint32_t addr, int plen, uint32_t gw, uint32_t dn
 
 bool DhcpHandler::FindLeaseData() {
     config_.ifindex = GetIntf();
-    Ip4Address ip = vm_itf_->GetIpAddr();
+    Ip4Address ip = vm_itf_->ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
-    client_name_ = vm_itf_->GetVmName();
-    if (vm_itf_->GetActiveState()) {
-        if (vm_itf_->IsFabricPort()) {
+    client_name_ = vm_itf_->vm_name();
+    if (vm_itf_->active()) {
+        if (vm_itf_->fabric_port()) {
             Inet4UnicastRouteEntry *rt = 
                 Inet4UnicastAgentRouteTable::FindResolveRoute(
-                             vm_itf_->GetVrf()->GetName(), ip);
+                             vm_itf_->vrf()->GetName(), ip);
             if (rt) {
                 uint8_t plen = rt->GetPlen();
                 uint32_t gw = Agent::GetInstance()->GetGatewayId().to_ulong();
@@ -277,7 +277,7 @@ bool DhcpHandler::FindLeaseData() {
             return false;
         }
 
-        const std::vector<VnIpam> &ipam = vm_itf_->GetVnEntry()->GetVnIpam();
+        const std::vector<VnIpam> &ipam = vm_itf_->vn()->GetVnIpam();
         unsigned int i;
         for (i = 0; i < ipam.size(); ++i) {
             uint32_t mask = ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
@@ -299,7 +299,7 @@ bool DhcpHandler::FindLeaseData() {
         // Give a link local address
         boost::system::error_code ec;
         uint32_t gwip = Ip4Address::from_string(GW_IP_ADDR, ec).to_ulong();
-        FillDhcpInfo((gwip & 0xFFFF0000) | (vm_itf_->GetInterfaceId() & 0xFF),
+        FillDhcpInfo((gwip & 0xFFFF0000) | (vm_itf_->id() & 0xFF),
                      16, 0, 0);
     }
     return true;
@@ -309,10 +309,10 @@ void DhcpHandler::UpdateDnsServer() {
     if (config_.lease_time != (uint32_t) -1)
         return;
 
-    if (!vm_itf_->GetVnEntry() || 
-        !vm_itf_->GetVnEntry()->GetIpamData(vm_itf_->GetIpAddr(),
-                                            &ipam_name_, &ipam_type_)) {
-        DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->GetName());
+    if (!vm_itf_->vn() || 
+        !vm_itf_->vn()->GetIpamData(vm_itf_->ip_addr(), &ipam_name_,
+                                    &ipam_type_)) {
+        DHCP_TRACE(Trace, "Ipam data not found; VM = " << vm_itf_->name());
         return;
     }
 
@@ -343,7 +343,7 @@ void DhcpHandler::UpdateDnsServer() {
         return;
 
     Agent::GetInstance()->GetDnsProto()->UpdateDnsEntry(
-        vm_itf_, client_name_, vm_itf_->GetIpAddr(), config_.plen,
+        vm_itf_, client_name_, vm_itf_->ip_addr(), config_.plen,
         ipam_type_.ipam_dns_server.virtual_dns_server_name, vdns_type_,
         false, false);
 }
@@ -351,16 +351,16 @@ void DhcpHandler::UpdateDnsServer() {
 void DhcpHandler::WriteOption82(DhcpOptions *opt, uint16_t &optlen) {
     optlen += 2;
     opt->code = DHCP_OPTION_82;
-    opt->len = sizeof(uint32_t) + 2 + sizeof(VmPortInterface *) + 2;
+    opt->len = sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2;
     DhcpOptions *subopt = reinterpret_cast<DhcpOptions *>(opt->data);
-    subopt->WriteWord(DHCP_SUBOP_CKTID, vm_itf_->GetInterfaceId(), optlen);
+    subopt->WriteWord(DHCP_SUBOP_CKTID, vm_itf_->id(), optlen);
     subopt = subopt->GetNextOptionPtr();
-    subopt->WriteData(DHCP_SUBOP_REMOTEID, sizeof(VmPortInterface *),
+    subopt->WriteData(DHCP_SUBOP_REMOTEID, sizeof(VmInterface *),
                       &vm_itf_, optlen);
 }
 
 bool DhcpHandler::ReadOption82(DhcpOptions *opt) {
-    if (opt->len != sizeof(uint32_t) + 2 + sizeof(VmPortInterface *) + 2)
+    if (opt->len != sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2)
         return false;
 
     DhcpOptions *subopt = reinterpret_cast<DhcpOptions *>(opt->data);
@@ -379,7 +379,7 @@ bool DhcpHandler::ReadOption82(DhcpOptions *opt) {
                 break;
 
             case DHCP_SUBOP_REMOTEID:
-                if (subopt->len != sizeof(VmPortInterface *))
+                if (subopt->len != sizeof(VmInterface *))
                     return false;
                 memcpy(&vm_itf_, subopt->data, subopt->len);
                 break;
@@ -436,7 +436,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
 
             case DHCP_OPTION_HOST_NAME:
                 if (is_request) {
-                    client_name_ = vm_itf_->GetVmName();
+                    client_name_ = vm_itf_->vm_name();
                     write_opt->WriteData(DHCP_OPTION_HOST_NAME, client_name_.size(), 
                                          client_name_.c_str(), opt_len);
                     write_opt = write_opt->GetNextOptionPtr();
@@ -463,7 +463,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
             return false;
         }
         dhcp->giaddr = 0;
-        client_name_ = vm_itf_->GetVmName();
+        client_name_ = vm_itf_->vm_name();
         write_opt->WriteData(DHCP_OPTION_HOST_NAME, client_name_.size(), 
                              client_name_.c_str(), opt_len);
         write_opt = write_opt->GetNextOptionPtr();
@@ -506,11 +506,11 @@ void DhcpHandler::RelayResponseFromFabric() {
         // Update the interface with the IP address, to trigger a route add
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC,
+        VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
                                                          vm_itf_->GetUuid(),
-                                                         vm_itf_->GetName());
+                                                         vm_itf_->name());
         Ip4Address yiaddr(ntohl(dhcp_->yiaddr));
-        VmPortInterfaceData *data = new VmPortInterfaceData();
+        VmInterfaceData *data = new VmInterfaceData();
         data->VmPortInit();
         data->addr_ = yiaddr;
         data->ip_addr_update_only_ = true;
@@ -526,7 +526,7 @@ void DhcpHandler::RelayResponseFromFabric() {
 
 uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
     std::set<VnSubnet> host_routes;
-    vm_itf_->GetVnEntry()->GetVnHostRoutes(ipam_name_, &host_routes);
+    vm_itf_->vn()->GetVnHostRoutes(ipam_name_, &host_routes);
     if (host_routes.size()) {
         DhcpOptions *opt = GetNextOptionPtr(opt_len);
         opt->code = DHCP_OPTION_CLASSLESS_ROUTE;
@@ -696,7 +696,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
         }
 
         // Add classless route option
-        if (vm_itf_->GetVnEntry()) {
+        if (vm_itf_->vn()) {
             opt_len = AddClasslessRouteOption(opt_len);
         }
     }

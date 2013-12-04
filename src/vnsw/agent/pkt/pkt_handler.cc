@@ -9,7 +9,7 @@
 #include <netinet/ip_icmp.h>
 
 #include "cmn/agent_cmn.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/vrf.h"
@@ -49,8 +49,8 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
-    HostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                             if_name);
+    PktInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                            if_name);
     InterfaceNH::CreateHostPortReq(if_name);
 }
 
@@ -126,17 +126,17 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 
 // Check if the packet is destined to the VM's default GW
 bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
-    if (intf->GetType() != Interface::VMPORT)
+    if (intf->type() != Interface::VM_INTERFACE)
         return false;
 
-    const VmPortInterface *vm_intf = static_cast<const VmPortInterface *>(intf);
-    const VnEntry *vn = vm_intf->GetVnEntry();
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    const VnEntry *vn = vm_intf->vn();
     if (vn) {
         const std::vector<VnIpam> &ipam = vn->GetVnIpam();
         for (unsigned int i = 0; i < ipam.size(); ++i) {
             uint32_t mask = 
                 ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((vm_intf->GetIpAddr().to_ulong() & mask)
+            if ((vm_intf->ip_addr().to_ulong() & mask)
                     != (ipam[i].ip_prefix.to_ulong() & mask))
                 continue;
             return (ipam[i].default_gw.to_ulong() == dst_ip);
@@ -169,8 +169,8 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto enqueue;
     }
 
-    if (intf->GetType() == Interface::VMPORT) {
-        VmPortInterface *vm_itf = static_cast<VmPortInterface *>(intf);
+    if (intf->type() == Interface::VM_INTERFACE) {
+        VmInterface *vm_itf = static_cast<VmInterface *>(intf);
         if (!vm_itf->ipv4_forwarding()) {
             std::stringstream str;
             str << pkt_info->GetAgentHdr().ifindex;
@@ -199,7 +199,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     }
     // Look for DHCP and DNS packets if corresponding service is enabled
     // Service processing over-rides ACL/Flow
-    if (intf->IsDhcpServiceEnabled() && (pkt_type == PktType::UDP)) {
+    if (intf->dhcp_enabled() && (pkt_type == PktType::UDP)) {
         if (pkt_info->dport == DHCP_SERVER_PORT || 
             pkt_info->sport == DHCP_CLIENT_PORT) {
             mod = DHCP;
@@ -207,7 +207,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         }
     } 
     
-    if (intf->IsDnsServiceEnabled() && (pkt_type == PktType::UDP)) {
+    if (intf->dns_enabled() && (pkt_type == PktType::UDP)) {
         if (pkt_info->dport == DNS_SERVER_PORT) {
             mod = DNS;
             goto enqueue;

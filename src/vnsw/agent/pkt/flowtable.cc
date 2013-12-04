@@ -20,7 +20,7 @@
 
 #include "route/route.h"
 #include "cmn/agent_cmn.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/vrf.h"
@@ -235,12 +235,12 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
         return;
     }
 
-    const VmPortInterface *vm_port = static_cast<const VmPortInterface *>(intf);
-    if (vm_port->GetSecurityGroupList().size()) {
+    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
+    if (vm_port->sg_list().size()) {
         policy->nw_policy = true;
         SgList::const_iterator it;
-        for (it = vm_port->GetSecurityGroupList().begin();
-             it != vm_port->GetSecurityGroupList().end();
+        for (it = vm_port->sg_list().begin();
+             it != vm_port->sg_list().end();
              ++it) {
             MatchAclParams acl;
             acl.acl = (*it)->GetAcl();
@@ -262,17 +262,17 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
         return;
     }
 
-    if (rflow->data.intf_entry->GetType() != Interface::VMPORT) {
+    if (rflow->data.intf_entry->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    vm_port = static_cast<const VmPortInterface *>
+    vm_port = static_cast<const VmInterface *>
         (rflow->data.intf_entry.get());
-    if (vm_port->GetSecurityGroupList().size()) {
+    if (vm_port->sg_list().size()) {
         policy->nw_policy = true;
         SgList::const_iterator it;
-        for (it = vm_port->GetSecurityGroupList().begin();
-             it != vm_port->GetSecurityGroupList().end();
+        for (it = vm_port->sg_list().begin();
+             it != vm_port->sg_list().end();
              ++it) {
             MatchAclParams acl;
             acl.acl = (*it)->GetAcl();
@@ -396,7 +396,7 @@ void FlowEntry::GetPolicyInfo(MatchPolicy *policy) {
     if (data.intf_entry == NULL)
         return;
 
-    if  (data.intf_entry->GetType() != Interface::VMPORT)
+    if  (data.intf_entry->type() != Interface::VM_INTERFACE)
         return;
 
     // Get Network policy/mirror cfg policy/mirror policies 
@@ -783,12 +783,12 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     // Change VN:
     // Resync all intf flows with new VN network policies + SG
     Interface *intf = static_cast<Interface *>(e);
-    if (intf->GetType() != Interface::VMPORT) {
+    if (intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
-    const VnEntry *new_vn = vm_port->GetVnEntry();
+    VmInterface *vm_port = static_cast<VmInterface *>(intf);
+    const VnEntry *new_vn = vm_port->vn();
 
     DBState *s = e->GetState(part->parent(), intf_listener_id_);
     VmIntfFlowHandlerState *state = static_cast<VmIntfFlowHandlerState *>(s);
@@ -802,14 +802,14 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         return;
     }
 
-    const SgList &new_sg_l = vm_port->GetSecurityGroupList();
+    const SgList &new_sg_l = vm_port->sg_list();
     bool changed = false;
 
     if (state == NULL) {
         state = new VmIntfFlowHandlerState(NULL);
         e->SetState(part->parent(), intf_listener_id_, state);
         // Force change for first time
-        state->policy_ = !vm_port->IsPolicyEnabled();
+        state->policy_ = !vm_port->policy_enabled();
         state->sg_l_ = new_sg_l;
         state->vn_ = new_vn;
         changed = true;
@@ -818,9 +818,9 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
             changed = true;
             state->vn_ = new_vn;
         }
-        if (state->policy_ != vm_port->IsPolicyEnabled()) {
+        if (state->policy_ != vm_port->policy_enabled()) {
             changed = true;
-            state->policy_ = vm_port->IsPolicyEnabled();
+            state->policy_ = vm_port->policy_enabled();
         }
         if (state->sg_l_ != new_sg_l) {
             changed = true;
@@ -1230,7 +1230,7 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
     }
 }
 
-void FlowTable::ResyncVmPortFlows(const VmPortInterface *intf) {
+void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
     IntfFlowTree::iterator intf_it;
     intf_it = intf_flow_tree_.find(intf);
     if (intf_it == intf_flow_tree_.end()) {
@@ -1245,7 +1245,7 @@ void FlowTable::ResyncVmPortFlows(const VmPortInterface *intf) {
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
         MatchPolicy policy;
-        fe->GetPolicy(intf->GetVnEntry(), &policy);
+        fe->GetPolicy(intf->vn(), &policy);
         fe->GetSgList(fe->data.intf_entry.get(), &policy);
         ResyncAFlow(fe, policy, false);
         AddFlowInfo(fe);

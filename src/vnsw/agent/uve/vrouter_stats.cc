@@ -11,7 +11,7 @@
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 
 #include <ksync/ksync_index.h>

@@ -107,7 +107,6 @@ public:
     uint32_t GetRefCount() const {
         return AgentRefCount<AclDBEntry>::GetRefCount();
     }
-    AgentDBTable *DBToTable() const;
     const uuid &GetUuid() const {return uuid_;};
     const std::string &GetName() const {return name_;};
     void SetName(const std::string name) {name_ = name;};

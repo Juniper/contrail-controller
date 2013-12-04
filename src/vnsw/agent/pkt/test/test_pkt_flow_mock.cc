@@ -65,13 +65,13 @@ void ProcessExceptionPackets() {
 	     return;
 	 }
 	 
-	 VmPortInterface *intf = VmPortInterfaceGet(vm->pinfo.intf_id);
+	 VmInterface *intf = VmInterfaceGet(vm->pinfo.intf_id);
 	 if (intf == NULL) {
 	   LOG(ERROR, "Interface is not found");
 	   return;
 	 }
-	 LOG(DEBUG, "Interface ID:" << intf->GetInterfaceId());
-	 TxIpPacket(intf->GetInterfaceId(), ep->sip.c_str(), ep->dip.c_str(), 
+	 LOG(DEBUG, "Interface ID:" << intf->id());
+	 TxIpPacket(intf->id(), ep->sip.c_str(), ep->dip.c_str(), 
 	            strtoul((ep->proto).c_str(), NULL, 0), hash_id);
          client->WaitForIdle();
          AclTable *table = Agent::GetInstance()->GetAclTable();

@@ -15,7 +15,7 @@
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "vr_types.h"
 #include "vr_interface.h"
 #include "ksync/agent_ksync_types.h"
@@ -49,25 +49,25 @@ public:
     };
 
     IntfKSyncEntry(const Interface *intf) :
-        KSyncNetlinkDBEntry(kInvalidIndex), ifname_(intf->GetName()),
-            type_(intf->GetType()), intf_id_(intf->GetInterfaceId()), 
+        KSyncNetlinkDBEntry(kInvalidIndex), ifname_(intf->name()),
+            type_(intf->type()), intf_id_(intf->id()), 
             vrf_id_(intf->GetVrfId()), fd_(-1), has_service_vlan_(false),
-            mac_(intf->GetMacAddr()), ip_(0),
+            mac_(intf->mac()), ip_(0),
             policy_enabled_(false), analyzer_name_(),
             mirror_direction_(Interface::UNKNOWN), active_(false),
-            os_index_(intf->GetOsIfindex()),
+            os_index_(intf->os_index()),
             sub_type_(VirtualHostInterface::HOST), 
             ipv4_forwarding_(true), layer2_forwarding_(true) {
         // Max name size supported by kernel
         assert(strlen(ifname_.c_str()) < IF_NAMESIZE);
         network_id_ = 0;
-        if (type_ == Interface::VMPORT) {
-            const VmPortInterface *vmitf = 
-                static_cast<const VmPortInterface *>(intf);
-            if (vmitf->IsDhcpSnoopIp()) {
-                ip_ = vmitf->GetIpAddr().to_ulong();
+        if (type_ == Interface::VM_INTERFACE) {
+            const VmInterface *vmitf = 
+                static_cast<const VmInterface *>(intf);
+            if (vmitf->dhcp_snoop_ip()) {
+                ip_ = vmitf->ip_addr().to_ulong();
             }
-            network_id_ = vmitf->GetVxLanId();
+            network_id_ = vmitf->vxlan_id();
         }
     };
 
@@ -91,22 +91,22 @@ public:
         Interface *intf = static_cast<Interface *>(e);
         bool ret = false;
 
-        if (active_ != intf->GetActiveState()) {
-            active_ = intf->GetActiveState();
+        if (active_ != intf->active()) {
+            active_ = intf->active();
             ret = true;
         }
 
-        if (os_index_ != intf->GetOsIfindex()) {
-            os_index_ = intf->GetOsIfindex();
-            mac_ = intf->GetMacAddr();
+        if (os_index_ != intf->os_index()) {
+            os_index_ = intf->os_index();
+            mac_ = intf->mac();
             ret = true;
         }
 
-        if (intf->GetType() == Interface::VMPORT) {
-            VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
-            if (vm_port->IsDhcpSnoopIp()) {
-                if (ip_ != vm_port->GetIpAddr().to_ulong()) {
-                    ip_ = vm_port->GetIpAddr().to_ulong();
+        if (intf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vm_port = static_cast<VmInterface *>(intf);
+            if (vm_port->dhcp_snoop_ip()) {
+                if (ip_ != vm_port->ip_addr().to_ulong()) {
+                    ip_ = vm_port->ip_addr().to_ulong();
                     ret = true;
                 }
             } else {
@@ -135,29 +135,29 @@ public:
             if (vrf_id == VrfEntry::kInvalidIndex) {
                 vrf_id = VIF_VRF_INVALID;
             }
-            if (intf->GetType() == Interface::VMPORT) {
-                VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
+            if (intf->type() == Interface::VM_INTERFACE) {
+                VmInterface *vm_port = static_cast<VmInterface *>(intf);
                 has_service_vlan = vm_port->HasServiceVlan();
                 // Policy is not supported on service-vm interfaces.
                 // So, disable policy if service-vlan interface
                 if (has_service_vlan) {
                     policy_enabled = false;
                 } else {
-                    policy_enabled = vm_port->IsPolicyEnabled();
+                    policy_enabled = vm_port->policy_enabled();
                 }
                 analyzer_name = vm_port->GetAnalyzer();
-                mirror_direction = vm_port->GetMirrorDirection();
-                if (network_id_ != vm_port->GetVxLanId()) {
-                    network_id_ = vm_port->GetVxLanId();
+                mirror_direction = vm_port->mirror_direction();
+                if (network_id_ != vm_port->vxlan_id()) {
+                    network_id_ = vm_port->vxlan_id();
                     ret = true;
                 }
             }
         }
 
-        if (intf->GetType() == Interface::VHOST) {
+        if (intf->type() == Interface::VIRTUAL_HOST) {
             VirtualHostInterface *vhost = 
                 static_cast<VirtualHostInterface *>(intf);
-            sub_type_ = vhost->GetSubType();
+            sub_type_ = vhost->sub_type();
         }
 
         if (vrf_id != vrf_id_) {
@@ -191,7 +191,7 @@ public:
     KSyncDBObject *GetObject(); 
     const uint8_t *GetMac() {return mac_.ether_addr_octet;};
     uint32_t GetIpAddress() {return ip_;};
-    uint32_t GetInterfaceId() const {return intf_id_;}
+    uint32_t id() const {return intf_id_;}
     const string &GetName() const {return ifname_;};
     void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info);
     bool HasServiceVlan() const {return has_service_vlan_;};
@@ -238,11 +238,11 @@ public:
         const Interface *intf = static_cast<const Interface *>(e);
         IntfKSyncEntry *key = NULL;
 
-        switch (intf->GetType()) {
-        case Interface::ETH:
-        case Interface::VMPORT:
-        case Interface::HOST:
-        case Interface::VHOST:
+        switch (intf->type()) {
+        case Interface::PHYSICAL:
+        case Interface::VM_INTERFACE:
+        case Interface::PACKET:
+        case Interface::VIRTUAL_HOST:
             key = new IntfKSyncEntry(intf);
             break;
 

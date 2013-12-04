@@ -447,7 +447,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
                                 entry->data.mirror_dest.dport);
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 
-    VmPortInterfaceKey *intf_key = new VmPortInterfaceKey(entry->data.intf_id,
+    VmInterfaceKey *intf_key = new VmInterfaceKey(entry->data.intf_id,
                                                           entry->data.intf_name);
     Interface *intf;
     intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
@@ -455,7 +455,7 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmPortInterfaceData *intf_data = new VmPortInterfaceData(true, entry->key.handle);
+        VmInterfaceData *intf_data = new VmInterfaceData(true, entry->key.handle);
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {
@@ -474,7 +474,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
     IntfMirrorCfgEntry *entry = it->second;    
     MirrorTable::DelMirrorEntry(entry->key.handle);
 
-    VmPortInterfaceKey *intf_key = new VmPortInterfaceKey(entry->data.intf_id,
+    VmInterfaceKey *intf_key = new VmInterfaceKey(entry->data.intf_id,
                                                           entry->data.intf_name);
     Interface *intf;
     intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
@@ -482,7 +482,7 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmPortInterfaceData *intf_data = new VmPortInterfaceData(false, std::string());
+        VmInterfaceData *intf_data = new VmInterfaceData(false, std::string());
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {

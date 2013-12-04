@@ -14,7 +14,7 @@
 #include <base/util.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 
 #include <ksync/ksync_index.h>
@@ -67,9 +67,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
 
     if (flow->intf_in != Interface::kInvalidIndex) {
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(flow->intf_in);
-        if (intf && intf->GetType() == Interface::VMPORT) {
-            VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
-            const VmEntry *vm = vm_port->GetVmEntry();
+        if (intf && intf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vm_port = static_cast<VmInterface *>(intf);
+            const VmEntry *vm = vm_port->vm();
             if (vm) {
                 s_flow.set_vm(vm->GetCfgName());
             }

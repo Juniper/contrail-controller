@@ -23,7 +23,7 @@ namespace autogen {
     struct VirtualDnsType;
 }
 
-class VmPortInterface;
+class VmInterface;
 struct VnIpam {
     Ip4Address ip_prefix;
     uint32_t   plen;
@@ -167,8 +167,8 @@ public:
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
-    int GetVxLanId() const;
-    bool Layer2Forwarding() const {return layer2_forwarding_;};
+    int vxlan_id() const;
+    bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 
     AgentDBTable *DBToTable() const;

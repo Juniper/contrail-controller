@@ -22,7 +22,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/agent_route.h>
 
@@ -510,7 +510,7 @@ private:
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
-    void ResyncVmPortFlows(const VmPortInterface *intf);
+    void ResyncVmPortFlows(const VmInterface *intf);
     void TrapReverseEcmpFlow(RouteFlowKey &key, uint32_t index, bool ingress);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
@@ -586,7 +586,8 @@ inline void intrusive_ptr_add_ref(const NhState *nh_state) {
 inline void intrusive_ptr_release(const NhState *nh_state) {
     int prev = nh_state->refcount_.fetch_and_decrement();
     if (prev == 1 && nh_state->nh()->IsDeleted()) {
-        AgentDBTable *table = nh_state->nh_->DBToTable();
+        AgentDBTable *table = 
+            static_cast<AgentDBTable *>(nh_state->nh_->get_table());
         nh_state->nh_->ClearState(table, 
             FlowTable::GetFlowTableObject()->nh_listener_id());
         delete nh_state; 

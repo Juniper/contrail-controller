@@ -333,7 +333,7 @@ define dump_fip_list
     if $argc == 0
         help dump_fip_list
     else
-    set $Xlist = (VmPortInterface *)$arg0
+    set $Xlist = (VmInterface *)$arg0
     set $Xtree = &($Xlist->floating_iplist_)
 
     # set the node equal to first node and end marker
@@ -342,7 +342,7 @@ define dump_fip_list
 
     printf "FloatingIp       Addr             Vrf                  Vn\n"
     while $Xnode != $Xend
-        set $__fip = (VmPortInterface::FloatingIp *)($Xnode + 1)
+        set $__fip = (VmInterface::FloatingIp *)($Xnode + 1)
         set $__ip = $__fip->floating_ip_.addr_.s_addr
         printf "%p   %d.%d.%d.%d  %p   %p\n", $__fip, \
             (($__ip >> 0) & 0xff), (($__ip >> 8) & 0xff), \

@@ -11,7 +11,7 @@
 #include <cfg/cfg_init.h>
 #include <oper/agent_route.h>
 #include <oper/operdb_init.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/vrf.h>
 #include <oper/mpls.h>
@@ -47,6 +47,7 @@ void OperDB::CreateDBTables(DB *db) {
     intf_table = static_cast<InterfaceTable *>(db->CreateTable("db.interface.0"));
     assert(intf_table);
     agent_->SetInterfaceTable(intf_table);
+    intf_table->Init(this);
 
     NextHopTable *nh_table;
     nh_table = static_cast<NextHopTable *>(db->CreateTable("db.nexthop.0"));

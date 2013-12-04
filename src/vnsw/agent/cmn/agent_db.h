@@ -100,7 +100,6 @@ class AgentDBEntry : public DBEntry {
 public:
     AgentDBEntry() : DBEntry(), flags_(0) {};
     virtual ~AgentDBEntry() {};
-    virtual AgentDBTable *DBToTable() const = 0;
     virtual uint32_t GetRefCount() const = 0;
 
     typedef boost::intrusive_ptr<AgentDBEntry> AgentDBEntyRef;

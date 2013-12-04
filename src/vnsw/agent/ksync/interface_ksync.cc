@@ -22,7 +22,7 @@
 #include "vr_types.h"
 #include "vnsw_utils.h"
 #include "base/logging.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/mirror_table.h"
 #include "ksync/ksync_index.h"
 #include "interface_ksync.h"
@@ -48,7 +48,7 @@ void vrouter_ops::Process(SandeshContext *context) {
 }
 
 void IntfKSyncObject::Init(InterfaceTable *table) {
-    Interface::SetTestMode(false);
+    Interface::set_test_mode(false);
 
     assert(singleton_ == NULL);
     singleton_ = new IntfKSyncObject(table);
@@ -59,7 +59,7 @@ void IntfKSyncObject::Init(InterfaceTable *table) {
 }
 
 void IntfKSyncObject::InitTest(InterfaceTable *table) {
-    Interface::SetTestMode(true);
+    Interface::set_test_mode(true);
     assert(singleton_ == NULL);
     singleton_ = new IntfKSyncObject(table);
     singleton_->test_mode = 1;
@@ -88,7 +88,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint32_t flags = 0;
     encoder.set_h_op(op);
     switch (type_) {
-    case Interface::VMPORT: {
+    case Interface::VM_INTERFACE: {
         encoder.set_vifr_type(VIF_TYPE_VIRTUAL); 
         std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
@@ -98,7 +98,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         break;
     }
 
-    case Interface::ETH: {
+    case Interface::PHYSICAL: {
         encoder.set_vifr_type(VIF_TYPE_PHYSICAL); 
         std::vector<int8_t> intf_mac(GetMac(), GetMac() + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
@@ -106,7 +106,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         break;
     }
 
-    case Interface::VHOST: {
+    case Interface::VIRTUAL_HOST: {
         switch (sub_type_) {
         case VirtualHostInterface::GATEWAY:
             encoder.set_vifr_type(VIF_TYPE_GATEWAY);
@@ -125,7 +125,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         break;
     }
 
-    case Interface::HOST: {
+    case Interface::PACKET: {
         encoder.set_vifr_type(VIF_TYPE_AGENT); 
         std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);

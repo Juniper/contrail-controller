@@ -6,7 +6,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <base/task_annotations.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vrf.h>
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
@@ -38,10 +38,6 @@ void MplsLabel::SetKey(const DBRequestKey *k) {
     label_ = key->label_;
 }
 
-AgentDBTable *MplsLabel::DBToTable() const {
-    return MplsTable::GetInstance();
-}
-
 std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
     const MplsLabelKey *key = static_cast<const MplsLabelKey *>(k);
     MplsLabel *mpls = new MplsLabel(key->type_, key->label_);
@@ -51,6 +47,7 @@ std::auto_ptr<DBEntry> MplsTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MplsTable::Add(const DBRequest *req) {
     MplsLabelKey *key = static_cast<MplsLabelKey *>(req->key.get());
     MplsLabel *mpls = new MplsLabel(key->type_, key->label_);
+    mpls->set_table(this);
 
     mpls->free_label_ = true;
     if (mpls->type_ != MplsLabel::MCAST_NH) {
@@ -251,35 +248,35 @@ bool MplsLabel::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
 void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
     MplsObjectLogInfo info;
     string str, type_str, nh_type;
-    
+
     switch(type_) {
-        case INVALID:
-           type_str.assign("Invalid ");
-           break;
-        case VPORT_NH:
-           type_str.assign("Virtual Port");
-           break;
-        case MplsLabel::MCAST_NH:
-            type_str.assign("mcast_nh");
-            break;
+    case INVALID:
+        type_str.assign("Invalid ");
+        break;
+    case VPORT_NH:
+        type_str.assign("Virtual Port");
+        break;
+    case MplsLabel::MCAST_NH:
+        type_str.assign("mcast_nh");
+        break;
     }
     info.set_type(type_str);
     info.set_label((int)label_);
     switch (event) {
-        case AgentLogEvent::ADD:
-            str.assign("Addition ");
-            break;
-        case AgentLogEvent::DELETE:
-            str.assign("Deletion ");
-            info.set_event(str);
-            OPER_TRACE(Mpls, info);
-            return;
-        case AgentLogEvent::CHANGE:
-            str.assign("Modification ");
-            break;
-        default:
-            str.assign("Unknown");
-            break;
+    case AgentLogEvent::ADD:
+        str.assign("Addition ");
+        break;
+    case AgentLogEvent::DELETE:
+        str.assign("Deletion ");
+        info.set_event(str);
+        OPER_TRACE(Mpls, info);
+        return;
+    case AgentLogEvent::CHANGE:
+        str.assign("Modification ");
+        break;
+    default:
+        str.assign("Unknown");
+        break;
     }
     info.set_event(str);
     const NextHop *nh = GetNextHop();
@@ -292,44 +289,44 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
         const VlanNH *vlan_nh;
 
         switch(nh->GetType()) {
-            case NextHop::INTERFACE:
-                nh_type.assign("INTERFACE");
-                if_nh = static_cast<const InterfaceNH *>(nh);
-                intf = if_nh->GetInterface();
-                if (if_nh->PolicyEnabled()) {
-                    policy_str.assign("Enabled");
-                }
-                info.set_policy(policy_str);
-                break;
-            case NextHop::VLAN:
-                nh_type.assign("VLAN");
-                vlan_nh = static_cast<const VlanNH *>(nh);
-                intf = vlan_nh->GetInterface();
-                info.set_vlan_tag(vlan_nh->GetVlanTag());
-                break;
-            case NextHop::COMPOSITE:
-                nh_type.assign("Composite");    
-                break;
-            default:
-                nh_type.assign("unknown");
-                break;
+        case NextHop::INTERFACE:
+            nh_type.assign("INTERFACE");
+            if_nh = static_cast<const InterfaceNH *>(nh);
+            intf = if_nh->GetInterface();
+            if (if_nh->PolicyEnabled()) {
+                policy_str.assign("Enabled");
+            }
+            info.set_policy(policy_str);
+            break;
+        case NextHop::VLAN:
+            nh_type.assign("VLAN");
+            vlan_nh = static_cast<const VlanNH *>(nh);
+            intf = vlan_nh->GetInterface();
+            info.set_vlan_tag(vlan_nh->GetVlanTag());
+            break;
+        case NextHop::COMPOSITE:
+            nh_type.assign("Composite");    
+            break;
+        default:
+            nh_type.assign("unknown");
+            break;
         }
     }
     info.set_nh_type(nh_type);
     /* Interface Nexthop pointed by Mpls object will always be of type VMPORT */
     if (intf) {
         string if_type_str;
-        switch(intf->GetType()) {
-            case Interface::VMPORT:
-                if_type_str.assign("VMPORT");
-                break;
-            default:
-                if_type_str.assign("Invalid");
-                break;
+        switch(intf->type()) {
+        case Interface::VM_INTERFACE:
+            if_type_str.assign("VM_INTERFACE");
+            break;
+        default:
+            if_type_str.assign("Invalid");
+            break;
         }
         info.set_intf_type(if_type_str);
         info.set_intf_uuid(UuidToString(intf->GetUuid()));
-        info.set_intf_name(intf->GetName());
+        info.set_intf_name(intf->name());
     }
     OPER_TRACE(Mpls, info);
 }

@@ -22,8 +22,8 @@ public:
         client->WaitForIdle();
         EXPECT_TRUE(VmPortActive(input, 0));
 
-        vnet = VmPortInterfaceGet(1);
-        strcpy(vnet_addr, vnet->GetIpAddr().to_string().c_str());
+        vnet = VmInterfaceGet(1);
+        strcpy(vnet_addr, vnet->ip_addr().to_string().c_str());
 
         boost::system::error_code ec;
         Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(bgp_peer_, "vrf1", 
@@ -50,7 +50,7 @@ public:
         client->WaitForIdle();
     }
 
-    VmPortInterface *vnet;
+    VmInterface *vnet;
     char vnet_addr[32];
 };
 
@@ -65,7 +65,7 @@ TEST_F(FlowTest, FlowScaling_1) {
 
     for (int i = 0; i < count; i++) {
         Ip4Address addr(0x05000000 + i);
-        TxIpPacket(vnet->GetInterfaceId(), vnet_addr,
+        TxIpPacket(vnet->id(), vnet_addr,
                    addr.to_string().c_str(), 1);
     }
 

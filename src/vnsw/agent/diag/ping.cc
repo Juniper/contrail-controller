@@ -120,7 +120,7 @@ void Ping::SendRequest() {
     const InterfaceNH *intf_nh;
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
-    uint32_t intf_id = intf_nh->GetInterface()->GetInterfaceId();
+    uint32_t intf_id = intf_nh->GetInterface()->id();
     uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
     //Send request out
     pkt_handler->SetDiagChkSum();

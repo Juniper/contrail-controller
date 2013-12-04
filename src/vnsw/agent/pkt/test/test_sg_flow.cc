@@ -6,12 +6,12 @@
 #include "test_pkt_util.h"
 #include "pkt/pkt_flow.h"
 
-VmPortInterface *vnet[16];
+VmInterface *vnet[16];
 VirtualHostInterface *vhost;
 char vhost_addr[32];
 char vnet_addr[16][32];
 
-EthInterface *eth;
+PhysicalInterface *eth;
 int hash_id;
 
 void RouterIdDepInit() {
@@ -124,8 +124,8 @@ static void AddSgEntry(const char *sg_name, const char *acl_name, int id,
     AddLink("security-group", sg_name, "access-control-list", acl_name);
 }
 
-const VmPortInterface *GetVmPort(int id) {
-    return static_cast<const VmPortInterface *>(vnet[id]);
+const VmInterface *GetVmPort(int id) {
+    return static_cast<const VmInterface *>(vnet[id]);
 }
 
 static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
@@ -149,12 +149,12 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
             }
         }
 
-        vnet[id] = VmPortInterfaceGet(id);
+        vnet[id] = VmInterfaceGet(id);
         if (vnet[id] == NULL) {
             ret = false;
         }
 
-        strcpy(vnet_addr[id], vnet[id]->GetIpAddr().to_string().c_str());
+        strcpy(vnet_addr[id], vnet[id]->ip_addr().to_string().c_str());
     }
     return ret;
 }
@@ -185,12 +185,12 @@ class SgTest : public ::testing::Test {
         client->WaitForIdle();
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
-        const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
+        const VmInterface *port = GetVmPort(1);
+        EXPECT_EQ(port->sg_list().size(), 0U);
         AddSgEntry("sg1", "sg_acl1", 10, 1, "pass");
         AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         client->WaitForIdle();
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 1U);
+        EXPECT_EQ(port->sg_list().size(), 1U);
     }
 
     virtual void TearDown() {
@@ -204,8 +204,8 @@ class SgTest : public ::testing::Test {
         DelNode("security-group", "sg1");
         client->WaitForIdle();
 
-        const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
+        const VmInterface *port = GetVmPort(1);
+        EXPECT_EQ(port->sg_list().size(), 0U);
     }
 };
 
@@ -237,60 +237,60 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
 
 // Allow in both forward and reverse directions
 TEST_F(SgTest, Flow_Allow_1) {
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
     client->WaitForIdle();
 }
 
 // Deny in both forward and reverse directions
 TEST_F(SgTest, Flow_Deny_1) {
-    TxTcpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2],
+    TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
 }
 
 // Change ACL for forward flow 
 TEST_F(SgTest, Fwd_Sg_Change_1) {
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
     AddAclEntry("sg_acl1", 10, 1, "deny");
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
 }
 
 // Delete SG from interface
 TEST_F(SgTest, Sg_Delete_1) {
-    TxTcpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2],
+    TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
 }
 
@@ -300,26 +300,26 @@ TEST_F(SgTest, Sg_Policy_1) {
     AddLink("virtual-machine-interface", "vnet1", "access-control-list",
             "nw_acl1");
     client->WaitForIdle();
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
     AddAclEntry("nw_acl1", 11, 1, "deny");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
     DelLink("virtual-machine-interface", "vnet1", "access-control-list",
             "nw_acl1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
 }
 

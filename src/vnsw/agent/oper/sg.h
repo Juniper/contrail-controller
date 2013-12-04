@@ -48,7 +48,6 @@ public:
     const AclDBEntry *GetAcl() const {return acl_.get();};
     bool IsAclSet() const { return (acl_ != NULL);};
 
-    AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<SgEntry>::GetRefCount();
     }

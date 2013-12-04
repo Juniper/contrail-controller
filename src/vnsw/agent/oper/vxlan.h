@@ -30,7 +30,6 @@ public:
     // Delete vxlan_id vxlan_id entry
     static void DeleteReq(uint32_t vxlan_id);
 
-    AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<VxLanId>::GetRefCount();
     }

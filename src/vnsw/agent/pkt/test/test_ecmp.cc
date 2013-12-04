@@ -84,7 +84,7 @@ class EcmpTest : public ::testing::Test {
         mpls_label_3 = rt->GetMplsLabel();
 
         //Populate ethernet interface id
-        eth_intf_id_ = EthInterfaceGet("vnet0")->GetInterfaceId();
+        eth_intf_id_ = EthInterfaceGet("vnet0")->id();
 
         remote_vm_ip1_ = Ip4Address::from_string("2.2.2.2");
         remote_vm_ip2_ = Ip4Address::from_string("3.3.3.3");
@@ -170,11 +170,11 @@ public:
     void AddLocalVmRoute(const string vrf_name, const string ip, uint32_t plen,
                          const string vn, uint32_t intf_uuid) {
         Ip4Address vm_ip = Ip4Address::from_string(ip);
-        const VmPortInterface *vm_intf = static_cast<const VmPortInterface *>
+        const VmInterface *vm_intf = static_cast<const VmInterface *>
             (VmPortGet(intf_uuid));
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddLocalVmRouteReq(bgp_peer, vrf_name, vm_ip, plen,
-                               vm_intf->GetUuid(), vn, vm_intf->GetLabel(),
+                               vm_intf->GetUuid(), vn, vm_intf->label(),
                                false);
     }
 
@@ -243,7 +243,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
         (RouteGet("vrf3", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data.component_nh_idx)->GetNH());
-    EXPECT_TRUE(intf_nh->GetInterface()->GetName() == "vnet4");
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 }
 
 //Ping from vrf3(floating IP is ECMP) to vrf4
@@ -268,7 +268,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
         (RouteGet("vrf4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data.component_nh_idx)->GetNH());
-    EXPECT_TRUE(intf_nh->GetInterface()->GetName() == "vnet5");
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 }
 
 //Ping from vrf3(floating IP is ECMP) to vrf4
@@ -293,7 +293,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
         (RouteGet("vrf4", ip, 32)->GetActiveNextHop());
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
         (comp_nh->GetComponentNHList()->Get(rev_entry->data.component_nh_idx)->GetNH());
-    EXPECT_TRUE(intf_nh->GetInterface()->GetName() == "vnet6");
+    EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet6");
 }
 
 //Ping from external world to ECMP vip
@@ -1570,7 +1570,7 @@ TEST_F(EcmpTest, EcmpResolve_2) {
     while (component_nh_it != comp_nh->end()) {
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             ((*component_nh_it)->GetNH());
-        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+        if (intf_nh->GetInterface()->name() == "vnet2") {
             break;
         }
         index++;
@@ -1611,7 +1611,7 @@ TEST_F(EcmpTest, EcmpResolve_3) {
     while (component_nh_it != comp_nh->end()) {
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             ((*component_nh_it)->GetNH());
-        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+        if (intf_nh->GetInterface()->name() == "vnet2") {
             break;
         }
         index++;
@@ -1675,7 +1675,7 @@ TEST_F(EcmpTest, EcmpResolve_4) {
     while (component_nh_it != comp_nh->end()) {
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             ((*component_nh_it)->GetNH());
-        if (intf_nh->GetInterface()->GetName() == "vnet2") {
+        if (intf_nh->GetInterface()->name() == "vnet2") {
             break;
         }
         index++;

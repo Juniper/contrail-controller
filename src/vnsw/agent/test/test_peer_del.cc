@@ -17,7 +17,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/peer.h>
 
 #include "testing/gunit.h"

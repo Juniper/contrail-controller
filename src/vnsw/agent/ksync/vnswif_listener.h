@@ -66,7 +66,7 @@ private:
     public:
         VnswIntfState(Ip4Address addr) : addr_(addr) { };
         virtual ~VnswIntfState() { };
-        Ip4Address GetIpAddr() { return addr_; };
+        Ip4Address ip_addr() { return addr_; };
     private:
         Ip4Address addr_;
     };

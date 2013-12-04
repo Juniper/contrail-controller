@@ -42,7 +42,7 @@ int VnswIfListener::AddAttr(int type, void *data, int alen) {
 }
 
 void VnswIfListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
-    const VmPortInterface *vmport = dynamic_cast<VmPortInterface *>(e);
+    const VmInterface *vmport = dynamic_cast<VmInterface *>(e);
     if (vmport == NULL) {
         return;
     }
@@ -51,10 +51,10 @@ void VnswIfListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     VnswIntfState *state = static_cast<VnswIntfState *>(s);
     VnswRouteEvent *re;
 
-    if (vmport->IsDeleted() || !vmport->GetActiveState() ||
-        !vmport->NeedLinkLocalIp()) {
+    if (vmport->IsDeleted() || !vmport->active() ||
+        !vmport->need_linklocal_ip()) {
         if (state) {
-            re = new VnswRouteEvent(state->GetIpAddr(), VnswRouteEvent::DEL_REQ);
+            re = new VnswRouteEvent(state->ip_addr(), VnswRouteEvent::DEL_REQ);
             revent_queue_->Enqueue(re);
             e->ClearState(part->parent(), intf_listener_id_);
             delete state;
@@ -62,10 +62,10 @@ void VnswIfListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         return;
     }
 
-    if (!state && vmport->NeedLinkLocalIp()) {
-        state = new VnswIntfState(vmport->GetMdataIpAddr());
+    if (!state && vmport->need_linklocal_ip()) {
+        state = new VnswIntfState(vmport->mdata_ip_addr());
         e->SetState(part->parent(), intf_listener_id_, state);
-        re = new VnswRouteEvent(state->GetIpAddr(), VnswRouteEvent::ADD_REQ);
+        re = new VnswRouteEvent(state->ip_addr(), VnswRouteEvent::ADD_REQ);
         revent_queue_->Enqueue(re);
     }
 }

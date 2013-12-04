@@ -6,7 +6,7 @@
 #include "agent_db.h"
 
 void AgentDBEntry::SetRefState() const {
-    AgentDBTable *table = DBToTable();
+    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
     // Force calling SetState on a const object. 
     // Ideally, SetState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;
@@ -14,7 +14,7 @@ void AgentDBEntry::SetRefState() const {
 }
 
 void AgentDBEntry::ClearRefState() const {
-    AgentDBTable *table = DBToTable();
+    AgentDBTable *table = static_cast<AgentDBTable *>(get_table());
     // Force calling SetState on a const object. 
     // Ideally, ClearState should be 'const method' and StateMap mutable
     AgentDBEntry *entry = (AgentDBEntry *)this;

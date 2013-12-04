@@ -4,7 +4,7 @@
 
 #include <base/logging.h>
 #include <cmn/agent_cmn.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
 #include "icmp_proto.h"
@@ -32,7 +32,7 @@ bool IcmpHandler::Run() {
     if (itf == NULL) {
         return true;
     }
-    VmPortInterface *vm_itf = static_cast<VmPortInterface *>(itf);
+    VmInterface *vm_itf = static_cast<VmInterface *>(itf);
     if (!vm_itf->ipv4_forwarding()) { 
         return true;
     } 

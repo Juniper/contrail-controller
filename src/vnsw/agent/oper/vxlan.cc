@@ -32,10 +32,6 @@ void VxLanId::SetKey(const DBRequestKey *k) {
     vxlan_id_ = key->vxlan_id();
 }
 
-AgentDBTable *VxLanId::DBToTable() const {
-    return vxlan_id_table_;
-}
-
 std::auto_ptr<DBEntry> VxLanTable::AllocEntry(const DBRequestKey *k) const {
     const VxLanIdKey *key = static_cast<const VxLanIdKey *>(k);
     VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
@@ -52,6 +48,7 @@ void VxLanTable::Process(DBRequest &req) {
 DBEntry *VxLanTable::Add(const DBRequest *req) {
     VxLanIdKey *key = static_cast<VxLanIdKey *>(req->key.get());
     VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
+    vxlan_id->set_table(this);
 
     ChangeHandler(vxlan_id, req);
     vxlan_id->SendObjectLog(AgentLogEvent::ADD);

@@ -11,7 +11,7 @@
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
 #include <oper/vrf.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/agent_types.h>
 #include <sandesh/sandesh_trace.h>
 
@@ -123,7 +123,7 @@ public:
     bool IsMultiProtoSupported() const {
         return multi_proto_support_; 
     };
-    bool Layer2Forwarding() const {return layer2_forwarding_;};
+    bool layer2_forwarding() const {return layer2_forwarding_;};
     void SetLayer2Forwarding(bool enable) {layer2_forwarding_ = enable;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
     void SetIpv4Forwarding(bool enable) {ipv4_forwarding_ = enable;};
@@ -212,23 +212,23 @@ private:
 
     //Unresolved VM list, waiting on ipam for subnet broadcast
     void VisitUnresolvedVMList(const VnEntry *vn);
-    std::list<const VmPortInterface *> &GetUnresolvedSubnetVMList(const uuid &vn_uuid) {
+    std::list<const VmInterface *> &GetUnresolvedSubnetVMList(const uuid &vn_uuid) {
         return this->unresolved_subnet_vm_list_[vn_uuid];
     };
     void AddToUnresolvedSubnetVMList(const uuid &vn_uuid,
-                                     const VmPortInterface *vm_itf)
+                                     const VmInterface *vm_itf)
     {
         vm_vn_mapping_[vm_itf->GetUuid()] = vn_uuid;
         unresolved_subnet_vm_list_[vn_uuid].push_back(vm_itf);
     };
     void DeleteVNFromUnResolvedList(const uuid &vn_uuid) {
-        std::map<uuid, std::list<const VmPortInterface *> >::iterator it = 
+        std::map<uuid, std::list<const VmInterface *> >::iterator it = 
             unresolved_subnet_vm_list_.find(vn_uuid);
         if (it != unresolved_subnet_vm_list_.end()) {
             unresolved_subnet_vm_list_.erase(it);
         }
     };
-    void DeleteVMFromUnResolvedList(const VmPortInterface *vm_itf) {
+    void DeleteVMFromUnResolvedList(const VmInterface *vm_itf) {
         uuid vn_uuid = vm_vn_mapping_[vm_itf->GetUuid()];
         unresolved_subnet_vm_list_[vn_uuid].remove(vm_itf);
         if (unresolved_subnet_vm_list_.size() == 0) {
@@ -304,7 +304,7 @@ private:
     Agent *agent_;
     //TODO modify to use Backreference tool 
     //VN uuid as key and list of VM interface pointers as data 
-    std::map<uuid, std::list<const VmPortInterface *> > unresolved_subnet_vm_list_;
+    std::map<uuid, std::list<const VmInterface *> > unresolved_subnet_vm_list_;
     //Reference mapping of VM to participating multicast object list
     std::map<uuid, std::list<MulticastGroupObject *> > vm_to_mcobj_list_;
     //List of all multicast objects(VRF/G/S) 

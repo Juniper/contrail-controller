@@ -126,7 +126,7 @@ void AclEntry::PopulateAclEntry(const AclEntrySpec &acl_entry_spec)
     }
 }
 
-void AclEntry::SetMirrorEntry(MirrorEntryRef me) { 
+void AclEntry::set_mirror_entry(MirrorEntryRef me) { 
         mirror_entry_ = me;
 }
 
