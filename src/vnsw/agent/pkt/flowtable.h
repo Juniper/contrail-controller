@@ -446,7 +446,7 @@ public:
     static void Shutdown();
     static FlowTable *GetFlowTableObject() { return singleton_;};
 
-    FlowEntry *Allocate(const FlowKey &key);
+    FlowEntry *Allocate(const FlowKey &key, bool new_only);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     FlowEntry *Find(const FlowKey &key);
 

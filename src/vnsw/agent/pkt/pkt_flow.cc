@@ -710,7 +710,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(pkt->vrf, pkt->ip_saddr, pkt->ip_daddr,
                 pkt->ip_proto, pkt->sport, pkt->dport);
-    FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
+    FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key, false));
 
     FlowEntryPtr rflow(NULL);
     uint16_t r_sport;
@@ -730,11 +730,11 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done) {
         FlowKey rkey(nat_vrf, nat_ip_daddr, nat_ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey, false);
     } else {
         FlowKey rkey(dest_vrf, pkt->ip_daddr, pkt->ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey, false);
     }
 
     InitFwdFlow(flow.get(), pkt, in, out);
