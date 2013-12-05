@@ -296,6 +296,7 @@ class FlowEntry {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
+        deleted_ = false;
         alloc_count_.fetch_and_increment();
     };
     FlowEntry(const FlowKey &k) : 
@@ -306,6 +307,7 @@ class FlowEntry {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
+        deleted_ = false;
         alloc_count_.fetch_and_increment();
     };
     virtual ~FlowEntry() {
@@ -355,25 +357,19 @@ class FlowEntry {
     bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
+    void SetDeleted() { deleted_ = true; }
+    void ClearDeleted() { deleted_ = false; }
+    bool IsDeleted() { return deleted_; }
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     static tbb::atomic<int> alloc_count_;
+    bool deleted_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
  
-inline void intrusive_ptr_add_ref(FlowEntry *fe) {
-    fe->refcount_.fetch_and_increment();
-}
-inline void intrusive_ptr_release(FlowEntry *fe) {
-    int prev = fe->refcount_.fetch_and_decrement();
-    if (prev == 1) {
-        delete fe;
-    }
-}
-
 struct FlowEntryCmp {
     bool operator()(const FlowEntryPtr &l, const FlowEntryPtr &r) {
         FlowEntry *lhs = l.get();
@@ -481,6 +477,7 @@ public:
     friend class FetchFlowRecord;
     friend class Inet4RouteUpdate;
     friend class NhState;
+    friend void intrusive_ptr_release(FlowEntry *fe);
 private:
     static FlowTable* singleton_;
     FlowEntryMap flow_entry_map_;
@@ -541,6 +538,20 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
+
+inline void intrusive_ptr_add_ref(FlowEntry *fe) {
+    fe->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(FlowEntry *fe) {
+    int prev = fe->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        FlowTable *table = FlowTable::GetFlowTableObject();
+        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key);
+        assert(it != table->flow_entry_map_.end());
+        table->flow_entry_map_.erase(it);
+        delete fe;
+    }
+}
 
 class Inet4RouteUpdate {
 public:

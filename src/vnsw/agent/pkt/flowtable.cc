@@ -567,6 +567,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key, bool new_only) {
             return NULL;
         }
         flow = ret.first->second;
+        flow->ClearDeleted();
         DeleteFlowInfo(flow);
     } else {
         flow->flow_uuid = FlowTable::rand_gen_();
@@ -594,6 +595,11 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 {
     FlowInfo flow_info;
     FlowEntry *fe = it->second;
+    if (fe->IsDeleted()) {
+        /* Already deleted return from here. */
+        return;
+    }
+    fe->SetDeleted();
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
 
@@ -609,7 +615,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fe->data.reverse_flow = NULL;
 
     DeleteFlowInfo(fe);
-    flow_entry_map_.erase(it);
 
     FlowTableKSyncEntry *ksync_entry = 
         FlowTableKSyncObject::GetKSyncObject()->Find(fe);
