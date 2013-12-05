@@ -110,7 +110,7 @@ class MetadataProvisioner(object):
         ksopts = {
             'admin_user': 'user1',
             'admin_password': 'password1',
-            'admin_tenant_name': 'default-domain'
+            'admin_tenant_name': 'admin'
         }
 
         if args.conf_file:
@@ -149,8 +149,11 @@ class MetadataProvisioner(object):
         parser.add_argument(
             "--ipfabric_service_port", type=int, help="IP Fabric Service Port")
         parser.add_argument(
-            "--oper", default='add',
-            help="Provision operation to be done(add or delete)")
+            "--oper", default='add', help="Provision operation to be done(add or delete)")
+        parser.add_argument(
+            "--admin_user", help="Name of keystone admin user")
+        parser.add_argument(
+            "--admin_password", help="Password of keystone admin user")
 
         self._args = parser.parse_args(remaining_argv)
         if not self._args.linklocal_service_name:

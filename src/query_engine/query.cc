@@ -354,8 +354,7 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     {
         iter = json_api_data.find(QUERY_START_TIME);
         QE_PARSE_ERROR(iter != json_api_data.end());
-
-        std::istringstream(iter->second) >> req_from_time;
+        req_from_time = parse_time(iter->second);
         QE_TRACE(DEBUG,  " from_time is " << req_from_time);
         if (req_from_time < analytics_start_time) 
         {
@@ -373,13 +372,13 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
 
         iter = json_api_data.find(QUERY_END_TIME);
         QE_PARSE_ERROR(iter != json_api_data.end());
-
-        std::istringstream(iter->second) >> req_end_time; 
+        req_end_time = parse_time(iter->second);
         QE_TRACE(DEBUG,  " end_time is " << req_end_time);
 
-        if (req_end_time > 
-                (uint64_t)(curr_time.tv_sec*1000000+curr_time.tv_usec))
-        {
+        if (req_end_time < analytics_start_time) {
+            end_time = analytics_start_time;
+        } else if (req_end_time > 
+                (uint64_t)(curr_time.tv_sec*1000000+curr_time.tv_usec)) {
             end_time = curr_time.tv_sec*1000000+curr_time.tv_usec;
             QE_TRACE(DEBUG, "updated end_time to:" << end_time);
         } else {
@@ -471,8 +470,8 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     if (can_parallelize_query()) {
         time_slice = ((end_time - from_time)/total_parallel_batches) + 1;
 
-        if (time_slice < (uint64_t)(2^g_viz_constants.RowTimeInBits)) {
-            time_slice = 2^g_viz_constants.RowTimeInBits;
+        if (time_slice < (uint64_t)pow(2,g_viz_constants.RowTimeInBits)) {
+            time_slice = pow(2,g_viz_constants.RowTimeInBits);
         } 
 
         // Adjust the time_slice for Flowseries query, if time granularity is 
@@ -523,6 +522,50 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
         QE_TRACE(DEBUG, "No processing needed for batch:" << parallel_batch_num);
     }
 
+}
+
+/*
+ * time could be in now +/-10m/h/s format.Parse that and return th
+ * UTC corresponding to the parsed val
+ */
+uint64_t AnalyticsQuery::parse_time(const std::string& relative_time)
+{
+    uint64_t offset_usec = 0;
+    std::string temp;
+    if (!relative_time.compare("\"now\"")) {
+        return UTCTimestampUsec();
+    } else if (!(relative_time.substr(1,3)).compare("now")) {
+        //Find the offset to be shifted
+        int found = 0;
+    //Extract any number after now
+        if ((found = relative_time.find_last_of("h")) > 0) {
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
+            offset_usec = offset_usec*3600*1000000;
+        } else if ((found = relative_time.find_last_of("m")) > 0) {
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
+            offset_usec = offset_usec*60*1000000;
+        } else if ((found = relative_time.find_last_of("s")) > 0) {
+            std::istringstream(relative_time.substr(5,found-4)) >> offset_usec;
+            offset_usec = offset_usec*1000000;
+        } else {
+            QE_LOG_GLOBAL(DEBUG, "Error in time parsing.h/m/s expected");   
+            return 0;
+        }
+
+        //If now+ return UTC + offset else UTC - offset 
+        if (!(relative_time.substr(1,4)).compare("now+")) {
+            return (UTCTimestampUsec() + offset_usec);
+        } else if (!(relative_time.substr(1,4)).compare("now-")) {
+            return (UTCTimestampUsec() - offset_usec);
+        } else {
+            QE_LOG_GLOBAL(DEBUG, "Error in time parsing. now+/-expected");
+            return 0;
+        }
+    } else {
+        //To handle old version of input where integer is parsed
+        std::istringstream(relative_time) >> offset_usec;
+        return offset_usec;
+    }
 }
 
 

@@ -111,7 +111,8 @@ class Subnet(object):
             self._db_conn.subnet_alloc(name, int(addr))
 
         for addr in inuse_addrs.keys():
-            self._db_conn.subnet_alloc(name, int(addr))
+            ipaddr = IPAddress(addr)
+            self._db_conn.subnet_alloc(name, int(ipaddr))
 
         self._db_conn.subnet_delete(name)
         self._name = name
