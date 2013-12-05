@@ -42,6 +42,20 @@ FlowTable* FlowTable::singleton_;
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 
+inline void intrusive_ptr_add_ref(FlowEntry *fe) {
+    fe->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(FlowEntry *fe) {
+    int prev = fe->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        FlowTable *table = FlowTable::GetFlowTableObject();
+        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key);
+        assert(it != table->flow_entry_map_.end());
+        table->flow_entry_map_.erase(it);
+        delete fe;
+    }
+}
+
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
         return true;
@@ -557,17 +571,14 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     }
 }
 
-FlowEntry *FlowTable::Allocate(const FlowKey &key, bool new_only) {
+FlowEntry *FlowTable::Allocate(const FlowKey &key) {
     FlowEntry *flow = new FlowEntry(key);
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(std::pair<FlowKey, FlowEntry*>(key, flow));
     if (ret.second == false) {
         delete flow;
-        if (new_only) {
-            return NULL;
-        }
         flow = ret.first->second;
-        flow->ClearDeleted();
+        flow->set_deleted(false);
         DeleteFlowInfo(flow);
     } else {
         flow->flow_uuid = FlowTable::rand_gen_();
@@ -595,11 +606,11 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 {
     FlowInfo flow_info;
     FlowEntry *fe = it->second;
-    if (fe->IsDeleted()) {
+    if (fe->deleted()) {
         /* Already deleted return from here. */
         return;
     }
-    fe->SetDeleted();
+    fe->set_deleted(true);
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
 

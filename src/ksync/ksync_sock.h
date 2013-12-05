@@ -172,7 +172,7 @@ protected:
     WorkQueue<IoContext *> *async_send_queue_;
     tbb::mutex mutex_;
 
-    WorkQueue<char *> *work_queue_[IoContext::MAX_WORK_QUEUES];
+    WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
 private:
     // Read handler registered with boost::asio. Demux done based on seqno_
     void ReadHandler(const boost::system::error_code& error,
@@ -188,15 +188,8 @@ private:
     bool SendAsyncImpl(IoContext *ioc);
 
     bool SendAsyncStart() {
-        uint64_t wait_tree_count = 0;
-        {
-            tbb::mutex::scoped_lock lock(mutex_);
-            wait_tree_count = wait_tree_.size();
-        }
-        if (wait_tree_count > KSYNC_ACK_WAIT_THRESHOLD) {
-            return false;
-        }
-        return true;
+        tbb::mutex::scoped_lock lock(mutex_);
+        return (wait_tree_.size() <= KSYNC_ACK_WAIT_THRESHOLD);
     }
 
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;

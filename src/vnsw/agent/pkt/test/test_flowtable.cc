@@ -225,7 +225,7 @@ public:
     FlowEntry *FlowInit(TestFlowKey *t) {
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = FlowTable::GetFlowTableObject()->Allocate(key, false);
+        FlowEntry *flow = FlowTable::GetFlowTableObject()->Allocate(key);
 
         flow->data.source_vn = *t->svn_;
         flow->data.dest_vn = *t->dvn_;

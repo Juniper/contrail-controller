@@ -280,7 +280,7 @@ void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
 
 KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        work_queue_[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
+        receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
                              GetTaskId(IoContext::io_wq_names[i]), 0,
                              boost::bind(&KSyncSock::ProcessKernelData, this, 
                                          _1));
@@ -307,8 +307,8 @@ KSyncSock::~KSyncSock() {
     delete async_send_queue_;
 
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        work_queue_[i]->Shutdown();
-        delete work_queue_[i];
+        receive_work_queue[i]->Shutdown();
+        delete receive_work_queue[i];
     }
 }
 
@@ -395,7 +395,7 @@ bool KSyncSock::ValidateAndEnqueue(char *data) {
     } else {
         q_id = IoContext::UVE_Q_ID;
     }
-    work_queue_[q_id]->Enqueue(data);
+    receive_work_queue[q_id]->Enqueue(data);
     return true;
 }
 

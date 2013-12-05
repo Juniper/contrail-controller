@@ -465,9 +465,10 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                         vflow_entry->fe_key.key_proto,
                         ntohs(vflow_entry->fe_key.key_src_port),
                         ntohs(vflow_entry->fe_key.key_dst_port));
-            FlowEntry *flow = FlowTable::GetFlowTableObject()->Allocate(key, true);
-            FlowEntryPtr flow_p(flow);
-            if (flow) {
+            FlowEntry *flow_p = FlowTable::GetFlowTableObject()->Find(key);
+            if (flow_p == NULL) {
+                /* Create Short flow only for non-existing flows. */
+                FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
                 flow->flow_handle = flow_idx;
                 flow->short_flow = true;
                 flow->data.source_vn = *FlowHandler::UnknownVn();
@@ -477,7 +478,7 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                 flow->data.dest_sg_id_l = empty_sg_id_l;
                 AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD entry "
                                 " to short flow");
-                FlowTable::GetFlowTableObject()->Add(flow_p.get(), NULL);
+                FlowTable::GetFlowTableObject()->Add(flow.get(), NULL);
             }
 
         }
