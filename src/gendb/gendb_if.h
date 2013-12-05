@@ -21,6 +21,15 @@ namespace GenDb {
 
 /* New stuff */
 typedef boost::variant<std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
+enum DbDataValueType {
+    DB_VALUE_STRING = 0,
+    DB_VALUE_UINT64 = 1,
+    DB_VALUE_UINT32 = 2,
+    DB_VALUE_UUID = 3,
+    DB_VALUE_UINT8 = 4,
+    DB_VALUE_UINT16 = 5,
+    DB_VALUE_DOUBLE = 6,
+};    
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
 
