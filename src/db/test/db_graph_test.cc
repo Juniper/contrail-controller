@@ -6,6 +6,7 @@
 
 #include <ostream>
 #include <boost/bind.hpp>
+#include <boost/foreach.hpp>
 
 #include "base/logging.h"
 #include "base/util.h"
@@ -205,6 +206,53 @@ TEST_F(DBGraphTest, EdgeRemove) {
 
     EXPECT_TRUE(HasEdge(visitor.edges, "a", "c"));
     EXPECT_TRUE(HasEdge(visitor.edges, "a", "d"));
+}
+
+struct TestVisitorFilter : public DBGraph::VisitorFilter {
+    virtual ~TestVisitorFilter() { }
+    virtual bool VertexFilter(const DBGraphVertex *vertex) const {
+        const TestVertex *node = static_cast<const TestVertex *>(vertex);
+        std::cout << "TestVisitorFilter: node is " << node->name() << std::endl
+        BOOST_FOREACH(const string &incl, include_vertex) {
+            if (node->name() == incl) {
+                std::cout << "TestVisitorFilter: node " << node->name()
+                          << " in filter" << std::endl;
+                return true;
+            }
+        }
+        return false;
+    }
+    virtual bool EdgeFilter(const DBGraphVertex *source,
+                            const DBGraphVertex *target,
+                            const DBGraphEdge *edge) const {
+        return true;
+    }
+    std::vector<std::string> include_vertex;
+    std::vector<std::string> include_edge;
+};
+
+TEST_F(DBGraphTest, GraphWithFilterTraversal) {
+    CreateVertex("a");
+    CreateVertex("b");
+    CreateVertex("c");
+    CreateVertex("d");
+
+    CreateEdge(vertices_[0], vertices_[2]);
+    CreateEdge(vertices_[0], vertices_[3]);
+    CreateEdge(vertices_[1], vertices_[2]);
+    CreateEdge(vertices_[1], vertices_[3]);
+
+    TestVisitorFilter test_filter;
+    test_filter.include_vertex.push_back("a");
+    test_filter.include_vertex.push_back("d");
+
+    GraphVisitor test_visitor;
+    test_visitor.clear();   
+    graph_.Visit(vertices_[0],
+                 boost::bind(&GraphVisitor::VertexVisitor, &test_visitor, _1),
+                 boost::bind(&GraphVisitor::EdgeVisitor, &test_visitor, _1),
+                 test_filter);
+    EXPECT_EQ(2, test_visitor.vertices.size());
 }
 
 int main(int argc, char **argv) {
