@@ -1848,11 +1848,11 @@ void FlowTable::SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
     }
 }
 
-string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key) {
+string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last_count) {
     string uuid_str = UuidToString(acl->GetUuid());
     stringstream ss;
     ss << uuid_str << ":";
-    ss << PktSandeshFlow::GetFlowKey(key);
+    ss << last_count;
     return ss.str();
 }
 
@@ -1876,7 +1876,7 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 }
 
 void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                                      const FlowKey &key)
+                                      const int last_count)
 {
     AclFlowTree::iterator it;
     it = acl_flow_tree_.find(acl);
@@ -1885,12 +1885,14 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     }
     AclFlowInfo *af_info = it->second;
    
-    FlowEntry *fentry = new FlowEntry(key);
-    FlowEntryPtr feptr(fentry);
     int count = 0; 
     bool key_set = false;
     FlowEntryTree *fe_tree = &(af_info->fet);    
-    FlowEntryTree::iterator fe_tree_it = fe_tree->upper_bound(feptr);
+    FlowEntryTree::iterator fe_tree_it = fe_tree->begin();
+    while (fe_tree_it != fe_tree->end() && (count + 1) < last_count) {
+        fe_tree_it++;
+        count++;
+    }
     data.set_flow_count(fe_tree->size());
     data.set_flow_miss(af_info->flow_miss);
     std::vector<FlowSandeshData> flow_entries_l;
@@ -1974,16 +1976,15 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
         flow_entries_l.push_back(fe_sandesh_data);
         count++;
         ++fe_tree_it;
-        if (count == MaxResponses && fe_tree_it != fe_tree->end()) {
-            data.set_iteration_key(GetAclFlowSandeshDataKey(acl, fe.key));
+        if (count == (MaxResponses + last_count) && fe_tree_it != fe_tree->end()) {
+            data.set_iteration_key(GetAclFlowSandeshDataKey(acl, count));
             key_set = true;
             break;
         }
     }
     data.set_flow_entries(flow_entries_l);
     if (!key_set) {
-        FlowKey fkey; 
-        data.set_iteration_key(GetAclFlowSandeshDataKey(acl, fkey));
+        data.set_iteration_key(GetAclFlowSandeshDataKey(acl, 0));
     }
 }
 

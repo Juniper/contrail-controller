@@ -156,7 +156,7 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     TrafficAction::Action ConvertActionString(std::string action);
     static void AclFlowResponse(const std::string acl_uuid_str, 
-                                const std::string ctx, const FlowKey &key);
+                                const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
                                      const std::string ctx, int ace_id);
 private:

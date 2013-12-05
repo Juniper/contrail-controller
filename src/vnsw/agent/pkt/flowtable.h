@@ -463,7 +463,7 @@ public:
     void DeleteAll();
 
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                               const FlowKey &key);
+                               const int last_count);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
    
@@ -503,7 +503,7 @@ private:
     void VnNotify(DBTablePartBase *part, DBEntryBase *e);
     void VrfNotify(DBTablePartBase *part, DBEntryBase *e);
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
-    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key);
+    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last_count);
 
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
