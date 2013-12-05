@@ -92,8 +92,8 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
     vm << cfg_int->GetVmUuid();
 
     CFG_TRACE(IntfTrace, cfg_int->GetIfname(), 
-              cfg_int->GetVmName(), vm.str(), vn.str(), 
-              cfg_int->GetIpAddr().to_string(), "ADD", 
+              cfg_int->vm_name(), vm.str(), vn.str(), 
+              cfg_int->ip_addr().to_string(), "ADD", 
               cfg_int->GetVersion());
     return cfg_int;
 }
@@ -107,8 +107,8 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
     vm << cfg->GetVmUuid();
 
     CFG_TRACE(IntfTrace, cfg->GetIfname(), 
-              cfg->GetVmName(), vm.str(), vn.str(),
-              cfg->GetIpAddr().to_string(), "DELETE",
+              cfg->vm_name(), vm.str(), vn.str(),
+              cfg->ip_addr().to_string(), "DELETE",
               cfg->GetVersion());
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());

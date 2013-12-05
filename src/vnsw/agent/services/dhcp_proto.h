@@ -160,7 +160,7 @@ private:
     }
 
     dhcphdr *dhcp_;
-    VmPortInterface *vm_itf_;
+    VmInterface *vm_itf_;
     uint32_t vm_itf_index_;
     uint8_t msg_type_;
     uint8_t out_msg_type_;

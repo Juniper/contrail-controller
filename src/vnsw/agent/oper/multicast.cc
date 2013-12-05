@@ -7,7 +7,7 @@
 
 #include <base/logging.h>
 #include <oper/agent_route.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
 #include <oper/vrf.h>
@@ -293,38 +293,38 @@ void MulticastHandler::HandleIPAMChange(const VnEntry *vn,
 void MulticastHandler::VisitUnresolvedVMList(const VnEntry *vn)
 {
     const Interface *intf = NULL;
-    const VmPortInterface *vm_itf = NULL;
+    const VmInterface *vm_itf = NULL;
     std::vector<VnIpam> &ipam = this->GetIpamMapList(vn->GetUuid());
 
     assert(ipam.size() != 0);
 
     //Now go thru unresolved vm list
-    std::list<const VmPortInterface *> vmitf_list =
+    std::list<const VmInterface *> vmitf_list =
         this->GetUnresolvedSubnetVMList(vn->GetUuid());
 
     if (vmitf_list.size() == 0) {
         return;
     }
-    for (std::list<const VmPortInterface *>::iterator it_itf = vmitf_list.begin(); 
+    for (std::list<const VmInterface *>::iterator it_itf = vmitf_list.begin(); 
          it_itf != vmitf_list.end();) {
 
         vm_itf = (*it_itf);
         intf = static_cast<const Interface *>(vm_itf);
 
-        if ((vm_itf == NULL) || (intf->GetActiveState() != true)) {
+        if ((vm_itf == NULL) || (intf->active() != true)) {
             //Delete vm itf
             it_itf++;
             continue;
         }
-        this->AddVmInterfaceInFloodGroup(vm_itf->GetVrf()->GetName(),
+        this->AddVmInterfaceInFloodGroup(vm_itf->vrf()->GetName(),
                     vm_itf->GetUuid(), vn);
         if (vn->Ipv4Forwarding()) {
             for (std::vector<VnIpam>::const_iterator it = ipam.begin(); 
                  it != ipam.end(); it++) {
-                if (IsSubnetMember(vm_itf->GetIpAddr(), (*it).ip_prefix, 
+                if (IsSubnetMember(vm_itf->ip_addr(), (*it).ip_prefix, 
                                    (*it).plen)) {
-                    this->AddVmInterfaceInSubnet(vm_itf->GetVrf()->GetName(),
-                                  GetSubnetBroadcastAddress(vm_itf->GetIpAddr(),
+                    this->AddVmInterfaceInSubnet(vm_itf->vrf()->GetName(),
+                                  GetSubnetBroadcastAddress(vm_itf->ip_addr(),
                                   (*it).plen), vm_itf->GetUuid(),
                                   vn->GetName());
                 }
@@ -344,7 +344,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
         return;
 
     int new_vxlan_id = 0;
-    int vn_vxlan_id = vn->GetVxLanId();
+    int vn_vxlan_id = vn->vxlan_id();
 
     if (TunnelType::ComputeType(TunnelType::AllType()) ==
         TunnelType::VXLAN) {
@@ -365,14 +365,14 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
 
 void MulticastHandler::HandleFamilyConfig(const VnEntry *vn) 
 {
-    bool new_layer2_forwarding = vn->Layer2Forwarding();
+    bool new_layer2_forwarding = vn->layer2_forwarding();
     bool new_ipv4_forwarding = vn->Ipv4Forwarding();
 
     for (std::set<MulticastGroupObject *>::iterator it =
          MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
          it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); 
          it++) {
-        if (!(new_layer2_forwarding) && (*it)->Layer2Forwarding()) {
+        if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
             (*it)->SetLayer2Forwarding(new_layer2_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
                 Layer2AgentRouteTable::DeleteBroadcastReq((*it)->GetVrfName());
@@ -431,49 +431,49 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
                                          DBEntryBase *e)
 {
     const Interface *intf = static_cast<const Interface *>(e);
-    const VmPortInterface *vm_itf;
+    const VmInterface *vm_itf;
 
-    if (intf->GetType() != Interface::VMPORT) {
+    if (intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    if (intf->IsDeleted() || intf->GetActiveState() == false) {
+    if (intf->IsDeleted() || intf->active() == false) {
         MulticastHandler::GetInstance()->DeleteVmInterface(intf);
         return;
     }
 
-    vm_itf = static_cast<const VmPortInterface *>(intf);
-    Ip4Address vm_itf_ip = vm_itf->GetIpAddr();
-    assert(vm_itf->GetVnEntry() != NULL);
+    vm_itf = static_cast<const VmInterface *>(intf);
+    Ip4Address vm_itf_ip = vm_itf->ip_addr();
+    assert(vm_itf->vn() != NULL);
 
     MulticastHandler::GetInstance()->AddVmInterfaceInFloodGroup(
-                                     vm_itf->GetVrf()->GetName(),
+                                     vm_itf->vrf()->GetName(),
                                      vm_itf->GetUuid(), 
-                                     vm_itf->GetVnEntry());
-    if (vm_itf->GetVnEntry()->Ipv4Forwarding()) {
+                                     vm_itf->vn());
+    if (vm_itf->vn()->Ipv4Forwarding()) {
         //PIck up ipam from local ipam list
         std::vector<VnIpam> ipam = MulticastHandler::GetInstance()->
-            GetIpamMapList(vm_itf->GetVnEntry()->GetUuid());
+            GetIpamMapList(vm_itf->vn()->GetUuid());
         for(std::vector<VnIpam>::const_iterator it = ipam.begin(); 
             it != ipam.end(); it++) {
             if (IsSubnetMember(vm_itf_ip, (*it).ip_prefix, (*it).plen)) {
                 MCTRACE(Log, "vm interface add being issued for ", 
-                        vm_itf->GetVrf()->GetName(),
-                        vm_itf->GetIpAddr().to_string(), 0);
+                        vm_itf->vrf()->GetName(),
+                        vm_itf->ip_addr().to_string(), 0);
                 MulticastHandler::GetInstance()->AddVmInterfaceInSubnet(
-                                  vm_itf->GetVrf()->GetName(),
-                                  GetSubnetBroadcastAddress(vm_itf->GetIpAddr(),
+                                  vm_itf->vrf()->GetName(),
+                                  GetSubnetBroadcastAddress(vm_itf->ip_addr(),
                                   (*it).plen), vm_itf->GetUuid(),
-                                  vm_itf->GetVnEntry()->GetName());
+                                  vm_itf->vn()->GetName());
                 break;
             }
         }
     }
     MCTRACE(Log, "vm ipam not found, add to unresolve ", 
-            vm_itf->GetVrf()->GetName(),
-            vm_itf->GetIpAddr().to_string(), 0);
+            vm_itf->vrf()->GetName(),
+            vm_itf->ip_addr().to_string(), 0);
     MulticastHandler::GetInstance()->AddToUnresolvedSubnetVMList(
-                                           vm_itf->GetVnEntry()->GetUuid(), 
+                                           vm_itf->vn()->GetUuid(), 
                                            vm_itf);
     return;
 }
@@ -507,7 +507,7 @@ void MulticastHandler::DeleteRouteandMPLS(MulticastGroupObject *obj)
  */
 void MulticastHandler::DeleteVmInterface(const Interface *intf)
 {
-    const VmPortInterface *vm_itf = static_cast<const VmPortInterface *>(intf);
+    const VmInterface *vm_itf = static_cast<const VmInterface *>(intf);
     std::list<MulticastGroupObject *> &obj_list = this->GetVmToMulticastObjMap(
                                                           vm_itf->GetUuid());
     for (std::list<MulticastGroupObject *>::iterator it = obj_list.begin(); 
@@ -528,7 +528,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
         }
 
         if((*it)->GetLocalListSize() == 0) {
-            MCTRACE(Info, "Del vm notify ", vm_itf->GetIpAddr().to_string());
+            MCTRACE(Info, "Del vm notify ", vm_itf->ip_addr().to_string());
             //Empty tunnel list
             (*it)->FlushAllFabricOlist();
             //Update comp nh
@@ -549,7 +549,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
     this->vm_to_mcobj_list_[vm_itf->GetUuid()].clear();
     this->DeleteVmToMulticastObjMap(vm_itf->GetUuid());
     this->DeleteVMFromUnResolvedList(vm_itf);
-    MCTRACE(Info, "Del vm notify done ", vm_itf->GetIpAddr().to_string());
+    MCTRACE(Info, "Del vm notify done ", vm_itf->ip_addr().to_string());
 }
 
 //Delete multicast object for vrf/G
@@ -606,7 +606,7 @@ void MulticastHandler::AddChangeMultiProtocolCompositeNH(
                                 Composite::L3COMP);
         data.push_back(l3_data);
     }
-    if (obj->Layer2Forwarding()) {
+    if (obj->layer2_forwarding()) {
         ComponentNHData l2_data(obj->GetVrfName(), obj->GetGroupAddress(),
                                 obj->GetSourceAddress(), false,
                                 Composite::L2COMP);
@@ -687,7 +687,7 @@ void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
 
 void MulticastHandler::TriggerCompositeNHChange(MulticastGroupObject *obj)
 {
-    if (obj->Layer2Forwarding()) {
+    if (obj->layer2_forwarding()) {
         this->TriggerL2CompositeNHChange(obj);
     }
     if (obj->Ipv4Forwarding()) {
@@ -756,7 +756,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
         if (vn->Ipv4Forwarding()) {
             this->TriggerL3CompositeNHChange(all_broadcast);
         }
-        if (vn->Layer2Forwarding()) {
+        if (vn->layer2_forwarding()) {
             this->TriggerL2CompositeNHChange(all_broadcast);
         }
         //Add l2/l3 comp nh in multi proto in case one of them is enabled later
@@ -773,13 +773,13 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
         this->TriggerL3CompositeNHChange(all_broadcast);
         this->AddBroadcastRoute(vrf_name, vn_name, broadcast); 
     }
-    if ((add_route || (all_broadcast->Layer2Forwarding() != 
-                       vn->Layer2Forwarding())) && vn->Layer2Forwarding()) {
+    if ((add_route || (all_broadcast->layer2_forwarding() != 
+                       vn->layer2_forwarding())) && vn->layer2_forwarding()) {
         if (TunnelType::ComputeType(TunnelType::AllType()) ==
             TunnelType::VXLAN) {
-            all_broadcast->set_vxlan_id(vn->GetVxLanId());
+            all_broadcast->set_vxlan_id(vn->vxlan_id());
         } 
-        all_broadcast->SetLayer2Forwarding(vn->Layer2Forwarding());
+        all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
         this->TriggerL2CompositeNHChange(all_broadcast);
         this->AddL2BroadcastRoute(vrf_name, vn_name, broadcast,
                                   all_broadcast->vxlan_id()); 

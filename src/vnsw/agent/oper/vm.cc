@@ -7,7 +7,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <ifmap/ifmap_node.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vm.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
@@ -34,10 +34,6 @@ DBEntryBase::KeyPtr VmEntry::GetDBRequestKey() const {
 void VmEntry::SetKey(const DBRequestKey *key) { 
     const VmKey *k = static_cast<const VmKey *>(key);
     uuid_ = k->uuid_;
-}
-
-AgentDBTable *VmEntry::DBToTable() const {
-    return VmTable::GetInstance();
 }
 
 bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -95,6 +91,7 @@ DBEntry *VmTable::Add(const DBRequest *req) {
     VmKey *key = static_cast<VmKey *>(req->key.get());
     VmData *data = static_cast<VmData *>(req->data.get());
     VmEntry *vm = new VmEntry(key->uuid_);
+    vm->set_table(this);
     vm->SetCfgName(data->name_);
     return vm;
 }

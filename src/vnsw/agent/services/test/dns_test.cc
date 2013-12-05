@@ -148,7 +148,7 @@ public:
             itf_count_ = 0;
         } else {
             itf_count_ = 1;
-            itf_id_ = itf->GetInterfaceId();
+            itf_id_ = itf->id();
             LOG(DEBUG, "DNS test : interface added " << itf_id_);
         }
     }

@@ -36,7 +36,7 @@
 #include <oper/vm.h>
 #include <oper/vrf.h>
 #include <oper/nexthop.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_route.h>
 
@@ -132,15 +132,15 @@ void AgentConfig::RegisterDBClients(DB *db) {
 
     cfg_listener_.get()->Register
         ("instance-ip",
-         boost::bind(&VmPortInterface::InstanceIpSync, _1), -1);
+         boost::bind(&VmInterface::InstanceIpSync, _1), -1);
 
     cfg_listener_.get()->Register
         ("floating-ip", 
-         boost::bind(&VmPortInterface::FloatingIpVnSync, _1), -1);
+         boost::bind(&VmInterface::FloatingIpVnSync, _1), -1);
 
     cfg_listener_.get()->Register
         ("floating-ip-pool", 
-         boost::bind(&VmPortInterface::FloatingIpPoolSync, _1), -1);
+         boost::bind(&VmInterface::FloatingIpPoolSync, _1), -1);
 
     cfg_listener_.get()->Register
         ("global-vrouter-config",

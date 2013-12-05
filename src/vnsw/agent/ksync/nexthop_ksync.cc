@@ -15,7 +15,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
 
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/mirror_table.h"
 #include "oper/tunnel_nh.h"
@@ -437,7 +437,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         case NextHop::INTERFACE : 
             encoder.set_nhr_type(NH_ENCAP);
             if (interface) {
-                intf_id = interface->GetInterfaceId();
+                intf_id = interface->id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
             encoder.set_nhr_encap_family(ETH_P_ARP);
@@ -487,7 +487,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap_family(ETH_P_ARP);
 
             if (interface) {
-                intf_id = interface->GetInterfaceId();
+                intf_id = interface->id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
 
@@ -523,7 +523,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap_family(ETH_P_ARP);
 
             if (interface) {
-                intf_id = interface->GetInterfaceId();
+                intf_id = interface->id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
 
@@ -549,7 +549,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
 
         case NextHop::RECEIVE:
-            intf_id = interface->GetInterfaceId();
+            intf_id = interface->id();
             encoder.set_nhr_encap_oif_id(intf_id);
             encoder.set_nhr_type(NH_RCV);
             break;

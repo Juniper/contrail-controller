@@ -19,7 +19,7 @@ typedef boost::function<void(const error_code&,
                              boost_udp::resolver::iterator)> ResolveHandler;
 
 class AgentDnsXmppChannel;
-class VmPortInterface;
+class VmInterface;
 class Timer;
 class IFMapNode;
 
@@ -76,14 +76,14 @@ public:
 
     struct DnsUpdateIpc : IpcMsg {
         DnsUpdateData *xmpp_data;
-        const VmPortInterface *itf;
+        const VmInterface *itf;
         bool floatingIp;
         uint32_t ttl;
         std::string new_vdns;
         std::string old_vdns;
         std::string new_domain;
 
-        DnsUpdateIpc(const VmPortInterface *vm, const std::string &nvdns,
+        DnsUpdateIpc(const VmInterface *vm, const std::string &nvdns,
                      const std::string &ovdns, const std::string &dom,
                      uint32_t ttl_value, bool is_floating)
                    : IpcMsg(DnsHandler::DNS_XMPP_MODIFY_VDNS), xmpp_data(NULL),
@@ -91,7 +91,7 @@ public:
                      new_vdns(nvdns), old_vdns(ovdns), new_domain(dom) {}
 
         DnsUpdateIpc(DnsAgentXmpp::XmppType type, DnsUpdateData *data,
-                     const VmPortInterface *vm, bool floating)
+                     const VmInterface *vm, bool floating)
                    : IpcMsg(DnsHandler::DNS_NONE), xmpp_data(data), itf(vm),
                      floatingIp(floating), ttl(0) {
             if (type == DnsAgentXmpp::Update)
@@ -139,9 +139,9 @@ public:
                            uint8_t *msg = NULL, DnsHandler *handler = NULL);
     static void SendDnsUpdateIpc(DnsUpdateData *data,
                                  DnsAgentXmpp::XmppType type,
-                                 const VmPortInterface *vm,
+                                 const VmInterface *vm,
                                  bool floating = false);
-    static void SendDnsUpdateIpc(const VmPortInterface *vm,
+    static void SendDnsUpdateIpc(const VmInterface *vm,
                                  const std::string &new_vdns,
                                  const std::string &old_vdns,
                                  const std::string &new_dom,
@@ -150,9 +150,9 @@ public:
 
 private:
     bool HandleRequest();
-    bool HandleDefaultDnsRequest(const VmPortInterface *vmitf);
+    bool HandleDefaultDnsRequest(const VmInterface *vmitf);
     void DefaultDnsSendResponse();
-    bool HandleVirtualDnsRequest(const VmPortInterface *vmitf);
+    bool HandleVirtualDnsRequest(const VmInterface *vmitf);
     bool HandleMessage();
     bool HandleDefaultDnsResponse();
     bool HandleBindResponse();
@@ -211,8 +211,8 @@ public:
                      DnsHandler::UpdateCompare> DnsUpdateSet;
     typedef std::map<uint32_t, std::string> IpVdnsMap;
     typedef std::pair<uint32_t, std::string> IpVdnsPair;
-    typedef std::map<const VmPortInterface *, IpVdnsMap> VmDataMap;
-    typedef std::pair<const VmPortInterface *, IpVdnsMap> VmDataPair;
+    typedef std::map<const VmInterface *, IpVdnsMap> VmDataMap;
+    typedef std::pair<const VmInterface *, IpVdnsMap> VmDataPair;
 
     struct DnsStats {
         uint32_t requests;
@@ -233,12 +233,12 @@ public:
     void Shutdown();
     DnsProto(boost::asio::io_service &io);
     virtual ~DnsProto();
-    void UpdateDnsEntry(const VmPortInterface *vmitf,
+    void UpdateDnsEntry(const VmInterface *vmitf,
                         const std::string &name, const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type,
                         bool is_floating, bool is_delete);
-    bool UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+    bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                         const Ip4Address &ip, bool is_deleted);
     void IpamUpdate(IFMapNode *node);
     void VdnsUpdate(IFMapNode *node);
@@ -292,14 +292,14 @@ private:
     void ItfUpdate(DBEntryBase *entry);
     void VnUpdate(DBEntryBase *entry);
     void ProcessUpdate(std::string name, bool is_deleted, bool is_ipam);
-    void CheckForUpdate(IpVdnsMap &ipvdns, const VmPortInterface *vmitf,
+    void CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                         const VnEntry *vn, const Ip4Address &ip,
                         std::string &vdns_name, std::string &domain,
                         uint32_t ttl, bool is_floating);
-    bool UpdateDnsEntry(const VmPortInterface *vmitf, const VnEntry *vn,
+    bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                         const std::string &vdns_name, const Ip4Address &ip,
                         bool is_floating, bool is_deleted);
-    bool UpdateDnsEntry(const VmPortInterface *vmitf,
+    bool UpdateDnsEntry(const VmInterface *vmitf,
                         std::string &new_vdns_name,
                         std::string &old_vdns_name,
                         std::string &new_domain,

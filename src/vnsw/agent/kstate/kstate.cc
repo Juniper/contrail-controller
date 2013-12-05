@@ -3,7 +3,7 @@
  */
 
 #include "kstate.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "interface_kstate.h"
 #include "route_kstate.h"
 #include "nh_kstate.h"
@@ -110,7 +110,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     if (!intf) {
         data.set_name(string("NULL"));
     } else {
-        data.set_name(string(intf->GetName()));
+        data.set_name(string(intf->name()));
     }
 
     Ip4Address ipaddr(r->get_vifr_ip());

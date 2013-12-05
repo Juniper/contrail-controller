@@ -55,7 +55,6 @@ public:
     const uint32_t GetVrfId() const {return id_;};
     const string &GetName() const {return name_;};
 
-    AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<VrfEntry>::GetRefCount();
     }
@@ -78,6 +77,7 @@ public:
     void StartDeleteTimer();
     bool DeleteTimeout();
     void CancelDeleteTimer();
+    void Init();
     VrfNHMap* GetNHMap() {
         return nh_map_.get();
     }

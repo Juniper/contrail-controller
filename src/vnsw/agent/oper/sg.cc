@@ -14,7 +14,7 @@
 #include <oper/sg.h>
 #include <filter/acl.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
 
@@ -44,10 +44,6 @@ void SgEntry::SetKey(const DBRequestKey *key) {
     sg_uuid_ = k->sg_uuid_;
 }
 
-AgentDBTable *SgEntry::DBToTable() const {
-    return static_cast<AgentDBTable *>(SgTable::GetInstance());
-}
-
 std::auto_ptr<DBEntry> SgTable::AllocEntry(const DBRequestKey *k) const {
     const SgKey *key = static_cast<const SgKey *>(k);
     SgEntry *sg = new SgEntry(key->sg_uuid_);
@@ -58,6 +54,7 @@ DBEntry *SgTable::Add(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
     SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
+    sg->set_table(this);
     sg->sg_id_ = data->sg_id_;
     ChangeHandler(sg, req);
     sg->SendObjectLog(AgentLogEvent::ADD);

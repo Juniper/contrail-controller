@@ -117,9 +117,8 @@ private:
 
 VrfEntry::VrfEntry(const string &name) : 
         name_(name), id_(kInvalidIndex), 
-        walkid_(DBTableWalker::kInvalidWalkerId), 
-        deleter_(new DeleteActor(this)), nh_map_(new VrfNHMap),
-        rt_table_db_(), delete_timeout_timer_(NULL) { 
+        walkid_(DBTableWalker::kInvalidWalkerId), deleter_(NULL),
+        nh_map_(NULL), rt_table_db_(), delete_timeout_timer_(NULL) { 
 }
 
 VrfEntry::~VrfEntry() {
@@ -146,10 +145,6 @@ DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
 void VrfEntry::SetKey(const DBRequestKey *key) { 
     const VrfKey *k = static_cast<const VrfKey *>(key);
     name_ = k->name_;
-}
-
-AgentDBTable *VrfEntry::DBToTable() const {
-    return VrfTable::GetInstance();
 }
 
 AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
@@ -391,6 +386,11 @@ ComponentNHData::ComponentNHDataList* VrfEntry::GetNHList(Ip4Address ip) {
     return nh_map_->GetNHList(ip);
 }
 
+void VrfEntry::Init() {
+    deleter_.reset(new DeleteActor(this));
+    nh_map_.reset(new VrfNHMap());
+}
+
 std::auto_ptr<DBEntry> VrfTable::AllocEntry(const DBRequestKey *k) const {
     const VrfKey *key = static_cast<const VrfKey *>(k);
     VrfEntry *vrf = new VrfEntry(key->name_);
@@ -401,6 +401,8 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     //VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_);
+    vrf->set_table(this);
+    vrf->Init();
 
     // Add VRF into name based tree
     if (FindVrfFromName(key->name_)) {
@@ -717,11 +719,11 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             continue;
         }
 
-        InterfaceTable::VmInterfaceVrfSync(adj_node);
+        Agent::GetInstance()->GetInterfaceTable()->VmInterfaceVrfSync(adj_node);
     }
 
     // Resync dependent Floating-IP
-    VmPortInterface::FloatingIpVrfSync(node);
+    VmInterface::FloatingIpVrfSync(node);
     return false;
 }
 

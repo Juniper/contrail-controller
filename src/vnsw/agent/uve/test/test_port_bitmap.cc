@@ -17,7 +17,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <uve/uve_client.h>
 
@@ -177,9 +177,9 @@ public:
                     uint16_t dport) {
         PortBucketBitmap port_uve;
         bool ret = true;
-        const VmPortInterface *intf = static_cast<const VmPortInterface *>
+        const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data.intf_entry.get());
-        const VmEntry *vm = intf->GetVmEntry();
+        const VmEntry *vm = intf->vm();
 
         UveClient::LastVmUveSet::iterator it = 
             uve->last_vm_uve_set_.find(vm->GetCfgName());
@@ -200,9 +200,9 @@ public:
         PortBucketBitmap port_uve;
         bool ret = true;
 
-        const VmPortInterface *intf = static_cast<const VmPortInterface *>
+        const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data.intf_entry.get());
-        const VmEntry *vm = intf->GetVmEntry();
+        const VmEntry *vm = intf->vm();
 
         UveClient::LastVmUveSet::iterator it = 
             uve->last_vm_uve_set_.find(vm->GetCfgName());
@@ -250,8 +250,8 @@ public:
 
     void MakeFlow(FlowEntry *flow, uint16_t port, const char *dest_vn,
                   uint8_t proto, uint16_t sport, uint16_t dport) {
-        VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(port));
-        const VnEntry *vn = intf->GetVnEntry();
+        VmInterface *intf = static_cast<VmInterface *>(VmPortGet(port));
+        const VnEntry *vn = intf->vn();
         SecurityGroupList empty_sg_id_l;
         flow->data.source_vn = vn->GetName();
         flow->data.dest_vn = dest_vn;

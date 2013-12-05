@@ -111,18 +111,18 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 void ArpProto::ItfUpdate(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
-        if (itf->GetType() == Interface::ETH && 
-            itf->GetName() == Agent::GetInstance()->GetIpFabricItfName()) {
-            ArpHandler::SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->GetVrf());
+        if (itf->type() == Interface::PHYSICAL && 
+            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            ArpHandler::SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
             //assert(0);
         }
     } else {
-        if (itf->GetType() == Interface::ETH && 
-            itf->GetName() == Agent::GetInstance()->GetIpFabricItfName()) {
+        if (itf->type() == Interface::PHYSICAL && 
+            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
             IPFabricIntf(itf);
-            IPFabricIntfIndex(itf->GetInterfaceId());
+            IPFabricIntfIndex(itf->id());
             if (run_with_vrouter_) {
-                IPFabricIntfMac((char *)itf->GetMacAddr().ether_addr_octet);
+                IPFabricIntfMac((char *)itf->mac().ether_addr_octet);
             } else {
                 char mac[MAC_ALEN];
                 memset(mac, 0, MAC_ALEN);
@@ -217,18 +217,18 @@ bool ArpHandler::HandlePacket() {
         ARP_TRACE(Error, "Received ARP packet with invalid interface index");
         return true;
     }
-    if (itf->GetType() == Interface::VMPORT) {
-        const VmPortInterface *vm_itf = static_cast<const VmPortInterface *>(itf);
+    if (itf->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_itf = static_cast<const VmInterface *>(itf);
         if (!vm_itf->ipv4_forwarding()) {
             ARP_TRACE(Error, "Received ARP packet on ipv4 disabled interface");
             return true;
         }
     }
 
-    const VrfEntry *vrf = itf->GetVrf();
+    const VrfEntry *vrf = itf->vrf();
     if (!vrf) {
         arp_proto->StatsErrors();
-        ARP_TRACE(Error, "ARP : Interface " + itf->GetName() + " has no VRF");
+        ARP_TRACE(Error, "ARP : Interface " + itf->name() + " has no VRF");
         return true;
     }
 

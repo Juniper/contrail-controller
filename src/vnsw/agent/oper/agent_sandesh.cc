@@ -11,7 +11,7 @@
 #include <oper/agent_route.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/vrf.h>
 #include <oper/mpls.h>

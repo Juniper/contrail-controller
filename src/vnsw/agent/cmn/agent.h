@@ -123,7 +123,7 @@ public:
     const std::string &GetHostName();
     bool GetBuildInfo(std::string &build_info_str);
     const std::string &GetProgramName() {return prog_name_;};
-    const std::string &NullString() {return null_str_;};
+    static const std::string &NullString() {return null_str_;};
     InterfaceTable *GetInterfaceTable() {return intf_table_;};
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
     IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};

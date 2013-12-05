@@ -39,14 +39,13 @@ public:
 
     virtual void SetKey(const DBRequestKey *key);
     virtual KeyPtr GetDBRequestKey() const;
-    AgentDBTable *DBToTable() const;
     virtual std::string ToString() const { return "MirrorEntry";};
 
     uint32_t GetRefCount() const {
         return AgentRefCount<MirrorEntry>::GetRefCount();
     }
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void SetMirrorEntrySandeshData(MirrorEntrySandeshData &data) const;
+    void set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const;
 
     uint32_t GetVrfId() const {return vrf_ ? vrf_->GetVrfId() : uint32_t(-1);}
     const VrfEntry *GetVrf() const {return vrf_ ? vrf_.get() : NULL;};

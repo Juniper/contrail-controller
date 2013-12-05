@@ -147,7 +147,7 @@ public:
     // Create the entry
     void PopulateAclEntry(const AclEntrySpec &acl_entry_spec);
     // Set Mirror ref
-    void SetMirrorEntry(MirrorEntryRef me);
+    void set_mirror_entry(MirrorEntryRef me);
 
     // Match packet header
     const ActionList &PacketMatch(const PacketHeader &packet_header) const;

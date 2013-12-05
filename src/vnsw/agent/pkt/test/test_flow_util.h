@@ -74,7 +74,7 @@ public:
         //Populate ethernet interface id
         uint32_t eth_intf_id = 
             EthInterfaceGet(Agent::GetInstance()->
-                    GetIpFabricItfName().c_str())->GetInterfaceId();
+                    GetIpFabricItfName().c_str())->id();
         switch(proto_) {
         case IPPROTO_TCP:
             TxTcpMplsPacket(eth_intf_id, outer_sip_.c_str(), 

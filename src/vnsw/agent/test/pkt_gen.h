@@ -271,8 +271,8 @@ public:
         agent_hdr *hdr= (agent_hdr *)(buff + len);
         if (vrf == -1) {
             Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
-            if (intf && intf->GetVrf()) {
-                vrf = intf->GetVrf()->GetVrfId();
+            if (intf && intf->vrf()) {
+                vrf = intf->vrf()->GetVrfId();
             }
         }
 

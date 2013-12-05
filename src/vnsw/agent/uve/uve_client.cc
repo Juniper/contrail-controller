@@ -22,7 +22,7 @@
 #include <cfg/cfg_init.h>
 #include <init/agent_param.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
@@ -81,13 +81,13 @@ void UveClient::DelIntfFromVn(const Interface *intf) {
     }
 }
 
-bool UveClient::GetVmIntfGateway(const VmPortInterface *vm_intf, string &gw) {
-    const VnEntry *vn = vm_intf->GetVnEntry();
+bool UveClient::GetVmIntfGateway(const VmInterface *vm_intf, string &gw) {
+    const VnEntry *vn = vm_intf->vn();
     if (vn == NULL) {
         return false;
     }
     const vector<VnIpam> &list = vn->GetVnIpam();
-    Ip4Address vm_addr = vm_intf->GetIpAddr();
+    Ip4Address vm_addr = vm_intf->ip_addr();
     unsigned int i;
     for (i = 0; i < list.size(); i++) {
         if (list[i].IsSubnetMember(vm_addr))
@@ -100,29 +100,29 @@ bool UveClient::GetVmIntfGateway(const VmPortInterface *vm_intf, string &gw) {
     return true;
 }
 
-bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf, 
+bool UveClient::FrameIntfMsg(const VmInterface *vm_intf, 
                              VmInterfaceAgent *s_intf) {
-    if (vm_intf->GetCfgName() == Agent::GetInstance()->NullString()) {
+    if (vm_intf->cfg_name() == Agent::GetInstance()->NullString()) {
         return false;
     }
-    s_intf->set_name(vm_intf->GetCfgName());
-    s_intf->set_vm_name(vm_intf->GetVmName());
-    if (vm_intf->GetVnEntry() != NULL) {
-        s_intf->set_virtual_network(vm_intf->GetVnEntry()->GetName());
+    s_intf->set_name(vm_intf->cfg_name());
+    s_intf->set_vm_name(vm_intf->vm_name());
+    if (vm_intf->vn() != NULL) {
+        s_intf->set_virtual_network(vm_intf->vn()->GetName());
     } else {
         s_intf->set_virtual_network("");
     }
-    s_intf->set_ip_address(vm_intf->GetIpAddr().to_string());
-    s_intf->set_mac_address(vm_intf->GetVmMacAddr());
+    s_intf->set_ip_address(vm_intf->ip_addr().to_string());
+    s_intf->set_mac_address(vm_intf->vm_mac());
 
     vector<VmFloatingIPAgent> uve_fip_list;
     if (vm_intf->HasFloatingIp()) {
-        const VmPortInterface::FloatingIpList fip_list = 
-            vm_intf->GetFloatingIpList();
-        VmPortInterface::FloatingIpList::const_iterator it = 
+        const VmInterface::FloatingIpList fip_list = 
+            vm_intf->floating_ip_list();
+        VmInterface::FloatingIpList::const_iterator it = 
             fip_list.begin();
         while(it != fip_list.end()) {
-            const VmPortInterface::FloatingIp &ip = *it;
+            const VmInterface::FloatingIp &ip = *it;
             VmFloatingIPAgent uve_fip;
             uve_fip.set_ip_address(ip.floating_ip_.to_string());
             uve_fip.set_virtual_network(ip.vn_.get()->GetName());
@@ -131,8 +131,8 @@ bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf,
         }
     }
     s_intf->set_floating_ips(uve_fip_list);
-    s_intf->set_label(vm_intf->GetLabel());
-    s_intf->set_active(vm_intf->GetActiveState());
+    s_intf->set_label(vm_intf->label());
+    s_intf->set_active(vm_intf->active());
     string gw;
     if (GetVmIntfGateway(vm_intf, gw)) {
         s_intf->set_gateway(gw);
@@ -141,13 +141,13 @@ bool UveClient::FrameIntfMsg(const VmPortInterface *vm_intf,
     return true;
 }
 
-bool UveClient::FrameIntfStatsMsg(const VmPortInterface *vm_intf, 
+bool UveClient::FrameIntfStatsMsg(const VmInterface *vm_intf, 
                                   VmInterfaceAgentStats *s_intf) {
     uint64_t in_band, out_band;
-    if (vm_intf->GetCfgName() == Agent::GetInstance()->NullString()) {
+    if (vm_intf->cfg_name() == Agent::GetInstance()->NullString()) {
         return false;
     }
-    s_intf->set_name(vm_intf->GetCfgName());
+    s_intf->set_name(vm_intf->cfg_name());
 
     const Interface *intf = static_cast<const Interface *>(vm_intf);
     AgentStatsCollector::IfStats *s = 
@@ -191,7 +191,7 @@ void UveClient::VnVmListSend(const string &vn) {
     UveVirtualNetworkAgentTrace::Send(s_vn);
 }
 
-void UveClient::AddVmToVn(const VmPortInterface *intf, const string vm_name, const string vn_name) {
+void UveClient::AddVmToVn(const VmInterface *intf, const string vm_name, const string vn_name) {
 
     if (vm_name == Agent::GetInstance()->NullString() || vn_name == Agent::GetInstance()->NullString()) {
         return;
@@ -204,7 +204,7 @@ void UveClient::AddVmToVn(const VmPortInterface *intf, const string vm_name, con
     }
 }
 
-void UveClient::DelVmFromVn(const VmPortInterface *intf, const string vm_name, const string vn_name) {
+void UveClient::DelVmFromVn(const VmInterface *intf, const string vm_name, const string vn_name) {
 
     if (vm_name == Agent::GetInstance()->NullString() || vn_name == Agent::GetInstance()->NullString()) {
         return;
@@ -229,9 +229,9 @@ void UveClient::DelIntfFromIfStatsTree(const Interface *intf) {
     collector->DelIfStatsEntry(intf);
 }
 
-void UveClient::SendVmAndVnMsg(const VmPortInterface* vm_port) {
-    const VmEntry *vm = vm_port->GetVmEntry();
-    const VnEntry *vn = vm_port->GetVnEntry();
+void UveClient::SendVmAndVnMsg(const VmInterface* vm_port) {
+    const VmEntry *vm = vm_port->vm();
+    const VnEntry *vn = vm_port->vn();
     if (vm) {
         SendVmMsg(vm, false);
     }
@@ -267,15 +267,15 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     bool set_state = false, reset_state = false;
 
     UveState *state = static_cast<UveState *>
-                      (e->GetState(partition->parent(), intf_listener_id_));
+        (e->GetState(partition->parent(), intf_listener_id_));
     bool vmport_active = false;
-    const VmPortInterface *vm_port = NULL;
-    switch(intf->GetType()) {
-    case Interface::VMPORT: {
-        vm_port = static_cast<const VmPortInterface*>(intf);
+    const VmInterface *vm_port = NULL;
+    switch(intf->type()) {
+    case Interface::VM_INTERFACE: {
+        vm_port = static_cast<const VmInterface*>(intf);
         if (!e->IsDeleted() && !state) {
             set_state = true;
-            vmport_active = vm_port->GetActiveState();
+            vmport_active = vm_port->active();
             VrouterObjectIntfNotify(intf);
         } else if (e->IsDeleted()) {
             if (state) {
@@ -283,15 +283,15 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                 VrouterObjectIntfNotify(intf);
             }
         } else {
-            if (state && vm_port->GetActiveState() != state->vmport_active_) { 
+            if (state && vm_port->active() != state->vmport_active_) { 
                 VrouterObjectIntfNotify(intf);
-                state->vmport_active_ = vm_port->GetActiveState();
+                state->vmport_active_ = vm_port->active();
             }
         }
 
         // Send update for interface port
         // VM it belong to, and also the VN
-        if (e->IsDeleted() || (intf->GetActiveState() == false)) {
+        if (e->IsDeleted() || (intf->active() == false)) {
             if (state) {
                 DelIntfFromVm(intf);
                 DelIntfFromVn(intf);
@@ -300,8 +300,8 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
             }
             SendVmAndVnMsg(vm_port);
         } else {
-            const VmEntry *vm = vm_port->GetVmEntry();
-            const VnEntry *vn = vm_port->GetVnEntry();
+            const VmEntry *vm = vm_port->vm();
+            const VnEntry *vn = vm_port->vn();
 
             AddIntfToVm(vm, intf);
             AddIntfToVn(vn, intf);
@@ -315,7 +315,7 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         }
         break;
     }
-    case Interface::ETH:
+    case Interface::PHYSICAL:
         if (e->IsDeleted()) {
             if (state) {
                 reset_state = true;
@@ -341,8 +341,8 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         state = new UveState();
         state->vmport_active_ = vmport_active;
         if (vm_port) {
-            const VmEntry *vm = vm_port->GetVmEntry();
-            const VnEntry *vn = vm_port->GetVnEntry();
+            const VmEntry *vm = vm_port->vm();
+            const VnEntry *vn = vm_port->vn();
             state->vm_name_ = vm? vm->GetCfgName() : Agent::GetInstance()->NullString();
             state->vn_name_ = vn? vn->GetName() : Agent::GetInstance()->NullString();
         }
@@ -370,8 +370,8 @@ bool UveClient::FrameVmStatsMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
 
         VmInterfaceAgentStats s_intf;
         const Interface *intf = it->second.intf;
-        const VmPortInterface *vm_port =
-            static_cast<const VmPortInterface *>(intf);
+        const VmInterface *vm_port =
+            static_cast<const VmInterface *>(intf);
         if (FrameIntfStatsMsg(vm_port, &s_intf)) {
             s_intf_list.push_back(s_intf);
         }
@@ -379,7 +379,7 @@ bool UveClient::FrameVmStatsMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
         VmInterfaceAgentBMap vmif_map;
         L4PortBitmap &port_bmap = it->second.port_bitmap;
         port_bmap.Encode(map);
-        vmif_map.set_name(vm_port->GetCfgName());
+        vmif_map.set_name(vm_port->cfg_name());
         vmif_map.set_port_bucket_bmap(map);
         if_bmap_list.push_back(vmif_map);
     }
@@ -419,8 +419,8 @@ bool UveClient::FrameVmMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
 
         VmInterfaceAgent s_intf;
         const Interface *intf = it->second.intf;
-        const VmPortInterface *vm_port =
-            static_cast<const VmPortInterface *>(intf);
+        const VmInterface *vm_port =
+            static_cast<const VmInterface *>(intf);
         if (FrameIntfMsg(vm_port, &s_intf)) {
             s_intf_list.push_back(s_intf);
         }
@@ -752,9 +752,9 @@ bool UveClient::FrameVnMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
 
         string intf_name;
         const Interface *intf = it->second;
-        const VmPortInterface *vm_port = 
-            static_cast<const VmPortInterface *>(intf);
-        intf_name = vm_port->GetCfgName();
+        const VmInterface *vm_port = 
+            static_cast<const VmInterface *>(intf);
+        intf_name = vm_port->cfg_name();
         fip_count += vm_port->GetFloatingIpCount();
         s_intf_list.push_back(intf_name);
     }
@@ -867,7 +867,7 @@ bool UveClient::FrameVnStatsMsg(const VnEntry *vn,
         }
 
         const Interface *intf = it->second;
-        const VmPortInterface *vm_port = static_cast<const VmPortInterface *>(intf);
+        const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
         fip_count += vm_port->GetFloatingIpCount();
 
         const AgentStatsCollector::IfStats *s = 
@@ -1350,21 +1350,21 @@ void UveClient::SendVrouterUve() {
         while (it != phy_intf_set_.end()) {
             AgentInterface pitf;
             const Interface *intf = *it;
-            const EthInterface *port = static_cast<const EthInterface *>(intf);
-            pitf.set_name(intf->GetName());
-            pitf.set_mac_address(GetMacAddress(port->GetMacAddr()));
+            const PhysicalInterface *port = static_cast<const PhysicalInterface *>(intf);
+            pitf.set_name(intf->name());
+            pitf.set_mac_address(GetMacAddress(port->mac()));
             phy_if_list.push_back(pitf);
             ++it;
         }
         vrouter_agent.set_phy_if(phy_if_list);
 
         //vhost attributes
-        VirtualHostInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetVirtualHostInterfaceName());
+        VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
         const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
         if (vhost) {
             AgentInterface vitf;
-            vitf.set_name(vhost->GetName());
-            vitf.set_mac_address(GetMacAddress(vhost->GetMacAddr()));
+            vitf.set_name(vhost->name());
+            vitf.set_mac_address(GetMacAddress(vhost->mac()));
             vrouter_agent.set_vhost_if(vitf);
         }
         vrouter_agent.set_control_ip(param->mgmt_ip().to_string());
@@ -1614,15 +1614,15 @@ bool UveClient::AppendIntf(DBTablePartBase *part, DBEntryBase *entry,
                          std::vector<std::string> *nova_if_list) {
     Interface *intf = static_cast<Interface *>(entry);
 
-    if (intf->GetType() == Interface::VMPORT) {
-        const VmPortInterface *port = static_cast<const VmPortInterface *>(intf);
+    if (intf->type() == Interface::VM_INTERFACE) {
+        const VmInterface *port = static_cast<const VmInterface *>(intf);
         if (!entry->IsDeleted()) {
-            if (port->GetCfgName() == Agent::GetInstance()->NullString()) {
+            if (port->cfg_name() == Agent::GetInstance()->NullString()) {
                 nova_if_list->push_back(UuidToString(port->GetUuid()));
             } else {
-                intf_list->push_back(port->GetCfgName());
-                if (!intf->GetActiveState()) {
-                    err_if_list->push_back(port->GetCfgName());
+                intf_list->push_back(port->cfg_name());
+                if (!intf->active()) {
+                    err_if_list->push_back(port->cfg_name());
                 }
             }
         }
@@ -1739,7 +1739,7 @@ bool UveClient::BuildPhyIfList(vector<AgentIfStats> &phy_if_list) {
             continue;
         }
         AgentIfStats phy_stat_entry;
-        phy_stat_entry.set_name(intf->GetName());
+        phy_stat_entry.set_name(intf->name());
         phy_stat_entry.set_in_pkts(s->in_pkts);
         phy_stat_entry.set_in_bytes(s->in_bytes);
         phy_stat_entry.set_out_pkts(s->out_pkts);
@@ -1766,7 +1766,7 @@ bool UveClient::BuildPhyIfBand(vector<AgentIfBandwidth> &phy_if_list, uint8_t mi
             continue;
         }
         AgentIfBandwidth phy_stat_entry;
-        phy_stat_entry.set_name(intf->GetName());
+        phy_stat_entry.set_name(intf->name());
         in_band = GetBandwidthUsage(s, true, mins);
         out_band = GetBandwidthUsage(s, false, mins);
         phy_stat_entry.set_in_bandwidth_usage(in_band);
@@ -1868,12 +1868,12 @@ void UveClient::NewFlow(const FlowEntry *flow) {
         return;
     }
 
-    if (intf->GetType() != Interface::VMPORT) {
+    if (intf->type() != Interface::VM_INTERFACE) {
         return;
     }
 
-    const VmPortInterface *port = static_cast<const VmPortInterface *>(intf);
-    const VmEntry *vm = port->GetVmEntry();
+    const VmInterface *port = static_cast<const VmInterface *>(intf);
+    const VmEntry *vm = port->vm();
     if (vm == NULL) {
         return;
     }
@@ -2111,7 +2111,7 @@ bool UveClient::SendAgentStats() {
         //The following avoids handling of count overflow cases.
         count = 0;
     }
-    VirtualHostInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetVirtualHostInterfaceName());
+    VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
     const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     const AgentStatsCollector::IfStats *s = 
         AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(vhost);

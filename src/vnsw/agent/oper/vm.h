@@ -46,7 +46,6 @@ public:
 
     const uuid &GetUuid() const {return uuid_;};
 
-    AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<VmEntry>::GetRefCount();
     }

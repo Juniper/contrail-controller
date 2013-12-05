@@ -668,7 +668,7 @@ bool RouteEntry::CanDissociate() const {
                 MulticastHandler::GetInstance()->
                 FindFloodGroupObject(GetVrfEntry()->GetName());
             if (obj) {
-                can_dissociate &= !obj->Layer2Forwarding();
+                can_dissociate &= !obj->layer2_forwarding();
             }
         }
     }
@@ -757,17 +757,17 @@ bool AgentPath::Sync(RouteEntry *sync_route) {
     //If yes update the path to point to policy enabled NH
     if (nh_.get() && nh_->GetType() == NextHop::INTERFACE) {
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
-        const VmPortInterface *vm_port = 
-            static_cast<const VmPortInterface *>(intf_nh->GetInterface());
+        const VmInterface *vm_port = 
+            static_cast<const VmInterface *>(intf_nh->GetInterface());
 
-        bool policy = vm_port->IsPolicyEnabled();
+        bool policy = vm_port->policy_enabled();
         if (force_policy_) {
             policy = true;
         }
 
         if (intf_nh->PolicyEnabled() != policy) {
             //Make path point to policy enabled interface
-            InterfaceNHKey key(new VmPortInterfaceKey(vm_port->GetUuid(), ""),
+            InterfaceNHKey key(new VmInterfaceKey(vm_port->GetUuid(), ""),
                                 policy, intf_nh->GetFlags());
             nh_ = static_cast<NextHop *>
                 (Agent::GetInstance()->
@@ -884,13 +884,13 @@ bool LocalVmRoute::AddChangePath(AgentPath *path) {
     SecurityGroupList path_sg_list;
 
     //TODO Based on key table type pick up interface
-    VmPortInterfaceKey intf_key(intf_.uuid_, "");
-    VmPortInterface *vm_port = static_cast<VmPortInterface *>
+    VmInterfaceKey intf_key(intf_.uuid_, "");
+    VmInterface *vm_port = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&intf_key));
 
     bool policy = false;
     // Use policy based NH if policy enabled on interface
-    if (vm_port && vm_port->IsPolicyEnabled()) {
+    if (vm_port && vm_port->policy_enabled()) {
         policy = true;
     }
     // If policy force-enabled in request, enable policy
@@ -958,7 +958,7 @@ bool VlanNhRoute::AddChangePath(AgentPath *path) {
     NextHop *nh = NULL;
     SecurityGroupList path_sg_list;
 
-    assert(intf_.type_ == Interface::VMPORT);
+    assert(intf_.type_ == Interface::VM_INTERFACE);
     VlanNHKey key(intf_.uuid_, tag_);
 
     nh = static_cast<NextHop *>(Agent::GetInstance()->
@@ -1199,14 +1199,14 @@ void RouteEntry::FillTrace(RouteInfo &rt_info, Trace event,
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
             rt_info.set_nh_type("INTERFACE");
-            rt_info.set_intf(intf_nh->GetInterface()->GetName());
+            rt_info.set_intf(intf_nh->GetInterface()->name());
             break;
         }
 
         case NextHop::RECEIVE: {
             const ReceiveNH *rcv_nh = static_cast<const ReceiveNH *>(nh);
             rt_info.set_nh_type("RECEIVE");
-            rt_info.set_intf(rcv_nh->GetInterface()->GetName());
+            rt_info.set_intf(rcv_nh->GetInterface()->name());
             break;
         }
 

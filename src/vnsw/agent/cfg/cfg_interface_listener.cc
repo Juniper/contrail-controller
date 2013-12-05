@@ -11,7 +11,7 @@
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
 #include <oper/agent_types.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
@@ -24,12 +24,12 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
 
     if (entry->IsDeleted()) {
-        VmPortInterface::NovaDel(entry->GetUuid());
+        VmInterface::NovaDel(entry->GetUuid());
     } else {
-        VmPortInterface::NovaMsg(entry->GetUuid(), entry->GetIfname(),
-                                 entry->GetIpAddr().to_v4(),
+        VmInterface::NovaMsg(entry->GetUuid(), entry->GetIfname(),
+                                 entry->ip_addr().to_v4(),
                                  entry->GetMacAddr(),
-                                 entry->GetVmName());
+                                 entry->vm_name());
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;

@@ -19,7 +19,7 @@
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/agent_sandesh.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
@@ -46,10 +46,10 @@ void CfgSync(const uuid &intf_uuid, const string &cfg_name,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmPortInterfaceData *cfg_data = new VmPortInterfaceData();
+    VmInterfaceData *cfg_data = new VmInterfaceData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
 	data->VmPortInit();
 
@@ -593,12 +593,12 @@ TEST_F(CfgTest, VmPortPolicy_1) {
 
     //After deleting vmport interface config, verify config name is set to ""
     const Interface *intf = VmPortGet(1);
-    const VmPortInterface *vm_intf = static_cast<const VmPortInterface *>(intf);
-    EXPECT_TRUE((vm_intf->GetCfgName() == ""));
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    EXPECT_TRUE((vm_intf->cfg_name() == ""));
 
     intf = VmPortGet(2);
-    vm_intf = static_cast<const VmPortInterface *>(intf);
-    EXPECT_TRUE((vm_intf->GetCfgName() == ""));
+    vm_intf = static_cast<const VmInterface *>(intf);
+    EXPECT_TRUE((vm_intf->cfg_name() == ""));
 
     // Delete Nova Port entry.
     client->Reset();
@@ -1176,10 +1176,10 @@ TEST_F(CfgTest, Basic_1) {
     };
 
     client->Reset();
-    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             eth_intf, vrf_name);
     client->WaitForIdle();
-    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
@@ -1244,17 +1244,17 @@ TEST_F(CfgTest, Basic_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     /*Interface* intf = VmPortGet(1); 
-    VmPortInterface *vitf;
+    VmInterface *vitf;
     CfgFloatingIpList list;
     InterfaceKey *key, *newKey;
 
-    switch (intf->GetType()) {
-        case Interface::VMPORT:
+    switch (intf->type()) {
+    case Interface::VM_INTERFACE:
             list.insert(CfgFloatingIp(Ip4Address::from_string("5.5.5.5"), "vrf10", MakeUuid(5)));
-            vitf = static_cast<VmPortInterface *>(intf);
+            vitf = static_cast<VmInterface *>(intf);
             vitf->Activate();
             EXPECT_FALSE(VmPortInactive(1));
-            cout << "Vm port cfg name:" << vitf->GetCfgName() << endl;
+            cout << "Vm port cfg name:" << vitf->cfg_name() << endl;
             vitf->DeActivate("vrf10");
             EXPECT_TRUE(VmPortInactive(1));
             //TBD: look in this cfgsync
@@ -1263,7 +1263,7 @@ TEST_F(CfgTest, Basic_1) {
             client->WaitForIdle();
             EXPECT_TRUE(VmPortFind(1));
             //CHange the key
-            newKey = new InterfaceKey(intf->GetType(), MakeUuid(2), "vnet1");
+            newKey = new InterfaceKey(intf->type(), MakeUuid(2), "vnet1");
             intf->SetKey(static_cast<DBRequestKey*>(newKey));
             key = static_cast<InterfaceKey*>((intf->GetDBRequestKey()).get());
             EXPECT_TRUE(key->uuid_ == newKey->uuid_);
@@ -1294,7 +1294,7 @@ TEST_F(CfgTest, Basic_1) {
     VirtualHostInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
                                     "vhost10");
     client->WaitForIdle();
-    EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
                             eth_intf);
     client->WaitForIdle();
 
@@ -1362,8 +1362,8 @@ TEST_F(CfgTest, Basic_2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    VmPortInterfaceKey key(MakeUuid(1), "");
-    VmPortInterface *intf = static_cast<VmPortInterface *>
+    VmInterfaceKey key(MakeUuid(1), "");
+    VmInterface *intf = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL) {
@@ -1373,7 +1373,7 @@ TEST_F(CfgTest, Basic_2) {
     Inet4UnicastAgentRouteTable *table = 
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable();
     Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
-        (table->FindRoute(intf->GetMdataIpAddr()));
+        (table->FindRoute(intf->mdata_ip_addr()));
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;

@@ -36,10 +36,6 @@ void MirrorEntry::SetKey(const DBRequestKey *k) {
     analyzer_name_ = key->analyzer_name_;
 }
 
-AgentDBTable *MirrorEntry::DBToTable() const {
-        return MirrorTable::GetInstance();
-}
-
 std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
     const MirrorEntryKey *key = static_cast<const MirrorEntryKey *>(k);
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
@@ -49,6 +45,7 @@ std::auto_ptr<DBEntry> MirrorTable::AllocEntry(const DBRequestKey *k) const {
 DBEntry *MirrorTable::Add(const DBRequest *req) {
     const MirrorEntryKey *key = static_cast<const MirrorEntryKey *>(req->key.get());
     MirrorEntry *mirror_entry = new MirrorEntry(key->analyzer_name_);
+    mirror_entry->set_table(this);
     //Get Mirror NH
     OnChange(mirror_entry, req);
     LOG(DEBUG, "Mirror Add");
@@ -162,7 +159,7 @@ void MirrorTable::MirrorSockInit(void) {
                                          placeholders::bytes_transferred));
 }
 
-void MirrorEntry::SetMirrorEntrySandeshData(MirrorEntrySandeshData &data) const {
+void MirrorEntry::set_mirror_entrySandeshData(MirrorEntrySandeshData &data) const {
     data.set_analyzer_name(GetAnalyzerName());
     data.set_sip(GetSip()->to_string());
     data.set_dip(GetDip()->to_string());
@@ -177,7 +174,7 @@ bool MirrorEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     MirrorEntryResp *resp = static_cast<MirrorEntryResp *>(sresp);
 
     MirrorEntrySandeshData data;
-    SetMirrorEntrySandeshData(data);
+    set_mirror_entrySandeshData(data);
     std::vector<MirrorEntrySandeshData> &list =  
         const_cast<std::vector<MirrorEntrySandeshData>&>
         (resp->get_mirror_entry_list());

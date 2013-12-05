@@ -21,7 +21,7 @@
 #include <cfg/discovery_agent.h>
 
 #include <oper/operdb_init.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/multicast.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>

@@ -17,7 +17,7 @@
 #include <route/route.h>
 #include <route/table.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/peer.h>
 #include <oper/mpls.h>
@@ -343,7 +343,7 @@ private:
 
 class LocalVmRoute : public RouteData {
 public:
-    LocalVmRoute(const VmPortInterfaceKey &intf, uint32_t label,
+    LocalVmRoute(const VmInterfaceKey &intf, uint32_t label,
                  int tunnel_bmap, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
                  Op op = RouteData::CHANGE) :
@@ -359,7 +359,7 @@ public:
     const SecurityGroupList &GetSecurityGroupList() const {return sg_list_;}; 
 
 private:
-    VmPortInterfaceKey intf_;
+    VmInterfaceKey intf_;
     uint32_t label_;
     int tunnel_bmap_;
     bool force_policy_;
@@ -419,7 +419,7 @@ private:
 
 class HostRoute : public RouteData {
 public:
-    HostRoute(const HostInterfaceKey &intf, const string &dest_vn_name,
+    HostRoute(const PktInterfaceKey &intf, const string &dest_vn_name,
               Op op  = RouteData::CHANGE) : 
         RouteData(op, false), intf_(intf),
         dest_vn_name_(dest_vn_name), proxy_arp_(false) { };
@@ -429,7 +429,7 @@ public:
     virtual string ToString() const {return "host";};;
 
 private:
-    HostInterfaceKey intf_;
+    PktInterfaceKey intf_;
     string dest_vn_name_;
     bool proxy_arp_;
     DISALLOW_COPY_AND_ASSIGN(HostRoute);
@@ -437,7 +437,7 @@ private:
 
 class VlanNhRoute : public RouteData {
 public:
-    VlanNhRoute(const VmPortInterfaceKey &intf, uint16_t tag, uint32_t label,
+    VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
                 const string &dest_vn_name, const SecurityGroupList &sg_list,
                 Op op  = RouteData::CHANGE) :
         RouteData(op, false), intf_(intf),
@@ -448,7 +448,7 @@ public:
     virtual string ToString() const {return "vlannh";};;
 
 private:
-    VmPortInterfaceKey intf_;
+    VmInterfaceKey intf_;
     uint16_t tag_;
     uint32_t label_;
     string dest_vn_name_;
@@ -998,9 +998,9 @@ public:
                                         const Ip4Address &sip,
                                         int vxlan_id);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
-                          struct ether_addr &mac);
+                          const struct ether_addr &mac);
     static void Delete(const Peer *peer, const string &vrf_name,
-                       struct ether_addr &mac);
+                       const struct ether_addr &mac);
     static void DeleteBroadcastReq(const string &vrf_name);
 private:
     DBTableWalker::WalkId walkid_;

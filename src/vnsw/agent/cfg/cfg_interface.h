@@ -50,9 +50,9 @@ public:
     const boost::uuids::uuid &GetVmUuid() const {return vm_id_;};
     const boost::uuids::uuid &GetVnUuid() const {return vn_id_;};
     const std::string &GetIfname() const {return tap_name_;};
-    const IpAddress &GetIpAddr() const {return ip_addr_;};
+    const IpAddress &ip_addr() const {return ip_addr_;};
     const std::string &GetMacAddr() const {return mac_addr_;};
-    const std::string &GetVmName() const {return vm_name_;};
+    const std::string &vm_name() const {return vm_name_;};
     const int32_t &GetVersion() const {return version_;};
     void SetVersion(int32_t version) {version_ = version;};
     std::string ToString() const;

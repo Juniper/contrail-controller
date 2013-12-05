@@ -19,7 +19,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
