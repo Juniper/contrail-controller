@@ -92,7 +92,7 @@ void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, StatsType type)
             break;
     }
     if (ioc) {
-        sock->GenericSend(buf_len, buf, ioc); 
+        sock->GenericSend(ioc); 
     }
 }
 

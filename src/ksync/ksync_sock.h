@@ -20,6 +20,7 @@
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
+#define KSYNC_ACK_WAIT_THRESHOLD  200
 class KSyncEntry;
 
 /* Base class to hold sandesh context information which is passed to 
@@ -85,6 +86,9 @@ public:
 
     AgentSandeshContext *GetSandeshContext() { return ctx_; }
     IoContextWorkQId GetWorkQId() { return work_q_id_; }
+
+    char *GetMsg() { return msg_; }
+    uint32_t GetMsgLen() { return msg_len_; }
 
     boost::intrusive::set_member_hook<> node_;
 
@@ -152,7 +156,7 @@ public:
         }
         return seq;
     }
-    void GenericSend(int msg_len, char *msg, IoContext *ctx);
+    void GenericSend(IoContext *ctx);
     static AgentSandeshContext *GetAgentSandeshContext() {
         return agent_sandesh_ctx_;
     }
@@ -165,6 +169,7 @@ protected:
     static void SetSockTableEntry(int i, KSyncSock *sock);
     // Tree of all KSyncEntries pending ack from Netlink socket
     Tree wait_tree_;
+    WorkQueue<IoContext *> *async_send_queue_;
     tbb::mutex mutex_;
 
     WorkQueue<char *> *work_queue_[IoContext::MAX_WORK_QUEUES];
@@ -180,7 +185,19 @@ private:
     bool ProcessKernelData(char *data);
     virtual bool Validate(char *data) = 0;
     bool ValidateAndEnqueue(char *data);
-    void SendAsyncImpl(int msg_len, char *msg, IoContext *ioc);
+    bool SendAsyncImpl(IoContext *ioc);
+
+    bool SendAsyncStart() {
+        uint64_t wait_tree_count = 0;
+        {
+            tbb::mutex::scoped_lock lock(mutex_);
+            wait_tree_count = wait_tree_.size();
+        }
+        if (wait_tree_count > KSYNC_ACK_WAIT_THRESHOLD) {
+            return false;
+        }
+        return true;
+    }
 
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,

@@ -77,7 +77,7 @@ void KState::EncodeAndSend(Sandesh &encoder) {
     AgentSandeshContext *sctx = static_cast<AgentSandeshContext *>(this);
     KStateIoContext *ioc = new KStateIoContext(encode_len, (char *)buf,
                                                sock->AllocSeqNo(false), sctx);
-    sock->GenericSend(encode_len, (char *)buf, ioc);
+    sock->GenericSend(ioc);
 }
 
 void KState::UpdateContext(void *more_ctx) {
