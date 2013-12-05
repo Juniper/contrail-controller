@@ -569,7 +569,6 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->flow_uuid = FlowTable::rand_gen_();
         flow->egress_uuid = FlowTable::rand_gen_();
         flow->setup_time = UTCTimestampUsec();
-        AgentStats::GetInstance()->IncrFlowActive();
         AgentStats::GetInstance()->IncrFlowCreated();
     }
 
@@ -620,7 +619,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         }
     }
 
-    AgentStats::GetInstance()->DecrFlowActive();
     AgentStats::GetInstance()->IncrFlowAged();
 }
 

@@ -2006,10 +2006,10 @@ bool UveClient::SendAgentStats() {
         change = true;
     }
 
-    if (prev_stats_.get_active_flows() != 
-            AgentStats::GetInstance()->GetFlowActive() || first) {
-        stats.set_active_flows(AgentStats::GetInstance()->GetFlowActive());
-        prev_stats_.set_active_flows(AgentStats::GetInstance()->GetFlowActive());
+    uint64_t active_flow_count = FlowTable::GetFlowTableObject()->Size(); 
+    if (prev_stats_.get_active_flows() != active_flow_count || first) {
+        stats.set_active_flows(active_flow_count);
+        prev_stats_.set_active_flows(active_flow_count);
         change = true;
     }
 
