@@ -285,6 +285,63 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 }
 
+TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++));
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
+                200, 1000, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+                        "vn5", "vn5", hash_id++));
+
+    //Verify flow count
+    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10000000000ULL, 0x1000000000000ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10000000000ULL, 0x1000000000000ULL));
+
+    int tmp_age_time = 1000 * 1000;
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+
+    //Set the flow age time to 1000 microsecond
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+
+    usleep(tmp_age_time + 10);
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
+    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+
+    //Restore flow aging time
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+}
+
 TEST_F(StatsTestMock, IntfStatsTest) {
     AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
