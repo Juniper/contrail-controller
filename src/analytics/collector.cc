@@ -12,12 +12,17 @@
 #include "base/parse_object.h"
 #include "io/event_manager.h"
 
-#include <sandesh/sandesh_session.h>
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
+#include <sandesh/sandesh_uve_types.h>
+#include <sandesh/sandesh_statistics.h>
+#include <sandesh/sandesh_session.h>
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
 #include <sandesh/request_pipeline.h>
+
 #include "collector.h"
 #include "viz_collector.h"
 #include "ruleeng.h"
@@ -92,6 +97,7 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
             bool rsc) {
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
+        increment_no_session_error();
         LOG(ERROR, __func__ << ": NO VizSession");
         return false;
     }
@@ -111,14 +117,17 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
                 vu.push_back(uti);
             }
             SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        }
-        if (!retc) {
-            gen->set_session(NULL);
+        } else {
+            increment_redis_error();
+            LOG(ERROR, "Resource OSP GetSeq FAILED: " << gen->ToString() << 
+                " Session: " << vsession->ToString());
+            gen->DisconnectSession(vsession);
             return false;
         }
 
         return true;
     } else {
+        increment_no_generator_error();
         LOG(ERROR, __func__ << "Resource State " << rsc <<
                 ": Generator NOT PRESENT: Session: " << vsession->ToString());
         return false;
@@ -139,12 +148,14 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
 
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
+        increment_no_session_error();
         LOG(ERROR, __func__ << ": NO VizSession");
         return false;
     }
     if (vsession->gen_) {
         return vsession->gen_->ReceiveSandeshMsg(vmsgp, rsc);
     } else {
+        increment_no_generator_error();
         LOG(ERROR, __func__ << ": Sandesh message " << message_type <<
                 ": Generator NOT PRESENT: Session: " << vsession->ToString());
         return false;
@@ -163,6 +174,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
         SandeshSession *session, const Sandesh *sandesh) {
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
+        increment_no_session_error();
         LOG(ERROR, "Received Ctrl Message without session " <<
                 sandesh->Name());
         return false;
@@ -171,6 +183,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     const SandeshCtrlClientToServer *snh =
             dynamic_cast<const SandeshCtrlClientToServer *>(sandesh);
     if (!snh) {
+        increment_sandesh_type_mismatch_error();
         LOG(ERROR, "Received Ctrl Message with wrong type " <<
                 sandesh->Name() << ": Session: " << vsession->ToString());
         return false;
@@ -189,9 +202,9 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
         gen = gen_it->second;
         VizSession *gsession = gen->session();
         if (gsession == NULL) {
-            gen->set_session(vsession);
-            gen->set_state_machine(state_machine);
+            gen->ConnectSession(vsession, state_machine);
         } else {
+            increment_session_mismatch_error();
             // Message received on different session. Close both.
             LOG(DEBUG, "Received Ctrl Message: " << gen->ToString()
                    << " On Session:" << vsession->ToString() <<
@@ -220,18 +233,23 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
                 vu.push_back(uti);
             }
             SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        }
-        if (!retc) {
-            gen->set_session(NULL);
+        } else {
+            increment_redis_error();
+            LOG(ERROR, "OSP GetSeq FAILED: " << gen->ToString() <<
+                " Session:" << vsession->ToString());
+            gen->DisconnectSession(vsession);
             return false;
         }
 
     } else {
         bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_module_name());
-        if (retc)
+        if (retc) {
             SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        if (!retc) {
-            gen->set_session(NULL);
+        } else {
+            increment_redis_error();
+            LOG(ERROR, "OSP DeleteUVEs FAILED: " << gen->ToString() <<
+                " Session:" << vsession->ToString());
+            gen->DisconnectSession(vsession);
             return false;
         }
     }
@@ -245,6 +263,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
 void Collector::DisconnectSession(SandeshSession *session) {
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
+        increment_no_session_error();
         LOG(ERROR, __func__ << " NO VizSession");
         return;
     }
@@ -261,8 +280,9 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         const Generator * const gen = gm_it->second;
-        // Only send if generator is connected 
-        if (!gen->session()) {
+        // Only send if generator is connected
+        VizSession *session = gen->session();
+        if (!session) {
             continue;
         }
         vector<SandeshStats> ssv;
@@ -282,15 +302,25 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
             ginfo.set_sm_queue_count(sm_queue_count);
         } 
 	SandeshStateMachineStats sm_stats;
-        if (gen->GetSandeshStateMachineStats(sm_stats)) {
+        SandeshGeneratorStats sm_msg_stats;
+        if (gen->GetSandeshStateMachineStats(sm_stats, sm_msg_stats)) {
             ginfo.set_sm_stats(sm_stats);
+            ginfo.set_sm_msg_stats(sm_msg_stats);
         }
         uint64_t db_queue_count;
         uint64_t db_enqueues;
         if (gen->GetDbStats(db_queue_count, db_enqueues)) {
             ginfo.set_db_queue_count(db_queue_count);
             ginfo.set_db_enqueues(db_enqueues);
-        } 
+        }
+        ginfo.set_session_stats(session->GetStats());
+        TcpServerSocketStats rx_stats;
+        session->GetRxSocketStats(rx_stats);
+        ginfo.set_session_rx_socket_stats(rx_stats); 
+        TcpServerSocketStats tx_stats;
+        session->GetTxSocketStats(tx_stats);
+        ginfo.set_session_tx_socket_stats(tx_stats); 
+         
         ginfo.set_msg_stats(ssiv);
         ginfo.set_name(gen->source() + ":" + gen->module());
         genlist.push_back(ginfo);
@@ -341,6 +371,7 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
         if (session) {
             session->EnqueueBuffer((uint8_t *)dec_sandesh.c_str(), dec_sandesh.size());
         } else {
+            increment_no_session_error();
             LOG(ERROR, "No connection to " << destination << 
                 ". Failed to send sandesh " << dec_sandesh);
         }
@@ -370,6 +401,8 @@ public:
         TcpServerSocketStats tx_socket_stats;
         vsc->Analytics()->GetCollector()->GetTxSocketStats(tx_socket_stats);
         resp->set_tx_socket_stats(tx_socket_stats);
+        // Collector statistics
+        resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
         // Generator summary info
         vector<GeneratorSummaryInfo> generators;
         vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(generators);

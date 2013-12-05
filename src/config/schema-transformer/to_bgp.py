@@ -887,6 +887,7 @@ class VirtualNetworkST(DictST):
                                            self.name, svn, dvn)
                     continue
 
+                service_list = None
                 if prule.action_list and prule.action_list.apply_service != []:
                     if remote_network_name == self.name:
                         _sandesh._logger.debug("Service chain source and dest "
@@ -908,6 +909,11 @@ class VirtualNetworkST(DictST):
                     for dp in dp_list:
                         if prule.action_list:
                             action = copy.deepcopy(prule.action_list)
+                            if (service_list and svn in [self.name, 'any']):
+                                    service_ri = self.get_service_name(dvn,
+                                        service_list[0])
+                                    action.assign_routing_instance = \
+                                        self.name + ':' + service_ri
                         else:
                             return result_acl_rule_list
 
@@ -928,6 +934,14 @@ class VirtualNetworkST(DictST):
                                                         daddr_match, dp,
                                                         saddr_match, sp)
                             raction = copy.deepcopy(action)
+                            if (service_list and dvn in [self.name, 'any']):
+                                    service_ri = self.get_service_name(svn,
+                                        service_list[-1])
+                                    raction.assign_routing_instance = \
+                                        self.name + ':' + service_ri
+                            else:
+                                raction.assign_routing_instance = None
+
                             acl = AclRuleType(rmatch, raction)
                             result_acl_rule_list.append(acl)
                     # end for dp

@@ -22,6 +22,7 @@
 #include "viz_constants.h"
 #include "generator.h"
 #include <string>
+#include "collector_uve_types.h"
 
 class DbHandler;
 class Ruleeng;
@@ -69,12 +70,28 @@ public:
     unsigned short cassandra_port() { return cassandra_port_; }
     int analytics_ttl() { return analytics_ttl_; }
     int db_task_id();
+    const CollectorStats &GetStats() const { return stats_; }
 
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
+    void inline increment_no_session_error() {
+        stats_.no_session_error++;
+    }
+    void inline increment_no_generator_error() {
+        stats_.no_generator_error++;
+    }
+    void inline increment_session_mismatch_error() {
+        stats_.session_mismatch_error++;
+    }
+    void inline increment_redis_error() {
+        stats_.redis_error++;
+    }
+    void inline increment_sandesh_type_mismatch_error() {
+        stats_.sandesh_type_mismatch_error++;
+    }
 
     DbHandler *db_handler_;
     OpServerProxy * const osp_;
@@ -94,6 +111,7 @@ private:
     // Random generator for UUIDs
     tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
+    CollectorStats stats_;
     static std::string prog_name_;
     static std::string self_ip_;
     static bool task_policy_set_;

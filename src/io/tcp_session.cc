@@ -642,3 +642,11 @@ error_code TcpSession::SetSocketOptions() {
 
     return ec;
 }
+
+void TcpSession::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetRxStats(socket_stats);
+}
+
+void TcpSession::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetTxStats(socket_stats);
+}

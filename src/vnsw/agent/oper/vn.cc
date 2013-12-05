@@ -122,6 +122,7 @@ bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
         if (vxlan_id) {
             vn_entry->vxlan_id_ref_ = vxlan_id;
         }
+        MulticastHandler::GetInstance()->HandleVxLanChange(vn_entry);
     }
     return true;
 }

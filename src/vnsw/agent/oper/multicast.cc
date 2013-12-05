@@ -91,13 +91,14 @@ void MulticastHandler::AddBroadcastRoute(const string &vrf_name,
 
 void MulticastHandler::AddL2BroadcastRoute(const string &vrf_name,
                                            const string &vn_name,
-                                           const Ip4Address &addr)
+                                           const Ip4Address &addr,
+                                           int vxlan_id)
 {
     boost::system::error_code ec;
     MCTRACE(Log, "add L2 bcast route ", vrf_name, addr.to_string(), 0);
     //Add Layer2 FF:FF:FF:FF:FF:FF
     Layer2AgentRouteTable::AddLayer2BroadcastRoute(vrf_name, vn_name, addr,
-                       IpAddress::from_string("0.0.0.0", ec).to_v4()); 
+                  IpAddress::from_string("0.0.0.0", ec).to_v4(), vxlan_id); 
 }
 
 /*
@@ -332,6 +333,36 @@ void MulticastHandler::VisitUnresolvedVMList(const VnEntry *vn)
         it_itf++;
     }
 }
+
+void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
+    if (vn->IsDeleted() || !vn->GetVrf()) 
+        return;
+
+    MulticastGroupObject *obj =
+        FindFloodGroupObject(vn->GetVrf()->GetName());
+    if (!obj || obj->IsDeleted())
+        return;
+
+    int new_vxlan_id = 0;
+    int vn_vxlan_id = vn->GetVxLanId();
+
+    if (TunnelType::ComputeType(TunnelType::AllType()) ==
+        TunnelType::VXLAN) {
+        if (vn_vxlan_id != 0) {
+            new_vxlan_id = vn_vxlan_id;
+        }
+    }
+
+    if (new_vxlan_id != obj->vxlan_id()) {
+        boost::system::error_code ec;
+        Ip4Address broadcast =  IpAddress::from_string("255.255.255.255",
+                                                       ec).to_v4();
+        obj->set_vxlan_id(new_vxlan_id);
+        AddL2BroadcastRoute(vn->GetVrf()->GetName(), vn->GetName(), 
+                            broadcast, new_vxlan_id);
+    }
+}
+
 void MulticastHandler::HandleFamilyConfig(const VnEntry *vn) 
 {
     bool new_layer2_forwarding = vn->Layer2Forwarding();
@@ -383,6 +414,7 @@ void MulticastHandler::ModifyVN(DBTablePartBase *partition, DBEntryBase *e)
     }
 
     MulticastHandler::GetInstance()->HandleFamilyConfig(vn);
+    MulticastHandler::GetInstance()->HandleVxLanChange(vn);
 
     if (ret)
         return;
@@ -743,9 +775,14 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
     }
     if ((add_route || (all_broadcast->Layer2Forwarding() != 
                        vn->Layer2Forwarding())) && vn->Layer2Forwarding()) {
+        if (TunnelType::ComputeType(TunnelType::AllType()) ==
+            TunnelType::VXLAN) {
+            all_broadcast->set_vxlan_id(vn->GetVxLanId());
+        } 
         all_broadcast->SetLayer2Forwarding(vn->Layer2Forwarding());
         this->TriggerL2CompositeNHChange(all_broadcast);
-        this->AddL2BroadcastRoute(vrf_name, vn_name, broadcast); 
+        this->AddL2BroadcastRoute(vrf_name, vn_name, broadcast,
+                                  all_broadcast->vxlan_id()); 
     }
 }
 

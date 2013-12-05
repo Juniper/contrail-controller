@@ -103,7 +103,8 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
 void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
                                                     const string &vn_name,
                                                     const Ip4Address &dip,
-                                                    const Ip4Address &sip) {
+                                                    const Ip4Address &sip,
+                                                    int vxlan_id) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -111,7 +112,7 @@ void Layer2AgentRouteTable::AddLayer2BroadcastRoute(const string &vrf_name,
         new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name);
     req.key.reset(key);
 
-    MulticastRoute *data = new MulticastRoute(sip, dip, vn_name, vrf_name,
+    MulticastRoute *data = new MulticastRoute(sip, dip, vn_name, vrf_name, vxlan_id,
                                               Composite::L2COMP); 
     req.data.reset(data);
 
@@ -258,7 +259,8 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         if (path) {
             PathSandeshData pdata;
             path->GetNextHop()->SetNHSandeshData(pdata.nh);
-            if (path->GetTunnelBmap() == (1 << TunnelType::VXLAN)) {
+            if ((path->GetTunnelBmap() == (1 << TunnelType::VXLAN)) ||
+                IsMulticast()) {
                 pdata.set_vxlan_id(path->GetLabel());
             } else {
                 pdata.set_label(path->GetLabel());

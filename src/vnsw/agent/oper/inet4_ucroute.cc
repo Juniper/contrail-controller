@@ -431,7 +431,7 @@ Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(const Peer *peer,
     req.key.reset(key);
 
     MulticastRoute *data = new MulticastRoute(src_addr, grp_addr,
-                                              vn_name, vrf_name, 
+                                              vn_name, vrf_name, 0,
                                               Composite::L3COMP);
     req.data.reset(data);
     AgentRouteTableAPIS::GetInstance()->

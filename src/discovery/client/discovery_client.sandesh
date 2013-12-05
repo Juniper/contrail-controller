@@ -12,3 +12,10 @@ systemlog sandesh DiscoveryClientLog {
     1: string serviceName; 
     2: string msg;
 }
+
+trace sandesh DiscoveryClientErrorMsg {
+    1: string type;
+    2: string serviceName;
+    3: "Curl Errorcode:";
+    4: i32 errorcode;
+}

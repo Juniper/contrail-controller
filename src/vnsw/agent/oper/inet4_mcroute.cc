@@ -50,7 +50,7 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
                                                                 grp_addr, 
                                                                 src_addr);
     MulticastRoute *data = new MulticastRoute(src_addr, grp_addr, 
-                                              vn_name, vrf_name,
+                                              vn_name, vrf_name, 0,
                                               Composite::L3COMP);
     req.key.reset(rt_key);
     req.data.reset(data);

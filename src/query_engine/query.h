@@ -75,7 +75,6 @@
 #include "base/logging.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include <sandesh/sandesh_session.h>
 #include <sandesh/sandesh_constants.h>
 #include <sandesh/sandesh_ctrl_types.h>
 #include <sandesh/sandesh_trace.h>
@@ -839,6 +838,7 @@ const std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> >& inputs,
     std::string get_column_field_datatype(const std::string& col_field);
     bool is_flow_query(); // either flow-series or flow-records query
     bool is_query_parallelized() { return parallelize_query_; }
+    uint64_t parse_time(const std::string& relative_time);
 
     private:
     bool parallelize_query_;
