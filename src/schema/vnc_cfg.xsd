@@ -654,6 +654,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:enumeration value="management"/>
         <xsd:enumeration value="left"/>
         <xsd:enumeration value="right"/>
+        <xsd:enumeration value="other"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -675,7 +676,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='shared-ip' type='xsd:boolean' default='false'/>
-        <xsd:element name='static-routes' type='xsd:boolean' default='false'/>
+        <xsd:element name='static-route-enable' type='xsd:boolean' default='false'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -880,7 +881,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='service-type' type='ServiceType'/>
         <xsd:element name='image-name' type='xsd:string'/>
         <xsd:element name='service-scaling' type='xsd:boolean' default='false'/>
-        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='3'/>
+        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
+        <xsd:element name='flavor' type='xsd:string'/>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -892,7 +894,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='left-ip-address' type='IpAddressType'/>
         <xsd:element name='right-virtual-network' type='xsd:string'/>
         <xsd:element name='right-ip-address' type='IpAddressType'/>
-        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType'/>
+        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
     </xsd:sequence>
 </xsd:complexType>
