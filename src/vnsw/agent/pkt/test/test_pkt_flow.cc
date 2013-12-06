@@ -74,7 +74,7 @@ public:
     }
 
     void FlushFlowTable() {
-        FlowTable::GetFlowTableObject()->DeleteAll();
+        client->EnqueueFlowFlush();
         client->WaitForIdle();
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
     }
@@ -262,7 +262,6 @@ public:
         if (ksync_init_) {
             DeleteTapIntf(fd_table, MAX_VNET);
         }
-        client->SetFlowAgeExclusionPolicy();
         client->WaitForIdle();
     }
 
@@ -272,19 +271,18 @@ public:
             CreateTapInterfaces("flow", MAX_VNET, fd_table);
             client->WaitForIdle();
         }
+        client->SetFlowFlushExclusionPolicy();
+        client->SetFlowAgeExclusionPolicy();
     }
 
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
-        //Reset flow age
-        client->EnqueueFlowAge();
-        client->WaitForIdle();
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 3, 1);
-        client->WaitForIdle();
+        client->WaitForIdle(5);
         vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
@@ -308,7 +306,7 @@ protected:
         /* Create interface flow3 in vn3 , vm4. Associate vn3 with acl2 */
         client->Reset();
         CreateVmportEnv(input2, 1, 2);
-        client->WaitForIdle();
+        client->WaitForIdle(5);
         vn_count++;
         EXPECT_TRUE(VmPortActive(input2, 0));
         EXPECT_TRUE(VmPortPolicyEnable(input2, 0));
@@ -324,7 +322,7 @@ protected:
         /* Create interface flow4 in vn4 */
         client->Reset();
         CreateVmportEnv(input3, 1);
-        client->WaitForIdle();
+        client->WaitForIdle(5);
         vn_count++;
         EXPECT_TRUE(VmPortActive(input3, 0));
         EXPECT_EQ(9U, Agent::GetInstance()->GetInterfaceTable()->Size());
@@ -349,8 +347,8 @@ protected:
         FlushFlowTable();
         client->Reset();
         DeleteVmportEnv(input, 3, true, 1);
+        client->WaitForIdle(3);
         client->PortDelNotifyWait(3);
-        client->WaitForIdle();
         EXPECT_FALSE(VmPortFind(input, 0));
         EXPECT_FALSE(VmPortFind(input, 1));
         EXPECT_FALSE(VmPortFind(input, 2));
@@ -359,16 +357,16 @@ protected:
 
         client->Reset();
         DeleteVmportEnv(input2, 1, true, 2);
+        client->WaitForIdle(3);
         client->PortDelNotifyWait(1);
-        client->WaitForIdle();
         EXPECT_EQ(5U, Agent::GetInstance()->GetInterfaceTable()->Size());
         EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
         EXPECT_FALSE(VmPortFind(input2, 0));
 
         client->Reset();
         DeleteVmportEnv(input3, 1, true);
+        client->WaitForIdle(3);
         client->PortDelNotifyWait(1);
-        client->WaitForIdle();
         EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
         EXPECT_EQ(0U, Agent::GetInstance()->GetIntfCfgTable()->Size());
         EXPECT_FALSE(VmPortFind(input3, 0));
@@ -863,7 +861,7 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (2U == FlowTable::GetFlowTableObject()->Size()));
+    WAIT_FOR(1000, 1000, (2U == FlowTable::GetFlowTableObject()->Size()));
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
     EXPECT_TRUE(FlowGet(1, vm1_ip, vm2_ip, 1, 0, 0, false, -1, -1));
     EXPECT_TRUE(FlowGet(1, vm2_ip, vm1_ip, 1, 0, 0, false, -1, -1));
@@ -914,7 +912,7 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
 
     int passes = GetFlowPassCount((total_flows * 2), tmp_age_time);
     client->EnqueueFlowAge();
-    client->WaitForIdle(2);
+    client->WaitForIdle(5);
     WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= passes));
     usleep(tmp_age_time + 1000);
     WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= (passes * 2)));
@@ -966,7 +964,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -1080,7 +1078,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 
@@ -1172,7 +1170,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatFlowAdd_1) {
@@ -1279,7 +1277,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
                        vm1_fip, 1, 0, 0) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNonNat_2) {
@@ -1318,7 +1316,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_1) {
@@ -1352,7 +1350,7 @@ TEST_F(FlowTest, NatAddOldNat_1) {
  
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_2) {
@@ -1386,7 +1384,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_3) {
@@ -1420,7 +1418,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 //Create same Nat flow with different flow handles
@@ -1459,7 +1457,7 @@ TEST_F(FlowTest, FlowAudit) {
     EXPECT_TRUE(FlowTableWait(2));
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
     KFlowPurgeHold();
 
     FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
@@ -1469,9 +1467,17 @@ TEST_F(FlowTest, FlowAudit) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     usleep(500);
+    int tmp_age_time = 10 * 1000;
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+    //Set the flow age time to 10 microsecond
+    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
+            tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTableWait(0));
+    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
+            bkp_age_time);
     KFlowPurgeHold();
 }
 

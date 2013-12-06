@@ -620,14 +620,14 @@ TEST_F(FlowTest, FlowAging_1) {
     EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
 
     // Trigger aging cycle
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    client->EnqueueFlowAge();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
     EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
 
     //Trigger flow-aging
     usleep(AGE_TIME*2);
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
