@@ -160,7 +160,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     //If action is NAT and reverse flow entry is not valid
     //then we should wait for the reverse flow to be programmed
-    if (fe_->nat == true && 
+    if ((fe_->nat == true || fe_->data.ecmp == true) &&
         rev_flow && rev_flow->flow_handle == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
@@ -408,9 +408,18 @@ bool FlowTableKSyncEntry::Sync() {
 }
 
 KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
-    NHKSyncEntry *nh = GetNH();
-    if (nh && !nh->IsResolved()) {
-        return nh;
+    //Pick NH from flow entry
+    //We should ideally pick it up from ksync entry once
+    //Sync() api gets called before event notify, similar to
+    //netlink DB entry
+    if (fe_->data.nh_state_.get() && fe_->data.nh_state_->nh()) {
+        NHKSyncObject *nh_object = NHKSyncObject::GetKSyncObject();
+        NHKSyncEntry tmp_nh(fe_->data.nh_state_->nh());
+        NHKSyncEntry *nh =
+            static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        if (nh && !nh->IsResolved()) {
+            return nh;
+        }
     }
     return NULL;
 }
