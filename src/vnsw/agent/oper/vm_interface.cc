@@ -130,7 +130,6 @@ void BuildStaticRoute(VmInterfaceConfigData *data, IFMapNode *node) {
         static_cast<InterfaceRouteTable*>(node->GetObject());
     assert(entry);
 
-    std::vector<RouteType>::const_iterator it = entry->routes().begin();
     for (std::vector<RouteType>::const_iterator it = entry->routes().begin();
          it != entry->routes().end(); it++) {
         int plen;
@@ -1148,6 +1147,9 @@ bool VmInterface::OnResyncServiceVlan(VmInterfaceConfigData *data) {
             it++;
             cfg_it++;
             VrfEntry *vrf = table->FindVrfRef(cfg_vlan.vrf_);
+            if (vlan.installed_ == false) {
+                 ServiceVlanRouteAdd(vlan);
+            }
             if (vlan.vrf_.get() != vrf) {
                 ServiceVlanRouteDel(vlan);
                 vlan.vrf_ = vrf;
