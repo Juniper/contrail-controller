@@ -505,7 +505,7 @@ private:
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
     void ResyncVmPortFlows(const VmInterface *intf);
-    void TrapReverseEcmpFlow(RouteFlowKey &key, uint32_t index, bool ingress);
+    void ResyncRpfNH(RouteFlowKey &key, Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);
@@ -540,6 +540,8 @@ class Inet4RouteUpdate {
 public:
     struct State : DBState {
         SecurityGroupList sg_l_;
+        const NextHop* active_nh_;
+        const NextHop* local_nh_;
     };
 
     Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
@@ -560,10 +562,8 @@ private:
 
 class NhState : public DBState {
 public:
-    NhState(NextHop *nh):refcount_(), nh_(nh), component_nh_list_() { };
+    NhState(NextHop *nh):refcount_(), nh_(nh){ };
     ~NhState() {};
-    void Change(NextHop *nh);
-    void Copy(NextHop *nh);
     const NextHop* nh() const { return nh_; }
     uint32_t refcount() const { return refcount_; }
 private:
@@ -571,7 +571,6 @@ private:
     friend void intrusive_ptr_release(const NhState *nh);
     mutable tbb::atomic<uint32_t> refcount_;
     NextHop *nh_;
-    std::vector<NextHop *> component_nh_list_;
 };
 
 inline void intrusive_ptr_add_ref(const NhState *nh_state) {

@@ -1177,6 +1177,7 @@ public:
     virtual void OnZeroRefCount() {
         component_nh_list_.clear();
     }
+    const NextHop* GetLocalNextHop() const;
 private:
     VrfEntryRef vrf_;
     Ip4Address grp_addr_;
