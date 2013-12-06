@@ -769,6 +769,7 @@ void FlowTable::DeleteAll()
             ++it;
         }
         DeleteNatFlow(entry->key, true);
+
     }
 }
 
