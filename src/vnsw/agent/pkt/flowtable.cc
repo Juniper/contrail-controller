@@ -42,6 +42,20 @@ FlowTable* FlowTable::singleton_;
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 
+inline void intrusive_ptr_add_ref(FlowEntry *fe) {
+    fe->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(FlowEntry *fe) {
+    int prev = fe->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        FlowTable *table = FlowTable::GetFlowTableObject();
+        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key);
+        assert(it != table->flow_entry_map_.end());
+        table->flow_entry_map_.erase(it);
+        delete fe;
+    }
+}
+
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
         return true;
@@ -564,6 +578,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
     if (ret.second == false) {
         delete flow;
         flow = ret.first->second;
+        flow->set_deleted(false);
         DeleteFlowInfo(flow);
     } else {
         flow->flow_uuid = FlowTable::rand_gen_();
@@ -590,6 +605,11 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 {
     FlowInfo flow_info;
     FlowEntry *fe = it->second;
+    if (fe->deleted()) {
+        /* Already deleted return from here. */
+        return;
+    }
+    fe->set_deleted(true);
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
 
@@ -605,7 +625,6 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fe->data.reverse_flow = NULL;
 
     DeleteFlowInfo(fe);
-    flow_entry_map_.erase(it);
 
     FlowTableKSyncEntry *ksync_entry = 
         FlowTableKSyncObject::GetKSyncObject()->Find(fe);
@@ -1846,11 +1865,11 @@ void FlowTable::SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data,
     }
 }
 
-string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key) {
+string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last_count) {
     string uuid_str = UuidToString(acl->GetUuid());
     stringstream ss;
     ss << uuid_str << ":";
-    ss << PktSandeshFlow::GetFlowKey(key);
+    ss << last_count;
     return ss.str();
 }
 
@@ -1874,7 +1893,7 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 }
 
 void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                                      const FlowKey &key)
+                                      const int last_count)
 {
     AclFlowTree::iterator it;
     it = acl_flow_tree_.find(acl);
@@ -1883,12 +1902,14 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     }
     AclFlowInfo *af_info = it->second;
    
-    FlowEntry *fentry = new FlowEntry(key);
-    FlowEntryPtr feptr(fentry);
     int count = 0; 
     bool key_set = false;
     FlowEntryTree *fe_tree = &(af_info->fet);    
-    FlowEntryTree::iterator fe_tree_it = fe_tree->upper_bound(feptr);
+    FlowEntryTree::iterator fe_tree_it = fe_tree->begin();
+    while (fe_tree_it != fe_tree->end() && (count + 1) < last_count) {
+        fe_tree_it++;
+        count++;
+    }
     data.set_flow_count(fe_tree->size());
     data.set_flow_miss(af_info->flow_miss);
     std::vector<FlowSandeshData> flow_entries_l;
@@ -1972,16 +1993,15 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
         flow_entries_l.push_back(fe_sandesh_data);
         count++;
         ++fe_tree_it;
-        if (count == MaxResponses && fe_tree_it != fe_tree->end()) {
-            data.set_iteration_key(GetAclFlowSandeshDataKey(acl, fe.key));
+        if (count == (MaxResponses + last_count) && fe_tree_it != fe_tree->end()) {
+            data.set_iteration_key(GetAclFlowSandeshDataKey(acl, count));
             key_set = true;
             break;
         }
     }
     data.set_flow_entries(flow_entries_l);
     if (!key_set) {
-        FlowKey fkey; 
-        data.set_iteration_key(GetAclFlowSandeshDataKey(acl, fkey));
+        data.set_iteration_key(GetAclFlowSandeshDataKey(acl, 0));
     }
 }
 

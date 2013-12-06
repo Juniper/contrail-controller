@@ -671,13 +671,13 @@ const AclDBEntry* AclTable::GetAclDBEntry(const string acl_uuid_str,
 }
 
 void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
-                               const FlowKey &key) {
+                               const int last_count) {
     AclFlowResp *resp = new AclFlowResp();
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
         FlowTable::GetFlowTableObject()->SetAclFlowSandeshData(acl_entry, 
-                                                               *resp, key);
+                                                               *resp, last_count);
     }
     resp->set_context(ctx);
     resp->Response();
@@ -704,48 +704,27 @@ void AclReq::HandleRequest() const {
 
 void NextAclFlowReq::HandleRequest() const {
     string key = get_iteration_key();
+    int last_count = 0;
     size_t n = std::count(key.begin(), key.end(), ':');
-    if (n != 6) {
+    if (n != 1) {
         AclFlowCountResp *resp = new AclFlowCountResp();
         resp->set_context(context());
         resp->Response();
     }
     stringstream ss(key);
-    FlowKey fkey;
-    string item, sip, dip, uuid;
-    uint32_t proto;
+    string item, uuid;
     if (getline(ss, item, ':')) {
         uuid = item;
     }
     if (getline(ss, item, ':')) {
-        istringstream(item) >> fkey.vrf;
-    }
-    if (getline(ss, item, ':')) {
-        istringstream(item) >> fkey.src_port;
-    }
-    if (getline(ss, item, ':')) {
-        istringstream(item) >> fkey.dst_port;
-    }
-    if (getline(ss, item, ':')) {
-        istringstream(item) >> proto;
-    }
-    if (getline(ss, item, ':')) {
-        sip = item;
-    }
-    if (getline(ss, item, ':')) {
-        dip = item;
+        istringstream(item) >> last_count;
     }
 
-    fkey.src.ipv4 = ntohl(inet_addr(sip.c_str()));
-    fkey.dst.ipv4 = ntohl(inet_addr(dip.c_str()));
-    fkey.protocol = proto;
-
-    AclTable::AclFlowResponse(uuid, context(), fkey);
+    AclTable::AclFlowResponse(uuid, context(), last_count);
 }
 
 void AclFlowReq::HandleRequest() const {
-    FlowKey key; //key with all 0's
-    AclTable::AclFlowResponse(get_uuid(), context(), key); 
+    AclTable::AclFlowResponse(get_uuid(), context(), 0); 
 }
 
 void AclFlowCountReq::HandleRequest() const { 

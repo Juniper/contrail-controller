@@ -292,7 +292,7 @@ class FlowEntry {
         key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
         local_flow(false), short_flow(false), mdata_flow(false), 
         is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0) {
+        last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -302,7 +302,7 @@ class FlowEntry {
         key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
         local_flow(false), short_flow(false), mdata_flow(false),
         is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0) {
+        last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -355,25 +355,18 @@ class FlowEntry {
     bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
+    void set_deleted(bool deleted) { deleted_ = deleted; }
+    bool deleted() { return deleted_; }
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     static tbb::atomic<int> alloc_count_;
+    bool deleted_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
  
-inline void intrusive_ptr_add_ref(FlowEntry *fe) {
-    fe->refcount_.fetch_and_increment();
-}
-inline void intrusive_ptr_release(FlowEntry *fe) {
-    int prev = fe->refcount_.fetch_and_decrement();
-    if (prev == 1) {
-        delete fe;
-    }
-}
-
 struct FlowEntryCmp {
     bool operator()(const FlowEntryPtr &l, const FlowEntryPtr &r) {
         FlowEntry *lhs = l.get();
@@ -463,7 +456,7 @@ public:
     void DeleteAll();
 
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                               const FlowKey &key);
+                               const int last_count);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
    
@@ -481,6 +474,7 @@ public:
     friend class FetchFlowRecord;
     friend class Inet4RouteUpdate;
     friend class NhState;
+    friend void intrusive_ptr_release(FlowEntry *fe);
 private:
     static FlowTable* singleton_;
     FlowEntryMap flow_entry_map_;
@@ -503,7 +497,7 @@ private:
     void VnNotify(DBTablePartBase *part, DBEntryBase *e);
     void VrfNotify(DBTablePartBase *part, DBEntryBase *e);
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
-    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key);
+    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last_count);
 
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);

@@ -280,11 +280,15 @@ void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
 
 KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        work_queue_[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
+        receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
                              GetTaskId(IoContext::io_wq_names[i]), 0,
                              boost::bind(&KSyncSock::ProcessKernelData, this, 
                                          _1));
     }
+    async_send_queue_ = new WorkQueue<IoContext *>(TaskScheduler::GetInstance()->
+                            GetTaskId("Ksync::AsyncSend"), 0,
+                            boost::bind(&KSyncSock::SendAsyncImpl, this, _1),
+                            boost::bind(&KSyncSock::SendAsyncStart, this));
     rx_buff_ = NULL;
     seqno_ = 0;
     uve_seqno_ = 0;
@@ -298,9 +302,13 @@ KSyncSock::~KSyncSock() {
         rx_buff_ = NULL;
     }
 
+    assert(async_send_queue_->QueueCount() == 0);
+    async_send_queue_->Shutdown();
+    delete async_send_queue_;
+
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
-        work_queue_[i]->Shutdown();
-        delete work_queue_[i];
+        receive_work_queue[i]->Shutdown();
+        delete receive_work_queue[i];
     }
 }
 
@@ -387,7 +395,7 @@ bool KSyncSock::ValidateAndEnqueue(char *data) {
     } else {
         q_id = IoContext::UVE_Q_ID;
     }
-    work_queue_[q_id]->Enqueue(data);
+    receive_work_queue[q_id]->Enqueue(data);
     return true;
 }
 
@@ -406,8 +414,11 @@ bool KSyncSock::ProcessKernelData(char *data) {
 
     if (!IsMoreData(data)) {
         context->Handler();
-        tbb::mutex::scoped_lock lock(mutex_);
-        wait_tree_.erase(it);
+        {
+            tbb::mutex::scoped_lock lock(mutex_);
+            wait_tree_.erase(it);
+        }
+        async_send_queue_->MayBeStartRunner();
         delete(context);
     }
 
@@ -467,25 +478,24 @@ void KSyncSock::SendAsync(KSyncEntry *entry, int msg_len, char *msg,
                           KSyncEntry::KSyncEvent event) {
     uint32_t seq = AllocSeqNo(false);
     KSyncIoContext *ioc = new KSyncIoContext(entry, msg_len, msg, seq, event);
-    SendAsyncImpl(msg_len, msg, ioc);
+    async_send_queue_->Enqueue(ioc);
 }
 
-void KSyncSock::GenericSend(int msg_len, char *msg, 
-                            IoContext *ioc) {
-    SendAsyncImpl(msg_len, msg, ioc);
+void KSyncSock::GenericSend(IoContext *ioc) {
+    async_send_queue_->Enqueue(ioc);
 }
 
-void KSyncSock::SendAsyncImpl(int msg_len, char *msg, 
-                              IoContext *ioc) {
+bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
     {
         tbb::mutex::scoped_lock lock(mutex_);
         wait_tree_.insert(*ioc);
     }
 
-    AsyncSendTo(ioc, buffer(msg, msg_len),
+    AsyncSendTo(ioc, boost::asio::buffer(ioc->GetMsg(), ioc->GetMsgLen()),
                 boost::bind(&KSyncSock::WriteHandler, this,
                             placeholders::error,
                             placeholders::bytes_transferred));
+    return true;
 }
 
 KSyncIoContext::KSyncIoContext(KSyncEntry *sync_entry, int msg_len,
