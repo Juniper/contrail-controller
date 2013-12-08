@@ -24,12 +24,13 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
 
     if (entry->IsDeleted()) {
-        VmInterface::NovaDel(entry->GetUuid());
+        VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+                             entry->GetUuid());
     } else {
-        VmInterface::NovaMsg(entry->GetUuid(), entry->GetIfname(),
-                                 entry->ip_addr().to_v4(),
-                                 entry->GetMacAddr(),
-                                 entry->vm_name());
+        VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+                         entry->GetUuid(), entry->GetIfname(),
+                         entry->ip_addr().to_v4(), entry->GetMacAddr(),
+                         entry->vm_name());
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;
@@ -57,8 +58,7 @@ void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition,
             continue;
         }
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
-            == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
             continue;
         }
 

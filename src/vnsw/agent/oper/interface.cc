@@ -53,14 +53,15 @@ void InterfaceTable::Init(OperDB *oper) {
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
     const InterfaceKey *key = static_cast<const InterfaceKey *>(k);
     
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(key->AllocEntry()));
+    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>
+                                  (key->AllocEntry(this)));
 }
 
 DBEntry *InterfaceTable::Add(const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
 
-    Interface *intf = key->AllocEntry(data);
+    Interface *intf = key->AllocEntry(this, data);
     if (intf == NULL)
         return NULL;
 
@@ -296,25 +297,25 @@ uint32_t Interface::GetVrfId() const {
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
-DBEntryBase::KeyPtr PktInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new PktInterfaceKey(uuid_, name_);
+DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
+    InterfaceKey *key = new PacketInterfaceKey(uuid_, name_);
     return DBEntryBase::KeyPtr(key);
 }
 
 // Enqueue DBRequest to create a Pkt Interface
-void PktInterface::CreateReq(InterfaceTable *table,
+void PacketInterface::CreateReq(InterfaceTable *table,
                              const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PktInterfaceKey(nil_uuid(), ifname));
-    req.data.reset(new PktInterfaceData());
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
+    req.data.reset(new PacketInterfaceData());
     table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Pkt Interface
-void PktInterface::DeleteReq(InterfaceTable *table,
+void PacketInterface::DeleteReq(InterfaceTable *table,
                              const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new PktInterfaceKey(nil_uuid(), ifname));
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }
@@ -327,12 +328,13 @@ DBEntryBase::KeyPtr VirtualHostInterface::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-Interface *VirtualHostInterfaceKey::AllocEntry(const InterfaceData *data)const {
+Interface *VirtualHostInterfaceKey::AllocEntry(const InterfaceTable *table,
+                                               const InterfaceData *data)const {
     const VirtualHostInterfaceData *vhost_data;
     vhost_data = static_cast<const VirtualHostInterfaceData *>(data);
     VrfKey key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+        (table->agent()->GetVrfTable()->FindActiveEntry(&key));
     assert(vrf);
     return new VirtualHostInterface(name_, vrf,
                                     vhost_data->sub_type_);

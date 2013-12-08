@@ -419,7 +419,7 @@ private:
 
 class HostRoute : public RouteData {
 public:
-    HostRoute(const PktInterfaceKey &intf, const string &dest_vn_name,
+    HostRoute(const PacketInterfaceKey &intf, const string &dest_vn_name,
               Op op  = RouteData::CHANGE) : 
         RouteData(op, false), intf_(intf),
         dest_vn_name_(dest_vn_name), proxy_arp_(false) { };
@@ -429,7 +429,7 @@ public:
     virtual string ToString() const {return "host";};;
 
 private:
-    PktInterfaceKey intf_;
+    PacketInterfaceKey intf_;
     string dest_vn_name_;
     bool proxy_arp_;
     DISALLOW_COPY_AND_ASSIGN(HostRoute);

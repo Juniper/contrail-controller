@@ -42,7 +42,7 @@ class CfgTest : public ::testing::Test {
 
 void CfgSync(const uuid &intf_uuid, const string &cfg_name,
 			 const uuid &vn_uuid, const uuid &vm_uuid,
-			 const CfgFloatingIpList &floating_iplist) {
+			 const FloatingIpConfigList &floating_iplist) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -1245,12 +1245,12 @@ TEST_F(CfgTest, Basic_1) {
 
     /*Interface* intf = VmPortGet(1); 
     VmInterface *vitf;
-    CfgFloatingIpList list;
+    FloatingIpConfigList list;
     InterfaceKey *key, *newKey;
 
     switch (intf->type()) {
     case Interface::VM_INTERFACE:
-            list.insert(CfgFloatingIp(Ip4Address::from_string("5.5.5.5"), "vrf10", MakeUuid(5)));
+            list.insert(FloatingIpConfig(Ip4Address::from_string("5.5.5.5"), "vrf10", MakeUuid(5)));
             vitf = static_cast<VmInterface *>(intf);
             vitf->Activate();
             EXPECT_FALSE(VmPortInactive(1));

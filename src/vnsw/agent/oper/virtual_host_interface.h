@@ -11,7 +11,8 @@
 //
 // Example interfaces:
 // vhost0 : A L3 interface between host-os and vrouter. Used in KVM mode
-// xapi0 : A L3 interface between host-os and vrouter. Used in XEN mode
+// xenbr : A L3 interface between host-os and vrouter. Used in XEN mode
+// xapi0 : A L3 interface for link-local subnets. Used in XEN mode
 // vgw : A un-numbered L3 interface for simple gateway
 /////////////////////////////////////////////////////////////////////////////
 class VirtualHostInterface : public Interface {
@@ -37,7 +38,7 @@ public:
 
     // DBTable virtual functions
     KeyPtr GetDBRequestKey() const;
-    virtual std::string ToString() const { return "VHOST"; }
+    std::string ToString() const { return "VHOST <" + name() + ">"; }
 
     // The interfaces are keyed by name. No UUID is allocated for them
     virtual bool CmpInterface(const DBEntry &rhs) const {
@@ -64,11 +65,12 @@ struct VirtualHostInterfaceKey : public InterfaceKey {
 
     virtual ~VirtualHostInterfaceKey() { }
 
-    Interface *AllocEntry() const {
+    Interface *AllocEntry(const InterfaceTable *table) const {
         return new VirtualHostInterface(name_, NULL);
     }
 
-    Interface *AllocEntry(const InterfaceData *data) const;
+    Interface *AllocEntry(const InterfaceTable *table,
+                          const InterfaceData *data) const;
 
     InterfaceKey *Clone() const {
         return new VirtualHostInterfaceKey(*this);

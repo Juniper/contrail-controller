@@ -241,8 +241,8 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                  vrf_name, addr, plen);
     req.key.reset(key);
 
-    PktInterfaceKey intf_key(nil_uuid(), 
-                             Agent::GetInstance()->GetHostInterfaceName());
+    PacketInterfaceKey intf_key(nil_uuid(),
+                                Agent::GetInstance()->GetHostInterfaceName());
     HostRoute *data = new HostRoute(intf_key, dest_vn_name);
     req.data.reset(data);
 

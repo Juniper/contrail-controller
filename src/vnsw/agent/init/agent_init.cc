@@ -118,7 +118,7 @@ void AgentInit::DeleteNextHop() {
                            agent_->GetVirtualHostInterfaceName()), true);
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(),
+    key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(),
                              agent_->GetHostInterfaceName()), false,
                              InterfaceNHFlags::INET4);
     agent_->GetNextHopTable()->Delete(key);
@@ -129,12 +129,12 @@ void AgentInit::DeleteVrf() {
 }
 
 void AgentInit::DeleteInterface() {
-    PktInterface::DeleteReq(agent_->GetInterfaceTable(),
-                            agent_->GetHostInterfaceName());
+    PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
+                               agent_->GetHostInterfaceName());
     VirtualHostInterface::DeleteReq(agent_->GetInterfaceTable(),
                                     agent_->GetVirtualHostInterfaceName());
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                            agent_->GetIpFabricItfName());
+                                 agent_->GetIpFabricItfName());
 }
 
 void AgentInit::DeleteStaticEntries() {

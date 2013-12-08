@@ -704,18 +704,14 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     // While traversing the path 
     // virtual-machine-interface <-> virtual-machine-interface-routing-instance 
     // <-> routing-instance path, we may have skipped a routing-instance that
-    // failed CanUseNode() 
+    // failed SkipNode() 
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
          node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
-        if (iter->IsDeleted()) {
-            continue;
-        }
-
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_port_vrf_table()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_port_vrf_table())) {
             continue;
         }
 
@@ -723,7 +719,8 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
 
     // Resync dependent Floating-IP
-    VmInterface::FloatingIpVrfSync(node);
+    VmInterface::FloatingIpVrfSync(Agent::GetInstance()->GetInterfaceTable(),
+                                   node);
     return false;
 }
 
