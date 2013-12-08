@@ -14,15 +14,17 @@ void RouterIdDepInit() {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
+    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+                     MakeUuid(id), name, ip.to_v4(), mac, "");
 }
 
 static void NovaDel(int id) {
-    VmInterface::NovaDel(MakeUuid(id));
+    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+                        MakeUuid(id));
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
-    CfgFloatingIpList list;
+    FloatingIpConfigList list;
     uuid intf_uuid = MakeUuid(id);
     uuid vn_uuid = MakeUuid(vn);
     uuid vm_uuid = MakeUuid(vm);

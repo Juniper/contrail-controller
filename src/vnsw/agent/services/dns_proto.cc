@@ -958,7 +958,7 @@ void DnsHandler::SendDnsResponse() {
     EthHdr(agent_vrrp_mac, dest_mac, 0x800);
     dns_resp_size_ += sizeof(ethhdr);
 
-    PktInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetHostIfname());
+    PacketInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetHostIfname());
     Interface *pkt_itf = static_cast<Interface *>
                          (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (pkt_itf) {

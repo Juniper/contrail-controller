@@ -171,8 +171,9 @@ struct InterfaceKey : public AgentKey {
     }
 
     // Virtual methods for interface keys
-    virtual Interface *AllocEntry() const = 0;
-    virtual Interface *AllocEntry(const InterfaceData *data) const = 0;
+    virtual Interface *AllocEntry(const InterfaceTable *table) const = 0;
+    virtual Interface *AllocEntry(const InterfaceTable *table,
+                                  const InterfaceData *data) const = 0;
     virtual InterfaceKey *Clone() const = 0;
 
     Interface::Type type_;
@@ -223,7 +224,7 @@ public:
     // Config handlers
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     // Handle change in config VRF for the interface
-    static void VmInterfaceVrfSync(IFMapNode *node);
+    void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
@@ -245,6 +246,8 @@ public:
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
+    Agent *agent() const { return agent_; }
+    OperDB *operdb() const { return operdb_; }
 
 private:
     bool VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);

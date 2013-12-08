@@ -1,8 +1,8 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-#ifndef vnsw_agent_eth_interface_hpp
-#define vnsw_agent_eth_interface_hpp
+#ifndef vnsw_agent_physical_interface_hpp
+#define vnsw_agent_physical_interface_hpp
 
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of Physical Ports
@@ -22,7 +22,7 @@ public:
         return name_ < intf.name_;
     }
 
-    std::string ToString() const { return "ETH"; }
+    std::string ToString() const { return "ETH <" + name() + ">"; }
     KeyPtr GetDBRequestKey() const;
 
     // Helper functions
@@ -39,13 +39,14 @@ struct PhysicalInterfaceKey : public InterfaceKey {
     }
     virtual ~PhysicalInterfaceKey() {}
 
-    Interface *AllocEntry() const {
+    Interface *AllocEntry(const InterfaceTable *table) const {
         return new PhysicalInterface(name_, NULL);
     }
-    Interface *AllocEntry(const InterfaceData *data) const {
+    Interface *AllocEntry(const InterfaceTable *table,
+                          const InterfaceData *data) const {
         VrfKey key(data->vrf_name_);
         VrfEntry *vrf = static_cast<VrfEntry *>
-            (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+            (table->agent()->GetVrfTable()->FindActiveEntry(&key));
         if (vrf == NULL) {
             return NULL;
         }
@@ -64,4 +65,4 @@ struct PhysicalInterfaceData : public InterfaceData {
     }
 };
 
-#endif // vnsw_agent_eth_interface_hpp
+#endif // vnsw_agent_physical_interface_hpp

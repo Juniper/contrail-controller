@@ -116,8 +116,7 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 node->begin(table->GetGraph()); 
                 iter != node->end(table->GetGraph()); ++iter) {
             IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
-                == false) {
+            if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
                 continue;
             }
 
@@ -146,8 +145,8 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                  node->begin(table->GetGraph()); 
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table())) {
             continue;
         }
         if (adj_node->GetObject() == NULL) {

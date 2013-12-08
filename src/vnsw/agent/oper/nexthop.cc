@@ -523,7 +523,7 @@ void InterfaceNH::CreateHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -539,7 +539,7 @@ void InterfaceNH::DeleteHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 

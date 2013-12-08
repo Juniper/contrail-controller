@@ -12,14 +12,14 @@ typedef vector<boost::uuids::uuid> SgUuidList;
 typedef vector<SgEntryRef> SgList;
 
 // Config structure for floating-ip
-struct CfgFloatingIp {
-    CfgFloatingIp(const Ip4Address &addr, const std::string &vrf,
+struct FloatingIpConfig {
+    FloatingIpConfig(const Ip4Address &addr, const std::string &vrf,
                   const boost::uuids::uuid &vn_uuid) 
         : addr_(addr), vrf_(vrf), vn_uuid_(vn_uuid) { 
     }
-    ~CfgFloatingIp() { }
+    ~FloatingIpConfig() { }
 
-    bool operator< (const CfgFloatingIp &rhs) const{
+    bool operator< (const FloatingIpConfig &rhs) const{
         if (addr_ != rhs.addr_) {
             return addr_ < rhs.addr_;
         }
@@ -34,21 +34,21 @@ struct CfgFloatingIp {
     // VN from where floating-ip is borrowed
     boost::uuids::uuid vn_uuid_;
 };
-typedef std::set<CfgFloatingIp> CfgFloatingIpList;
+typedef std::set<FloatingIpConfig> FloatingIpConfigList;
 
 // Config structure for service-vlan used in service-chain
-struct CfgServiceVlan {
-    CfgServiceVlan() : tag_(0), addr_(0), vrf_(""), smac_(), dmac_() { }
-    CfgServiceVlan(const CfgServiceVlan &e) :
+struct ServiceVlanConfig {
+    ServiceVlanConfig() : tag_(0), addr_(0), vrf_(""), smac_(), dmac_() { }
+    ServiceVlanConfig(const ServiceVlanConfig &e) :
         tag_(e.tag_), addr_(e.addr_), vrf_(e.vrf_), smac_(e.smac_), 
         dmac_(e.dmac_){ 
     }
-    CfgServiceVlan(uint16_t tag, const Ip4Address &addr,
+    ServiceVlanConfig(uint16_t tag, const Ip4Address &addr,
                    const std::string &vrf, const struct ether_addr &smac,
                    const struct ether_addr &dmac) :
         tag_(tag), addr_(addr), vrf_(vrf), smac_(smac), dmac_(dmac) { 
     }
-    ~CfgServiceVlan() { }
+    ~ServiceVlanConfig() { }
 
     uint16_t tag_;
     Ip4Address addr_;
@@ -56,18 +56,18 @@ struct CfgServiceVlan {
     struct ether_addr smac_;
     struct ether_addr dmac_;
 };
-typedef std::map<int, CfgServiceVlan> CfgServiceVlanList;
+typedef std::map<int, ServiceVlanConfig> ServiceVlanConfigList;
 
 // Config structure for interface static routes
-struct CfgStaticRoute {
-    CfgStaticRoute() : vrf_(""), addr_(0), plen_(0) { }
-    CfgStaticRoute(const std::string &vrf, const Ip4Address &addr,
+struct StaticRouteConfig {
+    StaticRouteConfig() : vrf_(""), addr_(0), plen_(0) { }
+    StaticRouteConfig(const std::string &vrf, const Ip4Address &addr,
                    uint32_t plen): 
         vrf_(vrf), addr_(addr), plen_(plen) { 
     }
-    ~CfgStaticRoute() { }
+    ~StaticRouteConfig() { }
 
-    bool operator< (const CfgStaticRoute &rhs) const{
+    bool operator< (const StaticRouteConfig &rhs) const{
         if (addr_ != rhs.addr_) {
             return addr_ < rhs.addr_;
         }
@@ -83,7 +83,7 @@ struct CfgStaticRoute {
     Ip4Address addr_;   
     uint32_t plen_;
 };
-typedef std::set<CfgStaticRoute> CfgStaticRouteList;
+typedef std::set<StaticRouteConfig> StaticRouteConfigList;
 
 struct VmInterfaceData : public InterfaceData {
     VmInterfaceData() : 
@@ -93,6 +93,7 @@ struct VmInterfaceData : public InterfaceData {
         mirror_enable_(false), ip_addr_update_only_(false),
         layer2_forwarding_(true), ipv4_forwarding_(true), analyzer_name_(""),
         mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { 
+        VmPortInit();
     }
 
     VmInterfaceData(const Ip4Address &addr, const std::string &mac,
@@ -103,6 +104,7 @@ struct VmInterfaceData : public InterfaceData {
         mirror_enable_(false), ip_addr_update_only_(false),
         layer2_forwarding_(true), ipv4_forwarding_(true), analyzer_name_(""),
         mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { 
+        VmPortInit();
     }
 
     VmInterfaceData(bool mirror_enable, const std::string &analyzer_name):
@@ -110,6 +112,7 @@ struct VmInterfaceData : public InterfaceData {
         layer2_forwarding_(true), ipv4_forwarding_(true), 
         analyzer_name_(analyzer_name),
         mirror_direction_(Interface::UNKNOWN) { 
+        VmPortInit();
     }
 
     virtual ~VmInterfaceData() { }
@@ -124,9 +127,9 @@ struct VmInterfaceData : public InterfaceData {
     std::string vm_name_;
     boost::uuids::uuid vn_uuid_;
     std::string vrf_name_;
-    CfgFloatingIpList floating_iplist_;
-    CfgServiceVlanList service_vlan_list_;
-    CfgStaticRouteList static_route_list_;
+    FloatingIpConfigList floating_iplist_;
+    ServiceVlanConfigList service_vlan_list_;
+    StaticRouteConfigList static_route_list_;
     // Is this port on IP Fabric
     bool fabric_port_;
     // Does the port need link-local IP to be allocated
@@ -271,9 +274,8 @@ public:
 
     // DBEntry vectors
     KeyPtr GetDBRequestKey() const;
-    bool OnResync(const DBRequest *req);
     std::string ToString() const;
-
+    bool OnResync(const DBRequest *req);
     bool OnIpAddrResync(const DBRequest *req);
 
     // Accessor functions
@@ -331,50 +333,22 @@ public:
     size_t GetFloatingIpCount() const { return floating_iplist_.size(); }
     bool HasServiceVlan() const { return service_vlan_list_.size() != 0; }
 
-    uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.vrf_.get() == vrf) {
-                return vlan_it->second.label_;
-            }
-            vlan_it++;
-        }
-        return label_;
-    }
-
-    uint32_t GetServiceVlanTag(const VrfEntry *vrf) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.vrf_.get() == vrf) {
-                return vlan_it->second.tag_;
-            }
-            vlan_it++;
-        }
-        return 0;
-    }
-
-    const VrfEntry* GetServiceVlanVrf(uint16_t vlan_tag) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.tag_ == vlan_tag) {
-                return vlan_it->second.vrf_.get();
-            }
-            vlan_it++;
-        }
-        return NULL;
-    }
-
+    uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const;
+    uint32_t GetServiceVlanTag(const VrfEntry *vrf) const;
+    const VrfEntry* GetServiceVlanVrf(uint16_t vlan_tag) const;
     void Activate();
     void DeActivate(const std::string &vrf_name, const Ip4Address &ip);
     bool OnResyncServiceVlan(VmInterfaceData *data);
     void UpdateAllRoutes();
 
-    // Nova VM-Port message
-    static void NovaMsg(const boost::uuids::uuid &intf_uuid,
-                        const std::string &os_name, const Ip4Address &addr,
-                        const std::string &mac, const std::string &vn_name);
-    // Config VM-Port delete message
-    static void NovaDel(const boost::uuids::uuid &intf_uuid);
+    // Add a vm-interface
+    static void Add(InterfaceTable *table,
+                    const boost::uuids::uuid &intf_uuid,
+                    const std::string &os_name, const Ip4Address &addr,
+                    const std::string &mac, const std::string &vn_name);
+    // Del a vm-interface
+    static void Delete(InterfaceTable *table,
+                       const boost::uuids::uuid &intf_uuid);
 
     void AllocL2MPLSLabels();
     void AddL2Route();
@@ -382,12 +356,12 @@ public:
                        const struct ether_addr &mac);
 
     // Calback from configuration
-    static void InstanceIpSync(IFMapNode *node);
-    static void FloatingIpVnSync(IFMapNode *node);
-    static void FloatingIpPoolSync(IFMapNode *node);
-    static void FloatingIpSync(IFMapNode *node);
-    static void FloatingIpVrfSync(IFMapNode *node);
-    static void VnSync(IFMapNode *node);
+    static void InstanceIpSync(InterfaceTable *table, IFMapNode *node);
+    static void FloatingIpVnSync(InterfaceTable *table, IFMapNode *node);
+    static void FloatingIpPoolSync(InterfaceTable *table, IFMapNode *node);
+    static void FloatingIpSync(InterfaceTable *table, IFMapNode *node);
+    static void FloatingIpVrfSync(InterfaceTable *table, IFMapNode *node);
+    static void VnSync(InterfaceTable *table, IFMapNode *node);
 
 private:
     bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm,
@@ -443,17 +417,18 @@ struct VmInterfaceKey : public InterfaceKey {
     }
 
     VmInterfaceKey(AgentKey::DBSubOperation sub_op,
-                       const boost::uuids::uuid &uuid, const std::string &name):
+                   const boost::uuids::uuid &uuid, const std::string &name):
         InterfaceKey(sub_op, Interface::VM_INTERFACE, uuid, name) {
     }
 
     virtual ~VmInterfaceKey() { }
 
-    Interface *AllocEntry() const {
+    Interface *AllocEntry(const InterfaceTable *table) const {
         return new VmInterface(uuid_);
     }
 
-    Interface *AllocEntry(const InterfaceData *data) const {
+    Interface *AllocEntry(const InterfaceTable *table, 
+                          const InterfaceData *data) const {
         const VmInterfaceData *vm_data =
             static_cast<const VmInterfaceData *>(data);
         return new VmInterface(uuid_, name_, vm_data->addr_,
