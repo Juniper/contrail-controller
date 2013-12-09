@@ -87,7 +87,7 @@ public:
         {
             if (0 == map_it->first.compare(0,5,string("COUNT"))) {
                 rapidjson::Value val(rapidjson::kNumberType);
-                unsigned long num;
+                unsigned long num = 0;
                 stringToInteger(map_it->second, num);
                 val.SetUint64(num);
                 dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
@@ -103,7 +103,7 @@ public:
                 } else if (columns[j].datatype == "ipv4") {
                     rapidjson::Value val(rapidjson::kStringType);
                     char str[INET_ADDRSTRLEN];
-                    uint32_t ipaddr;
+                    uint32_t ipaddr = 0;
 
                     stringToInteger(map_it->second, ipaddr);
                     ipaddr = htonl(ipaddr);
@@ -120,7 +120,7 @@ public:
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
                 } else {
                     rapidjson::Value val(rapidjson::kNumberType);
-                    unsigned long num;
+                    unsigned long num = 0;
                     stringToInteger(map_it->second, num);
                     val.SetUint64(num);
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());

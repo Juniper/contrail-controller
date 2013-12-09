@@ -78,9 +78,9 @@ void PostProcessingQuery::fs_merge_stats(
     QEOpServerProxy::OutRowT::iterator pit = 
             output.first.find(SELECT_SUM_PACKETS);
     if (pit != output.first.end()) {
-        uint64_t sum_pkts;
+        uint64_t sum_pkts = 0;
         stringToInteger(pit->second, sum_pkts);
-        uint64_t pkts;
+        uint64_t pkts = 0;
         stringToInteger(input.first.find(SELECT_SUM_PACKETS)->second, pkts);
         sum_pkts += pkts;
         pit->second = integerToString(sum_pkts);
@@ -88,9 +88,9 @@ void PostProcessingQuery::fs_merge_stats(
     QEOpServerProxy::OutRowT::iterator bit = 
             output.first.find(SELECT_SUM_BYTES);
     if (bit != output.first.end()) {
-        uint64_t sum_bytes;
+        uint64_t sum_bytes = 0;
         stringToInteger(bit->second, sum_bytes);
-        uint64_t bytes;
+        uint64_t bytes = 0;
         stringToInteger(input.first.find(SELECT_SUM_BYTES)->second, bytes);
         sum_bytes += bytes;
         bit->second = integerToString(sum_bytes);
@@ -137,7 +137,7 @@ void PostProcessingQuery::fs_tuple_stats_merge_processing(
         QEOpServerProxy::OutRowT::const_iterator rfc_it = 
             rresult_row.first.find(SELECT_FLOW_CLASS_ID);
         assert(rfc_it != ro_row.end());
-        uint64_t rfc_id;
+        uint64_t rfc_id = 0;
         stringToInteger(rfc_it->second, rfc_id);
         if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
             // flow_class_id rfc_id not found, add the result row to the map
@@ -546,8 +546,9 @@ query_status_t PostProcessingQuery::process_query() {
 
                     default:
                         // upsupported filter operation
-                        QE_ASSERT(0);
-                        break;
+                        QE_LOG(ERROR, "Unsupported filter operation: " <<
+                               filter_list[j].op);
+                        return QUERY_FAILURE;
                 }
                 if (delete_row == true)
                     break;
