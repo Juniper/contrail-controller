@@ -136,7 +136,7 @@ define vxlan_entry_format
 end
   
 define dump_vxlan_entries
-   pdb_table_entries Agent::GetInstance()->GetVxLanTable() vxlan_entry_format
+   pdb_table_entries Agent::singleton_.vxlan_table_ vxlan_entry_format
 end
  
 define mirror_entry_format
