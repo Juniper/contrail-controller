@@ -76,7 +76,7 @@ public:
     }
 
     void FlushFlowTable() {
-        FlowTable::GetFlowTableObject()->DeleteAll();
+        client->EnqueueFlowFlush();
         client->WaitForIdle();
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
     }
@@ -280,6 +280,7 @@ public:
         assert(vif3);
 
         client->SetFlowAgeExclusionPolicy();
+        client->SetFlowFlushExclusionPolicy();
     }
 
     static void TestTearDown() {

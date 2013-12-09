@@ -742,8 +742,8 @@ void FlowTable::DeleteAll()
     it = flow_entry_map_.begin();
     while (it != flow_entry_map_.end()) {
         FlowKey fekey = it->second->key;
+        ++it;
         DeleteNatFlow(fekey, true);
-        it = flow_entry_map_.begin();
     }
 }
 

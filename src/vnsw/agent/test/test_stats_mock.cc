@@ -163,7 +163,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowStatsOverflowTest) {
@@ -282,7 +282,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 0, 0);
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
@@ -334,8 +334,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -431,7 +430,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     /* Make sure that the short flow is removed */
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 2U));
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", (*FlowHandler::UnknownVn()).c_str(), 1, 30, true); //outgoing stats
@@ -440,7 +439,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //clean-up. Flush flow table
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, VrfStatsTest) {

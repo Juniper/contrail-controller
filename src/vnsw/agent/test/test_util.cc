@@ -1633,8 +1633,14 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
     key.dst_port = dport;
     key.protocol = proto;
 
-    EXPECT_TRUE(table->Find(key) == NULL);
-    return table->Find(key) == NULL ;
+    FlowEntry *fe = table->Find(key);
+    if (fe == NULL) {
+        return true;
+    }
+    if (fe->deleted()) {
+        return true;
+    }
+    return false;
 }
 
 bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
