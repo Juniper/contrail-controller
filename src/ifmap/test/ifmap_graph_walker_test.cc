@@ -70,7 +70,8 @@ protected:
 
 // Ensure that only a single virtual-network is received.
 TEST_F(IFMapGraphWalkerTest, VNPropagation_1) {
-    string content = FileRead("src/ifmap/testdata/vn_propagation_1.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/vn_propagation_1.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -85,7 +86,8 @@ TEST_F(IFMapGraphWalkerTest, VNPropagation_1) {
 }
 
 TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
-    string content = FileRead("src/ifmap/testdata/vn_propagation_1.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/vn_propagation_1.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -128,7 +130,8 @@ TEST_F(IFMapGraphWalkerTest, ToggleIpamLink) {
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
-    string content = FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -170,7 +173,8 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn1Vm3Add) {
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
-    string content = FileRead("src/ifmap/testdata/cli2_vn2_vm2_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli2_vn2_vm2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -230,7 +234,8 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Vm2Add) {
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
-    string content = FileRead("src/ifmap/testdata/cli1_vn2_np2_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn2_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -283,7 +288,8 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np2Add) {
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
-    string content = FileRead("src/ifmap/testdata/cli1_vn2_np1_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn2_np1_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -336,7 +342,8 @@ TEST_F(IFMapGraphWalkerTest, Cli1Vn2Np1Add) {
 }
 
 TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
-    string content = FileRead("src/ifmap/testdata/cli2_vn2_np2_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli2_vn2_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -410,7 +417,8 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn2Np2Add) {
 // srv1: 2 vns, 2vms/vn, 1 np between 2 vns
 // srv2: 1 vn, 2vms, 1 np with vm in srv1
 TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
-    string content = FileRead("src/ifmap/testdata/cli2_vn3_vm6_np2_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();

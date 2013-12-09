@@ -82,7 +82,8 @@ protected:
 
 // Receive config first and then vm-sub
 TEST_F(IFMapVmUuidMapperTest, ConfigThenSubscribe) {
-    string content = FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -162,7 +163,8 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeThenConfig) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string content = FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -180,7 +182,8 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeThenConfig) {
 
 // Receive config first, then vm-sub, then vm-unsub
 TEST_F(IFMapVmUuidMapperTest, CfgSubUnsub) {
-    string content = FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -286,7 +289,8 @@ TEST_F(IFMapVmUuidMapperTest, SubscribeConfigUnsub) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 0);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
-    string content = FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml");
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -375,7 +379,7 @@ TEST_F(IFMapVmUuidMapperTest, SubUnsub) {
 
 // Receive config-add then config-delete - no sub/unsub received
 TEST_F(IFMapVmUuidMapperTest, CfgaddCfgdel) {
-    string content = FileRead("src/ifmap/testdata/vr_3vm_add.xml");
+    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -401,7 +405,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddCfgdel) {
     EXPECT_EQ(vm_uuid_mapper_->NodeUuidMapCount(), 3);
     EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 0);
 
-    content = FileRead("src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -444,7 +448,7 @@ TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
     TASK_UTIL_EXPECT_EQ(vm_uuid_mapper_->PendingVmRegCount(), 3);
 
     // Config adds
-    string content = FileRead("src/ifmap/testdata/vr_3vm_add.xml");
+    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -465,7 +469,7 @@ TEST_F(IFMapVmUuidMapperTest, SubCfgaddCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -521,7 +525,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubUnsubCfgdel) {
     server_.AddClient(&c1);
 
     // Config adds
-    string content = FileRead("src/ifmap/testdata/vr_3vm_add.xml");
+    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -638,7 +642,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubUnsubCfgdel) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -667,7 +671,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubCfgdelUnsub) {
     server_.AddClient(&c1);
 
     // Config adds
-    string content = FileRead("src/ifmap/testdata/vr_3vm_add.xml");
+    string content = FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
@@ -733,7 +737,7 @@ TEST_F(IFMapVmUuidMapperTest, CfgaddSubCfgdelUnsub) {
     c1.PrintLinks();
 
     // Config deletes
-    content = FileRead("src/ifmap/testdata/vr_3vm_delete.xml");
+    content = FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.c_str(), content.size(), 0);
     task_util::WaitForIdle();
