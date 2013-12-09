@@ -734,6 +734,11 @@ void WhereQuery::create_uuid_tuple_map(
         }
     }
 
+    if (IS_TRACE_ENABLED(WHERE_RESULT_TRACE)) {
+        for (std::map<boost::uuids::uuid, GenDb::DbDataValueVec>::iterator it = uuid_map.begin(); it != uuid_map.end(); it++)
+            QE_TRACE(DEBUG, "Added to uuid map:" << it->first);
+    }
+
     QE_TRACE(DEBUG, "WhereQuery:finished");
 }
 
@@ -827,7 +832,13 @@ query_status_t WhereQuery::process_query()
             // query UUID map to get 8-tuple
             std::map<boost::uuids::uuid, GenDb::DbDataValueVec>::iterator it;
             it = uuid_map.find(u);
-            QE_NOENT_ERROR_RETURN(it != uuid_map.end(), QUERY_FAILURE);
+            if (it == uuid_map.end())
+            {
+                QE_LOG(DEBUG, "could not find uuid:" << u);
+                query_result.erase(query_result.begin() + i);
+                i--; continue;  // ignore this data sample
+            }
+
             for (GenDb::DbDataValueVec::iterator jt = it->second.begin();
                     jt != it->second.end(); jt++) {
                 query_result[i].info.push_back(*jt);
