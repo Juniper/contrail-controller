@@ -1330,9 +1330,7 @@ bool CompositeNH::Change(const DBRequest* req) {
 
 const NextHop* CompositeNH::GetLocalNextHop() const {
     const NextHop *nh = NULL;
-    if (GetLocalCompositeNH()) {
-        nh = GetLocalCompositeNH();
-    } else {
+    if ((nh = GetLocalCompositeNH()) == NULL) {
         //Get interface NH inside composite NH
         ComponentNHList::const_iterator component_nh_it = begin();
         while (component_nh_it != end()) {

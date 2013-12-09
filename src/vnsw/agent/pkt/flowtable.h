@@ -505,7 +505,7 @@ private:
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
     void ResyncVmPortFlows(const VmInterface *intf);
-    void ResyncRpfNH(RouteFlowKey &key, Inet4UnicastRouteEntry *rt);
+    void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);

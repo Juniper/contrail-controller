@@ -1118,7 +1118,8 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
     }
 }
 
-void FlowTable::ResyncRpfNH(RouteFlowKey &key, Inet4UnicastRouteEntry *rt) {
+void FlowTable::ResyncRpfNH(const RouteFlowKey &key, 
+                            const Inet4UnicastRouteEntry *rt) {
     RouteFlowTree::iterator rf_it;
     rf_it = route_flow_tree_.find(key);
     if (rf_it == route_flow_tree_.end()) {
