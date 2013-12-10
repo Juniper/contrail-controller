@@ -187,6 +187,13 @@ bool Inet4UnicastEcmpRoute::AddChangePath(AgentPath *path) {
         ret = true;
     }
 
+    SecurityGroupList path_sg_list;
+    path_sg_list = path->GetSecurityGroupList();
+    if (path_sg_list != sg_list_) {
+        path->SetSecurityGroupList(sg_list_);
+        ret = true;
+    }
+
     path->SetDestVnName(vn_name_);
     ret = true;
     path->SetUnresolved(false);
@@ -543,7 +550,8 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                  std::vector<ComponentNHData> 
                                                  comp_nh_list,
                                                  uint32_t label,
-                                                 const string &dest_vn_name) {
+                                                 const string &dest_vn_name,
+                                                 const SecurityGroupList &sg) {
     DBRequest nh_req;
     NextHopKey *key;
     CompositeNHData *data;
@@ -565,7 +573,8 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                                dest_vn_name, 
                                                                label, 
                                                                false,
-                                                               vm_vrf, nh_req);
+                                                               vm_vrf, sg, 
+                                                               nh_req);
     req.data.reset(rt_data);
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&req);
@@ -579,7 +588,8 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
                                                std::vector<ComponentNHData> 
                                                comp_nh_list,
                                                uint32_t label,
-                                               const string &dest_vn_name) {
+                                               const string &dest_vn_name, 
+                                               const SecurityGroupList &sg) {
     DBRequest nh_req;
     NextHopKey *key;
     CompositeNHData *data;
@@ -599,7 +609,8 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
                                                                dest_vn_name,
                                                                label,
                                                                true,
-                                                               vm_vrf, nh_req);
+                                                               vm_vrf, sg, 
+                                                               nh_req);
     req.data.reset(rt_data);
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Process(req);

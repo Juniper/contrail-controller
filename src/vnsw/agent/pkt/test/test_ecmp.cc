@@ -151,6 +151,7 @@ public:
 
         int remote_server_ip = 0x0A0A0A0A;
         int label = 16;
+        SecurityGroupList sg_id_list;
 
         for(int i = 0; i < count; i++) {
             ComponentNHData comp_nh(label,Agent::GetInstance()->GetDefaultVrf(),
@@ -164,7 +165,7 @@ public:
         }
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(bgp_peer, vrf_name, vm_ip, plen, 
-                                comp_nh_list, -1, vn);
+                                comp_nh_list, -1, vn, sg_id_list);
     }
 
     void AddLocalVmRoute(const string vrf_name, const string ip, uint32_t plen,
@@ -392,8 +393,9 @@ TEST_F(EcmpTest, EcmpTest_8) {
                                   server_ip3, false, TunnelType::AllType());
     comp_nh.push_back(comp_nh_data3);
 
+    SecurityGroupList sg_list;
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-        AddRemoteVmRouteReq(NULL, "vrf2", ip, 24, comp_nh, -1, "vn2");
+        AddRemoteVmRouteReq(NULL, "vrf2", ip, 24, comp_nh, -1, "vn2", sg_list);
     client->WaitForIdle();
 
     //VIP of vrf2 interfaces
