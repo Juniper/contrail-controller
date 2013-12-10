@@ -704,9 +704,10 @@ TEST_F(CfgTest, EcmpNH_5) {
     comp_nh_list.push_back(nh_data2);
     comp_nh_list.push_back(nh_data1);
 
+    SecurityGroupList sg_id_list;
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32,
-                            comp_nh_list, -1, "vn2");
+                            comp_nh_list, -1, "vn2", sg_id_list);
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);
@@ -774,9 +775,10 @@ TEST_F(CfgTest, EcmpNH_6) {
     comp_nh_list.push_back(nh_data1);
     comp_nh_list.push_back(nh_data2);
 
+    SecurityGroupList sg_list;
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddRemoteVmRouteReq(NULL, "vrf2", remote_vm_ip, 32,
-                            comp_nh_list, -1, "vn2");
+                            comp_nh_list, -1, "vn2", sg_list);
     client->WaitForIdle();
     Inet4UnicastRouteEntry *rt = RouteGet("vrf2", remote_vm_ip, 32);
     EXPECT_TRUE(rt != NULL);

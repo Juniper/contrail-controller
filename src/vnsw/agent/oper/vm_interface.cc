@@ -536,6 +536,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
                            uint32_t plen, bool policy) {
     ComponentNHData component_nh_data(label_, GetUuid(), 
                                       InterfaceNHFlags::INET4);
+
     VrfEntry *vrf_entry = 
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     uint32_t nh_count = vrf_entry->GetNHCount(addr);
@@ -545,10 +546,11 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
         nh_count = nh_count - 1;
     }
 
+    SecurityGroupList sg_id_list;
+    set_sg_list(sg_id_list);
+       
     if (nh_count == 0) {
         //Default add VM receive route
-        SecurityGroupList sg_id_list;
-        set_sg_list(sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute(
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          vrf_name, addr, plen, GetUuid(), 
@@ -587,7 +589,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          vrf_name, addr, plen, 
                                          component_nh_list, new_label,
-                                         vn_->GetName());
+                                         vn_->GetName(), sg_id_list);
 
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, vrf_name, addr);
@@ -939,9 +941,10 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
         return;
     }
 
+    SecurityGroupList sg_id_list;
+    set_sg_list(sg_id_list);
+
     if (vrf_entry->GetNHCount(entry.addr_) == 0) {
-        SecurityGroupList sg_id_list;
-        set_sg_list(sg_id_list);
         Inet4UnicastAgentRouteTable::AddVlanNHRoute(
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          entry.vrf_->GetName(), 
@@ -981,7 +984,7 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          entry.vrf_->GetName(), entry.addr_,
                                          32, component_nh_list, new_label,
-                                         vn()->GetName());
+                                         vn()->GetName(), sg_id_list);
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, entry.vrf_->GetName(), 
                                    entry.addr_);

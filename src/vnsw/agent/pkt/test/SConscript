@@ -72,6 +72,7 @@ if sys.platform != 'darwin':
                       test_pkt_flow,
                       test_pkt_flow_mock,
                       test_pkt_parse,
+                      test_sg_flow,
                       ]
 
     test = env.TestSuite('agent-test', pkt_flow_suite)
