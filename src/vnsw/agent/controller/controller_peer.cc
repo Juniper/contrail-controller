@@ -333,7 +333,8 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
     //ECMP create component NH
     rt_table->AddRemoteVmRouteReq(bgp_peer_id_, vrf_name,
                                   prefix_addr, prefix_len, comp_nh_list, -1,
-                                  item->entry.virtual_network);
+                                  item->entry.virtual_network, 
+                                  item->entry.security_group_list.security_group);
 }
 
 void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name, 

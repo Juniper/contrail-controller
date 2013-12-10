@@ -511,11 +511,11 @@ public:
     Inet4UnicastEcmpRoute(const Ip4Address &dest_addr, 
                           const string &vn_name, 
                           uint32_t label, bool local_ecmp_nh, 
-                          const string &vrf_name, DBRequest &nh_req,
-                          Op op  = RouteData::CHANGE) :
+                          const string &vrf_name, SecurityGroupList sg_list,
+                          DBRequest &nh_req, Op op  = RouteData::CHANGE) :
         RouteData(op, false), dest_addr_(dest_addr),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
-        vrf_name_(vrf_name) {
+        vrf_name_(vrf_name), sg_list_(sg_list) {
             nh_req_.Swap(&nh_req);
         };
     virtual ~Inet4UnicastEcmpRoute() { };
@@ -528,6 +528,7 @@ private:
     uint32_t label_;
     bool local_ecmp_nh_;
     string vrf_name_;
+    SecurityGroupList sg_list_;
     DBRequest nh_req_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastEcmpRoute);
 };
@@ -752,12 +753,14 @@ public:
                                     const Ip4Address &vm_addr,uint8_t plen,
                                     std::vector<ComponentNHData> comp_nh_list,
                                     uint32_t label,
-                                    const string &dest_vn_name);
+                                    const string &dest_vn_name,
+                                    const SecurityGroupList &sg_list_);
     static void AddLocalEcmpRoute(const Peer *peer, const string &vm_vrf,
                                   const Ip4Address &vm_addr,uint8_t plen,
                                   std::vector<ComponentNHData> comp_nh_list,
                                   uint32_t label,
-                                  const string &dest_vn_name);
+                                  const string &dest_vn_name,
+                                  const SecurityGroupList &sg_list_);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
                          const Ip4Address &ip, 

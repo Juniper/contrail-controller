@@ -553,10 +553,11 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
         nh_count = nh_count - 1;
     }
 
+    SecurityGroupList sg_id_list;
+    set_sg_list(sg_id_list);
+       
     if (nh_count == 0) {
         //Default add VM receive route
-        SecurityGroupList sg_id_list;
-        set_sg_list(sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
             (agent->GetLocalVmPeer(), vrf_name, addr, plen, GetUuid(),
              vn_->GetName(), label_, sg_id_list);
@@ -592,7 +593,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
             (agent->GetLocalVmPeer(), vrf_name, addr, plen, component_nh_list,
-             new_label, vn_->GetName());
+             new_label, vn_->GetName(), sg_id_list);
 
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, vrf_name, addr);
@@ -952,9 +953,10 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
         return;
     }
 
+    SecurityGroupList sg_id_list;
+    set_sg_list(sg_id_list);
+
     if (vrf_entry->GetNHCount(entry.addr_) == 0) {
-        SecurityGroupList sg_id_list;
-        set_sg_list(sg_id_list);
         Inet4UnicastAgentRouteTable::AddVlanNHRoute
             (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32,
              GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list);
@@ -989,7 +991,7 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
             (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32,
-             component_nh_list, new_label, vn()->GetName());
+             component_nh_list, new_label, vn()->GetName(), sg_id_list);
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, entry.vrf_->GetName(), 
                                    entry.addr_);
