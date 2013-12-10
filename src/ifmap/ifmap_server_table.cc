@@ -216,13 +216,15 @@ void IFMapServerTable::Input(DBTablePartition *partition, DBClient *client,
     if (!data->id_name.empty()) {
         rtable = TableFind(database(), data->id_type);
         if (!rtable) {
-            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table", data->id_type);
+            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table",
+                        data->id_type);
             return;
         }
         mtable = TableFind(database(), data->metadata);
         if (mtable == NULL && request->oper == DBRequest::DB_ENTRY_ADD_CHANGE &&
             data->content.get() != NULL) {
-            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table", data->metadata);
+            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table",
+                        data->metadata);
             return;
         }
     }
