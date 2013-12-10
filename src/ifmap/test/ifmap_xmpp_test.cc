@@ -573,7 +573,7 @@ bool IsIFMapClientUnregistered(IFMapServer *ifmap_server,
 TEST_F(XmppIfmapTest, Connection) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Give the read file to the parser
@@ -639,7 +639,7 @@ TEST_F(XmppIfmapTest, Connection) {
 TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Give the read file to the parser
@@ -766,7 +766,7 @@ TEST_F(XmppIfmapTest, CheckClientGraphCleanupTest) {
 TEST_F(XmppIfmapTest, DeleteProperty) {
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -802,7 +802,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
     size_t cli_index = static_cast<size_t>(client->index());
 
     // Deleting one property
-    content = FileRead("src/ifmap/testdata/vn_prop_del.xml");
+    content = FileRead("controller/src/ifmap/testdata/vn_prop_del.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -838,7 +838,7 @@ TEST_F(XmppIfmapTest, DeleteProperty) {
 TEST_F(XmppIfmapTest, VrVmSubUnsub) {
 
     // Give the read file to the parser
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -940,7 +940,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
 TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1078,7 +1078,7 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
 TEST_F(XmppIfmapTest, VrVmSubThrice) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1217,7 +1217,7 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
 TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1343,7 +1343,7 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
 TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 
     // Give the read file to the parser
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1433,7 +1433,7 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 TEST_F(XmppIfmapTest, RegBeforeConfig) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Create the mock client
@@ -1544,7 +1544,8 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli1_vn1_vm3_add.xml"));
+    string content =
+        FileRead("controller/src/ifmap/testdata/cli1_vn1_vm3_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1601,7 +1602,7 @@ TEST_F(XmppIfmapTest, Cli1Vn1Vm3Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_client->OutputFileCompare(
-        string("src/ifmap/testdata/cli1_vn1_vm3_add.master_output"));
+        "controller/src/ifmap/testdata/cli1_vn1_vm3_add.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_client->Shutdown();
@@ -1623,7 +1624,8 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli1_vn2_np1_add.xml"));
+    string content =
+        FileRead("controller/src/ifmap/testdata/cli1_vn2_np1_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1680,7 +1682,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np1Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_client->OutputFileCompare(
-        string("src/ifmap/testdata/cli1_vn2_np1_add.master_output"));
+        "controller/src/ifmap/testdata/cli1_vn2_np1_add.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_client->Shutdown();
@@ -1702,7 +1704,8 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli1_vn2_np2_add.xml"));
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli1_vn2_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1758,7 +1761,7 @@ TEST_F(XmppIfmapTest, Cli1Vn2Np2Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_client->OutputFileCompare(
-        string("src/ifmap/testdata/cli1_vn2_np2_add.master_output"));
+        "controller/src/ifmap/testdata/cli1_vn2_np2_add.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_client->Shutdown();
@@ -1780,7 +1783,8 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli2_vn2_np2_add.xml"));
+    string content = 
+        FileRead("controller/src/ifmap/testdata/cli2_vn2_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1864,10 +1868,10 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_cli1->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn2_np2_add_a1s27.master_output"));
+        "controller/src/ifmap/testdata/cli2_vn2_np2_add_a1s27.master_output");
     EXPECT_EQ(true, bresult);
     bresult = vnsw_cli2->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn2_np2_add_a1s28.master_output"));
+        "controller/src/ifmap/testdata/cli2_vn2_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_cli1->Shutdown();
@@ -1899,7 +1903,8 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli2_vn2_vm2_add.xml"));
+    string content=
+        FileRead("controller/src/ifmap/testdata/cli2_vn2_vm2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -1983,10 +1988,10 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_cli1->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn2_vm2_add_a1s27.master_output"));
+        "controller/src/ifmap/testdata/cli2_vn2_vm2_add_a1s27.master_output");
     EXPECT_EQ(true, bresult);
     bresult = vnsw_cli2->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn2_vm2_add_a1s28.master_output"));
+        "controller/src/ifmap/testdata/cli2_vn2_vm2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_cli1->Shutdown();
@@ -2018,7 +2023,8 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/cli2_vn3_vm6_np2_add.xml"));
+    string content =
+        FileRead("controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -2118,10 +2124,10 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
 
     // Compare the contents of the received buffer with master_file_path
     bool bresult = vnsw_cli1->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s27.master_output"));
+      "controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s27.master_output");
     EXPECT_EQ(true, bresult);
     bresult = vnsw_cli2->OutputFileCompare(
-        string("src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s28.master_output"));
+      "controller/src/ifmap/testdata/cli2_vn3_vm6_np2_add_a1s28.master_output");
     EXPECT_EQ(true, bresult);
 
     vnsw_cli1->Shutdown();
@@ -2154,7 +2160,8 @@ TEST_F(XmppIfmapTest, CfgSubUnsub) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content =
+        FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -2309,7 +2316,7 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -2398,7 +2405,8 @@ TEST_F(XmppIfmapTest, CfgAdd_Reg_CfgDel_Unreg) {
     EXPECT_TRUE(LinkOriginLookup(link, IFMapOrigin::XMPP));
 
     // Delete the vr and all the vms via config
-    string content1(FileRead("src/ifmap/testdata/vr_3vm_delete.xml"));
+    string content1 = 
+        FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content1.size() != 0);
     parser_->Receive(&db_, content1.data(), content1.size(), 0);
     task_util::WaitForIdle();
@@ -2540,7 +2548,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
                 "43d086ab-52c4-4a1f-8c3d-63b321e36e8a") == NULL);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -2586,7 +2594,8 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_CfgDel_Unreg) {
     EXPECT_TRUE(NodeOriginLookup(vm3, IFMapOrigin::XMPP));
 
     // Delete the vr and all the vms via config
-    string content1(FileRead("src/ifmap/testdata/vr_3vm_delete.xml"));
+    string content1 = 
+        FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content1.size() != 0);
     parser_->Receive(&db_, content1.data(), content1.size(), 0);
     task_util::WaitForIdle();
@@ -2729,7 +2738,8 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
                 "43d086ab-52c4-4a1f-8c3d-63b321e36e8a") == NULL);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content =
+        FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml");
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -2806,7 +2816,8 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_CfgDel) {
     TASK_UTIL_EXPECT_TRUE(LinkLookup(vr, vm3) == NULL);
 
     // Delete the vr and all the vms via config
-    string content1(FileRead("src/ifmap/testdata/vr_3vm_delete.xml"));
+    string content1 = 
+        FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content1.size() != 0);
     parser_->Receive(&db_, content1.data(), content1.size(), 0);
     task_util::WaitForIdle();
@@ -2905,7 +2916,7 @@ TEST_F(XmppIfmapTest, Reg_CfgAdd_Unreg_Close) {
                 "43d086ab-52c4-4a1f-8c3d-63b321e36e8a") == NULL);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -3079,7 +3090,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     vm_uuid_mapper_->PrintAllPendingVmRegEntries();
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -3152,7 +3163,8 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     TASK_UTIL_EXPECT_EQ(vnsw_client->Count(), 7);
 
     // Delete the vr and all the vms via config
-    string content1(FileRead("src/ifmap/testdata/vr_3vm_delete.xml"));
+    string content1 =
+        FileRead("controller/src/ifmap/testdata/vr_3vm_delete.xml");
     assert(content1.size() != 0);
     parser_->Receive(&db_, content1.data(), content1.size(), 0);
     task_util::WaitForIdle();
@@ -3203,7 +3215,7 @@ TEST_F(XmppIfmapTest, CheckIFMapObjectSeqInList) {
     // New cycle - the nodes do not exist right now
     
     // Read from config first
-    content1 = string(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    content1 = string(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content1.size() != 0);
     parser_->Receive(&db_, content1.data(), content1.size(), 0);
     task_util::WaitForIdle();
@@ -3321,7 +3333,7 @@ TEST_F(XmppIfmapTest, Bug788) {
     SetObjectsPerMessage(1);
 
     // Read the ifmap data from file and give it to the parser
-    string content(FileRead("src/ifmap/testdata/vr_3vm_add.xml"));
+    string content(FileRead("controller/src/ifmap/testdata/vr_3vm_add.xml"));
     assert(content.size() != 0);
     parser_->Receive(&db_, content.data(), content.size(), 0);
     task_util::WaitForIdle();
@@ -3446,7 +3458,7 @@ TEST_F(XmppIfmapTest, Bug788) {
 TEST_F(XmppIfmapTest, SpuriousVrSub) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Give the read file to the parser
@@ -3517,7 +3529,7 @@ TEST_F(XmppIfmapTest, SpuriousVrSub) {
 TEST_F(XmppIfmapTest, VmSubUnsubWithNoVrSub) {
 
     // Read the ifmap data from file
-    string content(FileRead("src/ifmap/testdata/two-vn-connection"));
+    string content(FileRead("controller/src/ifmap/testdata/two-vn-connection"));
     assert(content.size() != 0);
 
     // Give the read file to the parser
