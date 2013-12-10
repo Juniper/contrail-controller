@@ -579,7 +579,8 @@ bool ServiceChainMgr::RequestHandler(ServiceChainRequest *req) {
             std::vector<ShowServicechainInfo> list;
             RoutingInstanceMgr::RoutingInstanceIterator rit = 
                 server()->routing_instance_mgr()->begin();
-            for (;rit != server()->routing_instance_mgr()->end(); rit++) {
+            for (;rit != server()->routing_instance_mgr()->end() && 
+                 !rit->deleted(); rit++) {
                 ShowServicechainInfo info;
                 const autogen::RoutingInstance *rti = rit->config()->instance_config();
                 if (rti && rti->IsPropertySet(autogen::RoutingInstance::SERVICE_CHAIN_INFORMATION)) {
