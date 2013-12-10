@@ -354,6 +354,7 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
+  curl_easy_setopt(conn->easy, CURLOPT_CONNECTTIMEOUT, 4L); // in secs
   if (timeout) {
       /* set the timeout limits to abort the connection */
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);
