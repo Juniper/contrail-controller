@@ -1337,6 +1337,24 @@ bool CompositeNH::Change(const DBRequest* req) {
     return true;
 }
 
+const NextHop* CompositeNH::GetLocalNextHop() const {
+    const NextHop *nh = NULL;
+    if ((nh = GetLocalCompositeNH()) == NULL) {
+        //Get interface NH inside composite NH
+        ComponentNHList::const_iterator component_nh_it = begin();
+        while (component_nh_it != end()) {
+            if (*component_nh_it &&
+                ((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE ||
+                (*component_nh_it)->GetNH()->GetType() == NextHop::VLAN))  {
+                nh = (*component_nh_it)->GetNH();
+                break;
+            }
+            component_nh_it++;
+        }
+    }
+    return nh;
+}
+
 CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
     NextHopKey *key = NULL;
     if (comp_type_ != Composite::ECMP) {

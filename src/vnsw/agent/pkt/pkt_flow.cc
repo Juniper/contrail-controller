@@ -867,29 +867,22 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
     const NextHop *nh = ctrl->rt_->GetActiveNextHop();
     if (nh->GetType() == NextHop::COMPOSITE && flow->local_flow == false && 
         ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
-        const CompositeNH *comp_nh = 
-            static_cast<const CompositeNH *>(nh);
-        //Get nexthop pointed by local mpls label
-        if (ctrl->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
-            nh = ctrl->rt_->FindPath(
-                    Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
-        } else if (comp_nh->GetLocalCompositeNH()) {
-            const CompositeNH *comp_nh = 
-                static_cast<const CompositeNH *>(nh);
-            nh = comp_nh->GetLocalCompositeNH();
-        } else {
-            //Get interface NH inside composite NH
-            CompositeNH::ComponentNHList::const_iterator component_nh_it = 
-                comp_nh->begin();
-            while (component_nh_it != comp_nh->begin()) {
-                if (*component_nh_it && 
-                    (*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE) {
-                    nh = (*component_nh_it)->GetNH();
-                    break;
-                }
-                component_nh_it++;
-            }
-        }
+            //Logic for RPF check for ecmp
+            //  Get reverse flow, and its corresponding ecmp index
+            //  Check if source matches composite nh in reverse flow ecmp index,
+            //  if not DP would trap packet for ECMP resolve.
+            //  If there is only one instance of ECMP in compute node, then 
+            //  RPF NH would only point to local interface NH.
+            //  If there are multiple instances of ECMP in local server
+            //  then RPF NH would point to local composite NH(containing 
+            //  local members only)
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+        nh = comp_nh->GetLocalNextHop();
+    }
+
+    if (!nh) {
+        flow->data.nh_state_ = NULL;
+        return;
     }
     flow->data.nh_state_ = static_cast<const NhState *>(
                            nh->GetState(Agent::GetInstance()->GetNextHopTable(),

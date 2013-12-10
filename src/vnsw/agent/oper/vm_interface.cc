@@ -1136,6 +1136,9 @@ bool VmInterface::OnResyncServiceVlan(VmInterfaceData *data) {
             cfg_it++;
             VrfEntry *vrf = 
                 Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
+            if (vlan.installed_ == false) {
+                 ServiceVlanRouteAdd(vlan);
+            }
             if (vlan.vrf_.get() != vrf) {
                 ServiceVlanRouteDel(vlan);
                 vlan.vrf_ = vrf;
