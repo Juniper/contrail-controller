@@ -81,9 +81,9 @@ class DiscoveryZkClient(object):
     # end
 
     def create_node(self, path, value='', makepath=False):
-        try:
+        if self._zk.exists(path):
             self._zk.set(path, value)
-        except kazoo.exceptions.NoNodeException:
+        else:
             self._zk.create(path, value, makepath=makepath)
             self.syslog('create %s' % (path))
     # end create_node
