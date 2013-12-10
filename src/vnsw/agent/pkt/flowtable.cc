@@ -741,9 +741,13 @@ void FlowTable::DeleteAll()
 
     it = flow_entry_map_.begin();
     while (it != flow_entry_map_.end()) {
-        FlowKey fekey = it->second->key;
+        FlowEntry *entry = it->second;
         ++it;
-        DeleteNatFlow(fekey, true);
+        if (it != flow_entry_map_.end() &&
+            it->second == entry->data.reverse_flow.get()) {
+            ++it;
+        }
+        DeleteNatFlow(entry->key, true);
     }
 }
 
