@@ -803,11 +803,13 @@ bool FlowHandler::Run() {
     if (in.rt_) {
         const AgentPath *path = in.rt_->GetActivePath();
         info.source_sg_id_l = &(path->GetSecurityGroupList());
+        info.source_plen = in.rt_->GetPlen();
     }
 
     if (out.rt_) {
         const AgentPath *path = out.rt_->GetActivePath();
         info.dest_sg_id_l = &(path->GetSecurityGroupList());
+        info.dest_plen = out.rt_->GetPlen();
     }
 
     if (info.source_vn == NULL)
@@ -920,6 +922,8 @@ void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
     flow->data.ecmp = ecmp;
     flow->data.component_nh_idx = out_component_nh_idx;
     flow->data.trap = false;
+    flow->data.source_plen = source_plen;
+    flow->data.dest_plen = dest_plen;
 }
 
 void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
@@ -952,4 +956,6 @@ void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
     flow->data.ecmp = ecmp;
     flow->data.component_nh_idx = in_component_nh_idx;
     flow->data.trap = trap_rev_flow;
+    flow->data.source_plen = dest_plen;
+    flow->data.dest_plen = source_plen;
 }
