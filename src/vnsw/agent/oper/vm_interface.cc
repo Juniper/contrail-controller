@@ -555,6 +555,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
 
     SecurityGroupList sg_id_list;
     set_sg_list(sg_id_list);
+       
     if (nh_count == 0) {
         //Default add VM receive route
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
@@ -994,8 +995,9 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
             (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_,
-             entry.plen_, component_nh_list, new_label, vn()->GetName(),
+             entry.plne_, component_nh_list, new_label, vn()->GetName(),
              sg_id_list);
+
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, entry.vrf_->GetName(), 
                                    entry.addr_, entry.plen_);
