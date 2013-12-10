@@ -45,13 +45,26 @@ class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 struct RouteFlowKey {
-    RouteFlowKey() : vrf(0) { ip.ipv4 = 0;};
-    RouteFlowKey(uint32_t v, uint32_t ipv4) : vrf(v) { ip.ipv4 = ipv4;};
+    RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0;};
+    RouteFlowKey(uint32_t v, uint32_t ipv4, uint8_t prefix) : 
+        vrf(v), plen(prefix) { 
+        ip.ipv4 = GetPrefix(ipv4, prefix);
+    };
     ~RouteFlowKey() {};
+    static int32_t GetPrefix(uint32_t ip, uint8_t plen) {
+        //Mask prefix
+        uint8_t host = 32;
+        uint32_t mask = (0xFFFFFFFF << (host - plen));
+        return (ip & mask);
+    };
+
     uint32_t vrf;
     union {
         uint32_t ipv4;
     } ip;
+    uint8_t plen;
+    bool FlowSrcMatch(FlowEntry *flow) const;
+    bool FlowDestMatch(FlowEntry *flow) const;
 };
 
 struct RouteFlowKeyCmp {
@@ -59,7 +72,10 @@ struct RouteFlowKeyCmp {
         if (lhs.vrf != rhs.vrf) {
             return lhs.vrf < rhs.vrf;
         }
-        return lhs.ip.ipv4 < rhs.ip.ipv4;
+        if (lhs.ip.ipv4 != rhs.ip.ipv4) {
+            return lhs.ip.ipv4 < rhs.ip.ipv4;
+        }
+        return lhs.plen < rhs.plen;
     }
 };
 
@@ -87,7 +103,8 @@ public:
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), mdata_flow(false), ecmp(false),
-        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false) {
+        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
+        source_plen(0), dest_plen(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -160,6 +177,8 @@ public:
     uint32_t            in_component_nh_idx;
     uint32_t            out_component_nh_idx;
     bool                trap_rev_flow;
+    uint8_t             source_plen;
+    uint8_t             dest_plen;
 };
 
 struct FlowKey {
@@ -245,7 +264,8 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false), nh_state_(NULL) {};
+        bytes(0), packets(0), trap(false), nh_state_(NULL), source_plen(0),
+        dest_plen(0) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -274,6 +294,8 @@ struct FlowData {
     uint64_t packets;
     bool trap;
     NhStatePtr nh_state_;
+    uint8_t source_plen;
+    uint8_t dest_plen;
 };
 
 class FlowEntry {

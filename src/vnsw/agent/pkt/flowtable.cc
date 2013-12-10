@@ -75,6 +75,27 @@ static uint32_t ReflexiveAction(uint32_t action) {
     return (action |= (1 << TrafficAction::TRAP));
 }
 
+
+bool RouteFlowKey::FlowSrcMatch(FlowEntry *flow) const {
+    uint32_t prefix = GetPrefix(flow->key.src.ipv4, flow->data.source_plen);
+    if (flow->data.flow_source_vrf == vrf &&
+        prefix == ip.ipv4 &&
+        flow->data.source_plen == plen) {
+        return true;
+    }
+    return false;
+}
+
+bool RouteFlowKey::FlowDestMatch(FlowEntry *flow) const {
+    uint32_t prefix = GetPrefix(flow->key.dst.ipv4, flow->data.dest_plen);
+    if (flow->data.flow_dest_vrf == vrf &&
+        prefix == ip.ipv4 &&
+        flow->data.dest_plen == plen) {
+        return true;
+    }
+    return false;
+}
+
 uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
                              std::list<MatchAclParams> &acl,
                              bool add_implicit_deny) {
@@ -993,7 +1014,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 
     // Handle delete cases
     if (marked_delete_ || route->IsDeleted()) {
-        RouteFlowKey rkey(route->GetVrfEntry()->GetVrfId(), route->GetIpAddress().to_ulong());
+        RouteFlowKey rkey(route->GetVrfEntry()->GetVrfId(),
+                          route->GetIpAddress().to_ulong(), route->GetPlen());
         FlowTable::GetFlowTableObject()->DeleteRouteFlows(rkey);
         if (state) {
             route->ClearState(partition->parent(), id_);
@@ -1007,7 +1029,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
         route->SetState(partition->parent(), id_, state);
     }
 
-    RouteFlowKey skey(route->GetVrfEntry()->GetVrfId(), route->GetIpAddress().to_ulong());
+    RouteFlowKey skey(route->GetVrfEntry()->GetVrfId(), 
+                      route->GetIpAddress().to_ulong(), route->GetPlen());
     sort (new_sg_l.begin(), new_sg_l.end());
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
@@ -1131,9 +1154,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
     while (it != fet.end()) {
         fet_it = it++;
         FlowEntry *flow = (*fet_it).get();
-       
-        if ((flow->data.flow_source_vrf != key.vrf) ||  
-            (flow->key.src.ipv4 != key.ip.ipv4)) {
+        if (key.FlowSrcMatch(flow) == false) {
             continue;
         }
 
@@ -1189,9 +1210,9 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
         MatchPolicy policy;
         fe->GetPolicy(fe->data.vn_entry.get(), &policy);
         fe->GetSgList(fe->data.intf_entry.get(), &policy);
-        if (key.vrf == fe->data.flow_source_vrf && key.ip.ipv4 == fe->key.src.ipv4) {
+        if (key.FlowSrcMatch(fe)) {
             fe->data.source_sg_id_l = sg_l;
-        } else if (key.vrf == fe->data.flow_dest_vrf && key.ip.ipv4 == fe->key.dst.ipv4) {
+        } else if (key.FlowDestMatch(fe)) {
             fe->data.dest_sg_id_l = sg_l;
         } else {
             FLOW_TRACE(Err, fe->flow_handle, 
@@ -1375,7 +1396,8 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe)
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 {
     RouteFlowTree::iterator rf_it;
-    RouteFlowKey skey(fe->data.flow_source_vrf, fe->key.src.ipv4);
+    RouteFlowKey skey(fe->data.flow_source_vrf, fe->key.src.ipv4, 
+                      fe->data.source_plen);
     rf_it = route_flow_tree_.find(skey);
     RouteFlowInfo *route_flow_info;
     if (rf_it != route_flow_tree_.end()) {
@@ -1386,8 +1408,9 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
             route_flow_tree_.erase(rf_it);
         }
     }
-    
-    RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key.dst.ipv4);
+   
+    RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key.dst.ipv4,
+                      fe->data.dest_plen);
     rf_it = route_flow_tree_.find(dkey);
     if (rf_it != route_flow_tree_.end()) {
         route_flow_info = rf_it->second;
@@ -1593,7 +1616,8 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
     RouteFlowTree::iterator it;
     RouteFlowInfo *route_flow_info;
     if (fe->data.flow_source_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey skey(fe->data.flow_source_vrf, fe->key.src.ipv4);
+        RouteFlowKey skey(fe->data.flow_source_vrf, fe->key.src.ipv4,
+                          fe->data.source_plen);
         it = route_flow_tree_.find(skey);
         if (it == route_flow_tree_.end()) {
             route_flow_info = new RouteFlowInfo();
@@ -1606,7 +1630,8 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
     }
 
     if (fe->data.flow_dest_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key.dst.ipv4);
+        RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key.dst.ipv4, 
+                          fe->data.dest_plen);
         it = route_flow_tree_.find(dkey);
         if (it == route_flow_tree_.end()) {
             route_flow_info = new RouteFlowInfo();
