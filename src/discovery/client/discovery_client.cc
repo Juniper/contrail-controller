@@ -278,7 +278,7 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
             // exponential back-off and retry
             resp->attempts_++; 
             resp->StartPublishConnectTimer(resp->GetConnectTime());
-        } else if ((resp->publish_cb_called_ == false)) {
+        } else if (resp->publish_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "PublishResponseHandler, Only header received",
                  serviceName, ec.value());
@@ -501,7 +501,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // exponential back-off and retry
             hdr->attempts_++; 
             hdr->StartSubscribeTimer(hdr->GetConnectTime());
-        } else  if ((hdr->subscribe_cb_called_ == false)) {
+        } else  if (hdr->subscribe_cb_called_ == false) {
             DISCOVERY_CLIENT_TRACE(DiscoveryClientErrorMsg,
                 "SubscribeResponseHandler, Only header received",
                  serviceName, ec.value());
