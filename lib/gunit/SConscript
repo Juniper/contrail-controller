@@ -13,6 +13,7 @@ include = [ gtest_path, gtest_path + '/include',
 
 if sys.platform == 'darwin':
     include.append('#/build/include/boost')
+    include.append('#/build/include')
 
 env.VariantDir(Dir('.').abspath + '/gtest', gtest_path + '/src')
 env.VariantDir(Dir('.').abspath + '/gmock', gmock_path + '/src')

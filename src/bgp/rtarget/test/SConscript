@@ -9,7 +9,7 @@ env = BuildEnv.Clone()
 
 env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
 
-env.Prepend(LIBS = ['gunit', 'rtarget'])
+env.Prepend(LIBS = ['gunit', 'rtarget', 'boost_regex'])
 
 rtarget_address_test = env.UnitTest('rtarget_address_test', ['rtarget_address_test.cc'])
 env.Alias('src/bgp/rtarget:rtarget_address_test', rtarget_address_test)
