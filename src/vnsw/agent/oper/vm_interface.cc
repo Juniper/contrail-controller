@@ -555,7 +555,6 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
 
     SecurityGroupList sg_id_list;
     set_sg_list(sg_id_list);
-       
     if (nh_count == 0) {
         //Default add VM receive route
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
