@@ -32,7 +32,6 @@
 
 
 using namespace std;
-using boost::system::error_code;
 
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
@@ -801,7 +800,7 @@ bool XmppStateMachine::OpenTimerExpired() {
 
 
 bool XmppStateMachine::HoldTimerExpired() {
-    error_code error;
+    boost::system::error_code error;
 
     // Reset hold timer if there is data already present in the socket.
     if (session() && session()->socket() &&

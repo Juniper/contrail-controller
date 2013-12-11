@@ -12,6 +12,7 @@
 
 #include "bgp/bgp_table.h"
 #include "bgp/community.h"
+#include "bgp/rtarget/rtarget_address.h"
 #include "db/db_table_walker.h"
 
 #include <sandesh/sandesh_trace.h>

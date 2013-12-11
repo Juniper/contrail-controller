@@ -24,8 +24,6 @@
 #include "testing/gunit.h"
 
 using namespace std;
-using namespace tbb;
-using boost::system::error_code;
 using namespace pugi;
 
 class TestMatchState : public ConditionMatchState {
@@ -67,7 +65,7 @@ public:
 
         // Some random match on key of the route
         if (prefix_.prefixlen() < inet_route->GetPrefix().prefixlen()) {
-            mutex::scoped_lock lock(mutex_);
+            tbb::mutex::scoped_lock lock(mutex_);
             if (deleted) {
                 if (state) {
                     assert(state->del_seen() != true);
@@ -95,17 +93,17 @@ public:
     }
 
     bool matched_routes_empty() {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         return match_list_.empty();
     }
 
     int matched_routes_size() {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         return match_list_.size();
     }
 
     BgpRoute *lookup_matched_routes(const Ip4Prefix &prefix) {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         MatchList::iterator it = match_list_.find(prefix);;
         if (it == match_list_.end()) {
             return NULL;
@@ -114,7 +112,7 @@ public:
     }
 
     void remove_matched_route(const Ip4Prefix &prefix) {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         MatchList::iterator it = match_list_.find(prefix);;
         assert(it != match_list_.end());
         match_list_.erase(it);
@@ -166,7 +164,7 @@ protected:
 
     void AddInetRoute(const string &instance_name, const string &prefix, 
                       int localpref=0) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
@@ -192,7 +190,7 @@ protected:
     }
 
     void DeleteInetRoute(const string &instance_name, const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
@@ -224,7 +222,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
         InetTable::RequestKey key(nlri, NULL);
@@ -289,7 +287,7 @@ protected:
         BgpTable *table = rti->GetTable(Address::INET);
         assert(table);
 
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 
@@ -311,7 +309,7 @@ protected:
         BgpTable *table = rti->GetTable(Address::INET);
         assert(table);
 
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         TASK_UTIL_EXPECT_FALSE(error != 0);
 

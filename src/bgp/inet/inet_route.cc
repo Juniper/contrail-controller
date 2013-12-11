@@ -6,7 +6,6 @@
 #include "bgp/inet/inet_table.h"
 
 using namespace std;
-using boost::system::error_code;
 
 Ip4Prefix::Ip4Prefix(const BgpProtoPrefix &prefix)
 : prefixlen_(prefix.prefixlen) {
@@ -41,9 +40,9 @@ int Ip4Prefix::CompareTo(const Ip4Prefix &rhs) const {
     return 0;
 }
 
-Ip4Prefix Ip4Prefix::FromString(const std::string &str, error_code *errorp) {
+Ip4Prefix Ip4Prefix::FromString(const std::string &str, boost::system::error_code *errorp) {
     Ip4Prefix prefix;
-    error_code pfxerr = Ip4PrefixParse(str, &prefix.ip4_addr_,
+    boost::system::error_code pfxerr = Ip4PrefixParse(str, &prefix.ip4_addr_,
                                        &prefix.prefixlen_);
     if (errorp != NULL) {
         *errorp = pfxerr;
@@ -76,7 +75,7 @@ string InetRoute::ToString() const {
 
 // Check whether 'this' is more specific than rhs.
 bool InetRoute::IsMoreSpecific(const string &match) const {
-    error_code ec;
+    boost::system::error_code ec;
 
     Ip4Prefix prefix = Ip4Prefix::FromString(match, &ec);
     if (!ec) {

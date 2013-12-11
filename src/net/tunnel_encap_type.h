@@ -22,6 +22,5 @@ public:
     static const std::string &TunnelEncapToString(TunnelEncapType::Encap encap);
 
 private:
-    Encap encap_;
 };
 #endif

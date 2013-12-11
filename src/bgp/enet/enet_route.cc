@@ -6,12 +6,11 @@
 #include "bgp/enet/enet_table.h"
 
 using namespace std;
-using boost::system::error_code;
 
 EnetPrefix::EnetPrefix(const BgpProtoPrefix &prefix) {
 }
 
-EnetPrefix EnetPrefix::FromString(const string &str, error_code *errorp) {
+EnetPrefix EnetPrefix::FromString(const string &str, boost::system::error_code *errorp) {
     EnetPrefix prefix;
 
     size_t pos1 = str.find(',');
@@ -22,7 +21,7 @@ EnetPrefix EnetPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
     string mac_str = str.substr(0, pos1);
-    error_code mac_err;
+    boost::system::error_code mac_err;
     prefix.mac_addr_ = MacAddress::FromString(mac_str, &mac_err);
     if (mac_err != 0) {
         if (errorp != NULL) {
@@ -32,7 +31,7 @@ EnetPrefix EnetPrefix::FromString(const string &str, error_code *errorp) {
     }
 
     string ip_str = str.substr(pos1 + 1, string::npos);
-    error_code ip_err;
+    boost::system::error_code ip_err;
     prefix.ip_prefix_ = Ip4Prefix::FromString(ip_str, &ip_err);
     if (ip_err != 0) {
         if (errorp != NULL) {

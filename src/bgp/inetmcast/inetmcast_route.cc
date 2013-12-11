@@ -6,13 +6,12 @@
 #include "bgp/inetmcast/inetmcast_table.h"
 
 using namespace std;
-using boost::system::error_code;
 
 InetMcastPrefix::InetMcastPrefix() {
 }
 
 InetMcastPrefix InetMcastPrefix::FromString(const string &str,
-        error_code *errorp) {
+        boost::system::error_code *errorp) {
     InetMcastPrefix prefix;
 
     size_t pos1 = str.rfind(':');
@@ -23,7 +22,7 @@ InetMcastPrefix InetMcastPrefix::FromString(const string &str,
         return prefix;
     }
     string rd_str = str.substr(0, pos1);
-    error_code rd_err;
+    boost::system::error_code rd_err;
     prefix.rd_ = RouteDistinguisher::FromString(rd_str, &rd_err);
     if (rd_err != 0) {
         if (errorp != NULL) {
@@ -40,7 +39,7 @@ InetMcastPrefix InetMcastPrefix::FromString(const string &str,
         return prefix;
     }
     string group_str = str.substr(pos1 + 1, pos2 - pos1 -1);
-    error_code group_err;
+    boost::system::error_code group_err;
     prefix.group_ = Ip4Address::from_string(group_str, group_err);
     if (group_err != 0) {
         if (errorp != NULL) {
@@ -50,7 +49,7 @@ InetMcastPrefix InetMcastPrefix::FromString(const string &str,
     }
 
     string source_str = str.substr(pos2 + 1, string::npos);
-    error_code source_err;
+    boost::system::error_code source_err;
     prefix.source_ = Ip4Address::from_string(source_str, source_err);
     if (source_err != 0) {
         if (errorp != NULL) {

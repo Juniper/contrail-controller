@@ -48,7 +48,7 @@ void Community::Remove() {
     comm_db_->Delete(this);
 }
 
-CommunityDB::CommunityDB(BgpServer *server) : server_(server) {
+CommunityDB::CommunityDB(BgpServer *server) {
 }
 
 std::string ExtCommunitySpec::ToString() const {
@@ -166,7 +166,7 @@ ExtCommunity::ExtCommunity(ExtCommunityDB *extcomm_db,
     communities_.erase(it, communities_.end());
 }
 
-ExtCommunityDB::ExtCommunityDB(BgpServer *server) : server_(server) {
+ExtCommunityDB::ExtCommunityDB(BgpServer *server) {
 }
 
 ExtCommunityPtr ExtCommunityDB::AppendAndLocate(const ExtCommunity *src,

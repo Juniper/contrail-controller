@@ -7,7 +7,6 @@
 #include <cassert>
 
 using namespace std;
-using namespace tbb;
 
 LabelBlockManager::LabelBlockManager() {
     refcount_ = 0;
@@ -18,7 +17,7 @@ LabelBlockManager::~LabelBlockManager() {
 }
 
 LabelBlockPtr LabelBlockManager::LocateBlock(uint32_t first, uint32_t last) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     for (LabelBlockList::iterator it = blocks_.begin();
          it != blocks_.end(); ++it) {
@@ -45,7 +44,7 @@ void LabelBlockManager::RemoveBlock(LabelBlock *block) {
 }
 
 size_t LabelBlockManager::size() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     return blocks_.size();
 }
 
@@ -73,7 +72,7 @@ LabelBlock::~LabelBlock() {
 }
 
 uint32_t LabelBlock::AllocateLabel() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     size_t pos;
     for (int idx = 0; idx < 2; prev_pos_ = BitSet::npos, idx++) {
@@ -94,7 +93,7 @@ uint32_t LabelBlock::AllocateLabel() {
 }
 
 void LabelBlock::ReleaseLabel(uint32_t value) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     assert(value >= first_ && value <= last_);
     size_t pos = value - first_;

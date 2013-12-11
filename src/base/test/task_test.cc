@@ -17,7 +17,6 @@ void TestWait(int max);
  * 2. Test with test_instance > 16, 32
  */
 using namespace std;
-using namespace tbb;
 
 class TestTask;
 

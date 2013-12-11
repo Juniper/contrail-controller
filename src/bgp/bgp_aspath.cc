@@ -96,6 +96,6 @@ void AsPath::Remove() {
     aspath_db_->Delete(this);
 }
 
-AsPathDB::AsPathDB(BgpServer *server) : server_(server) {
+AsPathDB::AsPathDB(BgpServer *server) {
 }
 

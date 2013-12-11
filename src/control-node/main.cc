@@ -47,7 +47,6 @@
 #include "discovery_client.h"
 
 using namespace std;
-using boost::system::error_code;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
@@ -386,7 +385,7 @@ int ReadCommandLineOptionsFromFile(int argc, char **argv,
 int main(int argc, char *argv[]) {
     bool enable_local_logging = false;
     bool disable_logging = false;
-    error_code error;
+    boost::system::error_code error;
     string hostname(host_name(error));
     const string default_log_file = "<stdout>";
     const unsigned long default_log_file_size = 10*1024*1024; // 10MB
