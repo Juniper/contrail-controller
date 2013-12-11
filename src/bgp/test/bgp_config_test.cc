@@ -137,7 +137,7 @@ static void ResumeDelete(LifetimeActor *actor) {
 // Instance delete order.
 
 TEST_F(BgpConfigManagerTest, MasterNeighbors) {
-    string content = FileRead("src/bgp/testdata/config_test_1.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     const BgpConfigData::BgpInstanceMap &instances =
@@ -216,7 +216,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighbors) {
 }
 
 TEST_F(BgpConfigManagerTest, MasterNeighborsAdd) {
-    string content_a = FileRead("src/bgp/testdata/config_test_15a.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_15a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
@@ -233,7 +233,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsAdd) {
 
     TASK_UTIL_EXPECT_EQ(2, neighbors.size());
 
-    string content_b = FileRead("src/bgp/testdata/config_test_15b.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_15b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
@@ -251,7 +251,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsAdd) {
 }
 
 TEST_F(BgpConfigManagerTest, MasterNeighborsDelete) {
-    string content_a = FileRead("src/bgp/testdata/config_test_16a.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_16a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
 
@@ -268,7 +268,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsDelete) {
 
     TASK_UTIL_EXPECT_EQ(6, neighbors.size());
 
-    string content_b = FileRead("src/bgp/testdata/config_test_16b.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_16b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
 
@@ -286,7 +286,7 @@ TEST_F(BgpConfigManagerTest, MasterNeighborsDelete) {
 }
 
 TEST_F(BgpConfigManagerTest, InstanceTargetExport1) {
-    string content = FileRead("src/bgp/testdata/config_test_7.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_7.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -313,7 +313,7 @@ TEST_F(BgpConfigManagerTest, InstanceTargetExport1) {
 }
 
 TEST_F(BgpConfigManagerTest, InstanceTargetExport2) {
-    string content = FileRead("src/bgp/testdata/config_test_8.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_8.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -341,7 +341,7 @@ TEST_F(BgpConfigManagerTest, InstanceTargetExport2) {
 }
 
 TEST_F(BgpConfigManagerTest, InstanceTargetImport1) {
-    string content = FileRead("src/bgp/testdata/config_test_9.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -368,7 +368,7 @@ TEST_F(BgpConfigManagerTest, InstanceTargetImport1) {
 }
 
 TEST_F(BgpConfigManagerTest, InstanceTargetImport2) {
-    string content = FileRead("src/bgp/testdata/config_test_10.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_10.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -396,7 +396,7 @@ TEST_F(BgpConfigManagerTest, InstanceTargetImport2) {
 }
 
 TEST_F(BgpConfigManagerTest, Instances) {
-    string content = FileRead("src/bgp/testdata/config_test_2.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(4, GetInstanceCount());
@@ -410,7 +410,7 @@ TEST_F(BgpConfigManagerTest, Instances) {
 }
 
 TEST_F(BgpConfigManagerTest, InstanceNeighbors) {
-    string content = FileRead("src/bgp/testdata/config_test_3.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_3.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     
@@ -424,7 +424,7 @@ TEST_F(BgpConfigManagerTest, InstanceNeighbors) {
     const BgpNeighborConfig *peer = neighbors.begin()->second;
     TASK_UTIL_EXPECT_EQ(2, peer->peer_as());
 
-    string update = FileRead("src/bgp/testdata/config_test_4.xml");
+    string update = FileRead("controller/src/bgp/testdata/config_test_4.xml");
     EXPECT_TRUE(parser_.Parse(update));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(2, neighbors.size());
@@ -457,7 +457,7 @@ TEST_F(BgpConfigManagerTest, InstanceNeighbors) {
 // Server data structures.
 // Create/update/delete.
 TEST_F(BgpConfigTest, MasterNeighbors) {
-    string content = FileRead("src/bgp/testdata/config_test_5.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_5.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     RoutingInstance *rti = server_.routing_instance_mgr()->GetRoutingInstance(
@@ -495,9 +495,9 @@ TEST_F(BgpConfigTest, MasterNeighbors) {
 // after deletion is resumed.
 //
 TEST_F(BgpConfigTest, DelayDeletedNeighbor) {
-    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
-    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
-    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_18c.xml");
 
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
@@ -545,9 +545,9 @@ TEST_F(BgpConfigTest, DelayDeletedNeighbor) {
 // been destroyed.
 //
 TEST_F(BgpConfigTest, CreateDeletedNeighbor) {
-    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
-    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
-    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_18c.xml");
 
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
@@ -606,10 +606,10 @@ TEST_F(BgpConfigTest, CreateDeletedNeighbor) {
 // after the old incarnation has been destroyed.
 //
 TEST_F(BgpConfigTest, UpdateDeletedNeighbor) {
-    string content_a = FileRead("src/bgp/testdata/config_test_19a.xml");
-    string content_b = FileRead("src/bgp/testdata/config_test_19b.xml");
-    string content_c = FileRead("src/bgp/testdata/config_test_19c.xml");
-    string content_d = FileRead("src/bgp/testdata/config_test_19d.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_19a.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_19b.xml");
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_19c.xml");
+    string content_d = FileRead("controller/src/bgp/testdata/config_test_19d.xml");
 
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
@@ -679,9 +679,9 @@ TEST_F(BgpConfigTest, UpdateDeletedNeighbor) {
 // has been destroyed.
 //
 TEST_F(BgpConfigTest, DeleteDeletedNeighbor) {
-    string content_a = FileRead("src/bgp/testdata/config_test_18a.xml");
-    string content_b = FileRead("src/bgp/testdata/config_test_18b.xml");
-    string content_c = FileRead("src/bgp/testdata/config_test_18c.xml");
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_18a.xml");
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_18b.xml");
+    string content_c = FileRead("controller/src/bgp/testdata/config_test_18c.xml");
 
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
@@ -738,7 +738,7 @@ TEST_F(BgpConfigTest, DeleteDeletedNeighbor) {
 }
 
 TEST_F(BgpConfigTest, InstanceTargetExport1) {
-    string content = FileRead("src/bgp/testdata/config_test_7.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_7.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -769,7 +769,7 @@ TEST_F(BgpConfigTest, InstanceTargetExport1) {
 }
 
 TEST_F(BgpConfigTest, InstanceTargetExport2) {
-    string content = FileRead("src/bgp/testdata/config_test_8.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_8.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -802,7 +802,7 @@ TEST_F(BgpConfigTest, InstanceTargetExport2) {
 }
 
 TEST_F(BgpConfigTest, InstanceTargetImport1) {
-    string content = FileRead("src/bgp/testdata/config_test_9.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_9.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -833,7 +833,7 @@ TEST_F(BgpConfigTest, InstanceTargetImport1) {
 }
 
 TEST_F(BgpConfigTest, InstanceTargetImport2) {
-    string content = FileRead("src/bgp/testdata/config_test_10.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_10.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -866,7 +866,7 @@ TEST_F(BgpConfigTest, InstanceTargetImport2) {
 }
 
 TEST_F(BgpConfigTest, Instances) {
-    string content = FileRead("src/bgp/testdata/config_test_2.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -949,7 +949,7 @@ TEST_F(BgpConfigTest, Instances) {
 }
 
 TEST_F(BgpConfigTest, Instances2) {
-    string content = FileRead("src/bgp/testdata/config_test_6.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_6.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -995,7 +995,7 @@ TEST_F(BgpConfigTest, Instances2) {
 }
 
 TEST_F(BgpConfigTest, Instances3) {
-    string content = FileRead("src/bgp/testdata/config_test_11.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_11.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1041,7 +1041,7 @@ TEST_F(BgpConfigTest, Instances3) {
 }
 
 TEST_F(BgpConfigTest, InstancesDelayDelete) {
-    string content = FileRead("src/bgp/testdata/config_test_17.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_17.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1072,7 +1072,7 @@ TEST_F(BgpConfigTest, InstancesDelayDelete) {
     TASK_UTIL_EXPECT_EQ(2, mgr->count());
     TASK_UTIL_EXPECT_TRUE(red->deleted());
 
-    content = FileRead("src/bgp/testdata/config_test_7.xml");
+    content = FileRead("controller/src/bgp/testdata/config_test_7.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1110,7 +1110,7 @@ TEST_F(BgpConfigTest, InstancesDelayDelete) {
 }
 
 TEST_F(BgpConfigTest, UpdatePendingDelete) {
-    string content = FileRead("src/bgp/testdata/config_test_17.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_17.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1141,7 +1141,7 @@ TEST_F(BgpConfigTest, UpdatePendingDelete) {
     TASK_UTIL_EXPECT_EQ(2, mgr->count());
     TASK_UTIL_EXPECT_TRUE(red->deleted());
 
-    content = FileRead("src/bgp/testdata/config_test_6.xml");
+    content = FileRead("controller/src/bgp/testdata/config_test_6.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1197,7 +1197,7 @@ TEST_F(BgpConfigTest, UpdatePendingDelete) {
 }
 
 TEST_F(BgpConfigTest, DeletePendingDelete) {
-    string content = FileRead("src/bgp/testdata/config_test_17.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_17.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1228,7 +1228,7 @@ TEST_F(BgpConfigTest, DeletePendingDelete) {
     TASK_UTIL_EXPECT_EQ(2, mgr->count());
     TASK_UTIL_EXPECT_TRUE(red->deleted());
 
-    content = FileRead("src/bgp/testdata/config_test_7.xml");
+    content = FileRead("controller/src/bgp/testdata/config_test_7.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1248,7 +1248,7 @@ TEST_F(BgpConfigTest, DeletePendingDelete) {
 // The per session address-families config should be used if present.
 //
 TEST_F(BgpConfigTest, AddressFamilies1) {
-    string content = FileRead("src/bgp/testdata/config_test_12.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_12.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1274,7 +1274,7 @@ TEST_F(BgpConfigTest, AddressFamilies1) {
 // there's no per session address-families configuration.
 //
 TEST_F(BgpConfigTest, AddressFamilies2) {
-    string content = FileRead("src/bgp/testdata/config_test_13.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_13.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1301,7 +1301,7 @@ TEST_F(BgpConfigTest, AddressFamilies2) {
 // for the session or the local bgp-router.
 //
 TEST_F(BgpConfigTest, AddressFamilies3) {
-    string content = FileRead("src/bgp/testdata/config_test_14.xml");
+    string content = FileRead("controller/src/bgp/testdata/config_test_14.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -1353,7 +1353,7 @@ class IFMapConfigTest : public ::testing::Test {
 TEST_F(IFMapConfigTest, InitialConfig) {
     bgp_server_->config_manager()->Initialize(&config_db_, &config_graph_,
                                               "system0001");
-    string content = FileRead("src/bgp/testdata/initial-config.xml");
+    string content = FileRead("controller/src/bgp/testdata/initial-config.xml");
     IFMapServerParser *parser =
         IFMapServerParser::GetInstance("schema");
     parser->Receive(&config_db_, content.data(), content.length(), 0);

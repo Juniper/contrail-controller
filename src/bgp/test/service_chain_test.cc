@@ -569,7 +569,7 @@ TEST_P(ServiceChainParamTest, Basic) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -620,7 +620,7 @@ TEST_P(ServiceChainParamTest, MoreSpecificAddDelete) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -690,7 +690,7 @@ TEST_P(ServiceChainParamTest, ConnectedAddDelete) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -743,7 +743,7 @@ TEST_P(ServiceChainParamTest, DeleteConnected) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -810,7 +810,7 @@ TEST_P(ServiceChainParamTest, StopServiceChain) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                                          "blue-i1", 
@@ -865,7 +865,7 @@ TEST_P(ServiceChainParamTest, ServiceChainWithExistingRouteEntries) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -921,7 +921,7 @@ TEST_P(ServiceChainParamTest, UpdateNexthop) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -986,7 +986,7 @@ TEST_P(ServiceChainParamTest, UpdateLabel) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1046,7 +1046,7 @@ TEST_P(ServiceChainParamTest, DeleteRoutingInstance) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1084,7 +1084,7 @@ TEST_P(ServiceChainParamTest, PendingChain) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1131,7 +1131,7 @@ TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1163,7 +1163,7 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_3.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_3.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1191,7 +1191,7 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
                              NULL, 1000, 10000, 
                              "Wait for Aggregate route in blue..");
 
-    params = GetChainConfig("src/bgp/testdata/service_chain_2.xml");
+    params = GetChainConfig("controller/src/bgp/testdata/service_chain_2.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1232,7 +1232,7 @@ TEST_P(ServiceChainParamTest, PeerUpdate) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.3", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1319,7 +1319,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
@@ -1425,7 +1425,7 @@ TEST_P(ServiceChainParamTest, EcmpPaths) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1511,7 +1511,7 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1594,7 +1594,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHADD) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1685,7 +1685,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHDEL) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1766,7 +1766,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
@@ -1918,7 +1918,7 @@ TEST_P(ServiceChainParamTest, IgnoreAggregateRoute) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -1982,7 +1982,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRoute) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2081,7 +2081,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnOnly) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
@@ -2156,7 +2156,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved1) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
@@ -2218,7 +2218,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteOriginVnUnresolved2) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params =
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance",
@@ -2268,7 +2268,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteCoveringSubnetPrefix) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2336,7 +2336,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteWithinSubnetPrefix) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2411,7 +2411,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteServiceChainUpdate) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2450,7 +2450,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteServiceChainUpdate) {
                              NULL, 1000, 10000, 
                              "Wait for Aggregate connect route in blue..");
 
-    params = GetChainConfig("src/bgp/testdata/service_chain_4.xml");
+    params = GetChainConfig("controller/src/bgp/testdata/service_chain_4.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2494,7 +2494,7 @@ TEST_P(ServiceChainParamTest, ExtConnectRouteServiceChainUpdate) {
                              NULL, 1000, 10000, 
                              "Wait for Aggregate connect route in blue..");
 
-    params = GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+    params = GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2547,7 +2547,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2629,7 +2629,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedMoreSpecificEcmpPaths) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2741,7 +2741,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -2847,7 +2847,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.2", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -3012,7 +3012,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapAggregate) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -3084,7 +3084,7 @@ TEST_P(ServiceChainParamTest, ValidateTunnelEncapExtRoute) {
     VerifyNetworkConfig(instance_names);
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -3166,7 +3166,7 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
@@ -3234,7 +3234,7 @@ TEST_P(ServiceChainParamTest, DeleteConnectedWithExtConnectRoute) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::ServiceChainInfo> params = 
-        GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
 
     // Service Chain Info
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 

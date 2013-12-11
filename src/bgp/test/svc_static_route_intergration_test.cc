@@ -384,11 +384,11 @@ protected:
         VerifyNetworkConfig(cn2_.get(), instance_names);
 
         std::auto_ptr<autogen::ServiceChainInfo> params = 
-            GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+            GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
         SetServiceChainProperty(cn1_.get(), params);
         task_util::WaitForIdle();
 
-        params = GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        params = GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
         SetServiceChainProperty(cn2_.get(), params);
         task_util::WaitForIdle();
 
@@ -986,12 +986,12 @@ TEST_P(ServiceIntergrationParamTest, SvcStaticRoute) {
     aggregate_enable_ = false;
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(cn1_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(cn2_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
@@ -1058,12 +1058,12 @@ TEST_P(ServiceIntergrationParamTest, MultipleL3Intf) {
     mx_push_connected_ = false;
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(cn1_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(cn2_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
