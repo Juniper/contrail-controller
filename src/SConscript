@@ -41,9 +41,6 @@ if sys.platform != 'darwin':
 
 include = ['#/controller/src', '#/build/include', '#controller/lib']
 
-if sys.platform == 'darwin':
-    include.append('#/build/include/boost')
-
 libpath = ['#/build/lib']
 
 libs = ['boost_system', 'tbb_debug', 'log4cplus', 'pthread']
