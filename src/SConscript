@@ -39,7 +39,10 @@ if sys.platform != 'darwin':
 if sys.platform != 'darwin':
     subdirs += ['docs']
 
-include = ['#/controller/src', '#/build/include', '#controller/lib' ]
+include = ['#/controller/src', '#/build/include', '#controller/lib']
+
+if sys.platform == 'darwin':
+    include.append('#/build/include/boost')
 
 libpath = ['#/build/lib']
 
@@ -50,7 +53,9 @@ common = DefaultEnvironment().Clone()
 
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
-common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare -Wno-unused-local-typedefs')
+common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+if not sys.platform.startswith('darwin'):
+    common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
 common.Append(CPPPATH = include)
 
 BuildEnv = common.Clone()

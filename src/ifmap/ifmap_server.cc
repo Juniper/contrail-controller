@@ -133,7 +133,7 @@ public:
                      const std::string &vr_name, const std::string &vm_uuid,
                      bool subscribe, bool has_vms):
             Task(TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0), 
-            db_(db), graph_(graph), ifmap_server_(server), vr_name_(vr_name),
+            db_(db), ifmap_server_(server), vr_name_(vr_name),
             vm_uuid_(vm_uuid), subscribe_(subscribe), has_vms_(has_vms) {
     }
 
@@ -171,7 +171,6 @@ public:
 
 private:
     DB *db_;
-    DBGraph *graph_;
     IFMapServer *ifmap_server_;
     std::string vr_name_;
     std::string vm_uuid_;

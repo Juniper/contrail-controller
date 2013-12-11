@@ -20,7 +20,6 @@
 using namespace boost::asio;
 using namespace boost::system;
 using namespace std;
-using tbb::mutex;
 
 int TcpSession::reader_task_id_ = -1;
 
@@ -78,7 +77,7 @@ mutable_buffer TcpSession::AllocateBuffer() {
     u_int8_t *data = new u_int8_t[buffer_size_];
     mutable_buffer buffer = mutable_buffer(data, buffer_size_);
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         buffer_queue_.push_back(buffer);
     }
     return buffer;
@@ -102,7 +101,7 @@ static int BufferCmp(const mutable_buffer &lhs, const const_buffer &rhs) {
 }
 
 void TcpSession::ReleaseBuffer(Buffer buffer) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     ReleaseBufferLocked(buffer);
 }
 
@@ -120,18 +119,18 @@ void TcpSession::ReleaseBufferLocked(Buffer buffer) {
 
 void TcpSession::AsyncReadStart() {
     mutable_buffer buffer = AllocateBuffer();
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (!established_) {
         ReleaseBufferLocked(buffer);
         return;
     }
     socket_->async_read_some(mutable_buffers_1(buffer),
         boost::bind(&TcpSession::AsyncReadHandler, TcpSessionPtr(this), buffer,
-                    placeholders::error, placeholders::bytes_transferred));
+                    boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
 }
 
 TcpSession::Endpoint TcpSession::local_endpoint() const {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (!established_) {
         return Endpoint();
     }
@@ -144,7 +143,7 @@ TcpSession::Endpoint TcpSession::local_endpoint() const {
 }
 
 void TcpSession::set_observer(EventObserver observer) {
-    mutex::scoped_lock lock(obs_mutex_);
+    tbb::mutex::scoped_lock lock(obs_mutex_);
     observer_ = observer;
 }
 
@@ -171,7 +170,7 @@ void TcpSession::SessionEstablished(Endpoint remote,
 bool TcpSession::Connected(Endpoint remote) {
     assert(refcount_);
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         if (closed_) {
             return false;
         }
@@ -182,7 +181,7 @@ bool TcpSession::Connected(Endpoint remote) {
                           "Active session connection complete");
 
     {
-        mutex::scoped_lock obs_lock(obs_mutex_);
+        tbb::mutex::scoped_lock obs_lock(obs_mutex_);
         if (observer_) {
             observer_(this, CONNECT_COMPLETE);
         }
@@ -195,7 +194,7 @@ bool TcpSession::Connected(Endpoint remote) {
 }
 
 void TcpSession::ConnectFailed() {
-    mutex::scoped_lock obs_lock(obs_mutex_);
+    tbb::mutex::scoped_lock obs_lock(obs_mutex_);
     if (observer_) {
         observer_(this, CONNECT_FAILED);
     }
@@ -203,7 +202,7 @@ void TcpSession::ConnectFailed() {
 
 // Requires: lock must not be held
 void TcpSession::CloseInternal(bool callObserver) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     if (socket_.get() != NULL && !closed_) {
         boost::system::error_code err;
@@ -222,7 +221,7 @@ void TcpSession::CloseInternal(bool callObserver) {
     lock.release();
 
     {
-        mutex::scoped_lock obs_lock(obs_mutex_);
+        tbb::mutex::scoped_lock obs_lock(obs_mutex_);
         if (callObserver == true && observer_) {
             observer_(session.get(), CLOSE);
         }
@@ -263,7 +262,7 @@ void TcpSession::AsyncWriteHandler(TcpSessionPtr session,
 
 bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
     bool ret = true;
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
 
     // Reset sent, if provided.
     if (sent) *sent = 0;
@@ -290,7 +289,7 @@ bool TcpSession::Send(const u_int8_t *data, size_t size, size_t *sent) {
         boost::asio::async_write(
             *socket_.get(), buffer(data, size),
             boost::bind(&TcpSession::AsyncWriteHandler, TcpSessionPtr(this),
-                        placeholders::error));
+                        boost::asio::placeholders::error));
         if (sent) *sent = size;
     }
     return ret;
@@ -300,7 +299,7 @@ void TcpSession::AsyncReadHandler(
     TcpSessionPtr session, mutable_buffer buffer,
     const boost::system::error_code &error, size_t bytes_transferred) {
 
-    mutex::scoped_lock lock(session->mutex_);
+    tbb::mutex::scoped_lock lock(session->mutex_);
     if (session->closed_) {
         session->ReleaseBufferLocked(buffer);
         return;
@@ -529,7 +528,7 @@ void TcpMessageReader::OnRead(Buffer buffer) {
 // socket. Soft errors like EINTR and EAGAIN should be ignored or properly
 // handled with retries
 //
-bool TcpSession::IsSocketErrorHard(const error_code &ec) {
+bool TcpSession::IsSocketErrorHard(const boost::system::error_code &ec) {
 
     if (!ec) return false;
 
@@ -545,9 +544,9 @@ bool TcpSession::IsSocketErrorHard(const error_code &ec) {
     return true;
 }
 
-error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
+boost::system::error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
         int keepalive_intvl, int keepalive_probes) {
-    error_code ec;
+    boost::system::error_code ec;
     socket_base::keep_alive keep_alive_option(true);
     socket_->set_option(keep_alive_option, ec);
     if (ec) {
@@ -598,8 +597,8 @@ error_code TcpSession::SetSocketKeepaliveOptions(int keepalive_time,
     return ec;
 }
 
-error_code TcpSession::SetSocketOptions() {
-    error_code ec;
+boost::system::error_code TcpSession::SetSocketOptions() {
+    boost::system::error_code ec;
 
     //
     // Make socket write non-blocking

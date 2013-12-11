@@ -6,7 +6,6 @@
 #include "bgp/evpn/evpn_table.h"
 
 using namespace std;
-using boost::system::error_code;
 
 // E-VPN MAC Advertisement Route Format
 //
@@ -93,7 +92,7 @@ void EvpnPrefix::BuildProtoPrefix(uint32_t label,
     }
 }
 
-EvpnPrefix EvpnPrefix::FromString(const string &str, error_code *errorp) {
+EvpnPrefix EvpnPrefix::FromString(const string &str, boost::system::error_code *errorp) {
     EvpnPrefix prefix;
 
     size_t pos1 = str.find('-');
@@ -104,7 +103,7 @@ EvpnPrefix EvpnPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
     string rd_str = str.substr(0, pos1);
-    error_code rd_err;
+    boost::system::error_code rd_err;
     prefix.rd_ = RouteDistinguisher::FromString(rd_str, &rd_err);
     if (rd_err != 0) {
         if (errorp != NULL) {
@@ -121,7 +120,7 @@ EvpnPrefix EvpnPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
     string mac_str = str.substr(pos1 + 1, pos2 - pos1 -1);
-    error_code mac_err;
+    boost::system::error_code mac_err;
     prefix.mac_addr_ = MacAddress::FromString(mac_str, &mac_err);
     if (mac_err != 0) {
         if (errorp != NULL) {
@@ -131,7 +130,7 @@ EvpnPrefix EvpnPrefix::FromString(const string &str, error_code *errorp) {
     }
 
     string ip_str = str.substr(pos2 + 1, string::npos);
-    error_code ip_err;
+    boost::system::error_code ip_err;
     prefix.ip_prefix_ = Ip4Prefix::FromString(ip_str, &ip_err);
     if (ip_err != 0) {
         if (errorp != NULL) {

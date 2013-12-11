@@ -47,8 +47,6 @@ public:
     const XmppPeerMap &peer_mux_map() const { return peer_mux_map_; }
 
 private:
-    XmppServer *xmpp_server_;
-    void  *bgp_server_;
     XmppPeerMap peer_mux_map_;
 };
 

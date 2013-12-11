@@ -14,8 +14,6 @@
 #include "db/db_table.h"
 #include "db/db_table_partition.h"
 
-using namespace tbb;
-
 int DBTableWalker::walker_task_id_ = -1;
 
 DBTableWalker::DBTableWalker() {

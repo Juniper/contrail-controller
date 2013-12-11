@@ -7,7 +7,6 @@
 #include "net/address.h"
 
 using namespace std;
-using boost::system::error_code;
 
 RouteTarget RouteTarget::null_rtarget;
 
@@ -19,7 +18,7 @@ RouteTarget::RouteTarget(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
-RouteTarget RouteTarget::FromString(const string &str, error_code *errorp) {
+RouteTarget RouteTarget::FromString(const string &str, boost::system::error_code *errorp) {
     RouteTarget rt;
     uint8_t data[RouteTarget::kSize];
     // target:1:2 OR target:1.2.3.4:3
@@ -49,7 +48,7 @@ RouteTarget RouteTarget::FromString(const string &str, error_code *errorp) {
         return RouteTarget::null_rtarget;
     }
 
-    error_code ec;
+    boost::system::error_code ec;
     string second(rest.substr(0, pos));
     Ip4Address addr = Ip4Address::from_string(second, ec);
     int offset;

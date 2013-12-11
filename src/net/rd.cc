@@ -8,7 +8,6 @@
 #include "net/address.h"
 
 using namespace std;
-using boost::system::error_code;
 
 RouteDistinguisher RouteDistinguisher::null_rd;
 
@@ -47,7 +46,7 @@ std::string RouteDistinguisher::ToString() const {
 }
 
 RouteDistinguisher RouteDistinguisher::FromString(
-    const string &str, error_code *errorp) {
+    const string &str, boost::system::error_code *errorp) {
     RouteDistinguisher rd;
     size_t pos = str.rfind(':');
     if (pos == string::npos) {
@@ -57,7 +56,7 @@ RouteDistinguisher RouteDistinguisher::FromString(
         return RouteDistinguisher::null_rd;
     }
 
-    error_code ec;
+    boost::system::error_code ec;
     string first(str.substr(0, pos));
     Ip4Address addr = Ip4Address::from_string(first, ec);
     int offset;

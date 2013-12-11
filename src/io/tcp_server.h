@@ -11,9 +11,7 @@
 #include <boost/intrusive_ptr.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <tbb/mutex.h>
-#ifndef _LIBCPP_VERSION
 #include <tbb/compat/condition_variable>
-#endif
 
 #include "base/util.h"
 
@@ -148,7 +146,7 @@ class TcpServer {
     EventManager *evm_;
     // mutex protects the session maps
     mutable tbb::mutex mutex_;
-    std::condition_variable cond_var_;
+    tbb::interface5::condition_variable cond_var_;
     SessionSet session_ref_;
     SessionMap session_map_;
     std::auto_ptr<Socket> so_accept_;      // socket used in async_accept

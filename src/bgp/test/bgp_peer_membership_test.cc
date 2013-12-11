@@ -32,7 +32,6 @@ public:
     BgpTestPeer(BgpServer *server, RoutingInstance *instance,
                 const BgpNeighborConfig *config)
        : BgpPeer(server, instance, config),
-         server_(server),
          policy_(BgpProto::IBGP, RibExportPolicy::BGP, -1, 0),
          index_(gbl_index++) {
     }
@@ -63,7 +62,6 @@ public:
     RibExportPolicy GetRibExportPolicy() { return(policy_); }
 
 private:
-    BgpServer *server_;
     RibExportPolicy policy_;
     int index_;
 };

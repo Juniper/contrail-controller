@@ -37,7 +37,7 @@ class Condition {
 public:
     Condition() : state_(false) { }
     void WaitAndClear() {
-        std::unique_lock<tbb::mutex> lock(mutex_);
+        tbb::interface5::unique_lock<tbb::mutex> lock(mutex_);
         while (!state_) {
             cond_var_.wait(lock);
         }
@@ -46,7 +46,7 @@ public:
 
     void Set() {
         {
-            std::unique_lock<tbb::mutex> lock(mutex_);
+            tbb::interface5::unique_lock<tbb::mutex> lock(mutex_);
             state_ = true;
         }
         cond_var_.notify_one();
@@ -54,7 +54,7 @@ public:
 
 private:
     tbb::mutex mutex_;
-    std::condition_variable cond_var_;
+    tbb::interface5::condition_variable cond_var_;
     bool state_;
 };
 

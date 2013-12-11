@@ -7,7 +7,6 @@
 #include "bgp/inet/inet_route.h"
 
 using namespace std;
-using boost::system::error_code;
 
 IpVpnAddress::IpVpnAddress() {
 }
@@ -55,7 +54,7 @@ void InetVpnPrefix::BuildProtoPrefix(uint32_t label, BgpProtoPrefix *prefix) con
 }
 
 // RD:inet4-prefix
-InetVpnPrefix InetVpnPrefix::FromString(const string &str, error_code *errorp) {
+InetVpnPrefix InetVpnPrefix::FromString(const string &str, boost::system::error_code *errorp) {
     InetVpnPrefix prefix;
     
     size_t pos = str.rfind(':');
@@ -66,7 +65,7 @@ InetVpnPrefix InetVpnPrefix::FromString(const string &str, error_code *errorp) {
         return prefix;
     }
     string rdstr = str.substr(0, pos);
-    error_code rderr;
+    boost::system::error_code rderr;
     prefix.rd_ = RouteDistinguisher::FromString(rdstr, &rderr);
     if (rderr != 0) {
         if (errorp != NULL) {
@@ -76,7 +75,7 @@ InetVpnPrefix InetVpnPrefix::FromString(const string &str, error_code *errorp) {
     }
     
     string ip4pstr(str, pos + 1);
-    error_code pfxerr = Ip4PrefixParse(ip4pstr, &prefix.addr_,
+    boost::system::error_code pfxerr = Ip4PrefixParse(ip4pstr, &prefix.addr_,
                                        &prefix.prefixlen_);
     if (errorp != NULL) {
         *errorp = pfxerr;

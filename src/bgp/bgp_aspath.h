@@ -159,7 +159,6 @@ public:
     AsPathDB(BgpServer *server);
 
 private:
-    BgpServer *server_;
 };
 
 #endif

@@ -33,7 +33,6 @@
 
 using namespace boost::assign;
 using boost::asio::ip::tcp;
-using boost::system::error_code;
 using namespace std;
 
 class XmppServerConnectionTest : public XmppServerConnection {
@@ -249,7 +248,7 @@ class RtUnicastTest : public ::testing::Test {
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetVpnTable::RequestKey key(nlri, NULL);
@@ -269,7 +268,7 @@ class RtUnicastTest : public ::testing::Test {
         if (table == NULL) {
             return NULL;
         }
-        error_code ec;
+        boost::system::error_code ec;
         Ip4Prefix rt_prefix(Ip4Address::from_string(address, ec), prefixlen);
         InetTable::RequestKey key(rt_prefix, NULL);
         return static_cast<BgpRoute *>(table->Find(&key));
@@ -429,12 +428,12 @@ class MultihomedAgentTest : public RtUnicastTest {
         tcp::endpoint remote;
         BOOST_FOREACH(AgentMockPtr agent, agents_) {
             if (connection->ToString() == agent->hostname()) {
-                error_code ec;
+                boost::system::error_code ec;
                 remote.address(Ip4Address::from_string(agent->localaddr(), ec));
                 return remote;
             }
         }
-        error_code ec;
+        boost::system::error_code ec;
         remote.address(Ip4Address::from_string("127.0.0.1", ec));
         return remote;
     }
@@ -540,7 +539,7 @@ TEST_F(MultihomedAgentTest, Attributes) {
             EXPECT_EQ(2, rt_primary->count())
                 << "best-path from: "
                 << rt_primary->BestPath()->GetPeer()->ToString();
-            error_code ec;
+            boost::system::error_code ec;
             Ip4Address originator = Ip4Address::from_string("192.0.2.1", ec);
             RouteDistinguisher expect_rd(originator.to_ulong(), 1);
             const InetVpnRoute *rt_vpn = static_cast<const InetVpnRoute *>(

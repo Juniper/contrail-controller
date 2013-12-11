@@ -14,7 +14,7 @@
 #include "base/task.h"
 
 using namespace std;
-using namespace tbb;
+using tbb::task;
 
 class TaskEntry;
 struct TaskDeferEntryCmp;

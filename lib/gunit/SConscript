@@ -1,5 +1,7 @@
 # -*- mode: python; -*-
 
+import sys
+
 default = DefaultEnvironment()
 env = default.Clone()
 
@@ -7,7 +9,10 @@ gtest_path = '#/third_party/gtest-1.6.0'
 gmock_path = '#/third_party/gmock-1.6.0'
 
 include = [ gtest_path, gtest_path + '/include',
-            gmock_path, gmock_path + '/include' ]
+            gmock_path, gmock_path + '/include']
+
+if sys.platform == 'darwin':
+    include.append('#/build/include/boost')
 
 env.VariantDir(Dir('.').abspath + '/gtest', gtest_path + '/src')
 env.VariantDir(Dir('.').abspath + '/gmock', gmock_path + '/src')

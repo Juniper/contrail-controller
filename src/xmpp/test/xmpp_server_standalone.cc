@@ -70,7 +70,6 @@ private:
         timer_->Start(1000, boost::bind(&ServerTest::SendTimerExpire, this));
     }
 
-    XmppServer *server_;
     XmppBgpMockPeer *mock_peer_;
     int count_;
     Timer *timer_;
@@ -101,7 +100,7 @@ private:
 #define XMPP_SERVER_PORT    5288 
 
 ServerTest::ServerTest(XmppServer *server) 
-    : server_(server), mock_peer_(NULL), count_(0),
+    : mock_peer_(NULL), count_(0),
       timer_(TimerManager::CreateTimer(*server->event_manager()->io_service(),
                                        "Server timer")),
     manager_(new XmppPeerManagerMock(server, this)) {

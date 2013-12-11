@@ -23,7 +23,6 @@
 #include "ifmap/ifmap_syslog_types.h"
 #include "base/logging.h"
 
-using namespace std;
 using boost::system::error_code;
 
 const int IFMapStateMachine::kConnectInterval = 30;
@@ -684,10 +683,10 @@ void IFMapStateMachine::Initialize() {
 int IFMapStateMachine::GetConnectTime(bool is_ssrc) const {
     int backoff;
     if (is_ssrc) {
-        backoff = min(ssrc_connect_attempts_, 6);
+        backoff = std::min(ssrc_connect_attempts_, 6);
         return std::min(1 << backoff, kConnectInterval);
     } else {
-        backoff = min(arc_connect_attempts_, 6);
+        backoff = std::min(arc_connect_attempts_, 6);
         return std::min(1 << backoff, kConnectInterval);
     }
 }
@@ -955,15 +954,15 @@ static const std::string state_names[] = {
     "ConnectTimerWait",
 };
 
-const string &IFMapStateMachine::StateName() const {
+const std::string &IFMapStateMachine::StateName() const {
     return state_names[state_];
 }
 
-const string &IFMapStateMachine::StateName(State state) const {
+const std::string &IFMapStateMachine::StateName(State state) const {
     return state_names[state];
 }
 
-const string &IFMapStateMachine::LastStateName() const {
+const std::string &IFMapStateMachine::LastStateName() const {
     return state_names[last_state_];
 }
 

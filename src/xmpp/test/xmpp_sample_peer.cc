@@ -43,8 +43,7 @@ std::string XmppSamplePeer::ToString() const {
 void XmppSamplePeer::WriteReadyCb(const boost::system::error_code &ec) {
 }
 
-XmppPeerManager::XmppPeerManager(XmppServer *xmpp_server, void *server)
-    : xmpp_server_(xmpp_server), bgp_server_(server) {
+XmppPeerManager::XmppPeerManager(XmppServer *xmpp_server, void *server) {
      xmpp_server->RegisterConnectionEvent(xmps::BGP,
          boost::bind(&XmppPeerManager::XmppHandleConnectionEvent, 
                      this, _1, _2));
