@@ -9,7 +9,7 @@ env = BuildEnv.Clone()
 
 env.Append(LIBPATH = env['TOP'] + '/bgp/origin-vn')
 
-env.Prepend(LIBS = ['gunit', 'origin_vn'])
+env.Prepend(LIBS = ['gunit', 'origin_vn', 'boost_regex'])
 
 origin_vn_test = env.UnitTest('origin_vn_test', ['origin_vn_test.cc'])
 env.Alias('src/bgp/origin-vn:origin_vn_test', origin_vn_test)
