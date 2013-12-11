@@ -510,6 +510,21 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             vlan_list.push_back(entry);
             vlan_it++;
         }
+
+        std::vector<StaticRouteSandesh> static_route_list;
+        VmInterface::StaticRouteList::iterator static_rt_it =
+            vintf->static_route_list().begin();
+        while (static_rt_it != vintf->static_route_list().end()) {
+            const VmInterface::StaticRoute &rt = *static_rt_it;
+            StaticRouteSandesh entry;
+            entry.set_vrf_name(rt.vrf_);
+            entry.set_ip_addr(rt.addr_.to_string());
+            entry.set_prefix(rt.plen_);
+            static_rt_it++;
+            static_route_list.push_back(entry);
+        }
+        data.set_static_route_list(static_route_list);
+
         if (vintf->fabric_port()) {
             data.set_fabric_port("FabricPort");
         } else {
