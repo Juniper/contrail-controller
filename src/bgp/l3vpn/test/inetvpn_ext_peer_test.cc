@@ -106,7 +106,7 @@ protected:
 namespace {
 TEST_F(L3VPNExtPeerTest, Connection) {
     // create a BGP peer
-    string content = FileRead("src/bgp/testdata/bgpc_ext_peer.xml");
+    string content = FileRead("controller/src/bgp/testdata/bgpc_ext_peer.xml");
     EXPECT_TRUE(server_.Configure(content));
 
     task_util::WaitForIdle();

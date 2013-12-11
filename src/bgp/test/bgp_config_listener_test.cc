@@ -196,7 +196,7 @@ protected:
 // to the change list.
 //
 TEST_F(BgpConfigListenerTest, Basic) {
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     PauseChangeListPropagation();
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
@@ -245,7 +245,7 @@ TEST_F(BgpConfigListenerTest, IrrelevantNodeEvent) {
 // multiple times per the current implementation.
 //
 TEST_F(BgpConfigListenerTest, DuplicateNodeEvent) {
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
@@ -302,13 +302,13 @@ TEST_F(BgpConfigListenerTest, DeletedNodeEvent1) {
 // Thus the node will get on the change list but not on the node list.
 //
 TEST_F(BgpConfigListenerTest, DeletedNodeEvent2) {
-    string content_a = ReadFile("src/bgp/testdata/config_listener_test_6a.xml");
+    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_6a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
-    string content_b = ReadFile("src/bgp/testdata/config_listener_test_6b.xml");
+    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_6b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     task_util::WaitForIdle();
     IFMapNode *node =
@@ -387,7 +387,7 @@ TEST_F(BgpConfigListenerTest, UninterestingLinkEvent) {
 // to get added to the edge list multiple times per current implementation.
 //
 TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -419,7 +419,7 @@ TEST_F(BgpConfigListenerTest, DuplicateLinkEvent) {
 // The associated edges should not get on the edge list.
 //
 TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
-    string content_a = ReadFile("src/bgp/testdata/config_listener_test_7a.xml");
+    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_7a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -427,7 +427,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
 
     PauseChangeListPropagation();
-    string content_b = ReadFile("src/bgp/testdata/config_listener_test_7b.xml");
+    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_7b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -459,7 +459,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent1) {
 // nodes are marked as deleted.
 //
 TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
-    string content_a = ReadFile("src/bgp/testdata/config_listener_test_7a.xml");
+    string content_a = ReadFile("controller/src/bgp/testdata/config_listener_test_7a.xml");
     EXPECT_TRUE(parser_.Parse(content_a));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -470,7 +470,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
     ifmap_test_util::IFMapLinkNotify(&db_, &graph_,
         "routing-instance", "red", "routing-instance", "blue");
     task_util::WaitForIdle();
-    string content_b = ReadFile("src/bgp/testdata/config_listener_test_7b.xml");
+    string content_b = ReadFile("controller/src/bgp/testdata/config_listener_test_7b.xml");
     EXPECT_TRUE(parser_.Parse(content_b));
     ifmap_test_util::IFMapMsgUnlink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -501,7 +501,7 @@ TEST_F(BgpConfigListenerTest, DeletedLinkEvent2) {
 TEST_F(BgpConfigListenerTest, BgpPeeringChange1) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -536,7 +536,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange1) {
 TEST_F(BgpConfigListenerTest, BgpPeeringChange2) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -572,7 +572,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringChange2) {
 TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange1) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -612,7 +612,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange1) {
 TEST_F(BgpConfigListenerTest, BgpPeeringBgpPeeringChange2) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -659,7 +659,7 @@ TEST_F(BgpConfigListenerTest, BgpPeeringUninterestingLinkChange) {
 TEST_F(BgpConfigListenerTest, BgpRouterChange1) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -693,7 +693,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange1) {
 TEST_F(BgpConfigListenerTest, BgpRouterChange2) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -727,7 +727,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterChange2) {
 TEST_F(BgpConfigListenerTest, BgpRouterUninterestingLinkChange) {
 
     // Initialize config with local router and add link to master instance.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_0.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
     string instance(BgpConfigManager::kMasterInstance);
     string router = instance + ":local";
@@ -765,7 +765,7 @@ TEST_F(BgpConfigListenerTest, BgpRouterUninterestingLinkChange) {
 TEST_F(BgpConfigListenerTest, RoutingInstanceChange1) {
 
     // Initialize config with local router and 3 remote routers.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_1.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
@@ -798,7 +798,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceChange2) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connections between (red, blue) and (red, green).
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
@@ -838,7 +838,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange1) {
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connections between (red, blue) and (red, green).
     // Also add a route-target target:1:100.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -895,7 +895,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange2) {
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connection between (red, blue).
     // Also add a route-target target:1:100.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -955,7 +955,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceTargetChange3) {
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connections between (red, blue) and (blue, green).
     // Also add a route-target target:1:100.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -1015,7 +1015,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange1) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connection between (red, blue).
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -1053,7 +1053,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange2) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connections between (red, blue) and (red, green).
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -1100,7 +1100,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceConnectionChange3) {
 
     // Initialize config with 3 routing-instances - red, blue and green.
     // Add connection between (red, blue) and (blue, green).
-    string content = ReadFile("src/bgp/testdata/config_listener_test_4.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_4.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red",
         "routing-instance", "blue", "connection");
@@ -1145,7 +1145,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange1) {
     // Initialize config with 3 routing-instances - red1, red2 and red3.
     // Add virtual-network-routing-instance link between virtual-network red
     // and routing-instance red1.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_2.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
@@ -1188,7 +1188,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange2) {
     // Initialize config with 3 routing-instances - red1, red2 and red3.
     // Add virtual-network-routing-instance link between virtual-network red
     // and routing-instances red1, red2, red3.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_2.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
@@ -1242,7 +1242,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
     // Add virtual-network-routing-instance link between virtual-network blue
     // and routing-instances blue1.
     // Add connection between (red1, blue1).
-    string content = ReadFile("src/bgp/testdata/config_listener_test_8.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_8.xml");
     EXPECT_TRUE(parser_.Parse(content));
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
         "virtual-network", "red", "virtual-network-routing-instance");
@@ -1290,7 +1290,7 @@ TEST_F(BgpConfigListenerTest, RoutingInstanceVirtualNetworkChange3) {
 TEST_F(BgpConfigListenerTest, RoutingInstanceUninterestingLinkChange) {
 
     // Initialize config with local router and add link to master instance.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_0.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_0.xml");
     EXPECT_TRUE(parser_.Parse(content));
     string instance(BgpConfigManager::kMasterInstance);
     string router = instance + ":local";
@@ -1330,7 +1330,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange1) {
     // Initialize config with 3 routing-instances - red1, red2 and red3.
     // Add virtual-network-routing-instance link between virtual-network red
     // and routing-instances red1, red2, red3.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_2.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
@@ -1377,7 +1377,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkChange2) {
     // and routing-instances red1, red2.
     // Add virtual-network-routing-instance link between virtual-network blue
     // and routing-instances blue1, blue2.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_3.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_3.xml");
     EXPECT_TRUE(parser_.Parse(content));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",
@@ -1449,7 +1449,7 @@ TEST_F(BgpConfigListenerTest, VirtualNetworkUninterestingLinkChange) {
     // and routing-instances red1, red2, red3.
     // Add the project-virtual-network link between the project admin and the
     // virtual-network red.
-    string content = ReadFile("src/bgp/testdata/config_listener_test_2.xml");
+    string content = ReadFile("controller/src/bgp/testdata/config_listener_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     TASK_UTIL_EXPECT_EQ(0, GetChangeListCount());
     ifmap_test_util::IFMapMsgLink(&db_, "routing-instance", "red1",

@@ -108,7 +108,7 @@ protected:
 
     void ConfigureBgpRouter() {
         SCOPED_TRACE(__FUNCTION__);
-        string content = FileRead("src/bgp/testdata/bgpc_a.xml");
+        string content = FileRead("controller/src/bgp/testdata/bgpc_a.xml");
         Replace(&content, "%(port_a)d", a_->session_manager()->GetPort());
         Replace(&content, "%(port_b)d", b_->session_manager()->GetPort());
         if (peer_type_ == "IBGP") {

@@ -308,7 +308,7 @@ TEST_F(StaticRouteTest, Basic) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -363,7 +363,7 @@ TEST_F(StaticRouteTest, UpdateRtList) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_3.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_3.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -383,7 +383,7 @@ TEST_F(StaticRouteTest, UpdateRtList) {
                              NULL, 1000, 10000, 
                              "Wait for Static route in blue..");
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -407,7 +407,7 @@ TEST_F(StaticRouteTest, UpdateRtList) {
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_3.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_3.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -442,7 +442,7 @@ TEST_F(StaticRouteTest, UpdateNexthop) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -475,7 +475,7 @@ TEST_F(StaticRouteTest, UpdateNexthop) {
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_4.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_4.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -523,7 +523,7 @@ TEST_F(StaticRouteTest, MultiplePrefix) {
     set<string> config_list = list_of("target:64496:1");
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_2.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_2.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -603,7 +603,7 @@ TEST_F(StaticRouteTest, MultiplePrefixSameNexthopAndUpdateNexthop) {
 
     set<string> config_list = list_of("target:64496:1");
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_5.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_5.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -714,7 +714,7 @@ TEST_F(StaticRouteTest, ConfigUpdate) {
     set<string> config_list = list_of("target:64496:1");
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_6.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_6.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
@@ -754,7 +754,7 @@ TEST_F(StaticRouteTest, ConfigUpdate) {
     EXPECT_EQ(list, config_list);
     EXPECT_EQ(GetOriginVnFromRoute(static_path), "unresolved");
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_7.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_7.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
@@ -834,7 +834,7 @@ TEST_F(StaticRouteTest, N_ECMP_PATHADD) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -934,7 +934,7 @@ TEST_F(StaticRouteTest, N_ECMP_PATHDEL) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -1031,7 +1031,7 @@ TEST_F(StaticRouteTest, TunnelEncap) {
     task_util::WaitForIdle();
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
@@ -1118,7 +1118,7 @@ TEST_F(StaticRouteTest, MultiPathTunnelEncap) {
         new BgpPeerMock(Ip4Address::from_string("192.168.0.4", ec)));
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_1.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_1.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(&config_db_, "routing-instance", 
                          "nat", "static-route-entries", params.release(), 0);
