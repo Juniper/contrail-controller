@@ -2225,7 +2225,14 @@ class SchemaTransformer(object):
         sg = SecurityGroupST.locate(sg_name)
 
         entries = PolicyEntriesType()
-        entries.build(meta)
+        try:
+            entries.build(meta)
+        except ValueError:
+            # For compatibility, ignore if we can't build. In 1.0, we allowed
+            # security group with direction set to '<', but it is not allowed
+            # any more
+            _sandesh._logger.debug("%s: Cannot read security group entries", si_name)
+            return
         if sg:
             sg.update_policy_entries(entries)
     # end add_security_group_entries
