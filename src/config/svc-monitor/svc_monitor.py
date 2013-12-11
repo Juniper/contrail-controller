@@ -35,8 +35,8 @@ from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.service_instance.ttypes import *
-from cfgm_common.sandesh.vns.ttypes import Module
-from cfgm_common.sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 from sandesh.svc_mon_introspect import ttypes as sandesh
 
 # nova imports
