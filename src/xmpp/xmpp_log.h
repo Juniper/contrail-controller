@@ -60,7 +60,7 @@ do {                                                                           \
 do {                                                                           \
     if (LoggingDisabled()) break;                                              \
     obj::Send(g_vns_constants.CategoryNames.find(Category::XMPP)->second,      \
-              SandeshLevel::UT_DEBUG, __FILE__, __LINE__, ##__VA_ARGS__);      \
+              Sandesh::LoggingUtLevel(), __FILE__, __LINE__, ##__VA_ARGS__);      \
 } while (false)
 
 #define XMPP_TRACE(obj, ...) do {                                              \

@@ -14,7 +14,6 @@
 
 using namespace std;
 using namespace boost::asio;
-using boost::system::error_code;
 
 BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     const BgpNeighborConfig *config) {
@@ -38,7 +37,7 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
     info.set_peer(peer->ToString());
     ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
-    BGP_LOG_PEER(peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+    BGP_LOG_PEER(Config, peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Created peer");
     ROUTING_INSTANCE_TRACE(PeerLocate, server, name(),
                            peer->peer_key().endpoint.address().to_string());
@@ -97,7 +96,7 @@ void PeerManager::DestroyIPeer(IPeer *ipeer) {
 
     BgpPeer *peer = static_cast<BgpPeer *>(ipeer);
     string peer_name = peer->peer_name();
-    BGP_LOG_PEER(peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+    BGP_LOG_PEER(Config, peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Destroyed peer");
     ROUTING_INSTANCE_TRACE(PeerDestroy, server(), name(),
                            peer->peer_key().endpoint.address().to_string());
@@ -150,7 +149,7 @@ BgpPeer *PeerManager::PeerFind(string ip_address) {
     if (ip_address.empty())
         return NULL;
 
-    error_code ec;
+    boost::system::error_code ec;
     boost::asio::ip::tcp::endpoint endpoint;
     endpoint.address(boost::asio::ip::address::from_string(ip_address, ec));
     if (ec)
@@ -241,7 +240,7 @@ void PeerManager::ClearAllPeers() {
 void PeerManager::FillBgpNeighborInfo(vector<BgpNeighborResp> &nbr_list,
     string ip_address) {
     if (!ip_address.empty()) {
-        error_code ec;
+        boost::system::error_code ec;
         boost::asio::ip::tcp::endpoint endpoint;
         endpoint.address(
             boost::asio::ip::address::from_string(ip_address, ec));
