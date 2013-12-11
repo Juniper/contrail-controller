@@ -298,8 +298,8 @@ private:
     void WriteReadyCb(const boost::system::error_code &ec) {
         if (!server_) return;
         SchedulingGroupManager *sg_mgr = server_->scheduling_group_manager();
-        BGP_LOG_XMPP_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                          "Sender is ready");
+        BGP_LOG_PEER(Event, this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Sender is ready");
         sg_mgr->SendReady(this);
         send_ready_ = true;
         XmppPeerInfoData peer_info;
@@ -420,8 +420,8 @@ bool BgpXmppChannel::XmppDecodeAddress(int af, const string &address,
     case BgpAf::IPv4:
         break;
     default:
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                          "Unsupported address family:" << af);
+        BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_IN, "Unsupported address family:" << af);
         return false;
     }
 
@@ -440,21 +440,22 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                   BGP_LOG_FLAG_ALL, "Invalid multicast message received");
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+                              BGP_LOG_FLAG_ALL,
+                              "Invalid multicast message received");
         return;
     }
 
     // NLRI ipaddress/mask
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
            BGP_LOG_FLAG_ALL, "Unsupported address family:" << item.entry.nlri.af
            << " for multicast route");
         return;
     }
 
     if (item.entry.nlri.safi != BgpAf::Mcast) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
             BGP_LOG_FLAG_ALL, "Unsupported safi:" << item.entry.nlri.safi <<
             " for multicast route");
         return;
@@ -465,7 +466,8 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     if (!item.entry.nlri.group.empty()) {
         if (!(XmppDecodeAddress(item.entry.nlri.af,
                                 item.entry.nlri.group, &grp_address))) {
-            BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "Error parsing group address:" << item.entry.nlri.group <<
                 " for family:" << item.entry.nlri.af);
             return;
@@ -476,7 +478,8 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     if (!item.entry.nlri.source.empty()) {
         if (!(XmppDecodeAddress(item.entry.nlri.af,
                                 item.entry.nlri.source, &src_address))) {
-            BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "Error parsing source address:" << item.entry.nlri.source <<
                 " for family:" << item.entry.nlri.af);
             return;
@@ -485,8 +488,8 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-              BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
               " ProcessMcastItem: Routing Instance Manager not found");
         return;
     }
@@ -499,9 +502,9 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
     if (rt_instance != NULL) {
         table = rt_instance->GetTable(Address::INETMCAST);
         if (table == NULL) {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
-                                       BGP_LOG_FLAG_ALL,
-                                       "Inet Multicast table not found");
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    "Inet Multicast table not found");
             return;
         }
 
@@ -514,7 +517,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
                 instance_id = loc->second.instance_id;
                 subscribe_pending = true;
             } else {
-                BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                    "Inet Multicast Route not processed as no subscription pending");
                 return;
@@ -523,7 +526,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
             if (IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table)) {
                 instance_id = rib->instance_id();
             } else {
-                BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                    "Inet Multicast Route not processed as peer is not registered");
                 return;
@@ -537,7 +540,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
             subscribe_pending = true;
             instance_id = loc->second;
         } else {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                "Inet Multicast Route not processed as no subscription pending");
             return;
@@ -560,7 +563,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
 
         // Agents should send only one next-hop in the item
         if (item.entry.next_hops.next_hop.size() != 1) {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                     SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                     "More than one nexthop received for the group:"
                     << item.entry.nlri.group);
@@ -570,7 +573,8 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
         // Label Allocation item.entry.label by parsing the range
         if (!stringToIntegerList(item.entry.next_hops.next_hop[0].label, "-", labels) ||
             labels.size() != 2) {
-            BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                         BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "Bad label block range:" << item.entry.next_hops.next_hop[0].label);
             return;
         }
@@ -585,7 +589,7 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
         IpAddress nh_address;
         if (!(XmppDecodeAddress(item.entry.next_hops.next_hop[0].af,
                                 item.entry.next_hops.next_hop[0].address, &nh_address))) {
-            BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                 "Error parsing nexthop address:" <<
                  item.entry.next_hops.next_hop[0].address <<
                 " family:" << item.entry.next_hops.next_hop[0].af <<
@@ -647,15 +651,16 @@ void BgpXmppChannel::ProcessMcastItem(std::string vrf_name,
 
     assert(table);
     if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
             BGP_LOG_FLAG_ALL,
             "Peer:" << peer_.get() << " not subscribed to table " <<
             table->name());
         return;
     }
 
-    BGP_TRACE_XMPP_PEER_INSTANCE(Peer(), vrf_name,
-                               "Inet Multicast Group" 
+    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+                          SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+                          "Inet Multicast Group" 
                                << item.entry.nlri.group <<
                                " Source " << item.entry.nlri.source <<
                                " Label Range: " <<
@@ -674,7 +679,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Invalid message received");
         return;
@@ -682,7 +687,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
 
     // NLRI ipaddress/mask
     if (item.entry.nlri.af != BgpAf::IPv4) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Unsupported address family");
         return;
@@ -692,7 +697,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
     Ip4Prefix rt_prefix = Ip4Prefix::FromString(item.entry.nlri.address,
                                                 &error);
     if (error) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Bad address string: " <<
                                    item.entry.nlri.address);
@@ -701,8 +706,8 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-              BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+              BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
               " ProcessItem: Routing Instance Manager not found");
         return;
     }
@@ -714,7 +719,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
     if (rt_instance != NULL) {
         table = rt_instance->GetTable(Address::INET);
         if (table == NULL) {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                        BGP_LOG_FLAG_ALL, "Inet table not found");
             return;
         }
@@ -725,8 +730,8 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             // We have rxed unregister request for a table and
             // receiving route update for the same table
             if (loc->second.pending_req != SUBSCRIBE) {
-                BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                  BGP_LOG_FLAG_ALL,
+                BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                                  BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
                                   "Received route update after unregister req : "
                                   << table->name());
                 return;
@@ -738,7 +743,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
             const IPeerRib *peer_rib = mgr->IPeerRibFind(peer_.get(), table);
             if (!peer_rib) {
-                BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                    "Peer:" << peer_.get() << " not subscribed to table " <<
                    table->name());
@@ -754,7 +759,7 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
             subscribe_pending = true;
             instance_id = loc->second;
         } else {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                "Inet Route not processed as no subscription pending");
             return;
@@ -786,8 +791,9 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
                           item.entry.next_hops.next_hop[i].af,
                           item.entry.next_hops.next_hop[i].address,
                           &nhop_address))) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                        BGP_LOG_FLAG_ALL, "Error parsing nexthop address:" <<
+                    BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                        BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                        "Error parsing nexthop address:" <<
                         item.entry.next_hops.next_hop[i].address <<
                         " family:" << item.entry.next_hops.next_hop[i].af <<
                         " for unicast route");
@@ -887,7 +893,8 @@ void BgpXmppChannel::ProcessItem(string vrf_name,
 
     assert(table);
 
-    BGP_TRACE_XMPP_PEER_INSTANCE(Peer(), vrf_name, 
+    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, 
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                                "Inet route " << item.entry.nlri.address <<
                                " with next-hop " << nh_address
                                << " and label " << label
@@ -903,7 +910,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     item.Clear();
 
     if (!item.XmlParse(node)) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Invalid message received");
         return;
@@ -911,7 +918,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     // NLRI ipaddress/mask
     if (item.entry.nlri.af != BgpAf::L2Vpn) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Unsupported address family");
         return;
@@ -921,7 +928,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     MacAddress mac_addr = MacAddress::FromString(item.entry.nlri.mac, &error);
 
     if (error) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Bad mac address string: " <<
                                    item.entry.nlri.mac);
@@ -931,7 +938,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     Ip4Prefix ip_prefix =
         Ip4Prefix::FromString(item.entry.nlri.address, &error);
     if (error) {
-        BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+        BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                    BGP_LOG_FLAG_ALL,
                                    "Bad address string: " <<
                                    item.entry.nlri.address);
@@ -941,9 +948,9 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-              BGP_LOG_FLAG_ALL,
-              " ProcessEnetItem: Routing Instance Manager not found");
+        BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                     " ProcessEnetItem: Routing Instance Manager not found");
         return;
     }
 
@@ -954,7 +961,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
     if (rt_instance != NULL) {
         table = rt_instance->GetTable(Address::ENET);
         if (table == NULL) {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name, SandeshLevel::SYS_WARN,
                                        BGP_LOG_FLAG_ALL, "Enet table not found");
             return;
         }
@@ -965,10 +972,10 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             // We have rxed unregister request for a table and
             // receiving route update for the same table
             if (loc->second.pending_req != SUBSCRIBE) {
-                BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                  BGP_LOG_FLAG_ALL,
-                                  "Received route update after unregister req : "
-                                  << table->name());
+                BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                             "Received route update after unregister req : "
+                                 << table->name());
                 return;
             }
             subscribe_pending = true;
@@ -978,7 +985,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
             const IPeerRib *peer_rib = mgr->IPeerRibFind(peer_.get(), table);
             if (!peer_rib) {
-                BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+                BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                    SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                    "Peer:" << peer_.get() << " not subscribed to table " <<
                    table->name());
@@ -994,7 +1001,7 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             subscribe_pending = true;
             instance_id = loc->second;
         } else {
-            BGP_LOG_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+            BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
                SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                "Enet Route not processed as no subscription pending");
             return;
@@ -1026,11 +1033,13 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
                           item.entry.next_hops.next_hop[i].af,
                           item.entry.next_hops.next_hop[i].address,
                           &nhop_address))) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                        "Error parsing nexthop address:" <<
-                        item.entry.next_hops.next_hop[i].address <<
-                        " family:" << item.entry.next_hops.next_hop[i].af <<
-                        " for enet route");
+                    BGP_LOG_PEER(Message, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_IN,
+                                 "Error parsing nexthop address:" <<
+                                 item.entry.next_hops.next_hop[i].address <<
+                                 " family:" <<
+                                 item.entry.next_hops.next_hop[i].af <<
+                                 " for enet route");
                     return;
                 }
                 if (i == 0) {
@@ -1106,7 +1115,8 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
 
     assert(table);
 
-    BGP_TRACE_XMPP_PEER_INSTANCE(Peer(), vrf_name,
+    BGP_LOG_PEER_INSTANCE(Peer(), vrf_name,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                                "Enet route " << item.entry.nlri.mac << ","
                                << item.entry.nlri.address
                                << " with next-hop " << nh_address
@@ -1126,9 +1136,9 @@ void BgpXmppChannel::DequeueRequest(const string &table_name,
     auto_ptr<DBRequest> ptr(request);
     PeerRibMembershipManager *mgr = bgp_server_->membership_mgr();
     if (mgr && !mgr->PeerRegistered(peer_.get(), table)) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                          "Peer:" << peer_->ToString()
-                          << " not subscribed to instance " << table->name());
+        BGP_LOG_PEER(Event, Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Peer:" << peer_->ToString()
+                         << " not subscribed to instance " << table->name());
         return;
     }
 
@@ -1177,14 +1187,16 @@ void BgpXmppChannel::UnregisterTable(BgpTable *table) {
 }
 
 bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
-    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                      "MembershipResponseHandler for table " << table_name);
+    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA,
+                 "MembershipResponseHandler for table " << table_name);
 
     RoutingTableMembershipRequestMap::iterator loc =
         routingtable_membership_request_map_.find(table_name);
     if (loc == routingtable_membership_request_map_.end()) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
-                          "table " << table_name << " not in request queue");
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA, 
+                     "table " << table_name << " not in request queue");
         assert(0);
     }
 
@@ -1206,7 +1218,8 @@ bool BgpXmppChannel::MembershipResponseHandler(std::string table_name) {
     }
 
     MembershipRequestState state = loc->second;
-    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            BGP_PEER_DIR_NA,
             "MembershipResponseHandler for table " << table_name <<
             " current req = " <<
             ((state.current_req == SUBSCRIBE) ? "subscribe" : "unsubscribe") <<
@@ -1305,9 +1318,9 @@ void BgpXmppChannel::ProcessDeferredSubscribeRequest(std::string vrf_name,
                                                      int instance_id) {
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-              BGP_LOG_FLAG_ALL,
-              " ProcessDeferredSubscribeRequest: RIM not found");
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     " ProcessDeferredSubscribeRequest: RIM not found");
         return;
     }
     RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
@@ -1349,17 +1362,18 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
 
     RoutingInstanceMgr *instance_mgr = bgp_server_->routing_instance_mgr();
     if (!instance_mgr) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-              BGP_LOG_FLAG_ALL,
-              " ProcessSubscriptionRequest: Routing Instance Manager not found");
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     " ProcessSubscriptionRequest: Routing Instance Manager "
+                     "not found");
         return;
     }
     RoutingInstance *rt_instance = instance_mgr->GetRoutingInstance(vrf_name);
     if (rt_instance == NULL) {
-        BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                          BGP_LOG_FLAG_ALL,
-                          " ReceiveUpdate: Routing Instance " <<
-                          vrf_name << " not found");
+        BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                     BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                     " ReceiveUpdate: Routing Instance " <<
+                     vrf_name << " not found");
         if (add_change) {
             vrf_membership_request_map_[vrf_name] = instance_id;
         } else {
@@ -1388,10 +1402,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             if (loc == routingtable_membership_request_map_.end()) {
                 IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
                 if (rib && !rib->IsStale()) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                      BGP_LOG_FLAG_ALL,
-                                      "Received registration req without " <<
-                                      "unregister : " << table->name());
+                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Received registration req without " <<
+                                 "unregister : " << table->name());
                     continue;
                 }
                 MembershipRequestState state(SUBSCRIBE, instance_id);
@@ -1399,10 +1413,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                                         make_pair(table->name(), state));
             } else {
                 if (loc->second.pending_req == SUBSCRIBE) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                      BGP_LOG_FLAG_ALL,
-                                      "Received registration req without " <<
-                                      "unregister : " << table->name());
+                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Received registration req without " <<
+                                 "unregister : " << table->name());
                 }
                 loc->second.instance_id = instance_id;
                 loc->second.pending_req = SUBSCRIBE;
@@ -1412,10 +1426,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             RegisterTable(table, instance_id);
         } else {
             if (defer_q_.count(std::make_pair(vrf_name, table->name()))) {
-                BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                  BGP_LOG_FLAG_ALL,
-                                  "Flush the DBRoute request on unregister :" <<
-                                  table->name());
+                BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                             BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                             "Flush the DBRoute request on unregister :" <<
+                             table->name());
             }
 
             // Erase all elements for the table
@@ -1426,10 +1440,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
             if (loc == routingtable_membership_request_map_.end()) {
                 IPeerRib *rib = mgr->IPeerRibFind(peer_.get(), table);
                 if (!rib) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                      BGP_LOG_FLAG_ALL,
-                                      "Received back to back unregister req:" <<
-                                      table->name());
+                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Received back to back unregister req:" <<
+                                 table->name());
                     continue;
                 } else {
                     MembershipRequestState state(UNSUBSCRIBE, instance_id);
@@ -1438,10 +1452,10 @@ void BgpXmppChannel::ProcessSubscriptionRequest(
                 }
             } else {
                 if (loc->second.pending_req == UNSUBSCRIBE) {
-                    BGP_LOG_XMPP_PEER(Peer(), SandeshLevel::SYS_WARN,
-                                      BGP_LOG_FLAG_ALL,
-                                      "Received back to back unregister req:" <<
-                                      table->name());
+                    BGP_LOG_PEER(Membership, Peer(), SandeshLevel::SYS_WARN,
+                                 BGP_LOG_FLAG_ALL, BGP_PEER_DIR_NA,
+                                 "Received back to back unregister req:" <<
+                                 table->name());
                     continue;
                 }
                 loc->second.instance_id = -1;
@@ -1600,9 +1614,10 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
         if (it == channel_map_.end()) {
             bgp_xmpp_channel = CreateChannel(channel);
             channel_map_.insert(std::make_pair(channel, bgp_xmpp_channel));
-            BGP_LOG_XMPP_PEER(bgp_xmpp_channel->Peer(),
-                              SandeshLevel::UT_DEBUG, BGP_LOG_FLAG_SYSLOG,
-                              "Received XmppChannel up event");
+            BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
+                         Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
+                         BGP_PEER_DIR_IN,
+                         "Received XmppChannel up event");
         } else {
             bgp_xmpp_channel = (*it).second;
             bgp_xmpp_channel->peer_->SetDeleted(false);
@@ -1612,9 +1627,10 @@ void BgpXmppChannelManager::XmppHandleChannelEvent(XmppChannel *channel,
         if (it != channel_map_.end()) {
             bgp_xmpp_channel = (*it).second;
 
-            BGP_LOG_XMPP_PEER(bgp_xmpp_channel->Peer(),
-                              SandeshLevel::UT_DEBUG, BGP_LOG_FLAG_SYSLOG,
-                              "Received XmppChannel down event");
+            BGP_LOG_PEER(Message, bgp_xmpp_channel->Peer(),
+                         Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_SYSLOG,
+                         BGP_PEER_DIR_IN,
+                         "Received XmppChannel down event");
 
             //
             // Trigger closure of this channel

@@ -11,6 +11,7 @@
 #include "base/timer.h"
 #include "bgp/bgp_proto.h"
 #include "io/tcp_session.h"
+#include "sandesh/sandesh.h"
 
 namespace sc = boost::statechart;
 
@@ -167,6 +168,8 @@ public:
     const std::string last_notification_out_error() const;
     const std::string last_notification_in_error() const;
     void reset_last_info();
+    void LogEvent(std::string event_name, std::string msg,
+                  SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG);
 
 private:
     friend class StateMachineTest;

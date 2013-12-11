@@ -20,7 +20,7 @@ static void init_common() {
     //
     // By default, we log all messages from all categories.
     //
-    Sandesh::SetLoggingParams(true, "", SandeshLevel::UT_DEBUG);
+    Sandesh::SetLoggingParams(true, "", Sandesh::LoggingUtLevel());
 
     //
     // Have ability to filter messages via environment variables.
