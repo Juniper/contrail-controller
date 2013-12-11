@@ -59,7 +59,7 @@ static string FileRead(const string &filename) {
 
 TEST_F(NetworkConfigTest, SoapMessage1) {
     SCOPED_TRACE(__FUNCTION__);
-    string content = FileRead("src/bgp/testdata/network_test_1.xml");
+    string content = FileRead("controller/src/bgp/testdata/network_test_1.xml");
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
     parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
                     0);
@@ -102,7 +102,7 @@ TEST_F(NetworkConfigTest, SoapMessage1) {
 
 TEST_F(NetworkConfigTest, SoapMessage2) {
     SCOPED_TRACE(__FUNCTION__);
-    string content = FileRead("src/bgp/testdata/network_test_2.xml");
+    string content = FileRead("controller/src/bgp/testdata/network_test_2.xml");
     IFMapServerParser *parser = IFMapServerParser::GetInstance("vnc_cfg");
     parser->Receive(bgp_server_.config_db(), content.data(), content.length(),
                     0);
@@ -237,7 +237,7 @@ TEST_F(MiniSystemTest, DifferentNodes) {
     const char *net_1 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn1";
     const char *net_2 = "default-domain:b859ddbabe3d4c4dba8402084831e6fe:vn2";
     
-    string content = FileRead("src/bgp/testdata/network_test_1.xml");
+    string content = FileRead("controller/src/bgp/testdata/network_test_1.xml");
     ASSERT_NE(0, content.size());
 
     node_a_->IFMapMessage(content);
@@ -294,7 +294,7 @@ TEST_F(MiniSystemTest, SameNode) {
     const char *net_1 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn1:vn1";
     const char *net_2 = "default-domain:b47d0eacc9c446eabc9b4eea3d6f6133:vn2:vn2";
     
-    string content = FileRead("src/bgp/testdata/network_test_2.xml");
+    string content = FileRead("controller/src/bgp/testdata/network_test_2.xml");
     ASSERT_NE(0, content.size());
 
     node_a_->IFMapMessage(content);

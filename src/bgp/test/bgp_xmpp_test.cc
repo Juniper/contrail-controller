@@ -377,7 +377,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
                                        bgp_channel_manager_);
 
     //send subscribe message to vrf=__default__ from agent to bgp
-    string data = FileRead("src/bgp/testdata/pubsub_sub3.xml");
+    string data = FileRead("controller/src/bgp/testdata/pubsub_sub3.xml");
     uint8_t buf[4096];
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
@@ -387,7 +387,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received subscribe message 1 at Server \n ");
 
     //send subscribe message to vrf=blue from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_sub.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_sub.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -396,7 +396,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received subscribe message 2 at Server \n ");
 
     //send subscribe message to vrf=red from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_sub2.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_sub2.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -405,7 +405,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received subscribe message 3 at Server \n ");
 
     //send publish  message to vrf=blue from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_pub.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_pub.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -475,7 +475,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     WAIT_EQ(1, validate_done_);
 
     //send publish route dissociate to vrf=blue from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_dis.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_dis.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -488,7 +488,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received reflected route dissociate at Client \n ");
 
     //send unsubscribe message to vrf=blue from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_usub.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_usub.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -497,7 +497,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received unsubscribe message 1 at Server \n ");
 
     //send unsubscribe message to vrf=red from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_usub2.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_usub2.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
@@ -506,7 +506,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     BGP_DEBUG_UT("Received unsubscribe message 2 at Server \n ");
 
     //send unsubscribe message to vrf=__default__ from agent to bgp
-    data = FileRead("src/bgp/testdata/pubsub_usub3.xml");
+    data = FileRead("controller/src/bgp/testdata/pubsub_usub3.xml");
     bzero(buf, sizeof(buf));
     memcpy(buf, data.data(), data.size());
     xmpp_cchannel_->Peer()->SendUpdate(buf, data.size());
