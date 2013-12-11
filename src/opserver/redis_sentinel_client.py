@@ -4,6 +4,7 @@
 
 import redis
 import gevent
+import subprocess
 
 #
 # Redis Sentinel Client
@@ -86,6 +87,25 @@ class RedisSentinelClient(object):
                                   % (service))
     #end _update_redis_master
 
+    #################################################################
+    #   Work-around for sentinel issues #1912, #2021, #2058
+    #################################################################
+    def _reset_uve(self):
+        command = "service redis-uve restart"
+        process = subprocess.Popen(command.split(' '), stdout=subprocess.PIPE)
+        output = process.communicate()
+        exit_code = process.wait()
+        self._logger.error('Resetting redis-uve %s' % str(output))
+    #end _reset_uve
+
+    def _reset_sentinel(self):
+        command = "service redis-sentinel restart"
+        process = subprocess.Popen(command.split(' '), stdout=subprocess.PIPE)
+        output = process.communicate()
+        exit_code = process.wait()
+        self._logger.error('Resetting redis-sentinel %s' % str(output))
+    #end _reset_sentinel
+    
     # public functions
 
     def get_redis_master(self, service):
@@ -110,6 +130,7 @@ class RedisSentinelClient(object):
             self._get_redis_masters_from_sentinel()
             pubsub = self._sentinel.pubsub()
             pubsub.psubscribe('*')
+            redir_count = 0
             while True:
                 try:
                     msg = pubsub.listen().next()
@@ -147,6 +168,16 @@ class RedisSentinelClient(object):
                     # <master-name> <oldip> <old-port> <new-ip> <new-port>
                     elif (msg['channel'] == '+switch-master' or
                             msg['channel'] == '+redirect-to-master'):
+                        if (msg['channel'] == '+switch-master'):
+                            redir_count = 0
+                        else:
+                            self._logger.info('Detected redirect-to-master, count %d' \
+                                              % redir_count)
+                            if (redir_count > 2):
+                                # Redis instances are stuck without any master
+                                self._reset_uve()
+                            else:
+                                redir_count = redir_count + 1
                         data = msg['data'].split()
                         if len(data) != 5:
                             self._logger.error(
@@ -159,6 +190,10 @@ class RedisSentinelClient(object):
                         if data[0] in self._services:
                             redis_master = (data[3], int(data[4]))
                             self._update_redis_master(data[0], redis_master)
+                    # this is a temporary code added to handle redis split-brain case
+                    elif msg['channel'] == '-slave-restart-as-master':
+                        self._reset_sentinel()
+                        self._reset_uve()
     #end sentinel_listerner
 
 #end RedisSentinelClient
