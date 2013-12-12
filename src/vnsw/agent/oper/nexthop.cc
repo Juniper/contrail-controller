@@ -440,17 +440,11 @@ const uuid &InterfaceNH::GetIfUuid() const {
 
 static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
                           uint8_t flags, bool policy, const string vrf_name) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
-                                         policy, flags);
-    req.key.reset(key);
-
-    InterfaceNHData *data;
-    data = new InterfaceNHData(vrf_name, dmac);
-
-    req.data.reset(data);
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                   policy, flags));
+    req.data.reset(new InterfaceNHData(vrf_name, dmac));
     Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
@@ -469,13 +463,10 @@ void InterfaceNH::CreateVport(const uuid &intf_uuid,
 
 static void DeleteNH(const uuid &intf_uuid, bool policy, 
                           uint8_t flags) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
-                                         policy, flags);
-    req.key.reset(key);
-
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                   policy, flags));
     req.data.reset(NULL);
     NextHopTable::GetInstance()->Process(req);
 }

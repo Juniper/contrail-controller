@@ -41,7 +41,7 @@ using namespace boost::uuids;
 using namespace autogen;
 
 // Build one Floating IP entry for a virtual-machine-interface
-void BuildFloatingIpList(Agent *agent, VmInterfaceData *data,
+void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                          IFMapNode *node) {
     CfgListener *cfg_listener = agent->cfg_listener();
     if (cfg_listener->SkipNode(node)) {
@@ -125,7 +125,7 @@ void BuildFloatingIpList(Agent *agent, VmInterfaceData *data,
 }
 
 // Build list of static-routes on virtual-machine-interface
-void BuildStaticRoute(VmInterfaceData *data, IFMapNode *node) {
+void BuildStaticRoute(VmInterfaceConfigData *data, IFMapNode *node) {
     InterfaceRouteTable *entry = 
         static_cast<InterfaceRouteTable*>(node->GetObject());
     assert(entry);
@@ -144,7 +144,7 @@ void BuildStaticRoute(VmInterfaceData *data, IFMapNode *node) {
 }
 
 // Build one Service Vlan entry for virtual-machine-interface
-void BuildVmPortVrfInfo(Agent *agent, VmInterfaceData *data,
+void BuildVmPortVrfInfo(Agent *agent, VmInterfaceConfigData *data,
                         IFMapNode *node) {
 
     CfgListener *cfg_listener = agent->cfg_listener();
@@ -214,7 +214,7 @@ void BuildVmPortVrfInfo(Agent *agent, VmInterfaceData *data,
     return;
 }
 
-static void ReadInstanceIp(VmInterfaceData *data, IFMapNode *node) {
+static void ReadInstanceIp(VmInterfaceConfigData *data, IFMapNode *node) {
     InstanceIp *ip = static_cast<InstanceIp *>(node->GetObject());
     boost::system::error_code err;
     LOG(DEBUG, "InstanceIp config for " << data->cfg_name_ << " "
@@ -226,7 +226,7 @@ static void ReadInstanceIp(VmInterfaceData *data, IFMapNode *node) {
 // Get interface mirror configuration.
 static void ReadAnalyzerNameAndCreate(Agent *agent,
                                       VirtualMachineInterface *cfg,
-                                      VmInterfaceData &data) {
+                                      VmInterfaceConfigData &data) {
     if (!cfg) {
         return;
     }
@@ -300,8 +300,8 @@ bool InterfaceTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     InterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, u, "");
 
-    VmInterfaceData *data;
-    data = new VmInterfaceData();
+    VmInterfaceConfigData *data;
+    data = new VmInterfaceConfigData();
     ReadAnalyzerNameAndCreate(agent_, cfg, *data);
 
     //Fill config data items
@@ -429,6 +429,36 @@ void InterfaceTable::VmInterfaceVrfSync(IFMapNode *node) {
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// VM Port Key routines
+/////////////////////////////////////////////////////////////////////////////
+VmInterfaceKey::VmInterfaceKey(AgentKey::DBSubOperation sub_op,
+                   const boost::uuids::uuid &uuid, const std::string &name) :
+    InterfaceKey(sub_op, Interface::VM_INTERFACE, uuid, name, false) {
+}
+
+Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table) const {
+    return new VmInterface(uuid_);
+}
+
+Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
+                                      const InterfaceData *data) const {
+    const VmInterfaceAddData *vm_data =
+        static_cast<const VmInterfaceAddData *>(data);
+    // Add is only supported with ADD_DEL_CHANGE key and data
+    assert(vm_data->type_ == VmInterfaceData::ADD_DEL_CHANGE);
+
+    const VmInterfaceAddData *add_data =
+        static_cast<const VmInterfaceAddData *>(data);
+
+    return new VmInterface(uuid_, name_, add_data->ip_addr_, add_data->vm_mac_,
+                           add_data->vm_name_);
+}
+
+InterfaceKey *VmInterfaceKey::Clone() const {
+    return new VmInterfaceKey(*this);
+}
+
+/////////////////////////////////////////////////////////////////////////////
 // VM Port Entry routines
 /////////////////////////////////////////////////////////////////////////////
 string VmInterface::ToString() const {
@@ -436,7 +466,8 @@ string VmInterface::ToString() const {
 }
 
 DBEntryBase::KeyPtr VmInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new VmInterfaceKey(uuid_, name_);
+    InterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, uuid_,
+                                           name_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -821,7 +852,7 @@ static int CmpFloatingIp(const VmInterface::FloatingIp &ip,
 }
 
 // Update the FloatingIP list
-bool VmInterface::OnResyncFloatingIp(VmInterfaceData *data, bool new_active) {
+bool VmInterface::OnResyncFloatingIp(VmInterfaceConfigData *data, bool new_active) {
     bool ret = false;
     FloatingIpList::iterator it = floating_iplist_.begin();
     FloatingIpConfigList::iterator cfg_it = data->floating_iplist_.begin();
@@ -1069,7 +1100,7 @@ bool VmInterface::SgExists(const uuid &id, const SgList &sg_l) {
 }
 
 // TODO: Optimize this by using sorted list
-bool VmInterface::OnResyncSecurityGroupList(VmInterfaceData *data,
+bool VmInterface::OnResyncSecurityGroupList(VmInterfaceConfigData *data,
                                             bool new_active) {
     bool changed = false;
     SgUuidList &idlist = data->sg_uuid_l_;
@@ -1107,7 +1138,7 @@ bool VmInterface::OnResyncSecurityGroupList(VmInterfaceData *data,
 }
 
 // Update the Service-VLAN list
-bool VmInterface::OnResyncServiceVlan(VmInterfaceData *data) {
+bool VmInterface::OnResyncServiceVlan(VmInterfaceConfigData *data) {
     bool ret = false;
     ServiceVlanList::iterator it = service_vlan_list_.begin();
     ServiceVlanConfigList::const_iterator cfg_it =
@@ -1180,7 +1211,7 @@ bool VmInterface::OnResyncServiceVlan(VmInterfaceData *data) {
     return ret;
 }
 
-bool VmInterface::OnResyncStaticRoute(VmInterfaceData *data, 
+bool VmInterface::OnResyncStaticRoute(VmInterfaceConfigData *data, 
                                       bool new_active) {
     bool ret = false;
     StaticRouteList::iterator it = static_route_list_.begin();
@@ -1274,12 +1305,49 @@ void VmInterface::UpdateAllRoutes() {
     AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
 }
 
+bool VmInterface::OnChange(VmInterfaceData *data) {
+    if (data->type_ != VmInterfaceData::CONFIG) {
+        return false;
+    }
+
+    bool ret = false;
+    VmInterfaceConfigData *vm_data = static_cast<VmInterfaceConfigData *>(data);
+    InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
+    MirrorEntry *mirror_entry = table->FindMirrorRef(vm_data->analyzer_name_);
+    if (mirror_entry_ != mirror_entry) {
+        mirror_entry_ = mirror_entry;
+        ret = true;
+    }
+
+    if (mirror_direction_ != vm_data->mirror_direction_) {
+        mirror_direction_ = vm_data->mirror_direction_;
+        ret = true;
+    }
+
+    return ret;
+}
+
+bool VmInterface::Resync(VmInterfaceData *data) {
+    if (data == NULL || (data && data->type_ == VmInterfaceData::CONFIG)) {
+        VmInterfaceConfigData *cfg = static_cast<VmInterfaceConfigData *>
+            (data);
+        return ResyncConfig(cfg);
+    } if (data->type_ == VmInterfaceData::IP_ADDR) {
+        VmInterfaceIpAddressData *addr = static_cast<VmInterfaceIpAddressData *>
+            (data);
+        return ResyncIpAddress(addr);
+    } else {
+        return ResyncConfig(NULL);
+    }
+
+    assert(0);
+    return false;
+}
+
 // Update VM and VN references. Interface can potentially change 
 // active/inactive state
-bool VmInterface::OnResync(const DBRequest *req) {
+bool VmInterface::ResyncConfig(VmInterfaceConfigData *data) {
     bool ret = false;
-    VmInterfaceData *data = static_cast<VmInterfaceData *>
-        (req->data.get());
 
     // Do policy and VRF related processing first
     bool policy = false;
@@ -1504,10 +1572,8 @@ bool VmInterface::OnResync(const DBRequest *req) {
 // Update for VM IP address only
 // For interfaces in IP Fabric VRF, we send DHCP requests to external servers
 // if config doesnt provide an address. This address is updated here.
-bool VmInterface::OnIpAddrResync(const DBRequest *req) {
+bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
     bool ret = false;
-    VmInterfaceData *data = static_cast<VmInterfaceData *>
-        (req->data.get());
 
     if (!ipv4_forwarding_) {
         return ret;
@@ -1520,9 +1586,9 @@ bool VmInterface::OnIpAddrResync(const DBRequest *req) {
     Ip4Address old_addr = ip_addr_;
 
     if ((dhcp_snoop_ip_ || !ip_addr_.to_ulong()) &&
-        ip_addr_ != data->addr_) {
+        ip_addr_ != data->ip_addr_) {
         dhcp_snoop_ip_ = true;
-        ret = set_ip_addr(data->addr_);
+        ret = set_ip_addr(data->ip_addr_);
     }
 
     if (os_index_ == kInvalidIndex) {
@@ -1554,15 +1620,16 @@ void VmInterface::Add(InterfaceTable *table, const uuid &intf_uuid,
                       const string &os_name, const Ip4Address &addr,
                       const string &mac, const string &vm_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VmInterfaceKey(intf_uuid, os_name));
-    req.data.reset(new VmInterfaceData(addr, mac, vm_name));
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
+                                     os_name));
+    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name));
     table->Enqueue(&req);
 }
 
 // Delete a VM-Interface
 void VmInterface::Delete(InterfaceTable *table, const uuid &intf_uuid) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new VmInterfaceKey(intf_uuid, ""));
+    req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }

@@ -35,7 +35,8 @@ private:
 
 struct PhysicalInterfaceKey : public InterfaceKey {
     PhysicalInterfaceKey(const std::string &name) :
-        InterfaceKey(Interface::PHYSICAL, nil_uuid(), name) {
+        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PHYSICAL, nil_uuid(),
+                     name, false) {
     }
     virtual ~PhysicalInterfaceKey() {}
 

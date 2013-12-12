@@ -34,11 +34,10 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
-                                                     intf_uuid, "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 

@@ -815,7 +815,8 @@ class VlanNHKey : public NextHopKey {
 public:
     VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
         NextHopKey(NextHop::VLAN, false), 
-        intf_key_(new VmInterfaceKey(vm_port_uuid, "")),
+        intf_key_(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vm_port_uuid,
+                                     "")),
         vlan_tag_(vlan_tag) {
     }
     VlanNHKey(InterfaceKey *key, uint16_t vlan_tag) :
@@ -984,7 +985,8 @@ public:
 
     ComponentNHData(int label, const uuid &intf_uuid, uint8_t flags) :
         label_(label), 
-        nh_key_(new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""), false,
+        nh_key_(new InterfaceNHKey(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                      intf_uuid, ""), false,
                                    flags)) {
     }
 

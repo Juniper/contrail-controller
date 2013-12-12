@@ -80,7 +80,7 @@ void AgentDBTable::Input(DBTablePartition *partition, DBClient *client,
                          DBRequest *req) {
     AgentKey *key = static_cast<AgentKey *>(req->key.get());
 
-    if (key->sub_op_ == AgentKey::UNUSED) {
+    if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
         DBTable::Input(partition, client, req);
         return;
     }

@@ -80,20 +80,8 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 
     switch (key->type_) {
     case Interface::VM_INTERFACE: {
-        VmInterfaceData *vm_data = 
-            static_cast<VmInterfaceData *>(req->data.get());
-        VmInterface *vmport_intf = static_cast<VmInterface *>(entry);
-        MirrorEntry *mirror_entry = FindMirrorRef(vm_data->analyzer_name_);
-        if (vmport_intf->mirror_entry() != mirror_entry) {
-            vmport_intf->set_mirror_entry(mirror_entry);
-            ret = true;
-        }
-
-        if (vmport_intf->mirror_direction() != vm_data->mirror_direction_) {
-            vmport_intf->set_mirror_direction(vm_data->mirror_direction_);
-            ret = true;
-        }
-
+        VmInterface *intf = static_cast<VmInterface *>(entry);
+        ret = intf->OnChange(static_cast<VmInterfaceData *>(req->data.get()));
         break;
     }
     case Interface::VIRTUAL_HOST: {
@@ -108,6 +96,7 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
     default:
         break;
     }
+
     return ret;
 }
 
@@ -115,13 +104,10 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     assert(key->type_ == Interface::VM_INTERFACE);
-    VmInterfaceData *data = static_cast<VmInterfaceData *>
-                                (req->data.get());
+
+    VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
-    if (data && data->ip_addr_update_only_)
-        return intf->OnIpAddrResync(req);
-    else
-        return intf->OnResync(req);
+    return intf->Resync(vm_data);
 }
 
 void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
@@ -135,7 +121,7 @@ void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
         }
 
         // Cleanup Service VLAN config if any
-        VmInterfaceData data;
+        VmInterfaceConfigData data;
         vmport_intf->OnResyncServiceVlan(&data);
     }
     intf->SendTrace(Interface::DELETE);

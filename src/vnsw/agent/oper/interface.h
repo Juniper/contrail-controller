@@ -132,21 +132,11 @@ struct InterfaceKey : public AgentKey {
         is_mcast_nh_ = rhs.is_mcast_nh_;
     }
 
-    InterfaceKey(Interface::Type type, const boost::uuids::uuid &uuid,
-                 const std::string &name) : 
-        AgentKey(), type_(type), uuid_(uuid), name_(name),
-        is_mcast_nh_(false) { 
-    }
-
-    InterfaceKey(Interface::Type type, const boost::uuids::uuid &uuid,
+    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type,
+                 const boost::uuids::uuid &uuid,
                  const std::string &name, bool is_mcast) :
-        AgentKey(), type_(type), uuid_(uuid), name_(name),
+        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name),
         is_mcast_nh_(is_mcast) {
-    }
-
-    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type, 
-                 const boost::uuids::uuid &uuid, const std::string &name) : 
-        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) {
     }
 
     void Init(Interface::Type type, const boost::uuids::uuid &intf_uuid,

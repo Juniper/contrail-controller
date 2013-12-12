@@ -33,7 +33,8 @@ private:
 struct PacketInterfaceKey : public InterfaceKey {
     PacketInterfaceKey(const boost::uuids::uuid &uuid,
                        const std::string &name) :
-        InterfaceKey(Interface::PACKET, uuid, name) {
+        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::PACKET, uuid, name,
+                     false) {
     }
 
     virtual ~PacketInterfaceKey() {}

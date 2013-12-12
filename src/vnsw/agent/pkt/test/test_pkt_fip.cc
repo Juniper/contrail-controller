@@ -314,6 +314,7 @@ TEST_F(FlowTest, Mdata_FabricToVm_1) {
                            vnet[1]->mdata_ip_addr().to_string().c_str(), 1,
                            0, 0));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(),"1.1.1.10",
                          vnet[1]->mdata_ip_addr().to_string().c_str(), 1,
                          0, 0));
@@ -330,6 +331,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", 1, 0, 0));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(),"1.1.1.10",
                          "169.254.169.254", 1, 0, 0));
 
@@ -341,6 +343,7 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
                         "vn1", Agent::GetInstance()->GetLinkLocalVnName().c_str(), 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), "1.1.1.10",
                            "169.254.169.254", IPPROTO_TCP, 1001, 80));
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(),"1.1.1.10",
                          "169.254.169.254", IPPROTO_TCP, 1001, 80));
 }
@@ -358,6 +361,7 @@ TEST_F(FlowTest, VmToVm_Invalid_1) {
                            vnet[2]->mdata_ip_addr().to_string().c_str(), 1,
                            0, 0));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          vnet[2]->mdata_ip_addr().to_string().c_str(), 1,
                          0, 0));
@@ -370,6 +374,7 @@ TEST_F(FlowTest, VmToVm_Invalid_1) {
                         unknown_vn_.c_str(), 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            "1.1.1.100", 1, 0, 0));
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          "1.1.1.100", 1, 0, 0));
 
@@ -381,6 +386,7 @@ TEST_F(FlowTest, VmToVm_Invalid_1) {
                         unknown_vn_.c_str(), 1, true, false));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[5], 1, 0, 0));
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          vnet_addr[5], 1, 0, 0));
 
@@ -398,6 +404,7 @@ TEST_F(FlowTest, ServerToVm_1) {
     EXPECT_TRUE(FlowDelete(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80",
                            1, 0, 0));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80", 
                          1, 0, 0));
 
@@ -471,6 +478,7 @@ TEST_F(FlowTest, VmToServer_1) {
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            "169.254.169.254", IPPROTO_UDP, 10, 20));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          "169.254.169.254", IPPROTO_UDP, 10, 20));
 
@@ -484,6 +492,7 @@ TEST_F(FlowTest, VmToServer_1) {
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            "169.254.169.254", IPPROTO_TCP, 10, 20));
 
+    client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          "169.254.169.254", IPPROTO_TCP, 10, 20));
 }
@@ -627,7 +636,9 @@ TEST_F(FlowTest, FlowAging_1) {
 
     //Trigger flow-aging
     usleep(AGE_TIME*2);
+    client->WaitForIdle();
     client->EnqueueFlowAge();
+
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
@@ -679,6 +690,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     //Delete the flow
     if (FlowDelete(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
                    vnet_addr[3], 1, 0, 0) == false) {
+        client->WaitForIdle();
         EXPECT_STREQ("", "Error deleting flow");
     }
 

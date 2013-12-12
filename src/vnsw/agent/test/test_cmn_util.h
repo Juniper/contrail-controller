@@ -35,6 +35,8 @@ void AddNode(const char *node_name, const char *name, int id, const char *attr);
 void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
+                int vm_id, int vn_id, const string &mac, uint16_t vlan);
+void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
