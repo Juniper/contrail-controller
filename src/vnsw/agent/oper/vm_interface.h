@@ -305,6 +305,10 @@ public:
         return service_vlan_list_;
     }
 
+    const StaticRouteList &static_route_list() const {
+        return static_route_list_;
+    }
+
     void set_sg_list(SecurityGroupList &sg_id_list) const;
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
     void set_subnet_bcast_addr(const Ip4Address &addr) {
