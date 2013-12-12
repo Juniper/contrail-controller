@@ -593,7 +593,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
             (agent->GetLocalVmPeer(), vrf_name, addr, plen, component_nh_list,
-             new_label, vn_->GetName(), vn_->GetName(), sg_id_list);
+             new_label, vn_->GetName(), sg_id_list);
 
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, vrf_name, addr, plen);
