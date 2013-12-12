@@ -49,7 +49,7 @@ void CfgSync(const uuid &intf_uuid, const string &cfg_name,
     VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
 	data->VmPortInit();
 
@@ -92,7 +92,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
-    data->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "", 0);
+    data->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+               0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -103,7 +104,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntKey *key1 = new CfgIntKey(MakeUuid(1)); 
     CfgIntData *data1 = new CfgIntData();
     ip = Ip4Address::from_string("1.1.1.1", ec);
-    data1->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "", 0);
+    data1->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+                0);
     req.key.reset(key1);
     req.data.reset(data1);
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1243,35 +1245,6 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
-    /*Interface* intf = VmPortGet(1); 
-    VmInterface *vitf;
-    FloatingIpConfigList list;
-    InterfaceKey *key, *newKey;
-
-    switch (intf->type()) {
-    case Interface::VM_INTERFACE:
-            list.insert(FloatingIpConfig(Ip4Address::from_string("5.5.5.5"), "vrf10", MakeUuid(5)));
-            vitf = static_cast<VmInterface *>(intf);
-            vitf->Activate();
-            EXPECT_FALSE(VmPortInactive(1));
-            cout << "Vm port cfg name:" << vitf->cfg_name() << endl;
-            vitf->DeActivate("vrf10");
-            EXPECT_TRUE(VmPortInactive(1));
-            //TBD: look in this cfgsync
-            CfgSync(MakeUuid(1), "cfg-vnet1", MakeUuid(5),
-                                                     MakeUuid(5), list);
-            client->WaitForIdle();
-            EXPECT_TRUE(VmPortFind(1));
-            //CHange the key
-            newKey = new InterfaceKey(intf->type(), MakeUuid(2), "vnet1");
-            intf->SetKey(static_cast<DBRequestKey*>(newKey));
-            key = static_cast<InterfaceKey*>((intf->GetDBRequestKey()).get());
-            EXPECT_TRUE(key->uuid_ == newKey->uuid_);
-            EXPECT_TRUE((vitf->ToString()).compare("VM-PORT") == 0);
-            break;
-        default:
-            break;
-    }*/
     client->WaitForIdle();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
@@ -1362,7 +1335,7 @@ TEST_F(CfgTest, Basic_2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    VmInterfaceKey key(MakeUuid(1), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     VmInterface *intf = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);

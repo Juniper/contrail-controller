@@ -154,7 +154,8 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
 
     Interface *itf = static_cast<Interface *>(entry);
     Interface::Type type = itf->type();
-    if (type != Interface::PHYSICAL)
+    if (type != Interface::PHYSICAL ||
+        itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
     boost::system::error_code ec;
@@ -286,8 +287,8 @@ void AgentInit::CreateInterfaces(DB *db) {
                                     params_->vhost_name(), 
                                     agent_->GetDefaultVrf(), 
                                     VirtualHostInterface::HOST);
-    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(), params_->eth_port(),
-                            agent_->GetDefaultVrf());
+    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
+                                 params_->eth_port(), agent_->GetDefaultVrf());
     InitXenLinkLocalIntf();
 }
 /*

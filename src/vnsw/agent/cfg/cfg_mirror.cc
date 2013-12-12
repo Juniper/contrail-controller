@@ -447,15 +447,17 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
                                 entry->data.mirror_dest.dport);
     intf_mc_tree_.insert(std::pair<MirrorCfgKey, IntfMirrorCfgEntry *>(key, entry));
 
-    VmInterfaceKey *intf_key = new VmInterfaceKey(entry->data.intf_id,
-                                                          entry->data.intf_name);
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                  entry->data.intf_id,
+                                                  entry->data.intf_name);
     Interface *intf;
     intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
     if (intf) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmInterfaceData *intf_data = new VmInterfaceData(true, entry->key.handle);
+        VmInterfaceConfigData *intf_data =
+            new VmInterfaceConfigData(true, entry->key.handle);
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {
@@ -474,15 +476,17 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
     IntfMirrorCfgEntry *entry = it->second;    
     MirrorTable::DelMirrorEntry(entry->key.handle);
 
-    VmInterfaceKey *intf_key = new VmInterfaceKey(entry->data.intf_id,
-                                                          entry->data.intf_name);
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                  entry->data.intf_id,
+                                                  entry->data.intf_name);
     Interface *intf;
     intf = static_cast<Interface *>(agent_cfg_->agent()->GetInterfaceTable()->FindActiveEntry(intf_key));
     if (intf) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmInterfaceData *intf_data = new VmInterfaceData(false, std::string());
+        VmInterfaceConfigData *intf_data =
+            new VmInterfaceConfigData(false, std::string());
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {

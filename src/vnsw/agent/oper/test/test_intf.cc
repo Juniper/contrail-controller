@@ -113,7 +113,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -150,11 +150,10 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
-                                                     intf_uuid, "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -173,6 +172,27 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                         string vrf, string ip) {
     FloatingIpConfigList list;
     CfgIntfSync(id, cfg_str, vn, vm, list, vrf, ip);
+}
+
+TEST_F(IntfTest, basic_1) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    EXPECT_TRUE(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true)
+                == NULL);
+    client->Reset();
 }
 
 TEST_F(IntfTest, index_reuse) {
@@ -209,7 +229,9 @@ TEST_F(IntfTest, index_reuse) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(9));
     sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
     usleep(2000);
+    client->WaitForIdle();
 }
 
 TEST_F(IntfTest, entry_reuse) {
@@ -522,59 +544,6 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1U));
 }
-
-#if 0
-// VM create, VN create, VRF Create, VmPort create
-TEST_F(IntfTest, AddDelVmPortDepOnVmVn_3) {
-    client->Reset();
-    VmAddReq(1);
-    EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetInstance()->GetVmTable()->Size());
-
-    client->Reset();
-    VnAddReq(1, "vn1", 0, "vrf3");
-    EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
-
-    client->Reset();
-    VrfAddReq("vrf3");
-    EXPECT_TRUE(client->VrfNotifyWait(1));
-    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
-
-    client->Reset();
-    NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortInactive(1));
-
-
-    VnAddReq(1, "vn1", 0, "vrf3");
-    CfgIntfSync(1, "cfg-vnet1", 1, 1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortActive(1));
-
-    client->Reset();
-    VnDelReq(1);
-    EXPECT_TRUE(client->VnNotifyWait(1));
-    // Interface still has reference to VN
-    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
-    CfgIntfSync(1, "cfg-vnet1", 1, 1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortInactive(1));
-
-    client->Reset();
-    NovaDel(1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
-    // VN removed after interface deleted
-    EXPECT_EQ(0, Agent::GetInstance()->GetVnTable()->Size());
-
-    client->Reset();
-    VmDelReq(1);
-    EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(0, Agent::GetInstance()->GetVmTable()->Size());
-}
-#endif
 
 // VM create, VN create, VRF create, 3 VmPorts
 TEST_F(IntfTest, MultipleVmPorts_1) {

@@ -812,7 +812,9 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     DBTableBase::ListenerId id = 
         Agent::GetInstance()->GetNextHopTable()->Register(
                boost::bind(&RouteTest::NhListener, this, _1, _2));
-    InterfaceNHKey key(new VmInterfaceKey(MakeUuid(1), ""), false, InterfaceNHFlags::INET4);
+    InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                          MakeUuid(1), ""),
+                       false, InterfaceNHFlags::INET4);
     NextHop *nh = 
         static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     TestNhState *state = new TestNhState();

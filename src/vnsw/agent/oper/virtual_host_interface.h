@@ -60,7 +60,8 @@ private:
 
 struct VirtualHostInterfaceKey : public InterfaceKey {
     VirtualHostInterfaceKey(const std::string &name) :
-        InterfaceKey(Interface::VIRTUAL_HOST, nil_uuid(), name) {
+        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::VIRTUAL_HOST,
+                     nil_uuid(), name, false) {
     }
 
     virtual ~VirtualHostInterfaceKey() { }

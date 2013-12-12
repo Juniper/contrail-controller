@@ -8,6 +8,8 @@
 #include <vnc_cfg_types.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
 #include <oper/agent_types.h>
@@ -22,12 +24,13 @@ using namespace autogen;
 
 void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
+    Agent *agent = Agent::GetInstance();
 
     if (entry->IsDeleted()) {
-        VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+        VmInterface::Delete(agent->GetInterfaceTable(),
                              entry->GetUuid());
     } else {
-        VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+        VmInterface::Add(agent->GetInterfaceTable(),
                          entry->GetUuid(), entry->GetIfname(),
                          entry->ip_addr().to_v4(), entry->GetMacAddr(),
                          entry->vm_name());
