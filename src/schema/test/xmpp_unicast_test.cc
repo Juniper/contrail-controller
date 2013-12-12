@@ -33,7 +33,7 @@ class QueryTest : public ::testing::Test {
 
 TEST_F(QueryTest, Decode) {
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/schema/testdata/bgp_l3vpn_unicast_1.xml");
+            xdoc_.load_file("controller/src/schema/testdata/bgp_l3vpn_unicast_1.xml");
     EXPECT_TRUE(result);
 
     pugi::xml_node node = xdoc_.first_child();
@@ -93,7 +93,7 @@ TEST_F(QueryTest, Encode) {
 
 TEST_F(QueryTest, Decode2) {
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/schema/testdata/bgp_l3vpn_unicast_2.xml");
+            xdoc_.load_file("controller/src/schema/testdata/bgp_l3vpn_unicast_2.xml");
     EXPECT_TRUE(result);
 
     pugi::xml_node node = xdoc_.first_child();
@@ -215,7 +215,7 @@ TEST_F(QueryTest, Encode2) {
 
 TEST_F(QueryTest, Decode_NextHopType) {
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/schema/testdata/bgp_l3vpn_unicast_nh.xml");
+            xdoc_.load_file("controller/src/schema/testdata/bgp_l3vpn_unicast_nh.xml");
     EXPECT_TRUE(result);
 
     pugi::xml_node node = xdoc_.first_child();

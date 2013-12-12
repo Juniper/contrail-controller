@@ -160,7 +160,7 @@ namespace {
 
 #if 0
 TEST_F(DnsBindTest, Config) {
-    string content = FileRead("src/dns/testdata/config_test_1.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     NamedConfigTest *cfg = static_cast<NamedConfigTest *>(NamedConfig::GetNamedConfigObject());
@@ -176,16 +176,16 @@ TEST_F(DnsBindTest, Config) {
     };
 
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.1"));
+                "controller/src/dns/testdata/named.conf.1"));
     string s1 = cfg->GetZoneFilePath(dns_domains[0]);
     EXPECT_TRUE(FilesEqual(s1.c_str(), 
-                "src/dns/testdata/contrail.juniper.net.zone.1"));
+                "controller/src/dns/testdata/contrail.juniper.net.zone.1"));
     string s2 = cfg->GetZoneFilePath(dns_domains[1]);
     EXPECT_TRUE(FilesEqual(s2.c_str(), 
-                "src/dns/testdata/test.example.com.zone.1"));
+                "controller/src/dns/testdata/test.example.com.zone.1"));
     s1 = cfg->GetZoneFilePath(dns_domains[3]);
     EXPECT_TRUE(FilesEqual(s1.c_str(), 
-                "src/dns/testdata/2.1.1.in-addr.arpa.zone"));
+                "controller/src/dns/testdata/2.1.1.in-addr.arpa.zone"));
     for (int i = 0; i < 3; i++) {
         s1 = cfg->GetZoneFilePath(dns_domains[i+4]);
         EXPECT_TRUE(FileExists(s1.c_str()));
@@ -206,13 +206,13 @@ TEST_F(DnsBindTest, Config) {
     task_util::WaitForIdle();
 
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.2"));
+                "controller/src/dns/testdata/named.conf.2"));
     s1 = cfg->GetZoneFilePath(dns_domains[2]);
     EXPECT_TRUE(FilesEqual(s1.c_str(), 
-                "src/dns/testdata/contrail.juniper.com.zone.1"));
+                "controller/src/dns/testdata/contrail.juniper.com.zone.1"));
     s2 = cfg->GetZoneFilePath(dns_domains[1]);
     EXPECT_TRUE(FilesEqual(s2.c_str(), 
-                "src/dns/testdata/test.example.com.zone.1"));
+                "controller/src/dns/testdata/test.example.com.zone.1"));
 
     boost::replace_all(content, "<config>", "<delete>");
     boost::replace_all(content, "</config>", "</delete>");
@@ -220,7 +220,7 @@ TEST_F(DnsBindTest, Config) {
     task_util::WaitForIdle();
 
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.3"));
+                "controller/src/dns/testdata/named.conf.3"));
     for (int i = 0; i < 4; i++) {
         s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_FALSE(FileExists(s1.c_str()));
@@ -229,7 +229,7 @@ TEST_F(DnsBindTest, Config) {
 #endif
 
 TEST_F(DnsBindTest, Reordered) {
-    string content = FileRead("src/dns/testdata/config_test_2.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     NamedConfigTest *cfg = static_cast<NamedConfigTest *>(NamedConfig::GetNamedConfigObject());
@@ -255,7 +255,7 @@ TEST_F(DnsBindTest, Reordered) {
     };
 
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.4"));
+                "controller/src/dns/testdata/named.conf.4"));
     for (int i = 0; i < 17; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
@@ -291,7 +291,7 @@ TEST_F(DnsBindTest, Reordered) {
     string s1 = cfg->GetZoneFilePath(zone);
     EXPECT_TRUE(FileExists(s1.c_str()));
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.5"));
+                "controller/src/dns/testdata/named.conf.5"));
 
     const char config_change_1[] = "\
 <config>\
@@ -350,7 +350,7 @@ TEST_F(DnsBindTest, Reordered) {
     EXPECT_TRUE(parser_.Parse(config_change_1));
     task_util::WaitForIdle();
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.6"));
+                "controller/src/dns/testdata/named.conf.6"));
     for (int i = 0; i < 12; i++) {
         string s1 = cfg->GetZoneFilePath(dns_domains[i]);
         EXPECT_TRUE(FileExists(s1.c_str()));
@@ -404,7 +404,7 @@ TEST_F(DnsBindTest, Reordered) {
     EXPECT_TRUE(parser_.Parse(config_change_2));
     task_util::WaitForIdle();
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.7"));
+                "controller/src/dns/testdata/named.conf.7"));
 
     const char config_change_3[] = "\
 <delete>\
@@ -448,7 +448,7 @@ TEST_F(DnsBindTest, Reordered) {
     EXPECT_TRUE(parser_.Parse(config_change_3));
     task_util::WaitForIdle();
     EXPECT_TRUE(FilesEqual(cfg->GetConfFilePath().c_str(),
-                "src/dns/testdata/named.conf.8"));
+                "controller/src/dns/testdata/named.conf.8"));
     for (int i = 0; i < 7; i++) {
         string s1 = cfg->GetZoneFilePath(deleted_domains[i]);
         EXPECT_FALSE(FileExists(s1.c_str()));
