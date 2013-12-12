@@ -30,7 +30,7 @@ protected:
 };
 
 TEST_F(PolicyParserTest, Basic) {
-    string content = FileRead("src/routing-policy/testdata/policy_1.xml");
+    string content = FileRead("controller/src/routing-policy/testdata/policy_1.xml");
     parser_.Parse(content);
 }
 
