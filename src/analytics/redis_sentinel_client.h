@@ -53,7 +53,6 @@ private:
 
     EventManager *evm_;
     std::string sentinel_ip_;
-    unsigned short sentinel_port_;
     RedisServices services_;
     RedisMasterUpdateCb redis_master_update_cb_;
     uint64_t rx_msg_count_;
