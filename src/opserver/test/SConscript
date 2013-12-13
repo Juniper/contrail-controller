@@ -65,7 +65,9 @@ build_pkgs = [
         '#controller/src/opserver/test']
 
 #venv that we are building is in env['analytics_test']
-env.Depends (env['analytics_test'], OpEnv['OPSERVER_PKG'])
+env.Depends (env['analytics_test'], env['OPSERVER_PKG'])
+env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
+env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist')
 for local_sources_rule in local_sources_rules:
     env.Depends (env['analytics_test'], local_sources_rule)
 
@@ -112,6 +114,8 @@ if env['OPT'] != 'coverage':
     for d in _deps:
         env.Depends (test, d.name)
     env.Alias('controller/src/opserver:test', test)
+    env.Requires(test, env['TOP'] + '/analytics/vizd')
+    env.Requires(test, env['TOP'] + '/query_engine/qedt')
 else:
     env['env_venv'] = venv
     testcov = env.PyTestSuiteCov('opserver-test', local_sources)
@@ -125,3 +129,5 @@ else:
     env.Depends(run_coverage_cmd, testcov[0].name)
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/opserver:test', run_coverage_cmd)
+    env.Requires(run_coverage_cmd, env['TOP'] + '/analytics/vizd')
+    env.Requires(run_coverage_cmd, env['TOP'] + '/query_engine/qedt')

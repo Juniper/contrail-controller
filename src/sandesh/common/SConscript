@@ -40,7 +40,7 @@ gen_init = env.Command('sandesh_common/__init__.py', None,
 env.Depends(setup_files, gen_vns_files)
 
 env.Install('.', '#controller/src/sandesh/common/setup.py')
-sdist_gen = env.Command('dist/sandesh-common-0.1.dev.tar.gz',
+sdist_gen = env.Command('dist/sandesh-common-0.1dev.tar.gz',
                         ['setup.py'] + setup_files + gen_init,
                         '(cd %s; python setup.py sdist)' % Dir('.').path)
 
