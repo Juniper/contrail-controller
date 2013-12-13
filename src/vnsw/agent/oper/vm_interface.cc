@@ -548,7 +548,6 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
 
     SecurityGroupList sg_id_list;
     set_sg_list(sg_id_list);
-       
     if (nh_count == 0) {
         //Default add VM receive route
         Inet4UnicastAgentRouteTable::AddLocalVmRoute(
@@ -1203,9 +1202,10 @@ bool VmInterface::OnResyncStaticRoute(VmInterfaceData *data,
     CfgStaticRouteList::iterator cfg_it = data->static_route_list_.begin();
     bool install_route = (active_ && new_active);
 
-    if (install_route == false) {
+    if (data->vrf_name_ == Agent::GetInstance()->NullString()) {
         return ret;
     }
+
     while (it != static_route_list_.end() && 
            cfg_it != data->static_route_list_.end()) {
         const StaticRoute &rt = *it;
@@ -1280,6 +1280,12 @@ void VmInterface::UpdateAllRoutes() {
         svlan_it++;
     };
 
+    StaticRouteList::iterator static_rt_it = static_route_list_.begin();
+    while (static_rt_it != static_route_list_.end()) {
+        const StaticRoute &rt = *static_rt_it;
+        AddRoute(rt.vrf_, rt.addr_, rt.plen_, true);
+        static_rt_it++;
+    }
     AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
 }
 

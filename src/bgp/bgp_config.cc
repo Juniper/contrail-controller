@@ -29,6 +29,7 @@ BgpNeighborConfig::AddressFamilyList
 
 void BgpNeighborConfig::Initialize() {
     default_addr_family_list_.push_back("inet");
+    default_addr_family_list_.push_back("inet-vpn");
 }
 
 MODULE_INITIALIZER(BgpNeighborConfig::Initialize);

@@ -164,7 +164,7 @@ namespace {
 
 TEST_F(DnsConfigManagerTest, Config) {
     ClearCounts();
-    string content = FileRead("src/dns/testdata/config_test_1.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     EXPECT_EQ(4, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));
@@ -206,7 +206,7 @@ TEST_F(DnsConfigManagerTest, Config) {
 
 TEST_F(DnsConfigManagerTest, Reordered) {
     ClearCounts();
-    string content = FileRead("src/dns/testdata/config_test_2.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
     EXPECT_EQ(6, GetCount(DNS_NETWORK_IPAM, DnsConfig::CFG_ADD));

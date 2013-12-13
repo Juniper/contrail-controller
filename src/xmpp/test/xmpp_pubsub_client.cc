@@ -122,7 +122,7 @@ TEST_F(XmppPubSubTest, Connection) {
         (new XmppBgpMockPeer(connection->ChannelMux()));
 
     //send subscribe message from agent to bgp
-    string data = FileRead("src/xmpp/testdata/pubsub_sub.xml");
+    string data = FileRead("controller/src/xmpp/testdata/pubsub_sub.xml");
     uint8_t buf[4096];
     memcpy(buf, data.data(), data.size());
     bool ret = bgp_cchannel->SendUpdate(buf, data.size());
@@ -131,7 +131,7 @@ TEST_F(XmppPubSubTest, Connection) {
     TASK_UTIL_EXPECT_NE(0, bgp_cchannel->Count());
 
     //send publish  message from agent to bgp
-    data = FileRead("src/xmpp/testdata/pubsub_pub.xml");
+    data = FileRead("controller/src/xmpp/testdata/pubsub_pub.xml");
     memcpy(buf, data.data(), data.size());
     ret = bgp_cchannel->SendUpdate(buf, data.size());
     EXPECT_TRUE(ret);

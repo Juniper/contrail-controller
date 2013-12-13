@@ -1397,6 +1397,56 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    EXPECT_FALSE(VmPortFind(1));
 }
 
+//Activate interface along with static routes
+TEST_F(IntfTest, IntfStaticRoute_4) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Interface gets delete
+   NovaDel(1);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   //Add static routes and activate interface
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                          static_route[1].plen_));
+
+   //Send nova interface add message
+   NovaIntfAdd(1, "vnet1", "1.1.1.10", "00:00:00:01:01:01");
+   //Sync the config
+   AddPort("vnet1", 1);
+   client->WaitForIdle();
+   EXPECT_TRUE(VmPortActive(input, 0));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

@@ -759,6 +759,7 @@ class VncApiServer(VncApiServerGen):
                             operation, err_str):
         apiConfig = VncApiCommon(identifier_uuid=str(id))
         apiConfig.operation = operation
+        apiConfig.object_type = obj_type
         apiConfig.identifier_name = fq_name_str
         if err_str:
             apiConfig.error = "%s:%s" % (obj_type, err_str)
@@ -834,7 +835,9 @@ class VncApiServer(VncApiServerGen):
             apiConfig.identifier_uuid = obj_uuid
             # TODO should be from x-auth-token
             apiConfig.user = ''
+            apiConfig.object_type = obj_type
             apiConfig.identifier_name = fq_name_str
+            apiConfig.body = str(request.json)
             uveLog = None
 
             if ((obj_type == "virtual_machine") or
@@ -874,6 +877,7 @@ class VncApiServer(VncApiServerGen):
         apiConfig.url = request.url
         uuid_str = str(uuid)
         apiConfig.identifier_uuid = uuid_str
+        apiConfig.object_type = obj_type
         apiConfig.identifier_name = fq_name_str
         uveLog = None
 
@@ -938,8 +942,11 @@ class VncApiServer(VncApiServerGen):
 
         fq_name_str = ":".join(obj_dict['fq_name'])
         apiConfig = VncApiCommon(identifier_name=fq_name_str)
+        apiConfig.object_type = obj_type
         apiConfig.operation = 'post'
         apiConfig.url = request.url
+        apiConfig.object_type = obj_type
+        apiConfig.body = str(request.json)
         if uuid_in_req:
             apiConfig.identifier_uuid = uuid_in_req
         # TODO should be from x-auth-token
