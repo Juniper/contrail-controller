@@ -970,9 +970,10 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
 
 
 QueryEngine::QueryEngine(EventManager *evm,
-            const std::string & redis_ip, unsigned short redis_port) :    
+            const std::string & redis_ip, unsigned short redis_port,
+            int max_chunks) :    
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port)),
+            this, redis_ip, redis_port, max_chunks)),
         evm_(evm),
         cassandra_port_(0)
 { 
@@ -990,12 +991,13 @@ QueryEngine::QueryEngine(EventManager *evm,
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
-            const std::string & redis_ip, unsigned short redis_port, uint64_t start_time) :    
+            const std::string & redis_ip, unsigned short redis_port,
+            int max_chunks, uint64_t start_time) :    
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), 
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ip, cassandra_port, 0, "QueryEngine")),
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port)),
+            this, redis_ip, redis_port, max_chunks)),
         evm_(evm),
         cassandra_port_(cassandra_port),
         cassandra_ip_(cassandra_ip)

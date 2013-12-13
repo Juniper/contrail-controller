@@ -873,10 +873,11 @@ public:
 
     QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
-            const std::string & redis_ip, unsigned short redis_port, uint64_t start_time=0);
+            const std::string & redis_ip, unsigned short redis_port, 
+            int max_chunks, uint64_t start_time=0);
 
     QueryEngine(EventManager *evm,
-            const std::string & redis_ip, unsigned short redis_port);
+            const std::string & redis_ip, unsigned short redis_port, int max_chunks);
     
     int
     QueryPrepare(QueryParams qp,

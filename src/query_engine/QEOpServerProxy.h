@@ -22,7 +22,8 @@ class QueryResultMetaData;
 
 class QEOpServerProxy {
 public:
-
+    static const int nMaxChunks = 16;
+    
     // This is the client-provided function that will be called when the OpServer
     // issues a query. Besides the QID, the function will get a map ,
     // indexed by field name.
@@ -38,7 +39,7 @@ public:
     // when the OpServer issues a Query.
     QEOpServerProxy(EventManager *evm, QueryEngine *qe,
             const std::string & hostname,
-            uint16_t port);
+            uint16_t port, int max_chunks = nMaxChunks);
     virtual ~QEOpServerProxy();
 
     // When the result of a Query is available, the client should
