@@ -62,8 +62,6 @@ class QEOpServerProxy::QEOpServerImpl {
 public:
     typedef std::vector<std::string> QEOutputT;
 
-    static const int nMaxChunks = 16;
-
     struct Input {
         int cnum;
         string hostname;
@@ -630,7 +628,7 @@ public:
         freeReplyObject(reply);
         redisFree(c);
 
-        QueryEngine::QueryParams qp(qid, terms, nMaxChunks,
+        QueryEngine::QueryParams qp(qid, terms, max_chunks_,
             UTCTimestampUsec());
        
         vector<uint64_t> chunk_size;
@@ -761,11 +759,13 @@ public:
 
     }
     
-    QEOpServerImpl(const string & redis_host, uint16_t port, QEOpServerProxy * qosp) :
+    QEOpServerImpl(const string & redis_host, uint16_t port, QEOpServerProxy * qosp,
+                   int max_chunks) :
             hostname_(boost::asio::ip::host_name()),
             redis_host_(redis_host),
             port_(port),
-            qosp_(qosp) {
+            qosp_(qosp),
+            max_chunks_(max_chunks) {
         for (int i=0; i<kConnections+1; i++) {
             cb_proc_fn_[i] = boost::bind(&QEOpServerImpl::CallbackProcess,
                     this, i, _1, _2, _3);
@@ -807,15 +807,15 @@ private:
     tbb::mutex mutex_;
     map<string,QEPipeT*> pipes_;
     int npipes_[kConnections];
-
+    int max_chunks_;
 
 };
 
 QEOpServerProxy::QEOpServerProxy(EventManager *evm, QueryEngine *qe,
-            const string & hostname, uint16_t port) :
+            const string & hostname, uint16_t port, int max_chunks) :
         evm_(evm),
         qe_(qe),
-        impl_(new QEOpServerImpl(hostname, port, this)) {}
+        impl_(new QEOpServerImpl(hostname, port, this, max_chunks)) {}
 
 QEOpServerProxy::~QEOpServerProxy() {}
 
