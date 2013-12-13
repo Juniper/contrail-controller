@@ -38,7 +38,6 @@ public:
     static Family FamilyFromRoutingTableName(std::string name);
 
 private:
-    Family family_;
     IpAddress addr_;    
 };
 

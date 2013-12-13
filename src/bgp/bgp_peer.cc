@@ -36,7 +36,6 @@
 
 using boost::system::error_code;
 using namespace std;
-using namespace tbb;
 
 class BgpPeer::PeerClose : public IPeerClose {
   public:
@@ -395,7 +394,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
     }
 
     if (clear_session) {
-        BGP_LOG_PEER(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA,
                      "Session cleared due to configuration change");
         BGPPeerInfo::Send(peer_info);
@@ -549,7 +548,7 @@ void BgpPeer::RegisterAllTables() {
 
     if (IsFamilyNegotiated(Address::INET)) {
         BgpTable *table = instance->GetTable(Address::INET);
-        BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            table, "Register peer with the table");
         if (table) {
             membership_mgr->Register(this, table, policy_, -1,
@@ -560,7 +559,7 @@ void BgpPeer::RegisterAllTables() {
 
     if (IsFamilyNegotiated(Address::INETVPN)) {
         BgpTable *vtable = instance->GetTable(Address::INETVPN);
-        BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            vtable, "Register peer with the table");
         if (vtable) {
             membership_mgr->Register(this, vtable, policy_, -1,
@@ -571,7 +570,7 @@ void BgpPeer::RegisterAllTables() {
 
     if (IsFamilyNegotiated(Address::EVPN)) {
         BgpTable *vtable = instance->GetTable(Address::EVPN);
-        BGP_LOG_TABLE_PEER(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+        BGP_LOG_PEER_TABLE(this, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                            vtable, "Register peer with the table");
         if (vtable) {
             membership_mgr->Register(this, vtable, policy_, -1,
@@ -633,16 +632,15 @@ void BgpPeer::SendOpen(TcpSession *session) {
     uint8_t data[256];
     int result = BgpProto::Encode(&openmsg, data, sizeof(data));
     assert(result > BgpProto::kMinMessageSize);
-    BGP_LOG_PEER(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_TRACE,
-                 BGP_PEER_DIR_OUT,
-                 "Send Open " << result << " bytes to " << session->ToString());
+    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_OUT, "Open "  << openmsg.ToString());
     session->Send(data, result, NULL);
 
     peer_stats_->proto_stats_[1].open++;
 }
 
 void BgpPeer::SendKeepalive(bool from_timer) {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
 
     // Bail if there's no session for the peer anymore.
     if (!session_)
@@ -652,10 +650,10 @@ void BgpPeer::SendKeepalive(bool from_timer) {
     uint8_t data[BgpProto::kMinMessageSize];
     int result = BgpProto::Encode(&msg, data, sizeof(data));
     assert(result == BgpProto::kMinMessageSize);
-    SandeshLevel::type log_level = from_timer ? SandeshLevel::UT_DEBUG :
+    SandeshLevel::type log_level = from_timer ? Sandesh::LoggingUtLevel() :
                                                 SandeshLevel::SYS_INFO;
-    BGP_LOG_PEER(this, log_level, BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT,
-                 "Send Keepalive " << result << " bytes");
+    BGP_LOG_PEER(Message, this, log_level, BGP_LOG_FLAG_SYSLOG,
+                 BGP_PEER_DIR_OUT, "Keepalive");
     send_ready_ = session_->Send(data, result, NULL);
 
     peer_stats_->proto_stats_[1].keepalive++;
@@ -674,13 +672,17 @@ static bool SkipUpdateSend() {
 }
 
 bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
 
     // Bail if there's no session for the peer anymore.
     if (!session_)
         return true;
 
     if (!SkipUpdateSend()) {
+        if (Sandesh::LoggingLevel() >= Sandesh::LoggingUtLevel()) {
+            BGP_LOG_PEER(Message, this, Sandesh::LoggingUtLevel(),
+                         BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_OUT, "Update");
+        }
         send_ready_ = session_->Send(msg, msgsize, NULL);
         if (send_ready_) {
             StartKeepaliveTimerUnlocked();
@@ -703,7 +705,7 @@ bool BgpPeer::SendUpdate(const uint8_t *msg, size_t msgsize) {
 
 void BgpPeer::SendNotification(BgpSession *session,
         int code, int subcode, const std::string &data) {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     session->SendNotification(code, subcode, data);
     state_machine_->set_last_notification_out(code, subcode, data);
     peer_stats_->proto_stats_[1].notification++;
@@ -788,7 +790,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
         InetTable *table =
             static_cast<InetTable *>(instance->GetTable(Address::INET));
         if (!table) {
-            BGP_LOG_PEER(this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
                          BGP_PEER_DIR_IN, "Cannot find inet table");
             return;
         }
@@ -836,7 +838,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
         Address::Family family = BgpAf::AfiSafiToFamily(nlri->afi, nlri->safi);
         if (!IsFamilyNegotiated(family)) {
-            BGP_LOG_PEER(this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+            BGP_LOG_PEER(Message, this, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
                          BGP_PEER_DIR_IN,
                          "AFI "<< nlri->afi << " SAFI " << (int) nlri->safi <<
                          " not allowed");
@@ -894,7 +896,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
             vector<BgpProtoPrefix *>::const_iterator it;
             for (it = nlri->nlri.begin(); it < nlri->nlri.end(); it++) {
                 if ((*it)->type != 2) {
-                    BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+                    BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                                  BGP_PEER_DIR_IN,
                                  "EVPN: Unsupported route type " << (*it)->type);
                     continue;
@@ -921,9 +923,9 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
 
 void BgpPeer::KeepaliveTimerErrorHandler(string error_name,
                                          string error_message) {
-    BGP_LOG_PEER(this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_OUT, "Timer error: " << error_name << " "
-                                                   << error_message);
+    BGP_LOG_PEER(Timer, this, SandeshLevel::SYS_CRIT, BGP_LOG_FLAG_ALL,
+                 BGP_PEER_DIR_NA,
+                 "Timer error: " << error_name << " " << error_message);
 }
 
 bool BgpPeer::KeepaliveTimerExpired() {
@@ -946,7 +948,7 @@ void BgpPeer::StartKeepaliveTimerUnlocked() {
 }
 
 void BgpPeer::StartKeepaliveTimer() {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (session_ && send_ready_)
         StartKeepaliveTimerUnlocked();
 }
@@ -956,17 +958,17 @@ void BgpPeer::StopKeepaliveTimerUnlocked() {
 }
 
 void BgpPeer::StopKeepaliveTimer() {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     StopKeepaliveTimerUnlocked();
 }
 
 bool BgpPeer::KeepaliveTimerRunning() {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     return keepalive_timer_->running();
 }
 
 void BgpPeer::SetSendReady() {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     send_ready_ = true;
     if (session_ != NULL)
         StartKeepaliveTimerUnlocked();
@@ -977,13 +979,13 @@ void BgpPeer::SetSendReady() {
 }
 
 void BgpPeer::set_session(BgpSession *session) {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     assert(session_ == NULL);
     session_ = session;
 }
 
 void BgpPeer::clear_session() {
-    spin_mutex::scoped_lock lock(spin_mutex_);
+    tbb::spin_mutex::scoped_lock lock(spin_mutex_);
     if (session_) {
         session_->set_observer(NULL);
         session_->Close();
@@ -1018,7 +1020,7 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
 
     if (minfo == NULL) {
         BGP_TRACE_PEER_PACKET(this, msg, size, SandeshLevel::SYS_WARN);
-        BGP_LOG_PEER(this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, this, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
                      "Error while parsing message at " << ec.type_name);
         state_machine_->OnMessageError(session, &ec);
@@ -1027,7 +1029,7 @@ void BgpPeer::ReceiveMsg(BgpSession *session, const u_int8_t *msg,
 
     // Tracing periodic keepalive packets is not necessary.
     if (minfo->type != BgpProto::KEEPALIVE)
-        BGP_TRACE_PEER_PACKET(this, msg, size, SandeshLevel::UT_DEBUG);
+        BGP_TRACE_PEER_PACKET(this, msg, size, Sandesh::LoggingUtLevel());
 
     state_machine_->OnMessage(session, minfo);
 }
@@ -1044,7 +1046,12 @@ string BgpPeer::ToString() const {
 
 string BgpPeer::ToUVEKey() const {
     ostringstream out;
-    out << rtinstance_->name() << ":";
+
+    // XXX Skip default instance names from the logs and uves.
+    if (true || !rtinstance_->IsDefaultRoutingInstance()) {
+        out << rtinstance_->name() << ":";
+    }
+    // out << peer_key_.endpoint.address();
     out << server_->localname() << ":";
     out << peer_name();
     return out.str();
@@ -1086,7 +1093,7 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
 }
 
 void BgpPeer::ManagedDelete() {
-    BGP_LOG_PEER(this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
+    BGP_LOG_PEER(Config, this, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Received request for deletion");
     deleter_->Delete();
 }

@@ -2,9 +2,9 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef __BGP_LOG_H__
+#ifndef ctrlplane_bgp_log_h
 
-#define __BGP_LOG_H__
+#define ctrlplane_bgp_log_h
 
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
@@ -25,11 +25,9 @@ bool unit_test();
 void LogServerName(BgpServer *server);
 void LogServerName(const IPeer *ipeer, const BgpTable *table);
 
-//
 // Bgp Unit Test specific logging macros
-//
 #define BGP_DEBUG_UT(str) \
-    BGP_LOG_STR(BgpMessage, SandeshLevel::UT_DEBUG, BGP_LOG_FLAG_ALL, str)
+    BGP_LOG_STR(BgpMessage, Sandesh::LoggingUtLevel(), BGP_LOG_FLAG_ALL, str)
 #define BGP_WARN_UT(str) \
     BGP_LOG_STR(BgpMessage, SandeshLevel::UT_WARN, BGP_LOG_FLAG_ALL, str)
 
@@ -45,9 +43,7 @@ extern SandeshTraceBufferPtr BgpPeerObjectTraceBuf;
 #define BGP_LOG_FLAG_TRACE  2
 #define BGP_LOG_FLAG_ALL  (BGP_LOG_FLAG_SYSLOG | BGP_LOG_FLAG_TRACE)
 
-//
 // Base macro to log and/or trace BGP messages
-//
 #define BGP_LOG(obj, level, flags, ...)                                    \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
@@ -64,9 +60,7 @@ do {                                                                       \
     }                                                                      \
 } while (false)
 
-//
 // Base macro to log and/or trace BGP messages with C++ string as last arg
-//
 #define BGP_LOG_STR(obj, level, flags, arg)                                \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
@@ -75,12 +69,10 @@ do {                                                                       \
     BGP_LOG(obj, level, flags, _os.str());                                 \
 } while (false)
 
-//
 // Log BgpServer information if available
 //
 // XXX Only used in unit tests. In production, there is only one BgpServer per
 // control-node daemon
-//
 #define BGP_LOG_SERVER(peer, table)                                        \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
@@ -88,38 +80,95 @@ do {                                                                       \
                                 dynamic_cast<const BgpTable *>(table));    \
 } while (false)
 
-//
 // BgpPeer specific logging macros
-//
 #define BGP_PEER_DIR_OUT "SEND"
 #define BGP_PEER_DIR_IN  "RECV"
 #define BGP_PEER_DIR_NA  ""
 
-#define BGP_LOG_PEER(peer, level, flags, dir, arg)                         \
+#define BGP_LOG_PEER_INTERNAL(type, peer, level, flags, ...)               \
+do {                                                                       \
+    IPeer *_peer = dynamic_cast<IPeer *>(peer);                            \
+    std::string _peer_name;                                                \
+    if (_peer)  {                                                          \
+        _peer_name = _peer->ToUVEKey();                                    \
+    } else {                                                               \
+        _peer_name = "Unknown";                                            \
+    }                                                                      \
+    if (_peer && _peer->IsXmppPeer()) {                                    \
+        BGP_LOG(XmppPeer ## type, level, flags, _peer_name, ##__VA_ARGS__);\
+    } else {                                                               \
+        BGP_LOG(BgpPeer ## type, level, flags, _peer_name, ##__VA_ARGS__); \
+    }                                                                      \
+} while (false)
+
+// Grab all the macro arguments
+#define BGP_LOG_PEER(type, peer, level, flags, dir, arg)                   \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
+                                                                           \
     BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
-    BGP_LOG(BgpPeerMessage, level, flags,                                  \
-            (peer) ? ((peer)->IsXmppPeer() ? "Xmpp" : "Bgp") : "",         \
-            (peer) ? (peer)->ToString() : "", dir, _os.str());             \
+    BGP_LOG_PEER_INTERNAL(type, peer, level, flags, dir, _os.str());       \
 } while (false)
 
-#define BGP_LOG_TABLE_PEER(peer, level, flags, tbl, arg)                   \
+#define BGP_LOG_PEER_TABLE(peer, level, flags, tbl, arg)                   \
 do {                                                                       \
     if (LoggingDisabled()) break;                                          \
     BGP_LOG_SERVER(peer, tbl);                                             \
     std::ostringstream _os;                                                \
     _os << arg;                                                            \
-    BGP_LOG(BgpPeerTableMessage, level, flags,                             \
-            (peer) ? ((peer)->IsXmppPeer() ? "Xmpp" : "Bgp") : "",         \
-            (peer) ? (peer)->ToString() : "",                              \
+    BGP_LOG_PEER_INTERNAL(Table, peer, level, flags, BGP_PEER_DIR_NA,      \
             (tbl) ? (tbl)->name() : "",                                    \
             ((tbl) && (tbl)->routing_instance()) ?                         \
                 (tbl)->routing_instance()->name() : "",                    \
             _os.str());                                                    \
 } while (false);
+
+#define BGP_LOG_PEER_INSTANCE(peer, instance, level, flags, arg)           \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    std::ostringstream _os;                                                \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(Instance, peer, level, flags, BGP_PEER_DIR_NA,   \
+                          instance, _os.str());                            \
+} while (false)
+
+#define BGP_LOG_SCHEDULING_GROUP(peer, arg)                                \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
+    ostringstream _os;                                                     \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(SchedulingGroup, peer, SandeshLevel::SYS_DEBUG,  \
+                          BGP_LOG_FLAG_TRACE, BGP_PEER_DIR_NA, _os.str()); \
+} while (false)
+
+// Bgp Route specific logging macro
+#define BGP_LOG_ROUTE(table, peer, route, arg)                             \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    BGP_LOG_SERVER(peer, table);                                           \
+    ostringstream _os;                                                     \
+    _os << arg;                                                            \
+    BGP_LOG_PEER_INTERNAL(Route, peer, SandeshLevel::SYS_DEBUG,            \
+            BGP_LOG_FLAG_TRACE, BGP_PEER_DIR_NA, _os.str(),                \
+            (route) ? (route)->ToString() : "",                            \
+            (table) ? (table)->name() : "");                               \
+} while (false)
+
+// Bgp Table specific logging macro
+#define BGP_LOG_TABLE(table, level, flags, arg)                            \
+do {                                                                       \
+    if (LoggingDisabled()) break;                                          \
+    BGP_LOG_SERVER((IPeer *) 0, table);                                    \
+    ostringstream _os;                                                     \
+    _os << arg;                                                            \
+    BGP_LOG(BgpTable, level, flags, (table) ? (table)->name() : "",        \
+            _os.str());                                                    \
+} while (false)
+
+// BGP Trace macros.
 
 #define BGP_TRACE_PEER_OBJECT(peer, peer_info, level)                      \
 do {                                                                       \
@@ -141,83 +190,4 @@ do {                                                                       \
     BGP_TRACE_PEER_OBJECT(peer, peer_info, level);                         \
 } while (false)
 
-
-#define BGP_LOG_XMPP_PEER(peer, level, flags, arg)                         \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    std::ostringstream _os;                                                \
-                                                                           \
-    _os << arg;                                                            \
-    BGP_LOG(BgpXmppMessage, level, flags,                                  \
-            (peer) ? (peer)->ToString() : "", _os.str());                  \
-} while (false)
-
-#define BGP_LOG_XMPP_PEER_INSTANCE(peer, instance, level, flags, arg)      \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    std::ostringstream _os;                                                \
-                                                                           \
-    _os << arg;                                                            \
-    BGP_LOG(BgpXmppInstanceMessage, level, flags,                          \
-            (peer) ? (peer)->ToString() : "",                              \
-            instance, _os.str());                                          \
-} while (false)
-
-#define BGP_TRACE_XMPP_PEER_INSTANCE(peer, instance, arg)                  \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    std::ostringstream _os;                                                \
-                                                                           \
-    _os << arg;                                                            \
-    BGP_LOG(BgpXmppInstanceMessage, SandeshLevel::SYS_DEBUG,               \
-            BGP_LOG_FLAG_TRACE,                                            \
-            (peer) ? (peer)->ToString() : "",                              \
-            instance, _os.str());                                          \
-} while (false)
-
-
-#define BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer, arg)                        \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER(peer, (BgpTable *) 0);                                  \
-    ostringstream _os;                                                     \
-    _os << arg;                                                            \
-    BGP_LOG(BgpSchedulingGroupMessage, SandeshLevel::SYS_DEBUG,            \
-            BGP_LOG_FLAG_TRACE,                                            \
-            (peer) && dynamic_cast<IPeer *>(peer) ? \
-            (dynamic_cast<IPeer *>(peer)->IsXmppPeer() ? "Xmpp" : "Bgp") : "", \
-            (peer) ? (peer)->ToString() : "", _os.str());                  \
-} while (false)
-
-//
-// Bgp Route specific logging macro
-//
-#define BGP_LOG_ROUTE(table, peer, route, arg)                             \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER(peer, table);                                           \
-    ostringstream _os;                                                     \
-    _os << arg;                                                            \
-    BGP_LOG(BgpRouteMessage, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,  \
-            _os.str(),                                                     \
-            (route) ? (route)->ToString() : "",                            \
-            (peer) ? ((peer)->IsXmppPeer() ? "Xmpp" : "Bgp") : "",         \
-            (peer) ? (peer)->ToString() : "",                              \
-            (table) ? (table)->name() : "");                               \
-} while (false)
-
-//
-// Bgp Table specific logging macro
-//
-#define BGP_LOG_TABLE(table, level, flags, arg)                            \
-do {                                                                       \
-    if (LoggingDisabled()) break;                                          \
-    BGP_LOG_SERVER((IPeer *) 0, table);                                    \
-    ostringstream _os;                                                     \
-    _os << arg;                                                            \
-    BGP_LOG(BgpTableMessage, level, flags,                                 \
-            (table) ? (table)->name() : "",                                \
-            _os.str());                                                    \
-} while (false)
-
-#endif // __BGP_LOG_H__
+#endif // ctrlplane_bgp_log_h

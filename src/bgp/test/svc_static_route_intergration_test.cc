@@ -50,7 +50,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 using namespace pugi;
 using namespace test;
 
@@ -457,7 +456,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -471,7 +470,7 @@ protected:
                       std::set<string> encap = std::set<string>(),
                       string nexthop="7.8.9.1", 
                       uint32_t flags=0, int label=303) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -512,7 +511,7 @@ protected:
 
     void DeleteInetRoute(BgpServerTest *server, IPeer *peer, const string &instance_name,
                          const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 

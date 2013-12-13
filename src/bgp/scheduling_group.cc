@@ -18,7 +18,6 @@
 #include "bgp/bgp_update.h"
 
 using namespace std;
-using namespace tbb;
 
 int SchedulingGroup::send_task_id_ = -1;
 
@@ -238,7 +237,7 @@ private:
     Map rib_set_;           // list of RibOuts advertised by the peer.
     vector<int> qactive_cnt_;
     bool in_sync_;          // whether the peer may dequeue tail markers.
-    atomic<bool> send_ready_;    // whether the peer may send updates.
+    tbb::atomic<bool> send_ready_;    // whether the peer may send updates.
     size_t rib_iterator_;   // index of last processed rib.
 
     DISALLOW_COPY_AND_ASSIGN(PeerState);
@@ -784,7 +783,7 @@ void SchedulingGroup::RibOutActive(RibOut *ribout, int queue_id) {
 void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     CHECK_CONCURRENCY("bgp::SendReadyTask");
 
-    BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer, ": RX send-ready");
+    BGP_LOG_SCHEDULING_GROUP(peer, ": RX send-ready");
 
     // Nothing to do if the IPeerUpdate's already in that state.
     PeerState *ps = peer_state_imap_.Find(peer);
@@ -793,7 +792,7 @@ void SchedulingGroup::SendReady(IPeerUpdate *peer) {
     }
 
     // Create and enqueue new WorkPeer entry.
-    BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer, ": send-ready");
+    BGP_LOG_SCHEDULING_GROUP(peer, ": send-ready");
     ps->set_send_ready(true);
     WorkBase *wentry = new WorkPeer(peer);
     WorkEnqueue(wentry);
@@ -817,7 +816,7 @@ bool SchedulingGroup::IsSendReady(IPeerUpdate *peer) const {
 auto_ptr<SchedulingGroup::WorkBase> SchedulingGroup::WorkDequeue() {
     CHECK_CONCURRENCY("bgp::SendTask");
 
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     auto_ptr<WorkBase> wentry;
     if (work_queue_.empty()) {
         worker_task_ = NULL;
@@ -835,7 +834,7 @@ auto_ptr<SchedulingGroup::WorkBase> SchedulingGroup::WorkDequeue() {
 void SchedulingGroup::WorkEnqueue(WorkBase *wentry) {
     CHECK_CONCURRENCY("db::DBTable", "bgp::SendTask", "bgp::SendReadyTask");
 
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     work_queue_.push_back(wentry);
     if (!running_) {
         worker_task_ = new Worker(this);
@@ -900,7 +899,7 @@ void SchedulingGroup::SetSendBlocked(const RibOut *ribout, RibState *rs,
          bit = blocked.find_next(bit)) {
         IPeerUpdate *peer = ribout->GetPeer(bit);
         PeerState *ps = peer_state_imap_.Find(peer);
-        BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer, ": send-blocked");
+        BGP_LOG_SCHEDULING_GROUP(peer, ": send-blocked");
         ps->SetQueueActive(rs->index(), queue_id);
         ps->clear_sync();
         ps->set_send_ready(false);
@@ -1067,7 +1066,7 @@ void SchedulingGroup::UpdatePeer(IPeerUpdate *peer) {
     }
 
     // Mark the peer as being in sync across all tables.
-    BGP_LOG_SCHEDULING_GROUP_MESSAGE(peer,
+    BGP_LOG_SCHEDULING_GROUP(peer,
                                      "Peer " <<  ps->index() << ": in-sync");
     ps->SetSync();
 

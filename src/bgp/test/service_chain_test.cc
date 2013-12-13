@@ -39,7 +39,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 using namespace pugi;
 
 #define VERIFY_EQ(expected, actual) \
@@ -157,7 +156,7 @@ protected:
                       std::set<string> encap = std::set<string>(),
                       string nexthop="7.8.9.1", 
                       uint32_t flags=0, int label=0) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -203,7 +202,7 @@ protected:
 
     void DeleteInetRoute(IPeer *peer, const string &instance_name,
                          const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 
@@ -239,7 +238,7 @@ protected:
             vpn_prefix = "7.7.7.7:7777:" + prefix;
         }
 
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(vpn_prefix, &error);
         EXPECT_FALSE(error);
 
@@ -304,7 +303,7 @@ protected:
             vpn_prefix = "7.7.7.7:7777:" + prefix;
         }
 
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(vpn_prefix, &error);
         EXPECT_FALSE(error);
 
@@ -357,7 +356,7 @@ protected:
             vpn_prefix = "7.7.7.7:7777:" + prefix;
         }
 
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(vpn_prefix, &error);
         EXPECT_FALSE(error);
 
@@ -413,7 +412,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -1223,7 +1222,7 @@ TEST_P(ServiceChainParamTest, PeerUpdate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1312,7 +1311,7 @@ TEST_P(ServiceChainParamTest, DuplicateForwardingPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1418,7 +1417,7 @@ TEST_P(ServiceChainParamTest, EcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1504,7 +1503,7 @@ TEST_P(ServiceChainParamTest, EcmpPathUpdate) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1583,7 +1582,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHADD) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1674,7 +1673,7 @@ TEST_P(ServiceChainParamTest, N_ECMP_PATHDEL) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1755,7 +1754,7 @@ TEST_P(ServiceChainParamTest, EcmpWithDuplicateForwardingPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -2540,7 +2539,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedEcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -2622,7 +2621,7 @@ TEST_P(ServiceChainParamTest, ExtConnectedMoreSpecificEcmpPaths) {
     NetworkConfig(instance_names, connections);
     VerifyNetworkConfig(instance_names);
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -2734,7 +2733,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteSGID) {
     VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -2840,7 +2839,7 @@ TEST_P(ServiceChainParamTest, ServiceChainRouteUpdateSGID) {
     VerifyNetworkConfig(instance_names);
 
     bgp_server_->service_chain_mgr()->set_aggregate_host_route(false);
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -3155,7 +3154,7 @@ TEST_P(ServiceChainParamTest, MultiPathTunnelEncap) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(

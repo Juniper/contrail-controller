@@ -22,7 +22,6 @@
 #include "bgp/bgp_update_queue.h"
 #include "db/db.h"
 
-using boost::system::error_code;
 using namespace std;
 
 // PeerCloseManager constructor
@@ -129,7 +128,7 @@ bool PeerCloseManager::StaleTimerCallback() {
     // Timer callback is complete. Reset the appropriate flags
     stale_timer_running_ = false;
     start_stale_timer_ = false;
-    error_code ec;
+    boost::system::error_code ec;
     stale_timer_->Cancel();
 
     return false;
@@ -152,7 +151,7 @@ void PeerCloseManager::CloseComplete(IPeer *ipeer, BgpTable *table,
                                      bool from_timer, bool gr_cancelled) {
     tbb::recursive_mutex::scoped_lock lock(mutex_);
 
-    BGP_LOG_PEER(peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+    BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Close process is complete");
 
     close_in_progress_ = false;
@@ -246,12 +245,12 @@ void PeerCloseManager::Close() {
         if (peer_close->IsCloseGraceful()) {
             close_request_pending_ = true;
         }
-        BGP_LOG_PEER(peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_NA, "Close process is already in progress");
         return;
     } else {
-        BGP_LOG_PEER(peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                    BGP_PEER_DIR_NA, "Initiating close process");
+        BGP_LOG_PEER(Event, peer_, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+                     BGP_PEER_DIR_NA, "Initiating close process");
     }
 
     close_in_progress_ = true;
@@ -262,7 +261,7 @@ void PeerCloseManager::Close() {
 
     // If stale timer is already running, cancel the timer and do hard close
     if (stale_timer_running_) {
-        error_code ec;
+        boost::system::error_code ec;
         stale_timer_->Cancel();
         gr_cancelled = true;
     }

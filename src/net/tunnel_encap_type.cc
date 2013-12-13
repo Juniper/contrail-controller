@@ -8,7 +8,7 @@
 
 using namespace std;
 
-TunnelEncapType::TunnelEncapType() : encap_(UNSPEC) {
+TunnelEncapType::TunnelEncapType() {
 }
 
 static const std::map<string, TunnelEncapType::Encap>  

@@ -29,7 +29,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 
 class BgpPeerMock : public IPeer {
 public:
@@ -122,7 +121,7 @@ protected:
 
     void AddInetRoute(IPeer *peer, const string &instance_name,
                       const string &prefix, int localpref, string rd = "") {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -147,7 +146,7 @@ protected:
 
     void AddVPNRouteCommon(IPeer *peer, const string &prefix,
                            const BgpAttrSpec &attr_spec) {
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -194,7 +193,7 @@ protected:
     }
 
     void DeleteVPNRoute(IPeer *peer, const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -208,7 +207,7 @@ protected:
 
     void DeleteInetRoute(IPeer *peer, const string &instance_name,
                          const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 
@@ -264,7 +263,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetVpnTable::RequestKey key(nlri, NULL);
@@ -279,7 +278,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -319,7 +318,7 @@ TEST_F(ReplicationTest, PathImport) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -380,7 +379,7 @@ TEST_F(ReplicationTest, NoExtCommunities) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -408,7 +407,7 @@ TEST_F(ReplicationTest, Delete) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -430,7 +429,7 @@ TEST_F(ReplicationTest, MultiplePaths)  {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -468,7 +467,7 @@ TEST_F(ReplicationTest, IdentifySecondary)  {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -569,7 +568,7 @@ TEST_F(ReplicationTest, MultiplePathsDiffRD)  {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -611,7 +610,7 @@ TEST_F(ReplicationTest, PathChange)  {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -651,7 +650,7 @@ TEST_F(ReplicationTest, WithLocalRoute) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -713,7 +712,7 @@ TEST_F(ReplicationTest, ResurectInetRoute) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -763,7 +762,7 @@ TEST_F(ReplicationTest, LocalRouteFirst) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -826,7 +825,7 @@ TEST_F(ReplicationTest, ResurrectVPNRoute) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -873,7 +872,7 @@ TEST_F(ReplicationTest, DisconnectNetwork) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -913,7 +912,7 @@ TEST_F(ReplicationTest, ConnectNetwork) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -953,7 +952,7 @@ TEST_F(ReplicationTest, DeleteNetwork) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 
@@ -1013,7 +1012,7 @@ TEST_F(ReplicationTest, AnotherPathWithDifferentRD) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
 

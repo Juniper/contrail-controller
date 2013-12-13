@@ -2,6 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+/* BGP logs and traces. */
+
 trace sandesh BgpMessageTrace {
     1: string Message;
 }
@@ -10,6 +12,30 @@ systemlog sandesh BgpMessageLog {
     1: string Message;
 }
 
+trace sandesh BgpTableTrace {
+    1: string Table;
+    2: ":";
+    3: string Message;
+}
+
+systemlog sandesh BgpTableLog {
+    1: string Table;
+    2: ":";
+    3: string Message;
+}
+
+trace sandesh BgpConfigTrace {
+    1: string Message;
+}
+
+systemlog sandesh BgpConfigLog {
+    1: string Message;
+}
+
+/*
+ * This is not specific to a peer as we generate one message to be sent to
+ * a group of peers.
+ */
 trace sandesh BgpMessageBuilderTrace {
     1: string Message;
     2: "in message of size";
@@ -26,60 +52,96 @@ systemlog sandesh BgpMessageBuilderLog {
     5: string Route;
 }
 
-trace sandesh BgpNotificationMessageTrace {
-    1 : "Bgp Peer";
-    2 : string BgpPeer;
-    3 : string Direction;
-    4 : "BGP Notification message(";
-    5 : i32 Length;
-    6 : "Bytes";
-    7 : ") event with";
-    8 : "Code";
-    9 : i32 ErrorCode;
-    10: "and SubCode"
-    11: i32 ErrorSubCode;
-    12: "(";
-    13: string Message;
-    14: ")";
-}
+/*************************************************************************/
 
-systemlog sandesh BgpNotificationMessageLog {
-    1 : "Bgp Peer";
-    2 : string BgpPeer;
-    3 : string Direction;
-    4 : "BGP Notification message(";
-    5 : i32 Length;
-    6 : "Bytes";
-    7 : ") event with";
-    8 : "Code";
-    9 : i32 ErrorCode;
-    10: "and SubCode"
-    11: i32 ErrorSubCode;
-    12: "(";
-    13: string Message;
-    14: ")";
-}
+/* BGP Peer logs and traces. */
 
 trace sandesh BgpPeerMessageTrace {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
-    4: string Direction;
-    5: string Message;
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
 }
 
 systemlog sandesh BgpPeerMessageLog {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
-    4: string Direction;
-    5: string Message;
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
 }
 
-trace sandesh BgpPeerTableMessageTrace {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
+trace sandesh BgpPeerTimerTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh BgpPeerTimerLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh BgpPeerMembershipTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh BgpPeerMembershipLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh BgpPeerEventTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh BgpPeerEventLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh BgpPeerNotificationTrace {
+    1 : "Bgp Peer";
+    2 : string BgpPeer (key="ObjectBgpPeer");
+    3 : string Direction;
+    4 : "Notification with Code";
+    5 : i32 ErrorCode;
+    6 : "and SubCode"
+    7 : i32 ErrorSubCode;
+    8 : "(";
+    9 : string Message;
+    10: ")";
+}
+
+systemlog sandesh BgpPeerNotificationLog {
+    1 : "Bgp Peer";
+    2 : string BgpPeer (key="ObjectBgpPeer");
+    3 : string Direction;
+    4 : "Notification with Code";
+    5 : i32 ErrorCode;
+    6 : "and SubCode"
+    7 : i32 ErrorSubCode;
+    8 : "(";
+    9 : string Message;
+    10: ")";
+}
+
+trace sandesh BgpPeerTableTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: "in table";
     5: string Table;
     6: "in instance";
@@ -88,10 +150,10 @@ trace sandesh BgpPeerTableMessageTrace {
     9: string Message;
 }
 
-systemlog sandesh BgpPeerTableMessageLog {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
+systemlog sandesh BgpPeerTableLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: "in table";
     5: string Table;
     6: "in instance";
@@ -100,105 +162,244 @@ systemlog sandesh BgpPeerTableMessageLog {
     9: string Message;
 }
 
-trace sandesh BgpXmppMessageTrace {
-    1: "Xmpp Peer"
-    2: string Peer;
-    3: string Message;
+trace sandesh BgpPeerInstanceTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: "in instance";
+    5: string Instance;
+    6: ":";
+    7: string Message;
 }
 
-systemlog sandesh BgpXmppMessageLog {
-    1: "Xmpp Peer"
-    2: string Peer;
-    3: string Message;
+systemlog sandesh BgpPeerInstanceLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: "in instance";
+    5: string Instance;
+    6: ":";
+    7: string Message;
 }
 
-trace sandesh BgpXmppInstanceMessageTrace {
-    1: "Xmpp Peer"
-    2: string Peer;
-    3: "in instance";
-    4: string Instance;
-    5: ":";
-    6: string Message;
-}
-
-systemlog sandesh BgpXmppInstanceMessageLog {
-    1: "Xmpp Peer"
-    2: string Peer;
-    3: "in instance";
-    4: string Instance;
-    5: ":";
-    6: string Message;
-}
-
-trace sandesh BgpTableMessageTrace {
-    1: string Table;
-    2: ":";
-    3: string Message;
-}
-
-systemlog sandesh BgpTableMessageLog {
-    1: string Table;
-    2: ":";
-    3: string Message;
-}
-
-trace sandesh BgpSchedulingGroupMessageTrace {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
+trace sandesh BgpPeerSchedulingGroupTrace {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: ":";
     5: string Message;
 }
 
-systemlog sandesh BgpSchedulingGroupMessageLog {
-    1: string PeerType;
-    2: "Peer"
-    3: string Peer;
+systemlog sandesh BgpPeerSchedulingGroupLog {
+    1: "BGP Peer"
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: ":";
     5: string Message;
 }
 
-trace sandesh BgpStateMachineMessageTrace {
-    1: string Message;
-}
-
-systemlog sandesh BgpStateMachineMessageLog {
-    1: string Message;
-}
-
-trace sandesh BgpStateMachineSessionMessageTrace {
+trace sandesh BgpPeerStateMachineTrace {
     1: "Bgp Peer";
-    2: string Peer;
-    3: ":";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: string Message;
 }
 
-systemlog sandesh BgpStateMachineSessionMessageLog {
+systemlog sandesh BgpPeerStateMachineLog {
     1: "Bgp Peer";
-    2: string Peer;
-    3: ":";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
     4: string Message;
 }
 
-trace sandesh BgpRouteMessageTrace {
-    1: string Message;
-    2: string Route;
-    3: "from";
-    4: string PeerType;
-    5: "Peer";
-    6: string Peer;
-    7: "in table"
-    8: string Table;
+trace sandesh BgpPeerRouteTrace {
+    1: "BGP Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+    5: string Route;
+    6: "in table"
+    7: string Table;
 }
 
-systemlog sandesh BgpRouteMessageLog {
-    1: string Message;
-    2: string Route;
-    3: "from";
-    4: string PeerType;
-    5: "Peer";
-    6: string Peer;
-    7: "in table"
-    8: string Table;
+systemlog sandesh BgpPeerRouteLog {
+    1: "BGP Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: string Message;
+    5: string Route;
+    6: "in table"
+    7: string Table;
 }
 
+trace sandesh BgpPeerConfigTrace {
+    1: "Bgp Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+systemlog sandesh BgpPeerConfigLog {
+    1: "Bgp Peer";
+    2: string Peer (key="ObjectBgpPeer");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+/*************************************************************************/
+
+/* XMPP Peer logs and traces. */
+
+trace sandesh XmppPeerMessageTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh XmppPeerMessageLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh XmppPeerTimerTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh XmppPeerTimerLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh XmppPeerEventTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh XmppPeerEventLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+trace sandesh XmppPeerTableTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: "in table";
+    5: string Table;
+    6: "in instance";
+    7: string Instance;
+    8: ":";
+    9: string Message;
+}
+
+systemlog sandesh XmppPeerTableLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: "in table";
+    5: string Table;
+    6: "in instance";
+    7: string Instance;
+    8: ":";
+    9: string Message;
+}
+
+trace sandesh XmppPeerInstanceTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: "in instance";
+    5: string Instance;
+    6: ":";
+    7: string Message;
+}
+
+systemlog sandesh XmppPeerInstanceLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: "in instance";
+    5: string Instance;
+    6: ":";
+    7: string Message;
+}
+
+trace sandesh XmppPeerSchedulingGroupTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+systemlog sandesh XmppPeerSchedulingGroupLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+trace sandesh XmppPeerRouteTrace {
+    1: "XMPP Peer";
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+    5: string Route;
+    6: "in table"
+    7: string Table;
+}
+
+systemlog sandesh XmppPeerRouteLog {
+    1: "XMPP Peer";
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+    5: string Route;
+    6: "in table"
+    7: string Table;
+}
+
+trace sandesh XmppPeerConfigTrace {
+    1: "Xmpp Peer";
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+systemlog sandesh XmppPeerConfigLog {
+    1: "Xmpp Peer";
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: ":";
+    5: string Message;
+}
+
+trace sandesh XmppPeerMembershipTrace {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}
+
+systemlog sandesh XmppPeerMembershipLog {
+    1: "XMPP Peer"
+    2: string Peer (key="ObjectVRouter");
+    3: string Direction;
+    4: string Message;
+}

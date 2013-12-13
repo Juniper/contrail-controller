@@ -77,7 +77,7 @@ static std::string base64_encode(const std::string& text) {
 
 void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 {
-    error_code ec;
+    boost::system::error_code ec;
     string certname;
     char hostname[1024];
     struct addrinfo hints, *info;
@@ -127,7 +127,7 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
       sent_msg_cnt_(0), reconnect_attempts_(0), connection_status_(NOCONN),
       connection_status_change_at_(UTCTimestampUsec()) {
 
-    error_code ec;
+    boost::system::error_code ec;
     if (certstore.empty()) {
         ctx_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
     } else {

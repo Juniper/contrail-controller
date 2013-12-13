@@ -45,7 +45,6 @@ public:
 
 private:
     size_t count_;
-    size_t mcast_count_;
 };
 
 class BgpXmppChannelManagerMock : public BgpXmppChannelManager {

@@ -10,7 +10,6 @@
 #include "base/parse_object.h"
 
 using namespace std;
-using namespace boost::system;
 
 MacAddress::MacAddress() {
     memset(data_, 0, kSize);
@@ -27,7 +26,7 @@ string MacAddress::ToString() const {
     return temp;
 }
 
-MacAddress MacAddress::FromString(const string &str, error_code *errorp) {
+MacAddress MacAddress::FromString(const string &str, boost::system::error_code *errorp) {
     uint8_t data[kSize];
     char extra;
     int ret = sscanf(str.c_str(), "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx%c",

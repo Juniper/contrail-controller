@@ -648,12 +648,8 @@ void PeerRibMembershipManager::UnregisterPeerCallback(IPeerRibEvent *event) {
     PeerRibMap::const_iterator it;
     int *count = NULL;
 
-    BGP_LOG_PEER(event->ipeer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-                 BGP_PEER_DIR_NA, "Unregister peer from all tables");
-    //
     // Walk the set and find all the ribs this peer has registered to.
     // Unregister the peer from each of those ribs
-    //
     for (it = peer_rib_map_.find(event->ipeer); it != peer_rib_map_.end();
             it++) {
         if (it->first != event->ipeer) break;
@@ -893,7 +889,7 @@ void PeerRibMembershipManager::ProcessRegisterRibEvent(BgpTable *table,
             peer_rib->ResetStale();
         }
 
-        BGP_LOG_TABLE_PEER(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_PEER_TABLE(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_SYSLOG, peer_rib->table(),
                            "Register routing-table for " <<
                                MembershipRequest::ActionMaskToString(
@@ -955,7 +951,7 @@ void PeerRibMembershipManager::ProcessUnregisterRibEvent(BgpTable *table,
         if (!peer_rib) continue;
         complete = false;
 
-        BGP_LOG_TABLE_PEER(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
+        BGP_LOG_PEER_TABLE(peer_rib->ipeer(), SandeshLevel::SYS_DEBUG,
                            BGP_LOG_FLAG_SYSLOG, peer_rib->table(),
                            "Unregister routing-table for " <<
                                MembershipRequest::ActionMaskToString(

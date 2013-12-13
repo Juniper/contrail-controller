@@ -36,7 +36,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 using namespace pugi;
 
 #define VERIFY_EQ(expected, actual) \
@@ -147,7 +146,7 @@ protected:
                       std::set<string> encap = std::set<string>(),
                       std::vector<uint32_t> sglist = std::vector<uint32_t>(),
                       uint32_t flags=0, int label=0) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -187,7 +186,7 @@ protected:
 
     void DeleteInetRoute(IPeer *peer, const string &instance_name,
                          const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 
@@ -211,7 +210,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -823,7 +822,7 @@ TEST_F(StaticRouteTest, N_ECMP_PATHADD) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -923,7 +922,7 @@ TEST_F(StaticRouteTest, N_ECMP_PATHDEL) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(
@@ -1107,7 +1106,7 @@ TEST_F(StaticRouteTest, MultiPathTunnelEncap) {
     NetworkConfig(instance_names, connections);
     task_util::WaitForIdle();
 
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(
         new BgpPeerMock(Ip4Address::from_string("192.168.0.1", ec)));
     peers_.push_back(

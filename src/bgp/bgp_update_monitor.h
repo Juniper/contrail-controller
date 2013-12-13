@@ -45,7 +45,7 @@ public:
         tbb::mutex *entry_mutexp;
         RouteUpdate *rt_update;
         tbb::mutex *monitor_mutexp;
-        std::condition_variable *cond_var;
+        tbb::interface5::condition_variable *cond_var;
     };
     RouteUpdatePtr()
         : entry_mutexp_(NULL), rt_update_(NULL),
@@ -53,7 +53,7 @@ public:
     }
     RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
                    tbb::mutex *monitor_mutexp,
-                   std::condition_variable *cond_var);
+                   tbb::interface5::condition_variable *cond_var);
     RouteUpdatePtr(RouteUpdatePtr &rhs)
         : entry_mutexp_(NULL), rt_update_(NULL),
           monitor_mutexp_(NULL), cond_var_(NULL) {
@@ -106,7 +106,7 @@ private:
     tbb::mutex *entry_mutexp_;
     RouteUpdate *rt_update_;
     tbb::mutex *monitor_mutexp_;
-    std::condition_variable *cond_var_;
+    tbb::interface5::condition_variable *cond_var_;
 };
 
 //
@@ -220,7 +220,7 @@ private:
             UpdateList *uplist, const RibPeerSet &mleave);
 
     tbb::mutex mutex_;      // consistency between queue and entry lock.
-    std::condition_variable cond_var_;
+    tbb::interface5::condition_variable cond_var_;
     RibOut *ribout_;
     QueueVec *queue_vec_;
     DISALLOW_COPY_AND_ASSIGN(RibUpdateMonitor);

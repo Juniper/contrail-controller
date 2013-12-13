@@ -32,10 +32,7 @@
 #include <discovery/client/discovery_client.h>
 #include "boost/python.hpp"
 
-using namespace ::apache::thrift;
-
 using namespace std;
-using boost::system::error_code;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
@@ -342,7 +339,7 @@ int main(int argc, char *argv[])
     DiscoveryServiceClient *ds_client = NULL;
     if (var_map.count("discovery-server")) {
         tcp::endpoint dss_ep;
-        error_code error;
+        boost::system::error_code error;
         dss_ep.address(address::from_string(var_map["discovery-server"].as<string>(),
                        error));
         dss_ep.port(var_map["discovery-port"].as<int>());

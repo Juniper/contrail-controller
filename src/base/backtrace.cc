@@ -11,6 +11,9 @@
 
 ssize_t BackTrace::ToString(void * const* callstack, int frames, char *buf,
                             size_t buf_len) {
+#ifdef DARWIN
+    return 0;
+#else
     buf[0] = '\0';
 
     char *str = buf;
@@ -22,13 +25,6 @@ ssize_t BackTrace::ToString(void * const* callstack, int frames, char *buf,
         int status;
         std::vector<std::string> SplitVec;
 
-#ifdef __APPLE__
-        boost::split(SplitVec, strs[i], boost::is_any_of(" \t"),
-                     boost::token_compress_on);
-        char *demangledName =
-            abi::__cxa_demangle(SplitVec[3].c_str(), NULL, NULL, &status);
-        line_pos = 5;
-#else
         if (i == frames - 1) continue;
         boost::split(SplitVec, strs[i], boost::is_any_of("()"),
                      boost::token_compress_on);
@@ -37,7 +33,6 @@ ssize_t BackTrace::ToString(void * const* callstack, int frames, char *buf,
         char *demangledName =
             abi::__cxa_demangle(SplitVec[0].c_str(), NULL, NULL, &status);
         line_pos = 1;
-#endif
 
         if (status == 0) {
             if (!strstr(demangledName, "boost::") &&
@@ -64,6 +59,7 @@ ssize_t BackTrace::ToString(void * const* callstack, int frames, char *buf,
     free(strs);
 
     return (str - buf);
+#endif
 }
 
 int BackTrace::Get(void * const* &callstack) {

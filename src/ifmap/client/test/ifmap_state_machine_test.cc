@@ -757,7 +757,7 @@ class IFMapStateMachineConnResetTest1 :
 
 public:
     IFMapStateMachineConnResetTest1() : IFMapStateMachineTest(),
-                reset_connection(true), poll_write_count_(0) {
+                reset_connection(true) {
     }
     void ConnectionResetCallback(Op current_op, Op test_op);
     int GetTimes(int my_state, int test_state) {
@@ -793,7 +793,6 @@ private:
     std::string old_host_;
     std::string old_port_;
     bool reset_connection;
-    int poll_write_count_; // used to end the test
 };
 
 void IFMapStateMachineConnResetTest1::ConnectionResetCallback(Op current_op,

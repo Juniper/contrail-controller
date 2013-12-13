@@ -91,8 +91,7 @@ void IFMapGTFVisitor::EdgeVisitor(DBGraphEdge *e) {
 
 IFMapGraphTraversalFilterCalculator::IFMapGraphTraversalFilterCalculator(
     vnc_cfg_FilterInfo &filter_info, IFMapTypenameWhiteList *white_list) 
-        : filter_info_(filter_info), white_list_(white_list), 
-          visitor_(white_list) {
+        : filter_info_(filter_info), visitor_(white_list) {
     graph_.reset(new DBGraph());
     CreateNodeBlackList();
     CreateGraph();

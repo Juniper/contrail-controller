@@ -7,9 +7,8 @@
 #include <boost/assign/list_of.hpp>
 
 using namespace std;
-using boost::system::error_code;
 
-Address::Address() : family_(UNSPEC) {
+Address::Address() {
 }
 
 static const std::map<string, Address::Family>  
@@ -88,7 +87,7 @@ static int CountDots(const string &str) {
     return count;
 }
 
-error_code Ip4PrefixParse(const string &str, Ip4Address *addr, int *plen) {
+boost::system::error_code Ip4PrefixParse(const string &str, Ip4Address *addr, int *plen) {
     size_t pos = str.find('/');
     if (pos == string::npos) {
         return make_error_code(boost::system::errc::invalid_argument);
@@ -101,7 +100,7 @@ error_code Ip4PrefixParse(const string &str, Ip4Address *addr, int *plen) {
         addrstr.append(".0");
         dots++;
     }
-    error_code err;
+    boost::system::error_code err;
     *addr = Ip4Address::from_string(addrstr, err);
     return err;
 }
