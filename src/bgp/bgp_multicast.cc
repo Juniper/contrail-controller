@@ -462,11 +462,12 @@ void McastTreeManager::RouteListener(
     McastManagerPartition *partition = partitions_[tpart->index()];
     InetMcastRoute *route = dynamic_cast<InetMcastRoute *>(db_entry);
 
-    DBState *dbstate = db_entry->GetState(table_, listener_id_);
+    DBState *dbstate = route->GetState(table_, listener_id_);
     if (!dbstate) {
 
-        // Skip since we had no previous DBState and the entry is deleted.
-        if (db_entry->IsDeleted())
+        // We have no previous DBState for this route.
+        // Bail if the route is deleted or has no best path.
+        if (route->IsDeleted() || !route->BestPath())
             return;
 
         // Create a new McastForwarder and associate it with the route.
@@ -474,7 +475,7 @@ void McastTreeManager::RouteListener(
             route->GetPrefix().group(), route->GetPrefix().source());
         McastForwarder *forwarder = new McastForwarder(route);
         sg_entry->AddForwarder(forwarder);
-        db_entry->SetState(table_, listener_id_, forwarder);
+        route->SetState(table_, listener_id_, forwarder);
 
     } else {
 
@@ -484,10 +485,10 @@ void McastTreeManager::RouteListener(
         McastForwarder *forwarder = dynamic_cast<McastForwarder *>(dbstate);
         assert(forwarder);
 
-        if (db_entry->IsDeleted()) {
+        if (route->IsDeleted()) {
 
             // Delete the McastForwarder associated with the route.
-            db_entry->ClearState(table_, listener_id_);
+            route->ClearState(table_, listener_id_);
             sg_entry->DeleteForwarder(forwarder);
             delete forwarder;
 
