@@ -681,9 +681,7 @@ void VmInterface::Activate() {
         ActivateServices();
         AllocMPLSLabels();
         // Add route for the interface-ip
-        if (ip_addr_.to_ulong() != 0) {
-            AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
-        }
+        AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
         // Add route for Floating-IP
         FloatingIpList::iterator it = floating_iplist_.begin();
         while (it != floating_iplist_.end()) {
@@ -1398,7 +1396,7 @@ bool VmInterface::OnResync(const DBRequest *req) {
         GetOsParams();
     }
 
-    bool active = IsActive(vn, vrf, vm, false);
+    bool active = IsActive(vn, vrf, vm);
 
     if (data != NULL) {
         if (ipv4_forwarding_) {
@@ -1542,7 +1540,7 @@ bool VmInterface::OnIpAddrResync(const DBRequest *req) {
         GetOsParams();
     }
 
-    bool active = IsActive(vn, vrf, vm, true);
+    bool active = IsActive(vn, vrf, vm);
     if (active_ != active) {
         if (active) {
             Activate();
@@ -1600,11 +1598,10 @@ bool VmInterface::IsDhcpSnoopIp(std::string &name, uint32_t &addr) const {
     return false;
 }
 
-bool VmInterface::IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm, 
-                                      bool ipv4_addr_compare) {
+bool VmInterface::IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm) {
     return ((vn != NULL) && (vm != NULL) && (vrf != NULL) && 
             (os_index_ != kInvalidIndex) && 
-            (!ipv4_addr_compare || (ip_addr_.to_ulong() != 0)));
+            (!ipv4_forwarding_ || (ip_addr_.to_ulong() != 0)));
 }
 
 bool VmInterface::set_ip_addr(const Ip4Address &addr) {

@@ -389,8 +389,7 @@ public:
     static void VnSync(IFMapNode *node);
 
 private:
-    bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm,
-                  bool ipv4_addr_compare);
+    bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm);
     void AllocMPLSLabels();
     void ActivateServices();
     void DeActivateServices();
