@@ -19,8 +19,10 @@
 #include "http/client/http_curl.h"
 #include "io/event_manager.h"
 #include "cmn/agent_cmn.h"
+#include "oper/operdb_init.h"
 #include "oper/mirror_table.h"
 #include "oper/interface_common.h"
+#include "oper/global_vrouter.h"
 #include "pkt/pkt_handler.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
@@ -65,7 +67,7 @@ MetadataProxy::MetadataProxy(ServicesModule *module,
 
     // Register wildcard entry to match any URL coming on the metadata port
     http_server_->RegisterHandler(HTTP_WILDCARD_ENTRY,
-	boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
+        boost::bind(&MetadataProxy::HandleMetadataRequest, this, _1, _2));
     http_server_->Initialize(0);
     services_->agent()->SetMetadataServerPort(http_server_->GetPort());
 
@@ -90,11 +92,14 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     std::string uri;
     std::string header_options;
     std::string vm_ip, vm_uuid;
+    metadata_stats_.requests++;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
     if (!services_->agent()->GetInterfaceTable()->
          FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid)) {
-	ErrorClose(session);
+        ErrorClose(session);
         delete request;
+        METADATA_TRACE(Trace, "Metadata GET for VM : " << ip <<
+                       " Error : Interface Config not available");
         return;
     }
     std::string signature = GetHmacSha256(shared_secret_, vm_uuid);
@@ -130,6 +135,8 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                                " URL : " << uri);
             } else {
                 ErrorClose(session);
+                METADATA_TRACE(Trace, "Metadata GET for VM : " << vm_ip <<
+                               " Error : Metadata Config not available");
             }
             break;
         }
@@ -150,11 +157,17 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session
     std::string vm_ip, vm_uuid;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
     services_->agent()->GetInterfaceTable()->FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid);
-    METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Response : " << msg);
 
     if (!ec && session) {
+        METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Response : " << msg);
         session->Send(reinterpret_cast<const u_int8_t *>(msg.c_str()),
-		      msg.length(), NULL);
+                      msg.length(), NULL);
+    } else {
+        METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " << 
+                              boost::system::system_error(ec).what());
+        CloseClientSession(conn);
+        ErrorClose(session);
+        return;
     }
 
     SessionMap::iterator it = metadata_sessions_.find(session);
@@ -169,12 +182,14 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session
             if (it->second.header_end && !it->second.content_len) {
                 CloseClientSession(it->second.conn);
                 CloseServerSession(session);
+                metadata_stats_.responses++;
             }
         } else if (it->second.header_end) {
             it->second.data_sent += msg.length();
             if (it->second.data_sent >= it->second.content_len) {
                 CloseClientSession(it->second.conn);
                 CloseServerSession(session);
+                metadata_stats_.responses++;
             }
         }
     }
@@ -225,14 +240,16 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
         return it->second.conn;
     }
 
-    boost::system::error_code ec;
-    boost::asio::ip::tcp::endpoint http_ep;
-    const std::string &nova_server = 
-                         services_->agent()->GetIpFabricMetadataServerAddress();
-    http_ep.address(Ip4Address::from_string(nova_server, ec));
-    if (nova_server.empty() || ec)
+    uint16_t nova_port, linklocal_port;
+    Ip4Address nova_server, linklocal_server;
+    if (!services_->agent()->oper_db()->global_vrouter()->GetLinkLocalService(
+        GlobalVrouter::kMetadataService, &linklocal_server, &linklocal_port,
+        &nova_server, &nova_port))
         return NULL;
-    http_ep.port(services_->agent()->GetIpFabricMetadataServerPort());
+
+    boost::asio::ip::tcp::endpoint http_ep;
+    http_ep.address(nova_server);
+    http_ep.port(nova_port);
 
     HttpConnection *conn = http_client_->CreateConnection(http_ep);
     conn->RegisterEventCb(
@@ -242,6 +259,7 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
     SessionData data(conn, conn_close);
     metadata_sessions_.insert(SessionPair(session, data));
     metadata_proxy_sessions_.insert(ConnectionSessionPair(conn, session));
+    metadata_stats_.proxy_sessions++;
     return conn;
 }
 
@@ -260,18 +278,19 @@ MetadataProxy::CloseClientSession(HttpConnection *conn) {
 
 void
 MetadataProxy::ErrorClose(HttpSession *session) {
-    const char response[] =
-"HTTP/1.1 404 Not Found\n"
-"Content-Type: text/html; charset=UTF-8\n"
-"Content-Length: 70\n"
-"\n"
-"<html>\n"
-"<head>\n"
-" <title>404 Not Found</title>\n"
-"</head>\n"
-"</html>\n"
-;
+    const char body[] = "<html>\n"
+                        "<head>\n"
+                        " <title>404 Not Found</title>\n"
+                        "</head>\n"
+                        "</html>\n";
+    char response[512];
+    snprintf(response, sizeof(response),
+             "HTTP/1.1 404 Not Found\n"
+             "Content-Type: text/html; charset=UTF-8\n"
+             "Content-Length: %lu\n"
+             "\n%s", strlen(body), body);
     session->Send(reinterpret_cast<const u_int8_t *>(response),
-                  sizeof(response), NULL);
-    session->Close();
+                  strlen(response), NULL);
+    CloseServerSession(session);
+    metadata_stats_.internal_errors++;
 }

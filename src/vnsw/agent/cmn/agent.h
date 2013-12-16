@@ -283,12 +283,6 @@ public:
     DiscoveryServiceClient *GetDiscoveryServiceClient() {
         return ds_client_; 
     };
-    const std::string &GetIpFabricMetadataServerAddress() {
-        return ipfabric_metadata_server_address_;
-    }
-    uint16_t GetIpFabricMetadataServerPort() {
-        return ipfabric_metadata_server_port_;
-    }
     uint16_t GetMetadataServerPort() {
         return metadata_server_port_;
     }
@@ -303,7 +297,7 @@ public:
 
     const Peer *GetLocalPeer() {return local_peer_;};
     const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    const Peer *GetMdataPeer() {return mdata_vm_peer_;};
+    const Peer *GetLinkLocalPeer() {return linklocal_vm_peer_;};
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -434,14 +428,6 @@ public:
         ds_client_ = client;
     };
 
-    void SetIpFabricMetadataServerAddress(const std::string &address) {
-        ipfabric_metadata_server_address_ = address;
-    };
-
-    void SetIpFabricMetadataServerPort(uint16_t port) {
-        ipfabric_metadata_server_port_ = port;
-    };
-
     void SetMetadataServerPort(uint16_t port) {
         metadata_server_port_ = port;
     };
@@ -468,8 +454,8 @@ public:
         local_vm_peer_ = peer;
     };
 
-    void SetMdataPeer(Peer *peer) {
-        mdata_vm_peer_ = peer;
+    void SetLinkLocalPeer(Peer *peer) {
+        linklocal_vm_peer_ = peer;
     };
 
     void SetRouterIdConfigured(bool value) {
@@ -557,13 +543,10 @@ private:
     IFMapAgentStaleCleaner *agent_stale_cleaner_;
     AgentXmppChannel *cn_mcast_builder_;
     DiscoveryServiceClient *ds_client_;
-    std::string ipfabric_metadata_server_address_;
-    uint16_t ipfabric_metadata_server_port_;
     uint16_t metadata_server_port_;
     std::string host_name_;
     std::string prog_name_;
     int sandesh_port_;
-
 
     // DB handles
     DB *db_;
@@ -621,7 +604,7 @@ private:
 
     Peer *local_peer_;
     Peer *local_vm_peer_;
-    Peer *mdata_vm_peer_;
+    Peer *linklocal_vm_peer_;
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;
 
@@ -637,6 +620,5 @@ private:
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
 };
-
 
 #endif // vnsw_agent_hpp

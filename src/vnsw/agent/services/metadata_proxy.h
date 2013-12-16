@@ -24,6 +24,16 @@ public:
               close_req(conn_close), header_end(false) {}
     };
 
+    struct MetadataStats {
+        uint32_t requests;
+        uint32_t responses;
+        uint32_t proxy_sessions;
+        uint32_t internal_errors;
+
+        MetadataStats() { Reset(); }
+        void Reset() { requests = responses = proxy_sessions = internal_errors = 0; }
+    };
+
     typedef std::map<HttpSession *, SessionData> SessionMap;
     typedef std::pair<HttpSession *, SessionData> SessionPair;
     typedef std::map<HttpConnection *, HttpSession *> ConnectionSessionMap;
@@ -40,6 +50,9 @@ public:
     void OnServerSessionEvent(HttpSession *session, TcpSession::Event event);
     void OnClientSessionEvent(HttpClientSession *session, TcpSession::Event event);
 
+    const MetadataStats &metadatastats() const { return metadata_stats_; }
+    void ClearStats() { metadata_stats_.Reset(); }
+
 private:
     HttpConnection *GetProxyConnection(HttpSession *session, bool conn_close);
     void CloseServerSession(HttpSession *session);
@@ -52,6 +65,7 @@ private:
     HttpClient *http_client_;
     SessionMap metadata_sessions_;
     ConnectionSessionMap metadata_proxy_sessions_;
+    MetadataStats metadata_stats_;
     tbb::mutex mutex_;
 
     DISALLOW_COPY_AND_ASSIGN(MetadataProxy);

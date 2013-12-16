@@ -26,6 +26,7 @@ for src in SandeshGenSrcs:
 vnswoperdb = env.Library('vnswoperdb',
                          sandesh_objs +
                          ['agent_sandesh.cc',
+                          'global_vrouter.cc',
                           'inet4_ucroute.cc',
                           'inet4_mcroute.cc',
                           'interface.cc',

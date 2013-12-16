@@ -625,10 +625,11 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
 
     NextHopKey *key = new ArpNHKey(vrf_name, ip);
     nh_req.key.reset(key);
-
-    ArpNHData *arp_data = new ArpNHData();
-    nh_req.data.reset(arp_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
+    if (!Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(key)) {
+        ArpNHData *arp_data = new ArpNHData();
+        nh_req.data.reset(arp_data);
+        Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
+    }
 
     DBRequest  rt_req;
     rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -636,10 +637,13 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
         new Inet4UnicastRouteKey(Peer::GetPeer(LOCAL_PEER_NAME),
                                  vrf_name, ip, 32);
     rt_req.key.reset(rt_key);
-    Inet4UnicastArpRoute *data = new Inet4UnicastArpRoute(vrf_name, ip);
-    rt_req.data.reset(data);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&rt_req);
+    if (!AgentRouteTableAPIS::GetInstance()->GetRouteTable(
+         AgentRouteTableAPIS::INET4_UNICAST)->FindActiveEntry(rt_key)) {
+        Inet4UnicastArpRoute *data = new Inet4UnicastArpRoute(vrf_name, ip);
+        rt_req.data.reset(data);
+        AgentRouteTableAPIS::GetInstance()->
+            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&rt_req);
+    }
 }
                                 
 void 

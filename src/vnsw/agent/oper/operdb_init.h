@@ -11,6 +11,7 @@
 #endif
 
 class DBEntryBase;
+class GlobalVrouter;
 
 class OperDB {
 public:
@@ -23,14 +24,17 @@ public:
     void CreateDefaultVrf();
     void Shutdown();
 
-    MulticastHandler *multicast() const { return multicast_.get(); }
     Agent *agent() const { return agent_; }
+    MulticastHandler *multicast() const { return multicast_.get(); }
+    GlobalVrouter *global_vrouter() const { return global_vrouter_.get(); }
+
 private:
     OperDB();
     static OperDB *singleton_;
 
     Agent *agent_;
     std::auto_ptr<MulticastHandler> multicast_;
+    std::auto_ptr<GlobalVrouter> global_vrouter_;
     DISALLOW_COPY_AND_ASSIGN(OperDB);
 };
 #endif

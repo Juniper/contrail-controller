@@ -39,6 +39,8 @@
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_route.h>
+#include <oper/operdb_init.h>
+#include <oper/global_vrouter.h>
 
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -144,7 +146,8 @@ void AgentConfig::RegisterDBClients(DB *db) {
 
     cfg_listener_.get()->Register
         ("global-vrouter-config",
-         boost::bind(&Agent::GlobalVrouterConfig, Agent::GetInstance(), _1), -1);
+         boost::bind(&GlobalVrouter::GlobalVrouterConfig,
+                     agent_->oper_db()->global_vrouter(), _1), -1);
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->GetDB(), "virtual-machine-interface")));

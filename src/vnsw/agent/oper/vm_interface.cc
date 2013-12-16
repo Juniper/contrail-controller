@@ -705,7 +705,7 @@ void VmInterface::Activate() {
             Agent::GetInstance()->GetInterfaceTable()->
                 VmPortToMetaDataIp(id(), vrf_->GetVrfId(), &mdata_addr_);
             Inet4UnicastAgentRouteTable::AddLocalVmRoute(
-                 Agent::GetInstance()->GetMdataPeer(), 
+                 Agent::GetInstance()->GetLinkLocalPeer(), 
                  Agent::GetInstance()->GetDefaultVrf(),
                  mdata_addr_, 32, GetUuid(), vn_->GetName(), label_, true);
         }
@@ -726,7 +726,7 @@ void VmInterface::DeActivate(const string &vrf_name, const Ip4Address &ip) {
 
     if (need_linklocal_ip_) {
         // Delete the route for meta-data service
-        Inet4UnicastAgentRouteTable::Delete(Agent::GetInstance()->GetMdataPeer(), 
+        Inet4UnicastAgentRouteTable::Delete(Agent::GetInstance()->GetLinkLocalPeer(), 
                                             Agent::GetInstance()->GetDefaultVrf(), 
                                             mdata_addr_, 32);
     }
@@ -1472,7 +1472,7 @@ bool VmInterface::OnResync(const DBRequest *req) {
                         VmPortToMetaDataIp(id(), vrf_->GetVrfId(),
                                            &mdata_addr_);
                     Inet4UnicastAgentRouteTable::AddLocalVmRoute(
-                         Agent::GetInstance()->GetMdataPeer(), 
+                         Agent::GetInstance()->GetLinkLocalPeer(), 
                          Agent::GetInstance()->GetDefaultVrf(),
                          mdata_addr_, 32, GetUuid(), 
                          vn_->GetName(), label_, true);
@@ -1482,7 +1482,7 @@ bool VmInterface::OnResync(const DBRequest *req) {
                 DeleteRoute(vrf_->GetName(), ip_addr_, 32);
                 if (need_linklocal_ip_) {
                     // Delete the route for meta-data service
-                    Inet4UnicastAgentRouteTable::Delete(Agent::GetInstance()->GetMdataPeer(), 
+                    Inet4UnicastAgentRouteTable::Delete(Agent::GetInstance()->GetLinkLocalPeer(), 
                                                         Agent::GetInstance()->GetDefaultVrf(), 
                                                         mdata_addr_, 32);
                 }

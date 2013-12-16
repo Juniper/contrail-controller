@@ -372,36 +372,6 @@ void Agent::CreateInterfaces() {
     cfg_.get()->CreateInterfaces();
 }
 
-void Agent::GlobalVrouterConfig(IFMapNode *node) {
-    if (node->IsDeleted() == false) {
-        autogen::GlobalVrouterConfig *cfg = 
-            static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
-        VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode;
-        if (cfg->vxlan_network_identifier_mode() == "configured") {
-            cfg_vxlan_network_identifier_mode = 
-                Agent::CONFIGURED;
-        } else {
-            cfg_vxlan_network_identifier_mode =
-                Agent::AUTOMATIC; 
-        }
-        if (cfg_vxlan_network_identifier_mode != 
-            vxlan_network_identifier_mode_) {
-            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
-            GetVnTable()->UpdateVxLanNetworkIdentifierMode();
-            GetInterfaceTable()->UpdateVxLanNetworkIdentifierMode();
-        }
-        const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 
-            cfg->linklocal_services();
-        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it =
-             linklocal_list.begin(); it != linklocal_list.end(); it++) {
-            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
-                SetIpFabricMetadataServerAddress(*(it->ip_fabric_service_ip.begin()));
-                SetIpFabricMetadataServerPort(it->ip_fabric_service_port);
-        }
-    }
-}
-
 void Agent::InitDone() {
     //Open up mirror socket
     mirror_table_->MirrorSockInit();
