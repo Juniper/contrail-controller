@@ -391,7 +391,9 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
                 (static_cast<Layer2AgentRouteTable *>(vrf->
                 GetRouteTable(AgentRouteTableAPIS::LAYER2))->
                 FindActiveEntry(&key));
-            nh = route->GetActiveNextHop();
+            if (route) {
+                nh = route->GetActiveNextHop();
+            }
         }
     } else {
         MplsLabel *mpls = 
