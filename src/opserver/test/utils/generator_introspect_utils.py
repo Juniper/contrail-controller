@@ -26,4 +26,10 @@ class VerificationGenerator(VerificationUtilBase):
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_collector_connection_status
 
+    def get_uve(self, tname):
+        path = 'Snh_SandeshUVECacheReq?x=%s' % (tname)
+        xpath = './/' + tname
+        p = self.dict_get(path)
+        return EtreeToDict(xpath).get_all_entry(p)
+    #end get_uve
 #end class VerificationGenerator
