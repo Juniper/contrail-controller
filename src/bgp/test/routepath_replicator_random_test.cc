@@ -47,7 +47,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 
 using namespace boost::program_options;
 using ::testing::TestWithParam;
@@ -267,7 +266,7 @@ protected:
     void AddInetRoute(IPeer *peer, const string &vrf,
                       const string &prefix, int localpref, bool wait = true) {
         BGP_DEBUG_UT("ADD inet route " << vrf << ":" << prefix);
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -295,7 +294,7 @@ protected:
     void DeleteInetRoute(IPeer *peer, const string &instance_name,
                          const string &prefix, bool wait = true) {
         BGP_DEBUG_UT("DELETE inet route " << instance_name << ":" << prefix);
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 
@@ -320,7 +319,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         InetVpnPrefix nlri = InetVpnPrefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetVpnTable::RequestKey key(nlri, NULL);
@@ -336,7 +335,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -616,7 +615,7 @@ protected:
 };
 
 TEST_P(ReplicationTest, RandomTest) {
-    error_code ec;
+    boost::system::error_code ec;
     peers_.push_back(new BgpPeerMock(Ip4Address::from_string("192.168.0.1", 
                                                              ec)));
     GenerateVrfs(vrfs_, connections_);

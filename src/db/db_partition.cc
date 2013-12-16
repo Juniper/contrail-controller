@@ -13,7 +13,8 @@
 #include "db/db_client.h"
 #include "db/db_entry.h"
 
-using namespace tbb;
+using tbb::concurrent_queue;
+using tbb::atomic;
 
 int DBPartition::db_partition_task_id_ = -1;
 
@@ -114,7 +115,7 @@ private:
     TablePartList change_list_;
     atomic<long> request_count_;
     RemoveQueue remove_queue_;
-    mutex mutex_;
+    tbb::mutex mutex_;
     int db_partition_id_;
     bool disable_;
     bool running_;
@@ -188,7 +189,7 @@ private:
 };
 
 void DBPartition::WorkQueue::MaybeStartRunner() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (running_) {
         return;
     }
@@ -199,7 +200,7 @@ void DBPartition::WorkQueue::MaybeStartRunner() {
 }
 
 bool DBPartition::WorkQueue::RunnerDone() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (request_queue_.empty() && remove_queue_.empty()) {
         running_ = false;
         return true;

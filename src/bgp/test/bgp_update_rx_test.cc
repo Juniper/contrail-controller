@@ -36,9 +36,9 @@ public:
     bool IsReady() const { return true; }
 };
 
-class StateMachineTest : public ::testing::Test {
+class BgpUpdateRxTest : public ::testing::Test {
 protected:
-    StateMachineTest()
+    BgpUpdateRxTest()
         : server_(&evm_),
           instance_config_(BgpConfigManager::kMasterInstance),
           config_(&instance_config_, "test-peer", "local", &router_, NULL),
@@ -58,9 +58,9 @@ protected:
 
     virtual void SetUp() {
         tid1_ = rib1_->Register(
-            boost::bind(&StateMachineTest::TableListener, this, _1, _2));
+            boost::bind(&BgpUpdateRxTest::TableListener, this, _1, _2));
         tid2_ = rib2_->Register(
-            boost::bind(&StateMachineTest::TableListener, this, _1, _2));
+            boost::bind(&BgpUpdateRxTest::TableListener, this, _1, _2));
     }
 
     virtual void TearDown() {
@@ -102,7 +102,7 @@ protected:
     DBTableBase::ListenerId tid2_;
 };
 
-TEST_F(StateMachineTest, Open) {
+TEST_F(BgpUpdateRxTest, AdvertiseWithdraw) {
     adc_notification_ = 0;
     del_notification_ = 0;
 

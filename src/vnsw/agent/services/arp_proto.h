@@ -15,7 +15,7 @@
 #include "pkt/proto.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vrf.h>
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"

@@ -24,22 +24,21 @@
 #include "bgp/bgp_session.h"
 #include "bgp/bgp_session_manager.h"
 
-using boost::system::error_code;
 using namespace std;
 
 namespace mpl = boost::mpl;
 namespace sc = boost::statechart;
 
-#define SM_LOG(level, _Msg)                                                    \
-do {                                                                           \
-    StateMachine *_Xstate_machine = &context<StateMachine>();                  \
-    BgpPeer *_Xpeer = _Xstate_machine->peer();                                 \
-    std::ostringstream out;                                                    \
-    out << _Msg;                                                               \
-    BGP_LOG_SERVER(_Xpeer, (BgpTable *) 0);                                    \
-    BGP_LOG(BgpStateMachineSessionMessage, level,                              \
-            BGP_LOG_FLAG_SYSLOG, _Xpeer->ToString(), out.str());               \
-} while (false)
+#define SM_LOG(level, _Msg)                                    \
+    do {                                                       \
+        std::ostringstream out;                                \
+        out << _Msg;                                           \
+        BGP_LOG_SERVER(peer_, (BgpTable *) 0);                 \
+        BGP_LOG(BgpPeerStateMachine, level,                    \
+                BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_NA,          \
+                peer_ ? peer_->ToUVEKey() : "",                \
+                out.str());                                    \
+    } while (false)
 
 namespace fsm {
 
@@ -213,6 +212,9 @@ struct EvBgpHeaderError : sc::event<EvBgpHeaderError> {
 struct EvBgpOpen : sc::event<EvBgpOpen> {
     EvBgpOpen(BgpSession *session, const BgpProto::OpenMessage *msg)
         : session(session), msg(msg) {
+        BGP_LOG_PEER(Message, session->Peer(), SandeshLevel::SYS_DEBUG,
+            BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN,
+            "Open " << msg->ToString());
     }
     static const char *Name() {
         return "EvBgpOpen";
@@ -246,6 +248,10 @@ struct EvBgpOpenError : sc::event<EvBgpOpenError> {
 
 struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
     EvBgpKeepalive(BgpSession *session) : session(session) {
+        BGP_LOG_PEER(Message, session->Peer(),
+                     session->Peer()->IsReady() ?
+                         Sandesh::LoggingUtLevel() : Sandesh::LoggingUtLevel(),
+                     BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Keepalive");
     }
     static const char *Name() {
         return "EvBgpKeepalive";
@@ -260,14 +266,9 @@ struct EvBgpKeepalive : sc::event<EvBgpKeepalive> {
 struct EvBgpNotification : sc::event<EvBgpNotification> {
     EvBgpNotification(BgpSession *session, const BgpProto::Notification *msg)
         : session(session), msg(msg) {
-        BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE,
-                BGP_LOG_FLAG_ALL,
-                session->Peer() ? session->Peer()->ToString() : "",
-                BGP_PEER_DIR_IN, this->msg->data.size(),
-                this->msg->error, this->msg->subcode,
-                BgpProto::Notification::ToString(
-                BgpProto::Notification::Code(this->msg->error),
-                this->msg->subcode));
+        BGP_LOG(BgpPeerNotification, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+                session->Peer() ? session->Peer()->ToUVEKey() : "Unknown",
+                BGP_PEER_DIR_IN, msg->error, msg->subcode, msg->ToString());
     }
     static const char *Name() {
         return "EvBgpNotification";
@@ -285,6 +286,8 @@ struct EvBgpNotification : sc::event<EvBgpNotification> {
 struct EvBgpUpdate : sc::event<EvBgpUpdate> {
     EvBgpUpdate(BgpSession *session, const BgpProto::Update *msg)
         : session(session), msg(msg) {
+        BGP_LOG_PEER(Message, session->Peer(), Sandesh::LoggingUtLevel(),
+                     BGP_LOG_FLAG_SYSLOG, BGP_PEER_DIR_IN, "Update");
     }
     static const char *Name() {
         return "EvBgpUpdate";
@@ -1321,10 +1324,6 @@ bool StateMachine::ProcessNotificationEvent(BgpSession *session) {
 
 bool StateMachine::ConnectTimerExpired() {
     if (!deleted_) {
-
-        BGP_LOG_STR(BgpStateMachineMessage, SandeshLevel::SYS_DEBUG,
-            BGP_LOG_FLAG_TRACE, "Bgp Peer " << peer_->ToString() <<
-            " : Triggered EvConnectTimerExpired in state " << StateName());
         Enqueue(fsm::EvConnectTimerExpired(connect_timer_));
     }
 
@@ -1337,7 +1336,7 @@ bool StateMachine::OpenTimerExpired() {
 }
 
 bool StateMachine::HoldTimerExpired() {
-    error_code error;
+    boost::system::error_code error;
 
     // Reset hold timer if there is data already present in the socket.
     if (peer() && peer()->session() && peer()->session()->socket() &&
@@ -1523,12 +1522,7 @@ bool StateMachine::Enqueue(const Ev &event) {
     if (deleted_)
         return false;
 
-    std::ostringstream out;
-    out << "Enqueueing event " << TYPE_NAME(event);
-    BGP_LOG_SERVER(peer_, (BgpTable *) 0);
-    BGP_LOG(BgpStateMachineSessionMessage, SandeshLevel::UT_DEBUG,
-            BGP_LOG_FLAG_SYSLOG, peer_->ToString(), out.str());
-
+    LogEvent(TYPE_NAME(event), "Enqueue");
     EventContainer ec;
     ec.event = event.intrusive_from_this();
     ec.validate = ValidateFn<Ev, HasValidate<Ev>::Has>()(
@@ -1538,40 +1532,38 @@ bool StateMachine::Enqueue(const Ev &event) {
     return true;
 }
 
+void StateMachine::LogEvent(string event_name, string msg,
+                            SandeshLevel::type log_level) {
+
+    // Reduce log level for keepalive and update messages.
+    if (get_state() == ESTABLISHED &&
+        (event_name == "fsm::EvBgpKeepalive" ||
+             event_name == "fsm::EvBgpUpdate")) {
+        log_level = Sandesh::LoggingUtLevel();
+    }
+    SM_LOG(log_level, msg << " " << event_name << " in state " << StateName());
+}
+
 bool StateMachine::DequeueEvent(StateMachine::EventContainer ec) {
     if (deleted_)
         return true;
 
     set_last_event(TYPE_NAME(*ec.event));
-    SandeshLevel::type log_level = SandeshLevel::SYS_DEBUG;
 
     const fsm::EvTcpDeleteSession *deferred_delete =
         dynamic_cast<const fsm::EvTcpDeleteSession *>(ec.event.get());
     if (deferred_delete != NULL) {
-        SM_LOG(log_level,
-                "Processing event " << TYPE_NAME(*ec.event) <<
-                " in state " << StateName());
+        LogEvent(TYPE_NAME(*ec.event), "Dequeue");
         peer_->server()->session_manager()->DeleteSession(
             deferred_delete->session);
         return true;
     }
 
     if (ec.validate.empty() || ec.validate(this)) {
-
-        // Reduce log level for keepalive and update messages.
-        if (get_state() == ESTABLISHED &&
-            (TYPE_NAME(*ec.event) == "fsm::EvBgpKeepalive" ||
-             TYPE_NAME(*ec.event) == "fsm::EvBgpUpdate")) {
-            log_level = SandeshLevel::UT_DEBUG;
-        }
-        SM_LOG(log_level,
-                "Processing event " << TYPE_NAME(*ec.event) <<
-                " in state " << StateName());
+        LogEvent(TYPE_NAME(*ec.event), "Dequeue");
         process_event(*ec.event);
     } else {
-        SM_LOG(SandeshLevel::SYS_INFO,
-               "Discarding event " << TYPE_NAME(*ec.event) <<
-               " in state " << StateName());
+        LogEvent(TYPE_NAME(*ec.event), "Discard", SandeshLevel::SYS_INFO);
     }
     ec.event.reset();
 
@@ -1583,13 +1575,13 @@ void StateMachine::SetDataCollectionKey(BgpPeerInfo *peer_info) const {
 }
 
 const std::string StateMachine::last_notification_in_error() const {
-    return (BgpProto::Notification::ToString(
+    return (BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(last_notification_in_.first),
         last_notification_in_.second));
 }
 
 const std::string StateMachine::last_notification_out_error() const {
-    return (BgpProto::Notification::ToString(
+    return (BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(last_notification_out_.first),
         last_notification_out_.second));
 }
@@ -1639,7 +1631,7 @@ void StateMachine::set_last_notification_out(int code, int subcode,
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_notification_out_at(last_notification_out_at_);
-    peer_info.set_notification_out(BgpProto::Notification::ToString(
+    peer_info.set_notification_out(BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(code), subcode));
     BGPPeerInfo::Send(peer_info);
 }
@@ -1653,7 +1645,7 @@ void StateMachine::set_last_notification_in(int code, int subcode,
     BgpPeerInfoData peer_info;
     peer_info.set_name(peer()->ToUVEKey());
     peer_info.set_notification_in_at(last_notification_in_at_);
-    peer_info.set_notification_in(BgpProto::Notification::ToString(
+    peer_info.set_notification_in(BgpProto::Notification::toString(
         static_cast<BgpProto::Notification::Code>(code), subcode));
     BGPPeerInfo::Send(peer_info);
 }

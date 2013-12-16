@@ -657,7 +657,7 @@ bool NetworkAgentMock::IsSessionEstablished() {
 }
 
 bool NetworkAgentMock::IsEstablished() {
-    std::unique_lock<tbb::mutex> lock(work_mutex_);
+    tbb::interface5::unique_lock<tbb::mutex> lock(work_mutex_);
 
     Request request;
     request.type = IS_ESTABLISHED;

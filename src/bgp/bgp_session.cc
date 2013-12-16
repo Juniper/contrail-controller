@@ -72,7 +72,7 @@ int BgpSession::GetSessionInstance() const {
 }
 
 void BgpSession::SendNotification(int code, int subcode,
-        const std::string &data) {
+                                  const std::string &data) {
     BgpProto::Notification msg;
     msg.error = code;
     msg.subcode = subcode;
@@ -80,9 +80,8 @@ void BgpSession::SendNotification(int code, int subcode,
     uint8_t buf[256];
     int result = BgpProto::Encode(&msg, buf, sizeof(buf));
     assert(result > BgpProto::kMinMessageSize);
-    BGP_LOG(BgpNotificationMessage, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
-            ToString(), BGP_PEER_DIR_OUT, result, code, subcode,
-            BgpProto::Notification::ToString(BgpProto::Notification::Code(code),
-                subcode));
+    BGP_LOG(BgpPeerNotification, SandeshLevel::SYS_NOTICE, BGP_LOG_FLAG_ALL,
+            peer_ ? peer_->ToUVEKey() : "Unknown", BGP_PEER_DIR_OUT, code,
+            subcode, msg.ToString());
     Send(buf, result, NULL);
 }

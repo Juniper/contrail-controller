@@ -22,7 +22,7 @@
 #include <sandesh/sandesh_trace.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/agent_route.h>
 
@@ -45,13 +45,26 @@ class NhState;
 typedef boost::intrusive_ptr<FlowEntry> FlowEntryPtr;
 typedef boost::intrusive_ptr<const NhState> NhStatePtr;
 struct RouteFlowKey {
-    RouteFlowKey() : vrf(0) { ip.ipv4 = 0;};
-    RouteFlowKey(uint32_t v, uint32_t ipv4) : vrf(v) { ip.ipv4 = ipv4;};
+    RouteFlowKey() : vrf(0), plen(0) { ip.ipv4 = 0;};
+    RouteFlowKey(uint32_t v, uint32_t ipv4, uint8_t prefix) : 
+        vrf(v), plen(prefix) { 
+        ip.ipv4 = GetPrefix(ipv4, prefix);
+    };
     ~RouteFlowKey() {};
+    static int32_t GetPrefix(uint32_t ip, uint8_t plen) {
+        //Mask prefix
+        uint8_t host = 32;
+        uint32_t mask = (0xFFFFFFFF << (host - plen));
+        return (ip & mask);
+    };
+
     uint32_t vrf;
     union {
         uint32_t ipv4;
     } ip;
+    uint8_t plen;
+    bool FlowSrcMatch(FlowEntry *flow) const;
+    bool FlowDestMatch(FlowEntry *flow) const;
 };
 
 struct RouteFlowKeyCmp {
@@ -59,7 +72,10 @@ struct RouteFlowKeyCmp {
         if (lhs.vrf != rhs.vrf) {
             return lhs.vrf < rhs.vrf;
         }
-        return lhs.ip.ipv4 < rhs.ip.ipv4;
+        if (lhs.ip.ipv4 != rhs.ip.ipv4) {
+            return lhs.ip.ipv4 < rhs.ip.ipv4;
+        }
+        return lhs.plen < rhs.plen;
     }
 };
 
@@ -87,7 +103,8 @@ public:
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), mdata_flow(false), ecmp(false),
-        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false) {
+        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
+        source_plen(0), dest_plen(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -160,6 +177,8 @@ public:
     uint32_t            in_component_nh_idx;
     uint32_t            out_component_nh_idx;
     bool                trap_rev_flow;
+    uint8_t             source_plen;
+    uint8_t             dest_plen;
 };
 
 struct FlowKey {
@@ -245,7 +264,8 @@ struct FlowData {
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
         reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false), nh_state_(NULL) {};
+        bytes(0), packets(0), trap(false), nh_state_(NULL), source_plen(0),
+        dest_plen(0) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -274,6 +294,8 @@ struct FlowData {
     uint64_t packets;
     bool trap;
     NhStatePtr nh_state_;
+    uint8_t source_plen;
+    uint8_t dest_plen;
 };
 
 class FlowEntry {
@@ -292,7 +314,7 @@ class FlowEntry {
         key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
         local_flow(false), short_flow(false), mdata_flow(false), 
         is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0) {
+        last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -302,7 +324,7 @@ class FlowEntry {
         key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
         local_flow(false), short_flow(false), mdata_flow(false),
         is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0) {
+        last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -355,25 +377,18 @@ class FlowEntry {
     bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
+    void set_deleted(bool deleted) { deleted_ = deleted; }
+    bool deleted() { return deleted_; }
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
     static tbb::atomic<int> alloc_count_;
+    bool deleted_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
  
-inline void intrusive_ptr_add_ref(FlowEntry *fe) {
-    fe->refcount_.fetch_and_increment();
-}
-inline void intrusive_ptr_release(FlowEntry *fe) {
-    int prev = fe->refcount_.fetch_and_decrement();
-    if (prev == 1) {
-        delete fe;
-    }
-}
-
 struct FlowEntryCmp {
     bool operator()(const FlowEntryPtr &l, const FlowEntryPtr &r) {
         FlowEntry *lhs = l.get();
@@ -463,7 +478,7 @@ public:
     void DeleteAll();
 
     void SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
-                               const FlowKey &key);
+                               const int last_count);
     void SetAceSandeshData(const AclDBEntry *acl, AclFlowCountResp &data, 
                            int ace_id);
    
@@ -481,6 +496,7 @@ public:
     friend class FetchFlowRecord;
     friend class Inet4RouteUpdate;
     friend class NhState;
+    friend void intrusive_ptr_release(FlowEntry *fe);
 private:
     static FlowTable* singleton_;
     FlowEntryMap flow_entry_map_;
@@ -503,15 +519,15 @@ private:
     void VnNotify(DBTablePartBase *part, DBEntryBase *e);
     void VrfNotify(DBTablePartBase *part, DBEntryBase *e);
     std::string GetAceSandeshDataKey(const AclDBEntry *acl, int ace_id);
-    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const FlowKey &key);
+    std::string GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last_count);
 
     void IncrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
     void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
-    void ResyncVmPortFlows(const VmPortInterface *intf);
-    void TrapReverseEcmpFlow(RouteFlowKey &key, uint32_t index, bool ingress);
+    void ResyncVmPortFlows(const VmInterface *intf);
+    void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
 
     void DeleteFlowInfo(FlowEntry *fe);
@@ -546,6 +562,8 @@ class Inet4RouteUpdate {
 public:
     struct State : DBState {
         SecurityGroupList sg_l_;
+        const NextHop* active_nh_;
+        const NextHop* local_nh_;
     };
 
     Inet4RouteUpdate(Inet4UnicastAgentRouteTable *rt_table);
@@ -566,10 +584,8 @@ private:
 
 class NhState : public DBState {
 public:
-    NhState(NextHop *nh):refcount_(), nh_(nh), component_nh_list_() { };
+    NhState(NextHop *nh):refcount_(), nh_(nh){ };
     ~NhState() {};
-    void Change(NextHop *nh);
-    void Copy(NextHop *nh);
     const NextHop* nh() const { return nh_; }
     uint32_t refcount() const { return refcount_; }
 private:
@@ -577,7 +593,6 @@ private:
     friend void intrusive_ptr_release(const NhState *nh);
     mutable tbb::atomic<uint32_t> refcount_;
     NextHop *nh_;
-    std::vector<NextHop *> component_nh_list_;
 };
 
 inline void intrusive_ptr_add_ref(const NhState *nh_state) {
@@ -586,7 +601,8 @@ inline void intrusive_ptr_add_ref(const NhState *nh_state) {
 inline void intrusive_ptr_release(const NhState *nh_state) {
     int prev = nh_state->refcount_.fetch_and_decrement();
     if (prev == 1 && nh_state->nh()->IsDeleted()) {
-        AgentDBTable *table = nh_state->nh_->DBToTable();
+        AgentDBTable *table = 
+            static_cast<AgentDBTable *>(nh_state->nh_->get_table());
         nh_state->nh_->ClearState(table, 
             FlowTable::GetFlowTableObject()->nh_listener_id());
         delete nh_state; 

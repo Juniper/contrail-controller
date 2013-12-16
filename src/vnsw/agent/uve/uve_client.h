@@ -13,7 +13,7 @@
 #include <vrouter_types.h>
 #include <pkt/pkt_flow.h>
 #include <uve/flow_uve.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <uve/agent_stats.h>
 
 class UveClientTest;
@@ -136,7 +136,7 @@ public:
     void DelIntfFromVm(const Interface *intf);
     void AddIntfToVn(const VnEntry *vn, const Interface *intf);
     void DelIntfFromVn(const Interface *intf);
-    bool FrameIntfMsg(const VmPortInterface *intf, VmInterfaceAgent *s_intf);
+    bool FrameIntfMsg(const VmInterface *intf, VmInterfaceAgent *s_intf);
     void IntfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     bool FrameVmMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap, UveVmEntry *uve);
@@ -153,8 +153,8 @@ public:
     void SendVnStats(void);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
     uint32_t VnIntfMapSize() { return vn_intf_map_.size();};
-    void AddVmToVn(const VmPortInterface *intf, const std::string vm_name, const std::string vn_name);
-    void DelVmFromVn(const VmPortInterface *intf, const std::string vm_name, const std::string vn_name);
+    void AddVmToVn(const VmInterface *intf, const std::string vm_name, const std::string vn_name);
+    void DelVmFromVn(const VmInterface *intf, const std::string vm_name, const std::string vn_name);
     void VnVmListSend(const std::string &vn);
     uint32_t VnVmListSize(){return vn_vm_set_.size();};
     uint32_t VnVmListUpdateCount(){return vn_vmlist_updates_;};
@@ -192,7 +192,7 @@ public:
     uint32_t GetCpuCount();
     bool Process(VmStatData *vm_stat_data);
     void EnqueueVmStatData(VmStatData *vm_stat_data);
-    bool GetVmIntfGateway(const VmPortInterface *vm_intf, string &gw);
+    bool GetVmIntfGateway(const VmInterface *vm_intf, string &gw);
     static UveClient *GetInstance() {return singleton_;}
 private:
     static UveClient *singleton_;
@@ -243,12 +243,12 @@ private:
                                 const UveVirtualNetworkAgent &s_vn) const;
     bool FrameVnStatsMsg(const VnEntry *vn, L4PortBitmap *vn_port_bitmap,
                          UveVnEntry *uve);
-    void SendVmAndVnMsg(const VmPortInterface* vm_port);
+    void SendVmAndVnMsg(const VmInterface* vm_port);
     bool FrameVmStatsMsg(const VmEntry *vm, L4PortBitmap *vm_port_bitmap,
                          UveVmEntry *uve);
     bool UveVmIfStatsListChanged(vector<VmInterfaceAgentStats> &new_list, 
                                  const UveVirtualMachineAgent &s_vm);
-    bool FrameIntfStatsMsg(const VmPortInterface *vm_intf,
+    bool FrameIntfStatsMsg(const VmInterface *vm_intf,
                            VmInterfaceAgentStats *s_intf);
     void SendVrouterUve();
     void InitSigHandler();

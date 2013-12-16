@@ -70,7 +70,7 @@ public:
     class comp {
         public:
             bool operator()(const IFMapTable::RequestKey &left, 
-                            const IFMapTable::RequestKey &right) {
+                            const IFMapTable::RequestKey &right) const {
                 if (left.id_type != right.id_type) 
                     return left.id_type < right.id_type;
 

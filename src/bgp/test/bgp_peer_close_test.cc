@@ -1112,7 +1112,6 @@ TEST_P(BgpPeerCloseTest, ClosePeersWithRouteStaling) {
     WaitForIdle();
     XmppPeerClose();
     WaitForIdle();
-    sleep(0.2);
 }
 
 #define COMBINE_PARAMS \

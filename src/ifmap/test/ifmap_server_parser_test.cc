@@ -96,7 +96,8 @@ class IFMapServerParserTest : public ::testing::Test {
 TEST_F(IFMapServerParserTest, ServerParser) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -124,7 +125,8 @@ TEST_F(IFMapServerParserTest, ServerParser) {
 TEST_F(IFMapServerParserTest, ServerParserInParts) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -145,7 +147,8 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     obj = vn3->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -153,7 +156,8 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     IFMapNode *node = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(node == NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -169,7 +173,8 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
     obj = vn5->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test_p4.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test_p4.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -192,7 +197,8 @@ TEST_F(IFMapServerParserTest, ServerParserInParts) {
 TEST_F(IFMapServerParserTest, ServerParser1) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -212,7 +218,8 @@ TEST_F(IFMapServerParserTest, ServerParser1) {
 TEST_F(IFMapServerParserTest, ServerParser1InParts) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test1_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test1_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -231,7 +238,8 @@ TEST_F(IFMapServerParserTest, ServerParser1InParts) {
     obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test1_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test1_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -250,7 +258,8 @@ TEST_F(IFMapServerParserTest, ServerParser1InParts) {
 TEST_F(IFMapServerParserTest, ServerParser2) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test2.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -279,7 +288,8 @@ TEST_F(IFMapServerParserTest, ServerParser2) {
 TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test2_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test2_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -290,7 +300,8 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     IFMapObject *obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test2_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test2_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -301,7 +312,8 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test2_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test2_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -312,7 +324,8 @@ TEST_F(IFMapServerParserTest, ServerParser2InParts) {
     obj = vn->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test2_p4.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test2_p4.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -332,7 +345,8 @@ TEST_F(IFMapServerParserTest, ServerParser3) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     EXPECT_EQ(0, table->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test3.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -353,7 +367,8 @@ TEST_F(IFMapServerParserTest, ServerParser3InParts) {
     IFMapTable *table = IFMapTable::FindTable(&db_, "virtual-network");
     EXPECT_EQ(0, table->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test3_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test3_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -366,7 +381,8 @@ TEST_F(IFMapServerParserTest, ServerParser3InParts) {
     vn = NodeLookup("virtual-network", "vn3");
     EXPECT_TRUE(vn == NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test3_p1.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test3_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -390,7 +406,8 @@ TEST_F(IFMapServerParserTest, ServerParser4) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test4.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test4.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -422,7 +439,8 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test4_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test4_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -442,7 +460,8 @@ TEST_F(IFMapServerParserTest, ServerParser4InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test4_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test4_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -470,7 +489,8 @@ TEST_F(IFMapServerParserTest, ServerParser5) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test5.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test5.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -495,7 +515,8 @@ TEST_F(IFMapServerParserTest, ServerParser5InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test5_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test5_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -513,7 +534,8 @@ TEST_F(IFMapServerParserTest, ServerParser5InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test5_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test5_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -536,7 +558,8 @@ TEST_F(IFMapServerParserTest, ServerParser6) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test6.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test6.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -564,7 +587,8 @@ TEST_F(IFMapServerParserTest, ServerParser6InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test6_p1.xml"));
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test6_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -584,7 +608,8 @@ TEST_F(IFMapServerParserTest, ServerParser6InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test6_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test6_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -611,7 +636,8 @@ TEST_F(IFMapServerParserTest, ServerParser7) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test7.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test7.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -645,7 +671,8 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test7_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test7_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -665,7 +692,8 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test7_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test7_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -680,7 +708,8 @@ TEST_F(IFMapServerParserTest, ServerParser7InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test7_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test7_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -711,7 +740,8 @@ TEST_F(IFMapServerParserTest, ServerParser8) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test8.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test8.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -744,7 +774,8 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test8_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test8_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -764,7 +795,8 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test8_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test8_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -776,7 +808,8 @@ TEST_F(IFMapServerParserTest, ServerParser8InParts) {
     vm1 = NodeLookup("virtual-machine", "vm1");
     EXPECT_TRUE(vm1 == NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test8_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test8_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -808,7 +841,8 @@ TEST_F(IFMapServerParserTest, ServerParser9) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test9.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test9.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -842,7 +876,8 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test9_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test9_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -862,7 +897,8 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test9_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test9_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -880,7 +916,8 @@ TEST_F(IFMapServerParserTest, ServerParser9InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test9_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test9_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -910,7 +947,8 @@ TEST_F(IFMapServerParserTest, ServerParser10) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test10.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test10.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -939,7 +977,8 @@ TEST_F(IFMapServerParserTest, ServerParser10InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test10_p1.xml"));
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test10_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -959,7 +998,8 @@ TEST_F(IFMapServerParserTest, ServerParser10InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test10_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test10_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -984,7 +1024,8 @@ TEST_F(IFMapServerParserTest, ServerParser11) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test11.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test11.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1016,7 +1057,8 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     IFMapTable *vmtable = IFMapTable::FindTable(&db_, "virtual-machine");
     EXPECT_EQ(0, vmtable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test11_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test11_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1036,7 +1078,8 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     IFMapLink *link = LinkLookup(vr1, vm1);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test11_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test11_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1051,7 +1094,8 @@ TEST_F(IFMapServerParserTest, ServerParser11InParts) {
     obj = vm1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test11_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test11_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1085,7 +1129,8 @@ TEST_F(IFMapServerParserTest, ServerParser12) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test12.xml"));
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test12.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1113,7 +1158,8 @@ TEST_F(IFMapServerParserTest, ServerParser12InParts) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test12_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test12_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1141,7 +1187,8 @@ TEST_F(IFMapServerParserTest, ServerParser12InParts) {
     link = LinkLookup(vr1, gsc);
     EXPECT_TRUE(link != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test12_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test12_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1169,7 +1216,8 @@ TEST_F(IFMapServerParserTest, ServerParser13) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test13.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1210,7 +1258,8 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test13_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1233,7 +1282,8 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
 
     EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test13_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1251,7 +1301,8 @@ TEST_F(IFMapServerParserTest, ServerParser13InParts) {
     EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
     EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
 
-    message = FileRead("src/ifmap/testdata/server_parser_test13_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1278,7 +1329,8 @@ TEST_F(IFMapServerParserTest, ServerParser14) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test14.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test14.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1317,7 +1369,8 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
-    string message(FileRead("src/ifmap/testdata/server_parser_test13_p1.xml"));
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1341,7 +1394,8 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
 
     // Using datafile from test13_p2
-    message = FileRead("src/ifmap/testdata/server_parser_test13_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1360,7 +1414,8 @@ TEST_F(IFMapServerParserTest, ServerParser14InParts) {
     EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
 
     // Need new datafile for step 3
-    message = FileRead("src/ifmap/testdata/server_parser_test14_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test14_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1394,7 +1449,8 @@ TEST_F(IFMapServerParserTest, ServerParser15) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test15.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test15.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1438,7 +1494,8 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
-    string message(FileRead("src/ifmap/testdata/server_parser_test13_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1462,7 +1519,8 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
 
     // Using datafile from test13_p2
-    message = FileRead("src/ifmap/testdata/server_parser_test13_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1481,7 +1539,8 @@ TEST_F(IFMapServerParserTest, ServerParser15InParts) {
     EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
 
     // Need new datafile for step 3
-    message = FileRead("src/ifmap/testdata/server_parser_test15_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test15_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1522,7 +1581,8 @@ TEST_F(IFMapServerParserTest, ServerParser16) {
     IFMapTable *gsctable = IFMapTable::FindTable(&db_, "global-system-config");
     EXPECT_EQ(0, gsctable->Size());
 
-    string message(FileRead("src/ifmap/testdata/server_parser_test16.xml"));
+    string message =
+        FileRead("controller/src/ifmap/testdata/server_parser_test16.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1563,7 +1623,8 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     EXPECT_EQ(0, gsctable->Size());
 
     // Using datafile from test13_p1
-    string message(FileRead("src/ifmap/testdata/server_parser_test13_p1.xml"));
+    string message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p1.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1587,7 +1648,8 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     EXPECT_TRUE(LinkLookup(vr1, vm1) != NULL);
 
     // Using datafile from test13_p2
-    message = FileRead("src/ifmap/testdata/server_parser_test13_p2.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test13_p2.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
@@ -1606,7 +1668,8 @@ TEST_F(IFMapServerParserTest, ServerParser16InParts) {
     EXPECT_TRUE(LinkLookup(vr1, gsc) != NULL);
 
     // Need new datafile for step 3
-    message = FileRead("src/ifmap/testdata/server_parser_test16_p3.xml");
+    message = 
+        FileRead("controller/src/ifmap/testdata/server_parser_test16_p3.xml");
     assert(message.size() != 0);
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();

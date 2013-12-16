@@ -91,10 +91,6 @@ public:
     void IncrFlowAged() {flow_aged_++;};
     uint64_t GetFlowAged() {return flow_aged_;};
 
-    void IncrFlowActive() {flow_active_++;};
-    void DecrFlowActive() {flow_active_--;};
-    uint64_t GetFlowActive() {return flow_active_;};
-
     void IncrPktExceptions() {pkt_exceptions_++;};
     uint64_t GetPktExceptions() {return pkt_exceptions_;};
 

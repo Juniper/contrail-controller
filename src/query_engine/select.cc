@@ -310,6 +310,11 @@ query_status_t SelectQuery::process_query() {
 
                 col_res_map.insert(std::make_pair(col_name, jt->value[0]));
             }
+            if (!col_res_map.size()) {
+                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
+                       " in Analytics db");
+                continue;
+            }
 
             std::map<std::string, std::string> cmap;
             for (std::vector<std::string>::iterator jt = select_column_fields.begin();
@@ -576,7 +581,8 @@ query_status_t SelectQuery::process_query() {
         }
 
         std::vector<GenDb::ColList> mget_res;
-        if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
+        if (!m_query->dbif->Db_GetMultiRow(mget_res, 
+                    g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
@@ -592,6 +598,19 @@ query_status_t SelectQuery::process_query() {
                 }
 
                 col_res_map.insert(std::make_pair(col_name, jt->value[0]));
+            }
+            if (!col_res_map.size()) {
+                boost::uuids::uuid u;
+                assert(it->rowkey_.size() > 0);
+                try {
+                    u = boost::get<boost::uuids::uuid>(it->rowkey_.at(0));
+                } catch (boost::bad_get& ex) {
+                    QE_LOG(ERROR, "Invalid rowkey/uuid");
+                    QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
+                }
+                QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
+                       " in Analytics db");
+                continue;
             }
 
             std::map<std::string, std::string> cmap;
@@ -609,7 +628,8 @@ query_status_t SelectQuery::process_query() {
                         }
                     } else {
                         // do not assert, append an empty string
-                    cmap.insert(std::make_pair(*jt, std::string(""))); }
+                        cmap.insert(std::make_pair(*jt, std::string("")));
+                    }
                 } else if (*jt == g_viz_constants.UUID_KEY) {
 
                     boost::uuids::uuid u;
@@ -623,50 +643,49 @@ query_status_t SelectQuery::process_query() {
                     std::copy(u.begin(), u.end(), u_s.begin());
 
                     cmap.insert(std::make_pair(kt->first, u_s));
-                } else if ((*jt == g_viz_constants.SOURCE) ||
-                        (*jt == g_viz_constants.SOURCE) ||
-                        (*jt == g_viz_constants.NAMESPACE) ||
-                        (*jt == g_viz_constants.MODULE) ||
-                        (*jt == g_viz_constants.CONTEXT) ||
-                        (*jt == g_viz_constants.CATEGORY) ||
-                        (*jt == g_viz_constants.MESSAGE_TYPE) ||
-                        (*jt == g_viz_constants.DATA)) {
-                    std::string val;
-                    try {
-                        val = boost::get<std::string>(kt->second);
-                    } catch (boost::bad_get& ex) {
-                        QE_ASSERT(0);
-                    }
-                    cmap.insert(std::make_pair(kt->first, val));
-                } else if (*jt == g_viz_constants.TIMESTAMP) {
-                    uint64_t val;
-                    try {
-                        val = boost::get<uint64_t>(kt->second);
-                    } catch (boost::bad_get& ex) {
-                        QE_ASSERT(0);
-                    }
-                    cmap.insert(std::make_pair(kt->first, integerToString(val)));
-                } else if ((*jt == g_viz_constants.LEVEL) ||
-                        (*jt == g_viz_constants.SEQUENCE_NUM) ||
-                        (*jt == g_viz_constants.VERSION)) {
-                    uint32_t val;
-                    try {
-                        val = boost::get<uint32_t>(kt->second);
-                    } catch (boost::bad_get& ex) {
-                        QE_ASSERT(0);
-                    }
-                    cmap.insert(std::make_pair(kt->first, integerToString(val)));
-                } else if (*jt == g_viz_constants.SANDESH_TYPE) {
-                    uint8_t val;
-                    try {
-                        val = boost::get<uint8_t>(kt->second);
-                    } catch (boost::bad_get& ex) {
-                        QE_ASSERT(0);
-                    }
-                    cmap.insert(std::make_pair(kt->first, integerToString(val)));
                 } else {
-                    QE_ASSERT(0); // Valid assert, this will be a bug
-                }
+                    std::string vstr;
+                    switch (kt->second.which()) {
+                    case GenDb::DB_VALUE_STRING: {
+                        vstr = boost::get<std::string>(kt->second);
+                        break;
+                    }
+                    case GenDb::DB_VALUE_UINT64: {
+                        uint64_t vint = boost::get<uint64_t>(kt->second);
+                        vstr = integerToString(vint);
+                        break;
+                    }     
+                    case GenDb::DB_VALUE_UINT32: {
+                        uint32_t vint = boost::get<uint32_t>(kt->second);
+                        vstr = integerToString(vint);
+                        break;
+                    }     
+                    case GenDb::DB_VALUE_UINT16: {
+                        uint16_t vint = boost::get<uint16_t>(kt->second);
+                        vstr = integerToString(vint);
+                        break;
+                    }     
+                    case GenDb::DB_VALUE_UINT8: {
+                        uint8_t vint = boost::get<uint8_t>(kt->second);
+                        vstr = integerToString(vint);
+                        break;
+                    }     
+                    case GenDb::DB_VALUE_UUID: {
+                        boost::uuids::uuid vuuid = boost::get<boost::uuids::uuid>(kt->second);
+                        vstr = to_string(vuuid); 
+                        break;
+                    }
+                    case GenDb::DB_VALUE_DOUBLE: {
+                        double vdouble = boost::get<double>(kt->second);
+                        vstr = integerToString(vdouble);
+                        break;
+                    } 
+                    default:
+                        QE_ASSERT(0);
+                        break;
+                    }
+                    cmap.insert(std::make_pair(kt->first, vstr));
+                } 
             }
             if (jt == select_column_fields.end()) {
                 result_->push_back(std::make_pair(cmap, nullmetadata));

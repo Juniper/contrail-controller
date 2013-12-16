@@ -51,7 +51,6 @@ public:
     };
     bool IsLess(const DBEntry &rhs) const;
     bool Change(const DBRequest *req);
-    AgentDBTable *DBToTable() const;
 
     virtual bool VrfAssignIsLess(const VrfAssign &rhs) const = 0;
     virtual bool VrfAssignChange(const DBRequest *req) {return false;};

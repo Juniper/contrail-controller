@@ -51,7 +51,7 @@ namespace {
 
 TEST_F(XmlBaseTest, XmlDecode) {
      EXPECT_FALSE(doc_== NULL);
-     xmls_ = FileRead("src/xml/testdata/xmpp_l3_vpn.xml");
+     xmls_ = FileRead("controller/src/xml/testdata/xmpp_l3_vpn.xml");
      doc_->LoadDoc(xmls_);
 
      std::string key("iq");

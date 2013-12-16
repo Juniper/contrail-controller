@@ -12,7 +12,7 @@
 #include "testing/gunit.h"
 
 using namespace std;
-using namespace tbb;
+using tbb::atomic;
 
 TaskScheduler       *scheduler;
 atomic<int> timer_count_;

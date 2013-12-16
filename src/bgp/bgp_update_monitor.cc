@@ -12,11 +12,8 @@
 #include "bgp/bgp_update_queue.h"
 #include "db/db.h"
 
-using namespace std;
-using namespace tbb;
-
 RouteUpdatePtr::RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
-        tbb::mutex *monitor_mutexp, condition_variable *cond_var)
+        tbb::mutex *monitor_mutexp, tbb::interface5::condition_variable *cond_var)
         : entry_mutexp_(entry_mutexp), rt_update_(rt_update),
           monitor_mutexp_(monitor_mutexp), cond_var_(cond_var) {
     if (rt_update_ != NULL) {
@@ -27,7 +24,7 @@ RouteUpdatePtr::RouteUpdatePtr(tbb::mutex *entry_mutexp, RouteUpdate *rt_update,
 RouteUpdatePtr::~RouteUpdatePtr() {
     if (rt_update_ != NULL) {
         entry_mutexp_->unlock();
-        mutex::scoped_lock lock(*monitor_mutexp_);
+        tbb::mutex::scoped_lock lock(*monitor_mutexp_);
         cond_var_->notify_all();
     }
 }
@@ -168,7 +165,7 @@ DBState *RibUpdateMonitor::GetDBStateAndDequeue(DBEntryBase *db_entry,
     // that we still need to check for the DBState being NULL as things may
     // have changed after the check made above.
     while (true) {
-        std::unique_lock<tbb::mutex> toplock(mutex_);
+        tbb::interface5::unique_lock<tbb::mutex> toplock(mutex_);
 
         // Get the DBState; bail if there's no existing state.
         DBState *dbstate =
@@ -186,7 +183,7 @@ DBState *RibUpdateMonitor::GetDBStateAndDequeue(DBEntryBase *db_entry,
         // Handle the case where it's a RouteUpdate.
         RouteUpdate *rt_update = dynamic_cast<RouteUpdate *>(dbstate);
         if (rt_update != NULL) {
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(rt_update->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -205,7 +202,7 @@ DBState *RibUpdateMonitor::GetDBStateAndDequeue(DBEntryBase *db_entry,
 
         // UpdateList mutex must be released before the UpdateList is deleted.
         {
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(uplist->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -318,7 +315,7 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
     // that we still need to check for the DBState being NULL as things may
     // have changed after the check made above.
     while (true) {
-        std::unique_lock<tbb::mutex> toplock(mutex_);
+        tbb::interface5::unique_lock<tbb::mutex> toplock(mutex_);
 
         // Get the DBState; bail if there's no existing state.
         DBState *dbstate = db_entry->GetState(ribout_->table(),
@@ -337,7 +334,7 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
         // Handle the case where it's a RouteUpdate.
         RouteUpdate *rt_update = dynamic_cast<RouteUpdate *>(dbstate);
         if (rt_update != NULL) {
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(rt_update->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -352,7 +349,7 @@ bool RibUpdateMonitor::GetPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
         UpdateList *uplist = dynamic_cast<UpdateList *>(dbstate);
         if (uplist != NULL) {
             // UpdateList
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(uplist->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -485,7 +482,7 @@ bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
     // that we still need to check for the DBState being NULL as things may
     // have changed after the check made above.
     while (true) {
-        std::unique_lock<tbb::mutex> toplock(mutex_);
+        tbb::interface5::unique_lock<tbb::mutex> toplock(mutex_);
         DBState *dbstate =
             db_entry->GetState(ribout_->table(), ribout_->listener_id());
 
@@ -504,7 +501,7 @@ bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
         // Handle the case where it's a RouteUpdate.
         RouteUpdate *current_rt_update = dynamic_cast<RouteUpdate *>(dbstate);
         if (current_rt_update != NULL) {
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(current_rt_update->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -518,7 +515,7 @@ bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
         UpdateList *uplist = dynamic_cast<UpdateList *>(dbstate);
         if (uplist != NULL) {
             // UpdateList
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(uplist->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -532,7 +529,7 @@ bool RibUpdateMonitor::MergeUpdate(DBEntryBase *db_entry,
     }
 
     assert(false);
-    return NULL;
+    return false;
 }
 
 //
@@ -740,7 +737,7 @@ void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
     // that we still need to check for the DBState being NULL as things may
     // have changed after the check made above.
     while (true) {
-        std::unique_lock<tbb::mutex> toplock(mutex_);
+        tbb::interface5::unique_lock<tbb::mutex> toplock(mutex_);
         DBState *dbstate =
             db_entry->GetState(ribout_->table(), ribout_->listener_id());
 
@@ -763,7 +760,7 @@ void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
 
             // RouteUpdate mutex must be released before RouteUpdate is deleted.
             {
-                mutex::scoped_lock updatelock;
+                tbb::mutex::scoped_lock updatelock;
                 if (!updatelock.try_acquire(rt_update->mutex_)) {
                     // wait on a conditional variable.
                     cond_var_.wait(toplock);
@@ -788,7 +785,7 @@ void RibUpdateMonitor::ClearPeerSetCurrentAndScheduled(DBEntryBase *db_entry,
 
         // UpdateList mutex must be released before the UpdateList is deleted.
         {
-            mutex::scoped_lock updatelock;
+            tbb::mutex::scoped_lock updatelock;
             if (!updatelock.try_acquire(uplist->mutex_)) {
                 // wait on a conditional variable.
                 cond_var_.wait(toplock);
@@ -820,7 +817,7 @@ bool RibUpdateMonitor::EnqueueUpdate(DBEntryBase *db_entry,
     CHECK_CONCURRENCY("db::DBTable");
 
     UpdateQueue *queue = queue_vec_->at(rt_update->queue_id());
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     db_entry->SetState(ribout_->table(), ribout_->listener_id(), rt_update);
     return queue->Enqueue(rt_update);
 }
@@ -858,7 +855,7 @@ void RibUpdateMonitor::DequeueUpdate(RouteUpdate *rt_update) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
     UpdateQueue *queue = queue_vec_->at(rt_update->queue_id());
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     queue->Dequeue(rt_update);
 }
 
@@ -886,7 +883,7 @@ void RibUpdateMonitor::DequeueUpdateUnlocked(RouteUpdate *rt_update) {
 // in the common case where we simply need a RouteState.  Keep in mind that
 // the scheduling group task never needs to lock a RouteState.
 //
-mutex *RibUpdateMonitor::DBStateMutex(RouteUpdate *rt_update) {
+tbb::mutex *RibUpdateMonitor::DBStateMutex(RouteUpdate *rt_update) {
     if (rt_update == NULL) {
         return NULL;
     }
@@ -913,9 +910,9 @@ RouteUpdatePtr RibUpdateMonitor::GetNextUpdate(int queue_id,
     CHECK_CONCURRENCY("bgp::SendTask");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     RouteUpdate *next_rt_update = queue->NextUpdate(upentry);
-    mutex *mp = DBStateMutex(next_rt_update);
+    tbb::mutex *mp = DBStateMutex(next_rt_update);
     RouteUpdatePtr update(mp, next_rt_update, &mutex_, &cond_var_);
     if (!next_rt_update && upentry->IsUpdate()) {
         RouteUpdate *rt_update = static_cast<RouteUpdate *>(upentry);
@@ -939,11 +936,11 @@ RouteUpdatePtr RibUpdateMonitor::GetNextEntry(int queue_id,
     CHECK_CONCURRENCY("bgp::SendTask");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     UpdateEntry *next_upentry = *next_upentry_p = queue->NextEntry(upentry);
     if (next_upentry != NULL && next_upentry->IsUpdate()) {
         RouteUpdate *rt_update = static_cast<RouteUpdate *>(next_upentry);
-        mutex *mp = DBStateMutex(rt_update);
+        tbb::mutex *mp = DBStateMutex(rt_update);
         RouteUpdatePtr update(mp, rt_update, &mutex_, &cond_var_);
         return update;
     }
@@ -965,10 +962,10 @@ RouteUpdatePtr RibUpdateMonitor::GetAttrNext(int queue_id,
     CHECK_CONCURRENCY("bgp::SendTask");
 
     UpdateQueue *queue = queue_vec_->at(queue_id);
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     UpdateInfo *next_uinfo = queue->AttrNext(current_uinfo);
     RouteUpdate *rt_update = NULL;
-    mutex *mp = NULL;
+    tbb::mutex *mp = NULL;
     if (next_uinfo) {
         rt_update = next_uinfo->update;
         mp = DBStateMutex(rt_update);
@@ -986,7 +983,7 @@ RouteUpdatePtr RibUpdateMonitor::GetAttrNext(int queue_id,
 void RibUpdateMonitor::SetEntryState(DBEntryBase *db_entry, DBState *dbstate) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     db_entry->SetState(ribout_->table(), ribout_->listener_id(), dbstate);
 }
 
@@ -998,6 +995,6 @@ void RibUpdateMonitor::SetEntryState(DBEntryBase *db_entry, DBState *dbstate) {
 void RibUpdateMonitor::ClearEntryState(DBEntryBase *db_entry) {
     CHECK_CONCURRENCY("bgp::SendTask");
 
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     db_entry->ClearState(ribout_->table(), ribout_->listener_id());
 }

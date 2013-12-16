@@ -14,7 +14,7 @@
 #include <base/util.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 
 #include <ksync/ksync_index.h>
@@ -67,9 +67,9 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
 
     if (flow->intf_in != Interface::kInvalidIndex) {
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(flow->intf_in);
-        if (intf && intf->GetType() == Interface::VMPORT) {
-            VmPortInterface *vm_port = static_cast<VmPortInterface *>(intf);
-            const VmEntry *vm = vm_port->GetVmEntry();
+        if (intf && intf->type() == Interface::VM_INTERFACE) {
+            VmInterface *vm_port = static_cast<VmInterface *>(intf);
+            const VmEntry *vm = vm_port->vm();
             if (vm) {
                 s_flow.set_vm(vm->GetCfgName());
             }
@@ -117,8 +117,14 @@ bool FlowStatsCollector::ShouldBeAged(FlowEntry *entry,
                                       const vr_flow_entry *k_flow,
                                       uint64_t curr_time) {
     if (k_flow != NULL) {
-        if (entry->data.bytes < k_flow->fe_stats.flow_bytes &&
-            entry->data.packets < k_flow->fe_stats.flow_packets) {
+        uint64_t k_flow_bytes, bytes;
+
+        k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+                                    k_flow->fe_stats.flow_bytes);
+        bytes = 0x0000ffffffffffffULL & entry->data.bytes; 
+        /* Don't account for agent overflow bits while comparing change in 
+         * stats */
+        if (bytes < k_flow_bytes) {
             return false;
         }
     }
@@ -185,9 +191,9 @@ bool FlowStatsCollector::Run() {
         const vr_flow_entry *k_flow = 
             FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
             (entry->flow_handle, false);
+        reverse_flow = entry->data.reverse_flow.get();
         // Can the flow be aged?
         if (ShouldBeAged(entry, k_flow, curr_time)) {
-            reverse_flow = entry->data.reverse_flow.get();
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
@@ -220,30 +226,45 @@ bool FlowStatsCollector::Run() {
         }
 
         if (deleted == false && k_flow) {
-            if (entry->data.bytes != k_flow->fe_stats.flow_bytes) {
-                uint64_t flow_bytes, flow_packets;
+            uint64_t k_bytes, bytes;
+            k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+                                   k_flow->fe_stats.flow_bytes);
+            bytes = 0x0000ffffffffffffULL & entry->data.bytes;
+            /* Don't account for agent overflow bits while comparing change in 
+             * stats */
+            if (bytes != k_bytes) {
+                uint64_t packets, k_packets;
                 
-                flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
-                                          k_flow->fe_stats.flow_bytes);
-                flow_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow
-                                            , k_flow->fe_stats.flow_packets);
-                flow_bytes = GetUpdatedFlowBytes(entry, flow_bytes);
-                flow_packets = GetUpdatedFlowPackets(entry, flow_packets);
-                diff_bytes = flow_bytes - entry->data.bytes;
-                diff_pkts = flow_packets - entry->data.packets;
+                k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
+                                         k_flow->fe_stats.flow_packets);
+                bytes = GetUpdatedFlowBytes(entry, k_bytes);
+                packets = GetUpdatedFlowPackets(entry, k_packets);
+                diff_bytes = bytes - entry->data.bytes;
+                diff_pkts = packets - entry->data.packets;
                 //Update Inter-VN stats
                 AgentUve::GetInstance()->GetInterVnStatsCollector()->UpdateVnStats(entry, 
                                                                     diff_bytes, diff_pkts);
-                entry->data.bytes = flow_bytes;
-                entry->data.packets = flow_packets;
+                entry->data.bytes = bytes;
+                entry->data.packets = packets;
                 entry->last_modified_time = curr_time;
                 FlowExport(entry, diff_bytes, diff_pkts);
             }
         }
 
         if ((!deleted) && entry->ShortFlow()) {
-            deleted = true;
-            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, false);
+            if (it != flow_obj->flow_entry_map_.end()) {
+                if (it->second == reverse_flow) {
+                    it++;
+                }
+            }
+            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, true);
+            entry = NULL;
+            if (reverse_flow) {
+                count++;
+                if (count == flow_count_per_pass_) {
+                    break;
+                }
+            }
         }
 
         count++;

@@ -30,6 +30,7 @@ public:
         BgpMessage(MessageType type) : type(type) {
         }
         MessageType type;
+        virtual const std::string ToString() const { return ""; }
     };
 
     struct OpenMessage : public BgpMessage {
@@ -58,6 +59,33 @@ public:
                 AddPath = 69,
                 EnhancedRouteRefresh = 70
             };
+            static const char *CapabilityToString(int capability) {
+                switch (capability) {
+                    case MpExtension:
+                        return "MpExtension";
+                    case RouteRefresh:
+                        return "RouteRefresh";
+                    case OutboundRouteFiltering:
+                        return "OutboundRouteFiltering";
+                    case MultipleRoutesToADestination:
+                        return "MultipleRoutesToADestination";
+                    case ExtendedNextHop:
+                        return "ExtendedNextHop";
+                    case GracefulRestart:
+                        return "GracefulRestart";
+                    case AS4Support:
+                        return "AS4Support";
+                    case Dynamic:
+                        return "Dynamic";
+                    case MultisessionBgp:
+                        return "MultisessionBgp";
+                    case AddPath:
+                        return "AddPath";
+                    case EnhancedRouteRefresh:
+                        return "EnhancedRouteRefresh";
+                }
+                return "Unknown";
+            }
             Capability() {}
             explicit Capability(int code, const uint8_t *src, int size) :
                 code(code), capability(src, src + size) {}
@@ -73,6 +101,7 @@ public:
         std::vector<OptParam *> opt_params;
         static BgpProto::OpenMessage *Decode(const uint8_t *data, size_t size);
         static int EncodeData(OpenMessage *msg, uint8_t *data, size_t size);
+        virtual const std::string ToString() const;
 
     private:
         int ValidateCapabilities(BgpPeer *peer) const;
@@ -103,9 +132,8 @@ public:
                 return "Finite State Machine Error";
             case Cease:
                 return "Cease";
-            default:
-                return "Unknown";
             }
+            return "Unknown";
         }
         enum MsgHdrSubCode {
             ConnNotSync = 1,
@@ -259,15 +287,14 @@ public:
             }
         }
 
-        static const std::string ToString(BgpProto::Notification::Code code,
-                                          int sub_code);
-
         Notification();
         int error;
         int subcode;
         std::string data;
         static BgpProto::Notification *Decode(const uint8_t *data, size_t size);
     	static int EncodeData(Notification *msg, uint8_t *data, size_t size);
+        virtual const std::string ToString() const;
+        const static std::string toString(BgpProto::Notification::Code code, int subcode);
     };
 
     struct Keepalive : public BgpMessage {

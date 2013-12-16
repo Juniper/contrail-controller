@@ -76,17 +76,17 @@ public:
     }
 
     void FlushFlowTable() {
-        FlowTable::GetFlowTableObject()->DeleteAll();
+        client->EnqueueFlowFlush();
         client->WaitForIdle();
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
-                          VmPortInterface *intf, int label) {
+                          VmInterface *intf, int label) {
         Ip4Address addr = Ip4Address::from_string(ip);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
-                               intf->GetVnEntry()->GetName(), label); 
+                               intf->vn()->GetName(), label); 
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -155,10 +155,10 @@ public:
             ret = false;
         }
 
-        const VmPortInterface *intf = static_cast<const VmPortInterface *>
+        const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data.intf_entry.get());
         if (intf) {
-            const SgList sg_list = intf->GetSecurityGroupList();
+            const SgList sg_list = intf->sg_list();
             SgList::const_iterator it;
             for (it = sg_list.begin(); it != sg_list.end(); it++) {
                 if (it->get()->GetAcl() == NULL) {
@@ -194,10 +194,10 @@ public:
             ret = false;
         }
 
-        intf = static_cast<const VmPortInterface *>
+        intf = static_cast<const VmInterface *>
             (rflow->data.intf_entry.get());
         if (intf) {
-            const SgList sg_list = intf->GetSecurityGroupList();
+            const SgList sg_list = intf->sg_list();
             SgList::const_iterator it;
             for (it = sg_list.begin(); it != sg_list.end(); it++) {
                 if (it->get()->GetAcl() == NULL) {
@@ -270,16 +270,17 @@ public:
         EXPECT_EQ(2U,  Agent::GetInstance()->GetVnTable()->Size());
         EXPECT_EQ(3U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
-        vif1 = VmPortInterfaceGet(tap1[0].intf_id);
+        vif1 = VmInterfaceGet(tap1[0].intf_id);
         assert(vif1);
 
-        vif2 = VmPortInterfaceGet(tap2[0].intf_id);
+        vif2 = VmInterfaceGet(tap2[0].intf_id);
         assert(vif2);
 
-        vif3 = VmPortInterfaceGet(tap3[0].intf_id);
+        vif3 = VmInterfaceGet(tap3[0].intf_id);
         assert(vif3);
 
         client->SetFlowAgeExclusionPolicy();
+        client->SetFlowFlushExclusionPolicy();
     }
 
     static void TestTearDown() {
@@ -288,7 +289,7 @@ public:
         DeleteVmportEnv(tap2, 1, true, 2);
         DeleteVmportEnv(tap3, 1, true, 3);
         FlowTableTest::eth_itf = "eth0";
-        EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
                                 FlowTableTest::eth_itf);
         client->WaitForIdle();
 
@@ -310,9 +311,9 @@ public:
 
     static bool ksync_init_;
     static int fd_table[MAX_VNET];
-    static VmPortInterface *vif1;
-    static VmPortInterface *vif2;
-    static VmPortInterface *vif3;
+    static VmInterface *vif1;
+    static VmInterface *vif2;
+    static VmInterface *vif3;
     static std::string eth_itf;
 
 protected:
@@ -368,9 +369,9 @@ protected:
 
 bool FlowTableTest::ksync_init_;
 int FlowTableTest::fd_table[MAX_VNET];
-VmPortInterface *FlowTableTest::vif1;
-VmPortInterface *FlowTableTest::vif2;
-VmPortInterface *FlowTableTest::vif3;
+VmInterface *FlowTableTest::vif1;
+VmInterface *FlowTableTest::vif2;
+VmInterface *FlowTableTest::vif3;
 std::string FlowTableTest::eth_itf;
 
 TEST_F(FlowTableTest, FlowAdd_local_1) {
@@ -389,7 +390,7 @@ int main(int argc, char *argv[]) {
         FlowTableTest::eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
         FlowTableTest::eth_itf = "eth0";
-        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                                 FlowTableTest::eth_itf, Agent::GetInstance()->GetDefaultVrf());
         client->WaitForIdle();
     }

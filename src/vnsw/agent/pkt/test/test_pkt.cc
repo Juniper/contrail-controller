@@ -19,7 +19,7 @@
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
 
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "route/route.h"
 #include "oper/vrf.h"
@@ -105,12 +105,12 @@ TEST_F(PktTest, FlowAdd_1) {
     EXPECT_EQ(1U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     // Generate packet and enqueue
-    VmPortInterface *intf = VmPortInterfaceGet(input[0].intf_id);
+    VmInterface *intf = VmInterfaceGet(input[0].intf_id);
     assert(intf);
-    TxIpPacket(intf->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1);
+    TxIpPacket(intf->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
 
-    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             "vnet0", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     TxMplsPacket(2, "1.1.1.2", "10.1.1.1", 0, "2.2.2.2", "3.3.3.3", 1);

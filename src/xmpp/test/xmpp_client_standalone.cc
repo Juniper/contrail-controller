@@ -94,7 +94,7 @@ bool ClientTest::SendTimerExpire() {
             mock_peer_ = new XmppBgpMockPeer(connection->ChannelMux());
         }
     } else {
-        string data = FileRead("src/xmpp/testdata/pubsub_sub.xml");
+        string data = FileRead("controller/src/xmpp/testdata/pubsub_sub.xml");
         uint8_t buf[4096];
         memcpy(buf, data.data(), data.size()); 
         bool ret = mock_peer_->SendUpdate(buf, data.size());

@@ -15,7 +15,7 @@
 #include <vrouter_types.h>
 #include <uve/flow_uve.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>

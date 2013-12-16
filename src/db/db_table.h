@@ -34,6 +34,7 @@ struct DBRequest {
     DBOperation oper;
 
     DBRequest();
+    DBRequest(DBOperation op) : oper(op) { }
     ~DBRequest();
 
     std::auto_ptr<DBRequestKey> key;

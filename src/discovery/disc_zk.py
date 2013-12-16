@@ -72,10 +72,18 @@ class DiscoveryZkClient(object):
         return self._debug
     # end
 
+    def sem_acquire(self):
+        self._zk_sem.acquire()
+    # end
+
+    def sem_release(self):
+        self._zk_sem.release()
+    # end
+
     def create_node(self, path, value='', makepath=False):
-        try:
+        if self._zk.exists(path):
             self._zk.set(path, value)
-        except kazoo.exceptions.NoNodeException:
+        else:
             self._zk.create(path, value, makepath=makepath)
             self.syslog('create %s' % (path))
     # end create_node
@@ -223,9 +231,12 @@ class DiscoveryZkClient(object):
             datastr, stat = self._zk.get(
                 '/clients/%s/%s' % (service_type, client_id))
             data = json.loads(datastr)
-            return data
         except kazoo.exceptions.NoNodeException:
-            return None
+            data = None
+        except ValueError:
+            self.syslog('raise ValueError st=%s, cid=%s' %(service_type, client_id))
+            data = None
+        return data
     # end lookup_client
 
     def insert_client_data(self, service_type, client_id, cldata):
@@ -340,6 +351,7 @@ class DiscoveryZkClient(object):
                         exp_t = stat.last_modified + data['ttl'] +\
                             disc_consts.TTL_EXPIRY_DELTA
                         if now > exp_t:
+                            self._zk_sem.acquire()
                             self.delete_subscription(
                                 service_type, client_id, service_id)
                             svc_info = self.lookup_service(
@@ -351,6 +363,7 @@ class DiscoveryZkClient(object):
                             svc_info['in_use'] -= 1
                             self.update_service(
                                 service_type, service_id, svc_info)
+                            self._zk_sem.release()
                             self._debug['subscription_expires'] += 1
             gevent.sleep(10)
 

@@ -82,9 +82,24 @@ public:
         boost::system::error_code ec;
         Ip4Address bgp_identifier =
             Ip4Address::from_string(params.identifier, ec);
-        
-        server_->autonomous_system_ = params.autonomous_system;
-        server_->bgp_identifier_ = bgp_identifier;
+
+        if (server_->bgp_identifier_ != bgp_identifier) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                        BGP_LOG_FLAG_SYSLOG,
+                        "Updated bgp_identifier from " <<
+                        server_->bgp_identifier_.to_string() << " to " <<
+                        params.identifier);
+            server_->bgp_identifier_ = bgp_identifier;
+        }
+
+        if (server_->autonomous_system_ != params.autonomous_system) {
+            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
+                        BGP_LOG_FLAG_SYSLOG,
+                        "Updated local autonomous_system number from " <<
+                        server_->autonomous_system_ << " to "
+                        << params.autonomous_system);
+            server_->autonomous_system_ = params.autonomous_system;
+        }
     }
 
     void ProcessNeighborConfig(const BgpNeighborConfig *neighbor_config,

@@ -285,7 +285,8 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
     case DBRequest::DB_ENTRY_DELETE: {
         if (rt && !rt->IsDeleted()) {
-            BGP_LOG_ROUTE(this, peer, rt, "Delete BGP path");
+            BGP_LOG_ROUTE(this, const_cast<IPeer *>(peer), rt,
+                          "Delete BGP path");
 
             // Remove the Path from the route
             rt->RemovePath(BgpPath::BGP_XMPP, peer, path_id);
@@ -326,7 +327,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
 
         rt = static_cast<BgpRoute *>(Add(req));
         static_cast<DBTablePartition *>(root)->Add(rt);
-        BGP_LOG_ROUTE(this, peer, rt, "Insert new BGP path");
+        BGP_LOG_ROUTE(this, const_cast<IPeer *>(peer), rt,
+                      "Insert new BGP path");
     }
 
     // Use a map to mark and sweep deleted paths, update the rest.

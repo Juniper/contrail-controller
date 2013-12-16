@@ -52,7 +52,7 @@ public:
         tbb::mutex::scoped_lock lock(mutex_);
         unsigned int i;
         for (i = 0; i < itf_id_.size(); ++i)
-            if (itf_id_[i] == itf->GetInterfaceId())
+            if (itf_id_[i] == itf->id())
                 break;
         if (entry->IsDeleted()) {
             if (itf_count_ && i < itf_id_.size()) {
@@ -63,8 +63,8 @@ public:
         } else {
             if (i == itf_id_.size()) {
                 itf_count_++;
-                itf_id_.push_back(itf->GetInterfaceId());
-                LOG(DEBUG, "Icmp test : interface added " << itf->GetInterfaceId());
+                itf_id_.push_back(itf->id());
+                LOG(DEBUG, "Icmp test : interface added " << itf->id());
             }
         }
     }

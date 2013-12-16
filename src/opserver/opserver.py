@@ -111,8 +111,8 @@ def redis_query_status(host, port, qid):
     if int(ttl) != -1:
         chunk_resp["ttl"] = int(ttl)
     query_time = redish.hmget("QUERY:" + qid, ["start_time", "end_time"])
-    chunk_resp["start_time"] = int(query_time[0])
-    chunk_resp["end_time"] = int(query_time[1])
+    chunk_resp["start_time"] = query_time[0]
+    chunk_resp["end_time"] = query_time[1]
     if chunk_resp["progress"] == 100:
         chunk_resp["href"] = "/analytics/query/%s/chunk-final/%d" % (qid, 0)
     chunks.append(chunk_resp)

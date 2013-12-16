@@ -15,7 +15,7 @@
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_route.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 
 #include <vgw/cfg_vgw.h>
@@ -33,12 +33,11 @@ VirtualGateway::VirtualGateway(Agent *agent) : agent_(agent), lid_(0),
 void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
                                      DBEntryBase *entry) {
     Interface *interface = static_cast<Interface *>(entry);
-    Interface::Type type = interface->GetType();
-    if (type != Interface::VHOST)
+    if (interface->type() != Interface::VIRTUAL_HOST)
         return;
 
     VirtualHostInterface *vhost = static_cast<VirtualHostInterface *>(entry);
-    if (vhost->GetSubType() != VirtualHostInterface::GATEWAY)
+    if (vhost->sub_type() != VirtualHostInterface::GATEWAY)
         return;
 
     if (entry->IsDeleted()) {

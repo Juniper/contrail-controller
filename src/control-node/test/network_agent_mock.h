@@ -337,7 +337,7 @@ private:
     tbb::mutex mutex_;
     tbb::mutex work_mutex_;
 
-    std::condition_variable cond_var_;
+    tbb::interface5::condition_variable cond_var_;
 };
 
 }  // namespace test

@@ -9,7 +9,7 @@
 #include "base/task_annotations.h"
 #include <base/logging.h>
 #include <oper/agent_route.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
 #include <oper/multicast.h>
@@ -61,10 +61,6 @@ void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
 // NextHop routines
 /////////////////////////////////////////////////////////////////////////////
 NextHopTable::NextHopTable(DB *db, const string &name) : AgentDBTable(db, name){
-}
-
-AgentDBTable *NextHop::DBToTable() const {
-    return NextHopTable::GetInstance();
 }
 
 void NextHop::SendObjectLog(AgentLogEvent::type event) const {
@@ -153,26 +149,26 @@ void NextHop::FillObjectLogIntf(const Interface *intf,
                                 NextHopObjectLogInfo &info) {
     if (intf) {
         string if_type_str;
-        switch(intf->GetType()) {
-            case Interface::VMPORT:
-                if_type_str.assign("VMPORT");
-                break;
-            case Interface::ETH:
-                if_type_str.assign("ETH");
-                break;
-            case Interface::VHOST:
-                if_type_str.assign("VHOST");
-                break;
-            case Interface::HOST:
-                if_type_str.assign("HOST");
-                break;
-            default:
-                if_type_str.assign("Invalid");
-                break;
+        switch(intf->type()) {
+        case Interface::VM_INTERFACE:
+            if_type_str.assign("VM_INTERFACE");
+            break;
+        case Interface::PHYSICAL:
+            if_type_str.assign("ETH");
+            break;
+        case Interface::VIRTUAL_HOST:
+            if_type_str.assign("VIRTUAL_HOST");
+            break;
+        case Interface::PACKET:
+            if_type_str.assign("PKT");
+            break;
+        default:
+            if_type_str.assign("Invalid");
+            break;
         }
         info.set_intf_type(if_type_str);
         info.set_intf_uuid(UuidToString(intf->GetUuid()));
-        info.set_intf_name(intf->GetName());
+        info.set_intf_name(intf->name());
     }
 }
 
@@ -201,6 +197,7 @@ std::auto_ptr<DBEntry> NextHopTable::GetEntry(const DBRequestKey *key) const {
 DBEntry *NextHopTable::Add(const DBRequest *req) {
     const NextHopKey *key = static_cast<const NextHopKey *>(req->key.get());
     NextHop *nh = AllocWithKey(key);
+    nh->set_table(this);
 
     if (nh->CanAdd() == false) {
         delete nh;
@@ -446,7 +443,7 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""),
+    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
                                          policy, flags);
     req.key.reset(key);
 
@@ -475,7 +472,7 @@ static void DeleteNH(const uuid &intf_uuid, bool policy,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""),
+    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
                                          policy, flags);
     req.key.reset(key);
 
@@ -497,8 +494,7 @@ void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new VirtualHostInterfaceKey(nil_uuid(),
-                                                                     ifname),
+    NextHopKey *key = new InterfaceNHKey(new VirtualHostInterfaceKey(ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -515,7 +511,7 @@ void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     NextHopKey *key = new InterfaceNHKey
-        (new VirtualHostInterfaceKey(nil_uuid(), ifname), false,
+        (new VirtualHostInterfaceKey(ifname), false,
          InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -527,7 +523,7 @@ void InterfaceNH::CreateHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new HostInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -543,7 +539,7 @@ void InterfaceNH::DeleteHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new InterfaceNHKey(new HostInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -874,8 +870,8 @@ void ReceiveNH::CreateReq(const string &interface) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
-                                                           interface), false);
+    NextHopKey *key = new ReceiveNHKey(new VirtualHostInterfaceKey(interface),
+                                       false);
     req.key.reset(key);
 
     ReceiveNHData *rcv_data =new ReceiveNHData();
@@ -884,7 +880,7 @@ void ReceiveNH::CreateReq(const string &interface) {
 
     DBRequest policy_req;
     policy_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *policy_key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
+    NextHopKey *policy_key = new ReceiveNHKey(new VirtualHostInterfaceKey(
                                                               interface), true);
     policy_req.key.reset(policy_key);
 
@@ -1121,7 +1117,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
             component_nh_info.set_label(comp_nh->GetLabel());
             const Interface *intf = 
                 static_cast<const Interface *>(intf_nh->GetInterface());
-            component_nh_info.set_intf_name(intf->GetName());
+            component_nh_info.set_intf_name(intf->name());
             break;
         }
 
@@ -1131,7 +1127,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
             component_nh_info.set_label(comp_nh->GetLabel());
             const Interface *intf = 
                 static_cast<const Interface *>(vlan_nh->GetInterface());
-            component_nh_info.set_intf_name(intf->GetName());
+            component_nh_info.set_intf_name(intf->name());
             break;
         }
 
@@ -1341,6 +1337,24 @@ bool CompositeNH::Change(const DBRequest* req) {
     return true;
 }
 
+const NextHop* CompositeNH::GetLocalNextHop() const {
+    const NextHop *nh = NULL;
+    if ((nh = GetLocalCompositeNH()) == NULL) {
+        //Get interface NH inside composite NH
+        ComponentNHList::const_iterator component_nh_it = begin();
+        while (component_nh_it != end()) {
+            if (*component_nh_it &&
+                ((*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE ||
+                (*component_nh_it)->GetNH()->GetType() == NextHop::VLAN))  {
+                nh = (*component_nh_it)->GetNH();
+                break;
+            }
+            component_nh_it++;
+        }
+    }
+    return nh;
+}
+
 CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
     NextHopKey *key = NULL;
     if (comp_type_ != Composite::ECMP) {
@@ -1487,7 +1501,7 @@ static void FillComponentNextHop(const CompositeNH *comp_nh,
                 static_cast<const InterfaceNH *>(component_nh->GetNH());
             if (sub_nh && sub_nh->GetInterface())
                 sdata.set_label(component_nh->GetLabel());
-            sdata.set_itf(sub_nh->GetInterface()->GetName());
+            sdata.set_itf(sub_nh->GetInterface()->name());
             break;
         }
         case NextHop::TUNNEL: {
@@ -1503,7 +1517,7 @@ static void FillComponentNextHop(const CompositeNH *comp_nh,
             sdata.set_type("Vlan");
             const VlanNH *vlan_nh = 
                 static_cast<const VlanNH *>(component_nh->GetNH());
-            sdata.set_itf(vlan_nh->GetInterface()->GetName());
+            sdata.set_itf(vlan_nh->GetInterface()->name());
             sdata.set_vlan_tag(vlan_nh->GetVlanTag());
             break;
         }
@@ -1706,7 +1720,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             data.set_type("receive");
             const ReceiveNH *nh = static_cast<const ReceiveNH *>(this);
             if (nh->GetInterface()) {
-                data.set_itf(nh->GetInterface()->GetName());
+                data.set_itf(nh->GetInterface()->name());
             } else {
                 data.set_itf("<NULL>");
             }
@@ -1723,7 +1737,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
             if (valid_ == false) {
                 break;
             }
-            data.set_itf(arp->GetInterface()->GetName());
+            data.set_itf(arp->GetInterface()->name());
             const unsigned char *m = arp->GetMac()->ether_addr_octet;
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
@@ -1741,7 +1755,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case INTERFACE: {
             data.set_type("interface");
             const InterfaceNH *itf = static_cast<const InterfaceNH *>(this);
-            data.set_itf(itf->GetInterface()->GetName());
+            data.set_itf(itf->GetInterface()->name());
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
             char mstr[32];
             snprintf(mstr, 32, "%x:%x:%x:%x:%x:%x", 
@@ -1798,7 +1812,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                     data.set_mac(mac);
                 } else if (nh->GetType() == NextHop::RECEIVE) {
                     const ReceiveNH *rcv_nh = static_cast<const ReceiveNH*>(nh);
-                    data.set_itf(rcv_nh->GetInterface()->GetName());
+                    data.set_itf(rcv_nh->GetInterface()->name());
                 }
             }
             break;
@@ -1827,7 +1841,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case VLAN: {
             data.set_type("vlan");
             const VlanNH *itf = static_cast<const VlanNH *>(this);
-            data.set_itf(itf->GetInterface()->GetName());
+            data.set_itf(itf->GetInterface()->name());
             data.set_vlan_tag(itf->GetVlanTag());
             const unsigned char *m = itf->GetDMac().ether_addr_octet;
             char mstr[32];

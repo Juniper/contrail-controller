@@ -1,38 +1,34 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
-
-#ifndef vnsw_agent_intf_hpp
-#define vnsw_agent_intf_hpp
-
-#include <net/ethernet.h>
-#include <cmn/agent_cmn.h>
-#include <oper/vrf.h>
-#include <oper/vm.h>
-#include <oper/vn.h>
-#include <oper/sg.h>
-#include <oper/agent_types.h>
-
-//#include "db/db.h"
-//#include "db/db_table_walker.h"
-using namespace boost::uuids;
-using namespace std;
-
-typedef vector<uuid> SgUuidList;
-typedef vector<SgEntryRef> SgList;
+#ifndef vnsw_agent_interface_hpp
+#define vnsw_agent_interface_hpp
 
 /////////////////////////////////////////////////////////////////////////////
-// Base class for Interfaces. Implementation of specific interfaces must 
-// derive from this class
+// Agent supports multiple type of interface. Class Interface is defines
+// common attributes of all interfaces. All interfaces derive from the base 
+// Interface class
 /////////////////////////////////////////////////////////////////////////////
+
+struct InterfaceData;
+
 class Interface : AgentRefCount<Interface>, public AgentDBEntry {
 public:
+    // Type of interfaces supported
     enum Type {
         INVALID,
-        ETH,
-        VMPORT,
-        VHOST,
-        HOST
+        // Represents the physical ethernet port. Can be LAG interface also
+        PHYSICAL,
+        // Interface in the virtual machine
+        VM_INTERFACE,
+        // The virtual host interfaces created in host-os
+        // Example interfaces:
+        // vhost0 in case of KVM
+        // xap0 in case of XEN
+        // vgw in case of Simple Gateway
+        VIRTUAL_HOST,
+        // pkt0 interface used to exchange packets between vrouter and agent
+        PACKET
     };
 
     enum Trace {
@@ -53,10 +49,21 @@ public:
 
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
 
-    Interface(Type type, const uuid &uuid, const string &name, VrfEntry *vrf);
+    Interface(Type type, const boost::uuids::uuid &uuid,
+              const std::string &name, VrfEntry *vrf);
     virtual ~Interface();
 
-    // Implement comparator since key is common for all interfaces
+    // DBEntry virtual function. Must be implemented by derived interfaces
+    virtual KeyPtr GetDBRequestKey() const = 0;
+    //DBEntry virtual function. Implmeneted in base class since its common 
+    //for all interfaces
+    virtual void SetKey(const DBRequestKey *key);
+
+    // virtual functions for specific interface types
+    virtual bool CmpInterface(const DBEntry &rhs) const = 0;
+    virtual void SendTrace(Trace event) const;
+
+    // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
         const Interface &intf = static_cast<const Interface &>(rhs);
         if (type_ != intf.type_) {
@@ -64,65 +71,59 @@ public:
         }
 
         return CmpInterface(rhs);
-    };
-    virtual bool CmpInterface(const DBEntry &rhs) const = 0;
-    virtual void SetKey(const DBRequestKey *key);
-    virtual KeyPtr GetDBRequestKey() const = 0;
-    virtual uint32_t GetVrfId() const;
-    virtual void SendTrace(Trace event);
-    virtual void Add() { };
+    }
 
-    AgentDBTable *DBToTable() const;
-    Type GetType() const {return type_;};
-    const uuid &GetUuid() const {return uuid_;};
-    const string &GetName() const {return name_;};
-    VrfEntry *GetVrf() const {return vrf_.get();};
-    bool GetActiveState() const {return active_;};
-    const uint32_t GetInterfaceId() const {return id_;};
-    bool IsDhcpServiceEnabled() const {return dhcp_service_enabled_;};
-    bool IsDnsServiceEnabled() const {return dns_service_enabled_;};
-    bool IsTunnelEnabled() const { return (type_ == ETH);};
-    bool IsLabelValid(uint32_t label) const { return (label_ == label);};
-    uint32_t GetLabel() const {return label_;};
-    bool IsL2LabelValid(uint32_t label) const { return (label_ == label);};
-    uint32_t GetL2Label() const {return label_;};
-    uint32_t GetOsIfindex() const {return os_index_;};
-    const ether_addr &GetMacAddr() const {return mac_;};
-
+    uint32_t GetVrfId() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<Interface>::GetRefCount();
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
+    void GetOsParams();
 
-    static void SetTestMode(bool mode) {test_mode_ = mode;};
-    static bool GetTestMode() {return test_mode_;};
+    // Tunnelled packets are expected on PHYSICAL interfaces only
+    bool IsTunnelEnabled() const { return (type_ == PHYSICAL);}
 
+    // Accessor methods
+    Type type() const {return type_;}
+    const boost::uuids::uuid &GetUuid() const {return uuid_;}
+    const std::string &name() const {return name_;}
+    VrfEntry *vrf() const {return vrf_.get();}
+    bool active() const {return active_;}
+    const uint32_t id() const {return id_;}
+    bool dhcp_enabled() const {return dhcp_enabled_;}
+    bool dns_enabled() const {return dns_enabled_;}
+    uint32_t label() const {return label_;}
+    bool IsL2LabelValid(uint32_t label) const { return (label_ == label);}
+    uint32_t os_index() const {return os_index_;}
+    const ether_addr &mac() const {return mac_;}
+
+    static bool test_mode() {return test_mode_;}
+    static void set_test_mode(bool mode) {test_mode_ = mode;}
 protected:
     void SetItfSandeshData(ItfSandeshData &data) const;
-    void SetActiveState(bool active) {active_ = active;};
 
     Type type_;
-    uuid uuid_;
-    string name_;
+    boost::uuids::uuid uuid_;
+    std::string name_;
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
     bool active_;
     size_t id_;
-    bool dhcp_service_enabled_;
-    bool dns_service_enabled_;
+    bool dhcp_enabled_;
+    bool dns_enabled_;
     struct ether_addr mac_;
     size_t os_index_;
     static bool test_mode_;
 
 private:
     friend class InterfaceTable;
+    InterfaceTable *table_;
     DISALLOW_COPY_AND_ASSIGN(Interface);
 };
 
-struct InterfaceData;
-
+// Common key for all interfaces. 
 struct InterfaceKey : public AgentKey {
     InterfaceKey(const InterfaceKey &rhs) {
         type_ = rhs.type_;
@@ -130,22 +131,18 @@ struct InterfaceKey : public AgentKey {
         name_ = rhs.name_;
     }
 
-    InterfaceKey(Interface::Type type, const uuid &uuid, const string &name)
-                  : AgentKey(), type_(type), uuid_(uuid), name_(name) { };
-
-    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type, 
-                 const uuid &uuid, const string &name) : 
-        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) { };
-
-    void Init(Interface::Type type, const uuid &intf_uuid,
-              const string &name) {
-        type_ = type;
-        uuid_ = intf_uuid;
-        name_ = name;
+    InterfaceKey(Interface::Type type, const boost::uuids::uuid &uuid,
+                 const std::string &name) : 
+        AgentKey(), type_(type), uuid_(uuid), name_(name) { 
     }
 
-    void Init(Interface::Type type, const uuid &intf_uuid,
-              const string &name) {
+    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type, 
+                 const boost::uuids::uuid &uuid, const std::string &name) : 
+        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) {
+    }
+
+    void Init(Interface::Type type, const boost::uuids::uuid &intf_uuid,
+              const std::string &name) {
         type_ = type;
         uuid_ = intf_uuid;
         name_ = name;
@@ -162,639 +159,91 @@ struct InterfaceKey : public AgentKey {
 
     }
 
+    // Virtual methods for interface keys
     virtual Interface *AllocEntry() const = 0;
     virtual Interface *AllocEntry(const InterfaceData *data) const = 0;
     virtual InterfaceKey *Clone() const = 0;
 
     Interface::Type type_;
-    uuid uuid_;
-    string name_;
+    boost::uuids::uuid uuid_;
+    std::string name_;
 };
 
+// Common data for all interfaces. The data is further derived based on type
+// of interfaces
 struct InterfaceData : public AgentData {
-    InterfaceData() : AgentData() { };
-    // Following fields are constant-data. They are set only during create
-    // Change does not modify this
-    string vrf_name_;
+    InterfaceData() : AgentData() { }
 
-    void VmPortInit() {
-        vrf_name_ = "";
-    }
+    void VmPortInit() { vrf_name_ = ""; }
+    void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
+    void PktInit() { vrf_name_ = ""; }
+    void VirtualHostInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
 
-    void EthInit(const string &vrf_name) {
-        vrf_name_ = vrf_name;
-    }
-
-    void HostInit() {
-        vrf_name_ = "";
-    }
-
-    void VirtualHostInit(const string &vrf_name) {
-        vrf_name_ = vrf_name;
-    }
+    // This is constant-data. Set only during create and not modified later
+    std::string vrf_name_;
 };
 
 /////////////////////////////////////////////////////////////////////////////
-// Implementation of VM Port interfaces
-/////////////////////////////////////////////////////////////////////////////
-struct CfgFloatingIp {
-    CfgFloatingIp(const Ip4Address &addr, const string &vrf,
-                  const uuid vn_uuid) 
-        : addr_(addr), vrf_(vrf), vn_uuid_(vn_uuid) { };
-    ~CfgFloatingIp() { };
-    bool operator< (const CfgFloatingIp &rhs) const{
-        if (addr_ != rhs.addr_) {
-            return addr_ < rhs.addr_;
-        }
-
-        return vrf_ < rhs.vrf_;
-    }
-
-    Ip4Address addr_;
-    string vrf_;
-    uuid vn_uuid_;
-};
-typedef std::set<CfgFloatingIp> CfgFloatingIpList;
-
-struct CfgServiceVlan {
-    CfgServiceVlan() : tag_(0), addr_(0), vrf_(""), smac_(), dmac_() { };
-    CfgServiceVlan(const CfgServiceVlan &e) : 
-        tag_(e.tag_), addr_(e.addr_), vrf_(e.vrf_), smac_(e.smac_), 
-        dmac_(e.dmac_){ };
-    CfgServiceVlan(uint16_t tag, const Ip4Address &addr, const string &vrf, 
-                   const struct ether_addr &smac, const struct ether_addr &dmac):
-        tag_(tag), addr_(addr), vrf_(vrf), smac_(smac), dmac_(dmac) { };
-    ~CfgServiceVlan() { };
-
-    uint16_t tag_;
-    Ip4Address addr_;
-    string vrf_;
-    struct ether_addr smac_;
-    struct ether_addr dmac_;
-};
-typedef std::map<int, CfgServiceVlan> CfgServiceVlanList;
-
-struct CfgStaticRoute {
-    CfgStaticRoute() : vrf_(""), addr_(0), plen_(0) { }
-    CfgStaticRoute(const string &vrf, const Ip4Address &addr, uint32_t plen): 
-        vrf_(vrf), addr_(addr), plen_(plen) { }
-    ~CfgStaticRoute() { }
-
-    bool operator< (const CfgStaticRoute &rhs) const{
-        if (addr_ != rhs.addr_) {
-            return addr_ < rhs.addr_;
-        }
-
-        if (plen_ != rhs.plen_) {
-            return plen_ < rhs.plen_;
-        }
-
-        return vrf_ < rhs.vrf_;
-    }
-
-    string vrf_;
-    Ip4Address addr_;   
-    uint32_t plen_;
-};
-typedef std::set<CfgStaticRoute> CfgStaticRouteList;
-
-struct VmPortInterfaceData : public InterfaceData {
-    VmPortInterfaceData() : 
-        InterfaceData(), addr_(0), vm_mac_(""), cfg_name_(""), vm_uuid_(), vm_name_(), 
-        vn_uuid_(), vrf_name_(""), floating_iplist_(), fabric_port_(true),
-        need_linklocal_ip_(false), mirror_enable_(false), ip_addr_update_only_(false),
-        layer2_forwarding_(true), ipv4_forwarding_(true),
-        analyzer_name_(""), mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
-    VmPortInterfaceData(const Ip4Address addr, const string &mac, const string vm_name) :
-            InterfaceData(), addr_(addr), vm_mac_(mac), cfg_name_(""),
-            vm_uuid_(), vm_name_(vm_name), vn_uuid_(), vrf_name_(""), floating_iplist_(),
-            fabric_port_(true), need_linklocal_ip_(false), mirror_enable_(false), 
-            ip_addr_update_only_(false), layer2_forwarding_(true), 
-            ipv4_forwarding_(true), analyzer_name_(""), 
-            mirror_direction_(Interface::UNKNOWN), sg_uuid_l_() { };
-    VmPortInterfaceData(bool mirror_enable, const string &analyzer_name) : 
-            mirror_enable_(mirror_enable), ip_addr_update_only_(false),
-            layer2_forwarding_(true), ipv4_forwarding_(true), 
-            analyzer_name_(analyzer_name), mirror_direction_(Interface::UNKNOWN) { };
-    virtual ~VmPortInterfaceData() { };
-    void SetFabricPort(bool val) {fabric_port_ = val;};
-    void SetNeedLinkLocalIp(bool val) {need_linklocal_ip_ = val;};
-    void SetSgUuidList(SgUuidList &sg_uuid_l) {sg_uuid_l_ = sg_uuid_l;};
-
-    /* Nova data items */
-    Ip4Address addr_;
-    string vm_mac_;
-
-    /* Config data items */
-    string cfg_name_;
-    uuid vm_uuid_;
-    string vm_name_;
-    uuid vn_uuid_;
-    string vrf_name_;
-    CfgFloatingIpList floating_iplist_;
-    CfgServiceVlanList service_vlan_list_;
-    CfgStaticRouteList static_route_list_;
-    bool fabric_port_;
-    bool need_linklocal_ip_;
-    bool mirror_enable_;
-    bool ip_addr_update_only_;        // set to true if only IP address is changing in the data
-    bool layer2_forwarding_;
-    bool ipv4_forwarding_;
-    string analyzer_name_;
-    Interface::MirrorDirection mirror_direction_;
-    SgUuidList sg_uuid_l_;
-};
-
-class VmPortInterface : public Interface {
-public:
-    struct FloatingIp {
-        FloatingIp() : floating_ip_(0), vrf_(NULL), vn_(NULL), installed_(false) { };
-        FloatingIp(const Ip4Address &addr, VrfEntry *vrf, VnEntry *vn,
-                   bool installed)
-            : floating_ip_(addr), vrf_(vrf), vn_(vn), installed_(installed) { };
-        ~FloatingIp() { };
-
-        bool operator() (const FloatingIp &lhs, const FloatingIp &rhs) {
-            if (lhs.floating_ip_ != rhs.floating_ip_) {
-                return lhs.floating_ip_ < rhs.floating_ip_;
-            }
-
-            if (lhs.vrf_.get() == NULL)
-                return false;
-
-            if (rhs.vrf_.get() == NULL)
-                return true;
-
-            return (lhs.vrf_.get()->GetName() < rhs.vrf_.get()->GetName());
-        };
-
-        Ip4Address floating_ip_;
-        VrfEntryRef vrf_;
-        VnEntryRef vn_;
-        bool installed_;
-    };
-    typedef std::set<FloatingIp, FloatingIp> FloatingIpList;
-
-    struct ServiceVlan {
-        ServiceVlan() : vrf_(NULL), addr_(0), tag_(0), installed_(false) { };
-        ServiceVlan(const ServiceVlan &e) : 
-            vrf_(e.vrf_), addr_(e.addr_), tag_(e.tag_), installed_(false),
-            smac_(e.smac_), dmac_(e.dmac_) { };
-        ServiceVlan(VrfEntry *vrf, const Ip4Address &addr, uint16_t tag, 
-                    const struct ether_addr &smac, const struct ether_addr &dmac) :
-            vrf_(vrf), addr_(addr), tag_(tag), label_(0), installed_(false),
-            smac_(smac), dmac_(dmac) { };
-        ~ServiceVlan() { };
-
-        VrfEntryRef vrf_;
-        Ip4Address addr_;
-        uint16_t tag_;
-        uint32_t label_;
-        bool installed_;
-        struct ether_addr smac_;
-        struct ether_addr dmac_;
-    };
-    typedef std::map<int, ServiceVlan> ServiceVlanList;
-
-    struct StaticRoute {
-        StaticRoute(): vrf_(""), addr_(0), plen_(0) { }
-        StaticRoute(std::string vrf, const Ip4Address &addr, uint32_t plen) : 
-            vrf_(vrf), addr_(addr), plen_(plen) { }
-        ~StaticRoute() { }
-         bool operator() (const StaticRoute &lhs, const StaticRoute &rhs) {
-             if (lhs.vrf_ != rhs.vrf_) {
-                 return lhs.vrf_ < rhs.vrf_;
-             }
-
-             return lhs.addr_ < rhs.addr_;
-         }
-
-         std::string vrf_;
-         Ip4Address  addr_;
-         uint32_t    plen_;
-    };
-    typedef std::set<StaticRoute, StaticRoute> StaticRouteList;
-
-    enum Trace {
-        ADD,
-        DELETE,
-        ACTIVATED,
-        DEACTIVATED,
-        FLOATING_IP_CHANGE,
-        SERVICE_CHANGE,
-    };
-
-    VmPortInterface(const uuid &uuid) :
-        Interface(Interface::VMPORT, uuid, "", NULL), vm_(NULL), vn_(NULL),
-        addr_(0), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(""), 
-        policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
-        floating_iplist_(), service_vlan_list_(), static_route_list_(),
-        cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false), 
-        dhcp_snoop_ip_(false), vm_name_(), vxlan_id_(0), layer2_forwarding_(true),
-        ipv4_forwarding_(true) { 
-        SetActiveState(false);
-    };
-    VmPortInterface(const uuid &uuid, const string &name, Ip4Address addr,
-                    const string &mac, const string vm_name) :
-        Interface(Interface::VMPORT, uuid, name, NULL), vm_(NULL), vn_(NULL),
-        addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0), vm_mac_(mac), 
-        policy_enabled_(false), mirror_entry_(NULL), mirror_direction_(MIRROR_RX_TX),
-        floating_iplist_(), service_vlan_list_(), static_route_list_(),
-        cfg_name_(""), fabric_port_(true), alloc_linklocal_ip_(false),
-        dhcp_snoop_ip_(false), vm_name_(vm_name), vxlan_id_(0), 
-        layer2_forwarding_(true), ipv4_forwarding_(true) { 
-        SetActiveState(false);
-    };
-    virtual ~VmPortInterface() { };
-
-    virtual bool CmpInterface(const DBEntry &rhs) const {
-        const VmPortInterface &intf=static_cast<const VmPortInterface &>(rhs);
-        return uuid_ < intf.uuid_;
-    };
-
-    KeyPtr GetDBRequestKey() const;
-    bool OnResync(const DBRequest *req);
-    bool OnIpAddrResync(const DBRequest *req);
-
-    virtual string ToString() const;
-    const VmEntry *GetVmEntry() const {return vm_.get();};
-    const VnEntry *GetVnEntry() const {return vn_.get();};
-    const MirrorEntry *GetMirrorEntry() const {return mirror_entry_.get();};
-    Interface::MirrorDirection GetMirrorDirection() const {return mirror_direction_;};
-    const string GetAnalyzer() const; 
-    const Ip4Address &GetIpAddr() const {return addr_;};
-    void SetIpAddr(const Ip4Address &addr) { addr_ = addr; };
-    const Ip4Address &GetMdataIpAddr() const {return mdata_addr_;};
-    const Ip4Address &GetSubnetBroadcastAddr() const {
-        return subnet_bcast_addr_;
-    };
-    void SetSubnetBroadcastAddr(const Ip4Address &addr) {
-        subnet_bcast_addr_ = addr;
-    };
-    const string &GetVmMacAddr() const {return vm_mac_;};
-    bool IsPolicyEnabled() const {return policy_enabled_;};
-    bool IsMirrorEnabled() const { return (mirror_entry_.get()) ? true:false;};
-    void SetMirrorEntry (MirrorEntry *mirror_entry) {
-        mirror_entry_ = mirror_entry;};
-    void SetMirrorDirection(Interface::MirrorDirection mirror_direction) {
-        mirror_direction_ = mirror_direction;
-    }
-    const string &GetCfgName() const;
-
-    bool HasFloatingIp() const {return floating_iplist_.size()? true : false;};
-    size_t GetFloatingIpCount() const {return floating_iplist_.size();}
-    const FloatingIpList &GetFloatingIpList() const {
-        return floating_iplist_;
-    };
-
-    bool HasServiceVlan() const {return service_vlan_list_.size()? true:false;};
-    const ServiceVlanList &GetServiceVlanList() const {
-        return service_vlan_list_;
-    };
-
-    uint32_t GetServiceVlanLabel(const VrfEntry *vrf) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.vrf_.get() == vrf) {
-                return vlan_it->second.label_;
-            }
-            vlan_it++;
-        }
-        //Default return native vrf
-        return label_;
-    }
-
-    uint32_t GetServiceVlanTag(const VrfEntry *vrf) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.vrf_.get() == vrf) {
-                return vlan_it->second.tag_;
-            }
-            vlan_it++;
-        }
-        return 0;
-    }
-
-    const VrfEntry* GetServiceVlanVrf(uint16_t vlan_tag) const {
-        ServiceVlanList::const_iterator vlan_it = service_vlan_list_.begin();
-        while (vlan_it != service_vlan_list_.end()) {
-            if (vlan_it->second.tag_ == vlan_tag) {
-                return vlan_it->second.vrf_.get();
-            }
-            vlan_it++;
-        }
-        return NULL;
-    }
-
-    bool IsFabricPort() const {return fabric_port_;};
-    bool NeedLinkLocalIp() const {return  alloc_linklocal_ip_;};
-    bool IsDhcpSnoopIp() const {return dhcp_snoop_ip_;};
-    bool IsDhcpSnoopIp(std::string &name, uint32_t &addr) const;
-    bool SgExists(const uuid &id, const SgList &sg_l);
-    void SetVxLanId(int vxlan_id) {vxlan_id_ = vxlan_id;};
-    int GetVxLanId() const {return vxlan_id_;};
-    bool Layer2Forwarding() const {return layer2_forwarding_;};
-    bool Ipv4Forwarding() const {return ipv4_forwarding_;};
-
-    void Activate();
-    void DeActivate(const string &vrf_name, const Ip4Address &ip);
-    bool OnResyncFloatingIp(VmPortInterfaceData *data, bool new_active);
-    bool OnResyncSecurityGroupList(VmPortInterfaceData *data, bool new_active);
-    bool OnResyncServiceVlan(VmPortInterfaceData *data);
-    bool OnResyncStaticRoute(VmPortInterfaceData *data, bool new_active);
-    void UpdateAllRoutes();
-    virtual void SendTrace(Trace ev);
-
-    // Nova VM-Port message
-    static void NovaMsg(const uuid &intf_uuid, const string &os_name,
-                        const Ip4Address &addr, const string &mac,
-                        const string &vn_name);
-    // Config VM-Port delete message
-    static void NovaDel(const uuid &intf_uuid);
-
-    static void InstanceIpSync(IFMapNode *node);
-    static void FloatingIpVnSync(IFMapNode *node);
-    static void FloatingIpPoolSync(IFMapNode *node);
-    static void FloatingIpSync(IFMapNode *node);
-    static void FloatingIpVrfSync(IFMapNode *node);
-    static void VnSync(IFMapNode *node);
-
-    void AddRoute(std::string vrf_name, Ip4Address ip, uint32_t plen,
-                  bool policy);
-    void DeleteRoute(std::string vrf_name, Ip4Address ip, uint32_t plen);
-    void AddL2Route();
-    void DeleteL2Route(const std::string vrf_name, 
-                       struct ether_addr mac);
-    void ServiceVlanAdd(ServiceVlan &entry);
-    void ServiceVlanDel(ServiceVlan &entry);
-    void ServiceVlanRouteAdd(ServiceVlan &entry);
-    void ServiceVlanRouteDel(ServiceVlan &entry);
-    const SgList &GetSecurityGroupList() const {return sg_entry_l_;};
-    const SgUuidList &GetSecurityGroupUuidList() const {return sg_uuid_l_;};
-    void SgIdList(SecurityGroupList &sg_id_list) const;
-    const string &GetVmName() const {return vm_name_;};
-    void AllocL2MPLSLabels();
-    bool layer2_forwarding() const {return layer2_forwarding_;}
-    bool ipv4_forwarding() const {return ipv4_forwarding_;}
-private:
-    inline bool IsActive(VnEntry *vn, VrfEntry *vrf, VmEntry *vm, 
-                         bool ipv4_addr_compare);
-    inline bool SetIpAddress(Ip4Address &addr);
-    void AllocMPLSLabels();
-    void ActivateServices();
-    void DeActivateServices();
-
-    VmEntryRef vm_;
-    VnEntryRef vn_;
-    Ip4Address addr_;
-    Ip4Address mdata_addr_;
-    Ip4Address subnet_bcast_addr_;
-    string vm_mac_;
-    bool policy_enabled_;
-    MirrorEntryRef mirror_entry_;
-    Interface::MirrorDirection mirror_direction_;
-    FloatingIpList floating_iplist_;
-    ServiceVlanList service_vlan_list_;
-    StaticRouteList static_route_list_;
-    string cfg_name_;
-    bool fabric_port_;
-    bool alloc_linklocal_ip_;
-    bool dhcp_snoop_ip_; // true if the IP is obtained from snooping DHCP from fabric, not from config
-    // vector of SgEntry
-    SgList sg_entry_l_;
-    // vector of SgUuid
-    SgUuidList sg_uuid_l_;
-    string vm_name_;
-    int vxlan_id_;
-    bool layer2_forwarding_;
-    bool ipv4_forwarding_;
-    DISALLOW_COPY_AND_ASSIGN(VmPortInterface);
-};
-
-struct VmPortInterfaceKey : public InterfaceKey {
-    VmPortInterfaceKey(const uuid &uuid, const string &name) :
-        InterfaceKey(Interface::VMPORT, uuid, name) {};
-    VmPortInterfaceKey(AgentKey::DBSubOperation sub_op, const uuid &uuid, const string &name) :
-        InterfaceKey(sub_op, Interface::VMPORT, uuid, name) {};
-
-    virtual ~VmPortInterfaceKey() {};
-    Interface *AllocEntry() const { return new VmPortInterface(uuid_);};
-    Interface *AllocEntry(const InterfaceData *data) const {
-        const VmPortInterfaceData *vm_data = static_cast<const VmPortInterfaceData *>(data);
-        return new VmPortInterface(uuid_, name_, vm_data->addr_,
-                                   vm_data->vm_mac_, vm_data->vm_name_);
-    };
-    InterfaceKey *Clone() const {
-        return new VmPortInterfaceKey(*this);
-    };
-};
-
-/////////////////////////////////////////////////////////////////////////////
-// Implementation of Ethernet Ports
-/////////////////////////////////////////////////////////////////////////////
-struct EthInterfaceData : public InterfaceData {
-    EthInterfaceData() : InterfaceData() { };
-};
-
-class EthInterface : public Interface {
-public:
-    EthInterface(const string &name) :
-        Interface(Interface::ETH, nil_uuid(), name, NULL) { };
-    EthInterface(const uuid &uuid, const string &name, VrfEntry *vrf) :
-        Interface(Interface::ETH, uuid, name, vrf) { };
-    virtual ~EthInterface() { };
-
-    virtual bool CmpInterface(const DBEntry &rhs) const {
-        const EthInterface &intf = static_cast<const EthInterface &>(rhs);
-        return name_ < intf.name_;
-    };
-
-    KeyPtr GetDBRequestKey() const;
-    virtual string ToString() const {return "ETH";};
-    static void CreateReq(InterfaceTable *table, const string &ifname,
-                          const string &vrf_name);
-    // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(InterfaceTable *table, const string &ifname);
-private:
-    DISALLOW_COPY_AND_ASSIGN(EthInterface);
-};
-
-struct EthInterfaceKey : public InterfaceKey {
-    EthInterfaceKey(const uuid &uuid, const string &name) :
-        InterfaceKey(Interface::ETH, uuid, name) {};
-
-    virtual ~EthInterfaceKey() {};
-    Interface *AllocEntry() const { return new EthInterface(name_);};
-    Interface *AllocEntry(const InterfaceData *data) const {
-        VrfKey key(data->vrf_name_);
-        VrfEntry *vrf =
-           static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
-        if (vrf == NULL) {
-            LOG(DEBUG, "Interface : VRF not found");
-            return NULL;
-        }
-
-        return new EthInterface(uuid_, name_, vrf);
-    };
-    InterfaceKey *Clone() const {
-        return new EthInterfaceKey(*this);
-    };
-};
-
-/////////////////////////////////////////////////////////////////////////////
-// Implementation of Host Interface from VNSW Router to Agent
-/////////////////////////////////////////////////////////////////////////////
-struct HostInterfaceData : public InterfaceData {
-    HostInterfaceData() : InterfaceData() { };
-};
-
-class HostInterface : public Interface {
-public:
-    HostInterface(const string &name) : 
-        Interface(Interface::HOST, nil_uuid(), name, NULL) { };
-    virtual ~HostInterface() { };
-
-    virtual bool CmpInterface(const DBEntry &rhs) const {
-        return false;
-    };
-
-    KeyPtr GetDBRequestKey() const;
-    virtual string ToString() const {return "HOST";};
-    virtual uint32_t GetVrfId() const {return VrfEntry::kInvalidIndex;};
-   
-    // Enqueue DBRequest to create a Host Interface
-    static void CreateReq(InterfaceTable *table, const string &ifname);
-    // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(InterfaceTable *table, const string &ifname);
-private:
-    DISALLOW_COPY_AND_ASSIGN(HostInterface);
-};
-
-struct HostInterfaceKey : public InterfaceKey {
-    HostInterfaceKey(const uuid &uuid, const string &name) :
-        InterfaceKey(Interface::HOST, uuid, name) {};
-
-    virtual ~HostInterfaceKey() {};
-    Interface *AllocEntry() const { return new HostInterface(name_);};
-    Interface *AllocEntry(const InterfaceData *data) const {
-        return new HostInterface(name_);
-    };
-    InterfaceKey *Clone() const {
-        return new HostInterfaceKey(*this);
-    };
-};
-
-/////////////////////////////////////////////////////////////////////////////
-// Implementation of Virtual Host Interface from VNSW Router to Host OS
-/////////////////////////////////////////////////////////////////////////////
-class VirtualHostInterface : public Interface {
-public:
-    enum SubType {
-        HOST,
-        LINK_LOCAL,
-        GATEWAY
-    };
-
-    VirtualHostInterface(const string &name, VrfEntry *vrf) :
-        Interface(Interface::VHOST, nil_uuid(), name, vrf), 
-        sub_type_(HOST) { };
-    VirtualHostInterface(const string &name, VrfEntry *vrf, SubType sub_type) :
-        Interface(Interface::VHOST, nil_uuid(), name, vrf), 
-        sub_type_(sub_type) { };
-
-    virtual ~VirtualHostInterface() { };
-
-    virtual bool CmpInterface(const DBEntry &rhs) const {
-        const VirtualHostInterface &intf = static_cast<const VirtualHostInterface &>(rhs);
-        return name_ < intf.name_;
-    };
-
-    KeyPtr GetDBRequestKey() const;
-    virtual string ToString() const {return "VHOST";};
-    SubType GetSubType() const { return sub_type_;};
-    static void CreateReq(InterfaceTable *table, const string &ifname,
-                          const string &vrf_name, SubType sub_type);
-    // Enqueue DBRequest to delete a Host Interface
-    static void DeleteReq(InterfaceTable *table, const string &ifname);
-private:
-    SubType sub_type_;
-    DISALLOW_COPY_AND_ASSIGN(VirtualHostInterface);
-};
-
-struct VirtualHostInterfaceData : public InterfaceData {
-    VirtualHostInterfaceData(VirtualHostInterface::SubType sub_type) :
-        InterfaceData(), sub_type_(sub_type) { };
-    VirtualHostInterface::SubType sub_type_;
-};
-
-struct VirtualHostInterfaceKey : public InterfaceKey {
-    VirtualHostInterfaceKey(const uuid &uuid, const string &name) :
-        InterfaceKey(Interface::VHOST, uuid, name) {};
-
-    virtual ~VirtualHostInterfaceKey() {};
-    Interface *AllocEntry() const {return new VirtualHostInterface(name_, NULL);};
-    Interface *AllocEntry(const InterfaceData *data) const {
-        const VirtualHostInterfaceData *vhost_data = static_cast<const VirtualHostInterfaceData *>(data);
-        VrfKey key(data->vrf_name_);
-        VrfEntry *vrf =
-           static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
-        assert(vrf);
-        return new VirtualHostInterface(name_, vrf, vhost_data->sub_type_);
-    };
-    InterfaceKey *Clone() const {
-        return new VirtualHostInterfaceKey(*this);
-    };
-};
-
-/////////////////////////////////////////////////////////////////////////////
-// Implementation of Interface Table
+// Interface Table
+// Index for interface is maintained using an IndexVector.
 /////////////////////////////////////////////////////////////////////////////
 class InterfaceTable : public AgentDBTable {
 public:
-    // Map from intf-uuid to intf-name
-    typedef std::pair<uuid, string> UuidNamePair;
+    InterfaceTable(DB *db, const std::string &name) :
+        AgentDBTable(db, name), operdb_(NULL), agent_(NULL),
+        walkid_(DBTableWalker::kInvalidWalkerId), index_table_() { 
+    }
+    virtual ~InterfaceTable() { }
 
-    InterfaceTable(DB *db, const std::string &name) : AgentDBTable(db, name),
-        walkid_(DBTableWalker::kInvalidWalkerId) { }
-    virtual ~InterfaceTable() { 
-    };
+    void Init(OperDB *oper);
+    static DBTableBase *CreateTable(DB *db, const std::string &name);
 
-    virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
-    virtual size_t Hash(const DBEntry *entry) const {return 0;};
-    virtual size_t Hash(const DBRequestKey *key) const {return 0;};
+    // DBTable virtual functions
+    std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
+    size_t Hash(const DBEntry *entry) const { return 0; }
+    size_t Hash(const DBRequestKey *key) const { return 0; }
 
-    virtual DBEntry *Add(const DBRequest *req);
-    virtual bool OnChange(DBEntry *entry, const DBRequest *req);
-    virtual void Delete(DBEntry *entry, const DBRequest *req);
+    DBEntry *Add(const DBRequest *req);
+    bool OnChange(DBEntry *entry, const DBRequest *req);
+    void Delete(DBEntry *entry, const DBRequest *req);
+    bool Resync(DBEntry *entry, DBRequest *req);
 
-    virtual bool Resync(DBEntry *entry, DBRequest *req);
-
-    virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    // Config handlers
+    bool IFNodeToReq(IFMapNode *node, DBRequest &req);
+    // Handle change in config VRF for the interface
     static void VmInterfaceVrfSync(IFMapNode *node);
-
-    void FreeInterfaceId(size_t index) {index_table_.Remove(index);};
-    bool VmPortInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
-    void VmPortInterfaceWalkDone(DBTableBase *partition);
+    // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
-    Interface *FindInterface(size_t index) {return index_table_.At(index);};
+
+    // Helper functions
+    VrfEntry *FindVrfRef(const std::string &name) const;
+    VnEntry *FindVnRef(const boost::uuids::uuid &uuid) const;
+    VmEntry *FindVmRef(const boost::uuids::uuid &uuid) const;
+    MirrorEntry *FindMirrorRef(const std::string &name) const;
+
+    // Interface index managing routines
+    void FreeInterfaceId(size_t index) { index_table_.Remove(index); }
+    Interface *FindInterface(size_t index) { return index_table_.At(index); }
     Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
+
+    // Metadata address management routines
     bool FindVmUuidFromMetadataIp(const Ip4Address &ip, std::string *vm_ip,
                                   std::string *vm_uuid);
     void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address *addr);
 
-    VrfEntry *FindVrfRef(const string &name) const;
-    VnEntry *FindVnRef(const uuid &uuid) const;
-    VmEntry *FindVmRef(const uuid &uuid) const;
-    MirrorEntry *FindMirrorRef(const string &name) const;
-
-    static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static InterfaceTable *GetInstance() {return interface_table_;};
+    // TODO : to remove this
+    static InterfaceTable *GetInstance() { return interface_table_; }
 
 private:
+    bool VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void VmInterfaceWalkDone(DBTableBase *partition);
+
     static InterfaceTable *interface_table_;
-    IndexVector<Interface> index_table_;
+    OperDB *operdb_;        // Cached entry
+    Agent *agent_;          // Cached entry
     DBTableWalker::WalkId walkid_;
+    IndexVector<Interface> index_table_;
     DISALLOW_COPY_AND_ASSIGN(InterfaceTable);
 };
 
-#endif // vnsw_agent_intf_hpp
+#endif // vnsw_agent_interface_hpp

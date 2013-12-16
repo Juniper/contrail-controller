@@ -17,7 +17,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <uve/uve_client.h>
 #include "vr_types.h"
 

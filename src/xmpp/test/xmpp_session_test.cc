@@ -226,14 +226,14 @@ TEST_F(XmppSessionTest, Connection) {
     // Read 6K size message from file.
     string data;
     data.reserve(kMaxMessageSize * 10);
-    data = FileRead("src/xmpp/testdata/iq.xml");
+    data = FileRead("controller/src/xmpp/testdata/iq.xml");
     // trim newline from the end.
     data.erase(data.find_last_not_of(" \n\r\t")+1);
     SendAndVerify(data.data(), data.size(), data.size(), 1);
 
     // Read large 24k iq message from file.
     data.reserve(kMaxMessageSize * 10);
-    data = FileRead("src/xmpp/testdata/iq-large.xml");
+    data = FileRead("controller/src/xmpp/testdata/iq-large.xml");
     data.erase(data.find_last_not_of(" \n\r\t")+1);
     SendAndVerify(data.data(), data.size(), data.size(), 1);
 

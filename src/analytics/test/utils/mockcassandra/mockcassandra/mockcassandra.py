@@ -19,14 +19,26 @@ import socket
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
+cassandra_version = '1.1.7'
+cassandra_url = '/tmp/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
+
 def start_cassandra(cport, sport_arg=None):
     '''
     Client uses this function to start an instance of Cassandra
     Arguments:
         cport : An unused TCP port for Cassandra to use as the client port
     '''
-    basefile = "apache-cassandra-1.1.7"
-    tarfile = os.path.dirname(os.path.abspath(__file__)) + "/" + basefile + "-bin.tar.gz"
+    cassandra_download = 'curl -o ' +\
+        cassandra_url + ' -s -m 120 http://archive.apache.org/dist/cassandra/'+\
+        cassandra_version+'/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
+    if not os.path.exists(cassandra_url):
+        process = subprocess.Popen(cassandra_download.split(' '))
+        process.wait()
+        if process.returncode is not 0:
+            return
+
+    basefile = 'apache-cassandra-'+cassandra_version
+    tarfile = cassandra_url
     cassbase = "/tmp/cassandra." + str(cport) + "/"
     confdir = cassbase + basefile + "/conf/"
     output,_ = call_command_("mkdir " + cassbase)

@@ -289,7 +289,7 @@ void DelNode(const char *node_name, const char *name) {
 }
 
 void IntfSyncMsg(PortInfo *input, int id) {
-    VmPortInterfaceKey *key = new VmPortInterfaceKey(MakeUuid(input[id].intf_id), "");
+    VmInterfaceKey *key = new VmInterfaceKey(MakeUuid(input[id].intf_id), "");
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -379,26 +379,26 @@ bool VmFind(int id) {
 
 bool VmPortFind(int id) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return (intf != NULL ? !intf->IsDeleted() : false);
 }
 
 uint32_t VmPortGetId(int id) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
-        return intf->GetInterfaceId();
+        return intf->id();
     }
 
     return 0;
 }
 
 std::string VmPortGetAnalyzerName(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
         return intf->GetAnalyzer();
     }
@@ -406,11 +406,11 @@ std::string VmPortGetAnalyzerName(int id) {
 }
 
 Interface::MirrorDirection VmPortGetMirrorDirection(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
-        return intf->GetMirrorDirection();
+        return intf->mirror_direction();
     }
     return Interface::UNKNOWN;
 }
@@ -421,12 +421,12 @@ bool VmPortFind(PortInfo *input, int id) {
 
 bool VmPortActive(int id) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
-    return (intf->GetActiveState() == true);
+    return (intf->active() == true);
 }
 
 bool VmPortActive(PortInfo *input, int id) {
@@ -434,14 +434,14 @@ bool VmPortActive(PortInfo *input, int id) {
 }
 
 bool VmPortPolicyEnabled(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
-    return (intf->IsPolicyEnabled());
+    return (intf->policy_enabled());
 }
 
 bool VmPortPolicyEnabled(PortInfo *input, int id) {
@@ -449,18 +449,18 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
 }
 
 Interface *VmPortGet(int id) {
-    VmPortInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(MakeUuid(id), "");
     return static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
 }
 
 bool VmPortFloatingIpCount(int id, unsigned int count) {
-    VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(id));
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(id));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL)
         return false;
 
-    EXPECT_EQ(intf->GetFloatingIpList().size(), count);
-    if (intf->GetFloatingIpList().size() != count)
+    EXPECT_EQ(intf->floating_ip_list().size(), count);
+    if (intf->floating_ip_list().size() != count)
         return false;
 
     return true;
@@ -468,7 +468,7 @@ bool VmPortFloatingIpCount(int id, unsigned int count) {
 
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -585,7 +585,7 @@ bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
 
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -617,45 +617,45 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
 
 bool VmPortInactive(int id) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(MakeUuid(id), "");
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
-    return (intf->GetActiveState() == false);
+    return (intf->active() == false);
 }
 
 bool VmPortInactive(PortInfo *input, int id) {
     Interface *intf;
-    VmPortInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
-    return (intf->GetActiveState() == false);
+    return (intf->active() == false);
 }
 
-EthInterface *EthInterfaceGet(const char *name) {
-    EthInterface *intf;
-    EthInterfaceKey key(MakeUuid(0), name);
-    intf=static_cast<EthInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+PhysicalInterface *EthInterfaceGet(const char *name) {
+    PhysicalInterface *intf;
+    PhysicalInterfaceKey key(name);
+    intf=static_cast<PhysicalInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return intf;
 }
 
-VmPortInterface *VmPortInterfaceGet(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+VmInterface *VmInterfaceGet(int id) {
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return intf;
 }
 
 bool VmPortPolicyEnable(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
-    return (intf->IsPolicyEnabled() == true);
+    return (intf->policy_enabled() == true);
 }
 
 bool VmPortPolicyEnable(PortInfo *input, int id) {
@@ -663,13 +663,13 @@ bool VmPortPolicyEnable(PortInfo *input, int id) {
 }
 
 bool VmPortPolicyDisable(int id) {
-    VmPortInterface *intf;
-    VmPortInterfaceKey key(MakeUuid(id), "");
-    intf = static_cast<VmPortInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    VmInterface *intf;
+    VmInterfaceKey key(MakeUuid(id), "");
+    intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
 
-    return (intf->IsPolicyEnabled() == false);
+    return (intf->policy_enabled() == false);
 }
 bool VmPortPolicyDisable(PortInfo *input, int id) {
     return VmPortPolicyDisable(input[id].intf_id);
@@ -1086,7 +1086,7 @@ bool TunnelRouteAdd(const char *server, const char *vmip, const char *vm_vrf,
 bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
     struct ether_addr mac = *ether_aton(mac_str);
     Interface *intf;
-    EthInterfaceKey key(nil_uuid(), ifname);
+    PhysicalInterfaceKey key(ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_ADD_CHANGE,
@@ -1100,7 +1100,7 @@ bool AddArp(const char *ip, const char *mac_str, const char *ifname) {
 bool DelArp(const string &ip, const char *mac_str, const string &ifname) {
     struct ether_addr mac = *ether_aton(mac_str);
     Interface *intf;
-    EthInterfaceKey key(nil_uuid(), ifname);
+    PhysicalInterfaceKey key(ifname);
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     boost::system::error_code ec;
     Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DB_ENTRY_DELETE, 
@@ -1633,8 +1633,14 @@ bool FlowFail(int vrf_id, const char *sip, const char *dip,
     key.dst_port = dport;
     key.protocol = proto;
 
-    EXPECT_TRUE(table->Find(key) == NULL);
-    return table->Find(key) == NULL ;
+    FlowEntry *fe = table->Find(key);
+    if (fe == NULL) {
+        return true;
+    }
+    if (fe->deleted()) {
+        return true;
+    }
+    return false;
 }
 
 bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
@@ -2083,18 +2089,18 @@ int MplsToVrfId(int label) {
         const NextHop *nh = mpls->GetNextHop();
         if (nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *nh1 = static_cast<const InterfaceNH *>(nh);
-            const VmPortInterface *intf = 
-                static_cast<const VmPortInterface *>(nh1->GetInterface());
-            if (intf && intf->GetVrf()) {
-                vrf = intf->GetVrf()->GetVrfId();
+            const VmInterface *intf = 
+                static_cast<const VmInterface *>(nh1->GetInterface());
+            if (intf && intf->vrf()) {
+                vrf = intf->vrf()->GetVrfId();
             }
         } else if (nh->GetType() == NextHop::COMPOSITE) {
             const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
             vrf = nh1->GetVrf()->GetVrfId();
         } else if (nh->GetType() == NextHop::VLAN) {
             const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
-            const VmPortInterface *intf =
-                static_cast<const VmPortInterface *>(nh1->GetInterface());
+            const VmInterface *intf =
+                static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->GetServiceVlanVrf(nh1->GetVlanTag())) {
                 vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->GetVrfId();
             }
@@ -2263,14 +2269,14 @@ NextHop *GetNH(NextHopKey *key) {
 }
 
 bool VmPortServiceVlanCount(int id, unsigned int count) {
-    VmPortInterface *intf = static_cast<VmPortInterface *>(VmPortGet(id));
+    VmInterface *intf = static_cast<VmInterface *>(VmPortGet(id));
     EXPECT_TRUE(intf != NULL);
     if (intf == NULL) {
         return false;
     }
 
-    EXPECT_EQ(intf->GetServiceVlanList().size(), count);
-    if (intf->GetServiceVlanList().size() != count) {
+    EXPECT_EQ(intf->service_vlan_list().size(), count);
+    if (intf->service_vlan_list().size() != count) {
         return false;
     }
     return true;

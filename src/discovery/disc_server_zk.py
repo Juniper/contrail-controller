@@ -530,6 +530,10 @@ class DiscoveryServer():
             }
             self.create_pub_data(sig, service_type)
 
+        # update TS in case publisher has rebooted and hasn't sent heartbeat yet
+        pdata = self.get_pub_data(sig)
+        pdata['heartbeat'] = int(time.time())
+
         entry['admin_state'] = 'up'
         self._db_conn.insert_service(service_type, sig, entry)
 
@@ -603,6 +607,9 @@ class DiscoveryServer():
         r = []
         ttl = randint(self._args.ttl_min, self._args.ttl_max)
 
+        # acquire lock to update use count and TS
+        self._db_conn.sem_acquire()
+
         cl_entry = self._db_conn.lookup_client(service_type, client_id)
         if not cl_entry:
             cl_entry = {
@@ -615,9 +622,6 @@ class DiscoveryServer():
 
         sdata = self.get_sub_data(client_id, service_type)
         sdata['ttl_expires'] += 1
-
-        # acquire lock to update use count and TS
-        self._sem.acquire()
 
         # need to send short ttl?
         pubs = self._db_conn.lookup_service(service_type) or []
@@ -651,7 +655,7 @@ class DiscoveryServer():
                     response = {'ttl': ttl, service_type: r}
                     if ctype == 'application/xml':
                         response = xmltodict.unparse({'response': response})
-                    self._sem.release()
+                    self._db_conn.sem_release()
                     return response
 
 
@@ -689,7 +693,7 @@ class DiscoveryServer():
             self._db_conn.update_service(
                 service_type, entry['service_id'], entry)
 
-        self._sem.release()
+        self._db_conn.sem_release()
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
             response = xmltodict.unparse({'response': response})

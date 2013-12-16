@@ -10,7 +10,7 @@
 #include "route/route.h"
 
 #include "cmn/agent_cmn.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/vrf.h"
@@ -45,7 +45,7 @@ static void LogError(const PktInfo *pkt, const char *str) {
 // Any other traffic is INGRESS
 bool PktFlowInfo::ComputeDirection(const Interface *intf) {
     bool ret = true;
-    if (intf->GetType() == Interface::ETH) {
+    if (intf->type() == Interface::PHYSICAL) {
         ret = false;
     }
     return ret;
@@ -63,7 +63,7 @@ static uint32_t NhToVrf(const NextHop *nh) {
         const Interface *intf = 
             (static_cast<const InterfaceNH *>(nh))->GetInterface();
         if (intf)
-            vrf = intf->GetVrf();
+            vrf = intf->vrf();
         break;
     }
     default:
@@ -118,7 +118,7 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 
     case NextHop::RECEIVE:
         out->intf_ = static_cast<const ReceiveNH *>(nh)->GetInterface();
-        out->vrf_ = out->intf_->GetVrf();
+        out->vrf_ = out->intf_->vrf();
         break;
 
     case NextHop::VLAN: {
@@ -139,7 +139,8 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
         if (!out->intf_->IsActive()) {
             out->intf_ = NULL;
             ret = false;
-        } else if (force_vmport && out->intf_->GetType() != Interface::VMPORT) {
+        } else if (force_vmport &&
+                   out->intf_->type() != Interface::VM_INTERFACE) {
             out->intf_ = NULL;
             out->vrf_ = NULL;
             ret = true;
@@ -173,26 +174,26 @@ static bool RouteToOutInfo(const Inet4UnicastRouteEntry *rt, const PktInfo *pkt,
 }
 
 static const VnEntry *InterfaceToVn(const Interface *intf) {
-    if (intf->GetType() != Interface::VMPORT)
+    if (intf->type() != Interface::VM_INTERFACE)
         return NULL;
 
-    const VmPortInterface *vm_port = static_cast<const VmPortInterface *>(intf);
-    return vm_port->GetVnEntry();
+    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
+    return vm_port->vn();
 }
 
 static const VmEntry *InterfaceToVm(const Interface *intf) {
-    if (intf->GetType() != Interface::VMPORT)
+    if (intf->type() != Interface::VM_INTERFACE)
         return NULL;
 
-    const VmPortInterface *vm_port = static_cast<const VmPortInterface *>(intf);
-    return vm_port->GetVmEntry();
+    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
+    return vm_port->vm();
 }
 
 static bool IntfHasFloatingIp(const Interface *intf) {
-    if (intf->GetType() != Interface::VMPORT)
+    if (intf->type() != Interface::VM_INTERFACE)
         return NULL;
 
-    const VmPortInterface *vm_port = static_cast<const VmPortInterface *>(intf);
+    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
     return vm_port->HasFloatingIp();
 }
 
@@ -231,11 +232,11 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     //Frame key for component NH
     if (flow_info->ingress) {
         //Ingress flow
-        const VmPortInterface *vm_port = 
-            static_cast<const VmPortInterface *>(in->intf_);
+        const VmInterface *vm_port = 
+            static_cast<const VmInterface *>(in->intf_);
         const VrfEntry *vrf = 
             Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->vrf);
-        if (vm_port->HasServiceVlan() && vm_port->GetVrf() != vrf) {
+        if (vm_port->HasServiceVlan() && vm_port->vrf() != vrf) {
             //Packet came on service VRF
             label = vm_port->GetServiceVlanLabel(vrf);
             uint32_t vlan = vm_port->GetServiceVlanTag(vrf);
@@ -250,7 +251,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
             component_nh_ptr =
                 static_cast<NextHop *>
                 (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
-            label = vm_port->GetLabel();
+            label = vm_port->label();
         }
     } else {
         //Packet from fabric
@@ -307,7 +308,7 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_ip_saddr = pkt->ip_saddr;
     nat_dport = pkt->dport;
     nat_sport = pkt->sport;
-    if (out->intf_ && out->intf_->GetType() == Interface::VMPORT) {
+    if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
         dest_vrf = out->vrf_->GetVrfId();
     } else {
         dest_vrf = pkt->vrf;
@@ -318,8 +319,8 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
 
 void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                      PktControlInfo *out) {
-    const VmPortInterface *vm_port = 
-        static_cast<const VmPortInterface *>(in->intf_);
+    const VmInterface *vm_port = 
+        static_cast<const VmInterface *>(in->intf_);
     bool drop = false;
 
     // Allow metadata request (tcp, port=8775) or ICMP to Mdata IP only
@@ -348,7 +349,7 @@ void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     // Set NAT flow fields
     mdata_flow = true;
     nat_done = true;
-    nat_ip_saddr = vm_port->GetMdataIpAddr().to_ulong();
+    nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
     nat_ip_daddr = Agent::GetInstance()->GetRouterId().to_ulong();
     if (pkt->ip_proto == IPPROTO_TCP) {
         nat_dport = Agent::GetInstance()->GetMetadataServerPort();
@@ -370,8 +371,8 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    const VmPortInterface *vm_port = 
-        static_cast<const VmPortInterface *>(out->intf_);
+    const VmInterface *vm_port = 
+        static_cast<const VmInterface *>(out->intf_);
     if (vm_port == NULL) {
         // Force implicit deny
         in->rt_ = NULL;
@@ -379,7 +380,7 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    if ((pkt->ip_daddr != vm_port->GetMdataIpAddr().to_ulong()) ||
+    if ((pkt->ip_daddr != vm_port->mdata_ip_addr().to_ulong()) ||
         (pkt->ip_saddr != Agent::GetInstance()->GetRouterId().to_ulong())) {
         // Force implicit deny
         in->rt_ = NULL;
@@ -388,12 +389,12 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
     }
 
     dest_vrf = vm_port->GetVrfId();
-    out->vrf_ = vm_port->GetVrf();
+    out->vrf_ = vm_port->vrf();
 
     mdata_flow = true;
     nat_done = true;
     nat_ip_saddr = METADATA_IP_ADDR;
-    nat_ip_daddr = vm_port->GetIpAddr().to_ulong();
+    nat_ip_daddr = vm_port->ip_addr().to_ulong();
     nat_dport = pkt->dport;
     if (pkt->sport == Agent::GetInstance()->GetMetadataServerPort()) {
         nat_sport = METADATA_NAT_PORT;
@@ -407,7 +408,7 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::MdataServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
                                         PktControlInfo *out) {
-    if (in->intf_->GetType() == Interface::VMPORT) {
+    if (in->intf_->type() == Interface::VM_INTERFACE) {
         MdataServiceFromVm(pkt, in, out);
     } else {
         MdataServiceFromHost(pkt, in, out);
@@ -420,18 +421,18 @@ void PktFlowInfo::MdataServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
 // - Packet originated from remote vm
 void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
-    const VmPortInterface *vm_port = 
-        static_cast<const VmPortInterface *>(out->intf_);
-    const VmPortInterface::FloatingIpList &fip_list =
-        vm_port->GetFloatingIpList();
+    const VmInterface *vm_port = 
+        static_cast<const VmInterface *>(out->intf_);
+    const VmInterface::FloatingIpList &fip_list =
+        vm_port->floating_ip_list();
 
     // We must NAT if the IP-DA is not same as Primary-IP on interface
-    if (pkt->ip_daddr == vm_port->GetIpAddr().to_ulong()) {
+    if (pkt->ip_daddr == vm_port->ip_addr().to_ulong()) {
         return;
     }
 
     // Look for matching floating-ip
-    VmPortInterface::FloatingIpList::const_iterator it = fip_list.begin();
+    VmInterface::FloatingIpList::const_iterator it = fip_list.begin();
     for ( ; it != fip_list.end(); ++it) {
 
         if (it->vrf_.get() == NULL) {
@@ -456,12 +457,12 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     out->rt_ = it->vrf_.get()->GetUcRoute(Ip4Address(pkt->ip_daddr));
     out->vn_ = it->vn_.get();
     dest_vn = &(it->vn_.get()->GetName());
-    dest_vrf = out->intf_->GetVrf()->GetVrfId();
+    dest_vrf = out->intf_->vrf()->GetVrfId();
 
     // Translate the Dest-IP
     nat_done = true;
     nat_ip_saddr = pkt->ip_saddr;
-    nat_ip_daddr = vm_port->GetIpAddr().to_ulong();
+    nat_ip_daddr = vm_port->ip_addr().to_ulong();
     nat_sport = pkt->sport;
     nat_dport = pkt->dport;
     nat_vrf = dest_vrf;
@@ -478,10 +479,10 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
 
 void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
-    const VmPortInterface *intf = 
-        static_cast<const VmPortInterface *>(in->intf_);
-    const VmPortInterface::FloatingIpList &fip_list = intf->GetFloatingIpList();
-    VmPortInterface::FloatingIpList::const_iterator it = fip_list.begin();
+    const VmInterface *intf = 
+        static_cast<const VmInterface *>(in->intf_);
+    const VmInterface::FloatingIpList &fip_list = intf->floating_ip_list();
+    VmInterface::FloatingIpList::const_iterator it = fip_list.begin();
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
@@ -549,8 +550,8 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     // Flow packets are expected only on VMPort interfaces
-    if (in->intf_->GetType() != Interface::VMPORT &&
-        in->intf_->GetType() != Interface::VHOST) {
+    if (in->intf_->type() != Interface::VM_INTERFACE &&
+        in->intf_->type() != Interface::VIRTUAL_HOST) {
         LogError(pkt, "Unexpected packet on Non-VM interface");
         return;
     }
@@ -641,14 +642,14 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
-    if (in->intf_ == NULL || in->intf_->GetActiveState() == false) {
+    if (in->intf_ == NULL || in->intf_->active() == false) {
         LogError(pkt, "Invalid or Inactive ifindex");
         return false;
     }
 
-    if (in->intf_->GetType() == Interface::VMPORT) {
-        const VmPortInterface *vm_intf = 
-            static_cast<const VmPortInterface *>(in->intf_);
+    if (in->intf_->type() == Interface::VM_INTERFACE) {
+        const VmInterface *vm_intf = 
+            static_cast<const VmInterface *>(in->intf_);
         if (!vm_intf->ipv4_forwarding()) {
             LogError(pkt, "ipv4 service not enabled for ifindex");
             return false;
@@ -802,11 +803,13 @@ bool FlowHandler::Run() {
     if (in.rt_) {
         const AgentPath *path = in.rt_->GetActivePath();
         info.source_sg_id_l = &(path->GetSecurityGroupList());
+        info.source_plen = in.rt_->GetPlen();
     }
 
     if (out.rt_) {
         const AgentPath *path = out.rt_->GetActivePath();
         info.dest_sg_id_l = &(path->GetSecurityGroupList());
+        info.dest_plen = out.rt_->GetPlen();
     }
 
     if (info.source_vn == NULL)
@@ -815,8 +818,8 @@ bool FlowHandler::Run() {
     if (info.dest_vn == NULL)
         info.dest_vn = FlowHandler::UnknownVn();
 
-    if (in.intf_ && ((in.intf_->GetType() != Interface::VMPORT) &&
-                     (in.intf_->GetType() != Interface::VHOST))) {
+    if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
+                     (in.intf_->type() != Interface::VIRTUAL_HOST))) {
         in.intf_ = NULL;
     }
 
@@ -865,30 +868,23 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
     }
     const NextHop *nh = ctrl->rt_->GetActiveNextHop();
     if (nh->GetType() == NextHop::COMPOSITE && flow->local_flow == false && 
-        ctrl->intf_ && ctrl->intf_->GetType() == Interface::VMPORT) {
-        const CompositeNH *comp_nh = 
-            static_cast<const CompositeNH *>(nh);
-        //Get nexthop pointed by local mpls label
-        if (ctrl->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
-            nh = ctrl->rt_->FindPath(
-                    Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
-        } else if (comp_nh->GetLocalCompositeNH()) {
-            const CompositeNH *comp_nh = 
-                static_cast<const CompositeNH *>(nh);
-            nh = comp_nh->GetLocalCompositeNH();
-        } else {
-            //Get interface NH inside composite NH
-            CompositeNH::ComponentNHList::const_iterator component_nh_it = 
-                comp_nh->begin();
-            while (component_nh_it != comp_nh->begin()) {
-                if (*component_nh_it && 
-                    (*component_nh_it)->GetNH()->GetType() == NextHop::INTERFACE) {
-                    nh = (*component_nh_it)->GetNH();
-                    break;
-                }
-                component_nh_it++;
-            }
-        }
+        ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
+            //Logic for RPF check for ecmp
+            //  Get reverse flow, and its corresponding ecmp index
+            //  Check if source matches composite nh in reverse flow ecmp index,
+            //  if not DP would trap packet for ECMP resolve.
+            //  If there is only one instance of ECMP in compute node, then 
+            //  RPF NH would only point to local interface NH.
+            //  If there are multiple instances of ECMP in local server
+            //  then RPF NH would point to local composite NH(containing 
+            //  local members only)
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+        nh = comp_nh->GetLocalNextHop();
+    }
+
+    if (!nh) {
+        flow->data.nh_state_ = NULL;
+        return;
     }
     flow->data.nh_state_ = static_cast<const NhState *>(
                            nh->GetState(Agent::GetInstance()->GetNextHopTable(),
@@ -926,6 +922,8 @@ void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
     flow->data.ecmp = ecmp;
     flow->data.component_nh_idx = out_component_nh_idx;
     flow->data.trap = false;
+    flow->data.source_plen = source_plen;
+    flow->data.dest_plen = dest_plen;
 }
 
 void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
@@ -935,7 +933,7 @@ void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
     }
     flow->is_reverse_flow = true;
     if (ctrl->intf_) {
-        flow->intf_in = ctrl->intf_->GetInterfaceId();
+        flow->intf_in = ctrl->intf_->id();
     } else {
         flow->intf_in = Interface::kInvalidIndex;
     }
@@ -958,4 +956,6 @@ void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
     flow->data.ecmp = ecmp;
     flow->data.component_nh_idx = in_component_nh_idx;
     flow->data.trap = trap_rev_flow;
+    flow->data.source_plen = dest_plen;
+    flow->data.dest_plen = source_plen;
 }

@@ -26,7 +26,7 @@
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "route/route.h"
 #include "oper/vrf.h"
@@ -53,11 +53,11 @@ class IntfTest : public ::testing::Test {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmPortInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
+    VmInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
 }
 
 static void NovaDel(int id) {
-    VmPortInterface::NovaDel(MakeUuid(id));
+    VmInterface::NovaDel(MakeUuid(id));
 }
 
 static void FloatingIpAdd(CfgFloatingIpList &list, const char *addr, 
@@ -107,11 +107,11 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC,
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmPortInterfaceData *cfg_data = new VmPortInterfaceData();
+    VmInterfaceData *cfg_data = new VmInterfaceData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -148,11 +148,11 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC,
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmPortInterfaceData *cfg_data = new VmPortInterfaceData();
+    VmInterfaceData *cfg_data = new VmInterfaceData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
@@ -1147,6 +1147,64 @@ TEST_F(IntfTest, VmPortServiceVlanDelete_1) {
     EXPECT_FALSE(VrfFind("vrf2"));
 }
 
+TEST_F(IntfTest, VmPortServiceVlanAdd_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    //DeActivate the interface
+    DelLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_FALSE(RouteFind("vrf2", service_ip, 32));
+
+    //Activate the interface
+    AddLink("virtual-network", "vn1", "virtual-machine-interface",
+            input[0].name);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+
+    //Delete config for vnet1, forcing interface to deactivate
+    //verify that route and service vlan map gets cleaned up
+    DelNode("virtual-machine-interface", input[0].name);
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+   EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
+
+//A
 //Add and delete static route 
 TEST_F(IntfTest, IntfStaticRoute) {
     struct PortInfo input[] = {
@@ -1332,6 +1390,56 @@ TEST_F(IntfTest, IntfStaticRoute_3) {
    EXPECT_TRUE(nh->PolicyEnabled());
 
    DelLink("virtual-network", "vn1", "access-control-list", "Acl");
+   DelLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   DeleteVmportEnv(input, 1, true);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+}
+
+//Activate interface along with static routes
+TEST_F(IntfTest, IntfStaticRoute_4) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+   //Interface gets delete
+   NovaDel(1);
+   client->WaitForIdle();
+   EXPECT_FALSE(VmPortFind(1));
+
+   //Add a static route
+   struct TestIp4Prefix static_route[] = {
+       { Ip4Address::from_string("24.1.1.0"), 24},
+       { Ip4Address::from_string("16.1.1.0"), 16},
+   };
+
+   //Add static routes and activate interface
+   AddInterfaceRouteTable("static_route", 1, static_route, 2);
+   AddLink("virtual-machine-interface", "vnet1",
+           "interface-route-table", "static_route");
+   client->WaitForIdle();
+   EXPECT_FALSE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_FALSE(RouteFind("vrf1", static_route[1].addr_,
+                          static_route[1].plen_));
+
+   //Send nova interface add message
+   NovaIntfAdd(1, "vnet1", "1.1.1.10", "00:00:00:01:01:01");
+   //Sync the config
+   AddPort("vnet1", 1);
+   client->WaitForIdle();
+   EXPECT_TRUE(VmPortActive(input, 0));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[0].addr_, 
+                         static_route[0].plen_));
+   EXPECT_TRUE(RouteFind("vrf1", static_route[1].addr_,
+                         static_route[1].plen_));
+
    DelLink("virtual-machine-interface", "vnet1",
            "interface-route-table", "static_route");
    DeleteVmportEnv(input, 1, true);

@@ -310,7 +310,6 @@ class OpServerProxy::OpServerImpl {
         /* these are made public, so they are accessed by OpServerProxy */
         EventManager *evm_;
         VizCollector *collector_;
-        int gen_timeout_;
         bool started_;
         boost::scoped_ptr<RedisSentinelClient> redis_sentinel_client_;
         shared_ptr<RedisAsyncConnection> to_ops_conn_;

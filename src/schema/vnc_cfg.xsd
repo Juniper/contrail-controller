@@ -153,6 +153,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name="gateway-name" type="xsd:string"/>
         <xsd:element name="apply-service" type="xsd:string" maxOccurs="unbounded"/>
         <xsd:element name="mirror-to" type="MirrorActionType"/>
+        <xsd:element name="assign-routing-instance" type="xsd:string"/>
         <!-- More actions can come here. e.g. policer, QOS etc-->
     </xsd:all>
 </xsd:complexType>
@@ -631,11 +632,29 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
      Property('virtual-machine-interface-mac-addresses',
              'virtual-machine-interface') -->
 
+<xsd:complexType name="VrfAssignRuleType">
+    <xsd:all>
+        <xsd:element name="match-condition" type="MatchConditionType"/>
+        <xsd:element name="vlan-tag" type="xsd:integer"/>
+        <xsd:element name="routing-instance" type="xsd:string"/>
+        <xsd:element name="ignore-acl" type="xsd:boolean"/>
+    </xsd:all>
+</xsd:complexType>
+<xsd:complexType name="VrfAssignTableType">
+    <xsd:sequence>
+        <xsd:element name="vrf-assign-rule" type="VrfAssignRuleType" maxOccurs="unbounded"/>
+    </xsd:sequence>
+</xsd:complexType>
+<xsd:element name="vrf-assign-table" type="VrfAssignTableType"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Property('vrf-assign-table', 'virtual-machine-interface') -->
+
 <xsd:simpleType name="ServiceInterfaceType">
     <xsd:restriction base="xsd:string">
         <xsd:enumeration value="management"/>
         <xsd:enumeration value="left"/>
         <xsd:enumeration value="right"/>
+        <xsd:enumeration value="other"/>
     </xsd:restriction>
 </xsd:simpleType>
 
@@ -657,7 +676,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
     <xsd:all>
         <xsd:element name='service-interface-type' type="ServiceInterfaceType"/>
         <xsd:element name='shared-ip' type='xsd:boolean' default='false'/>
-        <xsd:element name='static-routes' type='xsd:boolean' default='false'/>
+        <xsd:element name='static-route-enable' type='xsd:boolean' default='false'/>
     </xsd:all>
 </xsd:complexType>
 
@@ -862,7 +881,8 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='service-type' type='ServiceType'/>
         <xsd:element name='image-name' type='xsd:string'/>
         <xsd:element name='service-scaling' type='xsd:boolean' default='false'/>
-        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='3'/>
+        <xsd:element name='interface-type' type='ServiceTemplateInterfaceType' maxOccurs='unbounded'/>
+        <xsd:element name='flavor' type='xsd:string'/>
     </xsd:sequence>
 </xsd:complexType>
 
@@ -874,7 +894,7 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
         <xsd:element name='left-ip-address' type='IpAddressType'/>
         <xsd:element name='right-virtual-network' type='xsd:string'/>
         <xsd:element name='right-ip-address' type='IpAddressType'/>
-        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType'/>
+        <xsd:element name='interface-list' type='ServiceInstanceInterfaceType' maxOccurs='unbounded'/>
         <xsd:element name='scale-out' type='ServiceScaleOutType'/>
     </xsd:sequence>
 </xsd:complexType>

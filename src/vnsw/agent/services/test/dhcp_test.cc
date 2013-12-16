@@ -63,7 +63,7 @@ public:
         tbb::mutex::scoped_lock lock(mutex_);
         unsigned int i;
         for (i = 0; i < itf_id_.size(); ++i)
-            if (itf_id_[i] == itf->GetInterfaceId())
+            if (itf_id_[i] == itf->id())
                 break;
         if (entry->IsDeleted()) {
             if (itf_count_ && i < itf_id_.size()) {
@@ -74,8 +74,8 @@ public:
         } else {
             if (i == itf_id_.size()) {
                 itf_count_++;
-                itf_id_.push_back(itf->GetInterfaceId());
-                LOG(DEBUG, "DHCP test : interface added " << itf->GetInterfaceId());
+                itf_id_.push_back(itf->id());
+                LOG(DEBUG, "DHCP test : interface added " << itf->id());
             }
         }
     }
@@ -233,19 +233,19 @@ public:
                     len += 12;
                     break;
                 case DHCP_OPTION_82: {
-                    *ptr = sizeof(uint32_t) + 2 + sizeof(VmPortInterface *) + 2;
+                    *ptr = sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2;
                     ptr++;
                     *ptr = DHCP_SUBOP_CKTID;
                     *(ptr + 1) = sizeof(uint32_t);
                     *(uint32_t *)(ptr + 2) = htonl(ifindex);
                     ptr += sizeof(uint32_t) + 2;
                     *ptr = DHCP_SUBOP_REMOTEID;
-                    *(ptr + 1) = sizeof(VmPortInterface *);
+                    *(ptr + 1) = sizeof(VmInterface *);
                     Interface *vm = InterfaceTable::GetInstance()->FindInterface(ifindex);
                     assert(vm != NULL);
-                    memcpy(ptr+2, &vm, sizeof(VmPortInterface *));
-                    ptr += sizeof(VmPortInterface *) + 2;
-                    len += sizeof(uint32_t) + 2 + sizeof(VmPortInterface *) + 2 + 1;
+                    memcpy(ptr+2, &vm, sizeof(VmInterface *));
+                    ptr += sizeof(VmInterface *) + 2;
+                    len += sizeof(uint32_t) + 2 + sizeof(VmInterface *) + 2 + 1;
                     break;
                 }
                 case DHCP_OPTION_END:

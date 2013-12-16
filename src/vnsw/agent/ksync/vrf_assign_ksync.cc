@@ -14,7 +14,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
 
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/vrf.h"
 #include "oper/vrf_assign.h"
 #include "oper/mirror_table.h"

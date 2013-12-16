@@ -9,7 +9,6 @@
 #include "base/parse_object.h"
 
 using namespace std;
-using boost::system::error_code;
 
 OriginVn OriginVn::null_originvn;
 
@@ -28,7 +27,7 @@ OriginVn::OriginVn(const bytes_type &data) {
     copy(data.begin(), data.end(), data_.begin());
 }
 
-OriginVn OriginVn::FromString(const string &str, error_code *errorp) {
+OriginVn OriginVn::FromString(const string &str, boost::system::error_code *errorp) {
     OriginVn origin_vn;
     uint8_t data[OriginVn::kSize];
     size_t pos = str.find(':');

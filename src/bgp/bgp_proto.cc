@@ -77,68 +77,103 @@ int BgpProto::OpenMessage::ValidateCapabilities(BgpPeer *peer) const {
 //
 int BgpProto::OpenMessage::Validate(BgpPeer *peer) const {
     if (identifier == 0) {
-        BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Bad BGP Identifier: " << 0);
         return BgpProto::Notification::BadBgpId;
     }
     if (identifier == peer->server()->bgp_identifier()) {
-        BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN,
                      "Bad (Same as mine) BGP Identifier: " << identifier);
         return BgpProto::Notification::BadBgpId;
     }
     if (as_num != peer->peer_as()) {
-        BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Bad Peer AS Number: " << as_num);
         return BgpProto::Notification::BadPeerAS;
     }
 
     int result = ValidateCapabilities(peer);
     if (result != 0) {
-        BGP_LOG_PEER(peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
+        BGP_LOG_PEER(Message, peer, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,
                      BGP_PEER_DIR_IN, "Unsupported Capability: " << result);
         return BgpProto::Notification::UnsupportedCapability;
     }
     return 0;
 }
 
+const string BgpProto::OpenMessage::ToString() const {
+    std::ostringstream os;
+
+    // Go through each OptParam in the OpenMessage.
+    for (vector<OptParam *>::const_iterator param_it = opt_params.begin();
+         param_it != opt_params.end(); ++param_it) {
+        const OptParam *param = *param_it;
+
+        // Go through each Capability in the OptParam.
+        vector<Capability *>::const_iterator cap_it =
+             param->capabilities.begin();
+        while (cap_it != param->capabilities.end()) {
+            const Capability *cap = *cap_it;
+
+            os << "Code "<< Capability::CapabilityToString(cap->code);
+
+            if (cap->code == Capability::MpExtension) {
+                const uint8_t *data = cap->capability.data();
+                uint16_t afi = get_value(data, 2);
+                uint8_t safi = get_value(data + 3, 1);
+                Address::Family family = BgpAf::AfiSafiToFamily(afi, safi);
+                os << " Family  " << Address::FamilyToString(family);
+            }
+
+            if (++cap_it == param->capabilities.end()) break;
+            os << ", ";
+        }
+
+    }
+    return os.str();
+}
+
 BgpProto::Notification::Notification()
     : BgpMessage(NOTIFICATION), error(0), subcode(0) {
 }
 
-const std::string 
-BgpProto::Notification::ToString(BgpProto::Notification::Code code, 
-                                 int subcode) {
-    std::string error("");
+const std::string BgpProto::Notification::ToString() const {
+    return toString(static_cast<BgpProto::Notification::Code>(error), subcode);
+}
+
+const std::string BgpProto::Notification::toString(BgpProto::Notification::Code code,
+                                                   int sub_code) {
+    std::string msg("");
     switch (code) {
         case MsgHdrErr:
-            error += std::string("Message Header Error:") +
-                MsgHdrSubcodeToString(static_cast<MsgHdrSubCode>(subcode));
+            msg += std::string("Message Header Error:") +
+                MsgHdrSubcodeToString(static_cast<MsgHdrSubCode>(sub_code));
             break;
         case OpenMsgErr:
-            error += std::string("OPEN Message Error:") +
-                OpenMsgSubcodeToString(static_cast<OpenMsgSubCode>(subcode));
+            msg += std::string("OPEN Message Error:") +
+                OpenMsgSubcodeToString(static_cast<OpenMsgSubCode>(sub_code));
             break;
         case UpdateMsgErr:
-            error += std::string("UPDATE Message Error:") + 
-                UpdateMsgSubCodeToString(static_cast<UpdateMsgSubCode>(subcode));
+            msg += std::string("UPDATE Message Error:") + 
+                UpdateMsgSubCodeToString(static_cast<UpdateMsgSubCode>(sub_code));
             break;
         case HoldTimerExp:
-            error += "Hold Timer Expired";
+            msg += "Hold Timer Expired";
             break;
         case FSMErr:
-            error += std::string("Finite State Machine Error:") + 
-                FsmSubcodeToString(static_cast<FsmSubcode>(subcode));
+            msg += std::string("Finite State Machine Error:") + 
+                FsmSubcodeToString(static_cast<FsmSubcode>(sub_code));
             break;
         case Cease:
-            error += std::string("Cease:") + 
-                CeaseSubcodeToString(static_cast<CeaseSubCode>(subcode));
+            msg += std::string("Cease:") + 
+                CeaseSubcodeToString(static_cast<CeaseSubCode>(sub_code));
             break;
         default:
-            error += "Unknown";
+            msg += "Unknown";
             break;
     }
-    return error;
+    return msg;
 }
 
 BgpProto::Keepalive::Keepalive()
@@ -201,7 +236,8 @@ int BgpProto::Update::Validate(const BgpPeer *peer, std::string &data) {
             mp_reach_nlri = true;
     }
 
-    BGP_LOG_PEER(peer, SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
+    BGP_LOG_PEER(Message, const_cast<BgpPeer *>(peer),
+                 SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_TRACE,
                  BGP_PEER_DIR_IN, rxed_attr);
     if (nlri.size() > 0 && !nh) {
         // next-hop attribute must be present if IPv4 NLRI is present

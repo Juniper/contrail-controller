@@ -12,7 +12,6 @@
 
 using namespace std;
 using namespace boost::asio;
-using boost::system::error_code;
 
 BgpSessionManager::BgpSessionManager(EventManager *evm, 
                                      BgpServer *bgp_server)
@@ -31,7 +30,7 @@ TcpSession *BgpSessionManager::CreateSession() {
     TcpSession *session = TcpServer::CreateSession();
     Socket *socket = session->socket();
 
-    error_code ec;
+    boost::system::error_code ec;
     socket->open(ip::tcp::v4(), ec);
     if (ec) {
         BGP_LOG_STR(BgpMessage, SandeshLevel::SYS_WARN, BGP_LOG_FLAG_ALL,

@@ -19,7 +19,7 @@
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "route/route.h"
@@ -74,7 +74,7 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                                 eth_name_, 
                                 Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);

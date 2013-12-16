@@ -57,6 +57,7 @@ const string SERVICE_CHAIN          = "ServiceChain"
 const string DNS_TABLE              = "ObjectDns"
 const string QUERY_TABLE_OBJECT     = "ObjectQueryTable"
 const string QUERY_QID_OBJECT       = "ObjectQueryQid"
+const string CONFIG_OBJECT_TABLE    = "ConfigObjectTable"
 
 const string VN_DISPLAY_NAME        = "Virtual Network"
 const string VM_DISPLAY_NAME        = "Virtual Machine"
@@ -75,6 +76,7 @@ const string SERVICE_CHAIN_DISPLAY_NAME = "Service Chain"
 const string DNS_DISPLAY_NAME              = "DNS Node"
 const string QUERY_TABLE_DISPLAY_NAME      = "Query Object Table"
 const string QUERY_QID_DISPLAY_NAME        = "Query Object Qid"
+const string CONFIG_OBJECT_DISPLAY_NAME    = "Config Object Table"
 
 const string SYSTEM_LOG             = "SystemLog"
 const string OBJECT_LOG             = "ObjectLog"
@@ -194,6 +196,9 @@ struct objtable_info {
 }
 
 const map<string, objtable_info> _OBJECT_TABLES = {
+    CONFIG_OBJECT_TABLE    : {
+        'objtable_display_name' : CONFIG_OBJECT_DISPLAY_NAME
+    }
     VN_TABLE               : {
         'objtable_display_name' : VN_DISPLAY_NAME
     }

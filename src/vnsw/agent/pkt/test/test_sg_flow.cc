@@ -6,12 +6,12 @@
 #include "test_pkt_util.h"
 #include "pkt/pkt_flow.h"
 
-VmPortInterface *vnet[16];
+VmInterface *vnet[16];
 VirtualHostInterface *vhost;
 char vhost_addr[32];
 char vnet_addr[16][32];
 
-EthInterface *eth;
+PhysicalInterface *eth;
 int hash_id;
 
 void RouterIdDepInit() {
@@ -106,10 +106,103 @@ static string AddAclXmlString(const char *node_name, const char *name, int id,
     return s;
 }
 
+static string AddSgIdAclXmlString(const char *node_name, const char *name, int id,
+                                  int proto, int src_sg_id, int dest_sg_id,
+                                  const char *action) {
+    char buff[10240];
+    sprintf(buff,
+    "<?xml version=\"1.0\"?>\n"
+    "<config>\n"
+    "   <update>\n"
+    "       <node type=\"%s\">\n"
+    "           <name>%s</name>\n"
+    "           <id-perms>\n"
+    "               <permissions>\n"
+    "                   <owner></owner>\n"
+    "                   <owner_access>0</owner_access>\n"
+    "                   <group></group>\n"
+    "                   <group_access>0</group_access>\n"
+    "                   <other_access>0</other_access>\n"
+    "               </permissions>\n"
+    "               <uuid>\n"
+    "                   <uuid-mslong>0</uuid-mslong>\n"
+    "                   <uuid-lslong>%d</uuid-lslong>\n"
+    "               </uuid>\n"
+    "           </id-perms>\n"
+    "           <access-control-list-entries>\n"
+    "                <acl-rule>\n"
+    "                    <match-condition>\n"
+    "                        <src-address>\n"
+    "                            <security-group> %d </security-group>\n"
+    "                        </src-address>\n"
+    "                        <protocol>%d</protocol>\n"
+    "                        <src-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </src-port>\n"
+    "                        <dst-address>\n"
+    "                            <security-group> %d </security-group>\n"
+    "                        </dst-address>\n"
+    "                        <dst-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </dst-port>\n"
+    "                    </match-condition>\n"
+    "                    <action-list>\n"
+    "                        <simple-action>\n"
+    "                            %s\n"
+    "                        </simple-action>\n"
+    "                    </action-list>\n"
+    "                </acl-rule>\n"
+    "                <acl-rule>\n"
+    "                    <match-condition>\n"
+    "                        <src-address>\n"
+    "                            <security-group> %d </security-group>\n"
+    "                        </src-address>\n"
+    "                        <protocol>%d</protocol>\n"
+    "                        <src-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </src-port>\n"
+    "                        <dst-address>\n"
+    "                            <security-group> %d </security-group>\n"
+    "                        </dst-address>\n"
+    "                        <dst-port>\n"
+    "                            <start-port> 0 </start-port>\n"
+    "                            <end-port> 10000 </end-port>\n"
+    "                        </dst-port>\n"
+    "                    </match-condition>\n"
+    "                    <action-list>\n"
+    "                        <simple-action>\n"
+    "                            %s\n"
+    "                        </simple-action>\n"
+    "                    </action-list>\n"
+    "                </acl-rule>\n"
+    "           </access-control-list-entries>\n"
+    "       </node>\n"
+    "   </update>\n"
+    "</config>\n", node_name, name, id, src_sg_id, proto, dest_sg_id, action,
+                   dest_sg_id, proto, src_sg_id, action);
+    string s(buff);
+    return s;
+}
+
+
 static void AddAclEntry(const char *name, int id, int proto,
                         const char *action) {
     std::string s = AddAclXmlString("access-control-list", name, id, proto,
                                     action);
+    pugi::xml_document xdoc_;
+    pugi::xml_parse_result result = xdoc_.load(s.c_str());
+    EXPECT_TRUE(result);
+    Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
+    client->WaitForIdle();
+}
+
+static void AddSgIdAcl(const char *name, int id, int proto,
+                       int src_sg_id, int dest_sg_id, const char *action) {
+    std::string s = AddSgIdAclXmlString("access-control-list", name, id, proto,
+                                         src_sg_id, dest_sg_id, action);
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result = xdoc_.load(s.c_str());
     EXPECT_TRUE(result);
@@ -124,8 +217,18 @@ static void AddSgEntry(const char *sg_name, const char *acl_name, int id,
     AddLink("security-group", sg_name, "access-control-list", acl_name);
 }
 
-const VmPortInterface *GetVmPort(int id) {
-    return static_cast<const VmPortInterface *>(vnet[id]);
+static void AddSgEntry(const char *sg_name, const char *acl_name, int id,
+                       int proto, const char *action, uint32_t sg_id, 
+                       uint32_t dest_sg_id) {
+    std::stringstream str;
+    str << "<security-group-id>" << sg_id << "</security-group-id>" << endl;
+    AddSgIdAcl(acl_name, id, proto, sg_id, dest_sg_id, action);
+    AddNode("security-group", sg_name, id, str.str().c_str());
+    AddLink("security-group", sg_name, "access-control-list", acl_name);
+}
+
+const VmInterface *GetVmPort(int id) {
+    return static_cast<const VmInterface *>(vnet[id]);
 }
 
 static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
@@ -149,13 +252,21 @@ static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
             }
         }
 
-        vnet[id] = VmPortInterfaceGet(id);
+        vnet[id] = VmInterfaceGet(id);
         if (vnet[id] == NULL) {
             ret = false;
         }
 
-        strcpy(vnet_addr[id], vnet[id]->GetIpAddr().to_string().c_str());
+        strcpy(vnet_addr[id], vnet[id]->ip_addr().to_string().c_str());
     }
+
+    eth = EthInterfaceGet("vnet0");
+    EXPECT_TRUE(eth != NULL);
+    if (eth == NULL) {
+        ret = false;
+    }
+
+    strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
     return ret;
 }
 
@@ -185,12 +296,12 @@ class SgTest : public ::testing::Test {
         client->WaitForIdle();
         EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
 
-        const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
+        const VmInterface *port = GetVmPort(1);
+        EXPECT_EQ(port->sg_list().size(), 0U);
         AddSgEntry("sg1", "sg_acl1", 10, 1, "pass");
         AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         client->WaitForIdle();
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 1U);
+        EXPECT_EQ(port->sg_list().size(), 1U);
     }
 
     virtual void TearDown() {
@@ -204,8 +315,8 @@ class SgTest : public ::testing::Test {
         DelNode("security-group", "sg1");
         client->WaitForIdle();
 
-        const VmPortInterface *port = GetVmPort(1);
-        EXPECT_EQ(port->GetSecurityGroupList().size(), 0U);
+        const VmInterface *port = GetVmPort(1);
+        EXPECT_EQ(port->sg_list().size(), 0U);
     }
 };
 
@@ -220,9 +331,17 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
         ret = false;
     }
 
-    EXPECT_EQ(fe->data.match_p.sg_action, rfe->data.match_p.sg_action);
-    if (fe->data.match_p.sg_action != rfe->data.match_p.sg_action) {
-        ret = false;
+    if (fe->data.match_p.sg_action & (1 << TrafficAction::TRAP) ||
+            rfe->data.match_p.sg_action & (1 << TrafficAction::TRAP)) {
+        return ret;
+    }
+
+    if (!(fe->data.match_p.sg_action & (1 << TrafficAction::TRAP)) && 
+        !(rfe->data.match_p.sg_action & (1 << TrafficAction::TRAP))) {
+        EXPECT_EQ(fe->data.match_p.sg_action, rfe->data.match_p.sg_action);
+        if (fe->data.match_p.sg_action != rfe->data.match_p.sg_action) {
+            ret = false;
+        }
     }
 
     EXPECT_EQ(fe->data.match_p.action_info.action,
@@ -237,90 +356,176 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
 
 // Allow in both forward and reverse directions
 TEST_F(SgTest, Flow_Allow_1) {
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
     client->WaitForIdle();
 }
 
 // Deny in both forward and reverse directions
 TEST_F(SgTest, Flow_Deny_1) {
-    TxTcpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2],
+    TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
 }
 
 // Change ACL for forward flow 
 TEST_F(SgTest, Fwd_Sg_Change_1) {
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
     AddAclEntry("sg_acl1", 10, 1, "deny");
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
 }
 
 // Delete SG from interface
 TEST_F(SgTest, Sg_Delete_1) {
-    TxTcpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2],
+    TxTcpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2],
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
 }
 
-// SG and NW Policy together
+//Add a aggregarate route for destination
+//check if updation of sg_id resulting in correct action
 TEST_F(SgTest, Sg_Policy_1) {
-    AddAclEntry("nw_acl1", 11, 1, "pass");
-    AddLink("virtual-machine-interface", "vnet1", "access-control-list",
-            "nw_acl1");
+    //Delete sg added for setup()
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+
+    //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
+    //to vnet1
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+
+    SecurityGroupList sg_id_list;
+    sg_id_list.push_back(2);
+    //Add a remote route pointing to SG id 2
+    boost::system::error_code ec;
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
+                                    Ip4Address::from_string("10.10.10.0", ec),
+                                    24,
+                                    Ip4Address::from_string("10.10.10.10", ec),
+                                    TunnelType::AllType(), 
+                                    17, "vn1", sg_id_list);
     client->WaitForIdle();
-    TxIpPacket(vnet[1]->GetInterfaceId(), vnet_addr[1], vnet_addr[2], 1);
+
+    char remote_ip[] = "10.10.10.1";
+    TxIpPacket(vnet[1]->id(), vnet_addr[1], remote_ip, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
-
-    AddAclEntry("nw_acl1", 11, 1, "deny");
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+                               remote_ip, 1, 0, 0, TrafficAction::PASS));
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
-
-    DelLink("virtual-machine-interface", "vnet1", "access-control-list",
-            "nw_acl1");
+    //Change the route sg id to 3
+    sg_id_list[0] = 3;
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
+                                    Ip4Address::from_string("10.10.10.0", ec),
+                                    24,
+                                    Ip4Address::from_string("10.10.10.10", ec),
+                                    TunnelType::AllType(),
+                                    17, "vn1", sg_id_list);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->GetVrf()->GetVrfId(), vnet_addr[1],
-                               vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+                               remote_ip, 1, 0, 0,
+                               TrafficAction::DROP));
 
-    EXPECT_TRUE(FlowDelete(vnet[1]->GetVrf()->GetName(), vnet_addr[1],
-                           vnet_addr[2], 6, 10, 20));
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           remote_ip, 1, 0, 0));
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelNode("security-group", "sg2");
+    DelNode("access-control-list", "ag2");
+    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+        Ip4Address::from_string("10.10.10.0", ec), 24);
+    client->WaitForIdle();
+}
+
+//Add a aggregarate route for source
+//check if updation of sg_id resulting in correction action
+TEST_F(SgTest, Sg_Policy_2) {
+    //Delete sg added for setup()
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    //Add a SG id acl to pass traffic between sg-id 1 and sg-id 2
+    //to vnet1
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+
+    SecurityGroupList sg_id_list;
+    sg_id_list.push_back(2);
+    //Add a remote route pointing to SG id 2
+    boost::system::error_code ec;
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
+                                    Ip4Address::from_string("10.10.10.0", ec),
+                                    24,
+                                    Ip4Address::from_string("10.10.10.10", ec),
+                                    TunnelType::AllType(),
+                                    17, "vn1", sg_id_list);
+    client->WaitForIdle();
+
+    char remote_ip[] = "10.10.10.1";
+    TxIpMplsPacket(eth->id(), "10.1.1.10", vhost_addr, vnet[1]->label(),
+                   remote_ip, vnet_addr[1], 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+                               vnet_addr[1], 1, 0, 0, TrafficAction::PASS));
+    client->WaitForIdle();
+
+    //Change the route sg id to 3
+    sg_id_list[0] = 3;
+    Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(NULL, "vrf1",
+                                    Ip4Address::from_string("10.10.10.0", ec),
+                                    24,
+                                    Ip4Address::from_string("10.10.10.10", ec),
+                                    TunnelType::AllType(),
+                                    17, "vn1", sg_id_list);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+                               vnet_addr[1], 1, 0, 0,
+                               TrafficAction::DROP));
+
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
+                           remote_ip, 1, 0, 0));
+
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelNode("security-group", "sg2");
+    DelNode("access-control-list", "ag2");
+    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+            Ip4Address::from_string("10.10.10.0", ec), 24);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

@@ -94,7 +94,7 @@ TEST_F(IFMapServerTest, DeleteLink) {
     task_util::WaitForIdle();
     EXPECT_EQ(1, table->Size());
 
-    string message(FileRead("src/ifmap/testdata/vn_delete.xml"));
+    string message(FileRead("controller/src/ifmap/testdata/vn_delete.xml"));
     parser_->Receive(&db_, message.data(), message.size(), 0);
     task_util::WaitForIdle();
     EXPECT_EQ(0, table->Size());

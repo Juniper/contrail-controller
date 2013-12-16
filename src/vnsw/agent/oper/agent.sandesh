@@ -20,6 +20,12 @@ struct FloatingIpSandeshList {
    3: string installed;
 }
 
+struct StaticRouteSandesh {
+   1: string vrf_name (link="VrfListReq"); // VRF name
+   2: string ip_addr;
+   3: i32    prefix;
+}
+
 struct VmIntfSgUuid {
     1: string sg_uuid (link="SgListReq");
 }
@@ -51,6 +57,7 @@ struct ItfSandeshData {
    24: list<VmIntfSgUuid> sg_uuid_list;
    25: i32 l2_label;
    26: i32 vxlan_id;
+   27: list<StaticRouteSandesh> static_route_list; //Static route list
 }
 
 struct VnIpamData {

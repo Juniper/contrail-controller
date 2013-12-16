@@ -11,7 +11,7 @@
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 
 #include "vr_genetlink.h"
@@ -68,7 +68,7 @@ bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
 
 void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
-    uint32_t seq = sock->AllocSeqNo();
+    uint32_t seq = sock->AllocSeqNo(true);
     AgentStatsSandeshContext *ctx;
 
     IoContext *ioc = NULL;
@@ -92,7 +92,7 @@ void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, StatsType type)
             break;
     }
     if (ioc) {
-        sock->GenericSend(buf_len, buf, ioc); 
+        sock->GenericSend(ioc); 
     }
 }
 
@@ -106,7 +106,7 @@ void AgentStatsCollector::AddIfStatsEntry(const Interface *intf) {
     it = if_stats_tree_.find(intf);
     if (it == if_stats_tree_.end()) {
         AgentStatsCollector::IfStats stats;
-        stats.name = intf->GetName();
+        stats.name = intf->name();
         if_stats_tree_.insert(IfStatsPair(intf, stats));
     }
 }
@@ -275,7 +275,7 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
     if (!stats) {
         return;
     }
-    if (intf->GetType() == Interface::VMPORT) {
+    if (intf->type() == Interface::VM_INTERFACE) {
         AgentStats::GetInstance()->IncrInPkts(req->get_vifr_ipackets() - stats->in_pkts);
         AgentStats::GetInstance()->IncrInBytes(req->get_vifr_ibytes() - stats->in_bytes);
         AgentStats::GetInstance()->IncrOutPkts(req->get_vifr_opackets() - stats->out_pkts);

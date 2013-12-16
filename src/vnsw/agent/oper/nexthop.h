@@ -12,7 +12,7 @@
 #include <base/dependency.h>
 #include <cmn/agent_cmn.h>
 #include <oper/vrf.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/agent_types.h>
 
 using namespace boost::uuids;
@@ -324,7 +324,6 @@ public:
         return AgentRefCount<NextHop>::GetRefCount();
     }
 
-    AgentDBTable *DBToTable() const;
     Type GetType() const {return type_;};
     bool IsValid() const {return valid_;};
     bool PolicyEnabled() const {return policy_;};
@@ -718,7 +717,7 @@ public:
     virtual ~InterfaceNH() { };
 
     virtual std::string ToString() const { 
-        return "InterfaceNH : " + interface_->GetName();
+        return "InterfaceNH : " + interface_->name();
     };
     virtual bool NextHopIsLess(const DBEntry &rhs) const;
     virtual void SetKey(const DBRequestKey *key);
@@ -816,7 +815,7 @@ class VlanNHKey : public NextHopKey {
 public:
     VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
         NextHopKey(NextHop::VLAN, false), 
-        intf_key_(new VmPortInterfaceKey(vm_port_uuid, "")),
+        intf_key_(new VmInterfaceKey(vm_port_uuid, "")),
         vlan_tag_(vlan_tag) {
     }
     VlanNHKey(InterfaceKey *key, uint16_t vlan_tag) :
@@ -982,7 +981,7 @@ public:
 
     ComponentNHData(int label, const uuid &intf_uuid, uint8_t flags) :
         label_(label), 
-        nh_key_(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), false,
+        nh_key_(new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""), false,
                                    flags)) {
     }
 
@@ -1176,6 +1175,7 @@ public:
     virtual void OnZeroRefCount() {
         component_nh_list_.clear();
     }
+    const NextHop* GetLocalNextHop() const;
 private:
     VrfEntryRef vrf_;
     Ip4Address grp_addr_;

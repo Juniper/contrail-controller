@@ -69,15 +69,11 @@ static void mcode_or_die(const char *where, CURLMcode code)
     case CURLM_INTERNAL_ERROR:     s="CURLM_INTERNAL_ERROR";     break;
     case CURLM_UNKNOWN_OPTION:     s="CURLM_UNKNOWN_OPTION";     break;
     case CURLM_LAST:               s="CURLM_LAST";               break;
-    default: s="CURLM_unknown";
-      break;
-    case     CURLM_BAD_SOCKET:         s="CURLM_BAD_SOCKET";
-      /* ignore this error */
-      return;
+    case CURLM_BAD_SOCKET:         s="CURLM_BAD_SOCKET";         break;
+    default:                       s="CURLM_unknown";            break;
     }
 
     fprintf(MSG_OUT, "\nERROR: %s returns %s", where, s);
-    exit(code);
   }
 }
 
@@ -99,20 +95,10 @@ static void check_multi_info(GlobalInfo *g)
       res = msg->data.result;
       curl_easy_getinfo(easy, CURLINFO_PRIVATE, &conn);
       curl_easy_getinfo(easy, CURLINFO_EFFECTIVE_URL, &eff_url);
-      if (res != CURLE_OK) {
-          boost::system::error_code error(res, boost::system::system_category());
-          std::string empty_str("");
-          conn->connection->HttpClientCb()(empty_str, error);
-      }
-      if (conn->connection->curl_handle()) {
-          curl_multi_remove_handle(g->multi, easy);
-          curl_slist_free_all(conn->headers);
-          free(conn->post);
-          free(conn->url);
-          curl_easy_cleanup(easy);
-          conn->connection->set_curl_handle(NULL);
-          free(conn);
-      }
+
+      boost::system::error_code error(res, boost::system::system_category());
+      std::string empty_str("");
+      conn->connection->HttpClientCb()(empty_str, error);
     }
   }
 }
@@ -368,6 +354,7 @@ ConnInfo *new_conn(HttpConnection *connection, GlobalInfo *g,
   curl_easy_setopt(conn->easy, CURLOPT_NOPROGRESS, 1L);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSFUNCTION, prog_cb);
   curl_easy_setopt(conn->easy, CURLOPT_PROGRESSDATA, conn);
+  curl_easy_setopt(conn->easy, CURLOPT_CONNECTTIMEOUT, 4L); // in secs
   if (timeout) {
       /* set the timeout limits to abort the connection */
       curl_easy_setopt(conn->easy, CURLOPT_LOW_SPEED_TIME, 3L);

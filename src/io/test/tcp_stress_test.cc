@@ -31,7 +31,6 @@
 #include "io/io_log.h"
 
 using namespace std;
-using namespace tbb;
 
 //
 // Number of Server
@@ -248,7 +247,7 @@ protected:
                                                   this, _1, _2));
                 server_[client]->ConnectToServer(server_[server], session);
 
-                mutex::scoped_lock lock(mutex_);
+                tbb::mutex::scoped_lock lock(mutex_);
                 session_matrix_.insert(make_pair(session, server_[server]));
                 break;
             } while (1);
@@ -258,7 +257,7 @@ protected:
         for (int i = 0; i < 100000; i++) {
             usleep(1000);
             {
-                mutex::scoped_lock lock(mutex_);
+                tbb::mutex::scoped_lock lock(mutex_);
                 res = (find_if(session_matrix_.begin(), session_matrix_.end(), 
                                not_connected) == session_matrix_.end());
                 if (res) break;
@@ -282,7 +281,7 @@ protected:
     }
 
     void DeleteAllSessions() {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         for (SessionMatrix::iterator it = session_matrix_.begin(), next = it;
              it != session_matrix_.end(); it = next) {
             ++next;
@@ -330,7 +329,7 @@ protected:
 
     bool DummyTimerHandler() {
         bool restart_timer = false;
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         SessionMatrix tmp_map;
         for (SessionMatrix::iterator it = session_matrix_.begin(), next = it;
              it != session_matrix_.end(); it = next) {
@@ -408,7 +407,7 @@ protected:
 
     bool verify_rx() {
         task_util::WaitForIdle();
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         uint32_t total_sent = 0;
         uint32_t total_rxed = 0;
         BOOST_FOREACH(SessionMatrix::value_type mapref, session_matrix_) {
@@ -509,7 +508,7 @@ TEST_P(EchoServerTest, ServerShutdown) {
     task_util::WaitForIdle();
     // Shutdown frees all sessions.
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         session_matrix_.clear();
     }
 }
@@ -518,7 +517,7 @@ TEST_P(EchoServerTest, ClientDisconnect) {
     for (int i = 0; i < 10; i++) {
         uint32_t server = rand() % max_num_servers_;
         {
-            mutex::scoped_lock lock(mutex_);
+            tbb::mutex::scoped_lock lock(mutex_);
             for (SessionMatrix::iterator it = session_matrix_.begin();
                  it != session_matrix_.end(); it++) {
                 if (it->second == server_[server]) {

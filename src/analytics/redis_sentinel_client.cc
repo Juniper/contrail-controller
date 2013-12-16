@@ -13,7 +13,6 @@ RedisSentinelClient::RedisSentinelClient(
                         RedisMasterUpdateCb redis_master_update_cb) : 
         evm_(evm), 
         sentinel_ip_(sentinel_ip), 
-        sentinel_port_(sentinel_port), 
         services_(services),
         redis_master_update_cb_(redis_master_update_cb),
         rx_msg_count_(0),

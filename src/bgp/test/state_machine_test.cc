@@ -29,7 +29,6 @@
 using namespace std;
 using namespace boost::assign;
 using namespace boost::posix_time;
-using boost::system::error_code;
 
 class BgpSessionMock : public BgpSession {
 public:
@@ -162,7 +161,7 @@ protected:
         sm_ = peer_->state_machine();
         sm_->set_idle_hold_time(1);
 
-        error_code ec;
+        boost::system::error_code ec;
         lower_id_ = Ip4Address::from_string("191.168.0.2", ec).to_ulong();
         higher_id_ = Ip4Address::from_string("193.168.0.0", ec).to_ulong();
     }
@@ -497,7 +496,9 @@ protected:
 
 typedef boost::function<void(void)> EvGen;
 struct EvGenComp {
-    bool operator()(const EvGen &lhs, const EvGen &rhs) { return &lhs < &rhs; }
+    bool operator()(const EvGen &lhs, const EvGen &rhs) const {
+        return &lhs < &rhs;
+    }
 };
 
 TEST_F(StateMachineTest, Matrix) {

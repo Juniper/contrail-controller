@@ -1068,13 +1068,19 @@ void BgpStressTest::DeleteBgpRouteInternal(int family, int peer_id,
 
     Ip4Prefix prefix(Ip4Prefix::FromString("192.168.255.0/24"));
 
-    //
     // Use routes with same RD as well as with different RD to cover more
-    // scenarios
-    //
-    InetVpnPrefix vpn_prefix(InetVpnPrefix::FromString("123:" +
-                (peer_id & 1) ? "999" :
-        boost::lexical_cast<string>(peer_id) + ":" + start_prefix));
+    // scenarios.
+    ostringstream os;
+
+    os << "123:";
+    if (peer_id & 1) {
+        os << "999";
+    } else {
+        os << peer_id;
+    }
+    os << ":" << start_prefix;
+
+    InetVpnPrefix vpn_prefix(InetVpnPrefix::FromString(os.str()));
     prefix = task_util::Ip4PrefixIncrement(prefix, route_id);
     vpn_prefix = task_util::InetVpnPrefixIncrement(vpn_prefix, route_id);
 
@@ -3000,5 +3006,4 @@ int bgp_stress_test_main(int argc, const char **argv) {
 int main(int argc, char **argv) {
     return bgp_stress_test_main(argc, const_cast<const char **>(argv));
 }
-
 #endif

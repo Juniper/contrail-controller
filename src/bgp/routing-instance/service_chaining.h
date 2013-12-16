@@ -10,6 +10,7 @@
 #include <set>
 
 #include <boost/shared_ptr.hpp>
+#include "base/lifetime.h"
 #include <base/queue_task.h>
 
 #include <sandesh/sandesh_types.h>
@@ -196,6 +197,10 @@ public:
         aggregate_ = true;
     }
 
+    void ManagedDelete() {
+        // Trigger of service chain delete is from config
+    }
+
 private:
     RoutingInstance *src_;
     RoutingInstance *dest_;
@@ -211,6 +216,7 @@ private:
     bool connected_stopped_;
     bool dest_stopped_;
     bool aggregate_; // Whether the host route needs to be aggregated
+    LifetimeRef<ServiceChain> src_table_delete_ref_;
 
     // Helper function to match 
     bool is_more_specific(BgpRoute *route, Ip4Prefix *aggregate_match);

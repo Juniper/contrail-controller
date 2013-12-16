@@ -9,8 +9,10 @@
 #include <string>
 #include "viz_message.h"
 #include "base/queue_task.h"
-#include <sandesh/sandesh_state_machine.h>
+
 #include <sandesh/sandesh.h>
+#include <sandesh/sandesh_uve_types.h>
+#include <sandesh/sandesh_state_machine.h>
 #include "collector_uve_types.h"
 #include "db_handler.h"
 
@@ -48,23 +50,19 @@ public:
     void ReceiveSandeshCtrlMsg(uint32_t connects);
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
     void DisconnectSession(VizSession *vsession);
+    void ConnectSession(VizSession *vsession, SandeshStateMachine *state_machine);
 
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
-    bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats) const;
+    bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
+                                     SandeshGeneratorStats &sm_msg_stats) const;
     bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const;
 
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     VizSession * session() const { return viz_session_; }
     const std::string ToString() const { return name_; }
-    void set_session(VizSession *session) { viz_session_ = session; }
-    void set_state_machine(SandeshStateMachine *state_machine) {
-        state_machine_ = state_machine;
-        // Update state machine
-        state_machine_->SetGeneratorKey(name_);
-    }
     SandeshStateMachine * get_state_machine(void) {
         return state_machine_;
     }
@@ -93,6 +91,12 @@ private:
     typedef boost::ptr_map<std::string /* Log level */, LogLevelStats> LogLevelStatsMap;
     LogLevelStatsMap log_level_stats_map_;
 
+    void set_session(VizSession *session) { viz_session_ = session; }
+    void set_state_machine(SandeshStateMachine *state_machine) {
+        state_machine_ = state_machine;
+        // Update state machine
+        state_machine_->SetGeneratorKey(name_);
+    }
     void UpdateMessageTypeStats(VizMsg *vmsg);
     void UpdateLogLevelStats(VizMsg *vmsg);
     void HandleSeqRedisReply(const std::map<std::string,int32_t> &typeMap);
@@ -120,8 +124,8 @@ private:
 
     boost::scoped_ptr<DbHandler> db_handler_;
     Timer *db_connect_timer_;
-
     Timer *del_wait_timer_;
+    tbb::atomic<bool> disconnected_;
 };
 
 #endif

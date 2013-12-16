@@ -110,15 +110,15 @@ void AgentInit::DeleteNextHop() {
     key = new ResolveNHKey();
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
+    key = new ReceiveNHKey(new VirtualHostInterfaceKey(
                            agent_->GetVirtualHostInterfaceName()), false);
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new ReceiveNHKey(new VirtualHostInterfaceKey(nil_uuid(),
+    key = new ReceiveNHKey(new VirtualHostInterfaceKey(
                            agent_->GetVirtualHostInterfaceName()), true);
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new InterfaceNHKey(new HostInterfaceKey(nil_uuid(),
+    key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(),
                              agent_->GetHostInterfaceName()), false,
                              InterfaceNHFlags::INET4);
     agent_->GetNextHopTable()->Delete(key);
@@ -129,11 +129,11 @@ void AgentInit::DeleteVrf() {
 }
 
 void AgentInit::DeleteInterface() {
-    HostInterface::DeleteReq(agent_->GetInterfaceTable(),
-                             agent_->GetHostInterfaceName());
+    PktInterface::DeleteReq(agent_->GetInterfaceTable(),
+                            agent_->GetHostInterfaceName());
     VirtualHostInterface::DeleteReq(agent_->GetInterfaceTable(),
                                     agent_->GetVirtualHostInterfaceName());
-    EthInterface::DeleteReq(agent_->GetInterfaceTable(),
+    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
                             agent_->GetIpFabricItfName());
 }
 
@@ -153,8 +153,8 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
         return;
 
     Interface *itf = static_cast<Interface *>(entry);
-    Interface::Type type = itf->GetType();
-    if (type != Interface::ETH)
+    Interface::Type type = itf->type();
+    if (type != Interface::PHYSICAL)
         return;
 
     boost::system::error_code ec;
@@ -286,7 +286,7 @@ void AgentInit::CreateInterfaces(DB *db) {
                                     params_->vhost_name(), 
                                     agent_->GetDefaultVrf(), 
                                     VirtualHostInterface::HOST);
-    EthInterface::CreateReq(agent_->GetInterfaceTable(), params_->eth_port(),
+    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(), params_->eth_port(),
                             agent_->GetDefaultVrf());
     InitXenLinkLocalIntf();
 }

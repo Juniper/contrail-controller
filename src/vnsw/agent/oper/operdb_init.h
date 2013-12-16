@@ -24,6 +24,7 @@ public:
     void Shutdown();
 
     MulticastHandler *multicast() const { return multicast_.get(); }
+    Agent *agent() const { return agent_; }
 private:
     OperDB();
     static OperDB *singleton_;

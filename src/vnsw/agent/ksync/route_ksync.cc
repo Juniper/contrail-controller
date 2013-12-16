@@ -13,7 +13,7 @@
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
 
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/mirror_table.h"

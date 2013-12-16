@@ -18,7 +18,7 @@
 #include <cfg/cfg_types.h>
 
 #include <instance_service_server.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/agent_route.h>
 #include <oper/vrf.h>

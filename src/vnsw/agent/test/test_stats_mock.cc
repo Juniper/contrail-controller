@@ -29,8 +29,8 @@ struct PortInfo stats_if[] = {
 };
 
 int hash_id;
-VmPortInterface *flow0, *flow1;
-VmPortInterface *test0, *test1;
+VmInterface *flow0, *flow1;
+VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
@@ -74,9 +74,9 @@ public:
         EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
         EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
-        flow0 = VmPortInterfaceGet(input[0].intf_id);
+        flow0 = VmInterfaceGet(input[0].intf_id);
         assert(flow0);
-        flow1 = VmPortInterfaceGet(input[1].intf_id);
+        flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
 
         /* verify that there are no existing Flows */
@@ -94,9 +94,9 @@ public:
         EXPECT_EQ(vn_count, Agent::GetInstance()->GetVnTable()->Size());
         EXPECT_EQ(4U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
-        test0 = VmPortInterfaceGet(stats_if[0].intf_id);
+        test0 = VmInterfaceGet(stats_if[0].intf_id);
         assert(test0);
-        test1 = VmPortInterfaceGet(stats_if[1].intf_id);
+        test1 = VmInterfaceGet(stats_if[1].intf_id);
         assert(test1);
 
         //To disable flow aging set the flow age time to high value
@@ -109,26 +109,26 @@ public:
 TEST_F(StatsTestMock, FlowStatsTest) {
     hash_id = 1;
     //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 0, hash_id);
+    TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxIpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1", 0, hash_id);
+    TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
                           "vn5", "vn5", hash_id++));
 
     //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2",
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1",
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
@@ -163,20 +163,20 @@ TEST_F(StatsTestMock, FlowStatsTest) {
 
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     hash_id = 1;
     //Flow creation using TCP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2",
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1",
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
@@ -282,7 +282,63 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 0, 0);
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+}
+
+TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
+    hash_id = 1;
+    //Flow creation using TCP packet
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
+                    1000, 200, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
+                        "vn5", "vn5", hash_id++));
+
+    //Create flow in reverse direction and make sure it is linked to previous flow
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
+                200, 1000, hash_id);
+    client->WaitForIdle(2);
+    EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
+                        "vn5", "vn5", hash_id++));
+
+    //Verify flow count
+    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 1, 30));
+
+    /* Verify overflow counter of agent */
+    //Decrement the stats so that they become 0
+    KSyncSockTypeMap::IncrFlowStats(1, -1, -30);
+    KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
+
+    //Invoke FlowStatsCollector to update the stats
+    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+
+    //Verify flow stats
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10000000000ULL, 0x1000000000000ULL));
+    EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 0x10000000000ULL, 0x1000000000000ULL));
+
+    int tmp_age_time = 1000 * 1000;
+    int bkp_age_time = 
+        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+
+    //Set the flow age time to 1000 microsecond
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+
+    usleep(tmp_age_time + 10);
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+
+    //Restore flow aging time
+    AgentUve::GetInstance()->
+        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
@@ -293,8 +349,8 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
 
     //Change the stats
-    KSyncSockTypeMap::IfStatsUpdate(test0->GetInterfaceId(), 1, 50, 0, 1, 20, 0);
-    KSyncSockTypeMap::IfStatsUpdate(test1->GetInterfaceId(), 1, 50, 0, 1, 20, 0);
+    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 1, 50, 0, 1, 20, 0);
+    KSyncSockTypeMap::IfStatsUpdate(test1->id(), 1, 50, 0, 1, 20, 0);
 
     //Wait for stats to be updated
     AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
@@ -305,8 +361,8 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     EXPECT_TRUE(VmPortStatsMatch(test1, 1, 50, 1, 20)); 
 
     //Reset the stats so that repeat of this test case works
-    KSyncSockTypeMap::IfStatsSet(test0->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
-    KSyncSockTypeMap::IfStatsSet(test1->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
 }
 
 TEST_F(StatsTestMock, InterVnStatsTest) {
@@ -314,7 +370,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
     //(1) Inter-VN stats between for traffic within same VN
     //Flow creation using IP packet
-    TxTcpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.2",
+    TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     30, 40, hash_id);
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false, 
@@ -331,7 +387,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     InterVnStatsMatch("vn5", "vn5", 1, 30, false); //Incoming stats
 
     //Create flow in reverse direction and make sure it is linked to previous flow
-    TxTcpPacketUtil(flow1->GetInterfaceId(), "1.1.1.2", "1.1.1.1",
+    TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                     40, 30, hash_id);
     client->WaitForIdle(2);
     client->WaitForIdle(2);
@@ -363,7 +419,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
 
     //(3) Inter-VN stats between known and unknown VNs
     //Flow creation using IP packet
-    TxIpPacketUtil(flow0->GetInterfaceId(), "1.1.1.1", "1.1.1.3", 1, hash_id);
+    TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.3", 1, hash_id);
     client->WaitForIdle(2);
 
     // A short flow would be created with Source VN as "vn5" and dest-vn as "Unknown".
@@ -374,7 +430,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
 
     /* Make sure that the short flow is removed */
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 2U));
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", (*FlowHandler::UnknownVn()).c_str(), 1, 30, true); //outgoing stats
@@ -383,7 +439,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //clean-up. Flush flow table
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 10000, (FlowTable::GetFlowTableObject()->Size() == 0U));
 }
 
 TEST_F(StatsTestMock, VrfStatsTest) {
@@ -542,7 +598,7 @@ TEST_F(StatsTestMock, VnStatsTest) {
     EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
 
     //Change the stats on one interface of vn
-    KSyncSockTypeMap::IfStatsUpdate(test0->GetInterfaceId(), 50, 1, 0, 20, 1, 0);
+    KSyncSockTypeMap::IfStatsUpdate(test0->id(), 50, 1, 0, 20, 1, 0);
 
     //Wait for stats to be updated
     AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
@@ -553,7 +609,7 @@ TEST_F(StatsTestMock, VnStatsTest) {
 
     if (stats_if[0].vn_id == stats_if[1].vn_id) {
         //Change the stats on the other interface of same vn
-        KSyncSockTypeMap::IfStatsUpdate(test1->GetInterfaceId(), 50, 1, 0, 20, 1, 0);
+        KSyncSockTypeMap::IfStatsUpdate(test1->id(), 50, 1, 0, 20, 1, 0);
 
         //Wait for stats to be updated
         AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
@@ -564,8 +620,8 @@ TEST_F(StatsTestMock, VnStatsTest) {
     }
 
     //Reset the stats so that repeat of this test case works
-    KSyncSockTypeMap::IfStatsSet(test0->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
-    KSyncSockTypeMap::IfStatsSet(test1->GetInterfaceId(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test0->id(), 0, 0, 0, 0, 0, 0);
+    KSyncSockTypeMap::IfStatsSet(test1->id(), 0, 0, 0, 0, 0, 0);
 }
 
 int main(int argc, char *argv[]) {

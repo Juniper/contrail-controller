@@ -66,7 +66,7 @@ protected:
 
 namespace {
 TEST_F(DnsManagerTest, Update) {
-    string content = FileRead("src/dns/testdata/config_test_1.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_1.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 
@@ -105,7 +105,7 @@ TEST_F(DnsManagerTest, Update) {
 }
 
 TEST_F(DnsManagerTest, Reordered) {
-    string content = FileRead("src/dns/testdata/config_test_2.xml");
+    string content = FileRead("controller/src/dns/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
 

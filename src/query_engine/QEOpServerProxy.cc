@@ -62,8 +62,6 @@ class QEOpServerProxy::QEOpServerImpl {
 public:
     typedef std::vector<std::string> QEOutputT;
 
-    static const int nMaxChunks = 16;
-
     struct Input {
         int cnum;
         string hostname;
@@ -87,7 +85,7 @@ public:
         {
             if (0 == map_it->first.compare(0,5,string("COUNT"))) {
                 rapidjson::Value val(rapidjson::kNumberType);
-                unsigned long num;
+                unsigned long num = 0;
                 stringToInteger(map_it->second, num);
                 val.SetUint64(num);
                 dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
@@ -103,7 +101,7 @@ public:
                 } else if (columns[j].datatype == "ipv4") {
                     rapidjson::Value val(rapidjson::kStringType);
                     char str[INET_ADDRSTRLEN];
-                    uint32_t ipaddr;
+                    uint32_t ipaddr = 0;
 
                     stringToInteger(map_it->second, ipaddr);
                     ipaddr = htonl(ipaddr);
@@ -120,7 +118,7 @@ public:
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
                 } else {
                     rapidjson::Value val(rapidjson::kNumberType);
-                    unsigned long num;
+                    unsigned long num = 0;
                     stringToInteger(map_it->second, num);
                     val.SetUint64(num);
                     dd.AddMember(map_it->first.c_str(), val, dd.GetAllocator());
@@ -630,7 +628,7 @@ public:
         freeReplyObject(reply);
         redisFree(c);
 
-        QueryEngine::QueryParams qp(qid, terms, nMaxChunks,
+        QueryEngine::QueryParams qp(qid, terms, max_chunks_,
             UTCTimestampUsec());
        
         vector<uint64_t> chunk_size;
@@ -761,11 +759,13 @@ public:
 
     }
     
-    QEOpServerImpl(const string & redis_host, uint16_t port, QEOpServerProxy * qosp) :
+    QEOpServerImpl(const string & redis_host, uint16_t port, QEOpServerProxy * qosp,
+                   int max_chunks) :
             hostname_(boost::asio::ip::host_name()),
             redis_host_(redis_host),
             port_(port),
-            qosp_(qosp) {
+            qosp_(qosp),
+            max_chunks_(max_chunks) {
         for (int i=0; i<kConnections+1; i++) {
             cb_proc_fn_[i] = boost::bind(&QEOpServerImpl::CallbackProcess,
                     this, i, _1, _2, _3);
@@ -807,15 +807,15 @@ private:
     tbb::mutex mutex_;
     map<string,QEPipeT*> pipes_;
     int npipes_[kConnections];
-
+    int max_chunks_;
 
 };
 
 QEOpServerProxy::QEOpServerProxy(EventManager *evm, QueryEngine *qe,
-            const string & hostname, uint16_t port) :
+            const string & hostname, uint16_t port, int max_chunks) :
         evm_(evm),
         qe_(qe),
-        impl_(new QEOpServerImpl(hostname, port, this)) {}
+        impl_(new QEOpServerImpl(hostname, port, this, max_chunks)) {}
 
 QEOpServerProxy::~QEOpServerProxy() {}
 

@@ -704,7 +704,7 @@ void ShowDnsEntries::HandleRequest() const {
     for (DnsProto::DnsUpdateSet::const_iterator it = dns_update_set.begin();
          it != dns_update_set.end(); ++it) {
         VmDnsSandesh vmdata;
-        vmdata.vm = (*it)->itf->GetName();
+        vmdata.vm = (*it)->itf->name();
         vmdata.is_floating = ((*it)->floatingIp ? "yes" : "no");
         if ((*it)->xmpp_data) {
             vmdata.virtual_dns = (*it)->xmpp_data->virtual_dns;

@@ -21,7 +21,7 @@
 #include <cfg/discovery_agent.h>
 
 #include <oper/operdb_init.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/multicast.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
@@ -170,7 +170,7 @@ void AgentStatsReq::HandleRequest() const {
     pkt->Response();
 
     FlowStatsResp *flow = new FlowStatsResp();
-    flow->set_flow_active(AgentStats::GetInstance()->GetFlowActive());
+    flow->set_flow_active(FlowTable::GetFlowTableObject()->Size());
     flow->set_flow_created(AgentStats::GetInstance()->GetFlowCreated());
     flow->set_flow_aged(AgentStats::GetInstance()->GetFlowAged());
     flow->set_context(context());

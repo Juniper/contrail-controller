@@ -5,7 +5,7 @@
 #include <cmn/agent_cmn.h>
 #include <boost/uuid/uuid_io.hpp>
 
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include <oper/mirror_table.h>
 #include <oper/vrf.h>
 #include <oper/vrf_assign.h>
@@ -28,7 +28,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
         static_cast<const VrfAssign::VrfAssignKey *>(k);
     VrfAssign *assign = NULL;
 
-    VmPortInterfaceKey intf_key(key->intf_uuid_, "");
+    VmInterfaceKey intf_key(key->intf_uuid_, "");
     Interface *interface = static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->Find(&intf_key, true));
 
@@ -52,6 +52,7 @@ DBEntry *VrfAssignTable::Add(const DBRequest *req) {
     const VrfAssign::VrfAssignKey *key = 
         static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
     VrfAssign *rule = AllocWithKey(key);
+    rule->set_table(this);
     if (rule->interface_.get() == NULL) {
         delete rule;
         return NULL;
@@ -76,7 +77,7 @@ DBTableBase *VrfAssignTable::CreateTable(DB *db, const string &name) {
 }
 
 Interface *VrfAssignTable::FindInterface(const uuid &intf_uuid) {
-    VmPortInterfaceKey key(intf_uuid, "");
+    VmInterfaceKey key(intf_uuid, "");
     return static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
 }
@@ -156,10 +157,6 @@ bool VrfAssign::Change(const DBRequest *req) {
     return ret;
 }
 
-AgentDBTable *VrfAssign::DBToTable() const {
-    return static_cast<AgentDBTable *>(VrfAssignTable::GetInstance());
-}
-
 ///////////////////////////////////////////////////////////////////////////
 // VLAN based VRF Assignment routines
 ///////////////////////////////////////////////////////////////////////////
@@ -184,7 +181,7 @@ void VlanVrfAssign::SetKey(const DBRequestKey *k) {
 bool VlanVrfAssign::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     VrfAssignResp *resp = static_cast<VrfAssignResp *> (sresp);
 
-    if (interface_->GetName().find(name) == std::string::npos) {
+    if (interface_->name().find(name) == std::string::npos) {
         return false;
     }
 
@@ -192,7 +189,7 @@ bool VlanVrfAssign::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     assert(type_ == VrfAssign::VLAN);
 
     data.set_vlan_tag(vlan_tag_);
-    data.set_itf(interface_->GetName());
+    data.set_itf(interface_->name());
     if (vrf_.get()) {
         data.set_vrf(vrf_->GetName());
     } else {

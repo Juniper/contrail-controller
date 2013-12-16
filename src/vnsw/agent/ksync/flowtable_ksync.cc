@@ -30,6 +30,7 @@
 
 #include <pkt/pkt_flow.h>
 #include <oper/agent_types.h>
+#include <uve/stats_collector.h>
 
 FlowTableKSyncObject *FlowTableKSyncObject::singleton_;
 
@@ -39,7 +40,8 @@ FlowTableKSyncObject::FlowTableKSyncObject() :
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
-                  ("Agent::StatsCollector"))) { 
+                  ("Agent::StatsCollector"),
+                  StatsCollector::FlowStatsCollector)) {
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
@@ -48,7 +50,8 @@ FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
                   TaskScheduler::GetInstance()->GetTaskId
-                  ("Agent::StatsCollector"))) {
+                  ("Agent::StatsCollector"),
+                  StatsCollector::FlowStatsCollector)) {
 };
 FlowTableKSyncObject::~FlowTableKSyncObject() {
     TimerManager::DeleteTimer(audit_timer_);
@@ -157,7 +160,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     //If action is NAT and reverse flow entry is not valid
     //then we should wait for the reverse flow to be programmed
-    if (fe_->nat == true && 
+    if ((fe_->nat == true || fe_->data.ecmp == true) &&
         rev_flow && rev_flow->flow_handle == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
@@ -405,9 +408,18 @@ bool FlowTableKSyncEntry::Sync() {
 }
 
 KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
-    NHKSyncEntry *nh = GetNH();
-    if (nh && !nh->IsResolved()) {
-        return nh;
+    //Pick NH from flow entry
+    //We should ideally pick it up from ksync entry once
+    //Sync() api gets called before event notify, similar to
+    //netlink DB entry
+    if (fe_->data.nh_state_.get() && fe_->data.nh_state_->nh()) {
+        NHKSyncObject *nh_object = NHKSyncObject::GetKSyncObject();
+        NHKSyncEntry tmp_nh(fe_->data.nh_state_->nh());
+        NHKSyncEntry *nh =
+            static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        if (nh && !nh->IsResolved()) {
+            return nh;
+        }
     }
     return NULL;
 }
@@ -462,17 +474,21 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                         vflow_entry->fe_key.key_proto,
                         ntohs(vflow_entry->fe_key.key_src_port),
                         ntohs(vflow_entry->fe_key.key_dst_port));
-            FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
-            flow->flow_handle = flow_idx;
-            flow->short_flow = true;
-            flow->data.source_vn = *FlowHandler::UnknownVn();
-            flow->data.dest_vn = *FlowHandler::UnknownVn();
-            SecurityGroupList empty_sg_id_l;
-            flow->data.source_sg_id_l = empty_sg_id_l;
-            flow->data.dest_sg_id_l = empty_sg_id_l;
-            AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD entry "
-                            " to short flow");
-            FlowTable::GetFlowTableObject()->Add(flow.get(), NULL);
+            FlowEntry *flow_p = FlowTable::GetFlowTableObject()->Find(key);
+            if (flow_p == NULL) {
+                /* Create Short flow only for non-existing flows. */
+                FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
+                flow->flow_handle = flow_idx;
+                flow->short_flow = true;
+                flow->data.source_vn = *FlowHandler::UnknownVn();
+                flow->data.dest_vn = *FlowHandler::UnknownVn();
+                SecurityGroupList empty_sg_id_l;
+                flow->data.source_sg_id_l = empty_sg_id_l;
+                flow->data.dest_sg_id_l = empty_sg_id_l;
+                AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD entry "
+                                " to short flow");
+                FlowTable::GetFlowTableObject()->Add(flow.get(), NULL);
+            }
 
         }
     }

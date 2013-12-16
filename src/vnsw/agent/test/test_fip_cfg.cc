@@ -17,7 +17,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
-#include <oper/interface.h>
+#include <oper/interface_common.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
@@ -190,7 +190,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.2"), 32));
     EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
 
-    EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             "enet1", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
 
@@ -231,7 +231,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
 
-    EthInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(), "enet1");
+    PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(), "enet1");
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortInactive(input, 0));

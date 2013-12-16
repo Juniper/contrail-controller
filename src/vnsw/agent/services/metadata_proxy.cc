@@ -20,7 +20,7 @@
 #include "io/event_manager.h"
 #include "cmn/agent_cmn.h"
 #include "oper/mirror_table.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "pkt/pkt_handler.h"
 #include "services/services_types.h"
 #include "services/services_init.h"

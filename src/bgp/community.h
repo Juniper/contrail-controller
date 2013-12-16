@@ -104,7 +104,6 @@ public:
     virtual ~CommunityDB() { }
 
 private:
-    BgpServer *server_;
 };
 
 struct ExtCommunitySpec : public BgpAttribute {
@@ -258,7 +257,6 @@ public:
             const ExtCommunity::ExtCommunityList &tunnel_encaps);
 
 private:
-    BgpServer *server_;
 };
 
 #endif

@@ -165,6 +165,9 @@ main(int argc, char *argv[]) {
         ("start-time",
          opt::value<uint64_t>(),
          "Lowest start time for queries")
+        ("max-chunks",
+         opt::value<int>()->default_value(16),
+         "Max number of tasks used for a query")
         ;
     opt::variables_map var_map;
     opt::store(opt::parse_command_line(argc, argv, desc), var_map);
@@ -217,6 +220,7 @@ main(int argc, char *argv[]) {
     LOG(INFO, "http-server-port " << var_map["http-server-port"].as<int>());
     LOG(INFO, "Endpoint " << dss_ep);
     LOG(INFO, "Collectors " << var_map.count("collectors"));
+    LOG(INFO, "Max-chunks " << var_map["max-chunks"].as<int>());
 
     // Initialize Sandesh
     Sandesh::InitGenerator(
@@ -253,20 +257,23 @@ main(int argc, char *argv[]) {
     if (cassandra_port == 0) {
         qe = new QueryEngine(&evm,
             var_map["redis-ip"].as<string>(),
-            var_map["redis-port"].as<int>());
+            var_map["redis-port"].as<int>(),
+            var_map["max-chunks"].as<int>());
     } else if (var_map.count("start-time")) { 
         qe = new QueryEngine(&evm,
             cassandra_ip,
             cassandra_port,
             var_map["redis-ip"].as<string>(),
             var_map["redis-port"].as<int>(),
+            var_map["max-chunks"].as<int>(),
             var_map["start-time"].as<uint64_t>());
     } else {
         qe = new QueryEngine(&evm,
             cassandra_ip,
             cassandra_port,
             var_map["redis-ip"].as<string>(),
-            var_map["redis-port"].as<int>());
+            var_map["redis-port"].as<int>(),
+            var_map["max-chunks"].as<int>());
     }
     (void) qe;
 

@@ -27,7 +27,7 @@ class MetadataProvisioner(object):
                  linklocal_service_name=self._args.linklocal_service_name,
                  linklocal_service_ip=self._args.linklocal_service_ip,
                  linklocal_service_port=self._args.linklocal_service_port,
-                 ip_fabric_DNS_service_name=self._args.ipfabric_service_name,
+                 ip_fabric_DNS_service_name=self._args.ipfabric_dns_service_name,
                  ip_fabric_service_port=self._args.ipfabric_service_port,
                  ip_fabric_service_ip=[self._args.ipfabric_service_ip])
 
@@ -45,8 +45,11 @@ class MetadataProvisioner(object):
 
         current_linklocal=current_config.get_linklocal_services()
         encapsulation_priorities=current_config.get_encapsulation_priorities()
-        evpn_status=current_config.get_evpn_status()
-        obj = current_linklocal.__dict__
+        vxlan_network_identifier_mode=current_config.get_vxlan_network_identifier_mode()
+        if current_linklocal is None:
+            obj = {'linklocal_service_entry': []}
+        else:
+            obj = current_linklocal.__dict__
         new_linklocal=[]
         for key, value in obj.iteritems():
             found=False
@@ -65,7 +68,7 @@ class MetadataProvisioner(object):
         
         conf_obj=GlobalVrouterConfig(linklocal_services=obj,
                                      encapsulation_priorities=encapsulation_priorities,
-                                     evpn_status=evpn_status)
+                                     vxlan_network_identifier_mode=vxlan_network_identifier_mode)
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
 
@@ -79,7 +82,7 @@ class MetadataProvisioner(object):
                                         --linklocal_service_name name
                                         --linklocal_service_ip 1.2.3.4
                                         --linklocal_service_port 1234
-                                        --ipfabric_service_name fabric_name
+                                        --ipfabric_dns_service_name fabric_server_name
                                         --ipfabric_service_ip 10.1.1.1
                                         --ipfabric_service_port 5775
                                         --oper <add | delete>
@@ -96,10 +99,10 @@ class MetadataProvisioner(object):
         defaults = {
             'api_server_ip': '127.0.0.1',
             'api_server_port': '8082',
-            'linklocal_service_name': [],
-            'linklocal_service_ip': [],
+            'linklocal_service_name': '',
+            'linklocal_service_ip': '',
             'linklocal_service_port': 0,
-            'ipfabric_service_name': [],
+            'ipfabric_dns_service_name': '',
             'ipfabric_service_ip': [],
             'ipfabric_service_port': 0,
             'oper': 'add',
@@ -107,7 +110,7 @@ class MetadataProvisioner(object):
         ksopts = {
             'admin_user': 'user1',
             'admin_password': 'password1',
-            'admin_tenant_name': 'default-domain'
+            'admin_tenant_name': 'admin'
         }
 
         if args.conf_file:
@@ -140,16 +143,21 @@ class MetadataProvisioner(object):
         parser.add_argument(
             "--linklocal_service_port", type=int, help="Link Local Service Port")
         parser.add_argument(
-            "--ipfabric_service_name", help="IP Fabric Service Name")
+            "--ipfabric_dns_service_name", help="IP Fabric DNS Service Name")
         parser.add_argument(
             "--ipfabric_service_ip", help="IP Fabric Service IP")
         parser.add_argument(
             "--ipfabric_service_port", type=int, help="IP Fabric Service Port")
         parser.add_argument(
-            "--oper", default='add',
-            help="Provision operation to be done(add or delete)")
+            "--oper", default='add', help="Provision operation to be done(add or delete)")
+        parser.add_argument(
+            "--admin_user", help="Name of keystone admin user")
+        parser.add_argument(
+            "--admin_password", help="Password of keystone admin user")
 
         self._args = parser.parse_args(remaining_argv)
+        if not self._args.linklocal_service_name:
+            parser.error('linklocal_service_name is required')
 
     # end _parse_args
 

@@ -16,7 +16,7 @@
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "route/route.h"
@@ -91,7 +91,7 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        EthInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                                 eth_name_, Agent::GetInstance()->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
@@ -812,7 +812,7 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     DBTableBase::ListenerId id = 
         Agent::GetInstance()->GetNextHopTable()->Register(
                boost::bind(&RouteTest::NhListener, this, _1, _2));
-    InterfaceNHKey key(new VmPortInterfaceKey(MakeUuid(1), ""), false, InterfaceNHFlags::INET4);
+    InterfaceNHKey key(new VmInterfaceKey(MakeUuid(1), ""), false, InterfaceNHFlags::INET4);
     NextHop *nh = 
         static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     TestNhState *state = new TestNhState();
@@ -1034,10 +1034,11 @@ TEST_F(RouteTest, ScaleRouteAddDel_3) {
         label++;
     }
 
+    SecurityGroupList sg_id_list;
     for (uint32_t i = 0; i < 1000; i++) {    
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, vrf_name_, remote_vm_ip_, 32, 
-                                comp_nh_list, -1, "test");
+                                comp_nh_list, -1, "test", sg_id_list);
         DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     }
     client->WaitForIdle(5);
@@ -1063,10 +1064,12 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     }
 
     uint32_t repeat = 1000;
+    SecurityGroupList sg_id_list;
+    sg_id_list.push_back(1);
     for (uint32_t i = 0; i < repeat; i++) {    
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddRemoteVmRouteReq(NULL, vrf_name_, remote_vm_ip_, 32, 
-                                comp_nh_list, -1, "test");
+                                comp_nh_list, -1, "test", sg_id_list);
         if (i != (repeat - 1)) {
             DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
         }
@@ -1076,6 +1079,8 @@ TEST_F(RouteTest, ScaleRouteAddDel_4) {
     Inet4UnicastRouteEntry *rt = RouteGet(vrf_name_, remote_vm_ip_, 32);
     EXPECT_TRUE(rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
     EXPECT_TRUE(rt->GetActiveNextHop()->IsDeleted() == false);
+    const SecurityGroupList &sg = rt->GetActivePath()->GetSecurityGroupList();
+    EXPECT_TRUE(sg[0] == 1);
 
     DeleteRoute(NULL, vrf_name_, remote_vm_ip_, 32);
     EXPECT_FALSE(RouteFind(vrf_name_, remote_vm_ip_, 32));

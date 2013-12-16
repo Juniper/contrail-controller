@@ -51,6 +51,7 @@ _SVC_VN_RIGHT = "svc-vn-right"
 _MGMT_STR = "management"
 _LEFT_STR = "left"
 _RIGHT_STR = "right"
+_OTHER_STR = "other"
 
 _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
             _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
@@ -313,10 +314,6 @@ class SvcMonitor(object):
     # end _get_vn_id
 
     def _set_svc_vm_if_properties(self, vmi_obj, vn_obj):
-        mgmt_vn = None
-        left_vn = None
-        right_vn = None
-
         # confirm service vm by checking reference to service instance
         vm_obj = self._vnc_lib.virtual_machine_read(
             fq_name_str=vmi_obj.parent_name)
@@ -328,24 +325,67 @@ class SvcMonitor(object):
         if vmi_obj.get_virtual_machine_interface_properties() is not None:
             return
 
+        # get service instance
         fq_name = si_list[0]['to']
         si_obj = self._vnc_lib.service_instance_read(fq_name=fq_name)
         si_props = si_obj.get_service_instance_properties()
-        if si_props is not None:
-            mgmt_vn = si_props.get_management_virtual_network()
-            left_vn = si_props.get_left_virtual_network()
-            right_vn = si_props.get_right_virtual_network()
+        si_if_list = si_props.get_interface_list()
+        si_if = None
 
+        # get service template
+        st_list = si_obj.get_service_template_refs()
+        if st_list is not None:
+            fq_name = st_list[0]['to']
+            st_obj = self._vnc_lib.service_template_read(fq_name=fq_name)
+        st_props = st_obj.get_service_template_properties()
+        st_if_list = st_props.get_interface_type()
+
+        # set interface type
         vn_fq_name_str = vn_obj.get_fq_name_str()
-        if (vn_obj.name == _SVC_VN_MGMT) or (vn_fq_name_str == mgmt_vn):
-            if_type = _MGMT_STR
-        elif (vn_obj.name == _SVC_VN_LEFT) or (vn_fq_name_str == left_vn):
-            if_type = _LEFT_STR
-        elif (vn_obj.name == _SVC_VN_RIGHT) or (vn_fq_name_str == right_vn):
-            if_type = _RIGHT_STR
+        for idx in range(0, len(st_if_list)):
+            st_if = st_if_list[idx]
+            itf_type = st_if.service_interface_type
 
-        if_properties = VirtualMachineInterfacePropertiesType(if_type)
-        vmi_obj.set_virtual_machine_interface_properties(if_properties)
+            si_if = None
+            if si_if_list:
+                si_if = si_if_list[idx]
+                si_vn_str = si_if.get_virtual_network()
+            else:
+                funcname = "get_" + itf_type + "_virtual_network"
+                func = getattr(si_props, funcname)
+                si_vn_str = func()
+
+            if (((itf_type == _MGMT_STR) and (vn_obj.name == _SVC_VN_MGMT))
+                    or ((itf_type == _LEFT_STR) and
+                        (vn_obj.name == _SVC_VN_LEFT))
+                    or ((itf_type == _RIGHT_STR) and
+                        (vn_obj.name == _SVC_VN_RIGHT))
+                    or ((si_vn_str == vn_fq_name_str))):
+                if_properties = VirtualMachineInterfacePropertiesType(itf_type)
+                vmi_obj.set_virtual_machine_interface_properties(if_properties)
+                break
+
+        # set static routes
+        if st_if.get_static_route_enable():
+            static_routes = si_if.get_static_routes()
+            try:
+                domain_name, proj_name = si_obj.get_parent_fq_name()
+                rt_name = si_obj.uuid + ' ' + str(idx)
+                rt_fq_name = [domain_name, proj_name, rt_name]
+                rt_obj = self._vnc_lib.interface_route_table_read(
+                    fq_name=rt_fq_name)
+                rt_obj.set_interface_route_table_routes(static_routes)
+            except NoIdError:
+                proj_obj = self._vnc_lib.project_read(
+                    fq_name=si_obj.get_parent_fq_name())
+                rt_obj = InterfaceRouteTable(
+                    name=rt_name,
+                    parent_obj=proj_obj,
+                    interface_route_table_routes=static_routes)
+                self._vnc_lib.interface_route_table_create(rt_obj)
+            vmi_obj.set_interface_route_table(rt_obj)
+
+        # remove security groups and update vmi
         vmi_obj.set_security_group_list([])
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
@@ -359,29 +399,41 @@ class SvcMonitor(object):
         st_props = st_obj.get_service_template_properties()
         if st_props is None:
             return
+        st_if_list = st_props.get_interface_type()
 
+        flavor = st_props.get_flavor()
         image_name = st_props.get_image_name()
-        if_list = st_props.get_interface_type()
+        if image_name is None:
+            self._svc_syslog("Error: Image name not present in %s" %
+                             (st_obj.name))
+            return
+
         si_props = si_obj.get_service_instance_properties()
         max_instances = si_props.get_scale_out().get_max_instances()
-        if image_name is None:
-            self._svc_syslog("Image name not present in %s" % (st_obj.name))
+        si_if_list = si_props.get_interface_list()
+        if si_if_list and (len(si_if_list) != len(st_if_list)):
+            self._svc_syslog("Error: IF mismatch template %s instance %s" %
+                             (len(st_if_list), len(si_if_list)))
             return
 
         # check and create service virtual networks
         nics = []
-        nic_mgmt = None
-        nic_left = None
-        nic_right = None
-
         proj_fq_name = si_obj.get_parent_fq_name()
         proj_obj = self._vnc_lib.project_read(fq_name=proj_fq_name)
-        for vm_if in if_list:
+        for idx in range(0, len(st_if_list)):
             nic = {}
-            itf_type = vm_if.service_interface_type
-            funcname = "get_" + itf_type + "_virtual_network"
-            func = getattr(si_props, funcname)
-            vn_fq_name_str = func()
+            st_if = st_if_list[idx]
+            itf_type = st_if.service_interface_type
+
+            # set vn id
+            if si_if_list:
+                si_if = si_if_list[idx]
+                vn_fq_name_str = si_if.get_virtual_network()
+            else:
+                funcname = "get_" + itf_type + "_virtual_network"
+                func = getattr(si_props, funcname)
+                vn_fq_name_str = func()
+
             vn_fq_name = None
             if vn_fq_name_str:
                 domain, proj, vn_name = vn_fq_name_str.split(':')
@@ -392,9 +444,10 @@ class SvcMonitor(object):
                                     _SVC_VNS[itf_type][1])
             if vn_id is None:
                 continue
-
             nic['net-id'] = vn_id
-            if vm_if.shared_ip:
+
+            # set shared ip
+            if st_if.shared_ip:
                 try:
                     iip_dict = self._svc_si_cf.get(si_obj.get_fq_name_str())
                     iip_uuid_str = itf_type + '-iip-uuid'
@@ -404,20 +457,8 @@ class SvcMonitor(object):
                     self._svc_syslog(
                         "Error: Shared IP not found in db for %s" % (itf_type))
 
-            if itf_type == _MGMT_STR:
-                nic_mgmt = nic
-            elif itf_type == _LEFT_STR:
-                nic_left = nic
-            elif itf_type == _RIGHT_STR:
-                nic_right = nic
-
-        # store nics in order [mgmt, left, right]
-        if nic_mgmt:
-            nics.append(nic_mgmt)
-        if nic_left:
-            nics.append(nic_left)
-        if nic_right:
-            nics.append(nic_right)
+            # add to nic list
+            nics.append(nic)
 
         # create and launch vm
         vm_refs = si_obj.get_virtual_machine_back_refs()
@@ -435,7 +476,7 @@ class SvcMonitor(object):
                 vm_uuid = vm_ref['uuid']
             else:
                 vm = self._create_svc_vm(instance_name, image_name,
-                                         nics, proj_obj.name)
+                                         nics, proj_obj.name, flavor)
                 if vm is None:
                     continue
                 vm_uuid = vm.id
@@ -648,6 +689,16 @@ class SvcMonitor(object):
         self._delete_svc_instance_vm(vm_uuid, proj_name, si_fq_str=si_fq_str)
     # end _delmsg_service_instance_virtual_machine
 
+    def _delmsg_virtual_machine_interface_route_table(self, idents):
+        rt_fq_str = idents['interface-route-table']
+
+        rt_obj = self._vnc_lib.interface_route_table_read(
+            fq_name_str=rt_fq_str)
+        vmi_list = rt_obj.get_virtual_machine_interface_back_refs()
+        if vmi_list is None:
+            self._vnc_lib.interface_route_table_delete(id=rt_obj.uuid)
+    # end _delmsg_virtual_machine_interface_route_table
+
     def _addmsg_virtual_machine_interface_virtual_network(self, idents):
         vmi_fq_str = idents['virtual-machine-interface']
         vn_fq_str = idents['virtual-network']
@@ -688,6 +739,7 @@ class SvcMonitor(object):
 
         # set service instance property
         self._set_svc_vm_if_properties(vmi_obj, vn_obj)
+
     # end _addmsg_virtual_machine_interface_virtual_network
 
     def _addmsg_service_instance_service_template(self, idents):
@@ -769,9 +821,14 @@ class SvcMonitor(object):
         return self._nova[proj_name]
     # end _novaclient_get
 
-    def _create_svc_vm(self, vm_name, image_name, nics, proj_name):
+    def _create_svc_vm(self, vm_name, image_name, nics,
+                       proj_name, flavor_name):
         n_client = self._novaclient_get(proj_name)
-        flavor = n_client.flavors.find(ram=4096)
+        if flavor_name:
+            flavor = n_client.flavors.find(name=flavor_name)
+        else:
+            flavor = n_client.flavors.find(ram=4096)
+
         image = ''
         try:
             image = n_client.images.find(name=image_name)
@@ -1098,6 +1155,7 @@ def run_svc_monitor(args=None):
     cleanup_task = gevent.spawn(launch_cleanup, monitor)
     gevent.joinall([ssrc_task, timer_task, cleanup_task])
 # end run_svc_monitor
+
 
 def main(args_str=None):
     if not args_str:

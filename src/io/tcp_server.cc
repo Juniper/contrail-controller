@@ -14,9 +14,7 @@
 #include "io/io_log.h"
 
 using namespace boost::asio::ip;
-using boost::system::error_code;
 using namespace std;
-using namespace tbb;
 
 TcpServer::TcpServer(EventManager *evm)
     : evm_(evm) {
@@ -53,7 +51,7 @@ void TcpServer::Initialize(short port) {
     }
 
     tcp::endpoint localaddr(tcp::v4(), port);
-    error_code ec;
+    boost::system::error_code ec;
     acceptor_->open(localaddr.protocol(), ec);
     if (ec) {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, "TCP open: " << ec.message());
@@ -103,8 +101,8 @@ void TcpServer::Initialize(short port) {
 }
 
 void TcpServer::Shutdown() {
-    mutex::scoped_lock lock(mutex_);
-    error_code ec;
+    tbb::mutex::scoped_lock lock(mutex_);
+    boost::system::error_code ec;
 
     if (acceptor_) {
         acceptor_->close(ec);
@@ -119,7 +117,7 @@ void TcpServer::Shutdown() {
 // Close and remove references from all sessions. The application code must
 // make sure it no longer holds any references to these sessions.
 void TcpServer::ClearSessions() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     SessionSet refs;
     session_map_.clear();
     refs.swap(session_ref_);
@@ -139,14 +137,14 @@ TcpSession *TcpServer::CreateSession() {
     Socket *socket = new Socket(*evm_->io_service());
     TcpSession *session = AllocSession(socket);
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         session_ref_.insert(TcpSessionPtr(session));
     }
     return session;
 }
 
 void TcpServer::OnSessionClose(TcpSession *session) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     // CloseSessions removes all the sessions from the map and calls close on
     // each individually.
     if (session_map_.empty()) {
@@ -171,7 +169,7 @@ void TcpServer::DeleteSession(TcpSession *session) {
     // session.
     session->Close();
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         assert(session->refcount_);
         session_ref_.erase(TcpSessionPtr(session));
         if (session_ref_.empty()) {
@@ -185,14 +183,14 @@ void TcpServer::DeleteSession(TcpSession *session) {
 // session object has actually been freed yet as ASIO callbacks can be in
 // progress.
 void TcpServer::WaitForEmpty() {
-    std::unique_lock<tbb::mutex> lock(mutex_);
+    tbb::interface5::unique_lock<tbb::mutex> lock(mutex_);
     while (!session_ref_.empty()) {
         cond_var_.wait(lock);
     }
 }
 
 void TcpServer::AsyncAccept() {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (acceptor_ == NULL) {
         return;
     }
@@ -203,11 +201,11 @@ void TcpServer::AsyncAccept() {
 }
 
 int TcpServer::GetPort() const {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (acceptor_.get() == NULL) {
         return -1;
     }
-    error_code ec;
+    boost::system::error_code ec;
     tcp::endpoint ep = acceptor_->local_endpoint(ec);
     if (ec) {
         return -1;
@@ -216,13 +214,13 @@ int TcpServer::GetPort() const {
 }
 
 bool TcpServer::HasSessions() const {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     return !session_map_.empty();
 }
 
 bool TcpServer::HasSessionReadAvailable() const {
-    mutex::scoped_lock lock(mutex_);
-    error_code error;
+    tbb::mutex::scoped_lock lock(mutex_);
+    boost::system::error_code error;
     if (so_accept_->available(error) > 0) {
         return  true;
     }
@@ -237,11 +235,11 @@ bool TcpServer::HasSessionReadAvailable() const {
 }
 
 TcpServer::Endpoint TcpServer::LocalEndpoint() const {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     if (acceptor_.get() == NULL) {
         return Endpoint();
     }
-    error_code ec;
+    boost::system::error_code ec;
     Endpoint local = acceptor_->local_endpoint(ec);
     if (ec) {
         return Endpoint();
@@ -262,7 +260,7 @@ bool TcpServer::AcceptSession(TcpSession *session) {
 void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
         const boost::system::error_code& error) {
     tcp::endpoint remote;
-    error_code ec;
+    boost::system::error_code ec;
     TcpSessionPtr session;
     auto_ptr<Socket> socket;
 
@@ -307,7 +305,7 @@ void TcpServer::AcceptHandlerInternal(TcpServerPtr server,
     }
 
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         session_ref_.insert(session);
         session_map_.insert(make_pair(remote, session.get()));
     }
@@ -326,7 +324,7 @@ done:
 }
 
 TcpSession *TcpServer::GetSession(Endpoint remote) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     SessionMap::const_iterator iter = session_map_.find(remote);
     if (iter != session_map_.end()) {
         return iter->second;
@@ -343,7 +341,7 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
         return;
     }
 
-    error_code ec;
+    boost::system::error_code ec;
     Endpoint remote = session->socket()->remote_endpoint(ec);
     if (ec) {
         TCP_SERVER_LOG_INFO(server, TCP_DIR_OUT,
@@ -354,14 +352,14 @@ void TcpServer::ConnectHandler(TcpServerPtr server, TcpSessionPtr session,
 
     SessionMap::iterator loc;
     {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         loc = session_map_.insert(make_pair(remote, session.get()));
     }
 
     // Connected verifies whether the session has been closed or is still
     // active.
     if (!session->Connected(remote)) {
-        mutex::scoped_lock lock(mutex_);
+        tbb::mutex::scoped_lock lock(mutex_);
         session_map_.erase(loc);
         return;
     }
@@ -375,29 +373,37 @@ void TcpServer::Connect(TcpSession *session, Endpoint remote) {
                     TcpSessionPtr(session), boost::asio::placeholders::error));
 }
 
-void TcpServer::GetRxSocketStats(TcpServerSocketStats &socket_stats) {
-    socket_stats.calls = stats_.read_calls;
-    socket_stats.bytes = stats_.read_bytes;
-    if (stats_.read_calls) {
-        socket_stats.average_bytes = stats_.read_bytes/stats_.read_calls;
+void TcpServer::SocketStats::GetRxStats(TcpServerSocketStats &socket_stats) const {
+    socket_stats.calls = read_calls;
+    socket_stats.bytes = read_bytes;
+    if (read_calls) {
+        socket_stats.average_bytes = read_bytes/read_calls;
     }
 }
 
-void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) {
-    socket_stats.calls = stats_.write_calls;
-    socket_stats.bytes = stats_.write_bytes;
-    if (stats_.write_calls) {
-        socket_stats.average_bytes = stats_.write_bytes/stats_.write_calls;
+void TcpServer::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetRxStats(socket_stats);
+}
+
+void TcpServer::SocketStats::GetTxStats(TcpServerSocketStats &socket_stats) const {
+    socket_stats.calls = write_calls;
+    socket_stats.bytes = write_bytes;
+    if (write_calls) {
+        socket_stats.average_bytes = write_bytes/write_calls;
     }
-    socket_stats.blocked_count = stats_.write_blocked;
+    socket_stats.blocked_count = write_blocked;
     socket_stats.blocked_duration = duration_usecs_to_string(
-        stats_.write_blocked_duration_usecs);
-    if (stats_.write_blocked) {
+        write_blocked_duration_usecs);
+    if (write_blocked) {
         socket_stats.average_blocked_duration =
                  duration_usecs_to_string(
-                     stats_.write_blocked_duration_usecs/
-                     stats_.write_blocked);
+                     write_blocked_duration_usecs/
+                     write_blocked);
     }
+}
+
+void TcpServer::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
+    stats_.GetTxStats(socket_stats);
 }
 
 //
@@ -410,7 +416,7 @@ tbb::mutex TcpServerManager::mutex_;
 // Add a server object to the data base, by creating an intrusive reference
 //
 void TcpServerManager::AddServer(TcpServer *server) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     server_ref_.insert(TcpServerPtr(server));
 }
 
@@ -420,6 +426,6 @@ void TcpServerManager::AddServer(TcpServer *server) {
 // boost::asio, the server object deletion is automatically deferred
 //
 void TcpServerManager::DeleteServer(TcpServer *server) {
-    mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(mutex_);
     server_ref_.erase(TcpServerPtr(server));
 }

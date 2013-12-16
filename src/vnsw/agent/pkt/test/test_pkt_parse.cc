@@ -70,9 +70,9 @@ static void SetupIntf() {
 
 TEST_F(PktParseTest, Stats_1) {
     unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
 
-    TxIpPacket(vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1);
+    TxIpPacket(vnet1->id(), "1.1.1.1", "1.1.1.2", 1);
     client->WaitForIdle();
     EXPECT_EQ(AgentStats::GetInstance()->GetPktExceptions(), (exception_count + 1));
 }
@@ -81,11 +81,11 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
     unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     unsigned int drop_count = AgentStats::GetInstance()->GetPktDropped();
     unsigned int err_count = AgentStats::GetInstance()->GetPktInvalidAgentHdr();
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
 
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt->AddAgentHdr(vnet1->id(), 0);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
@@ -114,11 +114,11 @@ TEST_F(PktParseTest, InvalidIntf_1) {
 TEST_F(PktParseTest, Arp_1) {
     unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t arp_count = GetPktModuleCount(PktHandler::ARP);
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
 
     PktGen *pkt = new PktGen();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt->AddAgentHdr(vnet1->id(), 0);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x806);
     pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
@@ -133,12 +133,12 @@ TEST_F(PktParseTest, Arp_1) {
 TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t drop_count = GetPktModuleCount(PktHandler::INVALID);
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
 
     // Packet with VLAN header 0x8100
     PktGen *pkt1 = new PktGen();
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt1->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt1->AddAgentHdr(vnet1->id(), 0);
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
@@ -147,7 +147,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt2->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt2->AddAgentHdr(vnet1->id(), 0);
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
@@ -156,7 +156,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt3->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt3->AddAgentHdr(vnet1->id(), 0);
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
@@ -165,7 +165,7 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt4->AddAgentHdr(vnet1->GetInterfaceId(), 0);
+    pkt4->AddAgentHdr(vnet1->id(), 0);
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
@@ -179,12 +179,12 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
 TEST_F(PktParseTest, NonIp_On_Eth_1) {
     unsigned int exception_count = AgentStats::GetInstance()->GetPktExceptions();
     uint32_t drop_count = GetPktModuleCount(PktHandler::INVALID);
-    EthInterface *eth = EthInterfaceGet("vnet0");
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
 
     // Packet with VLAN header 0x8100
     PktGen *pkt1 = new PktGen();
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt1->AddAgentHdr(eth->GetInterfaceId(), 0);
+    pkt1->AddAgentHdr(eth->id(), 0);
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
@@ -193,7 +193,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt2->AddAgentHdr(eth->GetInterfaceId(), 0);
+    pkt2->AddAgentHdr(eth->id(), 0);
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
@@ -202,7 +202,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt3->AddAgentHdr(eth->GetInterfaceId(), 0);
+    pkt3->AddAgentHdr(eth->id(), 0);
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
@@ -211,7 +211,7 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt4->AddAgentHdr(eth->GetInterfaceId(), 0);
+    pkt4->AddAgentHdr(eth->id(), 0);
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
@@ -299,25 +299,25 @@ static bool ValidateIpPktInfo(PktInfo *pkt_info, const char *sip,
 }
 
 TEST_F(PktParseTest, IP_On_Vnet_1) {
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
 
     pkt->Reset();
-    MakeIpPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
+    MakeIpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", 1, 0, 0));
 
     pkt->Reset();
-    MakeUdpPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
+    MakeUdpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", IPPROTO_UDP, 
                                   1, 2));
 
     pkt->Reset();
-    MakeTcpPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
+    MakeTcpPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "1.1.1.1", "1.1.1.2", IPPROTO_TCP, 
@@ -325,36 +325,36 @@ TEST_F(PktParseTest, IP_On_Vnet_1) {
 }
 
 TEST_F(PktParseTest, IP_On_Eth_1) {
-    EthInterface *eth = EthInterfaceGet("vnet0");
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
 
     pkt->Reset();
-    MakeIpPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
+    MakeIpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 1, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
 
     pkt->Reset();
-    MakeUdpPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
+    MakeUdpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 2, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
 
     pkt->Reset();
-    MakeTcpPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
+    MakeTcpPacket(pkt, eth->id(), "1.1.1.1", "1.1.1.2", 1, 2, 3, -1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
 }
 
 TEST_F(PktParseTest, GRE_On_Vnet_1) {
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
 
     pkt->Reset();
-    MakeIpMplsPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1,
+    MakeIpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                      "10.10.10.10", "11.11.11.11", 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -362,7 +362,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
     EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1,
+    MakeUdpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                       "10.10.10.10", "11.11.11.11", 1, 2, 2);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -370,7 +370,7 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
     EXPECT_EQ(pkt_info.tunnel.label, 0xFFFFFFFF);
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, vnet1->GetInterfaceId(), "1.1.1.1", "1.1.1.2", 1,
+    MakeUdpMplsPacket(pkt, vnet1->id(), "1.1.1.1", "1.1.1.2", 1,
                       "10.10.10.10", "11.11.11.11", 1, 2, 3);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -379,47 +379,47 @@ TEST_F(PktParseTest, GRE_On_Vnet_1) {
 }
 
 TEST_F(PktParseTest, GRE_On_Enet_1) {
-    EthInterface *eth = EthInterfaceGet("vnet0");
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
 
     pkt->Reset();
-    MakeIpMplsPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "10.1.1.1",
-                     vnet1->GetLabel(), "10.10.10.10", "11.11.11.11", 1, 1);
+    MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                     vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11", 1, 0, 0));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->GetLabel());
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
 
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "10.1.1.1",
-                      vnet1->GetLabel(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+    MakeUdpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11",
                                   IPPROTO_UDP, 1, 2));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->GetLabel());
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
 
     pkt->Reset();
-    MakeTcpMplsPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "10.1.1.1",
-                      vnet1->GetLabel(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+    MakeTcpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_TRUE(ValidateIpPktInfo(&pkt_info, "10.10.10.10", "11.11.11.11",
                                   IPPROTO_TCP, 1, 2));
-    EXPECT_EQ(pkt_info.tunnel.label, vnet1->GetLabel());
+    EXPECT_EQ(pkt_info.tunnel.label, vnet1->label());
 }
 
 TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
-    EthInterface *eth = EthInterfaceGet("vnet0");
-    VmPortInterface *vnet1 = VmPortInterfaceGet(1);
+    PhysicalInterface *eth = EthInterfaceGet("vnet0");
+    VmInterface *vnet1 = VmInterfaceGet(1);
     PktGen *pkt = new PktGen();
     PktInfo pkt_info;
 
     // Invalid Label
     pkt->Reset();
-    MakeIpMplsPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "10.1.1.1",
+    MakeIpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.1",
                      1000, "10.10.10.10", "11.11.11.11", 1, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -428,8 +428,8 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
 
     // Invalid IP-DA
     pkt->Reset();
-    MakeUdpMplsPacket(pkt, eth->GetInterfaceId(), "1.1.1.1", "10.1.1.2",
-                      vnet1->GetLabel(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
+    MakeUdpMplsPacket(pkt, eth->id(), "1.1.1.1", "10.1.1.2",
+                      vnet1->label(), "10.10.10.10", "11.11.11.11", 1, 2, 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
     EXPECT_EQ(pkt_info.type, PktType::INVALID);
@@ -438,11 +438,11 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Invalid Protocol in GRE header
     pkt->Reset();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(eth->GetInterfaceId(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
     pkt->AddGreHdr(0x800);
-    pkt->AddMplsHdr(vnet1->GetLabel(), true);
+    pkt->AddMplsHdr(vnet1->label(), true);
     pkt->AddIpHdr("1.1.1.1", "2.2.2.2", 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();
@@ -452,12 +452,12 @@ TEST_F(PktParseTest, Invalid_GRE_On_Enet_1) {
     // Pkt with MPLS Label stack
     pkt->Reset();
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
-    pkt->AddAgentHdr(eth->GetInterfaceId(), AGENT_TRAP_FLOW_MISS);
+    pkt->AddAgentHdr(eth->id(), AGENT_TRAP_FLOW_MISS);
     pkt->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x800);
     pkt->AddIpHdr("1.1.1.1", "10.1.1.1", IPPROTO_GRE);
     pkt->AddGreHdr();
-    pkt->AddMplsHdr(vnet1->GetLabel(), false);
-    pkt->AddMplsHdr(vnet1->GetLabel(), true);
+    pkt->AddMplsHdr(vnet1->label(), false);
+    pkt->AddMplsHdr(vnet1->label(), true);
     pkt->AddIpHdr("1.1.1.1", "2.2.2.2", 1);
     TestPkt(&pkt_info, pkt);
     client->WaitForIdle();

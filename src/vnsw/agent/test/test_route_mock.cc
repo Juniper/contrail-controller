@@ -17,7 +17,7 @@
 #include "pkt/pkt_init.h"
 #include "services/services_init.h"
 #include "ksync/ksync_init.h"
-#include "oper/interface.h"
+#include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "route/route.h"

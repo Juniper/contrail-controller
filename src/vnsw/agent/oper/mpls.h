@@ -58,7 +58,6 @@ public:
     static void DeleteReq(uint32_t label);
     static void Delete(uint32_t label);
 
-    AgentDBTable *DBToTable() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<MplsLabel>::GetRefCount();
     }
@@ -93,14 +92,14 @@ public:
                   InterfaceNHFlags::Type type) : 
         AgentData(), 
         nh_key(new InterfaceNHKey
-               (new VirtualHostInterfaceKey(nil_uuid(), intf_name), policy,
+               (new VirtualHostInterfaceKey(intf_name), policy,
                type)) {
     }
 
     MplsLabelData(const uuid &intf_uuid, bool policy, 
                   InterfaceNHFlags::Type type) : 
         AgentData(), 
-        nh_key(new InterfaceNHKey(new VmPortInterfaceKey(intf_uuid, ""), 
+        nh_key(new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""), 
                policy, type)) {
     }
 

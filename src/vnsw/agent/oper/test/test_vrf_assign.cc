@@ -14,11 +14,11 @@ void RouterIdDepInit() {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmPortInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
+    VmInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
 }
 
 static void NovaDel(int id) {
-    VmPortInterface::NovaDel(MakeUuid(id));
+    VmInterface::NovaDel(MakeUuid(id));
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
@@ -32,11 +32,11 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmPortInterfaceKey *key = new VmPortInterfaceKey(AgentKey::RESYNC,
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmPortInterfaceData *cfg_data = new VmPortInterfaceData();
+    VmInterfaceData *cfg_data = new VmInterfaceData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 

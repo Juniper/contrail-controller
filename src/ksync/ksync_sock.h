@@ -19,6 +19,8 @@
 #include "vr_types.h"
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
+#define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
+#define KSYNC_ACK_WAIT_THRESHOLD  200
 class KSyncEntry;
 
 /* Base class to hold sandesh context information which is passed to 
@@ -85,6 +87,9 @@ public:
     AgentSandeshContext *GetSandeshContext() { return ctx_; }
     IoContextWorkQId GetWorkQId() { return work_q_id_; }
 
+    char *GetMsg() { return msg_; }
+    uint32_t GetMsgLen() { return msg_len_; }
+
     boost::intrusive::set_member_hook<> node_;
 
 protected:
@@ -141,11 +146,17 @@ public:
     static uint32_t GetPid() {return pid_;};
     static int GetNetlinkFamilyId() {return vnsw_netlink_family_id_;};
     static void SetNetlinkFamilyId(int id) {vnsw_netlink_family_id_ = id;};
-    int AllocSeqNo() { 
-        int seq = seqno_++;
+    int AllocSeqNo(bool is_uve) { 
+        int seq;
+        if (is_uve) {
+            seq = uve_seqno_.fetch_and_add(2);
+        } else {
+            seq = seqno_.fetch_and_add(2);
+            seq |= KSYNC_DEFAULT_Q_ID_SEQ;
+        }
         return seq;
     }
-    void GenericSend(int msg_len, char *msg, IoContext *ctx);
+    void GenericSend(IoContext *ctx);
     static AgentSandeshContext *GetAgentSandeshContext() {
         return agent_sandesh_ctx_;
     }
@@ -158,9 +169,10 @@ protected:
     static void SetSockTableEntry(int i, KSyncSock *sock);
     // Tree of all KSyncEntries pending ack from Netlink socket
     Tree wait_tree_;
+    WorkQueue<IoContext *> *async_send_queue_;
     tbb::mutex mutex_;
 
-    WorkQueue<char *> *work_queue_[IoContext::MAX_WORK_QUEUES];
+    WorkQueue<char *> *receive_work_queue[IoContext::MAX_WORK_QUEUES];
 private:
     // Read handler registered with boost::asio. Demux done based on seqno_
     void ReadHandler(const boost::system::error_code& error,
@@ -173,7 +185,12 @@ private:
     bool ProcessKernelData(char *data);
     virtual bool Validate(char *data) = 0;
     bool ValidateAndEnqueue(char *data);
-    void SendAsyncImpl(int msg_len, char *msg, IoContext *ioc);
+    bool SendAsyncImpl(IoContext *ioc);
+
+    bool SendAsyncStart() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return (wait_tree_.size() <= KSYNC_ACK_WAIT_THRESHOLD);
+    }
 
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
@@ -193,6 +210,7 @@ private:
 
     char *rx_buff_;
     tbb::atomic<int> seqno_;
+    tbb::atomic<int> uve_seqno_;
 
     // Debug stats
     int tx_count_;

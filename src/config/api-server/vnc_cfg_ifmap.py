@@ -5,7 +5,7 @@
 """
 Layer that transforms VNC config objects to ifmap representation
 """
-from cfgm_common.discovery import DiscoveryService,IndexAllocator
+from cfgm_common.discovery import DiscoveryService, IndexAllocator
 from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
@@ -916,6 +916,7 @@ class VncRedisClient(object):
 
 class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets/"
+
     def __init__(self, zk_server_ip):
         self._zk_client = DiscoveryService(zk_server_ip)
         self._subnet_allocators = {}
@@ -924,10 +925,10 @@ class VncZkClient(object):
     def create_subnet_allocator(self, subnet, first, last):
         if subnet not in self._subnet_allocators:
             self._subnet_allocators[subnet] = IndexAllocator(
-                 self._zk_client, self._SUBNET_PATH+subnet+'/',
-                 size=last-first, start_idx=first, reverse=True)
+                self._zk_client, self._SUBNET_PATH+subnet+'/',
+                size=last-first, start_idx=first, reverse=True)
     # end create_subnet_allocator
-    
+
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)
     # end _get_subnet_allocator
@@ -936,7 +937,7 @@ class VncZkClient(object):
         allocator = self._get_subnet_allocator(subnet)
         try:
             if addr is not None:
-                if allocator.read(addr):
+                if allocator.read(addr) is not None:
                     return addr
                 else:
                     return allocator.reserve(addr, '')
@@ -945,13 +946,13 @@ class VncZkClient(object):
         except ResourceExhaustionError:
             return None
     # end subnet_alloc
-    
+
     def subnet_free(self, subnet, addr):
         allocator = self._get_subnet_allocator(subnet)
         if allocator:
             allocator.delete(addr)
     # end subnet_free
-        
+
 # end VncZkClient
 
 

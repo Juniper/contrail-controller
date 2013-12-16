@@ -107,7 +107,6 @@ public:
     uint32_t GetRefCount() const {
         return AgentRefCount<AclDBEntry>::GetRefCount();
     }
-    AgentDBTable *DBToTable() const;
     const uuid &GetUuid() const {return uuid_;};
     const std::string &GetName() const {return name_;};
     void SetName(const std::string name) {name_ = name;};
@@ -156,7 +155,7 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     TrafficAction::Action ConvertActionString(std::string action);
     static void AclFlowResponse(const std::string acl_uuid_str, 
-                                const std::string ctx, const FlowKey &key);
+                                const std::string ctx, const int last_count);
     static void AclFlowCountResponse(const std::string acl_uuid_str, 
                                      const std::string ctx, int ace_id);
 private:

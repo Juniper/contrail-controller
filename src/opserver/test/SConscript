@@ -15,70 +15,119 @@ local_sources = [
                  ]
 local_sources_rules = []
 for file in local_sources:
-    local_sources_rules.append(env.Install('.', '#controller/src/opserver/test/' + file))
-local_sources_rules.append(env.Install('', '#controller/src/opserver/test/setup.py'))
-local_sources_rules.append(env.Install('', '#controller/src/opserver/test/data'))
+    local_sources_rules.append(env.Install('', '#/controller/src/opserver/test/' + file))
+local_sources_rules.append(env.Install('', '#/controller/src/opserver/test/setup.py'))
+local_sources_rules.append(env.Install('', '#/controller/src/opserver/test/data'))
 
 local_dirs = ['utils']
 local_dirs_rules = []
 for dir in local_dirs:
-    files = Glob('#controller/src/opserver/test/' + dir + '/*.py')  
+    files = Glob('#/controller/src/opserver/test/' + dir + '/*.py')  
     local_dirs_rules.append(env.Install(dir, files))    
           
-generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh')
+generator_sandesh_files = env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_machine.sandesh') 
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/virtual_network.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh')
 generator_sandesh_files += env.SandeshGenPy('#controller/src/vnsw/agent/uve/port_bmap.sandesh')
 
 generator_sandesh_dirs = ['virtual_machine', 'flow', 'virtual_network']
+for dir in generator_sandesh_dirs:
+    Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
+generator_sandesh_dirs.append('__init__.py')    
 generator_sandesh_srcs = ['gen_py/' + src for src in generator_sandesh_dirs]
 generator_sandesh_rules = []
 for file in generator_sandesh_srcs:
-    generator_sandesh_rules.append(env.Install('sandesh', file))
+    generator_sandesh_rules.append(env.Install('sandesh', env['TOP'] + '/opserver/test/' + file))
 
 generator_inc_dirs = ['port_bmap'] 
+for dir in generator_inc_dirs:
+    Dir(env['TOP'] + '/opserver/test/gen_py/' + dir)
 generator_inc_srcs = ['gen_py/' + src for src in generator_inc_dirs]
 for file in generator_inc_srcs:
-    generator_sandesh_rules.append(env.Install('opserver', file))
+    generator_sandesh_rules.append(env.Install('', env['TOP'] + '/opserver/test/' + file))
 
 env.Depends(generator_sandesh_rules, generator_sandesh_files)
 env.Depends(local_sources_rules, [generator_sandesh_rules, local_dirs_rules])
 
-venv = env.setup_venv('analytics_test', 'analytics_test')
+venv = env.setup_venv ('analytics_test', 'analytics_test')
 #maintain the order
 pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
         'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0',
         'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2',
-        'psutil==0.4.1',
-            'thrift==0.8.0',
-            'redis==2.7.1',
-            'xmltodict==0.2',
-        Dir(env['TOP']).abspath + '/opserver/dist/opserver-0.1dev.tar.gz']
+        'psutil==0.4.1', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
+        Dir(env['TOP']).abspath + '/opserver/dist/opserver-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
 
 build_pkgs = [
-    '#controller/src/analytics/test/utils/mockcassandra',
-    '#controller/src/analytics/test/utils/mockredis',
-    '#tools/sandesh/library/python',
-    '#controller/src/opserver/test']
+        '#controller/src/analytics/test/utils/mockcassandra',
+        '#controller/src/analytics/test/utils/mockredis',
+        env['TOP'] + '/tools/sandesh/library/python',
+        '#controller/src/opserver/test']
 
-env.Depends(venv, '#controller/src/analytics')
-env.Depends(venv, '#controller/src/sandesh')
-env.Depends(venv, '#controller/src/opserver')
+#venv that we are building is in env['analytics_test']
+env.Depends (env['analytics_test'], env['OPSERVER_PKG'])
+env.Requires (env['analytics_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
+env.Requires (env['analytics_test'], env['TOP']+'/tools/sandesh/library/python/dist')
+for local_sources_rule in local_sources_rules:
+    env.Depends (env['analytics_test'], local_sources_rule)
 
-pip_commands = []
-pip_commands.append(
-    env.venv_add_pip_pkg(venv, pip_pkgs))
-pip_commands.append(
-    env.venv_add_pip_pkg(venv, ['pycassa==1.7.1']))
-env.Depends(pip_commands[1], pip_commands[0])
+#pip_commands = []
+#pip_commands.append(
+#    env.venv_add_pip_pkg(venv, pip_pkgs))
+#pip_commands.append(
+#    env.venv_add_pip_pkg(venv, ['pycassa==1.7.1']))
+#env.Depends(pip_commands[1], pip_commands[0])
 
 _deps = []
-_deps += pip_commands
+_deps += env.venv_add_pip_pkg(venv, pip_pkgs)
+_deps += env.venv_add_pip_pkg(venv, ['pycassa==1.7.1'])
 _deps += env.venv_add_build_pkg(venv,
                                 map(lambda x: Dir(x).abspath, build_pkgs))
 
-test = env.PyTestSuite('opserver-test', local_sources, venv)
-for d in _deps:
-    env.Depends(test, d)
+def clean_coverage(env, target, source):
+    # rm -rf opserver/test/test_coverage
+    import shutil
+    shutil.rmtree('test_coverage', ignore_errors = True)
+ 
+    import os
+    lcov_clean = 'lcov --base-directory ' + Dir('#').abspath +\
+        ' --directory ' + Dir(env['TOP']).abspath + '/analytics --directory ' +\
+        Dir(env['TOP']).abspath + '/query_engine ' +\
+        ' --zerocounters'
+    os.system(lcov_clean)
+ 
+def run_coverage(env, target, source):
+    import os
+    lcov_run = 'lcov --ignore-errors gcov,source --base-directory ' + Dir('#').abspath +\
+        ' --directory ' + Dir(env['TOP']).abspath + '/analytics --directory ' +\
+        Dir(env['TOP']).abspath + '/query_engine ' +\
+        ' -c -o ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
+    os.system(lcov_run)
+ 
+    genhtml_cmd = 'genhtml -o ' + Dir(env['TOP']).abspath + '/opserver/test/test_coverage' +\
+        ' -t "test coverage" --num-spaces 4 ' + Dir(env['TOP']).abspath + '/opserver/test/analytics_test.info'
+    os.system(genhtml_cmd)
+ 
+if env['OPT'] != 'coverage':
+    env['env_venv'] = venv
+    test = env.PyTestSuiteCov('opserver-test', local_sources)
+    for d in _deps:
+        env.Depends (test, d.name)
+    env.Alias('controller/src/opserver:test', test)
+    env.Requires(test, env['TOP'] + '/analytics/vizd')
+    env.Requires(test, env['TOP'] + '/query_engine/qedt')
+else:
+    env['env_venv'] = venv
+    testcov = env.PyTestSuiteCov('opserver-test', local_sources)
+    for d in _deps:
+        env.Depends (testcov, d.name)
 
-env.Alias('src/opserver:test', test)
+    clean_coverage_cmd = env.Command('clean_coverage', '', clean_coverage)
+    env.Depends(testcov, clean_coverage_cmd[0].name)
+    env.AlwaysBuild(clean_coverage_cmd)
+    run_coverage_cmd = env.Command('run_coverage', '', run_coverage)
+    env.Depends(run_coverage_cmd, testcov[0].name)
+    env.AlwaysBuild(run_coverage_cmd)
+    env.Alias('controller/src/opserver:test', run_coverage_cmd)
+    env.Requires(run_coverage_cmd, env['TOP'] + '/analytics/vizd')
+    env.Requires(run_coverage_cmd, env['TOP'] + '/query_engine/qedt')

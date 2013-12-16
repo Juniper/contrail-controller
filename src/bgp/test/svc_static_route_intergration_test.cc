@@ -50,7 +50,6 @@
 using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
-using boost::system::error_code;
 using namespace pugi;
 using namespace test;
 
@@ -384,11 +383,11 @@ protected:
         VerifyNetworkConfig(cn2_.get(), instance_names);
 
         std::auto_ptr<autogen::ServiceChainInfo> params = 
-            GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+            GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
         SetServiceChainProperty(cn1_.get(), params);
         task_util::WaitForIdle();
 
-        params = GetChainConfig("src/bgp/testdata/service_chain_1.xml");
+        params = GetChainConfig("controller/src/bgp/testdata/service_chain_1.xml");
         SetServiceChainProperty(cn2_.get(), params);
         task_util::WaitForIdle();
 
@@ -457,7 +456,7 @@ protected:
         if (table == NULL) {
             return NULL;
         }
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         InetTable::RequestKey key(nlri, NULL);
@@ -471,7 +470,7 @@ protected:
                       std::set<string> encap = std::set<string>(),
                       string nexthop="7.8.9.1", 
                       uint32_t flags=0, int label=303) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
         DBRequest request;
@@ -512,7 +511,7 @@ protected:
 
     void DeleteInetRoute(BgpServerTest *server, IPeer *peer, const string &instance_name,
                          const string &prefix) {
-        error_code error;
+        boost::system::error_code error;
         Ip4Prefix nlri = Ip4Prefix::FromString(prefix, &error);
         EXPECT_FALSE(error);
 
@@ -986,12 +985,12 @@ TEST_P(ServiceIntergrationParamTest, SvcStaticRoute) {
     aggregate_enable_ = false;
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(cn1_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(cn2_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
@@ -1058,12 +1057,12 @@ TEST_P(ServiceIntergrationParamTest, MultipleL3Intf) {
     mx_push_connected_ = false;
 
     std::auto_ptr<autogen::StaticRouteEntriesType> params = 
-        GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+        GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
 
     ifmap_test_util::IFMapMsgPropertyAdd(cn1_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
 
-    params = GetStaticRouteConfig("src/bgp/testdata/static_route_8.xml");
+    params = GetStaticRouteConfig("controller/src/bgp/testdata/static_route_8.xml");
     ifmap_test_util::IFMapMsgPropertyAdd(cn2_->config_db(), "routing-instance", 
                          "blue-i1", "static-route-entries", params.release(), 0);
     task_util::WaitForIdle();
