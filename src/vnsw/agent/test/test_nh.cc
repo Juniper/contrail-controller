@@ -304,7 +304,7 @@ TEST_F(CfgTest, EcmpNH_1) {
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, mpls_label));
 
     //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf1", ip, true);
+    CompositeNHKey key("vrf1", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
 }
 
@@ -463,7 +463,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_nh_mpls_label));
 
     //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf1", ip, true);
+    CompositeNHKey key("vrf1", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
 }
 
@@ -629,7 +629,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(rt->GetActiveNextHop() == intf_nh);
 
     //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf2", ip, true);
+    CompositeNHKey key("vrf2", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label));
@@ -664,7 +664,7 @@ TEST_F(CfgTest, EcmpNH_4) {
     CompositeNH::CreateCompositeNH("vrf2", ip, false, comp_nh_list);
     client->WaitForIdle();
 
-    CompositeNHKey key("vrf2", ip, false);
+    CompositeNHKey key("vrf2", ip, 32, false);
     EXPECT_FALSE(FindNH(&key));
     vrf1.reset();
 }

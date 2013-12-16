@@ -508,12 +508,12 @@ private:
 
 class Inet4UnicastEcmpRoute : public RouteData {
 public:
-    Inet4UnicastEcmpRoute(const Ip4Address &dest_addr, 
+    Inet4UnicastEcmpRoute(const Ip4Address &dest_addr, uint8_t plen,
                           const string &vn_name, 
                           uint32_t label, bool local_ecmp_nh, 
                           const string &vrf_name, SecurityGroupList sg_list,
                           DBRequest &nh_req, Op op  = RouteData::CHANGE) :
-        RouteData(op, false), dest_addr_(dest_addr),
+        RouteData(op, false), dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
         vrf_name_(vrf_name), sg_list_(sg_list) {
             nh_req_.Swap(&nh_req);
@@ -524,6 +524,7 @@ public:
 
 private:
     Ip4Address dest_addr_;
+    uint8_t plen_;
     string vn_name_;
     uint32_t label_;
     bool local_ecmp_nh_;

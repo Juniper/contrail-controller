@@ -178,24 +178,25 @@ public:
 
     struct ServiceVlan {
         ServiceVlan() : 
-            vrf_(NULL), addr_(0), tag_(0), installed_(false), smac_(), dmac_() {
+            vrf_(NULL), addr_(0), plen_(0),
+            tag_(0), installed_(false), smac_(), dmac_() {
         }
-
         ServiceVlan(const ServiceVlan &e) : 
-            vrf_(e.vrf_), addr_(e.addr_), tag_(e.tag_), installed_(false),
-            smac_(e.smac_), dmac_(e.dmac_) {
+            vrf_(e.vrf_), addr_(e.addr_), plen_(e.plen_),
+            tag_(e.tag_), installed_(false), smac_(e.smac_), dmac_(e.dmac_) {
         }
 
-        ServiceVlan(VrfEntry *vrf, const Ip4Address &addr, uint16_t tag, 
-                    const struct ether_addr &smac,
+        ServiceVlan(VrfEntry *vrf, const Ip4Address &addr, uint8_t plen,
+                    uint16_t tag, const struct ether_addr &smac,
                     const struct ether_addr &dmac) :
-            vrf_(vrf), addr_(addr), tag_(tag), label_(0), installed_(false),
-            smac_(smac), dmac_(dmac) {
+            vrf_(vrf), addr_(addr), plen_(plen), tag_(tag), label_(0),
+            installed_(false), smac_(smac), dmac_(dmac) {
         }
         ~ServiceVlan() { }
 
         VrfEntryRef vrf_;
         Ip4Address addr_;
+        uint8_t plen_;
         uint16_t tag_;
         uint32_t label_;
         bool installed_;

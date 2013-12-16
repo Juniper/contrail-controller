@@ -32,7 +32,8 @@ public:
         nh_(entry->nh_), vlan_tag_(entry->vlan_tag_), 
         is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
         is_layer2_(entry->is_layer2_),
-        comp_type_(entry->comp_type_), tunnel_type_(entry->tunnel_type_) {
+        comp_type_(entry->comp_type_), tunnel_type_(entry->tunnel_type_),
+        plen_(entry->plen_) {
     };
 
     NHKSyncEntry(const NextHop *nh);
@@ -97,6 +98,7 @@ private:
     bool is_layer2_;
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
+    uint8_t plen_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 
