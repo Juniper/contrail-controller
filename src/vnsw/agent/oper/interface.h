@@ -128,16 +128,10 @@ struct InterfaceKey : public AgentKey {
         type_ = rhs.type_;
         uuid_ = rhs.uuid_;
         name_ = rhs.name_;
-        is_mcast_nh_ = rhs.is_mcast_nh_;
     }
 
     InterfaceKey(Interface::Type type, const uuid &uuid, const string &name)
-                  : AgentKey(), type_(type), uuid_(uuid), 
-                 name_(name), is_mcast_nh_(false) { };
-
-    InterfaceKey(Interface::Type type, const uuid &uuid, const string &name,
-                 bool is_mcast) : AgentKey(), type_(type), uuid_(uuid), 
-                 name_(name), is_mcast_nh_(is_mcast) { };
+                  : AgentKey(), type_(type), uuid_(uuid), name_(name) { };
 
     InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type, 
                  const uuid &uuid, const string &name) : 
@@ -148,15 +142,13 @@ struct InterfaceKey : public AgentKey {
         type_ = type;
         uuid_ = intf_uuid;
         name_ = name;
-        is_mcast_nh_ = false;
     }
 
     void Init(Interface::Type type, const uuid &intf_uuid,
-              const string &name, bool is_mcast_nh) {
+              const string &name) {
         type_ = type;
         uuid_ = intf_uuid;
         name_ = name;
-        is_mcast_nh_ = is_mcast_nh;
     }
 
     bool Compare(const InterfaceKey &rhs) const {
@@ -166,10 +158,8 @@ struct InterfaceKey : public AgentKey {
         if (uuid_ != rhs.uuid_)
             return false;
 
-        if (name_ != rhs.name_)
-            return false;
+        return (name_ == rhs.name_);
 
-        return is_mcast_nh_ == rhs.is_mcast_nh_;
     }
 
     virtual Interface *AllocEntry() const = 0;
@@ -179,7 +169,6 @@ struct InterfaceKey : public AgentKey {
     Interface::Type type_;
     uuid uuid_;
     string name_;
-    bool is_mcast_nh_;
 };
 
 struct InterfaceData : public AgentData {
