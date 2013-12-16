@@ -26,6 +26,40 @@ typedef multimap<pair<string, string>, autogen::BgpSessionAttributes> SessionMap
 
 namespace {
 
+static void MapObjectSetProperty(const string &ltype, const string &lname,
+                                 const string &propname,
+                                 AutogenProperty *property,
+                                 BgpConfigParser::RequestList *requests) {
+    DBRequest *request = new DBRequest;
+    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
+    request->key.reset(key);
+    key->id_type = ltype;
+    key->id_name = lname;
+    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
+    request->data.reset(data);
+    data->metadata = propname;
+    data->content.reset(property);
+    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    requests->push_back(request);
+}
+
+static void MapObjectClearProperty(const string &ltype, const string &lname,
+                                   const string &propname,
+                                   BgpConfigParser::RequestList *requests) {
+    DBRequest *request = new DBRequest;
+    request->oper = DBRequest::DB_ENTRY_DELETE;
+    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
+    request->key.reset(key);
+    key->id_type = ltype;
+    key->id_name = lname;
+    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
+    request->data.reset(data);
+    data->metadata = propname;
+    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    requests->push_back(request);
+}
+
 static void MapObjectLink(const string &ltype, const string &lname,
                          const string &rtype, const string &rname,
                          const string &linkname,
@@ -411,7 +445,7 @@ static void AddNeighborMesh(const list<string> &routers,
         }
     }
 }
-    
+
 static void DeleteNeighborMesh(const list<string> &routers,
                                BgpConfigParser::RequestList *requests) {
     for (list<string>::const_iterator iter = routers.begin();
@@ -425,7 +459,7 @@ static void DeleteNeighborMesh(const list<string> &routers,
         }
     }
 }
-    
+
 static bool ParseInstanceTarget(const string &instance, const xml_node &node,
                                 bool add_change,
                                 BgpConfigParser::RequestList *requests) {
@@ -452,6 +486,23 @@ static bool ParseInstanceTarget(const string &instance, const xml_node &node,
     } else {
         MapObjectUnlink("routing-instance", instance, "route-target", rtarget,
             "instance-target", requests);
+    }
+
+    return true;
+}
+
+static bool ParseInstanceVirtualNetwork(const string &instance,
+    const xml_node &node, bool add_change,
+    BgpConfigParser::RequestList *requests) {
+    string vn_name = node.child_value();
+    if (add_change) {
+        MapObjectLink("routing-instance", instance,
+            "virtual-network", vn_name,
+            "virtual-network-routing-instance", requests);
+    } else {
+        MapObjectUnlink("routing-instance", instance,
+            "virtual-network", vn_name,
+            "virtual-network-routing-instance", requests);
     }
 
     return true;
@@ -487,6 +538,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             }
         } else if (strcmp(node.name(), "vrf-target") == 0) {
             ParseInstanceTarget(instance, node, add_change, requests);
+        } else if (strcmp(node.name(), "virtual-network") == 0) {
+            ParseInstanceVirtualNetwork(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
@@ -506,6 +559,30 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
     return true;
 }
 
+bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
+                                          bool add_change,
+                                          RequestList *requests) const {
+    // vn name
+    string vn_name(node.attribute("name").value());
+    if (vn_name.empty())
+        return false;
+
+    auto_ptr<autogen::VirtualNetworkType> property(
+        new autogen::VirtualNetworkType());
+    if (!property->XmlParse(node)) {
+        assert(false);
+    }
+
+    if (add_change) {
+        MapObjectSetProperty("virtual-network", vn_name,
+            "virtual-network-properties", property.release(), requests);
+    } else {
+        MapObjectClearProperty("virtual-network", vn_name,
+            "virtual-network-properties", requests);
+    }
+
+    return true;
+}
 
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
@@ -523,6 +600,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "routing-instance") == 0) {
             ParseRoutingInstance(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "virtual-network") == 0) {
+            ParseVirtualNetwork(node, add_change, requests);
         }
     }
 

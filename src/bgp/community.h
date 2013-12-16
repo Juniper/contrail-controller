@@ -145,6 +145,7 @@ public:
     int CompareTo(const ExtCommunity &rhs) const;
 
     void Append(const ExtCommunityList &list);
+    bool ContainsOriginVn(const ExtCommunityValue &val) const;
     void RemoveRTarget();
     void RemoveSGID();
     void RemoveOriginVn();

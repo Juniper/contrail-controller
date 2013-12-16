@@ -41,6 +41,7 @@ xsd:targetNamespace="http://www.contrailsystems.com/xmpp-enet-cfg.xsd">
     <xsd:all>
         <xsd:element name="nlri" type="EnetAddressType"/>
         <xsd:element name="next-hops" type="EnetNextHopListType"/>
+        <xsd:element name="virtual-network" type="xsd:string"/>
     </xsd:all>
 </xsd:complexType>
 
