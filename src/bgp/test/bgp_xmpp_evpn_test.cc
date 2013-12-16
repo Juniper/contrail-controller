@@ -4,8 +4,6 @@
 
 #include <sstream>
 
-#include <boost/foreach.hpp>
-
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
