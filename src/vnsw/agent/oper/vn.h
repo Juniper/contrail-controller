@@ -167,7 +167,8 @@ public:
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
-    int vxlan_id() const;
+    int GetVxLanId() const;
+    const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 

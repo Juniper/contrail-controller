@@ -206,6 +206,42 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
 
 }
 
+TEST_F(CfgTest, VrfChangeVxlanTest) {
+    char buff[4096];
+    int len = 0;
+
+    client->WaitForIdle();
+    AddVn("vn1", 1);
+    AddVrf("vrf1", 1);
+    AddXmlHdr(buff, len);
+    AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf1");
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+
+    CheckVnAdd(1, 1);
+    VnEntry *vn = VnGet(1);
+    EXPECT_TRUE(vn->GetVrf() != NULL);
+    EXPECT_TRUE(vn->vxlan_id_ref() != NULL);
+
+    AddXmlHdr(buff, len);
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vn->GetVrf() == NULL);
+    EXPECT_TRUE(vn->vxlan_id_ref() == NULL);
+
+
+    DelVn("vn1");
+    DelVrf("vrf1");
+    client->WaitForIdle();
+
+    CheckVnDel(1, 1);
+    EXPECT_FALSE(VnFind(1));
+    EXPECT_FALSE(VrfFind("vrf1"));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

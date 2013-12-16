@@ -101,7 +101,7 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
     return true;
 }
 
-int VnEntry::vxlan_id() const {
+int VnEntry::GetVxLanId() const {
     if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
         Agent::CONFIGURED) {
         return vxlan_id_;
@@ -113,15 +113,13 @@ int VnEntry::vxlan_id() const {
 bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->GetVrf()) {
-        VxLanId::CreateReq(vn_entry->vxlan_id(), 
+        VxLanId::CreateReq(vn_entry->GetVxLanId(), 
                            vn_entry->GetVrf()->GetName());
-        VxLanIdKey key(vn_entry->vxlan_id());
+        VxLanIdKey key(vn_entry->GetVxLanId());
         VxLanId *vxlan_id = 
             static_cast<VxLanId *>(Agent::GetInstance()->
                                    GetVxLanTable()->FindActiveEntry(&key));
-        if (vxlan_id) {
-            vn_entry->vxlan_id_ref_ = vxlan_id;
-        }
+        vn_entry->vxlan_id_ref_ = vxlan_id;
         MulticastHandler::GetInstance()->HandleVxLanChange(vn_entry);
     }
     return true;
@@ -251,19 +249,22 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     }
 
     if (vn->GetVrf()) {
-        if (!vn->vxlan_id()) {
+        if (!vn->GetVxLanId()) {
             vn->vxlan_id_ref_ = NULL;
             return ret;
         }
         if (vxlan_rebake) {
             VxLanId::CreateReq(vn->vxlan_id(), vn->GetVrf()->GetName());
-        }
-        VxLanId *vxlan_id = NULL;
-        VxLanIdKey vxlan_key(vn->vxlan_id());
-        vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
-                                          GetVxLanTable()->FindActiveEntry(&vxlan_key));
-        if (vxlan_id) {
+            VxLanId *vxlan_id = NULL;
+            VxLanIdKey vxlan_key(vn->vxlan_id());
+            vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
+                                              GetVxLanTable()->FindActiveEntry(&vxlan_key));
             vn->vxlan_id_ref_ = vxlan_id;
+        }
+    } else {
+        if (vn->vxlan_id_ref_) {
+            vn->vxlan_id_ref_ = NULL;
+            ret = true;
         }
     }
 

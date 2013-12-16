@@ -344,7 +344,7 @@ void MulticastHandler::HandleVxLanChange(const VnEntry *vn) {
         return;
 
     int new_vxlan_id = 0;
-    int vn_vxlan_id = vn->vxlan_id();
+    int vn_vxlan_id = vn->GetVxLanId();
 
     if (TunnelType::ComputeType(TunnelType::AllType()) ==
         TunnelType::VXLAN) {
@@ -777,7 +777,7 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
                        vn->layer2_forwarding())) && vn->layer2_forwarding()) {
         if (TunnelType::ComputeType(TunnelType::AllType()) ==
             TunnelType::VXLAN) {
-            all_broadcast->set_vxlan_id(vn->vxlan_id());
+            all_broadcast->set_vxlan_id(vn->GetVxLanId());
         } 
         all_broadcast->SetLayer2Forwarding(vn->layer2_forwarding());
         this->TriggerL2CompositeNHChange(all_broadcast);

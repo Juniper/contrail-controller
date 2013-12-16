@@ -1372,8 +1372,8 @@ bool VmInterface::OnResync(const DBRequest *req) {
     bool layer2_forwarding_changed = false;
     bool ipv4_forwarding_changed = false;
     if (vn) { 
-        if (vxlan_id_ != vn_->vxlan_id()) {
-            vxlan_id_ = vn_->vxlan_id();
+        if (vxlan_id_ != vn_->GetVxLanId()) {
+            vxlan_id_ = vn_->GetVxLanId();
             vxlan_id_changed = true;
             ret = true;
         }

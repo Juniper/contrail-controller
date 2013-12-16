@@ -209,8 +209,8 @@ bool InterfaceTable::VmInterfaceWalk(DBTablePartBase *partition,
 
     const VnEntry *vn = vm_intf->vn();
     if (vm_intf->layer2_forwarding() && 
-        (vn->vxlan_id() != vm_intf->vxlan_id())) {
-        vm_intf->set_vxlan_id(vn->vxlan_id());
+        (vn->GetVxLanId() != vm_intf->vxlan_id())) {
+        vm_intf->set_vxlan_id(vn->GetVxLanId());
         vm_intf->AllocL2MPLSLabels();
         vm_intf->AddL2Route();
     }
