@@ -667,11 +667,17 @@ public:
         inp.get()->time_period = time_period;
         inp.get()->table = table;
   
+        int conn = LeastLoadedConnection();
+        std::ostringstream tstr;
+        tstr << "QEPipeline::" << conn;
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        int ptid = scheduler->GetTaskId(tstr.str());
+
         vector<pair<int,int> > tinfo;
         for (uint idx=0; idx<chunk_size.size(); idx++) {
-            tinfo.push_back(make_pair(0, -1));
+            tinfo.push_back(make_pair(ptid, -1));
         }
-
+        
         QEPipeT  * wp = new QEPipeT(
             new WorkStage<Input, Stage0Merge,
                     RawResultT, Stage0Out>(
@@ -680,18 +686,17 @@ public:
                 boost::bind(&QEOpServerImpl::QueryMerge, this, _1,_2,_3)),
             new WorkStage<Stage0Merge, Output,
                     RedisT>(
-                list_of(make_pair(0,-1))(make_pair(0,-1)),
+                list_of(make_pair(ptid,-1))(make_pair(ptid,-1)),
                 boost::bind(&QEOpServerImpl::QueryResp, this, _1,_2,_3,_4)));
 
         pipes_.insert(make_pair(qid, wp));
-        int conn = LeastLoadedConnection();
         npipes_[conn]++;
         
         // The cnum with index 0 is only used for receiving new queries
         inp.get()->cnum = conn+1; 
 
         wp->Start(boost::bind(&QEOpServerImpl::QEPipeCb, this, wp, _1), inp);
-        QE_LOG_NOQID(DEBUG, "Starting Pipeline for " << qid << " , " << conn+1 << " conn");
+        QE_LOG_NOQID(DEBUG, "Starting Pipeline for " << qid << " , " << conn+1 << " conn, tid = " << ptid);
     }
 
     void ConnUp(uint8_t cnum) {
