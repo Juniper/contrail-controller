@@ -692,6 +692,16 @@ public:
 
         wp->Start(boost::bind(&QEOpServerImpl::QEPipeCb, this, wp, _1), inp);
         QE_LOG_NOQID(DEBUG, "Starting Pipeline for " << qid << " , " << conn+1 << " conn");
+        
+        // Update query status
+        RedisAsyncConnection * rac = conns_[inp.get()->cnum].get();
+        string rkey = "REPLY:" + qid;
+        char stat[40];
+        sprintf(stat,"{\"progress\":5}");
+        RedisAsyncArgCommand(rac, NULL, 
+            list_of(string("RPUSH"))(rkey)(stat));
+
+
     }
 
     void ConnUp(uint8_t cnum) {
