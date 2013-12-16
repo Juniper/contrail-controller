@@ -4,6 +4,8 @@
 
 #include <sstream>
 
+#include <boost/foreach.hpp>
+
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_session_manager.h"
@@ -103,10 +105,18 @@ static const char *config_template_11 = "\
         <identifier>192.168.0.1</identifier>\
         <address>127.0.0.1</address>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
@@ -195,6 +205,7 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteAdd) {
     string nh = rt->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
+    TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
 
     // Delete route.
     agent_a_->DeleteEnetRoute("blue", eroute_a.str());
@@ -240,6 +251,7 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteUpdate) {
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
+    TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
     // Change the route.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
@@ -260,6 +272,8 @@ TEST_F(BgpXmppEvpnTest1, 1AgentRouteUpdate) {
     TASK_UTIL_EXPECT_TRUE(rt2 != NULL);
     TASK_UTIL_EXPECT_EQ("192.168.2.1",
         agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
+    TASK_UTIL_EXPECT_EQ("blue",
+        agent_a_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.virtual_network);
 
     // Verify that next hop and label have changed.
     TASK_UTIL_EXPECT_NE(nh1,
@@ -437,6 +451,7 @@ TEST_F(BgpXmppEvpnTest1, 2AgentRouteUpdate) {
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
+    TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
     // Change the route from agent A.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
@@ -457,6 +472,8 @@ TEST_F(BgpXmppEvpnTest1, 2AgentRouteUpdate) {
     TASK_UTIL_EXPECT_TRUE(rt2 != NULL);
     TASK_UTIL_EXPECT_EQ("192.168.2.1",
         agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
+    TASK_UTIL_EXPECT_EQ("blue",
+        agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.virtual_network);
 
     // Verify that next hop and label have changed.
     TASK_UTIL_EXPECT_NE(nh1,
@@ -1072,7 +1089,14 @@ static const char *config_template_12 = "\
         <address>127.0.0.1</address>\
         <port>%d</port>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
         <vrf-target>\
             target:1:2\
@@ -1080,6 +1104,7 @@ static const char *config_template_12 = "\
         </vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
         <vrf-target>\
             target:1:1\
@@ -1135,6 +1160,7 @@ TEST_F(BgpXmppEvpnTest1, 1AgentConnectedInstances) {
     string nh = rt->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh);
+    TASK_UTIL_EXPECT_EQ("blue", rt->entry.virtual_network);
 
     // Verify that route does not show up in pink instance.
     TASK_UTIL_EXPECT_EQ(1, agent_a_->EnetRouteCount());
@@ -1177,10 +1203,18 @@ static const char *config_template_21 = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
@@ -1307,6 +1341,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAdd1) {
     string nh_a = rt_a->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label_a);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh_a);
+    TASK_UTIL_EXPECT_EQ("blue", rt_a->entry.virtual_network);
 
     // Verify that route showed up on agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount());
@@ -1318,6 +1353,7 @@ TEST_F(BgpXmppEvpnTest2, RouteAdd1) {
     string nh_b = rt_b->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label_b);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh_b);
+    TASK_UTIL_EXPECT_EQ("blue", rt_b->entry.virtual_network);
 
     // Verify that label and nh are the same on agents A and B.
     TASK_UTIL_EXPECT_EQ(label_a, label_b);
@@ -1437,6 +1473,7 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
     int label1 = rt1->entry.next_hops.next_hop[0].label;
     string nh1 = rt1->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh1);
+    TASK_UTIL_EXPECT_EQ("blue", rt1->entry.virtual_network);
 
     // Change the route from agent A.
     agent_a_->AddEnetRoute("blue", eroute_a.str(), "192.168.2.1");
@@ -1458,6 +1495,8 @@ TEST_F(BgpXmppEvpnTest2, RouteUpdate) {
 
     TASK_UTIL_EXPECT_EQ("192.168.2.1",
          agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.next_hops.next_hop[0].address);
+    TASK_UTIL_EXPECT_EQ("blue",
+         agent_b_->EnetRouteLookup("blue","aa:00:00:00:00:01,10.1.1.1/32")->entry.virtual_network);
 
     // Verify that next hop and label have changed.
     TASK_UTIL_EXPECT_NE(label1,
@@ -2001,10 +2040,18 @@ TEST_F(BgpXmppEvpnTest2, XmppSessionDown) {
 
 static const char *config_template_22 = "\
 <config>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
     </routing-instance>\
 </config>\
@@ -2300,7 +2347,14 @@ static const char *config_template_25 = "\
             </address-families>\
         </session>\
     </bgp-router>\
+    <virtual-network name='blue'>\
+        <network-id>1</network-id>\
+    </virtual-network>\
+    <virtual-network name='pink'>\
+        <network-id>2</network-id>\
+    </virtual-network>\
     <routing-instance name='blue'>\
+        <virtual-network>blue</virtual-network>\
         <vrf-target>target:1:1</vrf-target>\
         <vrf-target>\
             target:1:2\
@@ -2308,6 +2362,7 @@ static const char *config_template_25 = "\
         </vrf-target>\
     </routing-instance>\
     <routing-instance name='pink'>\
+        <virtual-network>pink</virtual-network>\
         <vrf-target>target:1:2</vrf-target>\
         <vrf-target>\
             target:1:1\
@@ -2383,6 +2438,7 @@ TEST_F(BgpXmppEvpnTest2, ConnectedInstances) {
     string nh_a = rt_a->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label_a);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh_a);
+    TASK_UTIL_EXPECT_EQ("blue", rt_a->entry.virtual_network);
 
     // Verify that route showed up in blue instance on Agent B.
     TASK_UTIL_EXPECT_EQ(1, agent_b_->EnetRouteCount("blue"));
@@ -2393,6 +2449,7 @@ TEST_F(BgpXmppEvpnTest2, ConnectedInstances) {
     string nh_b = rt_b->entry.next_hops.next_hop[0].address;
     TASK_UTIL_EXPECT_NE(0xFFFFF, label_b);
     TASK_UTIL_EXPECT_EQ("192.168.1.1", nh_b);
+    TASK_UTIL_EXPECT_EQ("blue", rt_b->entry.virtual_network);
 
     // Verify that label and nh are the same on agents A and B.
     TASK_UTIL_EXPECT_EQ(label_a, label_b);
