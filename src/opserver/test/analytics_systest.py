@@ -161,6 +161,19 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert generator_obj.verify_vm_uve(vm_id='abcd',
                                            num_vm_ifs=5,
                                            msg_count=5)
+        # Delete the VM UVE and verify that the deleted flag is set
+        # in the UVE cache
+        generator_obj.delete_vm_uve('abcd')
+        assert generator_obj.verify_vm_uve_cache(vm_id='abcd', delete=True)
+        # Add the VM UVE with the same vm_id and verify that the deleted flag
+        # is cleared in the UVE cache
+        generator_obj.send_vm_uve(vm_id='abcd',
+                                  num_vm_ifs=5,
+                                  msg_count=5)
+        assert generator_obj.verify_vm_uve_cache(vm_id='abcd')
+        assert generator_obj.verify_vm_uve(vm_id='abcd',
+                                           num_vm_ifs=5,
+                                           msg_count=5)
         return True
     # end test_03_vm_uve
 

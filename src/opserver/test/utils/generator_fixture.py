@@ -226,6 +226,25 @@ class GeneratorFixture(fixtures.Fixture):
                 'Sent UveVirtualMachineAgentTrace:%s .. %d' % (vm_id, num))
     # end send_uve_vm
 
+    def delete_vm_uve(self, vm_id):
+        vm_agent = UveVirtualMachineAgent(name=vm_id, deleted=True)
+        uve_agent_vm = UveVirtualMachineAgentTrace(data=vm_agent, 
+                            sandesh=self._sandesh_instance)
+        uve_agent_vm.send(sandesh=self._sandesh_instance)
+        self._logger.info('Delete VM UVE: %s' % (vm_id))
+    # end delete_vm_uve
+
+    def find_vm_entry(self, vm_uves, vm_id):
+        if vm_uves is None:
+            return False
+        if type(vm_uves) is not list:
+            vm_uves = [vm_uves]
+        for uve in vm_uves:
+            if uve['data']['UveVirtualMachineAgent']['name'] == vm_id:
+                return uve
+        return None
+    # end find_vm_entry
+
     @retry(delay=2, tries=5)
     def verify_vm_uve(self, vm_id, num_vm_ifs, msg_count, opserver_port=None):
         if opserver_port is not None:
@@ -259,4 +278,35 @@ class GeneratorFixture(fixtures.Fixture):
                 assert int(abyte_count) == ebyte_count
             return True
     # end verify_uve_vm
+
+    @retry(delay=2, tries=5)
+    def verify_vm_uve_cache(self, vm_id, delete=False):
+        try:
+            vg = VerificationGenerator('127.0.0.1', self._http_port)
+            vm_uves = vg.get_uve('UveVirtualMachineAgentTrace')
+        except Exception as e:
+            self._logger.info('Failed to get vm uves: %s' % (e))
+            return False
+        else:
+            if vm_uves is None:
+                self._logger.info('vm uve list empty')
+                return False
+            self._logger.info('%s' % (str(vm_uves)))
+            vm_uve = self.find_vm_entry(vm_uves, vm_id)
+            if vm_uve is None:
+                return False
+            if delete is True:
+                try:
+                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                                    == 'true'
+                except:
+                    return False
+            else:
+                try:
+                    return vm_uve['data']['UveVirtualMachineAgent']['deleted'] \
+                                   == 'false'
+                except:
+                    return True
+        return False
+    # end verify_vm_uve_cache
 # end class GeneratorFixture
