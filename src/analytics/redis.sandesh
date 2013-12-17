@@ -7,11 +7,23 @@
 //
 
 struct RedisUveMasterInfo {
-    1: optional string              ip
-    2: optional u16                 port
-    3: optional string              status 
-    4: optional u64                 master_last_updated
-    5: optional u64                 num_of_mastership_changes       
+    1:  string             ip
+    2:  u16                port
+    3:  string             status 
+    4:  u64                master_last_updated
+    5:  u64                num_of_mastership_changes
+    6:  u64                update_no_conn;
+    7:  u64                update_failed;
+    8:  u64                update_succeeded;
+    9:  u64                delete_no_conn;
+    10: u64                delete_failed;
+    11: u64                delete_succeeded;
+    12: optional u64       conn_call_disconnected;
+    13: optional u64       conn_call_failed;
+    14: optional u64       conn_call_succeeded;
+    15: optional u64       conn_cb_null;
+    16: optional u64       conn_cb_failed;
+    17: optional u64       conn_cb_succeeded;
 }
 
 request sandesh RedisUVEMasterRequest {

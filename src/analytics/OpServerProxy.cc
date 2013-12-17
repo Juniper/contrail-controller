@@ -58,48 +58,80 @@ class OpServerProxy::OpServerImpl {
         }
 
         struct RedisMasterInfo {
-            RedisMasterInfo() :
-                ip(""), port(0), master_last_updated(0),
-                num_mastership_changes(0) {
+            RedisMasterInfo() {
+                rinfo_.set_ip("");
+                rinfo_.set_port(0);
+                rinfo_.set_master_last_updated(0);
+                rinfo_.set_num_of_mastership_changes(0);
+                rinfo_.set_delete_failed(0);
+                rinfo_.set_delete_succeeded(0);
+                rinfo_.set_delete_no_conn(0);
+                rinfo_.set_update_failed(0);
+                rinfo_.set_update_succeeded(0);
+                rinfo_.set_update_no_conn(0);
+                rinfo_.set_conn_cb_succeeded(0);
+                rinfo_.set_conn_cb_failed(0);
+                rinfo_.set_conn_cb_null(0);
+                rinfo_.set_conn_call_disconnected(0);
+                rinfo_.set_conn_call_succeeded(0);
+                rinfo_.set_conn_call_failed(0);
             }
-            
+
             void RedisMasterUpdate(const std::string& redis_ip, 
                                    unsigned short redis_port) {
-                ip = redis_ip;
-                port = redis_port;
-                status = RacStatusToString(RAC_DOWN);
-                master_last_updated = UTCTimestampUsec();
-                num_mastership_changes++;
+                rinfo_.set_ip(redis_ip);
+                rinfo_.set_port(redis_port);
+                rinfo_.set_status(RacStatusToString(RAC_DOWN));
+                rinfo_.set_master_last_updated(UTCTimestampUsec());
+                rinfo_.set_num_of_mastership_changes(
+                    rinfo_.get_num_of_mastership_changes()+1);
+            }
+
+            void RedisUveUpdate() {
+                rinfo_.set_update_succeeded(rinfo_.get_update_succeeded()+1);
+            }
+            void RedisUveUpdateFail() {
+                rinfo_.set_update_failed(rinfo_.get_update_failed()+1);
+            }
+            void RedisUveUpdateNoConn() {
+                rinfo_.set_update_no_conn(rinfo_.get_update_no_conn()+1);
+            }
+            void RedisUveDelete() {
+                rinfo_.set_delete_succeeded(rinfo_.get_delete_succeeded()+1);
+            }
+            void RedisUveDeleteFail() {
+                rinfo_.set_delete_failed(rinfo_.get_delete_failed()+1);
+            }
+            void RedisUveDeleteNoConn() {
+                rinfo_.set_delete_no_conn(rinfo_.get_delete_no_conn()+1);
             }
 
             void RedisStatusUpdate(RacStatus connection_status) {
-                status = RacStatusToString(connection_status);
+                rinfo_.set_status(RacStatusToString(connection_status));
             }
 
-            std::string& GetIp() {
-                return ip;
+            const std::string& GetIp() {
+                return rinfo_.get_ip();
             }
 
             unsigned short GetPort() {
-                return port;
+                return rinfo_.get_port();
             }
-
-            std::string ip;
-            unsigned short port;
-            std::string status;
-            uint64_t master_last_updated;
-            uint64_t num_mastership_changes;
+            
+            RedisUveMasterInfo rinfo_;
         };
 
         void FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info) {
             tbb::mutex::scoped_lock lock(rac_mutex_); 
-            redis_uve_info.set_ip(redis_uve_.ip);
-            redis_uve_info.set_port(redis_uve_.port);
-            redis_uve_info.set_status(redis_uve_.status);
-            redis_uve_info.set_master_last_updated(
-                                    redis_uve_.master_last_updated);
-            redis_uve_info.set_num_of_mastership_changes(
-                                    redis_uve_.num_mastership_changes);
+            redis_uve_info = redis_uve_.rinfo_;
+            if (to_ops_conn_) {
+                redis_uve_info.set_conn_call_disconnected(to_ops_conn_->CallDisconnected());
+                redis_uve_info.set_conn_call_failed(to_ops_conn_->CallFailed());
+                redis_uve_info.set_conn_call_succeeded(to_ops_conn_->CallSucceeded()); 
+                redis_uve_info.set_conn_cb_null(to_ops_conn_->CallbackNull());
+                redis_uve_info.set_conn_cb_failed(to_ops_conn_->CallbackFailed());
+                redis_uve_info.set_conn_cb_succeeded(to_ops_conn_->CallbackSucceeded());
+            }
         }
 
         void ToOpsConnUpPostProcess() {
@@ -341,12 +373,15 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
                        const std::string& atyp, int64_t ts) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
-    if  (!(prac && prac->IsConnUp())) return false;
+    if (!prac) {
+        impl_->redis_uve_.RedisUveUpdateNoConn();
+        return false;
+    }
 
-    RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
+    bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
             source, module, key, message, seq, agg, atyp, ts);
-
-    return true;
+    ret ? impl_->redis_uve_.RedisUveUpdate() : impl_->redis_uve_.RedisUveUpdateFail(); 
+    return ret;
 }
 
 bool
@@ -355,12 +390,15 @@ OpServerProxy::UVEDelete(const std::string &type,
                        const std::string &key, int32_t seq) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
-    if  (!(prac && prac->IsConnUp())) return false;
+    if (!prac) {
+        impl_->redis_uve_.RedisUveDeleteNoConn();
+        return false;
+    }
 
-    RedisProcessorExec::UVEDelete(prac.get(), NULL, type, source, 
+    bool ret = RedisProcessorExec::UVEDelete(prac.get(), NULL, type, source, 
             module, key, seq);
-
-    return true;
+    ret ? impl_->redis_uve_.RedisUveDelete() : impl_->redis_uve_.RedisUveDeleteFail(); 
+    return ret;
 }
 
 bool 
