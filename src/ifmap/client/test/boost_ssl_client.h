@@ -14,7 +14,6 @@
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <boost/asio/ssl.hpp>
 #include "boost/generator_iterator.hpp"
 #include "boost/random.hpp"
 #include <boost/system/error_code.hpp>
@@ -58,7 +57,6 @@ public:
 private:
     void BuildPollRequest(std::ostringstream& poll_msg);
 
-    boost::asio::io_service& io_service_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::ssl::context context_;
     SslStream socket_;
