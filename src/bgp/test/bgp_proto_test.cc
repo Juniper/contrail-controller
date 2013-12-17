@@ -27,7 +27,13 @@ protected:
 
         EXPECT_EQ(error, ec.error_code);
         EXPECT_EQ(subcode, ec.error_subcode);
+
+        // Demangle not perfect in darwin. Do a partial match instead.
+#ifdef DARWIN
+        EXPECT_NE(string::npos, ec.type_name.find(type));
+#else
         EXPECT_EQ(type, ec.type_name);
+#endif
         EXPECT_EQ(offset, ec.data-data);
         EXPECT_EQ(err_size, ec.data_size);
         if (result) delete result;
