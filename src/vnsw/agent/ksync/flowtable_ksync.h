@@ -80,8 +80,9 @@ private:
 class FlowTableKSyncObject : public KSyncObject {
 public:
     static const int kTestFlowTableSize = 131072 * sizeof(vr_flow_entry);
-    static const uint32_t AuditTimeout = 2000;
-    static const int AuditYeild = 1024;
+    static const uint32_t AuditYieldTimer = 500;         // in msec
+    static const uint32_t AuditTimeout = 2000;           // in msec
+    static const int AuditYield = 1024;
 
     FlowTableKSyncObject();
     FlowTableKSyncObject(int max_index);
@@ -130,9 +131,10 @@ private:
     vr_flow_req flow_req_;
     vr_flow_entry *flow_table_;
     uint32_t flow_table_entries_;
-    int audit_yeild_;
+    int audit_yield_;
     uint32_t audit_flow_idx_;
-    std::list<uint32_t> audit_flow_list_;
+    uint64_t audit_timestamp_;
+    std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;
     Timer *audit_timer_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncObject);
 };
