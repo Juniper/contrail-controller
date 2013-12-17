@@ -242,7 +242,7 @@ MetadataProxy::GetProxyConnection(HttpSession *session, bool conn_close) {
 
     uint16_t nova_port, linklocal_port;
     Ip4Address nova_server, linklocal_server;
-    if (!services_->agent()->oper_db()->global_vrouter()->GetLinkLocalService(
+    if (!services_->agent()->oper_db()->global_vrouter()->FindLinkLocalService(
         GlobalVrouter::kMetadataService, &linklocal_server, &linklocal_port,
         &nova_server, &nova_port))
         return NULL;

@@ -328,8 +328,10 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     uint16_t nat_port;
     Ip4Address nat_server;
     std::string service_name;
-    if (!Agent::GetInstance()->oper_db()->global_vrouter()->GetLinkLocalService(
-        Ip4Address(pkt->ip_daddr), pkt->dport, &service_name, &nat_server, &nat_port)) {
+    if (!Agent::GetInstance()->oper_db()->global_vrouter()->
+        FindLinkLocalService(Ip4Address(pkt->ip_daddr), pkt->dport,
+                             &service_name, &nat_server, &nat_port)) {
+        // link local service not configured, drop the request
         in->rt_ = NULL; 
         out->rt_ = NULL; 
         return; 
@@ -342,7 +344,10 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     // Set NAT flow fields
     linklocal_flow = true;
     nat_done = true;
-    if (service_name == GlobalVrouter::kMetadataService) {
+    if (nat_server == Agent::GetInstance()->GetRouterId()) {
+        // In case of metadata or when link local destination is local host,
+        // set VM's metadata address as NAT source address
+        // Destination would be local host (FindLinkLocalService returns this)
         nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
     } else {
         nat_ip_saddr = Agent::GetInstance()->GetRouterId().to_ulong();

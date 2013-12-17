@@ -297,7 +297,7 @@ public:
 
     const Peer *GetLocalPeer() {return local_peer_;};
     const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    const Peer *GetLinkLocalPeer() {return linklocal_vm_peer_;};
+    const Peer *GetLinkLocalPeer() {return linklocal_peer_;};
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -455,7 +455,7 @@ public:
     };
 
     void SetLinkLocalPeer(Peer *peer) {
-        linklocal_vm_peer_ = peer;
+        linklocal_peer_ = peer;
     };
 
     void SetRouterIdConfigured(bool value) {
@@ -604,7 +604,7 @@ private:
 
     Peer *local_peer_;
     Peer *local_vm_peer_;
-    Peer *linklocal_vm_peer_;
+    Peer *linklocal_peer_;
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;
 

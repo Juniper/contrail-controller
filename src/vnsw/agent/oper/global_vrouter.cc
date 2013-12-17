@@ -63,7 +63,7 @@ bool GlobalVrouter::LinkLocalServiceKey::operator<(
 class GlobalVrouter::FabricDnsResolver {
 public:
     typedef boost::asio::ip::udp boost_udp;
-    static const uint32_t kDnsTimeout = 24 * 60 * 60 * 1000; // one day
+    static const uint32_t kDnsTimeout = 60 * 60 * 1000; // one hour
 
     FabricDnsResolver(GlobalVrouter *vrouter, boost::asio::io_service &io)
         : global_vrouter_(vrouter), io_(io) {
@@ -240,7 +240,6 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
     Agent *agent = global_vrouter_->oper_db()->agent();
     if (srv != agent->GetRouterId() &&
         IsIp4SubnetMember(srv, agent->GetRouterId(), agent->GetPrefixLen())) {
-        std::cout << "Adding ARP route : " << srv.to_string() << "\n";
         Inet4UnicastAgentRouteTable::AddArpReq(agent->GetDefaultVrf(), srv);
     }
 }
@@ -421,11 +420,11 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
 }
 
 // Get link local service configuration info, for a given service name
-bool GlobalVrouter::GetLinkLocalService(const std::string &service_name,
-                                        Ip4Address *service_ip,
-                                        uint16_t *service_port,
-                                        Ip4Address *fabric_ip,
-                                        uint16_t *fabric_port) {
+bool GlobalVrouter::FindLinkLocalService(const std::string &service_name,
+                                         Ip4Address *service_ip,
+                                         uint16_t *service_port,
+                                         Ip4Address *fabric_ip,
+                                         uint16_t *fabric_port) {
     std::string name = boost::to_lower_copy(service_name);
 
     for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
@@ -450,16 +449,34 @@ bool GlobalVrouter::GetLinkLocalService(const std::string &service_name,
 }
 
 // Get link local service info for a given linklocal service <ip, port>
-bool GlobalVrouter::GetLinkLocalService(const Ip4Address &service_ip,
-                                        uint16_t service_port,
-                                        std::string *service_name,
-                                        Ip4Address *fabric_ip,
-                                        uint16_t *fabric_port) {
+bool GlobalVrouter::FindLinkLocalService(const Ip4Address &service_ip,
+                                         uint16_t service_port,
+                                         std::string *service_name,
+                                         Ip4Address *fabric_ip,
+                                         uint16_t *fabric_port) {
     LinkLocalServicesMap::iterator it =
         linklocal_services_map_.find(LinkLocalServiceKey(service_ip,
                                                          service_port));
-    if (it == linklocal_services_map_.end())
+    if (it == linklocal_services_map_.end()) {
+#if 0
+        if (!service_port) {
+            // to support ping to metadata address
+            Ip4Address metadata_service_ip, metadata_fabric_ip;
+            uint16_t metadata_service_port, metadata_fabric_port;
+            if (FindLinkLocalService(GlobalVrouter::kMetadataService,
+                                     &metadata_service_ip,
+                                     &metadata_service_port,
+                                     &metadata_fabric_ip,
+                                     &metadata_fabric_port) &&
+                service_ip == metadata_service_ip) {
+                *fabric_port = oper_->agent()->GetMetadataServerPort();
+                *fabric_ip = oper_->agent()->GetRouterId();
+                return true;
+            }
+        }
+#endif
         return false;
+    }
 
     *service_name = it->second.linklocal_service_name;
     if (*service_name == GlobalVrouter::kMetadataService) {

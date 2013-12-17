@@ -431,7 +431,7 @@ Agent::Agent() :
     ip_fabric_intf_name_(""), virtual_host_intf_name_(""),
     cfg_listener_(NULL), arp_proto_(NULL), dhcp_proto_(NULL),
     dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
-    local_peer_(NULL), local_vm_peer_(NULL), linklocal_vm_peer_(NULL),
+    local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
     mgmt_ip_(""), vxlan_network_identifier_mode_(AUTOMATIC) {
