@@ -13,9 +13,9 @@
 #include "bgp/bgp_path.h"
 #include "bgp/bgp_route.h"
 #include "bgp/ipeer.h"
-#include "bgp/routing-instance/routing_instance.h"
 #include "bgp/enet/enet_route.h"
 #include "bgp/evpn/evpn_route.h"
+#include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "db/db_table_partition.h"
 
@@ -71,6 +71,11 @@ BgpRoute *EnetTable::RouteReplicate(BgpServer *server,
         BgpTable *src_table, BgpRoute *src_rt, const BgpPath *src_path,
         ExtCommunityPtr community) {
     if (src_table->family() != Address::EVPN)
+        return NULL;
+
+    OriginVn origin_vn(server->autonomous_system(),
+        routing_instance()->virtual_network_index());
+    if (!community->ContainsOriginVn(origin_vn.GetExtCommunity()))
         return NULL;
 
     EnetRoute *enet= dynamic_cast<EnetRoute *>(src_rt);

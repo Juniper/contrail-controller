@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <routing-instance name="blue">
+        <virtual-network>blue-vn</virtual-network>
+        <vrf-target>target:1:101</vrf-target>
+    </routing-instance>
+    <routing-instance name="red">
+        <virtual-network>red-vn</virtual-network>
+        <vrf-target>target:1:102</vrf-target>
+    </routing-instance>
+</config>
