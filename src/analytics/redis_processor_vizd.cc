@@ -146,6 +146,12 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
     redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s %s %s %d",
             lua_scr.c_str(), source.c_str(), module.c_str(), coll.c_str(), timeout);
 
+    if (!reply) {
+        LOG(INFO, "SeqQuery Error : " << c->errstr);
+        redisFree(c);
+        return false;
+    }
+
     if (reply->type == REDIS_REPLY_ARRAY) {
         for (uint iter=0; iter < reply->elements; iter+=2) {
             LOG(INFO, "SeqQuery <" << source << ":" << module << 
@@ -183,6 +189,12 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
 
     redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s %s %s %d",
             lua_scr.c_str(), source.c_str(), module.c_str(), coll.c_str(), timeout);
+
+    if (!reply) {
+        LOG(INFO, "SyncDeleteUVEs Error : " << c->errstr);
+        redisFree(c);
+        return false;
+    }
 
     if (reply->type == REDIS_REPLY_INTEGER) {
         freeReplyObject(reply);
