@@ -13,7 +13,6 @@
 #include <boost/asio/placeholders.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/assign/list_of.hpp>
 #include "boost/generator_iterator.hpp"
 #include "boost/random.hpp"

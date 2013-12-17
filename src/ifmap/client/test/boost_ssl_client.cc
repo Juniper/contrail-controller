@@ -6,13 +6,12 @@
 #include <ctime>
 
 using namespace std;
-using boost::system::error_code;
 
 BoostSslClient::BoostSslClient(boost::asio::io_service &io_service)
-    : io_service_(io_service), resolver_(io_service),
+    : resolver_(io_service),
       context_(io_service, boost::asio::ssl::context::sslv3_client),
       socket_(io_service, context_) {
-    error_code ec;
+    boost::system::error_code ec;
     context_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
 }
 
