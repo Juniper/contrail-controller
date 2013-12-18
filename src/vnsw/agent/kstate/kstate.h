@@ -27,9 +27,9 @@
 
 class KState : public AgentSandeshContext {
 public:
-    static const int max_entries_per_response = 25;
-    KState(std::string s, Sandesh *obj) : resp_data_(s), 
-        resp_obj_(obj), k_resp_code_(0), more_ctx_(NULL), count_(0) {}
+    static const int max_entries_per_response = 100;
+    KState(std::string s, Sandesh *obj) : resp_ctx_(s), 
+        resp_obj_(obj), k_resp_code_(0), more_ctx_(NULL) {}
 
     void EncodeAndSend(Sandesh &encoder);
     virtual void SendResponse() = 0;
@@ -39,16 +39,17 @@ public:
     /* The following API is invoked from agent main to make sure that this library is 
      * linked with agent */
     static void Init();
-    std::string GetResponseContext() { return resp_data_; }
     virtual void Release() {
         if (resp_obj_) {
             resp_obj_->Release();
             resp_obj_ = NULL;
         }
     }
-    Sandesh *GetResponseObject() { return resp_obj_; }
-    void SetKResponseCode(int value) { k_resp_code_ = value; }
-    void *GetMoreContext() { return more_ctx_; }
+    std::string resp_ctx() { return resp_ctx_; }
+    Sandesh *resp_obj() { return resp_obj_; }
+    void *more_ctx() { return more_ctx_; }
+    void set_k_resp_code(int value) { k_resp_code_ = value; }
+    bool MoreData();
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req);
     virtual void RouteMsgHandler(vr_route_req *req);
@@ -60,32 +61,11 @@ public:
     virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
-    bool MoreData();
-    void ResetCount() { count_ = 0; }
-    static int GetMaxResponseCount() {
-        return max_response_count_;
-    }
-    /* The following API is used only by test code */
-    static void SetMaxResponseCount(int count) {
-        max_response_count_ = count;
-    }
 protected:
-    std::string resp_data_;
+    std::string resp_ctx_;
     Sandesh *resp_obj_;
     int k_resp_code_; /* response code from kernel */
     void *more_ctx_; /* context to hold marker info */
-private:
-    int count_;
-    static int max_response_count_;
-};
-
-class KStateIoContext: public IoContext {
-public:
-    KStateIoContext(int msg_len, char *msg, uint32_t seqno, 
-                    AgentSandeshContext *obj)
-        : IoContext(msg, msg_len, seqno, obj) {}
-    void Handler();
-    void ErrorHandler(int err);
 };
 
 #endif // vnsw_agent_kstate_h

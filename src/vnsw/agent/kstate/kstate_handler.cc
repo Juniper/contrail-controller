@@ -19,7 +19,8 @@ void KInterfaceReq::HandleRequest() const {
     KInterfaceResp *resp = new KInterfaceResp();
     resp->set_context(context());
 
-    InterfaceKState *kstate = new InterfaceKState(resp, context(), req, get_if_id());
+    InterfaceKState *kstate = new InterfaceKState(resp, context(), req, 
+                                                  get_if_id());
     kstate->EncodeAndSend(req);
 }
 
@@ -50,6 +51,15 @@ void KMplsReq::HandleRequest() const {
 
     MplsKState *kstate = new MplsKState(resp, context(), req, get_mpls_label());
     kstate->EncodeAndSend(req);
+}
+
+void NextKFlowReq::HandleRequest() const {
+    KFlowResp *resp = new KFlowResp();
+    resp->set_context(context());
+
+    FlowKState *task = new FlowKState(resp, context(), get_flow_handle());
+    TaskScheduler *scheduler = TaskScheduler::GetInstance();
+    scheduler->Enqueue(task);
 }
 
 void KFlowReq::HandleRequest() const {
@@ -106,7 +116,7 @@ void KVxLanReq::HandleRequest() const {
     resp->set_context(context());
 
     VxLanKState *kstate = new VxLanKState(resp, context(), req, 
-                                              get_vxlan_label());
+                                          get_vxlan_label());
     kstate->EncodeAndSend(req);
 }
 

@@ -37,7 +37,7 @@ void InterfaceKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             more_ctx_ = NULL;
         }
@@ -55,10 +55,9 @@ void InterfaceKState::SendNextRequest() {
 void InterfaceKState::SendResponse() {
 
     KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KInterfaceResp();
 }

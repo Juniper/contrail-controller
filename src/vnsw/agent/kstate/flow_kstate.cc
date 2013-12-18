@@ -5,20 +5,25 @@
 #include "kstate.h"
 #include "flow_kstate.h"
 #include <ksync/flowtable_ksync.h>
+#include <sstream>
 
 using namespace std;
 
-void FlowKState::SendPartialResponse() {
-    resp_obj_->set_context(resp_data_);
-    resp_obj_->set_more(true);
-    resp_obj_->Response();
+FlowKState::FlowKState(KFlowResp *obj, string resp_ctx, int idx) :
+    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
+            0), resp_obj_(obj), resp_ctx_(resp_ctx), flow_idx_(idx), 
+    flow_iteration_key_(0) {
+}
 
-    resp_obj_ = new KFlowResp();
+FlowKState::FlowKState(KFlowResp *obj, string resp_ctx, string iter_idx) :
+    Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
+            0), resp_obj_(obj), resp_ctx_(resp_ctx), flow_idx_(-1), 
+    flow_iteration_key_(0) {
+    istringstream(iter_idx) >> flow_iteration_key_;
 }
 
 void FlowKState::SendResponse() {
-    flow_iteration_key_ = 0;
-    resp_obj_->set_context(resp_data_);
+    resp_obj_->set_context(resp_ctx_);
     resp_obj_->Response();
 }
 
@@ -126,7 +131,7 @@ bool FlowKState::Run() {
             SendResponse();
         } else {
             ErrResp *resp = new ErrResp();
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
         }
         return true;
@@ -144,18 +149,25 @@ bool FlowKState::Run() {
             SetFlowData(list, k_flow, idx);
         } 
         idx++;
-        if (count == KState::GetMaxResponseCount()) {
-            SendPartialResponse();
+        if (count == KState::max_entries_per_response) {
             if (idx != max_flows) {
-                flow_iteration_key_ = idx;
-                return false;
+                resp->set_flow_handle(GetFlowHandleStr(idx));
+            } else {
+                resp->set_flow_handle(GetFlowHandleStr(0));
             }
-            break;
+            SendResponse();
+            return true;
         }
     }
 
+    resp->set_flow_handle(GetFlowHandleStr(0));
     SendResponse();
 
     return true;
 }
 
+string FlowKState::GetFlowHandleStr(int idx) {
+    stringstream ss;
+    ss << idx;
+    return ss.str();
+}

@@ -7,7 +7,8 @@
 
 class NHKState: public KState {
 public:
-    NHKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, int id);
+    NHKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, 
+             int id);
     virtual void SendResponse();
     virtual void Handler();
     virtual void SendNextRequest();

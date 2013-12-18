@@ -58,7 +58,7 @@
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
-#include "test_kstate.h"
+#include "kstate/test/test_kstate.h"
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
 

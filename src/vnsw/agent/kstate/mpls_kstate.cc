@@ -35,7 +35,7 @@ void MplsKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             more_ctx_ = NULL;
         }
@@ -45,10 +45,9 @@ void MplsKState::Handler() {
 void MplsKState::SendResponse() {
 
     KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KMplsResp();
 }

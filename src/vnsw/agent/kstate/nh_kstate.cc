@@ -42,7 +42,7 @@ void NHKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             more_ctx_ = NULL;
         }
@@ -52,10 +52,9 @@ void NHKState::Handler() {
 void NHKState::SendResponse() {
 
     KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KNHResp();
 }

@@ -44,17 +44,7 @@ public:
                  std::string resp_ctx, vr_interface_req &encoder, int id): 
                  InterfaceKState(obj, resp_ctx, encoder, id), 
                  TestKStateBase(verify, if_count, id) {}
-    virtual void SendResponse() {
-        UpdateFetchCount();
-        //Update the resp_obj_ with empty list
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
-        if (verify_) {
-            EXPECT_EQ((size_t) KState::GetMaxResponseCount(), 
-                      resp->get_if_list().size());
-        }
-        vector<KInterfaceInfo> list;
-        resp->set_if_list(list);
-    }
+    virtual void SendResponse() { }
 
     virtual void Handler() {
         BaseHandler();
@@ -122,17 +112,7 @@ public:
     TestNHKState(bool verify, int nh_count, KNHResp *obj, std::string resp_ctx,
                  vr_nexthop_req &encoder, int id): NHKState(obj, resp_ctx, 
                  encoder, id), TestKStateBase(verify, nh_count, id) {}
-    virtual void SendResponse() {
-        UpdateFetchCount();
-        //Update the resp_obj_ with empty list
-        KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
-        if (verify_) {
-	    EXPECT_EQ((size_t) KState::GetMaxResponseCount(), 
-                      resp->get_nh_list().size());
-        }
-        vector<KNHInfo> list;
-        resp->set_nh_list(list);
-    }
+    virtual void SendResponse() { }
 
     virtual void Handler() {
         BaseHandler();
@@ -200,17 +180,7 @@ public:
     TestMplsKState(bool ve, int lbl_count, KMplsResp *obj, std::string resp_ctx,
                    vr_mpls_req &encoder, int id): MplsKState(obj, resp_ctx, 
                    encoder, id), TestKStateBase(ve, lbl_count, id) {}
-    virtual void SendResponse() {
-        UpdateFetchCount();
-        //Update the resp_obj_ with empty list
-        KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
-        if (verify_) {
-	    EXPECT_EQ((size_t) KState::GetMaxResponseCount(), 
-                      resp->get_mpls_list().size());
-        }
-        vector<KMplsInfo> list;
-        resp->set_mpls_list(list);
-    }
+    virtual void SendResponse() { }
 
     virtual void Handler() {
         BaseHandler();
@@ -277,17 +247,7 @@ public:
     TestMirrorKState(bool ve, int count, KMirrorResp *obj, std::string resp_ctx,
                    vr_mirror_req &encoder, int id): MirrorKState(obj, resp_ctx, 
                    encoder, id), TestKStateBase(ve, count, id) {}
-    virtual void SendResponse() {
-        UpdateFetchCount();
-        //Update the resp_obj_ with empty list
-        KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
-        if (verify_) {
-	    EXPECT_EQ((size_t) KState::GetMaxResponseCount(), 
-                      resp->get_mirror_list().size());
-        }
-        vector<KMirrorInfo> list;
-        resp->set_mirror_list(list);
-    }
+    virtual void SendResponse() {}
 
     virtual void Handler() {
         BaseHandler();
@@ -452,16 +412,7 @@ public:
             EXPECT_EQ(expected_count_, fetched_count_);
         }
     }
-    void SendPartialResponse() {
-        UpdateFetchCount();
-        if (verify_) {
-	    EXPECT_EQ((size_t) KState::GetMaxResponseCount(), 
-                      resp_obj_->get_flow_list().size());
-        }
-        //Update the resp_obj_ with empty list
-        vector<KFlowInfo> list;
-        resp_obj_->set_flow_list(list);
-    }
+    void SendPartialResponse() { }
     static void Init(bool verify, int idx, int count = 0) {
         KFlowResp *resp = new KFlowResp();
 

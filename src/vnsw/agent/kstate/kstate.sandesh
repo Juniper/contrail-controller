@@ -139,12 +139,17 @@ request sandesh KMirrorReq {
 response sandesh KMirrorResp { 1: list<KMirrorInfo> mirror_list;
 }
 
+request sandesh NextKFlowReq {
+    1: string flow_handle;
+}
+
 request sandesh KFlowReq {
     1: i32 flow_idx = -1;        // send data for given flow index, send all if -1
 }
 
 response sandesh KFlowResp {
     1: list<KFlowInfo> flow_list;
+    2: string flow_handle (link="NextKFlowReq");
 }
 
 request sandesh KVxLanReq {

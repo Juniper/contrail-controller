@@ -41,7 +41,7 @@ void VrfStatsKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             more_ctx_ = NULL;
         }
@@ -59,10 +59,9 @@ void VrfStatsKState::SendNextRequest() {
 void VrfStatsKState::SendResponse() {
 
     KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KVrfStatsResp();
 }

@@ -4,7 +4,7 @@
 
 #include "test/test_init.h"
 #include "test/test_cmn_util.h"
-#include "test/test_kstate.h"
+#include "kstate/test/test_kstate.h"
 #include "oper/mirror_table.h"
 #include "oper/tunnel_nh.h"
 #include "xmpp/test/xmpp_test_util.h"
@@ -95,7 +95,7 @@ public:
         int idx;
         client->Reset();
         CreateVmPorts(input, MAX_TEST_FD);
-        client->WaitForIdle(2);
+        client->WaitForIdle(3);
 
         for (int i = 0; i < MAX_TEST_FD; i++) {
             idx = i;
@@ -131,7 +131,7 @@ public:
 
     void DeletePorts() {
         DeleteVmportEnv(input, MAX_TEST_FD, true);
-        client->WaitForIdle(2);
+        client->WaitForIdle(3);
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVmTable()->Size()));
         WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->GetVnTable()->Size()));
         WaitForVrf(input, 0, false);
@@ -142,7 +142,7 @@ public:
         int idx;
         client->Reset();
         CreateVmportEnv(input, MAX_TEST_FD, 1);
-        client->WaitForIdle(2);
+        client->WaitForIdle(3);
 
         for (int i = 0; i < MAX_TEST_FD; i++) {
             idx = i;
@@ -415,7 +415,6 @@ int main(int argc, char *argv[]) {
 
     client = TestInit(init_file, ksync_init, true, false);
     KStateTest::TestSetup(ksync_init);
-    KState::SetMaxResponseCount(2);
 
     ::testing::InitGoogleTest(&argc, argv);
     ret = RUN_ALL_TESTS();
