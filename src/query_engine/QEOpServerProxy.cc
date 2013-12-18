@@ -8,6 +8,7 @@
 #include <boost/tuple/tuple.hpp>
 #include "base/util.h"
 #include "base/logging.h"
+#include <tbb/atomic.h>
 #include <cstdlib>
 #include <utility>
 #include "hiredis/hiredis.h"
@@ -74,6 +75,7 @@ public:
         string post;
         uint64_t time_period;
         string table;
+        tbb::atomic<uint32_t> chunk_q;
     };
 
     void JsonInsert(std::vector<query_column> &columns,
@@ -216,75 +218,110 @@ public:
     struct Stage0Out {
         Input inp;
         bool ret_code;
-        QPerfInfo ret_info;
-        uint32_t chunk_merge_time;
+        vector<QPerfInfo> ret_info;
+        vector<uint32_t> chunk_merge_time;
         shared_ptr<BufferT> result;
         shared_ptr<OutRowMultimapT> mresult;
     };
+
     ExternalBase::Efn QueryExec(uint32_t inst, const vector<RawResultT*> & exts,
             const Input & inp, Stage0Out & res) { 
         uint32_t step = exts.size();
+
+
         if (!step) {
             res.inp = inp;
-            string key = "QUERY:" + res.inp.qp.qid;
-
-            // Update query status
-            RedisAsyncConnection * rac = conns_[res.inp.cnum].get();
-            string rkey = "REPLY:" + res.inp.qp.qid;
-            char stat[40];
-            sprintf(stat,"{\"progress\":15}");
-            RedisAsyncArgCommand(rac, NULL, 
-                list_of(string("RPUSH"))(rkey)(stat));
-            
+            res.ret_code = true;
+         
             if (inp.map_output)
                 res.mresult = shared_ptr<OutRowMultimapT>(new OutRowMultimapT());
             else
                 res.result = shared_ptr<BufferT>(new BufferT());
 
-            // TODO : The chunk number should be picked off a queue
-            //        This queue may be part of the input for this stage
-            return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
-                    _1,
-                    inp.qp,
-                    inst);
-        } else {
-            QE_ASSERT(step==1);
-            res.ret_info = exts[0]->first;
-            res.chunk_merge_time = 0;
-            res.ret_code = (exts[0]->first.error == 0) ? true : false;
-            if (res.ret_code) {
-                if (inp.need_merge) {
-                    uint64_t then = UTCTimestampUsec();
-                    if (inp.map_output) {
-                        // TODO: This interface should not be Stats-Specific
-                        StatsSelect::Merge(*(exts[0]->second.second), *(res.mresult));
-                    } else {
-                        res.ret_code =
-                            qosp_->qe_->QueryAccumulate(inp.qp,
-                                *(exts[0]->second.first), *(res.result));
-                    }
-                    res.chunk_merge_time = 
-                        static_cast<uint32_t>((UTCTimestampUsec() - then)/1000);
-            
+            Input& cinp = const_cast<Input&>(inp);
+            uint32_t chunknum = cinp.chunk_q.fetch_and_increment(); 
+            if (chunknum < inp.chunk_size.size()) {
+
+                string key = "QUERY:" + res.inp.qp.qid;
+
+                // Update query status
+                RedisAsyncConnection * rac = conns_[res.inp.cnum].get();
+                string rkey = "REPLY:" + res.inp.qp.qid;
+                char stat[40];
+                uint prg = 10 + (chunknum * 75)/inp.chunk_size.size();
+                QE_LOG_NOQID(DEBUG,  "QueryExec for inst " << inst <<
+                    " step " << step << " PROGRESS " << prg);
+                sprintf(stat,"{\"progress\":%d}", prg);
+                RedisAsyncArgCommand(rac, NULL, 
+                    list_of(string("RPUSH"))(rkey)(stat));
+
+                return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
+                        _1,
+                        inp.qp,
+                        chunknum);
+            } else {
+                return NULL;
+            }
+        }
+
+        res.ret_info.push_back(exts[step-1]->first);
+        if (exts[step-1]->first.error) {
+            res.ret_code =false;
+        }
+        if (res.ret_code) {
+            if (inp.need_merge) {
+                uint64_t then = UTCTimestampUsec();
+                if (inp.map_output) {
+                    // TODO: This interface should not be Stats-Specific
+                    StatsSelect::Merge(*(exts[step-1]->second.second), *(res.mresult));
                 } else {
-                    // TODO : When merge is not needed, we can just send
-                    //        a result upto redis at this point.
+                    res.ret_code =
+                        qosp_->qe_->QueryAccumulate(inp.qp,
+                            *(exts[step-1]->second.first), *(res.result));
+                }
+                res.chunk_merge_time.push_back(
+                    static_cast<uint32_t>((UTCTimestampUsec() - then)/1000));
+        
+            } else {
+                // TODO : When merge is not needed, we can just send
+                //        a result upto redis at this point.
 
-                    if (inp.map_output) {
-                        OutRowMultimapT::iterator jt = res.mresult->begin();
-                        for (OutRowMultimapT::const_iterator it = exts[0]->second.second->begin();
-                                it != exts[0]->second.second->end(); it++ ) {
+                if (inp.map_output) {
+                    OutRowMultimapT::iterator jt = res.mresult->begin();
+                    for (OutRowMultimapT::const_iterator it = exts[step-1]->second.second->begin();
+                            it != exts[step-1]->second.second->end(); it++ ) {
 
-                            jt = res.mresult->insert(jt,
-                                    std::make_pair(it->first, it->second));
-                        }
-                    } else {
-                        res.result->insert(res.result->begin(),
-                            exts[0]->second.first->begin(),
-                            exts[0]->second.first->end());                        
+                        jt = res.mresult->insert(jt,
+                                std::make_pair(it->first, it->second));
                     }
+                } else {
+                    res.result->insert(res.result->begin(),
+                        exts[step-1]->second.first->begin(),
+                        exts[step-1]->second.first->end());                        
                 }
             }
+            Input& cinp = const_cast<Input&>(inp);
+            uint32_t chunknum = cinp.chunk_q.fetch_and_increment(); 
+            if (chunknum < inp.chunk_size.size()) {
+                string key = "QUERY:" + res.inp.qp.qid;
+
+                // Update query status
+                RedisAsyncConnection * rac = conns_[res.inp.cnum].get();
+                string rkey = "REPLY:" + res.inp.qp.qid;
+                char stat[40];
+                uint prg = 10 + (chunknum * 75)/inp.chunk_size.size();
+                QE_LOG_NOQID(DEBUG,  "QueryExec for inst " << inst <<
+                    " step " << step << " PROGRESS " << prg);
+                sprintf(stat,"{\"progress\":%d}", prg);
+                RedisAsyncArgCommand(rac, NULL, 
+                    list_of(string("RPUSH"))(rkey)(stat));         
+                return boost::bind(&QueryEngine::QueryExec, qosp_->qe_,
+                        _1,
+                        inp.qp,
+                        chunknum);
+            } else {
+                return NULL;
+            }            
         }
         return NULL;
     }
@@ -293,8 +330,8 @@ public:
         Input inp;
         bool ret_code;
         uint32_t fm_time;
-        QPerfInfo ret_info;
-        uint32_t chunk_merge_time;
+        vector<vector<QPerfInfo> > ret_info;
+        vector<vector<uint32_t> > chunk_merge_time;
         BufferT result;
         OutRowMultimapT mresult;
     };
@@ -305,18 +342,13 @@ public:
         res.inp = subs[0]->inp;
         res.fm_time = 0;
       
-        res.ret_info.chunk_where_time = 0;
-        res.ret_info.chunk_select_time = 0;
-        res.ret_info.chunk_postproc_time = 0;
-        res.chunk_merge_time = 0; 
         std::vector<boost::shared_ptr<OutRowMultimapT> > mqsubs;
         std::vector<boost::shared_ptr<QEOpServerProxy::BufferT> > qsubs;
         for (vector<shared_ptr<Stage0Out> >::const_iterator it = subs.begin() ;
                 it!=subs.end(); it++) {
-            res.ret_info.chunk_where_time += (*it)->ret_info.chunk_where_time;
-            res.ret_info.chunk_select_time += (*it)->ret_info.chunk_select_time;
-            res.ret_info.chunk_postproc_time += (*it)->ret_info.chunk_postproc_time;
-            res.chunk_merge_time += (*it)->chunk_merge_time;
+
+            res.ret_info.push_back((*it)->ret_info);
+            res.chunk_merge_time.push_back((*it)->chunk_merge_time);
 
             if ((*it)->ret_code == false) {
                 res.ret_code = false;
@@ -326,12 +358,6 @@ public:
                 else
                     qsubs.push_back((*it)->result);
             }
-        }
-        if (subs.size()) {
-           res.ret_info.chunk_where_time /= subs.size();
-           res.ret_info.chunk_select_time /= subs.size();
-           res.ret_info.chunk_postproc_time /= subs.size();
-           res.chunk_merge_time /= subs.size();
         }
 
         if (!res.ret_code) return true;
@@ -420,7 +446,7 @@ public:
                             RedisAsyncArgCommand(rac, NULL, command);
                             RedisAsyncArgCommand(rac, NULL, 
                                 list_of(string("EXPIRE"))(keystr.str())("300"));
-                            sprintf(stat,"{\"progress\":80, \"lines\":%d}",
+                            sprintf(stat,"{\"progress\":90, \"lines\":%d}",
                                 (int)rownum);
                             RedisAsyncArgCommand(rac, NULL, 
                                 list_of(string("RPUSH"))(key)(stat));
@@ -472,10 +498,30 @@ public:
                     qs.set_time(qtime);
                     qs.set_qid(ret.inp.qp.qid);
                     qs.set_chunks(inp.inp.chunk_size.size());
-                    qs.set_chunk_where_time(inp.ret_info.chunk_where_time);
-                    qs.set_chunk_select_time(inp.ret_info.chunk_select_time);
-                    qs.set_chunk_postproc_time(inp.ret_info.chunk_postproc_time);
-                    qs.set_chunk_merge_time(inp.chunk_merge_time);
+                    std::ostringstream wherestr, selstr, poststr;
+                    for (size_t i=0; i < inp.ret_info.size(); i++) {
+                        for (size_t j=0; j < inp.ret_info[i].size(); j++) {
+                            wherestr << inp.ret_info[i][j].chunk_where_time << ",";
+                            selstr << inp.ret_info[i][j].chunk_select_time << ",";
+                            poststr << inp.ret_info[i][j].chunk_postproc_time << ",";
+                        }
+                        wherestr << " ";
+                        selstr << " ";
+                        poststr << " ";
+                    }
+                    qs.set_chunk_where_time(wherestr.str());
+                    qs.set_chunk_select_time(selstr.str());
+                    qs.set_chunk_postproc_time(poststr.str());
+
+                    std::ostringstream mergestr;
+                    for (size_t i=0; i < inp.chunk_merge_time.size(); i++) {
+                        for (size_t j=0; j < inp.chunk_merge_time[i].size(); j++) {
+                            mergestr << inp.chunk_merge_time[i][j] << ",";
+                        }
+                        mergestr << " ";
+                    }
+
+                    qs.set_chunk_merge_time(mergestr.str());
                     qs.set_final_merge_time(inp.fm_time);
                     qs.set_where(inp.inp.where);
                     qs.set_select(inp.inp.select);
@@ -628,7 +674,7 @@ public:
         freeReplyObject(reply);
         redisFree(c);
 
-        QueryEngine::QueryParams qp(qid, terms, max_chunks_,
+        QueryEngine::QueryParams qp(qid, terms, max_tasks_,
             UTCTimestampUsec());
        
         vector<uint64_t> chunk_size;
@@ -666,9 +712,10 @@ public:
         inp.get()->post = post;
         inp.get()->time_period = time_period;
         inp.get()->table = table;
-  
+        inp.get()->chunk_q = 0;
+
         vector<pair<int,int> > tinfo;
-        for (uint idx=0; idx<chunk_size.size(); idx++) {
+        for (uint idx=0; idx<(uint)max_tasks_; idx++) {
             tinfo.push_back(make_pair(0, -1));
         }
 
@@ -691,7 +738,8 @@ public:
         inp.get()->cnum = conn+1; 
 
         wp->Start(boost::bind(&QEOpServerImpl::QEPipeCb, this, wp, _1), inp);
-        QE_LOG_NOQID(DEBUG, "Starting Pipeline for " << qid << " , " << conn+1 << " conn");
+        QE_LOG_NOQID(DEBUG, "Starting Pipeline for " << qid << " , " << conn+1 << 
+            " conn, " << tinfo.size() << " tasks");
         
         // Update query status
         RedisAsyncConnection * rac = conns_[inp.get()->cnum].get();
@@ -770,12 +818,12 @@ public:
     }
     
     QEOpServerImpl(const string & redis_host, uint16_t port, QEOpServerProxy * qosp,
-                   int max_chunks) :
+                   int max_tasks) :
             hostname_(boost::asio::ip::host_name()),
             redis_host_(redis_host),
             port_(port),
             qosp_(qosp),
-            max_chunks_(max_chunks) {
+            max_tasks_(max_tasks) {
         for (int i=0; i<kConnections+1; i++) {
             cb_proc_fn_[i] = boost::bind(&QEOpServerImpl::CallbackProcess,
                     this, i, _1, _2, _3);
@@ -817,15 +865,15 @@ private:
     tbb::mutex mutex_;
     map<string,QEPipeT*> pipes_;
     int npipes_[kConnections];
-    int max_chunks_;
+    int max_tasks_;
 
 };
 
 QEOpServerProxy::QEOpServerProxy(EventManager *evm, QueryEngine *qe,
-            const string & hostname, uint16_t port, int max_chunks) :
+            const string & hostname, uint16_t port, int max_tasks) :
         evm_(evm),
         qe_(qe),
-        impl_(new QEOpServerImpl(hostname, port, this, max_chunks)) {}
+        impl_(new QEOpServerImpl(hostname, port, this, max_tasks)) {}
 
 QEOpServerProxy::~QEOpServerProxy() {}
 
