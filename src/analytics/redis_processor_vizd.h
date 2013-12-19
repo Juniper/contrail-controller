@@ -17,7 +17,7 @@ class RedisProcessorIf;
 
 class RedisProcessorExec {
 public:
-    static void
+    static bool
     UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &type, const std::string &attr,
                        const std::string &source, const std::string &module,
@@ -25,7 +25,7 @@ public:
                        int32_t seq, const std::string &agg,
                        const std::string &atyp, int64_t ts);
 
-    static void
+    static bool
     UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
             const std::string &type,
             const std::string &source, const std::string &module,

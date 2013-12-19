@@ -48,14 +48,15 @@ RedisProcessorExec::WithdrawGenerator(RedisAsyncConnection * rac,
         list_of(string("EVAL"))(lua_scr)("0")(source)(module)(coll));
 }
 
-void
+bool
 RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &type, const std::string &attr,
                        const std::string &source, const std::string &module,
                        const std::string &key, const std::string &msg,
                        int32_t seq, const std::string &agg,
                        const std::string &hist, int64_t ts) {
-
+    
+    bool ret = false;
     size_t sep = key.find(":");
     string table = key.substr(0, sep);
     std::ostringstream seqstr;
@@ -77,7 +78,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         sp = string("S-3600-SUMMARY:") + key + ":" + source + ":" + module + ":" + type + ":" + attr + ":" + tsbinstr.str();
 
         string lua_scr(reinterpret_cast<char *>(uveupdate_st_lua), uveupdate_st_lua_len);
-        rac->RedisAsyncArgCmd(rpi,
+        ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("8")(
                 string("TYPES:") + source + ":" + module)(
                 string("ORIGINS:") + key)(
@@ -90,7 +91,7 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     } else {
 
         string lua_scr(reinterpret_cast<char *>(uveupdate_lua), uveupdate_lua_len);
-        rac->RedisAsyncArgCmd(rpi,
+        ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("5")(
                 string("TYPES:") + source + ":" + module)(
                 string("ORIGINS:") + key)(
@@ -99,9 +100,10 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                 string("VALUES:") + key + ":" + source + ":" + module + ":" + type)(
                 source)(module)(type)(attr)(key)(seqstr.str())(msg));        
     }
+    return ret;
 }
 
-void
+bool
 RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         const std::string &type,
         const std::string &source, const std::string &module,
@@ -114,7 +116,7 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     seqstr << seq;
 
     string lua_scr(reinterpret_cast<char *>(uvedelete_lua), uvedelete_lua_len);
-    rac->RedisAsyncArgCmd(rpi,
+    return rac->RedisAsyncArgCmd(rpi,
         list_of(string("EVAL"))(lua_scr)("6")(
             string("DEL:") + key + ":" + source + ":" + module + ":" + type + ":" + seqstr.str())(
             string("VALUES:") + key + ":" + source + ":" + module + ":" + type)(

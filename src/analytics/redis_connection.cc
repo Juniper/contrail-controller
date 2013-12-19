@@ -25,6 +25,12 @@ RedisAsyncConnection::RedisAsyncConnection(EventManager *evm, const std::string 
     evm_(evm),
     hostname_(redis_ip),
     port_(redis_port),
+    callDisconnected_(0),
+    callFailed_(0),
+    callSucceeded_(0),
+    callbackNull_(0),
+    callbackFailed_(0),
+    callbackSucceeded_(0),
     context_(NULL),
     client_(NULL),
     state_(REDIS_ASYNC_CONNECTION_INIT),
@@ -101,6 +107,18 @@ void RedisAsyncConnection::RAC_ConnectCallbackProcess(const struct redisAsyncCon
 
     if (client_connect_cb_)
         client_connect_cb_();
+}
+
+void RedisAsyncConnection::RAC_StatUpdate(const redisReply *reply) {
+    if (reply == NULL) {
+        callbackNull_++;
+        return;
+    }
+    if (reply->type == REDIS_REPLY_ERROR) {
+        callbackFailed_++;
+    }  else {
+        callbackSucceeded_++;
+    }
 }
 
 void RedisAsyncConnection::RAC_ConnectCallback(const struct redisAsyncContext *c, int status) {
@@ -189,6 +207,7 @@ bool RedisAsyncConnection::RAC_Connect(void) {
     } else {
         assert(0);
     }
+    it->second->stat_cbfn_ = boost::bind(&RedisAsyncConnection::RAC_StatUpdate, this, _1);
     it->second->connect_cbfn_ = boost::bind(&RedisAsyncConnection::RAC_ConnectCallbackProcess, this, _1, _2);
 
     assert(redisAsyncSetDisconnectCallback(context_, RedisAsyncConnection::RAC_DisconnectCallback) == REDIS_OK);
@@ -200,6 +219,7 @@ bool RedisAsyncConnection::RAC_Connect(void) {
 
 void RedisAsyncConnection::RAC_AsyncCmdCallback(redisAsyncContext *c, void *r, void *privdata) {
     ClientAsyncCmdCbFn cbfn;
+    RAC_StatCbFn stat_fn;
     {
         tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
         RedisAsyncConnection::RAC_CbFnsMap& fns_map = RedisAsyncConnection::rac_cb_fns_map();
@@ -208,6 +228,7 @@ void RedisAsyncConnection::RAC_AsyncCmdCallback(redisAsyncContext *c, void *r, v
             return;
         }
         cbfn = it->second->client_async_cmd_cbfn_;
+        stat_fn = it->second->stat_cbfn_;
     }
     if (cbfn) {
         (cbfn)(c, r, privdata);
@@ -215,29 +236,29 @@ void RedisAsyncConnection::RAC_AsyncCmdCallback(redisAsyncContext *c, void *r, v
     }
 
     redisReply *reply = (redisReply*)r;
+    assert(stat_fn);
+    (stat_fn)(reply);
 
-    if (reply == NULL) {
-//      LOG(DEBUG, __func__ << "NULL Reply");
-        return;
-    }
+#if 0
 
     if (reply->type == REDIS_REPLY_ARRAY) {
-//      LOG(DEBUG, __func__ << "REDIS_REPLY_ARRAY == " << reply->elements);
+        LOG(DEBUG, __func__ << "REDIS_REPLY_ARRAY == " << reply->elements);
         int i;
         for (i = 0; i < (int)reply->elements; i++) {
             if (reply->element[i]->type == REDIS_REPLY_STRING) {
-//              LOG(DEBUG, __func__ << "Element" << i << "== " << reply->element[i]->str);
+                LOG(DEBUG, __func__ << "Element" << i << "== " << reply->element[i]->str);
             } else {
-//              LOG(DEBUG, __func__ << "Element" << i << " type == " << reply->element[i]->type);
+                LOG(DEBUG, __func__ << "Element" << i << " type == " << reply->element[i]->type);
             }
         }
     } else if (reply->type == REDIS_REPLY_STRING) {
-//      LOG(DEBUG, __func__ << "REDIS_REPLY_STRING == " << reply->str);
+        LOG(DEBUG, __func__ << "REDIS_REPLY_STRING == " << reply->str);
     } else if (reply->type == REDIS_REPLY_INTEGER) {
-//      LOG(DEBUG, __func__ << "REDIS_REPLY_INTEGER == " << reply->type);
+        LOG(DEBUG, __func__ << "REDIS_REPLY_INTEGER == " << reply->type);
     } else {
-//      LOG(DEBUG, __func__ << "reply->type == " << reply->type);
+        LOG(DEBUG, __func__ << "reply->type == " << reply->type);
     }
+#endif
 }
 
 bool RedisAsyncConnection::SetClientAsyncCmdCb(ClientAsyncCmdCbFn cb_fn) {
@@ -262,7 +283,10 @@ bool RedisAsyncConnection::RedisAsyncArgCmd(void *rpi,
 
     tbb::mutex::scoped_lock lock(mutex_);
 
-    if (state_ != REDIS_ASYNC_CONNECTION_CONNECTED) return false;
+    if (state_ != REDIS_ASYNC_CONNECTION_CONNECTED) {
+        callDisconnected_++;
+        return false;
+    }
 
     int argc = args.size();
     const char** argv = new const char* [argc];
@@ -282,9 +306,11 @@ bool RedisAsyncConnection::RedisAsyncArgCmd(void *rpi,
     delete[] argv;
 
     if (REDIS_ERR == ret) {
-        LOG(DEBUG, "Could NOT apply " << args[0] << " to Redis : ");
+        LOG(INFO, "Could NOT apply " << args[0] << " to Redis : ");
+        callFailed_++;
     } else {
         status = true;
+        callSucceeded_++;
     }
     return status;
 }
@@ -293,7 +319,10 @@ bool RedisAsyncConnection::RedisAsyncArgCmd(void *rpi,
 bool RedisAsyncConnection::RedisAsyncCommand(void *rpi, const char *format, ...) {
     tbb::mutex::scoped_lock lock(mutex_);
 
-    if (state_ != REDIS_ASYNC_CONNECTION_CONNECTED) return false;
+    if (state_ != REDIS_ASYNC_CONNECTION_CONNECTED) {
+        callDisconnected_++;
+        return false;
+    }
 
     bool status = false;
     int ret;
@@ -307,9 +336,11 @@ bool RedisAsyncConnection::RedisAsyncCommand(void *rpi, const char *format, ...)
             ap);
 
     if (REDIS_ERR == ret) {
-        LOG(DEBUG, "Could NOT apply " << format << " to Redis : ");
+        LOG(INFO, "Could NOT apply " << format << " to Redis : ");
+        callFailed_++;
     } else {
         status = true;
+        callSucceeded_++;
     }
     va_end(ap);
     return status;
