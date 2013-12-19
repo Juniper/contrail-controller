@@ -118,38 +118,6 @@ static void MapObjectLinkAttr(const string &ltype, const string &lname,
     requests->push_back(request);
 }
 
-static void SetBgpRouterParams(const string &identifier,
-                               autogen::BgpRouterParams *params,
-                               BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "bgp-router";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "bgp-router-parameters";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearBgpRouterParams(const string &identifier,
-                                 BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "bgp-router";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "bgp-router-parameters";
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
 static autogen::BgpSessionAttributes *GetPeeringSessionAttribute(
         const pair<string, string> &key, autogen::BgpPeeringAttributes *peer,
         int session_id, const string &to) {
@@ -320,21 +288,21 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            bool add_change, string *nodename,
                            SessionMap *sessions,
                            BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::BgpRouterParams> params(
+    auto_ptr<autogen::BgpRouterParams> property(
         new autogen::BgpRouterParams());
     string identifier;
     xml_attribute name = node.attribute("name");
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         // TODO: log warning
         return false;
     }
     if (name) {
         identifier = name.value();
-    } else if (!params->address.empty()) {
-        identifier.append(params->address);
-        if (params->port != 0) {
+    } else if (!property->address.empty()) {
+        identifier.append(property->address);
+        if (property->port != 0) {
             ostringstream oss;
-            oss << "_" << params->port;
+            oss << "_" << property->port;
             identifier = oss.str();
         }
     } else {
@@ -355,15 +323,15 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
     }
 
     if (add_change) {
-        SetBgpRouterParams(fqname, params.release(), requests);
+        MapObjectSetProperty("bgp-router", fqname,
+            "bgp-router-parameters", property.release(), requests);
         MapObjectLink("routing-instance", instance,
-                      "bgp-router", identifier, "instance-bgp-router",
-                      requests);
+            "bgp-router", identifier, "instance-bgp-router", requests);
     } else {
-        ClearBgpRouterParams(fqname, requests);
+        MapObjectClearProperty("bgp-router", fqname,
+            "bgp-router-parameters", requests);
         MapObjectUnlink("routing-instance", instance,
-                        "bgp-router", identifier, "instance-bgp-router",
-                        requests);
+            "bgp-router", identifier, "instance-bgp-router", requests);
     }
 
     return true;
