@@ -305,7 +305,7 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
-    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "", 0);
+    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "", vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -317,7 +317,8 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac) {
-    IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac, 0xFFFF);
+    IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac,
+               VmInterface::kInvalidVlanId);
 }
 
 void IntfCfgAdd(PortInfo *input, int id) {

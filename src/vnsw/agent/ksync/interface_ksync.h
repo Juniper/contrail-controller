@@ -81,6 +81,8 @@ private:
     VirtualHostInterface::SubType sub_type_;
     bool ipv4_forwarding_;
     bool layer2_forwarding_;
+    uint16_t vlan_id_;
+    KSyncEntryPtr parent_;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
 };
 

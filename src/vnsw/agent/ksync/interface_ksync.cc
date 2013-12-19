@@ -74,7 +74,8 @@ IntfKSyncEntry::IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index) :
     mirror_direction_(entry->mirror_direction_), active_(false),
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
-    layer2_forwarding_(entry->layer2_forwarding_) {
+    layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
+    parent_(entry->parent_) {
 }
 
 IntfKSyncEntry::IntfKSyncEntry(const Interface *intf) :
@@ -84,7 +85,8 @@ IntfKSyncEntry::IntfKSyncEntry(const Interface *intf) :
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), active_(false),
     os_index_(intf->os_index()), sub_type_(VirtualHostInterface::HOST),
-    ipv4_forwarding_(true), layer2_forwarding_(true) {
+    ipv4_forwarding_(true), layer2_forwarding_(true),
+    vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
        
     // Max name size supported by kernel
     assert(strlen(ifname_.c_str()) < IF_NAMESIZE);
@@ -96,6 +98,11 @@ IntfKSyncEntry::IntfKSyncEntry(const Interface *intf) :
             ip_ = vmitf->ip_addr().to_ulong();
         }
         network_id_ = vmitf->vxlan_id();
+        vlan_id_ = vmitf->vlan_id();
+        if (vmitf->parent()) {
+            IntfKSyncEntry tmp(vmitf->parent());
+            parent_ = IntfKSyncObject::GetKSyncObject()->GetReference(&tmp);
+        }
     }
 
 }
@@ -213,6 +220,17 @@ bool IntfKSyncEntry::Sync(DBEntry *e) {
 }
 
 KSyncEntry *IntfKSyncEntry::UnresolvedReference() {
+    if (type_ != Interface::VM_INTERFACE) {
+        return NULL;
+    }
+
+    if (vlan_id_ == VmInterface::kInvalidVlanId)
+        return NULL;
+
+    if (!parent_->IsResolved()) {
+        return parent_.get();
+    }
+
     return NULL;
 }
 
@@ -233,6 +251,14 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         encoder.set_vifr_mac(intf_mac);
         if (layer2_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
+        }
+        if (vlan_id_ == VmInterface::kInvalidVlanId) {
+            encoder.set_vifr_type(VIF_TYPE_VIRTUAL);
+        } else {
+            encoder.set_vifr_type(VIF_TYPE_VLAN);
+            encoder.set_vifr_vlan_id(vlan_id_);
+            encoder.set_vifr_parent_vif_idx
+                (static_cast<IntfKSyncEntry *>(parent_.get())->id());
         }
         break;
     }

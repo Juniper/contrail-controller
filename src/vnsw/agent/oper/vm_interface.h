@@ -182,22 +182,24 @@ public:
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(),
         vxlan_id_(0), layer2_forwarding_(true), ipv4_forwarding_(true),
-        mac_set_(false), sg_list_(), floating_ip_list_(), service_vlan_list_(),
+        mac_set_(false), vlan_id_(kInvalidVlanId), parent_(NULL),
+        sg_list_(), floating_ip_list_(), service_vlan_list_(),
         static_route_list_() { 
         active_ = false;
     }
 
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const std::string &mac,
-                const std::string &vm_name) : 
+                const std::string &vm_name, uint16_t vlan_id,
+                Interface *parent) : 
         Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
         vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(vm_name),
         vxlan_id_(0), layer2_forwarding_(true), ipv4_forwarding_(true), 
-        mac_set_(false), sg_list_(), floating_ip_list_(), service_vlan_list_(),
-        static_route_list_() {
+        mac_set_(false), vlan_id_(vlan_id), parent_(parent), sg_list_(),
+        floating_ip_list_(), service_vlan_list_(), static_route_list_() {
         active_ = false;
     }
 
@@ -232,6 +234,8 @@ public:
     bool ipv4_forwarding() const { return ipv4_forwarding_; }
     const std::string &vm_name() const { return vm_name_; }
     const std::string &cfg_name() const { return cfg_name_; }
+    uint16_t vlan_id() const { return vlan_id_; }
+    const Interface *parent() const { return parent_.get(); }
 
     Interface::MirrorDirection mirror_direction() const {
         return mirror_direction_;
@@ -287,7 +291,8 @@ public:
     static void Add(InterfaceTable *table,
                     const boost::uuids::uuid &intf_uuid,
                     const std::string &os_name, const Ip4Address &addr,
-                    const std::string &mac, const std::string &vn_name);
+                    const std::string &mac, const std::string &vn_name,
+                    uint16_t vlan_id_, const std::string &parent);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
                        const boost::uuids::uuid &intf_uuid);
@@ -392,6 +397,9 @@ private:
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
     bool mac_set_;
+    // VLAN Tag and the parent interface when VLAN is enabled
+    uint16_t vlan_id_;
+    InterfaceRef parent_;
 
     // Lists
     SecurityGroupEntryList sg_list_;
@@ -452,9 +460,10 @@ struct VmInterfaceData : public InterfaceData {
 struct VmInterfaceAddData : public VmInterfaceData {
     VmInterfaceAddData(const Ip4Address &ip_addr,
                        const std::string &vm_mac,
-                       const std::string &vm_name) :
+                       const std::string &vm_name,
+                       const uint16_t vlan_id, const std::string &parent) :
         VmInterfaceData(ADD_DEL_CHANGE), ip_addr_(ip_addr), vm_mac_(vm_mac),
-        vm_name_(vm_name) {
+        vm_name_(vm_name), vlan_id_(vlan_id), parent_(parent) {
     }
 
     virtual ~VmInterfaceAddData() { }
@@ -462,6 +471,8 @@ struct VmInterfaceAddData : public VmInterfaceData {
     Ip4Address ip_addr_;
     std::string vm_mac_;
     std::string vm_name_;
+    uint16_t vlan_id_;
+    std::string parent_;
 };
 
 // Structure used when type=IP_ADDR. Used to update IP-Address of VM-Interface

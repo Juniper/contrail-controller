@@ -16,7 +16,8 @@ public:
     enum Mode {
         MODE_INVALID,
         MODE_KVM,
-        MODE_XEN
+        MODE_XEN,
+        MODE_VMWARE
     };
 
     struct PortInfo {
@@ -80,10 +81,14 @@ public:
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
     VirtualGatewayConfig *vgw_config() const { return vgw_config_.get(); }
+    const std::string &vmware_physical_port() const {
+        return vmware_physical_port_;
+    }
 
     Mode mode() const { return mode_; }
     bool isXenMode() const { return mode_ == MODE_XEN; }
     bool isKvmMode() const { return mode_ == MODE_KVM; }
+    bool isVmwareMode() const { return mode_ == MODE_VMWARE; }
 
     void Init(const std::string &config_file,
               const std::string &program_name,
@@ -124,6 +129,7 @@ private:
     std::string host_name_;
     int agent_stats_interval_;
     int flow_stats_interval_;
+    std::string vmware_physical_port_;
 
     std::auto_ptr<VirtualGatewayConfig> vgw_config_;
 

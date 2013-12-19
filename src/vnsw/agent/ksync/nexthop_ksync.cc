@@ -65,6 +65,11 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
         is_mcast_nh_ = if_nh->IsMulticastNH();
         is_layer2_ = if_nh->IsLayer2();
         vrf_id_ = if_nh->GetVrf()->GetVrfId();
+        // VmInterface can potentially have vlan-tags. Get tag in such case
+        if (if_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
+            vlan_tag_ = (static_cast<const VmInterface *>
+                         (if_nh->GetInterface()))->vlan_id();
+        }
         break;
     }
 
@@ -283,7 +288,13 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
     case NextHop::INTERFACE: {
         InterfaceNH *intf_nh = static_cast<InterfaceNH *>(e);
         dmac_ = intf_nh->GetDMac();
-        ret = false;
+        uint16_t vlan_tag = VmInterface::kInvalidVlanId;
+        if (intf_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
+            vlan_tag_ = (static_cast<const VmInterface *>
+                         (intf_nh->GetInterface()))->vlan_id();
+        }
+
+        ret = vlan_tag != vlan_tag_;
         break;
     }
 
@@ -462,8 +473,12 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 encap.push_back(smac[i]);
             }
 
-            // Add 802.1q header if VLAN Nexthop
-            if (type_ == NextHop::VLAN) {
+            // Add 802.1q header if
+            //  - Nexthop is of type VLAN
+            //  - Nexthop is of type INTERFACE and VLAN configured for it
+            if (type_ == NextHop::VLAN ||
+                (type_ == NextHop::INTERFACE &&
+                 vlan_tag_ != VmInterface::kInvalidVlanId)) {
                 encap.push_back(0x81);
                 encap.push_back(0x00);
                 encap.push_back((vlan_tag_ & 0xFF00) >> 8);
