@@ -24,7 +24,7 @@ static void NovaDel(int id) {
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
-    FloatingIpConfigList list;
+    VmInterface::FloatingIpList list;
     uuid intf_uuid = MakeUuid(id);
     uuid vn_uuid = MakeUuid(vn);
     uuid vm_uuid = MakeUuid(vm);
@@ -44,7 +44,7 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     cfg_data->cfg_name_ = cfg_name;
     cfg_data->vn_uuid_ = vn_uuid;
     cfg_data->vm_uuid_ = vm_uuid;
-    cfg_data->floating_iplist_ = list;
+    cfg_data->floating_ip_list_ = list;
     req.data.reset(cfg_data);
     Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
 }

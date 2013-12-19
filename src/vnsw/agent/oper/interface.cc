@@ -115,14 +115,7 @@ void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     if (key->type_ == Interface::VM_INTERFACE) {
         VmInterface *vmport_intf = static_cast<VmInterface *>(entry);
-        if (vmport_intf->active()) {
-            vmport_intf->DeActivate(vmport_intf->vrf()->GetName(),
-                                    vmport_intf->ip_addr());
-        }
-
-        // Cleanup Service VLAN config if any
-        VmInterfaceConfigData data;
-        vmport_intf->OnResyncServiceVlan(&data);
+        vmport_intf->Delete();
     }
     intf->SendTrace(Interface::DELETE);
 }
@@ -197,9 +190,7 @@ bool InterfaceTable::VmInterfaceWalk(DBTablePartBase *partition,
     const VnEntry *vn = vm_intf->vn();
     if (vm_intf->layer2_forwarding() && 
         (vn->vxlan_id() != vm_intf->vxlan_id())) {
-        vm_intf->set_vxlan_id(vn->vxlan_id());
-        vm_intf->AllocL2MPLSLabels();
-        vm_intf->AddL2Route();
+        vm_intf->UpdateL2();
     }
     return true;
 }
@@ -213,7 +204,7 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }
-    walkid_ = walker->WalkTable(InterfaceTable::GetInstance(), NULL,
+    walkid_ = walker->WalkTable(this, NULL,
                       boost::bind(&InterfaceTable::VmInterfaceWalk, 
                                   this, _1, _2),
                       boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
@@ -234,7 +225,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
 
 Interface::~Interface() { 
     if (id_ != kInvalidIndex) {
-        InterfaceTable::GetInstance()->FreeInterfaceId(id_);
+        static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
     }
 }
 
@@ -450,9 +441,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_active(reason);
         }
         std::vector<FloatingIpSandeshList> fip_list;
-        VmInterface::FloatingIpList::const_iterator it = 
-            vintf->floating_ip_list().begin();
-        while (it != vintf->floating_ip_list().end()) {
+        VmInterface::FloatingIpSet::const_iterator it = 
+            vintf->floating_ip_list().list_.begin();
+        while (it != vintf->floating_ip_list().list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
             FloatingIpSandeshList entry;
 
@@ -475,22 +466,22 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         // Add Service VLAN list
         std::vector<ServiceVlanSandeshList> vlan_list;
-        VmInterface::ServiceVlanList::const_iterator vlan_it = 
-            vintf->service_vlan_list().begin();
-        while (vlan_it != vintf->service_vlan_list().end()) {
-            const VmInterface::ServiceVlan &vlan = vlan_it->second;
+        VmInterface::ServiceVlanSet::const_iterator vlan_it = 
+            vintf->service_vlan_list().list_.begin();
+        while (vlan_it != vintf->service_vlan_list().list_.end()) {
+            const VmInterface::ServiceVlan *vlan = vlan_it.operator->();
             ServiceVlanSandeshList entry;
 
-            entry.set_tag(vlan.tag_);
-            if (vlan.vrf_.get()) {
-                entry.set_vrf_name(vlan.vrf_.get()->GetName());
+            entry.set_tag(vlan->tag_);
+            if (vlan->vrf_.get()) {
+                entry.set_vrf_name(vlan->vrf_.get()->GetName());
             } else {
                 entry.set_vrf_name("--ERROR--");
             }
-            entry.set_ip_addr(vlan.addr_.to_string());
-            entry.set_label(vlan.label_);
+            entry.set_ip_addr(vlan->addr_.to_string());
+            entry.set_label(vlan->label_);
 
-            if (vlan.installed_) {
+            if (vlan->installed_) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
@@ -500,9 +491,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
 
         std::vector<StaticRouteSandesh> static_route_list;
-        VmInterface::StaticRouteList::iterator static_rt_it =
-            vintf->static_route_list().begin();
-        while (static_rt_it != vintf->static_route_list().end()) {
+        VmInterface::StaticRouteSet::iterator static_rt_it =
+            vintf->static_route_list().list_.begin();
+        while (static_rt_it != vintf->static_route_list().list_.end()) {
             const VmInterface::StaticRoute &rt = *static_rt_it;
             StaticRouteSandesh entry;
             entry.set_vrf_name(rt.vrf_);
@@ -526,13 +517,14 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_service_vlan_list(vlan_list);
         data.set_analyzer_name(vintf->GetAnalyzer());
         data.set_config_name(vintf->cfg_name());
-        SgUuidList::const_iterator sgit;
+
+        VmInterface::SecurityGroupEntrySet::const_iterator sgit;
         std::vector<VmIntfSgUuid> intf_sg_uuid_l;
-        const SgUuidList &sg_uuid_l = vintf->sg_uuid_list();
-        for (sgit = sg_uuid_l.begin(); sgit != sg_uuid_l.end(); 
+        const VmInterface::SecurityGroupEntryList &sg_uuid_l = vintf->sg_list();
+        for (sgit = sg_uuid_l.list_.begin(); sgit != sg_uuid_l.list_.end(); 
              ++sgit) {
             VmIntfSgUuid sg_id;
-            sg_id.set_sg_uuid(UuidToString(*sgit));
+            sg_id.set_sg_uuid(UuidToString(sgit->uuid_));
             intf_sg_uuid_l.push_back(sg_id);
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);

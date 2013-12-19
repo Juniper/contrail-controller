@@ -768,7 +768,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
     EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
 
     const VmInterface::FloatingIpList list = vnet[1]->floating_ip_list();
-    EXPECT_EQ(1U, list.size());
+    EXPECT_EQ(1U, list.list_.size());
     //Add one more floating IP to the same VM in the same VRF
     //(for the same dest-VN)
     AddFloatingIp("fip2", 2, "2.1.1.101");
@@ -777,7 +777,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
     client->WaitForIdle();
     EXPECT_TRUE(vnet[1]->HasFloatingIp());
     const VmInterface::FloatingIpList list2 = vnet[1]->floating_ip_list();
-    EXPECT_EQ(2U, list2.size());
+    EXPECT_EQ(2U, list2.list_.size());
 
     //Verify that Nat-flow still exists
     if (FlowGetNat(vnet[1]->vrf()->GetName().c_str(), vnet_addr[1], 
