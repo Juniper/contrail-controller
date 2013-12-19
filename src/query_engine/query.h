@@ -856,7 +856,8 @@ static const int query_result_size_limit = 25000000;
 class QueryEngine {
 public:
     static const uint64_t StartTimeDiffInSec = 12*3600;
-
+    static int max_slice_;
+    
     struct QueryParams {
         QueryParams(std::string qi, 
                 std::map<std::string, std::string> qu, uint32_t ch, uint64_t tm) :
@@ -874,10 +875,11 @@ public:
     QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
             const std::string & redis_ip, unsigned short redis_port, 
-            int max_chunks, uint64_t start_time=0);
+                int max_tasks, int max_slice, uint64_t start_time=0);
 
     QueryEngine(EventManager *evm,
-            const std::string & redis_ip, unsigned short redis_port, int max_chunks);
+            const std::string & redis_ip, unsigned short redis_port,
+                int max_tasks, int max_slice);
     
     int
     QueryPrepare(QueryParams qp,
@@ -915,6 +917,7 @@ private:
     EventManager *evm_;
     unsigned short cassandra_port_;
     std::string cassandra_ip_;
+    
 };
 
 #endif
