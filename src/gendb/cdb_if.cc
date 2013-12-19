@@ -122,10 +122,11 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
      * connection to db is established
      */
     if (!cdbq_.get()) {
-        cdbq_.reset(new WorkQueue<CdbIfColList *>(
+        cdbq_.reset(new CdbIfQueue(
             TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance,
-            boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1),
-            boost::bind(&CdbIf::Db_IsInitDone, this)));
+            boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1)));
+        cdbq_->SetStartRunnerFunc(
+            boost::bind(&CdbIf::Db_IsInitDone, this));
     }
 
     try {
@@ -137,6 +138,23 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
     }
 
     return true;
+}
+
+void CdbIf::Db_SetQueueWaterMark(bool high, size_t queue_count,
+                                 DbQueueWaterMarkCb cb) {
+    CdbIfQueue::WaterMarkInfo wm(queue_count, cb);
+    if (high) {
+        cdbq_->SetHighWaterMark(wm);
+    } else {
+        cdbq_->SetLowWaterMark(wm);
+    }
+}
+
+void CdbIf::Db_ResetQueueWaterMarks() {
+    if (cdbq_.get() != NULL) {
+        cdbq_->ResetHighWaterMark();
+        cdbq_->ResetLowWaterMark();
+    }
 }
 
 void CdbIf::Db_Uninit(bool shutdown) {
@@ -1008,8 +1026,8 @@ bool CdbIf::Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const {
     if (!Db_IsInitDone()) {
         return false;
     }
-    queue_count = cdbq_->QueueCount();
-    enqueues = cdbq_->EnqueueCount();
+    queue_count = cdbq_->Length();
+    enqueues = cdbq_->NumEnqueues();
     return true;
 }
 

@@ -29,7 +29,10 @@ DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
         std::string cassandra_ip, unsigned short cassandra_port, int analytics_ttl, std::string name) :
     dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), err_handler,
-                cassandra_ip, cassandra_port, analytics_ttl*3600, name)) {
+                cassandra_ip, cassandra_port, analytics_ttl*3600, name)),
+    name_(name),
+    drop_level_(SandeshLevel::INVALID),
+    msg_dropped_(0) {
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
@@ -37,6 +40,33 @@ DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
 }
 
 DbHandler::~DbHandler() {
+}
+
+bool DbHandler::DropMessage(SandeshHeader &header) {
+    // Only systemlog, objectlog, and flow have level
+    SandeshType::type stype(header.get_Type());
+    if (stype == SandeshType::SYSTEM ||
+        stype == SandeshType::OBJECT ||
+        stype == SandeshType::FLOW) {
+        // Is level above drop level
+        SandeshLevel::type slevel(
+            static_cast<SandeshLevel::type>(header.get_Level()));
+        if (slevel >= drop_level_) {
+            msg_dropped_++;
+            return true;
+        }
+    }
+    return false;
+}
+ 
+void DbHandler::SetDropLevel(size_t queue_count, SandeshLevel::type level) {
+    if (drop_level_ != level) {
+        LOG(INFO, name_ << ": DB DROP LEVEL: [" << 
+            Sandesh::LevelToString(drop_level_) << "] -> [" <<
+            Sandesh::LevelToString(level) << "], DB QUEUE COUNT: " << 
+            queue_count);
+        drop_level_ = level;
+    }
 }
 
 bool DbHandler::CreateTables() {
@@ -120,12 +150,21 @@ void DbHandler::UnInit(bool shutdown) {
     dbif_->Db_SetInitDone(false);
 }
 
-bool DbHandler::Init() {
+bool DbHandler::Init(bool initial, int instance) {
+    if (initial) {
+        return Initialize(instance);
+    } else {
+        return Setup(instance);
+    }
+}
+
+bool DbHandler::Initialize(int instance) {
+   
     /* init of vizd table structures */
     init_vizd_tables();
 
     LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
-    if (!dbif_->Db_Init(Collector::kDbTask, -1)) {
+    if (!dbif_->Db_Init(Collector::kDbTask, instance)) {
         LOG(ERROR, __func__ << ": Connection to DB FAILED");
         return false;
     }
@@ -147,12 +186,74 @@ bool DbHandler::Init() {
     return true;
 }
 
-bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues) const {
+bool DbHandler::Setup(int instance) {
+
+    if (!dbif_->Db_Init(Collector::kDbTask, 
+                       instance)) {
+        LOG(ERROR, __func__ << ": Database initialization failed");
+        return false;
+    }
+
+    if (!dbif_->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+        LOG(ERROR, __func__ <<  ": Create/Set KEYSPACE: " <<
+                g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
+        return false;
+    }   
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
+            it != vizd_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            LOG(ERROR, __func__ << 
+                ": Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    /* setup ObjectTables */
+    for (std::map<std::string, objtable_info>::const_iterator it =
+            g_viz_constants._OBJECT_TABLES.begin();
+            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(
+                    (GenDb::NewCf(it->first,
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type)
+                                  (GenDb::DbDataType::AsciiType),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::Unsigned32Type),
+                                  boost::assign::list_of
+                                  (GenDb::DbDataType::LexicalUUIDType))))) {
+            LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
+            it != vizd_flow_tables.end(); it++) {
+        if (!dbif_->Db_UseColumnfamily(*it)) {
+            LOG(ERROR, __func__ << ": Database initialization:Db_UseColumnfamily failed");
+            return false;
+        }
+    }
+    dbif_->Db_SetInitDone(true);
+    return true;
+}
+
+void DbHandler::SetDbQueueWaterMarkInfo(DbQueueWaterMarkInfo &wm) {
+    dbif_->Db_SetQueueWaterMark(boost::get<2>(wm),
+        boost::get<0>(wm),
+        boost::bind(&DbHandler::SetDropLevel, this, _1, boost::get<1>(wm)));
+}
+
+void DbHandler::ResetDbQueueWaterMarkInfo() {
+    dbif_->Db_ResetQueueWaterMarks();
+}
+
+bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues,
+    std::string &drop_level, uint64_t &msg_dropped) const {
+    drop_level = Sandesh::LevelToString(drop_level_);
+    msg_dropped = msg_dropped_;
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 
-inline bool DbHandler::AllowMessageTableInsert(std::string& message_type) {
-    return message_type != "FlowDataIpv4Object";
+inline bool DbHandler::AllowMessageTableInsert(SandeshHeader &header) {
+    return header.get_Type() != SandeshType::FLOW;
 }
 
 inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
@@ -201,10 +302,10 @@ inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
 }
 
 void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
-    SandeshHeader header(vmsgp->hdr);
-    std::string message_type(vmsgp->messagetype);
+    SandeshHeader &header(vmsgp->hdr);
+    std::string &message_type(vmsgp->messagetype);
 
-    if (!AllowMessageTableInsert(message_type))
+    if (!AllowMessageTableInsert(header))
         return;
 
     uint64_t temp_u64;

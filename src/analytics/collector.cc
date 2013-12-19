@@ -39,6 +39,12 @@ std::string Collector::self_ip_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
+const std::vector<DbHandler::DbQueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo = 
+    boost::assign::tuple_list_of
+        (100000, SandeshLevel::SYS_ERR, true)
+        (50000, SandeshLevel::SYS_DEBUG, true)
+        (75000, SandeshLevel::SYS_DEBUG, false)
+        (25000, SandeshLevel::INVALID, false);
 
 Collector::Collector(EventManager *evm, short server_port,
         DbHandler *db_handler, Ruleeng *ruleeng, std::string cassandra_ip,
@@ -51,7 +57,8 @@ Collector::Collector(EventManager *evm, short server_port,
         cassandra_ip_(cassandra_ip),
         cassandra_port_(cassandra_port),
         analytics_ttl_(analytics_ttl),
-        db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)) {
+        db_task_id_(TaskScheduler::GetInstance()->GetTaskId(kDbTask)),
+        db_queue_wm_info_(kDbQueueWaterMarkInfo) {
 
     if (!task_policy_set_) {
         TaskPolicy db_task_policy = boost::assign::list_of
@@ -309,9 +316,14 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         }
         uint64_t db_queue_count;
         uint64_t db_enqueues;
-        if (gen->GetDbStats(db_queue_count, db_enqueues)) {
+        std::string db_drop_level;
+        uint64_t db_msg_dropped;
+        if (gen->GetDbStats(db_queue_count, db_enqueues,
+                db_drop_level, db_msg_dropped)) {
             ginfo.set_db_queue_count(db_queue_count);
             ginfo.set_db_enqueues(db_enqueues);
+            ginfo.set_db_drop_level(db_drop_level);
+            ginfo.set_db_msg_dropped(db_msg_dropped);
         }
         ginfo.set_session_stats(session->GetStats());
         TcpServerSocketStats rx_stats;
@@ -379,6 +391,31 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     return true;
 }
 
+void Collector::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        Generator *gen = gen_it->second;
+        gen->SetDbQueueWaterMarkInfo(wm);
+    }
+    db_queue_wm_info_.push_back(wm);
+}
+
+void Collector::ResetDbQueueWaterMarkInfo() {
+    tbb::mutex::scoped_lock lock(gen_map_mutex_);
+    GeneratorMap::iterator gen_it = gen_map_.begin();
+    for (; gen_it != gen_map_.end(); gen_it++) {
+        Generator *gen = gen_it->second;
+        gen->ResetDbQueueWaterMarkInfo();
+    }
+    db_queue_wm_info_.clear();
+}
+
+void Collector::GetDbQueueWaterMarkInfo(
+    std::vector<DbHandler::DbQueueWaterMarkInfo> &wm_info) const {
+    wm_info = db_queue_wm_info_;
+}
+
 class ShowCollectorServerHandler {
 public:
     static bool CallbackS1(const Sandesh *sr,
@@ -428,3 +465,73 @@ void ShowCollectorServerReq::HandleRequest() const {
     RequestPipeline rp(ps);
 }
 
+static void SendDbQueueParamsError(std::string estr, std::string context) {
+    // Generator is required, send error
+    DbQueueParamsError *eresp(new DbQueueParamsError);
+    eresp->set_context(context);
+    eresp->set_error(estr);
+    eresp->Response();
+}
+
+static void SendDbQueueParamsResponse(Collector *collector,
+                                      std::string context) {
+    std::vector<DbHandler::DbQueueWaterMarkInfo> wm_info;
+    collector->GetDbQueueWaterMarkInfo(wm_info);
+    std::vector<DbQueueParams> dbqp_info;
+    for (size_t i = 0; i < wm_info.size(); i++) {
+        DbHandler::DbQueueWaterMarkInfo wm(wm_info[i]);
+        DbQueueParams dbqp;
+        dbqp.set_high(boost::get<2>(wm));
+        dbqp.set_queue_count(boost::get<0>(wm));
+        dbqp.set_drop_level(Sandesh::LevelToString(boost::get<1>(wm)));
+        dbqp_info.push_back(dbqp);
+    }
+    DbQueueParamsResponse *dbqpr(new DbQueueParamsResponse);
+    dbqpr->set_info(dbqp_info);
+    dbqpr->set_context(context);
+    dbqpr->Response();
+}
+
+void DbQueueParamsSet::HandleRequest() const {
+    if (!(__isset.high && __isset.drop_level && __isset.queue_count)) {
+        SendDbQueueParamsError("Please specify all parameters", context());
+        return;
+    }
+    VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(client_context());
+    if (!vsc) {
+        SendDbQueueParamsError("Sandesh client context NOT PRESENT",
+            context());
+        return;
+    }
+    size_t queue_count(get_queue_count());
+    bool high(get_high());
+    std::string slevel(get_drop_level());
+    SandeshLevel::type dlevel(Sandesh::StringToLevel(slevel));
+    DbHandler::DbQueueWaterMarkInfo wm(queue_count, dlevel, high);
+    vsc->Analytics()->GetCollector()->SetDbQueueWaterMarkInfo(wm);
+    SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}
+
+void DbQueueParamsReset::HandleRequest() const {
+    VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(client_context());
+    if (!vsc) {
+        SendDbQueueParamsError("Sandesh client context NOT PRESENT",
+            context());
+        return;
+    }
+    vsc->Analytics()->GetCollector()->ResetDbQueueWaterMarkInfo();
+    SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}
+
+void DbQueueParamsStatus::HandleRequest() const {
+    VizSandeshContext *vsc =
+            dynamic_cast<VizSandeshContext *>(client_context());
+    if (!vsc) {
+        SendDbQueueParamsError("Sandesh client context NOT PRESENT",
+            context());
+        return;
+    }
+    SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}

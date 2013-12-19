@@ -32,19 +32,22 @@ env.Alias('src/base:dependency_test', dependency_test)
 label_block_test = env.UnitTest('label_block_test', ['label_block_test.cc'])
 env.Alias('src/base:label_block_test', label_block_test)
 
-proto_test = env.Program('proto_test', ['proto_test.cc'])
+queue_task_test = env.UnitTest('queue_task_test', ['queue_task_test.cc'])
+env.Alias('src/base:queue_task_test', queue_task_test)
+
+proto_test = env.UnitTest('proto_test', ['proto_test.cc'])
 env.Alias('src/base:proto_test', proto_test)
 
-subset_test = env.Program('subset_test', ['subset_test.cc'])
+subset_test = env.UnitTest('subset_test', ['subset_test.cc'])
 env.Alias('src/base:subset_test', subset_test)
 
-task_test = env.Program('task_test', ['task_test.cc'])
+task_test = env.UnitTest('task_test', ['task_test.cc'])
 env.Alias('src/base:task_test', task_test)
 
-timer_test = env.Program('timer_test', ['timer_test.cc'])
+timer_test = env.UnitTest('timer_test', ['timer_test.cc'])
 env.Alias('src/base:timer_test', timer_test)
 
-patricia_test = env.Program('patricia_test', ['patricia_test.cc'])
+patricia_test = env.UnitTest('patricia_test', ['patricia_test.cc'])
 env.Alias('src/base:patricia_test', patricia_test)
 
 def AddLibraries(env, libs):
@@ -58,18 +61,37 @@ def AddLibraries(env, libs):
 def BuildTest(env, testname, sources, libs):
     build_env = env.Clone()
     AddLibraries(build_env, libs)
-    target = build_env.Program(testname, sources)
+    target = build_env.UnitTest(testname, sources)
     env.Alias('src/base:' + testname, target)
     return target
 
-BuildTest(env, 'task_annotations_test',
+task_annotations_test = BuildTest(env, 'task_annotations_test',
      ['task_annotations_test.cc'],
      ['base/test/task_test',
       'io/io',
       'boost_system'])
 
-BuildTest(env, 'factory_test',
+factory_test = BuildTest(env, 'factory_test',
           ['factory_test.cc'], [])
 
-BuildTest(env, 'trace_test',
+trace_test = BuildTest(env, 'trace_test',
           ['trace_test.cc'], [])
+
+test_suite = [
+    bitset_test,
+    dependency_test,
+    label_block_test,
+    queue_task_test,
+    #proto_test,
+    subset_test,
+    #task_test,
+    timer_test,
+    #patricia_test,
+    task_annotations_test,
+    factory_test,
+    trace_test,
+    ]
+
+test = env.TestSuite('base-test', test_suite)
+env.Alias('src/base:test', test)
+Return('test_suite')

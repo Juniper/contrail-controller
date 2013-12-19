@@ -50,6 +50,7 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow)
 
 void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
+    SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
 
     s_flow.set_flowuuid(to_string(flow->flow_uuid));
     s_flow.set_bytes(flow->data.bytes);
@@ -80,9 +81,16 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid));
     }
 
-    s_flow.set_setup_time(flow->setup_time);
-    if (flow->teardown_time)
+    // Flow setup and teardown messages are sent with higher priority
+    if (!flow->exported) {
+        s_flow.set_setup_time(flow->setup_time);
+        flow->exported = true;
+        level = SandeshLevel::SYS_ERR;
+    }
+    if (flow->teardown_time) {
         s_flow.set_teardown_time(flow->teardown_time);
+        level = SandeshLevel::SYS_ERR;
+    }
 
     if (flow->local_flow) {
         /* For local flows we need to send two flow log messages.
@@ -94,13 +102,13 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
          */
         s_flow.set_direction_ing(1);
         SourceIpOverride(flow, s_flow);
-        FLOW_DATA_IPV4_OBJECT_SEND(s_flow);
+        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
         s_flow.set_direction_ing(0);
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
         s_flow.set_flowuuid(to_string(flow->egress_uuid));
-        FLOW_DATA_IPV4_OBJECT_SEND(s_flow);
+        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
     } else {
         if (flow->data.ingress) {
             s_flow.set_direction_ing(1);
@@ -108,7 +116,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         } else {
             s_flow.set_direction_ing(0);
         }
-        FLOW_DATA_IPV4_OBJECT_SEND(s_flow);
+        FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
     }
 
 }

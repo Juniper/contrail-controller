@@ -393,8 +393,10 @@ bool Ruleeng::handle_flow_object(const RuleMsg& rmsg, DbHandler *db) {
 }
 
 bool Ruleeng::rule_execute(const boost::shared_ptr<VizMsg> vmsgp, bool uveproc, DbHandler *db) {
+    if (db->DropMessage(vmsgp->hdr)) {
+        return true;
+    }
     RuleMsg rmsg(vmsgp);
-
 
     /*
      *  We would like to execute some actions globally here, before going

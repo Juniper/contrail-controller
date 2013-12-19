@@ -55,6 +55,10 @@ public:
     void GetGeneratorSandeshStatsInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
+    void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
+    void ResetDbQueueWaterMarkInfo();
+    void GetDbQueueWaterMarkInfo(
+        std::vector<DbHandler::DbQueueWaterMarkInfo> &wm_info) const;
 
     OpServerProxy * GetOSP() const { return osp_; }
     EventManager * event_manager() const { return evm_; }
@@ -105,16 +109,18 @@ private:
 
     // Generator map
     typedef boost::ptr_map<Generator::GeneratorId, Generator> GeneratorMap;
-    tbb::mutex gen_map_mutex_;
+    mutable tbb::mutex gen_map_mutex_;
     GeneratorMap gen_map_;
 
     // Random generator for UUIDs
     tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
     CollectorStats stats_;
+    std::vector<DbHandler::DbQueueWaterMarkInfo> db_queue_wm_info_;
     static std::string prog_name_;
     static std::string self_ip_;
     static bool task_policy_set_;
+    static const std::vector<DbHandler::DbQueueWaterMarkInfo> kDbQueueWaterMarkInfo;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };

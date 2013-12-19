@@ -109,6 +109,7 @@ struct ColumnNameRange {
 class GenDbIf {
     public:
         typedef boost::function<void(void)> DbErrorHandler;
+        typedef boost::function<void(size_t)> DbQueueWaterMarkCb;
 
         GenDbIf() {}
         virtual ~GenDbIf() {}
@@ -145,6 +146,8 @@ class GenDbIf {
                 const std::string& cfname, const ColumnNameRange& crange,
                 const DbDataValueVec& key) = 0;
         virtual bool Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const = 0;
+        virtual void Db_SetQueueWaterMark(bool high, size_t queue_count, DbQueueWaterMarkCb cb) = 0;
+        virtual void Db_ResetQueueWaterMarks() = 0;
 
         static GenDbIf *GenDbIfImpl(boost::asio::io_service *ioservice, DbErrorHandler hdlr, 
                 std::string cassandra_ip, unsigned short cassandra_port, 

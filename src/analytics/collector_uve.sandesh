@@ -61,6 +61,8 @@ struct ModuleServerState {
     10: optional io.TcpServerSocketStats   session_rx_socket_stats
     11: optional io.TcpServerSocketStats   session_tx_socket_stats
     12: optional sandesh_uve.SandeshGeneratorStats  sm_msg_stats
+    13: optional string                    db_drop_level
+    14: optional u64                       db_msg_dropped
 }
 
 uve sandesh SandeshModuleServerTrace {
@@ -142,3 +144,28 @@ trace sandesh generator_deluves {
     3: bool success    
 }
 
+request sandesh DbQueueParamsSet {
+    1: optional bool high;
+    2: optional u32 queue_count;
+    3: optional string drop_level;
+}    
+
+request sandesh DbQueueParamsReset {
+}
+
+request sandesh DbQueueParamsStatus {
+}
+
+struct DbQueueParams {
+    1: bool high;
+    2: u32 queue_count;
+    3: string drop_level;
+}
+
+response sandesh DbQueueParamsError {
+    1: string error;
+}
+
+response sandesh DbQueueParamsResponse {
+    1: list<DbQueueParams> info;
+}
