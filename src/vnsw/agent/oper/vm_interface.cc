@@ -498,8 +498,17 @@ Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
     const VmInterfaceAddData *add_data =
         static_cast<const VmInterfaceAddData *>(data);
 
+    Interface *parent = NULL;
+    if (add_data->vlan_id_ != VmInterface::kInvalidVlanId &&
+        add_data->parent_ != Agent::NullString()) {
+        PhysicalInterfaceKey key(add_data->parent_);
+        parent = static_cast<Interface *>
+            (table->agent()->GetInterfaceTable()->FindActiveEntry(&key));
+        assert(parent != NULL);
+    }
+
     return new VmInterface(uuid_, name_, add_data->ip_addr_, add_data->vm_mac_,
-                           add_data->vm_name_);
+                           add_data->vm_name_, add_data->vlan_id_, parent);
 }
 
 InterfaceKey *VmInterfaceKey::Clone() const {
@@ -2070,11 +2079,12 @@ void VmInterface::SendTrace(Trace event) {
 // Add a VM-Interface
 void VmInterface::Add(InterfaceTable *table, const uuid &intf_uuid,
                       const string &os_name, const Ip4Address &addr,
-                      const string &mac, const string &vm_name) {
+                      const string &mac, const string &vm_name,
+                      uint16_t vlan_id, const std::string &parent) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
-    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name));
+    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vlan_id, parent));
     table->Enqueue(&req);
 }
 

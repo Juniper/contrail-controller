@@ -30,10 +30,17 @@ void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
         VmInterface::Delete(agent->GetInterfaceTable(),
                              entry->GetUuid());
     } else {
+        uint16_t vlan_id = VmInterface::kInvalidVlanId;
+        string port = Agent::NullString();
+        if (agent->params()->isVmwareMode()) {
+            vlan_id = entry->vlan_id();
+            port = agent->params()->vmware_physical_port();
+        }
+
         VmInterface::Add(agent->GetInterfaceTable(),
                          entry->GetUuid(), entry->GetIfname(),
                          entry->ip_addr().to_v4(), entry->GetMacAddr(),
-                         entry->vm_name());
+                         entry->vm_name(), vlan_id, port);
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;
