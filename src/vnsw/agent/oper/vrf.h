@@ -81,13 +81,14 @@ public:
     VrfNHMap* GetNHMap() {
         return nh_map_.get();
     }
-    void AddNH(Ip4Address ip, ComponentNHData *nh_data) ;
-    void DeleteNH(Ip4Address ip, ComponentNHData *nh_data) ;
-    uint32_t GetNHCount(Ip4Address ip) ;
-    void UpdateLabel(Ip4Address ip, uint32_t label);
-    uint32_t GetLabel(Ip4Address ip);
-    std::vector<ComponentNHData>* GetNHList(Ip4Address ip);
-    bool FindNH(const Ip4Address &ip, const ComponentNHData &nh_data);
+    void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
+    void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
+    uint32_t GetNHCount(Ip4Address ip, uint8_t plen) ;
+    void UpdateLabel(Ip4Address ip, uint8_t plen, uint32_t label);
+    uint32_t GetLabel(Ip4Address ip, uint8_t plen);
+    std::vector<ComponentNHData>* GetNHList(Ip4Address ip, uint8_t plen);
+    bool FindNH(const Ip4Address &ip, uint8_t plen,
+                const ComponentNHData &nh_data);
 
 private:
     friend class VrfTable;

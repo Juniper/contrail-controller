@@ -44,7 +44,7 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), type_(nh->GetType()), vrf_id_(0),
     interface_(NULL), valid_(nh->IsValid()), policy_(nh->PolicyEnabled()),
     is_mcast_nh_(false), nh_(nh), vlan_tag_(0), is_layer2_(false),
-    tunnel_type_(TunnelType::INVALID)  {
+    tunnel_type_(TunnelType::INVALID), plen_(32) {
 
     sip_.s_addr = 0;
     memset(&dmac_, 0, sizeof(dmac_));
@@ -132,6 +132,7 @@ NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
         is_mcast_nh_ = comp_nh->IsMcastNH();
         is_local_ecmp_nh_ = comp_nh->IsLocal();
         comp_type_ = comp_nh->CompositeType();
+        plen_ = comp_nh->prefix_len();
         component_nh_list_.clear();
         break;
     }
@@ -225,6 +226,10 @@ bool NHKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
         if (sip_.s_addr != entry.sip_.s_addr) {
             return sip_.s_addr < entry.sip_.s_addr;
+        }
+
+        if (plen_ != entry.plen_) {
+            return plen_ < entry.plen_;
         }
 
         return dip_.s_addr < entry.dip_.s_addr;

@@ -867,7 +867,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, true);
+    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
     ComponentNHData comp_nh(-1, &nh_key);
     comp_nh_list.push_back(comp_nh);
     AddRemoteEcmpRoute("vrf10", "11.1.1.0", 24, "vn11", 0, comp_nh_list);
@@ -1009,7 +1009,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     EXPECT_TRUE(rt != NULL);
 
     std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, true);
+    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
     ComponentNHData comp_nh_data(-1, &nh_key);
     comp_nh_list.push_back(comp_nh_data);
     //Leak a aggregarate route to service VRF
@@ -1141,7 +1141,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     uint32_t mpls_label = rt->GetMplsLabel();
 
     std::vector<ComponentNHData> comp_nh_list;
-    CompositeNHKey nh_key("service-vrf1", service_vm_ip, true);
+    CompositeNHKey nh_key("service-vrf1", service_vm_ip, 32, true);
     ComponentNHData comp_nh_data(-1, &nh_key);
     comp_nh_list.push_back(comp_nh_data);
     //Leak a aggregarate route to service VRF

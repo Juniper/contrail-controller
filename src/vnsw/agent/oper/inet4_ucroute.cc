@@ -177,7 +177,7 @@ bool Inet4UnicastEcmpRoute::AddChangePath(AgentPath *path) {
     NextHop *nh = NULL;
 
     Agent::GetInstance()->GetNextHopTable()->Process(nh_req_);
-    CompositeNHKey key(vrf_name_, dest_addr_, local_ecmp_nh_);
+    CompositeNHKey key(vrf_name_, dest_addr_, plen_, local_ecmp_nh_);
     nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->
                                 FindActiveEntry(&key));
 
@@ -558,7 +558,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
 
     CompositeNH::CreateCompositeNH(vm_vrf, vm_addr, false,
                                    comp_nh_list);
-    key = new CompositeNHKey(vm_vrf, vm_addr, false);
+    key = new CompositeNHKey(vm_vrf, vm_addr, plen, false);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::REPLACE);
@@ -569,7 +569,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, vm_vrf, 
                                                   vm_addr, plen);
     req.key.reset(rt_key);
-    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, 
+    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, plen,
                                                                dest_vn_name, 
                                                                label, 
                                                                false,
@@ -594,7 +594,7 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
     NextHopKey *key;
     CompositeNHData *data;
 
-    key = new CompositeNHKey(vm_vrf, vm_addr, true);
+    key = new CompositeNHKey(vm_vrf, vm_addr, plen, true);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::REPLACE);
@@ -605,7 +605,7 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, vm_vrf,
                                                   vm_addr, plen);
     req.key.reset(rt_key);
-    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr,
+    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, plen,
                                                                dest_vn_name,
                                                                label,
                                                                true,
