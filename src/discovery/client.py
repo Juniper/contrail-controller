@@ -88,11 +88,16 @@ class Subscribe(object):
     #        u'ip_addr': u'10.84.7.1', u'port': u'8443'}]
     def _query(self):
         connected = False
+        # hoping all errors are transient and a little wait will solve the problem
         while not connected:
             try:
                 r = requests.post(
                     self.url, data=self.post_body, headers=self._headers)
-                connected = True
+                if r.status_code != 200:
+                    print 'Discovery Server returned error (code %d)' % (r.status_code)
+                    gevent.sleep(2)
+                else:
+                    connected = True
             except requests.exceptions.ConnectionError:
                 # discovery server down or restarting?
                 gevent.sleep(2)
