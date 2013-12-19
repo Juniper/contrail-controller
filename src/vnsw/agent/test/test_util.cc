@@ -465,8 +465,8 @@ bool VmPortFloatingIpCount(int id, unsigned int count) {
     if (intf == NULL)
         return false;
 
-    EXPECT_EQ(intf->floating_ip_list().size(), count);
-    if (intf->floating_ip_list().size() != count)
+    EXPECT_EQ(intf->floating_ip_list().list_.size(), count);
+    if (intf->floating_ip_list().list_.size() != count)
         return false;
 
     return true;
@@ -2284,8 +2284,8 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
         return false;
     }
 
-    EXPECT_EQ(intf->service_vlan_list().size(), count);
-    if (intf->service_vlan_list().size() != count) {
+    EXPECT_EQ(intf->service_vlan_list().list_.size(), count);
+    if (intf->service_vlan_list().list_.size() != count) {
         return false;
     }
     return true;

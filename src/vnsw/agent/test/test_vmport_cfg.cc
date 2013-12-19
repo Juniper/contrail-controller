@@ -40,27 +40,6 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 class CfgTest : public ::testing::Test {
 };
 
-void CfgSync(const uuid &intf_uuid, const string &cfg_name,
-			 const uuid &vn_uuid, const uuid &vm_uuid,
-			 const FloatingIpConfigList &floating_iplist) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
-    req.key.reset(key);
-
-    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
-    InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
-	data->VmPortInit();
-
-	cfg_data->cfg_name_ = cfg_name;
-	cfg_data->vn_uuid_ = vn_uuid;
-	cfg_data->vm_uuid_ = vm_uuid;
-	cfg_data->floating_iplist_ = floating_iplist;
-	req.data.reset(cfg_data);
-	Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
-}
-
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},

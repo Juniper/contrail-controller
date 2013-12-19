@@ -456,8 +456,8 @@ const char *IntfMirrorCfgTable::Add(const IntfMirrorCreateReq &intf_mirror) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmInterfaceConfigData *intf_data =
-            new VmInterfaceConfigData(true, entry->key.handle);
+        VmInterfaceMirrorData *intf_data =
+            new VmInterfaceMirrorData(true, entry->key.handle);
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {
@@ -485,8 +485,8 @@ void IntfMirrorCfgTable::Delete(MirrorCfgKey &key) {
         DBRequest req;
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         req.key.reset(intf_key);
-        VmInterfaceConfigData *intf_data =
-            new VmInterfaceConfigData(false, std::string());
+        VmInterfaceMirrorData *intf_data =
+            new VmInterfaceMirrorData(false, std::string());
         req.data.reset(intf_data);
         agent_cfg_->agent()->GetInterfaceTable()->Enqueue(&req);
     } else {

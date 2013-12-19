@@ -437,7 +437,7 @@ public:
 
         VnEntryConstRef vn_;
         bool policy_;
-        SgList sg_l_;
+        VmInterface::SecurityGroupEntryList sg_l_;
     };
 
     struct VrfFlowHandlerState : public DBState {

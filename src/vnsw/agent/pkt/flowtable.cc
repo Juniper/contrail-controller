@@ -271,14 +271,14 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     }
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
-    if (vm_port->sg_list().size()) {
+    if (vm_port->sg_list().list_.size()) {
         policy->nw_policy = true;
-        SgList::const_iterator it;
-        for (it = vm_port->sg_list().begin();
-             it != vm_port->sg_list().end();
+        VmInterface::SecurityGroupEntrySet::const_iterator it;
+        for (it = vm_port->sg_list().list_.begin();
+             it != vm_port->sg_list().list_.end();
              ++it) {
             MatchAclParams acl;
-            acl.acl = (*it)->GetAcl();
+            acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
@@ -303,14 +303,14 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
 
     vm_port = static_cast<const VmInterface *>
         (rflow->data.intf_entry.get());
-    if (vm_port->sg_list().size()) {
+    if (vm_port->sg_list().list_.size()) {
         policy->nw_policy = true;
-        SgList::const_iterator it;
-        for (it = vm_port->sg_list().begin();
-             it != vm_port->sg_list().end();
+        VmInterface::SecurityGroupEntrySet::const_iterator it;
+        for (it = vm_port->sg_list().list_.begin();
+             it != vm_port->sg_list().list_.end();
              ++it) {
             MatchAclParams acl;
-            acl.acl = (*it)->GetAcl();
+            acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
@@ -844,7 +844,7 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         return;
     }
 
-    const SgList &new_sg_l = vm_port->sg_list();
+    const VmInterface::SecurityGroupEntryList &new_sg_l = vm_port->sg_list();
     bool changed = false;
 
     if (state == NULL) {
@@ -864,7 +864,7 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
             changed = true;
             state->policy_ = vm_port->policy_enabled();
         }
-        if (state->sg_l_ != new_sg_l) {
+        if (state->sg_l_.list_ != new_sg_l.list_) {
             changed = true;
             state->sg_l_ = new_sg_l;
         }
