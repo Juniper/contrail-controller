@@ -11,7 +11,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-
+#include <boost/tuple/tuple.hpp>
 
 #include "Thrift.h"
 #include "base/parse_object.h"
@@ -54,11 +54,11 @@ public:
     DbHandler(GenDb::GenDbIf *dbif);
     virtual ~DbHandler();
 
-    bool Init();
+    bool DropMessage(SandeshHeader &header);
+    bool Init(bool initial, int instance);
     void UnInit(bool shutdown);
 
-    bool CreateTables();
-    inline bool AllowMessageTableInsert(std::string& message_type);
+    inline bool AllowMessageTableInsert(SandeshHeader &header);
     inline bool MessageIndexTableInsert(const std::string& cfname,
             const SandeshHeader& header, const std::string& message_type, const boost::uuids::uuid& unm);
     void MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp);
@@ -75,18 +75,27 @@ public:
             const AttribMap & attribs_all);
 
     bool FlowTableInsert(const RuleMsg& rmsg);
-    bool GetStats(uint64_t &queue_count, uint64_t &enqueues) const;
+    bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
+        std::string &drop_level, uint64_t &msg_dropped) const;
 
-    GenDb::GenDbIf *get_dbif() {
-        return dbif_.get();
-    }
+    typedef boost::tuple<size_t, SandeshLevel::type, bool> DbQueueWaterMarkInfo;
+    void SetDbQueueWaterMarkInfo(DbQueueWaterMarkInfo &wm);
+    void ResetDbQueueWaterMarkInfo();
 
 private:
+    bool CreateTables();
+    void SetDropLevel(size_t queue_count, SandeshLevel::type level);
+    bool Setup(int instance);
+    bool Initialize(int instance);
+
     boost::scoped_ptr<GenDb::GenDbIf> dbif_;
 
     // Random generator for UUIDs
     tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
+    std::string name_;
+    SandeshLevel::type drop_level_;
+    uint64_t msg_dropped_;
 
     DISALLOW_COPY_AND_ASSIGN(DbHandler);
 };

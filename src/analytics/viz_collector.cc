@@ -133,7 +133,7 @@ void VizCollector::StartDbifReinit() {
 }
 
 bool VizCollector::Init() {
-    if (!db_handler_->Init()) {
+    if (!db_handler_->Init(true, -1)) {
         LOG(DEBUG, __func__ << " DB Handler initialization failed");
         StartDbifReinit();
         return false;
