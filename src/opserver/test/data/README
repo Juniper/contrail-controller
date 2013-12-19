@@ -1,4 +1,38 @@
 Following files
+a3s28-120.tgz
+a3s30-120.tgz
+are created by
+- using the testbed_setup1.py
+- running setup_8vm.py to create VMs
+- running start_traffic for traffic
+- analytics_start_time = 1383679241156742
+
+relevant portions of testbed_setup1.py
+--------------------------------------
+
+host1 = 'root@10.84.11.2'
+host2 = 'root@10.84.11.3'
+host3 = 'root@10.84.11.4'
+host4 = 'root@10.84.11.5'
+host5 = 'root@10.84.11.6'
+
+env.roledefs = {
+    'all': [host1, host2, host3, host4, host5],
+    'cfgm': [host1],
+    'control': [host2, host3],
+    'compute': [host4, host5],
+    'collector': [host1],
+    'webui': [host1],
+    'database': [host1],
+    'build': [host_build],
+}
+
+env.hostnames = {
+    'all': ['a3s31', 'a3s30', 'a3s29','a3s28', 'a3s27']
+}
+
+----
+Following files
 a3s40.tgz
 a3s41.tgz
 are created by
