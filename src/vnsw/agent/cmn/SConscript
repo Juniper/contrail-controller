@@ -17,7 +17,7 @@ buildinfo_dep_libs = [
     '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a'
+    '#build/lib/liblog4cplus.a',
     '#build/lib/libpugixml.a',
     '../../../../lib/libsandesh.a',
     '../../../../lib/libsandeshflow.a', 
