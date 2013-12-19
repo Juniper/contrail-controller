@@ -276,102 +276,41 @@ static bool ParseSession(const string &identifier, const xml_node &node,
     return true;
 }
 
-static void SetServiceChainInfo(const string &identifier,
-                                autogen::ServiceChainInfo *params,
-                                BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "service-chain-information";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearServiceChainInfo(const string &identifier,
-                                  BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "service-chain-information";
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-
 static bool ParseServiceChain(const string &instance, const xml_node &node,
                               bool add_change, 
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::ServiceChainInfo> params(
+    auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         assert(0);
     }
 
     if (add_change) {
-        SetServiceChainInfo(instance, params.release(), requests);
+        MapObjectSetProperty("routing-instance", instance,
+            "service-chain-information", property.release(), requests);
     } else {
-        ClearServiceChainInfo(instance, requests);
+        MapObjectClearProperty("routing-instance", instance,
+            "service-chain-information", requests);
     }
 
     return true;
 }
 
-static void SetStaticRouteEntriesInfo(const string &identifier,
-                                autogen::StaticRouteEntriesType *params,
-                                BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "static-route-entries";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearStaticRouteEntriesInfo(const string &identifier,
-                                  BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "static-route-entries";
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
 static bool ParseStaticRoute(const string &instance, const xml_node &node,
                               bool add_change, 
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::StaticRouteEntriesType> params(
+    auto_ptr<autogen::StaticRouteEntriesType> property(
         new autogen::StaticRouteEntriesType());
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         assert(0);
     }
 
     if (add_change) {
-        SetStaticRouteEntriesInfo(instance, params.release(), requests);
+        MapObjectSetProperty("routing-instance", instance,
+            "static-route-entries", property.release(), requests);
     } else {
-        ClearStaticRouteEntriesInfo(instance, requests);
+        MapObjectClearProperty("routing-instance", instance,
+            "static-route-entries", requests);
     }
 
     return true;
