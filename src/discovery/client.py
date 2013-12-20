@@ -94,7 +94,7 @@ class Subscribe(object):
                 r = requests.post(
                     self.url, data=self.post_body, headers=self._headers)
                 if r.status_code != 200:
-                    print 'Discovery Server returned error (code %d)' % (r.status_code)
+                    # print 'Discovery Server returned error (code %d)' % (r.status_code)
                     gevent.sleep(2)
                 else:
                     connected = True
