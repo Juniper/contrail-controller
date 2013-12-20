@@ -24,7 +24,7 @@ void RouteKState::InitEncoder(vr_route_req &req, int id) {
 }
 
 void RouteKState::Handler() {
-    KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+    KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more routes in Kernel. We need to query them from 
@@ -33,12 +33,12 @@ void RouteKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
+            RouteContext *rctx = static_cast<RouteContext *>(more_context_);
             if (rctx) {
                 delete rctx;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
@@ -46,7 +46,7 @@ void RouteKState::Handler() {
 
 void RouteKState::SendNextRequest() {
     vr_route_req req;
-    RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
+    RouteContext *rctx = static_cast<RouteContext *>(more_context_);
 
     InitEncoder(req, rctx->vrf_id);
     req.set_rtr_marker(rctx->marker);
@@ -56,12 +56,12 @@ void RouteKState::SendNextRequest() {
 
 void RouteKState::SendResponse() {
 
-    KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KRouteResp();
+    response_object_ = new KRouteResp();
 }
 
 string RouteKState::FamilyToString(int nh_family) {

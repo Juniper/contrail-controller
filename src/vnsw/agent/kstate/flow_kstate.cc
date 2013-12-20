@@ -5,26 +5,27 @@
 #include "kstate.h"
 #include "flow_kstate.h"
 #include <ksync/flowtable_ksync.h>
-#include <sstream>
+#include <base/util.h>
 
 using namespace std;
 
-FlowKState::FlowKState(KFlowResp *obj, string resp_ctx, int idx) :
+FlowKState::FlowKState(string resp_ctx, int idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), resp_obj_(obj), resp_ctx_(resp_ctx), flow_idx_(idx), 
+            0), response_context_(resp_ctx), flow_idx_(idx), 
     flow_iteration_key_(0) {
 }
 
-FlowKState::FlowKState(KFlowResp *obj, string resp_ctx, string iter_idx) :
+FlowKState::FlowKState(string resp_ctx, string iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
-            0), resp_obj_(obj), resp_ctx_(resp_ctx), flow_idx_(-1), 
+            0), response_context_(resp_ctx), flow_idx_(-1), 
     flow_iteration_key_(0) {
-    istringstream(iter_idx) >> flow_iteration_key_;
+    //istringstream(iter_idx) >> flow_iteration_key_;
+    stringToInteger(iter_idx, flow_iteration_key_);
 }
 
-void FlowKState::SendResponse() {
-    resp_obj_->set_context(resp_ctx_);
-    resp_obj_->Response();
+void FlowKState::SendResponse(KFlowResp *resp) {
+    resp->set_context(response_context_);
+    resp->Response();
 }
 
 string FlowKState::FlagToStr(unsigned int flag) {
@@ -116,22 +117,26 @@ void FlowKState::SetFlowData(vector<KFlowInfo> &list,
     list.push_back(data);
 }
 
+vector<KFlowInfo> &FlowKState::AllocResponse(KFlowResp **resp) {
+    *resp = new KFlowResp();
+    return const_cast<std::vector<KFlowInfo>&>((*resp)->get_flow_list());
+}
+
 bool FlowKState::Run() {
     int count = 0;
     const vr_flow_entry *k_flow;
-    KFlowResp *resp = resp_obj_;
-    vector<KFlowInfo> &list =
-                        const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
+    KFlowResp *resp;
 
     if (flow_idx_ != -1) {
         k_flow = FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
             (flow_idx_, false);
         if (k_flow) {
+            vector<KFlowInfo> &list = AllocResponse(&resp);
             SetFlowData(list, k_flow, flow_idx_);
-            SendResponse();
+            SendResponse(resp);
         } else {
             ErrResp *resp = new ErrResp();
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
         }
         return true;
@@ -140,6 +145,7 @@ bool FlowKState::Run() {
     uint32_t max_flows = 
         FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
     
+    vector<KFlowInfo> &list = AllocResponse(&resp);
     while(idx < max_flows) {
         k_flow = 
             FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry(idx,
@@ -149,25 +155,20 @@ bool FlowKState::Run() {
             SetFlowData(list, k_flow, idx);
         } 
         idx++;
-        if (count == KState::max_entries_per_response) {
+        if (count == KState::KMaxEntriesPerResponse) {
             if (idx != max_flows) {
-                resp->set_flow_handle(GetFlowHandleStr(idx));
+                resp->set_flow_handle(integerToString(idx));
             } else {
-                resp->set_flow_handle(GetFlowHandleStr(0));
+                resp->set_flow_handle(integerToString(0));
             }
-            SendResponse();
+            SendResponse(resp);
             return true;
         }
     }
 
-    resp->set_flow_handle(GetFlowHandleStr(0));
-    SendResponse();
+    resp->set_flow_handle(integerToString(0));
+    SendResponse(resp);
 
     return true;
 }
 
-string FlowKState::GetFlowHandleStr(int idx) {
-    stringstream ss;
-    ss << idx;
-    return ss.str();
-}

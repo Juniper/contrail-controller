@@ -12,20 +12,19 @@
 
 class FlowKState : public Task {
  public:
-    FlowKState(KFlowResp *obj, std::string resp_ctx, int idx);
-    FlowKState(KFlowResp *obj, std::string resp_ctx, std::string iter_idx);
-    virtual void SendResponse();
+    FlowKState(std::string resp_ctx, int idx);
+    FlowKState(std::string resp_ctx, std::string iter_idx);
+    virtual void SendResponse(KFlowResp *resp);
     
     virtual bool Run();
     void SetFlowData(std::vector<KFlowInfo> &list, const vr_flow_entry *k_flow,
                      int index);
 protected:
-    KFlowResp *resp_obj_;
-    std::string resp_ctx_;
+    std::string response_context_;
     int flow_idx_;
     uint32_t flow_iteration_key_;
 private:
-    std::string GetFlowHandleStr(int idx);
+    std::vector<KFlowInfo> &AllocResponse(KFlowResp **resp);
     void UpdateFlagStr(std::string &str, bool &set, unsigned sflag, 
                        unsigned cflag);
     std::string FlagToStr(unsigned int flag);

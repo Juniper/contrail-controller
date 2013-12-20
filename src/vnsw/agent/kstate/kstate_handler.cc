@@ -54,19 +54,13 @@ void KMplsReq::HandleRequest() const {
 }
 
 void NextKFlowReq::HandleRequest() const {
-    KFlowResp *resp = new KFlowResp();
-    resp->set_context(context());
-
-    FlowKState *task = new FlowKState(resp, context(), get_flow_handle());
+    FlowKState *task = new FlowKState(context(), get_flow_handle());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }
 
 void KFlowReq::HandleRequest() const {
-    KFlowResp *resp = new KFlowResp();
-    resp->set_context(context());
-
-    FlowKState *task = new FlowKState(resp, context(), get_flow_idx());
+    FlowKState *task = new FlowKState(context(), get_flow_idx());
     TaskScheduler *scheduler = TaskScheduler::GetInstance();
     scheduler->Enqueue(task);
 }

@@ -27,9 +27,9 @@
 
 class KState : public AgentSandeshContext {
 public:
-    static const int max_entries_per_response = 100;
-    KState(std::string s, Sandesh *obj) : resp_ctx_(s), 
-        resp_obj_(obj), k_resp_code_(0), more_ctx_(NULL) {}
+    static const int KMaxEntriesPerResponse = 100;
+    KState(std::string s, Sandesh *obj) : response_context_(s), 
+        response_object_(obj), vr_response_code_(0), more_context_(NULL) {}
 
     void EncodeAndSend(Sandesh &encoder);
     virtual void SendResponse() = 0;
@@ -40,15 +40,15 @@ public:
      * linked with agent */
     static void Init();
     virtual void Release() {
-        if (resp_obj_) {
-            resp_obj_->Release();
-            resp_obj_ = NULL;
+        if (response_object_) {
+            response_object_->Release();
+            response_object_ = NULL;
         }
     }
-    std::string resp_ctx() { return resp_ctx_; }
-    Sandesh *resp_obj() { return resp_obj_; }
-    void *more_ctx() { return more_ctx_; }
-    void set_k_resp_code(int value) { k_resp_code_ = value; }
+    std::string response_context() { return response_context_; }
+    Sandesh *response_object() { return response_object_; }
+    void *more_context() { return more_context_; }
+    void vr_response_code(int value) { vr_response_code_ = value; }
     bool MoreData();
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req);
@@ -62,10 +62,10 @@ public:
     virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
     virtual void VxLanMsgHandler(vr_vxlan_req *req);
 protected:
-    std::string resp_ctx_;
-    Sandesh *resp_obj_;
-    int k_resp_code_; /* response code from kernel */
-    void *more_ctx_; /* context to hold marker info */
+    std::string response_context_;
+    Sandesh *response_object_;
+    int vr_response_code_; /* response code from kernel */
+    void *more_context_; /* context to hold marker info */
 };
 
 #endif // vnsw_agent_kstate_h

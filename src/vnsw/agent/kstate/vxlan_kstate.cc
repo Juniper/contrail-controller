@@ -20,13 +20,13 @@ void VxLanKState::SendNextRequest() {
     vr_vxlan_req req;
     req.set_h_op(sandesh_op::DUMP);
     req.set_vxlanr_vnid(0);
-    int label = reinterpret_cast<long>(more_ctx_);
+    int label = reinterpret_cast<long>(more_context_);
     req.set_vxlanr_vnid(label);
     EncodeAndSend(req);
 }
 
 void VxLanKState::Handler() {
-    KVxLanResp *resp = static_cast<KVxLanResp *>(resp_obj_);
+    KVxLanResp *resp = static_cast<KVxLanResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more labels in Kernel. We need to query them from 
@@ -35,21 +35,21 @@ void VxLanKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
 
 void VxLanKState::SendResponse() {
 
-    KVxLanResp *resp = static_cast<KVxLanResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KVxLanResp *resp = static_cast<KVxLanResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KVxLanResp();
+    response_object_ = new KVxLanResp();
 }
 
 

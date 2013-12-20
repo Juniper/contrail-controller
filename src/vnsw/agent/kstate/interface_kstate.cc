@@ -28,7 +28,7 @@ void InterfaceKState::InitDumpRequest(vr_interface_req &req) {
 }
 
 void InterfaceKState::Handler() {
-    KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+    KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more interfaces in Kernel. We need to query them from 
@@ -37,9 +37,9 @@ void InterfaceKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
@@ -47,19 +47,19 @@ void InterfaceKState::Handler() {
 void InterfaceKState::SendNextRequest() {
     vr_interface_req req;
     InitDumpRequest(req);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_vifr_marker(idx);
     EncodeAndSend(req);
 }
 
 void InterfaceKState::SendResponse() {
 
-    KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KInterfaceResp();
+    response_object_ = new KInterfaceResp();
 }
 
 string InterfaceKState::TypeToString(int if_type) {

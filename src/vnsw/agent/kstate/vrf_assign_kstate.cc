@@ -15,7 +15,7 @@ VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj, std::string resp_ctx,
 }
 
 void VrfAssignKState::SendNextRequest() {
-    VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_ctx_);
+    VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_context_);
     vr_vrf_assign_req req;
 
     req.set_h_op(sandesh_op::DUMP);
@@ -26,7 +26,7 @@ void VrfAssignKState::SendNextRequest() {
 }
 
 void VrfAssignKState::Handler() {
-    KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(resp_obj_);
+    KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more labels in Kernel. We need to query them from 
@@ -35,22 +35,22 @@ void VrfAssignKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_ctx_);
+            VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_context_);
             if (ctx) {
                 delete ctx;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
 }
 
 void VrfAssignKState::SendResponse() {
-    KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KVrfAssignResp();
+    response_object_ = new KVrfAssignResp();
 }

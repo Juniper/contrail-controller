@@ -11,7 +11,7 @@ void KStateIoContext::Handler() {
 
     kctx->Handler();
 
-    if (kctx->more_ctx() == NULL)
+    if (kctx->more_context() == NULL)
         delete kctx;
 }
 

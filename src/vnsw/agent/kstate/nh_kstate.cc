@@ -27,13 +27,13 @@ void NHKState::SendNextRequest() {
     vr_nexthop_req req;
     req.set_nhr_id(0);
     req.set_h_op(sandesh_op::DUMP);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_nhr_marker(idx);
     EncodeAndSend(req);
 }
 
 void NHKState::Handler() {
-    KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+    KNHResp *resp = static_cast<KNHResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more nexthops in Kernel. We need to query them from 
@@ -42,21 +42,21 @@ void NHKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
 
 void NHKState::SendResponse() {
 
-    KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KNHResp *resp = static_cast<KNHResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KNHResp();
+    response_object_ = new KNHResp();
 }
 
 
