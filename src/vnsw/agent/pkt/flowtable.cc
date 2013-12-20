@@ -768,8 +768,8 @@ void FlowTable::DeleteAll()
             it->second == entry->data.reverse_flow.get()) {
             ++it;
         }
-        DeleteNatFlow(entry->key, true);
 
+        DeleteNatFlow(entry->key, true);
     }
 }
 

@@ -255,7 +255,7 @@ static void BuildVrfAndServiceVlanInfo(Agent *agent,
             }
             data->service_vlan_list_.list_.insert
                 (VmInterface::ServiceVlan(rule.vlan_tag, vrf_node->name(), addr,
-                                          smac, dmac));
+                                          32, smac, dmac));
         }
         break;
     }
@@ -1803,7 +1803,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
             (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 
-             entry->plen_, component_nh_list, new_label, vn()->GetName(),
+             entry.plen_, component_nh_list, new_label, vn()->GetName(),
              sg_id_list);
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, entry.vrf_->GetName(), 
@@ -1839,7 +1839,7 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
     std::vector<ComponentNHData> comp_nh_list =
         *(vrf_entry->GetNHList(entry.addr_, entry.plen_));
 
-    if (vrf_entry->GetNHCount(entry.addr, entry.plen__) == 1) {
+    if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 1) {
         Inet4UnicastAgentRouteTable::Delete
             (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32);
     } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 2) {
