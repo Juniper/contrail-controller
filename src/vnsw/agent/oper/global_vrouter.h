@@ -47,7 +47,7 @@ public:
 
     GlobalVrouter(OperDB *oper);
     virtual ~GlobalVrouter();
-    void Register();
+    void CreateDBClients();
 
     const OperDB *oper_db() const { return oper_; }
     const LinkLocalServicesMap &linklocal_services_map() const {
@@ -61,9 +61,9 @@ public:
     bool FindLinkLocalService(const Ip4Address &service_ip,
                               uint16_t service_port, std::string *service_name,
                               Ip4Address *fabric_ip, uint16_t *fabric_port);
-    void LinkLocalRouteUpdate(const std::vector<Ip4Address> &old_addr,
-                              const std::vector<Ip4Address> &new_addr);
+    void LinkLocalRouteUpdate(const std::vector<Ip4Address> &addr_list);
     bool IsAddressInUse(const Ip4Address &ip) const;
+    bool IsLinkLocalAddressInUse(const Ip4Address &ip) const;
 
 private:
     class FabricDnsResolver;

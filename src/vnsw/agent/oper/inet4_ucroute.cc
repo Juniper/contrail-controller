@@ -620,6 +620,12 @@ void
 Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
                                        const Ip4Address &ip) {
 
+    if (ip == Agent::GetInstance()->GetRouterId() ||
+        !IsIp4SubnetMember(ip, Agent::GetInstance()->GetRouterId(),
+                           Agent::GetInstance()->GetPrefixLen())) {
+        return;
+    }
+
     DBRequest  nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 

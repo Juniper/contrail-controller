@@ -124,7 +124,7 @@ void OperDB::Init() {
 
 void OperDB::CreateDBClients() {
     multicast_.get()->Register();
-    global_vrouter_.get()->Register();
+    global_vrouter_.get()->CreateDBClients();
 }
 
 OperDB::OperDB(Agent *agent) : agent_(agent) {
