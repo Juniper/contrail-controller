@@ -19,7 +19,7 @@ import socket
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
-cassandra_version = '1.1.7'
+cassandra_version = '1.2.11'
 cassandra_url = '/tmp/apache-cassandra-'+cassandra_version+'-bin.tar.gz'
 
 def start_cassandra(cport, sport_arg=None):

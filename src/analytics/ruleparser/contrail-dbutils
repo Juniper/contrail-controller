@@ -14,7 +14,6 @@ import random
 import uuid
 import time
 import datetime
-from prettytable import PrettyTable
 import socket
 
 import pycassa
@@ -157,6 +156,8 @@ def get_substring(str):
     return str[0:5]+'..'+str[l-5:l]
 
 def show_ft(key = None, row_count = 100, detail=0):
+    from prettytable import PrettyTable
+
     c_ft = pycassa.ColumnFamily(pool, 'FlowTable')
     l_ft = list(c_ft.get_range(row_count = row_count))
     sl_ft=sorted(l_ft, key=lambda le: le[1].get('setup_time', 0))
