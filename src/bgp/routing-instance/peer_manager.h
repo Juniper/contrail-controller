@@ -12,7 +12,6 @@
 #include "bgp/bgp_peer_key.h"
 #include "bgp/ipeer.h"
 #include "bgp/routing-instance/routing_instance.h"
-#include "bgp/routing-instance/routing_instance_trace.h"
 
 class BgpPeer;
 class BgpServer;
