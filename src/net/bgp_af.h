@@ -22,6 +22,7 @@ public:
         McastVpn = 5,
         EVpn = 70,
         Vpn = 128,
+        RTFilter = 132,
         Mcast = 241,
         Enet = 242,
     };
