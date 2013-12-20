@@ -13,7 +13,7 @@
 
 #include "base/task_annotations.h"
 #include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_log.h"
 
 PeerIFMapServerFinder::PeerIFMapServerFinder(IFMapManager *ifmap_manager,
