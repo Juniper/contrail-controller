@@ -28,7 +28,7 @@
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
-#include "test_kstate_util.h"
+#include "kstate/test/test_kstate_util.h"
 #include "vr_types.h"
 #include "vnc_cfg_types.h"
 

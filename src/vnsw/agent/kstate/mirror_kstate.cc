@@ -40,7 +40,7 @@ void MirrorKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             more_ctx_ = NULL;
         }
@@ -50,10 +50,9 @@ void MirrorKState::Handler() {
 void MirrorKState::SendResponse() {
 
     KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KMirrorResp();
 }

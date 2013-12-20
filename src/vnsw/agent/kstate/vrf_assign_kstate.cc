@@ -35,7 +35,7 @@ void VrfAssignKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             VrfAssignContext *ctx = static_cast<VrfAssignContext *>(more_ctx_);
             if (ctx) {
@@ -48,10 +48,9 @@ void VrfAssignKState::Handler() {
 
 void VrfAssignKState::SendResponse() {
     KVrfAssignResp *resp = static_cast<KVrfAssignResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KVrfAssignResp();
 }

@@ -90,6 +90,15 @@ void ExtCommunity::Append(const ExtCommunityList &list) {
     communities_.erase(it, communities_.end());
 }
 
+bool ExtCommunity::ContainsOriginVn(const ExtCommunityValue &val) const {
+    for (ExtCommunityList::const_iterator it = communities_.begin();
+         it != communities_.end(); ++it) {
+        if (ExtCommunity::is_origin_vn(*it) && *it == val)
+            return true;
+    }
+    return false;
+}
+
 void ExtCommunity::RemoveRTarget() {
     for (ExtCommunityList::iterator it = communities_.begin(); 
          it != communities_.end(); ) {

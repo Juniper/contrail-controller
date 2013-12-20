@@ -287,7 +287,8 @@ KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
     }
     async_send_queue_ = new WorkQueue<IoContext *>(TaskScheduler::GetInstance()->
                             GetTaskId("Ksync::AsyncSend"), 0,
-                            boost::bind(&KSyncSock::SendAsyncImpl, this, _1),
+                            boost::bind(&KSyncSock::SendAsyncImpl, this, _1));
+    async_send_queue_->SetStartRunnerFunc(
                             boost::bind(&KSyncSock::SendAsyncStart, this));
     rx_buff_ = NULL;
     seqno_ = 0;
@@ -302,7 +303,7 @@ KSyncSock::~KSyncSock() {
         rx_buff_ = NULL;
     }
 
-    assert(async_send_queue_->QueueCount() == 0);
+    assert(async_send_queue_->Length() == 0);
     async_send_queue_->Shutdown();
     delete async_send_queue_;
 

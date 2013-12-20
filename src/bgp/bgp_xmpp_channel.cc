@@ -1090,6 +1090,12 @@ void BgpXmppChannel::ProcessEnetItem(string vrf_name,
             RouteDistinguisher(nh_address.to_v4().to_ulong(), instance_id));
         attrs.push_back(&source_rd);
 
+        if (rt_instance) {
+            OriginVn origin_vn(bgp_server_->autonomous_system(),
+                rt_instance->virtual_network_index());
+            ext.communities.push_back(origin_vn.GetExtCommunityValue());
+        }
+
         if (!ext.communities.empty())
             attrs.push_back(&ext);
 

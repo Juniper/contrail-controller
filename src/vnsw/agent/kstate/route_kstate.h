@@ -7,7 +7,8 @@
 
 class RouteKState: public KState {
 public:
-    RouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, int id);
+    RouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, 
+                int id);
     virtual void SendResponse();
     virtual void Handler();
     void InitEncoder(vr_route_req &req, int id);

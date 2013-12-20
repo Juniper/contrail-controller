@@ -4,8 +4,6 @@
 
 #include "boost_ssl_server.h"
 
-using boost::system::error_code;
-
 BoostSslServer::BoostSslServer(boost::asio::io_service& io_service,
                                unsigned short port, string password)
     : io_service_(io_service),
@@ -14,7 +12,7 @@ BoostSslServer::BoostSslServer(boost::asio::io_service& io_service,
       context_(io_service, boost::asio::ssl::context::sslv3_server),
       password_(password) {
 
-    error_code ec;
+    boost::system::error_code ec;
     context_.set_verify_mode(boost::asio::ssl::context::verify_none, ec);
     context_.use_certificate_chain_file(
         "controller/src/ifmap/client/test/server.pem");

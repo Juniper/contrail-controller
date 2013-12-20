@@ -26,6 +26,40 @@ typedef multimap<pair<string, string>, autogen::BgpSessionAttributes> SessionMap
 
 namespace {
 
+static void MapObjectSetProperty(const string &ltype, const string &lname,
+                                 const string &propname,
+                                 AutogenProperty *property,
+                                 BgpConfigParser::RequestList *requests) {
+    DBRequest *request = new DBRequest;
+    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
+    request->key.reset(key);
+    key->id_type = ltype;
+    key->id_name = lname;
+    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
+    request->data.reset(data);
+    data->metadata = propname;
+    data->content.reset(property);
+    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    requests->push_back(request);
+}
+
+static void MapObjectClearProperty(const string &ltype, const string &lname,
+                                   const string &propname,
+                                   BgpConfigParser::RequestList *requests) {
+    DBRequest *request = new DBRequest;
+    request->oper = DBRequest::DB_ENTRY_DELETE;
+    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
+    request->key.reset(key);
+    key->id_type = ltype;
+    key->id_name = lname;
+    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
+    request->data.reset(data);
+    data->metadata = propname;
+    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
+    requests->push_back(request);
+}
+
 static void MapObjectLink(const string &ltype, const string &lname,
                          const string &rtype, const string &rname,
                          const string &linkname,
@@ -80,38 +114,6 @@ static void MapObjectLinkAttr(const string &ltype, const string &lname,
     data->id_type = rtype;
     data->id_name = rname;
     data->content.reset(attr);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void SetBgpRouterParams(const string &identifier,
-                               autogen::BgpRouterParams *params,
-                               BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "bgp-router";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "bgp-router-parameters";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearBgpRouterParams(const string &identifier,
-                                 BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "bgp-router";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "bgp-router-parameters";
     data->origin.set_origin(IFMapOrigin::MAP_SERVER);
     requests->push_back(request);
 }
@@ -242,102 +244,41 @@ static bool ParseSession(const string &identifier, const xml_node &node,
     return true;
 }
 
-static void SetServiceChainInfo(const string &identifier,
-                                autogen::ServiceChainInfo *params,
-                                BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "service-chain-information";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearServiceChainInfo(const string &identifier,
-                                  BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "service-chain-information";
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-
 static bool ParseServiceChain(const string &instance, const xml_node &node,
                               bool add_change, 
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::ServiceChainInfo> params(
+    auto_ptr<autogen::ServiceChainInfo> property(
         new autogen::ServiceChainInfo());
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         assert(0);
     }
 
     if (add_change) {
-        SetServiceChainInfo(instance, params.release(), requests);
+        MapObjectSetProperty("routing-instance", instance,
+            "service-chain-information", property.release(), requests);
     } else {
-        ClearServiceChainInfo(instance, requests);
+        MapObjectClearProperty("routing-instance", instance,
+            "service-chain-information", requests);
     }
 
     return true;
 }
 
-static void SetStaticRouteEntriesInfo(const string &identifier,
-                                autogen::StaticRouteEntriesType *params,
-                                BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "static-route-entries";
-    data->content.reset(params);
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
-static void ClearStaticRouteEntriesInfo(const string &identifier,
-                                  BgpConfigParser::RequestList *requests) {
-    DBRequest *request = new DBRequest;
-    request->oper = DBRequest::DB_ENTRY_DELETE;
-    IFMapTable::RequestKey *key = new IFMapTable::RequestKey();
-    request->key.reset(key);
-    key->id_type = "routing-instance";
-    key->id_name = identifier;
-    IFMapServerTable::RequestData *data = new IFMapServerTable::RequestData();
-    request->data.reset(data);
-    data->metadata = "static-route-entries";
-    data->origin.set_origin(IFMapOrigin::MAP_SERVER);
-    requests->push_back(request);
-}
-
 static bool ParseStaticRoute(const string &instance, const xml_node &node,
                               bool add_change, 
                               BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::StaticRouteEntriesType> params(
+    auto_ptr<autogen::StaticRouteEntriesType> property(
         new autogen::StaticRouteEntriesType());
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         assert(0);
     }
 
     if (add_change) {
-        SetStaticRouteEntriesInfo(instance, params.release(), requests);
+        MapObjectSetProperty("routing-instance", instance,
+            "static-route-entries", property.release(), requests);
     } else {
-        ClearStaticRouteEntriesInfo(instance, requests);
+        MapObjectClearProperty("routing-instance", instance,
+            "static-route-entries", requests);
     }
 
     return true;
@@ -347,21 +288,21 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
                            bool add_change, string *nodename,
                            SessionMap *sessions,
                            BgpConfigParser::RequestList *requests) {
-    auto_ptr<autogen::BgpRouterParams> params(
+    auto_ptr<autogen::BgpRouterParams> property(
         new autogen::BgpRouterParams());
     string identifier;
     xml_attribute name = node.attribute("name");
-    if (!params->XmlParse(node)) {
+    if (!property->XmlParse(node)) {
         // TODO: log warning
         return false;
     }
     if (name) {
         identifier = name.value();
-    } else if (!params->address.empty()) {
-        identifier.append(params->address);
-        if (params->port != 0) {
+    } else if (!property->address.empty()) {
+        identifier.append(property->address);
+        if (property->port != 0) {
             ostringstream oss;
-            oss << "_" << params->port;
+            oss << "_" << property->port;
             identifier = oss.str();
         }
     } else {
@@ -382,15 +323,15 @@ static bool ParseBgpRouter(const string &instance, const xml_node &node,
     }
 
     if (add_change) {
-        SetBgpRouterParams(fqname, params.release(), requests);
+        MapObjectSetProperty("bgp-router", fqname,
+            "bgp-router-parameters", property.release(), requests);
         MapObjectLink("routing-instance", instance,
-                      "bgp-router", identifier, "instance-bgp-router",
-                      requests);
+            "bgp-router", identifier, "instance-bgp-router", requests);
     } else {
-        ClearBgpRouterParams(fqname, requests);
+        MapObjectClearProperty("bgp-router", fqname,
+            "bgp-router-parameters", requests);
         MapObjectUnlink("routing-instance", instance,
-                        "bgp-router", identifier, "instance-bgp-router",
-                        requests);
+            "bgp-router", identifier, "instance-bgp-router", requests);
     }
 
     return true;
@@ -411,7 +352,7 @@ static void AddNeighborMesh(const list<string> &routers,
         }
     }
 }
-    
+
 static void DeleteNeighborMesh(const list<string> &routers,
                                BgpConfigParser::RequestList *requests) {
     for (list<string>::const_iterator iter = routers.begin();
@@ -425,7 +366,7 @@ static void DeleteNeighborMesh(const list<string> &routers,
         }
     }
 }
-    
+
 static bool ParseInstanceTarget(const string &instance, const xml_node &node,
                                 bool add_change,
                                 BgpConfigParser::RequestList *requests) {
@@ -452,6 +393,23 @@ static bool ParseInstanceTarget(const string &instance, const xml_node &node,
     } else {
         MapObjectUnlink("routing-instance", instance, "route-target", rtarget,
             "instance-target", requests);
+    }
+
+    return true;
+}
+
+static bool ParseInstanceVirtualNetwork(const string &instance,
+    const xml_node &node, bool add_change,
+    BgpConfigParser::RequestList *requests) {
+    string vn_name = node.child_value();
+    if (add_change) {
+        MapObjectLink("routing-instance", instance,
+            "virtual-network", vn_name,
+            "virtual-network-routing-instance", requests);
+    } else {
+        MapObjectUnlink("routing-instance", instance,
+            "virtual-network", vn_name,
+            "virtual-network-routing-instance", requests);
     }
 
     return true;
@@ -487,6 +445,8 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
             }
         } else if (strcmp(node.name(), "vrf-target") == 0) {
             ParseInstanceTarget(instance, node, add_change, requests);
+        } else if (strcmp(node.name(), "virtual-network") == 0) {
+            ParseInstanceVirtualNetwork(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "service-chain-info") == 0) {
             ParseServiceChain(instance, node, add_change, requests);
         } else if (strcmp(node.name(), "static-route-entries") == 0) {
@@ -506,6 +466,30 @@ bool BgpConfigParser::ParseRoutingInstance(const xml_node &parent,
     return true;
 }
 
+bool BgpConfigParser::ParseVirtualNetwork(const xml_node &node,
+                                          bool add_change,
+                                          RequestList *requests) const {
+    // vn name
+    string vn_name(node.attribute("name").value());
+    if (vn_name.empty())
+        return false;
+
+    auto_ptr<autogen::VirtualNetworkType> property(
+        new autogen::VirtualNetworkType());
+    if (!property->XmlParse(node)) {
+        assert(false);
+    }
+
+    if (add_change) {
+        MapObjectSetProperty("virtual-network", vn_name,
+            "virtual-network-properties", property.release(), requests);
+    } else {
+        MapObjectClearProperty("virtual-network", vn_name,
+            "virtual-network-properties", requests);
+    }
+
+    return true;
+}
 
 bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
                                   RequestList *requests) const {
@@ -523,6 +507,9 @@ bool BgpConfigParser::ParseConfig(const xml_node &root, bool add_change,
         }
         if (strcmp(node.name(), "routing-instance") == 0) {
             ParseRoutingInstance(node, add_change, requests);
+        }
+        if (strcmp(node.name(), "virtual-network") == 0) {
+            ParseVirtualNetwork(node, add_change, requests);
         }
     }
 

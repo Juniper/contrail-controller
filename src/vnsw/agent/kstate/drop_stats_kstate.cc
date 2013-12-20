@@ -20,7 +20,7 @@ DropStatsKState::DropStatsKState(KDropStatsResp *obj, std::string resp_ctx,
 void DropStatsKState::Handler() {
     KDropStatsResp *resp = static_cast<KDropStatsResp *>(resp_obj_);
     if (resp) {
-        resp->set_context(resp_data_);
+        resp->set_context(resp_ctx_);
         resp->Response();
     }
 }

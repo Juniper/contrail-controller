@@ -33,7 +33,7 @@ void RouteKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(resp_ctx_);
             resp->Response();
             RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
             if (rctx) {
@@ -57,10 +57,9 @@ void RouteKState::SendNextRequest() {
 void RouteKState::SendResponse() {
 
     KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    resp->set_context(resp_ctx_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
     resp_obj_ = new KRouteResp();
 }

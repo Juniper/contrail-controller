@@ -1078,7 +1078,7 @@ NextHop *CompositeNHKey::AllocEntry() const {
     if (is_mcast_nh_) {
         return new CompositeNH(vrf, dip_, sip_, comp_type_);
     } else {
-        return new CompositeNH(vrf, dip_, is_local_ecmp_nh_, comp_type_);
+        return new CompositeNH(vrf, dip_, plen_, is_local_ecmp_nh_, comp_type_);
     }
 }
 
@@ -1168,6 +1168,10 @@ bool CompositeNH::NextHopIsLess(const DBEntry &rhs) const {
 
     if (grp_addr_ != a.grp_addr_) {
         return grp_addr_ < a.grp_addr_;
+    }
+
+    if (plen_ != a.plen_) {
+        return plen_ < a.plen_;
     }
 
     if (is_local_ecmp_nh_ != a.is_local_ecmp_nh_) {
@@ -1361,7 +1365,7 @@ CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
         key = new CompositeNHKey(vrf_->GetName(), grp_addr_, src_addr_, 
                                  false, comp_type_);
     } else {
-        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, 
+        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, plen_,
                                  is_local_ecmp_nh_);
     }
     return DBEntryBase::KeyPtr(key);
@@ -1424,7 +1428,7 @@ void CompositeNH::CreateCompositeNH(const string vrf_name,
 
 //Create composite NH of type ECMP
 void CompositeNH::AppendComponentNH(const string vrf_name,
-                                    const Ip4Address ip,
+                                    const Ip4Address ip, uint8_t plen,
                                     bool local_ecmp_nh,
                                     ComponentNHData comp_nh_data) {
     std::vector<ComponentNHData> comp_nh_list;
@@ -1433,7 +1437,7 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
     DBRequest req;
     CompositeNHData *data;
 
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, local_ecmp_nh);
+    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
     key->sub_op_ = AgentKey::RESYNC;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -1444,14 +1448,14 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
 
 //Delete composite NH of type ECMP
 void CompositeNH::DeleteComponentNH(const string vrf_name,
-                                    const Ip4Address ip,
+                                    const Ip4Address ip, uint8_t plen,
                                     bool local_ecmp_nh,
                                     ComponentNHData comp_nh_data) {
     std::vector<ComponentNHData> comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     DBRequest req;
     CompositeNHData *data;
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, local_ecmp_nh);
+    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
 
     key->sub_op_ = AgentKey::RESYNC;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

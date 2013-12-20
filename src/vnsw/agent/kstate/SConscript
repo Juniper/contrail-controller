@@ -27,6 +27,7 @@ libkstate = env.Library('kstate',
                         sandesh_objs +
                         ['kstate_handler.cc',
                          'kstate.cc',
+                         'kstate_io_context.cc',
                          'interface_kstate.cc',
                          'route_kstate.cc',
                          'nh_kstate.cc',
@@ -38,3 +39,5 @@ libkstate = env.Library('kstate',
                          'vxlan_kstate.cc',
                          'drop_stats_kstate.cc'
                         ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

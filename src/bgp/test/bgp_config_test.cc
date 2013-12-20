@@ -395,6 +395,104 @@ TEST_F(BgpConfigManagerTest, InstanceTargetImport2) {
     TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
 }
 
+TEST_F(BgpConfigManagerTest, VirtualNetwork1) {
+    string content = FileRead("controller/src/bgp/testdata/config_test_20.xml");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, config_manager_.config().instances().size());
+
+    const BgpInstanceConfig *blue = FindInstanceConfig("blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_EXPECT_EQ("blue-vn", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(101, blue->virtual_network_index());
+
+    const BgpInstanceConfig *red = FindInstanceConfig("red");
+    TASK_UTIL_ASSERT_TRUE(red != NULL);
+    TASK_UTIL_EXPECT_EQ("red-vn", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(102, red->virtual_network_index());
+
+    boost::replace_all(content, "<config>", "<delete>");
+    boost::replace_all(content, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_.config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, VirtualNetwork2) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_21a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, config_manager_.config().instances().size());
+
+    const BgpInstanceConfig *blue = FindInstanceConfig("blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_EXPECT_EQ("blue-vn", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(0, blue->virtual_network_index());
+
+    const BgpInstanceConfig *red = FindInstanceConfig("red");
+    TASK_UTIL_ASSERT_TRUE(red != NULL);
+    TASK_UTIL_EXPECT_EQ("red-vn", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(0, red->virtual_network_index());
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_21b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ("blue-vn", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(101, blue->virtual_network_index());
+
+    TASK_UTIL_EXPECT_EQ("red-vn", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(102, red->virtual_network_index());
+
+    boost::replace_all(content_b, "<config>", "<delete>");
+    boost::replace_all(content_b, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_.config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
+TEST_F(BgpConfigManagerTest, VirtualNetwork3) {
+    string content_a = FileRead("controller/src/bgp/testdata/config_test_22a.xml");
+    EXPECT_TRUE(parser_.Parse(content_a));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, config_manager_.config().instances().size());
+
+    const BgpInstanceConfig *blue = FindInstanceConfig("blue");
+    TASK_UTIL_ASSERT_TRUE(blue != NULL);
+    TASK_UTIL_EXPECT_EQ("", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(0, blue->virtual_network_index());
+
+    const BgpInstanceConfig *red = FindInstanceConfig("red");
+    TASK_UTIL_ASSERT_TRUE(red != NULL);
+    TASK_UTIL_EXPECT_EQ("", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(0, red->virtual_network_index());
+
+    string content_b = FileRead("controller/src/bgp/testdata/config_test_22b.xml");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ("blue-vn", blue->virtual_network());
+    TASK_UTIL_EXPECT_EQ(101, blue->virtual_network_index());
+
+    TASK_UTIL_EXPECT_EQ("red-vn", red->virtual_network());
+    TASK_UTIL_EXPECT_EQ(102, red->virtual_network_index());
+
+    boost::replace_all(content_b, "<config>", "<delete>");
+    boost::replace_all(content_b, "</config>", "</delete>");
+    EXPECT_TRUE(parser_.Parse(content_b));
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(1, config_manager_.config().instances().size());
+    TASK_UTIL_EXPECT_EQ(0, db_graph_.vertex_count());
+}
+
 TEST_F(BgpConfigManagerTest, Instances) {
     string content = FileRead("controller/src/bgp/testdata/config_test_2.xml");
     EXPECT_TRUE(parser_.Parse(content));
@@ -413,7 +511,7 @@ TEST_F(BgpConfigManagerTest, InstanceNeighbors) {
     string content = FileRead("controller/src/bgp/testdata/config_test_3.xml");
     EXPECT_TRUE(parser_.Parse(content));
     task_util::WaitForIdle();
-    
+
     TASK_UTIL_ASSERT_TRUE(config_manager_.config().instances().end() !=
                           config_manager_.config().instances().find("test"));
     BgpConfigData::BgpInstanceMap::const_iterator loc =

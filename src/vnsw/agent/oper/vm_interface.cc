@@ -539,9 +539,9 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
 
     VrfEntry *vrf_entry = 
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-    uint32_t nh_count = vrf_entry->GetNHCount(addr);
+    uint32_t nh_count = vrf_entry->GetNHCount(addr, plen);
 
-    if (vrf_entry->FindNH(addr, component_nh_data) == true) {
+    if (vrf_entry->FindNH(addr, plen, component_nh_data) == true) {
         //Route already current interface as one of its nexthop
         nh_count = nh_count - 1;
     }
@@ -556,26 +556,26 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
                                          vn_->GetName(), label_, sg_id_list);
     } else if (nh_count > 1) {
         //Update composite NH pointed by MPLS label
-        CompositeNH::AppendComponentNH(vrf_name, addr, true,
+        CompositeNH::AppendComponentNH(vrf_name, addr, plen, true,
                                        component_nh_data);
         //Update new interface to route pointed composite NH
-        CompositeNH::AppendComponentNH(vrf_name, addr, false, 
+        CompositeNH::AppendComponentNH(vrf_name, addr, plen, false,
                                        component_nh_data);
     } else if (nh_count == 1 && 
-               vrf_entry->FindNH(addr, component_nh_data) == false) {
+               vrf_entry->FindNH(addr, plen, component_nh_data) == false) {
         //Interface NH to ECMP NH transition
         //Allocate a new MPLS label
         uint32_t new_label =  Agent::GetInstance()->GetMplsTable()->AllocLabel();
         //Update label data
-        vrf_entry->UpdateLabel(addr, new_label);
+        vrf_entry->UpdateLabel(addr, plen, new_label);
         //Create list of component NH
         ComponentNHData::ComponentNHDataList component_nh_list = 
-            *(vrf_entry->GetNHList(addr));
+            *(vrf_entry->GetNHList(addr, plen));
         component_nh_list.push_back(component_nh_data);
 
         //Create local composite NH
         DBRequest nh_req;
-        NextHopKey *key = new CompositeNHKey(vrf_name, addr, true);
+        NextHopKey *key = new CompositeNHKey(vrf_name, addr, plen, true);
         nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         nh_req.key.reset(key);
         NextHopData *data = 
@@ -591,14 +591,14 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
                                          vn_->GetName(), sg_id_list);
 
         //Make MPLS label point to composite NH
-        MplsLabel::CreateEcmpLabel(new_label, vrf_name, addr);
+        MplsLabel::CreateEcmpLabel(new_label, vrf_name, addr, plen);
         //Update new interface to route pointed composite NH
-        CompositeNH::AppendComponentNH(vrf_name, addr, false,
+        CompositeNH::AppendComponentNH(vrf_name, addr, plen, false,
                                        component_nh_data);
     }
 
     //Append interface to VRF nh list
-    vrf_entry->AddNH(addr, &component_nh_data);
+    vrf_entry->AddNH(addr, plen, &component_nh_data);
     return;
 }
 
@@ -607,20 +607,20 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
     ComponentNHData component_nh_data(label_, GetUuid(), 
                                       InterfaceNHFlags::INET4);
     VrfEntry *vrf_entry = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-    if (vrf_entry->FindNH(addr, component_nh_data) == false) {
+    if (vrf_entry->FindNH(addr, plen, component_nh_data) == false) {
         //NH not present in route
         return;
     }
 
     //ECMP NH to Interface NH
     std::vector<ComponentNHData> comp_nh_list =
-        *(vrf_entry->GetNHList(addr));
+        *(vrf_entry->GetNHList(addr, plen));
 
-    if (vrf_entry->GetNHCount(addr) == 1) {
+    if (vrf_entry->GetNHCount(addr, plen) == 1) {
         Inet4UnicastAgentRouteTable::Delete(Agent::GetInstance()->GetLocalVmPeer(),
                                             vrf_name, addr, plen);
-    } else if (vrf_entry->GetNHCount(addr) == 2) {
-        uint32_t label = vrf_entry->GetLabel(addr);
+    } else if (vrf_entry->GetNHCount(addr, plen) == 2) {
+        uint32_t label = vrf_entry->GetLabel(addr, plen);
         uint32_t index = 0;
         //Get UUID of interface still present in composit NH
         if (comp_nh_list[0] == component_nh_data) {
@@ -644,11 +644,13 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
 
         //Enqueue MPLS label delete request
         MplsLabel::Delete(label);
-    } else if (vrf_entry->GetNHCount(addr) > 2) {
-        CompositeNH::DeleteComponentNH(vrf_name, addr, false, component_nh_data);
-        CompositeNH::DeleteComponentNH(vrf_name, addr, true, component_nh_data);
+    } else if (vrf_entry->GetNHCount(addr, plen) > 2) {
+        CompositeNH::DeleteComponentNH(vrf_name, addr, plen,
+                                       false, component_nh_data);
+        CompositeNH::DeleteComponentNH(vrf_name, addr, plen,
+                                       true, component_nh_data);
     }
-    vrf_entry->DeleteNH(addr, &component_nh_data);
+    vrf_entry->DeleteNH(addr, plen, &component_nh_data);
     return;
 }
 
@@ -933,7 +935,7 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
                                       false);
     VrfEntry *vrf_entry = 
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
-    if (vrf_entry->FindNH(entry.addr_, component_nh_data) == true) {
+    if (vrf_entry->FindNH(entry.addr_, entry.plen_, component_nh_data) == true) {
         //Route already current interface as one of its nexthop
         return;
     }
@@ -941,34 +943,34 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
     SecurityGroupList sg_id_list;
     set_sg_list(sg_id_list);
 
-    if (vrf_entry->GetNHCount(entry.addr_) == 0) {
+    if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 0) {
         Inet4UnicastAgentRouteTable::AddVlanNHRoute(
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          entry.vrf_->GetName(), 
                                          entry.addr_, 32, GetUuid(), 
                                          entry.tag_, entry.label_,
                                          vn()->GetName(), sg_id_list);
-    } else if (vrf_entry->GetNHCount(entry.addr_) > 1) {
+    } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) > 1) {
         //Update both local composite NH and BGP injected composite NH
-        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_, true,
-                                       component_nh_data);
-        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_, false,
-                                       component_nh_data);
-    } else if (vrf_entry->GetNHCount(entry.addr_) == 1) {
+        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_,
+                                       entry.plen_, true, component_nh_data);
+        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_,
+                                       entry.plen_, false, component_nh_data);
+    } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 1) {
         //Interface NH to ECMP NH transition
         //Allocate a new MPLS label
         uint32_t new_label =  Agent::GetInstance()->GetMplsTable()->AllocLabel();
         //Update label data
-        vrf_entry->UpdateLabel(entry.addr_, new_label);
+        vrf_entry->UpdateLabel(entry.addr_, entry.plen_, new_label);
         //Create list of component NH
         ComponentNHData::ComponentNHDataList component_nh_list = 
-            *(vrf_entry->GetNHList(entry.addr_));
+            *(vrf_entry->GetNHList(entry.addr_, entry.plen_));
         component_nh_list.push_back(component_nh_data);
 
         //Create local composite NH
         DBRequest nh_req;
         NextHopKey *key = new CompositeNHKey(entry.vrf_->GetName(), entry.addr_,
-                                             true);
+                                             entry.plen_, true);
         nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         nh_req.key.reset(key);
         NextHopData *data = 
@@ -980,18 +982,18 @@ void VmInterface::ServiceVlanRouteAdd(ServiceVlan &entry) {
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          entry.vrf_->GetName(), entry.addr_,
-                                         32, component_nh_list, new_label,
-                                         vn()->GetName(), sg_id_list);
+                                         entry.plen_, component_nh_list,
+                                         new_label, vn()->GetName(), sg_id_list);
         //Make MPLS label point to composite NH
         MplsLabel::CreateEcmpLabel(new_label, entry.vrf_->GetName(), 
-                                   entry.addr_);
+                                   entry.addr_, entry.plen_);
         //Update new interface to route pointed composite NH
-        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_, false,
-                                       component_nh_data);
+        CompositeNH::AppendComponentNH(entry.vrf_->GetName(), entry.addr_,
+                                       entry.plen_, false, component_nh_data);
     }
 
     //Append interface to VRF nh list
-    vrf_entry->AddNH(entry.addr_, &component_nh_data);
+    vrf_entry->AddNH(entry.addr_, entry.plen_, &component_nh_data);
     entry.installed_ = true;
     return;
 }
@@ -1005,22 +1007,23 @@ void VmInterface::ServiceVlanRouteDel(ServiceVlan &entry) {
                                       false);
     VrfEntry *vrf_entry = 
         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(entry.vrf_->GetName());
-    if (vrf_entry->FindNH(entry.addr_, component_nh_data) == false) {
+    if (vrf_entry->FindNH(entry.addr_, entry.plen_,
+                          component_nh_data) == false) {
         //NH not present in route
         return;
     }
 
     //ECMP NH to Interface NH
     std::vector<ComponentNHData> comp_nh_list =
-        *(vrf_entry->GetNHList(entry.addr_));
+        *(vrf_entry->GetNHList(entry.addr_, entry.plen_));
 
-    if (vrf_entry->GetNHCount(entry.addr_) == 1) {
+    if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 1) {
         Inet4UnicastAgentRouteTable::Delete(
                                          Agent::GetInstance()->GetLocalVmPeer(),
                                          entry.vrf_->GetName(), 
                                          entry.addr_, 32);
-    } else if (vrf_entry->GetNHCount(entry.addr_) == 2) {
-        uint32_t label = vrf_entry->GetLabel(entry.addr_);
+    } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 2) {
+        uint32_t label = vrf_entry->GetLabel(entry.addr_, entry.plen_);
         uint32_t index = 0;
         //Get UUID of interface still present in composit NH
         if (comp_nh_list[0] == component_nh_data) {
@@ -1043,16 +1046,16 @@ void VmInterface::ServiceVlanRouteDel(ServiceVlan &entry) {
 
         //Delete MPLS label
         MplsLabel::Delete(label);
-    } else if (vrf_entry->GetNHCount(entry.addr_) > 2) {
+    } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) > 2) {
         //Delete interface from both local composite NH and BGP
         //injected composite NH
-        CompositeNH::DeleteComponentNH(entry.vrf_->GetName(), entry.addr_, false,
-                                       component_nh_data);
-        CompositeNH::DeleteComponentNH(entry.vrf_->GetName(), entry.addr_, true, 
-                                       component_nh_data);
+        CompositeNH::DeleteComponentNH(entry.vrf_->GetName(), entry.addr_,
+                                       entry.plen_, false, component_nh_data);
+        CompositeNH::DeleteComponentNH(entry.vrf_->GetName(), entry.addr_,
+                                       entry.plen_, true, component_nh_data);
     }
     entry.installed_ = false;
-    vrf_entry->DeleteNH(entry.addr_, &component_nh_data);
+    vrf_entry->DeleteNH(entry.addr_, entry.plen_, &component_nh_data);
     return;
 }
 
@@ -1160,8 +1163,9 @@ bool VmInterface::OnResyncServiceVlan(VmInterfaceData *data) {
             VrfEntry *vrf = 
                 Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
             assert(vrf);
-            ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, cfg_vlan.tag_,
-                                            cfg_vlan.smac_, cfg_vlan.dmac_);
+            ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, 32,
+                                            cfg_vlan.tag_, cfg_vlan.smac_,
+                                            cfg_vlan.dmac_);
             ServiceVlanAdd(entry);
             service_vlan_list_[entry.tag_] = entry;
             ret = true;
@@ -1182,7 +1186,7 @@ bool VmInterface::OnResyncServiceVlan(VmInterfaceData *data) {
         const CfgServiceVlan &cfg_vlan = cfg_it->second;
         VrfEntry *vrf = Agent::GetInstance()->GetInterfaceTable()->FindVrfRef(cfg_vlan.vrf_);
         assert(vrf);
-        ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, cfg_vlan.tag_,
+        ServiceVlan entry = ServiceVlan(vrf, cfg_vlan.addr_, 32, cfg_vlan.tag_,
                                         cfg_vlan.smac_, cfg_vlan.dmac_);
         ServiceVlanAdd(entry);
         service_vlan_list_[entry.tag_] = entry;

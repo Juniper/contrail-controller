@@ -35,7 +35,7 @@
 FlowTableKSyncObject *FlowTableKSyncObject::singleton_;
 
 FlowTableKSyncObject::FlowTableKSyncObject() : 
-    KSyncObject(), audit_flow_idx_(0),
+    KSyncObject(), audit_flow_idx_(0), audit_timestamp_(0),
     audit_timer_(TimerManager::CreateTimer
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
@@ -45,7 +45,7 @@ FlowTableKSyncObject::FlowTableKSyncObject() :
 }
 
 FlowTableKSyncObject::FlowTableKSyncObject(int max_index) :
-    KSyncObject(max_index), audit_flow_idx_(0),
+    KSyncObject(max_index), audit_flow_idx_(0), audit_timestamp_(0),
     audit_timer_(TimerManager::CreateTimer
                  (*(Agent::GetInstance()->GetEventManager())->io_service(),
                   "Flow Audit Timer",
@@ -452,7 +452,7 @@ void FlowTableKSyncObject::MapFlowMemTest() {
     flow_table_ = KSyncSockTypeMap::FlowMmapAlloc(kTestFlowTableSize);
     memset(flow_table_, 0, kTestFlowTableSize);
     flow_table_entries_ = kTestFlowTableSize / sizeof(vr_flow_entry);
-    audit_yeild_ = flow_table_entries_;
+    audit_yield_ = flow_table_entries_;
 }
 
 void FlowTableKSyncObject::UnmapFlowMemTest() {
@@ -462,8 +462,14 @@ void FlowTableKSyncObject::UnmapFlowMemTest() {
 bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
     uint32_t flow_idx;
     const vr_flow_entry *vflow_entry;
+    obj->audit_timestamp_ += AuditYieldTimer;
     while (!obj->audit_flow_list_.empty()) {
-        flow_idx = obj->audit_flow_list_.front();
+        std::pair<uint32_t, uint64_t> list_entry = obj->audit_flow_list_.front();
+        if ((obj->audit_timestamp_ - list_entry.second) < AuditTimeout) {
+            /* Wait for AuditTimeout to create short flow for the entry */
+            break;
+        }
+        flow_idx = list_entry.first;
         obj->audit_flow_list_.pop_front();
 
         vflow_entry = obj->GetKernelFlowEntry(flow_idx, false);
@@ -494,11 +500,12 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
     }
 
     int count = 0;
-    assert(obj->audit_yeild_);
-    while (count < obj->audit_yeild_) {
+    assert(obj->audit_yield_);
+    while (count < obj->audit_yield_) {
         vflow_entry = obj->GetKernelFlowEntry(obj->audit_flow_idx_, false);
         if (vflow_entry && vflow_entry->fe_action == VR_FLOW_ACTION_HOLD) {
-            obj->audit_flow_list_.push_back(obj->audit_flow_idx_);
+            obj->audit_flow_list_.push_back(std::make_pair(obj->audit_flow_idx_,
+                                                           obj->audit_timestamp_));
         }
 
         count++;
@@ -586,8 +593,8 @@ void FlowTableKSyncObject::MapFlowMem() {
     }
 
     flow_table_entries_ = flow_table_size_ / sizeof(vr_flow_entry);
-    audit_yeild_ = AuditYeild;
-    singleton_->audit_timer_->Start(AuditTimeout,
+    audit_yield_ = AuditYield;
+    singleton_->audit_timer_->Start(AuditYieldTimer,
                                     boost::bind(&FlowTableKSyncObject::AuditProcess, singleton_));
     return;
 }

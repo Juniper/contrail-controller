@@ -25,14 +25,17 @@ public:
     typedef boost::function<void (void)> ClientConnectCbFn;
     typedef boost::function<void (void)> ClientDisconnectCbFn;
     typedef boost::function<void (const redisAsyncContext *c, void *r, void *privdata)> ClientAsyncCmdCbFn;
+    typedef boost::function<void (const redisReply *reply)> RAC_StatCbFn;
     typedef boost::function<void (const struct redisAsyncContext*, int)> RAC_ConnectCbFn;
     typedef boost::function<void (const struct redisAsyncContext*, int)> RAC_DisconnectCbFn;
 
     struct RAC_CbFns {
         RAC_CbFns() :
+            stat_cbfn_(NULL),
             connect_cbfn_(NULL),
             disconnect_cbfn_(NULL),
             client_async_cmd_cbfn_(NULL) { }
+        RAC_StatCbFn stat_cbfn_;
         RAC_ConnectCbFn connect_cbfn_;
         RAC_DisconnectCbFn disconnect_cbfn_;
         ClientAsyncCmdCbFn client_async_cmd_cbfn_;
@@ -53,11 +56,20 @@ public:
     bool SetClientAsyncCmdCb(ClientAsyncCmdCbFn cb_fn);
     bool RedisAsyncCommand(void *rpi, const char *format, ...);
     bool RedisAsyncArgCmd(void *rpi, const std::vector<std::string> &args);
+    void RAC_StatUpdate(const redisReply *reply);
 
     static RAC_CbFnsMap& rac_cb_fns_map() {
         return rac_cb_fns_map_;
     }
     EventManager * GetEVM() { return evm_; } 
+
+    uint64_t CallDisconnected() { return callDisconnected_; }
+    uint64_t CallFailed() { return callFailed_; } 
+    uint64_t CallSucceeded() { return callSucceeded_; } 
+    uint64_t CallbackNull() { return callbackNull_; }
+    uint64_t CallbackFailed() { return callbackFailed_; }
+    uint64_t CallbackSucceeded() { return callbackSucceeded_; }
+
 private:
     enum RedisState {
         REDIS_ASYNC_CONNECTION_INIT      = 0,
@@ -69,6 +81,13 @@ private:
     EventManager *evm_;
     const std::string hostname_;
     const unsigned short port_;
+
+    uint64_t callDisconnected_;
+    uint64_t callFailed_;
+    uint64_t callSucceeded_;
+    uint64_t callbackNull_;
+    uint64_t callbackFailed_;
+    uint64_t callbackSucceeded_;
 
     redisAsyncContext *context_;
     //boost::scoped_ptr<redisBoostClient> client_;

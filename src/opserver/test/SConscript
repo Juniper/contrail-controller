@@ -8,10 +8,15 @@ Import('OpEnv')
 
 env = OpEnv.Clone()
 
+# a bug in cassandra doesnot allow sstableloader to work when storage port
+# is set to anything other than 7000
+# which means, we cannot enable analytics_perftest.py by default as
+# multiple runs will clash with each other
+# enable this manually when required for debugging performance
 local_sources = [
                  'uveserver_test.py',
                  'analytics_systest.py',
-                 'analytics_perftest.py',
+#                 'analytics_perftest.py',
                  ]
 local_sources_rules = []
 for file in local_sources:

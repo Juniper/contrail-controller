@@ -221,6 +221,7 @@ void BgpXmppMessage::AddEnetReach(const BgpRoute *route, const RibOutAttr *roatt
         static_cast<EnetRoute *>(const_cast<BgpRoute *>(route));
     item.entry.nlri.mac = enet_route->GetPrefix().mac_addr().ToString();
     item.entry.nlri.address =  enet_route->GetPrefix().ip_prefix().ToString();
+    item.entry.virtual_network = virtual_network_;
 
     assert(!roattr->nexthop_list().empty());
     BOOST_FOREACH(RibOutAttr::NextHop nexthop, roattr->nexthop_list()) {
