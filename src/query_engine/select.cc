@@ -440,6 +440,10 @@ query_status_t SelectQuery::process_query() {
         int idx = m_query->stat_table_index();
         QE_ASSERT(idx!=-1);
 
+        //uint64_t parset=0;
+        //uint64_t loadt=0;
+        //uint64_t jsont=0;
+        std::map<std::string,QEOpServerProxy::VarType> vtmap;
         for (std::vector<query_result_unit_t>::iterator it = query_result.begin();
                 it != query_result.end(); it++) {
 
@@ -449,49 +453,55 @@ query_status_t SelectQuery::process_query() {
 
             it->get_stattable_info(json_string, u);
 
-            StatsSelect::StatMap attribs;
+            //uint64_t thenj = UTCTimestampUsec();
+            rapidjson::Document d;
+            d.Parse<0>(const_cast<char *>(json_string.c_str()));
+            //jsont += UTCTimestampUsec() - thenj;
 
-            QE_TRACE(DEBUG, "parsing through rapidjson samples: " << json_string << " ts " << it->timestamp << " uuid " << u);
+            std::vector<StatsSelect::StatEntry> attribs;
             {
-                rapidjson::Document d;
-                d.Parse<0>(const_cast<char *>(json_string.c_str()));
-
                 for (rapidjson::Value::ConstMemberIterator itr = d.MemberBegin();
                         itr != d.MemberEnd(); ++itr) {
                     QE_ASSERT(itr->name.IsString());
 
+                    //uint64_t thenp = UTCTimestampUsec();
                     std::string vname(itr->name.GetString());
-                    std::string sfield;
-                    QEOpServerProxy::AggOper agg;
-                    QEOpServerProxy::VarType vt = StatsSelect::Parse(idx, vname, 
-                        sfield, agg);
+                    QEOpServerProxy::VarType vt;
+                    std::map<std::string,QEOpServerProxy::VarType>::const_iterator vit = vtmap.find(vname);
+                    if (vit == vtmap.end()) {
+                        std::string sfield;
+                        QEOpServerProxy::AggOper agg;
+                        vt = StatsSelect::Parse(idx, vname, sfield, agg);
+                        vtmap.insert(std::make_pair( vname, vt));
+                    } else {
+                        vt = vit->second;
+                    }
 
+                    StatsSelect::StatEntry se;
+                    se.name = itr->name.GetString();
                     if (vt == QEOpServerProxy::STRING) {
-                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetString()));
+                        se.value = itr->value.GetString();
                     } else if (vt == QEOpServerProxy::UINT64) {
-                        attribs.insert(std::make_pair(itr->name.GetString(),(uint64_t)itr->value.GetUint()));
+                        se.value = (uint64_t)itr->value.GetUint();
                     } else if (vt == QEOpServerProxy::DOUBLE) {
                         if (itr->value.IsDouble())
-                            attribs.insert(std::make_pair(itr->name.GetString(),(double) itr->value.GetDouble()));
+                            se.value = (double) itr->value.GetDouble();
                         else
-                            attribs.insert(std::make_pair(itr->name.GetString(),(double) itr->value.GetUint()));
+                            se.value = (double) itr->value.GetUint();
                     } else {
                         QE_ASSERT(0);
                     }
+                    attribs.push_back(se);
 
-                    if (itr->value.IsString()) {
-                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetString()));
-                    } else if (itr->value.IsUint()) {
-                        attribs.insert(std::make_pair(itr->name.GetString(),(uint64_t)itr->value.GetUint()));
-                    } else if (itr->value.IsDouble()) {
-                        attribs.insert(std::make_pair(itr->name.GetString(),itr->value.GetDouble()));
-                    } else {
-                        QE_ASSERT(0);
-                    }
+                    //parset += UTCTimestampUsec() - thenp; 
                 }
             }
+            //uint64_t thenl = UTCTimestampUsec();
             stats_->LoadRow(u, it->timestamp, attribs, *mresult_);
+            //loadt += UTCTimestampUsec() - thenl; 
         }
+        //QE_TRACE(DEBUG, "Select ProcTime - Entries : " << query_result.size() <<
+        //        " json : " << jsont << " parse : " << parset << " load : " << loadt);
 
     } else if (m_query->table == (g_viz_constants.OBJECT_VALUE_TABLE)) {
         uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
