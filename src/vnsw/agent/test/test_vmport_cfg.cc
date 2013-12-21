@@ -1371,6 +1371,54 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_FALSE(VmPortFind(1));
 }
 
+TEST_F(CfgTest, SecurityGroup_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    VmInterface *intf = static_cast<VmInterface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL) {
+        return;
+    }
+    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+
+    Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
+    Inet4UnicastRouteEntry *rt =
+        Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+    EXPECT_TRUE(rt != NULL);
+    if (rt == NULL) {
+        return;
+    }
+
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_EQ(path->GetSecurityGroupList().size(), 1);
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

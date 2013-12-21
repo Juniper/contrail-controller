@@ -751,6 +751,7 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
 void VmInterface::UpdateL3(bool old_active, VrfEntry *old_vrf,
                            const Ip4Address &old_addr, int old_vxlan_id,
                            bool force_update, bool policy_change) {
+    UpdateSecurityGroup();
     UpdateNextHop(old_active);
     UpdateL3TunnelId(force_update, policy_change);
     UpdateL3InterfaceRoute(old_active, force_update, policy_change,
@@ -759,7 +760,6 @@ void VmInterface::UpdateL3(bool old_active, VrfEntry *old_vrf,
     UpdateFloatingIp(force_update, policy_change);
     UpdateServiceVlan(force_update, policy_change);
     UpdateStaticRoute(force_update, policy_change);
-    UpdateSecurityGroup();
 }
 
 void VmInterface::DeleteL3(bool old_active, VrfEntry *old_vrf,
@@ -1262,6 +1262,10 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_active, VrfEntry *old_vrf) {
 void VmInterface::CopySgIdList(SecurityGroupList *sg_id_list) const {
     SecurityGroupEntrySet::const_iterator it;
     for (it = sg_list_.list_.begin(); it != sg_list_.list_.end(); ++it) {
+        if (it->del_pending_)
+            continue;
+        if (it->sg_.get() == NULL)
+            continue;
         sg_id_list->push_back(it->sg_->GetSgId());
     }
 }

@@ -275,8 +275,9 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
         policy->nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
-             it != vm_port->sg_list().list_.end();
-             ++it) {
+             it != vm_port->sg_list().list_.end(); ++it) {
+            if (it->sg_.get() == NULL)
+                continue;
             MatchAclParams acl;
             acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it
@@ -307,8 +308,9 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
         policy->nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
-             it != vm_port->sg_list().list_.end();
-             ++it) {
+             it != vm_port->sg_list().list_.end(); ++it) {
+            if (it->sg_.get() == NULL)
+                continue;
             MatchAclParams acl;
             acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it

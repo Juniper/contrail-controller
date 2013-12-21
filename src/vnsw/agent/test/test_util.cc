@@ -1267,6 +1267,10 @@ void DelOperDBAcl(int id) {
     Agent::GetInstance()->GetAclTable()->Enqueue(&req);
 }
 
+void AddSg(const char *name, int id) {
+    AddNode("security-group", name, id);
+}
+
 void AddFloatingIp(const char *name, int id, const char *addr) {
     char buff[128];
 
