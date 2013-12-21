@@ -24,6 +24,7 @@ class BgpConfigListener;
 class BgpConfigManager;
 class BgpInstanceConfig;
 class BgpPeeringConfig;
+class BgpServer;
 class DB;
 class DBGraph;
 
@@ -216,6 +217,7 @@ public:
     const autogen::BgpRouter *bgp_router() const { return bgp_router_.get(); }
 
     IFMapNode *node() { return node_proxy_.node(); }
+    const BgpInstanceConfig *instance() { return instance_; }
 
 private:
     BgpInstanceConfig *instance_;
@@ -394,7 +396,7 @@ public:
         BgpNeighborObserver neighbor;
     };
 
-    BgpConfigManager();
+    BgpConfigManager(BgpServer *server);
     ~BgpConfigManager();
 
     void Initialize(DB *db, DBGraph *db_graph, const std::string &localname);
@@ -412,6 +414,7 @@ public:
     DBGraph *graph() { return db_graph_; }
     const BgpConfigData &config() const { return *config_; }
     const std::string &localname() const { return localname_; }
+    const BgpServer *server() { return server_; }
 
 private:
     friend class BgpConfigListenerTest;
@@ -437,6 +440,7 @@ private:
 
     DB *db_;
     DBGraph *db_graph_;
+    BgpServer *server_;
     std::string localname_;
     IdentifierMap id_map_;
     Observers obs_;

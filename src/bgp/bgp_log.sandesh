@@ -54,6 +54,180 @@ systemlog sandesh BgpMessageBuilderLog {
 
 /*************************************************************************/
 
+/* BGP Config logs and traces. */
+
+trace sandesh BgpConfigInstanceCreateTrace {
+    1: "Routing Instance";
+    2: string name;
+    3: "Import Targets";
+    4: list<string> import_rt;
+    5: "Export Targets";
+    6: list<string> export_rt;
+    7: "Virtual Network";
+    8: string virtual_network;
+    9: "VN Index";
+    10: i32 index;
+}
+
+systemlog sandesh BgpConfigInstanceCreateLog {
+    1: "Routing Instance";
+    2: string name;
+    3: "Import Targets";
+    4: list<string> import_rt;
+    5: "Export Targets";
+    6: list<string> export_rt;
+    7: "Virtual Network";
+    8: string virtual_network;
+    9: "VN Index";
+    10: i32 index;
+}
+
+trace sandesh BgpConfigInstanceDeleteTrace {
+    1: "Routing Instance";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigInstanceDeleteLog {
+    1: "Routing Instance";
+    2: string name;
+}
+
+trace sandesh BgpConfigInstanceUpdateTrace {
+    1: "Routing Instance";
+    2: string name;
+    3: "Import Targets";
+    4: list<string> import_rt;
+    5: "Export Targets";
+    6: list<string> export_rt;
+    7: "Virtual Network";
+    8: string virtual_network;
+    9: "VN Index";
+    10: i32 index;
+}
+
+systemlog sandesh BgpConfigInstanceUpdateLog {
+    1: "Routing Instance";
+    2: string name;
+    3: "Import Targets";
+    4: list<string> import_rt;
+    5: "Export Targets";
+    6: list<string> export_rt;
+    7: "Virtual Network";
+    8: string virtual_network;
+    9: "VN Index";
+    10: i32 index;
+}
+
+trace sandesh BgpConfigNeighborCreateTrace {
+    1: "Neighbor";
+    2: string name;
+    3: "Peer AS";
+    4: i32 as_number;
+    5: "Address Families";
+    6: list<string> families;
+}
+
+systemlog sandesh BgpConfigNeighborCreateLog {
+    1: "Neighbor";
+    2: string name;
+    3: "Peer AS";
+    4: i32 as_number;
+    5: "Address Families";
+    6: list<string> families;
+}
+
+trace sandesh BgpConfigNeighborDeleteTrace {
+    1: "Neighbor";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigNeighborDeleteLog {
+    1: "Neighbor";
+    2: string name;
+}
+
+trace sandesh BgpConfigNeighborUpdateTrace {
+    1: "Neighbor";
+    2: string name;
+    3: "Peer AS";
+    4: i32 as_number;
+    5: "Address Families";
+    6: list<string> families;
+}
+
+systemlog sandesh BgpConfigNeighborUpdateLog {
+    1: "Neighbor";
+    2: string name;
+    3: "Peer AS";
+    4: i32 as_number;
+    5: "Address Families";
+    6: list<string> families;
+}
+
+trace sandesh BgpConfigProtocolCreateTrace {
+    1: "Routing Instance";
+    2: string name;
+    3: "Local AS";
+    4: i32 as_number;
+    5: "Router ID";
+    6: string identifier;
+    7: "Address";
+    8: string address;
+    9: "Address Families";
+    10: list<string> families;
+}
+
+systemlog sandesh BgpConfigProtocolCreateLog {
+    1: "Routing Instance";
+    2: string name;
+    3: "Local AS";
+    4: i32 as_number;
+    5: "Router ID";
+    6: string identifier;
+    7: "Address";
+    8: string address;
+    9: "Address Families";
+    10: list<string> families;
+}
+
+trace sandesh BgpConfigProtocolDeleteTrace {
+    1: "Routing Instance";
+    2: string name;
+}
+
+systemlog sandesh BgpConfigProtocolDeleteLog {
+    1: "Routing Instance";
+    2: string name;
+}
+
+trace sandesh BgpConfigProtocolUpdateTrace {
+    1: "Routing Instance";
+    2: string name;
+    3: "Local AS";
+    4: i32 as_number;
+    5: "Router ID";
+    6: string identifier;
+    7: "Address";
+    8: string address;
+    9: "Address Families";
+    10: list<string> families;
+}
+
+systemlog sandesh BgpConfigProtocolUpdateLog {
+    1: "Routing Instance";
+    2: string name;
+    3: "Local AS";
+    4: i32 as_number;
+    5: "Router ID";
+    6: string identifier;
+    7: "Address";
+    8: string address;
+    9: "Address Families";
+    10: list<string> families;
+}
+
+/*************************************************************************/
+
 /* BGP Peer logs and traces. */
 
 trace sandesh BgpPeerMessageTrace {
