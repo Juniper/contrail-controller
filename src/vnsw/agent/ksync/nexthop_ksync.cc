@@ -43,8 +43,8 @@ KSyncDBObject *NHKSyncEntry::GetObject() {
 NHKSyncEntry::NHKSyncEntry(const NextHop *nh) :
     KSyncNetlinkDBEntry(kInvalidIndex), type_(nh->GetType()), vrf_id_(0),
     interface_(NULL), valid_(nh->IsValid()), policy_(nh->PolicyEnabled()),
-    is_mcast_nh_(false), nh_(nh), vlan_tag_(0), is_layer2_(false),
-    tunnel_type_(TunnelType::INVALID), plen_(32) {
+    is_mcast_nh_(false), nh_(nh), vlan_tag_(VmInterface::kInvalidVlanId),
+    is_layer2_(false), tunnel_type_(TunnelType::INVALID), plen_(32) {
 
     sip_.s_addr = 0;
     memset(&dmac_, 0, sizeof(dmac_));
