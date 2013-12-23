@@ -14,6 +14,8 @@ cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
 
 gperftools_make = env.Command('config.status', str(Dir(vpath)), cmd)
 
-products = [ str(File('#/build/lib/libtcmalloc' + env['LIBSUFFIX'])) ]
+products = [ "#build/include/gperftools/heap-checker.h",
+             "#build/include/gperftools/heap-profiler.h",
+             str(File('#/build/lib/libtcmalloc' + env['LIBSUFFIX'])) ]
 
 env.SideEffect(products, gperftools_make)
