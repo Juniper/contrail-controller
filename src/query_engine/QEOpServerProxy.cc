@@ -745,7 +745,7 @@ public:
         RedisAsyncConnection * rac = conns_[inp.get()->cnum].get();
         string rkey = "REPLY:" + qid;
         char stat[40];
-        sprintf(stat,"{\"progress\":5}");
+        sprintf(stat,"{\"progress\":15}");
         RedisAsyncArgCommand(rac, NULL, 
             list_of(string("RPUSH"))(rkey)(stat));
 
