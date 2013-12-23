@@ -24,7 +24,11 @@ if sys.platform != 'darwin':
                                   source = ['test_agent_init.cc'])
     env.Alias('src/vnsw/agent/init/test:test_agent_init', test_agent_init)
 
-    agent_init_suite = [test_agent_init]
+    test_vmware = env.Program(target = 'test_vmware',
+                              source = ['test_vmware.cc'])
+    env.Alias('src/vnsw/agent/init/test:test_vmware', test_vmware)
+
+    agent_init_suite = [test_agent_init, test_vmware]
 
     test = env.TestSuite('agent-test', agent_init_suite)
     env.Alias('src/vnsw/agent:test', test)

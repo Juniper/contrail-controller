@@ -128,23 +128,24 @@ void AgentConfig::RegisterDBClients(DB *db) {
                             agent_->GetDomainConfigTable(), _1), -1);
     cfg_listener_.get()->Register
         ("virtual-machine-interface-routing-instance", 
-         boost::bind(&InterfaceTable::VmInterfaceVrfSync, _1), -1);
+         boost::bind(&InterfaceTable::VmInterfaceVrfSync,
+                     agent_->GetInterfaceTable(), _1), -1);
 
     cfg_listener_.get()->Register
-        ("instance-ip",
-         boost::bind(&VmInterface::InstanceIpSync, _1), -1);
+        ("instance-ip", boost::bind(&VmInterface::InstanceIpSync,
+                                    agent_->GetInterfaceTable(), _1), -1);
 
     cfg_listener_.get()->Register
-        ("floating-ip", 
-         boost::bind(&VmInterface::FloatingIpVnSync, _1), -1);
+        ("floating-ip", boost::bind(&VmInterface::FloatingIpVnSync,
+                                    agent_->GetInterfaceTable(), _1), -1);
 
     cfg_listener_.get()->Register
-        ("floating-ip-pool", 
-         boost::bind(&VmInterface::FloatingIpPoolSync, _1), -1);
+        ("floating-ip-pool", boost::bind(&VmInterface::FloatingIpPoolSync,
+                                         agent_->GetInterfaceTable(), _1), -1);
 
     cfg_listener_.get()->Register
         ("global-vrouter-config",
-         boost::bind(&Agent::GlobalVrouterConfig, Agent::GetInstance(), _1), -1);
+         boost::bind(&Agent::GlobalVrouterConfig, agent_, _1), -1);
 
     cfg_vm_interface_table_ = (static_cast<IFMapAgentTable *>
         (IFMapTable::FindTable(agent_->GetDB(), "virtual-machine-interface")));

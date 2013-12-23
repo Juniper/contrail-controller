@@ -10,6 +10,7 @@ traceobject sandesh CfgIntfTrace {
     5: string ip;
     6: string op;
     7: i32 version;
+    8: i32 vlan_id;
 }
 
 // Similar to thrift request for adding and delete ports
@@ -21,6 +22,7 @@ request sandesh AddPortReq {
     5: string vn_uuid;
     6: string mac_address;
     7: optional string vm_name;
+    8: optional i16 vlan_id;
 }
 
 response sandesh PortResp {
@@ -43,6 +45,7 @@ traceobject sandesh CfgOpenstackAddPort {
     9: string hostname;
     10: string host;
     11: i32 version;
+    12: i16 vlan_id;
 }
 
 traceobject sandesh CfgOpenstackDeletePort {

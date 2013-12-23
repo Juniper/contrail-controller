@@ -99,7 +99,8 @@ public:
     MplsLabelData(const uuid &intf_uuid, bool policy, 
                   InterfaceNHFlags::Type type) : 
         AgentData(), 
-        nh_key(new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""), 
+        nh_key(new InterfaceNHKey(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                     intf_uuid, ""), 
                policy, type)) {
     }
 

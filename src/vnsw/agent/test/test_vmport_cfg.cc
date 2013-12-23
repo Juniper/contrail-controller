@@ -40,27 +40,6 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 class CfgTest : public ::testing::Test {
 };
 
-void CfgSync(const uuid &intf_uuid, const string &cfg_name,
-			 const uuid &vn_uuid, const uuid &vm_uuid,
-			 const CfgFloatingIpList &floating_iplist) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
-    req.key.reset(key);
-
-    VmInterfaceData *cfg_data = new VmInterfaceData();
-    InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
-	data->VmPortInit();
-
-	cfg_data->cfg_name_ = cfg_name;
-	cfg_data->vn_uuid_ = vn_uuid;
-	cfg_data->vm_uuid_ = vm_uuid;
-	cfg_data->floating_iplist_ = floating_iplist;
-	req.data.reset(cfg_data);
-	Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
-}
-
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
     struct PortInfo input[] = {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
@@ -92,7 +71,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
-    data->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "", 0);
+    data->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+               VmInterface::kInvalidVlanId, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -103,7 +83,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntKey *key1 = new CfgIntKey(MakeUuid(1)); 
     CfgIntData *data1 = new CfgIntData();
     ip = Ip4Address::from_string("1.1.1.1", ec);
-    data1->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "", 0);
+    data1->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+                VmInterface::kInvalidVlanId, 0);
     req.key.reset(key1);
     req.data.reset(data1);
     req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -1243,35 +1224,6 @@ TEST_F(CfgTest, Basic_1) {
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
 
-    /*Interface* intf = VmPortGet(1); 
-    VmInterface *vitf;
-    CfgFloatingIpList list;
-    InterfaceKey *key, *newKey;
-
-    switch (intf->type()) {
-    case Interface::VM_INTERFACE:
-            list.insert(CfgFloatingIp(Ip4Address::from_string("5.5.5.5"), "vrf10", MakeUuid(5)));
-            vitf = static_cast<VmInterface *>(intf);
-            vitf->Activate();
-            EXPECT_FALSE(VmPortInactive(1));
-            cout << "Vm port cfg name:" << vitf->cfg_name() << endl;
-            vitf->DeActivate("vrf10");
-            EXPECT_TRUE(VmPortInactive(1));
-            //TBD: look in this cfgsync
-            CfgSync(MakeUuid(1), "cfg-vnet1", MakeUuid(5),
-                                                     MakeUuid(5), list);
-            client->WaitForIdle();
-            EXPECT_TRUE(VmPortFind(1));
-            //CHange the key
-            newKey = new InterfaceKey(intf->type(), MakeUuid(2), "vnet1");
-            intf->SetKey(static_cast<DBRequestKey*>(newKey));
-            key = static_cast<InterfaceKey*>((intf->GetDBRequestKey()).get());
-            EXPECT_TRUE(key->uuid_ == newKey->uuid_);
-            EXPECT_TRUE((vitf->ToString()).compare("VM-PORT") == 0);
-            break;
-        default:
-            break;
-    }*/
     client->WaitForIdle();
     std::vector<int> result = list_of(1);
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
@@ -1362,7 +1314,7 @@ TEST_F(CfgTest, Basic_2) {
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
-    VmInterfaceKey key(MakeUuid(1), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
     VmInterface *intf = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     EXPECT_TRUE(intf != NULL);
@@ -1415,6 +1367,54 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_FALSE(nh->PolicyEnabled());
 
     DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(1));
+}
+
+TEST_F(CfgTest, SecurityGroup_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddSg("sg1", 1);
+    AddAcl("acl1", 1);
+    AddLink("security-group", "sg1", "access-control-list", "acl1");
+    client->WaitForIdle();
+
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+    client->WaitForIdle();
+
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(1), "");
+    VmInterface *intf = static_cast<VmInterface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    if (intf == NULL) {
+        return;
+    }
+    EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+
+    Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
+    Inet4UnicastRouteEntry *rt =
+        Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+    EXPECT_TRUE(rt != NULL);
+    if (rt == NULL) {
+        return;
+    }
+
+    const AgentPath *path = rt->GetActivePath();
+    EXPECT_EQ(path->GetSecurityGroupList().size(), 1);
+
+    DelLink("virtual-network", "vn1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    DelNode("security-group", "sg1");
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(1));
 }

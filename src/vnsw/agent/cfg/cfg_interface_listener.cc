@@ -8,6 +8,8 @@
 #include <vnc_cfg_types.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent.h>
+#include <init/agent_param.h>
 #include <cfg/cfg_interface_listener.h>
 #include <cfg/cfg_interface.h>
 #include <oper/agent_types.h>
@@ -22,14 +24,23 @@ using namespace autogen;
 
 void InterfaceCfgClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
     CfgIntEntry *entry = static_cast<CfgIntEntry *>(e);
+    Agent *agent = Agent::GetInstance();
 
     if (entry->IsDeleted()) {
-        VmInterface::NovaDel(entry->GetUuid());
+        VmInterface::Delete(agent->GetInterfaceTable(),
+                             entry->GetUuid());
     } else {
-        VmInterface::NovaMsg(entry->GetUuid(), entry->GetIfname(),
-                                 entry->ip_addr().to_v4(),
-                                 entry->GetMacAddr(),
-                                 entry->vm_name());
+        uint16_t vlan_id = VmInterface::kInvalidVlanId;
+        string port = Agent::NullString();
+        if (agent->params()->isVmwareMode()) {
+            vlan_id = entry->vlan_id();
+            port = agent->params()->vmware_physical_port();
+        }
+
+        VmInterface::Add(agent->GetInterfaceTable(),
+                         entry->GetUuid(), entry->GetIfname(),
+                         entry->ip_addr().to_v4(), entry->GetMacAddr(),
+                         entry->vm_name(), vlan_id, port);
         IFMapNode *node = UuidToIFNode(entry->GetUuid());
         if (node != NULL) {
             DBRequest req;
@@ -57,8 +68,7 @@ void InterfaceCfgClient::RouteTableNotify(DBTablePartBase *partition,
             continue;
         }
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
-            == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
             continue;
         }
 
