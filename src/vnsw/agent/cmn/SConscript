@@ -17,7 +17,7 @@ buildinfo_dep_libs = [
     '#build/lib/libcurl.a',
     '#build/lib/libhttp.a',
     '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a'
+    '#build/lib/liblog4cplus.a',
     '#build/lib/libpugixml.a',
     '../../../../lib/libsandesh.a',
     '../../../../lib/libsandeshflow.a', 
@@ -63,5 +63,7 @@ env.GenerateBuildInfoCode(
     path=str(Dir('.').abspath))
 
 vnswcmn = env.Library('vnswcmn', ['buildinfo.cc'] + vnswcmn_sources)
+env.Depends('agent_cmn.o', 'buildinfo.cc')
+env.Depends('../main.o', 'buildinfo.cc')
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

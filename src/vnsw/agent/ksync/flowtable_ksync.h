@@ -132,6 +132,7 @@ private:
     vr_flow_entry *flow_table_;
     uint32_t flow_table_entries_;
     int audit_yield_;
+    uint32_t audit_timeout_;
     uint32_t audit_flow_idx_;
     uint64_t audit_timestamp_;
     std::list<std::pair<uint32_t, uint64_t> > audit_flow_list_;

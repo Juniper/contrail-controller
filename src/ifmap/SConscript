@@ -20,7 +20,7 @@ except_env.Replace(CCFLAGS = cflags)
 except_env.Append(CPPPATH = env['TOP'])
 
 SandeshGenFiles = env.SandeshGenCpp('ifmap_server_show.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('ifmap_syslog.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('ifmap_log.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 
 sandesh_objs = []

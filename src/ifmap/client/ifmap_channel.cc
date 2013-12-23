@@ -34,7 +34,7 @@
 #include "ifmap_manager.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>

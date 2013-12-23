@@ -20,7 +20,7 @@
 #include "ifmap_channel.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap_manager.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 #include "base/logging.h"
 
 using boost::system::error_code;

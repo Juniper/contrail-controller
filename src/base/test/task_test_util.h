@@ -170,4 +170,14 @@ static inline unsigned long long int task_util_retry_count() {
         ASSERT_EQ(false, condition);                                           \
     } while (false)
 
+// Check for a match for c++ symbol type. Do a partial match in darwin, due to
+// issue with symbol demangle.
+#ifdef DARWIN
+#define TASK_UTIL_EXPECT_EQ_TYPE_NAME(expected, actual)                        \
+        EXPECT_NE(std::string::npos, (actual).find(expected))
+#else
+#define TASK_UTIL_EXPECT_EQ_TYPE_NAME(expected, actual)                        \
+        EXPECT_EQ(expected, actual);
 #endif
+
+#endif // __BASE__TASK_TEST_UTIL_H__
