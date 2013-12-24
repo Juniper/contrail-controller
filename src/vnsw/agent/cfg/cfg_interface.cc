@@ -18,13 +18,14 @@ void CfgIntData::Init (const uuid& vm_id, const uuid& vn_id,
                        const std::string& tname, const IpAddress& ip,
                        const std::string& mac,
                        const std::string& vm_name,
-                       const int32_t version) {
+                       uint16_t vlan_id, const int32_t version) {
     vm_id_ = vm_id;
     vn_id_ = vn_id;
     tap_name_ = tname;
     ip_addr_ = ip;
     mac_addr_ = mac;
     vm_name_ = vm_name;
+    vlan_id_ = vlan_id;
     version_ = version;
 }
 
@@ -36,6 +37,7 @@ void CfgIntEntry::Init(const CfgIntData& int_data) {
     ip_addr_ = int_data.ip_addr_;
     mac_addr_ = int_data.mac_addr_;
     vm_name_ = int_data.vm_name_;
+    vlan_id_ = int_data.vlan_id_;
     version_ = int_data.version_;
 }
 
@@ -94,7 +96,7 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
     CFG_TRACE(IntfTrace, cfg_int->GetIfname(), 
               cfg_int->vm_name(), vm.str(), vn.str(), 
               cfg_int->ip_addr().to_string(), "ADD", 
-              cfg_int->GetVersion());
+              cfg_int->GetVersion(), cfg_int->vlan_id());
     return cfg_int;
 }
 
@@ -109,7 +111,7 @@ void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
     CFG_TRACE(IntfTrace, cfg->GetIfname(), 
               cfg->vm_name(), vm.str(), vn.str(),
               cfg->ip_addr().to_string(), "DELETE",
-              cfg->GetVersion());
+              cfg->GetVersion(), cfg->vlan_id());
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);

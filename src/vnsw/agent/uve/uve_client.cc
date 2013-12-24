@@ -117,9 +117,9 @@ bool UveClient::FrameIntfMsg(const VmInterface *vm_intf,
 
     vector<VmFloatingIPAgent> uve_fip_list;
     if (vm_intf->HasFloatingIp()) {
-        const VmInterface::FloatingIpList fip_list = 
-            vm_intf->floating_ip_list();
-        VmInterface::FloatingIpList::const_iterator it = 
+        const VmInterface::FloatingIpSet fip_list = 
+            vm_intf->floating_ip_list().list_;
+        VmInterface::FloatingIpSet::const_iterator it = 
             fip_list.begin();
         while(it != fip_list.end()) {
             const VmInterface::FloatingIp &ip = *it;

@@ -53,14 +53,15 @@ void InterfaceTable::Init(OperDB *oper) {
 std::auto_ptr<DBEntry> InterfaceTable::AllocEntry(const DBRequestKey *k) const{
     const InterfaceKey *key = static_cast<const InterfaceKey *>(k);
     
-    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>(key->AllocEntry()));
+    return std::auto_ptr<DBEntry>(static_cast<DBEntry *>
+                                  (key->AllocEntry(this)));
 }
 
 DBEntry *InterfaceTable::Add(const DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     InterfaceData *data = static_cast<InterfaceData *>(req->data.get());
 
-    Interface *intf = key->AllocEntry(data);
+    Interface *intf = key->AllocEntry(this, data);
     if (intf == NULL)
         return NULL;
 
@@ -79,20 +80,8 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 
     switch (key->type_) {
     case Interface::VM_INTERFACE: {
-        VmInterfaceData *vm_data = 
-            static_cast<VmInterfaceData *>(req->data.get());
-        VmInterface *vmport_intf = static_cast<VmInterface *>(entry);
-        MirrorEntry *mirror_entry = FindMirrorRef(vm_data->analyzer_name_);
-        if (vmport_intf->mirror_entry() != mirror_entry) {
-            vmport_intf->set_mirror_entry(mirror_entry);
-            ret = true;
-        }
-
-        if (vmport_intf->mirror_direction() != vm_data->mirror_direction_) {
-            vmport_intf->set_mirror_direction(vm_data->mirror_direction_);
-            ret = true;
-        }
-
+        VmInterface *intf = static_cast<VmInterface *>(entry);
+        ret = intf->OnChange(static_cast<VmInterfaceData *>(req->data.get()));
         break;
     }
     case Interface::VIRTUAL_HOST: {
@@ -107,6 +96,7 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
     default:
         break;
     }
+
     return ret;
 }
 
@@ -114,13 +104,10 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
 bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
     InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     assert(key->type_ == Interface::VM_INTERFACE);
-    VmInterfaceData *data = static_cast<VmInterfaceData *>
-                                (req->data.get());
+
+    VmInterfaceData *vm_data = static_cast<VmInterfaceData *>(req->data.get());
     VmInterface *intf = static_cast<VmInterface *>(entry);
-    if (data && data->ip_addr_update_only_)
-        return intf->OnIpAddrResync(req);
-    else
-        return intf->OnResync(req);
+    return intf->Resync(vm_data);
 }
 
 void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
@@ -128,14 +115,7 @@ void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
     Interface *intf = static_cast<Interface *>(entry);
     if (key->type_ == Interface::VM_INTERFACE) {
         VmInterface *vmport_intf = static_cast<VmInterface *>(entry);
-        if (vmport_intf->active()) {
-            vmport_intf->DeActivate(vmport_intf->vrf()->GetName(),
-                                    vmport_intf->ip_addr());
-        }
-
-        // Cleanup Service VLAN config if any
-        VmInterfaceData data;
-        vmport_intf->OnResyncServiceVlan(&data);
+        vmport_intf->Delete();
     }
     intf->SendTrace(Interface::DELETE);
 }
@@ -210,9 +190,7 @@ bool InterfaceTable::VmInterfaceWalk(DBTablePartBase *partition,
     const VnEntry *vn = vm_intf->vn();
     if (vm_intf->layer2_forwarding() && 
         (vn->vxlan_id() != vm_intf->vxlan_id())) {
-        vm_intf->set_vxlan_id(vn->vxlan_id());
-        vm_intf->AllocL2MPLSLabels();
-        vm_intf->AddL2Route();
+        vm_intf->UpdateL2();
     }
     return true;
 }
@@ -226,7 +204,7 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
         walker->WalkCancel(walkid_);
     }
-    walkid_ = walker->WalkTable(InterfaceTable::GetInstance(), NULL,
+    walkid_ = walker->WalkTable(this, NULL,
                       boost::bind(&InterfaceTable::VmInterfaceWalk, 
                                   this, _1, _2),
                       boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
@@ -247,7 +225,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
 
 Interface::~Interface() { 
     if (id_ != kInvalidIndex) {
-        InterfaceTable::GetInstance()->FreeInterfaceId(id_);
+        static_cast<InterfaceTable *>(get_table())->FreeInterfaceId(id_);
     }
 }
 
@@ -296,25 +274,25 @@ uint32_t Interface::GetVrfId() const {
 /////////////////////////////////////////////////////////////////////////////
 // Pkt Interface routines
 /////////////////////////////////////////////////////////////////////////////
-DBEntryBase::KeyPtr PktInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new PktInterfaceKey(uuid_, name_);
+DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
+    InterfaceKey *key = new PacketInterfaceKey(uuid_, name_);
     return DBEntryBase::KeyPtr(key);
 }
 
 // Enqueue DBRequest to create a Pkt Interface
-void PktInterface::CreateReq(InterfaceTable *table,
+void PacketInterface::CreateReq(InterfaceTable *table,
                              const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new PktInterfaceKey(nil_uuid(), ifname));
-    req.data.reset(new PktInterfaceData());
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
+    req.data.reset(new PacketInterfaceData());
     table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Pkt Interface
-void PktInterface::DeleteReq(InterfaceTable *table,
+void PacketInterface::DeleteReq(InterfaceTable *table,
                              const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new PktInterfaceKey(nil_uuid(), ifname));
+    req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }
@@ -327,12 +305,13 @@ DBEntryBase::KeyPtr VirtualHostInterface::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-Interface *VirtualHostInterfaceKey::AllocEntry(const InterfaceData *data)const {
+Interface *VirtualHostInterfaceKey::AllocEntry(const InterfaceTable *table,
+                                               const InterfaceData *data)const {
     const VirtualHostInterfaceData *vhost_data;
     vhost_data = static_cast<const VirtualHostInterfaceData *>(data);
     VrfKey key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
-        (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&key));
+        (table->agent()->GetVrfTable()->FindActiveEntry(&key));
     assert(vrf);
     return new VirtualHostInterface(name_, vrf,
                                     vhost_data->sub_type_);
@@ -462,9 +441,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_active(reason);
         }
         std::vector<FloatingIpSandeshList> fip_list;
-        VmInterface::FloatingIpList::const_iterator it = 
-            vintf->floating_ip_list().begin();
-        while (it != vintf->floating_ip_list().end()) {
+        VmInterface::FloatingIpSet::const_iterator it = 
+            vintf->floating_ip_list().list_.begin();
+        while (it != vintf->floating_ip_list().list_.end()) {
             const VmInterface::FloatingIp &ip = *it;
             FloatingIpSandeshList entry;
 
@@ -487,22 +466,22 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
 
         // Add Service VLAN list
         std::vector<ServiceVlanSandeshList> vlan_list;
-        VmInterface::ServiceVlanList::const_iterator vlan_it = 
-            vintf->service_vlan_list().begin();
-        while (vlan_it != vintf->service_vlan_list().end()) {
-            const VmInterface::ServiceVlan &vlan = vlan_it->second;
+        VmInterface::ServiceVlanSet::const_iterator vlan_it = 
+            vintf->service_vlan_list().list_.begin();
+        while (vlan_it != vintf->service_vlan_list().list_.end()) {
+            const VmInterface::ServiceVlan *vlan = vlan_it.operator->();
             ServiceVlanSandeshList entry;
 
-            entry.set_tag(vlan.tag_);
-            if (vlan.vrf_.get()) {
-                entry.set_vrf_name(vlan.vrf_.get()->GetName());
+            entry.set_tag(vlan->tag_);
+            if (vlan->vrf_.get()) {
+                entry.set_vrf_name(vlan->vrf_.get()->GetName());
             } else {
                 entry.set_vrf_name("--ERROR--");
             }
-            entry.set_ip_addr(vlan.addr_.to_string());
-            entry.set_label(vlan.label_);
+            entry.set_ip_addr(vlan->addr_.to_string());
+            entry.set_label(vlan->label_);
 
-            if (vlan.installed_) {
+            if (vlan->installed_) {
                 entry.set_installed("Y");
             } else {
                 entry.set_installed("N");
@@ -512,9 +491,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
 
         std::vector<StaticRouteSandesh> static_route_list;
-        VmInterface::StaticRouteList::iterator static_rt_it =
-            vintf->static_route_list().begin();
-        while (static_rt_it != vintf->static_route_list().end()) {
+        VmInterface::StaticRouteSet::iterator static_rt_it =
+            vintf->static_route_list().list_.begin();
+        while (static_rt_it != vintf->static_route_list().list_.end()) {
             const VmInterface::StaticRoute &rt = *static_rt_it;
             StaticRouteSandesh entry;
             entry.set_vrf_name(rt.vrf_);
@@ -538,13 +517,14 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_service_vlan_list(vlan_list);
         data.set_analyzer_name(vintf->GetAnalyzer());
         data.set_config_name(vintf->cfg_name());
-        SgUuidList::const_iterator sgit;
+
+        VmInterface::SecurityGroupEntrySet::const_iterator sgit;
         std::vector<VmIntfSgUuid> intf_sg_uuid_l;
-        const SgUuidList &sg_uuid_l = vintf->sg_uuid_list();
-        for (sgit = sg_uuid_l.begin(); sgit != sg_uuid_l.end(); 
+        const VmInterface::SecurityGroupEntryList &sg_uuid_l = vintf->sg_list();
+        for (sgit = sg_uuid_l.list_.begin(); sgit != sg_uuid_l.list_.end(); 
              ++sgit) {
             VmIntfSgUuid sg_id;
-            sg_id.set_sg_uuid(UuidToString(*sgit));
+            sg_id.set_sg_uuid(UuidToString(sgit->uuid_));
             intf_sg_uuid_l.push_back(sg_id);
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);

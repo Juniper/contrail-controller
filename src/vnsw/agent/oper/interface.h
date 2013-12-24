@@ -132,21 +132,11 @@ struct InterfaceKey : public AgentKey {
         is_mcast_nh_ = rhs.is_mcast_nh_;
     }
 
-    InterfaceKey(Interface::Type type, const boost::uuids::uuid &uuid,
-                 const std::string &name) : 
-        AgentKey(), type_(type), uuid_(uuid), name_(name),
-        is_mcast_nh_(false) { 
-    }
-
-    InterfaceKey(Interface::Type type, const boost::uuids::uuid &uuid,
+    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type,
+                 const boost::uuids::uuid &uuid,
                  const std::string &name, bool is_mcast) :
-        AgentKey(), type_(type), uuid_(uuid), name_(name),
+        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name),
         is_mcast_nh_(is_mcast) {
-    }
-
-    InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type, 
-                 const boost::uuids::uuid &uuid, const std::string &name) : 
-        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) {
     }
 
     void Init(Interface::Type type, const boost::uuids::uuid &intf_uuid,
@@ -171,8 +161,9 @@ struct InterfaceKey : public AgentKey {
     }
 
     // Virtual methods for interface keys
-    virtual Interface *AllocEntry() const = 0;
-    virtual Interface *AllocEntry(const InterfaceData *data) const = 0;
+    virtual Interface *AllocEntry(const InterfaceTable *table) const = 0;
+    virtual Interface *AllocEntry(const InterfaceTable *table,
+                                  const InterfaceData *data) const = 0;
     virtual InterfaceKey *Clone() const = 0;
 
     Interface::Type type_;
@@ -223,7 +214,7 @@ public:
     // Config handlers
     bool IFNodeToReq(IFMapNode *node, DBRequest &req);
     // Handle change in config VRF for the interface
-    static void VmInterfaceVrfSync(IFMapNode *node);
+    void VmInterfaceVrfSync(IFMapNode *node);
     // Handle change in VxLan Identifier mode from global-config
     void UpdateVxLanNetworkIdentifierMode();
 
@@ -245,6 +236,8 @@ public:
 
     // TODO : to remove this
     static InterfaceTable *GetInstance() { return interface_table_; }
+    Agent *agent() const { return agent_; }
+    OperDB *operdb() const { return operdb_; }
 
 private:
     bool VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
