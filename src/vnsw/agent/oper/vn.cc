@@ -254,9 +254,9 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
             return ret;
         }
         if (vxlan_rebake) {
-            VxLanId::CreateReq(vn->vxlan_id(), vn->GetVrf()->GetName());
+            VxLanId::CreateReq(vn->GetVxLanId(), vn->GetVrf()->GetName());
             VxLanId *vxlan_id = NULL;
-            VxLanIdKey vxlan_key(vn->vxlan_id());
+            VxLanIdKey vxlan_key(vn->GetVxLanId());
             vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
                                               GetVxLanTable()->FindActiveEntry(&vxlan_key));
             vn->vxlan_id_ref_ = vxlan_id;
@@ -373,8 +373,7 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
                 node->begin(table->GetGraph()); 
                 iter != node->end(table->GetGraph()); ++iter) {
             IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-            if (Agent::GetInstance()->cfg_listener()->CanUseNode(adj_node)
-                == false) {
+            if (Agent::GetInstance()->cfg_listener()->SkipNode(adj_node)) {
                 continue;
             }
 
@@ -455,8 +454,8 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
             node->begin(table->GetGraph()); 
             iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vm_interface_table())) {
             continue;
         }
 
@@ -469,8 +468,9 @@ bool VnTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
     }
 
     // Trigger Floating-IP resync
-    VmInterface::FloatingIpVnSync(node);
-    VmInterface::VnSync(node);
+    VmInterface::FloatingIpVnSync(Agent::GetInstance()->GetInterfaceTable(),
+                                  node);
+    VmInterface::VnSync(Agent::GetInstance()->GetInterfaceTable(), node);
 
     return false;
 }
@@ -512,8 +512,8 @@ void VnTable::IpamVnSync(IFMapNode *node) {
     for (DBGraphVertex::adjacency_iterator iter = node->begin(graph);
          iter != node->end(graph); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
-        if (Agent::GetInstance()->cfg_listener()->CanUseNode
-            (adj_node, Agent::GetInstance()->cfg()->cfg_vn_table()) == false) {
+        if (Agent::GetInstance()->cfg_listener()->SkipNode
+            (adj_node, Agent::GetInstance()->cfg()->cfg_vn_table())) {
             continue;
         }
 

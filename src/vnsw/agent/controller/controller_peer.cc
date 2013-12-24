@@ -489,7 +489,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
             const VmInterface *vm_port =
                 static_cast<const VmInterface *>(vlan_nh->GetInterface());
             std::vector<int> sg_l;
-            vm_port->set_sg_list(sg_l);
+            vm_port->CopySgIdList(&sg_l);
             rt_table->AddVlanNHRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
                                         prefix_len, vlan_nh->GetIfUuid(),
                                         vlan_nh->GetVlanTag(), label,

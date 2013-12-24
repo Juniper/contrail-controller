@@ -504,18 +504,11 @@ void DhcpHandler::RelayResponseFromFabric() {
 
     if (msg_type_ == DHCP_ACK) {
         // Update the interface with the IP address, to trigger a route add
-        DBRequest req;
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-        VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
-                                                         vm_itf_->GetUuid(),
-                                                         vm_itf_->name());
-        Ip4Address yiaddr(ntohl(dhcp_->yiaddr));
-        VmInterfaceData *data = new VmInterfaceData();
-        data->VmPortInit();
-        data->addr_ = yiaddr;
-        data->ip_addr_update_only_ = true;
-        req.key.reset(key);
-        req.data.reset(data);
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        req.key.reset(new VmInterfaceKey(AgentKey::RESYNC, vm_itf_->GetUuid(),
+                                         vm_itf_->name()));
+        req.data.reset(new VmInterfaceIpAddressData
+                       (Ip4Address(ntohl(dhcp_->yiaddr))));
         Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
     }
 

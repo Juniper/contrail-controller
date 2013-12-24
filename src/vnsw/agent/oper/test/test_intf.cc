@@ -53,17 +53,20 @@ class IntfTest : public ::testing::Test {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
+    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+                     MakeUuid(id), name, ip.to_v4(), mac, "",
+                     VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
 static void NovaDel(int id) {
-    VmInterface::NovaDel(MakeUuid(id));
+    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+                        MakeUuid(id));
 }
 
-static void FloatingIpAdd(CfgFloatingIpList &list, const char *addr, 
+static void FloatingIpAdd(VmInterface::FloatingIpList &list, const char *addr, 
                           const char *vrf) {
     IpAddress ip = Ip4Address::from_string(addr);
-    list.insert(CfgFloatingIp(ip.to_v4(), vrf, MakeUuid(1)));
+    list.list_.insert(VmInterface::FloatingIp(ip.to_v4(), vrf, MakeUuid(1)));
 }
 
 struct AnalyzerInfo {
@@ -94,8 +97,8 @@ static void CreateMirror(AnalyzerInfo &analyzer_info) {
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
-                        CfgFloatingIpList list, string vrf_name, string ip,
-                        AnalyzerInfo &analyzer_info) {
+                        VmInterface::FloatingIpList list, string vrf_name,
+                        string ip, AnalyzerInfo &analyzer_info) {
     uuid intf_uuid = MakeUuid(id);
     uuid vn_uuid = MakeUuid(vn);
     uuid vm_uuid = MakeUuid(vm);
@@ -111,14 +114,14 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
                                                      intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
     cfg_data->cfg_name_ = cfg_name;
     cfg_data->vn_uuid_ = vn_uuid;
     cfg_data->vm_uuid_ = vm_uuid;
-    cfg_data->floating_iplist_ = list;
+    cfg_data->floating_ip_list_ = list;
     cfg_data->vrf_name_ = vrf_name;
     cfg_data->addr_ = Ip4Address::from_string(ip);
     cfg_data->fabric_port_ = false;
@@ -138,7 +141,8 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
 
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
-                        CfgFloatingIpList list, string vrf_name, string ip) {
+                        VmInterface::FloatingIpList list, string vrf_name,
+                        string ip) {
     uuid intf_uuid = MakeUuid(id);
     uuid vn_uuid = MakeUuid(vn);
     uuid vm_uuid = MakeUuid(vm);
@@ -148,18 +152,17 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
-                                                     intf_uuid, "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
     cfg_data->cfg_name_ = cfg_name;
     cfg_data->vn_uuid_ = vn_uuid;
     cfg_data->vm_uuid_ = vm_uuid;
-    cfg_data->floating_iplist_ = list;
+    cfg_data->floating_ip_list_ = list;
     cfg_data->vrf_name_ = vrf_name;
     cfg_data->addr_ = Ip4Address::from_string(ip);
     cfg_data->fabric_port_ = false;
@@ -169,8 +172,29 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm,
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, 
                         string vrf, string ip) {
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     CfgIntfSync(id, cfg_str, vn, vm, list, vrf, ip);
+}
+
+TEST_F(IntfTest, basic_1) {
+    struct PortInfo input1[] = {
+        {"vnet8", 8, "8.1.1.1", "00:00:00:01:01:01", 1, 1}
+    };
+
+    client->Reset();
+    CreateVmportEnv(input1, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input1, 0));
+    EXPECT_TRUE(VmPortFind(8));
+    client->Reset();
+
+    DeleteVmportEnv(input1, 1, false);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(8));
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    EXPECT_TRUE(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true)
+                == NULL);
+    client->Reset();
 }
 
 TEST_F(IntfTest, index_reuse) {
@@ -207,7 +231,16 @@ TEST_F(IntfTest, index_reuse) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(9));
     sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
     usleep(2000);
+    client->WaitForIdle();
+    VmInterfaceKey key1(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
+    EXPECT_TRUE(Agent::GetInstance()->GetInterfaceTable()->Find(&key1, true)
+                == NULL);
+    VmInterfaceKey key2(AgentKey::ADD_DEL_CHANGE, MakeUuid(9), "");
+    EXPECT_TRUE(Agent::GetInstance()->GetInterfaceTable()->Find(&key2, true)
+                == NULL);
+    client->Reset();
 }
 
 TEST_F(IntfTest, entry_reuse) {
@@ -419,7 +452,7 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2_Mirror) {
     analyzer_info.analyzer_ip = "1.1.1.2";
     analyzer_info.dport = 8099;
     analyzer_info.direction = "both";
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf2", "1.1.1.1", analyzer_info);
     client->WaitForIdle();
     MirrorEntryKey mirror_key(analyzer_info.analyzer_name);
@@ -520,59 +553,6 @@ TEST_F(IntfTest, AddDelVmPortDepOnVmVn_2) {
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->GetVrfTable()->Size() == 1U));
 }
-
-#if 0
-// VM create, VN create, VRF Create, VmPort create
-TEST_F(IntfTest, AddDelVmPortDepOnVmVn_3) {
-    client->Reset();
-    VmAddReq(1);
-    EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetInstance()->GetVmTable()->Size());
-
-    client->Reset();
-    VnAddReq(1, "vn1", 0, "vrf3");
-    EXPECT_TRUE(client->VnNotifyWait(1));
-    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
-
-    client->Reset();
-    VrfAddReq("vrf3");
-    EXPECT_TRUE(client->VrfNotifyWait(1));
-    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
-
-    client->Reset();
-    NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortInactive(1));
-
-
-    VnAddReq(1, "vn1", 0, "vrf3");
-    CfgIntfSync(1, "cfg-vnet1", 1, 1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortActive(1));
-
-    client->Reset();
-    VnDelReq(1);
-    EXPECT_TRUE(client->VnNotifyWait(1));
-    // Interface still has reference to VN
-    EXPECT_EQ(1, Agent::GetInstance()->GetVnTable()->Size());
-    CfgIntfSync(1, "cfg-vnet1", 1, 1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_TRUE(VmPortInactive(1));
-
-    client->Reset();
-    NovaDel(1);
-    EXPECT_TRUE(client->PortNotifyWait(1));
-    EXPECT_FALSE(VmPortFind(1));
-    EXPECT_EQ(2, Agent::GetInstance()->GetInterfaceTable()->Size());
-    // VN removed after interface deleted
-    EXPECT_EQ(0, Agent::GetInstance()->GetVnTable()->Size());
-
-    client->Reset();
-    VmDelReq(1);
-    EXPECT_TRUE(client->VmNotifyWait(1));
-    EXPECT_EQ(0, Agent::GetInstance()->GetVmTable()->Size());
-}
-#endif
 
 // VM create, VN create, VRF create, 3 VmPorts
 TEST_F(IntfTest, MultipleVmPorts_1) {
@@ -833,7 +813,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
     // Nova add followed by config interface
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     FloatingIpAdd(list, "2.2.2.2", "vrf2");
     // Floating IP on invalid VRF
     //FloatingIpAdd(list, "2.2.2.2", "vrf-x");
@@ -850,7 +830,7 @@ TEST_F(IntfTest, VmPortFloatingIp_1) {
 
     // Remove all floating IP and check floating-ip count is 0
     client->Reset();
-    list.clear();
+    list.list_.clear();
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
@@ -891,7 +871,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
     // Nova add followed by config interface
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     FloatingIpAdd(list, "2.2.2.2", "vrf2");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
 
@@ -913,7 +893,7 @@ TEST_F(IntfTest, VmPortFloatingIpPolicy_1) {
 
     // Remove all floating IP and check floating-ip count is 0
     client->Reset();
-    list.clear();
+    list.list_.clear();
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(client->PortNotifyWait(1));
@@ -970,7 +950,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     client->Reset();
     NovaIntfAdd(1, "vnet1", "1.1.1.1", "00:00:00:00:00:01");
 
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     FloatingIpAdd(list, "2.2.2.2", "vrf2");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list, "vrf1", "1.1.1.1");
     client->WaitForIdle();
@@ -981,7 +961,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf2", "2.2.2.2", 32));
 
     // Add 2 more floating-ip
-    CfgFloatingIpList list1;
+    VmInterface::FloatingIpList list1;
     FloatingIpAdd(list1, "2.2.2.2", "vrf2");
     FloatingIpAdd(list1, "3.3.3.3", "vrf3");
     FloatingIpAdd(list1, "4.4.4.4", "vrf4");
@@ -993,7 +973,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf4", "4.4.4.4", 32));
 
     // Remove a floating-ip
-    CfgFloatingIpList list2;
+    VmInterface::FloatingIpList list2;
     FloatingIpAdd(list2, "3.3.3.3", "vrf3");
     FloatingIpAdd(list2, "4.4.4.4", "vrf4");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list2, "vrf1", "1.1.1.1");
@@ -1004,7 +984,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_TRUE(RouteFind("vrf4", "4.4.4.4", 32));
 
     // Remove a floating-ip
-    CfgFloatingIpList list3;
+    VmInterface::FloatingIpList list3;
     FloatingIpAdd(list3, "2.2.2.2", "vrf2");
     FloatingIpAdd(list3, "3.3.3.3", "vrf3");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list3, "vrf1", "1.1.1.1");
@@ -1015,7 +995,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_FALSE(RouteFind("vrf4", "4.4.4.4", 32));
 
     // Remove a floating-ip
-    CfgFloatingIpList list4;
+    VmInterface::FloatingIpList list4;
     FloatingIpAdd(list4, "2.2.2.2", "vrf2");
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list4, "vrf1", "1.1.1.1");
     client->WaitForIdle();
@@ -1025,7 +1005,7 @@ TEST_F(IntfTest, VmPortFloatingIpResync_1) {
     EXPECT_FALSE(RouteFind("vrf4", "4.4.4.4", 32));
 
     // Remove a floating-ip
-    CfgFloatingIpList list5;
+    VmInterface::FloatingIpList list5;
     CfgIntfSync(1, "cfg-vnet1", 1, 1, list5, "vrf1", "1.1.1.1");
     client->WaitForIdle();
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));

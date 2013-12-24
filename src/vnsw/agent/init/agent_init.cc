@@ -118,7 +118,7 @@ void AgentInit::DeleteNextHop() {
                            agent_->GetVirtualHostInterfaceName()), true);
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(),
+    key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(),
                              agent_->GetHostInterfaceName()), false,
                              InterfaceNHFlags::INET4);
     agent_->GetNextHopTable()->Delete(key);
@@ -129,12 +129,17 @@ void AgentInit::DeleteVrf() {
 }
 
 void AgentInit::DeleteInterface() {
-    PktInterface::DeleteReq(agent_->GetInterfaceTable(),
-                            agent_->GetHostInterfaceName());
+    PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
+                               agent_->GetHostInterfaceName());
     VirtualHostInterface::DeleteReq(agent_->GetInterfaceTable(),
                                     agent_->GetVirtualHostInterfaceName());
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
-                            agent_->GetIpFabricItfName());
+                                 agent_->GetIpFabricItfName());
+
+    if (!params_->isVmwareMode())
+        return;
+    PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
+                                 params_->vmware_physical_port());
 }
 
 void AgentInit::DeleteStaticEntries() {
@@ -154,7 +159,8 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
 
     Interface *itf = static_cast<Interface *>(entry);
     Interface::Type type = itf->type();
-    if (type != Interface::PHYSICAL)
+    if (type != Interface::PHYSICAL ||
+        itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
     boost::system::error_code ec;
@@ -232,6 +238,17 @@ void AgentInit::InitXenLinkLocalIntf() {
                               params_->xen_ll_plen());
 }
 
+// Initialization for VMWare specific interfaces
+void AgentInit::InitVmwareInterface() {
+    if (!params_->isVmwareMode())
+        return;
+
+    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
+                                 params_->vmware_physical_port(),
+                                 agent_->GetDefaultVrf());
+}
+    
+
 // Used only during initialization.
 // Trigger continuation of initialization after fabric vrf is created
 void AgentInit::OnVrfCreate(DBEntryBase *entry) {
@@ -286,9 +303,10 @@ void AgentInit::CreateInterfaces(DB *db) {
                                     params_->vhost_name(), 
                                     agent_->GetDefaultVrf(), 
                                     VirtualHostInterface::HOST);
-    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(), params_->eth_port(),
-                            agent_->GetDefaultVrf());
+    PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
+                                 params_->eth_port(), agent_->GetDefaultVrf());
     InitXenLinkLocalIntf();
+    InitVmwareInterface();
 }
 /*
  * Initialization sequence

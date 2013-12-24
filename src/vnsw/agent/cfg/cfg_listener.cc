@@ -109,6 +109,14 @@ bool CfgListener::CanUseNode(IFMapNode *node, IFMapAgentTable *table) {
     return CanUseNode(node);
 }
 
+bool CfgListener::SkipNode(IFMapNode *node) {
+    return !CanUseNode(node);
+}
+
+bool CfgListener::SkipNode(IFMapNode *node, IFMapAgentTable *table) {
+    return !CanUseNode(node, table);
+}
+
 // Set seen-state for a DBEntry
 void CfgListener::UpdateSeenState(DBTableBase *table, DBEntryBase *dbe,
                                   CfgDBState *s, DBTableBase::ListenerId id) {
@@ -326,7 +334,7 @@ void CfgListener::NodeReSync(IFMapNode *node) {
 
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         oper_table = GetOperDBTable(adj_node);
-        if (CanUseNode(adj_node) == false) {
+        if (SkipNode(adj_node)) {
             continue;
         }
 

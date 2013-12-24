@@ -99,8 +99,9 @@ void DnsProto::VnUpdate(DBEntryBase *entry) {
             CheckForUpdate(it->second, it->first, it->first->vn(),
                            it->first->ip_addr(), vdns_name, domain, ttl, false);
         }
-        const VmInterface::FloatingIpList &fip_list = it->first->floating_ip_list();
-        for (VmInterface::FloatingIpList::iterator fip = fip_list.begin();
+        const VmInterface::FloatingIpSet &fip_list =
+            it->first->floating_ip_list().list_;
+        for (VmInterface::FloatingIpSet::iterator fip = fip_list.begin();
              fip != fip_list.end(); ++fip) {
             if (fip->vn_.get() == vn) {
                 uint32_t ttl = kDnsDefaultTtl;
@@ -144,8 +145,9 @@ void DnsProto::ProcessUpdate(std::string name, bool is_deleted, bool is_ipam) {
         CheckForUpdate(it->second, it->first, it->first->vn(),
                        it->first->ip_addr(), vdns_name, domain, ttl, false);
 
-        const VmInterface::FloatingIpList &fip_list = it->first->floating_ip_list();
-        for (VmInterface::FloatingIpList::iterator fip = fip_list.begin();
+        const VmInterface::FloatingIpSet &fip_list =
+            it->first->floating_ip_list().list_;
+        for (VmInterface::FloatingIpSet::iterator fip = fip_list.begin();
              fip != fip_list.end(); ++fip) {
             VnEntry *vn = fip->vn_.get();
             ttl = kDnsDefaultTtl;
@@ -958,7 +960,7 @@ void DnsHandler::SendDnsResponse() {
     EthHdr(agent_vrrp_mac, dest_mac, 0x800);
     dns_resp_size_ += sizeof(ethhdr);
 
-    PktInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetHostIfname());
+    PacketInterfaceKey key(nil_uuid(), Agent::GetInstance()->GetHostIfname());
     Interface *pkt_itf = static_cast<Interface *>
                          (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (pkt_itf) {

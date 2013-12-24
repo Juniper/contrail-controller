@@ -767,7 +767,8 @@ bool AgentPath::Sync(RouteEntry *sync_route) {
 
         if (intf_nh->PolicyEnabled() != policy) {
             //Make path point to policy enabled interface
-            InterfaceNHKey key(new VmInterfaceKey(vm_port->GetUuid(), ""),
+            InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                  vm_port->GetUuid(), ""),
                                 policy, intf_nh->GetFlags());
             nh_ = static_cast<NextHop *>
                 (Agent::GetInstance()->
@@ -884,7 +885,7 @@ bool LocalVmRoute::AddChangePath(AgentPath *path) {
     SecurityGroupList path_sg_list;
 
     //TODO Based on key table type pick up interface
-    VmInterfaceKey intf_key(intf_.uuid_, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_.uuid_, "");
     VmInterface *vm_port = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&intf_key));
 

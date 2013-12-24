@@ -18,6 +18,6 @@
 #include <oper/vm_interface.h>
 #include <oper/physical_interface.h>
 #include <oper/virtual_host_interface.h>
-#include <oper/pkt_interface.h>
+#include <oper/packet_interface.h>
 
 #endif // vnsw_agent_interface_common_hpp

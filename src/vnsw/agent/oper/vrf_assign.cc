@@ -28,7 +28,7 @@ VrfAssign *VrfAssignTable::AllocWithKey(const DBRequestKey *k) const {
         static_cast<const VrfAssign::VrfAssignKey *>(k);
     VrfAssign *assign = NULL;
 
-    VmInterfaceKey intf_key(key->intf_uuid_, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, key->intf_uuid_, "");
     Interface *interface = static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->Find(&intf_key, true));
 
@@ -77,7 +77,7 @@ DBTableBase *VrfAssignTable::CreateTable(DB *db, const string &name) {
 }
 
 Interface *VrfAssignTable::FindInterface(const uuid &intf_uuid) {
-    VmInterfaceKey key(intf_uuid, "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     return static_cast<Interface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
 }

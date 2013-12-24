@@ -70,6 +70,7 @@ public:
               const boost::program_options::variables_map &var_map);
     void Start();
     void InitXenLinkLocalIntf();
+    void InitVmwareInterface();
     void DeleteStaticEntries();
     void Shutdown();
 
