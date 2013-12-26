@@ -960,13 +960,6 @@ public:
     virtual string GetTableName() const {return "Layer2AgentRouteTable";};
     virtual AgentRouteTableAPIS::TableType GetTableType() const {
         return AgentRouteTableAPIS::LAYER2;};
-    virtual void RouteTableWalkerNotify(VrfEntry *vrf, AgentXmppChannel *xmpp, 
-                                        DBState *state, bool associate,
-                                        bool unicast_walk, bool multicast_walk) {
-        //Dont support multicast walk
-        AgentRouteTable::RouteTableWalkerNotify(vrf, xmpp, state, associate, 
-                                                unicast_walk, false);
-    };
 
     static void RouteResyncReq(const string &vrf_name, 
                                const struct ether_addr &mac);
