@@ -27,6 +27,7 @@
 #include <base/util.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include "cfg/cfg_mirror.h"

@@ -71,13 +71,13 @@ TEST_F(VmPortTest, XmppConnection) {
     ASSERT_TRUE(peer->GetXmppChannel()->GetPeerState() == xmps::READY);
 
     //expect 1 cfg-subscribe + 2 subscribe messages sent out
-    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->GetXmppOutMsgs(0) == 3));
+    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->xmpp_out_msgs(0) == 3));
     // create vm-port, local vm-route
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
     //expect subscribe + route message sent out
-    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->GetXmppOutMsgs(0) == 6));
+    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->xmpp_out_msgs(0) == 6));
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     EXPECT_TRUE(VmPortActive(input, 0));
@@ -85,8 +85,8 @@ TEST_F(VmPortTest, XmppConnection) {
     Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
     EXPECT_TRUE(rt->GetDestVnName() == "vn1");
 
-    WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->GetXmppInMsgs(0) == 2));
-    ASSERT_TRUE(AgentStats::GetInstance()->GetXmppInMsgs(0) == 2);
+    WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->xmpp_in_msgs(0) == 2));
+    ASSERT_TRUE(AgentStats::GetInstance()->xmpp_in_msgs(0) == 2);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vrf2", addr, 32));
     Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
@@ -101,10 +101,10 @@ TEST_F(VmPortTest, XmppConnection) {
     client->WaitForIdle();
 
     //expect delete message sent out
-    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->GetXmppOutMsgs(0) == 8));
+    WAIT_FOR(1000, 1000, (AgentStats::GetInstance()->xmpp_out_msgs(0) == 8));
 
     //expect route delete messages
-    WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->GetXmppInMsgs(0) == 4));
+    WAIT_FOR(2000, 1000, (AgentStats::GetInstance()->xmpp_in_msgs(0) == 4));
     WAIT_FOR(100, 10000, (RouteFind("vrf1", addr, 32) == false));
     WAIT_FOR(100, 10000, (RouteFind("vrf2", addr, 32) == false));
     //confirm vm-port is deleted

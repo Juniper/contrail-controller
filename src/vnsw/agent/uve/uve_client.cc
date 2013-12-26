@@ -19,6 +19,7 @@
 #include <base/misc_utils.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <init/agent_param.h>
 
@@ -1911,9 +1912,9 @@ void UveClient::BuildXmppStatsList(vector<AgentXmppStats> &list) {
                 continue;
             }
             peer.set_ip(Agent::GetInstance()->GetXmppServer(count));
-            peer.set_reconnects(AgentStats::GetInstance()->GetXmppReconnect(count));
-            peer.set_in_msgs(AgentStats::GetInstance()->GetXmppInMsgs(count));
-            peer.set_out_msgs(AgentStats::GetInstance()->GetXmppOutMsgs(count));
+            peer.set_reconnects(AgentStats::GetInstance()->incr_xmpp_reconnects(count));
+            peer.set_in_msgs(AgentStats::GetInstance()->xmpp_in_msgs(count));
+            peer.set_out_msgs(AgentStats::GetInstance()->xmpp_out_msgs(count));
             list.push_back(peer);
         }
     }
@@ -1936,30 +1937,30 @@ bool UveClient::SendAgentStats() {
     stats.set_name(Agent::GetInstance()->GetHostName());
 
     if (prev_stats_.get_in_tpkts() != 
-            AgentStats::GetInstance()->GetInPkts() || first) {
-        stats.set_in_tpkts(AgentStats::GetInstance()->GetInPkts());
-        prev_stats_.set_in_tpkts(AgentStats::GetInstance()->GetInPkts());
+            AgentStats::GetInstance()->in_pkts() || first) {
+        stats.set_in_tpkts(AgentStats::GetInstance()->in_pkts());
+        prev_stats_.set_in_tpkts(AgentStats::GetInstance()->in_pkts());
         change = true;
     }
 
     if (prev_stats_.get_in_bytes() != 
-            AgentStats::GetInstance()->GetInBytes() || first) {
-        stats.set_in_bytes(AgentStats::GetInstance()->GetInBytes());
-        prev_stats_.set_in_bytes(AgentStats::GetInstance()->GetInBytes());
+            AgentStats::GetInstance()->in_bytes() || first) {
+        stats.set_in_bytes(AgentStats::GetInstance()->in_bytes());
+        prev_stats_.set_in_bytes(AgentStats::GetInstance()->in_bytes());
         change = true;
     }
 
     if (prev_stats_.get_out_tpkts() != 
-            AgentStats::GetInstance()->GetOutPkts() || first) {
-        stats.set_out_tpkts(AgentStats::GetInstance()->GetOutPkts());
-        prev_stats_.set_out_tpkts(AgentStats::GetInstance()->GetOutPkts());
+            AgentStats::GetInstance()->out_pkts() || first) {
+        stats.set_out_tpkts(AgentStats::GetInstance()->out_pkts());
+        prev_stats_.set_out_tpkts(AgentStats::GetInstance()->out_pkts());
         change = true;
     }
 
     if (prev_stats_.get_out_bytes() != 
-            AgentStats::GetInstance()->GetOutBytes() || first) {
-        stats.set_out_bytes(AgentStats::GetInstance()->GetOutBytes());
-        prev_stats_.set_out_bytes(AgentStats::GetInstance()->GetOutBytes());
+            AgentStats::GetInstance()->out_bytes() || first) {
+        stats.set_out_bytes(AgentStats::GetInstance()->out_bytes());
+        prev_stats_.set_out_bytes(AgentStats::GetInstance()->out_bytes());
         change = true;
     }
 
@@ -1971,28 +1972,28 @@ bool UveClient::SendAgentStats() {
         change = true;
     }
 
-    //stats.set_collector_reconnects(AgentStats::GetInstance()->GetSandeshReconnects());
-    //stats.set_in_sandesh_msgs(AgentStats::GetInstance()->GetSandeshInMsgs());
-    //stats.set_out_sandesh_msgs(AgentStats::GetInstance()->GetSandeshOutMsgs());
-    //stats.set_sandesh_http_sessions(AgentStats::GetInstance()->GetSandeshHttpSessions());
+    //stats.set_collector_reconnects(AgentStats::GetInstance()->xmpp_reconnects());
+    //stats.set_in_sandesh_msgs(AgentStats::GetInstance()->sandesh_in_msgs());
+    //stats.set_out_sandesh_msgs(AgentStats::GetInstance()->sandesh_out_msgs());
+    //stats.set_sandesh_http_sessions(AgentStats::GetInstance()->sandesh_http_sessions());
 
     if (prev_stats_.get_exception_packets() != 
-            AgentStats::GetInstance()->GetPktExceptions() || first) {
-        stats.set_exception_packets(AgentStats::GetInstance()->GetPktExceptions());
-        prev_stats_.set_exception_packets(AgentStats::GetInstance()->GetPktExceptions());
+            AgentStats::GetInstance()->pkt_exceptions() || first) {
+        stats.set_exception_packets(AgentStats::GetInstance()->pkt_exceptions());
+        prev_stats_.set_exception_packets(AgentStats::GetInstance()->pkt_exceptions());
         change = true;
     }
 
     if (prev_stats_.get_exception_packets_dropped() != 
-            AgentStats::GetInstance()->GetPktDropped() || first) {
-        stats.set_exception_packets_dropped(AgentStats::GetInstance()->GetPktDropped());
-        prev_stats_.set_exception_packets_dropped(AgentStats::GetInstance()->GetPktDropped());
+            AgentStats::GetInstance()->pkt_dropped() || first) {
+        stats.set_exception_packets_dropped(AgentStats::GetInstance()->pkt_dropped());
+        prev_stats_.set_exception_packets_dropped(AgentStats::GetInstance()->pkt_dropped());
         change = true;
     }
 
     //stats.set_exception_packets_denied();
-    uint64_t e_pkts_allowed = (AgentStats::GetInstance()->GetPktExceptions() -
-                     AgentStats::GetInstance()->GetPktDropped());
+    uint64_t e_pkts_allowed = (AgentStats::GetInstance()->pkt_exceptions() -
+                     AgentStats::GetInstance()->pkt_dropped());
     if (prev_stats_.get_exception_packets_allowed() != e_pkts_allowed) {
         stats.set_exception_packets_allowed(e_pkts_allowed);
         prev_stats_.set_exception_packets_allowed(e_pkts_allowed);
@@ -2000,9 +2001,9 @@ bool UveClient::SendAgentStats() {
     }
 
     if (prev_stats_.get_total_flows() != 
-            AgentStats::GetInstance()->GetFlowCreated() || first) {
-        stats.set_total_flows(AgentStats::GetInstance()->GetFlowCreated());
-        prev_stats_.set_total_flows(AgentStats::GetInstance()->GetFlowCreated());
+            AgentStats::GetInstance()->flow_created() || first) {
+        stats.set_total_flows(AgentStats::GetInstance()->flow_created());
+        prev_stats_.set_total_flows(AgentStats::GetInstance()->flow_created());
         change = true;
     }
 
@@ -2014,9 +2015,9 @@ bool UveClient::SendAgentStats() {
     }
 
     if (prev_stats_.get_aged_flows() != 
-            AgentStats::GetInstance()->GetFlowAged() || first) {
-        stats.set_aged_flows(AgentStats::GetInstance()->GetFlowAged());
-        prev_stats_.set_aged_flows(AgentStats::GetInstance()->GetFlowAged());
+            AgentStats::GetInstance()->flow_aged() || first) {
+        stats.set_aged_flows(AgentStats::GetInstance()->flow_aged());
+        prev_stats_.set_aged_flows(AgentStats::GetInstance()->flow_aged());
         change = true;
     }
     //stats.set_aged_flows_dp();
