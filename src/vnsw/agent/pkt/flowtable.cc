@@ -96,7 +96,7 @@ bool RouteFlowKey::FlowDestMatch(FlowEntry *flow) const {
     return false;
 }
 
-uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
+uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
                              std::list<MatchAclParams> &acl,
                              bool add_implicit_deny) {
     // If there are no ACL to match, make it pass
@@ -123,8 +123,8 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
         if (it->acl->PacketMatch(hdr, *it)) {
             action |= it->action_info.action;
             if (it->action_info.action & (1 << TrafficAction::MIRROR)) {
-                policy->action_info.mirror_l.insert
-                    (policy->action_info.mirror_l.end(),
+                data.match_p.action_info.mirror_l.insert
+                    (data.match_p.action_info.mirror_l.end(),
                      it->action_info.mirror_l.begin(),
                      it->action_info.mirror_l.end());
             }
@@ -144,12 +144,12 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
 }
 
 // Recompute FlowEntry action
-bool FlowEntry::ActionRecompute(MatchPolicy *policy) {
+bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
 
-    action = policy->policy_action | policy->sg_action |
-        policy->out_policy_action | policy->out_sg_action |
-        policy->mirror_action | policy->out_mirror_action;
+    action = data.match_p.policy_action | data.match_p.sg_action |
+        data.match_p.out_policy_action | data.match_p.out_sg_action |
+        data.match_p.mirror_action | data.match_p.out_mirror_action;
 
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
@@ -161,8 +161,8 @@ bool FlowEntry::ActionRecompute(MatchPolicy *policy) {
         action = (1 << TrafficAction::TRAP);
     }
 
-    if (action != policy->action_info.action) {
-        policy->action_info.action = action;
+    if (action != data.match_p.action_info.action) {
+        data.match_p.action_info.action = action;
         return true;
     }
 
@@ -188,74 +188,70 @@ bool FlowEntry::ActionRecompute(MatchPolicy *policy) {
 //      Network Policy. 
 //      Out-Network Policy
 //      SG and out-SG from forward flow
-bool FlowEntry::DoPolicy(const PacketHeader &hdr, MatchPolicy *policy,
-                         bool ingress_flow) {
-    policy->action_info.Clear();
-    policy->policy_action = 0;
-    policy->out_policy_action = 0;
-    policy->sg_action = 0;
-    policy->out_sg_action = 0;
-    policy->mirror_action = 0;
-    policy->out_mirror_action = 0;
+bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
+    data.match_p.action_info.Clear();
+    data.match_p.policy_action = 0;
+    data.match_p.out_policy_action = 0;
+    data.match_p.sg_action = 0;
+    data.match_p.out_sg_action = 0;
+    data.match_p.mirror_action = 0;
+    data.match_p.out_mirror_action = 0;
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
-    policy->mirror_action = MatchAcl(hdr, policy, policy->m_mirror_acl_l,
+    data.match_p.mirror_action = MatchAcl(hdr, data.match_p.m_mirror_acl_l,
                                      false);
-    policy->out_mirror_action = MatchAcl(hdr, policy,
-                                         policy->m_out_mirror_acl_l, false);
+    data.match_p.out_mirror_action = MatchAcl(hdr,
+                                         data.match_p.m_out_mirror_acl_l, false);
 
     // Apply network policy
-    policy->policy_action = MatchAcl(hdr, policy, policy->m_acl_l, true);
-    if (ShouldDrop(policy->policy_action)) {
+    data.match_p.policy_action = MatchAcl(hdr, data.match_p.m_acl_l, true);
+    if (ShouldDrop(data.match_p.policy_action)) {
         goto done;
     }
 
-    policy->out_policy_action = MatchAcl(hdr, policy, policy->m_out_acl_l,
+    data.match_p.out_policy_action = MatchAcl(hdr, data.match_p.m_out_acl_l,
                                          true);
-    if (ShouldDrop(policy->out_policy_action)) {
+    if (ShouldDrop(data.match_p.out_policy_action)) {
         goto done;
     }
 
     // Apply security-group
     if (is_reverse_flow == false) {
-        policy->sg_action = MatchAcl(hdr, policy, policy->m_sg_acl_l, true);
-        if (ShouldDrop(policy->sg_action)) {
+        data.match_p.sg_action = MatchAcl(hdr, data.match_p.m_sg_acl_l, true);
+        if (ShouldDrop(data.match_p.sg_action)) {
             goto done;
         }
 
-        policy->out_sg_action = MatchAcl(hdr, policy, policy->m_out_sg_acl_l,
+        data.match_p.out_sg_action = MatchAcl(hdr, data.match_p.m_out_sg_acl_l,
                                          true);
-        if (ShouldDrop(policy->out_sg_action)) {
+        if (ShouldDrop(data.match_p.out_sg_action)) {
             goto done;
         }
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
         // forward flow 
         if (data.reverse_flow.get()) {
-            policy->sg_action = 
+            data.match_p.sg_action = 
                 ReflexiveAction(data.reverse_flow->data.match_p.sg_action);
-            policy->out_sg_action = 
+            data.match_p.out_sg_action = 
                 ReflexiveAction(data.reverse_flow->data.match_p.out_sg_action);
         } else {
-            policy->sg_action = (1 << TrafficAction::PASS);
-            policy->out_sg_action = (1 << TrafficAction::PASS);
+            data.match_p.sg_action = (1 << TrafficAction::PASS);
+            data.match_p.out_sg_action = (1 << TrafficAction::PASS);
         }
 
-        if (ShouldDrop(policy->sg_action) || ShouldDrop(policy->out_sg_action)){
+        if (ShouldDrop(data.match_p.sg_action) || ShouldDrop(data.match_p.out_sg_action)){
             goto done;
         }
     }
 
 done:
     // Summarize the actions based on lookups above
-    ActionRecompute(policy);
+    ActionRecompute();
     return true;
 }
 
-void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
-    policy->m_sg_acl_l.clear();
-    policy->m_out_sg_acl_l.clear();
-
+void FlowEntry::GetSgList(const Interface *intf) {
     // Dont apply network-policy for meta-data flow
     if (mdata_flow) {
         return;
@@ -272,7 +268,7 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
     if (vm_port->sg_list().list_.size()) {
-        policy->nw_policy = true;
+        data.match_p.nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
@@ -283,7 +279,7 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
-            policy->m_sg_acl_l.push_back(acl);
+            data.match_p.m_sg_acl_l.push_back(acl);
         }
     }
 
@@ -305,7 +301,7 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     vm_port = static_cast<const VmInterface *>
         (rflow->data.intf_entry.get());
     if (vm_port->sg_list().list_.size()) {
-        policy->nw_policy = true;
+        data.match_p.nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
@@ -316,17 +312,23 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
-            policy->m_out_sg_acl_l.push_back(acl);
+            data.match_p.m_out_sg_acl_l.push_back(acl);
         }
     }
 }
 
-void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
-    policy->m_acl_l.clear();
-    policy->m_out_acl_l.clear();
-    policy->m_mirror_acl_l.clear();
-    policy->m_out_mirror_acl_l.clear();
+void FlowEntry::ResetPolicy() {
+    /* Reset acl list*/
+    data.match_p.m_acl_l.clear();
+    data.match_p.m_out_acl_l.clear();
+    data.match_p.m_mirror_acl_l.clear();
+    data.match_p.m_out_mirror_acl_l.clear();
+    /* Reset sg acl list*/
+    data.match_p.m_sg_acl_l.clear();
+    data.match_p.m_out_sg_acl_l.clear();
+}
 
+void FlowEntry::GetPolicy(const VnEntry *vn) {
     if (vn == NULL)
         return;
 
@@ -335,12 +337,12 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
     // Get Mirror configuration first
     if (vn->GetMirrorAcl()) {
         acl.acl = vn->GetMirrorAcl();
-        policy->m_mirror_acl_l.push_back(acl);
+        data.match_p.m_mirror_acl_l.push_back(acl);
     }
 
     if (vn->GetMirrorCfgAcl()) {
         acl.acl = vn->GetMirrorCfgAcl();
-        policy->m_mirror_acl_l.push_back(acl);
+        data.match_p.m_mirror_acl_l.push_back(acl);
     }
 
     // Dont apply network-policy for meta-data flow
@@ -350,8 +352,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
 
     if (vn->GetAcl()) {
         acl.acl = vn->GetAcl();
-        policy->m_acl_l.push_back(acl);
-        policy->nw_policy = true;
+        data.match_p.m_acl_l.push_back(acl);
+        data.match_p.nw_policy = true;
     }
 
     const VnEntry *rvn = NULL;
@@ -369,18 +371,18 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
 
     if (rvn->GetAcl()) {
         acl.acl = rvn->GetAcl();
-        policy->m_out_acl_l.push_back(acl);
-        policy->nw_policy = true;
+        data.match_p.m_out_acl_l.push_back(acl);
+        data.match_p.nw_policy = true;
     }
 
     if (rvn->GetMirrorAcl()) {
         acl.acl = rvn->GetMirrorAcl();
-        policy->m_out_mirror_acl_l.push_back(acl);
+        data.match_p.m_out_mirror_acl_l.push_back(acl);
     }
 
     if (rvn->GetMirrorCfgAcl()) {
         acl.acl = rvn->GetMirrorCfgAcl();
-        policy->m_out_mirror_acl_l.push_back(acl);
+        data.match_p.m_out_mirror_acl_l.push_back(acl);
     }
 }
 
@@ -399,11 +401,10 @@ void FlowEntry::UpdateKSync(FlowTableKSyncEntry *entry, bool create) {
     }
 }
 
-void FlowEntry::CompareAndModify(const MatchPolicy &m_policy, bool create) {
+void FlowEntry::CompareAndModify(bool create) {
     FlowTableKSyncEntry *entry = 
         FlowTableKSyncObject::GetKSyncObject()->Find(this);
 
-    data.match_p = m_policy;
     UpdateKSync(entry, create);
 }
 
@@ -420,9 +421,10 @@ void FlowEntry::MakeShortFlow() {
     }
 }
 
-void FlowEntry::GetPolicyInfo(MatchPolicy *policy) {
+void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
     // Default make it false
     data.match_p.nw_policy = false;
+    ResetPolicy();
 
     if (short_flow == true) {
         data.match_p.action_info.action = (1 << TrafficAction::DROP);
@@ -437,17 +439,20 @@ void FlowEntry::GetPolicyInfo(MatchPolicy *policy) {
         return;
 
     // Get Network policy/mirror cfg policy/mirror policies 
-    GetPolicy(data.vn_entry.get(), policy);
+    GetPolicy(vn);
 
     // Get Sg list
-    GetSgList(data.intf_entry.get(), policy);
+    GetSgList(data.intf_entry.get());
+}
+
+void FlowEntry::GetPolicyInfo() {
+    GetPolicyInfo(data.vn_entry.get());
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     UpdateReverseFlow(flow, rflow);
 
-    MatchPolicy policy;
-    flow->GetPolicyInfo(&policy);
+    flow->GetPolicyInfo();
     // Add the forward flow after adding the reverse flow first to avoid 
     // following sequence
     // 1. Agent adds forward flow
@@ -462,14 +467,13 @@ void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
     // flow first will reduce the probability
 
     if (rflow) {
-        MatchPolicy rpolicy;
-        rflow->GetPolicyInfo(&rpolicy);
-        ResyncAFlow(rflow, rpolicy, true);
+        rflow->GetPolicyInfo();
+        ResyncAFlow(rflow, true);
         AddFlowInfo(rflow);
     }
 
 
-    ResyncAFlow(flow, policy, true);
+    ResyncAFlow(flow, true);
     AddFlowInfo(flow);
 }
 
@@ -1111,10 +1115,8 @@ void FlowTable::ResyncVnFlows(const VnEntry *vn) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
-        MatchPolicy policy;
-        fe->GetPolicy(vn, &policy);
-        fe->GetSgList(fe->data.intf_entry.get(), &policy);
-        ResyncAFlow(fe, policy, false);
+        fe->GetPolicyInfo(vn);
+        ResyncAFlow(fe, false);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -1137,10 +1139,8 @@ void FlowTable::ResyncAclFlows(const AclDBEntry *acl)
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
-        MatchPolicy policy;
-        fe->GetPolicy(fe->data.vn_entry.get(), &policy);
-        fe->GetSgList(fe->data.intf_entry.get(), &policy);
-        ResyncAFlow(fe, policy, false);
+        fe->GetPolicyInfo();
+        ResyncAFlow(fe, false);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -1214,9 +1214,7 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
-        MatchPolicy policy;
-        fe->GetPolicy(fe->data.vn_entry.get(), &policy);
-        fe->GetSgList(fe->data.intf_entry.get(), &policy);
+        fe->GetPolicyInfo();
         if (key.FlowSrcMatch(fe)) {
             fe->data.source_sg_id_l = sg_l;
         } else if (key.FlowDestMatch(fe)) {
@@ -1228,7 +1226,7 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
                        + " ip:"
                        + Ip4Address(key.ip.ipv4).to_string());
         }
-        ResyncAFlow(fe, policy, false);
+        ResyncAFlow(fe, false);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -1250,10 +1248,8 @@ void FlowTable::ResyncVmPortFlows(const VmInterface *intf) {
         fet_it = it++;
         FlowEntry *fe = (*fet_it).get();
         DeleteFlowInfo(fe);
-        MatchPolicy policy;
-        fe->GetPolicy(intf->vn(), &policy);
-        fe->GetSgList(fe->data.intf_entry.get(), &policy);
-        ResyncAFlow(fe, policy, false);
+        fe->GetPolicyInfo(intf->vn());
+        ResyncAFlow(fe, false);
         AddFlowInfo(fe);
         FlowInfo flow_info;
         fe->FillFlowInfo(flow_info);
@@ -1651,7 +1647,7 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
     }
 }
 
-void FlowTable::ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create) {
+void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
     PacketHeader hdr;
     hdr.vrf = fe->key.vrf; hdr.src_ip = fe->key.src.ipv4;
     hdr.dst_ip = fe->key.dst.ipv4;
@@ -1668,8 +1664,8 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create) {
     hdr.src_sg_id_l = &(fe->data.source_sg_id_l);
     hdr.dst_sg_id_l = &(fe->data.dest_sg_id_l);
 
-    fe->DoPolicy(hdr, &policy, fe->data.ingress);
-    fe->CompareAndModify(policy, create);
+    fe->DoPolicy(hdr, fe->data.ingress);
+    fe->CompareAndModify(create);
 
     // If this is forward flow, update the SG action for reflexive entry
     if (fe->is_reverse_flow) {
@@ -1685,7 +1681,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create) {
     rflow->data.match_p.out_sg_action =
         ReflexiveAction(fe->data.match_p.out_sg_action);
     // Check if there is change in action for reverse flow
-    rflow->ActionRecompute(&rflow->data.match_p);
+    rflow->ActionRecompute();
 
     FlowTableKSyncEntry *entry = 
         FlowTableKSyncObject::GetKSyncObject()->Find(rflow);
