@@ -2,15 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-systemlog sandesh RoutingInstanceMessage {
-    1: "RoutingInstance";
-    2: string name;
-    3: ":";
-    4: string Message;
-}
-
 struct RoutingInstanceInfo {
-    1: string name (key="ObjectRoutingInstance");            // routing-instance name
+    1: string name (key="ObjectRoutingInstance");
     2: optional string route_distinguisher;
     3: optional string operation;
     4: optional string peer;
@@ -26,8 +19,15 @@ objectlog sandesh RoutingInstanceCollector {
     1: RoutingInstanceInfo routing_instance;
 }
 
+traceobject sandesh RoutingInstanceMessage {
+    1: "RoutingInstance";
+    2: string name (key="ObjectRoutingInstance");
+    3: ":";
+    4: string Message;
+}
+
 traceobject sandesh RoutingInstanceCreate {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: list<string> import_rt;
     3: list<string> export_rt;
     4: string virtual_network;
@@ -35,11 +35,11 @@ traceobject sandesh RoutingInstanceCreate {
 }
 
 traceobject sandesh RoutingInstanceDelete {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
 traceobject sandesh RoutingInstanceUpdate {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: list<string> import_rt;
     3: list<string> export_rt;
     4: string virtual_network;
@@ -47,48 +47,48 @@ traceobject sandesh RoutingInstanceUpdate {
 }
 
 traceobject sandesh RoutingInstanceDestroy {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
 traceobject sandesh RoutingInstanceShutdown {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
-traceobject sandesh RoutingInstancePeerLocate {
-    1: string name;
+traceobject sandesh RoutingInstancePeerCreate {
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 traceobject sandesh RoutingInstancePeerClear {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 traceobject sandesh RoutingInstancePeerDelete {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 traceobject sandesh RoutingInstancePeerDestroy {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 traceobject sandesh RoutingInstancePeerLookup {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
     3: i32 port;
     4: bool found;
 }
 
 traceobject sandesh RoutingInstanceTableCreate {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string table;
     3: string family;
 }
 
 traceobject sandesh RoutingInstanceTableDestroy {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string table;
     3: string family;
 }
@@ -140,8 +140,15 @@ traceobject sandesh RprUnregTable {
     1: string table;
 }
 
+systemlog sandesh RoutingInstanceMessageLog {
+    1: "RoutingInstance";
+    2: string name (key="ObjectRoutingInstance");
+    3: ":";
+    4: string Message;
+}
+
 systemlog sandesh RoutingInstanceCreateLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: list<string> import_rt;
     3: list<string> export_rt;
     4: string virtual_network;
@@ -149,11 +156,11 @@ systemlog sandesh RoutingInstanceCreateLog {
 }
 
 systemlog sandesh RoutingInstanceDeleteLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
 systemlog sandesh RoutingInstanceUpdateLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: list<string> import_rt;
     3: list<string> export_rt;
     4: string virtual_network;
@@ -161,48 +168,48 @@ systemlog sandesh RoutingInstanceUpdateLog {
 }
 
 systemlog sandesh RoutingInstanceDestroyLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
 systemlog sandesh RoutingInstanceShutdownLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
 }
 
-systemlog sandesh RoutingInstancePeerLocateLog {
-    1: string name;
+systemlog sandesh RoutingInstancePeerCreateLog {
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 systemlog sandesh RoutingInstancePeerClearLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 systemlog sandesh RoutingInstancePeerDeleteLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 systemlog sandesh RoutingInstancePeerDestroyLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
 }
 
 systemlog sandesh RoutingInstancePeerLookupLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string peer;
     3: i32 port;
     4: bool found;
 }
 
 systemlog sandesh RoutingInstanceTableCreateLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string table;
     3: string family;
 }
 
 systemlog sandesh RoutingInstanceTableDestroyLog {
-    1: string name;
+    1: string name (key="ObjectRoutingInstance");
     2: string table;
     3: string family;
 }

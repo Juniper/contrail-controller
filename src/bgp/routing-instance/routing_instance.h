@@ -235,7 +235,6 @@ public:
     size_t count() const { return instances_.count(); }
     BgpServer *server() { return server_; }
     LifetimeActor *deleter();
-    SandeshTraceBufferPtr trace_buffer() { return trace_buf_; }
 
 private:
     friend class RoutingInstanceMgrTest;
@@ -255,7 +254,6 @@ private:
     VnIndexMap vn_index_map_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<RoutingInstanceMgr> server_delete_ref_;
-    SandeshTraceBufferPtr trace_buf_;
     boost::dynamic_bitset<> bmap_;      // free list.
     tbb::spin_rw_mutex rw_mutex_;
     RoutingInstanceCreateListenersList callbacks_;
