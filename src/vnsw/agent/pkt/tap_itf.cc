@@ -101,6 +101,14 @@ TapDescriptor::TapDescriptor(const std::string &name) {
             assert(0);
         }
 
+        // We dont want the fd to be inherited by child process such as
+        // virsh etc... So, close tap fd on fork.
+        if (fcntl(fd_, F_SETFD, FD_CLOEXEC) < 0) {
+            LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> setting fcntl on " << name );
+            assert(0);
+        }
+
         if (ioctl(fd_, TUNSETPERSIST, 1) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> making tap interface persistent");
