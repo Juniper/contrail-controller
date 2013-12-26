@@ -49,7 +49,7 @@ public:
                          bool multi_proto_support) :
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         vn_name_(vn_name), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -62,7 +62,7 @@ public:
                          bool multi_proto_support) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         src_address_(src_addr), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;

@@ -117,6 +117,7 @@ void AddVm(const char *name, int id);
 void DelVm(const char *name);
 void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
+void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
 void AddPort(const char *name, int id);
@@ -139,6 +140,11 @@ TestClient *StatsTestInit();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL, 
+                     bool l2_vn = false);
+void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
