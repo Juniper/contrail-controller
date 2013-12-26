@@ -168,6 +168,8 @@ public:
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
     int GetVxLanId() const;
+    bool Resync(); 
+    void RebakeVxLan();
     const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
@@ -210,6 +212,7 @@ public:
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Resync(DBEntry *entry, DBRequest *req); 
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 

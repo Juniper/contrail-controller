@@ -381,9 +381,16 @@ void Agent::GlobalVrouterConfig(IFMapNode *node) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
         TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
+        //Expected vxlan_network_identifier_mode are "automatic" and 
+        //"configured". Any other value will be defaulted to "automatic"
         if (cfg->vxlan_network_identifier_mode() == "configured") {
             cfg_vxlan_network_identifier_mode = 
                 Agent::CONFIGURED;
+        } else {
+            LOG(DEBUG, 
+                "Setting Automatic mode for VXLAN network identifier,"
+                "encapsulation received is %s" << 
+                cfg_vxlan_network_identifier_mode);
         } 
        
         const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 

@@ -110,17 +110,41 @@ int VnEntry::GetVxLanId() const {
     }
 }
 
+void VnEntry::RebakeVxLan() {
+    int vxlan_id = GetVxLanId();
+    if (vxlan_id) {
+        VxLanId::Create(vxlan_id, GetVrf()->GetName());
+        VxLanId *vxlan_id_entry = NULL;
+        VxLanIdKey vxlan_key(vxlan_id);
+        vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
+                                GetVxLanTable()->FindActiveEntry(&vxlan_key));
+        vxlan_id_ref_ = vxlan_id_entry;
+    } else {
+        vxlan_id_ref_ = NULL;
+    }
+}
+
+bool VnEntry::Resync() {
+    RebakeVxLan();
+    return true;
+}
+
+bool VnTable::Resync(DBEntry *entry, DBRequest *req) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    bool ret = vn->Resync();
+    return ret;
+}
+
 bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->GetVrf()) {
-        VxLanId::CreateReq(vn_entry->GetVxLanId(), 
-                           vn_entry->GetVrf()->GetName());
-        VxLanIdKey key(vn_entry->GetVxLanId());
-        VxLanId *vxlan_id = 
-            static_cast<VxLanId *>(Agent::GetInstance()->
-                                   GetVxLanTable()->FindActiveEntry(&key));
-        vn_entry->vxlan_id_ref_ = vxlan_id;
-        MulticastHandler::GetInstance()->HandleVxLanChange(vn_entry);
+        VnKey *key = new VnKey(vn_entry->GetUuid());
+        key->sub_op_ = AgentKey::RESYNC;
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        req.key.reset(key); 
+        req.data.reset(NULL);
+        Agent::GetInstance()->GetVnTable()->Enqueue(&req); 
     }
     return true;
 }
@@ -249,17 +273,8 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     }
 
     if (vn->GetVrf()) {
-        if (!vn->GetVxLanId()) {
-            vn->vxlan_id_ref_ = NULL;
-            return ret;
-        }
         if (vxlan_rebake) {
-            VxLanId::CreateReq(vn->GetVxLanId(), vn->GetVrf()->GetName());
-            VxLanId *vxlan_id = NULL;
-            VxLanIdKey vxlan_key(vn->GetVxLanId());
-            vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
-                                              GetVxLanTable()->FindActiveEntry(&vxlan_key));
-            vn->vxlan_id_ref_ = vxlan_id;
+            vn->RebakeVxLan();
         }
     } else {
         if (vn->vxlan_id_ref_) {

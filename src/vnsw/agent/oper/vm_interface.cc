@@ -915,7 +915,7 @@ bool VmInterface::IsActive() {
     }
 
     if ((vn_.get() == NULL) || (vm_.get() == NULL) || (vrf_.get() == NULL) || 
-        (!ipv4_forwarding_ || (ip_addr_.to_ulong() != 0))) {
+        (!ipv4_forwarding_ || (ip_addr_.to_ulong() == 0))) {
         return false;
     }
 
@@ -1249,7 +1249,7 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_active, VrfEntry *old_vrf) {
 
     if ((vxlan_id_ != 0) && 
         (TunnelType::ComputeType(TunnelType::AllType()) == TunnelType::VXLAN)) {
-        VxLanId::DeleteReq(vxlan_id_);
+        VxLanId::Delete(vxlan_id_);
         vxlan_id_ = 0;
     }
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());

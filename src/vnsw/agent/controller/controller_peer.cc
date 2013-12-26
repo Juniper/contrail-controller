@@ -394,7 +394,13 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
                 FindActiveEntry(&key));
             if (route) {
                 nh = route->GetActiveNextHop();
+            } else {
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "route not found, ignoring request");
             }
+        } else {
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "vrf not found, ignoring request");
         }
     } else {
         MplsLabel *mpls = 
@@ -416,6 +422,9 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
                              "label points to invalid NH");
         }
+    } else {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "nexthop not found, ignoring request");
     }
 }
 

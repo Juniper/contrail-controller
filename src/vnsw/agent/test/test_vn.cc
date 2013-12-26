@@ -242,6 +242,49 @@ TEST_F(CfgTest, VrfChangeVxlanTest) {
     EXPECT_FALSE(VrfFind("vrf1"));
 }
 
+TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    VnEntry *vn = VnGet(1);
+    //Auto vxlan id as mode is automatic
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    std::stringstream str;
+
+    //Set to configured
+    str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 101);
+
+    //Any other string than configured/automatic should default to automatic
+    str << "<vxlan-network-identifier-mode>junk</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    //Set to configured and then delete node 
+    str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    DelNode("global-vrouter-config", "vrouter-config");
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
