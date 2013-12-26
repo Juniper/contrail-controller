@@ -12,6 +12,7 @@
 
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <cmn/buildinfo.h>
 
 #include <init/agent_param.h>
@@ -40,7 +41,8 @@
 #include <diag/diag.h>
 
 const std::string Agent::null_str_ = "";
-const std::string Agent::fabric_vn_name_ = "default-domain:default-project:ip-fabric";
+const std::string Agent::fabric_vn_name_ = 
+    "default-domain:default-project:ip-fabric";
 const std::string Agent::fabric_vrf_name_ =
     "default-domain:default-project:ip-fabric:__default__";
 const std::string Agent::link_local_vn_name_ = 
@@ -50,7 +52,6 @@ const std::string Agent::link_local_vrf_name_ =
 const std::string Agent::vrrp_mac_ = "00:01:00:5E:00:00";
 const std::string Agent::bcast_mac_ = "FF:FF:FF:FF:FF:FF";
 
-AgentStats *AgentStats::singleton_;
 Agent *Agent::singleton_;
 
 const string &Agent::GetHostInterfaceName() {
@@ -151,67 +152,6 @@ void Agent::CreateLifetimeManager() {
 void Agent::ShutdownLifetimeManager() {
     delete lifetime_manager_;
     lifetime_manager_ = NULL;
-}
-
-void AgentStatsReq::HandleRequest() const {
-    IpcStatsResp *ipc = new IpcStatsResp();
-    ipc->set_ipc_in_msgs(AgentStats::GetInstance()->GetIpcInMsgs());
-    ipc->set_ipc_out_msgs(AgentStats::GetInstance()->GetIpcOutMsgs());
-    ipc->set_context(context());
-    ipc->set_more(true);
-    ipc->Response();
-
-    PktTrapStatsResp *pkt = new PktTrapStatsResp();
-    pkt->set_exceptions(AgentStats::GetInstance()->GetPktExceptions());
-    pkt->set_invalid_agent_hdr(AgentStats::GetInstance()->GetPktInvalidAgentHdr());
-    pkt->set_invalid_interface(AgentStats::GetInstance()->GetPktInvalidInterface());
-    pkt->set_no_handler(AgentStats::GetInstance()->GetPktNoHandler());
-    pkt->set_pkt_dropped(AgentStats::GetInstance()->GetPktDropped());
-    pkt->set_context(context());
-    pkt->set_more(true);
-    pkt->Response();
-
-    FlowStatsResp *flow = new FlowStatsResp();
-    flow->set_flow_active(FlowTable::GetFlowTableObject()->Size());
-    flow->set_flow_created(AgentStats::GetInstance()->GetFlowCreated());
-    flow->set_flow_aged(AgentStats::GetInstance()->GetFlowAged());
-    flow->set_context(context());
-    flow->set_more(true);
-    flow->Response();
-
-    XmppStatsResp *xmpp_resp = new XmppStatsResp();
-    vector<XmppStatsInfo> list;
-    for (int count = 0; count < MAX_XMPP_SERVERS; count++) {
-        XmppStatsInfo peer;
-        if (!Agent::GetInstance()->GetXmppServer(count).empty()) {
-            peer.set_ip(Agent::GetInstance()->GetXmppServer(count));
-            AgentXmppChannel *ch = Agent::GetInstance()->GetAgentXmppChannel(count);
-            if (ch == NULL) {
-                continue;
-            }
-            XmppChannel *xc = ch->GetXmppChannel();
-            if (xc == NULL) {
-                continue;
-            }
-            peer.set_reconnect(AgentStats::GetInstance()->GetXmppReconnect(count));
-            peer.set_in_msgs(AgentStats::GetInstance()->GetXmppInMsgs(count));
-            peer.set_out_msgs(AgentStats::GetInstance()->GetXmppOutMsgs(count));
-            list.push_back(peer);
-        }
-    }
-    xmpp_resp->set_xmpp_list(list);
-    xmpp_resp->set_context(context());
-    xmpp_resp->set_more(true);
-    xmpp_resp->Response();
-
-    SandeshStatsResp *sandesh = new SandeshStatsResp();
-    sandesh->set_sandesh_in_msgs(AgentStats::GetInstance()->GetSandeshInMsgs());
-    sandesh->set_sandesh_out_msgs(AgentStats::GetInstance()->GetSandeshOutMsgs());
-    sandesh->set_sandesh_http_sessions(AgentStats::GetInstance()->GetSandeshHttpSessions());
-    sandesh->set_sandesh_reconnects(AgentStats::GetInstance()->GetSandeshReconnects());
-    sandesh->set_context(context());
-    sandesh->set_more(false);
-    sandesh->Response();
 }
 
 // Get configuration from AgentParam into Agent
@@ -379,26 +319,25 @@ void Agent::GlobalVrouterConfig(IFMapNode *node) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
         TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
-        VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode;
+        VxLanNetworkIdentifierMode cfg_vxlan_mode;
         if (cfg->vxlan_network_identifier_mode() == "configured") {
-            cfg_vxlan_network_identifier_mode = 
-                Agent::CONFIGURED;
+            cfg_vxlan_mode = Agent::CONFIGURED;
         } else {
-            cfg_vxlan_network_identifier_mode =
-                Agent::AUTOMATIC; 
+            cfg_vxlan_mode = Agent::AUTOMATIC; 
         }
-        if (cfg_vxlan_network_identifier_mode != 
+        if (cfg_vxlan_mode != 
             vxlan_network_identifier_mode_) {
-            set_vxlan_network_identifier_mode(cfg_vxlan_network_identifier_mode);
+            set_vxlan_network_identifier_mode(cfg_vxlan_mode);
             GetVnTable()->UpdateVxLanNetworkIdentifierMode();
             GetInterfaceTable()->UpdateVxLanNetworkIdentifierMode();
         }
         const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 
             cfg->linklocal_services();
-        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it =
+        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it=
              linklocal_list.begin(); it != linklocal_list.end(); it++) {
             if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
-                SetIpFabricMetadataServerAddress(*(it->ip_fabric_service_ip.begin()));
+                SetIpFabricMetadataServerAddress
+                    (*(it->ip_fabric_service_ip.begin()));
                 SetIpFabricMetadataServerPort(it->ip_fabric_service_port);
         }
     }

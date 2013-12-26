@@ -55,7 +55,7 @@ buildinfo_dep_libs = [
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../../../lib/libtbb_debug.so.2' ]
 
-vnswcmn_sources = ['agent_cmn.cc', 'agent_db.cc']
+vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_stats.cc']
 
 env.GenerateBuildInfoCode(
     target='buildinfo.cc',

@@ -8,6 +8,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "controller/controller_peer.h"
 #include "controller/controller_ifmap.h"
 #include "controller/controller_vrf_export.h"
@@ -57,7 +58,7 @@ bool AgentXmppChannel::SendUpdate(uint8_t *msg, size_t size) {
 
     if (channel_ && 
         (channel_->GetPeerState() == xmps::READY)) {
-        AgentStats::GetInstance()->IncrXmppOutMsgs(xs_idx_);
+        AgentStats::GetInstance()->incr_xmpp_out_msgs(xs_idx_);
 	    return channel_->Send(msg, size, xmps::BGP,
 			  boost::bind(&AgentXmppChannel::WriteReadyCb, this, _1));
     } else {
@@ -528,7 +529,7 @@ void AgentXmppChannel::AddRoute(string vrf_name, Ip4Address prefix_addr,
 
 void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
     
-    AgentStats::GetInstance()->IncrXmppInMsgs(xs_idx_);
+    AgentStats::GetInstance()->incr_xmpp_in_msgs(xs_idx_);
     if (msg && msg->type == XmppStanza::MESSAGE_STANZA) {
       
         XmlBase *impl = msg->dom.get();
@@ -687,7 +688,7 @@ void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
         // Walk route-tables and notify unicast routes
         // and notify subnet and broadcast if TreeBuilder  
         peer->GetBgpPeer()->PeerNotifyRoutes();
-        AgentStats::GetInstance()->IncrXmppReconnect(peer->GetXmppServerIdx());
+        AgentStats::GetInstance()->incr_incr_xmpp_reconnects(peer->GetXmppServerIdx());
 
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                          Agent::GetInstance()->GetControlNodeMulticastBuilder()->GetBgpPeer()->GetName(),

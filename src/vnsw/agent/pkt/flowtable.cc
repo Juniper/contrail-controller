@@ -20,6 +20,7 @@
 
 #include "route/route.h"
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
@@ -607,7 +608,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->flow_uuid = FlowTable::rand_gen_();
         flow->egress_uuid = FlowTable::rand_gen_();
         flow->setup_time = UTCTimestampUsec();
-        AgentStats::GetInstance()->IncrFlowCreated();
+        AgentStats::GetInstance()->incr_flow_created();
     }
 
     return flow;
@@ -661,7 +662,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         }
     }
 
-    AgentStats::GetInstance()->IncrFlowAged();
+    AgentStats::GetInstance()->incr_flow_aged();
 }
 
 bool FlowTable::DeleteRevFlow(FlowKey &key, bool rev_flow)
