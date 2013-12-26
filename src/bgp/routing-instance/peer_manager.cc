@@ -229,7 +229,7 @@ void PeerManager::ClearAllPeers() {
         BgpPeer *peer = loc->second;
         ++next;
         RTINSTANCE_LOG_PEER(Clear, instance_, peer,
-            SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+            SandeshLevel::SYS_INFO, RTINSTANCE_LOG_FLAG_ALL);
         peer->Clear();
     }
 }
