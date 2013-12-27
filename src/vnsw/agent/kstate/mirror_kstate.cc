@@ -8,7 +8,7 @@
 
 using namespace std;
 
-MirrorKState::MirrorKState(KMirrorResp *obj, std::string resp_ctx,
+MirrorKState::MirrorKState(KMirrorResp *obj, const std::string &resp_ctx,
     vr_mirror_req &req, int id): KState(resp_ctx, obj) {
 
     req.set_mirr_index(id);
@@ -25,13 +25,13 @@ void MirrorKState::SendNextRequest() {
 
     req.set_mirr_index(0);
     req.set_h_op(sandesh_op::DUMP);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_mirr_marker(idx);
     EncodeAndSend(req);
 }
 
 void MirrorKState::Handler() {
-    KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
+    KMirrorResp *resp = static_cast<KMirrorResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more nexthops in Kernel. We need to query them from 
@@ -40,24 +40,24 @@ void MirrorKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
 
 void MirrorKState::SendResponse() {
 
-    KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KMirrorResp *resp = static_cast<KMirrorResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KMirrorResp();
+    response_object_ = new KMirrorResp();
 }
 
-string MirrorKState::FlagsToString(int flags) {
+const string MirrorKState::FlagsToString(int flags) const {
     if (flags == 0) {
         return "NIL";
     }

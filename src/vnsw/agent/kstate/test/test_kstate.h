@@ -49,7 +49,7 @@ public:
     virtual void Handler() {
         BaseHandler();
         if (verify_idx_ != -1) {
-            KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+            KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
             if (resp) {
                 vector<KInterfaceInfo> &list = 
@@ -88,13 +88,13 @@ public:
     }
 
     ~TestIfKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
-           resp_obj_ = NULL;
+        if (response_object_) {
+           response_object_->Release();
+           response_object_ = NULL;
         }
     }
     virtual void UpdateFetchCount() {
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+        KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
         if (resp) {
             vector<KInterfaceInfo> &list = 
                 const_cast<std::vector<KInterfaceInfo>&>(resp->get_if_list());
@@ -117,7 +117,7 @@ public:
     virtual void Handler() {
         BaseHandler();
         if (verify_idx_ != -1) {
-            KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+            KNHResp *resp = static_cast<KNHResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
             if (resp) {
                 vector<KNHInfo> &list = 
@@ -158,12 +158,12 @@ public:
         singleton_->EncodeAndSend(req);
     }
     ~TestNHKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
+        if (response_object_) {
+           response_object_->Release();
         }
     }
     virtual void UpdateFetchCount() {
-        KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+        KNHResp *resp = static_cast<KNHResp *>(response_object_);
         if (resp) {
             vector<KNHInfo> &list = 
                 const_cast<std::vector<KNHInfo>&>(resp->get_nh_list());
@@ -185,7 +185,7 @@ public:
     virtual void Handler() {
         BaseHandler();
         if (verify_idx_ != -1) {
-            KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
+            KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
             if (resp) {
                 vector<KMplsInfo> &list = 
@@ -225,12 +225,12 @@ public:
         singleton_->EncodeAndSend(req);
     }
     ~TestMplsKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
+        if (response_object_) {
+           response_object_->Release();
         }
     }
     virtual void UpdateFetchCount() {
-        KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
+        KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
         if (resp) {
             vector<KMplsInfo> &list = 
                 const_cast<std::vector<KMplsInfo>&>(resp->get_mpls_list());
@@ -252,7 +252,7 @@ public:
     virtual void Handler() {
         BaseHandler();
         if (verify_idx_ != -1) {
-            KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
+            KMirrorResp *resp = static_cast<KMirrorResp *>(response_object_);
             EXPECT_TRUE(resp != NULL);
             if (resp) {
                 vector<KMirrorInfo> &list = 
@@ -292,12 +292,12 @@ public:
         singleton_->EncodeAndSend(req);
     }
     ~TestMirrorKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
+        if (response_object_) {
+           response_object_->Release();
         }
     }
     virtual void UpdateFetchCount() {
-        KMirrorResp *resp = static_cast<KMirrorResp *>(resp_obj_);
+        KMirrorResp *resp = static_cast<KMirrorResp *>(response_object_);
         if (resp) {
             vector<KMirrorInfo> &list = 
                 const_cast<std::vector<KMirrorInfo>&>(resp->get_mirror_list());
@@ -316,8 +316,8 @@ public:
                     encoder, id), TestKStateBase(vrfy, count, id) {}
     virtual void SendResponse() {
         UpdateFetchCount();
-        //Update the resp_obj_ with empty list
-        KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+        //Update the response_object_ with empty list
+        KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         vector<KRouteInfo> list;
         resp->set_rt_list(list);
     }
@@ -325,12 +325,12 @@ public:
     virtual void Handler() {
         RouteContext *rctx = NULL;
 
-        KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+        KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         if (resp) {
-            if (more_ctx_) {
-                rctx = static_cast<RouteContext *>(more_ctx_);
+            if (more_context_) {
+                rctx = static_cast<RouteContext *>(more_context_);
             }   
-            if (k_resp_code_ > 0) {
+            if (vr_response_code_ > 0) {
                /* There are more routes in Kernel. We need to query them from 
                 * Kernel and send it to Sandesh.
                 */
@@ -343,12 +343,12 @@ public:
                 handler_count_++;
                 if (rctx) {
                     delete rctx;
-                    more_ctx_ = NULL;
+                    more_context_ = NULL;
                 }
             }
 
             /* Send the next request to Kernel to query for next set of routes */
-            if ((k_resp_code_ > 0) && rctx) {
+            if ((vr_response_code_ > 0) && rctx) {
                 vr_route_req req;
                 InitEncoder(req, rctx->vrf_id);
                 req.set_rtr_marker(rctx->marker);
@@ -371,12 +371,12 @@ public:
         singleton_->EncodeAndSend(req);
     }
     ~TestRouteKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
+        if (response_object_) {
+           response_object_->Release();
         }
     }
     virtual void UpdateFetchCount() {
-        KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+        KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         if (resp) {
             vector<KRouteInfo> &list = 
                 const_cast<std::vector<KRouteInfo>&>(resp->get_rt_list());
@@ -403,10 +403,13 @@ private:
 
 class TestFlowKState: public FlowKState, public TestKStateBase {
 public:
-    TestFlowKState(bool ve, int count, KFlowResp *obj, std::string resp_ctx, int idx) :
-                   FlowKState(obj, resp_ctx, idx), TestKStateBase(ve, count, -1) {}
-    void SendResponse() {
-        UpdateFetchCount();
+    TestFlowKState(bool ve, int count, std::string resp_ctx, int idx) :
+                   FlowKState(resp_ctx, idx), TestKStateBase(ve, count, -1) {}
+    void SendResponse(KFlowResp *resp) {
+        //UpdateFetchCount();
+        vector<KFlowInfo> &list =
+                const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
+        fetched_count_ += list.size();
         handler_count_++;
         if (verify_) {
             EXPECT_EQ(expected_count_, fetched_count_);
@@ -414,21 +417,19 @@ public:
     }
     void SendPartialResponse() { }
     static void Init(bool verify, int idx, int count = 0) {
-        KFlowResp *resp = new KFlowResp();
-
         // The following object is deleted in KStateIoContext::Handler() 
         // after the Handler is invoked.
-        singleton_ = new TestFlowKState(verify, count, resp, "dummy", idx); 
+        singleton_ = new TestFlowKState(verify, count, "dummy", idx); 
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
         scheduler->Enqueue(singleton_);
     }
 
 private:
     void UpdateFetchCount() {
-        KFlowResp *resp = resp_obj_;
+        /*KFlowResp *resp = response_object_;
         vector<KFlowInfo> &list =
                 const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
-        fetched_count_ += list.size();
+        fetched_count_ += list.size();*/
     }
     static TestFlowKState *singleton_;
 };

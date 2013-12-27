@@ -7,7 +7,8 @@
 
 class VxLanKState: public KState {
 public:
-    VxLanKState(KVxLanResp *obj, std::string resp_ctx, vr_vxlan_req &req, int id);
+    VxLanKState(KVxLanResp *obj, const std::string &resp_ctx,
+                vr_vxlan_req &req, int id);
     virtual void SendResponse();
     virtual void Handler();
     virtual void SendNextRequest();

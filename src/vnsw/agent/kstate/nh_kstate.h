@@ -7,16 +7,16 @@
 
 class NHKState: public KState {
 public:
-    NHKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, 
-             int id);
+    NHKState(KNHResp *obj, const std::string &resp_ctx, 
+             vr_nexthop_req &encoder, int id);
     virtual void SendResponse();
     virtual void Handler();
     virtual void SendNextRequest();
-    static std::string TypeToString(int type);
-    static std::string FamilyToString(int family);
-    static std::string FlagsToString(short flags);
-    static std::string EncapFamilyToString(int family);
-    static std::string EncapToString(const std::vector<signed char> &encap);
+    const std::string TypeToString(int type) const;
+    const std::string FamilyToString(int family) const;
+    const std::string FlagsToString(short flags) const;
+    const std::string EncapFamilyToString(int family) const;
+    const std::string EncapToString(const std::vector<signed char> &encap) const;
     void SetComponentNH(vr_nexthop_req *req, KNHInfo &info);
 };
 

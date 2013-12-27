@@ -56,14 +56,14 @@ public:
     DumpIntfKState(KInterfaceResp *obj, std::string resp_ctx, vr_interface_req &encoder, int id): 
                  InterfaceKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
-        //Update the resp_obj_ with empty list
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+        //Update the response_object_ with empty list
+        KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
         vector<KInterfaceInfo> list;
         resp->set_if_list(list);
     }
 
     virtual void Handler() {
-        KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+        KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
             vector<KInterfaceInfo> &list = 
@@ -80,7 +80,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
@@ -97,9 +97,9 @@ public:
     }
 
     ~DumpIntfKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
-           resp_obj_ = NULL;
+        if (response_object_) {
+           response_object_->Release();
+           response_object_ = NULL;
         }
     }
 
@@ -156,14 +156,14 @@ public:
     DumpRouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, int id): 
                     RouteKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
-        //Update the resp_obj_ with empty list
-        KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+        //Update the response_object_ with empty list
+        KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         vector<KRouteInfo> list;
         resp->set_rt_list(list);
     }
 
     virtual void Handler() {
-        KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+        KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
             vector<KRouteInfo> &list = 
@@ -180,10 +180,10 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
+                RouteContext *rctx = static_cast<RouteContext *>(more_context_);
                 if (rctx) {
                     delete rctx;
-                    more_ctx_ = NULL;
+                    more_context_ = NULL;
                 }
             }
         }
@@ -201,9 +201,9 @@ public:
     }
 
     ~DumpRouteKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
-           resp_obj_ = NULL;
+        if (response_object_) {
+           response_object_->Release();
+           response_object_ = NULL;
         }
     }
 
@@ -238,14 +238,14 @@ public:
     DumpNhKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &encoder, int id): 
                  NHKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
-        //Update the resp_obj_ with empty list
-        KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+        //Update the response_object_ with empty list
+        KNHResp *resp = static_cast<KNHResp *>(response_object_);
         vector<KNHInfo> list;
         resp->set_nh_list(list);
     }
 
     virtual void Handler() {
-        KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+        KNHResp *resp = static_cast<KNHResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
             vector<KNHInfo> &list = 
@@ -264,7 +264,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
@@ -281,9 +281,9 @@ public:
     }
 
     ~DumpNhKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
-           resp_obj_ = NULL;
+        if (response_object_) {
+           response_object_->Release();
+           response_object_ = NULL;
         }
     }
 
@@ -318,14 +318,14 @@ public:
     DumpMplsKState(KMplsResp *obj, std::string resp_ctx, vr_mpls_req &encoder, int id): 
                  MplsKState(obj, resp_ctx, encoder, id) {}
     virtual void SendResponse() {
-        //Update the resp_obj_ with empty list
-        KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
+        //Update the response_object_ with empty list
+        KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
         vector<KMplsInfo> list;
         resp->set_mpls_list(list);
     }
 
     virtual void Handler() {
-        KMplsResp *resp = static_cast<KMplsResp *>(resp_obj_);
+        KMplsResp *resp = static_cast<KMplsResp *>(response_object_);
         EXPECT_TRUE(resp != NULL);
         if (resp) {
             vector<KMplsInfo> &list = 
@@ -344,7 +344,7 @@ public:
                 SendNextRequest();
             } else {
                 table_->initializing_ = false;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
@@ -361,9 +361,9 @@ public:
     }
 
     ~DumpMplsKState() {
-        if (resp_obj_) {
-           resp_obj_->Release();
-           resp_obj_ = NULL;
+        if (response_object_) {
+           response_object_->Release();
+           response_object_ = NULL;
         }
     }
 
