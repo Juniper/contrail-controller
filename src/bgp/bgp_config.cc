@@ -4,6 +4,8 @@
 
 #include "bgp/bgp_config.h"
 
+#include <vector>
+
 #include <boost/bind.hpp>
 #include <boost/foreach.hpp>
 
@@ -12,6 +14,7 @@
 #include "base/util.h"
 #include "bgp/bgp_config_listener.h"
 #include "bgp/bgp_factory.h"
+#include "bgp/bgp_log.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/ifmap_table.h"
 
@@ -588,6 +591,12 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
 //
 void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
                                     BgpNeighborConfig *neighbor) {
+    vector<string> families(
+        neighbor->session_attributes().address_families.begin(),
+        neighbor->session_attributes().address_families.end());
+    BGP_CONFIG_LOG_NEIGHBOR(Create, manager->server(), neighbor,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
+        families);
     neighbors_.insert(make_pair(neighbor->name(), neighbor));
     manager->Notify(neighbor, BgpConfigManager::CFG_ADD);
 }
@@ -597,6 +606,12 @@ void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
 //
 void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
+    vector<string> families(
+        neighbor->session_attributes().address_families.begin(),
+        neighbor->session_attributes().address_families.end());
+    BGP_CONFIG_LOG_NEIGHBOR(Update, manager->server(), neighbor,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL, neighbor->peer_as(),
+        families);
     manager->Notify(neighbor, BgpConfigManager::CFG_CHANGE);
 }
 
@@ -609,6 +624,8 @@ void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
 //
 void BgpInstanceConfig::NeighborDelete(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
+    BGP_CONFIG_LOG_NEIGHBOR(Delete, manager->server(), neighbor,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
     manager->Notify(neighbor, BgpConfigManager::CFG_DELETE);
     neighbors_.erase(neighbor->name());
 }
@@ -728,8 +745,8 @@ BgpPeeringConfig *BgpConfigData::FindPeering(const string &name) {
 //
 // Constructor for BgpConfigManager.
 //
-BgpConfigManager::BgpConfigManager()
-        : db_(NULL), db_graph_(NULL),
+BgpConfigManager::BgpConfigManager(BgpServer *server)
+        : db_(NULL), db_graph_(NULL), server_(server),
           trigger_(boost::bind(&BgpConfigManager::ConfigHandler, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::Config"),
                    kConfigTaskInstanceId),
@@ -791,6 +808,22 @@ void BgpConfigManager::DefaultConfig() {
     Notify(rti, BgpConfigManager::CFG_ADD);
     BgpProtocolConfig *localnode = rti->BgpConfigLocate();
     localnode->Update(this, bgp_config.release());
+
+    vector<string> import_rt;
+    vector<string> export_rt;
+    BGP_CONFIG_LOG_INSTANCE(Create, server_, rti,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        import_rt, export_rt,
+        rti->virtual_network(), rti->virtual_network_index());
+
+    vector<string> families(
+        localnode->router_params().address_families.begin(),
+        localnode->router_params().address_families.end());
+    BGP_CONFIG_LOG_PROTOCOL(Create, server_, localnode,
+        SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+        localnode->router_params().autonomous_system,
+        localnode->router_params().identifier,
+        localnode->router_params().address, families);
 }
 
 //
@@ -858,6 +891,8 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
         } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
             rti->ResetConfig();
             if (rti->DeleteIfEmpty(this)) {
+                BGP_CONFIG_LOG_INSTANCE(Delete, server_, rti,
+                    SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
                 config_->DeleteInstance(rti);
             }
             return;
@@ -868,6 +903,22 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
         static_cast<autogen::RoutingInstance *>(delta.obj.get());
     rti->Update(this, rti_config);
     Notify(rti, event);
+
+    vector<string> import_rt(rti->import_list().begin(),
+                             rti->import_list().end());
+    vector<string> export_rt(rti->export_list().begin(),
+                             rti->export_list().end());
+    if (event == BgpConfigManager::CFG_ADD) {
+        BGP_CONFIG_LOG_INSTANCE(Create, server_, rti,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            import_rt, export_rt,
+            rti->virtual_network(), rti->virtual_network_index());
+    } else {
+        BGP_CONFIG_LOG_INSTANCE(Update, server_, rti,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            import_rt, export_rt,
+            rti->virtual_network(), rti->virtual_network_index());
+    }
 }
 
 //
@@ -905,6 +956,7 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
         event = BgpConfigManager::CFG_ADD;
         if (rti == NULL) {
             rti = config_->LocateInstance(instance_name);
+            Notify(rti, BgpConfigManager::CFG_ADD);
         }
         bgp_config = rti->BgpConfigLocate();
         bgp_config->SetNodeProxy(proxy);
@@ -918,6 +970,8 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             }
             bgp_config->SetNodeProxy(delta.node.get());
         } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
+            BGP_CONFIG_LOG_PROTOCOL(Delete, server_, bgp_config,
+                SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
             bgp_config->Delete(this);
             rti->BgpConfigReset();
             if (rti->DeleteIfEmpty(this)) {
@@ -931,6 +985,23 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
         static_cast<autogen::BgpRouter *>(delta.obj.get());
     bgp_config->Update(this, rt_config);
     Notify(bgp_config, event);
+
+    vector<string> families(
+        bgp_config->router_params().address_families.begin(),
+        bgp_config->router_params().address_families.end());
+    if (event == BgpConfigManager::CFG_ADD) {
+        BGP_CONFIG_LOG_PROTOCOL(Create, server_, bgp_config,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            bgp_config->router_params().autonomous_system,
+            bgp_config->router_params().identifier,
+            bgp_config->router_params().address, families);
+    } else if (bgp_config->bgp_router()) {
+        BGP_CONFIG_LOG_PROTOCOL(Update, server_, bgp_config,
+            SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
+            bgp_config->router_params().autonomous_system,
+            bgp_config->router_params().identifier,
+            bgp_config->router_params().address, families);
+    }
 }
 
 //
