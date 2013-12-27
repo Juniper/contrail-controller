@@ -24,32 +24,27 @@
 #include "kstate/kstate_types.h"
 #include "nl_util.h"
 
-
 class KState : public AgentSandeshContext {
 public:
-    static const int KMaxEntriesPerResponse = 100;
-    KState(std::string s, Sandesh *obj) : response_context_(s), 
+    static const int kMaxEntriesPerResponse = 100;
+    KState(const std::string &s, Sandesh *obj) : response_context_(s), 
         response_object_(obj), vr_response_code_(0), more_context_(NULL) {}
 
     void EncodeAndSend(Sandesh &encoder);
     virtual void SendResponse() = 0;
     virtual void SendNextRequest() = 0;
     virtual void Handler() = 0;
-    void UpdateContext(void *);
-    /* The following API is invoked from agent main to make sure that this library is 
-     * linked with agent */
-    static void Init();
     virtual void Release() {
         if (response_object_) {
             response_object_->Release();
             response_object_ = NULL;
         }
     }
-    std::string response_context() { return response_context_; }
-    Sandesh *response_object() { return response_object_; }
-    void *more_context() { return more_context_; }
-    void vr_response_code(int value) { vr_response_code_ = value; }
-    bool MoreData();
+    const std::string response_context() const { return response_context_; }
+    Sandesh *response_object() const { return response_object_; }
+    void *more_context() const { return more_context_; }
+    void set_vr_response_code(int value) { vr_response_code_ = value; }
+    bool MoreData() const;
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req);
     virtual void RouteMsgHandler(vr_route_req *req);
@@ -66,6 +61,8 @@ protected:
     Sandesh *response_object_;
     int vr_response_code_; /* response code from kernel */
     void *more_context_; /* context to hold marker info */
+private:
+    void UpdateContext(void *);
 };
 
 #endif // vnsw_agent_kstate_h

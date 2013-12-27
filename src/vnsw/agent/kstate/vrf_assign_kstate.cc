@@ -5,7 +5,8 @@
 #include "kstate.h"
 #include "vrf_assign_kstate.h"
 
-VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj, std::string resp_ctx,
+VrfAssignKState::VrfAssignKState(KVrfAssignResp *obj, 
+                                 const std::string &resp_ctx,
                                  vr_vrf_assign_req &req, int id) : 
     KState(resp_ctx, obj) {
 

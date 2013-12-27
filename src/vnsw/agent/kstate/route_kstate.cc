@@ -9,13 +9,13 @@
 
 using namespace std;
 
-RouteKState::RouteKState(KRouteResp *obj, std::string resp_ctx, 
-                              vr_route_req &req, int id) :
-                              KState(resp_ctx, obj) {
+RouteKState::RouteKState(KRouteResp *obj, const std::string &resp_ctx, 
+                         vr_route_req &req, int id) :
+                         KState(resp_ctx, obj) {
     InitEncoder(req, id);
 }
 
-void RouteKState::InitEncoder(vr_route_req &req, int id) {
+void RouteKState::InitEncoder(vr_route_req &req, int id) const {
     req.set_rtr_family(AF_INET);
     req.set_rtr_vrf_id(id);
     req.set_rtr_rid(0);
@@ -64,7 +64,7 @@ void RouteKState::SendResponse() {
     response_object_ = new KRouteResp();
 }
 
-string RouteKState::FamilyToString(int nh_family) {
+const string RouteKState::FamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
         case AF_INET:
@@ -74,7 +74,7 @@ string RouteKState::FamilyToString(int nh_family) {
     }
 }
 
-string RouteKState::LabelFlagsToString(int flags) {
+const string RouteKState::LabelFlagsToString(int flags) const {
     if (flags == 0) {
         return "--NONE--";
     }

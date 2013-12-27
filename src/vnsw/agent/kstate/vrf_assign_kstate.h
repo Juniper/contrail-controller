@@ -7,7 +7,7 @@
 
 class VrfAssignKState: public KState {
 public:
-    VrfAssignKState(KVrfAssignResp *obj, std::string resp_ctx,
+    VrfAssignKState(KVrfAssignResp *obj, const std::string &resp_ctx,
                     vr_vrf_assign_req &req, int id);
     virtual void SendResponse();
     virtual void Handler();

@@ -10,9 +10,9 @@
 
 using namespace std;
 
-InterfaceKState::InterfaceKState(KInterfaceResp *obj, std::string resp_ctx, 
+InterfaceKState::InterfaceKState(KInterfaceResp *obj, const std::string &ctx,
                                  vr_interface_req &req, int id) : 
-                                 KState(resp_ctx, obj) {
+                                 KState(ctx, obj) {
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
         req.set_vifr_idx(id);    
@@ -22,7 +22,7 @@ InterfaceKState::InterfaceKState(KInterfaceResp *obj, std::string resp_ctx,
     }
 }
 
-void InterfaceKState::InitDumpRequest(vr_interface_req &req) {
+void InterfaceKState::InitDumpRequest(vr_interface_req &req) const {
     req.set_h_op(sandesh_op::DUMP);
     req.set_vifr_idx(0);
 }
@@ -62,7 +62,7 @@ void InterfaceKState::SendResponse() {
     response_object_ = new KInterfaceResp();
 }
 
-string InterfaceKState::TypeToString(int if_type) {
+const string InterfaceKState::TypeToString(int if_type) const {
     unsigned short type = if_type;
     switch(type) {
         case VIF_TYPE_HOST:
@@ -78,7 +78,7 @@ string InterfaceKState::TypeToString(int if_type) {
     }
 }
 
-string InterfaceKState::FlagsToString(int flags) {
+const string InterfaceKState::FlagsToString(int flags) const {
     string str("");;
     if (flags == 0) {
         return "NIL";
@@ -95,7 +95,8 @@ string InterfaceKState::FlagsToString(int flags) {
     return str;
 }
 
-string InterfaceKState::MacToString(const vector<signed char> &mac) {
+const string InterfaceKState::MacToString(const vector<signed char> &mac) 
+    const {
     ostringstream strm;
     strm << hex << setfill('0') << setw(2) << (int)((uint8_t) mac.at(0)) << ":" 
          << setw(2) << (int)((uint8_t) mac.at(1)) << ":" << setw(2) 

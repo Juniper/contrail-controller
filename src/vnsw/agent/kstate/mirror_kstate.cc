@@ -8,7 +8,7 @@
 
 using namespace std;
 
-MirrorKState::MirrorKState(KMirrorResp *obj, std::string resp_ctx,
+MirrorKState::MirrorKState(KMirrorResp *obj, const std::string &resp_ctx,
     vr_mirror_req &req, int id): KState(resp_ctx, obj) {
 
     req.set_mirr_index(id);
@@ -57,7 +57,7 @@ void MirrorKState::SendResponse() {
     response_object_ = new KMirrorResp();
 }
 
-string MirrorKState::FlagsToString(int flags) {
+const string MirrorKState::FlagsToString(int flags) const {
     if (flags == 0) {
         return "NIL";
     }

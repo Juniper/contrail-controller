@@ -5,7 +5,7 @@
 #include "kstate.h"
 #include "mpls_kstate.h"
 
-MplsKState::MplsKState(KMplsResp *obj, std::string resp_ctx, 
+MplsKState::MplsKState(KMplsResp *obj, const std::string &resp_ctx, 
                        vr_mpls_req &req, int id) : KState(resp_ctx, obj) {
     req.set_mr_label(id);
     if (id >= 0) {

@@ -10,7 +10,7 @@
 
 using namespace std;
 
-VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, std::string resp_ctx, 
+VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx,
                                vr_vrf_stats_req &req, int id) : 
                                KState(resp_ctx, obj) {
     if (id >= 0) {
@@ -24,7 +24,7 @@ VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, std::string resp_ctx,
     }
 }
 
-void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) {
+void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) const {
     req.set_h_op(sandesh_op::DUMP);
     req.set_vsr_rid(0);
     req.set_vsr_family(AF_INET);
@@ -66,7 +66,7 @@ void VrfStatsKState::SendResponse() {
     response_object_ = new KVrfStatsResp();
 }
 
-string VrfStatsKState::TypeToString(int vrf_stats_type) {
+const string VrfStatsKState::TypeToString(int vrf_stats_type) const {
     unsigned short type = vrf_stats_type;
     switch(type) {
         case RT_UCAST:
@@ -78,7 +78,7 @@ string VrfStatsKState::TypeToString(int vrf_stats_type) {
     }
 }
 
-string VrfStatsKState::FamilyToString(int vrf_family) {
+const string VrfStatsKState::FamilyToString(int vrf_family) const {
     unsigned family = vrf_family;
     switch(family) {
         case AF_INET:

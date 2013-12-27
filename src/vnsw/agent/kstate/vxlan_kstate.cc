@@ -5,8 +5,8 @@
 #include "kstate.h"
 #include "vxlan_kstate.h"
 
-VxLanKState::VxLanKState(KVxLanResp *obj, std::string resp_ctx, 
-                       vr_vxlan_req &req, int id) : KState(resp_ctx, obj) {
+VxLanKState::VxLanKState(KVxLanResp *obj, const std::string &resp_ctx, 
+                         vr_vxlan_req &req, int id) : KState(resp_ctx, obj) {
     req.set_vxlanr_vnid(id);
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
