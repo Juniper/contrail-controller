@@ -33,3 +33,9 @@ libnova_ins = env.Library('nova_ins',
 subdirs = ['test']
 for dir in subdirs:
     env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)
+
+# Copy python code
+env.SConscript('nova_contrail_vif/SConscript',
+               exports='AgentEnv',
+               variant_dir='build',
+               duplicate=1)
