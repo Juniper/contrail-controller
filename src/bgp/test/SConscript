@@ -119,6 +119,10 @@ bgp_config_listener_test = config_test_env.UnitTest('bgp_config_listener_test',
                                                     ['bgp_config_listener_test.cc'])
 env.Alias('src/bgp:bgp_config_listener_test', bgp_config_listener_test)
 
+bgp_config_manager_test = config_test_env.UnitTest('bgp_config_manager_test',
+                                                   ['bgp_config_manager_test.cc'])
+env.Alias('src/bgp:bgp_config_manager_test', bgp_config_manager_test)
+
 bgp_config_test = config_test_env.UnitTest('bgp_config_test',
                                            ['bgp_config_test.cc'])
 env.Alias('src/bgp:bgp_config_test', bgp_config_test)
@@ -286,6 +290,8 @@ env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 test_suite = [
     bgp_attr_test,
     bgp_condition_listener_test,
+    bgp_config_listener_test,
+    bgp_config_manager_test,
     bgp_config_test,
     bgp_export_nostate_test,
     bgp_export_rstate_test,
