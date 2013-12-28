@@ -239,7 +239,7 @@ private:
     bool FlagIsSet(Flag flag) const { return flags_ & (1 << flag); }
     void FlagSet(Flag flag) { flags_ |= (1 << flag); }
     void FlagReset(Flag flag) { flags_ &= ~(1 << flag); }
-    
+
     tbb::mutex mutex_;
     BgpRoute *route_;
     int8_t queue_id_;

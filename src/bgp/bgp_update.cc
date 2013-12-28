@@ -96,21 +96,61 @@ void RouteUpdate::ResetUpdateInfo(RibPeerSet &peerset) {
 }
 
 //
-// Compare the list of UpdateInfo elements in the RouteUpdate with the
-// given list. Uses brute force since the lists will typically contain
-// just a single element.
+// Compare this RouteUpdate with the UpdateInfo elements in the given list.
+// The UpdateInfos and AdvertiseInfos in the RouteUpdate represent the old
+// state and the UpdateInfoSList represents the new state.
 //
-// Return true if the lists are logically the same.
+// Uses brute force since the UpdateInfo and AdvertiseInfo lists typically
+// contain just a single element.
+//
+// Return true if the information in the RouteUpdate is logically the same
+// as that in the UpdateInfoSList.
 //
 bool RouteUpdate::CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const {
-    if (updates_->size() != uinfo_slist->size())
-        return false;
+    RibPeerSet old_update_peerset, old_peerset, new_peerset;
+
+    // Compare the peerset from all UpdateInfos and AdvertiseInfos in the
+    // RouteUpdate (the old peerset) to the peerset from all UpdateInfos in
+    // the UpdateInfoSList (the new peerset).
+    for (UpdateInfoSList::List::const_iterator iter = updates_->begin();
+         iter != updates_->end(); ++iter) {
+        old_update_peerset.Set(iter->target);
+        old_peerset.Set(iter->target);
+    }
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); ++iter) {
+        old_peerset.Set(iter->bitset);
+    }
     for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
          iter != uinfo_slist->end(); ++iter) {
+        new_peerset.Set(iter->target);
+    }
+    if (old_peerset != new_peerset)
+        return false;
+
+    // Compare the peerset for each UpdateInfo in the UpdateInfoSList to
+    // the peerset for the corresponding UpdateInfo and AdvertiseInfo in
+    // in the RouteUpdate i.e. the ones for the same RibOutAttr.
+    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
+         iter != uinfo_slist->end(); ++iter) {
+        RibPeerSet attr_peerset;
+        RibPeerSet old_other_attr_peerset = old_update_peerset;
+
         const UpdateInfo *uinfo = FindUpdateInfo(iter->roattr);
-        if (!uinfo || uinfo->target != iter->target)
+        if (uinfo) {
+            attr_peerset.Set(uinfo->target);
+            old_other_attr_peerset.Reset(uinfo->target);
+        }
+        const AdvertiseInfo *ainfo = FindHistory(iter->roattr);
+        if (ainfo) {
+            attr_peerset.Set(ainfo->bitset);
+        }
+        if (old_other_attr_peerset.intersects(iter->target))
+            return false;
+        if (iter->target != attr_peerset)
             return false;
     }
+
     return true;
 }
 

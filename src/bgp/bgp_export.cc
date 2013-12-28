@@ -127,23 +127,13 @@ static bool CheckDuplicateUpdateInfo(UpdateInfoSList &uinfo_slist,
 
 //
 // Check if the desired state as expressed by the UpdateInfoSList is exactly
-// the same as the state already stored in the RouteUpdate. This is the case
-// only if the UpdateInfos in the RouteUpdate are the same as those in the
-// given list and there's no peers in the AdvertiseInfos for the RouteUpdate
-// that are not covered by the UpdateInfos.
+// the same as the state already stored in the RouteUpdate.
 //
 // Return true if we have a duplicate, false otherwise.
 //
 static bool IsDuplicate(const RouteUpdate *rt_update,
         const UpdateInfoSList *uinfo_slist) {
-    if (!rt_update->CompareUpdateInfo(*uinfo_slist))
-        return false;
-
-    RibPeerSet peerset;
-    if (BuildWithdrawPeerSet(peerset, *uinfo_slist, rt_update->History()))
-        return false;
-
-    return true;
+    return rt_update->CompareUpdateInfo(*uinfo_slist);
 }
 
 //
