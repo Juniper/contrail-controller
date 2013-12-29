@@ -54,7 +54,7 @@ void IntfKSyncObject::Init(InterfaceTable *table) {
     singleton_ = new IntfKSyncObject(table);
 
     // Get MAC Address for vnsw interface
-    GetPhyMac(Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
+    GetPhyMac(Agent::GetInstance()->vhost_interface_name().c_str(),
               singleton_->vnsw_if_mac);
 }
 
@@ -84,7 +84,7 @@ IntfKSyncEntry::IntfKSyncEntry(const Interface *intf) :
     fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), active_(false),
-    os_index_(intf->os_index()), sub_type_(VirtualHostInterface::HOST),
+    os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
     ipv4_forwarding_(true), layer2_forwarding_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
        
@@ -185,9 +185,8 @@ bool IntfKSyncEntry::Sync(DBEntry *e) {
         }
     }
 
-    if (intf->type() == Interface::VIRTUAL_HOST) {
-        VirtualHostInterface *vhost = 
-            static_cast<VirtualHostInterface *>(intf);
+    if (intf->type() == Interface::INET) {
+        InetInterface *vhost = static_cast<InetInterface *>(intf);
         sub_type_ = vhost->sub_type();
     }
 
@@ -271,12 +270,12 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         break;
     }
 
-    case Interface::VIRTUAL_HOST: {
+    case Interface::INET: {
         switch (sub_type_) {
-        case VirtualHostInterface::GATEWAY:
+        case InetInterface::GATEWAY:
             encoder.set_vifr_type(VIF_TYPE_GATEWAY);
             break;
-        case VirtualHostInterface::LINK_LOCAL:
+        case InetInterface::LINK_LOCAL:
             encoder.set_vifr_type(VIF_TYPE_XEN_LL_HOST);
             break;
         default:

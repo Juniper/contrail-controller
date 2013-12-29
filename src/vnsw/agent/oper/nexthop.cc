@@ -156,7 +156,7 @@ void NextHop::FillObjectLogIntf(const Interface *intf,
         case Interface::PHYSICAL:
             if_type_str.assign("ETH");
             break;
-        case Interface::VIRTUAL_HOST:
+        case Interface::INET:
             if_type_str.assign("VIRTUAL_HOST");
             break;
         case Interface::PACKET:
@@ -485,7 +485,7 @@ void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new VirtualHostInterfaceKey(ifname),
+    NextHopKey *key = new InterfaceNHKey(new InetInterfaceKey(ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -502,7 +502,7 @@ void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
     NextHopKey *key = new InterfaceNHKey
-        (new VirtualHostInterfaceKey(ifname), false,
+        (new InetInterfaceKey(ifname), false,
          InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -861,7 +861,7 @@ void ReceiveNH::CreateReq(const string &interface) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new ReceiveNHKey(new VirtualHostInterfaceKey(interface),
+    NextHopKey *key = new ReceiveNHKey(new InetInterfaceKey(interface),
                                        false);
     req.key.reset(key);
 
@@ -871,7 +871,7 @@ void ReceiveNH::CreateReq(const string &interface) {
 
     DBRequest policy_req;
     policy_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *policy_key = new ReceiveNHKey(new VirtualHostInterfaceKey(
+    NextHopKey *policy_key = new ReceiveNHKey(new InetInterfaceKey(
                                                               interface), true);
     policy_req.key.reset(policy_key);
 

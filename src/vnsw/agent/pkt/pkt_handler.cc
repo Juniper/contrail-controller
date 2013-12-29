@@ -83,7 +83,7 @@ void PktHandler::VnUpdate(DBTablePartBase *part, DBEntryBase *entry) {
     if (vn_entry->Ipv4Forwarding()) {
         rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
                                     vrf_entry->GetName(),
-                                    Agent::GetInstance()->GetVirtualHostInterfaceName(),
+                                    Agent::GetInstance()->vhost_interface_name(),
                                     Ip4Address(METADATA_IP_ADDR), 32,
                                     Agent::GetInstance()->GetLinkLocalVnName(),
                                     true);
@@ -112,16 +112,6 @@ void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
             rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), vrf_entry->GetName(),
                                 Ip4Address(METADATA_IP_ADDR), 32);
         }
-#if 0
-        } else {
-            rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
-                                        vrf_entry->GetName(),
-                                        Agent::GetInstance()->GetVirtualHostInterfaceName(),
-                                        Ip4Address(METADATA_IP_ADDR), 32,
-                                        Agent::GetInstance()->GetLinkLocalVnName(),
-                                        true);
-        }
-#endif
     }
 }
 

@@ -551,7 +551,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     // Flow packets are expected only on VMPort interfaces
     if (in->intf_->type() != Interface::VM_INTERFACE &&
-        in->intf_->type() != Interface::VIRTUAL_HOST) {
+        in->intf_->type() != Interface::INET) {
         LogError(pkt, "Unexpected packet on Non-VM interface");
         return;
     }
@@ -819,7 +819,7 @@ bool FlowHandler::Run() {
         info.dest_vn = FlowHandler::UnknownVn();
 
     if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
-                     (in.intf_->type() != Interface::VIRTUAL_HOST))) {
+                     (in.intf_->type() != Interface::INET))) {
         in.intf_ = NULL;
     }
 

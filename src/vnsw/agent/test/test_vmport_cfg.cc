@@ -1163,9 +1163,9 @@ TEST_F(CfgTest, Basic_1) {
     PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
-    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                                     "vhost10", Agent::GetInstance()->GetDefaultVrf(),
-                                   VirtualHostInterface::HOST);
+                                   InetInterface::VHOST);
     client->WaitForIdle();
 
     AddVn("vn5", 5);
@@ -1243,7 +1243,7 @@ TEST_F(CfgTest, Basic_1) {
     sand_4->DoSandesh();
     client->WaitForIdle();
 
-    VirtualHostInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
+    InetInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
                                     "vhost10");
     client->WaitForIdle();
     PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(),
