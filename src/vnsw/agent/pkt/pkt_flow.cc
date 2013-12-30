@@ -421,8 +421,8 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     const VmInterface *vm_port = 
         static_cast<const VmInterface *>(out->intf_);
-    const VmInterface::FloatingIpList &fip_list =
-        vm_port->floating_ip_list();
+    const VmInterface::FloatingIpSet &fip_list =
+        vm_port->floating_ip_list().list_;
 
     // We must NAT if the IP-DA is not same as Primary-IP on interface
     if (pkt->ip_daddr == vm_port->ip_addr().to_ulong()) {
@@ -430,7 +430,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Look for matching floating-ip
-    VmInterface::FloatingIpList::const_iterator it = fip_list.begin();
+    VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     for ( ; it != fip_list.end(); ++it) {
 
         if (it->vrf_.get() == NULL) {
@@ -479,8 +479,8 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     const VmInterface *intf = 
         static_cast<const VmInterface *>(in->intf_);
-    const VmInterface::FloatingIpList &fip_list = intf->floating_ip_list();
-    VmInterface::FloatingIpList::const_iterator it = fip_list.begin();
+    const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
+    VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {

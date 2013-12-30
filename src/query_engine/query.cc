@@ -23,6 +23,7 @@ using std::string;
 using boost::assign::map_list_of;
 
 GenDb::GenDbIf* query_result_unit_t::dbif = NULL;
+int QueryEngine::max_slice_ = 100;
 
 typedef  std::vector< std::pair<std::string, std::string> > spair_vector;
 static spair_vector query_string_to_column_name(0);
@@ -468,12 +469,17 @@ void AnalyticsQuery::Init(GenDb::GenDbIf *db_if, std::string qid,
     original_end_time = end_time;
 
     if (can_parallelize_query()) {
+        uint64_t smax = pow(2,g_viz_constants.RowTimeInBits) * \
+              QueryEngine::max_slice_;
+
         time_slice = ((end_time - from_time)/total_parallel_batches) + 1;
 
         if (time_slice < (uint64_t)pow(2,g_viz_constants.RowTimeInBits)) {
             time_slice = pow(2,g_viz_constants.RowTimeInBits);
-        } 
-
+        }
+        if (time_slice > smax) {
+            time_slice = smax;
+        }          
         // Adjust the time_slice for Flowseries query, if time granularity is 
         // specified. Divide the query based on the time granularity.
         if (selectquery_->provide_timeseries && selectquery_->granularity) {
@@ -971,12 +977,13 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_chunks) :    
+            int max_tasks, int max_slice) :    
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port, max_chunks)),
+            this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
         cassandra_port_(0)
-{ 
+{
+    max_slice_ =  max_slice;
     init_vizd_tables();
 
     // Initialize database connection
@@ -992,16 +999,17 @@ QueryEngine::QueryEngine(EventManager *evm,
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & cassandra_ip, unsigned short cassandra_port,
             const std::string & redis_ip, unsigned short redis_port,
-            int max_chunks, uint64_t start_time) :    
+            int max_tasks, int max_slice, uint64_t start_time) :    
         dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(), 
             boost::bind(&QueryEngine::db_err_handler, this),
             cassandra_ip, cassandra_port, 0, "QueryEngine")),
         qosp_(new QEOpServerProxy(evm,
-            this, redis_ip, redis_port, max_chunks)),
+            this, redis_ip, redis_port, max_tasks)),
         evm_(evm),
         cassandra_port_(cassandra_port),
         cassandra_ip_(cassandra_ip)
-{ 
+{
+    max_slice_ = max_slice;
     init_vizd_tables();
 
     // Initialize database connection

@@ -127,10 +127,26 @@ void PostProcessingQuery::fs_tuple_stats_merge_processing(
         const QEOpServerProxy::BufferT *raw_result, 
         QEOpServerProxy::BufferT *merged_result,
         fcid_rrow_map_t *fcid_rrow_map) {
-    if (!raw_result->size()) {
-        return;
-    }
 
+    for (size_t r = 0; r < merged_result->size(); ++r) {
+        const QEOpServerProxy::ResultRowT& rresult_row = merged_result->at(r);
+        const QEOpServerProxy::OutRowT& ro_row = rresult_row.first;
+        QEOpServerProxy::OutRowT::const_iterator rfc_it = 
+            rresult_row.first.find(SELECT_FLOW_CLASS_ID);
+        assert(rfc_it != ro_row.end());
+        uint64_t rfc_id = 0;
+        stringToInteger(rfc_it->second, rfc_id);
+        if (fcid_rrow_map->find(rfc_id) == fcid_rrow_map->end()) {
+            // flow_class_id rfc_id not found, add the result row to the map
+            fcid_rrow_map->insert(std::pair<uint64_t, 
+                QEOpServerProxy::ResultRowT>(rfc_id, rresult_row));
+        } else {
+            // found an existing flow class id in the map
+            QEOpServerProxy::ResultRowT& mresult_row = 
+                (fcid_rrow_map->find(rfc_id))->second;
+            fs_merge_stats(rresult_row, mresult_row);
+        }
+    }
     for (size_t r = 0; r < raw_result->size(); ++r) {
         const QEOpServerProxy::ResultRowT& rresult_row = raw_result->at(r);
         const QEOpServerProxy::OutRowT& ro_row = rresult_row.first;
@@ -181,6 +197,7 @@ bool PostProcessingQuery::merge_processing(
         fcid_rrow_map_t fcid_rrow_map;
         if (flowseries_merge_processing(&input, &output, &fcid_rrow_map)) {
             if (fcid_rrow_map.size() != 0) {
+                output.clear();
                 for(fcid_rrow_map_t::iterator it = fcid_rrow_map.begin(); it != fcid_rrow_map.end(); ++it ) {
                     output.push_back(it->second);
                 }

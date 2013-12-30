@@ -13,6 +13,7 @@ struct Port {
     7:optional string display_name,
     8:optional string hostname,
     9:optional string host; 
+   10:optional i16 vlan_id; 
 }
 
 typedef list<Port> PortList

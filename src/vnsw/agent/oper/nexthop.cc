@@ -443,17 +443,11 @@ const uuid &InterfaceNH::GetIfUuid() const {
 
 static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
                           uint8_t flags, bool policy, const string vrf_name) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-
-    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
-                                         policy, flags);
-    req.key.reset(key);
-
-    InterfaceNHData *data;
-    data = new InterfaceNHData(vrf_name, dmac);
-
-    req.data.reset(data);
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                   policy, flags));
+    req.data.reset(new InterfaceNHData(vrf_name, dmac));
     Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
@@ -472,13 +466,10 @@ void InterfaceNH::CreateVport(const uuid &intf_uuid,
 
 static void DeleteNH(const uuid &intf_uuid, bool policy, 
                           uint8_t flags) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_DELETE;
-
-    NextHopKey *key = new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""),
-                                         policy, flags);
-    req.key.reset(key);
-
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new InterfaceNHKey
+                  (new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid, ""),
+                   policy, flags));
     req.data.reset(NULL);
     NextHopTable::GetInstance()->Process(req);
 }
@@ -526,7 +517,7 @@ void InterfaceNH::CreateHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -542,7 +533,7 @@ void InterfaceNH::DeleteHostPortReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
-    NextHopKey *key = new InterfaceNHKey(new PktInterfaceKey(nil_uuid(), ifname),
+    NextHopKey *key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(), ifname),
                                          false, InterfaceNHFlags::INET4);
     req.key.reset(key);
 
@@ -1081,7 +1072,7 @@ NextHop *CompositeNHKey::AllocEntry() const {
     if (is_mcast_nh_) {
         return new CompositeNH(vrf, dip_, sip_, comp_type_);
     } else {
-        return new CompositeNH(vrf, dip_, is_local_ecmp_nh_, comp_type_);
+        return new CompositeNH(vrf, dip_, plen_, is_local_ecmp_nh_, comp_type_);
     }
 }
 
@@ -1171,6 +1162,10 @@ bool CompositeNH::NextHopIsLess(const DBEntry &rhs) const {
 
     if (grp_addr_ != a.grp_addr_) {
         return grp_addr_ < a.grp_addr_;
+    }
+
+    if (plen_ != a.plen_) {
+        return plen_ < a.plen_;
     }
 
     if (is_local_ecmp_nh_ != a.is_local_ecmp_nh_) {
@@ -1364,7 +1359,7 @@ CompositeNH::KeyPtr CompositeNH::GetDBRequestKey() const {
         key = new CompositeNHKey(vrf_->GetName(), grp_addr_, src_addr_, 
                                  false, comp_type_);
     } else {
-        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, 
+        key = new CompositeNHKey(vrf_->GetName(), grp_addr_, plen_,
                                  is_local_ecmp_nh_);
     }
     return DBEntryBase::KeyPtr(key);
@@ -1427,7 +1422,7 @@ void CompositeNH::CreateCompositeNH(const string vrf_name,
 
 //Create composite NH of type ECMP
 void CompositeNH::AppendComponentNH(const string vrf_name,
-                                    const Ip4Address ip,
+                                    const Ip4Address ip, uint8_t plen,
                                     bool local_ecmp_nh,
                                     ComponentNHData comp_nh_data) {
     std::vector<ComponentNHData> comp_nh_list;
@@ -1436,7 +1431,7 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
     DBRequest req;
     CompositeNHData *data;
 
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, local_ecmp_nh);
+    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
     key->sub_op_ = AgentKey::RESYNC;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -1447,14 +1442,14 @@ void CompositeNH::AppendComponentNH(const string vrf_name,
 
 //Delete composite NH of type ECMP
 void CompositeNH::DeleteComponentNH(const string vrf_name,
-                                    const Ip4Address ip,
+                                    const Ip4Address ip, uint8_t plen,
                                     bool local_ecmp_nh,
                                     ComponentNHData comp_nh_data) {
     std::vector<ComponentNHData> comp_nh_list;
     comp_nh_list.push_back(comp_nh_data);
     DBRequest req;
     CompositeNHData *data;
-    NextHopKey *key = new CompositeNHKey(vrf_name, ip, local_ecmp_nh);
+    NextHopKey *key = new CompositeNHKey(vrf_name, ip, plen, local_ecmp_nh);
 
     key->sub_op_ = AgentKey::RESYNC;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

@@ -27,6 +27,7 @@
 #include <base/util.h>
 
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 #include <cfg/cfg_init.h>
 #include <cfg/cfg_interface.h>
 #include "cfg/cfg_mirror.h"
@@ -58,7 +59,7 @@
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
-#include "test_kstate.h"
+#include "kstate/test/test_kstate.h"
 #include "sandesh/sandesh_http.h"
 #include "xmpp/test/xmpp_test_util.h"
 

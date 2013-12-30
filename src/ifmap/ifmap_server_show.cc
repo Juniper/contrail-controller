@@ -24,7 +24,7 @@
 #include "ifmap/ifmap_origin.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_uuid_mapper.h"

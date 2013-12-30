@@ -59,10 +59,10 @@ struct QueryStats {
     22: string                     post
     23: u32                        time_span
     3: u32                         chunks
-    4: u32                         chunk_where_time;
-    5: u32                         chunk_select_time; 
-    6: u32                         chunk_postproc_time; 
-    7: u32                         chunk_merge_time; 
+    4: string                      chunk_where_time;
+    5: string                      chunk_select_time; 
+    6: string                      chunk_postproc_time; 
+    7: string                      chunk_merge_time; 
     8: u32                         final_merge_time;
     9: u32                         time
     10: u32                        rows

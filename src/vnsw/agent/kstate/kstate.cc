@@ -14,32 +14,15 @@
 #include "vrf_stats_kstate.h"
 #include "drop_stats_kstate.h"
 #include "vxlan_kstate.h"
+#include "kstate_io_context.h"
 #include "vr_nexthop.h"
 #include "vr_message.h"
 #include <net/if.h>
 
 using namespace std;
 
-int KState::max_response_count_ = KState::max_entries_per_response;
-
-void KStateIoContext::Handler() {
-
-    SandeshContext *ctx = GetSandeshContext();
-    KState *kctx = static_cast<KState *>(ctx);
-
-    kctx->Handler();
-
-    if (kctx->GetMoreContext() == NULL)
-        delete kctx;
-}
-
-void KStateIoContext::ErrorHandler(int err) {
-    LOG(ERROR, "Error reading kstate. Error <" << err << ": " 
-        << strerror(err) << ": Sequnce No : " << GetSeqno());
-}
-
-bool KState::MoreData() {
-    if ((k_resp_code_ & VR_MESSAGE_DUMP_INCOMPLETE))
+bool KState::MoreData() const {
+    if ((vr_response_code_ & VR_MESSAGE_DUMP_INCOMPLETE))
         return true;
     return false;
 }
@@ -48,10 +31,10 @@ int KState::VrResponseMsgHandler(vr_response *r) {
     int code = r->get_resp_code();
 
     KState *st = static_cast<KState *>(this);
-    st->SetKResponseCode(code);
+    st->set_vr_response_code(code);
     if (code == -ENOENT) {
        ErrResp *resp = new ErrResp();
-       resp->set_context(st->GetResponseContext());
+       resp->set_context(st->response_context());
        resp->Response();
 
        st->Release();
@@ -80,11 +63,8 @@ void KState::EncodeAndSend(Sandesh &encoder) {
     sock->GenericSend(ioc);
 }
 
-void KState::UpdateContext(void *more_ctx) {
-
-    count_++;
-
-    more_ctx_ = more_ctx;
+void KState::UpdateContext(void *ctx) {
+    more_context_ = ctx;
 }
 
 void KState::IfMsgHandler(vr_interface_req *r) {
@@ -93,12 +73,12 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     const Interface *intf;
 
     InterfaceKState *ist = static_cast<InterfaceKState *>(this);
-    KInterfaceResp *resp = static_cast<KInterfaceResp *>(ist->GetResponseObject());
+    KInterfaceResp *resp = static_cast<KInterfaceResp *>(ist->response_object());
 
     vector<KInterfaceInfo> &list =
                         const_cast<std::vector<KInterfaceInfo>&>(resp->get_if_list());
-    data.set_type(InterfaceKState::TypeToString(r->get_vifr_type()));
-    data.set_flags(InterfaceKState::FlagsToString(r->get_vifr_flags()));
+    data.set_type(ist->TypeToString(r->get_vifr_type()));
+    data.set_flags(ist->FlagsToString(r->get_vifr_flags()));
     data.set_mirror_id(r->get_vifr_mir_id());
     data.set_vrf(r->get_vifr_vrf());
     data.set_idx(r->get_vifr_idx());
@@ -127,7 +107,7 @@ void KState::IfMsgHandler(vr_interface_req *r) {
     data.set_speed(r->get_vifr_speed());
     data.set_duplexity(r->get_vifr_duplex());
 
-    data.set_mac(InterfaceKState::MacToString(r->get_vifr_mac()));
+    data.set_mac(ist->MacToString(r->get_vifr_mac()));
     list.push_back(data);
 
     UpdateContext(reinterpret_cast<void *>(r->get_vifr_idx()));
@@ -139,17 +119,17 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     NHKState *nhst;
 
     nhst = static_cast<NHKState *>(this);
-    KNHResp *resp = static_cast<KNHResp *>(nhst->GetResponseObject());
+    KNHResp *resp = static_cast<KNHResp *>(nhst->response_object());
 
     vector<KNHInfo> &list =
                         const_cast<std::vector<KNHInfo>&>(resp->get_nh_list());
-    data.set_type(NHKState::TypeToString(r->get_nhr_type()));
-    data.set_family(NHKState::FamilyToString(r->get_nhr_family()));
+    data.set_type(nhst->TypeToString(r->get_nhr_type()));
+    data.set_family(nhst->FamilyToString(r->get_nhr_family()));
     data.set_id(r->get_nhr_id());
     data.set_rid(r->get_nhr_rid());
     if (r->get_nhr_type() != NH_COMPOSITE) {
         data.set_encap_oif_id(r->get_nhr_encap_oif_id());
-        data.set_encap_family(NHKState::EncapFamilyToString(
+        data.set_encap_family(nhst->EncapFamilyToString(
                               r->get_nhr_encap_family()));
     }
     data.set_vrf(r->get_nhr_vrf());
@@ -165,13 +145,13 @@ void KState::NHMsgHandler(vr_nexthop_req *r) {
     }
 
     data.set_ref_cnt(r->get_nhr_ref_cnt());
-    data.set_flags(NHKState::FlagsToString(r->get_nhr_flags()));
+    data.set_flags(nhst->FlagsToString(r->get_nhr_flags()));
     const vector<signed char> &encap = r->get_nhr_encap();
     /* Kernel does not return encap len via r->get_nhr_encap_len() 
      * We need to fill it via the encap vector's size. */
     if (encap.size()) {
         data.set_encap_len(encap.size());
-        data.set_encap(NHKState::EncapToString(encap));
+        data.set_encap(nhst->EncapToString(encap));
     }
 
     nhst->SetComponentNH(r, data);
@@ -185,25 +165,25 @@ void KState::RouteMsgHandler(vr_route_req *r) {
     RouteKState *rst;
 
     rst = static_cast<RouteKState *>(this);
-    KRouteResp *resp = static_cast<KRouteResp *>(rst->GetResponseObject());
+    KRouteResp *resp = static_cast<KRouteResp *>(rst->response_object());
 
     vector<KRouteInfo> &list =
                         const_cast<std::vector<KRouteInfo>&>(resp->get_rt_list());
     
     data.set_vrf_id(r->get_rtr_vrf_id());
-    data.set_family(RouteKState::FamilyToString(r->get_rtr_family()));
+    data.set_family(rst->FamilyToString(r->get_rtr_family()));
     Ip4Address addr((uint32_t)r->get_rtr_prefix());
     data.set_prefix(addr.to_string());
     data.set_prefix_len(r->get_rtr_prefix_len());
     data.set_rid(r->get_rtr_rid());
-    data.set_label_flags(RouteKState::LabelFlagsToString(
-                                           r->get_rtr_label_flags()));
+    data.set_label_flags(rst->LabelFlagsToString(
+                                  r->get_rtr_label_flags()));
     data.set_label(r->get_rtr_label());
     data.set_nh_id(r->get_rtr_nh_id());
     
     list.push_back(data);
 
-    RouteContext *rctx = static_cast<RouteContext *>(rst->GetMoreContext());
+    RouteContext *rctx = static_cast<RouteContext *>(rst->more_context());
     if (!rctx) {
         rctx = new RouteContext;
     }
@@ -219,7 +199,7 @@ void KState::MplsMsgHandler(vr_mpls_req *r) {
     MplsKState *mst;
 
     mst = static_cast<MplsKState *>(this);
-    KMplsResp *resp = static_cast<KMplsResp *>(mst->GetResponseObject());
+    KMplsResp *resp = static_cast<KMplsResp *>(mst->response_object());
 
     vector<KMplsInfo> &list =
                         const_cast<std::vector<KMplsInfo>&>(resp->get_mpls_list());
@@ -238,7 +218,7 @@ void KState::MirrorMsgHandler(vr_mirror_req *r) {
     MirrorKState *mst;
 
     mst = static_cast<MirrorKState *>(this);
-    KMirrorResp *resp = static_cast<KMirrorResp *>(mst->GetResponseObject());
+    KMirrorResp *resp = static_cast<KMirrorResp *>(mst->response_object());
 
     vector<KMirrorInfo> &list =
         const_cast<std::vector<KMirrorInfo>&>(resp->get_mirror_list());
@@ -246,7 +226,7 @@ void KState::MirrorMsgHandler(vr_mirror_req *r) {
     data.set_mirr_index(r->get_mirr_index());
     data.set_mirr_rid(r->get_mirr_rid());
     data.set_mirr_nhid(r->get_mirr_nhid());
-    data.set_mirr_flags(MirrorKState::FlagsToString(r->get_mirr_flags()));
+    data.set_mirr_flags(mst->FlagsToString(r->get_mirr_flags()));
     data.set_mirr_users(r->get_mirr_users());
 
     list.push_back(data);
@@ -261,7 +241,7 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
 
     state = static_cast<VrfAssignKState *>(this);
     KVrfAssignResp *resp = 
-        static_cast<KVrfAssignResp *>(state->GetResponseObject());
+        static_cast<KVrfAssignResp *>(state->response_object());
 
     vector<KVrfAssignInfo> &list =
         const_cast<std::vector<KVrfAssignInfo>&>(resp->get_vrf_assign_list());
@@ -273,7 +253,7 @@ void KState::VrfAssignMsgHandler(vr_vrf_assign_req *r) {
     // Update the last interface and tag seen. 
     // Will be used to send next request to kernel
     VrfAssignContext *ctx = 
-        static_cast<VrfAssignContext *>(state->GetMoreContext());
+        static_cast<VrfAssignContext *>(state->more_context());
     if (!ctx) {
         ctx = new VrfAssignContext;
     }
@@ -288,13 +268,13 @@ void KState::VrfStatsMsgHandler(vr_vrf_stats_req *r) {
 
     state = static_cast<VrfStatsKState *>(this);
     KVrfStatsResp *resp = 
-        static_cast<KVrfStatsResp *>(state->GetResponseObject());
+        static_cast<KVrfStatsResp *>(state->response_object());
 
     vector<KVrfStatsInfo> &list =
         const_cast<std::vector<KVrfStatsInfo>&>(resp->get_vrf_stats_list());
     data.set_vrf_id(r->get_vsr_vrf());
-    data.set_vrf_family(VrfStatsKState::FamilyToString(r->get_vsr_family()));
-    data.set_vrf_type(VrfStatsKState::TypeToString(r->get_vsr_type()));
+    data.set_vrf_family(state->FamilyToString(r->get_vsr_family()));
+    data.set_vrf_type(state->TypeToString(r->get_vsr_type()));
     data.set_vrf_rid(r->get_vsr_rid());
     data.set_vrf_discards(r->get_vsr_discards());
     data.set_vrf_resolves(r->get_vsr_resolves());
@@ -319,7 +299,7 @@ void KState::VxLanMsgHandler(vr_vxlan_req *r) {
     VxLanKState *mst;
 
     mst = static_cast<VxLanKState *>(this);
-    KVxLanResp *resp = static_cast<KVxLanResp *>(mst->GetResponseObject());
+    KVxLanResp *resp = static_cast<KVxLanResp *>(mst->response_object());
 
     vector<KVxLanInfo> &list =
                         const_cast<std::vector<KVxLanInfo>&>(resp->get_vxlan_list());
@@ -338,7 +318,7 @@ void KState::DropStatsMsgHandler(vr_drop_stats_req *req) {
 
     state = static_cast<DropStatsKState *>(this);
     KDropStatsResp *resp = 
-        static_cast<KDropStatsResp *>(state->GetResponseObject());
+        static_cast<KDropStatsResp *>(state->response_object());
     resp->set_ds_rid(req->get_vds_rid());
     resp->set_ds_discard(req->get_vds_discard());
     resp->set_ds_pull(req->get_vds_pull());

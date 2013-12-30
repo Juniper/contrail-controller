@@ -209,7 +209,8 @@ static void ParseControl(const ptree &node, const string &config_file,
 
 static void ParseHypervisor(const ptree &node, const string &config_file, 
                             AgentParam::Mode *mode,
-                            AgentParam::PortInfo *port) {
+                            AgentParam::PortInfo *port,
+                            string *vmware_physical_port) {
     try {
         optional<string> opt_str;
         if (opt_str = node.get_optional<string>
@@ -236,6 +237,12 @@ static void ParseHypervisor(const ptree &node, const string &config_file,
                         return;
                     }
                 }
+            } else if (opt_str.get() == "vmware") {
+                *mode = AgentParam::MODE_VMWARE;
+                if (opt_str = node.get_optional<string>
+                    ("config.agent.hypervisor.port")) {
+                    *vmware_physical_port = opt_str.get();
+                }
             } else {
                 *mode = AgentParam::MODE_KVM;
             }
@@ -254,7 +261,7 @@ static void ParseTunnelType(const ptree &node, const string &config_file,
             *str = opt_str.get();
         }
     } catch (exception &e) {
-        LOG(ERROR, "Error reading \"hypervisor\" node in config file <"
+        LOG(ERROR, "Error reading \"tunnel-type\" node in config file <"
             << config_file << ">. Error <" << e.what() << ">");
     }
 
@@ -328,7 +335,8 @@ void AgentParam::InitFromConfig() {
     ParseDiscoveryServer(tree, config_file_, &dss_server_,
                          &xmpp_instance_count_);
     ParseControl(tree, config_file_, &mgmt_ip_);
-    ParseHypervisor(tree, config_file_, &mode_, &xen_ll_);
+    ParseHypervisor(tree, config_file_, &mode_, &xen_ll_,
+                    &vmware_physical_port_);
     ParseTunnelType(tree, config_file_, &tunnel_type_);
     ParseMetadataProxy(tree, config_file_, &metadata_shared_secret_);
     LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
@@ -376,6 +384,8 @@ void AgentParam::InitFromArguments
     if (var_map.count("hypervisor")) {
         if (var_map["hypervisor"].as<string>() == "xen") {
             mode_ = AgentParam::MODE_XEN;
+        } else if (var_map["hypervisor"].as<string>() == "vmware") {
+            mode_ = AgentParam::MODE_VMWARE;
         } else {
             mode_ = AgentParam::MODE_KVM;
         }
@@ -400,6 +410,10 @@ void AgentParam::InitFromArguments
             LOG(ERROR, "Error parsing argument for xen-ll-prefix-len");
             exit(EINVAL);
         }
+    }
+
+    if (var_map.count("vmware-physical-port")) {
+        vmware_physical_port_ = var_map["vmware-physical-port"].as<string>();
     }
 
     return;
@@ -453,14 +467,22 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Controller Instances        : " << xmpp_instance_count_);
     LOG(DEBUG, "Tunnel-Type                 : " << tunnel_type_);
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
-    if (mode_ != MODE_XEN) {
+    if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
     }
+
+    if (mode_ == MODE_XEN) {
     LOG(DEBUG, "Hypervisor mode             : xen");
     LOG(DEBUG, "XEN Link Local port         : " << xen_ll_.name_);
     LOG(DEBUG, "XEN Link Local IP Address   : " << xen_ll_.addr_.to_string()
         << "/" << xen_ll_.plen_);
+    }
+
+    if (mode_ == MODE_VMWARE) {
+    LOG(DEBUG, "Hypervisor mode             : vmware");
+    LOG(DEBUG, "Vmware port                 : " << vmware_physical_port_);
+    }
 }
 
 AgentParam::AgentParam() :
@@ -472,7 +494,8 @@ AgentParam::AgentParam() :
         log_category_(), collector_(), collector_port_(), http_server_port_(),
         host_name_(),
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
-        flow_stats_interval_(FlowStatsCollector::FlowStatsInterval) {
+        flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
+        vmware_physical_port_("") {
     vgw_config_ = std::auto_ptr<VirtualGatewayConfig>
         (new VirtualGatewayConfig());
 }

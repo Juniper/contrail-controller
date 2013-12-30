@@ -816,7 +816,8 @@ class VlanNHKey : public NextHopKey {
 public:
     VlanNHKey(const uuid &vm_port_uuid, uint16_t vlan_tag) :
         NextHopKey(NextHop::VLAN, false), 
-        intf_key_(new VmInterfaceKey(vm_port_uuid, "")),
+        intf_key_(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, vm_port_uuid,
+                                     "")),
         vlan_tag_(vlan_tag) {
     }
     VlanNHKey(InterfaceKey *key, uint16_t vlan_tag) :
@@ -914,13 +915,15 @@ public:
     CompositeNHKey(const string &vrf_name, const Ip4Address &dip, 
                    const Ip4Address &sip, bool local, COMPOSITETYPE type) :
         NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(sip),
-        dip_(dip), is_mcast_nh_(true), is_local_ecmp_nh_(local),
+        dip_(dip), plen_(32), is_mcast_nh_(true), is_local_ecmp_nh_(local),
         comp_type_(type) {
     }
 
-    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, bool local):
-        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(),
-        dip_(dip), is_mcast_nh_(false), is_local_ecmp_nh_(local), comp_type_(Composite::ECMP) {
+    CompositeNHKey(const string &vrf_name, const Ip4Address &dip, uint8_t plen,
+            bool local):
+        NextHopKey(NextHop::COMPOSITE, false), vrf_key_(vrf_name), sip_(0),
+        dip_(dip), plen_(plen), is_mcast_nh_(false), is_local_ecmp_nh_(local),
+        comp_type_(Composite::ECMP) {
     }
 
     virtual CompositeNHKey *Clone() const {
@@ -928,7 +931,7 @@ public:
             return new CompositeNHKey(vrf_key_.name_, dip_, sip_,
                                       is_local_ecmp_nh_, comp_type_);
         } else {
-            return new CompositeNHKey(vrf_key_.name_, dip_,
+            return new CompositeNHKey(vrf_key_.name_, dip_, plen_,
                                       is_local_ecmp_nh_);
         }
     }
@@ -940,6 +943,7 @@ private:
     VrfKey vrf_key_;
     Ip4Address sip_;
     Ip4Address dip_;
+    uint8_t plen_;
     bool is_mcast_nh_;
     bool is_local_ecmp_nh_;
     COMPOSITETYPE comp_type_;
@@ -982,7 +986,8 @@ public:
 
     ComponentNHData(int label, const uuid &intf_uuid, uint8_t flags) :
         label_(label), 
-        nh_key_(new InterfaceNHKey(new VmInterfaceKey(intf_uuid, ""), false,
+        nh_key_(new InterfaceNHKey(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                      intf_uuid, ""), false,
                                    flags)) {
     }
 
@@ -1068,13 +1073,13 @@ public:
     static const uint32_t kInvalidComponentNHIdx = 0xFFFFFFFF;
     CompositeNH(VrfEntry *vrf_, Ip4Address grp_addr, Ip4Address src_addr,
         COMPOSITETYPE type) : NextHop(COMPOSITE, true, false), vrf_(vrf_), 
-        grp_addr_(grp_addr), src_addr_(src_addr),  
+        grp_addr_(grp_addr), plen_(32), src_addr_(src_addr),
         is_local_ecmp_nh_(false), local_comp_nh_(this), comp_type_(type) {
     };
 
-    CompositeNH(VrfEntry *vrf_, Ip4Address dip, bool local_ecmp,
+    CompositeNH(VrfEntry *vrf_, Ip4Address dip, uint8_t plen, bool local_ecmp,
         COMPOSITETYPE type) : NextHop(COMPOSITE, true, true), vrf_(vrf_), 
-        grp_addr_(dip), src_addr_(0), 
+        grp_addr_(dip), plen_(plen), src_addr_(0),
         is_local_ecmp_nh_(local_ecmp), 
         local_comp_nh_(this), comp_type_(type) {
     };
@@ -1108,11 +1113,11 @@ public:
                                   std::vector<ComponentNHData> comp_nh_list);
     static void CreateComponentNH(std::vector<ComponentNHData> comp_nh_list);
     static void AppendComponentNH(const std::string vrf_name, 
-                                  const Ip4Address ip,
+                                  const Ip4Address ip, uint8_t plen,
                                   bool is_local_ecmp_nh,
                                   ComponentNHData comp_nh);
     static void DeleteComponentNH(const std::string vrf_name, 
-                                  const Ip4Address ip,
+                                  const Ip4Address ip, uint8_t plen,
                                   bool is_local_ecmp_nh,
                                   ComponentNHData comp_nh);
 
@@ -1176,10 +1181,12 @@ public:
     virtual void OnZeroRefCount() {
         component_nh_list_.clear();
     }
+    uint32_t prefix_len() const { return plen_;}
     const NextHop* GetLocalNextHop() const;
 private:
     VrfEntryRef vrf_;
     Ip4Address grp_addr_;
+    uint8_t plen_;
     Ip4Address src_addr_;
     ComponentNHList component_nh_list_;
     bool is_local_ecmp_nh_;

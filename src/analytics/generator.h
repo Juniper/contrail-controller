@@ -57,7 +57,8 @@ public:
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                      SandeshGeneratorStats &sm_msg_stats) const;
-    bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const;
+    bool GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
+        std::string  &drop_level, uint64_t &msg_dropped) const;
 
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
@@ -69,7 +70,8 @@ public:
     const std::string State() const;
 
     void GetGeneratorInfo(ModuleServerState &genlist) const;
-
+    void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
+    void ResetDbQueueWaterMarkInfo();
     void StartDbifReinit();
 
 private:

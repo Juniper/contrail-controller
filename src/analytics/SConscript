@@ -92,7 +92,7 @@ AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] = AnalyticsEnv.Object(AnalyticsVi
 OpServerProxy_obj = AnalyticsEnv.Object('OpServerProxy.o', 'OpServerProxy.cc')
 db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
 main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
-#AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
+AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
 
 buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a', 
                       '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a', 

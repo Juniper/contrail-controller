@@ -93,6 +93,8 @@ class CdbIf : public GenDbIf {
                 const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& key);
         virtual bool Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const;
+        virtual void Db_SetQueueWaterMark(bool high, size_t queue_count, DbQueueWaterMarkCb cb);
+        virtual void Db_ResetQueueWaterMarks();
 
     private:
         friend class CdbIfTest;
@@ -228,7 +230,8 @@ class CdbIf : public GenDbIf {
         bool db_init_done_;
         std::string tablespace_;
 
-        boost::scoped_ptr<WorkQueue<CdbIfColList *> > cdbq_;
+        typedef WorkQueue<CdbIfColList *> CdbIfQueue;
+        boost::scoped_ptr<CdbIfQueue> cdbq_;
         Timer *periodic_timer_;
         std::string name_;
 

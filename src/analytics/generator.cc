@@ -106,58 +106,21 @@ void Generator::Stop_Db_Connect_Timer() {
 }
 
 void Generator::Db_Connection_Uninit() {
+    db_handler_->ResetDbQueueWaterMarkInfo();
     db_handler_->UnInit(false);
     Stop_Db_Connect_Timer();
 }
 
 bool Generator::Db_Connection_Init() {
-    GenDb::GenDbIf *dbif;
-
-    dbif = db_handler_->get_dbif();
-
-    if (!dbif->Db_Init(Collector::kDbTask, 
-                       viz_session_->GetSessionInstance())) {
-        GENERATOR_LOG(ERROR, "Database initialization failed");
+    if (!db_handler_->Init(false, viz_session_->GetSessionInstance())) {
+        GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
-
-    if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
-        GENERATOR_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
-                g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
-        return false;
-    }   
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
-            it != vizd_tables.end(); it++) {
-        if (!dbif->Db_UseColumnfamily(*it)) {
-            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            return false;
-        }
+    std::vector<DbHandler::DbQueueWaterMarkInfo> wm_info;
+    collector_->GetDbQueueWaterMarkInfo(wm_info);
+    for (size_t i = 0; i < wm_info.size(); i++) {
+        db_handler_->SetDbQueueWaterMarkInfo(wm_info[i]);
     }
-    /* setup ObjectTables */
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (!dbif->Db_UseColumnfamily(
-                    (GenDb::NewCf(it->first,
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type)
-                                  (GenDb::DbDataType::AsciiType),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::LexicalUUIDType))))) {
-            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            return false;
-        }
-    }
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif->Db_UseColumnfamily(*it)) {
-            GENERATOR_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            return false;
-        }
-    }
-    dbif->Db_SetInitDone(true);
     return true;
 }
 
@@ -281,8 +244,10 @@ bool Generator::GetSandeshStateMachineStats(
     return state_machine_->GetStatistics(sm_stats, sm_msg_stats);
 }
 
-bool Generator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues) const {
-    return db_handler_->GetStats(queue_count, enqueues);
+bool Generator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
+    std::string &drop_level, uint64_t &msg_dropped) const {
+    return db_handler_->GetStats(queue_count, enqueues, drop_level,
+               msg_dropped);
 }
     
 void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
@@ -335,4 +300,12 @@ void Generator::ConnectSession(VizSession *session, SandeshStateMachine *state_m
     uint32_t tmp = gen_attr_.get_connects();
     gen_attr_.set_connects(tmp+1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
+}
+
+void Generator::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
+    db_handler_->SetDbQueueWaterMarkInfo(wm);
+}
+
+void Generator::ResetDbQueueWaterMarkInfo() {
+    db_handler_->ResetDbQueueWaterMarkInfo();
 }

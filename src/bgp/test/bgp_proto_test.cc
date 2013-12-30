@@ -4,6 +4,7 @@
 
 #include "base/logging.h"
 #include "base/proto.h"
+#include "base/test/task_test_util.h"
 #include "control-node/control_node.h"
 #include "testing/gunit.h"
 #include <boost/assign/list_of.hpp>
@@ -27,7 +28,8 @@ protected:
 
         EXPECT_EQ(error, ec.error_code);
         EXPECT_EQ(subcode, ec.error_subcode);
-        EXPECT_EQ(type, ec.type_name);
+
+        TASK_UTIL_EXPECT_EQ_TYPE_NAME(type, ec.type_name);
         EXPECT_EQ(offset, ec.data-data);
         EXPECT_EQ(err_size, ec.data_size);
         if (result) delete result;

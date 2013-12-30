@@ -61,6 +61,7 @@ public:
     void ProcessVmUnsubscribe(const std::string &vm_uuid);
     void EnqueueVmSubUnsub(bool subscribe, const std::string &vm_uuid);
     bool get_client_added() { return client_added_; }
+    const std::string &channel_name() { return channel_name_; }
 
 private:
     friend class XmppIfmapTest;
@@ -72,6 +73,7 @@ private:
     IFMapChannelManager *ifmap_channel_manager_;
     IFMapSender *ifmap_client_;
     bool client_added_;  // true if ifmap_server has processed add-client
+    std::string channel_name_;
 };
 
 class IFMapChannelManager {

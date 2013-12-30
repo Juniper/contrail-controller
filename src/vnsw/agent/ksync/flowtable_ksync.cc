@@ -453,6 +453,7 @@ void FlowTableKSyncObject::MapFlowMemTest() {
     memset(flow_table_, 0, kTestFlowTableSize);
     flow_table_entries_ = kTestFlowTableSize / sizeof(vr_flow_entry);
     audit_yield_ = flow_table_entries_;
+    audit_timeout_ = 0; // timout immediately.
 }
 
 void FlowTableKSyncObject::UnmapFlowMemTest() {
@@ -465,8 +466,8 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
     obj->audit_timestamp_ += AuditYieldTimer;
     while (!obj->audit_flow_list_.empty()) {
         std::pair<uint32_t, uint64_t> list_entry = obj->audit_flow_list_.front();
-        if ((obj->audit_timestamp_ - list_entry.second) < AuditTimeout) {
-            /* Wait for AuditTimeout to create short flow for the entry */
+        if ((obj->audit_timestamp_ - list_entry.second) < obj->audit_timeout_) {
+            /* Wait for audit_timeout_ to create short flow for the entry */
             break;
         }
         flow_idx = list_entry.first;
@@ -594,6 +595,7 @@ void FlowTableKSyncObject::MapFlowMem() {
 
     flow_table_entries_ = flow_table_size_ / sizeof(vr_flow_entry);
     audit_yield_ = AuditYield;
+    audit_timeout_ = AuditTimeout;
     singleton_->audit_timer_->Start(AuditYieldTimer,
                                     boost::bind(&FlowTableKSyncObject::AuditProcess, singleton_));
     return;

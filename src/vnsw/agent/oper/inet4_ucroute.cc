@@ -177,7 +177,7 @@ bool Inet4UnicastEcmpRoute::AddChangePath(AgentPath *path) {
     NextHop *nh = NULL;
 
     Agent::GetInstance()->GetNextHopTable()->Process(nh_req_);
-    CompositeNHKey key(vrf_name_, dest_addr_, local_ecmp_nh_);
+    CompositeNHKey key(vrf_name_, dest_addr_, plen_, local_ecmp_nh_);
     nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->
                                 FindActiveEntry(&key));
 
@@ -248,8 +248,8 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                  vrf_name, addr, plen);
     req.key.reset(key);
 
-    PktInterfaceKey intf_key(nil_uuid(), 
-                             Agent::GetInstance()->GetHostInterfaceName());
+    PacketInterfaceKey intf_key(nil_uuid(),
+                                Agent::GetInstance()->GetHostInterfaceName());
     HostRoute *data = new HostRoute(intf_key, dest_vn_name);
     req.data.reset(data);
 
@@ -268,18 +268,12 @@ Inet4UnicastAgentRouteTable::AddVlanNHRouteReq(const Peer *peer,
                                                uint32_t label,
                                                const string &dest_vn_name,
                                                const SecurityGroupList &sg_list) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key =
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen);
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
-    VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label,
-                                        dest_vn_name, sg_list);
-    req.data.reset(data);
-
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
+    req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
+                                   sg_list));
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&req);
 }
@@ -295,17 +289,12 @@ Inet4UnicastAgentRouteTable::AddVlanNHRoute(const Peer *peer,
                                             uint32_t label,
                                             const string &dest_vn_name,
                                             const SecurityGroupList &sg_list) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key = 
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen);
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
-    VlanNhRoute *data = new VlanNhRoute(intf_key, tag, label,
-                                        dest_vn_name, sg_list);
-    req.data.reset(data);
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
+    req.data.reset(new VlanNhRoute(intf_key, tag, label, dest_vn_name,
+                                   sg_list));
 
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Process(req);
@@ -321,20 +310,14 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                      const string &vn_name,
                                                      uint32_t label, 
                                                      bool force_policy) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key = 
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label,
-                                          TunnelType::AllType(),
-                                          force_policy, vn_name,
-                                          InterfaceNHFlags::INET4, sg_list);
-    req.data.reset(data);
+    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+                                    force_policy, vn_name,
+                                    InterfaceNHFlags::INET4, sg_list));
 
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&req);
@@ -350,20 +333,14 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                                   const string &vn_name,
                                                   uint32_t label, 
                                                   bool force_policy) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key =
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label, 
-                                          TunnelType::AllType(),
-                                          force_policy, vn_name,
-                                          InterfaceNHFlags::INET4, sg_list);
-    req.data.reset(data);
+    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+                                    force_policy, vn_name,
+                                    InterfaceNHFlags::INET4, sg_list));
 
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Process(req);
@@ -378,19 +355,13 @@ Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                 const string &vn_name,
                                                 uint32_t label,
                                                 const SecurityGroupList &sg_list) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key =
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label, 
-                                          TunnelType::AllType(),
-                                          false, vn_name,
-                                          InterfaceNHFlags::INET4, sg_list);
-    req.data.reset(data);
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
+    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+                                    false, vn_name,
+                                    InterfaceNHFlags::INET4, sg_list));
 
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&req);
@@ -405,19 +376,13 @@ Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                              const string &vn_name,
                                              uint32_t label,
                                              const SecurityGroupList &sg_list) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
-    Inet4UnicastRouteKey *key = 
-        new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
-    req.key.reset(key);
-
-    VmInterfaceKey intf_key(intf_uuid, "");
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label, 
-                                          TunnelType::AllType(),
-                                          false, vn_name,
-                                          InterfaceNHFlags::INET4, sg_list);
-    req.data.reset(data);
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
+    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+                                    false, vn_name, InterfaceNHFlags::INET4,
+                                    sg_list));
 
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Process(req);
@@ -558,7 +523,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
 
     CompositeNH::CreateCompositeNH(vm_vrf, vm_addr, false,
                                    comp_nh_list);
-    key = new CompositeNHKey(vm_vrf, vm_addr, false);
+    key = new CompositeNHKey(vm_vrf, vm_addr, plen, false);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::REPLACE);
@@ -569,7 +534,7 @@ Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, vm_vrf, 
                                                   vm_addr, plen);
     req.key.reset(rt_key);
-    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, 
+    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, plen,
                                                                dest_vn_name, 
                                                                label, 
                                                                false,
@@ -594,7 +559,7 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
     NextHopKey *key;
     CompositeNHData *data;
 
-    key = new CompositeNHKey(vm_vrf, vm_addr, true);
+    key = new CompositeNHKey(vm_vrf, vm_addr, plen, true);
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(key);
     data = new CompositeNHData(comp_nh_list, CompositeNHData::REPLACE);
@@ -605,7 +570,7 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, vm_vrf,
                                                   vm_addr, plen);
     req.key.reset(rt_key);
-    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr,
+    Inet4UnicastEcmpRoute *rt_data = new Inet4UnicastEcmpRoute(vm_addr, plen,
                                                                dest_vn_name,
                                                                label,
                                                                true,

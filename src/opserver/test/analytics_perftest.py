@@ -125,7 +125,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         #else:
         #    assert False
 
-        analytics_start_time = 1383679241156742
+        analytics_start_time = 1387254916542720
 
         vizd_obj.query_engine.start(analytics_start_time)
 
@@ -150,8 +150,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         # flow series table aggregation on a tuple
         a_query = Query(table="FlowSeriesTable",
-                start_time=analytics_start_time+10*60*1000000,
-                end_time=analytics_start_time+20*60*1000000,
+                start_time=analytics_start_time+40*60*1000000,
+                end_time=analytics_start_time+100*60*1000000,
                 select_fields=["sourcevn", "sourceip", "destvn", "destip", "sum(bytes)"])
         json_qstr = json.dumps(a_query.__dict__)
         t1=time.time();
@@ -163,8 +163,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         # flow series table port distribution table
         a_query = Query(table="FlowSeriesTable",
-                start_time=analytics_start_time+10*60*1000000,
-                end_time=analytics_start_time+20*60*1000000,
+                start_time=analytics_start_time+40*60*1000000,
+                end_time=analytics_start_time+100*60*1000000,
                 select_fields=["dport", "protocol", "flow_count", "sum(bytes)"],
                 sort=2,
                 sort_fields=["sum(bytes)"],
@@ -184,8 +184,8 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
         # flow series map
         a_query = Query(table="FlowSeriesTable",
-                start_time=analytics_start_time+10*60*1000000,
-                end_time=analytics_start_time+20*60*1000000,
+                start_time=analytics_start_time+40*60*1000000,
+                end_time=analytics_start_time+100*60*1000000,
                 select_fields=["sum(bytes)", "sum(packets)", "T=7", "sourcevn", "flow_count"],
                 where=[[{"name": "sourcevn", "value": "default-domain:demo:vn0", "op": 1}]])
         json_qstr = json.dumps(a_query.__dict__)
@@ -215,7 +215,7 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
 
     @staticmethod
     def _load_data_into_cassandra(cassandra_port):
-        files_to_load = ['a3s40', 'a3s41']
+        files_to_load = ['a3s28-120', 'a3s30-120']
 
         with cd(AnalyticsTest._cassbase):
             for file in files_to_load:

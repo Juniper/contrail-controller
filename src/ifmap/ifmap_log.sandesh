@@ -1,0 +1,350 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+systemlog sandesh JoinVertex {
+    1: "JoinVertex:"
+    2: string vertex_name
+}
+
+systemlog sandesh LinkOper {
+    1: string oper
+    2: string left_name
+    3: "-"
+    4: string right_name
+    5: ", lhs:"
+    6: string left_interest
+    7: ", rhs:"
+    8: string right_interest
+}
+
+systemlog sandesh CleanupInterest {
+    1: string name
+    2: string interest
+    3: string rm_mask
+    4: string nmask
+}
+
+systemlog sandesh IFMapServerClientRegUnreg {
+    1: string start_msg
+    2: string client_name
+}
+
+systemlog sandesh IFMapTblNotFound {
+    1: string error_msg
+    2: string table_name
+}
+
+systemlog sandesh IFMapIdentifierNotFound {
+    1: string error_msg
+    2: string identifier_name
+}
+
+systemlog sandesh IFMapString {
+    1: string message
+}
+
+systemlog sandesh IFMapIntString {
+    1: u32 value
+    2: string message
+}
+
+systemlog sandesh IFMapServerConnection {
+    1: string str1
+    2: string str2
+}
+
+systemlog sandesh IFMapUrlInfo {
+    1: string message1
+    2: string hostname
+    3: string message2
+    4: string port
+}
+
+systemlog sandesh IFMapXmppUnknownMessage {
+    1: string iq_type
+    2: string iq_action
+    3: string iq_node_name
+    4: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapStaleCleanerInfo {
+    1: "SeqNum:"
+    2: u64 sequence_number
+    3: "NodesDeleted:"
+    4: u32 nodes_deleted
+    5: "NodesChanged:"
+    6: u32 nodes_changed
+    7: "LinksDeleted:"
+    8: u32 links_deleted
+    9: "ObjectsDeleted:"
+    10: u32 objects_deleted
+}
+
+systemlog sandesh IFMapChannelUnregisterMessage {
+    1: string message
+    2: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapSmStartTimerMessage {
+    1: u32 value
+    2: string message
+}
+
+systemlog sandesh IFMapSmCancelTimerMessage {
+    1: string message
+}
+
+systemlog sandesh IFMapSmExpiredTimerMessage {
+    1: string message
+}
+
+systemlog sandesh IFMapSmTransitionMessage {
+    1: string from_state
+    2: string to
+    3: string to_state
+}
+
+systemlog sandesh IFMapSmEventMessage {
+    1: string msg1
+    2: string event
+    3: string msg2
+    4: string state
+}
+
+systemlog sandesh IFMapNoVrSub {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+    3: string vm_uuid
+}
+
+systemlog sandesh IFMapNoVmSub {
+    1: string client_name (key="ObjectVRouter")
+    2: string vm_uuid
+}
+
+systemlog sandesh IFMapDuplicateVrSub {
+    1: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapDuplicateVmSub {
+    1: string client_name (key="ObjectVRouter")
+    2: string vm_uuid
+}
+
+systemlog sandesh IFMapPeerConnError {
+    1: string error
+    2: string last_state
+    3: string current_state
+    4: string last_event
+}
+
+systemlog sandesh IFMapBestPeer {
+    1: string event
+    2: string peer
+    3: bool valid
+}
+
+systemlog sandesh IFMapDSResp {
+    1: string current_peer
+    2: string new_response
+}
+
+systemlog sandesh IFMapChannelProcResp {
+    1: string str1
+    2: u32 header_length
+    3: string str2
+    4: u32 content_length
+    5: string str3
+    6: u32 total_length
+}
+
+systemlog sandesh IFMapXmppChannelEvent {
+    1: string event
+    2: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapXmppVrSubUnsub {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapXmppVmSubUnsub {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+    3: string vm_name
+}
+
+trace sandesh JoinVertexTrace {
+    1: "JoinVertex:"
+    2: string vertex_name
+}
+
+trace sandesh LinkOperTrace {
+    1: string oper
+    2: string left_name
+    3: "-"
+    4: string right_name
+    5: ", lhs:"
+    6: string left_interest
+    7: ", rhs:"
+    8: string right_interest
+}
+
+trace sandesh CleanupInterestTrace {
+    1: string name
+    2: string interest
+    3: string rm_mask
+    4: string nmask
+}
+
+trace sandesh IFMapServerClientRegUnregTrace {
+    1: string start_msg
+    2: string client_name
+}
+
+trace sandesh IFMapTblNotFoundTrace {
+    1: string error_msg
+    2: string table_name
+}
+
+trace sandesh IFMapIdentifierNotFoundTrace {
+    1: string error_msg
+    2: string identifier_name
+}
+
+trace sandesh IFMapStringTrace {
+    1: string message
+}
+
+trace sandesh IFMapIntStringTrace {
+    1: u32 value
+    2: string message
+}
+
+trace sandesh IFMapServerConnectionTrace {
+    1: string str1
+    2: string str2
+}
+
+trace sandesh IFMapUrlInfoTrace {
+    1: string message1
+    2: string hostname
+    3: string message2
+    4: string port
+}
+
+trace sandesh IFMapXmppUnknownMessageTrace {
+    1: string iq_type
+    2: string iq_action
+    3: string iq_node_name
+    4: string client_name (key="ObjectVRouter")
+}
+
+trace sandesh IFMapStaleCleanerInfoTrace {
+    1: "SeqNum:"
+    2: u64 sequence_number
+    3: "NodesDeleted:"
+    4: u32 nodes_deleted
+    5: "NodesChanged:"
+    6: u32 nodes_changed
+    7: "LinksDeleted:"
+    8: u32 links_deleted
+    9: "ObjectsDeleted:"
+    10: u32 objects_deleted
+}
+
+trace sandesh IFMapChannelUnregisterMessageTrace {
+    1: string message
+    2: string client_name (key="ObjectVRouter")
+}
+
+trace sandesh IFMapSmStartTimerMessageTrace {
+    1: u32 value
+    2: string message
+}
+
+trace sandesh IFMapSmCancelTimerMessageTrace {
+    1: string message
+}
+
+trace sandesh IFMapSmExpiredTimerMessageTrace {
+    1: string message
+}
+
+trace sandesh IFMapSmTransitionMessageTrace {
+    1: string from_state
+    2: string to
+    3: string to_state
+}
+
+trace sandesh IFMapSmEventMessageTrace {
+    1: string msg1
+    2: string event
+    3: string msg2
+    4: string state
+}
+
+trace sandesh IFMapNoVrSubTrace {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+    3: string vm_uuid
+}
+
+trace sandesh IFMapNoVmSubTrace {
+    1: string client_name (key="ObjectVRouter")
+    2: string vm_uuid
+}
+
+trace sandesh IFMapDuplicateVrSubTrace {
+    1: string client_name (key="ObjectVRouter")
+}
+
+trace sandesh IFMapDuplicateVmSubTrace {
+    1: string client_name (key="ObjectVRouter")
+    2: string vm_uuid
+}
+
+trace sandesh IFMapPeerConnErrorTrace {
+    1: string error
+    2: string last_state
+    3: string current_state
+    4: string last_event
+}
+
+trace sandesh IFMapBestPeerTrace {
+    1: string event
+    2: string peer
+    3: bool valid
+}
+
+trace sandesh IFMapDSRespTrace {
+    1: string current_peer
+    2: string new_response
+}
+
+trace sandesh IFMapChannelProcRespTrace {
+    1: string str1
+    2: u32 header_length
+    3: string str2
+    4: u32 content_length
+    5: string str3
+    6: u32 total_length
+}
+
+trace sandesh IFMapXmppChannelEventTrace {
+    1: string event
+    2: string client_name (key="ObjectVRouter")
+}
+
+trace sandesh IFMapXmppVrSubUnsubTrace {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+}
+
+trace sandesh IFMapXmppVmSubUnsubTrace {
+    1: string op
+    2: string client_name (key="ObjectVRouter")
+    3: string vm_name
+}
+

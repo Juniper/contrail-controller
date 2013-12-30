@@ -124,6 +124,8 @@ public:
     bool GetBuildInfo(std::string &build_info_str);
     const std::string &GetProgramName() {return prog_name_;};
     static const std::string &NullString() {return null_str_;};
+    static const std::string &VrrpMac() {return vrrp_mac_;};
+    static const std::string &BcastMac() {return bcast_mac_;};
     InterfaceTable *GetInterfaceTable() {return intf_table_;};
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
     IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
@@ -619,6 +621,8 @@ private:
     static const std::string fabric_vn_name_;
     static const std::string link_local_vrf_name_;
     static const std::string link_local_vn_name_;
+    static const std::string vrrp_mac_;
+    static const std::string bcast_mac_;
 };
 
 #endif // vnsw_agent_hpp

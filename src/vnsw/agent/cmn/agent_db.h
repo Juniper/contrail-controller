@@ -73,11 +73,14 @@ private:
 /////////////////////////////////////////////////////////////////////////////
 struct AgentKey : public DBRequestKey {
     typedef enum {
-        UNUSED,     // Default value
-        RESYNC,     // RESYNC a DBEntry
+        // Add/Delete/Change a entry
+        ADD_DEL_CHANGE,
+        // Change an entry if its already present and not in deleted state
+        // Its a no-op if entry is not present or is in deleted state
+        RESYNC,
     } DBSubOperation;
 
-    AgentKey() : DBRequestKey(), sub_op_(UNUSED) { };
+    AgentKey() : DBRequestKey(), sub_op_(ADD_DEL_CHANGE) { };
     AgentKey(DBSubOperation sub_op) : DBRequestKey(), sub_op_(sub_op) { };
     virtual ~AgentKey() { };
 

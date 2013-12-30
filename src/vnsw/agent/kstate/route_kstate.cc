@@ -9,13 +9,13 @@
 
 using namespace std;
 
-RouteKState::RouteKState(KRouteResp *obj, std::string resp_ctx, 
-                              vr_route_req &req, int id) :
-                              KState(resp_ctx, obj) {
+RouteKState::RouteKState(KRouteResp *obj, const std::string &resp_ctx, 
+                         vr_route_req &req, int id) :
+                         KState(resp_ctx, obj) {
     InitEncoder(req, id);
 }
 
-void RouteKState::InitEncoder(vr_route_req &req, int id) {
+void RouteKState::InitEncoder(vr_route_req &req, int id) const {
     req.set_rtr_family(AF_INET);
     req.set_rtr_vrf_id(id);
     req.set_rtr_rid(0);
@@ -24,7 +24,7 @@ void RouteKState::InitEncoder(vr_route_req &req, int id) {
 }
 
 void RouteKState::Handler() {
-    KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
+    KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more routes in Kernel. We need to query them from 
@@ -33,12 +33,12 @@ void RouteKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_data_);
+            resp->set_context(response_context_);
             resp->Response();
-            RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
+            RouteContext *rctx = static_cast<RouteContext *>(more_context_);
             if (rctx) {
                 delete rctx;
-                more_ctx_ = NULL;
+                more_context_ = NULL;
             }
         }
     }
@@ -46,7 +46,7 @@ void RouteKState::Handler() {
 
 void RouteKState::SendNextRequest() {
     vr_route_req req;
-    RouteContext *rctx = static_cast<RouteContext *>(more_ctx_);
+    RouteContext *rctx = static_cast<RouteContext *>(more_context_);
 
     InitEncoder(req, rctx->vrf_id);
     req.set_rtr_marker(rctx->marker);
@@ -56,16 +56,15 @@ void RouteKState::SendNextRequest() {
 
 void RouteKState::SendResponse() {
 
-    KRouteResp *resp = static_cast<KRouteResp *>(resp_obj_);
-    resp->set_context(resp_data_);
+    KRouteResp *resp = static_cast<KRouteResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
-    ResetCount();
 
-    resp_obj_ = new KRouteResp();
+    response_object_ = new KRouteResp();
 }
 
-string RouteKState::FamilyToString(int nh_family) {
+const string RouteKState::FamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
         case AF_INET:
@@ -75,7 +74,7 @@ string RouteKState::FamilyToString(int nh_family) {
     }
 }
 
-string RouteKState::LabelFlagsToString(int flags) {
+const string RouteKState::LabelFlagsToString(int flags) const {
     if (flags == 0) {
         return "--NONE--";
     }

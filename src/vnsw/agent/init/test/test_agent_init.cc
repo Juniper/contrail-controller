@@ -94,7 +94,8 @@ void RouterIdDepInit() {
 
 TEST_F(FlowTest, Agent_Conf_file_1) {
     AgentParam param;
-    param.Init("src/vnsw/agent/init/test/cfg.xml", "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+               var_map);
 
     EXPECT_STREQ(param.vhost_name().c_str(), "vhost0");
     EXPECT_EQ(param.vhost_addr().to_ulong(),
@@ -118,13 +119,14 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.xml");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
 }
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {
     AgentParam param;
-    param.Init("src/vnsw/agent/init/test/cfg-xen.xml", "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
+               var_map);
 
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenapi");
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),
@@ -138,7 +140,8 @@ TEST_F(FlowTest, Agent_Param_1) {
     int argc = 16;
     char *argv[] = {
         (char *) "",
-        (char *) "--config-file",   (char *)"src/vnsw/agent/init/test/cfg.xml",
+        (char *) "--config-file", 
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
         (char *) "--log-local",
         (char *) "--log-level",     (char *)"SYS_DEBUG",
         (char *) "--log-category",  (char *)"Test",
@@ -158,7 +161,8 @@ TEST_F(FlowTest, Agent_Param_1) {
     }
 
     AgentParam param;
-    param.Init("src/vnsw/agent/init/test/cfg-xen.xml", "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg-xen.xml", "test-param",
+               var_map);
 
     EXPECT_TRUE(param.log_local());
     EXPECT_STREQ(param.log_level().c_str(), "SYS_DEBUG");
@@ -174,7 +178,8 @@ TEST_F(FlowTest, Agent_Param_1) {
 TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     int argc = 8;
     char *argv[] = {
-        (char *) "--config-file",   (char *)"src/vnsw/agent/init/test/cfg.xml",
+        (char *) "--config-file",
+                        (char *)"controller/src/vnsw/agent/init/test/cfg.xml",
         (char *) "--hypervisor",    (char *)"xen", 
         (char *) "--xen-ll-port",   (char *)"xenport",
         (char *) "--xen-ll-ip-address", (char *)"1.1.1.2",
@@ -191,10 +196,11 @@ TEST_F(FlowTest, Agen_Arg_Override_Config_1) {
     }
 
     AgentParam param;
-    param.Init("src/vnsw/agent/init/test/cfg.xml", "test-param", var_map);
+    param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+               var_map);
 
     EXPECT_STREQ(param.config_file().c_str(), 
-                 "src/vnsw/agent/init/test/cfg.xml");
+                 "controller/src/vnsw/agent/init/test/cfg.xml");
     EXPECT_EQ(param.mode(), AgentParam::MODE_XEN);
     EXPECT_STREQ(param.xen_ll_name().c_str(), "xenport");
     EXPECT_EQ(param.xen_ll_addr().to_ulong(),

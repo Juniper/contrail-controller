@@ -7,13 +7,13 @@
 
 class VrfStatsKState: public KState {
 public:
-    VrfStatsKState(KVrfStatsResp *obj, std::string resp_ctx, 
+    VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx, 
                    vr_vrf_stats_req &encoder, int id);
     virtual void SendResponse();
     virtual void Handler();
     virtual void SendNextRequest();
-    void InitDumpRequest(vr_vrf_stats_req &req);
-    static std::string TypeToString(int type);
-    static std::string FamilyToString(int family);
+    void InitDumpRequest(vr_vrf_stats_req &req) const;
+    const std::string TypeToString(int type) const;
+    const std::string FamilyToString(int family) const;
 };
 #endif //vnsw_agent_vrf_stats_kstate_h

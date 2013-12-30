@@ -97,9 +97,6 @@ if sys.platform != 'darwin':
     test_mirror = env.Program(target = 'test_mirror', source = ['test_mirror.cc'])
     env.Alias('src/vnsw/agent/test:test_mirror', test_mirror)
 
-    test_kstate = env.Program(target = 'test_kstate', source = ['test_kstate.cc'])
-    env.Alias('src/vnsw/agent/test:test_kstate', test_kstate)
-
     test_nh = env.Program(target = 'test_nh', source = ['test_nh.cc'])
     env.Alias('src/vnsw/agent/test:test_nh', test_nh)
 
@@ -148,7 +145,6 @@ test_suite = [test_dummy,
               test_uve,
               test_vrf,
               test_mirror,
-              test_kstate,
               test_nh,
               test_vhost_ip_change,
               test_multicast,

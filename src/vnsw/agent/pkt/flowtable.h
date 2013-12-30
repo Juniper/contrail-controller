@@ -312,9 +312,9 @@ class FlowEntry {
     };
     FlowEntry() :
         key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false), 
-        is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0), deleted_(false) {
+        local_flow(false), short_flow(false), mdata_flow(false), 
+        is_reverse_flow(false), setup_time(0), exported(false),
+        teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -322,9 +322,9 @@ class FlowEntry {
     };
     FlowEntry(const FlowKey &k) : 
         key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false),
-        is_reverse_flow(false), setup_time(0), teardown_time(0),
-        last_modified_time(0), deleted_(false) {
+        local_flow(false), short_flow(false), mdata_flow(false),
+        is_reverse_flow(false), setup_time(0), exported(false),
+        teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -350,6 +350,7 @@ class FlowEntry {
     bool is_reverse_flow;
 
     uint64_t setup_time;
+    bool exported;
     uint64_t teardown_time;
     uint64_t last_modified_time; //used for aging
 
@@ -437,7 +438,7 @@ public:
 
         VnEntryConstRef vn_;
         bool policy_;
-        SgList sg_l_;
+        VmInterface::SecurityGroupEntryList sg_l_;
     };
 
     struct VrfFlowHandlerState : public DBState {

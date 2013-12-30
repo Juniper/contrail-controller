@@ -169,14 +169,14 @@ void MplsLabel::CreateMcastLabelReq(const string &vrf_name, const Ip4Address &gr
 }
 
 void MplsLabel::CreateEcmpLabel(uint32_t label, const string &vrf_name,
-                                   const Ip4Address &addr) {
+                                const Ip4Address &addr, uint8_t plen) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     MplsLabelKey *key = new MplsLabelKey(MplsLabel::VPORT_NH, label);
     req.key.reset(key);
 
-    MplsLabelData *data = new MplsLabelData(vrf_name, addr, true);
+    MplsLabelData *data = new MplsLabelData(vrf_name, addr, plen, true);
     req.data.reset(data);
 
     MplsTable::GetInstance()->Process(req);

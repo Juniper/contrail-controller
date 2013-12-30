@@ -22,7 +22,7 @@ void init();
 void init(std::string log_file, unsigned long log_file_size,
           unsigned long log_file_index);
 bool unit_test();
-void LogServerName(BgpServer *server);
+void LogServerName(const BgpServer *server);
 void LogServerName(const IPeer *ipeer, const BgpTable *table);
 
 // Bgp Unit Test specific logging macros
@@ -167,6 +167,34 @@ do {                                                                       \
     BGP_LOG(BgpTable, level, flags, (table) ? (table)->name() : "",        \
             _os.str());                                                    \
 } while (false)
+
+#define BGP_CONFIG_LOG_INTERNAL(type, server, level, flags, ...)               \
+do {                                                                           \
+    if (LoggingDisabled()) break;                                              \
+    if ((flags) & BGP_LOG_FLAG_SYSLOG) {                                       \
+        bgp_log_test::LogServerName(server);                                   \
+        BgpConfig##type##Log::Send(g_vns_constants.CategoryNames.find(         \
+                                    Category::BGP)->second,                    \
+                                    level, __FILE__, __LINE__, ##__VA_ARGS__); \
+    }                                                                          \
+    if ((flags) & BGP_LOG_FLAG_TRACE) {                                        \
+        const std::string __trace_buf(BGP_TRACE_BUF);                          \
+        BgpConfig##type##Trace::TraceMsg(BgpTraceBuf,                          \
+                                         __FILE__, __LINE__, ##__VA_ARGS__);   \
+    }                                                                          \
+} while (false)
+
+#define BGP_CONFIG_LOG_INSTANCE(type, server, rtinstance, level, flags, ...)   \
+    BGP_CONFIG_LOG_INTERNAL(Instance##type, server, level, flags,              \
+                            (rtinstance)->name(), ##__VA_ARGS__);
+
+#define BGP_CONFIG_LOG_NEIGHBOR(type, server, neighbor, level, flags, ...)     \
+    BGP_CONFIG_LOG_INTERNAL(Neighbor##type, server, level, flags,              \
+                            (neighbor)->name(), ##__VA_ARGS__);
+
+#define BGP_CONFIG_LOG_PROTOCOL(type, server, protocol, level, flags, ...)     \
+    BGP_CONFIG_LOG_INTERNAL(Protocol##type, server, level, flags,              \
+                            (protocol)->instance()->name(), ##__VA_ARGS__);
 
 // BGP Trace macros.
 
