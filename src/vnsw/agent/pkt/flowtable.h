@@ -312,7 +312,7 @@ class FlowEntry {
     };
     FlowEntry() :
         key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), mdata_flow(false), 
+        local_flow(false), short_flow(false), linklocal_flow(false), 
         is_reverse_flow(false), setup_time(0), exported(false),
         teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
@@ -322,7 +322,7 @@ class FlowEntry {
     };
     FlowEntry(const FlowKey &k) : 
         key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), mdata_flow(false),
+        local_flow(false), short_flow(false), linklocal_flow(false),
         is_reverse_flow(false), setup_time(0), exported(false),
         teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
