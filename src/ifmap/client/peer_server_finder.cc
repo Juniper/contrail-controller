@@ -127,8 +127,8 @@ void PeerIFMapServerFinder::UpdatePeerIFMapServers(
 
         response_str += host + ":" + port + ", ";
     }
-    IFMAP_DEBUG(IFMapDSResp, "current_peer is " + current_peer_.ToString(), 
-                "DSResp is " + response_str);
+    IFMAP_PEER_DEBUG(IFMapDSResp, "current_peer is " + current_peer_.ToString(),
+                     "DSResp is " + response_str);
 }
 
 // Runs in the context of "http client" task
@@ -151,7 +151,7 @@ void PeerIFMapServerFinder::ProcPeerIFMapDSResp(
         // available peer and trigger a new connection to this new peer.
         PeerIFMapServerInfo srv_info;
         bool valid = GetBestPeer(&srv_info);
-        IFMAP_DEBUG(IFMapBestPeer, "DSResp", srv_info.ToString(), valid);
+        IFMAP_PEER_DEBUG(IFMapBestPeer, "DSResp", srv_info.ToString(), valid);
         if (valid) {
             if (!old_peer.IsSamePeer(srv_info)) {
                 if (init_done_) {
@@ -198,7 +198,7 @@ bool PeerIFMapServerFinder::PeerDown() {
     tbb::mutex::scoped_lock lock(ds_mutex_);
     // Get the 'next' best available peer
     bool is_valid = GetBestPeer(&srv_info);
-    IFMAP_DEBUG(IFMapBestPeer, "PeerDown", srv_info.ToString(), is_valid);
+    IFMAP_PEER_DEBUG(IFMapBestPeer, "PeerDown", srv_info.ToString(), is_valid);
     if (is_valid) {
         ifmap_manager_->ResetConnection(srv_info.host, srv_info.port);
     }
@@ -218,8 +218,8 @@ void PeerIFMapServerFinder::RetrieveStaticHostPort(const std::string& url) {
     static_peer_.port = url.substr(pos2 + 1);
     // setting in_use field is not needed
 
-    IFMAP_DEBUG(IFMapUrlInfo, "IFMap server host is", static_peer_.host,
-                "and port is", static_peer_.port);
+    IFMAP_PEER_DEBUG(IFMapUrlInfo, "IFMap server host is", static_peer_.host,
+                     "and port is", static_peer_.port);
 }
 
 void PeerIFMapServerFinder::GetAllDSPeerInfo(IFMapDSPeerInfo *ds_peer_info) {

@@ -75,7 +75,7 @@ do {\
 #define IFMAP_ERROR(obj, ...)\
 do {\
     if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::IFMAP)->second,\
+    obj::Send(g_vns_constants.CategoryNames.find(Category::IFMAP_AGENT)->second,\
               SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
 } while (false);\
 
