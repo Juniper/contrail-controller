@@ -186,6 +186,34 @@ const AdvertiseInfo *RouteState::FindHistory(
 }
 
 //
+// Compare AdevrtiseInfos in this RouteState with the UpdateInfo elements
+// in the given list.
+//
+// Uses brute force since the UpdateInfo and AdvertiseInfo lists typically
+// contain just a single element.
+//
+// Return true if the information in the RouteState is same as that in the
+// UpdateInfoSList.
+//
+bool RouteState::CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const {
+    // Both lists must have the same number of elements.
+    if (uinfo_slist->size() != advertised_->size())
+        return false;
+
+    // Compare the peerset for each UpdateInfo in the UpdateInfoSList to
+    // the peerset for the corresponding AdvertiseInfo in the advertised
+    // list.
+    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
+         iter != uinfo_slist->end(); ++iter) {
+        const AdvertiseInfo *ainfo = FindHistory(iter->roattr);
+        if (!ainfo || iter->target != ainfo->bitset)
+            return false;
+    }
+
+    return true;
+}
+
+//
 // Create a new RibOut based on the BgpTable and RibExportPolicy.
 //
 RibOut::RibOut(BgpTable *table, SchedulingGroupManager *mgr,

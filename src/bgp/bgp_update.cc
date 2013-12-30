@@ -177,6 +177,76 @@ void RouteUpdate::MergeUpdateInfo(UpdateInfoSList &uinfo_slist) {
 }
 
 //
+// The AdvertiseSList in the history contains state that has been sent to
+// a set of peers, and the given UpdateInfoSList represents state that we
+// intend to send to a possibly different set of peers.
+//
+// If there are peers in any AdvertiseInfo in the history for which there
+// is no state in the UpdateInfoSList, create an UpdateInfo with negative
+// state to withdraw what we sent out previously. This UpdateInfo has null
+// RibOutAttr and a RibPeerSet of all peers from which we need to withdraw
+// the route.
+//
+void RouteUpdate::BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const {
+    RibPeerSet peerset;
+
+    // Build the bitset of peers to which we previously advertised something.
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); iter++) {
+        peerset.Set(iter->bitset);
+    }
+
+    // Remove the peers to which we are going to send updated state.
+    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
+         iter != uinfo_slist->end(); iter++) {
+        peerset.Reset(iter->target);
+    }
+
+    // Push an UpdateInfo for a withdraw if the bitset is non-empty.
+    if (!peerset.empty()) {
+        UpdateInfo *uinfo = new UpdateInfo(peerset);
+        uinfo_slist->push_front(*uinfo);
+    }
+}
+
+//
+// If any UpdateInfo element in the UpdateInfoSList describes state that's
+// already in one of the AdvertiseInfos in the history, trim that state to
+// avoid sending duplicate information.
+//
+// The RibPeerSet in the UpdateInfo need not be exactly the same as that in
+// the AdevrtiseInfo.  If the RibOutAttrs match, we can trim the RibPeerSet
+// in the UpdateInfo.
+//
+void RouteUpdate::TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const {
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); iter++) {
+        const AdvertiseInfo *ainfo = iter.operator->();
+
+        for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
+             iter != uinfo_slist->end(); iter++) {
+
+            // Keep going if the attributes are different.
+            if (iter->roattr != ainfo->roattr)
+                continue;
+
+            // Found one with matching attributes.  Reset the target bits in
+            // the UpdateInfo. Get rid of the UpdateInfo if the target is now
+            // empty.
+            iter->target.Reset(ainfo->bitset);
+            if (iter->target.empty()) {
+                uinfo_slist->erase_and_dispose(iter, UpdateInfoDisposer());
+            }
+
+            // Since a given UpdateInfoSList can have at most one UpdateInfo
+            // with any given attributes, there's no point in looking at any
+            // more UpdateInfos.
+            break;
+        }
+    }
+}
+
+//
 // Set the given AdvertiseSList in the RouteUpdate to the given value.
 //
 // Should be used only for testing.

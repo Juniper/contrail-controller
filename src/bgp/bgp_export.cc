@@ -20,112 +20,6 @@ BgpExport::BgpExport(RibOut *ribout)
 }
 
 //
-// The AdvertiseSList contains state that has been sent to a set of peers,
-// while the UpdateInfoSList represents state that we intend to send to a
-// possibly different set of peers.  Build a RibPeerSet that contains the
-// peers from the AdvertiseSList that are not in the UpdateInfoSList.
-//
-// Return true if the resulting RibPeerSet is non-empty.
-//
-static bool BuildWithdrawPeerSet(RibPeerSet &peerset,
-        const UpdateInfoSList &uinfo_slist, const AdvertiseSList &adv_slist) {
-
-    // Build the bitset of peers to which we previously advertised something.
-    for (AdvertiseSList::List::const_iterator iter = adv_slist->begin();
-         iter != adv_slist->end(); iter++) {
-        peerset.Set(iter->bitset);
-    }
-
-    // Remove the peers to which we are going to send updated state.
-    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
-         iter != uinfo_slist->end(); iter++) {
-        peerset.Reset(iter->target);
-    }
-
-    return !peerset.empty();
-}
-
-//
-// If there are peers in AdvertiseSList for which there is no state in the
-// UpdateInfoSList, generate an UpdateInfo with negative state to withdraw
-// what we sent out previously.
-//
-static void GenerateNegativeUpdateInfo(UpdateInfoSList &uinfo_slist,
-        const AdvertiseSList &adv_slist) {
-    RibPeerSet peerset;
-    if (BuildWithdrawPeerSet(peerset, uinfo_slist, adv_slist)) {
-        UpdateInfo *uinfo = new UpdateInfo(peerset);
-        uinfo_slist->push_front(*uinfo);
-    }
-}
-
-//
-// If an UpdateInfo element describes state that is already in the given
-// AdvertiseInfo, trim that state to avoid sending duplicate information.
-// The state in the UpdateInfo need not be identical to that in the given
-// AdevrtiseInfo.  If the RibOutAttr is the same, then we can trim the
-// RibPeerSet in the UpdateInfo.
-//
-static void TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist,
-        const AdvertiseInfo *ainfo) {
-    for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
-         iter != uinfo_slist->end(); iter++) {
-
-        // Keep going if the attributes are different.
-        if (iter->roattr != ainfo->roattr)
-            continue;
-
-        // Found one with matching attributes.  Reset the target bits in
-        // the UpdateInfo. Get rid of the UpdateInfo if the target is now
-        // empty.
-        iter->target.Reset(ainfo->bitset);
-        if (iter->target.empty()) {
-            uinfo_slist->erase_and_dispose(iter, UpdateInfoDisposer());
-        }
-
-        // Since a given UpdateInfoSList can have at most one UpdateInfo
-        // with any given attributes, there's no point in looking at any
-        // more UpdateInfos.
-        break;
-    }
-}
-
-//
-// If an UpdateInfo element describes state that is already in one of the
-// AdvertiseInfos in the AdvertiseSList, trim that state to avoid sending
-// duplicate information.
-//
-static void TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist,
-        const AdvertiseSList &adv_slist) {
-    for (AdvertiseSList::List::const_iterator iter = adv_slist->begin();
-         iter != adv_slist->end(); iter++) {
-        TrimRedundantUpdateInfo(uinfo_slist, iter.operator->());
-    }
-}
-
-static bool CheckDuplicateUpdateInfo(UpdateInfoSList &uinfo_slist,
-        const AdvertiseInfo *ainfo) {
-    for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
-         iter != uinfo_slist->end(); iter++) {
-        if (iter->roattr == ainfo->roattr && iter->target == ainfo->bitset)
-            return true;
-    }
-    return false;
-}
-
-static bool CheckDuplicateUpdateInfo(UpdateInfoSList &uinfo_slist,
-        const AdvertiseSList &adv_slist) {
-    if (uinfo_slist->size() != adv_slist->size())
-        return false;
-    for (AdvertiseSList::List::const_iterator iter = adv_slist->begin();
-         iter != adv_slist->end(); iter++) {
-        if (!CheckDuplicateUpdateInfo(uinfo_slist, iter.operator->()))
-            return false;
-    }
-    return true;
-}
-
-//
 // Check if the desired state as expressed by the UpdateInfoSList is exactly
 // the same as the state already stored in the RouteUpdate.
 //
@@ -216,7 +110,7 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
             // there are back to back changes to a route such that it goes
             // from state A to B and then back to A but the Export routine
             // never saw state B.
-            if (CheckDuplicateUpdateInfo(uinfo_slist, rstate->Advertised()))
+            if (rstate->CompareUpdateInfo(uinfo_slist))
                 return;
 
             // We need a new RouteUpdate to advertise the new state and/or
@@ -250,15 +144,15 @@ void BgpExport::Export(DBTablePartBase *root, DBEntryBase *db_entry) {
 
         // The new UpdateInfos that we want to schedule may not cover all the
         // peers that we advertised state to previously. May need to generate
-        // negative state for such peers.
-        GenerateNegativeUpdateInfo(uinfo_slist, rt_update->History());
+        // negative state for such peers based on the history in RouteUpdate.
+        rt_update->BuildNegativeUpdateInfo(uinfo_slist);
 
         // At this point we have a RouteUpdate with history information and
         // an UpdateInfoSList that contains the state that we are going to
         // schedule. There may be some commonality between them. We want to
         // trim redundant state in the UpdateInfoSList i.e. if some of it's
         // the same as what's already in the history.
-        TrimRedundantUpdateInfo(uinfo_slist, rt_update->History());
+        rt_update->TrimRedundantUpdateInfo(uinfo_slist);
 
         // If there are no more UpdateInfos in the list, move the history to
         // a new RouteState and get rid of the RouteUpdate.  This can happen

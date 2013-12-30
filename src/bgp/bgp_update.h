@@ -191,6 +191,7 @@ public:
     ~RouteUpdate();
 
     void SetUpdateInfo(UpdateInfoSList &uinfo_slist);
+    void BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const;
     void ClearUpdateInfo();
     bool CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const;
     UpdateInfo *FindUpdateInfo(const RibOutAttr &roattr);
@@ -198,6 +199,7 @@ public:
     void MergeUpdateInfo(UpdateInfoSList &uinfo_slist);
     bool RemoveUpdateInfo(UpdateInfo *uinfo);
     void ResetUpdateInfo(RibPeerSet &peerset);
+    void TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const;
 
     void SetHistory(AdvertiseSList &history);
     void ClearHistory();

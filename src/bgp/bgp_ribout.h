@@ -24,6 +24,7 @@ class BgpTable;
 class BgpExport;
 class BgpRoute;
 class RouteUpdate;
+class UpdateInfoSList;
 
 //
 // This class represents the attributes for a ribout entry, including the
@@ -199,6 +200,7 @@ public:
     }
     void MoveHistory(RouteUpdate *rt_update);
     const AdvertiseInfo *FindHistory(const RibOutAttr &roattr) const;
+    bool CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const;
 
     const AdvertiseSList &Advertised() const { return advertised_; }
     AdvertiseSList &Advertised() { return advertised_; }
