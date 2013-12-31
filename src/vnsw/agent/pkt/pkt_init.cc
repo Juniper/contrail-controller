@@ -23,7 +23,7 @@ PktModule::~PktModule() {
 void PktModule::Init(bool run_with_vrouter) {
     EventManager *event = agent_->GetEventManager();
     boost::asio::io_service &io = *event->io_service();
-    std::string ifname(agent_->GetHostIfname());
+    std::string ifname(agent_->pkt_interface_name());
 
     pkt_handler_.reset(new PktHandler(agent_->GetDB(), ifname,
                                       io, run_with_vrouter));
@@ -48,6 +48,11 @@ void PktModule::Shutdown() {
 }
 
 void PktModule::CreateInterfaces() {
+<<<<<<< HEAD
     std::string ifname(agent_->GetHostIfname());
     pkt_handler_->CreateHostInterface(ifname);
+=======
+    std::string ifname(Agent::GetInstance()->pkt_interface_name());
+    PktHandler::CreateHostInterface(ifname);
+>>>>>>> upstream/master
 }

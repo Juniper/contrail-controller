@@ -45,8 +45,8 @@ private:
     unsigned char mac_[ETH_ALEN];
 };
 
-TapInterface::TapDescriptor::TapDescriptor(const std::string &name) {
-    if (name == Agent::GetInstance()->GetHostIfname()) {
+TapDescriptor::TapDescriptor(const std::string &name) {
+    if (name == Agent::GetInstance()->pkt_interface_name()) {
         if ((fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> opening tap-device");
@@ -60,6 +60,14 @@ TapInterface::TapDescriptor::TapDescriptor(const std::string &name) {
         if (ioctl(fd_, TUNSETIFF, (void *)&ifr) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> creating " << name << "tap-device");
+            assert(0);
+        }
+
+        // We dont want the fd to be inherited by child process such as
+        // virsh etc... So, close tap fd on fork.
+        if (fcntl(fd_, F_SETFD, FD_CLOEXEC) < 0) {
+            LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
+                strerror(errno) << "> setting fcntl on " << name );
             assert(0);
         }
 

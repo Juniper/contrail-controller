@@ -47,7 +47,7 @@ struct PortInfo input4[] = {
 VmInterface *vnet[16];
 char vnet_addr[16][32];
 
-VirtualHostInterface *vhost;
+InetInterface *vhost;
 char vhost_addr[32];
 
 Inet4UnicastAgentRouteTable *vnet_table[16];
@@ -298,8 +298,8 @@ static void Setup() {
         ret = false;
     }
 
-    boost::scoped_ptr<VirtualHostInterfaceKey> key(new VirtualHostInterfaceKey("vhost0"));
-    vhost = static_cast<VirtualHostInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
+    boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
+    vhost = static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
     strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
 
     EXPECT_TRUE(ret);

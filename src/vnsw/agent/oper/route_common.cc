@@ -839,7 +839,7 @@ bool HostRoute::AddChangePath(AgentPath *path) {
     return ret;
 } 
 
-bool VirtualHostInterfaceRoute::AddChangePath(AgentPath *path) {
+bool InetInterfaceRoute::AddChangePath(AgentPath *path) {
     bool ret = false;
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);

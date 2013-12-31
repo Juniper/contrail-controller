@@ -7,7 +7,7 @@
 #include "pkt/flow_proto.h"
 
 VmInterface *vnet[16];
-VirtualHostInterface *vhost;
+InetInterface *vhost;
 char vhost_addr[32];
 char vnet_addr[16][32];
 

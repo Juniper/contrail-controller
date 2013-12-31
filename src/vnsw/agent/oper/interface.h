@@ -21,12 +21,12 @@ public:
         PHYSICAL,
         // Interface in the virtual machine
         VM_INTERFACE,
-        // The virtual host interfaces created in host-os
+        // The inet interfaces created in host-os
         // Example interfaces:
         // vhost0 in case of KVM
         // xap0 in case of XEN
         // vgw in case of Simple Gateway
-        VIRTUAL_HOST,
+        INET,
         // pkt0 interface used to exchange packets between vrouter and agent
         PACKET
     };

@@ -2,12 +2,11 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_virtual_host_interface_hpp
-#define vnsw_agent_virtual_host_interface_hpp
+#ifndef vnsw_agent_inet_interface_hpp
+#define vnsw_agent_inet_interface_hpp
 
 /////////////////////////////////////////////////////////////////////////////
-// Implementation of virtual interfaces (typically tap interfaces) created in
-// host-os. 
+// Implementation of inet interfaces created in host-os. 
 //
 // Example interfaces:
 // vhost0 : A L3 interface between host-os and vrouter. Used in KVM mode
@@ -15,35 +14,35 @@
 // xapi0 : A L3 interface for link-local subnets. Used in XEN mode
 // vgw : A un-numbered L3 interface for simple gateway
 /////////////////////////////////////////////////////////////////////////////
-class VirtualHostInterface : public Interface {
+class InetInterface : public Interface {
 public:
     enum SubType {
-        HOST,
+        VHOST,
         LINK_LOCAL,
         GATEWAY
     };
 
-    VirtualHostInterface(const std::string &name, VrfEntry *vrf) :
-        Interface(Interface::VIRTUAL_HOST, nil_uuid(), name, vrf), 
-        sub_type_(HOST) { 
+    InetInterface(const std::string &name, VrfEntry *vrf) :
+        Interface(Interface::INET, nil_uuid(), name, vrf), 
+        sub_type_(VHOST) { 
     }
 
-    VirtualHostInterface(const std::string &name, VrfEntry *vrf,
+    InetInterface(const std::string &name, VrfEntry *vrf,
                          SubType sub_type) :
-        Interface(Interface::VIRTUAL_HOST, nil_uuid(), name, vrf), 
+        Interface(Interface::INET, nil_uuid(), name, vrf), 
         sub_type_(sub_type) {
     }
 
-    virtual ~VirtualHostInterface() { }
+    virtual ~InetInterface() { }
 
     // DBTable virtual functions
     KeyPtr GetDBRequestKey() const;
-    std::string ToString() const { return "VHOST <" + name() + ">"; }
+    std::string ToString() const { return "INET <" + name() + ">"; }
 
     // The interfaces are keyed by name. No UUID is allocated for them
     virtual bool CmpInterface(const DBEntry &rhs) const {
-        const VirtualHostInterface &intf =
-            static_cast<const VirtualHostInterface &>(rhs);
+        const InetInterface &intf =
+            static_cast<const InetInterface &>(rhs);
         return name_ < intf.name_;
     }
 
@@ -55,37 +54,37 @@ public:
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
 private:
     SubType sub_type_;
-    DISALLOW_COPY_AND_ASSIGN(VirtualHostInterface);
+    DISALLOW_COPY_AND_ASSIGN(InetInterface);
 };
 
-struct VirtualHostInterfaceKey : public InterfaceKey {
-    VirtualHostInterfaceKey(const std::string &name) :
-        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::VIRTUAL_HOST,
+struct InetInterfaceKey : public InterfaceKey {
+    InetInterfaceKey(const std::string &name) :
+        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::INET,
                      nil_uuid(), name, false) {
     }
 
-    virtual ~VirtualHostInterfaceKey() { }
+    virtual ~InetInterfaceKey() { }
 
     Interface *AllocEntry(const InterfaceTable *table) const {
-        return new VirtualHostInterface(name_, NULL);
+        return new InetInterface(name_, NULL);
     }
 
     Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const;
 
     InterfaceKey *Clone() const {
-        return new VirtualHostInterfaceKey(*this);
+        return new InetInterfaceKey(*this);
     }
 };
 
-struct VirtualHostInterfaceData : public InterfaceData {
-    VirtualHostInterfaceData(const std::string &vrf_name,
-                             VirtualHostInterface::SubType sub_type) :
+struct InetInterfaceData : public InterfaceData {
+    InetInterfaceData(const std::string &vrf_name,
+                             InetInterface::SubType sub_type) :
         InterfaceData(), sub_type_(sub_type) {
         VirtualHostInit(vrf_name);
 
     }
-    VirtualHostInterface::SubType sub_type_;
+    InetInterface::SubType sub_type_;
 };
 
-#endif // vnsw_agent_virtual_host_interface_hpp
+#endif // vnsw_agent_inet_interface_hpp

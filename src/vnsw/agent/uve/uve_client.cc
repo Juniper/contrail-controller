@@ -1360,7 +1360,7 @@ void UveClient::SendVrouterUve() {
         vrouter_agent.set_phy_if(phy_if_list);
 
         //vhost attributes
-        VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
+        InetInterfaceKey key(Agent::GetInstance()->vhost_interface_name());
         const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
         if (vhost) {
             AgentInterface vitf;
@@ -2112,13 +2112,13 @@ bool UveClient::SendAgentStats() {
         //The following avoids handling of count overflow cases.
         count = 0;
     }
-    VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
+    InetInterfaceKey key(Agent::GetInstance()->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     const AgentStatsCollector::IfStats *s = 
         AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
-        vhost_stats.set_name(Agent::GetInstance()->GetVirtualHostInterfaceName());
+        vhost_stats.set_name(Agent::GetInstance()->vhost_interface_name());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
         vhost_stats.set_out_pkts(s->out_pkts);

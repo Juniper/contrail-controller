@@ -467,7 +467,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                              prefix_len, intf_nh->GetIfUuid(),
                                              item->entry.virtual_network, label,
                                              item->entry.security_group_list.security_group);
-            } else if (interface->type() == Interface::VIRTUAL_HOST) {
+            } else if (interface->type() == Interface::INET) {
                 rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
                                                  prefix_addr, prefix_len,
                                                  interface->name(),

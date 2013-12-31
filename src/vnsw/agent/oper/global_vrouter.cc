@@ -269,7 +269,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
         if (vn_entry->Ipv4Forwarding()) {
             rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
                                         vrf_entry->GetName(),
-                                        agent->GetVirtualHostInterfaceName(),
+                                        agent->vhost_interface_name(),
                                         key->linklocal_service_ip, 32,
                                         agent->GetLinkLocalVnName(),
                                         true);
@@ -331,7 +331,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
              services.begin(); it != services.end(); ++it) {
             rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
                                         vrf_entry->GetName(),
-                                        agent->GetVirtualHostInterfaceName(),
+                                        agent->vhost_interface_name(),
                                         it->first.linklocal_service_ip, 32,
                                         agent->GetLinkLocalVnName(),
                                         true);
