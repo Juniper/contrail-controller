@@ -20,6 +20,7 @@ public:
     ~ServicesModule();
 
     Agent *agent() { return agent_; }
+    MetadataProxy *metadataproxy() { return metadata_proxy_.get(); }
 
     void Init(bool run_with_vrouter);
     void ConfigInit();

@@ -346,11 +346,9 @@ TEST_F(KStateTest, RouteDumpTest) {
 
         CreatePorts(0, 0, rt_count);
         //Addition of 2 vm ports in a new VN (VRF) will result in the following routes
-        // 2 new routes added during vrf addition (169.254.1.1, 169.254.169.254(meta-data service))
-        // 2 routes corresponding to the IP address of VM ports
-        // 1 route for l2 of vm port
-        // 2 routes corresponding to 2 vmports in default-vrf using meta-data ip address of VM ports.
-        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 3);
+        // 2 routes corresponding to the addresses of VM
+        // broadcast + l2 broadcast
+        TestRouteKState::Init(true, rt_count + (MAX_TEST_FD * 2) + 2);
         client->KStateResponseWait(1);
         DeletePorts();
     }

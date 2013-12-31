@@ -397,6 +397,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     switch (type_) {
     case Interface::PHYSICAL:
         data.set_type("eth");
+        // data.set_policy("Enable");
         break;
     case Interface::VM_INTERFACE: {
         data.set_type("vport");

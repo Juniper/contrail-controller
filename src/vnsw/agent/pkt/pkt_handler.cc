@@ -43,86 +43,12 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
         tap_ = new TestTapInterface("test", io_serv,
                    boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
     assert(tap_ != NULL);
-    Agent::GetInstance()->GetVrfTable()->Register(
-            boost::bind(&PktHandler::VrfUpdate, this, _1, _2));
-    Agent::GetInstance()->GetVnTable()->Register(
-            boost::bind(&PktHandler::VnUpdate, this, _1, _2));
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
     PacketInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             if_name);
     InterfaceNH::CreateHostPortReq(if_name);
-}
-
-//Take action for forwarding mode change in VN
-void PktHandler::VnUpdate(DBTablePartBase *part, DBEntryBase *entry) {
-    VnEntry *vn_entry = static_cast<VnEntry *>(entry);
-
-    if (entry->IsDeleted()) {
-        return;
-    }
-
-    VrfEntry *vrf_entry = vn_entry->GetVrf();
-    if (!vrf_entry) {
-        return;
-    }
-
-    // Do not create the routes for the default VRF
-    if (Agent::GetInstance()->GetDefaultVrf() == vrf_entry->GetName())
-        return;
-
-    if (Agent::GetInstance()->isXenMode()) {
-        return;
-    }
-
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-
-    if (vn_entry->Ipv4Forwarding()) {
-        rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
-                                    vrf_entry->GetName(),
-                                    Agent::GetInstance()->GetVirtualHostInterfaceName(),
-                                    Ip4Address(METADATA_IP_ADDR), 32,
-                                    Agent::GetInstance()->GetLinkLocalVnName(),
-                                    true);
-    } else {
-        rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), 
-                            vrf_entry->GetName(),
-                            Ip4Address(METADATA_IP_ADDR), 32);
-    }
-}
-
-void PktHandler::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
-    VrfEntry *vrf_entry = static_cast<VrfEntry *>(entry);
-
-    // Do not create the routes for the default VRF
-    if (Agent::GetInstance()->GetDefaultVrf() == vrf_entry->GetName())
-        return;
-
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-
-    // In XenMode the link-local interface is configured in a separate
-    // instance. Otherwise it is available on the VRF as a NATed address.
-    if (!Agent::GetInstance()->isXenMode()) {
-        if (entry->IsDeleted()) {
-            rt_table->DeleteReq(Agent::GetInstance()->GetMdataPeer(), vrf_entry->GetName(),
-                                Ip4Address(METADATA_IP_ADDR), 32);
-        }
-#if 0
-        } else {
-            rt_table->AddVHostRecvRoute(Agent::GetInstance()->GetMdataPeer(),
-                                        vrf_entry->GetName(),
-                                        Agent::GetInstance()->GetVirtualHostInterfaceName(),
-                                        Ip4Address(METADATA_IP_ADDR), 32,
-                                        Agent::GetInstance()->GetLinkLocalVnName(),
-                                        true);
-        }
-#endif
-    }
 }
 
 // Check if the packet is destined to the VM's default GW

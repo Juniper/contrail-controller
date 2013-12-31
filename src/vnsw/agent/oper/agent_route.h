@@ -762,6 +762,7 @@ public:
                                   uint32_t label,
                                   const string &dest_vn_name,
                                   const SecurityGroupList &sg_list_);
+    static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
                          const Ip4Address &ip, 
