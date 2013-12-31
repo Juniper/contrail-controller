@@ -14,16 +14,14 @@
 #include "ifmap/ifmap_log.h"
 #include "ifmap/ifmap_table.h"
 #include "ifmap/ifmap_server.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_util.h"
 #include "ifmap/ifmap_whitelist.h"
 #include "schema/vnc_cfg_types.h"
 
-#include <syslog.h>
-
 class GraphPropagateFilter : public DBGraph::VisitorFilter {
-  public:
+public:
     GraphPropagateFilter(IFMapExporter *exporter,
                          const IFMapTypenameWhiteList *type_filter,
                          const BitSet &bitset)
@@ -58,7 +56,7 @@ class GraphPropagateFilter : public DBGraph::VisitorFilter {
         return static_cast<const IFMapNodeState *>(state);
     }
 
-  private:
+private:
     IFMapExporter *exporter_;
     const IFMapTypenameWhiteList *type_filter_;
     const BitSet &bset_;

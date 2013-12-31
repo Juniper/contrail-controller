@@ -35,6 +35,8 @@ void AddNode(const char *node_name, const char *name, int id, const char *attr);
 void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
+                int vm_id, int vn_id, const string &mac, uint16_t vlan);
+void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
@@ -121,6 +123,7 @@ void AddPort(const char *name, int id);
 void DelPort(const char *name);
 void AddAcl(const char *name, int id);
 void AddAcl(const char *name, int id, const char *src_vn, const char *dest_vn);
+void AddSg(const char *name, int id);
 void DelOperDBAcl(int id);
 void AddFloatingIp(const char *name, int id, const char *addr);
 void DelFloatingIp(const char *name);

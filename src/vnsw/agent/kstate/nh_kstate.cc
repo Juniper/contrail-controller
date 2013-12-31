@@ -11,8 +11,9 @@
 
 using namespace std;
 
-NHKState::NHKState(KNHResp *obj, std::string resp_ctx, vr_nexthop_req &req, 
-                   int id) : KState(resp_ctx, obj) {
+NHKState::NHKState(KNHResp *obj, const std::string &resp_ctx, 
+                   vr_nexthop_req &req, int id) 
+    : KState(resp_ctx, obj) {
 
     req.set_nhr_id(id);
     if (id >= 0) {
@@ -27,13 +28,13 @@ void NHKState::SendNextRequest() {
     vr_nexthop_req req;
     req.set_nhr_id(0);
     req.set_h_op(sandesh_op::DUMP);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_nhr_marker(idx);
     EncodeAndSend(req);
 }
 
 void NHKState::Handler() {
-    KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
+    KNHResp *resp = static_cast<KNHResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more nexthops in Kernel. We need to query them from 
@@ -42,25 +43,25 @@ void NHKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
 
 void NHKState::SendResponse() {
 
-    KNHResp *resp = static_cast<KNHResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KNHResp *resp = static_cast<KNHResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KNHResp();
+    response_object_ = new KNHResp();
 }
 
 
-string NHKState::TypeToString(int nh_type) {
+const string NHKState::TypeToString(int nh_type) const {
     unsigned short type = nh_type;
     switch(type) {
         case NH_ENCAP:
@@ -82,7 +83,7 @@ string NHKState::TypeToString(int nh_type) {
     }
 }
 
-string NHKState::FamilyToString(int nh_family) {
+const string NHKState::FamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
         case AF_INET:
@@ -92,7 +93,7 @@ string NHKState::FamilyToString(int nh_family) {
     }
 }
 
-string NHKState::EncapFamilyToString(int nh_family) {
+const string NHKState::EncapFamilyToString(int nh_family) const {
     unsigned family = nh_family;
     switch(family) {
         case ETH_P_ARP:
@@ -104,7 +105,7 @@ string NHKState::EncapFamilyToString(int nh_family) {
     }
 }
 
-string NHKState::EncapToString(const vector<signed char> &encap) {
+const string NHKState::EncapToString(const vector<signed char> &encap) const {
     ostringstream strm;
     uint8_t ubyte;
     vector<signed char>::const_iterator it = encap.begin();
@@ -117,7 +118,7 @@ string NHKState::EncapToString(const vector<signed char> &encap) {
    return strm.str();
 }
 
-string NHKState::FlagsToString(short nh_flags) {
+const string NHKState::FlagsToString(short nh_flags) const {
     unsigned short flags = nh_flags;
     string flag_str, policy_str("POLICY "), gre_str("TUNNEL_GRE ");
     string fabric_multicast("FABRIC_MULTICAST");

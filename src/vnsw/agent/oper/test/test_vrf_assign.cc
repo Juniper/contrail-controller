@@ -14,15 +14,18 @@ void RouterIdDepInit() {
 static void NovaIntfAdd(int id, const char *name, const char *addr,
                         const char *mac) {
     IpAddress ip = Ip4Address::from_string(addr);
-    VmInterface::NovaMsg(MakeUuid(id), name, ip.to_v4(), mac, "");
+    VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
+                     MakeUuid(id), name, ip.to_v4(), mac, "",
+                     VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
 static void NovaDel(int id) {
-    VmInterface::NovaDel(MakeUuid(id));
+    VmInterface::Delete(Agent::GetInstance()->GetInterfaceTable(),
+                        MakeUuid(id));
 }
 
 static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string ) {
-    CfgFloatingIpList list;
+    VmInterface::FloatingIpList list;
     uuid intf_uuid = MakeUuid(id);
     uuid vn_uuid = MakeUuid(vn);
     uuid vm_uuid = MakeUuid(vm);
@@ -32,18 +35,17 @@ static void CfgIntfSync(int id, const char *cfg_str, int vn, int vm, std::string
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
-    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC,
-                                                     intf_uuid, "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::RESYNC, intf_uuid, "");
     req.key.reset(key);
 
-    VmInterfaceData *cfg_data = new VmInterfaceData();
+    VmInterfaceConfigData *cfg_data = new VmInterfaceConfigData();
     InterfaceData *data = static_cast<InterfaceData *>(cfg_data);
     data->VmPortInit();
 
     cfg_data->cfg_name_ = cfg_name;
     cfg_data->vn_uuid_ = vn_uuid;
     cfg_data->vm_uuid_ = vm_uuid;
-    cfg_data->floating_iplist_ = list;
+    cfg_data->floating_ip_list_ = list;
     req.data.reset(cfg_data);
     Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
 }

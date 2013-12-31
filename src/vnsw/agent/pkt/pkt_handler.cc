@@ -9,6 +9,7 @@
 #include <netinet/ip_icmp.h>
 
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
@@ -49,7 +50,7 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
-    PktInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+    PacketInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             if_name);
     InterfaceNH::CreateHostPortReq(if_name);
 }
@@ -153,10 +154,10 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     Interface *intf = NULL;
     uint8_t *pkt;
 
-    AgentStats::GetInstance()->IncrPktExceptions();
+    AgentStats::GetInstance()->incr_pkt_exceptions();
     if ((pkt = ParseAgentHdr(pkt_info)) == NULL) {
         PKT_TRACE(Err, "Error parsing Agent Header");
-        AgentStats::GetInstance()->IncrPktInvalidAgentHdr();
+        AgentStats::GetInstance()->incr_pkt_invalid_agent_hdr();
         goto drop;
     }
 
@@ -165,7 +166,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         std::stringstream str;
         str << pkt_info->GetAgentHdr().ifindex;
         PKT_TRACE(Err, "Invalid interface index <" + str.str() + ">");
-        AgentStats::GetInstance()->IncrPktInvalidInterface();
+        AgentStats::GetInstance()->incr_pkt_invalid_interface();
         goto enqueue;
     }
 
@@ -176,7 +177,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
             str << pkt_info->GetAgentHdr().ifindex;
             PKT_TRACE(Err, 
                  "ipv4 not enabled for interface index <" + str.str() + ">");
-            AgentStats::GetInstance()->IncrPktDropped();
+            AgentStats::GetInstance()->incr_pkt_dropped();
             goto drop;
         }
     }
@@ -244,10 +245,10 @@ enqueue:
         }
         return;
     }
-    AgentStats::GetInstance()->IncrPktNoHandler();
+    AgentStats::GetInstance()->incr_pkt_no_handler();
 
 drop:
-    AgentStats::GetInstance()->IncrPktDropped();
+    AgentStats::GetInstance()->incr_pkt_dropped();
     delete pkt_info;
     return;
 }

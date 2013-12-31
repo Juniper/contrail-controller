@@ -221,13 +221,11 @@ buildinfo_dep_libs = ['../bgp/libbgp.a', '../schema/libbgp_schema.a', '../schema
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../lib/libtbb_debug.so.2' ]
 
-rel_path = Dir('.').path
-def BuildInfoAction(target, source, env):
-    env.GenerateBuildInfoCode(path=rel_path)
-
-env.Command(target='buildinfo.cc', source = ControlNodeSandeshGenSrcs + buildinfo_dep_libs + ['main.cc', 'sandesh/control_node_sandesh.cc'],
-                                   action=BuildInfoAction)
-env.Depends('main.o', 'buildinfo.cc')
+env.GenerateBuildInfoCode(
+	target = ['buildinfo.h', 'buildinfo.cc'],
+	source = ControlNodeSandeshGenSrcs + buildinfo_dep_libs +
+		['main.cc', 'sandesh/control_node_sandesh.cc'],
+	path = Dir('.').path)
 
 ctrlnode = env.Program(target = 'control-node',
                        source = ['buildinfo.cc',

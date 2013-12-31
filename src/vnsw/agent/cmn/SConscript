@@ -55,7 +55,7 @@ buildinfo_dep_libs = [
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../../../lib/libtbb_debug.so.2' ]
 
-vnswcmn_sources = ['agent_cmn.cc', 'agent_db.cc']
+vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_stats.cc']
 
 env.GenerateBuildInfoCode(
     target='buildinfo.cc',
@@ -63,5 +63,7 @@ env.GenerateBuildInfoCode(
     path=str(Dir('.').abspath))
 
 vnswcmn = env.Library('vnswcmn', ['buildinfo.cc'] + vnswcmn_sources)
+env.Depends('agent_cmn.o', 'buildinfo.cc')
+env.Depends('../main.o', 'buildinfo.cc')
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

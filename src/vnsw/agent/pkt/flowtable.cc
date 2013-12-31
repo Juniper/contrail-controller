@@ -20,6 +20,7 @@
 
 #include "route/route.h"
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
@@ -271,14 +272,15 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     }
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
-    if (vm_port->sg_list().size()) {
+    if (vm_port->sg_list().list_.size()) {
         policy->nw_policy = true;
-        SgList::const_iterator it;
-        for (it = vm_port->sg_list().begin();
-             it != vm_port->sg_list().end();
-             ++it) {
+        VmInterface::SecurityGroupEntrySet::const_iterator it;
+        for (it = vm_port->sg_list().list_.begin();
+             it != vm_port->sg_list().list_.end(); ++it) {
+            if (it->sg_.get() == NULL)
+                continue;
             MatchAclParams acl;
-            acl.acl = (*it)->GetAcl();
+            acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
@@ -303,14 +305,15 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
 
     vm_port = static_cast<const VmInterface *>
         (rflow->data.intf_entry.get());
-    if (vm_port->sg_list().size()) {
+    if (vm_port->sg_list().list_.size()) {
         policy->nw_policy = true;
-        SgList::const_iterator it;
-        for (it = vm_port->sg_list().begin();
-             it != vm_port->sg_list().end();
-             ++it) {
+        VmInterface::SecurityGroupEntrySet::const_iterator it;
+        for (it = vm_port->sg_list().list_.begin();
+             it != vm_port->sg_list().list_.end(); ++it) {
+            if (it->sg_.get() == NULL)
+                continue;
             MatchAclParams acl;
-            acl.acl = (*it)->GetAcl();
+            acl.acl = it->sg_->GetAcl();
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
@@ -605,7 +608,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->flow_uuid = FlowTable::rand_gen_();
         flow->egress_uuid = FlowTable::rand_gen_();
         flow->setup_time = UTCTimestampUsec();
-        AgentStats::GetInstance()->IncrFlowCreated();
+        AgentStats::GetInstance()->incr_flow_created();
     }
 
     return flow;
@@ -659,7 +662,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         }
     }
 
-    AgentStats::GetInstance()->IncrFlowAged();
+    AgentStats::GetInstance()->incr_flow_aged();
 }
 
 bool FlowTable::DeleteRevFlow(FlowKey &key, bool rev_flow)
@@ -768,6 +771,7 @@ void FlowTable::DeleteAll()
             it->second == entry->data.reverse_flow.get()) {
             ++it;
         }
+
         DeleteNatFlow(entry->key, true);
     }
 }
@@ -844,7 +848,7 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
         return;
     }
 
-    const SgList &new_sg_l = vm_port->sg_list();
+    const VmInterface::SecurityGroupEntryList &new_sg_l = vm_port->sg_list();
     bool changed = false;
 
     if (state == NULL) {
@@ -864,7 +868,7 @@ void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
             changed = true;
             state->policy_ = vm_port->policy_enabled();
         }
-        if (state->sg_l_ != new_sg_l) {
+        if (state->sg_l_.list_ != new_sg_l.list_) {
             changed = true;
             state->sg_l_ = new_sg_l;
         }

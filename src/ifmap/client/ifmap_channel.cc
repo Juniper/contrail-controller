@@ -34,7 +34,7 @@
 #include "ifmap_manager.h"
 #include "ifmap/ifmap_server.h"
 #include "ifmap/ifmap_server_show_types.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
@@ -82,7 +82,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
     char hostname[1024];
     struct addrinfo hints, *info;
 
-    IFMAP_DEBUG(IFMapServerConnection, "Certificate Store is", certstore);
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Certificate Store is", certstore);
 
     // get host FQDN; eg a2s8.contrail.juniper.net
     hostname[sizeof(hostname)-1] = '\0';
@@ -101,7 +101,7 @@ void IFMapChannel::ChannelUseCertAuth(const std::string& certstore)
 
     // certificate files - follow puppet convention and subdirs
     certname = string(hostname) + ".pem";
-    IFMAP_DEBUG(IFMapServerConnection, "Certificate name is", certname);
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Certificate name is", certname);
 
     // server auth
     ctx_.set_verify_mode(boost::asio::ssl::context::verify_peer, ec);
@@ -135,7 +135,8 @@ IFMapChannel::IFMapChannel(IFMapManager *manager, const std::string& user,
     }
     string auth_str = username_ + ":" + password_;
     b64_auth_str_ = base64_encode(auth_str);
-    IFMAP_DEBUG(IFMapServerConnection, "Base64 auth string is", b64_auth_str_);
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Base64 auth string is",
+                     b64_auth_str_);
 }
 
 void IFMapChannel::set_connection_status(ConnectionStatus status) {
@@ -148,7 +149,7 @@ void IFMapChannel::CloseSockets(const boost::system::error_code& error,
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
-        IFMAP_WARN(IFMapServerConnection, error.message(), "");
+        IFMAP_PEER_WARN(IFMapServerConnection, error.message(), "");
     }
 
     SslStream *ssrc_socket = ssrc_socket_.release();
@@ -184,11 +185,11 @@ void IFMapChannel::CloseSockets(const boost::system::error_code& error,
 void IFMapChannel::ReconnectPreparation() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     if (ConnectionStatusIsDown()) {
-        IFMAP_DEBUG(IFMapServerConnection, 
-                    "Retrying connection to Ifmap-server.", "");
+        IFMAP_PEER_DEBUG(IFMapServerConnection, 
+                         "Retrying connection to Ifmap-server.", "");
     } else {
-        IFMAP_DEBUG(IFMapServerConnection,
-                    "Connection to Ifmap-server went down.", "");
+        IFMAP_PEER_DEBUG(IFMapServerConnection,
+                         "Connection to Ifmap-server went down.", "");
     }
 
     increment_reconnect_attempts();
@@ -256,8 +257,8 @@ void IFMapChannel::DoConnect(bool is_ssrc) {
             manager_->ifmap_server()->StaleNodesCleanup();
         }
         set_connection_status(UP);
-        IFMAP_DEBUG(IFMapServerConnection,
-                    "Connection to Ifmap-server came up.", "");
+        IFMAP_PEER_DEBUG(IFMapServerConnection,
+                         "Connection to Ifmap-server came up.", "");
     }
 }
 
@@ -317,21 +318,21 @@ int IFMapChannel::ExtractPubSessionId() {
     // Append the new bytes read, if any, to the stringstream
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
-    IFMAP_DEBUG(IFMapServerConnection,
-                "PubSessionId message is: \n", reply_str);
+    IFMAP_PEER_DEBUG(IFMapServerConnection,
+                     "PubSessionId message is: \n", reply_str);
 
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_WARN(IFMapServerConnection, 
-                   "Error received instead of PubSessionId. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection, 
+                       "Error received instead of PubSessionId. Quitting.", "");
         return -1;
     }
 
     // we must have the newSessionResult tag
     string ns_result("newSessionResult");
     if (reply_str.find(ns_result) == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "NewSessionResult missing. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "NewSessionResult missing. Quitting.", "");
         return -1;
     }
 
@@ -342,8 +343,8 @@ int IFMapChannel::ExtractPubSessionId() {
     string str("ifmap-publisher-id=\"");
     size_t pos = reply_str.find(str);
     if (pos == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "Publisher-id missing. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Publisher-id missing. Quitting.", "");
         return -1;
     }
 
@@ -352,15 +353,15 @@ int IFMapChannel::ExtractPubSessionId() {
     string str1("\"");
     size_t pos1 = reply_str.find(str1, pos + str.length());
     if (pos1 == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "Slash missing after Publisher-id. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Slash missing after Publisher-id. Quitting.", "");
         return -1;
     }
 
     size_t start_pos = (pos + str.length());
     size_t pub_id_len = pos1 - pos - str.length();
     pub_id_ = reply_str.substr(start_pos, pub_id_len);
-    IFMAP_DEBUG(IFMapServerConnection, "Pub-id is", pub_id_);
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Pub-id is", pub_id_);
 
     // Get the session-id returned by the server
     // EG: session-id="2077221532-423634091-1596075545-1209811427"
@@ -369,7 +370,8 @@ int IFMapChannel::ExtractPubSessionId() {
     str = string("session-id=\"");
     pos = reply_str.find(str);
     if (pos == string::npos) {
-        IFMAP_WARN(IFMapServerConnection, "Session-id missing. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection, "Session-id missing. Quitting.",
+                        "");
         return -1;
     }
 
@@ -378,15 +380,15 @@ int IFMapChannel::ExtractPubSessionId() {
     str1 = string("\"");
     pos1 = reply_str.find(str1, pos + str.length());
     if (pos1 == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "Slash missing after Session-id. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Slash missing after Session-id. Quitting.", "");
         return -1;
     }
 
     start_pos = (pos + str.length());
     size_t session_id_len = pos1 - pos - str.length();
     session_id_ = reply_str.substr(start_pos, session_id_len);
-    IFMAP_DEBUG(IFMapServerConnection, "Session-id is", session_id_);
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "Session-id is", session_id_);
 
     return 0;
 }
@@ -431,16 +433,16 @@ int IFMapChannel::ReadSubscribeResponseStr() {
     // Append the new bytes read, if any, to the stringstream
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
-    IFMAP_DEBUG(IFMapServerConnection,
-                "SubscribeResponse message is: \n", reply_str);
+    IFMAP_PEER_DEBUG(IFMapServerConnection,
+                     "SubscribeResponse message is: \n", reply_str);
 
     // TODO get ErrorResultType if it helps debugging
     // <xsd:element name="errorResult" type="ErrorResultType"/>
 
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_WARN(IFMapServerConnection,
-                  "Error received instead of SubscribeReceived. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+            "Error received instead of SubscribeReceived. Quitting.", "");
         return -1;
     } else if (reply_str.find(string("subscribeReceived")) != string::npos) {
         return 0;
@@ -477,8 +479,8 @@ void IFMapChannel::SendPollRequest() {
 void IFMapChannel::PollResponseWait() {
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Read the http header. Might get extra bytes beyond the header.
-    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::PollResponseWait",
-                GetSizeAsString(reply_.size(), " bytes in reply_."));
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::PollResponseWait",
+                     GetSizeAsString(reply_.size(), " bytes in reply_."));
     response_state_ = POLLRESPONSE;
     boost::asio::async_read_until(*arc_socket_.get(), reply_, "\r\n\r\n",
         boost::bind(&IFMapStateMachine::ProcResponse, state_machine_,
@@ -490,11 +492,11 @@ int IFMapChannel::ReadPollResponse() {
 
     CHECK_CONCURRENCY("ifmap::StateMachine");
     // Append the new bytes read, if any, to the stringstream
-    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::ReadPollResponse",
-                GetSizeAsString(reply_.size(), " bytes in reply_. "));
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ReadPollResponse",
+                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
-    IFMAP_LOG_POLL_RESP(IFMapServerConnection,
+    IFMAP_PEER_LOG_POLL_RESP(IFMapServerConnection,
                    GetSizeAsString(reply_.size(), " bytes in reply_. ") +
                    GetSizeAsString(reply_str.size(), " bytes in reply_str. ") +
                    "PollResponse message is: \n", reply_str);
@@ -502,8 +504,8 @@ int IFMapChannel::ReadPollResponse() {
     // all possible responses, 3.7.5
     if ((reply_str.find("errorResult") != string::npos) ||
         (reply_str.find("endSessionResult") != string::npos)) {
-        IFMAP_WARN(IFMapServerConnection, 
-                   "Error received instead of PollResult. Quitting.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection, 
+                        "Error received instead of PollResult. Quitting.", "");
         return -1;
     } else if (reply_str.find(string("pollResult")) != string::npos) {
         size_t pos = reply_str.find(string("<?xml version="));
@@ -537,14 +539,14 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     reply_ss_.str(std::string());
     reply_ss_.clear();
 
-    IFMAP_DEBUG(IFMapServerConnection, "IFMapChannel::ProcResponse",
-                GetSizeAsString(reply_.size(), " bytes in reply_. "));
+    IFMAP_PEER_DEBUG(IFMapServerConnection, "IFMapChannel::ProcResponse",
+                     GetSizeAsString(reply_.size(), " bytes in reply_. "));
     reply_ss_ << &reply_;
     std::string reply_str = reply_ss_.str();
 
     if (reply_str.find("401 Unauthorized") != string::npos) {
-        IFMAP_WARN(IFMapServerConnection, 
-                 "Received 401 Unauthorized. Incorrect username/password.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection, 
+            "Received 401 Unauthorized. Incorrect username/password.", "");
         boost::system::error_code ec(boost::system::errc::connection_refused,
                                      boost::system::system_category());
         callback(ec, header_length);
@@ -556,8 +558,8 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     string srch1("Content-Length: ");
     size_t pos1 = reply_str.find(srch1);
     if (pos1 == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "No Content-Length found. Improper message.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "No Content-Length found. Improper message.", "");
         boost::system::error_code ec(boost::system::errc::bad_message,
                                      boost::system::system_category());
         callback(ec, header_length);
@@ -567,8 +569,8 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     string srch2("\r\n");
     size_t pos2 = reply_str.find(srch2, pos1 + srch1.length());
     if (pos2 == string::npos) {
-        IFMAP_WARN(IFMapServerConnection,
-                   "No CRLF found. Improper message.", "");
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "No CRLF found. Improper message.", "");
         boost::system::error_code ec(boost::system::errc::bad_message,
                                      boost::system::system_category());
         callback(ec, header_length);
@@ -579,9 +581,9 @@ void IFMapChannel::ProcResponse(const boost::system::error_code& error,
     size_t lenlen = pos2 - pos1 - srch1.length();
     string content_len_str = reply_str.substr(start_pos, lenlen);
     int content_len = atoi(content_len_str.c_str());
-    IFMAP_DEBUG(IFMapChannelProcResp, "Http header length is", header_length,
-                "Content length is", content_len,
-                "Total bytes read are", reply_str.length());
+    IFMAP_PEER_DEBUG(IFMapChannelProcResp, "Http header length is",
+                     header_length, "Content length is", content_len,
+                     "Total bytes read are", reply_str.length());
 
     // If both header and body are completely read, goto the next state
     if ((header_length + content_len) == reply_str.length()) {
@@ -633,8 +635,8 @@ void IFMapChannel::SetArcSocketOptions() {
     boost::asio::socket_base::keep_alive option(true);
     arc_socket_->next_layer().set_option(option, ec);
     if (ec) {
-        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive option",
-                   ec.message());
+        IFMAP_PEER_WARN(IFMapServerConnection, "Error setting keepalive option",
+                        ec.message());
     }
 
 #ifdef TCP_KEEPIDLE
@@ -642,8 +644,8 @@ void IFMapChannel::SetArcSocketOptions() {
         keepalive_idle_time_option(kSessionKeepaliveIdleTime);
     arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
     if (ec) {
-        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive idle time",
-                   ec.message());
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Error setting keepalive idle time", ec.message());
     }
 #endif
 
@@ -652,8 +654,8 @@ void IFMapChannel::SetArcSocketOptions() {
         keepalive_idle_time_option(kSessionKeepaliveIdleTime);
     arc_socket_->next_layer().set_option(keepalive_idle_time_option, ec);
     if (ec) {
-        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive idle time",
-                   ec.message());
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Error setting keepalive idle time", ec.message());
     }
 #endif
 
@@ -662,8 +664,8 @@ void IFMapChannel::SetArcSocketOptions() {
         keepalive_interval_option(kSessionKeepaliveInterval);
     arc_socket_->next_layer().set_option(keepalive_interval_option, ec);
     if (ec) {
-        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive interval",
-                   ec.message());
+        IFMAP_PEER_WARN(IFMapServerConnection,
+                        "Error setting keepalive interval", ec.message());
     }
 #endif
 
@@ -672,8 +674,8 @@ void IFMapChannel::SetArcSocketOptions() {
         keepalive_count_option(kSessionKeepaliveProbes);
     arc_socket_->next_layer().set_option(keepalive_count_option, ec);
     if (ec) {
-        IFMAP_WARN(IFMapServerConnection, "Error setting keepalive probes",
-                   ec.message());
+        IFMAP_PEER_WARN(IFMapServerConnection, "Error setting keepalive probes",
+                        ec.message());
     }
 #endif
 }

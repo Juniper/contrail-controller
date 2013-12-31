@@ -14,7 +14,7 @@
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
-#include "bgp/routing-instance/routing_instance_trace.h"
+#include "bgp/routing-instance/routing_instance_log.h"
 #include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/service_chaining.h"
@@ -24,6 +24,9 @@
 using namespace std;
 using namespace boost::asio;
 using boost::system::error_code;
+
+SandeshTraceBufferPtr RoutingInstanceTraceBuf(
+        SandeshTraceBufferCreate(RTINSTANCE_TRACE_BUF, 1000));
 
 class RoutingInstanceMgr::DeleteActor : public LifetimeActor {
 public:
@@ -48,8 +51,7 @@ private:
 RoutingInstanceMgr::RoutingInstanceMgr(BgpServer *server) :
         server_(server),
         deleter_(new DeleteActor(this)),
-        server_delete_ref_(this, server->deleter()),
-        trace_buf_(SandeshTraceBufferCreate("RoutingInstance", 500)) {
+        server_delete_ref_(this, server->deleter()) {
 }
 
 RoutingInstanceMgr::~RoutingInstanceMgr() {
@@ -258,16 +260,14 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
 
     if (rtinstance) {
         if (rtinstance->deleted()) {
-            ROUTING_INSTANCE_MESSAGE_LOG(
-                g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-                SandeshLevel::SYS_WARN, config->name(),
+            RTINSTANCE_LOG_MESSAGE(server_,
+                SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
                 "Instance is recreated before pending deletion is complete");
             return NULL;
         } else {
             // Duplicate instance creation request can be safely ignored
-            ROUTING_INSTANCE_MESSAGE_LOG(
-                g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-                SandeshLevel::SYS_INFO, config->name(),
+            RTINSTANCE_LOG_MESSAGE(server_,
+                SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
                 "Instance already found during creation");
         }
         return rtinstance;
@@ -289,8 +289,10 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
                                   config->import_list().end());
     std::vector<string> export_rt(config->export_list().begin(),
                                   config->export_list().end());
-    ROUTING_INSTANCE_MGR_TRACE(Create, server_, rtinstance->name(), import_rt,
-                               export_rt, config->virtual_network(), index);
+    RTINSTANCE_LOG(Create, rtinstance,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL,
+        import_rt, export_rt,
+        rtinstance->virtual_network(), rtinstance->virtual_network_index());
 
     return rtinstance;
 }
@@ -301,16 +303,14 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
 
     RoutingInstance *rtinstance = GetRoutingInstance(config->name());
     if (rtinstance && rtinstance->deleted()) {
-        ROUTING_INSTANCE_MESSAGE_LOG(
-         g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-         SandeshLevel::SYS_WARN, config->name(),
-         "Instance is updated before pending deletion is complete");
+        RTINSTANCE_LOG_MESSAGE(server_,
+            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
+            "Instance is updated before pending deletion is complete");
         return;
     } else if (!rtinstance) {
-        ROUTING_INSTANCE_MESSAGE_LOG(
-          g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-          SandeshLevel::SYS_WARN, config->name(), 
-          "Instance not found during update");
+        RTINSTANCE_LOG_MESSAGE(server_,
+            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, config->name(),
+            "Instance not found during update");
         assert(rtinstance != NULL);
     }
 
@@ -327,9 +327,9 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
                                   config->import_list().end());
     std::vector<string> export_rt(config->export_list().begin(),
                                   config->export_list().end());
-    ROUTING_INSTANCE_MGR_TRACE(Update, server_, rtinstance->name(), import_rt,
-                               export_rt, config->virtual_network(),
-                               rtinstance->index());
+    RTINSTANCE_LOG(Update, rtinstance,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL, import_rt, export_rt,
+        rtinstance->virtual_network(), rtinstance->virtual_network_index());
 }
 
 //
@@ -350,16 +350,14 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 
     // Ignore if instance is not found as it might already have been deleted.
     if (rtinstance && rtinstance->deleted()) {
-        ROUTING_INSTANCE_MESSAGE_LOG(
-            g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-            SandeshLevel::SYS_WARN,
-            name, "Duplicate instance delete while pending deletion");
+        RTINSTANCE_LOG_MESSAGE(server_,
+            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, name,
+            "Duplicate instance delete while pending deletion");
         return;
     } else if (!rtinstance) {
-        ROUTING_INSTANCE_MESSAGE_LOG(
-            g_vns_constants.CategoryNames.find(Category::ROUTING_INSTANCE)->second,
-            SandeshLevel::SYS_WARN,
-            name, "Instance not found during delete");
+        RTINSTANCE_LOG_MESSAGE(server_,
+            SandeshLevel::SYS_WARN, RTINSTANCE_LOG_FLAG_ALL, name,
+            "Instance not found during delete");
         assert(rtinstance != NULL);
     }
 
@@ -367,7 +365,8 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     InstanceTargetRemove(rtinstance);
     rtinstance->ClearConfig();
 
-    ROUTING_INSTANCE_MGR_TRACE(Delete, server_, name);
+    RTINSTANCE_LOG(Delete, rtinstance,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
     rtinstance->ClearRouteTarget();
 
     server()->service_chain_mgr()->StopServiceChain(rtinstance);
@@ -389,10 +388,11 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
 void RoutingInstanceMgr::DestroyRoutingInstance(RoutingInstance *rtinstance) {
     CHECK_CONCURRENCY("bgp::Config");
 
+    RTINSTANCE_LOG(Destroy, rtinstance,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+
+    // Remove call here also deletes the instance.
     const std::string name = rtinstance->name();
-    //
-    // Remove call here also deletes the instance
-    //
     instances_.Remove(rtinstance->name(), rtinstance->index());
 
     if (deleted()) return;
@@ -416,17 +416,11 @@ public:
         return parent_->MayDelete();
     }
     virtual void Shutdown() {
-        ROUTING_INSTANCE_DELETE_ACTOR_TRACE(Shutdown, parent_->server(), 
-                                            parent_->name());
-
         parent_->mgr_->NotifyInstanceOp(parent_->name(), 
                                         RoutingInstanceMgr::INSTANCE_DELETE);
-
         parent_->Shutdown();
     }
     virtual void Destroy() {
-        ROUTING_INSTANCE_DELETE_ACTOR_TRACE(Destroy, parent_->server(), 
-                                            parent_->name());
         parent_->mgr_->DestroyRoutingInstance(parent_);
     }
 
@@ -495,8 +489,9 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
             return;
         }
         AddTable(table_inet);
-        ROUTING_INSTANCE_TRACE(TableCreate, server, name(), table_inet->name(),
-                               Address::FamilyToString(Address::INET));
+        RTINSTANCE_LOG_TABLE(Create, this, table_inet,
+            SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+
 
         RoutePathReplicator *inetvpn_replicator =
             server->replicator(Address::INETVPN);
@@ -515,9 +510,8 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
             return;
         }
         AddTable(table_inetmcast);
-        ROUTING_INSTANCE_TRACE(TableCreate, server, name(),
-                table_inetmcast->name(),
-                Address::FamilyToString(Address::INETMCAST));
+        RTINSTANCE_LOG_TABLE(Create, this, table_inetmcast,
+            SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
         // Create foo.enet.0.
         BgpTable *table_enet = static_cast<BgpTable *>(
@@ -527,9 +521,8 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
             return;
         }
         AddTable(table_enet);
-        ROUTING_INSTANCE_TRACE(TableCreate, server, name(),
-                table_enet->name(),
-                Address::FamilyToString(Address::ENET));
+        RTINSTANCE_LOG_TABLE(Create, this, table_enet,
+            SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
         RoutePathReplicator *evpn_replicator =
             server->replicator(Address::EVPN);
@@ -717,14 +710,21 @@ void RoutingInstance::ClearConfig() {
 }
 
 void RoutingInstance::ManagedDelete() {
-    ROUTING_INSTANCE_TRACE(Delete, server(), name());
+    // RoutingInstanceMgr logs the delete for non-default instances.
+    if (IsDefaultRoutingInstance()) {
+        RTINSTANCE_LOG(Delete, this,
+            SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+    }
     deleter_->Delete();
 }
 
 void RoutingInstance::Shutdown() {
     CHECK_CONCURRENCY("bgp::Config");
-    ClearRouteTarget();
 
+    RTINSTANCE_LOG(Shutdown, this,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
+
+    ClearRouteTarget();
     server()->service_chain_mgr()->StopServiceChain(this);
 
     if (static_route_mgr()) 
@@ -792,8 +792,8 @@ BgpTable *RoutingInstance::InetVpnTableCreate(BgpServer *server) {
     BgpTable *vpntbl = static_cast<BgpTable *>(
             server->database()->CreateTable("bgp.l3vpn.0"));
 
-    ROUTING_INSTANCE_TRACE(TableCreate, server, name(), vpntbl->name(),
-                           Address::FamilyToString(Address::INETVPN));
+    RTINSTANCE_LOG_TABLE(Create, this, vpntbl,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     AddTable(vpntbl);
 
@@ -817,8 +817,8 @@ BgpTable *RoutingInstance::RTargetTableCreate(BgpServer *server) {
     BgpTable *rtargettbl = static_cast<BgpTable *>(
             server->database()->CreateTable("bgp.rtarget.0"));
 
-    ROUTING_INSTANCE_TRACE(TableCreate, server, name(), rtargettbl->name(),
-                           Address::FamilyToString(Address::RTARGET));
+    RTINSTANCE_LOG_TABLE(Create, this, rtargettbl,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     AddTable(rtargettbl);
 
@@ -829,8 +829,8 @@ BgpTable *RoutingInstance::EvpnTableCreate(BgpServer *server) {
     BgpTable *vpntbl = static_cast<BgpTable *>(
             server->database()->CreateTable("bgp.evpn.0"));
 
-    ROUTING_INSTANCE_TRACE(TableCreate, server, name(), vpntbl->name(),
-                           Address::FamilyToString(Address::EVPN));
+    RTINSTANCE_LOG_TABLE(Create, this, vpntbl,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     AddTable(vpntbl);
 
@@ -875,8 +875,8 @@ void RoutingInstance::DestroyDBTable(DBTable *dbtable) {
 
     BgpTable *table = static_cast<BgpTable *>(dbtable);
 
-    ROUTING_INSTANCE_TRACE(TableDestroy, server(), name(), table->name(),
-                           Address::FamilyToString(table->family()));
+    RTINSTANCE_LOG_TABLE(Destroy, this, table,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     //
     // Remove this table from various data structures

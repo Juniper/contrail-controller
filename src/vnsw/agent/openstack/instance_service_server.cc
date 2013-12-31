@@ -47,21 +47,26 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
         CfgIntTable *ctable = static_cast<CfgIntTable *>(db_->FindTable("db.cfg_int.0"));
         assert(ctable);
 
-        DBRequest req;
+        DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key.reset(new CfgIntKey(port_id));
         
         CfgIntData *cfg_int_data = new CfgIntData();
+        uint16_t vlan_id = VmInterface::kInvalidVlanId;
+        if (port.__isset.vlan_id) {
+            vlan_id = port.vlan_id;
+        }
+
         cfg_int_data->Init(instance_id, vn_id, 
                            port.tap_name, ip,
                            port.mac_address,
-                           port.display_name, version_);
+                           port.display_name, vlan_id, version_);
         req.data.reset(cfg_int_data);
-        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         ctable->Enqueue(&req);
-        CFG_TRACE(OpenstackAddPort, "Add", UuidToString(port_id), UuidToString(instance_id),
-                  UuidToString(vn_id), port.ip_address, port.tap_name,
-                  port.mac_address, port.display_name, port.hostname,
-                  port.host, version_);
+        CFG_TRACE(OpenstackAddPort, "Add", UuidToString(port_id),
+                  UuidToString(instance_id), UuidToString(vn_id),
+                  port.ip_address, port.tap_name, port.mac_address,
+                  port.display_name, port.hostname, port.host, version_,
+                  vlan_id);
     }
     return true;
 }
@@ -366,6 +371,7 @@ void AddPortReq::HandleRequest() const {
     uuid vn_uuid = StringToUuid(get_vn_uuid());
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
+    uint16_t vlan_id = get_vlan_id();
     boost::system::error_code ec;
     IpAddress ip(boost::asio::ip::address::from_string(get_ip_address(), ec));
     string mac_address = get_mac_address();
@@ -406,7 +412,7 @@ void AddPortReq::HandleRequest() const {
     cfg_int_data->Init(instance_uuid, vn_uuid,
                        tap_name, ip,
                        mac_address,
-                       vm_name, 0);
+                       vm_name, vlan_id, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     resp->set_resp(std::string("Success"));

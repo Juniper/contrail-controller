@@ -10,7 +10,7 @@
 
 using namespace std;
 
-VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, std::string resp_ctx, 
+VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, const std::string &resp_ctx,
                                vr_vrf_stats_req &req, int id) : 
                                KState(resp_ctx, obj) {
     if (id >= 0) {
@@ -24,7 +24,7 @@ VrfStatsKState::VrfStatsKState(KVrfStatsResp *obj, std::string resp_ctx,
     }
 }
 
-void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) {
+void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) const {
     req.set_h_op(sandesh_op::DUMP);
     req.set_vsr_rid(0);
     req.set_vsr_family(AF_INET);
@@ -32,7 +32,7 @@ void VrfStatsKState::InitDumpRequest(vr_vrf_stats_req &req) {
 }
 
 void VrfStatsKState::Handler() {
-    KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(resp_obj_);
+    KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more interfaces in Kernel. We need to query them from 
@@ -41,9 +41,9 @@ void VrfStatsKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
@@ -51,22 +51,22 @@ void VrfStatsKState::Handler() {
 void VrfStatsKState::SendNextRequest() {
     vr_vrf_stats_req req;
     InitDumpRequest(req);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_vsr_marker(idx);
     EncodeAndSend(req);
 }
 
 void VrfStatsKState::SendResponse() {
 
-    KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KVrfStatsResp *resp = static_cast<KVrfStatsResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KVrfStatsResp();
+    response_object_ = new KVrfStatsResp();
 }
 
-string VrfStatsKState::TypeToString(int vrf_stats_type) {
+const string VrfStatsKState::TypeToString(int vrf_stats_type) const {
     unsigned short type = vrf_stats_type;
     switch(type) {
         case RT_UCAST:
@@ -78,7 +78,7 @@ string VrfStatsKState::TypeToString(int vrf_stats_type) {
     }
 }
 
-string VrfStatsKState::FamilyToString(int vrf_family) {
+const string VrfStatsKState::FamilyToString(int vrf_family) const {
     unsigned family = vrf_family;
     switch(family) {
         case AF_INET:

@@ -10,7 +10,7 @@
 #include "bgp/bgp_log.h"
 #include "bgp/bgp_peer.h"
 #include "bgp/bgp_peer_types.h"
-#include "bgp/routing-instance/routing_instance_trace.h"
+#include "bgp/routing-instance/routing_instance_log.h"
 
 using namespace std;
 using namespace boost::asio;
@@ -39,8 +39,8 @@ BgpPeer *PeerManager::PeerLocate(BgpServer *server,
 
     BGP_LOG_PEER(Config, peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Created peer");
-    ROUTING_INSTANCE_TRACE(PeerLocate, server, name(),
-                           peer->peer_key().endpoint.address().to_string());
+    RTINSTANCE_LOG_PEER(Create, instance_, peer,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
     return peer;
 }
 
@@ -77,8 +77,8 @@ void PeerManager::TriggerPeerDeletion(const BgpNeighborConfig *config) {
     info.set_peer(peer->ToString());
     ROUTING_INSTANCE_COLLECTOR_INFO(info);
 
-    ROUTING_INSTANCE_TRACE(PeerDelete, server(), name(),
-            peer->peer_key().endpoint.address().to_string());
+    RTINSTANCE_LOG_PEER(Delete, instance_, peer,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
     // Configuration is deleted by the config manager (parser)
     // Do not hold reference to it any more
@@ -98,8 +98,8 @@ void PeerManager::DestroyIPeer(IPeer *ipeer) {
     string peer_name = peer->peer_name();
     BGP_LOG_PEER(Config, peer, SandeshLevel::SYS_INFO, BGP_LOG_FLAG_ALL,
                  BGP_PEER_DIR_NA, "Destroyed peer");
-    ROUTING_INSTANCE_TRACE(PeerDestroy, server(), name(),
-                           peer->peer_key().endpoint.address().to_string());
+    RTINSTANCE_LOG_PEER(Destroy, instance_, peer,
+        SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
     RemovePeerByKey(peer->peer_key(), peer);
     RemovePeerByName(peer->peer_name(), peer);
     delete peer;
@@ -209,9 +209,6 @@ BgpPeer *PeerManager::PeerLookup(ip::tcp::endpoint remote_endpoint) {
         break;
     }
 
-    ROUTING_INSTANCE_TRACE(PeerLookup, server(), name(),
-        remote_endpoint.address().to_string(),
-        remote_endpoint.port(), (peer != NULL));
     return peer;
 }
 
@@ -231,8 +228,8 @@ void PeerManager::ClearAllPeers() {
          loc != peers_by_key_.end(); loc = next) {
         BgpPeer *peer = loc->second;
         ++next;
-        ROUTING_INSTANCE_TRACE(PeerClear, server(), name(),
-            peer->peer_key().endpoint.address().to_string());
+        RTINSTANCE_LOG_PEER(Clear, instance_, peer,
+            SandeshLevel::SYS_INFO, RTINSTANCE_LOG_FLAG_ALL);
         peer->Clear();
     }
 }

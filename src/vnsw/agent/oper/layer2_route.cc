@@ -61,7 +61,7 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, 32);
     req.key.reset(key);
 
-    VmInterfaceKey intf_key(intf_uuid, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
     LocalVmRoute *data = new LocalVmRoute(intf_key, label, tunnel_bmap,
                                           false, vn_name,
@@ -88,7 +88,7 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
     Layer2RouteKey *key = new Layer2RouteKey(peer, vrf_name, mac, vm_ip, 32);
     req.key.reset(key);
 
-    VmInterfaceKey intf_key(intf_uuid, "");
+    VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
     LocalVmRoute *data = new LocalVmRoute(intf_key, label, tunnel_bmap,
                                           false, vn_name,

@@ -20,7 +20,7 @@
 #include "ifmap_channel.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap_manager.h"
-#include "ifmap/ifmap_syslog_types.h"
+#include "ifmap/ifmap_log_types.h"
 #include "base/logging.h"
 
 using boost::system::error_code;
@@ -182,7 +182,7 @@ struct Idle : sc::simple_state<Idle, IFMapStateMachine> {
     typedef sc::transition<EvStart, ServerResolve, IFMapStateMachine,
                            &IFMapStateMachine::OnStart> reactions;
     Idle() {
-        IFMAP_DEBUG(IFMapString, "Entering Idle.");
+        IFMAP_SM_DEBUG(IFMapString, "Entering Idle.");
     }
 };
 
@@ -693,8 +693,8 @@ int IFMapStateMachine::GetConnectTime(bool is_ssrc) const {
 
 void IFMapStateMachine::StartConnectTimer(int seconds) {
     // TODO assert if timer is still running. How?
-    IFMAP_DEBUG(IFMapSmStartTimerMessage, seconds,
-                "second connect timer started.");
+    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, seconds,
+                   "second connect timer started.");
     error_code ec;
     connect_timer_.expires_from_now(boost::posix_time::seconds(seconds), ec);
     connect_timer_.async_wait(
@@ -703,7 +703,7 @@ void IFMapStateMachine::StartConnectTimer(int seconds) {
 }
 
 void IFMapStateMachine::StopConnectTimer() {
-    IFMAP_DEBUG(IFMapSmCancelTimerMessage, "Cancelling connect timer.");
+    IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling connect timer.");
     error_code ec;
     connect_timer_.cancel(ec);
 }
@@ -715,13 +715,13 @@ void IFMapStateMachine::ConnectTimerExpired(
     if (error == boost::asio::error::operation_aborted) {
         return;
     }
-    IFMAP_DEBUG(IFMapSmExpiredTimerMessage, "Connect timer expired.");
+    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage, "Connect timer expired.");
     EnqueueEvent(ifsm::EvConnectTimerExpired());
 }
 
 void IFMapStateMachine::StartResponseTimer() {
-    IFMAP_DEBUG(IFMapSmStartTimerMessage, kResponseWaitInterval,
-                "second response timer started.");
+    IFMAP_SM_DEBUG(IFMapSmStartTimerMessage, kResponseWaitInterval,
+                   "second response timer started.");
     error_code ec;
     response_timer_.expires_from_now(
         boost::posix_time::seconds(kResponseWaitInterval), ec);
@@ -731,7 +731,7 @@ void IFMapStateMachine::StartResponseTimer() {
 }
 
 void IFMapStateMachine::StopResponseTimer() {
-    IFMAP_DEBUG(IFMapSmCancelTimerMessage, "Cancelling Response timer.");
+    IFMAP_SM_DEBUG(IFMapSmCancelTimerMessage, "Cancelling Response timer.");
     error_code ec;
     response_timer_.cancel(ec);
 }
@@ -744,7 +744,7 @@ void IFMapStateMachine::ResponseTimerExpired(
     if (error == boost::asio::error::operation_aborted) {
         return;
     }
-    IFMAP_DEBUG(IFMapSmExpiredTimerMessage, "Response timer expired.");
+    IFMAP_SM_DEBUG(IFMapSmExpiredTimerMessage, "Response timer expired.");
     response_timer_expired_count_inc();
     EnqueueEvent(ifsm::EvResponseTimerExpired());
 }
@@ -893,8 +893,8 @@ void IFMapStateMachine::ProcResponse(
 // Returns true if the error can be ignored. False otherwise.
 bool IFMapStateMachine::ProcErrorAndIgnore(
         const boost::system::error_code& error) {
-    IFMAP_WARN(IFMapPeerConnError, error.message(), StateName(last_state_),
-               StateName(state_), last_event());
+    IFMAP_SM_WARN(IFMapPeerConnError, error.message(), StateName(last_state_),
+                  StateName(state_), last_event());
 
     bool done = false;
     if (error == boost::asio::error::operation_aborted) {
@@ -914,15 +914,15 @@ void IFMapStateMachine::OnStart(const ifsm::EvStart &event) {
 }
 
 void IFMapStateMachine::EnqueueEvent(const sc::event_base &event) {
-    IFMAP_DEBUG(IFMapSmEventMessage, "Enqueuing", TYPE_NAME(event),
-                "in state", StateName());
+    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Enqueuing", TYPE_NAME(event),
+                   "in state", StateName());
     work_queue_.Enqueue(event.intrusive_from_this());
 }
 
 bool IFMapStateMachine::DequeueEvent(
         boost::intrusive_ptr<const sc::event_base>& event) {
-    IFMAP_DEBUG(IFMapSmEventMessage, "Processing", TYPE_NAME(*event),
-                "in state", StateName());
+    IFMAP_SM_DEBUG(IFMapSmEventMessage, "Processing", TYPE_NAME(*event),
+                   "in state", StateName());
     set_last_event(TYPE_NAME(*event));
     process_event(*event);
     event.reset();
@@ -931,8 +931,8 @@ bool IFMapStateMachine::DequeueEvent(
 
 void IFMapStateMachine::set_state(State state) {
     last_state_ = state_; state_ = state;
-    IFMAP_DEBUG(IFMapSmTransitionMessage, StateName(last_state_), "===>",
-                StateName(state_));
+    IFMAP_SM_DEBUG(IFMapSmTransitionMessage, StateName(last_state_), "===>",
+                   StateName(state_));
     last_state_change_at_ = UTCTimestampUsec();
 }
 

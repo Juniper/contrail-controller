@@ -289,7 +289,8 @@ void DelNode(const char *node_name, const char *name) {
 }
 
 void IntfSyncMsg(PortInfo *input, int id) {
-    VmInterfaceKey *key = new VmInterfaceKey(MakeUuid(input[id].intf_id), "");
+    VmInterfaceKey *key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                             MakeUuid(input[id].intf_id), "");
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
@@ -299,12 +300,12 @@ void IntfSyncMsg(PortInfo *input, int id) {
 }
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac) {
+                int vm_id, int vn_id, const string &mac, uint16_t vlan) {
     CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
-    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "", 0);
+    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "", vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -312,6 +313,12 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     req.data.reset(data);
     Agent::GetInstance()->GetIntfCfgTable()->Enqueue(&req);
     usleep(1000);
+}
+
+void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
+                int vm_id, int vn_id, const string &mac) {
+    IntfCfgAdd(intf_id, name, ipaddr, vm_id, vn_id, mac,
+               VmInterface::kInvalidVlanId);
 }
 
 void IntfCfgAdd(PortInfo *input, int id) {
@@ -379,14 +386,14 @@ bool VmFind(int id) {
 
 bool VmPortFind(int id) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return (intf != NULL ? !intf->IsDeleted() : false);
 }
 
 uint32_t VmPortGetId(int id) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
         return intf->id();
@@ -397,7 +404,7 @@ uint32_t VmPortGetId(int id) {
 
 std::string VmPortGetAnalyzerName(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
         return intf->GetAnalyzer();
@@ -407,7 +414,7 @@ std::string VmPortGetAnalyzerName(int id) {
 
 Interface::MirrorDirection VmPortGetMirrorDirection(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf) {
         return intf->mirror_direction();
@@ -421,7 +428,7 @@ bool VmPortFind(PortInfo *input, int id) {
 
 bool VmPortActive(int id) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -435,7 +442,7 @@ bool VmPortActive(PortInfo *input, int id) {
 
 bool VmPortPolicyEnabled(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>
         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
@@ -449,7 +456,7 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
 }
 
 Interface *VmPortGet(int id) {
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     return static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
 }
 
@@ -459,8 +466,8 @@ bool VmPortFloatingIpCount(int id, unsigned int count) {
     if (intf == NULL)
         return false;
 
-    EXPECT_EQ(intf->floating_ip_list().size(), count);
-    if (intf->floating_ip_list().size() != count)
+    EXPECT_EQ(intf->floating_ip_list().list_.size(), count);
+    if (intf->floating_ip_list().list_.size() != count)
         return false;
 
     return true;
@@ -468,7 +475,8 @@ bool VmPortFloatingIpCount(int id, unsigned int count) {
 
 bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
+                       input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -585,7 +593,8 @@ bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
 
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
+                       input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -617,7 +626,7 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
 
 bool VmPortInactive(int id) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -626,7 +635,8 @@ bool VmPortInactive(int id) {
 
 bool VmPortInactive(PortInfo *input, int id) {
     Interface *intf;
-    VmInterfaceKey key(MakeUuid(input[id].intf_id), input[id].name);
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
+                       input[id].name);
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -643,14 +653,14 @@ PhysicalInterface *EthInterfaceGet(const char *name) {
 
 VmInterface *VmInterfaceGet(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return intf;
 }
 
 bool VmPortPolicyEnable(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -664,7 +674,7 @@ bool VmPortPolicyEnable(PortInfo *input, int id) {
 
 bool VmPortPolicyDisable(int id) {
     VmInterface *intf;
-    VmInterfaceKey key(MakeUuid(id), "");
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<VmInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
@@ -1255,6 +1265,10 @@ void DelOperDBAcl(int id) {
     req.key.reset(key);
     req.data.reset(NULL);
     Agent::GetInstance()->GetAclTable()->Enqueue(&req);
+}
+
+void AddSg(const char *name, int id) {
+    AddNode("security-group", name, id);
 }
 
 void AddFloatingIp(const char *name, int id, const char *addr) {
@@ -2275,8 +2289,8 @@ bool VmPortServiceVlanCount(int id, unsigned int count) {
         return false;
     }
 
-    EXPECT_EQ(intf->service_vlan_list().size(), count);
-    if (intf->service_vlan_list().size() != count) {
+    EXPECT_EQ(intf->service_vlan_list().list_.size(), count);
+    if (intf->service_vlan_list().list_.size() != count) {
         return false;
     }
     return true;
