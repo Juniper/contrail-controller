@@ -84,8 +84,8 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
         ret = intf->OnChange(static_cast<VmInterfaceData *>(req->data.get()));
         break;
     }
-    case Interface::VIRTUAL_HOST: {
-        VirtualHostInterface *intf = static_cast<VirtualHostInterface *>(entry);
+    case Interface::INET: {
+        InetInterface *intf = static_cast<InetInterface *>(entry);
         if (intf) {
             // Get the os-ifindex and mac of interface
             intf->GetOsParams();
@@ -281,7 +281,7 @@ DBEntryBase::KeyPtr PacketInterface::GetDBRequestKey() const {
 
 // Enqueue DBRequest to create a Pkt Interface
 void PacketInterface::CreateReq(InterfaceTable *table,
-                             const std::string &ifname) {
+                                const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
     req.data.reset(new PacketInterfaceData());
@@ -290,7 +290,7 @@ void PacketInterface::CreateReq(InterfaceTable *table,
 
 // Enqueue DBRequest to delete a Pkt Interface
 void PacketInterface::DeleteReq(InterfaceTable *table,
-                             const std::string &ifname) {
+                                const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
     req.data.reset(NULL);
@@ -300,38 +300,36 @@ void PacketInterface::DeleteReq(InterfaceTable *table,
 /////////////////////////////////////////////////////////////////////////////
 // Virtual Host Interface routines
 /////////////////////////////////////////////////////////////////////////////
-DBEntryBase::KeyPtr VirtualHostInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new VirtualHostInterfaceKey(name_);
+DBEntryBase::KeyPtr InetInterface::GetDBRequestKey() const {
+    InterfaceKey *key = new InetInterfaceKey(name_);
     return DBEntryBase::KeyPtr(key);
 }
 
-Interface *VirtualHostInterfaceKey::AllocEntry(const InterfaceTable *table,
-                                               const InterfaceData *data)const {
-    const VirtualHostInterfaceData *vhost_data;
-    vhost_data = static_cast<const VirtualHostInterfaceData *>(data);
+Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
+                                        const InterfaceData *data)const {
+    const InetInterfaceData *vhost_data;
+    vhost_data = static_cast<const InetInterfaceData *>(data);
     VrfKey key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
         (table->agent()->GetVrfTable()->FindActiveEntry(&key));
     assert(vrf);
-    return new VirtualHostInterface(name_, vrf,
+    return new InetInterface(name_, vrf,
                                     vhost_data->sub_type_);
 }
 
 // Enqueue DBRequest to create a Host Interface
-void VirtualHostInterface::CreateReq(InterfaceTable *table,
-                                     const string &ifname,
-                                     const string &vrf_name, SubType sub_type) {
+void InetInterface::CreateReq(InterfaceTable *table, const string &ifname,
+                              const string &vrf_name, SubType sub_type) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new VirtualHostInterfaceKey(ifname));
-    req.data.reset(new VirtualHostInterfaceData(vrf_name, sub_type));
+    req.key.reset(new InetInterfaceKey(ifname));
+    req.data.reset(new InetInterfaceData(vrf_name, sub_type));
     table->Enqueue(&req);
 }
 
 // Enqueue DBRequest to delete a Host Interface
-void VirtualHostInterface::DeleteReq(InterfaceTable *table, 
-                                     const string &ifname) {
+void InetInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new VirtualHostInterfaceKey(ifname));
+    req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }
@@ -346,7 +344,7 @@ DBEntryBase::KeyPtr PhysicalInterface::GetDBRequestKey() const {
 
 // Enqueue DBRequest to create a Host Interface
 void PhysicalInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                             const string &vrf_name) {
+                                  const string &vrf_name) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new PhysicalInterfaceKey(ifname));
     req.data.reset(new PhysicalInterfaceData(vrf_name));
@@ -532,7 +530,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_vm_name(vintf->vm_name());
         break;
     }
-    case Interface::VIRTUAL_HOST:
+    case Interface::INET:
         data.set_type("vhost");
         break;
     case Interface::PACKET:

@@ -59,8 +59,8 @@ const string &Agent::GetHostInterfaceName() {
     return Agent::null_str_;
 };
 
-const string &Agent::GetVirtualHostInterfaceName() {
-    return virtual_host_intf_name_;
+const string &Agent::vhost_interface_name() const {
+    return vhost_interface_name_;
 };
 
 const string &Agent::GetHostName() {
@@ -182,7 +182,7 @@ void Agent::GetConfig() {
         dss_xs_instances_ = params_->xmpp_instance_count();
     }
 
-    virtual_host_intf_name_ = params_->vhost_name();
+    vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
@@ -370,9 +370,9 @@ Agent::Agent() :
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), xs_dns_addr_(), xs_dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(),
-    ip_fabric_intf_name_(""), virtual_host_intf_name_(""),
-    cfg_listener_(NULL), arp_proto_(NULL), dhcp_proto_(NULL),
-    dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
+    ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
+    dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),

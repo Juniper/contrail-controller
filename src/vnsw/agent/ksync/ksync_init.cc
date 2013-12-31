@@ -148,8 +148,8 @@ void KSync::CreateVhostIntf() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
-	    IFNAMSIZ);
+    strncpy(ifm.if_name, Agent::GetInstance()->vhost_interface_name().c_str(),
+            IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
@@ -172,8 +172,8 @@ void KSync::UpdateVhostMac() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
-	    IFNAMSIZ);
+    strncpy(ifm.if_name, Agent::GetInstance()->vhost_interface_name().c_str(),
+            IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;

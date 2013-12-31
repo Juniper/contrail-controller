@@ -707,8 +707,8 @@ void Inet4UnicastAgentRouteTable::AddVHostInterfaceRoute
         new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
     req.key.reset(key);
 
-    VirtualHostInterfaceKey intf_key(interface);
-    VirtualHostInterfaceRoute *data = new VirtualHostInterfaceRoute
+    InetInterfaceKey intf_key(interface);
+    InetInterfaceRoute *data = new InetInterfaceRoute
         (intf_key, label, TunnelType::AllType(), vn_name);
     req.data.reset(data);
 
@@ -732,7 +732,7 @@ Inet4UnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, 
                                               vm_vrf, addr, plen);
     req.key.reset(rt_key);
-    VirtualHostInterfaceKey intf_key(interface_name);
+    InetInterfaceKey intf_key(interface_name);
     ReceiveRoute *data = new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                                           TunnelType::AllType(),
                                           policy, vn);
@@ -771,7 +771,7 @@ Inet4UnicastAgentRouteTable::AddVHostSubnetRecvRoute(const string &vm_vrf,
         new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
                                  vm_vrf, subnet_addr, 32);
     req.key.reset(rt_key);
-    VirtualHostInterfaceKey intf_key(interface_name);
+    InetInterfaceKey intf_key(interface_name);
     ReceiveRoute *data =
             new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                              TunnelType::AllType(), policy,

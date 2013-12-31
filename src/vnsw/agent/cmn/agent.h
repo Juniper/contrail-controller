@@ -153,7 +153,6 @@ public:
 
     EventManager *GetEventManager() {return event_mgr_;};
     DB *GetDB() {return db_;};
-    const char *GetHostIfname() {return "pkt0";};
 
     uint16_t GetMirrorPort() {return mirror_src_udp_port_;};
     Ip4Address GetRouterId() {return router_id_; };
@@ -254,9 +253,18 @@ public:
     const std::string &GetDefaultVrf() {return fabric_vrf_name_;};
     const std::string &GetLinkLocalVnName() {return link_local_vn_name_;}
     const std::string &GetLinkLocalVrfName() {return link_local_vrf_name_;}
-    const std::string &GetVirtualHostInterfaceName();
-    void SetVirtualHostInterfaceName(const std::string &name) {
-        virtual_host_intf_name_ = name;
+
+    const std::string &vhost_interface_name() const;
+    void set_vhost_interface_name(const std::string &name) {
+        vhost_interface_name_ = name;
+    }
+
+    const std::string &pkt_interface_name() const {
+        return pkt_interface_name_; 
+    }
+
+    void set_pkt_interface_name(const std::string &name) {
+        pkt_interface_name_ = name;
     }
 
     const std::string &GetHostInterfaceName();
@@ -595,7 +603,8 @@ private:
     int dss_xs_instances_;
     std::string label_range_[MAX_XMPP_SERVERS];
     std::string ip_fabric_intf_name_;
-    std::string virtual_host_intf_name_;
+    std::string vhost_interface_name_;
+    std::string pkt_interface_name_;
     CfgListener *cfg_listener_;
 
     ArpProto *arp_proto_;
