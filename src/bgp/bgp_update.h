@@ -144,6 +144,7 @@ public:
 
     UpdateInfoSList() { }
     ~UpdateInfoSList() { list_.clear_and_dispose(UpdateInfoDisposer()); }
+    const UpdateInfo *FindUpdateInfo(const RibOutAttr &roattr) const;
 
     List *operator->() { return &list_; }
     const List *operator->() const { return &list_; }

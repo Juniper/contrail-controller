@@ -1393,7 +1393,6 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw4) {
 }
 
 //
-// TBD:         Code should ideally detect this to be a duplicate.
 // Description: Process a route that's already scheduled to be withdrawn from
 //              all peers.  Export policy rejects the route for all peers so
 //              it should still be withdrawn.
@@ -1418,9 +1417,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw5) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
-#if 0
         VerifyRouteUpdateNoDequeue(rt_update);
-#endif
         VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
 
@@ -1429,7 +1426,6 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw5) {
 }
 
 //
-// TBD:         Code should ideally detect this to be a duplicate.
 // Description: Process a route that's already scheduled to be withdrawn from
 //              all peers.  Export policy rejects the route for all peers so
 //              it should still be withdrawn.
@@ -1454,9 +1450,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw6) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
-#if 0
         VerifyRouteUpdateNoDequeue(rt_update);
-#endif
         VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, attr_, 0, vSchedPeerCount-1);
 
@@ -1537,7 +1531,6 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted2) {
 }
 
 //
-// TBD:         Code should ideally detect this to be a duplicate.
 // Description: Handle delete for route that's scheduled to be withdrawn from
 //              all peers.  Make sure that we don't drop the negative update.
 //              Same attribute for all current peers.
@@ -1563,9 +1556,7 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted3) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
-#if 0
         VerifyRouteUpdateNoDequeue(rt_update);
-#endif
         VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
 
@@ -1574,7 +1565,6 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted3) {
 }
 
 //
-// TBD:         Code should ideally detect this to be a duplicate.
 // Description: Handle delete for route that's scheduled to be withdrawn from
 //              all peers.  Make sure that we don't drop` the negative update.
 //              Different attribute for all current peers.
@@ -1600,9 +1590,7 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted4) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
-#if 0
         VerifyRouteUpdateNoDequeue(rt_update);
-#endif
         VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, attr_, 0, vSchedPeerCount-1);
 
