@@ -194,7 +194,7 @@ private:
     bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey *key,
                       bool is_add);
     void VnWalkDone();
-    bool VnUpdate(DBTablePartBase *partition, DBEntryBase *entry);
+    bool VnNotify(DBTablePartBase *partition, DBEntryBase *entry);
 
     GlobalVrouter *global_vrouter_;
     DBTableBase::ListenerId vn_id_;
@@ -204,7 +204,7 @@ private:
 
 void GlobalVrouter::LinkLocalRouteManager::CreateDBClients() {
     vn_id_ = global_vrouter_->oper_db()->agent()->GetVnTable()->Register(
-             boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnUpdate,
+             boost::bind(&GlobalVrouter::LinkLocalRouteManager::VnNotify,
                          this, _1, _2));
 }
 
@@ -216,8 +216,9 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
     if (!ipfabric_address_list_.insert(srv).second)
         return;
 
-    Inet4UnicastAgentRouteTable::AddArpReq(global_vrouter_->oper_db()->agent()->
-                                           GetDefaultVrf(), srv);
+    Inet4UnicastAgentRouteTable::CheckAndAddArpReq(global_vrouter_->oper_db()->
+                                                   agent()->GetDefaultVrf(),
+                                                   srv);
 }
 
 // Walk thru all the VNs
@@ -284,32 +285,48 @@ void GlobalVrouter::LinkLocalRouteManager::VnWalkDone() {
 }
 
 // VN notify handler
-bool GlobalVrouter::LinkLocalRouteManager::VnUpdate(DBTablePartBase *partition,
+bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                                                     DBEntryBase *entry) {
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
-
     VrfEntry *vrf_entry = vn_entry->GetVrf();
-    if (!vrf_entry) {
+    Agent *agent = global_vrouter_->oper_db()->agent();
+    if (vn_entry->IsDeleted() || !vn_entry->Ipv4Forwarding() || !vrf_entry) {
+        LinkLocalDBState *state = static_cast<LinkLocalDBState *> 
+            (vn_entry->GetState(partition->parent(), vn_id_));
+        if (!state)
+            return true;
+        Inet4UnicastAgentRouteTable *rt_table =
+            static_cast<Inet4UnicastAgentRouteTable *>(state->vrf_->
+                GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        const GlobalVrouter::LinkLocalServicesMap &services =
+                   global_vrouter_->linklocal_services_map();
+        for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
+             services.begin(); it != services.end(); ++it) {
+            rt_table->DeleteReq(agent->GetLinkLocalPeer(),
+                                state->vrf_->GetName(),
+                                it->first.linklocal_service_ip, 32);
+        }
+        vn_entry->ClearState(partition->parent(), vn_id_);
+        delete state;
         return true;
     }
 
-    Agent *agent = global_vrouter_->oper_db()->agent();
     // Do not create the routes for the default VRF
     if (agent->GetDefaultVrf() == vrf_entry->GetName()) {
         return true;
     }
 
-    Inet4UnicastAgentRouteTable *rt_table =
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-
-    const GlobalVrouter::LinkLocalServicesMap &services =
-                   global_vrouter_->linklocal_services_map();
-    if (!vn_entry->IsDeleted() && vn_entry->Ipv4Forwarding()) {
+    if (vn_entry->Ipv4Forwarding()) {
         if (vn_entry->GetState(partition->parent(), vn_id_))
             return true;
-        DBState *state = new DBState();
+        LinkLocalDBState *state = new LinkLocalDBState(vrf_entry);
         vn_entry->SetState(partition->parent(), vn_id_, state);
+        Inet4UnicastAgentRouteTable *rt_table =
+            static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
+                GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+
+        const GlobalVrouter::LinkLocalServicesMap &services =
+                   global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
             rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
@@ -319,18 +336,6 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdate(DBTablePartBase *partition,
                                         agent->GetLinkLocalVnName(),
                                         true);
         }
-    } else {
-        DBState *state = vn_entry->GetState(partition->parent(), vn_id_);
-        if (!state)
-            return true;
-        for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
-             services.begin(); it != services.end(); ++it) {
-            rt_table->DeleteReq(agent->GetLinkLocalPeer(),
-                                vrf_entry->GetName(),
-                                it->first.linklocal_service_ip, 32);
-        }
-        vn_entry->ClearState(partition->parent(), vn_id_);
-        delete state;
     }
     return true;
 }

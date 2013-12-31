@@ -582,14 +582,22 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
 }
 
 void 
-Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
-                                       const Ip4Address &ip) {
+Inet4UnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name, 
+                                               const Ip4Address &ip) {
 
     if (ip == Agent::GetInstance()->GetRouterId() ||
         !IsIp4SubnetMember(ip, Agent::GetInstance()->GetRouterId(),
                            Agent::GetInstance()->GetPrefixLen())) {
+        // TODO: add Arp request for GW
+        // Currently, default GW Arp is added during init
         return;
     }
+    AddArpReq(vrf_name, ip);
+}
+
+void 
+Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
+                                       const Ip4Address &ip) {
 
     DBRequest  nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

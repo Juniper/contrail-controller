@@ -305,6 +305,7 @@ bool ArpNH::Change(const DBRequest *req) {
 
     if (data->resolved_ != true) {
         // If ARP is not resolved, interface and mac will be invalid
+        interface_ = NULL;
         return ret;
     }
 

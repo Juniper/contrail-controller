@@ -346,7 +346,9 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_done = true;
     if (nat_server == Agent::GetInstance()->GetRouterId()) {
         // In case of metadata or when link local destination is local host,
-        // set VM's metadata address as NAT source address
+        // set VM's metadata address as NAT source address. This is required
+        // to avoid response from the linklocal service being looped back and
+        // the packet not coming to vrouter for reverse NAT.
         // Destination would be local host (FindLinkLocalService returns this)
         nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
     } else {

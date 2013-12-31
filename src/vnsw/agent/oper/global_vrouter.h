@@ -5,12 +5,21 @@
 #ifndef vnsw_agent_global_router_h_
 #define vnsw_agent_global_router_h_
 
+#include "db/db_entry.h"
+
 class OperDB;
 class VnEntry;
+class VrfEntry;
 class IFMapNode;
 namespace autogen {
     struct LinklocalServiceEntryType;
 }
+
+struct LinkLocalDBState : DBState {
+    const VrfEntry *vrf_;
+
+    LinkLocalDBState(const VrfEntry *vrf) : DBState(), vrf_(vrf) {}
+};
 
 // Handle Global Vrouter configuration
 class GlobalVrouter {
