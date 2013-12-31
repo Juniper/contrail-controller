@@ -649,3 +649,7 @@ void TcpSession::GetRxSocketStats(TcpServerSocketStats &socket_stats) const {
 void TcpSession::GetTxSocketStats(TcpServerSocketStats &socket_stats) const {
     stats_.GetTxStats(socket_stats);
 }
+
+void TcpSession::SetBufferSize(int buffer_size) {
+    buffer_size_ = buffer_size;
+}
