@@ -309,18 +309,26 @@ const char *BgpXmppUnitTest::config_tmpl = "\
 <config>\
     <bgp-router name=\'A\'>\
         <identifier>192.168.0.1</identifier>\
+        <autonomous-system>64512</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'B\'>\
-            <address-families><family>inet-vpn</family></address-families>\
+            <address-families>\
+            <family>inet-vpn</family>\
+            <family>route-target</family>\
+            </address-families>\
         </session>\
     </bgp-router>\
     <bgp-router name=\'B\'>\
         <identifier>192.168.0.2</identifier>\
+        <autonomous-system>64512</autonomous-system>\
         <address>127.0.0.1</address>\
         <port>%d</port>\
         <session to=\'A\'>\
-            <address-families><family>inet-vpn</family></address-families>\
+            <address-families>\
+            <family>inet-vpn</family>\
+            <family>route-target</family>\
+            </address-families>\
         </session>\
     </bgp-router>\
     <routing-instance name='blue'>\
@@ -421,7 +429,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     sandesh_context.bgp_server = a_.get();
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_;
     Sandesh::set_client_context(&sandesh_context);
-    std::vector<size_t> result = list_of(3)(3)(3); // inet, inetmcast, enet
+    std::vector<size_t> result = list_of(4)(3)(3); // inet, inetmcast, enet
     Sandesh::set_response_callback(boost::bind(ValidateRoutingInstanceResponse,
                                    _1, result));
     ShowRoutingInstanceReq *req = new ShowRoutingInstanceReq;
@@ -430,7 +438,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     req->Release();
     WAIT_EQ(1, validate_done_);
 
-    result = list_of(1)(7); // inet, inetmcast, enet
+    result = list_of(2)(7); // inet, inetmcast, enet
     Sandesh::set_response_callback(boost::bind(ValidateNeighborResponse,
                                    _1, result));
     BgpNeighborReq *nbr_req = new BgpNeighborReq;
@@ -440,7 +448,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     WAIT_EQ(1, validate_done_);
 
     //show route
-    result = list_of(1)(1)(1);
+    result = list_of(1)(1)(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     ShowRouteReq *show_req = new ShowRouteReq;
@@ -463,7 +471,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     WAIT_EQ(1, validate_done_);
 
     //show route for a routing instance
-    result = list_of(1);
+    result = list_of(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     show_req = new ShowRouteReq;

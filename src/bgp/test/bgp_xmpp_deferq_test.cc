@@ -319,7 +319,7 @@ TEST_F(BgpXmppUnitTest, Connection) {
     sandesh_context.bgp_server = a_.get();
     sandesh_context.xmpp_peer_manager = bgp_channel_manager_.get();
     Sandesh::set_client_context(&sandesh_context);
-    std::vector<int> result2 = list_of(1)(1)(1);
+    std::vector<int> result2 = list_of(1)(1)(1)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                                result2));
     ShowRouteReq *show_req = new ShowRouteReq;

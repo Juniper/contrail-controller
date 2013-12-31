@@ -22,6 +22,8 @@
 #include "bgp/bgp_server.h"
 #include "bgp/bgp_update_queue.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 
 using namespace std;
 
@@ -135,11 +137,12 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     BgpAttrPtr attr_ptr;
     const BgpAttr *attr = path->GetAttr();
 
+    RibPeerSet new_peerset = peerset;
+
     // LocalPref, Med and AsPath manipulation is needed only if the RibOut
     // has BGP encoding. Similarly, well-known communities do not apply if
     // the encoding is not BGP.
     if (ribout->IsEncodingBgp()) {
-
         // Handle well-known communities.
         if (attr->community() != NULL &&
             attr->community()->communities().size()) {
@@ -151,6 +154,37 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     ((value == Community::NoExport) ||
                      (value == Community::NoExportSubconfed))) {
                     return NULL;
+                }
+            }
+        }
+
+        // Handle rtarget route
+        if (attr->ext_community() != NULL) {
+            const ExtCommunity *ext_community = attr->ext_community();
+            std::set<const BgpPeer *> interested_peer = 
+                std::set<const BgpPeer *>();
+            BgpServer *server = rtinstance_->server();
+            RTargetGroupMgr *mgr = server->rtarget_group_mgr();
+            RtGroup *null_rtgroup = mgr->GetRtGroup(RouteTarget::null_rtarget);
+            if (null_rtgroup) null_rtgroup->GetInterestedPeers(interested_peer);
+            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+                          ext_community->communities()) {
+                if (ExtCommunity::is_route_target(comm)) {
+                    RtGroup *rtgroup = mgr->GetRtGroup(comm);
+                    if (!rtgroup) continue;
+                    rtgroup->GetInterestedPeers(interested_peer);
+                }
+            }
+            RibOut::PeerIterator iter(ribout, peerset);
+            while (iter.HasNext()) {
+                int current_index = iter.index();
+                IPeerUpdate *peer = iter.Next();
+                BgpPeer *tmp = dynamic_cast<BgpPeer *>(peer);
+                assert(tmp);
+                if (tmp->IsFamilyNegotiated(Address::RTARGET)) {
+                    if (interested_peer.find(tmp) == interested_peer.end()) {
+                        new_peerset.reset(current_index);
+                    }
                 }
             }
         }
@@ -216,7 +250,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
     }
 
     UpdateInfo *uinfo = new UpdateInfo;
-    uinfo->target = peerset;
+    uinfo->target = new_peerset;
     uinfo->roattr = RibOutAttr(route, attr, ribout->IsEncodingXmpp());
     return uinfo;
 }
@@ -322,6 +356,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // list again to purge any stale paths originated from this peer.
 
     // Create rt if it is not already there for adds/updates.
+    bool allocated = false;
     if (!rt) {
         if (req->oper == DBRequest::DB_ENTRY_DELETE) return;
 
@@ -329,6 +364,7 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         static_cast<DBTablePartition *>(root)->Add(rt);
         BGP_LOG_ROUTE(this, const_cast<IPeer *>(peer), rt,
                       "Insert new BGP path");
+        allocated = true;
     }
 
     // Use a map to mark and sweep deleted paths, update the rest.
@@ -393,6 +429,8 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         InputCommon(root, rt, path, peer, req, DBRequest::DB_ENTRY_DELETE,
                     NULL, path->GetPathId(), 0, 0);
     }
+    if (allocated && rt && !rt->IsDeleted() && !rt->count())
+        root->Delete(rt);
 }
 
 bool BgpTable::MayDelete() const {

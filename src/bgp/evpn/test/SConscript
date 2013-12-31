@@ -85,6 +85,7 @@ if sys.platform != 'darwin':
                              '-lbgp_enet',
                              '-lbgp_evpn',
                              '-lbgp_l3vpn',
+                             '-lrtarget',
                              '-ltask_test',
                              '-Wl,--no-whole-archive'])
 else:
@@ -98,6 +99,8 @@ else:
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_evpn])
     lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn])
+    lib_rtarget = Dir('../../rtarget').path + '/librtarget.a'
+    env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_rtarget])
 
 evpn_table_test = env.Program('evpn_table_test', ['evpn_table_test.cc'])
 env.Alias('src/bgp/evpn:evpn_table_test', evpn_table_test)

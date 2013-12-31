@@ -631,7 +631,7 @@ TEST_F(BgpXmppMcastMultiAgentTest, Introspect) {
     Sandesh::set_client_context(&sandesh_context);
 
     // First get all tables.
-    std::vector<size_t> result = list_of(3);
+    std::vector<size_t> result = list_of(3)(1);
     Sandesh::set_response_callback(boost::bind(ValidateShowRouteResponse, _1,
                                    result));
     ShowRouteReq *show_req = new ShowRouteReq;

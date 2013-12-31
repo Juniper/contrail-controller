@@ -474,7 +474,10 @@ string BgpPeerCloseTest::GetConfig() {
             <address>127.0.0.1</address>\
             <port>" << server_->session_manager()->GetPort() << "</port>\
             <session to=\'B\'>\
-                <address-families><family>inet-vpn</family></address-families>\
+                <address-families>\
+                <family>inet-vpn</family>\
+                <family>route-target</family>\
+                </address-families>\
             </session>\
     </bgp-router>\
     ";

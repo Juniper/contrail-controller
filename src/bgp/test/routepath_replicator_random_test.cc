@@ -5,6 +5,7 @@
 #include "bgp/routing-instance/routepath_replicator.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 
 #include <algorithm> 
 #include <iostream>
@@ -475,11 +476,12 @@ protected:
 
             BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
                           ext_community->communities()) {
-                RtGroup *rtgroup = replicator->GetRtGroup(comm);
+                RtGroup *rtgroup = 
+                    server->rtarget_group_mgr()->GetRtGroup(comm);
                 if (rtgroup) {
                     super_set.insert(super_set.end(), 
-                                     rtgroup->GetImportTables().begin(),
-                                     rtgroup->GetImportTables().end());
+                                     rtgroup->GetImportTables(replicator->family()).begin(),
+                                     rtgroup->GetImportTables(replicator->family()).end());
                 }
             }
 

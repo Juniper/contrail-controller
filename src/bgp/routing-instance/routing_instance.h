@@ -120,6 +120,7 @@ private:
 
     BgpTable *InetVpnTableCreate(BgpServer *server);
     BgpTable *EvpnTableCreate(BgpServer *server);
+    BgpTable *RTargetTableCreate(BgpServer *server);
 
     std::string name_;
     int index_;
@@ -150,9 +151,14 @@ public:
     typedef std::multimap<RouteTarget, RoutingInstance *> InstanceTargetMap;
     typedef std::multimap<int, RoutingInstance *> VnIndexMap;
 
-    typedef boost::function<void(std::string)> RoutingInstanceCreateCb;
-    typedef std::vector<RoutingInstanceCreateCb> RoutingInstanceCreateListenersList;
+    typedef boost::function<void(std::string, int)> RoutingInstanceCb;
+    typedef std::vector<RoutingInstanceCb> InstanceOpListenersList;
 
+    enum Operation {
+        INSTANCE_ADD = 1,
+        INSTANCE_UPDATE = 2,
+        INSTANCE_DELETE = 3
+    };
     class RoutingInstanceIterator 
         : public boost::iterator_facade<RoutingInstanceIterator, 
                                         RoutingInstance, 
@@ -206,9 +212,9 @@ public:
         return instances_.Find(name);
     }
 
-    int RegisterCreateCallback(RoutingInstanceCreateCb cb);
-    void NotifyRoutingInstanceCreate(std::string name);
-    void UnregisterCreateCallback(int id);
+    int RegisterInstanceOpCallback(RoutingInstanceCb cb);
+    void NotifyInstanceOp(std::string name, Operation deleted);
+    void UnregisterInstanceOpCallback(int id);
 
     RoutingInstance *GetRoutingInstance(int index) {
         return instances_.At(index);
@@ -236,7 +242,6 @@ public:
     BgpServer *server() { return server_; }
     LifetimeActor *deleter();
     SandeshTraceBufferPtr trace_buffer() { return trace_buf_; }
-
 private:
     friend class RoutingInstanceMgrTest;
     class DeleteActor;
@@ -258,6 +263,6 @@ private:
     SandeshTraceBufferPtr trace_buf_;
     boost::dynamic_bitset<> bmap_;      // free list.
     tbb::spin_rw_mutex rw_mutex_;
-    RoutingInstanceCreateListenersList callbacks_;
+    InstanceOpListenersList callbacks_;
 };
 #endif

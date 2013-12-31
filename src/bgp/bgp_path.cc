@@ -91,16 +91,18 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
 
     // Compare the source and the path id.
     KEY_COMPARE(rhs.GetSource(), GetSource());
-    KEY_COMPARE(path_id_, rhs.path_id_);
 
     // Bail if both paths are local since all subsequent checks are
     // based on IPeer properties.
-    if (peer_ == NULL && rhs.peer_ == NULL)
-        return 0;
+    if (peer_ == NULL && rhs.peer_ == NULL) {
+        KEY_COMPARE(path_id_, rhs.path_id_);
+    }
 
     // Prefer xmpp routes over bgp routes.
     BOOL_COMPARE(peer_->IsXmppPeer(), rhs.peer_->IsXmppPeer());
-    
+
+    KEY_COMPARE(path_id_, rhs.path_id_);
+
     // Path received from EBGP is better than the one received from IBGP
     KEY_COMPARE(peer_->PeerType() == BgpProto::IBGP,
                 rhs.peer_->PeerType() == BgpProto::IBGP);
