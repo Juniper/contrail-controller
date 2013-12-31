@@ -19,6 +19,7 @@ public:
     virtual ~ServicesSandesh() {}
 
     void HandleRequest(PktHandler::ModuleName mod, std::string ctxt, bool more);
+    void MetadataHandleRequest(std::string ctxt, bool more);
     void PktStatsSandesh(std::string ctxt, bool more);
 
     static void MacToString(const unsigned char *mac, std::string &mac_str);

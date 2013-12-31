@@ -1103,7 +1103,7 @@ void VmInterface::UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf) {
     Agent *agent = table->agent();
     table->VmPortToMetaDataIp(id(), vrf_->GetVrfId(), &mdata_addr_);
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
-        (agent->GetMdataPeer(), agent->GetDefaultVrf(), mdata_addr_,
+        (agent->GetLinkLocalPeer(), agent->GetDefaultVrf(), mdata_addr_,
          32, GetUuid(), vn_->GetName(), label_, true);
 }
 
@@ -1116,7 +1116,7 @@ void VmInterface::DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    Inet4UnicastAgentRouteTable::Delete(agent->GetMdataPeer(),
+    Inet4UnicastAgentRouteTable::Delete(agent->GetLinkLocalPeer(),
                                         agent->GetDefaultVrf(),
                                         mdata_addr_, 32);
 }

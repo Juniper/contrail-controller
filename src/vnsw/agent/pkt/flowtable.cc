@@ -257,8 +257,8 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     policy->m_sg_acl_l.clear();
     policy->m_out_sg_acl_l.clear();
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 
@@ -344,8 +344,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
         policy->m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 

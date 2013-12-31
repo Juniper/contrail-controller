@@ -294,6 +294,10 @@ bool ArpNH::Change(const DBRequest *req) {
     bool ret= false;
     const ArpNHData *data = static_cast<const ArpNHData *>(req->data.get());
 
+    if (!data->valid_) {
+        return ret;
+    }
+
     if (valid_ != data->resolved_) {
         valid_ = data->resolved_;
         ret =  true;
