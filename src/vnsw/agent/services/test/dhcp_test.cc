@@ -15,6 +15,8 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
+#include <pkt/tap_interface.h>
+#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
@@ -142,7 +144,7 @@ public:
         ip->id = 0;
         ip->frag_off = 0;
         ip->ttl = 16;
-        ip->protocol = UDP_PROTOCOL;
+        ip->protocol = IPPROTO_UDP;
         ip->check = 0;
         if (response) {
             ip->saddr = inet_addr("1.2.3.254");
@@ -169,7 +171,7 @@ public:
             dhcp->op = BOOT_REQUEST;
         }
         dhcp->htype = HW_TYPE_ETHERNET;
-        dhcp->hlen = MAC_ALEN;
+        dhcp->hlen = ETH_ALEN;
         dhcp->hops = 0;
         dhcp->xid = 0x01020304;
         dhcp->secs = 0;
@@ -178,7 +180,7 @@ public:
         dhcp->yiaddr = htonl(yiaddr);
         dhcp->siaddr = 0;
         dhcp->giaddr = 0;
-        memcpy(dhcp->chaddr, src_mac, MAC_ALEN);
+        memcpy(dhcp->chaddr, src_mac, ETH_ALEN);
         memset(dhcp->sname, 0, DHCP_NAME_LEN);
         memset(dhcp->file, 0, DHCP_FILE_LEN);
         len = sizeof(udphdr) + DHCP_FIXED_LEN;
@@ -192,7 +194,7 @@ public:
         ip->tot_len = htons(len + sizeof(iphdr));
         len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
         TestTapInterface *tap = (TestTapInterface *)
-            (PktHandler::GetPktHandler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
         tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
     }
 

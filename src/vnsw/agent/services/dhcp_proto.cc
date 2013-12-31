@@ -9,6 +9,7 @@
 #include "oper/agent_route.h"
 #include "oper/mirror_table.h"
 #include "ksync/interface_ksync.h"
+#include "pkt/pkt_init.h"
 #include "services/dhcp_proto.h"
 #include "services/services_types.h"
 #include "services/services_init.h"
@@ -36,16 +37,21 @@ void DhcpProto::Shutdown() {
 }
 
 DhcpProto::DhcpProto(boost::asio::io_service &io, bool run_with_vrouter) :
-    Proto<DhcpHandler>("Agent::Services", PktHandler::DHCP, io),
+    Proto("Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_intf_(NULL),
     ip_fabric_intf_index_(-1) {
-    memset(ip_fabric_intf_mac_, 0, MAC_ALEN);
+    memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
     iid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                   boost::bind(&DhcpProto::ItfUpdate, this, _2));
 }
 
 DhcpProto::~DhcpProto() {
     Agent::GetInstance()->GetInterfaceTable()->Unregister(iid_);
+}
+
+ProtoHandler *DhcpProto::AllocProtoHandler(PktInfo *info,
+                                           boost::asio::io_service &io) {
+    return new DhcpHandler(info, io);
 }
 
 void DhcpProto::ItfUpdate(DBEntryBase *entry) {
@@ -64,8 +70,8 @@ void DhcpProto::ItfUpdate(DBEntryBase *entry) {
             if (run_with_vrouter_) {
                 IPFabricIntfMac((char *)itf->mac().ether_addr_octet);
             } else {
-                char mac[MAC_ALEN];
-                memset(mac, 0, MAC_ALEN);
+                char mac[ETH_ALEN];
+                memset(mac, 0, ETH_ALEN);
                 IPFabricIntfMac(mac);
             }
         }
@@ -298,7 +304,7 @@ bool DhcpHandler::FindLeaseData() {
     } else {
         // Give a link local address
         boost::system::error_code ec;
-        uint32_t gwip = Ip4Address::from_string(GW_IP_ADDR, ec).to_ulong();
+        uint32_t gwip = Ip4Address::from_string(LINK_LOCAL_GW, ec).to_ulong();
         FillDhcpInfo((gwip & 0xFFFF0000) | (vm_itf_->id() & 0xFF),
                      16, 0, 0);
     }
@@ -477,7 +483,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
            in_pkt_info.ip->daddr, pkt_info_->dport);
     pkt_info_->len += sizeof(iphdr);
     IpHdr(pkt_info_->len, in_pkt_info.ip->saddr,
-          in_pkt_info.ip->daddr, UDP_PROTOCOL);
+          in_pkt_info.ip->daddr, IPPROTO_UDP);
     if (is_request) {
         EthHdr(Agent::GetInstance()->GetDhcpProto()->IPFabricIntfMac(),
                in_pkt_info.eth->h_dest, 0x800);
@@ -551,7 +557,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
 
     dhcp_->op = BOOT_REPLY;
     dhcp_->htype = HW_TYPE_ETHERNET;
-    dhcp_->hlen = MAC_ALEN;
+    dhcp_->hlen = ETH_ALEN;
     dhcp_->hops = 0;
     // dhcp_->xid = dhcp_->xid;
     dhcp_->secs = 0;
@@ -561,7 +567,7 @@ uint16_t DhcpHandler::DhcpHdr(in_addr_t yiaddr,
     dhcp_->siaddr = siaddr;
     // dhcp_->giaddr = 0;
     // memset (dhcp_->chaddr, 0, DHCP_CHADDR_LEN + DHCP_NAME_LEN + DHCP_FILE_LEN);
-    // memcpy(dhcp_->chaddr, chaddr, MAC_ALEN);
+    // memcpy(dhcp_->chaddr, chaddr, ETH_ALEN);
     // not supporting dhcp_->sname, dhcp_->file for now
     memset(dhcp_->sname, 0, DHCP_NAME_LEN);
     memset(dhcp_->file, 0, DHCP_FILE_LEN);
@@ -705,10 +711,10 @@ void DhcpHandler::SendDhcpResponse() {
     // TODO: If giaddr is set, what to do ?
 
     in_addr_t src_ip = htonl(config_.gw_addr);
-    in_addr_t dest_ip = inet_addr(ALL_ONES_IP_ADDR);
+    in_addr_t dest_ip = 0xFFFFFFFF;
     in_addr_t yiaddr = htonl(config_.ip_addr);
     in_addr_t siaddr = src_ip;
-    unsigned char dest_mac[MAC_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+    unsigned char dest_mac[ETH_ALEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
     // If requested IP address is not available, send NAK
     if ((msg_type_ == DHCP_REQUEST) && (req_ip_addr_) 
@@ -725,7 +731,7 @@ void DhcpHandler::SendDhcpResponse() {
         (!dhcp_->giaddr && (dhcp_->ciaddr || 
                             !(ntohs(dhcp_->flags) & DHCP_BCAST_FLAG)))) {
         dest_ip = yiaddr;
-        memcpy(dest_mac, dhcp_->chaddr, MAC_ALEN);
+        memcpy(dest_mac, dhcp_->chaddr, ETH_ALEN);
         if (msg_type_ == DHCP_INFORM)
             yiaddr = 0;
     }
@@ -737,8 +743,8 @@ void DhcpHandler::SendDhcpResponse() {
     len += sizeof(udphdr);
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
     len += sizeof(iphdr);
-    IpHdr(len, src_ip, dest_ip, UDP_PROTOCOL);
-    EthHdr(PktHandler::GetPktHandler()->GetMacAddr(), dest_mac, 0x800);
+    IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
+    EthHdr(Agent::GetInstance()->pkt()->pkt_handler()->GetMacAddress(), dest_mac, 0x800);
     len += sizeof(ethhdr);
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);

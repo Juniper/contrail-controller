@@ -7,6 +7,7 @@
 
 #include <vector>
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "vnc_cfg_types.h"
 #include "bind/bind_util.h"
 #include "bind/xmpp_dns_agent.h"
@@ -57,14 +58,14 @@ public:
         DNS_XMPP_MODIFY_VDNS,
     };
 
-    struct DnsIpc : IpcMsg {
+    struct DnsIpc : InterTaskMsg {
         uint8_t *resp;
         uint16_t xid;
         DnsHandler *handler;
 
         DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h,
                DnsHandler::IpcCommand cmd)
-            : IpcMsg(cmd), resp(msg), xid(id), handler(h) {}
+            : InterTaskMsg(cmd), resp(msg), xid(id), handler(h) {}
 
         virtual ~DnsIpc() {
             if (resp)
@@ -74,7 +75,7 @@ public:
         }
     };
 
-    struct DnsUpdateIpc : IpcMsg {
+    struct DnsUpdateIpc : InterTaskMsg {
         DnsUpdateData *xmpp_data;
         const VmInterface *itf;
         bool floatingIp;
@@ -86,13 +87,13 @@ public:
         DnsUpdateIpc(const VmInterface *vm, const std::string &nvdns,
                      const std::string &ovdns, const std::string &dom,
                      uint32_t ttl_value, bool is_floating)
-                   : IpcMsg(DnsHandler::DNS_XMPP_MODIFY_VDNS), xmpp_data(NULL),
+                   : InterTaskMsg(DnsHandler::DNS_XMPP_MODIFY_VDNS), xmpp_data(NULL),
                      itf(vm), floatingIp(is_floating), ttl(ttl_value),
                      new_vdns(nvdns), old_vdns(ovdns), new_domain(dom) {}
 
         DnsUpdateIpc(DnsAgentXmpp::XmppType type, DnsUpdateData *data,
                      const VmInterface *vm, bool floating)
-                   : IpcMsg(DnsHandler::DNS_NONE), xmpp_data(data), itf(vm),
+                   : InterTaskMsg(DnsHandler::DNS_NONE), xmpp_data(data), itf(vm),
                      floatingIp(floating), ttl(0) {
             if (type == DnsAgentXmpp::Update)
                 cmd = DnsHandler::DNS_XMPP_SEND_UPDATE;
@@ -119,11 +120,11 @@ public:
         }
     };
 
-    struct DnsUpdateAllIpc : IpcMsg {
+    struct DnsUpdateAllIpc : InterTaskMsg {
         AgentDnsXmppChannel *channel;
 
         DnsUpdateAllIpc(AgentDnsXmppChannel *ch) 
-            : IpcMsg(DnsHandler::DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
+            : InterTaskMsg(DnsHandler::DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
     };
 
     DnsHandler(PktInfo *info, boost::asio::io_service &io);
@@ -198,7 +199,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(DnsHandler);
 };
 
-class DnsProto : public Proto<DnsHandler> {
+class DnsProto : public Proto {
 public:
     static const uint32_t kDnsTimeout = 2000;   // milli seconds
     static const uint32_t kDnsMaxRetries = 2;
@@ -233,6 +234,7 @@ public:
     void Shutdown();
     DnsProto(boost::asio::io_service &io);
     virtual ~DnsProto();
+    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
     void UpdateDnsEntry(const VmInterface *vmitf,
                         const std::string &name, const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,

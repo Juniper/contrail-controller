@@ -22,7 +22,7 @@
 #include <oper/agent_sandesh.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 
 static AclTable *acl_table_;
 
@@ -676,8 +676,8 @@ void AclTable::AclFlowResponse(const string acl_uuid_str, const string ctx,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        FlowTable::GetFlowTableObject()->SetAclFlowSandeshData(acl_entry, 
-                                                               *resp, last_count);
+        Agent::GetInstance()->pkt()->flow_table()->SetAclFlowSandeshData(
+                                                   acl_entry, *resp, last_count);
     }
     resp->set_context(ctx);
     resp->Response();
@@ -689,8 +689,8 @@ void AclTable::AclFlowCountResponse(const string acl_uuid_str,
     const AclDBEntry *acl_entry = AclTable::GetAclDBEntry(acl_uuid_str, ctx, resp);
 
     if (acl_entry) {
-        FlowTable::GetFlowTableObject()->SetAceSandeshData(acl_entry, 
-                                                           *resp, ace_id);
+        Agent::GetInstance()->pkt()->flow_table()->SetAceSandeshData(
+                                                   acl_entry, *resp, ace_id);
     }
     resp->set_context(ctx);
     resp->Response();

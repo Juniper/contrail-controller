@@ -11,6 +11,8 @@
 #include "boost/date_time/posix_time/posix_time.hpp"
 
 struct AgentDiagPktData;
+class DiagProto;
+
 class DiagPktHandler : public ProtoHandler {
 public:
     DiagPktHandler(PktInfo *info, boost::asio::io_service &io):
@@ -105,6 +107,7 @@ private:
     uint32_t index_; 
     DiagEntryTree tree_;
     static DiagTable *singleton_;
+    boost::scoped_ptr<DiagProto> diag_proto_;
     WorkQueue<DiagEntryOp *> *entry_op_queue_;
 };
 #endif

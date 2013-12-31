@@ -17,6 +17,8 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
+#include <pkt/tap_interface.h>
+#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
@@ -126,7 +128,7 @@ public:
         ip->tot_len = htons(len + sizeof(iphdr));
         len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
         TestTapInterface *tap = (TestTapInterface *)
-            (PktHandler::GetPktHandler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
         tap->GetTestPktHandler()->TestPktSend(buf.get(), len);
     }
 

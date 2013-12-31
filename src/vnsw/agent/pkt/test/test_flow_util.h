@@ -120,13 +120,13 @@ public:
         key.dst_port = dport_;
         key.protocol = proto_;
 
-        if (FlowTable::GetFlowTableObject()->Find(key) == NULL) {
+        if (Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL) {
             return;
         }
 
-        FlowTable::GetFlowTableObject()->DeleteNatFlow(key, true);
+        Agent::GetInstance()->pkt()->flow_table()->DeleteNatFlow(key, true);
         client->WaitForIdle();
-        EXPECT_TRUE(FlowTable::GetFlowTableObject()->Find(key) == NULL);
+        EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
     };
 
     const FlowEntry *FlowFetch() {

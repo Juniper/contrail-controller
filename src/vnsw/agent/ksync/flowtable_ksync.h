@@ -17,7 +17,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include "ksync/agent_ksync_types.h"
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 #include <vr_types.h>
 #include <vr_flow.h>
 

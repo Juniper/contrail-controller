@@ -140,7 +140,7 @@ void AddAcl(const char *name, int id) {
 void AddAclFromFile() {
     pugi::xml_document xdoc_;
     pugi::xml_parse_result result =
-            xdoc_.load_file("src/vnsw/agent/filter/test/acl_cfg_test.xml");
+            xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
     EXPECT_TRUE(result);
     Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);    
 }
@@ -311,7 +311,7 @@ TEST_F(AclTest, PacketMatching) {
 
 TEST_F(AclTest, Config) {
     pugi::xml_document xdoc_;
-    xdoc_.load_file("src/vnsw/agent/filter/test/acl_cfg_test.xml");
+    xdoc_.load_file("controller/src/vnsw/agent/filter/test/acl_cfg_test.xml");
     Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);    
     client->WaitForIdle();
 

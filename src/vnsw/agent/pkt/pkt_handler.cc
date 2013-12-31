@@ -14,9 +14,11 @@
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/vrf.h"
+#include "pkt/tap_interface.h"
+#include "pkt/test_tap_interface.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/proto.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_table.h"
 #include "pkt/pkt_types.h"
 #include "pkt/pkt_init.h"
 
@@ -24,14 +26,16 @@
 #include "vr_defs.h"
 #include "vr_mpls.h"
 
-#define PKT_TRACE(obj, ...)                                              \
+#define PKT_TRACE(obj, arg)                                              \
 do {                                                                     \
-    Pkt##obj::TraceMsg(PacketTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    std::ostringstream _str;                                             \
+    _str << arg;                                                         \
+    Pkt##obj::TraceMsg(PacketTraceBuf, __FILE__, __LINE__, _str.str());  \
 } while (false)                                                          \
 
+const std::size_t PktTrace::kPktTraceSize;
 
-PktHandler *PktHandler::instance_;
-const std::size_t PktTrace::pkt_trace_size;
+////////////////////////////////////////////////////////////////////////////////
 
 PktHandler::PktHandler(DB *db, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
@@ -45,38 +49,48 @@ PktHandler::PktHandler(DB *db, const std::string &if_name,
     assert(tap_ != NULL);
 }
 
+PktHandler::~PktHandler() {
+    delete tap_;
+    tap_ = NULL;
+}
+
+void PktHandler::Init() {
+}
+
+void PktHandler::Shutdown() {
+}
+
+void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
+    enqueue_cb_.at(type) = cb;
+}
+
+void PktHandler::Unregister(PktModuleName type) {
+    enqueue_cb_.at(type) = NULL;
+}
+
+const unsigned char *PktHandler::GetMacAddress() {
+    return tap_->MacAddress();
+}
+
 void PktHandler::CreateHostInterface(std::string &if_name) {
     PacketInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             if_name);
     InterfaceNH::CreateHostPortReq(if_name);
 }
 
-// Check if the packet is destined to the VM's default GW
-bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
-    if (intf->type() != Interface::VM_INTERFACE)
-        return false;
 
-    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
-    const VnEntry *vn = vm_intf->vn();
-    if (vn) {
-        const std::vector<VnIpam> &ipam = vn->GetVnIpam();
-        for (unsigned int i = 0; i < ipam.size(); ++i) {
-            uint32_t mask = 
-                ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((vm_intf->ip_addr().to_ulong() & mask)
-                    != (ipam[i].ip_prefix.to_ulong() & mask))
-                continue;
-            return (ipam[i].default_gw.to_ulong() == dst_ip);
-        }
-    }
-
-    return false;
+// Send packet to tap interface
+void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
+    stats_.PktSent(mod);
+    pkt_trace_.at(mod).AddPktTrace(PktTrace::Out, len, msg);
+    tap_->AsyncWrite(msg, len);
 }
-
+ 
+// Process the packet received from tap interface
 void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     PktInfo *pkt_info(new PktInfo(ptr, len));
     PktType::Type pkt_type = PktType::INVALID;
-    ModuleName mod = INVALID;
+    PktModuleName mod = INVALID;
     Interface *intf = NULL;
     uint8_t *pkt;
 
@@ -87,11 +101,11 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         goto drop;
     }
 
-    intf = InterfaceTable::GetInstance()->FindInterface(pkt_info->GetAgentHdr().ifindex);
+    intf = InterfaceTable::GetInstance()->FindInterface(pkt_info->GetAgentHdr().
+                                                        ifindex);
     if (intf == NULL) {
-        std::stringstream str;
-        str << pkt_info->GetAgentHdr().ifindex;
-        PKT_TRACE(Err, "Invalid interface index <" + str.str() + ">");
+        PKT_TRACE(Err, "Invalid interface index <" <<
+                  pkt_info->GetAgentHdr().ifindex << ">");
         AgentStats::GetInstance()->incr_pkt_invalid_interface();
         goto enqueue;
     }
@@ -99,10 +113,8 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     if (intf->type() == Interface::VM_INTERFACE) {
         VmInterface *vm_itf = static_cast<VmInterface *>(intf);
         if (!vm_itf->ipv4_forwarding()) {
-            std::stringstream str;
-            str << pkt_info->GetAgentHdr().ifindex;
-            PKT_TRACE(Err, 
-                 "ipv4 not enabled for interface index <" + str.str() + ">");
+            PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
+                      pkt_info->GetAgentHdr().ifindex << ">");
             AgentStats::GetInstance()->incr_pkt_dropped();
             goto drop;
         }
@@ -141,13 +153,12 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         }
     }
 
-    // Look for IP packets that needs ARP resolution
+    // Look for IP packets that need ARP resolution
     if (pkt_info->ip && pkt_info->GetAgentHdr().cmd == AGENT_TRAP_RESOLVE) {
         mod = ARP;
         goto enqueue;
     }
 
-    // first ping packet will require flow handling, when policy is enabled
     if (pkt_type == PktType::ICMP && IsGwPacket(intf, pkt_info->ip_daddr)) {
         mod = ICMP;
         goto enqueue;
@@ -165,9 +176,8 @@ enqueue:
 
     if (mod != INVALID) {
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            std::stringstream str;
-            str << mod;
-            PKT_TRACE(Err, "Threshold exceeded while enqueuing to module <" + str.str() + ">");
+            PKT_TRACE(Err, "Threshold exceeded while enqueuing to module <" <<
+                      mod << ">");
         }
         return;
     }
@@ -180,7 +190,6 @@ drop:
 }
 
 uint8_t *PktHandler::ParseAgentHdr(PktInfo *pkt_info) {
-
     // Format of packet trapped is,
     // OUTER_ETH - AGENT_HDR - PAYLOAD
     // Enusure sanity of the packet
@@ -270,9 +279,8 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
 int PktHandler::ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt) {
     GreHdr *gre = (GreHdr *)(pkt);
     if (gre->protocol != ntohs(VR_GRE_PROTO_MPLS)) {
-        std::stringstream str;
-        str << ntohs(gre->protocol);
-        PKT_TRACE(Err, "Non-MPLS protocol <" + str.str() + "> in GRE header");
+        PKT_TRACE(Err, "Non-MPLS protocol <" << ntohs(gre->protocol) <<
+                  "> in GRE header");
         return -1;
     }
     pkt_info->tunnel.type.SetType(TunnelType::MPLS_GRE);
@@ -282,9 +290,8 @@ int PktHandler::ParseMPLSoGRE(PktInfo *pkt_info, uint8_t *pkt) {
 // Parse MPLSoUDP header
 int PktHandler::ParseMPLSoUDP(PktInfo *pkt_info, uint8_t *pkt) {
     if (pkt_info->dport != VR_MPLS_OVER_UDP_DST_PORT) {
-        std::stringstream str;
-        str << ntohs(pkt_info->dport);
-        PKT_TRACE(Err, "Non-MPLS UDP dest-port <" + str.str() + ">");
+        PKT_TRACE(Err, "Non-MPLS UDP dest-port <" <<
+                  ntohs(pkt_info->dport) << ">");
         return -1;
     }
     pkt_info->tunnel.type.SetType(TunnelType::MPLS_UDP);
@@ -366,9 +373,8 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     MplsLabel *label = 
         Agent::GetInstance()->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
     if (label == NULL) {
-        std::stringstream str;
-        str << pkt_info->tunnel.label;
-        PKT_TRACE(Err, "Invalid MPLS Label <" + str.str() + ">. Ignoring");
+        PKT_TRACE(Err, "Invalid MPLS Label <" <<
+                  pkt_info->tunnel.label << ">. Ignoring");
         pkt_info->tunnel.label = MplsTable::kInvalidLabel;
         pkt_type = PktType::INVALID;
         return pkt;
@@ -387,6 +393,19 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     return pkt;
 }
 
+// Enqueue an inter-task message to the specified module
+void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
+    if (mod < MAX_MODULES) {
+        PktInfo *pkt_info(new PktInfo(msg));
+        if (!(enqueue_cb_.at(mod))(pkt_info)) {
+            std::stringstream str;
+            str << mod;
+            PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
+                      mod << ">");
+        }
+    }
+}
+
 bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
     if (pkt_info->dport == DHCP_SERVER_PORT || 
         pkt_info->sport == DHCP_CLIENT_PORT) {
@@ -395,95 +414,89 @@ bool PktHandler::IsDHCPPacket(PktInfo *pkt_info) {
     return false;
 }
 
-void PktHandler::SendMessage(ModuleName mod, IpcMsg *msg)
-{
-    if (mod < MAX_MODULES) {
-        PktInfo *pkt_info(new PktInfo(msg));
-        if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            std::stringstream str;
-            str << mod;
-            PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" 
-                      + str.str() + ">");
+// Check if the packet is destined to the VM's default GW
+bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
+    if (intf->type() != Interface::VM_INTERFACE)
+        return false;
+
+    const VmInterface *vm_intf = static_cast<const VmInterface *>(intf);
+    const VnEntry *vn = vm_intf->vn();
+    if (vn) {
+        const std::vector<VnIpam> &ipam = vn->GetVnIpam();
+        for (unsigned int i = 0; i < ipam.size(); ++i) {
+            uint32_t mask = 
+                ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
+            if ((vm_intf->ip_addr().to_ulong() & mask)
+                    != (ipam[i].ip_prefix.to_ulong() & mask))
+                continue;
+            return (ipam[i].default_gw.to_ulong() == dst_ip);
         }
     }
+
+    return false;
 }
 
-uint32_t PktHandler::GetModuleStats(ModuleName mod) {
-    switch(mod) {
-    case FLOW:
-        return stats_.flow_rcvd;
-        break;
-    case ARP:
-        return stats_.arp_rcvd;
-        break;
-    case DHCP:
-        return stats_.dhcp_rcvd;
-        break;
-    case DNS:
-        return stats_.dns_rcvd;
-        break;
-    case ICMP:
-        return stats_.icmp_rcvd;
-        break;
-    case INVALID:
-    case MAX_MODULES:
-        return stats_.dropped;
-        break;
-    default:
-        break;
-    }
+uint32_t PktHandler::GetModuleStats(PktModuleName mod) {
+    if (mod < MAX_MODULES)
+        return stats_.received[mod];
     return 0;
 }
 
-void PktHandler::PktStats::PktRcvd(ModuleName mod) {
+void PktHandler::PktStats::PktRcvd(PktModuleName mod) {
     total_rcvd++;
-    switch(mod) {
-        case FLOW:
-            flow_rcvd++;
-            break;
-        case ARP:
-            arp_rcvd++;
-            break;
-        case DHCP:
-            dhcp_rcvd++;
-            break;
-        case DNS:
-            dns_rcvd++;
-            break;
-        case ICMP:
-            icmp_rcvd++;
-            break;
-        case DIAG:
-            diag_rcvd++;
-            break;
-        case INVALID:
-        case MAX_MODULES:
-            dropped++;
-            break;
-        default:
-             assert(0);
-    }
+    if (mod < MAX_MODULES)
+        received[mod]++;
 }
 
-void PktHandler::PktStats::PktSent(ModuleName mod) {
+void PktHandler::PktStats::PktSent(PktModuleName mod) {
     total_sent.fetch_and_increment();
-    switch(mod) {
-        case ARP:
-            arp_sent++;
-            break;
-        case DHCP:
-            dhcp_sent++;
-            break;
-        case DNS:
-            dns_sent++;
-            break;
-        case ICMP:
-            icmp_sent++;
-            break;
-        case DIAG:
-            diag_sent++;
-            break;
-        default:
-             assert(0);
-    }
+    if (mod < MAX_MODULES)
+        sent[mod]++;
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+PktInfo::PktInfo(): 
+    pkt(), len(), data(), ipc(), type(PktType::INVALID), agent_hdr(),
+    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
+    tunnel(), eth(), arp(), ip() {
+    transp.tcp = 0;
+}
+
+PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
+    pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
+    agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
+    sport(), dport(), tunnel(), eth(), arp(), ip() {
+    transp.tcp = 0;
+}
+
+PktInfo::PktInfo(InterTaskMsg *msg) :
+    pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
+    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
+    tunnel(), eth(), arp(), ip() {
+    transp.tcp = 0;
+}
+
+PktInfo::~PktInfo() {
+    if (pkt) delete [] pkt;
+}
+
+const AgentHdr &PktInfo::GetAgentHdr() const {return agent_hdr;};
+
+void PktInfo::UpdateHeaderPtr() {
+    eth = (struct ethhdr *)(pkt + IPC_HDR_LEN);
+    ip = (struct iphdr *)(eth + 1);
+    transp.tcp = (struct tcphdr *)(ip + 1);
+}
+
+std::size_t PktInfo::hash() const {
+    std::size_t seed = 0;
+    boost::hash_combine(seed, ip_saddr);
+    boost::hash_combine(seed, ip_daddr);
+    boost::hash_combine(seed, ip_proto);
+    boost::hash_combine(seed, sport);
+    boost::hash_combine(seed, dport);
+    return seed;
+}
+
+///////////////////////////////////////////////////////////////////////////////

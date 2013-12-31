@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "vr_defs.h"
 #include "base/logging.h"
 #include "oper/interface_common.h"
 #include "oper/mirror_table.h"
@@ -16,6 +17,7 @@
 #include "bind/xmpp_dns_agent.h"
 #include "controller/controller_dns.h"
 #include "base/timer.h"
+#include "pkt/pkt_init.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
 
@@ -40,7 +42,7 @@ void DnsProto::ConfigInit() {
 }
 
 DnsProto::DnsProto(boost::asio::io_service &io) :
-    Proto<DnsHandler>("Agent::Services", PktHandler::DNS, io),
+    Proto("Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
     lid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
                   boost::bind(&DnsProto::ItfUpdate, this, _2));
@@ -55,6 +57,11 @@ DnsProto::DnsProto(boost::asio::io_service &io) :
 DnsProto::~DnsProto() {
     Agent::GetInstance()->GetInterfaceTable()->Unregister(lid_);
     Agent::GetInstance()->GetVnTable()->Unregister(Vnlid_);
+}
+
+ProtoHandler *DnsProto::AllocProtoHandler(PktInfo *info,
+                                          boost::asio::io_service &io) {
+    return new DnsHandler(info, io);
 }
 
 void DnsProto::ItfUpdate(DBEntryBase *entry) {
@@ -948,15 +955,15 @@ DnsHandler::Resolve(dns_flags flags, std::vector<DnsItem> &ques,
 void DnsHandler::SendDnsResponse() {
     in_addr_t src_ip = pkt_info_->ip->daddr;
     in_addr_t dest_ip = pkt_info_->ip->saddr;
-    unsigned char dest_mac[MAC_ALEN];
-    memcpy(dest_mac, pkt_info_->eth->h_source, MAC_ALEN);
+    unsigned char dest_mac[ETH_ALEN];
+    memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
 
     // fill in the response
     dns_resp_size_ += sizeof(udphdr);
     UdpHdr(dns_resp_size_, src_ip, DNS_SERVER_PORT, 
            dest_ip, ntohs(pkt_info_->transp.udp->source));
     dns_resp_size_ += sizeof(iphdr);
-    IpHdr(dns_resp_size_, src_ip, dest_ip, UDP_PROTOCOL);
+    IpHdr(dns_resp_size_, src_ip, dest_ip, IPPROTO_UDP);
     EthHdr(agent_vrrp_mac, dest_mac, 0x800);
     dns_resp_size_ += sizeof(ethhdr);
 
@@ -1118,20 +1125,23 @@ std::string DnsHandler::DnsItemsToString(std::vector<DnsItem> &items) {
 
 void DnsHandler::SendDnsIpc(uint8_t *pkt) {
     DnsIpc *ipc = new DnsIpc(pkt, 0, NULL, DnsHandler::DNS_BIND_RESPONSE);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
+                                                            ipc);
 }
 
 void DnsHandler::SendDnsIpc(IpcCommand cmd, uint16_t xid, uint8_t *msg,
                             DnsHandler *handler) {
     DnsIpc *ipc = new DnsIpc(msg, xid, handler, cmd);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
+                                                            ipc);
 }
 
 void DnsHandler::SendDnsUpdateIpc(DnsUpdateData *data,
                                   DnsAgentXmpp::XmppType type,
                                   const VmInterface *vm, bool floating) {
     DnsUpdateIpc *ipc = new DnsUpdateIpc(type, data, vm, floating);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
+                                                            ipc);
 }
 
 void DnsHandler::SendDnsUpdateIpc(const VmInterface *vm,
@@ -1141,12 +1151,14 @@ void DnsHandler::SendDnsUpdateIpc(const VmInterface *vm,
                                   uint32_t ttl, bool is_floating) {
     DnsUpdateIpc *ipc = new DnsUpdateIpc(vm, new_vdns, old_vdns, new_dom,
                                          ttl, is_floating);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
+                                                            ipc);
 }
 
 void DnsHandler::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
     DnsUpdateAllIpc *ipc = new DnsUpdateAllIpc(channel);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::DNS, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
+                                                            ipc);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

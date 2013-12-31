@@ -37,7 +37,7 @@ void AgentStatsReq::HandleRequest() const {
     pkt->Response();
 
     FlowStatsResp *flow = new FlowStatsResp();
-    flow->set_flow_active(FlowTable::GetFlowTableObject()->Size());
+    flow->set_flow_active(agent->pkt()->flow_table()->Size());
     flow->set_flow_created(stats->flow_created());
     flow->set_flow_aged(stats->flow_aged());
     flow->set_context(context());

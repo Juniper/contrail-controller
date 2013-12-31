@@ -14,6 +14,8 @@
 #include <controller/controller_init.h>
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
+#include <pkt/tap_interface.h>
+#include <pkt/test_tap_interface.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
@@ -80,7 +82,7 @@ public:
         memcpy(arp->arp_tpa, &tip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)
-            (PktHandler::GetPktHandler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
         tap->GetTestPktHandler()->TestPktSend(ptr, len);
         delete [] ptr;
     }
@@ -121,7 +123,7 @@ public:
         memcpy(arp->arp_tpa, &sip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)
-            (PktHandler::GetPktHandler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
         tap->GetTestPktHandler()->TestPktSend(ptr, len);
         delete [] ptr;
     }
@@ -137,7 +139,7 @@ public:
         uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
         memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
         TestTapInterface *tap = (TestTapInterface *)
-            (PktHandler::GetPktHandler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
         tap->GetTestPktHandler()->TestPktSend(ptr, pkt->GetBuffLen());
         delete pkt;
         delete [] ptr;
@@ -149,7 +151,7 @@ public:
                 new ArpHandler::ArpIpc(type, addr, 
                 Agent::GetInstance()->GetVrfTable()->
                 FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
-        PktHandler::GetPktHandler()->SendMessage(PktHandler::ARP, ipc);
+        Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
     bool FindArpNHEntry(uint32_t addr, const string &vrf_name) {
@@ -217,6 +219,7 @@ public:
             client->WaitForIdle();
             if (++count == MAX_WAIT_COUNT) {
                 LOG(ERROR, "WaitForCompletion failed for ArpCacheSize "<< size);
+                LOG(ERROR, "WaitForCompletion failed for ArpCacheSize "<< Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
                 assert(0);
             }
         } while (Agent::GetInstance()->GetArpProto()->GetArpCacheSize() != size);
@@ -249,7 +252,6 @@ TEST_F(ArpTest, ArpReqTest) {
     EXPECT_FALSE(FindArpRoute(target_ip, Agent::GetInstance()->GetDefaultVrf()));
     SendArpReq(req_ifindex, 0, src_ip, src_ip);
     SendArpReply(reply_ifindex, 0, src_ip, src_ip);
-    SendArpReq(req_ifindex, 0, src_ip, ntohl(inet_addr("169.254.1.1")));
     client->WaitForIdle();
     SendArpReq(req_ifindex, 0, src_ip, target_ip);
     SendArpReq(req_ifindex, 0, src_ip, target_ip);

@@ -30,9 +30,10 @@
 #include <ksync/ksync_init.h>
 #include <services/services_init.h>
 #include <pkt/pkt_init.h>
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 #include <pkt/pkt_types.h>
 #include <pkt/proto.h>
+#include <pkt/proto_handler.h>
 #include <uve/flow_stats.h>
 #include <uve/uve_init.h>
 #include <uve/uve_client.h>

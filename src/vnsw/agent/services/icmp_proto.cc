@@ -2,12 +2,14 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <vr_defs.h>
 #include <base/logging.h>
 #include <cmn/agent_cmn.h>
+#include "pkt/pkt_init.h"
 #include <oper/interface_common.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
-#include "icmp_proto.h"
+#include <services/icmp_proto.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -18,10 +20,15 @@ void IcmpProto::Shutdown() {
 }
 
 IcmpProto::IcmpProto(boost::asio::io_service &io) :
-    Proto<IcmpHandler>("Agent::Services", PktHandler::ICMP, io) {
+    Proto("Agent::Services", PktHandler::ICMP, io) {
 }
 
 IcmpProto::~IcmpProto() {
+}
+
+ProtoHandler *IcmpProto::AllocProtoHandler(PktInfo *info,
+                                           boost::asio::io_service &io) {
+    return new IcmpHandler(info, io);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -65,11 +72,11 @@ bool IcmpHandler::CheckPacket() {
 }
 
 void IcmpHandler::SendResponse() {
-    unsigned char src_mac[MAC_ALEN];
-    unsigned char dest_mac[MAC_ALEN];
+    unsigned char src_mac[ETH_ALEN];
+    unsigned char dest_mac[ETH_ALEN];
 
-    memcpy(src_mac, pkt_info_->eth->h_dest, MAC_ALEN);
-    memcpy(dest_mac, pkt_info_->eth->h_source, MAC_ALEN);
+    memcpy(src_mac, pkt_info_->eth->h_dest, ETH_ALEN);
+    memcpy(dest_mac, pkt_info_->eth->h_source, ETH_ALEN);
 
     // fill in the response
     uint16_t len = icmp_len_;

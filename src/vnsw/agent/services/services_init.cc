@@ -31,7 +31,7 @@ ServicesModule::~ServicesModule() {
 }
 
 void ServicesModule::Init(bool run_with_vrouter) {
-    EventManager *event = Agent::GetInstance()->GetEventManager();
+    EventManager *event = agent_->GetEventManager();
     boost::asio::io_service &io = *event->io_service();
 
     dhcp_proto_.reset(new DhcpProto(io, run_with_vrouter));

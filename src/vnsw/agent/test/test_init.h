@@ -55,7 +55,7 @@
 #include <uve/flow_stats.h>
 #include <uve/agent_stats.h>
 #include "pkt_gen.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_table.h"
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
@@ -115,7 +115,7 @@ public:
     FlowFlush() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowFlush")), 0) {
     }
     virtual bool Run() {
-        FlowTable::GetFlowTableObject()->DeleteAll();
+        Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
         return true;
     }
 };

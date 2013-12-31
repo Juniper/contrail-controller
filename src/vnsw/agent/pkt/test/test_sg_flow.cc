@@ -4,7 +4,7 @@
 
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_proto.h"
 
 VmInterface *vnet[16];
 VirtualHostInterface *vhost;
@@ -294,7 +294,7 @@ void Shutdown() {
 class SgTest : public ::testing::Test {
     virtual void SetUp() {
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
         const VmInterface *port = GetVmPort(1);
         EXPECT_EQ(port->sg_list().list_.size(), 0U);
@@ -308,7 +308,7 @@ class SgTest : public ::testing::Test {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
 
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
         DelLink("security-group", "sg1", "access-control-list", "sg_acl1");
         DelNode("access-control-list", "sg_acl1");
