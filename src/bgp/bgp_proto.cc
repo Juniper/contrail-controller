@@ -894,6 +894,25 @@ public:
     typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
 };
 
+class BgpPathAttributeMpRTCNlri : public ProtoSequence<BgpPathAttributeMpRTCNlri> {
+public:
+    static const int kMinOccurs = 0;
+    static const int kMaxOccurs = -1;
+
+    struct OptMatch {
+        bool match(const BgpMpNlri *obj) {
+            return ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTFilter));
+        }
+    };
+
+    typedef OptMatch ContextMatch;
+
+    typedef CollectionAccessor<BgpMpNlri, vector<BgpProtoPrefix *>,
+            &BgpMpNlri::nlri> ContextStorer;
+
+    typedef mpl::list<BgpPrefixLen, BgpPrefixAddress> Sequence;
+};
+
 class BgpEvpnNlriType : public ProtoElement<BgpEvpnNlriType> {
 public:
     static const int kSize = 1;
@@ -954,6 +973,9 @@ public:
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
                 value = 0;
             }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTFilter)) {
+                value = 2;
+            }
         }
 
         static int get(BgpMpNlri *obj) {
@@ -966,6 +988,9 @@ public:
             if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::Vpn)) {
                 return 0;
             }
+            if ((obj->afi == BgpAf::IPv4) && (obj->safi == BgpAf::RTFilter)) {
+                return 2;
+            }
             return -1;
         }
     };
@@ -973,7 +998,8 @@ public:
     typedef MpChoice Setter;
     typedef mpl::map<
           mpl::pair<mpl::int_<0>, BgpPathAttributeMpNlri>,
-          mpl::pair<mpl::int_<1>, BgpPathAttributeMpEvpnNlri>
+          mpl::pair<mpl::int_<1>, BgpPathAttributeMpEvpnNlri>,
+          mpl::pair<mpl::int_<2>, BgpPathAttributeMpRTCNlri>
     > Choice;
 };
 
@@ -1165,6 +1191,8 @@ int BgpProto::Encode(const BgpMpNlri *msg, uint8_t *data, size_t size,
     int result = 0;
     if ((msg->afi == BgpAf::L2Vpn) && (msg->safi == BgpAf::EVpn)) {
         result = BgpPathAttributeMpEvpnNlri::Encode(&ctx, msg, data, size);
+    } else if ((msg->afi == BgpAf::IPv4) && (msg->safi == BgpAf::RTFilter)) {
+        result = BgpPathAttributeMpRTCNlri::Encode(&ctx, msg, data, size);
     } else {
         result = BgpPathAttributeMpNlri::Encode(&ctx, msg, data, size);
     }

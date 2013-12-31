@@ -5,17 +5,87 @@
 # -*- mode: python; -*-
 
 Import('BuildEnv')
+import sys
+
 env = BuildEnv.Clone()
 
-env.Append(LIBPATH = env['TOP'] + '/bgp/rtarget')
+env.Append(CPPPATH = [env['TOP'],
+                      env['TOP'] + '/bgp',
+                      env['TOP'] + '/io'
+                     ])
 
-env.Prepend(LIBS = ['gunit', 'rtarget', 'boost_regex'])
+env.Append(LIBPATH = [env['TOP'] + '/base', env['TOP'] + '/base/test',
+           env['TOP'] + '/bgp', env['TOP'] + '/bgp/enet',
+           env['TOP'] + '/bgp/evpn', env['TOP'] + '/bgp/inet',
+           env['TOP'] + '/bgp/inetmcast', env['TOP'] + '/bgp/l3vpn',
+           env['TOP'] + '/bgp/origin-vn', env['TOP'] + '/bgp/routing-instance',
+           env['TOP'] + '/bgp/rtarget', env['TOP'] + '/bgp/security_group',
+           env['TOP'] + '/bgp/test', env['TOP'] + '/bgp/tunnel_encap',
+           env['TOP'] + '/control-node', env['TOP'] + '/control-node/test',
+           env['TOP'] + '/db', env['TOP'] + '/db/test',
+           env['TOP'] + '/discovery/client', env['TOP'] + '/http/client',
+           env['TOP'] + '/ifmap', env['TOP'] + '/ifmap/test',
+           env['TOP'] + '/io', env['TOP'] + '/net', env['TOP'] + '/route',
+           env['TOP'] + '/schema', env['TOP'] + '/xmpp', env['TOP'] + '/xml'])
 
-rtarget_address_test = env.UnitTest('rtarget_address_test', ['rtarget_address_test.cc'])
+env.Prepend(LIBS = ['control_test', 'bgptest', 'bgp', 'peer_sandesh',
+                    'bgp_schema', 'control_node', 'dbtest',
+                    'ifmap_vnc', 'task_test',
+                    'ifmap_test_util', 'ifmap_server', 'ifmap_common',
+                    'ifmapio', 'ds', 'pugixml', 'httpc', 'curl',
+                    'crypto', 'ssl', 'sandesh', 'http', 'http_parser',
+                    'db', 'sandeshvns', 'io', 'base', 'gunit'])
+
+env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])
+env.Append(LIBS = ['bgp_inet', 'bgp_inetmcast', 'bgp_l3vpn'])
+env.Append(LIBS = ['route', 'net', 'routing_instance', 'rtarget'])
+env.Append(LIBS = ['origin_vn', 'security_group', 'tunnel_encap'])
+env.Append(LIBS = ['xmpp', 'xmpp_unicast', 
+                   'xmpp_multicast', 'xmpp_enet', 'xml', 'pugixml',
+                   'boost_regex', 'boost_program_options'])
+
+if sys.platform == 'darwin':
+    bgp_inet = Dir('../../inet').path + '/libbgp_inet.a'
+    bgp_inetmcast = Dir('../../inetmcast').path + '/libbgp_inetmcast.a'
+    bgp_enet = Dir('../../enet').path + '/libbgp_enet.a'
+    bgp_evpn = Dir('../../evpn').path + '/libbgp_evpn.a'
+    bgp_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
+    bgp_rtarget = Dir('../../rtarget').path + '/librtarget.a'
+    env.Prepend(LINKFLAGS =
+                ['-Wl,-force_load,' + bgp_inet,
+                 '-Wl,-force_load,' + bgp_inetmcast,
+                 '-Wl,-force_load,' + bgp_enet,
+                 '-Wl,-force_load,' + bgp_evpn,
+                 '-Wl,-force_load,' + bgp_l3vpn,
+                 '-Wl,-force_load,' + bgp_rtarget])
+else:
+    env.Prepend(LINKFLAGS =
+                ['-Wl,--whole-archive',
+                 '-rdynamic',
+                 '-lbgp_inet',
+                 '-lbgp_inetmcast',
+                 '-lbgp_enet',
+                 '-lbgp_evpn',
+                 '-lbgp_l3vpn',
+                 '-lrtarget',
+                 '-Wl,--no-whole-archive'])
+
+
+if sys.platform != 'darwin':
+    env.Append(LIBS=['rt'])
+
+
+rtarget_address_test = env.UnitTest('rtarget_address_test', 
+                                    ['rtarget_address_test.cc'])
 env.Alias('src/bgp/rtarget:rtarget_address_test', rtarget_address_test)
+
+rtarget_peer_test = env.UnitTest('rtarget_peer_test', 
+                                 ['rtarget_peer_test.cc'])
+env.Alias('src/bgp/rtarget:rtarget_peer_test', rtarget_peer_test)
 
 test_suite = [
     rtarget_address_test,
+    rtarget_peer_test,
 ]
 
 test = env.TestSuite('bgp-test', test_suite)

@@ -222,7 +222,7 @@ protected:
         c.reset(new XmppChannelMock);
 
         master_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(
-                "__default__", "", ""));
+                BgpConfigManager::kMasterInstance, "", ""));
         blue_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig("blue",
                 "target:1.2.3.4:1", "target:1.2.3.4:1"));
         red_cfg_.reset(BgpTestUtil::CreateBgpInstanceConfig(

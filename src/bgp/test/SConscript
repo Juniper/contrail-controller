@@ -69,12 +69,14 @@ if sys.platform == 'darwin':
     bgp_enet = Dir('../enet').path + '/libbgp_enet.a'
     bgp_evpn = Dir('../evpn').path + '/libbgp_evpn.a'
     bgp_l3vpn = Dir('../l3vpn').path + '/libbgp_l3vpn.a'
+    bgp_rtarget = Dir('../rtarget').path + '/librtarget.a'
     env.Prepend(LINKFLAGS =
                 ['-Wl,-force_load,' + bgp_inet,
                  '-Wl,-force_load,' + bgp_inetmcast,
                  '-Wl,-force_load,' + bgp_enet,
                  '-Wl,-force_load,' + bgp_evpn,
-                 '-Wl,-force_load,' + bgp_l3vpn])
+                 '-Wl,-force_load,' + bgp_l3vpn,
+                 '-Wl,-force_load,' + bgp_rtarget])
 else:
     env.Prepend(LINKFLAGS =
                 ['-Wl,--whole-archive',
@@ -84,6 +86,7 @@ else:
                  '-lbgp_enet',
                  '-lbgp_evpn',
                  '-lbgp_l3vpn',
+                 '-lrtarget',
                  '-Wl,--no-whole-archive'])
 
 env.Append(LIBS = ['bgp_enet', 'bgp_evpn'])

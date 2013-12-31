@@ -14,7 +14,9 @@
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routepath_replicator.h"
-#include "bgp/routing-instance/routing_instance_log.h"
+#include "bgp/routing-instance/routing_instance_trace.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
+#include "bgp/routing-instance/rtarget_group.h"
 #include "bgp/routing-instance/service_chaining.h"
 #include "bgp/routing-instance/static_route.h"
 #include "db/db_table.h"
@@ -207,7 +209,7 @@ int RoutingInstanceMgr::GetVnIndexByExtCommunity(
 }
 
 int
-RoutingInstanceMgr::RegisterCreateCallback(RoutingInstanceCreateCb callback) {
+RoutingInstanceMgr::RegisterInstanceOpCallback(RoutingInstanceCb callback) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     size_t i = bmap_.find_first();
     if (i == bmap_.npos) {
@@ -223,7 +225,7 @@ RoutingInstanceMgr::RegisterCreateCallback(RoutingInstanceCreateCb callback) {
     return i;
 }
 
-void RoutingInstanceMgr::UnregisterCreateCallback(int listener) {
+void RoutingInstanceMgr::UnregisterInstanceOpCallback(int listener) {
     tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     callbacks_[listener] = NULL;
     if ((size_t) listener == callbacks_.size() - 1) {
@@ -241,13 +243,13 @@ void RoutingInstanceMgr::UnregisterCreateCallback(int listener) {
     }
 }
 
-void RoutingInstanceMgr::NotifyRoutingInstanceCreate(std::string name) {
+void RoutingInstanceMgr::NotifyInstanceOp(std::string name, Operation op) {
     tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
-    for (RoutingInstanceCreateListenersList::iterator iter = callbacks_.begin();
+    for (InstanceOpListenersList::iterator iter = callbacks_.begin();
          iter != callbacks_.end(); ++iter) {
         if (*iter != NULL) {
-            RoutingInstanceCreateCb cb = *iter;
-            (cb)(name);
+            RoutingInstanceCb cb = *iter;
+            (cb)(name, op);
         }
     }
 }
@@ -281,7 +283,7 @@ RoutingInstance *RoutingInstanceMgr::CreateRoutingInstance(
     InstanceVnIndexAdd(rtinstance);
 
     // Notify clients about routing instance create
-    NotifyRoutingInstanceCreate(config->name());
+    NotifyInstanceOp(config->name(), INSTANCE_ADD);
 
     std::vector<string> import_rt(config->import_list().begin(),
                                   config->import_list().end());
@@ -317,6 +319,9 @@ void RoutingInstanceMgr::UpdateRoutingInstance(
     rtinstance->UpdateConfig(server_, config);
     InstanceTargetAdd(rtinstance);
     InstanceVnIndexAdd(rtinstance);
+
+    // Notify clients about routing instance create
+    NotifyInstanceOp(config->name(), INSTANCE_UPDATE);
 
     std::vector<string> import_rt(config->import_list().begin(),
                                   config->import_list().end());
@@ -370,6 +375,8 @@ void RoutingInstanceMgr::DeleteRoutingInstance(const string &name) {
     if (rtinstance->static_route_mgr()) 
         rtinstance->static_route_mgr()->FlushStaticRouteConfig();
 
+    NotifyInstanceOp(name, INSTANCE_DELETE);
+
     rtinstance->ManagedDelete();
 }
 
@@ -409,9 +416,17 @@ public:
         return parent_->MayDelete();
     }
     virtual void Shutdown() {
+        ROUTING_INSTANCE_DELETE_ACTOR_TRACE(Shutdown, parent_->server(), 
+                                            parent_->name());
+
+        parent_->mgr_->NotifyInstanceOp(parent_->name(), 
+                                        RoutingInstanceMgr::INSTANCE_DELETE);
+
         parent_->Shutdown();
     }
     virtual void Destroy() {
+        ROUTING_INSTANCE_DELETE_ACTOR_TRACE(Destroy, parent_->server(), 
+                                            parent_->name());
         parent_->mgr_->DestroyRoutingInstance(parent_);
     }
 
@@ -460,6 +475,7 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
     if (name_ == BgpConfigManager::kMasterInstance) {
         InetVpnTableCreate(server);
         EvpnTableCreate(server);
+        RTargetTableCreate(server);
 
         BgpTable *table_inet = static_cast<BgpTable *>(
                 server->database()->CreateTable("inet.0"));
@@ -719,6 +735,7 @@ void RoutingInstance::Shutdown() {
 
     if (static_route_mgr()) 
         static_route_mgr()->FlushStaticRouteConfig();
+
 }
 
 bool RoutingInstance::MayDelete() const {
@@ -789,13 +806,29 @@ BgpTable *RoutingInstance::InetVpnTableCreate(BgpServer *server) {
     // For all the RouteTarget in the server, add the VPN table as
     // importer and exporter
     RoutePathReplicator *replicator = server->replicator(Address::INETVPN);
-    for (RoutePathReplicator::RtGroupMap::const_iterator it =
-         replicator->GetRtGroupMap().begin();
-        it != replicator->GetRtGroupMap().end(); ++it) {
+    for (RTargetGroupMgr::RtGroupMap::iterator it =
+         server->rtarget_group_mgr()->GetRtGroupMap().begin();
+        it != server->rtarget_group_mgr()->GetRtGroupMap().end(); ++it) {
+        RtGroup *group = it->second;
+        if ((group->GetImportTables(Address::INETVPN).size() == 0) &&
+            (group->GetExportTables(Address::INETVPN).size() == 0)) 
+            continue;
         replicator->Join(vpntbl, it->first, true);
         replicator->Join(vpntbl, it->first, false);
     }
     return vpntbl;
+}
+
+BgpTable *RoutingInstance::RTargetTableCreate(BgpServer *server) {
+    BgpTable *rtargettbl = static_cast<BgpTable *>(
+            server->database()->CreateTable("bgp.rtarget.0"));
+
+    ROUTING_INSTANCE_TRACE(TableCreate, server, name(), rtargettbl->name(),
+                           Address::FamilyToString(Address::RTARGET));
+
+    AddTable(rtargettbl);
+
+    return rtargettbl;
 }
 
 BgpTable *RoutingInstance::EvpnTableCreate(BgpServer *server) {
@@ -810,9 +843,13 @@ BgpTable *RoutingInstance::EvpnTableCreate(BgpServer *server) {
     // For all the RouteTarget in the server, add the VPN table as
     // importer and exporter
     RoutePathReplicator *replicator = server->replicator(Address::EVPN);
-    for (RoutePathReplicator::RtGroupMap::const_iterator it =
-         replicator->GetRtGroupMap().begin();
-        it != replicator->GetRtGroupMap().end(); ++it) {
+    for (RTargetGroupMgr::RtGroupMap::iterator it =
+         server->rtarget_group_mgr()->GetRtGroupMap().begin();
+        it != server->rtarget_group_mgr()->GetRtGroupMap().end(); ++it) {
+        RtGroup *group = it->second;
+        if ((group->GetImportTables(Address::EVPN).size() == 0) &&
+            (group->GetExportTables(Address::EVPN).size() == 0)) 
+            continue;
         replicator->Join(vpntbl, it->first, true);
         replicator->Join(vpntbl, it->first, false);
     }
@@ -871,6 +908,8 @@ std::string RoutingInstance::GetTableNameFromVrf(std::string name,
         table_name = "bgp.l3vpn.0";
     } else if (fmly == Address::EVPN) {
         table_name = "bgp.evpn.0";
+    } else if (fmly == Address::RTARGET) {
+        table_name = "bgp.rtarget.0";
     } else if (name == BgpConfigManager::kMasterInstance) {
         table_name = Address::FamilyToString(fmly) + ".0";
     } else {

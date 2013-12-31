@@ -6,6 +6,8 @@
 #define ctrlplane_rtarget_group_h
 
 #include <list>
+#include <set>
+#include <vector>
 
 #include "bgp/bgp_table.h"
 #include "bgp/rtarget/rtarget_address.h"
@@ -14,52 +16,50 @@
 // Contains two lists of tables 
 //       1. Tables that imports the route belonging to this RouteTarget
 //       2. Tables to which route needs to be exported
+
+class BgpRoute;
+class RTargetRoute;
+
 class RtGroup {
 public:
     typedef std::list<BgpTable *> RtGroupMemberList;
+    typedef std::map<Address::Family, RtGroupMemberList> RtGroupMembers;
+    typedef std::set<BgpRoute *> RouteList;
+    typedef std::vector<RouteList> RTargetDepRouteList;
+    typedef std::set<RTargetRoute *> RTargetRouteList;
+    typedef std::map<const BgpPeer *, RTargetRouteList> InterestedPeerList;
 
-    RtGroup(const RouteTarget &rt) : rt_(rt) {
-    }
+    RtGroup(const RouteTarget &rt);
+    const RouteTarget &rt();
+    bool empty(Address::Family family);
 
-    RtGroupMemberList &GetImportTables() {
-        return import_list_;
-    }
+    const RtGroupMemberList &GetImportTables(Address::Family family);
+    const RtGroupMemberList &GetExportTables(Address::Family family);
 
-    RtGroupMemberList &GetExportTables() {
-        return export_list_;
-    }
+    bool AddImportTable(Address::Family family, BgpTable *tbl);
+    bool AddExportTable(Address::Family family, BgpTable *tbl);
+    bool RemoveImportTable(Address::Family family, BgpTable *tbl);
+    bool RemoveExportTable(Address::Family family, BgpTable *tbl);
 
-    void AddImportTable(BgpTable *tbl) {
-        import_list_.push_back(tbl);
-        import_list_.sort();
-        import_list_.unique();
-    }
 
-    void AddExportTable(BgpTable *tbl) {
-        export_list_.push_back(tbl);
-        export_list_.sort();
-        export_list_.unique();
-    }
+    void AddDepRoute(int part_id, BgpRoute *rt);
+    void RemoveDepRoute(int part_id, BgpRoute *rt);
+    bool RouteDepListEmpty() const;
+    const RTargetDepRouteList &DepRouteList() const;
 
-    void RemoveImportTable(BgpTable *tbl) {
-        import_list_.remove(tbl);
-    }
+    const InterestedPeerList &PeerList() const;
+    void GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const;
+    void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
+    void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
+    bool IsPeerInterested(const BgpPeer *peer) const;
+    bool peer_list_empty() const;
 
-    void RemoveExportTable(BgpTable *tbl) {
-        export_list_.remove(tbl);
-    }
-
-    bool empty() {
-        return import_list_.empty() && export_list_.empty();
-    }
-
-    const RouteTarget &rt() {
-        return rt_;
-    }
 private:
-    RtGroupMemberList import_list_;
-    RtGroupMemberList export_list_;
+    RtGroupMembers import_;
+    RtGroupMembers export_;
     RouteTarget rt_;
+    RTargetDepRouteList dep_;
+    InterestedPeerList peer_list_;
     DISALLOW_COPY_AND_ASSIGN(RtGroup);
 };
 

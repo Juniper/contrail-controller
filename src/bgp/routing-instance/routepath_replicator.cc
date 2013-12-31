@@ -23,6 +23,7 @@
 #include "bgp/origin-vn/origin_vn.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/routing_instance_analytics_types.h"
 #include "db/db_table_partition.h"
 #include "db/db_table_walker.h"
@@ -74,44 +75,6 @@ RoutePathReplicator::RoutePathReplicator(
 }
 
 RoutePathReplicator::~RoutePathReplicator() {
-}
-
-// Search a RtGroup
-RtGroup *RoutePathReplicator::GetRtGroup(const RouteTarget &rt) {
-    RtGroupMap::iterator loc = rt_group_map_.find(rt);
-    if (loc != rt_group_map_.end()) {
-        return loc->second;
-    }
-    return NULL;
-}
-
-// Search a RtGroup
-RtGroup *
-RoutePathReplicator::GetRtGroup(
-    const ExtCommunity::ExtCommunityValue &community) {
-    RouteTarget rt(community);
-    return GetRtGroup(rt);
-}
-
-RtGroup *
-RoutePathReplicator::LocateRtGroup(const RouteTarget &rt) {
-    RtGroup *group = GetRtGroup(rt);
-    if (group == NULL) {
-        group = new RtGroup(rt);
-        rt_group_map_.insert(rt, group);
-        // Master routingInstance imports/exports all RouteTargets
-        RoutingInstance *master =
-            server()->routing_instance_mgr()->GetRoutingInstance(
-                BgpConfigManager::kMasterInstance);
-        if (master) {
-            BgpTable *table = master->GetTable(family());
-            if (table) {
-                Join(table, rt, true);
-                Join(table, rt, false);
-            }
-        }
-    }
-    return group;
 }
 
 void
@@ -168,7 +131,7 @@ RoutePathReplicator::UnregisterTables() {
     for (UnregTableList::iterator it = unreg_table_list_.begin(); 
          it != unreg_table_list_.end(); it++) {
         BgpTable *bgptable = *it;
-        RtGroupTableState::iterator ts_it = table_state_.find(bgptable);
+        RouteReplicatorTableState::iterator ts_it = table_state_.find(bgptable);
         assert(ts_it != table_state_.end());
         TableState *ts = ts_it->second;
         if (ts->GetGroupList().empty()) {
@@ -197,7 +160,7 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
     }
     delete bulk_sync_state;
     bulk_sync_.erase(loc);
-    RtGroupTableState::iterator ts_it = table_state_.find(bgptable);
+    RouteReplicatorTableState::iterator ts_it = table_state_.find(bgptable);
     assert(ts_it != table_state_.end());
     TableState *ts = ts_it->second;
     if (ts->GetGroupList().empty()) {
@@ -206,28 +169,45 @@ RoutePathReplicator::BulkReplicationDone(DBTableBase *table) {
     unreg_trigger_->Set();
 }
 
+void RoutePathReplicator::AddVpnTable(RtGroup *rtgroup) {
+    // Master routingInstance imports/exports all RouteTargets
+    RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
+    RoutingInstance *master = 
+        mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    if (master) {
+        BgpTable *vpntable = master->GetTable(family());
+        Join(vpntable, rtgroup->rt(), true);
+        Join(vpntable, rtgroup->rt(), false);
+    }
+}
+
 void RoutePathReplicator::Join(BgpTable *table, const RouteTarget &rt,
                                bool import) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    RtGroup *group = LocateRtGroup(rt);
+    RtGroup *group = server()->rtarget_group_mgr()->LocateRtGroup(rt);
 
     // Add the Table to Group
+    bool first = false;
     if (import)
-        group->AddImportTable(table);
+        first = group->AddImportTable(family(), table);
     else
-        group->AddExportTable(table);
+        first = group->AddExportTable(family(), table);
+
+    // When the group is created for the first time, add vpn table
+    if (first)
+        AddVpnTable(group);
 
     RPR_TRACE(TableJoin, table->name(), rt.ToString(), import);
     if (import) {
-        BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables()) {
+        BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables(family())) {
             RequestWalk(bgptable);
         }
         walk_trigger_->Set();
         return;
     }
 
-    RtGroupTableState::iterator loc = table_state_.find(table);
+    RouteReplicatorTableState::iterator loc = table_state_.find(table);
     if (loc == table_state_.end()) {
         // Route Replication/export is done in DB notification
         DBTableBase::ListenerId id = table->Register(
@@ -249,23 +229,23 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                                 bool import) {
     CHECK_CONCURRENCY("bgp::Config");
 
-    RtGroup *group = GetRtGroup(rt);
+    RtGroup *group = server()->rtarget_group_mgr()->GetRtGroup(rt);
     assert(group);
 
     RPR_TRACE(TableLeave, table->name(), rt.ToString(), import);
 
     if (import) {
-        group->RemoveImportTable(table);
-        BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables()) {
+        group->RemoveImportTable(family(), table);
+        BOOST_FOREACH(BgpTable *bgptable, group->GetExportTables(family())) {
             RequestWalk(bgptable);
         }
     } else {
-        group->RemoveExportTable(table);
+        group->RemoveExportTable(family(), table);
         RequestWalk(table);
     }
 
     if (!import) {
-        RtGroupTableState::iterator loc = table_state_.find(table);
+        RouteReplicatorTableState::iterator loc = table_state_.find(table);
         assert(loc != table_state_.end());
         TableState *ts = loc->second;
         ts->MutableGroupList()->remove(group);
@@ -273,28 +253,29 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
         // after the TableWalk is completed (started by BgpBulkSync)
     }
 
-    if ((group->GetImportTables().size() == 1) &&
-        (group->GetExportTables().size() == 1)) {
+    if ((group->GetImportTables(family()).size() == 1) &&
+        (group->GetExportTables(family()).size() == 1)) {
         RoutingInstance *master =
             server()->routing_instance_mgr()->GetRoutingInstance(
                                          BgpConfigManager::kMasterInstance);
         if (master) {
             BgpTable *vpntable = master->GetTable(family());
-            if ((vpntable == group->GetExportTables().front()) &&
-                (vpntable == group->GetImportTables().front())) {
+            if ((vpntable == group->GetExportTables(family()).front()) &&
+                (vpntable == group->GetImportTables(family()).front())) {
                 // Delete the group if last vrf inet table left the RT
-                RtGroupTableState::iterator loc = table_state_.find(vpntable);
+                RouteReplicatorTableState::iterator loc = 
+                    table_state_.find(vpntable);
                 assert(loc != table_state_.end());
                 TableState *ts = loc->second;
                 ts->MutableGroupList()->remove(group);
-                group->RemoveImportTable(vpntable);
-                group->RemoveExportTable(vpntable);
-                rt_group_map_.erase(rt);
+                group->RemoveImportTable(family(), vpntable);
+                group->RemoveExportTable(family(), vpntable);
+                server()->rtarget_group_mgr()->RemoveRtGroup(rt);
             }
         }
-    } else if (group->empty()) {
+    } else if (group->empty(family())) {
         // Delete the group if no tables are import/export this group
-        rt_group_map_.erase(rt);
+        server()->rtarget_group_mgr()->RemoveRtGroup(rt);
     }
 
     walk_trigger_->Set();
@@ -402,7 +383,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
     const RoutingInstance *rtinstance = table->routing_instance();
 
     // Get the Listener id
-    RtGroupTableState::iterator loc = table_state_.find(table);
+    RouteReplicatorTableState::iterator loc = table_state_.find(table);
     assert(loc != table_state_.end());
     TableState *ts = loc->second;
     DBTableBase::ListenerId id = ts->GetListenerId();
@@ -452,7 +433,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
         const ExtCommunity *ext_community = attr->ext_community();
 
         ExtCommunityPtr extcomm_ptr =
-            UpdateExtCommunity(server(), rtinstance, ext_community, export_list);
+          UpdateExtCommunity(server(), rtinstance, ext_community, export_list);
         ext_community = extcomm_ptr.get();
         if (!ext_community)
             continue;
@@ -471,12 +452,13 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
                 OriginVn origin_vn(comm);
                 vn_index = origin_vn.vn_index();
             } else if (ExtCommunity::is_route_target(comm)) {
-                RtGroup *rtgroup = GetRtGroup(comm);
+                RtGroup *rtgroup = 
+                    server()->rtarget_group_mgr()->GetRtGroup(comm);
                 if (!rtgroup)
                     continue;
                 super_set.insert(super_set.end(), 
-                                 rtgroup->GetImportTables().begin(),
-                                 rtgroup->GetImportTables().end());
+                                 rtgroup->GetImportTables(family()).begin(),
+                                 rtgroup->GetImportTables(family()).end());
             }
         }
 
@@ -531,7 +513,7 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
 
 const RtReplicated *RoutePathReplicator::GetReplicationState(
         BgpTable *table, BgpRoute *rt) const {
-    RtGroupTableState::const_iterator loc = table_state_.find(table);
+    RouteReplicatorTableState::const_iterator loc = table_state_.find(table);
     if (loc == table_state_.end()) return NULL;
 
     const TableState *ts = loc->second;

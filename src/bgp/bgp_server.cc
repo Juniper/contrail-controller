@@ -21,6 +21,7 @@
 #include "bgp/routing-instance/peer_manager.h"
 #include "bgp/routing-instance/routing_instance.h"
 #include "bgp/routing-instance/routepath_replicator.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "bgp/routing-instance/service_chaining.h"
 #include "io/event_manager.h"
 
@@ -203,6 +204,7 @@ BgpServer::BgpServer(EventManager *evm)
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
       sched_mgr_(new SchedulingGroupManager),
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
+      rtarget_group_mgr_(new RTargetGroupMgr(this)),
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),

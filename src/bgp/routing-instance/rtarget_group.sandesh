@@ -1,0 +1,20 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct ShowRtGroupInfo {
+    1: string rtarget;
+    2: list<string> l3vpn_import_tables;
+    3: list<string> l3vpn_export_tables;
+    4: list<string> evpn_import_tables;
+    5: list<string> evpn_export_tables;
+    6: list<string> peers_interested;
+    7: list<string> dep_route;
+}
+
+response sandesh ShowRtGroupResp {
+    1: list<ShowRtGroupInfo> rtgroup_list;
+}
+
+request sandesh ShowRtGroupReq {
+}
