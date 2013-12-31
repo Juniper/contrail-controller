@@ -103,7 +103,7 @@ void AgentInit::DeleteRoutes() {
                                       ~(0xFFFFFFFF << (32 - agent_->GetPrefixLen()))), 32);
 }
 
-void AgentInit::DeleteNextHop() {
+void AgentInit::DeleteNextHops() {
     NextHopKey *key = new DiscardNHKey();
     agent_->GetNextHopTable()->Delete(key);
 
@@ -124,11 +124,11 @@ void AgentInit::DeleteNextHop() {
     agent_->GetNextHopTable()->Delete(key);
 }
 
-void AgentInit::DeleteVrf() {
+void AgentInit::DeleteVrfs() {
     agent_->GetVrfTable()->DeleteVrf(agent_->GetDefaultVrf());
 }
 
-void AgentInit::DeleteInterface() {
+void AgentInit::DeleteInterfaces() {
     PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
                                agent_->GetHostInterfaceName());
     InetInterface::DeleteReq(agent_->GetInterfaceTable(),
@@ -140,13 +140,6 @@ void AgentInit::DeleteInterface() {
         return;
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
                                  params_->vmware_physical_port());
-}
-
-void AgentInit::DeleteStaticEntries() {
-    DeleteRoutes();
-    DeleteNextHop();
-    DeleteVrf();
-    DeleteInterface();
 }
 
 void AgentInit::Shutdown() {
