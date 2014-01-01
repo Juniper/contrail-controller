@@ -71,7 +71,11 @@ public:
     void Start();
     void InitXenLinkLocalIntf();
     void InitVmwareInterface();
-    void DeleteStaticEntries();
+    void DeleteRoutes();
+    void DeleteNextHops();
+    void DeleteVrfs();
+    void DeleteInterfaces();
+
     void Shutdown();
 
     bool ksync_enable() const { return ksync_enable_; }
@@ -93,11 +97,6 @@ private:
     void InitModules();
     void OnInterfaceCreate(DBEntryBase *entry);
     void OnVrfCreate(DBEntryBase *entry);
-
-    void DeleteRoutes();
-    void DeleteNextHop();
-    void DeleteVrf();
-    void DeleteInterface();
 
     Agent *agent_;
     AgentParam *params_;

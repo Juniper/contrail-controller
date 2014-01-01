@@ -244,7 +244,17 @@ void TestShutdown() {
     if (Agent::GetInstance()->vgw()) {
         Agent::GetInstance()->vgw()->Shutdown();
     }
-    Agent::GetInstance()->init()->DeleteStaticEntries();
+
+    Agent::GetInstance()->init()->DeleteRoutes();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteInterfaces();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteVrfs();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteNextHops();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
