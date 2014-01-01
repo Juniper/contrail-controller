@@ -48,11 +48,6 @@ void PktModule::Shutdown() {
 }
 
 void PktModule::CreateInterfaces() {
-<<<<<<< HEAD
-    std::string ifname(agent_->GetHostIfname());
+    std::string ifname(agent_->pkt_interface_name());
     pkt_handler_->CreateHostInterface(ifname);
-=======
-    std::string ifname(Agent::GetInstance()->pkt_interface_name());
-    PktHandler::CreateHostInterface(ifname);
->>>>>>> upstream/master
 }

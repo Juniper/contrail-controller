@@ -699,6 +699,7 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     SendDhcp(FABRIC_ITF, 0x8000, DHCP_OFFER, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, req_options, 3);
     SendDhcp(FABRIC_ITF, 0x8000, DHCP_ACK, resp_options, 4, false, true, vmaddr.to_ulong(), GetItfId(0));
+    client->WaitForIdle();
     int count = 0;
     DHCP_CHECK (stats.relay_resp < 2);
     EXPECT_EQ(2U, stats.relay_req);

@@ -53,7 +53,7 @@ bool FlowHandler::Run() {
         info.dest_vn = FlowHandler::UnknownVn();
 
     if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
-                     (in.intf_->type() != Interface::VIRTUAL_HOST))) {
+                     (in.intf_->type() != Interface::INET))) {
         in.intf_ = NULL;
     }
 

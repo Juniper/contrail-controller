@@ -45,7 +45,7 @@ private:
     unsigned char mac_[ETH_ALEN];
 };
 
-TapDescriptor::TapDescriptor(const std::string &name) {
+TapInterface::TapDescriptor::TapDescriptor(const std::string &name) {
     if (name == Agent::GetInstance()->pkt_interface_name()) {
         if ((fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
