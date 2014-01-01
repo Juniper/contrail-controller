@@ -38,17 +38,17 @@ public:
         obs.instance =
             boost::bind(&ConfigUpdater::ProcessInstanceConfig, this, _1, _2);
         obs.protocol =
-            boost::bind(&ConfigUpdater::ProcessBgpConfig, this, _1, _2);
+            boost::bind(&ConfigUpdater::ProcessProtocolConfig, this, _1, _2);
         obs.neighbor =
             boost::bind(&ConfigUpdater::ProcessNeighborConfig, this, _1, _2);
 
         server->config_manager()->RegisterObservers(obs);
     }
 
-    void ProcessBgpConfig(const BgpProtocolConfig *bgp_config,
-                          BgpConfigManager::EventType event) {
+    void ProcessProtocolConfig(const BgpProtocolConfig *protocol_config,
+                               BgpConfigManager::EventType event) {
 
-        const string &instance_name = bgp_config->InstanceName();
+        const string &instance_name = protocol_config->InstanceName();
 
         //
         // At the moment, we only support BGP sessions in master instance
@@ -66,8 +66,8 @@ public:
 
         if (event == BgpConfigManager::CFG_ADD ||
             event == BgpConfigManager::CFG_CHANGE) {
-            if (bgp_config->bgp_router()) {
-                params = bgp_config->router_params();
+            if (protocol_config->bgp_router()) {
+                params = protocol_config->router_params();
             }
         } else if (event != BgpConfigManager::CFG_DELETE) {
             assert(false);
