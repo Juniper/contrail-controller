@@ -16,7 +16,7 @@ SandeshTraceBufferPtr PacketTraceBuf(SandeshTraceBufferCreate("Packet", 1000));
 void PktModule::Init(bool run_with_vrouter) {
     EventManager *event = Agent::GetInstance()->GetEventManager();
     boost::asio::io_service &io = *event->io_service();
-    std::string ifname(Agent::GetInstance()->GetHostIfname());
+    std::string ifname(Agent::GetInstance()->pkt_interface_name());
 
     PktHandler::Init(Agent::GetInstance()->GetDB(), ifname, io, run_with_vrouter);
     FlowTable::Init();
@@ -30,6 +30,6 @@ void PktModule::Shutdown() {
 }
 
 void PktModule::CreateInterfaces() {
-    std::string ifname(Agent::GetInstance()->GetHostIfname());
+    std::string ifname(Agent::GetInstance()->pkt_interface_name());
     PktHandler::CreateHostInterface(ifname);
 }

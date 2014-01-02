@@ -191,7 +191,7 @@ void VnswIfListener::KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) 
     AddAttr(RTA_TABLE, (void *) &ipaddr, 4);
     ipaddr = htonl(addr.to_ulong());
     AddAttr(RTA_DST, (void *) &ipaddr, 4);
-    int if_index = if_nametoindex(Agent::GetInstance()->GetVirtualHostInterfaceName().c_str());
+    int if_index = if_nametoindex(Agent::GetInstance()->vhost_interface_name().c_str());
     AddAttr(RTA_OIF, (void *) &if_index, 4);
 
     boost::system::error_code ec;
@@ -224,9 +224,9 @@ void VnswIfListener::CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
                << (unsigned short)plen);
     Agent::GetInstance()->SetRouterId(host_ip);
     rt_table->AddVHostRecvRoute(
-        vrf_name, Agent::GetInstance()->GetVirtualHostInterfaceName(), host_ip, false);
+        vrf_name, Agent::GetInstance()->vhost_interface_name(), host_ip, false);
     rt_table->AddVHostSubnetRecvRoute(
-        vrf_name, Agent::GetInstance()->GetVirtualHostInterfaceName(), host_ip, plen, false);
+        vrf_name, Agent::GetInstance()->vhost_interface_name(), host_ip, plen, false);
     rt_table->AddResolveRoute(vrf_name, host_ip, plen);
     Agent::GetInstance()->SetPrefixLen(plen);
 }
@@ -278,7 +278,7 @@ uint32_t VnswIfListener::FetchVhostAddress(bool netmask) {
 
     memset(&ifr, 0, sizeof(ifr));
     ifr.ifr_addr.sa_family = AF_INET;
-    strncpy(ifr.ifr_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
+    strncpy(ifr.ifr_name, Agent::GetInstance()->vhost_interface_name().c_str(),
 	    sizeof(ifr.ifr_name));
 
     if (netmask) {
@@ -475,7 +475,7 @@ void VnswIfListener::InterfaceHandler(struct nlmsghdr *nlh)
             port_name = (char *) RTA_DATA(rth);
             LOG(INFO, "port_name " << port_name);
             is_vhost_intf = (0 == 
-                    Agent::GetInstance()->GetVirtualHostInterfaceName().compare(port_name));
+                    Agent::GetInstance()->vhost_interface_name().compare(port_name));
             /* required only for Xen Mode */
             if (Agent::GetInstance()->isXenMode()) {
                 is_xapi_intf = (string::npos != port_name.find(XAPI_INTF_PREFIX));
@@ -524,7 +524,7 @@ void VnswIfListener::IfaddrHandler(struct nlmsghdr *nlh) {
     if_indextoname(ifa->ifa_index, name);
 
     LOG(DEBUG, "Received change notification for " << name);
-    if (Agent::GetInstance()->GetVirtualHostInterfaceName().compare(name) != 0) {
+    if (Agent::GetInstance()->vhost_interface_name().compare(name) != 0) {
         LOG(DEBUG, "Ignoring IP change notification received for "
                 << name);
         return;

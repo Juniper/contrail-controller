@@ -13,7 +13,7 @@
 #define LOCAL_PEER_NAME "Local"
 #define LOCAL_VM_PEER_NAME "Local_Vm"
 #define NOVA_PEER_NAME "Nova"
-#define MDATA_PEER_NAME "MData"
+#define LINKLOCAL_PEER_NAME "LinkLocal"
 
 class AgentXmppChannel;
 
@@ -26,7 +26,7 @@ public:
         BGP_PEER,
         LOCAL_PEER,  // higher priority for local peer
         LOCAL_VM_PEER,
-        MDATA_PEER,
+        LINKLOCAL_PEER,
         NOVA_PEER
     };
 

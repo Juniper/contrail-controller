@@ -59,8 +59,8 @@ const string &Agent::GetHostInterfaceName() {
     return Agent::null_str_;
 };
 
-const string &Agent::GetVirtualHostInterfaceName() {
-    return virtual_host_intf_name_;
+const string &Agent::vhost_interface_name() const {
+    return vhost_interface_name_;
 };
 
 const string &Agent::GetHostName() {
@@ -182,7 +182,7 @@ void Agent::GetConfig() {
         dss_xs_instances_ = params_->xmpp_instance_count();
     }
 
-    virtual_host_intf_name_ = params_->vhost_name();
+    vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
@@ -314,35 +314,6 @@ void Agent::CreateInterfaces() {
     cfg_.get()->CreateInterfaces();
 }
 
-void Agent::GlobalVrouterConfig(IFMapNode *node) {
-    if (node->IsDeleted() == false) {
-        autogen::GlobalVrouterConfig *cfg = 
-            static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
-        VxLanNetworkIdentifierMode cfg_vxlan_mode;
-        if (cfg->vxlan_network_identifier_mode() == "configured") {
-            cfg_vxlan_mode = Agent::CONFIGURED;
-        } else {
-            cfg_vxlan_mode = Agent::AUTOMATIC; 
-        }
-        if (cfg_vxlan_mode != 
-            vxlan_network_identifier_mode_) {
-            set_vxlan_network_identifier_mode(cfg_vxlan_mode);
-            GetVnTable()->UpdateVxLanNetworkIdentifierMode();
-            GetInterfaceTable()->UpdateVxLanNetworkIdentifierMode();
-        }
-        const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 
-            cfg->linklocal_services();
-        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it=
-             linklocal_list.begin(); it != linklocal_list.end(); it++) {
-            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
-                SetIpFabricMetadataServerAddress
-                    (*(it->ip_fabric_service_ip.begin()));
-                SetIpFabricMetadataServerPort(it->ip_fabric_service_port);
-        }
-    }
-}
-
 void Agent::InitDone() {
     //Open up mirror socket
     mirror_table_->MirrorSockInit();
@@ -399,10 +370,10 @@ Agent::Agent() :
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), xs_dns_addr_(), xs_dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(),
-    ip_fabric_intf_name_(""), virtual_host_intf_name_(""),
-    cfg_listener_(NULL), arp_proto_(NULL), dhcp_proto_(NULL),
-    dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
-    local_peer_(NULL), local_vm_peer_(NULL), mdata_vm_peer_(NULL),
+    ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
+    dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
+    local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
     mgmt_ip_(""), vxlan_network_identifier_mode_(AUTOMATIC) {

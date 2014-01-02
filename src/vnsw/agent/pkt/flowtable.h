@@ -102,18 +102,18 @@ public:
         nat_done(false), nat_ip_saddr(0),
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
-        short_flow(false), local_flow(false), mdata_flow(false), ecmp(false),
+        short_flow(false), local_flow(false), linklocal_flow(false), ecmp(false),
         in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
         source_plen(0), dest_plen(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
-    void MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
-                            PktControlInfo *out);
-    void MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
-                              PktControlInfo *out);
-    void MdataServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
-                               PktControlInfo *out);
+    void LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
+                                PktControlInfo *out);
+    void LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
+                                  PktControlInfo *out);
+    void LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
+                                   PktControlInfo *out);
     void FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
                         PktControlInfo *out);
     void FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
@@ -171,7 +171,7 @@ public:
     bool                ingress;
     bool                short_flow;
     bool                local_flow;
-    bool                mdata_flow;
+    bool                linklocal_flow;
 
     bool                ecmp;
     uint32_t            in_component_nh_idx;
@@ -312,10 +312,9 @@ class FlowEntry {
     };
     FlowEntry() :
         key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), mdata_flow(false), 
+        local_flow(false), short_flow(false), linklocal_flow(false), 
         is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0),
-        last_modified_time(0), deleted_(false) {
+        teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -323,10 +322,9 @@ class FlowEntry {
     };
     FlowEntry(const FlowKey &k) : 
         key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), mdata_flow(false),
+        local_flow(false), short_flow(false), linklocal_flow(false),
         is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0),
-        last_modified_time(0), deleted_(false) {
+        teardown_time(0), last_modified_time(0), deleted_(false) {
         flow_uuid = nil_uuid(); 
         egress_uuid = nil_uuid(); 
         refcount_ = 0;
@@ -348,7 +346,7 @@ class FlowEntry {
     bool nat;
     bool local_flow;
     bool short_flow;
-    bool mdata_flow;
+    bool linklocal_flow;
     bool is_reverse_flow;
 
     uint64_t setup_time;

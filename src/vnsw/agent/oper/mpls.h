@@ -92,7 +92,7 @@ public:
                   InterfaceNHFlags::Type type) : 
         AgentData(), 
         nh_key(new InterfaceNHKey
-               (new VirtualHostInterfaceKey(intf_name), policy,
+               (new InetInterfaceKey(intf_name), policy,
                type)) {
     }
 

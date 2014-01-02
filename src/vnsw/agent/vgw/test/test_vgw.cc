@@ -86,13 +86,13 @@ TEST_F(VgwTest, vn_route_1) {
     if (intf == NULL)
         return;
 
-    EXPECT_TRUE(intf->type() == Interface::VIRTUAL_HOST);
-    if (intf->type() != Interface::VIRTUAL_HOST)
+    EXPECT_TRUE(intf->type() == Interface::INET);
+    if (intf->type() != Interface::INET)
         return;
 
-    const VirtualHostInterface *vhost_intf;
-    vhost_intf = static_cast<const VirtualHostInterface *>(intf);
-    EXPECT_TRUE(vhost_intf->sub_type() == VirtualHostInterface::GATEWAY);
+    const InetInterface *vhost_intf;
+    vhost_intf = static_cast<const InetInterface *>(intf);
+    EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::GATEWAY);
 
 }
 

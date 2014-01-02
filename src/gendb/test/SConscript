@@ -19,7 +19,7 @@ env.Append(CPPPATH = [MapBuildDir(includes)])
 
 env.Append(LIBPATH=['#/build/lib'])
 libs=['gendb', 'cdb', 'base', 'gunit', 'thrift']
-env.Append(LIBS=libs)
+env.Prepend(LIBS=libs)
 libpaths=['gendb', 'cdb', 'base']
 env.Append(LIBPATH = [MapBuildDir(libpaths)])
 

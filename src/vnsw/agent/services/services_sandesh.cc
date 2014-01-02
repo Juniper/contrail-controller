@@ -5,10 +5,12 @@
 #include <boost/assign/list_of.hpp>
 #include <pkt/pkt_handler.h>
 #include <oper/mirror_table.h>
+#include <services/services_init.h>
 #include <services/dhcp_proto.h>
 #include <services/arp_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
+#include <services/metadata_proxy.h>
 #include <services/services_types.h>
 #include <services/services_sandesh.h>
 #include <vr_defs.h>
@@ -633,6 +635,21 @@ void ServicesSandesh::HandleRequest(PktHandler::ModuleName mod,
     resp->Response();
 }
 
+void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false) {
+    MetadataResponse *resp = new MetadataResponse();
+    resp->set_metadata_server_port(
+          Agent::GetInstance()->GetMetadataServerPort());
+    const MetadataProxy::MetadataStats &stats = 
+          Agent::GetInstance()->services()->metadataproxy()->metadatastats();
+    resp->set_metadata_requests(stats.requests);
+    resp->set_metadata_responses(stats.responses);
+    resp->set_metadata_proxy_sessions(stats.proxy_sessions);
+    resp->set_metadata_internal_errors(stats.internal_errors);
+    resp->set_context(ctxt);
+    resp->set_more(more);
+    resp->Response();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void DhcpInfo::HandleRequest() const {
@@ -656,11 +673,8 @@ void IcmpInfo::HandleRequest() const {
 }
 
 void MetadataInfo::HandleRequest() const {
-    MetadataResponse *resp = new MetadataResponse();
-    resp->set_metadata_server_port(
-          Agent::GetInstance()->GetMetadataServerPort());
-    resp->set_context(context());
-    resp->Response();
+    ServicesSandesh ssandesh;
+    ssandesh.MetadataHandleRequest(context());
 }
 
 void ShowAllInfo::HandleRequest() const {
@@ -672,7 +686,8 @@ void ShowAllInfo::HandleRequest() const {
     ssandesh.HandleRequest(PktHandler::ICMP, context(), true);
     ssandesh.HandleRequest(PktHandler::FLOW, context(), true);
     ssandesh.HandleRequest(PktHandler::DIAG, context(), true);
-    ssandesh.HandleRequest(PktHandler::INVALID, context(), false);
+    ssandesh.HandleRequest(PktHandler::INVALID, context(), true);
+    ssandesh.MetadataHandleRequest(context(), false);
 }
 
 void ClearAllInfo::HandleRequest() const {
@@ -688,6 +703,7 @@ void ClearAllInfo::HandleRequest() const {
     Agent::GetInstance()->GetArpProto()->ClearStats();
     Agent::GetInstance()->GetDnsProto()->ClearStats();
     Agent::GetInstance()->GetIcmpProto()->ClearStats();
+    Agent::GetInstance()->services()->metadataproxy()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
     resp->set_context(context());

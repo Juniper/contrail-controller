@@ -79,11 +79,11 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     }
 
     if (init_file == NULL) {
-        agent->SetVirtualHostInterfaceName("vhost0");
-        VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                        "vhost0",
-                                        Agent::GetInstance()->GetDefaultVrf(),
-                                        VirtualHostInterface::HOST);
+        agent->set_vhost_interface_name("vhost0");
+        InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                 "vhost0",
+                                 Agent::GetInstance()->GetDefaultVrf(),
+                                 InetInterface::VHOST);
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId
             (Ip4Address::from_string("10.1.1.1", ec));
@@ -128,11 +128,10 @@ TestClient *StatsTestInit() {
     AsioRun();
 
     sleep(1);
-    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost0",
-                                    Agent::GetInstance()->GetDefaultVrf(),
-                                   VirtualHostInterface::HOST);
+    Agent::GetInstance()->set_vhost_interface_name("vhost0");
+    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                             InetInterface::VHOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -180,11 +179,10 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     AsioRun();
 
     usleep(100);
-    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost0",
-                                    Agent::GetInstance()->GetDefaultVrf(),
-                                    VirtualHostInterface::HOST);
+    Agent::GetInstance()->set_vhost_interface_name("vhost0");
+    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                             InetInterface::VHOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -246,7 +244,17 @@ void TestShutdown() {
     if (Agent::GetInstance()->vgw()) {
         Agent::GetInstance()->vgw()->Shutdown();
     }
-    Agent::GetInstance()->init()->DeleteStaticEntries();
+
+    Agent::GetInstance()->init()->DeleteRoutes();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteInterfaces();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteVrfs();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteNextHops();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
