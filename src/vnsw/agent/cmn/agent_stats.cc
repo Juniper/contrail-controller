@@ -9,8 +9,6 @@
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>
-#include <cmn/buildinfo.h>
-
 #include <uve/uve_client.h>
 
 AgentStats *AgentStats::singleton_;
