@@ -341,15 +341,16 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
 
 void BgpTable::Input(DBTablePartition *root, DBClient *client,
                      DBRequest *req) {
-    BgpRoute *rt = TableFind(root, req->key.get());
     const IPeer *peer =
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
+    // Skip if this peer is down
+    if ((req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) && 
+        peer && !peer->IsReady())
+        return;
+
+    BgpRoute *rt = TableFind(root, req->key.get());
     RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
-
-    // Skip if this peer is down/deleted.
-    if (peer && !peer->IsReady())
-        return;
 
     // First mark all paths from this request source as deleted.
     // Apply all paths provided in this request data and add them. If path
@@ -357,7 +358,6 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
     // list again to purge any stale paths originated from this peer.
 
     // Create rt if it is not already there for adds/updates.
-    bool allocated = false;
     if (!rt) {
         if (req->oper == DBRequest::DB_ENTRY_DELETE) return;
 
@@ -365,7 +365,6 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         static_cast<DBTablePartition *>(root)->Add(rt);
         BGP_LOG_ROUTE(this, const_cast<IPeer *>(peer), rt,
                       "Insert new BGP path");
-        allocated = true;
     }
 
     // Use a map to mark and sweep deleted paths, update the rest.
@@ -430,8 +429,6 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         InputCommon(root, rt, path, peer, req, DBRequest::DB_ENTRY_DELETE,
                     NULL, path->GetPathId(), 0, 0);
     }
-    if (allocated && rt && !rt->IsDeleted() && !rt->count())
-        root->Delete(rt);
 }
 
 bool BgpTable::MayDelete() const {
