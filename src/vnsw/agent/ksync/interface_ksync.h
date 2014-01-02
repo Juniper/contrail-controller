@@ -34,39 +34,31 @@ class IntfKSyncObject;
 
 class IntfKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index);
-    IntfKSyncEntry(const Interface *intf);
+    IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index, 
+                   IntfKSyncObject *obj);
+    IntfKSyncEntry(const Interface *intf, IntfKSyncObject *obj);
+    virtual ~IntfKSyncEntry();
 
-    virtual ~IntfKSyncEntry() {};
+    const uint8_t *mac() const {return mac_.ether_addr_octet;}
+    uint32_t interface_id() const {return interface_id_;}
+    const string &interface_name() const {return interface_name_;}
+    bool has_service_vlan() const {return has_service_vlan_;}
 
-    virtual bool IsLess(const KSyncEntry &rhs) const {
-        const IntfKSyncEntry &entry = static_cast<const IntfKSyncEntry &>(rhs);
-        return ifname_ < entry.ifname_;
-    };
-
+    KSyncDBObject *GetObject(); 
+    virtual bool Sync(DBEntry *e);
+    virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
-
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
     virtual KSyncEntry *UnresolvedReference();
-    virtual bool Sync(DBEntry *e);
-
-    KSyncDBObject *GetObject(); 
-    const uint8_t *GetMac() {return mac_.ether_addr_octet;};
-    uint32_t GetIpAddress() {return ip_;};
-    uint32_t id() const {return intf_id_;}
-    const string &GetName() const {return ifname_;};
-    void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info);
-    bool HasServiceVlan() const {return has_service_vlan_;};
-    int GetNetworkId() const {return network_id_;};
-
+    void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) const;
 private:
     friend class IntfKSyncObject;
     int Encode(sandesh_op::type op, char *buf, int buf_len);
-    string ifname_;     // Key
+    string interface_name_;     // Key
     Interface::Type type_;
-    uint32_t intf_id_;
+    uint32_t interface_id_;
     uint32_t vrf_id_;
     uint32_t fd_;       // FD opened for this
     bool has_service_vlan_;
@@ -83,6 +75,7 @@ private:
     bool layer2_forwarding_;
     uint16_t vlan_id_;
     KSyncEntryPtr parent_;
+    IntfKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
 };
 
@@ -90,48 +83,21 @@ class IntfKSyncObject : public KSyncDBObject {
 public:
     static const int kInterfaceCount = 1000;        // Max interfaces
 
-    IntfKSyncObject(DBTableBase *table) : 
-        KSyncDBObject(table, kInterfaceCount), vnsw_if_mac(), test_mode() {};
-    virtual ~IntfKSyncObject() {};
+    IntfKSyncObject(Agent *agent);
+    virtual ~IntfKSyncObject();
 
-    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
-        const IntfKSyncEntry *intf = static_cast<const IntfKSyncEntry *>(entry);
-        IntfKSyncEntry *ksync = new IntfKSyncEntry(intf, index);
-        return static_cast<KSyncEntry *>(ksync);
-    };
+    Agent *agent() const {return agent_; }
+    const char *physical_interface_mac() const {return physical_interface_mac_;}
 
-    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const Interface *intf = static_cast<const Interface *>(e);
-        IntfKSyncEntry *key = NULL;
+    void Init();
+    void InitTest();
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
+    void RegisterDBClients();
 
-        switch (intf->type()) {
-        case Interface::PHYSICAL:
-        case Interface::VM_INTERFACE:
-        case Interface::PACKET:
-        case Interface::INET:
-            key = new IntfKSyncEntry(intf);
-            break;
-
-        default:
-            assert(0);
-            break;
-        }
-        return static_cast<KSyncEntry *>(key);
-    }
-
-    static void Init(InterfaceTable *table);
-    static void InitTest(InterfaceTable *table);
-    static void Shutdown() {
-        delete singleton_;
-        singleton_ = NULL;
-    }
- 
-    static IntfKSyncObject *GetKSyncObject() {return singleton_;};
-    const char *PhysicalIntfMac() const {return vnsw_if_mac;};
-    bool GetTestMode() const {return test_mode;};
 private:
-    static IntfKSyncObject *singleton_;
-    char vnsw_if_mac[ETHER_ADDR_LEN];
+    Agent *agent_;
+    char physical_interface_mac_[ETHER_ADDR_LEN];
     int test_mode;
     DISALLOW_COPY_AND_ASSIGN(IntfKSyncObject);
 };
@@ -143,23 +109,21 @@ public:
     typedef std::map<std::string, uint32_t>::iterator InterfaceKSnapIter;
     typedef std::pair<std::string, uint32_t> InterfaceKSnapPair;
 
-    static void Init();
-    static void Shutdown();
-    static InterfaceKSnap *GetInstance() { return singleton_; }
-
+    InterfaceKSnap(Agent *agent);
     virtual ~InterfaceKSnap();
+
+    void Init();
     void KernelInterfaceData(vr_interface_req *r);
     bool FindInterfaceKSnapData(std::string &name, uint32_t &ip);
     bool Reset();
 
 private:
-    InterfaceKSnap();
 
+    Agent *agent_;
     Timer *timer_;
     tbb::mutex mutex_;
     InterfaceKSnapMap data_map_;
     static const uint32_t timeout_ = 180000; // 3 minutes
-    static InterfaceKSnap *singleton_;
 
     DISALLOW_COPY_AND_ASSIGN(InterfaceKSnap);
 };

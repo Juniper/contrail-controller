@@ -28,6 +28,7 @@
 #include "pkt/pkt_flow.h"
 #include "pkt/pkt_sandesh_flow.h"
 #include "ksync/flowtable_ksync.h"
+#include <ksync/ksync_init.h>
 
 SandeshTraceBufferPtr PktFlowTraceBuf(SandeshTraceBufferCreate("FlowHandler", 5000));
 
@@ -752,9 +753,11 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     std::ostringstream ostr;
     ostr << "ECMP Resolve for flow index " << flow_index;
     PKTFLOW_TRACE(Err,ostr.str());
+    FlowTableKSyncObject *obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     FlowKey key;
-    if (!FlowTableKSyncObject::GetKSyncObject()->GetFlowKey(flow_index, key)) {
+    if (!obj->GetFlowKey(flow_index, key)) {
         std::ostringstream ostr;
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
         PKTFLOW_TRACE(Err,ostr.str());

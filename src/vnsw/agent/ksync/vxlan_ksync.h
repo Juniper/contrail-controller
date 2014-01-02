@@ -17,13 +17,19 @@
 #include "oper/vxlan.h"
 #include "ksync/agent_ksync_types.h"
 
+class VxLanKSyncObject;
+
 class VxLanIdKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VxLanIdKSyncEntry(const VxLanIdKSyncEntry *entry, uint32_t index) : 
-        KSyncNetlinkDBEntry(index), label_(entry->label_), nh_(NULL) { };
+    VxLanIdKSyncEntry(const VxLanIdKSyncEntry *entry, uint32_t index, 
+                      VxLanKSyncObject *obj);
+    VxLanIdKSyncEntry(const VxLanId *label, VxLanKSyncObject *obj);
+    virtual ~VxLanIdKSyncEntry();
 
-    VxLanIdKSyncEntry(const VxLanId *label);
-    virtual ~VxLanIdKSyncEntry() {};
+    NHKSyncEntry *nh() const {
+        return static_cast<NHKSyncEntry *>(nh_.get());
+    }
+    KSyncDBObject *GetObject();
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
@@ -32,15 +38,10 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
-    KSyncDBObject *GetObject();
-
-    uint32_t GetLabel() const {return label_;};
-    NHKSyncEntry *GetNH() const {
-        return static_cast<NHKSyncEntry *>(nh_.get());
-    }
-    void FillObjectLog(sandesh_op::type op, KSyncVxLanInfo &info);
+    void FillObjectLog(sandesh_op::type op, KSyncVxLanInfo &info) const;
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    VxLanKSyncObject *ksync_obj_;
     uint32_t label_;
     KSyncEntryPtr nh_;
     DISALLOW_COPY_AND_ASSIGN(VxLanIdKSyncEntry);
@@ -49,38 +50,15 @@ private:
 class VxLanKSyncObject : public KSyncDBObject {
 public:
     static const int kVxLanIndexCount = 10000;
-    VxLanKSyncObject(DBTableBase *table) : 
-        KSyncDBObject(table, kVxLanIndexCount) {};
-
-    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
-        const VxLanIdKSyncEntry *vxlan = 
-            static_cast<const VxLanIdKSyncEntry *>(entry);
-        VxLanIdKSyncEntry *ksync = new VxLanIdKSyncEntry(vxlan, index);
-        return static_cast<KSyncEntry *>(ksync);
-    };
-
-    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const VxLanId *vxlan = static_cast<const VxLanId *>(e);
-        VxLanIdKSyncEntry *key = new VxLanIdKSyncEntry(vxlan);
-        return static_cast<KSyncEntry *>(key);
-    }
-
-    static void Init(VxLanTable *table) {
-        assert(singleton_ == NULL);
-        singleton_ = new VxLanKSyncObject(table);
-    };
-
-    static void Shutdown() {
-        delete singleton_;
-        singleton_ = NULL;
-    }
-
-    static VxLanKSyncObject *GetKSyncObject() { return singleton_; };
-
+    VxLanKSyncObject(Agent *agent);
+    virtual ~VxLanKSyncObject();
+    Agent *agent() const { return agent_; }
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
+    void RegisterDBClients();
 private:
-    static VxLanKSyncObject *singleton_;
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(VxLanKSyncObject);
-
 };
 
 #endif // vnsw_agent_vxlan_ksync_h

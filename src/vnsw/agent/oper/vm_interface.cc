@@ -34,6 +34,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include <ksync/ksync_init.h>
 
 #include <services/dns_proto.h>
 
@@ -892,7 +893,7 @@ bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
     }
 
     uint32_t addr;
-    InterfaceKSnap *intf = InterfaceKSnap::GetInstance();
+    InterfaceKSnap *intf = Agent::GetInstance()->ksync()->interface_snapshot();
     if (intf) {
         if (intf->FindInterfaceKSnapData(name, addr)) {
             *ip = Ip4Address(addr);

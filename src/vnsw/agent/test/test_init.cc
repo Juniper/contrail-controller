@@ -6,6 +6,7 @@
 #include "oper/mirror_table.h"
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
+#include "ksync/ksync_init.h"
 
 static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
@@ -63,6 +64,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     init->set_uve_enable(uve_init);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -225,8 +227,8 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->init()->Shutdown();
     AgentUve::GetInstance()->Shutdown();
     UveClient::GetInstance()->Shutdown();
-    KSync::NetlinkShutdownTest();
-    KSync::Shutdown();
+    Agent::GetInstance()->ksync()->NetlinkShutdownTest();
+    Agent::GetInstance()->ksync()->Shutdown();
     PktModule::Shutdown();  
     Agent::GetInstance()->services()->Shutdown();
     MulticastHandler::Shutdown();

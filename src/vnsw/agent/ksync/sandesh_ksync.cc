@@ -11,6 +11,7 @@
 #include <ksync/interface_ksync.h>
 #include <pkt/flowtable.h>
 #include <oper/mirror_table.h>
+#include <ksync/ksync_init.h>
 
 void vr_drop_stats_req::Process(SandeshContext *context) {
     AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
@@ -23,15 +24,15 @@ void vr_vrf_stats_req::Process(SandeshContext *context) {
 }
 
 int KSyncSandeshContext::VrResponseMsgHandler(vr_response *r) {
-    resp_code_ = r->get_resp_code();
+    response_code_ = r->get_resp_code();
 
-    if (-resp_code_ == EEXIST) {
+    if (-response_code_ == EEXIST) {
         return 0;
     }
 
-    if (resp_code_ < 0) {
-        LOG(ERROR, "VrResponseMsg Error: " << strerror(-resp_code_));
-        return -resp_code_;
+    if (response_code_ < 0) {
+        LOG(ERROR, "VrResponseMsg Error: " << strerror(-response_code_));
+        return -response_code_;
     }
 
     return 0;
@@ -42,8 +43,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
            r->get_fr_op() == flow_op::FLOW_SET);
 
     if (r->get_fr_op() == flow_op::FLOW_TABLE_GET) {
-        FlowTableKSyncObject::GetKSyncObject()->major_devid_ = r->get_fr_ftable_dev();
-        FlowTableKSyncObject::GetKSyncObject()->flow_table_size_ = r->get_fr_ftable_size();
+        flow_ksync_->major_devid_ = r->get_fr_ftable_dev();
+        flow_ksync_->flow_table_size_ = r->get_fr_ftable_size();
         LOG(DEBUG, "Flow table size : " << r->get_fr_ftable_size());
     } else if (r->get_fr_op() == flow_op::FLOW_SET) {
         FlowKey key;
@@ -93,7 +94,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                  FlowEntry *rev_flow = entry->data.reverse_flow.get();
                  if (rev_flow) {
                      FlowTableKSyncEntry *rev_ksync_entry =
-                         FlowTableKSyncObject::GetKSyncObject()->Find(rev_flow);
+                         flow_ksync_->Find(rev_flow);
                      rev_flow->UpdateKSync(rev_ksync_entry, false);
                  }
             }
@@ -105,6 +106,6 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 }
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
-    InterfaceKSnap::GetInstance()->KernelInterfaceData(r);
+    flow_ksync_->agent()->ksync()->interface_snapshot()->KernelInterfaceData(r); 
     context_marker_ = r->get_vifr_idx();
 }

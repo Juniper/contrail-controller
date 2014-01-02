@@ -9,7 +9,7 @@
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
 #include <pkt/flowtable.h>
-#include <ksync/flowtable_ksync.h>
+#include <vr_flow.h>
 
 struct FlowEntry;
 struct PktInfo;

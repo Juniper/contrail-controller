@@ -2,57 +2,46 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-
 #include <base/logging.h>
-#include <db/db_entry.h>
-#include <db/db_table.h>
-#include <db/db_table_partition.h>
-#include <ksync/ksync_index.h>
-#include <ksync/ksync_entry.h>
-#include <ksync/ksync_object.h>
-#include <ksync/ksync_sock.h>
-
-#include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/mpls.h"
 #include "oper/mirror_table.h"
-
 #include "ksync/interface_ksync.h"
 #include "ksync/nexthop_ksync.h"
 #include "ksync/mpls_ksync.h"
-
 #include "ksync_init.h"
+#include <ksync/ksync_index.h>
+#include <ksync/ksync_sock.h>
 
-void vr_mpls_req::Process(SandeshContext *context) {
-    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
-    ioc->MplsMsgHandler(this);
+MplsKSyncEntry::MplsKSyncEntry(const MplsKSyncEntry *entry, uint32_t index,
+                               MplsKSyncObject* obj)
+    : KSyncNetlinkDBEntry(index), label_(entry->label_), nh_(NULL), 
+      ksync_obj_(obj) { 
 }
 
-MplsKSyncObject *MplsKSyncObject::singleton_;
+MplsKSyncEntry::MplsKSyncEntry(const MplsLabel *mpls, MplsKSyncObject* obj)
+    : KSyncNetlinkDBEntry(kInvalidIndex), label_(mpls->GetLabel()), nh_(NULL), 
+      ksync_obj_(obj) {
+}
+
+MplsKSyncEntry::~MplsKSyncEntry() {
+}
 
 KSyncDBObject *MplsKSyncEntry::GetObject() {
-    return MplsKSyncObject::GetKSyncObject();
-}
-
-MplsKSyncEntry::MplsKSyncEntry(const MplsLabel *mpls) :
-    KSyncNetlinkDBEntry(kInvalidIndex), label_(mpls->GetLabel()), nh_(NULL) {
+    return ksync_obj_;
 }
 
 bool MplsKSyncEntry::IsLess(const KSyncEntry &rhs) const {
     const MplsKSyncEntry &entry = static_cast<const MplsKSyncEntry &>(rhs);
-
     return label_ < entry.label_;
 }
 
 std::string MplsKSyncEntry::ToString() const {
     std::stringstream s;
-    NHKSyncEntry *nh = GetNH();
+    NHKSyncEntry *next_hop = nh();
 
-    if (nh) {
+    if (next_hop) {
         s << "Mpls : " << label_ << " Index : " << GetIndex() << " NH : " 
-        << nh->GetIndex();
+        << next_hop->GetIndex();
     } else {
         s << "Mpls : " << label_ << " Index : " << GetIndex() << " NH : <null>";
     }
@@ -63,16 +52,16 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MplsLabel *mpls = static_cast<MplsLabel *>(e);
 
-    NHKSyncObject *nh_object = NHKSyncObject::GetKSyncObject();
+    NHKSyncObject *nh_object = ksync_obj_->agent()->ksync()->nh_ksync_obj();
     if (mpls->GetNextHop() == NULL) {
         LOG(DEBUG, "nexthop in mpls label is null");
         assert(0);
     }
-    NHKSyncEntry nh(mpls->GetNextHop());
-    NHKSyncEntry *old_nh = GetNH();
+    NHKSyncEntry next_hop(mpls->GetNextHop(), nh_object);
+    NHKSyncEntry *old_nh = nh(); 
 
-    nh_ = nh_object->GetReference(&nh);
-    if (old_nh != GetNH()) {
+    nh_ = nh_object->GetReference(&next_hop);
+    if (old_nh != nh()) {
         ret = true;
     }
 
@@ -82,19 +71,20 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
 int MplsKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_mpls_req encoder;
     int encode_len, error;
-    NHKSyncEntry *nh = GetNH();
+    NHKSyncEntry *next_hop = nh();
 
     encoder.set_h_op(op);
     encoder.set_mr_label(label_);
     encoder.set_mr_rid(0);
-    encoder.set_mr_nhid(nh->GetIndex());
+    encoder.set_mr_nhid(next_hop->GetIndex());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
 
-void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) {
+void MplsKSyncEntry::FillObjectLog(sandesh_op::type op, 
+                                   KSyncMplsInfo &info) const {
     info.set_label(label_);
-    info.set_nh(GetNH()->GetIndex());
+    info.set_nh(nh()->GetIndex());
 
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -128,9 +118,38 @@ int MplsKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 }
 
 KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
-    NHKSyncEntry *nh = GetNH();
-    if (!nh->IsResolved()) {
-        return nh;
+    NHKSyncEntry *next_hop = nh(); 
+    if (!next_hop->IsResolved()) {
+        return next_hop;
     }
     return NULL;
 }
+
+MplsKSyncObject::MplsKSyncObject(Agent *agent) : 
+    KSyncDBObject(kMplsIndexCount), agent_(agent) {
+}
+
+MplsKSyncObject::~MplsKSyncObject() {
+}
+
+void MplsKSyncObject::RegisterDBClients() {
+    RegisterDb(agent_->GetMplsTable());
+}
+
+KSyncEntry *MplsKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
+    const MplsKSyncEntry *mpls = static_cast<const MplsKSyncEntry *>(entry);
+    MplsKSyncEntry *ksync = new MplsKSyncEntry(mpls, index, this);
+    return static_cast<KSyncEntry *>(ksync);
+};
+
+KSyncEntry *MplsKSyncObject::DBToKSyncEntry(const DBEntry *e) {
+    const MplsLabel *mpls = static_cast<const MplsLabel *>(e);
+    MplsKSyncEntry *key = new MplsKSyncEntry(mpls, this);
+    return static_cast<KSyncEntry *>(key);
+}
+
+void vr_mpls_req::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->MplsMsgHandler(this);
+}
+

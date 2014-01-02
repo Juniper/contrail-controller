@@ -225,10 +225,7 @@ void Agent::CreateModules() {
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
     uve_ = std::auto_ptr<AgentUve>(new AgentUve(this));
-
-    if (init_->ksync_enable()) {
-        ksync_ = std::auto_ptr<KSync>(new KSync(this));
-    }
+    ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
         pkt_ = std::auto_ptr<PktModule>(new PktModule(this));
@@ -252,7 +249,7 @@ void Agent::CreateDBTables() {
 void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->RegisterDBClients(db_);
     } else {
         ksync_.get()->RegisterDBClientsTest(db_);
@@ -265,7 +262,7 @@ void Agent::CreateDBClients() {
 }
 
 void Agent::InitModules() {
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->NetlinkInit();
         ksync_.get()->VRouterInterfaceSnapshot();
         ksync_.get()->InitFlowMem();
@@ -274,6 +271,7 @@ void Agent::InitModules() {
             ksync_.get()->CreateVhostIntf();
         }
     } else {
+        ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();
     }
 

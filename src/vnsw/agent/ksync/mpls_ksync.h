@@ -5,25 +5,28 @@
 #ifndef vnsw_agent_mpls_ksync_h
 #define vnsw_agent_mpls_ksync_h
 
-#include <boost/asio.hpp>
-#include <boost/bind.hpp>
-
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
-#include "oper/nexthop.h"
 #include "oper/mpls.h"
-#include "ksync/agent_ksync_types.h"
+#include "ksync/mpls_ksync.h"
+#include "ksync/nexthop_ksync.h"
+
+class MplsKSyncObject;
 
 class MplsKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    MplsKSyncEntry(const MplsKSyncEntry *entry, uint32_t index) : 
-        KSyncNetlinkDBEntry(index), label_(entry->label_), nh_(NULL) { };
+    MplsKSyncEntry(const MplsKSyncEntry *entry, uint32_t index,
+                   MplsKSyncObject* obj);
+    MplsKSyncEntry(const MplsLabel *label, MplsKSyncObject* obj);
+    virtual ~MplsKSyncEntry();
 
-    MplsKSyncEntry(const MplsLabel *label);
-    virtual ~MplsKSyncEntry() {};
+    NHKSyncEntry *nh() const {
+        return static_cast<NHKSyncEntry *>(nh_.get());
+    }
+    KSyncDBObject *GetObject();
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
@@ -32,54 +35,27 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
-    KSyncDBObject *GetObject();
-
-    uint32_t GetLabel() const {return label_;};
-    NHKSyncEntry *GetNH() const {
-        return static_cast<NHKSyncEntry *>(nh_.get());
-    }
-    void FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info);
+    void FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) const;
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     uint32_t label_;
     KSyncEntryPtr nh_;
+    MplsKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(MplsKSyncEntry);
 };
 
 class MplsKSyncObject : public KSyncDBObject {
 public:
     static const int kMplsIndexCount = 10000;
-    MplsKSyncObject(DBTableBase *table) : 
-        KSyncDBObject(table, kMplsIndexCount) {};
-
-    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
-        const MplsKSyncEntry *mpls = static_cast<const MplsKSyncEntry *>(entry);
-        MplsKSyncEntry *ksync = new MplsKSyncEntry(mpls, index);
-        return static_cast<KSyncEntry *>(ksync);
-    };
-
-    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const MplsLabel *mpls = static_cast<const MplsLabel *>(e);
-        MplsKSyncEntry *key = new MplsKSyncEntry(mpls);
-        return static_cast<KSyncEntry *>(key);
-    }
-
-    static void Init(MplsTable *table) {
-        assert(singleton_ == NULL);
-        singleton_ = new MplsKSyncObject(table);
-    };
-
-    static void Shutdown() {
-        delete singleton_;
-        singleton_ = NULL;
-    }
-
-    static MplsKSyncObject *GetKSyncObject() { return singleton_; };
-
+    MplsKSyncObject(Agent *agent);
+    virtual ~MplsKSyncObject();
+    Agent *agent() const { return agent_; }
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
+    void RegisterDBClients();
 private:
-    static MplsKSyncObject *singleton_;
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(MplsKSyncObject);
-
 };
 
 #endif // vnsw_agent_mpls_ksync_h

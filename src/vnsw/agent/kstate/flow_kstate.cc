@@ -6,6 +6,7 @@
 #include "flow_kstate.h"
 #include <ksync/flowtable_ksync.h>
 #include <base/util.h>
+#include <ksync/ksync_init.h>
 
 using namespace std;
 
@@ -122,9 +123,11 @@ bool FlowKState::Run() {
     const vr_flow_entry *k_flow;
     KFlowResp *resp;
 
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+
     if (flow_idx_ != -1) {
-        k_flow = FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
-            (flow_idx_, false);
+        k_flow = ksync_obj->GetKernelFlowEntry(flow_idx_, false);
         if (k_flow) {
             resp = new KFlowResp();
             vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
@@ -139,16 +142,13 @@ bool FlowKState::Run() {
         return true;
     }
     uint32_t idx = flow_iteration_key_;
-    uint32_t max_flows = 
-        FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
+    uint32_t max_flows = ksync_obj->flow_table_entries_count();
     
     resp = new KFlowResp();
     vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
                                   (resp->get_flow_list());
     while(idx < max_flows) {
-        k_flow = 
-            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry(idx,
-                                                                       false);
+        k_flow = ksync_obj->GetKernelFlowEntry(idx, false);
         if (k_flow) {
             count++;
             SetFlowData(list, k_flow, idx);
