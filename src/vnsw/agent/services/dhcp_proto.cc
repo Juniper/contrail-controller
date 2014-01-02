@@ -746,7 +746,7 @@ void DhcpHandler::SendDhcpResponse() {
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
     len += sizeof(iphdr);
     IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(agent()->pkt()->pkt_handler()->GetMacAddress(), dest_mac, 0x800);
+    EthHdr(agent()->pkt()->pkt_handler()->mac_address(), dest_mac, 0x800);
     len += sizeof(ethhdr);
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);

@@ -21,14 +21,15 @@ public:
     TapInterface(Agent *agent, const std::string &name,
                  boost::asio::io_service &io, PktReadCallback cb);
     virtual ~TapInterface();
+    void Init();
+    void Shutdown();
 
-    int TapFd() const;
-    const unsigned char *MacAddress() const;
+    int tap_fd() const { return tap_fd_; }
+    const unsigned char *mac_address() const { return mac_address_; }
+    virtual void SetupTap();
     virtual void AsyncWrite(uint8_t *buf, std::size_t len);
 
 protected:
-    class TapDescriptor;
-
     void SetupAsio();
     void SetupTap(const std::string& name);
     void AsyncRead();
@@ -36,9 +37,12 @@ protected:
     void WriteHandler(const boost::system::error_code &err, std::size_t length,
 		              uint8_t *buf);
 
+    int tap_fd_;
+    Agent *agent_;
+    std::string name_;
     uint8_t *read_buf_;
     PktReadCallback pkt_handler_;
-    boost::scoped_ptr<TapDescriptor> tap_;
+    unsigned char mac_address_[ETH_ALEN];
     boost::asio::posix::stream_descriptor input_;
     DISALLOW_COPY_AND_ASSIGN(TapInterface);
 };

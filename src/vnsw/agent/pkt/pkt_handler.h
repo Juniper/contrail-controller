@@ -122,8 +122,7 @@ struct PktInfo {
         struct icmphdr  *icmp;
     } transp;
 
-    PktInfo();
-    PktInfo(uint8_t *msg, std::size_t msg_size);
+    PktInfo(uint8_t *msg = NULL, std::size_t msg_size = 0);
     PktInfo(InterTaskMsg *msg);
     virtual ~PktInfo();
 
@@ -155,31 +154,29 @@ public:
         uint32_t sent[MAX_MODULES];
         uint32_t received[MAX_MODULES];
         uint32_t dropped;
-        uint32_t total_rcvd;
-        tbb::atomic<uint32_t> total_sent;
         void Reset() {
             for (int i = 0; i < MAX_MODULES; ++i) {
                 sent[i] = received[i] = 0;
             }
-            dropped = total_rcvd = total_sent = 0;
+            dropped = 0;
         }
         PktStats() { Reset(); }
         void PktRcvd(PktModuleName mod);
         void PktSent(PktModuleName mod);
     };
 
-    PktHandler(Agent *, DB *, const std::string &, boost::asio::io_service &, bool);
+    PktHandler(Agent *, const std::string &, boost::asio::io_service &, bool);
     virtual ~PktHandler();
 
     void Init();
     void Shutdown();
-    void CreateHostInterface(std::string &if_name);
+    void CreateInterfaces(const std::string &if_name);
 
     void Register(PktModuleName type, RcvQueueFunc cb);
     void Unregister(PktModuleName type);
 
-    const unsigned char *GetMacAddress();
-    const TapInterface *GetTapInterface() { return tap_; }
+    const unsigned char *mac_address();
+    const TapInterface *tap_interface() { return tap_interface_.get(); }
 
     void Send(uint8_t *msg, std::size_t len, PktModuleName mod);
 
@@ -190,14 +187,8 @@ public:
     bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
 
     PktStats GetStats() { return stats_; }
-    uint32_t GetModuleStats(PktModuleName mod);
     void ClearStats() { stats_.Reset(); }
-    void PktTraceIterate(PktModuleName mod, PktTraceCallback cb) {
-        if (cb) {
-            PktTrace &pkt(pkt_trace_.at(mod));
-            pkt.Iterate(cb);
-        }
-    }
+    void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
     void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }
 
 private:
@@ -220,8 +211,7 @@ private:
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
 
     Agent *agent_;
-    DB *db_;
-    TapInterface *tap_;
+    boost::scoped_ptr<TapInterface> tap_interface_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };

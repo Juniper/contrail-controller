@@ -29,7 +29,7 @@ public:
 
     virtual ProtoHandler *AllocProtoHandler(PktInfo *info,
                                             boost::asio::io_service &io) = 0;
-    bool ValidateAndEnqueueMessage(PktInfo *msg);
+    virtual bool ValidateAndEnqueueMessage(PktInfo *msg);
     bool ProcessProto(PktInfo *msg_info);
 
 protected:

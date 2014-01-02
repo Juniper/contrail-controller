@@ -265,7 +265,7 @@ public:
         ip->tot_len = htons(len + sizeof(iphdr));
         len += sizeof(iphdr) + sizeof(ethhdr) + IPC_HDR_LEN;
         TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(buf, len);
     }
 

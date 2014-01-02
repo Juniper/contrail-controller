@@ -82,7 +82,7 @@ public:
         memcpy(arp->arp_tpa, &tip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(ptr, len);
         delete [] ptr;
     }
@@ -123,7 +123,7 @@ public:
         memcpy(arp->arp_tpa, &sip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(ptr, len);
         delete [] ptr;
     }
@@ -139,7 +139,7 @@ public:
         uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
         memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
         TestTapInterface *tap = (TestTapInterface *)
-            (Agent::GetInstance()->pkt()->pkt_handler()->GetTapInterface());
+            (Agent::GetInstance()->pkt()->pkt_handler()->tap_interface());
         tap->GetTestPktHandler()->TestPktSend(ptr, pkt->GetBuffLen());
         delete pkt;
         delete [] ptr;

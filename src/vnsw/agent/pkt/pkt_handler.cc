@@ -37,21 +37,22 @@ const std::size_t PktTrace::kPktTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktHandler::PktHandler(Agent *agent, DB *db, const std::string &if_name,
+PktHandler::PktHandler(Agent *agent, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
-                      : stats_(), agent_(agent), db_(db) {
+                      : stats_(), agent_(agent) {
     if (run_with_vrouter)
-        tap_ = new TapInterface(agent, if_name, io_serv, 
-                   boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
+        tap_interface_.reset(new TapInterface(agent, if_name, io_serv, 
+                             boost::bind(&PktHandler::HandleRcvPkt,
+                                         this, _1, _2)));
     else
-        tap_ = new TestTapInterface(agent, "test", io_serv,
-                   boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
-    assert(tap_ != NULL);
+        tap_interface_.reset(new TestTapInterface(agent, "test", io_serv,
+                             boost::bind(&PktHandler::HandleRcvPkt,
+                                         this, _1, _2)));
+    tap_interface_->Init();
 }
 
 PktHandler::~PktHandler() {
-    delete tap_;
-    tap_ = NULL;
+    tap_interface_->Shutdown();
 }
 
 void PktHandler::Init() {
@@ -68,13 +69,13 @@ void PktHandler::Unregister(PktModuleName type) {
     enqueue_cb_.at(type) = NULL;
 }
 
-const unsigned char *PktHandler::GetMacAddress() {
-    return tap_->MacAddress();
+const unsigned char *PktHandler::mac_address() {
+    return tap_interface_->mac_address();
 }
 
-void PktHandler::CreateHostInterface(std::string &if_name) {
+void PktHandler::CreateInterfaces(const std::string &if_name) {
     PacketInterface::CreateReq(agent_->GetInterfaceTable(), if_name);
-    InterfaceNH::CreateHostPortReq(if_name);
+    InterfaceNH::CreatePacketInterfaceNhReq(if_name);
 }
 
 
@@ -82,7 +83,7 @@ void PktHandler::CreateHostInterface(std::string &if_name) {
 void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
     stats_.PktSent(mod);
     pkt_trace_.at(mod).AddPktTrace(PktTrace::Out, len, msg);
-    tap_->AsyncWrite(msg, len);
+    tap_interface_->AsyncWrite(msg, len);
 }
  
 // Process the packet received from tap interface
@@ -93,19 +94,19 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
     Interface *intf = NULL;
     uint8_t *pkt;
 
-    AgentStats::GetInstance()->incr_pkt_exceptions();
+    agent_->stats()->incr_pkt_exceptions();
     if ((pkt = ParseAgentHdr(pkt_info)) == NULL) {
         PKT_TRACE(Err, "Error parsing Agent Header");
-        AgentStats::GetInstance()->incr_pkt_invalid_agent_hdr();
+        agent_->stats()->incr_pkt_invalid_agent_hdr();
         goto drop;
     }
 
-    intf = InterfaceTable::GetInstance()->FindInterface(pkt_info->GetAgentHdr().
-                                                        ifindex);
+    intf = agent_->GetInterfaceTable()->FindInterface(pkt_info->GetAgentHdr().
+                                                      ifindex);
     if (intf == NULL) {
         PKT_TRACE(Err, "Invalid interface index <" <<
                   pkt_info->GetAgentHdr().ifindex << ">");
-        AgentStats::GetInstance()->incr_pkt_invalid_interface();
+        agent_->stats()->incr_pkt_invalid_interface();
         goto enqueue;
     }
 
@@ -114,7 +115,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         if (!vm_itf->ipv4_forwarding()) {
             PKT_TRACE(Err, "ipv4 not enabled for interface index <" <<
                       pkt_info->GetAgentHdr().ifindex << ">");
-            AgentStats::GetInstance()->incr_pkt_dropped();
+            agent_->stats()->incr_pkt_dropped();
             goto drop;
         }
     }
@@ -180,10 +181,10 @@ enqueue:
         }
         return;
     }
-    AgentStats::GetInstance()->incr_pkt_no_handler();
+    agent_->stats()->incr_pkt_no_handler();
 
 drop:
-    AgentStats::GetInstance()->incr_pkt_dropped();
+    agent_->stats()->incr_pkt_dropped();
     delete pkt_info;
     return;
 }
@@ -435,32 +436,24 @@ bool PktHandler::IsGwPacket(const Interface *intf, uint32_t dst_ip) {
     return false;
 }
 
-uint32_t PktHandler::GetModuleStats(PktModuleName mod) {
-    if (mod < MAX_MODULES)
-        return stats_.received[mod];
-    return 0;
+void PktHandler::PktTraceIterate(PktModuleName mod, PktTraceCallback cb) {
+    if (cb) {
+        PktTrace &pkt(pkt_trace_.at(mod));
+        pkt.Iterate(cb);
+    }
 }
 
 void PktHandler::PktStats::PktRcvd(PktModuleName mod) {
-    total_rcvd++;
     if (mod < MAX_MODULES)
         received[mod]++;
 }
 
 void PktHandler::PktStats::PktSent(PktModuleName mod) {
-    total_sent.fetch_and_increment();
     if (mod < MAX_MODULES)
         sent[mod]++;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-PktInfo::PktInfo(): 
-    pkt(), len(), data(), ipc(), type(PktType::INVALID), agent_hdr(),
-    ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-    tunnel(), eth(), arp(), ip() {
-    transp.tcp = 0;
-}
 
 PktInfo::PktInfo(uint8_t *msg, std::size_t msg_size) : 
     pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),

@@ -32,23 +32,37 @@ do {                                                                     \
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// TapDescriptor to create and hold the native device descriptor
-class TapInterface::TapDescriptor {
-public:
-    TapDescriptor(Agent *agent, const std::string &name);
-    virtual ~TapDescriptor();
-    int fd() const { return fd_; }
-    const unsigned char *MacAddress() const { return mac_; }
+TapInterface::TapInterface(Agent *agent,
+                           const std::string &name, 
+                           boost::asio::io_service &io,
+                           PktReadCallback cb) 
+                         : tap_fd_(-1), agent_(agent), name_(name),
+                           read_buf_(NULL), pkt_handler_(cb), input_(io) {
+    memset(mac_address_, 0, sizeof(mac_address_));
+}
 
-private:
-    int fd_;
-    unsigned char mac_[ETH_ALEN];
-};
+TapInterface::~TapInterface() { 
+}
 
-TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
-                                           const std::string &name) {
-    if (name == agent->pkt_interface_name()) {
-        if ((fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
+void TapInterface::Init() { 
+    SetupTap();
+    boost::system::error_code ec;
+    input_.assign(tap_fd_, ec);
+    assert(ec == 0);
+
+    AsyncRead();
+}
+
+void TapInterface::Shutdown() { 
+    if (read_buf_) {
+        delete [] read_buf_;
+    }
+    close(tap_fd_);
+}
+
+void TapInterface::SetupTap() {
+    if (name_ == agent_->pkt_interface_name()) {
+        if ((tap_fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> opening tap-device");
             assert(0);
@@ -57,36 +71,36 @@ TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
         struct ifreq ifr;
         memset(&ifr, 0, sizeof(ifr));
         ifr.ifr_flags = IFF_TAP | IFF_NO_PI;
-        strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
-        if (ioctl(fd_, TUNSETIFF, (void *)&ifr) < 0) {
+        strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+        if (ioctl(tap_fd_, TUNSETIFF, (void *)&ifr) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
-                strerror(errno) << "> creating " << name << "tap-device");
+                strerror(errno) << "> creating " << name_ << "tap-device");
             assert(0);
         }
 
         // We dont want the fd to be inherited by child process such as
         // virsh etc... So, close tap fd on fork.
-        if (fcntl(fd_, F_SETFD, FD_CLOEXEC) < 0) {
+        if (fcntl(tap_fd_, F_SETFD, FD_CLOEXEC) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " <<
-                strerror(errno) << "> setting fcntl on " << name );
+                strerror(errno) << "> setting fcntl on " << name_ );
             assert(0);
         }
 
-        if (ioctl(fd_, TUNSETPERSIST, 1) < 0) {
+        if (ioctl(tap_fd_, TUNSETPERSIST, 1) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> making tap interface persistent");
             assert(0);
         }
 
         memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, name.c_str(), IF_NAMESIZE);
-        if (ioctl(fd_, SIOCGIFHWADDR, (void *)&ifr) < 0) {
+        strncpy(ifr.ifr_name, name_.c_str(), IF_NAMESIZE);
+        if (ioctl(tap_fd_, SIOCGIFHWADDR, (void *)&ifr) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << 
                 "> retrieving MAC address of the tap interface");
             assert(0);
         }
-        memcpy(mac_, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
+        memcpy(mac_address_, ifr.ifr_hwaddr.sa_data, ETH_ALEN);
 
         int raw_;
         if ((raw_ = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1) {
@@ -96,7 +110,7 @@ TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
         }
 
         memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, name.data(), IF_NAMESIZE);
+        strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
         if (ioctl(raw_, SIOCGIFINDEX, (void *)&ifr) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> getting ifindex of the tap interface");
@@ -116,7 +130,7 @@ TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
         }
 
         memset(&ifr, 0, sizeof(ifr));
-        strncpy(ifr.ifr_name, name.data(), IF_NAMESIZE);
+        strncpy(ifr.ifr_name, name_.data(), IF_NAMESIZE);
         if (ioctl(raw_, SIOCGIFFLAGS, (void *)&ifr) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> getting socket flags");
@@ -131,55 +145,7 @@ TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
         }
 
         close(raw_);
-    } else {
-        // Test mode; we use a socket to receive packets in the test mode
-        if ((fd_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            LOG(ERROR, "Packet Test Tap Error : Cannot open test UDP socket");
-            assert(0);
-        }
-        struct sockaddr_in sin;
-        memset((char *) &sin, 0, sizeof(sin));
-        sin.sin_family = AF_INET;
-        sin.sin_port = 0;
-        sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-        if (bind(fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
-            LOG(ERROR, "Packet Test Tap Error : Cannot bind to test UDP socket");
-            assert(0);
-        }
     }
-}
-
-TapInterface::TapDescriptor::~TapDescriptor() {
-    close(fd_);
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-TapInterface::TapInterface(Agent *agent,
-                           const std::string &name, 
-                           boost::asio::io_service &io,
-                           PktReadCallback cb) 
-                         : read_buf_(NULL), pkt_handler_(cb),
-                           tap_(new TapDescriptor(agent, name)), input_(io) {
-    boost::system::error_code ec;
-    input_.assign(tap_->fd(), ec);
-    assert(ec == 0);
-
-    AsyncRead();
-}
-
-TapInterface::~TapInterface() { 
-    if (read_buf_) {
-        delete [] read_buf_;
-    }
-}
-
-int TapInterface::TapFd() const { 
-    return tap_->fd();
-}
-
-const unsigned char *TapInterface::MacAddress() const { 
-    return tap_->MacAddress();
 }
 
 void TapInterface::AsyncWrite(uint8_t *buf, std::size_t len) {

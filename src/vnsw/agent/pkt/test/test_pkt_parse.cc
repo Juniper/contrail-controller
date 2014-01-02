@@ -23,7 +23,9 @@ class PktParseTest : public ::testing::Test {
 };
 
 uint32_t GetPktModuleCount(PktHandler::PktModuleName mod) {
-    return Agent::GetInstance()->pkt()->pkt_handler()->GetModuleStats(mod);
+    PktHandler::PktStats stats =
+        Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
+    return stats.received[mod];
 }
 
 bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {

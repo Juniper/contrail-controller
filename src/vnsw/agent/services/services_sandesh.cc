@@ -112,14 +112,20 @@ std::string &ServicesSandesh::DhcpMsgType(uint32_t msg_type) {
 void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     PktStats *resp = new PktStats();
     PktHandler::PktStats stats = Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
-    resp->set_total_rcvd(stats.total_rcvd);
+    uint32_t total_rcvd = 0;
+    uint32_t total_sent = 0;
+    for (int i = 0; i < PktHandler::MAX_MODULES; ++i) {
+        total_rcvd += stats.received[i];
+        total_sent += stats.sent[i];
+    }
+    resp->set_total_rcvd(total_rcvd);
     resp->set_dhcp_rcvd(stats.received[PktHandler::DHCP]);
     resp->set_arp_rcvd(stats.received[PktHandler::ARP]);
     resp->set_dns_rcvd(stats.received[PktHandler::DNS]);
     resp->set_icmp_rcvd(stats.received[PktHandler::ICMP]);
     resp->set_flow_rcvd(stats.received[PktHandler::FLOW]);
     resp->set_dropped(stats.dropped);
-    resp->set_total_sent(stats.total_sent);
+    resp->set_total_sent(total_sent);
     resp->set_dhcp_sent(stats.sent[PktHandler::DHCP]);
     resp->set_arp_sent(stats.sent[PktHandler::ARP]);
     resp->set_dns_sent(stats.sent[PktHandler::DNS]);

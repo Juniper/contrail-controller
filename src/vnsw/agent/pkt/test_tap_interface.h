@@ -76,29 +76,48 @@ public:
     };
 
     TestTapInterface(Agent *agent, const std::string &name,
-                     boost::asio::io_service &io, PktReadCallback cb) 
-                   : TapInterface(agent, name, io, cb), test_write_(io) {
-        test_write_.open(boost::asio::ip::udp::v4(), ec_);
-        assert(ec_ == 0);
-
-        struct sockaddr_in sin;
-        socklen_t len = sizeof(sin);
-        memset((char *) &sin, 0, len);
-        if (getsockname(TapFd(), (sockaddr *) &sin, &len) == -1) {
-            LOG(ERROR, "Packet Test Tap : Unable to get socket info");
-            assert(0);
-        }
-        agent_rcv_port_ = ntohs(sin.sin_port);
-
-        test_pkt_handler_ = new TestPktHandler(agent, agent_rcv_port_);
-        test_rcv_ep_.address(
-                boost::asio::ip::address::from_string("127.0.0.1", ec_));
-        test_rcv_ep_.port(test_pkt_handler_->GetTestPktHandlerPort());
+                     boost::asio::io_service &io, PktReadCallback cb)
+                   : TapInterface(agent, name, io, cb), agent_(agent),
+                     agent_rcv_port_(-1), test_write_(io),
+                     test_pkt_handler_(NULL) {
     }
 
     virtual ~TestTapInterface() { delete test_pkt_handler_; }
 
     TestPktHandler *GetTestPktHandler() const { return test_pkt_handler_; }
+
+    void SetupTap() {
+        // Use a socket to receive packets in the test mode
+        if ((tap_fd_ = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            LOG(ERROR, "Packet Test Tap Error : Cannot open test UDP socket");
+            assert(0);
+        }
+        struct sockaddr_in sin;
+        memset((char *) &sin, 0, sizeof(sin));
+        sin.sin_family = AF_INET;
+        sin.sin_port = 0;
+        sin.sin_addr.s_addr = inet_addr("127.0.0.1");
+        if (bind(tap_fd_, (sockaddr *) &sin, sizeof(sin)) == -1) {
+            LOG(ERROR, "Packet Test Tap Error : Cannot bind to test UDP socket");
+            assert(0);
+        }
+
+        test_write_.open(boost::asio::ip::udp::v4(), ec_);
+        assert(ec_ == 0);
+
+        socklen_t len = sizeof(sin);
+        memset((char *) &sin, 0, len);
+        if (getsockname(tap_fd_, (sockaddr *) &sin, &len) == -1) {
+            LOG(ERROR, "Packet Test Tap : Unable to get socket info");
+            assert(0);
+        }
+        agent_rcv_port_ = ntohs(sin.sin_port);
+
+        test_pkt_handler_ = new TestPktHandler(agent_, agent_rcv_port_);
+        test_rcv_ep_.address(
+                boost::asio::ip::address::from_string("127.0.0.1", ec_));
+        test_rcv_ep_.port(test_pkt_handler_->GetTestPktHandlerPort());
+    }
 
     // Send to Agent
     void AsyncWrite(uint8_t *buf, std::size_t len) {
@@ -120,6 +139,7 @@ private:
         delete [] buf;
     }
 
+    Agent *agent_;
     uint32_t agent_rcv_port_;
     boost::system::error_code ec_;
     boost::asio::ip::udp::socket test_write_;

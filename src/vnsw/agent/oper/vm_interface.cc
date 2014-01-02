@@ -547,6 +547,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     int old_vxlan_id = vxlan_id_;
     bool old_layer2_forwarding = layer2_forwarding_;
     bool old_ipv4_forwarding = ipv4_forwarding_;
+    bool old_fabric_port = fabric_port_;
     bool old_need_linklocal_ip = need_linklocal_ip_;
     bool sg_changed = false;
 
@@ -580,7 +581,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 
     // Apply config based on old and new values
     ApplyConfig(old_active, old_policy, old_vrf.get(), old_addr, old_vxlan_id,
-                old_layer2_forwarding, old_ipv4_forwarding,
+                old_layer2_forwarding, old_ipv4_forwarding, old_fabric_port,
                 old_need_linklocal_ip, sg_changed);
 
     return ret;
@@ -590,7 +591,7 @@ void VmInterface::Delete() {
     bool old_active = active_;
     active_ = false;
     ApplyConfig(old_active, policy_enabled_, vrf_.get(), ip_addr_, vxlan_id_,
-                layer2_forwarding_, ipv4_forwarding_, 
+                layer2_forwarding_, ipv4_forwarding_, fabric_port_,
                 need_linklocal_ip_, false);
     InterfaceNH::DeleteVportReq(GetUuid());
 }
@@ -792,7 +793,7 @@ void VmInterface::DeleteL2(bool old_active, VrfEntry *old_vrf) {
 void VmInterface::ApplyConfig(bool old_active, bool old_policy, 
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 
                               int old_vxlan_id, bool old_layer2_forwarding,
-                              bool old_ipv4_forwarding,
+                              bool old_ipv4_forwarding, bool old_fabric_port,
                               bool old_need_linklocal_ip, bool sg_changed) {
     // Update services flag based on active state
     UpdateServices(ipv4_forwarding_);
@@ -869,7 +870,7 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 
     active_ = IsActive();
     ApplyConfig(old_active, policy_enabled_, vrf_.get(), old_addr,
-                vxlan_id_, layer2_forwarding_, ipv4_forwarding_,
+                vxlan_id_, layer2_forwarding_, ipv4_forwarding_, fabric_port_,
                 need_linklocal_ip_, false);
     return ret;
 }
