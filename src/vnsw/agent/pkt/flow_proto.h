@@ -15,16 +15,16 @@
 
 class FlowProto : public Proto {
 public:
-    FlowProto(boost::asio::io_service &io) :
-        Proto("Agent::FlowHandler", PktHandler::FLOW, io) {
-        Agent::GetInstance()->SetFlowProto(this);
+    FlowProto(Agent *agent, boost::asio::io_service &io) :
+        Proto(agent, "Agent::FlowHandler", PktHandler::FLOW, io) {
+        agent->SetFlowProto(this);
     }
     virtual ~FlowProto() {}
     void Init() {}
     void Shutdown() {}
 
     FlowHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io) {
-        return new FlowHandler(info, io);
+        return new FlowHandler(agent(), info, io);
     }
 
     bool Validate(PktInfo *msg) {

@@ -37,14 +37,14 @@ const std::size_t PktTrace::kPktTraceSize;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-PktHandler::PktHandler(DB *db, const std::string &if_name,
+PktHandler::PktHandler(Agent *agent, DB *db, const std::string &if_name,
                        boost::asio::io_service &io_serv, bool run_with_vrouter) 
-                      : stats_(), db_(db) {
+                      : stats_(), agent_(agent), db_(db) {
     if (run_with_vrouter)
-        tap_ = new TapInterface(if_name, io_serv, 
+        tap_ = new TapInterface(agent, if_name, io_serv, 
                    boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
     else
-        tap_ = new TestTapInterface("test", io_serv,
+        tap_ = new TestTapInterface(agent, "test", io_serv,
                    boost::bind(&PktHandler::HandleRcvPkt, this, _1, _2));
     assert(tap_ != NULL);
 }
@@ -73,8 +73,7 @@ const unsigned char *PktHandler::GetMacAddress() {
 }
 
 void PktHandler::CreateHostInterface(std::string &if_name) {
-    PacketInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                            if_name);
+    PacketInterface::CreateReq(agent_->GetInterfaceTable(), if_name);
     InterfaceNH::CreateHostPortReq(if_name);
 }
 
@@ -336,7 +335,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 
     pkt_type = PktType::INVALID;
     // Decap only IP-DA is ours
-    if (pkt_info->ip_daddr != Agent::GetInstance()->GetRouterId().to_ulong()) {
+    if (pkt_info->ip_daddr != agent_->GetRouterId().to_ulong()) {
         PKT_TRACE(Err, "Tunnel packet not destined to me. Ignoring");
         return pkt;
     }
@@ -371,7 +370,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
     pkt_info->tunnel.label = (mpls_host & 0xFFFFF000) >> 12;
 
     MplsLabel *label = 
-        Agent::GetInstance()->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
+        agent_->GetMplsTable()->FindMplsLabel(pkt_info->tunnel.label);
     if (label == NULL) {
         PKT_TRACE(Err, "Invalid MPLS Label <" <<
                   pkt_info->tunnel.label << ">. Ignoring");

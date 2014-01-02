@@ -33,35 +33,35 @@ void DnsProto::Shutdown() {
 void DnsProto::ConfigInit() {
     std::vector<std::string> dns_servers;
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-        std::string server = Agent::GetInstance()->GetDnsXmppServer(i);    
+        std::string server = agent()->GetDnsXmppServer(i);    
         if (server != "")
             dns_servers.push_back(server);
     }
-    BindResolver::Init(*Agent::GetInstance()->GetEventManager()->io_service(), dns_servers,
+    BindResolver::Init(*agent()->GetEventManager()->io_service(), dns_servers,
                        boost::bind(&DnsHandler::SendDnsIpc, _1));
 }
 
-DnsProto::DnsProto(boost::asio::io_service &io) :
-    Proto("Agent::Services", PktHandler::DNS, io),
+DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
+    Proto(agent, "Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
-    lid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+    lid_ = agent->GetInterfaceTable()->Register(
                   boost::bind(&DnsProto::ItfUpdate, this, _2));
-    Vnlid_ = Agent::GetInstance()->GetVnTable()->Register(
+    Vnlid_ = agent->GetVnTable()->Register(
                   boost::bind(&DnsProto::VnUpdate, this, _2));
-    Agent::GetInstance()->GetDomainConfigTable()->RegisterIpamCb(
+    agent->GetDomainConfigTable()->RegisterIpamCb(
                   boost::bind(&DnsProto::IpamUpdate, this, _1));
-    Agent::GetInstance()->GetDomainConfigTable()->RegisterVdnsCb(
+    agent->GetDomainConfigTable()->RegisterVdnsCb(
                   boost::bind(&DnsProto::VdnsUpdate, this, _1));
 }
 
 DnsProto::~DnsProto() {
-    Agent::GetInstance()->GetInterfaceTable()->Unregister(lid_);
-    Agent::GetInstance()->GetVnTable()->Unregister(Vnlid_);
+    agent_->GetInterfaceTable()->Unregister(lid_);
+    agent_->GetVnTable()->Unregister(Vnlid_);
 }
 
 ProtoHandler *DnsProto::AllocProtoHandler(PktInfo *info,
                                           boost::asio::io_service &io) {
-    return new DnsHandler(info, io);
+    return new DnsHandler(agent(), info, io);
 }
 
 void DnsProto::ItfUpdate(DBEntryBase *entry) {
@@ -291,8 +291,7 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
         }
 
         autogen::VirtualDnsType vdns_type;
-        if (Agent::GetInstance()->GetDomainConfigTable()->
-            GetVDns(vdns_name, &vdns_type)) {
+        if (agent_->GetDomainConfigTable()->GetVDns(vdns_name, &vdns_type)) {
             UpdateDnsEntry(vmitf, vmitf->vm_name(), ip, plen,
                            vdns_name, vdns_type, is_floating, is_deleted);
         } else {
@@ -348,10 +347,10 @@ inline uint16_t DnsProto::GetTransId() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DnsHandler::DnsHandler(PktInfo *info, boost::asio::io_service &io) : 
-    ProtoHandler(info, io), resp_ptr_(NULL), dns_resp_size_(0),
-    xid_(-1), retries_(0), action_(NONE), rkey_(NULL), query_name_update_(false),
-    pend_req_(0) {
+DnsHandler::DnsHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io)
+    : ProtoHandler(agent, info, io), resp_ptr_(NULL), dns_resp_size_(0),
+      xid_(-1), retries_(0), action_(NONE), rkey_(NULL),
+      query_name_update_(false), pend_req_(0) {
     dns_ = (dnshdr *) pkt_info_->data;
     timer_ = TimerManager::CreateTimer(io, "DnsHandlerTimer");
 }
@@ -379,7 +378,7 @@ bool DnsHandler::Run() {
 }    
 
 bool DnsHandler::HandleRequest() {
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     dns_proto->IncrStatsReq();
 
     uint16_t ret = DNS_ERR_NO_ERROR;
@@ -428,7 +427,7 @@ bool DnsHandler::HandleRequest() {
         }
         return HandleDefaultDnsRequest(vmitf);
     } else if (ipam_type_.ipam_dns_method == "virtual-dns-server") {
-        if (!Agent::GetInstance()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
+        if (!agent()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
             virtual_dns_server_name, &vdns_type_)) {
             DNS_BIND_TRACE(DnsBindError, "Unable to find domain; interface = "
                            << vmitf->vm_name());
@@ -449,7 +448,7 @@ error:
 
 bool DnsHandler::HandleDefaultDnsRequest(const VmInterface *vmitf) {
     tbb::mutex::scoped_lock lock(mutex_);
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     rkey_ = new QueryKey(vmitf, dns_->xid);
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
         DNS_BIND_TRACE(DnsBindTrace, 
@@ -578,7 +577,7 @@ void DnsHandler::DefaultDnsResolveHandler(const error_code& error,
 }
 
 void DnsHandler::DefaultDnsSendResponse() {
-    Agent::GetInstance()->GetDnsProto()->DelVmRequest(rkey_);
+    agent()->GetDnsProto()->DelVmRequest(rkey_);
     if (dns_->flags.ret) {
         DNS_BIND_TRACE(DnsBindError, "Query failed : " << 
                        BindUtil::DnsResponseCode(dns_->flags.ret) <<
@@ -593,7 +592,7 @@ void DnsHandler::DefaultDnsSendResponse() {
 
 bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
     rkey_ = new QueryKey(vmitf, dns_->xid);
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     if (dns_proto->IsVmRequestDuplicate(rkey_)) {
         DNS_BIND_TRACE(DnsBindTrace, 
                        "Retry DNS query from VM - dropping; interface = " <<
@@ -662,7 +661,7 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
 bool DnsHandler::SendDnsQuery() {
     uint8_t *pkt = NULL;
     std::size_t len = 0;
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     bool in_progress = dns_proto->IsDnsQueryInProgress(xid_);
     if (in_progress) {
         if (retries_ >= dns_proto->GetMaxRetries()) {
@@ -679,7 +678,7 @@ bool DnsHandler::SendDnsQuery() {
     pkt = new uint8_t[BindResolver::max_pkt_size];
     len = BindUtil::BuildDnsQuery(pkt, xid_, 
           ipam_type_.ipam_dns_server.virtual_dns_server_name, items_);
-    if (BindResolver::Resolver()->DnsSend(pkt, Agent::GetInstance()->GetXmppDnsCfgServerIdx(),
+    if (BindResolver::Resolver()->DnsSend(pkt, agent()->GetXmppDnsCfgServerIdx(),
                                           len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " << 
                        xid_ << "; " << DnsItemsToString(items_) << ";");
@@ -732,7 +731,7 @@ bool DnsHandler::HandleDefaultDnsResponse() {
 bool DnsHandler::HandleBindResponse() {
     DnsIpc *ipc = static_cast<DnsIpc *>(pkt_info_->ipc);
     uint16_t xid = ntohs(*(uint16_t *)ipc->resp);
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(xid);
     if (handler) {
         dns_flags flags;
@@ -770,7 +769,7 @@ bool DnsHandler::HandleBindResponse() {
 
 bool DnsHandler::HandleRetryExpiry() {
     DnsIpc *ipc = static_cast<DnsIpc *>(pkt_info_->ipc);
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(ipc->xid);
     if (handler && !handler->SendDnsQuery()) {
             dns_proto->DelVmRequest(handler->rkey_);
@@ -799,7 +798,7 @@ bool DnsHandler::HandleUpdate() {
 
 bool DnsHandler::HandleModifyVdns() {
     DnsUpdateIpc *ipc = static_cast<DnsUpdateIpc *>(pkt_info_->ipc);
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     std::vector<DnsHandler::DnsUpdateIpc *> change_list;
     const DnsProto::DnsUpdateSet &update_set = dns_proto->GetUpdateRequestSet();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
@@ -821,8 +820,7 @@ bool DnsHandler::HandleModifyVdns() {
             (*item).ttl = 0;
         }
         for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-            AgentDnsXmppChannel *channel = 
-                        Agent::GetInstance()->GetAgentDnsXmppChannel(i);
+            AgentDnsXmppChannel *channel = agent()->GetAgentDnsXmppChannel(i);
             SendXmppUpdate(channel, (*it)->xmpp_data);
         }
     }
@@ -854,7 +852,7 @@ done:
 bool DnsHandler::UpdateAll() {
     DnsUpdateAllIpc *ipc = static_cast<DnsUpdateAllIpc *>(pkt_info_->ipc);
     const DnsProto::DnsUpdateSet &update_set =
-          Agent::GetInstance()->GetDnsProto()->GetUpdateRequestSet();
+          agent()->GetDnsProto()->GetUpdateRequestSet();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin(); 
          it != update_set.end(); ++it) {
         SendXmppUpdate(ipc->channel, (*it)->xmpp_data);
@@ -885,7 +883,7 @@ void DnsHandler::SendXmppUpdate(AgentDnsXmppChannel *channel,
             xmpp_data->items.splice(xmpp_data->items.begin(), store, first, last);
 
             uint8_t *data = new uint8_t[DnsAgentXmpp::max_dns_xmpp_msg_len];
-            xid_ = Agent::GetInstance()->GetDnsProto()->GetTransId();
+            xid_ = agent()->GetDnsProto()->GetTransId();
             std::size_t len = 0;
             if ((len = DnsAgentXmpp::DnsAgentXmppEncode(channel->GetXmppChannel(), 
                                                         DnsAgentXmpp::Update,
@@ -967,15 +965,16 @@ void DnsHandler::SendDnsResponse() {
     EthHdr(agent_vrrp_mac, dest_mac, 0x800);
     dns_resp_size_ += sizeof(ethhdr);
 
-    PacketInterfaceKey key(nil_uuid(), Agent::GetInstance()->pkt_interface_name());
+    PacketInterfaceKey key(nil_uuid(), agent()->pkt_interface_name());
     Interface *pkt_itf = static_cast<Interface *>
-                         (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+                         (agent()->GetInterfaceTable()->FindActiveEntry(&key));
     if (pkt_itf) {
         UpdateStats();
         Send(dns_resp_size_, pkt_itf->id(), pkt_info_->vrf,
              AGENT_CMD_ROUTE, PktHandler::DNS);
-    } else
-        Agent::GetInstance()->GetDnsProto()->IncrStatsDrop();
+    } else {
+        agent()->GetDnsProto()->IncrStatsDrop();
+    }
 }
 
 void DnsHandler::UpdateQueryNames() {
@@ -1018,8 +1017,8 @@ void DnsHandler::UpdateOffsets(DnsItem &item, bool name_update_required) {
 void DnsHandler::UpdateGWAddress(DnsItem &item) {
     boost::system::error_code ec;
     if (item.type == DNS_A_RECORD && 
-        (item.data == Agent::GetInstance()->GetDnsXmppServer(0) ||
-         item.data == Agent::GetInstance()->GetDnsXmppServer(1))) {
+        (item.data == agent()->GetDnsXmppServer(0) ||
+         item.data == agent()->GetDnsXmppServer(1))) {
         boost::asio::ip::address_v4 addr(pkt_info_->ip_daddr);
         item.data = addr.to_string(ec);
     }
@@ -1027,7 +1026,7 @@ void DnsHandler::UpdateGWAddress(DnsItem &item) {
 
 void DnsHandler::Update(DnsUpdateIpc *update) {
     bool free_update = true;
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     if (update_req) {
         DnsUpdateData *data = update_req->xmpp_data;
@@ -1057,7 +1056,7 @@ void DnsHandler::Update(DnsUpdateIpc *update) {
     }
 
     for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
-        AgentDnsXmppChannel *channel = Agent::GetInstance()->GetAgentDnsXmppChannel(i);
+        AgentDnsXmppChannel *channel = agent()->GetAgentDnsXmppChannel(i);
         SendXmppUpdate(channel, update->xmpp_data);
     }
 
@@ -1067,7 +1066,7 @@ done:
 }
 
 void DnsHandler::DelUpdate(DnsUpdateIpc *update) {
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     while (update_req) {
         for (DnsItems::iterator item = update_req->xmpp_data->items.begin(); 
@@ -1078,7 +1077,7 @@ void DnsHandler::DelUpdate(DnsUpdateIpc *update) {
         }
         for (int i = 0; i < MAX_XMPP_SERVERS; i++) {
             AgentDnsXmppChannel *channel = 
-                        Agent::GetInstance()->GetAgentDnsXmppChannel(i);
+                        agent()->GetAgentDnsXmppChannel(i);
             SendXmppUpdate(channel, update_req->xmpp_data);
         }
         dns_proto->DelUpdateRequest(update_req);
@@ -1089,7 +1088,7 @@ void DnsHandler::DelUpdate(DnsUpdateIpc *update) {
 }
 
 void DnsHandler::UpdateStats() {
-    DnsProto *dns_proto = Agent::GetInstance()->GetDnsProto();
+    DnsProto *dns_proto = agent()->GetDnsProto();
     switch (dns_->flags.ret) {
         case DNS_ERR_NO_ERROR:
             dns_proto->IncrStatsRes();

@@ -20,12 +20,12 @@ public:
     public:
         typedef boost::function<void(uint8_t*, std::size_t)> Callback;
 
-        TestPktHandler(uint32_t tap_port) : count_(0), 
+        TestPktHandler(Agent *agent, uint32_t tap_port) : count_(0), 
           cb_(boost::bind(&TestPktHandler::TestPktReceive, this, _1, _2)), 
           test_ep_(boost::asio::ip::address::from_string("127.0.0.1", ec_), 0), 
           agent_ep_(boost::asio::ip::address::from_string("127.0.0.1", ec_), tap_port),
-          test_sock_(*Agent::GetInstance()->GetEventManager()->io_service()),
-          write_sock_(*Agent::GetInstance()->GetEventManager()->io_service()) {
+          test_sock_(*agent->GetEventManager()->io_service()),
+          write_sock_(*agent->GetEventManager()->io_service()) {
             test_sock_.open(boost::asio::ip::udp::v4(), ec_);
             test_sock_.bind(test_ep_, ec_);
             write_sock_.open(boost::asio::ip::udp::v4(), ec_);
@@ -75,9 +75,9 @@ public:
         boost::asio::ip::udp::socket write_sock_;
     };
 
-    TestTapInterface(const std::string &name, boost::asio::io_service &io, 
-                     PktReadCallback cb) 
-                   : TapInterface(name, io, cb), test_write_(io) {
+    TestTapInterface(Agent *agent, const std::string &name,
+                     boost::asio::io_service &io, PktReadCallback cb) 
+                   : TapInterface(agent, name, io, cb), test_write_(io) {
         test_write_.open(boost::asio::ip::udp::v4(), ec_);
         assert(ec_ == 0);
 
@@ -90,7 +90,7 @@ public:
         }
         agent_rcv_port_ = ntohs(sin.sin_port);
 
-        test_pkt_handler_ = new TestPktHandler(agent_rcv_port_);
+        test_pkt_handler_ = new TestPktHandler(agent, agent_rcv_port_);
         test_rcv_ep_.address(
                 boost::asio::ip::address::from_string("127.0.0.1", ec_));
         test_rcv_ep_.port(test_pkt_handler_->GetTestPktHandlerPort());

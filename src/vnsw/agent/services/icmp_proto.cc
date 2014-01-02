@@ -19,8 +19,8 @@ void IcmpProto::Init(boost::asio::io_service &io) {
 void IcmpProto::Shutdown() {
 }
 
-IcmpProto::IcmpProto(boost::asio::io_service &io) :
-    Proto("Agent::Services", PktHandler::ICMP, io) {
+IcmpProto::IcmpProto(Agent *agent, boost::asio::io_service &io) :
+    Proto(agent, "Agent::Services", PktHandler::ICMP, io) {
 }
 
 IcmpProto::~IcmpProto() {
@@ -28,13 +28,13 @@ IcmpProto::~IcmpProto() {
 
 ProtoHandler *IcmpProto::AllocProtoHandler(PktInfo *info,
                                            boost::asio::io_service &io) {
-    return new IcmpHandler(info, io);
+    return new IcmpHandler(agent(), info, io);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
 bool IcmpHandler::Run() {
-    IcmpProto *icmp_proto = Agent::GetInstance()->GetIcmpProto();
+    IcmpProto *icmp_proto = agent()->GetIcmpProto();
     Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
     if (itf == NULL) {
         return true;

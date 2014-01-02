@@ -31,30 +31,31 @@ void ArpProto::Init(boost::asio::io_service &io, bool run_with_vrouter) {
 void ArpProto::Shutdown() {
 }
 
-ArpProto::ArpProto(boost::asio::io_service &io, bool run_with_vrouter) :
-    Proto("Agent::Services", PktHandler::ARP, io),
+ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
+                   bool run_with_vrouter) :
+    Proto(agent, "Agent::Services", PktHandler::ARP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_intf_index_(-1),
     ip_fabric_intf_(NULL), gracious_arp_entry_(NULL), max_retries_(kMaxRetries),
     retry_timeout_(kRetryTimeout), aging_timeout_(kAgingTimeout) {
 
     arp_nh_client_ = new ArpNHClient(io);
     memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
-    vid_ = Agent::GetInstance()->GetVrfTable()->Register(
+    vid_ = agent->GetVrfTable()->Register(
                   boost::bind(&ArpProto::VrfUpdate, this, _1, _2));
-    iid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+    iid_ = agent->GetInterfaceTable()->Register(
                   boost::bind(&ArpProto::ItfUpdate, this, _2));
 }
 
 ArpProto::~ArpProto() {
     delete arp_nh_client_;
-    Agent::GetInstance()->GetVrfTable()->Unregister(vid_);
-    Agent::GetInstance()->GetInterfaceTable()->Unregister(iid_);
+    agent_->GetVrfTable()->Unregister(vid_);
+    agent_->GetInterfaceTable()->Unregister(iid_);
     DelGraciousArpEntry();
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(PktInfo *info,
                                           boost::asio::io_service &io) {
-    return new ArpHandler(info, io);
+    return new ArpHandler(agent(), info, io);
 }
 
 void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
@@ -73,7 +74,7 @@ void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         return;
     }
 
-    if (!state && vrf->GetName() == Agent::GetInstance()->GetDefaultVrf()) {
+    if (!state && vrf->GetName() == agent_->GetDefaultVrf()) {
         state = new ArpVrfState;
         //Set state to seen
         state->seen_ = true;
@@ -119,13 +120,13 @@ void ArpProto::ItfUpdate(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             ArpHandler::SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
             //assert(0);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             IPFabricIntf(itf);
             IPFabricIntfIndex(itf->id());
             if (run_with_vrouter_) {
@@ -155,7 +156,7 @@ void ArpProto::DelGraciousArpEntry() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (Agent::GetInstance()->GetArpProto()->IPFabricIntf() == NULL)
+    if (agent()->GetArpProto()->IPFabricIntf() == NULL)
         return true;
 
     switch(pkt_info_->type) {
@@ -168,7 +169,7 @@ bool ArpHandler::Run() {
 }
 
 bool ArpHandler::HandlePacket() {
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     uint16_t arp_cmd;
     if (pkt_info_->ip) {
         arp_tpa_ = ntohl(pkt_info_->ip->daddr);
@@ -199,7 +200,7 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = spa;
         
         // if it is our own, ignore for now : TODO check also for MAC
-        if (arp_tpa_ == Agent::GetInstance()->GetRouterId().to_ulong()) {
+        if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
             arp_proto->StatsGracious();
             return true;
         }
@@ -316,7 +317,7 @@ bool ArpHandler::HandlePacket() {
 bool ArpHandler::HandleMessage() {
     bool ret = true;
     ArpIpc *ipc = static_cast<ArpIpc *>(pkt_info_->ipc);
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     switch(pkt_info_->ipc->cmd) {
         case VRF_DELETE: {
             arp_proto->Iterate(boost::bind(
@@ -400,7 +401,7 @@ bool ArpHandler::EntryDelete(ArpEntry *&entry) {
 }
 
 void ArpHandler::EntryDeleteWithKey(ArpKey &key) {
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     ArpEntry *entry = arp_proto->Find(key);
     if (entry) {
         arp_proto->Delete(key);

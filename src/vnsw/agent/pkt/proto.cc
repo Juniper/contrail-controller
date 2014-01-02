@@ -6,14 +6,15 @@
 #include "pkt/proto_handler.h"
 #include "pkt/pkt_init.h"
 
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
-Proto::Proto(const char *task_name, PktHandler::PktModuleName mod,
-             boost::asio::io_service &io) : 
-    work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
-                boost::bind(&Proto::ProcessProto, this, _1)), io_(io) {
-    Agent::GetInstance()->pkt()->pkt_handler()->Register(mod,
-                boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
+Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
+             boost::asio::io_service &io) 
+    : agent_(agent),
+      work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
+                  boost::bind(&Proto::ProcessProto, this, _1)), io_(io) {
+    agent->pkt()->pkt_handler()->Register(mod,
+           boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
 }
 
 Proto::~Proto() { 

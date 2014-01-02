@@ -325,7 +325,7 @@ void Agent::InitDone() {
 
     // Diag module needs PktModule
     if (pkt_.get()) {
-        DiagTable::Init();
+        DiagTable::Init(this);
     }
 
     if (init_->create_vhost()) {

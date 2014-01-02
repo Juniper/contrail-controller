@@ -36,35 +36,36 @@ void DhcpProto::Init(boost::asio::io_service &io, bool run_with_vrouter) {
 void DhcpProto::Shutdown() {
 }
 
-DhcpProto::DhcpProto(boost::asio::io_service &io, bool run_with_vrouter) :
-    Proto("Agent::Services", PktHandler::DHCP, io),
+DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
+                     bool run_with_vrouter) :
+    Proto(agent, "Agent::Services", PktHandler::DHCP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_intf_(NULL),
     ip_fabric_intf_index_(-1) {
     memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
-    iid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+    iid_ = agent->GetInterfaceTable()->Register(
                   boost::bind(&DhcpProto::ItfUpdate, this, _2));
 }
 
 DhcpProto::~DhcpProto() {
-    Agent::GetInstance()->GetInterfaceTable()->Unregister(iid_);
+    agent_->GetInterfaceTable()->Unregister(iid_);
 }
 
 ProtoHandler *DhcpProto::AllocProtoHandler(PktInfo *info,
                                            boost::asio::io_service &io) {
-    return new DhcpHandler(info, io);
+    return new DhcpHandler(agent(), info, io);
 }
 
 void DhcpProto::ItfUpdate(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             IPFabricIntf(NULL);
             IPFabricIntfIndex(-1);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             IPFabricIntf(itf);
             IPFabricIntfIndex(itf->id());
             if (run_with_vrouter_) {
@@ -80,16 +81,17 @@ void DhcpProto::ItfUpdate(DBEntryBase *entry) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DhcpHandler::DhcpHandler(PktInfo *info, boost::asio::io_service &io) : 
-         ProtoHandler(info, io), vm_itf_(NULL), vm_itf_index_(-1),
-         msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), req_ip_addr_(0), 
-         nak_msg_("cannot assign requested address") {
+DhcpHandler::DhcpHandler(Agent *agent, PktInfo *info,
+                         boost::asio::io_service &io)
+        : ProtoHandler(agent, info, io), vm_itf_(NULL), vm_itf_index_(-1),
+          msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), req_ip_addr_(0),
+          nak_msg_("cannot assign requested address") {
     dhcp_ = (dhcphdr *) pkt_info_->data;
     ipam_type_.ipam_dns_method = "none";
 };
 
 bool DhcpHandler::Run() {
-    DhcpProto *dhcp_proto = Agent::GetInstance()->GetDhcpProto();
+    DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
     if (itf == NULL) {
         dhcp_proto->IncrStatsOther();
@@ -120,7 +122,7 @@ bool DhcpHandler::Run() {
     // For VM interfaces in default VRF, if the config doesnt have IP address,
     // send the request to fabric
     if (vm_itf_->vrf() &&
-        vm_itf_->vrf()->GetName() == Agent::GetInstance()->GetDefaultVrf() &&
+        vm_itf_->vrf()->GetName() == agent()->GetDefaultVrf() &&
         (!vm_itf_->ip_addr().to_ulong() || vm_itf_->dhcp_snoop_ip())) {
         RelayRequestToFabric();
         return true;
@@ -193,7 +195,7 @@ bool DhcpHandler::ReadOptions() {
     // verify magic cookie
     if ((opt_rem_len < 4) || 
         memcmp(dhcp_->options, DHCP_OPTIONS_COOKIE, 4)) {
-        Agent::GetInstance()->GetDhcpProto()->IncrStatsErrors();
+        agent()->GetDhcpProto()->IncrStatsErrors();
         DHCP_TRACE(Error, "DHCP options cookie missing; vrf = " <<
                    pkt_info_->vrf << " ifindex = " << GetIntf());
         return false;
@@ -268,7 +270,7 @@ bool DhcpHandler::FindLeaseData() {
                              vm_itf_->vrf()->GetName(), ip);
             if (rt) {
                 uint8_t plen = rt->GetPlen();
-                uint32_t gw = Agent::GetInstance()->GetGatewayId().to_ulong();
+                uint32_t gw = agent()->GetGatewayId().to_ulong();
                 uint32_t mask = plen ? (0xFFFFFFFF << (32 - plen)) : 0;
                 boost::system::error_code ec;
                 if ((rt->GetIpAddress().to_ulong() & mask) == 
@@ -277,7 +279,7 @@ bool DhcpHandler::FindLeaseData() {
                 FillDhcpInfo(ip.to_ulong(), rt->GetPlen(), gw, gw);
                 return true;
             }
-            Agent::GetInstance()->GetDhcpProto()->IncrStatsErrors();
+            agent()->GetDhcpProto()->IncrStatsErrors();
             DHCP_TRACE(Error, "DHCP fabric port request failed : "
                        "could not find route for " << ip.to_string());
             return false;
@@ -323,8 +325,8 @@ void DhcpHandler::UpdateDnsServer() {
     }
 
     if (ipam_type_.ipam_dns_method != "virtual-dns-server" ||
-        !Agent::GetInstance()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
-                                        virtual_dns_server_name, &vdns_type_))
+        !agent()->GetDomainConfigTable()->GetVDns(ipam_type_.ipam_dns_server.
+                                          virtual_dns_server_name, &vdns_type_))
         return;
 
     if (domain_name_.size() && domain_name_ != vdns_type_.domain_name) {
@@ -348,7 +350,7 @@ void DhcpHandler::UpdateDnsServer() {
     if (out_msg_type_ != DHCP_ACK)
         return;
 
-    Agent::GetInstance()->GetDnsProto()->UpdateDnsEntry(
+    agent()->GetDnsProto()->UpdateDnsEntry(
         vm_itf_, client_name_, vm_itf_->ip_addr(), config_.plen,
         ipam_type_.ipam_dns_server.virtual_dns_server_name, vdns_type_,
         false, false);
@@ -459,7 +461,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
         read_opt = read_opt->GetNextOptionPtr();
     }
     if (is_request) {
-        dhcp->giaddr = ntohl(Agent::GetInstance()->GetRouterId().to_ulong());
+        dhcp->giaddr = ntohl(agent()->GetRouterId().to_ulong());
         WriteOption82(write_opt, opt_len);
         write_opt = write_opt->GetNextOptionPtr();
         pkt_info_->sport = DHCP_CLIENT_PORT;
@@ -485,7 +487,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
     IpHdr(pkt_info_->len, in_pkt_info.ip->saddr,
           in_pkt_info.ip->daddr, IPPROTO_UDP);
     if (is_request) {
-        EthHdr(Agent::GetInstance()->GetDhcpProto()->IPFabricIntfMac(),
+        EthHdr(agent()->GetDhcpProto()->IPFabricIntfMac(),
                in_pkt_info.eth->h_dest, 0x800);
     } else {
         EthHdr(in_pkt_info.eth->h_source, dhcp->chaddr, 0x800);
@@ -496,7 +498,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
 
 void DhcpHandler::RelayRequestToFabric() {
     CreateRelayPacket(true);
-    DhcpProto *dhcp_proto = Agent::GetInstance()->GetDhcpProto();
+    DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     Send(pkt_info_->len, dhcp_proto->IPFabricIntfIndex(),
          pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
     dhcp_proto->IncrStatsRelayReqs();
@@ -515,12 +517,12 @@ void DhcpHandler::RelayResponseFromFabric() {
                                          vm_itf_->name()));
         req.data.reset(new VmInterfaceIpAddressData
                        (Ip4Address(ntohl(dhcp_->yiaddr))));
-        Agent::GetInstance()->GetInterfaceTable()->Enqueue(&req);
+        agent()->GetInterfaceTable()->Enqueue(&req);
     }
 
     Send(pkt_info_->len, vm_itf_index_,
          pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
-    Agent::GetInstance()->GetDhcpProto()->IncrStatsRelayResps();
+    agent()->GetDhcpProto()->IncrStatsRelayResps();
 }
 
 uint16_t DhcpHandler::AddClasslessRouteOption(uint16_t opt_len) {
@@ -744,14 +746,14 @@ void DhcpHandler::SendDhcpResponse() {
     UdpHdr(len, src_ip, DHCP_SERVER_PORT, dest_ip, DHCP_CLIENT_PORT);
     len += sizeof(iphdr);
     IpHdr(len, src_ip, dest_ip, IPPROTO_UDP);
-    EthHdr(Agent::GetInstance()->pkt()->pkt_handler()->GetMacAddress(), dest_mac, 0x800);
+    EthHdr(agent()->pkt()->pkt_handler()->GetMacAddress(), dest_mac, 0x800);
     len += sizeof(ethhdr);
 
     Send(len, GetIntf(), pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
 }
 
 void DhcpHandler::UpdateStats() {
-    DhcpProto *dhcp_proto = Agent::GetInstance()->GetDhcpProto();
+    DhcpProto *dhcp_proto = agent()->GetDhcpProto();
     (out_msg_type_ == DHCP_OFFER) ? dhcp_proto->IncrStatsOffers() :
         ((out_msg_type_ == DHCP_ACK) ? dhcp_proto->IncrStatsAcks() : 
                                        dhcp_proto->IncrStatsNacks());

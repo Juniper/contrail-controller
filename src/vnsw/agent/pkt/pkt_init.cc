@@ -25,14 +25,14 @@ void PktModule::Init(bool run_with_vrouter) {
     boost::asio::io_service &io = *event->io_service();
     std::string ifname(agent_->pkt_interface_name());
 
-    pkt_handler_.reset(new PktHandler(agent_->GetDB(), ifname,
+    pkt_handler_.reset(new PktHandler(agent_, agent_->GetDB(), ifname,
                                       io, run_with_vrouter));
     pkt_handler_->Init();
 
     flow_table_.reset(new FlowTable());
     flow_table_->Init();
 
-    flow_proto_.reset(new FlowProto(io));
+    flow_proto_.reset(new FlowProto(agent_, io));
     flow_proto_->Init();
 }
 

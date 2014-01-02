@@ -8,10 +8,12 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ProtoHandler::ProtoHandler(PktInfo *info, boost::asio::io_service &io) : 
-    pkt_info_(info), io_(io) {}
+ProtoHandler::ProtoHandler(Agent *agent, PktInfo *info,
+                           boost::asio::io_service &io)
+    : agent_(agent), pkt_info_(info), io_(io) {}
 
-ProtoHandler::ProtoHandler(boost::asio::io_service &io) : io_(io) {
+ProtoHandler::ProtoHandler(Agent *agent, boost::asio::io_service &io) 
+    : agent_(agent), io_(io) {
     pkt_info_ = new PktInfo();
 }
 
@@ -36,8 +38,8 @@ void ProtoHandler::Send(uint16_t len, uint16_t itf, uint16_t vrf,
     agent->hdr_cmd = htons(cmd);
     len += IPC_HDR_LEN;
 
-    if (Agent::GetInstance()->pkt()->pkt_handler()) {
-        Agent::GetInstance()->pkt()->pkt_handler()->Send(pkt_info_->pkt, len, mod);
+    if (agent_->pkt()->pkt_handler()) {
+        agent_->pkt()->pkt_handler()->Send(pkt_info_->pkt, len, mod);
     } else {
         delete [] pkt_info_->pkt;
     }

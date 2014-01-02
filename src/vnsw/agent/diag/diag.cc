@@ -139,9 +139,9 @@ bool DiagTable::Process(DiagEntryOp *op) {
     return true;
 }
 
-DiagTable::DiagTable() {
+DiagTable::DiagTable(Agent *agent) {
     diag_proto_.reset(
-        new DiagProto(*(Agent::GetInstance()->GetEventManager())->io_service()));
+        new DiagProto(agent, *(agent->GetEventManager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
                     (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));

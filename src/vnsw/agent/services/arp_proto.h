@@ -107,10 +107,10 @@ public:
             InterTaskMsg(msg), key(ip, vrf) {};
     };
 
-    ArpHandler(PktInfo *info, boost::asio::io_service &io) : 
-               ProtoHandler(info, io), arp_(NULL), arp_tpa_(0) { }
-    ArpHandler(boost::asio::io_service &io) : ProtoHandler(io), 
-                                              arp_(NULL), arp_tpa_(0) { }
+    ArpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) : 
+               ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
+    ArpHandler(Agent *agent, boost::asio::io_service &io) 
+             : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) { }
     virtual ~ArpHandler() {}
     bool Run();
 
@@ -167,7 +167,7 @@ public:
 
     void Init(boost::asio::io_service &io, bool run_with_vrouter);
     void Shutdown();
-    ArpProto(boost::asio::io_service &io, bool run_with_vrouter);
+    ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
 
     ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);

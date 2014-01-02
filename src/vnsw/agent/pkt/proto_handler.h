@@ -33,8 +33,8 @@ struct PseudoTcpHdr {
 // Each protocol has a handler derived from this
 class ProtoHandler {
 public:
-    ProtoHandler(PktInfo *info, boost::asio::io_service &io);
-    ProtoHandler(boost::asio::io_service &io);
+    ProtoHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler(Agent *agent, boost::asio::io_service &io);
     virtual ~ProtoHandler();
 
     virtual bool Run() = 0;
@@ -56,12 +56,14 @@ public:
     void SwapIpHdr();
     void SwapEthHdr();
 
+    Agent *agent() { return agent_; }
     uint32_t GetVrf() { return pkt_info_->GetAgentHdr().vrf;};
     uint16_t GetIntf() { return pkt_info_->GetAgentHdr().ifindex;};
     uint16_t GetLen() { return pkt_info_->len;};
     uint32_t GetCmdParam() { return pkt_info_->GetAgentHdr().cmd_param;};
 
 protected:
+    Agent   *agent_;
     PktInfo *pkt_info_;
     boost::asio::io_service &io_;
 

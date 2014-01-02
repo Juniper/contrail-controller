@@ -138,7 +138,7 @@ struct DhcpOptions {
 // DHCP protocol handler
 class DhcpHandler : public ProtoHandler {
 public:
-    DhcpHandler(PktInfo *info, boost::asio::io_service &io);
+    DhcpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
     virtual ~DhcpHandler() {};
 
     bool Run();
@@ -201,7 +201,7 @@ public:
 
     void Init(boost::asio::io_service &io, bool run_with_vrouter);
     void Shutdown();
-    DhcpProto(boost::asio::io_service &io, bool run_with_vrouter);
+    DhcpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~DhcpProto();
     ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
 

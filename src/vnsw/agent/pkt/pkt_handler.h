@@ -168,7 +168,7 @@ public:
         void PktSent(PktModuleName mod);
     };
 
-    PktHandler(DB *, const std::string &, boost::asio::io_service &, bool);
+    PktHandler(Agent *, DB *, const std::string &, boost::asio::io_service &, bool);
     virtual ~PktHandler();
 
     void Init();
@@ -219,6 +219,7 @@ private:
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
 
+    Agent *agent_;
     DB *db_;
     TapInterface *tap_;
 

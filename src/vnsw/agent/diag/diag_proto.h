@@ -9,14 +9,14 @@
 
 class DiagProto : public Proto {
 public:
-    DiagProto(boost::asio::io_service &io)
-        : Proto("Agent::Diag", PktHandler::DIAG, io) {}
+    DiagProto(Agent *agent, boost::asio::io_service &io)
+        : Proto(agent, "Agent::Diag", PktHandler::DIAG, io) {}
 
     virtual ~DiagProto() {}
 
     ProtoHandler *AllocProtoHandler(PktInfo *info,
                                     boost::asio::io_service &io) {
-        return new DiagPktHandler(info, io);
+        return new DiagPktHandler(agent(), info, io);
     }
 
 private:

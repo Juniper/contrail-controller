@@ -35,7 +35,7 @@ do {                                                                     \
 // TapDescriptor to create and hold the native device descriptor
 class TapInterface::TapDescriptor {
 public:
-    TapDescriptor(const std::string &name);
+    TapDescriptor(Agent *agent, const std::string &name);
     virtual ~TapDescriptor();
     int fd() const { return fd_; }
     const unsigned char *MacAddress() const { return mac_; }
@@ -45,8 +45,9 @@ private:
     unsigned char mac_[ETH_ALEN];
 };
 
-TapInterface::TapDescriptor::TapDescriptor(const std::string &name) {
-    if (name == Agent::GetInstance()->pkt_interface_name()) {
+TapInterface::TapDescriptor::TapDescriptor(Agent *agent,
+                                           const std::string &name) {
+    if (name == agent->pkt_interface_name()) {
         if ((fd_ = open(TUN_INTF_CLONE_DEV, O_RDWR)) < 0) {
             LOG(ERROR, "Packet Tap Error <" << errno << ": " << 
                 strerror(errno) << "> opening tap-device");
@@ -154,11 +155,12 @@ TapInterface::TapDescriptor::~TapDescriptor() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-TapInterface::TapInterface(const std::string &name, 
+TapInterface::TapInterface(Agent *agent,
+                           const std::string &name, 
                            boost::asio::io_service &io,
                            PktReadCallback cb) 
                          : read_buf_(NULL), pkt_handler_(cb),
-                           tap_(new TapDescriptor(name)), input_(io) {
+                           tap_(new TapDescriptor(agent, name)), input_(io) {
     boost::system::error_code ec;
     input_.assign(tap_->fd(), ec);
     assert(ec == 0);

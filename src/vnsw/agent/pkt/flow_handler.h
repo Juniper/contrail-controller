@@ -14,8 +14,8 @@ class PktFlowInfo;
 
 class FlowHandler : public ProtoHandler {
 public:
-    FlowHandler(PktInfo *info, boost::asio::io_service &io) :
-        ProtoHandler(info, io) {}
+    FlowHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) :
+        ProtoHandler(agent, info, io) {}
     virtual ~FlowHandler() {}
 
     bool Run();

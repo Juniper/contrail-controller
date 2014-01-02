@@ -50,7 +50,7 @@ Ping::CreateTcpPkt() {
     FillAgentHeader(ad);
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
+    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                    *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
@@ -76,7 +76,7 @@ Ping::CreateUdpPkt() {
     FillAgentHeader(ad);
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
+    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                     *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header

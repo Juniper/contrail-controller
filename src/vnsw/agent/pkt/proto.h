@@ -13,7 +13,7 @@ class ProtoHandler;
 // Protocol task (work queue for each protocol)
 class Proto {
 public:
-    Proto(const char *task_name, PktHandler::PktModuleName mod,
+    Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
           boost::asio::io_service &io);
     virtual ~Proto();
 
@@ -33,8 +33,8 @@ public:
     bool ProcessProto(PktInfo *msg_info);
 
 protected:
-    WorkQueue<PktInfo *> work_queue_;
     Agent *agent_;
+    WorkQueue<PktInfo *> work_queue_;
     boost::asio::io_service &io_;
     DISALLOW_COPY_AND_ASSIGN(Proto);
 };
