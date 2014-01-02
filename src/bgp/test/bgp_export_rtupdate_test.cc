@@ -114,6 +114,7 @@ TEST_F(BgpExportRouteUpdateTest1, Advertise1) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrB_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update);
@@ -148,6 +149,7 @@ TEST_F(BgpExportRouteUpdateTest1, Advertise2) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, alt_attr_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update);
@@ -453,6 +455,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinNoop1) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, roattrA_, 0, kPeerCount-1);
         VerifyHistory(rt_update);
@@ -491,6 +494,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinNoop2) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, attr_, 0, kPeerCount-1);
         VerifyHistory(rt_update);
@@ -532,6 +536,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinNoop3) {
             table_.VerifyExportResult(false);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrA_, 0, kPeerCount-1);
             VerifyHistory(rt_update);
@@ -574,6 +579,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinNoop4) {
             table_.VerifyExportResult(false);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, attr_, 0, kPeerCount-1);
             VerifyHistory(rt_update);
@@ -612,6 +618,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinMerge1) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, roattrA_, 0, kPeerCount-1);
         VerifyHistory(rt_update);
 
@@ -648,6 +655,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinMerge2) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, attr_, 0, kPeerCount-1);
         VerifyHistory(rt_update);
@@ -686,6 +694,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinMerge3) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, roattrB_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
@@ -723,6 +732,7 @@ TEST_F(BgpExportRouteUpdateTest1, JoinMerge4) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, alt_attr_, 0, vJoinPeerCount-1);
         VerifyHistory(rt_update);
@@ -757,6 +767,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveNoop1) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrA_, 0, vCurrPeerCount-1);
             VerifyHistory(rt_update);
@@ -792,6 +803,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveNoop2) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, attr_, 0, vCurrPeerCount-1);
             VerifyHistory(rt_update);
@@ -827,6 +839,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveClear1) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrA_, vLeavePeerCount, kPeerCount-1);
             VerifyHistory(rt_update);
@@ -862,6 +875,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveClear2) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, attr_,
                     vLeavePeerCount, kPeerCount-1);
@@ -957,6 +971,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveDeleted1) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrA_, vLeavePeerCount, kPeerCount-1);
             VerifyHistory(rt_update);
@@ -993,6 +1008,7 @@ TEST_F(BgpExportRouteUpdateTest1, LeaveDeleted2) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, attr_,
                     vLeavePeerCount, kPeerCount-1);
@@ -1136,6 +1152,7 @@ TEST_F(BgpExportRouteUpdateTest2, Advertise1) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, roattrA_, vCurrPeerCount, kPeerCount-1);
         VerifyHistory(rt_update, roattrA_, 0, vCurrPeerCount-1);
 
@@ -1172,6 +1189,7 @@ TEST_F(BgpExportRouteUpdateTest2, Advertise2) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, attr_, vCurrPeerCount, kPeerCount-1);
         VerifyHistory(rt_update, attr_, 0, vCurrPeerCount-1);
 
@@ -1204,6 +1222,7 @@ TEST_F(BgpExportRouteUpdateTest2, Advertise3) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, roattrB_, 0, vCurrPeerCount-1);
         VerifyHistory(rt_update, roattrA_, 0, vCurrPeerCount-1);
 
@@ -1236,6 +1255,7 @@ TEST_F(BgpExportRouteUpdateTest2, Advertise4) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, attr_, 0, kPeerCount-1);
         VerifyHistory(rt_update, roattrA_, 0, kPeerCount-1);
 
@@ -1269,6 +1289,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw1) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
 
@@ -1303,6 +1324,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw2) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update, attr_, 0, vSchedPeerCount-1);
 
@@ -1341,6 +1363,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw3) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, roattrA_, 0, vSchedPeerCount-1, 2);
             VerifyUpdates(rt_update, roattr_null_,
                     vSchedPeerCount, kPeerCount-1, 2);
@@ -1381,6 +1404,7 @@ TEST_F(BgpExportRouteUpdateTest2, Withdraw4) {
             table_.VerifyExportResult(true);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, attr_,
                     0, vSchedPeerCount-1, vSchedPeerCount+1);
             VerifyUpdates(rt_update, roattr_null_,
@@ -1486,6 +1510,7 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted1) {
             table_.VerifyExportResult(false);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-1);
 
@@ -1522,6 +1547,7 @@ TEST_F(BgpExportRouteUpdateTest2, WithdrawDeleted2) {
             table_.VerifyExportResult(false);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+            VerifyRouteUpdateDequeueEnqueue(rt_update);
             VerifyUpdates(rt_update, roattr_null_, 0, vSchedPeerCount-1);
             VerifyHistory(rt_update, attr_, 0, vSchedPeerCount-1);
 
@@ -1629,6 +1655,7 @@ TEST_F(BgpExportRouteUpdateTest2, AdvertiseAndWithdraw1) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         VerifyUpdates(rt_update, roattr_null_, 0, vRejectPeerCount-1, 2);
         VerifyUpdates(rt_update, roattrC_, vRejectPeerCount, kPeerCount-1, 2);
         VerifyHistory(rt_update, roattrA_, 0, kPeerCount-1);
@@ -1692,6 +1719,7 @@ TEST_F(BgpExportRouteUpdateTest2, AdvertiseAndWithdraw2) {
         table_.VerifyExportResult(true);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
         RibPeerSet reject_peerset;
         BuildPeerSet(reject_peerset, 0, vRejectPeerCount-1);
         VerifyUpdates(rt_update, roattr_null_, reject_peerset, 3);
@@ -1705,8 +1733,9 @@ TEST_F(BgpExportRouteUpdateTest2, AdvertiseAndWithdraw2) {
 
 //
 // Description: Handle route change where the old and new attributes are same
-//              for all peers. Should detect duplicate scheduled state and not
-//              dequeue the RouteUpdate.
+//              for all peers.  All peers also have current scheduled state.
+//              Should detect duplicate scheduled state and not dequeue the
+//              RouteUpdate.
 //              Same attribute for all scheduled peers.
 //
 // Old DBState: RouteUpdate in QUPDATE.
@@ -1739,8 +1768,9 @@ TEST_F(BgpExportRouteUpdateTest2, Duplicate1) {
 
 //
 // Description: Handle route change where the old and new attributes are same
-//              for all peers. Should detect duplicate scheduled state and not
-//              dequeue the RouteUpdate.
+//              for all peers.  All peers also have current scheduled state.
+//              Should detect duplicate scheduled state and not dequeue the
+//              RouteUpdate.
 //              Different attribute for all scheduled peers.
 //
 // Old DBState: RouteUpdate in QUPDATE.
@@ -1773,6 +1803,76 @@ TEST_F(BgpExportRouteUpdateTest2, Duplicate2) {
 
 //
 // Description: Handle route change where the old and new attributes are same
+//              for all peers. There's one peer that does not have any current
+//              advertised state.  Should detect duplicate scheduled state and
+//              not dequeue the RouteUpdate.
+//              Same attribute for all scheduled peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], attr B.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr A.
+// Export Rslt: Accept peer x=[0,vSchedPeerCount-1], attr A.
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], attr B.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr A.
+//
+TEST_F(BgpExportRouteUpdateTest2, Duplicate3) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(attrA_, 0, vSchedPeerCount-2);
+        InitUpdateInfo(attrB_, 0, vSchedPeerCount-1);
+        Initialize();
+
+        BuildExportResult(attrB_, 0, vSchedPeerCount-1);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
+        VerifyUpdates(rt_update, roattrB_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-2);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Handle route change where the old and new attributes are same
+//              for all peers. There's one peer that does not have any current
+//              advertised state.  Should detect duplicate scheduled state and
+//              not dequeue the RouteUpdate.
+//              Different attribute for all scheduled peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr x.
+// Export Rslt: Accept peer x=[0,vSchedPeerCount-1], attr x.
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], attr A.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr x.
+//
+TEST_F(BgpExportRouteUpdateTest2, Duplicate4) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount <= kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(attrA_, 0, vSchedPeerCount-2);
+        InitUpdateInfo(attr_, 0, vSchedPeerCount-1);
+        Initialize();
+
+        BuildExportResult(attr_, 0, vSchedPeerCount-1);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
+        VerifyUpdates(rt_update, attr_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, roattrA_, 0, vSchedPeerCount-2);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Handle route change where the old and new attributes are same
 //              for all peers. Some of the peers still have scheduled updates
 //              while others have current advertised state. Should detect a
 //              duplicate and not dequeue the RouteUpdate.
@@ -1786,7 +1886,7 @@ TEST_F(BgpExportRouteUpdateTest2, Duplicate2) {
 //              AdvertiseInfo peer x=[vSchedPeerCount,kPeerCount-1], attr A.
 //              UpdateInfo peer x=[0,vSchedPeerCount-1], attr A.
 //
-TEST_F(BgpExportRouteUpdateTest2, Duplicate3) {
+TEST_F(BgpExportRouteUpdateTest2, Duplicate5) {
     for (int vSchedPeerCount = 1; vSchedPeerCount < kPeerCount;
             vSchedPeerCount++) {
         InitAdvertiseInfo(attrA_, vSchedPeerCount, kPeerCount-1);
@@ -1821,7 +1921,7 @@ TEST_F(BgpExportRouteUpdateTest2, Duplicate3) {
 //              AdvertiseInfo peer x=[vSchedPeerCount,kPeerCount-1], attr x.
 //              UpdateInfo peer x=[0,vSchedPeerCount-1], attr x.
 //
-TEST_F(BgpExportRouteUpdateTest2, Duplicate4) {
+TEST_F(BgpExportRouteUpdateTest2, Duplicate6) {
     for (int vSchedPeerCount = 1; vSchedPeerCount < kPeerCount;
             vSchedPeerCount++) {
         InitAdvertiseInfo(attr_, vSchedPeerCount, kPeerCount-1);
@@ -1997,6 +2097,82 @@ TEST_F(BgpExportRouteUpdateTest2, NotDuplicate4) {
 }
 
 //
+// Description: Handle route change where the old and new attributes are same
+//              for all but one of the scheduled peers.  The peer in question
+//              does not have scheduled state but needs to receive the route
+//              per the new export results.
+//              We should not treat this as a duplicate. Need to schedule the
+//              update to the peer.
+//              Same attribute for all scheduled peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0, vSchedPeerCount-2], attr B.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr A.
+// Export Rslt: Accept peer x=[0,vSchedPeerCount-1], attr A.
+//              Reject peer x=[vSchedPeerCount,kPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], attr B.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr A.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate5) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount < kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(attrB_, 0, vSchedPeerCount-2);
+        InitUpdateInfo(attrA_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        BuildExportResult(attrA_, 0, vSchedPeerCount-1);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, roattrA_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, roattrB_, 0, vSchedPeerCount-2);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
+// Description: Handle route change where the old and new attributes are same
+//              for all but one of the scheduled peers.  The peer in question
+//              does not have scheduled state but needs to receive the route
+//              per the new export results.
+//              We should not treat this as a duplicate. Need to schedule the
+//              update to the peer.
+//              Different attribute for all scheduled peers.
+//
+// Old DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0, vSchedPeerCount-2], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-2], attr x.
+// Export Rslt: Accept peer x=[0,vSchedPeerCount-1], attr x.
+//              Reject peer x=[vSchedPeerCount,kPeerCount-1].
+// New DBState: RouteUpdate in QUPDATE.
+//              AdvertiseInfo peer x=[0,vSchedPeerCount-2], alt_attr x.
+//              UpdateInfo peer x=[0,vSchedPeerCount-1], attr x.
+//
+TEST_F(BgpExportRouteUpdateTest2, NotDuplicate6) {
+    for (int vSchedPeerCount = 2; vSchedPeerCount < kPeerCount;
+            vSchedPeerCount++) {
+        InitAdvertiseInfo(alt_attr_, 0, vSchedPeerCount-2);
+        InitUpdateInfo(attr_, 0, vSchedPeerCount-2);
+        Initialize();
+
+        BuildExportResult(attr_, 0, vSchedPeerCount-1);
+        RunExport();
+        table_.VerifyExportResult(true);
+
+        RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateDequeueEnqueue(rt_update);
+        VerifyUpdates(rt_update, attr_, 0, vSchedPeerCount-1);
+        VerifyHistory(rt_update, alt_attr_, 0, vSchedPeerCount-2);
+
+        DrainAndDeleteRouteState(&rt_);
+    }
+}
+
+//
 // Description: Route that is currently advertised to all peers and scheduled
 //              to all peers with a different attribute is processed again and
 //              the export policy produces the same attribute as the advertised
@@ -2161,6 +2337,7 @@ TEST_F(BgpExportRouteUpdateTest2, JoinNoop1) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, roattrB_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, roattrA_, vSchedPeerCount, kPeerCount-1);
@@ -2198,6 +2375,7 @@ TEST_F(BgpExportRouteUpdateTest2, JoinNoop2) {
         table_.VerifyExportResult(false);
 
         RouteUpdate *rt_update = ExpectRouteUpdate(&rt_);
+        VerifyRouteUpdateNoDequeue(rt_update);
         EXPECT_EQ(rt_update_, rt_update);
         VerifyUpdates(rt_update, attr_, 0, vSchedPeerCount-1);
         VerifyHistory(rt_update, attr_, vSchedPeerCount, kPeerCount-1);
@@ -2325,6 +2503,7 @@ TEST_F(BgpExportRouteUpdateTest2, LeaveClear1) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrB_, vLeavePeerCount, kPeerCount-1);
             VerifyHistory(rt_update, roattrA_, vLeavePeerCount, kPeerCount-1);
@@ -2365,6 +2544,7 @@ TEST_F(BgpExportRouteUpdateTest2, LeaveClear2) {
             RunLeave(leave_peerset);
 
             RouteUpdate *rt_update = ExpectRouteUpdate(&rt_, qid);
+            VerifyRouteUpdateNoDequeue(rt_update);
             EXPECT_EQ(rt_update_, rt_update);
             VerifyUpdates(rt_update, roattrB_, vLeavePeerCount, kPeerCount-1);
             VerifyHistory(rt_update);
