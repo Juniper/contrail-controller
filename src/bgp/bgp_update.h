@@ -144,6 +144,7 @@ public:
 
     UpdateInfoSList() { }
     ~UpdateInfoSList() { list_.clear_and_dispose(UpdateInfoDisposer()); }
+    const UpdateInfo *FindUpdateInfo(const RibOutAttr &roattr) const;
 
     List *operator->() { return &list_; }
     const List *operator->() const { return &list_; }
@@ -191,6 +192,7 @@ public:
     ~RouteUpdate();
 
     void SetUpdateInfo(UpdateInfoSList &uinfo_slist);
+    void BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const;
     void ClearUpdateInfo();
     bool CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const;
     UpdateInfo *FindUpdateInfo(const RibOutAttr &roattr);
@@ -198,6 +200,7 @@ public:
     void MergeUpdateInfo(UpdateInfoSList &uinfo_slist);
     bool RemoveUpdateInfo(UpdateInfo *uinfo);
     void ResetUpdateInfo(RibPeerSet &peerset);
+    void TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const;
 
     void SetHistory(AdvertiseSList &history);
     void ClearHistory();
@@ -239,7 +242,7 @@ private:
     bool FlagIsSet(Flag flag) const { return flags_ & (1 << flag); }
     void FlagSet(Flag flag) { flags_ |= (1 << flag); }
     void FlagReset(Flag flag) { flags_ &= ~(1 << flag); }
-    
+
     tbb::mutex mutex_;
     BgpRoute *route_;
     int8_t queue_id_;
