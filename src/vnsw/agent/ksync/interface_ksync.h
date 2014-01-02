@@ -78,7 +78,7 @@ private:
     bool active_;
     size_t os_index_;
     int network_id_;
-    VirtualHostInterface::SubType sub_type_;
+    InetInterface::SubType sub_type_;
     bool ipv4_forwarding_;
     bool layer2_forwarding_;
     uint16_t vlan_id_;
@@ -108,7 +108,7 @@ public:
         case Interface::PHYSICAL:
         case Interface::VM_INTERFACE:
         case Interface::PACKET:
-        case Interface::VIRTUAL_HOST:
+        case Interface::INET:
             key = new IntfKSyncEntry(intf);
             break;
 

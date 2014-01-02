@@ -20,6 +20,7 @@
 
 #include "route/route.h"
 #include "cmn/agent_cmn.h"
+#include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
@@ -256,8 +257,8 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     policy->m_sg_acl_l.clear();
     policy->m_out_sg_acl_l.clear();
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 
@@ -343,8 +344,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
         policy->m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 
@@ -607,7 +608,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->flow_uuid = FlowTable::rand_gen_();
         flow->egress_uuid = FlowTable::rand_gen_();
         flow->setup_time = UTCTimestampUsec();
-        AgentStats::GetInstance()->IncrFlowCreated();
+        AgentStats::GetInstance()->incr_flow_created();
     }
 
     return flow;
@@ -661,7 +662,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         }
     }
 
-    AgentStats::GetInstance()->IncrFlowAged();
+    AgentStats::GetInstance()->incr_flow_aged();
 }
 
 bool FlowTable::DeleteRevFlow(FlowKey &key, bool rev_flow)

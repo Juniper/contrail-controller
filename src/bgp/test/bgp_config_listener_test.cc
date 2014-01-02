@@ -11,6 +11,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_server.h"
 #include "control-node/control_node.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -18,6 +19,7 @@
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_node.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "io/event_manager.h"
 #include "testing/gunit.h"
 
 using namespace std;
@@ -96,9 +98,10 @@ protected:
     typedef BgpConfigListener::DependencyTracker::NodeList NodeList;
     typedef BgpConfigListener::DependencyTracker::EdgeDescriptorList EdgeList;
 
-    BgpConfigListenerTest() : parser_(&db_) {
+    BgpConfigListenerTest() : server_(&evm_), parser_(&db_) {
+        config_manager_ = server_.config_manager();
         listener_ = static_cast<BgpConfigListenerMock *>(
-            config_manager_.listener_.get());
+            config_manager_->listener_.get());
         tracker_ = listener_->tracker_.get();
         change_list_ = &listener_->change_list_;
     }
@@ -107,12 +110,11 @@ protected:
         IFMapLinkTable_Init(&db_, &graph_);
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
         bgp_schema_Server_ModuleInit(&db_, &graph_);
-        config_manager_.Initialize(&db_, &graph_, "local");
+        config_manager_->Initialize(&db_, &graph_, "local");
     }
 
     virtual void TearDown() {
-        task_util::WaitForIdle();
-        config_manager_.Terminate();
+        server_.Shutdown();
         task_util::WaitForIdle();
         db_util::Clear(&db_);
     }
@@ -182,12 +184,14 @@ protected:
         return count;
     }
 
+    EventManager evm_;
+    BgpServer server_;
     DB db_;
     DBGraph graph_;
     BgpConfigListenerMock *listener_;
     BgpConfigListener::DependencyTracker *tracker_;
     BgpConfigListener::ChangeList *change_list_;
-    BgpConfigManager config_manager_;
+    BgpConfigManager *config_manager_;
     BgpConfigParser parser_;
 };
 

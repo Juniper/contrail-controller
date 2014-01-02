@@ -10,9 +10,9 @@
 
 using namespace std;
 
-InterfaceKState::InterfaceKState(KInterfaceResp *obj, std::string resp_ctx, 
+InterfaceKState::InterfaceKState(KInterfaceResp *obj, const std::string &ctx,
                                  vr_interface_req &req, int id) : 
-                                 KState(resp_ctx, obj) {
+                                 KState(ctx, obj) {
     if (id >= 0) {
         req.set_h_op(sandesh_op::GET);
         req.set_vifr_idx(id);    
@@ -22,13 +22,13 @@ InterfaceKState::InterfaceKState(KInterfaceResp *obj, std::string resp_ctx,
     }
 }
 
-void InterfaceKState::InitDumpRequest(vr_interface_req &req) {
+void InterfaceKState::InitDumpRequest(vr_interface_req &req) const {
     req.set_h_op(sandesh_op::DUMP);
     req.set_vifr_idx(0);
 }
 
 void InterfaceKState::Handler() {
-    KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
+    KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
     if (resp) {
         if (MoreData()) {
             /* There are more interfaces in Kernel. We need to query them from 
@@ -37,9 +37,9 @@ void InterfaceKState::Handler() {
             SendResponse();
             SendNextRequest();
         } else {
-            resp->set_context(resp_ctx_);
+            resp->set_context(response_context_);
             resp->Response();
-            more_ctx_ = NULL;
+            more_context_ = NULL;
         }
     }
 }
@@ -47,22 +47,22 @@ void InterfaceKState::Handler() {
 void InterfaceKState::SendNextRequest() {
     vr_interface_req req;
     InitDumpRequest(req);
-    int idx = reinterpret_cast<long>(more_ctx_);
+    int idx = reinterpret_cast<long>(more_context_);
     req.set_vifr_marker(idx);
     EncodeAndSend(req);
 }
 
 void InterfaceKState::SendResponse() {
 
-    KInterfaceResp *resp = static_cast<KInterfaceResp *>(resp_obj_);
-    resp->set_context(resp_ctx_);
+    KInterfaceResp *resp = static_cast<KInterfaceResp *>(response_object_);
+    resp->set_context(response_context_);
     resp->set_more(true);
     resp->Response();
 
-    resp_obj_ = new KInterfaceResp();
+    response_object_ = new KInterfaceResp();
 }
 
-string InterfaceKState::TypeToString(int if_type) {
+const string InterfaceKState::TypeToString(int if_type) const {
     unsigned short type = if_type;
     switch(type) {
         case VIF_TYPE_HOST:
@@ -78,7 +78,7 @@ string InterfaceKState::TypeToString(int if_type) {
     }
 }
 
-string InterfaceKState::FlagsToString(int flags) {
+const string InterfaceKState::FlagsToString(int flags) const {
     string str("");;
     if (flags == 0) {
         return "NIL";
@@ -95,7 +95,8 @@ string InterfaceKState::FlagsToString(int flags) {
     return str;
 }
 
-string InterfaceKState::MacToString(const vector<signed char> &mac) {
+const string InterfaceKState::MacToString(const vector<signed char> &mac) 
+    const {
     ostringstream strm;
     strm << hex << setfill('0') << setw(2) << (int)((uint8_t) mac.at(0)) << ":" 
          << setw(2) << (int)((uint8_t) mac.at(1)) << ":" << setw(2) 

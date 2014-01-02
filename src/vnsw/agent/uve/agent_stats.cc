@@ -10,6 +10,7 @@
 
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
+#include <cmn/agent_stats.h>
 
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
@@ -276,10 +277,10 @@ void AgentStatsSandeshContext::IfMsgHandler(vr_interface_req *req) {
         return;
     }
     if (intf->type() == Interface::VM_INTERFACE) {
-        AgentStats::GetInstance()->IncrInPkts(req->get_vifr_ipackets() - stats->in_pkts);
-        AgentStats::GetInstance()->IncrInBytes(req->get_vifr_ibytes() - stats->in_bytes);
-        AgentStats::GetInstance()->IncrOutPkts(req->get_vifr_opackets() - stats->out_pkts);
-        AgentStats::GetInstance()->IncrOutBytes(req->get_vifr_obytes() - stats->out_bytes);
+        AgentStats::GetInstance()->incr_in_pkts(req->get_vifr_ipackets() - stats->in_pkts);
+        AgentStats::GetInstance()->incr_in_bytes(req->get_vifr_ibytes() - stats->in_bytes);
+        AgentStats::GetInstance()->incr_out_pkts(req->get_vifr_opackets() - stats->out_pkts);
+        AgentStats::GetInstance()->incr_out_bytes(req->get_vifr_obytes() - stats->out_bytes);
     }
 
     stats->in_pkts = req->get_vifr_ipackets();

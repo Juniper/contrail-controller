@@ -582,6 +582,20 @@ Inet4UnicastAgentRouteTable::AddLocalEcmpRoute(const Peer *peer,
 }
 
 void 
+Inet4UnicastAgentRouteTable::CheckAndAddArpReq(const string &vrf_name, 
+                                               const Ip4Address &ip) {
+
+    if (ip == Agent::GetInstance()->GetRouterId() ||
+        !IsIp4SubnetMember(ip, Agent::GetInstance()->GetRouterId(),
+                           Agent::GetInstance()->GetPrefixLen())) {
+        // TODO: add Arp request for GW
+        // Currently, default GW Arp is added during init
+        return;
+    }
+    AddArpReq(vrf_name, ip);
+}
+
+void 
 Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name, 
                                        const Ip4Address &ip) {
 
@@ -589,9 +603,8 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
     NextHopKey *key = new ArpNHKey(vrf_name, ip);
-    nh_req.key.reset(key);
-
     ArpNHData *arp_data = new ArpNHData();
+    nh_req.key.reset(key);
     nh_req.data.reset(arp_data);
     Agent::GetInstance()->GetNextHopTable()->Enqueue(&nh_req);
 
@@ -600,8 +613,8 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     Inet4UnicastRouteKey *rt_key = 
         new Inet4UnicastRouteKey(Peer::GetPeer(LOCAL_PEER_NAME),
                                  vrf_name, ip, 32);
-    rt_req.key.reset(rt_key);
     Inet4UnicastArpRoute *data = new Inet4UnicastArpRoute(vrf_name, ip);
+    rt_req.key.reset(rt_key);
     rt_req.data.reset(data);
     AgentRouteTableAPIS::GetInstance()->
         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->Enqueue(&rt_req);
@@ -694,8 +707,8 @@ void Inet4UnicastAgentRouteTable::AddVHostInterfaceRoute
         new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen); 
     req.key.reset(key);
 
-    VirtualHostInterfaceKey intf_key(interface);
-    VirtualHostInterfaceRoute *data = new VirtualHostInterfaceRoute
+    InetInterfaceKey intf_key(interface);
+    InetInterfaceRoute *data = new InetInterfaceRoute
         (intf_key, label, TunnelType::AllType(), vn_name);
     req.data.reset(data);
 
@@ -719,7 +732,7 @@ Inet4UnicastAgentRouteTable::AddVHostRecvRoute(const Peer *peer,
     Inet4UnicastRouteKey *rt_key = new Inet4UnicastRouteKey(peer, 
                                               vm_vrf, addr, plen);
     req.key.reset(rt_key);
-    VirtualHostInterfaceKey intf_key(interface_name);
+    InetInterfaceKey intf_key(interface_name);
     ReceiveRoute *data = new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                                           TunnelType::AllType(),
                                           policy, vn);
@@ -758,7 +771,7 @@ Inet4UnicastAgentRouteTable::AddVHostSubnetRecvRoute(const string &vm_vrf,
         new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
                                  vm_vrf, subnet_addr, 32);
     req.key.reset(rt_key);
-    VirtualHostInterfaceKey intf_key(interface_name);
+    InetInterfaceKey intf_key(interface_name);
     ReceiveRoute *data =
             new ReceiveRoute(intf_key, MplsTable::kInvalidLabel,
                              TunnelType::AllType(), policy,

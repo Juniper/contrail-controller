@@ -33,5 +33,9 @@
             <interface>vgw</interface>
             <subnet>1.1.1.1/24</subnet>
         </gateway>
+
+	<metadata-proxy>
+            <shared-secret>contrail</shared-secret>
+        </metadata-proxy>
     </agent>
 </config>

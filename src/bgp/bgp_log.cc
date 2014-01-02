@@ -51,7 +51,7 @@ bool unit_test() {
     return unit_test_;
 }
 
-void LogServerName(BgpServer *server) {
+void LogServerName(const BgpServer *server) {
     if (!unit_test_ || !server) return;
 
     if (Sandesh::LoggingLevel() >= SandeshLevel::SYS_DEBUG) {

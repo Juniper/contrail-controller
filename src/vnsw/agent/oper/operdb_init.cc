@@ -22,6 +22,7 @@
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
 #include <oper/multicast.h>
+#include <oper/global_vrouter.h>
 #include <base/task_trigger.h>
 
 OperDB *OperDB::singleton_ = NULL;
@@ -104,6 +105,7 @@ void OperDB::CreateDBTables(DB *db) {
     agent_->SetVxLanTable(vxlan_table);
 
     multicast_ = std::auto_ptr<MulticastHandler>(new MulticastHandler(agent_));
+    global_vrouter_ = std::auto_ptr<GlobalVrouter> (new GlobalVrouter(this));
 }
 
 void OperDB::Init() {
@@ -115,13 +117,14 @@ void OperDB::Init() {
     local_vm_peer = new Peer(Peer::LOCAL_VM_PEER, LOCAL_VM_PEER_NAME);
     agent_->SetLocalVmPeer(local_vm_peer);
 
-    Peer *mdata_peer;
-    mdata_peer = new Peer(Peer::MDATA_PEER, MDATA_PEER_NAME);
-    agent_->SetMdataPeer(mdata_peer);
+    Peer *linklocal_peer;
+    linklocal_peer = new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME);
+    agent_->SetLinkLocalPeer(linklocal_peer);
 }
 
 void OperDB::CreateDBClients() {
     multicast_.get()->Register();
+    global_vrouter_.get()->CreateDBClients();
 }
 
 OperDB::OperDB(Agent *agent) : agent_(agent) {
@@ -133,6 +136,8 @@ OperDB::~OperDB() {
 }
 
 void OperDB::Shutdown() {
+    global_vrouter_.reset();
+
     agent_->GetDB()->RemoveTable(agent_->GetVnTable());
     delete agent_->GetVnTable();
     agent_->SetVnTable(NULL);
@@ -179,8 +184,8 @@ void OperDB::Shutdown() {
     delete agent_->GetLocalVmPeer();
     agent_->SetLocalVmPeer(NULL);
 
-    delete agent_->GetMdataPeer();
-    agent_->SetMdataPeer(NULL);
+    delete agent_->GetLinkLocalPeer();
+    agent_->SetLinkLocalPeer(NULL);
 
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);

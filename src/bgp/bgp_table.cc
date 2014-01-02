@@ -242,9 +242,6 @@ void BgpTable::InputCommon(DBTablePartBase *root, BgpRoute *rt, BgpPath *path,
     switch (oper) {
     case DBRequest::DB_ENTRY_ADD_CHANGE: {
 
-        // Skip if this peer is down/deleted.
-        if (peer && !peer->IsReady()) return;
-
         assert(rt);
 
         // The entry may currently be marked as deleted.
@@ -315,6 +312,10 @@ void BgpTable::Input(DBTablePartition *root, DBClient *client,
         (static_cast<RequestKey *>(req->key.get()))->GetPeer();
     RequestData *data = static_cast<RequestData *>(req->data.get());
     BgpPath *path = NULL;
+
+    // Skip if this peer is down/deleted.
+    if (peer && !peer->IsReady())
+        return;
 
     // First mark all paths from this request source as deleted.
     // Apply all paths provided in this request data and add them. If path

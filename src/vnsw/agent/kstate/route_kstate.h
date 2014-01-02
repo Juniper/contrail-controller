@@ -7,14 +7,14 @@
 
 class RouteKState: public KState {
 public:
-    RouteKState(KRouteResp *obj, std::string resp_ctx, vr_route_req &encoder, 
-                int id);
+    RouteKState(KRouteResp *obj, const std::string &resp_ctx, 
+                vr_route_req &encoder, int id);
     virtual void SendResponse();
     virtual void Handler();
-    void InitEncoder(vr_route_req &req, int id);
+    void InitEncoder(vr_route_req &req, int id) const;
     virtual void SendNextRequest();
-    static std::string FamilyToString(int family);
-    static std::string LabelFlagsToString(int flags);
+    const std::string FamilyToString(int family) const;
+    const std::string LabelFlagsToString(int flags) const;
 };
 
 struct RouteContext {

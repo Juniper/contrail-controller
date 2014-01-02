@@ -51,7 +51,6 @@ _SVC_VN_RIGHT = "svc-vn-right"
 _MGMT_STR = "management"
 _LEFT_STR = "left"
 _RIGHT_STR = "right"
-_OTHER_STR = "other"
 
 _SVC_VNS = {_MGMT_STR:  [_SVC_VN_MGMT,  '250.250.1.0/24'],
             _LEFT_STR:  [_SVC_VN_LEFT,  '250.250.2.0/24'],
@@ -137,6 +136,8 @@ class SvcMonitor(object):
         try:
             st_obj = self._vnc_lib.service_template_read(fq_name=st_fq_name)
             st_uuid = st_obj.uuid
+            self._svc_syslog("%s exists uuid %s" % (st_name, str(st_uuid)))
+            return
         except NoIdError:
             domain = self._vnc_lib.domain_read(fq_name=domain_fq_name)
             st_obj = ServiceTemplate(name=st_name, domain_obj=domain)
@@ -145,13 +146,15 @@ class SvcMonitor(object):
         svc_properties = ServiceTemplateType()
         svc_properties.set_image_name(image_name)
         svc_properties.set_service_type(svc_type)
+        svc_properties.set_flavor("m1.medium")
+        svc_properties.set_ordered_interfaces(True)
 
         # set interface list
         if svc_type == 'analyzer':
             if_list = [['left', False]]
         else:
             if_list = [
-                ['left', False], ['right', False], ['management', False]]
+                ['management', False], ['left', False], ['right', False]]
             svc_properties.set_service_mode(svc_mode)
 
         for itf in if_list:
@@ -347,7 +350,7 @@ class SvcMonitor(object):
             itf_type = st_if.service_interface_type
 
             si_if = None
-            if si_if_list:
+            if si_if_list and st_props.get_ordered_interfaces():
                 si_if = si_if_list[idx]
                 si_vn_str = si_if.get_virtual_network()
             else:
@@ -426,7 +429,7 @@ class SvcMonitor(object):
             itf_type = st_if.service_interface_type
 
             # set vn id
-            if si_if_list:
+            if si_if_list and st_props.get_ordered_interfaces():
                 si_if = si_if_list[idx]
                 vn_fq_name_str = si_if.get_virtual_network()
             else:
@@ -439,9 +442,12 @@ class SvcMonitor(object):
                 domain, proj, vn_name = vn_fq_name_str.split(':')
                 vn_fq_name = [domain, proj, vn_name]
 
-            vn_id = self._get_vn_id(proj_obj, vn_fq_name,
-                                    _SVC_VNS[itf_type][0],
-                                    _SVC_VNS[itf_type][1])
+            if itf_type in _SVC_VNS:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name,
+                                        _SVC_VNS[itf_type][0],
+                                        _SVC_VNS[itf_type][1])
+            else:
+                vn_id = self._get_vn_id(proj_obj, vn_fq_name)
             if vn_id is None:
                 continue
             nic['net-id'] = vn_id
@@ -528,8 +534,13 @@ class SvcMonitor(object):
     def _check_store_si_info(self, st_obj, si_obj):
         config_complete = True
         st_props = st_obj.get_service_template_properties()
+        st_if_list = st_props.get_interface_type()
         si_props = si_obj.get_service_instance_properties()
-        if_list = st_props.get_interface_type()
+        si_if_list = si_props.get_interface_list()
+        if si_if_list and (len(si_if_list) != len(st_if_list)):
+            self._svc_syslog("Error: IF mismatch template %s instance %s" %
+                             (len(st_if_list), len(si_if_list)))
+            return
 
         #read existing si_entry
         try:
@@ -538,22 +549,29 @@ class SvcMonitor(object):
             si_entry = {}
 
         #walk the interface list
-        for vm_if in if_list:
-            itf_type = vm_if.service_interface_type
-            funcname = "get_" + itf_type + "_virtual_network"
-            func = getattr(si_props, funcname)
-            vn_fq_name_str = func()
-            if not vn_fq_name_str:
+        for idx in range(0, len(st_if_list)):
+            st_if = st_if_list[idx]
+            itf_type = st_if.service_interface_type
+
+            si_if = None
+            if si_if_list and st_props.get_ordered_interfaces():
+                si_if = si_if_list[idx]
+                si_vn_str = si_if.get_virtual_network()
+            else:
+                funcname = "get_" + itf_type + "_virtual_network"
+                func = getattr(si_props, funcname)
+                si_vn_str = func()
+            if not si_vn_str:
                 continue
 
-            si_entry[itf_type + '-vn'] = vn_fq_name_str
+            si_entry[itf_type + '-vn'] = si_vn_str
             try:
                 vn_obj = self._vnc_lib.virtual_network_read(
-                    fq_name_str=vn_fq_name_str)
-                if vn_obj.uuid != si_entry.get(vn_fq_name_str, None):
-                    si_entry[vn_fq_name_str] = vn_obj.uuid
+                    fq_name_str=si_vn_str)
+                if vn_obj.uuid != si_entry.get(si_vn_str, None):
+                    si_entry[si_vn_str] = vn_obj.uuid
 
-                if not vm_if.shared_ip:
+                if not st_if.shared_ip:
                     continue
 
                 iip_uuid_str = itf_type + '-iip-uuid'
@@ -563,8 +581,8 @@ class SvcMonitor(object):
                 si_entry[itf_type + '-iip-uuid'] = iip['uuid']
                 si_entry[itf_type + '-iip-addr'] = iip['addr']
             except NoIdError:
-                self._svc_syslog("Warn: VN %s add is pending" % vn_fq_name_str)
-                si_entry[vn_fq_name_str] = 'pending'
+                self._svc_syslog("Warn: VN %s add is pending" % si_vn_str)
+                si_entry[si_vn_str] = 'pending'
                 config_complete = False
 
         if config_complete:
@@ -758,6 +776,19 @@ class SvcMonitor(object):
         self._create_svc_instance_vm(st_obj, si_obj)
     # end _addmsg_service_instance_service_template
 
+    def _addmsg_service_instance_properties(self, idents):
+        si_fq_str = idents['service-instance']
+
+        try:
+            si_obj = self._vnc_lib.service_instance_read(
+                fq_name_str=si_fq_str)
+        except NoIdError:
+            return
+
+        #update static routes
+        self._update_static_routes(si_obj)
+    # end _addmsg_service_instance_service_template
+
     def _addmsg_project_virtual_network(self, idents):
         vn_fq_str = idents['virtual-network']
 
@@ -820,6 +851,32 @@ class SvcMonitor(object):
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
+
+    def _update_static_routes(self, si_obj):
+        # get service instance interface list
+        si_props = si_obj.get_service_instance_properties()
+        si_if_list = si_props.get_interface_list()
+        if not si_if_list:
+            return
+
+        for idx in range(0, len(si_if_list)):
+            si_if = si_if_list[idx]
+            static_routes = si_if.get_static_routes()
+            if not static_routes:
+                continue
+
+            # update static routes
+            try:
+                domain_name, proj_name = si_obj.get_parent_fq_name()
+                rt_name = si_obj.uuid + ' ' + str(idx)
+                rt_fq_name = [domain_name, proj_name, rt_name]
+                rt_obj = self._vnc_lib.interface_route_table_read(
+                    fq_name=rt_fq_name)
+                rt_obj.set_interface_route_table_routes(static_routes)
+                self._vnc_lib.interface_route_table_update(rt_obj)
+            except NoIdError:
+                pass
+    # end _update_static_routes
 
     def _create_svc_vm(self, vm_name, image_name, nics,
                        proj_name, flavor_name):
@@ -1147,6 +1204,8 @@ def run_svc_monitor(args=None):
                 args.api_server_ip, args.api_server_port)
             connected = True
         except requests.exceptions.ConnectionError:
+            time.sleep(3)
+        except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
 
     monitor = SvcMonitor(vnc_api, args)

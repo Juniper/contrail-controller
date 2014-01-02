@@ -550,11 +550,11 @@ class ArpNHData : public NextHopData {
 public:
     ArpNHData() :
         NextHopData(), intf_key_(NULL),
-        mac_(), resolved_(false) { };
+        mac_(), resolved_(false), valid_(false) { };
 
     ArpNHData(const struct ether_addr &mac, InterfaceKey *intf_key,
               bool resolved) : NextHopData(), intf_key_(intf_key), mac_(mac),
-        resolved_(resolved) {
+        resolved_(resolved), valid_(true) {
     }
     virtual ~ArpNHData() { };
 
@@ -563,6 +563,7 @@ private:
     boost::scoped_ptr<InterfaceKey> intf_key_;
     struct ether_addr mac_;
     bool resolved_;
+    bool valid_;
     DISALLOW_COPY_AND_ASSIGN(ArpNHData);
 };
 

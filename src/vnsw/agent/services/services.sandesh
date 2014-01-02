@@ -87,6 +87,10 @@ response sandesh IcmpStats {
 
 response sandesh MetadataResponse {
     1: i32 metadata_server_port;
+    2: i32 metadata_requests;
+    3: i32 metadata_responses;
+    4: i32 metadata_proxy_sessions;
+    5: i32 metadata_internal_errors;
 }
 
 response sandesh PktErrorResp {
