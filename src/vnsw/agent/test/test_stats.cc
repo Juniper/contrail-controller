@@ -4,7 +4,7 @@
 
 #include "cmn/agent_cmn.h"
 #include "pkt/pkt_init.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_table.h"
 #include "test_cmn_util.h"
 #include <uve/uve_client.h>
  
@@ -112,10 +112,10 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_EQ(cfg_if_count, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     /* Flush any existing Flows */
-    FlowTable::GetFlowTableObject()->DeleteAll();
+    Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
     client->WaitForIdle();
     usleep(1*1000*1000);
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     /* Send ICMP packets to vmport interfaces to create flows */
     send_icmp(fd_table[2], 8, 7, flow_input[0].sip, flow_input[0].dip);
@@ -124,7 +124,7 @@ TEST_F(StatsTest, FlowStatsTest) {
 
     client->WaitForIdle();
     client->WaitForIdle();
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     /* Wait for stats-collector task to be run */
     usleep((FlowStatsCollector::FlowStatsInterval + 1)*1000);
@@ -150,8 +150,8 @@ TEST_F(StatsTest, FlowStatsTest) {
     UveClient::GetInstance()->SendVnStats();
 
     /* Flush all the Flows */
-    FlowTable::GetFlowTableObject()->DeleteAll();
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     usleep(2*1000*1000);
     client->WaitForIdle();
 }

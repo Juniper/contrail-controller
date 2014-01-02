@@ -23,21 +23,12 @@
 #include "filter/acl.h"
 
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "pkt/pkt_handler.h"
-#include "pkt/flowtable.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_table.h"
+#include "pkt/flow_proto.h"
 #include "pkt/pkt_sandesh_flow.h"
 #include "ksync/flowtable_ksync.h"
-
-SandeshTraceBufferPtr PktFlowTraceBuf(SandeshTraceBufferCreate("FlowHandler", 5000));
-
-void FlowHandler::Init(boost::asio::io_service &io) {
-    FlowProto::Init(io);
-}
-
-void FlowHandler::Shutdown() {
-    FlowProto::Shutdown();
-}
 
 static void LogError(const PktInfo *pkt, const char *str) {
     FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
@@ -182,14 +173,6 @@ static const VnEntry *InterfaceToVn(const Interface *intf) {
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
     return vm_port->vn();
-}
-
-static const VmEntry *InterfaceToVm(const Interface *intf) {
-    if (intf->type() != Interface::VM_INTERFACE)
-        return NULL;
-
-    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
-    return vm_port->vm();
 }
 
 static bool IntfHasFloatingIp(const Interface *intf) {
@@ -711,7 +694,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(pkt->vrf, pkt->ip_saddr, pkt->ip_daddr,
                 pkt->ip_proto, pkt->sport, pkt->dport);
-    FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
+    FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
     FlowEntryPtr rflow(NULL);
     uint16_t r_sport;
@@ -731,17 +714,17 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done) {
         FlowKey rkey(nat_vrf, nat_ip_daddr, nat_ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     } else {
         FlowKey rkey(dest_vrf, pkt->ip_daddr, pkt->ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
 
     InitFwdFlow(flow.get(), pkt, in, out);
     InitRevFlow(rflow.get(), pkt, out, in);
 
-    FlowTable::GetFlowTableObject()->Add(flow.get(), rflow.get());
+    Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
 
 //If a packet is trapped for ecmp resolve, dp might have already
@@ -761,7 +744,7 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
         return;
     }
 
-    FlowEntry *flow = FlowTable::GetFlowTableObject()->Find(key);
+    FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
     if (!flow) {
         std::ostringstream ostr;  
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
@@ -783,60 +766,6 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
         out_component_nh_idx = flow->data.component_nh_idx;
     }
     return;
-}
-
-bool FlowHandler::Run() {
-    PktControlInfo in;
-    PktControlInfo out;
-    PktFlowInfo info(pkt_info_);
-
-    MatchPolicy m_policy;
-
-    SecurityGroupList empty_sg_id_l;
-    info.source_sg_id_l = &empty_sg_id_l;
-    info.dest_sg_id_l = &empty_sg_id_l;
-
-    if (info.Process(pkt_info_, &in, &out) == false) {
-        info.short_flow = true;
-    }
-
-    if (in.rt_) {
-        const AgentPath *path = in.rt_->GetActivePath();
-        info.source_sg_id_l = &(path->GetSecurityGroupList());
-        info.source_plen = in.rt_->GetPlen();
-    }
-
-    if (out.rt_) {
-        const AgentPath *path = out.rt_->GetActivePath();
-        info.dest_sg_id_l = &(path->GetSecurityGroupList());
-        info.dest_plen = out.rt_->GetPlen();
-    }
-
-    if (info.source_vn == NULL)
-        info.source_vn = FlowHandler::UnknownVn();
-
-    if (info.dest_vn == NULL)
-        info.dest_vn = FlowHandler::UnknownVn();
-
-    if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
-                     (in.intf_->type() != Interface::INET))) {
-        in.intf_ = NULL;
-    }
-
-    if (in.intf_ && out.intf_) {
-        info.local_flow = true;
-    }
-
-    if (in.intf_) {
-        in.vm_ = InterfaceToVm(in.intf_);
-    }
-
-    if (out.intf_) {
-        out.vm_ = InterfaceToVm(out.intf_);
-    }
-
-    info.Add(pkt_info_, &in, &out);
-    return true;
 }
 
 bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
@@ -888,7 +817,8 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
     }
     flow->data.nh_state_ = static_cast<const NhState *>(
                            nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                           FlowTable::GetFlowTableObject()->nh_listener_id()));
+                           Agent::GetInstance()->pkt()->flow_table()->
+                           nh_listener_id()));
 }
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,

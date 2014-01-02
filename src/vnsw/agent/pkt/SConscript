@@ -15,7 +15,7 @@ import sys
 if sys.platform != 'darwin':
     env.Prepend(CPPPATH = env['TOP'] + '/vnsw/dp/sandesh')
     exception_files = [
-                       'tap_itf.cc'
+                       'tap_interface.cc'
                        ]
 
     except_env = AgentEnv.Clone()
@@ -37,13 +37,15 @@ if sys.platform != 'darwin':
         sandesh_objs.append(obj)
 
     pkt_srcs = [
-                'flowtable.cc',
+                'flow_table.cc',
+                'flow_handler.cc',
                 'pkt_init.cc',
                 'pkt_init.cc',
                 'pkt_handler.cc',
-                'pkt_flow.cc',
+                'pkt_flow_info.cc',
                 'pkt_sandesh_flow.cc',
-                'proto.cc'
+                'proto.cc',
+                'proto_handler.cc',
                 ]
 
     libservices = env.Library('pkt',

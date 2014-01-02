@@ -816,7 +816,7 @@ bool UveClient::UpdateVnFlowCount(const VnEntry *vn, LastVnUveSet::iterator &it,
                                   UveVirtualNetworkAgent *s_vn) {
     bool changed = false;
     uint32_t in_count, out_count;
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     if (UveVnInFlowCountChanged(in_count, it->second.uve_info)) {
         s_vn->set_ingress_flow_count(in_count);
         it->second.uve_info.set_ingress_flow_count(in_count);
@@ -2007,7 +2007,7 @@ bool UveClient::SendAgentStats() {
         change = true;
     }
 
-    uint64_t active_flow_count = FlowTable::GetFlowTableObject()->Size(); 
+    uint64_t active_flow_count = Agent::GetInstance()->pkt()->flow_table()->Size(); 
     if (prev_stats_.get_active_flows() != active_flow_count || first) {
         stats.set_active_flows(active_flow_count);
         prev_stats_.set_active_flows(active_flow_count);
