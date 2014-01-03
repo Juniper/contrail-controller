@@ -263,9 +263,7 @@ class VncApiServer(VncApiServerGen):
 
         # Load extensions
         self._extension_mgrs = {}
-        # keystone polling only from first cfgm for now
-        if self._args.redis_server_ip == self._args.ifmap_server_ip:
-            self._load_extensions()
+        self._load_extensions()
 
         # Address Management interface
         addr_mgmt = vnc_addr_mgmt.AddrMgmt(self)
