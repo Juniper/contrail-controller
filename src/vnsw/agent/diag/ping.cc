@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "vr_defs.h"
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
@@ -9,6 +10,7 @@
 #include "oper/agent_route.h"
 #include "oper/mirror_table.h"
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
 #include "diag/diag.h"
 #include "diag/ping.h"
@@ -48,7 +50,7 @@ Ping::CreateTcpPkt() {
     FillAgentHeader(ad);
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
+    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                    *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
@@ -57,7 +59,7 @@ Ping::CreateTcpPkt() {
                         dport_, false, rand(), data_len_ + sizeof(tcphdr));
     pkt_handler->IpHdr(data_len_ + sizeof(tcphdr) + sizeof(iphdr), 
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
-                       TCP_PROTOCOL);
+                       IPPROTO_TCP);
     pkt_handler->EthHdr(agent_vrrp_mac, agent_vrrp_mac, IP_PROTOCOL);
 
     return pkt_handler;
@@ -74,7 +76,7 @@ Ping::CreateUdpPkt() {
     FillAgentHeader(ad);
 
     PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(pkt_info,
+    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                     *(Agent::GetInstance()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
@@ -83,7 +85,7 @@ Ping::CreateUdpPkt() {
                         dip_.to_ulong(), dport_);
     pkt_handler->IpHdr(data_len_ + sizeof(udphdr) + sizeof(iphdr), 
                        ntohl(sip_.to_ulong()), ntohl(dip_.to_ulong()), 
-                       UDP_PROTOCOL);
+                       IPPROTO_UDP);
     pkt_handler->EthHdr(agent_vrrp_mac, agent_vrrp_mac, IP_PROTOCOL);
 
     return pkt_handler;
@@ -94,11 +96,11 @@ void Ping::SendRequest() {
     //Increment the attempt count
     seq_no_++; 
     switch(proto_) {
-    case TCP_PROTOCOL:
+    case IPPROTO_TCP:
         pkt_handler = CreateTcpPkt();
         break;
 
-    case UDP_PROTOCOL:
+    case IPPROTO_UDP:
         pkt_handler = CreateUdpPkt();
         break;
     }
@@ -215,7 +217,7 @@ void PingReq::HandleRequest() const {
     }
 
     uint8_t proto = get_protocol();
-    if (proto != TCP_PROTOCOL && proto != UDP_PROTOCOL) {
+    if (proto != IPPROTO_TCP && proto != IPPROTO_UDP) {
         err_str = "Invalid protocol. Valid Protocols are TCP and UDP";
         goto error;
     }

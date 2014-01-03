@@ -174,6 +174,7 @@ TcpSession* Collector::AllocSession(Socket *socket) {
     VizSession *session = new VizSession(this, socket, AllocConnectionIndex(), 
                                          session_writer_task_id(),
                                          session_reader_task_id());
+    session->SetBufferSize(kDefaultSessionBufferSize);
     return session;
 }
 

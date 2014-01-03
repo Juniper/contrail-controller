@@ -22,7 +22,7 @@
 #include <cmn/agent_cmn.h>
 #include <uve/uve_client.h>
 #include <uve/flow_uve.h>
-#include <pkt/pkt_flow.h>
+#include <pkt/flow_proto.h>
 
 using namespace std;
 

@@ -340,6 +340,19 @@ test_suite = [
 test = env.TestSuite('bgp-test', test_suite)
 env.Alias('src/bgp:test', test)
 
+#  Update Engine Tests
+update_test_suite = [
+    bgp_export_nostate_test,
+    bgp_export_rstate_test,
+    bgp_export_rtupdate_test,
+    bgp_export_uplist_test,
+    bgp_ribout_updates_test,
+    bgp_update_test,
+]
+
+update_test = env.TestSuite('bgp-update-test', update_test_suite)
+env.Alias('src/bgp:update_test', update_test)
+
 # Service Chain Related Tests
 sc_test_suite = [
     bgp_condition_listener_test,

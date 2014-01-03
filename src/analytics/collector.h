@@ -121,6 +121,7 @@ private:
     static std::string self_ip_;
     static bool task_policy_set_;
     static const std::vector<DbHandler::DbQueueWaterMarkInfo> kDbQueueWaterMarkInfo;
+    static const int kDefaultSessionBufferSize = 16 * 1024;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };

@@ -13,6 +13,7 @@
 #include <tbb/mutex.h>
 
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include <oper/interface_common.h>
@@ -99,17 +100,17 @@ public:
         GRACIOUS_TIMER_EXPIRED,
     };
 
-    struct ArpIpc : IpcMsg {
+    struct ArpIpc : InterTaskMsg {
         ArpKey key;
-        ArpIpc(ArpMsgType msg, ArpKey &akey) : IpcMsg(msg), key(akey) {};
+        ArpIpc(ArpMsgType msg, ArpKey &akey) : InterTaskMsg(msg), key(akey) {};
         ArpIpc(ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
-            IpcMsg(msg), key(ip, vrf) {};
+            InterTaskMsg(msg), key(ip, vrf) {};
     };
 
-    ArpHandler(PktInfo *info, boost::asio::io_service &io) : 
-               ProtoHandler(info, io), arp_(NULL), arp_tpa_(0) { }
-    ArpHandler(boost::asio::io_service &io) : ProtoHandler(io), 
-                                              arp_(NULL), arp_tpa_(0) { }
+    ArpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) : 
+               ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
+    ArpHandler(Agent *agent, boost::asio::io_service &io) 
+             : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) { }
     virtual ~ArpHandler() {}
     bool Run();
 
@@ -129,7 +130,6 @@ private:
     bool OnVrfDelete(ArpEntry *&entry, const VrfEntry *vrf);
     uint16_t ArpHdr(const unsigned char *, in_addr_t, const unsigned char *, 
                     in_addr_t, uint16_t);
-    void SendGwArpReply();
 
     ether_arp *arp_;
     in_addr_t arp_tpa_;
@@ -138,7 +138,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(ArpHandler);
 };
 
-class ArpProto : public Proto<ArpHandler> {
+class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
     static const uint32_t kGratRetryTimeout = 2000;        // milli seconds
@@ -167,9 +167,10 @@ public:
 
     void Init(boost::asio::io_service &io, bool run_with_vrouter);
     void Shutdown();
-    ArpProto(boost::asio::io_service &io, bool run_with_vrouter);
+    ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
 
+    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
     bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
 
     bool Add(ArpKey &key, ArpEntry *ent) { return arp_cache_.Add(key, ent); }
@@ -185,11 +186,11 @@ public:
     void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
     unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
     void IPFabricIntfMac(char *mac) { 
-        memcpy(ip_fabric_intf_mac_, mac, MAC_ALEN);
+        memcpy(ip_fabric_intf_mac_, mac, ETH_ALEN);
     }
 
     ArpNHClient *GetArpNHClient() { return arp_nh_client_; }
-    boost::asio::io_service &GetIoService() { return Proto<ArpHandler>::io_; }
+    boost::asio::io_service &GetIoService() { return Proto::io_; }
 
     ArpEntry *GraciousArpEntry() { return gracious_arp_entry_; }
     void GraciousArpEntry(ArpEntry *entry) { gracious_arp_entry_ = entry; }
@@ -222,7 +223,7 @@ private:
     ArpNHClient *arp_nh_client_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_intf_index_;
-    unsigned char ip_fabric_intf_mac_[MAC_ALEN];
+    unsigned char ip_fabric_intf_mac_[ETH_ALEN];
     Interface *ip_fabric_intf_;
     ArpEntry *gracious_arp_entry_;
     DBTableBase::ListenerId vid_;
@@ -250,7 +251,7 @@ public:
              State state = ArpEntry::INITING) 
         : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
         arp_timer_(NULL) {
-        memset(mac_, 0, MAC_ALEN);
+        memset(mac_, 0, ETH_ALEN);
         arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
     }
     virtual ~ArpEntry() {
@@ -278,7 +279,7 @@ private:
     void UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved = false);
 
     ArpKey key_;
-    unsigned char mac_[MAC_ALEN];
+    unsigned char mac_[ETH_ALEN];
     State state_;
     int retry_count_;
     ArpHandler *handler_;

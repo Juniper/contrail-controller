@@ -4,6 +4,7 @@
 
 #include "test/test_setup.h"
 #include "ksync/ksync_sock_user.h"
+#include "cmn/agent_cmn.h"
 
 #include <boost/program_options.hpp>
 
@@ -31,7 +32,7 @@ static void TxIpPacket(int ifindex, const char *sip, const char *dip,
     
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
 }
 

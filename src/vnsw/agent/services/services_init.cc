@@ -31,19 +31,19 @@ ServicesModule::~ServicesModule() {
 }
 
 void ServicesModule::Init(bool run_with_vrouter) {
-    EventManager *event = Agent::GetInstance()->GetEventManager();
+    EventManager *event = agent_->GetEventManager();
     boost::asio::io_service &io = *event->io_service();
 
-    dhcp_proto_.reset(new DhcpProto(io, run_with_vrouter));
+    dhcp_proto_.reset(new DhcpProto(agent_, io, run_with_vrouter));
     agent_->SetDhcpProto(dhcp_proto_.get());
 
-    dns_proto_.reset(new DnsProto(io));
+    dns_proto_.reset(new DnsProto(agent_, io));
     agent_->SetDnsProto(dns_proto_.get());
 
-    arp_proto_.reset(new ArpProto(io, run_with_vrouter));
+    arp_proto_.reset(new ArpProto(agent_, io, run_with_vrouter));
     agent_->SetArpProto(arp_proto_.get());
 
-    icmp_proto_.reset(new IcmpProto(io));
+    icmp_proto_.reset(new IcmpProto(agent_, io));
     agent_->SetIcmpProto(icmp_proto_.get());
 
     metadata_proxy_.reset(new MetadataProxy(this, metadata_secret_key_));

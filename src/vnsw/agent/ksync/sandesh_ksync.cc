@@ -9,7 +9,7 @@
 #include <ksync/sandesh_ksync.h>
 #include <ksync/flowtable_ksync.h>
 #include <ksync/interface_ksync.h>
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 #include <oper/mirror_table.h>
 
 void vr_drop_stats_req::Process(SandeshContext *context) {
@@ -53,7 +53,7 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         key.src_port = ntohs(r->get_fr_flow_sport());
         key.dst_port = ntohs(r->get_fr_flow_dport());
         key.protocol = r->get_fr_flow_proto();
-        FlowEntry *entry = FlowTable::GetFlowTableObject()->Find(key);
+        FlowEntry *entry = Agent::GetInstance()->pkt()->flow_table()->Find(key);
         in_addr src;
         in_addr dst;
         src.s_addr = r->get_fr_flow_sip();

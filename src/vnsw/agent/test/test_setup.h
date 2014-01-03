@@ -27,8 +27,8 @@
 #include "test/pkt_gen.h"
 #include "pkt/pkt_handler.h"
 #include "pkt/pkt_init.h"
-#include "pkt/flowtable.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_table.h"
+#include "pkt/flow_proto.h"
 
 #include "xmpp/xmpp_init.h"
 #include "xmpp/test/xmpp_test_util.h"
@@ -262,7 +262,7 @@ void ReadVn(ptree &ccfg) {
 void ReadSetupFile(char *sfile) {
     string str;
     if (sfile == NULL) {
-        str = FileRead("src/vnsw/agent/test/test_setup_create.xml");
+        str = FileRead("controller/src/vnsw/agent/test/test_setup_create.xml");
     } else {
         str = FileRead(sfile);
     }

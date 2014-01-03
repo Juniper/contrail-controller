@@ -11,7 +11,7 @@
 #include <virtual_machine_types.h>
 #include <virtual_network_types.h>
 #include <vrouter_types.h>
-#include <pkt/pkt_flow.h>
+#include <pkt/flow_proto.h>
 #include <uve/flow_uve.h>
 #include <oper/interface_common.h>
 #include <uve/agent_stats.h>

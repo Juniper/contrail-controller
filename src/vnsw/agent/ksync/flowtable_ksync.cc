@@ -28,7 +28,7 @@
 #include <vr_genetlink.h>
 #include <ksync/ksync_sock_user.h>
 
-#include <pkt/pkt_flow.h>
+#include <pkt/flow_proto.h>
 #include <oper/agent_types.h>
 #include <uve/stats_collector.h>
 
@@ -481,10 +481,12 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                         vflow_entry->fe_key.key_proto,
                         ntohs(vflow_entry->fe_key.key_src_port),
                         ntohs(vflow_entry->fe_key.key_dst_port));
-            FlowEntry *flow_p = FlowTable::GetFlowTableObject()->Find(key);
+            FlowEntry *flow_p = Agent::GetInstance()->pkt()->flow_table()->
+                                Find(key);
             if (flow_p == NULL) {
                 /* Create Short flow only for non-existing flows. */
-                FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
+                FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->
+                                  Allocate(key));
                 flow->flow_handle = flow_idx;
                 flow->short_flow = true;
                 flow->data.source_vn = *FlowHandler::UnknownVn();
@@ -494,7 +496,7 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                 flow->data.dest_sg_id_l = empty_sg_id_l;
                 AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD entry "
                                 " to short flow");
-                FlowTable::GetFlowTableObject()->Add(flow.get(), NULL);
+                Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), NULL);
             }
 
         }
