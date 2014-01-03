@@ -100,9 +100,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 # optimize for common case where nothing has changed,
                 # so track the project-ids in a set add '-',
                 # keystone gives uuid without...
-                new_project_ids = set(
-                    [str(uuid.UUID(proj.id))
-                        for proj in self._kc.tenants.list()])
+                try:
+                    new_project_ids = set(
+                        [str(uuid.UUID(proj.id))
+                            for proj in self._kc.tenants.list()])
+                except Exception as e:
+                    self._kc = None
 
                 if old_project_ids == new_project_ids:
                     # no change, go back to poll
