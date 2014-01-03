@@ -22,13 +22,13 @@ int RTargetGroupMgr::rtfilter_task_id_ = -1;
 
 RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server), 
     rtarget_route_trigger_(new TaskTrigger(
-           boost::bind(&RTargetGroupMgr::ProcessRTargetRoute, this),
+           boost::bind(&RTargetGroupMgr::ProcessRTargetRouteList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     unreg_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::UnregisterTables, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
     rtarget_dep_trigger_(new TaskTrigger(
-           boost::bind(&RTargetGroupMgr::TriggerRTargetDepRoute, this),
+           boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)) {
 
     if (rtfilter_task_id_ == -1) {
@@ -238,10 +238,10 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
     RTargetPeerSync(table, rt, id, dbstate, peer_list);
 }
 
-bool RTargetGroupMgr::TriggerRTargetDepRoute() {
+bool RTargetGroupMgr::ProcessRouteTargetList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
-    for (RTargetTriggerList::iterator it = rtarget_trigger_list_.begin(), 
+    for (RouteTargetTriggerList::iterator it = rtarget_trigger_list_.begin(), 
          itnext; it != rtarget_trigger_list_.end(); it = itnext) {
         itnext = it;
         itnext++;
@@ -253,9 +253,8 @@ bool RTargetGroupMgr::TriggerRTargetDepRoute() {
                  dep_rt_list.begin(); dep_it != dep_rt_list.end(); dep_it++) {
                 for (RtGroup::RouteList::const_iterator dep_rt_it = 
                      dep_it->begin(); dep_rt_it != dep_it->end(); dep_rt_it++) {
-                    DBTableBase *table = (*dep_rt_it)->get_table();
                     DBTablePartBase *partition = 
-                        table->GetTablePartition(*dep_rt_it);
+                        (*dep_rt_it)->get_table_partition();
                     partition->Notify(*dep_rt_it);
                 }
             }
@@ -265,7 +264,7 @@ bool RTargetGroupMgr::TriggerRTargetDepRoute() {
     return true;
 }
 
-bool RTargetGroupMgr::ProcessRTargetRoute() {
+bool RTargetGroupMgr::ProcessRTargetRouteList() {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
     RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
@@ -274,19 +273,13 @@ bool RTargetGroupMgr::ProcessRTargetRoute() {
     BgpTable *table = master->GetTable(Address::RTARGET);
 
     // Get the Listener id
-    RtGroupMgrTableStateList::iterator loc = table_state_.find(table);
-    assert(loc != table_state_.end());
-    RtGroupMgrTableState *ts = loc->second;
-    DBTableBase::ListenerId id = ts->GetListenerId();
-    assert(id != DBTableBase::kInvalidId);
+    DBTableBase::ListenerId id = GetListenerId(table);
 
-    for (RTargetRouteProcessList::iterator it = rtarget_route_list_.begin(), 
-         itnext; it != rtarget_route_list_.end(); it = itnext) {
-        itnext = it;
-        itnext++;
+    for (RTargetRouteTriggerList::iterator it = rtarget_route_list_.begin(); 
+         it != rtarget_route_list_.end(); it++)
         BuildRTargetDistributionGraph(table, *it, id);
-        rtarget_route_list_.erase(it);
-    }
+
+    rtarget_route_list_.clear();
 
     if (rtarget_trigger_list_.size())
         rtarget_dep_trigger_->Set();
@@ -387,16 +380,21 @@ RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
     }
 }
 
-bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
-                                     DBEntryBase *entry) {
-    BgpTable *table = static_cast<BgpTable *>(root->parent());
-    BgpRoute *rt = static_cast<BgpRoute *>(entry);
-    // Get the Listener id
+DBTableBase::ListenerId RTargetGroupMgr::GetListenerId(BgpTable *table) {
     RtGroupMgrTableStateList::iterator loc = table_state_.find(table);
     assert(loc != table_state_.end());
     RtGroupMgrTableState *ts = loc->second;
     DBTableBase::ListenerId id = ts->GetListenerId();
     assert(id != DBTableBase::kInvalidId);
+    return id;
+}
+
+bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
+                                     DBEntryBase *entry) {
+    BgpTable *table = static_cast<BgpTable *>(root->parent());
+    BgpRoute *rt = static_cast<BgpRoute *>(entry);
+    // Get the Listener id
+    DBTableBase::ListenerId id = GetListenerId(table);
 
     // Get the dbstate
     VpnRouteState *dbstate = 
@@ -440,11 +438,7 @@ bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
     BgpTable *table = static_cast<BgpTable *>(root->parent());
     RTargetRoute *rt = static_cast<RTargetRoute *>(entry);
     // Get the Listener id
-    RtGroupMgrTableStateList::iterator loc = table_state_.find(table);
-    assert(loc != table_state_.end());
-    RtGroupMgrTableState *ts = loc->second;
-    DBTableBase::ListenerId id = ts->GetListenerId();
-    assert(id != DBTableBase::kInvalidId);
+    DBTableBase::ListenerId id = GetListenerId(table);
 
     // Get the dbstate
     RTargetState *dbstate = 
@@ -468,6 +462,7 @@ RTargetGroupMgr::~RTargetGroupMgr() {
 
 // Search a RtGroup
 RtGroup *RTargetGroupMgr::GetRtGroup(const RouteTarget &rt) {
+    tbb::mutex::scoped_lock lock(mutex_);
     RtGroupMap::iterator loc = rt_group_map_.find(rt);
     if (loc != rt_group_map_.end()) {
         return loc->second;
@@ -483,7 +478,9 @@ RtGroup *RTargetGroupMgr::GetRtGroup(const ExtCommunity::ExtCommunityValue
 }
 
 RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
-    RtGroup *group = GetRtGroup(rt);
+    tbb::mutex::scoped_lock lock(mutex_);
+    RtGroupMap::iterator loc = rt_group_map_.find(rt);
+    RtGroup *group = (loc != rt_group_map_.end()) ? loc->second : NULL;
     if (group == NULL) {
         group = new RtGroup(rt);
         rt_group_map_.insert(rt, group);
@@ -492,7 +489,9 @@ RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
 }
 
 void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
-    RtGroup *rtgroup = GetRtGroup(rt);
+    tbb::mutex::scoped_lock lock(mutex_);
+    RtGroupMap::iterator loc = rt_group_map_.find(rt);
+    RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
     if (rtgroup->empty(Address::INETVPN) && rtgroup->empty(Address::EVPN) && 
         rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
         rt_group_map_.erase(rt);

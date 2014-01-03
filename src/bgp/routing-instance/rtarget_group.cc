@@ -26,27 +26,23 @@ const RtGroup::RtGroupMemberList &RtGroup::GetExportTables(Address::Family famil
 
 bool RtGroup::AddImportTable(Address::Family family, BgpTable *tbl) {
     bool first = import_[family].empty();
-    import_[family].push_back(tbl);
-    import_[family].sort();
-    import_[family].unique();
+    import_[family].insert(tbl);
     return first;
 }
 
 bool RtGroup::AddExportTable(Address::Family family, BgpTable *tbl) {
     bool first = export_[family].empty();
-    export_[family].push_back(tbl);
-    export_[family].sort();
-    export_[family].unique();
+    export_[family].insert(tbl);
     return first;
 }
 
 bool RtGroup::RemoveImportTable(Address::Family family, BgpTable *tbl) {
-    import_[family].remove(tbl);
+    import_[family].erase(tbl);
     return import_[family].empty();
 }
 
 bool RtGroup::RemoveExportTable(Address::Family family, BgpTable *tbl) {
-    export_[family].remove(tbl);
+    export_[family].erase(tbl);
     return export_[family].empty();
 }
 
@@ -59,23 +55,24 @@ const RouteTarget &RtGroup::rt() {
 }
 
 void RtGroup::AddDepRoute(int part_id, BgpRoute *rt) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     dep_[part_id].insert(rt);
 }
 
 void RtGroup::RemoveDepRoute(int part_id, BgpRoute *rt) {
+    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     dep_[part_id].erase(rt);
 }
 
-bool RtGroup::RouteDepListEmpty() const {
-    bool empty = true;
+bool RtGroup::RouteDepListEmpty() {
+    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (RtGroup::RTargetDepRouteList::const_iterator it = dep_.begin(); 
          it != dep_.end(); it++) {
         if (!it->empty()) {
-            empty = false;
-            break;
+            return false;
         }
     }
-    return empty;
+    return true;
 }
 
 const RtGroup::InterestedPeerList &RtGroup::PeerList() const {
@@ -83,10 +80,7 @@ const RtGroup::InterestedPeerList &RtGroup::PeerList() const {
 }
 
 bool RtGroup::IsPeerInterested(const BgpPeer *peer) const {
-    bool interested = false;
-    RtGroup::InterestedPeerList::const_iterator it = peer_list_.find(peer);
-    if (it != peer_list_.end()) interested = true;
-    return interested;
+    return (peer_list_.find(peer) != peer_list_.end());
 }
 
 void RtGroup::GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const {

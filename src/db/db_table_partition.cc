@@ -81,7 +81,7 @@ void DBTablePartition::Add(DBEntry *entry) {
     tbb::mutex::scoped_lock lock(mutex_);
     std::pair<Tree::iterator, bool> ret = tree_.insert(*entry);
     assert(ret.second);
-    entry->set_table(static_cast<DBTableBase *>(table()));
+    entry->set_table_partition(static_cast<DBTablePartBase *>(this));
     Notify(entry);
 }
 

@@ -260,8 +260,8 @@ void RoutePathReplicator::Leave(BgpTable *table, const RouteTarget &rt,
                                          BgpConfigManager::kMasterInstance);
         if (master) {
             BgpTable *vpntable = master->GetTable(family());
-            if ((vpntable == group->GetExportTables(family()).front()) &&
-                (vpntable == group->GetImportTables(family()).front())) {
+            if ((vpntable == *(group->GetExportTables(family()).begin())) &&
+                (vpntable == *(group->GetImportTables(family()).begin()))) {
                 // Delete the group if last vrf inet table left the RT
                 RouteReplicatorTableState::iterator loc = 
                     table_state_.find(vpntable);
@@ -456,17 +456,12 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
                     server()->rtarget_group_mgr()->GetRtGroup(comm);
                 if (!rtgroup)
                     continue;
-                super_set.insert(super_set.end(), 
-                                 rtgroup->GetImportTables(family()).begin(),
+                super_set.insert(rtgroup->GetImportTables(family()).begin(),
                                  rtgroup->GetImportTables(family()).end());
             }
         }
 
         if (super_set.empty()) continue;
-
-        // Duplicate tables to be removed
-        super_set.sort();
-        super_set.unique();
 
         // To all destination tables.. call replicate
         BOOST_FOREACH(BgpTable *dest, super_set) {
