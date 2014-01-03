@@ -187,6 +187,7 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
                     }
                 }
             }
+            if (new_peerset.empty()) return NULL;
         }
 
         if (ribout->peer_type() == BgpProto::IBGP) {

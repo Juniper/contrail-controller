@@ -5,9 +5,10 @@
 #ifndef ctrlplane_rtarget_group_h
 #define ctrlplane_rtarget_group_h
 
-#include <list>
 #include <set>
 #include <vector>
+
+#include <tbb/spin_rw_mutex.h>
 
 #include "bgp/bgp_table.h"
 #include "bgp/rtarget/rtarget_address.h"
@@ -22,7 +23,7 @@ class RTargetRoute;
 
 class RtGroup {
 public:
-    typedef std::list<BgpTable *> RtGroupMemberList;
+    typedef std::set<BgpTable *> RtGroupMemberList;
     typedef std::map<Address::Family, RtGroupMemberList> RtGroupMembers;
     typedef std::set<BgpRoute *> RouteList;
     typedef std::vector<RouteList> RTargetDepRouteList;
@@ -44,7 +45,7 @@ public:
 
     void AddDepRoute(int part_id, BgpRoute *rt);
     void RemoveDepRoute(int part_id, BgpRoute *rt);
-    bool RouteDepListEmpty() const;
+    bool RouteDepListEmpty();
     const RTargetDepRouteList &DepRouteList() const;
 
     const InterestedPeerList &PeerList() const;
@@ -58,6 +59,8 @@ private:
     RtGroupMembers import_;
     RtGroupMembers export_;
     RouteTarget rt_;
+    // Mutex for route dep list
+    tbb::spin_rw_mutex rw_mutex_;
     RTargetDepRouteList dep_;
     InterestedPeerList peer_list_;
     DISALLOW_COPY_AND_ASSIGN(RtGroup);

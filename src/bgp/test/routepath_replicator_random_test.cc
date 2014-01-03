@@ -479,8 +479,7 @@ protected:
                 RtGroup *rtgroup = 
                     server->rtarget_group_mgr()->GetRtGroup(comm);
                 if (rtgroup) {
-                    super_set.insert(super_set.end(), 
-                                     rtgroup->GetImportTables(replicator->family()).begin(),
+                    super_set.insert(rtgroup->GetImportTables(replicator->family()).begin(),
                                      rtgroup->GetImportTables(replicator->family()).end());
                 }
             }
@@ -489,10 +488,6 @@ protected:
                 assert(!dbstate);
                 continue;
             }
-
-            // Duplicate tables to be removed
-            super_set.sort();
-            super_set.unique();
 
             set<string> replicated_routes;
             BOOST_FOREACH(BgpTable *dest, super_set) {

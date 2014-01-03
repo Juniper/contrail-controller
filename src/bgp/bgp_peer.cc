@@ -246,19 +246,7 @@ void BgpPeer::SendEndOfRIB(Address::Family family) {
     BgpProto::Update update;
     uint16_t afi;
     uint8_t safi;
-    if (family == Address::INETVPN) {
-        afi = BgpAf::IPv4;
-        safi = BgpAf::Vpn;
-    } else if (family == Address::EVPN) {
-        afi = BgpAf::L2Vpn;
-        safi = BgpAf::EVpn;
-    } else if (family == Address::INET) {
-        afi = BgpAf::IPv4;
-        safi= BgpAf::Unicast;
-    } else if (family == Address::RTARGET) {
-        afi = BgpAf::IPv4;
-        safi = BgpAf::RTFilter;
-    }
+    BgpAf::FamilyToAfiSafi(family, afi, safi);
     BgpMpNlri *nlri = new BgpMpNlri(BgpAttribute::MPUnreachNlri, afi, safi);
     update.path_attributes.push_back(nlri);
     uint8_t data[256];
@@ -469,7 +457,7 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
         return MpNlriAllowed(BgpAf::IPv4, BgpAf::Vpn);
         break;
     case Address::RTARGET:
-        return MpNlriAllowed(BgpAf::IPv4, BgpAf::RTFilter);
+        return MpNlriAllowed(BgpAf::IPv4, BgpAf::RTarget);
         break;
     case Address::EVPN:
         return MpNlriAllowed(BgpAf::L2Vpn, BgpAf::EVpn);
@@ -636,7 +624,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
         { 0, BgpAf::IPv4,  0, BgpAf::Unicast },
         { 0, BgpAf::IPv4,  0, BgpAf::Vpn },
         { 0, BgpAf::L2Vpn, 0, BgpAf::EVpn },
-        { 0, BgpAf::IPv4,  0, BgpAf::RTFilter },
+        { 0, BgpAf::IPv4,  0, BgpAf::RTarget },
     };
 
     BgpProto::OpenMessage::OptParam *opt_param =
@@ -991,7 +979,7 @@ void BgpPeer::ProcessUpdate(const BgpProto::Update *msg) {
                 DBRequest req;
                 req.oper = oper;
                 if (oper == DBRequest::DB_ENTRY_ADD_CHANGE)
-                    req.data.reset(new InetTable::RequestData(attr, flags, 0));
+                    req.data.reset(new RTargetTable::RequestData(attr, flags, 0));
                 RTargetPrefix prefix = RTargetPrefix(**it);
                 req.key.reset(new RTargetTable::RequestKey(prefix, this));
                 table->Enqueue(&req);
@@ -1203,7 +1191,7 @@ BgpAttrPtr BgpPeer::GetMpNlriNexthop(BgpMpNlri *nlri, BgpAttrPtr attr) {
     Ip4Address::bytes_type bt = { { 0 } };
 
     if (nlri->afi == BgpAf::IPv4) {
-        if (nlri->safi == BgpAf::Unicast || nlri->safi == BgpAf::RTFilter) {
+        if (nlri->safi == BgpAf::Unicast || nlri->safi == BgpAf::RTarget) {
             std::copy(nlri->nexthop.begin(), nlri->nexthop.end(),
                       bt.begin());
             update_nh = true;

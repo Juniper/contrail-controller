@@ -96,6 +96,7 @@ int BgpPath::PathCompare(const BgpPath &rhs, bool allow_ecmp) const {
     // based on IPeer properties.
     if (peer_ == NULL && rhs.peer_ == NULL) {
         KEY_COMPARE(path_id_, rhs.path_id_);
+        return 0;
     }
 
     // Prefer xmpp routes over bgp routes.

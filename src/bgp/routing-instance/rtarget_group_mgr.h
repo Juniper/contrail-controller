@@ -10,6 +10,8 @@
 #include <base/queue_task.h>
 #include <base/lifetime.h>
 
+#include <tbb/mutex.h>
+
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
@@ -89,8 +91,8 @@ public:
     typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
     typedef std::map<BgpTable *, 
             RtGroupMgrTableState *> RtGroupMgrTableStateList;
-    typedef std::set<RTargetRoute *> RTargetRouteProcessList;
-    typedef std::set<RouteTarget> RTargetTriggerList;
+    typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
+    typedef std::set<RouteTarget> RouteTargetTriggerList;
 
     RTargetGroupMgr(BgpServer *);
     virtual ~RTargetGroupMgr();
@@ -102,21 +104,9 @@ public:
     RtGroupMap &GetRtGroupMap() { return rt_group_map_; }
     void RemoveRtGroup(const RouteTarget &rt);
 
-    BgpServer *server() { return server_; }
-
-    void RoutingInstanceCallback(std::string name, int op);
-
-    bool ProcessRTargetRoute();
-    bool TriggerRTargetDepRoute();
-    bool UnregisterTables();
-
-    bool VpnRouteNotify(DBTablePartBase *root,
-                        DBEntryBase *entry);
-
-    bool RTargetRouteNotify(DBTablePartBase *root,
-                            DBEntryBase *entry);
-
-
+    void Enqueue(RtGroupMgrReq *req);
+private:
+    static int rtfilter_task_id_;
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                        DBTableBase::ListenerId id, VpnRouteState *dbstate,
                        VpnRouteState::RTargetList &current);
@@ -128,19 +118,33 @@ public:
     void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt, 
                                        DBTableBase::ListenerId id);
 
-    void Enqueue(RtGroupMgrReq *req);
+    BgpServer *server() { return server_; }
+
+    void RoutingInstanceCallback(std::string name, int op);
+
+    bool ProcessRTargetRouteList();
+    bool ProcessRouteTargetList();
+    bool UnregisterTables();
+
+    bool VpnRouteNotify(DBTablePartBase *root,
+                        DBEntryBase *entry);
+
+    bool RTargetRouteNotify(DBTablePartBase *root,
+                            DBEntryBase *entry);
+
     bool RequestHandler(RtGroupMgrReq *req);
 
-private:
-    static int rtfilter_task_id_;
+    DBTableBase::ListenerId GetListenerId(BgpTable *table);
+
     BgpServer *server_;
+    tbb::mutex mutex_;
     RtGroupMap rt_group_map_;
     RtGroupMgrTableStateList table_state_;
     boost::scoped_ptr<TaskTrigger> rtarget_route_trigger_;
     boost::scoped_ptr<TaskTrigger> unreg_trigger_;
     boost::scoped_ptr<TaskTrigger> rtarget_dep_trigger_;
-    RTargetRouteProcessList rtarget_route_list_;
-    RTargetTriggerList rtarget_trigger_list_;
+    RTargetRouteTriggerList rtarget_route_list_;
+    RouteTargetTriggerList rtarget_trigger_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
     int id_;
 };

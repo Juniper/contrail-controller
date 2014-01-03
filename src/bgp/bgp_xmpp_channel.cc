@@ -424,7 +424,7 @@ void BgpXmppChannel::RTargetRouteOp(BgpTable *rtarget_table,
                                     const RouteTarget &rtarget, BgpAttrPtr attr,
                                     bool add_change) {
     DBRequest req;
-    RTargetPrefix rt_prefix( bgp_server_->autonomous_system(), rtarget);
+    RTargetPrefix rt_prefix(bgp_server_->autonomous_system(), rtarget);
     req.key.reset(new RTargetTable::RequestKey(rt_prefix, Peer()));
     if (add_change) {
         req.data.reset(new RTargetTable::RequestData(attr, 0, 0));

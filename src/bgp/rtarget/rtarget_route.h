@@ -38,7 +38,7 @@ public:
     }
 
     virtual u_int16_t Afi() const { return BgpAf::IPv4; }
-    virtual u_int8_t Safi() const { return BgpAf::RTFilter; }
+    virtual u_int8_t Safi() const { return BgpAf::RTarget; }
 
 private:
     RTargetPrefix prefix_;

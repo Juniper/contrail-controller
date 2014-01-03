@@ -22,13 +22,15 @@ public:
         McastVpn = 5,
         EVpn = 70,
         Vpn = 128,
-        RTFilter = 132,
+        RTarget = 132,
         Mcast = 241,
         Enet = 242,
     };
 
     static std::string ToString(uint8_t afi, uint16_t safi);
     static Address::Family AfiSafiToFamily(uint8_t afi, uint8_t safi);
+    static void FamilyToAfiSafi(Address::Family fmly, uint16_t &afi, 
+                                uint8_t &safi);
 };
 
 #endif

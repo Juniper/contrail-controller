@@ -492,7 +492,6 @@ void RoutingInstance::ProcessConfig(BgpServer *server) {
         RTINSTANCE_LOG_TABLE(Create, this, table_inet,
             SandeshLevel::SYS_DEBUG, RTINSTANCE_LOG_FLAG_ALL);
 
-
         RoutePathReplicator *inetvpn_replicator =
             server->replicator(Address::INETVPN);
         BOOST_FOREACH(RouteTarget rt, import_) {
