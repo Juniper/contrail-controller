@@ -359,6 +359,25 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_CATEGORY, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MESSAGE_TYPE, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_TIMESTAMP, header, message_type, vmsgp->unm);
+    /*
+     * Insert the message types in the stat table
+     * Construct the atttributes,attrib_tags beofore inserting
+     * to the StatTableInsert
+     */
+    DbHandler::TagMap tmap;
+    DbHandler::AttribMap amap;
+    string sname;
+    DbHandler::Var pv;
+    DbHandler::AttribMap attribs;
+    pv = string("Messagetype");
+    tmap.insert(make_pair("name", make_pair(pv, amap)));
+    attribs.insert(make_pair(string("name"), pv));
+    string sattrname("fields.value");
+    pv = string(message_type);
+    tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
+    attribs.insert(make_pair(sattrname,pv));
+    StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
+
 }
 
 void DbHandler::GetRuleMap(RuleMap& rulemap) {
@@ -446,7 +465,14 @@ void DbHandler::StatTableInsert(uint64_t ts,
     uint64_t temp_u64 = ts;
     uint32_t temp_u32 = temp_u64 >> g_viz_constants.RowTimeInBits;
     rand_mutex_.lock();
-    boost::uuids::uuid unm(umn_gen_());
+    boost::uuids::uuid unm;
+    if (statName.compare("FieldNames") == 0) {
+         //the unm should be fff.. for all UUID
+         boost::uuids::string_generator gen;
+	 unm = gen(std::string("ffffffffffffffffffffffffffffffff"));
+    } else {
+         unm = umn_gen_();
+    }
     rand_mutex_.unlock();
 
     // This is very primitive JSON encoding.
@@ -519,9 +545,14 @@ void DbHandler::StatTableInsert(uint64_t ts,
             GenDb::DbDataValueVec col_name;
             col_name.push_back(pv);
             col_name.push_back(string());
-            col_name.push_back((uint32_t)(temp_u64& g_viz_constants.RowTimeInMask));
+            if ( statName.compare("FieldNames") != 0) {
+                col_name.push_back((uint32_t)(temp_u64& g_viz_constants.RowTimeInMask));
+            } else {
+		//Make t2 0 for 
+                col_name.push_back((uint32_t)0);
+            }
+	    
             col_name.push_back(unm);
-
             GenDb::DbDataValueVec col_value;
             col_value.push_back(jsonline);
 
