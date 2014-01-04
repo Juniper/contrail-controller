@@ -20,10 +20,9 @@
 #include "bgp/bgp_route.h"
 #include "bgp/community.h"
 #include "bgp/routing-instance/rtarget_group.h"
+#include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/rtarget/rtarget_address.h"
 #include "db/db_table_partition.h"
-
-#include "bgp/routing-instance/rtarget_group_types.h"
 
 class BgpServer;
 class RTargetRoute;
@@ -43,6 +42,7 @@ public:
 private:
     DBTableBase::ListenerId id_;
     LifetimeRef<RtGroupMgrTableState> table_delete_ref_;
+
     DISALLOW_COPY_AND_ASSIGN(RtGroupMgrTableState);
 };
 
@@ -56,6 +56,7 @@ public:
     RTargetList *GetMutableList() {
         return &list_;
     }
+
 private:
     RTargetList list_;
 };
@@ -69,6 +70,7 @@ public:
     RtGroup::InterestedPeerList *GetMutableList() {
         return &list_;
     }
+
 private:
     RtGroup::InterestedPeerList list_;
 };
@@ -83,9 +85,68 @@ struct RtGroupMgrReq {
     }
     RequestType type_;
     SandeshResponse *snh_resp_;
+
     DISALLOW_COPY_AND_ASSIGN(RtGroupMgrReq);
 };
 
+//
+// This class implements the core logic required to construct and update the
+// policy for RouteTarget based constrained distribution of BGP VPN routes.
+// This policy is applied when exporting BgpRoutes from VPN tables such as
+// bgp.l3vpn.0 and bgp.evpn.0.
+//
+// The RtGroupMap keeps track of all RtGroups using a map of RouteTarget to
+// RtGroup pointers. A RtGroup is created the first time it's needed. There
+// are 3 possible triggers:
+//
+// 1. RoutePathReplicator needs to associate BgpTables with the RouteTarget.
+// 2. A VPN BgpRoute with the RouteTarget as one of it's targets is received.
+// 3. A RTargetRoute for the RouteTarget is received.
+//
+// The RTargetGroupMgr registers as a listener for all VPN tables so that it
+// can maintain the list of the dependent VPN routes for a given RouteTarget.
+// The actual dependency is maintained in the associated RtGroup object based
+// on APIs invoked from the RTargetGroupMgr.
+//
+// The RTargetGroupMgr sets VPNRouteState on dependent VPN BgpRoutes.  This
+// VPNRouteState is simply a list of the current RouteTargets that we have
+// seen and processed for the BgpRoute. When the RouteTargets for a BgpRoute
+// get updated, the VPNRouteState is used to update the appropriate RtGroups
+// list of dependent VPN routes.
+//
+// The VPNRouteState and the list of dependent VPN BgpRoutes are updated from
+// the context of the db::DBTable task i.e. when processing notification for a
+// VPN BgpRoute.
+//
+// The RTargetGroupMgr also registers as a listener for bgp.rtarget.0 so that
+// it can maintain the list of interested peers for a given RouteTarget.  The
+// actual dependency is maintained in the associated RtGroup object based on
+// APIs invoked from the RTargetGroupMgr.
+//
+// The RTargetGroupMgr sets RTargetState on RTargetRoutes. This RTargetState
+// is the current InterestedPeerList that we have seen and processed for the
+// RTargetRoute.  When a BgpPath is added or deleted for a RTargetRoute the
+// RTargetState is used to update the appropriate RtGroups InterestedPeerList.
+//
+// The RTargetState and the InterestedPeerList are not updated directly from
+// the context of the db::DBTable task.  Instead, the RTargetRoute is added
+// to the RTargetRouteTriggerList. The RTargetRouteTriggerList keeps track of
+// RTargetRoutes that need to be processed and is evaluated from context of
+// bgp::RTFilter task. This lets us absorb multiple changes to a RTargetRoute
+// in one shot.  Since the bgp::RTFilter task is mutually exclusive with the
+// db::DBTable task, this also prevents any concurrency issues wherein the
+// BgpExport::Export method for the VPN tables accesses the InterestedPeerList
+// for an RtGroups while it's being modified on account of changes to the
+// RTargetRoute.
+//
+// When a RTargetRoute in the RTargetRouteTriggerList is processed, we figure
+// out if InterestedPeerList has changed.  If so, the RouteTarget in question
+// is added to the RouteTargetTriggerList.  The RouteTargetTriggerList keeps
+// track of RouteTargets whose dependent BgpRoutes need to be re-evaluated. It
+// gets processed in the context of the bgp::RTFilter task.  Since we do not
+// allow more than 1 bgp::RTFilter task to run at the same time, this ensures
+// that the RouteTargetTriggerList is not modified while it's being processed.
+//
 class RTargetGroupMgr {
 public:
     typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
@@ -105,15 +166,16 @@ public:
     void RemoveRtGroup(const RouteTarget &rt);
 
     void Enqueue(RtGroupMgrReq *req);
+
 private:
     static int rtfilter_task_id_;
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
-                       DBTableBase::ListenerId id, VpnRouteState *dbstate,
-                       VpnRouteState::RTargetList &current);
+                        DBTableBase::ListenerId id, VpnRouteState *dbstate,
+                        VpnRouteState::RTargetList &current);
 
     void RTargetPeerSync(BgpTable *table, RTargetRoute *rt, 
-                       DBTableBase::ListenerId id, RTargetState *dbstate,
-                       RtGroup::InterestedPeerList &current);
+                         DBTableBase::ListenerId id, RTargetState *dbstate,
+                         RtGroup::InterestedPeerList &current);
 
     void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt, 
                                        DBTableBase::ListenerId id);
@@ -147,5 +209,8 @@ private:
     RouteTargetTriggerList rtarget_trigger_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
     int id_;
+
+    DISALLOW_COPY_AND_ASSIGN(RTargetGroupMgr);
 };
+
 #endif
