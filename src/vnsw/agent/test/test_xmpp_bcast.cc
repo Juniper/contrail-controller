@@ -616,7 +616,7 @@ protected:
         // 2 VM route + subscribe + l2 bcast route
         WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 5));
 
-        EXPECT_TRUE(VmPortActive(input, 0));
+        EXPECT_TRUE(VmPortL2Active(input, 0));
         struct ether_addr *local_vm_mac;
         local_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
         memcpy (local_vm_mac, ether_aton("00:00:00:01:01:01"), 
@@ -630,7 +630,7 @@ protected:
         client->WaitForIdle();
         WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 1));
 
-        EXPECT_TRUE(VmPortActive(input, 1));
+        EXPECT_TRUE(VmPortL2Active(input, 1));
         struct ether_addr *local_vm_mac_2;
         local_vm_mac_2 = (struct ether_addr *)malloc(sizeof(struct ether_addr));
         memcpy (local_vm_mac_2, ether_aton("00:00:00:02:02:02"), 

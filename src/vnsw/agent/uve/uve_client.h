@@ -23,7 +23,8 @@ class VmStatData;
 class UveState :public DBState {
     bool seen_;
 public:
-    bool vmport_active_;
+    bool vmport_l2_active_;
+    bool vmport_l3_active_;
     std::string vm_name_;
     std::string vn_name_;
 };

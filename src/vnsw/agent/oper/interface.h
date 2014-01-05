@@ -89,7 +89,8 @@ public:
     const boost::uuids::uuid &GetUuid() const {return uuid_;}
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
-    bool active() const {return active_;}
+    bool l3_active() const {return l3_active_;}
+    bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
     bool dhcp_enabled() const {return dhcp_enabled_;}
     bool dns_enabled() const {return dns_enabled_;}
@@ -109,7 +110,8 @@ protected:
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
-    bool active_;
+    bool l3_active_;
+    bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;
     bool dns_enabled_;
@@ -234,7 +236,7 @@ public:
     OperDB *operdb() const { return operdb_; }
 
 private:
-    bool VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    bool L2VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VmInterfaceWalkDone(DBTableBase *partition);
 
     static InterfaceTable *interface_table_;

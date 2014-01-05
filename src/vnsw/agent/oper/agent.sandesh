@@ -58,6 +58,7 @@ struct ItfSandeshData {
    25: i32 l2_label;
    26: i32 vxlan_id;
    27: list<StaticRouteSandesh> static_route_list; //Static route list
+   28: string l2_active;
 }
 
 struct VnIpamData {

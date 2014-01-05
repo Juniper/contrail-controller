@@ -208,7 +208,7 @@ private:
     void AddVmInterfaceInFloodGroup(const std::string &vrf_name, const uuid &itf_uuid, 
                                     const VnEntry *vn);
     void AddVmInterfaceInSubnet(const std::string &vrf_name, const Ip4Address &addr, 
-                                const uuid &itf_uuid, const string &vn_name);
+                                const uuid &itf_uuid, const VnEntry *vn);
 
     //Unresolved VM list, waiting on ipam for subnet broadcast
     void VisitUnresolvedVMList(const VnEntry *vn);

@@ -625,7 +625,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
     }
 
     in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
-    if (in->intf_ == NULL || in->intf_->active() == false) {
+    if (in->intf_ == NULL || in->intf_->l3_active() == false) {
         LogError(pkt, "Invalid or Inactive ifindex");
         return false;
     }

@@ -426,6 +426,20 @@ bool VmPortFind(PortInfo *input, int id) {
     return VmPortFind(input[id].intf_id);
 }
 
+bool VmPortL2Active(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->l2_active() == true);
+}
+
+bool VmPortL2Active(PortInfo *input, int id) {
+    return VmPortL2Active(input[id].intf_id);
+}
+
 bool VmPortActive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
@@ -433,7 +447,7 @@ bool VmPortActive(int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->active() == true);
+    return (intf->l3_active() == true);
 }
 
 bool VmPortActive(PortInfo *input, int id) {
@@ -624,13 +638,33 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
     return false;
 }
 
+bool VmPortL2Inactive(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+    return (intf->l2_active() == false);
+}
+
+bool VmPortL2Inactive(PortInfo *input, int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
+                       input[id].name);
+    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->l2_active() == false);
+}
+
 bool VmPortInactive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
-    return (intf->active() == false);
+    return (intf->l3_active() == false);
 }
 
 bool VmPortInactive(PortInfo *input, int id) {
@@ -641,7 +675,7 @@ bool VmPortInactive(PortInfo *input, int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->active() == false);
+    return (intf->l3_active() == false);
 }
 
 PhysicalInterface *EthInterfaceGet(const char *name) {
@@ -1133,6 +1167,17 @@ void AddVrf(const char *name, int id) {
 
 void DelVrf(const char *name) {
     DelNode("routing-instance", name);
+}
+
+void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <network-id>" << id << "</network-id>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>" << fw_mode << "</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+
+    AddNode("virtual-network", name.c_str(), id, str.str().c_str());
 }
 
 void AddL2Vn(const char *name, int id) {

@@ -75,7 +75,8 @@ private:
     bool policy_enabled_;
     string analyzer_name_;
     Interface::MirrorDirection mirror_direction_;
-    bool active_;
+    bool l3_active_;
+    bool l2_active_;
     size_t os_index_;
     int network_id_;
     InetInterface::SubType sub_type_;

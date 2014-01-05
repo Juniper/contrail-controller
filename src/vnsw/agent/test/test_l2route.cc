@@ -173,7 +173,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     CreateL2VmportEnv(input, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(VmPortL2Active(input, 0));
     MulticastGroupObject *obj = 
         MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
     EXPECT_TRUE(obj != NULL);
@@ -295,6 +295,8 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetLabel() == 1);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
+    Inet4UnicastRouteEntry *inet_rt = RouteGet(vrf_name_, local_vm_ip_, 32);
+    EXPECT_TRUE(inet_rt->GetActivePath()->GetLabel() != MplsTable::kInvalidLabel);
 
     vxlan_vm_mac = ether_aton("00:00:02:02:02:22");
     TunnelType::TypeBmap bmap;

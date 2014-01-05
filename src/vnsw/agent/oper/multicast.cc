@@ -311,7 +311,8 @@ void MulticastHandler::VisitUnresolvedVMList(const VnEntry *vn)
         vm_itf = (*it_itf);
         intf = static_cast<const Interface *>(vm_itf);
 
-        if ((vm_itf == NULL) || (intf->active() != true)) {
+        if ((vm_itf == NULL) || ((intf->l3_active() != true) &&
+                                 (intf->l2_active() != true))) {
             //Delete vm itf
             it_itf++;
             continue;
@@ -325,8 +326,7 @@ void MulticastHandler::VisitUnresolvedVMList(const VnEntry *vn)
                                    (*it).plen)) {
                     this->AddVmInterfaceInSubnet(vm_itf->vrf()->GetName(),
                                   GetSubnetBroadcastAddress(vm_itf->ip_addr(),
-                                  (*it).plen), vm_itf->GetUuid(),
-                                  vn->GetName());
+                                  (*it).plen), vm_itf->GetUuid(), vn);
                 }
             }
         }
@@ -370,8 +370,7 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
 
     for (std::set<MulticastGroupObject *>::iterator it =
          MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
-         it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); 
-         it++) {
+         it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); it++) {
         if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
             (*it)->SetLayer2Forwarding(new_layer2_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
@@ -390,6 +389,7 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
                                         Agent::GetInstance()->GetLocalVmPeer(), 
                                         (*it)->GetVrfName(), 
                                         (*it)->GetGroupAddress(), 32);
+                continue;
             }
         }
         if ((*it)->IsMultiProtoSupported() && 
@@ -437,7 +437,8 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
         return;
     }
 
-    if (intf->IsDeleted() || intf->active() == false) {
+    if (intf->IsDeleted() || ((intf->l3_active() == false) &&
+                             (intf->l2_active() == false))) {
         MulticastHandler::GetInstance()->DeleteVmInterface(intf);
         return;
     }
@@ -464,7 +465,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
                                   vm_itf->vrf()->GetName(),
                                   GetSubnetBroadcastAddress(vm_itf->ip_addr(),
                                   (*it).plen), vm_itf->GetUuid(),
-                                  vm_itf->vn()->GetName());
+                                  vm_itf->vn());
                 break;
             }
         }
@@ -715,8 +716,7 @@ void MulticastHandler::TriggerL3CompositeNHChange(MulticastGroupObject *obj)
     data.push_back(fabric_nh_data);
     for (std::list<uuid>::const_iterator it = obj->GetLocalOlist().begin();
          it != obj->GetLocalOlist().end(); it++) {
-        ComponentNHData nh_data(0, (*it), InterfaceNHFlags::INET4 |
-                                InterfaceNHFlags::MULTICAST);
+        ComponentNHData nh_data(0, (*it), InterfaceNHFlags::MULTICAST);
         data.push_back(nh_data);
     }
 
@@ -794,10 +794,11 @@ void MulticastHandler::AddVmInterfaceInFloodGroup(const std::string &vrf_name,
 void MulticastHandler::AddVmInterfaceInSubnet(const std::string &vrf_name, 
                                               const Ip4Address &dip, 
                                               const uuid &intf_uuid, 
-                                              const std::string &vn_name) {
+                                              const VnEntry *vn) {
     MulticastGroupObject *subnet_broadcast = NULL;
     boost::system::error_code ec;
     bool add_route = false;
+    const string vn_name = vn->GetName();
 
     //Subnet broadcast 
     subnet_broadcast = this->FindGroupObject(vrf_name, dip);
@@ -806,11 +807,17 @@ void MulticastHandler::AddVmInterfaceInSubnet(const std::string &vrf_name,
                                                     vn_name, false);
         this->AddToMulticastObjList(subnet_broadcast); 
     }
-    subnet_broadcast->SetLayer2Forwarding(false);
-    subnet_broadcast->SetIpv4Forwarding(true);
     if (subnet_broadcast->GetLocalListSize() == 0) {
         add_route = true;
     }
+    if ((subnet_broadcast->Ipv4Forwarding() != 
+                       vn->Ipv4Forwarding()) && vn->Ipv4Forwarding()) {
+        this->TriggerL3CompositeNHChange(subnet_broadcast);
+        NotifyXMPPofRecipientChange(vrf_name, dip, vn_name);
+    }
+    subnet_broadcast->SetLayer2Forwarding(false);
+    subnet_broadcast->SetIpv4Forwarding(true);
+
     if (subnet_broadcast->AddLocalMember(intf_uuid) == true) {
         this->TriggerL3CompositeNHChange(subnet_broadcast);
         this->AddVmToMulticastObjMap(intf_uuid, subnet_broadcast);
