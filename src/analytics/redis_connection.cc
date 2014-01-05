@@ -32,7 +32,6 @@ RedisAsyncConnection::RedisAsyncConnection(EventManager *evm, const std::string 
     callbackFailed_(0),
     callbackSucceeded_(0),
     context_(NULL),
-    client_(NULL),
     state_(REDIS_ASYNC_CONNECTION_INIT),
     reconnect_timer_(*evm->io_service()),
     client_connect_cb_(client_connect_cb),
@@ -60,8 +59,6 @@ RedisAsyncConnection::~RedisAsyncConnection() {
       }
       redisAsyncDisconnect(context_);
     }    
-    if (client_)
-        delete client_;
     reconnect_timer_.cancel(ec);
 }
 
@@ -194,7 +191,7 @@ bool RedisAsyncConnection::RAC_Connect(void) {
         return true;
     }
 
-    client_ = (new redisBoostClient(*evm_->io_service(), context_, mutex_));
+    client_.reset(new redisBoostClient(*evm_->io_service(), context_, mutex_));
 
     tbb::mutex::scoped_lock fns_lock(rac_cb_fns_map_mutex_);
 

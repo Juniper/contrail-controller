@@ -7,6 +7,7 @@
 
 #include <set>
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "vnc_cfg_types.h"
 
 #define DHCP_PKT_SIZE                 1024
@@ -67,6 +68,7 @@
 #define HW_TYPE_ETHERNET    1
 
 #define DHCP_SHORTLEASE_TIME 4
+#define LINK_LOCAL_GW        "169.254.1.1"
 
 class Interface;
 
@@ -94,14 +96,14 @@ struct ConfigRecord {
     uint32_t bcast_addr;
     uint32_t gw_addr;
     uint32_t dns_addr;
-    uint8_t  mac_addr[MAC_ALEN];
+    uint8_t  mac_addr[ETH_ALEN];
     uint16_t ifindex;  // maps to VNid, VMid, itf
     uint32_t plen;
     uint32_t lease_time;
 
     ConfigRecord() : ip_addr(0), subnet_mask(0), bcast_addr(0), gw_addr(0), 
                      dns_addr(0), ifindex(0), plen(0), lease_time(-1) {
-        memset(mac_addr, 0, MAC_ALEN);
+        memset(mac_addr, 0, ETH_ALEN);
     }
 };
 
@@ -136,7 +138,7 @@ struct DhcpOptions {
 // DHCP protocol handler
 class DhcpHandler : public ProtoHandler {
 public:
-    DhcpHandler(PktInfo *info, boost::asio::io_service &io);
+    DhcpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
     virtual ~DhcpHandler() {};
 
     bool Run();
@@ -175,7 +177,7 @@ private:
     DISALLOW_COPY_AND_ASSIGN(DhcpHandler);
 };
 
-class DhcpProto : public Proto<DhcpHandler> {
+class DhcpProto : public Proto {
 public:
     struct DhcpStats {
         uint32_t discover;
@@ -199,8 +201,9 @@ public:
 
     void Init(boost::asio::io_service &io, bool run_with_vrouter);
     void Shutdown();
-    DhcpProto(boost::asio::io_service &io, bool run_with_vrouter);
+    DhcpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~DhcpProto();
+    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
 
     Interface *IPFabricIntf() { return ip_fabric_intf_; }
     void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
@@ -208,7 +211,7 @@ public:
     void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
     unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
     void IPFabricIntfMac(char *mac) {
-        memcpy(ip_fabric_intf_mac_, mac, MAC_ALEN);
+        memcpy(ip_fabric_intf_mac_, mac, ETH_ALEN);
     }
 
     void IncrStatsDiscover() { stats_.discover++; }
@@ -231,7 +234,7 @@ private:
     bool run_with_vrouter_;
     Interface *ip_fabric_intf_;
     uint16_t ip_fabric_intf_index_;
-    unsigned char ip_fabric_intf_mac_[MAC_ALEN];
+    unsigned char ip_fabric_intf_mac_[ETH_ALEN];
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
 

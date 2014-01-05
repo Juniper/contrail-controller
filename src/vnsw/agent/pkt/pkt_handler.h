@@ -14,33 +14,29 @@
 
 #include <tbb/atomic.h>
 #include <boost/array.hpp>
-#include <boost/circular_buffer.hpp>
 
-#include <cmn/agent_cmn.h>
-#include <filter/acl.h>
 #include <oper/mirror_table.h>
-#include "tap_itf.h"
-#include "vr_defs.h"
-#define ALL_ONES_IP_ADDR "255.255.255.255"
-#define GW_IP_ADDR       "169.254.1.1"
+#include <oper/nexthop.h>
+#include <pkt/pkt_trace.h>
 
 #define DHCP_SERVER_PORT 67
 #define DHCP_CLIENT_PORT 68
 #define DNS_SERVER_PORT 53
-#define MDNS_PORT 5353
 
 #define IPv4_ALEN           4
 #define MIN_ETH_PKT_LEN    64
-#define IPC_HDR_LEN         (sizeof(ethhdr) + sizeof(struct agent_hdr))
+#define IPC_HDR_LEN        (sizeof(ethhdr) + sizeof(struct agent_hdr))
 #define IP_PROTOCOL        0x800  
-#define UDP_PROTOCOL       0x11
-#define TCP_PROTOCOL       0x6
 #define VLAN_PROTOCOL      0x8100       
+
 static const unsigned char agent_vrrp_mac[] = {0x00, 0x01, 0x00, 0x5E, 0x00, 0x00};
 
-struct IpcMsg {
-    IpcMsg(uint16_t command): cmd(command) {};
-    ~IpcMsg() {};
+struct agent_hdr;
+class TapInterface;
+
+struct InterTaskMsg {
+    InterTaskMsg(uint16_t command): cmd(command) {};
+    ~InterTaskMsg() {};
 
     uint16_t cmd;
 };
@@ -101,7 +97,7 @@ struct PktInfo {
     uint16_t            len;
 
     uint8_t             *data;
-    IpcMsg              *ipc;
+    InterTaskMsg        *ipc;
 
     PktType::Type       type;
     AgentHdr            agent_hdr;
@@ -126,102 +122,24 @@ struct PktInfo {
         struct icmphdr  *icmp;
     } transp;
 
-    PktInfo(): 
-        pkt(), len(), data(), ipc(), type(PktType::INVALID), agent_hdr(),
-        ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-        tunnel(), eth(), arp(), ip() {
-        transp.tcp = 0;
-    }
+    PktInfo(uint8_t *msg = NULL, std::size_t msg_size = 0);
+    PktInfo(InterTaskMsg *msg);
+    virtual ~PktInfo();
 
-    PktInfo(uint8_t *msg, std::size_t msg_size) : 
-        pkt(msg), len(msg_size), data(), ipc(), type(PktType::INVALID),
-        agent_hdr(), ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(),
-        sport(), dport(), tunnel(), eth(), arp(), ip() {
-        transp.tcp = 0;
-    }
-
-    PktInfo(IpcMsg *msg) :
-        pkt(), len(), data(), ipc(msg), type(PktType::MESSAGE), agent_hdr(),
-        ether_type(-1), ip_saddr(), ip_daddr(), ip_proto(), sport(), dport(),
-        tunnel(), eth(), arp(), ip() {
-        transp.tcp = 0;
-    }
-
-    virtual ~PktInfo() {
-        if (pkt) delete [] pkt;
-    }
-
-    const AgentHdr &GetAgentHdr() const {return agent_hdr;};
-
-    void UpdateHeaderPtr() {
-        eth = (struct ethhdr *)(pkt + IPC_HDR_LEN);
-        ip = (struct iphdr *)(eth + 1);
-        transp.tcp = (struct tcphdr *)(ip + 1);
-    }
-
-    std::size_t hash() const {
-        std::size_t seed = 0;
-        boost::hash_combine(seed, ip_saddr);
-        boost::hash_combine(seed, ip_daddr);
-        boost::hash_combine(seed, ip_proto);
-        boost::hash_combine(seed, sport);
-        boost::hash_combine(seed, dport);
-        return seed;
-    }
+    const AgentHdr &GetAgentHdr() const;
+    void UpdateHeaderPtr();
+    std::size_t hash() const;
 };
 
-class PktTrace {
-public:
-    static const std::size_t pkt_trace_size = 512;  // number of bytes stored
-    static const std::size_t pkt_num_buf = 16;     // number of buffers stored
-    enum Direction {
-        In,
-        Out
-    };
-    struct Pkt {
-        Direction dir;
-        std::size_t len;
-        uint8_t pkt[pkt_trace_size];
-
-        Pkt(Direction d, std::size_t l, uint8_t *msg) : dir(d), len(l) {
-            memset(pkt, 0, pkt_trace_size);
-            memcpy(pkt, msg, std::min(l, pkt_trace_size));
-        }
-    };
-
-    typedef boost::function<void(PktTrace::Pkt &)> Cb;
-
-    PktTrace() : pkt_trace_(pkt_num_buf) {};
-    virtual ~PktTrace() { pkt_trace_.clear(); };
-
-    void AddPktTrace(Direction dir, std::size_t len, uint8_t *msg) {
-        Pkt pkt(dir, len, msg);
-        tbb::mutex::scoped_lock lock(mutex_);
-        pkt_trace_.push_back(pkt);
-    }
-
-    void Clear() { pkt_trace_.clear(); }
-
-    void Iterate(Cb cb) {
-        if (cb) {
-            tbb::mutex::scoped_lock lock(mutex_);
-            for (boost::circular_buffer<Pkt>::iterator it = pkt_trace_.begin();
-                 it != pkt_trace_.end(); ++it)
-                cb(*it);
-        }
-    }
-
-private:
-    tbb::mutex mutex_;
-    boost::circular_buffer<Pkt> pkt_trace_;
-};
-
+// Receive packets from the pkt0 (tap) interface, parse and send the packet to
+// appropriate protocol task. Also, protocol tasks can send packets to pkt0
+// or to other tasks.
 class PktHandler {
 public:
     typedef boost::function<bool(PktInfo *)> RcvQueueFunc;
     typedef boost::function<void(PktTrace::Pkt &)> PktTraceCallback;
 
-    enum ModuleName {
+    enum PktModuleName {
         INVALID,
         FLOW,
         ARP,
@@ -233,94 +151,48 @@ public:
     };
 
     struct PktStats {
-        uint32_t total_rcvd;
-        uint32_t flow_rcvd;
-        uint32_t arp_rcvd;
-        uint32_t dhcp_rcvd;
-        uint32_t dns_rcvd;
-        uint32_t icmp_rcvd;
-        uint32_t diag_rcvd;
+        uint32_t sent[MAX_MODULES];
+        uint32_t received[MAX_MODULES];
         uint32_t dropped;
-        tbb::atomic<uint32_t> total_sent;
-        uint32_t dhcp_sent;
-        uint32_t arp_sent;
-        uint32_t dns_sent;
-        uint32_t icmp_sent;
-        uint32_t diag_sent;
         void Reset() {
-            total_rcvd = dhcp_rcvd = arp_rcvd = dns_rcvd = flow_rcvd = dropped =
-            dhcp_sent = arp_sent = dns_sent = icmp_rcvd = icmp_sent = 0;
-            total_sent = 0;
+            for (int i = 0; i < MAX_MODULES; ++i) {
+                sent[i] = received[i] = 0;
+            }
+            dropped = 0;
         }
         PktStats() { Reset(); }
-        void PktRcvd(ModuleName mod);
-        void PktSent(ModuleName mod);
+        void PktRcvd(PktModuleName mod);
+        void PktSent(PktModuleName mod);
     };
 
-    static void Init (DB *db, const std::string &if_name,
-                      boost::asio::io_service &io, bool run_with_vrouter) {
-        assert(instance_ == NULL);
-        instance_ = new PktHandler(db, if_name, io, run_with_vrouter);
-    };
+    PktHandler(Agent *, const std::string &, boost::asio::io_service &, bool);
+    virtual ~PktHandler();
 
-    static void Shutdown() {
-        delete instance_;
-        instance_ = NULL;
-    }
+    void Init();
+    void Shutdown();
+    void CreateInterfaces(const std::string &if_name);
 
-    virtual ~PktHandler() {
-        delete tap_;
-        tap_ = NULL;
-    };
+    void Register(PktModuleName type, RcvQueueFunc cb);
+    void Unregister(PktModuleName type);
 
-    static void CreateHostInterface(std::string &if_name);
+    const unsigned char *mac_address();
+    const TapInterface *tap_interface() { return tap_interface_.get(); }
 
-    static PktHandler *GetPktHandler() {
-        return instance_;
-    };
-
-    void Register(ModuleName type, RcvQueueFunc cb) {
-        enqueue_cb_.at(type) = cb;
-    };
-
-    void Unregister(ModuleName type) {
-        enqueue_cb_.at(type) = NULL;
-    };
-
-    const unsigned char *GetMacAddr() {
-        return tap_->MacAddr();
-    };
-    const TapInterface *GetTapInterface() {
-        return tap_;
-    }
-
-    void Send(uint8_t *msg, std::size_t len, ModuleName mod) {
-        stats_.PktSent(mod);
-        pkt_trace_.at(mod).AddPktTrace(PktTrace::Out, len, msg);
-        tap_->AsyncWrite(msg, len);
-    };
+    void Send(uint8_t *msg, std::size_t len, PktModuleName mod);
 
     // identify pkt type and send to the registered handler
     void HandleRcvPkt(uint8_t*, std::size_t);  
-    void SendMessage(ModuleName mod, IpcMsg *msg); 
+    void SendMessage(PktModuleName mod, InterTaskMsg *msg); 
 
     bool IsGwPacket(const Interface *intf, uint32_t dst_ip);
 
     PktStats GetStats() { return stats_; }
-    uint32_t GetModuleStats(ModuleName mod);
     void ClearStats() { stats_.Reset(); }
-    void PktTraceIterate(ModuleName mod, PktTraceCallback cb) {
-        if (cb) {
-            PktTrace &pkt(pkt_trace_.at(mod));
-            pkt.Iterate(cb);
-        }
-    }
-    void PktTraceClear(ModuleName mod) { pkt_trace_.at(mod).Clear(); }
+    void PktTraceIterate(PktModuleName mod, PktTraceCallback cb);
+    void PktTraceClear(PktModuleName mod) { pkt_trace_.at(mod).Clear(); }
 
 private:
     friend bool ::CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len);
-
-    PktHandler(DB *, const std::string &, boost::asio::io_service &, bool);
 
     uint8_t *ParseAgentHdr(PktInfo *pkt_info);
     uint8_t *ParseIpPacket(PktInfo *pkt_info, PktType::Type &pkt_type,
@@ -338,9 +210,8 @@ private:
     PktStats stats_;
     boost::array<PktTrace, MAX_MODULES> pkt_trace_;
 
-    DB *db_;
-    TapInterface *tap_;
-    static PktHandler *instance_;
+    Agent *agent_;
+    boost::scoped_ptr<TapInterface> tap_interface_;
 
     DISALLOW_COPY_AND_ASSIGN(PktHandler);
 };

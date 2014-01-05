@@ -11,10 +11,12 @@
 #include "boost/date_time/posix_time/posix_time.hpp"
 
 struct AgentDiagPktData;
+class DiagProto;
+
 class DiagPktHandler : public ProtoHandler {
 public:
-    DiagPktHandler(PktInfo *info, boost::asio::io_service &io):
-        ProtoHandler(info, io) { };
+    DiagPktHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io):
+        ProtoHandler(agent, info, io) { };
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();
@@ -85,7 +87,7 @@ struct DiagEntryOp {
 class DiagTable {
 public:
     typedef std::map<DiagEntry::DiagKey, DiagEntry *> DiagEntryTree;
-    DiagTable();
+    DiagTable(Agent *agent);
     ~DiagTable();
     void Add(DiagEntry *);
     void Delete(DiagEntry *);
@@ -93,9 +95,9 @@ public:
     static DiagTable* GetTable() {
         return singleton_;
     }
-    static void Init() {
+    static void Init(Agent *agent) {
         if (singleton_ == NULL) {
-            singleton_ = new DiagTable();
+            singleton_ = new DiagTable(agent);
         }
     }
     void Shutdown();
@@ -105,6 +107,7 @@ private:
     uint32_t index_; 
     DiagEntryTree tree_;
     static DiagTable *singleton_;
+    boost::scoped_ptr<DiagProto> diag_proto_;
     WorkQueue<DiagEntryOp *> *entry_op_queue_;
 };
 #endif

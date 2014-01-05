@@ -66,19 +66,19 @@ public:
         int i = 1000;
         while (i > 0) {
             i--;
-            if (FlowTable::GetFlowTableObject()->Size() == (size_t) count) {
+            if (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count) {
                 break;
             }
             client->WaitForIdle();
             usleep(1);
         }
-        return (FlowTable::GetFlowTableObject()->Size() == (size_t) count);
+        return (Agent::GetInstance()->pkt()->flow_table()->Size() == (size_t) count);
     }
 
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -126,7 +126,7 @@ public:
         bool ret = true;
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = FlowTable::GetFlowTableObject()->Find(key);
+        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
         EXPECT_TRUE(flow != NULL);
         if (flow == NULL) {
             return false;
@@ -135,7 +135,7 @@ public:
         FlowEntry *rflow = NULL;
         if (rev) {
             rev->InitFlowKey(&key);
-            rflow = FlowTable::GetFlowTableObject()->Find(key);
+            rflow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
             EXPECT_EQ(flow->data.reverse_flow.get(), rflow);
             if (flow->data.reverse_flow.get() != rflow) {
                 ret = false;
@@ -218,14 +218,14 @@ public:
     static void FlowDel(const TestFlowKey *flow) {
         FlowKey key;
         flow->InitFlowKey(&key);
-        FlowTable::GetFlowTableObject()->DeleteRevFlow(key, true);
+        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, true);
         client->WaitForIdle();
     }
 
     FlowEntry *FlowInit(TestFlowKey *t) {
         FlowKey key;
         t->InitFlowKey(&key);
-        FlowEntry *flow = FlowTable::GetFlowTableObject()->Allocate(key);
+        FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
 
         flow->data.source_vn = *t->svn_;
         flow->data.dest_vn = *t->dvn_;
@@ -236,7 +236,7 @@ public:
     }
 
     static void FlowAdd(FlowEntry *fwd, FlowEntry *rev) {
-        FlowTable::GetFlowTableObject()->Add(fwd, rev);
+        Agent::GetInstance()->pkt()->flow_table()->Add(fwd, rev);
         client->WaitForIdle();
     }
 
@@ -318,7 +318,7 @@ public:
 
 protected:
     virtual void SetUp() {
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         //Reset flow age
         client->EnqueueFlowAge();
         client->WaitForIdle();

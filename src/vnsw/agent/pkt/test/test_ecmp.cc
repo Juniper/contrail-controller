@@ -4,7 +4,7 @@
 
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_proto.h"
 
 #define AGE_TIME 10*1000
 
@@ -639,7 +639,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
     DeleteVmportEnv(input1, 3, true);
     DeleteVmportEnv(input2, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
 }
@@ -683,7 +683,7 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     DeleteVmportEnv(input1, 1, true);
     DeleteRemoteRoute("vrf10", "11.1.1.0", 24);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf10"));
 }
 
@@ -822,7 +822,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
 
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf11"));
     EXPECT_FALSE(VrfFind("vrf10"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
@@ -963,7 +963,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle(); 
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -1100,7 +1100,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
     DelVrf("service-vrf1");
     client->WaitForIdle();
     //Make sure all flows are also deleted
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -1321,7 +1321,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -1417,7 +1417,7 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
             "virtual-machine-interface", "vnet13");
     DeleteVmportEnv(input2, 1, true);
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);
     DelVrf("service-vrf1");
@@ -1505,7 +1505,7 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
     DeleteVmportEnv(input2, 1, true);
     DelVrf("service-vrf1");
     client->WaitForIdle();
-    EXPECT_TRUE(FlowTable::GetFlowTableObject()->Size() == 0);
+    EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
     EXPECT_FALSE(VrfFind("vrf13"));
     EXPECT_FALSE(VrfFind("service-vrf1"));
 }

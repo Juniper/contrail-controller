@@ -740,7 +740,7 @@ public:
                             const struct ether_addr &dmac, 
                             const string &vrf_name);
     static void DeleteVportReq(const uuid &intf_uuid);
-    static void CreateHostPortReq(const string &ifname);
+    static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
     static void CreateVirtualHostPort(const string &ifname);
     static void DeleteVirtualHostPortReq(const string &ifname);

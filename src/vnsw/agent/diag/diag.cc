@@ -3,10 +3,13 @@
  */
 
 #include <map>
+#include "vr_defs.h"
 #include "base/timer.h"
 #include "cmn/agent_cmn.h"
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "diag/diag.h"
+#include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "oper/mirror_table.h"
 
@@ -14,7 +17,7 @@ DiagTable* DiagTable::singleton_;
 
 const std::string KDiagName("DiagTimeoutHandler");
 
-template <> Proto<DiagPktHandler> *Proto<DiagPktHandler>::instance_ = NULL;
+////////////////////////////////////////////////////////////////////////////////
 
 DiagEntry::DiagEntry(int timeout, int count):
     timeout_(timeout), 
@@ -136,18 +139,18 @@ bool DiagTable::Process(DiagEntryOp *op) {
     return true;
 }
 
-DiagTable::DiagTable() {
-    Proto<DiagPktHandler>::Init("Agent::GetInstance()->Diag", PktHandler::DIAG, 
-                        *(Agent::GetInstance()->GetEventManager())->io_service());
+DiagTable::DiagTable(Agent *agent) {
+    diag_proto_.reset(
+        new DiagProto(agent, *(agent->GetEventManager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
-                    (TaskScheduler::GetInstance()->GetTaskId("Agent::GetInstance()->Diag"), 0,
+                    (TaskScheduler::GetInstance()->GetTaskId("Agent::Diag"), 0,
                      boost::bind(&DiagTable::Process, this, _1));
     index_ = 1;
     Ping::PingInit();
 }
 
 void DiagTable::Shutdown() {
-    Proto<DiagPktHandler>::Shutdown();
+    diag_proto_.reset(NULL);
 }
 
 DiagTable::~DiagTable() {

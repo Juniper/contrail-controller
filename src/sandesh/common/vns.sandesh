@@ -56,8 +56,9 @@ const map<string, Module> ModuleIds = {
 
 enum Category {
     DEFAULT,
-    BGP,
     XMPP,
+    BGP,
+    BGP_CONFIG,
     BGP_PEER,
     IFMAP,
     IFMAP_AGENT,
@@ -75,8 +76,9 @@ enum Category {
 
 const map<Category, string> CategoryNames = {
     Category.DEFAULT                     : "",
-    Category.BGP                         : "BGP",
     Category.XMPP                        : "XMPP",
+    Category.BGP                         : "BGP",
+    Category.BGP_CONFIG                  : "BGPConfig",
     Category.BGP_PEER                    : "BGPPeer",
     Category.IFMAP                       : "IFMap",
     Category.IFMAP_AGENT                 : "IFMapAgent",
@@ -94,8 +96,9 @@ const map<Category, string> CategoryNames = {
     
 const map<Module, list<Category>> ModuleCategoryMap = {
     Module.CONTROL_NODE       : [Category.DEFAULT,
-                                 Category.BGP,
                                  Category.XMPP,
+                                 Category.BGP,
+                                 Category.BGP_CONFIG,
                                  Category.BGP_PEER,
                                  Category.IFMAP,
                                  Category.IFMAP_PEER,

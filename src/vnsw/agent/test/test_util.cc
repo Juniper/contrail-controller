@@ -1473,7 +1473,7 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     key.dst.ipv4 = input[id].dip;
     key.protocol = IPPROTO_ICMP; 
 
-    FlowEntry *fe = FlowTable::GetFlowTableObject()->Find(key);
+    FlowEntry *fe = Agent::GetInstance()->pkt()->flow_table()->Find(key);
     if (fe == NULL) {
         LOG(DEBUG, "Flow not found");
         return false;
@@ -1631,15 +1631,15 @@ void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id,
 }
 
 void FlushFlowTable() {
-    FlowTable::GetFlowTableObject()->DeleteAll();
+    Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
     TestClient::WaitForIdle();
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
 bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
                 uint8_t proto, uint16_t sport, uint16_t dport) {
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -1663,7 +1663,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
 
 bool FlowFail(int vrf_id, const char *sip, const char *dip,
               uint8_t proto, uint16_t sport, uint16_t dport) {
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.vrf = vrf_id;
     key.src.ipv4 = ntohl(inet_addr(sip));
@@ -1699,7 +1699,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
                 const char *nat_vrf, const char *nat_sip,
                 const char *nat_dip, uint16_t nat_sport, int16_t nat_dport) {
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -1774,7 +1774,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
 
 FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
                    uint16_t sport, uint16_t dport) {
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.vrf = vrf_id;
     key.src.ipv4 = ntohl(inet_addr(sip.c_str()));
@@ -1790,7 +1790,7 @@ FlowEntry* FlowGet(int vrf_id, std::string sip, std::string dip, uint8_t proto,
 bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto, 
              uint16_t sport, uint16_t dport, bool short_flow, int hash_id,
              int reverse_hash_id) {
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     FlowKey key;
     key.vrf = vrf_id;
     key.src.ipv4 = ntohl(inet_addr(sip));
@@ -1864,7 +1864,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
              uint8_t proto, uint16_t sport, uint16_t dport, bool rflow,
              std::string svn, std::string dvn, uint32_t hash_id, int rflow_vrf) {
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -1959,7 +1959,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     bool ret = FlowGet(vrf_name, sip, dip, proto, sport, dport, rflow,
                     svn, dvn, hash_id, rflow_vrf);
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -1999,7 +1999,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
                     const char *dip, uint8_t proto, uint16_t sport, 
                     uint16_t dport, uint64_t pkts, uint64_t bytes) {
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -2031,7 +2031,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
               const string &nat_vrf_name, const char *nat_sip,
               const char *nat_dip, uint16_t nat_sport, uint16_t nat_dport) {
 
-    FlowTable *table = FlowTable::GetFlowTableObject();
+    FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
     EXPECT_TRUE(vrf != NULL);
     if (vrf == NULL)
@@ -2099,7 +2099,7 @@ PktGen *TxTcpPacketUtil(int ifindex, const char *sip, const char *dip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }
@@ -2116,7 +2116,7 @@ PktGen *TxIpPacketUtil(int ifindex, const char *sip, const char *dip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }
@@ -2167,7 +2167,7 @@ PktGen *TxMplsPacketUtil(int ifindex, const char *out_sip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
 
     return NULL;
@@ -2189,7 +2189,7 @@ PktGen *TxMplsTcpPacketUtil(int ifindex, const char *out_sip,
 
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
     delete pkt;
     return NULL;
 }

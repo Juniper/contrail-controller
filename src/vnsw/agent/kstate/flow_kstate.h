@@ -6,7 +6,7 @@
 #define vnsw_agent_flow_kstate_h
 
 #include "base/task.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_table.h"
 #include <vr_flow.h>
 #include <vr_mirror.h>
 

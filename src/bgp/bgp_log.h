@@ -174,7 +174,7 @@ do {                                                                           \
     if ((flags) & BGP_LOG_FLAG_SYSLOG) {                                       \
         bgp_log_test::LogServerName(server);                                   \
         BgpConfig##type##Log::Send(g_vns_constants.CategoryNames.find(         \
-                                    Category::BGP)->second,                    \
+                                    Category::BGP_CONFIG)->second,             \
                                     level, __FILE__, __LINE__, ##__VA_ARGS__); \
     }                                                                          \
     if ((flags) & BGP_LOG_FLAG_TRACE) {                                        \

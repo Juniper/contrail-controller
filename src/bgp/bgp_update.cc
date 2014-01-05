@@ -12,6 +12,18 @@
 #include "bgp/bgp_route.h"
 #include "bgp/bgp_table.h"
 
+//
+// Find the UpdateInfo element with matching RibOutAttr.
+//
+const UpdateInfo *UpdateInfoSList::FindUpdateInfo(
+    const RibOutAttr &roattr) const {
+    for (List::const_iterator iter = list_.begin();
+         iter != list_.end(); iter++) {
+        if (iter->roattr == roattr) return iter.operator->();
+    }
+    return NULL;
+}
+
 RouteUpdate::RouteUpdate(BgpRoute *route, int queue_id)
     : UpdateEntry(UpdateEntry::UPDATE),
     route_(route),
@@ -96,21 +108,82 @@ void RouteUpdate::ResetUpdateInfo(RibPeerSet &peerset) {
 }
 
 //
-// Compare the list of UpdateInfo elements in the RouteUpdate with the
-// given list. Uses brute force since the lists will typically contain
-// just a single element.
+// Compare this RouteUpdate with the UpdateInfo elements in the given list.
+// The UpdateInfos and AdvertiseInfos in the RouteUpdate represent the old
+// state and the UpdateInfoSList represents the new state.
 //
-// Return true if the lists are logically the same.
+// Uses brute force since the UpdateInfo and AdvertiseInfo lists typically
+// contain just a single element.
+//
+// Return true if the information in the RouteUpdate is logically the same
+// as that in the UpdateInfoSList.
 //
 bool RouteUpdate::CompareUpdateInfo(const UpdateInfoSList &uinfo_slist) const {
-    if (updates_->size() != uinfo_slist->size())
-        return false;
+
+    // Handle the special case where the given UpdateInfoSList is empty.
+    //
+    // If we already have withdraws scheduled to all peers to which the
+    // route was sent earlier, and there are no other scheduled updates,
+    // we can safely consider the RouteUpdate to have the same state as
+    // an empty UpdateInfoSList.
+    RibOutAttr roattr_null;
+    if (uinfo_slist->empty() &&
+        updates_->size() == 1 && updates_->begin()->roattr == roattr_null) {
+        RibPeerSet withdraw_peerset = updates_->begin()->target;
+        for (AdvertiseSList::List::const_iterator iter = history_->begin();
+             iter != history_->end(); ++iter) {
+            if (!withdraw_peerset.Contains(iter->bitset))
+                return false;
+        }
+        return true;
+    }
+
+    // All the peers that we sent the route to previously must be covered
+    // by the UpdateInfos in the given UpdateInfoSList. If this is not the
+    // case, we would need to schedule withdraws to the peers that are not
+    // covered.
+    RibPeerSet old_peerset, new_peerset;
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); ++iter) {
+        old_peerset.Set(iter->bitset);
+    }
     for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
          iter != uinfo_slist->end(); ++iter) {
+        new_peerset.Set(iter->target);
+    }
+    if (!new_peerset.Contains(old_peerset))
+        return false;
+
+    // Compare the peerset for each UpdateInfo in the UpdateInfoSList to
+    // the peerset for the corresponding UpdateInfo and AdvertiseInfo in
+    // in the RouteUpdate i.e. the ones for the same RibOutAttr.  Each
+    // peer in the new UpdateInfo must either be in the old UpdateInfo or
+    // AdvertiseInfo.
+    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
+         iter != uinfo_slist->end(); ++iter) {
+        RibPeerSet attr_peerset;
         const UpdateInfo *uinfo = FindUpdateInfo(iter->roattr);
-        if (!uinfo || uinfo->target != iter->target)
+        if (uinfo)
+            attr_peerset.Set(uinfo->target);
+        const AdvertiseInfo *ainfo = FindHistory(iter->roattr);
+        if (ainfo)
+            attr_peerset.Set(ainfo->bitset);
+        if (iter->target != attr_peerset)
             return false;
     }
+
+    // Compare the peerset for each UpdateInfo in the RouteUpdate to the
+    // corresponding UpdateInfo in the given UpdateInfoSList. The peerset
+    // from the old UpdateInfo needs to be a subset of the peerset from
+    // the new UpdateInfo. It need not be equal since we may already have
+    // sent the old state to some peers and moved them to the history.
+    for (UpdateInfoSList::List::const_iterator iter = updates_->begin();
+         iter != updates_->end(); ++iter) {
+        const UpdateInfo *uinfo = uinfo_slist.FindUpdateInfo(iter->roattr);
+        if (!uinfo || !uinfo->target.Contains(iter->target))
+            return false;
+    }
+
     return true;
 }
 
@@ -132,6 +205,76 @@ void RouteUpdate::MergeUpdateInfo(UpdateInfoSList &uinfo_slist) {
             ResetUpdateInfo(temp_uinfo.target);
             iter = uinfo_slist->erase(iter);
             updates_->push_front(temp_uinfo);
+        }
+    }
+}
+
+//
+// The AdvertiseSList in the history contains state that has been sent to
+// a set of peers, and the given UpdateInfoSList represents state that we
+// intend to send to a possibly different set of peers.
+//
+// If there are peers in any AdvertiseInfo in the history for which there
+// is no state in the UpdateInfoSList, create an UpdateInfo with negative
+// state to withdraw what we sent out previously. This UpdateInfo has null
+// RibOutAttr and a RibPeerSet of all peers from which we need to withdraw
+// the route.
+//
+void RouteUpdate::BuildNegativeUpdateInfo(UpdateInfoSList &uinfo_slist) const {
+    RibPeerSet peerset;
+
+    // Build the bitset of peers to which we previously advertised something.
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); iter++) {
+        peerset.Set(iter->bitset);
+    }
+
+    // Remove the peers to which we are going to send updated state.
+    for (UpdateInfoSList::List::const_iterator iter = uinfo_slist->begin();
+         iter != uinfo_slist->end(); iter++) {
+        peerset.Reset(iter->target);
+    }
+
+    // Push an UpdateInfo for a withdraw if the bitset is non-empty.
+    if (!peerset.empty()) {
+        UpdateInfo *uinfo = new UpdateInfo(peerset);
+        uinfo_slist->push_front(*uinfo);
+    }
+}
+
+//
+// If any UpdateInfo element in the UpdateInfoSList describes state that's
+// already in one of the AdvertiseInfos in the history, trim that state to
+// avoid sending duplicate information.
+//
+// The RibPeerSet in the UpdateInfo need not be exactly the same as that in
+// the AdevrtiseInfo.  If the RibOutAttrs match, we can trim the RibPeerSet
+// in the UpdateInfo.
+//
+void RouteUpdate::TrimRedundantUpdateInfo(UpdateInfoSList &uinfo_slist) const {
+    for (AdvertiseSList::List::const_iterator iter = history_->begin();
+         iter != history_->end(); iter++) {
+        const AdvertiseInfo *ainfo = iter.operator->();
+
+        for (UpdateInfoSList::List::iterator iter = uinfo_slist->begin();
+             iter != uinfo_slist->end(); iter++) {
+
+            // Keep going if the attributes are different.
+            if (iter->roattr != ainfo->roattr)
+                continue;
+
+            // Found one with matching attributes.  Reset the target bits in
+            // the UpdateInfo. Get rid of the UpdateInfo if the target is now
+            // empty.
+            iter->target.Reset(ainfo->bitset);
+            if (iter->target.empty()) {
+                uinfo_slist->erase_and_dispose(iter, UpdateInfoDisposer());
+            }
+
+            // Since a given UpdateInfoSList can have at most one UpdateInfo
+            // with any given attributes, there's no point in looking at any
+            // more UpdateInfos.
+            break;
         }
     }
 }
