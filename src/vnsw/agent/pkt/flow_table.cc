@@ -653,9 +653,13 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    ksync_obj->UpdateFlowStats(fe, false);
+    FlowStatsCollector *fec = Agent::GetInstance()->uve()->
+                                  GetFlowStatsCollector();
+    uint64_t diff_bytes, diff_packets;
+    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+
     fe->teardown_time = UTCTimestampUsec();
-    FlowStatsCollector::FlowExport(fe, 0, 0);
+    fec->FlowExport(fe, 0, 0);
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->data.reverse_flow.get();

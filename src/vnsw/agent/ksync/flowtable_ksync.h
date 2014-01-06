@@ -73,7 +73,6 @@ public:
     KSync *ksync() const { return ksync_; }
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     FlowTableKSyncEntry *Find(FlowEntry *key);
-    void UpdateFlowStats(FlowEntry *fe, bool ignore_active_status);
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
                                             bool ignore_active_status);
     bool GetFlowKey(uint32_t index, FlowKey &key);

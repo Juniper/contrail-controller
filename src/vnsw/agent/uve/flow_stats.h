@@ -53,6 +53,8 @@ public:
         flow_age_time_intvl_ = usecs; 
         UpdateFlowMultiplier();
     }
+    void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
+                         uint64_t &diff_pkts);
 private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
     bool ShouldBeAged(FlowEntry *entry, const vr_flow_entry *k_flow,
