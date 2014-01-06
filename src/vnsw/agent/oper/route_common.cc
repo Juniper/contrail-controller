@@ -394,7 +394,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
     //If this route has a unresolved path, insert to unresolved list
     if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE ||
         key->sub_op_ == AgentKey::RESYNC) {
-        if (rt->HasUnresolvedPath() == true) {
+        if (rt && rt->HasUnresolvedPath() == true) {
             AddUnresolvedRoute(rt);
         }
     }
