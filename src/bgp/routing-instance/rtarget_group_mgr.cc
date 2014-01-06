@@ -24,8 +24,8 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
     rtarget_route_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::ProcessRTargetRouteList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
-    unreg_trigger_(new TaskTrigger(
-           boost::bind(&RTargetGroupMgr::UnregisterTables, this),
+    remove_rtgroup_trigger_(new TaskTrigger(
+           boost::bind(&RTargetGroupMgr::RemoveRtGroups, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
     rtarget_dep_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, this),
@@ -327,6 +327,12 @@ RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                                 VpnRouteState::RTargetList &current) {
     VpnRouteState::RTargetList::iterator cur_it = current.begin();
     VpnRouteState::RTargetList::iterator dbstate_next_it, dbstate_it;
+    BgpTable *table = static_cast<BgpTable *>(root->parent());
+
+    if (dbstate == NULL) {
+        dbstate = new VpnRouteState();
+        rt->SetState(table, id, dbstate);
+    }
     dbstate_it = dbstate_next_it = dbstate->GetMutableList()->begin();
     std::pair<VpnRouteState::RTargetList::iterator, bool> r;
 
@@ -410,11 +416,6 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
         return true;
     }
 
-    if (dbstate == NULL) {
-        dbstate = new VpnRouteState();
-        rt->SetState(table, id, dbstate);
-    }
-
     const BgpPath *path = rt->BestPath();
     const BgpAttr *attr = path->GetAttr();
     const ExtCommunity *ext_community = attr->ext_community();
@@ -492,14 +493,25 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     tbb::mutex::scoped_lock lock(mutex_);
     RtGroupMap::iterator loc = rt_group_map_.find(rt);
     RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
-    if (rtgroup->empty(Address::INETVPN) && rtgroup->empty(Address::EVPN) && 
-        rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-        rt_group_map_.erase(rt);
-        if (rt_group_map_.empty()) unreg_trigger_->Set();
+    assert(rtgroup);
+
+    BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
+                  rtgroup->GetImportMembers()) {
+        if (!family_members.second.empty()) return;
+    }
+
+    BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
+                  rtgroup->GetExportMembers()) {
+        if (!family_members.second.empty()) return;
+    }
+
+    if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
+        rtgroup_remove_list_.insert(rt);
+        remove_rtgroup_trigger_->Set();
     }
 }
 
-bool RTargetGroupMgr::UnregisterTables() {
+void RTargetGroupMgr::UnregisterTables() {
     CHECK_CONCURRENCY("bgp::Config");
     if (rt_group_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
@@ -520,9 +532,37 @@ bool RTargetGroupMgr::UnregisterTables() {
             }
         }
     }
-    return true;
 }
 
+bool RTargetGroupMgr::RemoveRtGroups() {
+    CHECK_CONCURRENCY("bgp::Config");
+    for (RtGroupRemoveList::iterator it = rtgroup_remove_list_.begin(); 
+         it != rtgroup_remove_list_.end(); it++) {
+        RtGroupMap::iterator loc = rt_group_map_.find(*it);
+        RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
+        assert(rtgroup);
+
+        BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
+                      rtgroup->GetImportMembers()) {
+            if (!family_members.second.empty()) continue;
+        }
+
+        BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
+                      rtgroup->GetExportMembers()) {
+            if (!family_members.second.empty()) continue;
+        }
+
+        if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
+            rt_group_map_.erase(*it);
+        }
+    }
+
+    rtgroup_remove_list_.clear();
+
+    if (rt_group_map_.empty()) UnregisterTables();
+
+    return true;
+}
 
 RtGroupMgrTableState::RtGroupMgrTableState(BgpTable *table, 
                                            DBTableBase::ListenerId id)
