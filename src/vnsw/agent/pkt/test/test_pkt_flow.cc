@@ -128,7 +128,7 @@ public:
         key.protocol = proto;
         key.src_port = sport;
         key.dst_port = dport;
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, del_reverse_flow);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, del_reverse_flow);
         client->WaitForIdle();
     }
 

@@ -1468,8 +1468,8 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
         return false;
     }
 
-    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
-    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
+    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
         return true;
     }
 
@@ -1632,7 +1632,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    table->DeleteNatFlow(key, true);
+    table->Delete(key, true);
     return true;
 }
 
@@ -1694,8 +1694,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(entry->nat);
-    if (!entry->nat) {
+    EXPECT_TRUE(entry->nat_flow());
+    if (!entry->nat_flow()) {
         return false;
     }
 
@@ -1710,8 +1710,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
     }
 
     if ((int)hash_id >= 0) {
-        EXPECT_TRUE(entry->flow_handle == hash_id);
-        if (entry->flow_handle != hash_id) {
+        EXPECT_TRUE(entry->flow_handle() == hash_id);
+        if (entry->flow_handle() != hash_id) {
             return false;
         }
     }
@@ -1732,16 +1732,16 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(rentry->nat);
-    if (!rentry->nat) {
+    EXPECT_TRUE(rentry->nat_flow());
+    if (!rentry->nat_flow()) {
         return false;
     }
 
-    EXPECT_TRUE(entry->data.reverse_flow == rentry);
-    EXPECT_TRUE(rentry->data.reverse_flow == entry);
-    if (entry->data.reverse_flow != rentry)
+    EXPECT_TRUE(entry->reverse_flow_entry() == rentry);
+    EXPECT_TRUE(rentry->reverse_flow_entry() == entry);
+    if (entry->reverse_flow_entry() != rentry)
         return false;
-    if (rentry->data.reverse_flow != entry)
+    if (rentry->reverse_flow_entry() != entry)
         return false;
 
     return true;
@@ -1781,53 +1781,53 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
     }
 
     if (hash_id >= 0) {
-        EXPECT_EQ(entry->flow_handle, (uint32_t)hash_id);
-        if (entry->flow_handle != (uint32_t)hash_id) {
+        EXPECT_EQ(entry->flow_handle(), (uint32_t)hash_id);
+        if (entry->flow_handle() != (uint32_t)hash_id) {
             return false;
         }
     }
 
-    EXPECT_EQ(entry->short_flow, short_flow);
-    if (entry->short_flow != short_flow) {
+    EXPECT_EQ(entry->short_flow(), short_flow);
+    if (entry->short_flow() != short_flow) {
         return false;
     }
 
     if (reverse_hash_id == 0) {
         bool ret = true;
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat == false);
-        if (entry->nat == true)
+        EXPECT_TRUE(entry->nat_flow() == false);
+        if (entry->nat_flow() == true)
             ret = false;
 
-        EXPECT_EQ(entry->key.vrf, rev->key.vrf);
-        if (entry->key.vrf != rev->key.vrf)
+        EXPECT_EQ(entry->key().vrf, rev->key().vrf);
+        if (entry->key().vrf != rev->key().vrf)
             ret = false;
 
-        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
-        if (entry->key.protocol != rev->key.protocol)
+        EXPECT_EQ(entry->key().protocol, rev->key().protocol);
+        if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
-        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
+        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
             ret = false;
 
-        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
-        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
+        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
             ret = false;
 
         return ret;
     }
 
     if (reverse_hash_id > 0) {
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
         if (rev == NULL) {
             return false;
         }
 
-        EXPECT_EQ(rev->flow_handle, (uint32_t)reverse_hash_id);
-        if (rev->flow_handle != (uint32_t)reverse_hash_id) {
+        EXPECT_EQ(rev->flow_handle(), (uint32_t)reverse_hash_id);
+        if (rev->flow_handle() != (uint32_t)reverse_hash_id) {
             return false;
         }
     }
@@ -1870,8 +1870,8 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
     }
 
     if (hash_id >= 0) {
-        EXPECT_EQ(entry->flow_handle, hash_id);
-        if (entry->flow_handle != hash_id) {
+        EXPECT_EQ(entry->flow_handle(), hash_id);
+        if (entry->flow_handle() != hash_id) {
             return false;
         }
     }
@@ -1886,38 +1886,38 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         if (rentry == NULL) {
             return false;
         }
-        EXPECT_TRUE(entry->data.reverse_flow == rentry);
-        EXPECT_TRUE(rentry->data.reverse_flow == entry);
-        if (entry->data.reverse_flow != rentry)
+        EXPECT_TRUE(entry->reverse_flow_entry() == rentry);
+        EXPECT_TRUE(rentry->reverse_flow_entry() == entry);
+        if (entry->reverse_flow_entry() != rentry)
             return false;
-        if (rentry->data.reverse_flow != entry)
+        if (rentry->reverse_flow_entry() != entry)
             return false;
     } else {
         bool ret = true;
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat == false);
-        if (entry->nat == true)
+        EXPECT_TRUE(entry->nat_flow() == false);
+        if (entry->nat_flow() == true)
             ret = false;
 
         if (rflow_vrf == -1) {
-            EXPECT_EQ(entry->key.vrf, rev->key.vrf);
-            if (entry->key.vrf != rev->key.vrf)
+            EXPECT_EQ(entry->key().vrf, rev->key().vrf);
+            if (entry->key().vrf != rev->key().vrf)
                 ret = false;
         } else {
-            EXPECT_EQ((uint32_t) rflow_vrf, rev->key.vrf);
+            EXPECT_EQ((uint32_t) rflow_vrf, rev->key().vrf);
         }
 
-        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
-        if (entry->key.protocol != rev->key.protocol)
+        EXPECT_EQ(entry->key().protocol, rev->key().protocol);
+        if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
-        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
+        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
             ret = false;
 
-        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
-        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
+        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
             ret = false;
 
         return ret;
@@ -1954,8 +1954,8 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_EQ(entry->nat, nat);
-    if (entry->nat != nat) {
+    EXPECT_EQ(entry->nat_flow(), nat);
+    if (entry->nat_flow() != nat) {
         ret = false;
     }
 
@@ -1993,8 +1993,8 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     if (fe == NULL) {
         return false;
     }
-    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
-    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
+    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
         return true;
     }
 
@@ -2027,8 +2027,8 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
     }
 
     if (nat == false) {
-        EXPECT_TRUE(entry->data.reverse_flow == NULL);
-        if (entry->data.reverse_flow == NULL)
+        EXPECT_TRUE(entry->reverse_flow_entry() == NULL);
+        if (entry->reverse_flow_entry() == NULL)
             return true;
 
         return false;
@@ -2052,11 +2052,11 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_EQ(entry->data.reverse_flow, nat_entry);
-    EXPECT_EQ(nat_entry->data.reverse_flow, entry);
+    EXPECT_EQ(entry->reverse_flow_entry(), nat_entry);
+    EXPECT_EQ(nat_entry->reverse_flow_entry(), entry);
 
-    if ((entry->data.reverse_flow == nat_entry) &&
-        (nat_entry->data.reverse_flow == entry)) {
+    if ((entry->reverse_flow_entry() == nat_entry) &&
+        (nat_entry->reverse_flow_entry() == entry)) {
         return true;
     }
 

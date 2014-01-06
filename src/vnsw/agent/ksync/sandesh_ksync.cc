@@ -74,23 +74,23 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                        << " src = " << src_str << ":" << key.src_port
                        << " dst = " << dst_str << ":" << key.dst_port
                        << " proto = " << (int)key.protocol);
-            if (entry && (int)entry->flow_handle == r->get_fr_index()) {
-                entry->flow_handle = FlowEntry::kInvalidFlowHandle;
+            if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
+                entry->set_flow_handle(FlowEntry::kInvalidFlowHandle);
             }
             return;
         }
 
         if (entry) {
-            if (entry->flow_handle != FlowEntry::kInvalidFlowHandle) {
-                if ((int)entry->flow_handle != r->get_fr_index()) {
-                    LOG(DEBUG, "Flow index changed from <" << entry->flow_handle
+            if (entry->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+                if ((int)entry->flow_handle() != r->get_fr_index()) {
+                    LOG(DEBUG, "Flow index changed from <" << entry->flow_handle()
                         << "> to <" << r->get_fr_rindex() << ">");
                 }
             }
-            entry->flow_handle = r->get_fr_index();
+            entry->set_flow_handle(r->get_fr_index());
             //Tie forward flow and reverse flow
-            if (entry->nat || entry->data.ecmp) {
-                 FlowEntry *rev_flow = entry->data.reverse_flow.get();
+            if (entry->nat_flow() || entry->ecmp()) {
+                 FlowEntry *rev_flow = entry->reverse_flow_entry();
                  if (rev_flow) {
                      FlowTableKSyncEntry *rev_ksync_entry =
                          FlowTableKSyncObject::GetKSyncObject()->Find(rev_flow);

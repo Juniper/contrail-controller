@@ -324,7 +324,7 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
                     int dport, int action) {
     bool ret = true;
     FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport);
-    FlowEntry *rfe = fe->data.reverse_flow.get();
+    FlowEntry *rfe = fe->reverse_flow_entry();
 
     EXPECT_TRUE((fe->data.match_p.sg_action & (1 << action)) != 0);
     if ((fe->data.match_p.sg_action & (1 << action)) == 0) {

@@ -65,8 +65,6 @@ struct RouteFlowKey {
         uint32_t ipv4;
     } ip;
     uint8_t plen;
-    bool FlowSrcMatch(FlowEntry *flow) const;
-    bool FlowDestMatch(FlowEntry *flow) const;
 };
 
 struct RouteFlowKeyCmp {
@@ -156,16 +154,28 @@ struct FlowKeyCmp {
     }
 };
 
+struct FlowStats {
+    FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
+        bytes(0), packets(0), intf_in(0), exported(false) {};
+
+    uint64_t setup_time;
+    uint64_t teardown_time;
+    uint64_t last_modified_time; //used for aging
+    uint64_t bytes;
+    uint64_t packets;
+    uint32_t intf_in;
+    bool exported;
+};
+
 struct FlowData {
     FlowData() : 
         source_vn(""), dest_vn(""), source_sg_id_l(), dest_sg_id_l(),
         flow_source_vrf(VrfEntry::kInvalidIndex),
         flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
-        reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
+        dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false), nh_state_(NULL), source_plen(0),
-        dest_plen(0) {};
+        nh_state_(NULL), source_plen(0), dest_plen(0) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -180,19 +190,11 @@ struct FlowData {
     VmEntryConstRef vm_entry;
     uint32_t mirror_vrf;
 
-    FlowEntryPtr reverse_flow;
     uint16_t dest_vrf;
 
-    // Flow direction (ingress or egress)
-    bool ingress;
-
-    bool ecmp;
     uint32_t component_nh_idx;
 
     // Stats
-    uint64_t bytes;
-    uint64_t packets;
-    bool trap;
     NhStatePtr nh_state_;
     uint8_t source_plen;
     uint8_t dest_plen;
@@ -210,67 +212,105 @@ class FlowEntry {
         PCAP_DEST_VN = 4,
         PCAP_TLV_END = 255
     };
-    FlowEntry() :
-        key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false), 
-        is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0), last_modified_time(0), deleted_(false) {
-        flow_uuid = nil_uuid(); 
-        egress_uuid = nil_uuid(); 
-        refcount_ = 0;
-        alloc_count_.fetch_and_increment();
-    };
-    FlowEntry(const FlowKey &k) : 
-        key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false),
-        is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0), last_modified_time(0), deleted_(false) {
-        flow_uuid = nil_uuid(); 
-        egress_uuid = nil_uuid(); 
-        refcount_ = 0;
-        alloc_count_.fetch_and_increment();
-    };
+    FlowEntry();
+    FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
         alloc_count_.fetch_and_decrement();
     };
 
-    FlowKey key;
     FlowData data;
-    uuid flow_uuid;
-    //egress_uuid is used only during flow-export and applicable only for local-flows
-    uuid egress_uuid;
-    uint32_t intf_in;
-    uint32_t flow_handle;
-
-    // Flow flags
-    bool nat;
-    bool local_flow;
-    bool short_flow;
-    bool linklocal_flow;
-    bool is_reverse_flow;
-
-    uint64_t setup_time;
-    bool exported;
-    uint64_t teardown_time;
-    uint64_t last_modified_time; //used for aging
 
     bool ActionRecompute(MatchPolicy *policy);
     void CompareAndModify(const MatchPolicy &m_policy, bool create);
     void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
     int GetRefCount() { return refcount_; }
-    bool ShortFlow() const {return short_flow;};
     void MakeShortFlow();
+    FlowStats &stats() { return stats_;};
+    const FlowStats &stats() const { return stats_;};
+    const FlowKey &key() const { return key_;};
+    const uuid &flow_uuid() const { return flow_uuid_; };
+    const uuid &egress_uuid() const { return egress_uuid_; };
+    uint32_t flow_handle() const { return flow_handle_; };
+    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; };
+    FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); };
+    const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); };
+    void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
+        reverse_flow_entry_ = reverse_flow_entry;
+    };
+    bool nat_flow() const { return (flags_ & NatFlow); };
+    void set_nat_flow(const bool &nat) {
+        if (nat) {
+            flags_ |= NatFlow;
+        } else {
+            flags_ &= ~NatFlow;
+        }
+    };
+    bool local_flow() const { return (flags_ & LocalFlow); };
+    void set_local_flow(const bool &local) {
+        if (local) {
+            flags_ |= LocalFlow;
+        } else {
+            flags_ &= ~LocalFlow;
+        }
+    };
+    bool short_flow() const { return (flags_ & ShortFlow); };
+    void set_short_flow(const bool &short_flow) {
+        if (short_flow) {
+            flags_ |= ShortFlow;
+        } else {
+            flags_ &= ~ShortFlow;
+        }
+    };
+    bool linklocal_flow() const { return (flags_ & LinkLocalFlow); };
+    void set_linklocal_flow(const bool &linklocal_flow) {
+        if (linklocal_flow) {
+            flags_ |= LinkLocalFlow;
+        } else {
+            flags_ &= ~LinkLocalFlow;
+        }
+    };
+    bool reverse_flow() const { return (flags_ & ReverseFlow); };
+    void set_reverse_flow(const bool &reverse_flow) {
+        if (reverse_flow) {
+            flags_ |= ReverseFlow;
+        } else {
+            flags_ &= ~ReverseFlow;
+        }
+    };
+    bool ecmp() const { return (flags_ & EcmpFlow); };
+    void set_ecmp(const bool &ecmp) {
+        if (ecmp) {
+            flags_ |= EcmpFlow;
+        } else {
+            flags_ &= ~EcmpFlow;
+        }
+    };
+    bool ingress() const { return (flags_ & IngressDir); };
+    void set_ingress(const bool &ingress) {
+        if (ingress) {
+            flags_ |= IngressDir;
+        } else {
+            flags_ &= ~IngressDir;
+        }
+    };
+    bool trap() const { return (flags_ & Trap); };
+    void set_trap(const bool &trap) {
+        if (trap) {
+            flags_ |= Trap;
+        } else {
+            flags_ &= ~Trap;
+        }
+    };
     bool ImplicitDenyFlow() const { 
         return ((data.match_p.action_info.action & 
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);
     }
     void FillFlowInfo(FlowInfo &info);
     void GetPort(uint8_t &proto, uint16_t &sport, uint16_t &dport) const {
-        proto = key.protocol;
-        sport = key.src_port;
-        dport = key.dst_port;
+        proto = key_.protocol;
+        sport = key_.src_port;
+        dport = key_.dst_port;
     }
-    void SetEgressUuid();
     void GetPolicyInfo(MatchPolicy *policy);
 
     void GetPolicy(const VnEntry *vn, MatchPolicy *policy);
@@ -280,12 +320,38 @@ class FlowEntry {
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
+    bool FlowSrcMatch(const RouteFlowKey &rkey) const;
+    bool FlowDestMatch(const RouteFlowKey &rkey) const;
+    void SetAclAction(std::vector<AclAction> &acl_action_l) const;
+    uint32_t IngressReflexiveAction() const;
+    uint32_t EgressReflexiveAction() const;
+    const Interface *intf_entry() const { return data.intf_entry.get();};
+    const VnEntry *vn_entry() const { return data.vn_entry.get();};
+    const VmEntry *vm_entry() const { return data.vm_entry.get();};
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
+    enum FlowEntryFlags {
+        NatFlow         = 1 << 0,
+        LocalFlow       = 1 << 1,
+        ShortFlow       = 1 << 2,
+        LinkLocalFlow   = 1 << 3,
+        ReverseFlow     = 1 << 4,
+        EcmpFlow        = 1 << 5,
+        IngressDir      = 1 << 6,
+        Trap            = 1 << 7
+    };
+    FlowKey key_;
+    FlowStats stats_;
+    uuid flow_uuid_;
+    //egress_uuid is used only during flow-export and applicable only for local-flows
+    uuid egress_uuid_;
+    uint32_t flow_handle_;
+    FlowEntryPtr reverse_flow_entry_;
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
+    uint32_t flags_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -364,9 +430,7 @@ public:
     FlowEntry *Allocate(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     FlowEntry *Find(const FlowKey &key);
-
-    bool DeleteNatFlow(FlowKey &key, bool del_nat_flow);
-    bool DeleteRevFlow(FlowKey &key, bool del_reverse_flow);
+    bool Delete(const FlowKey &key, bool del_reverse_flow);
 
     size_t Size() {return flow_entry_map_.size();};
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 

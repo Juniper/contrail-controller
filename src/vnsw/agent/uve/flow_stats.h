@@ -54,11 +54,11 @@ public:
     }
 private:
     uint64_t GetFlowStats(const uint16_t &oflow_data, const uint32_t &data);
-    bool ShouldBeAged(FlowEntry *entry, const vr_flow_entry *k_flow,
+    bool ShouldBeAged(FlowStats *stats, const vr_flow_entry *k_flow,
                       uint64_t curr_time);
     static void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
-    uint64_t GetUpdatedFlowPackets(const FlowEntry *fe, uint64_t k_flow_pkts);
-    uint64_t GetUpdatedFlowBytes(const FlowEntry *fe, uint64_t k_flow_bytes);
+    uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
+    uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
     FlowKey flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;

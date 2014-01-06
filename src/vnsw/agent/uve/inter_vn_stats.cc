@@ -87,11 +87,11 @@ void InterVnStatsCollector::UpdateVnStats(FlowEntry *fe, uint64_t bytes,
      * it should be considered as out-stats for dst_vn w.r.t. src_vn.
      * Here the direction "in" and "out" should be interpreted w.r.t vrouter
      */
-    if (fe->local_flow) {
+    if (fe->local_flow()) {
         VnStatsUpdateInternal(src_vn, dst_vn, bytes, pkts, false);
         VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, true);
     } else {
-        if (fe->data.ingress) {
+        if (fe->ingress()) {
             VnStatsUpdateInternal(src_vn, dst_vn, bytes, pkts, false);
         } else {
             VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, true);

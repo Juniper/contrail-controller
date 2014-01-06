@@ -770,18 +770,18 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
 
 bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
                               PktControlInfo *rev_ctrl) {
-    if (flow->last_modified_time) {
-        if (flow->nat != nat_done) {
+    if (flow->stats().last_modified_time) {
+        if (flow->nat_flow() != nat_done) {
             flow->MakeShortFlow();
             return false;
         }
     }
 
-    flow->last_modified_time = UTCTimestampUsec();
-    flow->linklocal_flow = linklocal_flow;
-    flow->nat = nat_done;
-    flow->short_flow = short_flow;
-    flow->local_flow = local_flow;
+    flow->stats().last_modified_time = UTCTimestampUsec();
+    flow->set_linklocal_flow(linklocal_flow);
+    flow->set_nat_flow(nat_done);
+    flow->set_short_flow(short_flow);
+    flow->set_local_flow(local_flow);
 
     flow->data.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     flow->data.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
@@ -796,7 +796,7 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
         return;
     }
     const NextHop *nh = ctrl->rt_->GetActiveNextHop();
-    if (nh->GetType() == NextHop::COMPOSITE && flow->local_flow == false && 
+    if (nh->GetType() == NextHop::COMPOSITE && !flow->local_flow() && 
         ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
             //Logic for RPF check for ecmp
             //  Get reverse flow, and its corresponding ecmp index
@@ -823,21 +823,21 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
                               PktControlInfo *ctrl, PktControlInfo *rev_ctrl) {
-    if (flow->flow_handle != pkt->GetAgentHdr().cmd_param) {
-        if (flow->flow_handle != FlowEntry::kInvalidFlowHandle) {
-            LOG(DEBUG, "Flow index changed from " << flow->flow_handle 
+    if (flow->flow_handle() != pkt->GetAgentHdr().cmd_param) {
+        if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
+            LOG(DEBUG, "Flow index changed from " << flow->flow_handle() 
                 << " to " << pkt->GetAgentHdr().cmd_param);
         }
-        flow->flow_handle = pkt->GetAgentHdr().cmd_param;
+        flow->set_flow_handle(pkt->GetAgentHdr().cmd_param);
     }
 
     if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
         return;
     }
-    flow->is_reverse_flow = false;
-    flow->intf_in = pkt->GetAgentHdr().ifindex;
+    flow->set_reverse_flow(false);
+    flow->stats().intf_in = pkt->GetAgentHdr().ifindex;
 
-    flow->data.ingress = ingress;
+    flow->set_ingress(ingress);
     flow->data.source_vn = *(source_vn);
     flow->data.dest_vn = *(dest_vn);
     flow->data.source_sg_id_l = *(source_sg_id_l);
@@ -849,9 +849,9 @@ void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
         flow->data.mirror_vrf = flow->data.vn_entry->GetVrf()->GetVrfId();
     }
 
-    flow->data.ecmp = ecmp;
+    flow->set_ecmp(ecmp);
     flow->data.component_nh_idx = out_component_nh_idx;
-    flow->data.trap = false;
+    flow->set_trap(false);
     flow->data.source_plen = source_plen;
     flow->data.dest_plen = dest_plen;
 }
@@ -861,17 +861,17 @@ void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
     if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
         return;
     }
-    flow->is_reverse_flow = true;
+    flow->set_reverse_flow(true);
     if (ctrl->intf_) {
-        flow->intf_in = ctrl->intf_->id();
+        flow->stats().intf_in = ctrl->intf_->id();
     } else {
-        flow->intf_in = Interface::kInvalidIndex;
+        flow->stats().intf_in = Interface::kInvalidIndex;
     }
 
     // Compute reverse flow fields
-    flow->data.ingress = false;
+    flow->set_ingress(false);
     if (ctrl->intf_) {
-        flow->data.ingress = ComputeDirection(ctrl->intf_);
+        flow->set_ingress(ComputeDirection(ctrl->intf_));
     }
     flow->data.source_vn = *(dest_vn);
     flow->data.dest_vn = *(source_vn);
@@ -883,9 +883,9 @@ void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
     if (flow->data.vn_entry && flow->data.vn_entry->GetVrf()) {
         flow->data.mirror_vrf = flow->data.vn_entry->GetVrf()->GetVrfId();
     }
-    flow->data.ecmp = ecmp;
+    flow->set_ecmp(ecmp);
     flow->data.component_nh_idx = in_component_nh_idx;
-    flow->data.trap = trap_rev_flow;
+    flow->set_trap(trap_rev_flow);
     flow->data.source_plen = dest_plen;
     flow->data.dest_plen = source_plen;
 }

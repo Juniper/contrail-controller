@@ -39,10 +39,10 @@
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
-    FlowEntry *rev_flow = flow->data.reverse_flow.get();
-    if (flow->nat && s_flow.get_direction_ing() && rev_flow) {
-        FlowKey *nat_key = &rev_flow->key;
-        if (flow->key.src.ipv4 != nat_key->dst.ipv4) {
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
+    if (flow->nat_flow() && s_flow.get_direction_ing() && rev_flow) {
+        const FlowKey *nat_key = &rev_flow->key();
+        if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
             s_flow.set_sourceip(nat_key->dst.ipv4);
         }
     }
@@ -51,23 +51,24 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow)
 void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
+    FlowStats &stats = flow->stats();
 
-    s_flow.set_flowuuid(to_string(flow->flow_uuid));
-    s_flow.set_bytes(flow->data.bytes);
-    s_flow.set_packets(flow->data.packets);
+    s_flow.set_flowuuid(to_string(flow->flow_uuid()));
+    s_flow.set_bytes(stats.bytes);
+    s_flow.set_packets(stats.packets);
     s_flow.set_diff_bytes(diff_bytes);
     s_flow.set_diff_packets(diff_pkts);
 
-    s_flow.set_sourceip(flow->key.src.ipv4);
-    s_flow.set_destip(flow->key.dst.ipv4);
-    s_flow.set_protocol(flow->key.protocol);
-    s_flow.set_sport(flow->key.src_port);
-    s_flow.set_dport(flow->key.dst_port);
+    s_flow.set_sourceip(flow->key().src.ipv4);
+    s_flow.set_destip(flow->key().dst.ipv4);
+    s_flow.set_protocol(flow->key().protocol);
+    s_flow.set_sport(flow->key().src_port);
+    s_flow.set_dport(flow->key().dst_port);
     s_flow.set_sourcevn(flow->data.source_vn);
     s_flow.set_destvn(flow->data.dest_vn);
 
-    if (flow->intf_in != Interface::kInvalidIndex) {
-        Interface *intf = InterfaceTable::GetInstance()->FindInterface(flow->intf_in);
+    if (stats.intf_in != Interface::kInvalidIndex) {
+        Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);
         if (intf && intf->type() == Interface::VM_INTERFACE) {
             VmInterface *vm_port = static_cast<VmInterface *>(intf);
             const VmEntry *vm = vm_port->vm();
@@ -76,23 +77,24 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
             }
         }
     }
-    FlowEntry *rev_flow = flow->data.reverse_flow.get();
+    FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (rev_flow) {
-        s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid));
+        s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
     }
 
     // Flow setup and teardown messages are sent with higher priority
-    if (!flow->exported) {
-        s_flow.set_setup_time(flow->setup_time);
-        flow->exported = true;
+    if (!stats.exported) {
+        s_flow.set_setup_time(stats.setup_time);
+        stats.exported = true;
         level = SandeshLevel::SYS_ERR;
     }
-    if (flow->teardown_time) {
-        s_flow.set_teardown_time(flow->teardown_time);
+    if (stats.teardown_time) {
+        s_flow.set_teardown_time(stats.teardown_time);
+        stats.exported = false;
         level = SandeshLevel::SYS_ERR;
     }
 
-    if (flow->local_flow) {
+    if (flow->local_flow()) {
         /* For local flows we need to send two flow log messages.
          * 1. With direction as ingress
          * 2. With direction as egress
@@ -107,10 +109,10 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         //Export local flow of egress direction with a different UUID even when
         //the flow is same. Required for analytics module to query flows
         //irrespective of direction.
-        s_flow.set_flowuuid(to_string(flow->egress_uuid));
+        s_flow.set_flowuuid(to_string(flow->egress_uuid()));
         FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
     } else {
-        if (flow->data.ingress) {
+        if (flow->ingress()) {
             s_flow.set_direction_ing(1);
             SourceIpOverride(flow, s_flow);
         } else {
@@ -121,7 +123,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
 
 }
 
-bool FlowStatsCollector::ShouldBeAged(FlowEntry *entry,
+bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
                                       const vr_flow_entry *k_flow,
                                       uint64_t curr_time) {
     if (k_flow != NULL) {
@@ -129,7 +131,7 @@ bool FlowStatsCollector::ShouldBeAged(FlowEntry *entry,
 
         k_flow_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
                                     k_flow->fe_stats.flow_bytes);
-        bytes = 0x0000ffffffffffffULL & entry->data.bytes; 
+        bytes = 0x0000ffffffffffffULL & stats->bytes; 
         /* Don't account for agent overflow bits while comparing change in 
          * stats */
         if (bytes < k_flow_bytes) {
@@ -137,7 +139,7 @@ bool FlowStatsCollector::ShouldBeAged(FlowEntry *entry,
         }
     }
 
-    uint64_t diff_time = curr_time - entry->last_modified_time;
+    uint64_t diff_time = curr_time - stats->last_modified_time;
     if (diff_time < GetFlowAgeTime()) {
         return false;
     }
@@ -151,20 +153,20 @@ uint64_t FlowStatsCollector::GetFlowStats(const uint16_t &oflow_data,
     return flow_stats;
 }
 
-uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowEntry *fe, 
+uint64_t FlowStatsCollector::GetUpdatedFlowBytes(const FlowStats *stats, 
                                                  uint64_t k_flow_bytes) {
-    uint64_t oflow_bytes = 0xffff000000000000ULL & fe->data.bytes;
-    uint64_t old_bytes = 0x0000ffffffffffffULL & fe->data.bytes;
+    uint64_t oflow_bytes = 0xffff000000000000ULL & stats->bytes;
+    uint64_t old_bytes = 0x0000ffffffffffffULL & stats->bytes;
     if (old_bytes > k_flow_bytes) {
         oflow_bytes += 0x0001000000000000ULL;
     }
     return (oflow_bytes |= k_flow_bytes);
 }
 
-uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowEntry *fe, 
+uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats, 
                                                    uint64_t k_flow_pkts) {
-    uint64_t oflow_pkts = 0xffffff0000000000ULL & fe->data.packets;
-    uint64_t old_pkts = 0x000000ffffffffffULL & fe->data.packets;
+    uint64_t oflow_pkts = 0xffffff0000000000ULL & stats->packets;
+    uint64_t old_pkts = 0x000000ffffffffffULL & stats->packets;
     if (old_pkts > k_flow_pkts) {
         oflow_pkts += 0x0000010000000000ULL;
     }
@@ -174,6 +176,7 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowEntry *fe,
 bool FlowStatsCollector::Run() {
     FlowTable::FlowEntryMap::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
+    FlowStats *stats = NULL;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
@@ -191,24 +194,25 @@ bool FlowStatsCollector::Run() {
 
     while (it != flow_obj->flow_entry_map_.end()) {
         entry = it->second;
+        stats = &(entry->stats());
         it++;
         assert(entry);
         deleted = false;
 
-        flow_iteration_key_ = entry->key;
+        flow_iteration_key_ = entry->key();
         const vr_flow_entry *k_flow = 
             FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
-            (entry->flow_handle, false);
-        reverse_flow = entry->data.reverse_flow.get();
+            (entry->flow_handle(), false);
+        reverse_flow = entry->reverse_flow_entry();
         // Can the flow be aged?
-        if (ShouldBeAged(entry, k_flow, curr_time)) {
+        if (ShouldBeAged(stats, k_flow, curr_time)) {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = 
                     FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
-                    (reverse_flow->flow_handle, false);
-                if (ShouldBeAged(reverse_flow, k_flow_rev, curr_time)) {
+                    (reverse_flow->flow_handle(), false);
+                if (ShouldBeAged(&(reverse_flow->stats()), k_flow_rev, curr_time)) {
                     deleted = true;
                 }
             } else {
@@ -222,8 +226,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
-                (entry->key, reverse_flow != NULL? true : false);
+            Agent::GetInstance()->pkt()->flow_table()->Delete
+                (entry->key(), reverse_flow != NULL? true : false);
             entry = NULL;
             if (reverse_flow) {
                 count++;
@@ -237,7 +241,7 @@ bool FlowStatsCollector::Run() {
             uint64_t k_bytes, bytes;
             k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
                                    k_flow->fe_stats.flow_bytes);
-            bytes = 0x0000ffffffffffffULL & entry->data.bytes;
+            bytes = 0x0000ffffffffffffULL & stats->bytes;
             /* Don't account for agent overflow bits while comparing change in 
              * stats */
             if (bytes != k_bytes) {
@@ -245,27 +249,27 @@ bool FlowStatsCollector::Run() {
                 
                 k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
                                          k_flow->fe_stats.flow_packets);
-                bytes = GetUpdatedFlowBytes(entry, k_bytes);
-                packets = GetUpdatedFlowPackets(entry, k_packets);
-                diff_bytes = bytes - entry->data.bytes;
-                diff_pkts = packets - entry->data.packets;
+                bytes = GetUpdatedFlowBytes(stats, k_bytes);
+                packets = GetUpdatedFlowPackets(stats, k_packets);
+                diff_bytes = bytes - stats->bytes;
+                diff_pkts = packets - stats->packets;
                 //Update Inter-VN stats
                 AgentUve::GetInstance()->GetInterVnStatsCollector()->UpdateVnStats(entry, 
                                                                     diff_bytes, diff_pkts);
-                entry->data.bytes = bytes;
-                entry->data.packets = packets;
-                entry->last_modified_time = curr_time;
+                stats->bytes = bytes;
+                stats->packets = packets;
+                stats->last_modified_time = curr_time;
                 FlowExport(entry, diff_bytes, diff_pkts);
             }
         }
 
-        if ((!deleted) && entry->ShortFlow()) {
+        if ((!deleted) && entry->short_flow()) {
             if (it != flow_obj->flow_entry_map_.end()) {
                 if (it->second == reverse_flow) {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(entry->key, true);
+            Agent::GetInstance()->pkt()->flow_table()->Delete(entry->key(), true);
             entry = NULL;
             if (reverse_flow) {
                 count++;

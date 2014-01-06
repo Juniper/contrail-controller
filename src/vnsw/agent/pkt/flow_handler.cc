@@ -24,8 +24,6 @@ bool FlowHandler::Run() {
     PktControlInfo out;
     PktFlowInfo info(pkt_info_);
 
-    MatchPolicy m_policy;
-
     SecurityGroupList empty_sg_id_l;
     info.source_sg_id_l = &empty_sg_id_l;
     info.dest_sg_id_l = &empty_sg_id_l;

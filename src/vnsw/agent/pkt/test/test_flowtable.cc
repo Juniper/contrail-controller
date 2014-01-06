@@ -136,8 +136,8 @@ public:
         if (rev) {
             rev->InitFlowKey(&key);
             rflow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
-            EXPECT_EQ(flow->data.reverse_flow.get(), rflow);
-            if (flow->data.reverse_flow.get() != rflow) {
+            EXPECT_EQ(flow->reverse_flow_entry(), rflow);
+            if (flow->reverse_flow_entry() != rflow) {
                 ret = false;
             }
         }
@@ -176,7 +176,7 @@ public:
             return ret;
         }
 
-        if (flow->local_flow == false) {
+        if (!flow->local_flow()) {
             EXPECT_EQ(flow->data.match_p.m_out_acl_l.size(), 0U);
             EXPECT_EQ(flow->data.match_p.m_out_sg_acl_l.size(), 0U);
             if ((flow->data.match_p.m_out_acl_l.size() != 0) || 
@@ -218,7 +218,7 @@ public:
     static void FlowDel(const TestFlowKey *flow) {
         FlowKey key;
         flow->InitFlowKey(&key);
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, true);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
         client->WaitForIdle();
     }
 
@@ -326,23 +326,23 @@ protected:
         key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, "svn",
                                "dvn", 1, 1, 1);
         flow1 = FlowInit(key1);
-        flow1->local_flow = true;
+        flow1->set_local_flow(true);
 
         key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, "dvn",
                                  "svn", 2, 1, 2);
         flow1_r = FlowInit(key1_r);
-        flow1_r->local_flow = true;
+        flow1_r->set_local_flow(true);
         FlowAdd(flow1, flow1_r);
 
         key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, "svn",
                                "dvn", 1, 1, 1);
         flow2 = FlowInit(key2);
-        flow2->local_flow = false;
+        flow2->set_local_flow(false);
 
         key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, "dvn",
                                  "svn", 2, 1, 2);
         flow2_r = FlowInit(key2_r);
-        flow2_r->local_flow = false;
+        flow2_r->set_local_flow(false);
         FlowAdd(flow2, flow2_r);
     }
 

@@ -66,7 +66,7 @@ KSyncEntry *FlowTableKSyncObject::Alloc(const KSyncEntry *key, uint32_t index) {
 }
 
 FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
-    FlowTableKSyncEntry entry(key, key->flow_handle);
+    FlowTableKSyncEntry entry(key, key->flow_handle());
     KSyncObject *obj = 
         static_cast<KSyncObject *>(FlowTableKSyncObject::GetKSyncObject());
     return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
@@ -75,10 +75,10 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
 void FlowTableKSyncObject::UpdateFlowStats(FlowEntry *fe,
                                            bool ignore_active_status) {
     const vr_flow_entry *k_flow = GetKernelFlowEntry
-        (fe->flow_handle, ignore_active_status);
+        (fe->flow_handle(), ignore_active_status);
     if (k_flow) {
-        fe->data.bytes =  k_flow->fe_stats.flow_bytes;
-        fe->data.packets =  k_flow->fe_stats.flow_packets;
+        fe->stats().bytes =  k_flow->fe_stats.flow_bytes;
+        fe->stats().packets =  k_flow->fe_stats.flow_packets;
     }
 
 }
@@ -132,7 +132,7 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back(0x4);
     uint32_t action;
     action = fe->data.match_p.action_info.action;
-    if (fe->data.ingress) {
+    if (fe->ingress()) {
         // Set 31st bit for ingress
         action |= 0x40000000;
     }
@@ -156,19 +156,19 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len;
     int error;
     uint16_t action = 0;
-    FlowEntry *rev_flow = fe_->data.reverse_flow.get();
+    FlowEntry *rev_flow = fe_->reverse_flow_entry();
 
     //If action is NAT and reverse flow entry is not valid
     //then we should wait for the reverse flow to be programmed
-    if ((fe_->nat == true || fe_->data.ecmp == true) &&
-        rev_flow && rev_flow->flow_handle == FlowEntry::kInvalidFlowHandle) {
+    if ((fe_->nat_flow() || fe_->ecmp()) &&
+        rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
 
     req.set_fr_op(flow_op::FLOW_SET);
     req.set_fr_rid(0);
-    req.set_fr_index(fe_->flow_handle);
-    FlowKey *fe_key = &fe_->key;
+    req.set_fr_index(fe_->flow_handle());
+    const FlowKey *fe_key = &fe_->key();
     req.set_fr_flow_sip(htonl(fe_key->src.ipv4));
     req.set_fr_flow_dip(htonl(fe_key->dst.ipv4));
     req.set_fr_flow_proto(fe_key->protocol);
@@ -178,7 +178,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     uint16_t flags = 0;
 
     if (op == sandesh_op::DELETE) {
-        if (fe_->flow_handle == FlowEntry::kInvalidFlowHandle) {
+        if (fe_->flow_handle() == FlowEntry::kInvalidFlowHandle) {
             return 0;
         }
         req.set_fr_flags(0);
@@ -193,12 +193,12 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_DROP;
         }
 
-        if (action == VR_FLOW_ACTION_FORWARD && fe_->nat) {
+        if (action == VR_FLOW_ACTION_FORWARD && fe_->nat_flow()) {
             action = VR_FLOW_ACTION_NAT;
         }
 
         if (action == VR_FLOW_ACTION_NAT && 
-            fe_->data.reverse_flow.get() == NULL) {
+            fe_->reverse_flow_entry() == NULL) {
             action = VR_FLOW_ACTION_DROP;
         }
         
@@ -239,40 +239,40 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(fe_->data.component_nh_idx);
 
-        if (fe_->data.ecmp) {
+        if (fe_->ecmp()) {
             flags |= VR_RFLOW_VALID; 
-            FlowEntry *rev_flow = fe_->data.reverse_flow.get();
-            req.set_fr_rindex(rev_flow->flow_handle);
+            FlowEntry *rev_flow = fe_->reverse_flow_entry();
+            req.set_fr_rindex(rev_flow->flow_handle());
         }
  
         if (action == VR_FLOW_ACTION_NAT) {
             flags |= VR_RFLOW_VALID; 
-            FlowEntry *nat_flow = fe_->data.reverse_flow.get();
-            FlowKey *nat_key = &nat_flow->key;
+            FlowEntry *nat_flow = fe_->reverse_flow_entry();
+            const FlowKey *nat_key = &nat_flow->key();
 
-            if (fe_->key.src.ipv4 != nat_key->dst.ipv4) {
+            if (fe_->key().src.ipv4 != nat_key->dst.ipv4) {
                 flags |= VR_FLOW_FLAG_SNAT;
             }
-            if (fe_->key.dst.ipv4 != nat_key->src.ipv4) {
+            if (fe_->key().dst.ipv4 != nat_key->src.ipv4) {
                 flags |= VR_FLOW_FLAG_DNAT;
             }
 
-            if (fe_->key.protocol == IPPROTO_TCP || 
-                fe_->key.protocol == IPPROTO_UDP) {
-                if (fe_->key.src_port != nat_key->dst_port) {
+            if (fe_->key().protocol == IPPROTO_TCP || 
+                fe_->key().protocol == IPPROTO_UDP) {
+                if (fe_->key().src_port != nat_key->dst_port) {
                     flags |= VR_FLOW_FLAG_SPAT;
                 }
-                if (fe_->key.dst_port != nat_key->src_port) {
+                if (fe_->key().dst_port != nat_key->src_port) {
                     flags |= VR_FLOW_FLAG_DPAT;
                 }
             }
 
             flags |= VR_FLOW_FLAG_VRFT;
             req.set_fr_flow_dvrf(fe_->data.dest_vrf);
-            req.set_fr_rindex(nat_flow->flow_handle);
+            req.set_fr_rindex(nat_flow->flow_handle());
         }
 
-        if (fe_->data.trap) {
+        if (fe_->trap()) {
             flags |= VR_FLOW_FLAG_TRAP_ECMP;
             action = VR_FLOW_ACTION_HOLD;
         }
@@ -331,7 +331,7 @@ std::string FlowTableKSyncEntry::GetActionString(uint16_t action,
 void FlowTableKSyncEntry::FillFlowInfo(sandesh_op::type op, 
                                        uint16_t action, uint16_t flag) {
     KSyncFlowInfo info;
-    info.set_flow_index(fe_->flow_handle);
+    info.set_flow_index(fe_->flow_handle());
     info.set_action(GetActionString(action, flag));
 
     if (op == sandesh_op::ADD) {
@@ -345,15 +345,15 @@ void FlowTableKSyncEntry::FillFlowInfo(sandesh_op::type op,
 bool FlowTableKSyncEntry::Sync() {
     bool changed = false;
     
-    if (hash_id_ != fe_->flow_handle) {
-        hash_id_ = fe_->flow_handle;
+    if (hash_id_ != fe_->flow_handle()) {
+        hash_id_ = fe_->flow_handle();
         changed = true;
     }
 
-    FlowEntry *rev_flow = fe_->data.reverse_flow.get();   
+    FlowEntry *rev_flow = fe_->reverse_flow_entry();   
     if (rev_flow) {
-        if (old_reverse_flow_id_ != rev_flow->flow_handle) {
-            old_reverse_flow_id_ = rev_flow->flow_handle;
+        if (old_reverse_flow_id_ != rev_flow->flow_handle()) {
+            old_reverse_flow_id_ = rev_flow->flow_handle();
             changed = true;
         }
     }
@@ -388,8 +388,8 @@ bool FlowTableKSyncEntry::Sync() {
     }
 
     //Trap reverse flow
-    if (trap_flow_ != fe_->data.trap) {
-        trap_flow_ = fe_->data.trap;
+    if (trap_flow_ != fe_->trap()) {
+        trap_flow_ = fe_->trap();
         changed = true;
     }
 
@@ -487,8 +487,8 @@ bool FlowTableKSyncObject::AuditProcess(FlowTableKSyncObject *obj) {
                 /* Create Short flow only for non-existing flows. */
                 FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->
                                   Allocate(key));
-                flow->flow_handle = flow_idx;
-                flow->short_flow = true;
+                flow->set_flow_handle(flow_idx);
+                flow->set_short_flow(true);
                 flow->data.source_vn = *FlowHandler::UnknownVn();
                 flow->data.dest_vn = *FlowHandler::UnknownVn();
                 SecurityGroupList empty_sg_id_l;

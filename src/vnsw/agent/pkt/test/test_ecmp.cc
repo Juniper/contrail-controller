@@ -217,7 +217,7 @@ TEST_F(EcmpTest, EcmpTest_1) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
 }
@@ -231,10 +231,10 @@ TEST_F(EcmpTest, EcmpTest_2) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
+    EXPECT_TRUE(entry->nat_flow() == true);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     
@@ -257,10 +257,10 @@ TEST_F(EcmpTest, EcmpTest_3) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
+    EXPECT_TRUE(entry->nat_flow() == true);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     //Make sure reverse component index point to right interface
@@ -282,10 +282,10 @@ TEST_F(EcmpTest, EcmpTest_7) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
+    EXPECT_TRUE(entry->nat_flow() == true);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     //Make sure reverse component index point to right interface
@@ -320,7 +320,7 @@ TEST_F(EcmpTest, EcmpTest_4) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
 }
@@ -346,9 +346,9 @@ TEST_F(EcmpTest, EcmpTest_5) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
+    EXPECT_TRUE(entry->nat_flow() == true);
 
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
 }
@@ -363,10 +363,10 @@ TEST_F(EcmpTest, EcmpTest_6) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
+    EXPECT_TRUE(entry->nat_flow() == true);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
 }
@@ -419,7 +419,7 @@ TEST_F(EcmpTest, EcmpTest_8) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow should be set and should also be ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 1);
@@ -440,16 +440,16 @@ TEST_F(EcmpTest, EcmpTest_9) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat == true);
-    EXPECT_TRUE(entry->key.vrf == VrfGet("vrf3")->GetVrfId());
+    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->key().vrf == VrfGet("vrf3")->GetVrfId());
     EXPECT_TRUE(entry->data.dest_vrf == VrfGet("vrf4")->GetVrfId());
     EXPECT_TRUE(entry->data.source_vn == "vn4");
     EXPECT_TRUE(entry->data.dest_vn == "vn4");
 
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->key.vrf == VrfGet("vrf4")->GetVrfId());
+    EXPECT_TRUE(rev_entry->key().vrf == VrfGet("vrf4")->GetVrfId());
     EXPECT_TRUE(rev_entry->data.dest_vrf == VrfGet("vrf3")->GetVrfId());
     EXPECT_TRUE(rev_entry->data.source_vn == "vn4");
     EXPECT_TRUE(rev_entry->data.dest_vn == "vn4");
@@ -466,7 +466,7 @@ TEST_F(EcmpTest, EcmpReEval_1) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 
@@ -520,7 +520,7 @@ TEST_F(EcmpTest, EcmpReEval_2) {
     //Since flow already existed, use same old NH which would be at index 0
     EXPECT_TRUE(entry->data.component_nh_idx == 0);
 
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 }
@@ -553,7 +553,7 @@ TEST_F(EcmpTest, EcmpReEval_3) {
     EXPECT_TRUE(entry->data.component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
 
@@ -568,7 +568,7 @@ TEST_F(EcmpTest, EcmpReEval_3) {
     //Since flow already existed, use same old NH which would be at index 0
     EXPECT_TRUE(entry->data.component_nh_idx == 0);
 
-    FlowEntry *rev_entry1 = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry1 = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry == rev_entry1);
     EXPECT_TRUE(rev_entry->data.component_nh_idx ==
             CompositeNH::kInvalidComponentNHIdx);
@@ -624,7 +624,7 @@ TEST_F(EcmpTest, ServiceVlanTest_1) {
             CompositeNH::kInvalidComponentNHIdx);
 
     //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
 
@@ -666,16 +666,16 @@ TEST_F(EcmpTest, ServiceVlanTest_2) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data.component_nh_idx !=
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->key.vrf == vrf_id);
+    EXPECT_TRUE(entry->key().vrf == vrf_id);
     EXPECT_TRUE(entry->data.dest_vrf == vrf_id);
     EXPECT_TRUE(entry->data.source_vn == "vn10");
     EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
     //Reverse flow is no ECMP
-    FlowEntry *rev_entry = entry->data.reverse_flow.get();
+    FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data.component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(rev_entry->key.vrf == vrf_id);
+    EXPECT_TRUE(rev_entry->key().vrf == vrf_id);
     EXPECT_TRUE(rev_entry->data.dest_vrf == vrf_id);
     EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
     EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -747,7 +747,7 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == vrf_id);
+        EXPECT_TRUE(entry->key().vrf == vrf_id);
         if (entry->data.component_nh_idx == 1) {
             //Remote component index will be installed at index 1
             //Destination on remote server, hence destination
@@ -764,17 +764,17 @@ TEST_F(EcmpTest, ServiceVlanTest_3) {
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
         //Reverse flow is no ECMP
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx == 
                 CompositeNH::kInvalidComponentNHIdx);
         if (entry->data.component_nh_idx == 1) {
             //Reverse flow originates remote server, hence
             //source VRF is same as destination interface VRF
-            EXPECT_TRUE(rev_entry->key.vrf == vrf_id);
+            EXPECT_TRUE(rev_entry->key().vrf == vrf_id);
         } else {
             //Reverse flow on same server, source VRF will be that
             //of service VM vlan interface
-            EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+            EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         }
         EXPECT_TRUE(rev_entry->data.dest_vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
@@ -887,7 +887,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == vrf_id);
+        EXPECT_TRUE(entry->key().vrf == vrf_id);
         //Packet destined to service interface, vrf has to be 
         //service vlan VRF
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
@@ -896,12 +896,12 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
         //Reverse flow is no ECMP
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx == 
                 CompositeNH::kInvalidComponentNHIdx);
         //Packet from service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -931,7 +931,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to service interface, vrf has to be 
         //service vlan VRF
         LOG(DEBUG, "Vrf" << entry->data.dest_vrf << ":" << service_vrf_id);
@@ -941,12 +941,12 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
         //Reverse flow is no ECMP
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx == 
                 CompositeNH::kInvalidComponentNHIdx);
         //Packet from service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1035,20 +1035,20 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to vm11, vrf has to be vrf 11
         EXPECT_TRUE(entry->data.dest_vrf == vrf_id);
 
         EXPECT_TRUE(entry->data.source_vn == "vn10");
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             (comp_nh->GetNH(rev_entry->data.component_nh_idx));
         EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
         //Packet to service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1068,7 +1068,7 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to vm11, vrf has to be vrf11
         EXPECT_TRUE(entry->data.dest_vrf == vrf_id);
 
@@ -1076,13 +1076,13 @@ TEST_F(EcmpTest, ServiceVlanTest_5) {
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
         //make sure reverse flow points to right index
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             (comp_nh->GetNH(rev_entry->data.component_nh_idx));
         EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(14));
 
         //Packet from vm11 to service vrf 
-        EXPECT_TRUE(rev_entry->key.vrf == vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1169,20 +1169,20 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to remote server, vrf would be same as service vrf
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
 
         EXPECT_TRUE(entry->data.source_vn == "vn10");
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             (comp_nh->GetNH(rev_entry->data.component_nh_idx));
         EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
         //Packet to service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1202,7 +1202,7 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to remote server, vrf would be same as service vrf
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
 
@@ -1210,12 +1210,12 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
         //make sure reverse flow points to right index
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             (comp_nh->GetNH(rev_entry->data.component_nh_idx));
         EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(14));
 
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1238,16 +1238,16 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.source_vn == "vn11");
         EXPECT_TRUE(entry->data.dest_vn == "vn10");
 
         //make sure reverse flow is no ecmp
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn10");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn11");
@@ -1268,15 +1268,15 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.source_vn == "vn11");
         EXPECT_TRUE(entry->data.dest_vn == "vn10");
 
         //make sure reverse flow is no ecmp
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx == 0);
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn10");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn11");
@@ -1296,15 +1296,15 @@ TEST_F(EcmpTest, ServiceVlanTest_6) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx !=
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(entry->data.source_vn == "vn11");
         EXPECT_TRUE(entry->data.dest_vn == "vn10");
 
         //make sure reverse flow is no ecmp
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(rev_entry->data.component_nh_idx == 1);
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn10");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn11");
@@ -1390,20 +1390,20 @@ TEST_F(EcmpTest, ServiceVlanTest_7) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to vm11, vrf has to be vrf 11
         EXPECT_TRUE(entry->data.dest_vrf == vrf_id);
 
         EXPECT_TRUE(entry->data.source_vn == "vn10");
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>
             (comp_nh->GetNH(rev_entry->data.component_nh_idx));
         EXPECT_TRUE(intf_nh->GetIfUuid() == MakeUuid(13));
         //Packet to service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
@@ -1478,19 +1478,19 @@ TEST_F(EcmpTest,ServiceVlanTest_8) {
         EXPECT_TRUE(entry != NULL);
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
-        EXPECT_TRUE(entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(entry->key().vrf == service_vrf_id);
         //Packet destined to remote server, vrf has to be service vrf
         EXPECT_TRUE(entry->data.dest_vrf == service_vrf_id);
 
         EXPECT_TRUE(entry->data.source_vn == "vn10");
         EXPECT_TRUE(entry->data.dest_vn == "vn11");
 
-        FlowEntry *rev_entry = entry->data.reverse_flow.get();
+        FlowEntry *rev_entry = entry->reverse_flow_entry();
         EXPECT_TRUE(entry->data.component_nh_idx ==
                 CompositeNH::kInvalidComponentNHIdx);
         //Packet to service interface, vrf has to be 
         //service vlan VRF
-        EXPECT_TRUE(rev_entry->key.vrf == service_vrf_id);
+        EXPECT_TRUE(rev_entry->key().vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.dest_vrf == service_vrf_id);
         EXPECT_TRUE(rev_entry->data.source_vn == "vn11");
         EXPECT_TRUE(rev_entry->data.dest_vn == "vn10");
