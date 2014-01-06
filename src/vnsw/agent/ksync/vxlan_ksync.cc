@@ -25,20 +25,24 @@
 
 #include "ksync_init.h"
 
-void vr_vxlan_req::Process(SandeshContext *context) {
-    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
-    ioc->VxLanMsgHandler(this);
+VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj, 
+                                     const VxLanIdKSyncEntry *entry, 
+                                     uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_), 
+    nh_(NULL) { 
 }
 
-VxLanKSyncObject *VxLanKSyncObject::singleton_;
+VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
+                                     const VxLanId *vxlan_id) : 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    label_(vxlan_id->vxlan_id()), nh_(NULL) {
+}
+
+VxLanIdKSyncEntry::~VxLanIdKSyncEntry() {
+}
 
 KSyncDBObject *VxLanIdKSyncEntry::GetObject() {
-    return VxLanKSyncObject::GetKSyncObject();
-}
-
-VxLanIdKSyncEntry::VxLanIdKSyncEntry(const VxLanId *vxlan_id) :
-    KSyncNetlinkDBEntry(kInvalidIndex), label_(vxlan_id->vxlan_id()), 
-    nh_(NULL) {
+    return ksync_obj_;
 }
 
 bool VxLanIdKSyncEntry::IsLess(const KSyncEntry &rhs) const {
@@ -50,12 +54,12 @@ bool VxLanIdKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string VxLanIdKSyncEntry::ToString() const {
     std::stringstream s;
-    NHKSyncEntry *nh = GetNH();
+    NHKSyncEntry *nexthop = nh();
 
-    if (nh) {
+    if (nexthop) {
         s << "VXLAN Label: " << label_ << " Index : " 
             << GetIndex() << " NH : " 
-        << nh->GetIndex();
+        << nexthop->GetIndex();
     } else {
         s << "VXLAN Label: " << label_ << " Index : " 
             << GetIndex() << " NH : <null>";
@@ -67,16 +71,16 @@ bool VxLanIdKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const VxLanId *vxlan_id = static_cast<VxLanId *>(e);
 
-    NHKSyncObject *nh_object = NHKSyncObject::GetKSyncObject();
+    NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     if (vxlan_id->GetNextHop() == NULL) {
         LOG(DEBUG, "nexthop in network-id label is null");
         assert(0);
     }
-    NHKSyncEntry nh(vxlan_id->GetNextHop());
-    NHKSyncEntry *old_nh = GetNH();
+    NHKSyncEntry nexthop(nh_object, vxlan_id->GetNextHop());
+    NHKSyncEntry *old_nh = nh();
 
-    nh_ = nh_object->GetReference(&nh);
-    if (old_nh != GetNH()) {
+    nh_ = nh_object->GetReference(&nexthop);
+    if (old_nh != nh()) {
         ret = true;
     }
 
@@ -86,20 +90,20 @@ bool VxLanIdKSyncEntry::Sync(DBEntry *e) {
 int VxLanIdKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_vxlan_req encoder;
     int encode_len, error;
-    NHKSyncEntry *nh = GetNH();
+    NHKSyncEntry *nexthop = nh();
 
     encoder.set_h_op(op);
     encoder.set_vxlanr_rid(0);
     encoder.set_vxlanr_vnid(label_);
-    encoder.set_vxlanr_nhid(nh->GetIndex());
+    encoder.set_vxlanr_nhid(nexthop->GetIndex());
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
 }
 
 void VxLanIdKSyncEntry::FillObjectLog(sandesh_op::type op, 
-                                        KSyncVxLanInfo &info) {
+                                      KSyncVxLanInfo &info) const {
     info.set_label(label_);
-    info.set_nh(GetNH()->GetIndex());
+    info.set_nh(nh()->GetIndex());
 
     if (op == sandesh_op::ADD) {
         info.set_operation("ADD/CHANGE");
@@ -133,9 +137,39 @@ int VxLanIdKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 }
 
 KSyncEntry *VxLanIdKSyncEntry::UnresolvedReference() {
-    NHKSyncEntry *nh = GetNH();
-    if (!nh->IsResolved()) {
-        return nh;
+    NHKSyncEntry *nexthop = nh();
+    if (!nexthop->IsResolved()) {
+        return nexthop;
     }
     return NULL;
 }
+
+VxLanKSyncObject::VxLanKSyncObject(KSync *ksync) 
+    : KSyncDBObject(kVxLanIndexCount), ksync_(ksync) {
+}
+
+VxLanKSyncObject::~VxLanKSyncObject() {
+}
+
+void VxLanKSyncObject::RegisterDBClients() {
+    RegisterDb(ksync_->agent()->GetVxLanTable());
+}
+
+KSyncEntry *VxLanKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
+    const VxLanIdKSyncEntry *vxlan = 
+        static_cast<const VxLanIdKSyncEntry *>(entry);
+    VxLanIdKSyncEntry *ksync = new VxLanIdKSyncEntry(this, vxlan, index);
+    return static_cast<KSyncEntry *>(ksync);
+}
+
+KSyncEntry *VxLanKSyncObject::DBToKSyncEntry(const DBEntry *e) {
+    const VxLanId *vxlan = static_cast<const VxLanId *>(e);
+    VxLanIdKSyncEntry *key = new VxLanIdKSyncEntry(this, vxlan);
+    return static_cast<KSyncEntry *>(key);
+}
+
+void vr_vxlan_req::Process(SandeshContext *context) {
+    AgentSandeshContext *ioc = static_cast<AgentSandeshContext *>(context);
+    ioc->VxLanMsgHandler(this);
+}
+

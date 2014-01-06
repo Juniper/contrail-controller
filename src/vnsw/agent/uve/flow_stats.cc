@@ -36,6 +36,7 @@
 #include <uve/inter_vn_stats.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
+#include <ksync/ksync_init.h>
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
@@ -188,6 +189,8 @@ bool FlowStatsCollector::Run() {
     if (it == flow_obj->flow_entry_map_.end()) {
         it = flow_obj->flow_entry_map_.begin();
     }
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     while (it != flow_obj->flow_entry_map_.end()) {
         entry = it->second;
@@ -196,8 +199,7 @@ bool FlowStatsCollector::Run() {
         deleted = false;
 
         flow_iteration_key_ = entry->key;
-        const vr_flow_entry *k_flow = 
-            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+        const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
             (entry->flow_handle, false);
         reverse_flow = entry->data.reverse_flow.get();
         // Can the flow be aged?
@@ -205,8 +207,7 @@ bool FlowStatsCollector::Run() {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
-                k_flow_rev = 
-                    FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+                k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle, false);
                 if (ShouldBeAged(reverse_flow, k_flow_rev, curr_time)) {
                     deleted = true;
@@ -265,7 +266,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(entry->key, true);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
+                (entry->key, true);
             entry = NULL;
             if (reverse_flow) {
                 count++;

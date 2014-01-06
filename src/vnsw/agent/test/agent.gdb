@@ -263,14 +263,14 @@ define dump_ksync_mpls_entries
 end
 
 define kintf_entry_format
-    set $__kintf = (IntfKSyncEntry *)((size_t)$Xnode - (size_t)&(KSyncEntry::node_))
+    set $__kintf = (InterfaceKSyncEntry *)((size_t)$Xnode - (size_t)&(KSyncEntry::node_))
     printf"%p    idx=%-5d   name=%-20s   ", $__kintf, $__kintf->index_,\
                                                   $__kintf->ifname_._M_dataplus._M_p
     print $__kintf->state_
 end
 
 define dump_ksync_intf_entries
-   pksync_entries IntfKSyncObject::singleton_ kintf_entry_format
+   pksync_entries InterfaceKSyncObject::singleton_ kintf_entry_format
 end
 
 define dump_ksync_route_objects
