@@ -367,6 +367,30 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
             return nh;
         }
     }
+    if (fe_->data.match_p.action_info.mirror_l.size()) {
+        MirrorKSyncObject *mirror_object = MirrorKSyncObject::GetKSyncObject();
+        std::vector<MirrorActionSpec>::iterator it;
+        it = fe_->data.match_p.action_info.mirror_l.begin();
+        std::string analyzer1 = (*it).analyzer_name;
+        MirrorKSyncEntry mksync1(analyzer1);
+        MirrorKSyncEntry *mirror1 =
+        static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync1));
+        if (mirror1 && !mirror1->IsResolved()) {
+            return mirror1;
+        }
+        ++it;
+        if (it != fe_->data.match_p.action_info.mirror_l.end()) {
+            std::string analyzer2 = (*it).analyzer_name;
+            if (analyzer1 != analyzer2) {
+                MirrorKSyncEntry mksync2(analyzer2);
+                MirrorKSyncEntry *mirror2 =
+           static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync2));
+                if (mirror2 && !mirror2->IsResolved()) {
+                    return mirror2;
+                }
+            }
+        }
+    }
     return NULL;
 }
 
