@@ -184,9 +184,18 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 
     pugi::xml_node node_check = pugi->FindNode("retract");
     if (!pugi->IsNull(node_check)) {
+        pugi->ReadNode("retract"); //sets the context
+        std::string retract_id = pugi->ReadAttrib("id");
+        if (bgp_peer_id_ !=
+            Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+            GetBgpPeer()) {
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                       "Ignore retract request from non multicast tree "
+                       "builder peer; Multicast Delete Node id:" + retract_id);
+            return;
+        }
 
         for (node = node.first_child(); node; node = node.next_sibling()) {
-
             if (strcmp(node.name(), "retract") == 0) { 
                 std::string id = node.first_attribute().value();
                 CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
@@ -227,6 +236,20 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             }
         }
         return;
+    }
+
+    pugi::xml_node items_node = pugi->FindNode("item");
+    if (!pugi->IsNull(items_node)) {
+        pugi->ReadNode("item"); //sets the context
+        std::string item_id = pugi->ReadAttrib("id");
+        if (bgp_peer_id_ !=
+            Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+            GetBgpPeer()) {
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                             "Ignore request from non multicast tree "
+                             "builder peer; Multicast Delete Node:" + item_id);
+            return;
+        }
     }
 
     //Call Auto-generated Code to return struct

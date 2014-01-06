@@ -688,7 +688,7 @@ protected:
         client->Reset();
         DeleteVmportEnv(input, 2, 1, 0);
         client->WaitForIdle();
-        client->CompositeNHDelWait(cnh_del_cnt);
+        WAIT_FOR(100, 1000, (client->CompositeNHDelWait(cnh_del_cnt) == true));
         client->NextHopReset();
         client->MplsReset();
     }
@@ -1479,6 +1479,92 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     client->WaitForIdle(5);
 }
 
+TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
+
+    client->Reset();
+    XmppConnectionSetUp(true);
+    client->WaitForIdle();
+ 
+    XmppServer *xs_s;
+    XmppClient *xc_s;
+    XmppConnection *sconnection_s;
+    XmppChannel *cchannel_s;
+    auto_ptr<AgentBgpXmppPeerTest> bgp_peer_s;
+    auto_ptr<ControlNodeMockBgpXmppPeer> mock_peer_s;
+
+    xs_s = new XmppServer(&evm_, XmppInit::kControlNodeJID);
+    xs_s->Initialize(0, false);
+    xc_s = new XmppClient(&evm_);
+
+    //Create control-node bgp mock peer 
+    mock_peer_s.reset(new ControlNodeMockBgpXmppPeer());
+	xs_s->RegisterConnectionEvent(xmps::BGP,
+	    boost::bind(&ControlNodeMockBgpXmppPeer::HandleXmppChannelEvent, 
+                        mock_peer_s.get(), _1, _2));
+
+    //Create an xmpp client
+    XmppConfigData *xmppc_s_cfg = new XmppConfigData;
+	LOG(DEBUG, "Create an xmpp client connect to Server port " << xs_s->GetPort());
+	xmppc_s_cfg->AddXmppChannelConfig(CreateXmppChannelCfg("127.0.0.2", 
+                                      xs_s->GetPort(), "127.0.0.2", "agent-a",
+                                      XmppInit::kControlNodeJID, true));
+	xc_s->ConfigUpdate(xmppc_s_cfg);
+    cchannel_s = xc_s->FindChannel(XmppInit::kControlNodeJID);
+    //Create agent bgp peer
+	bgp_peer_s.reset(new AgentBgpXmppPeerTest(cchannel_s,
+                         Agent::GetInstance()->GetXmppServer(1), 
+                         Agent::GetInstance()->GetAgentMcastLabelRange(1), 1));
+	Agent::GetInstance()->SetAgentXmppChannel(bgp_peer_s.get(), 1);
+	xc_s->RegisterConnectionEvent(xmps::BGP,
+	    boost::bind(&AgentBgpXmppPeerTest::HandleXmppChannelEvent, 
+                    bgp_peer_s.get(), _2));
+
+	// server connection
+    WAIT_FOR(100, 10000,
+             ((sconnection_s = xs_s->FindConnection("agent-a")) != NULL));
+    assert(sconnection_s);
+
+    // remote-VM deactivated resulting in
+    // route-delete for subnet and all broadcast route 
+
+    int alloc_label = GetStartLabel();
+    Send2BcastRouteDelete(mock_peer_s.get(), "vrf1",
+                          "1.1.1.255", "255.255.255.255",
+                          "127.0.0.1");
+    client->WaitForIdle();
+	//Verify mpls table, shud not be deleted when retract message comes from
+    //non multicast tree builder peer
+	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
+    /*
+	MplsLabel *mpls = 
+	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
+	ASSERT_TRUE(mpls != NULL); 
+	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label + 1);
+	ASSERT_TRUE(mpls != NULL); 
+    */
+    client->WaitForIdle();
+    XmppSubnetTearDown();
+
+    IntfCfgDel(input, 0);
+    IntfCfgDel(input, 1);
+    client->WaitForIdle(5);
+
+    xc_s->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle();
+    xc->ConfigUpdate(new XmppConfigData());
+    client->WaitForIdle(5);
+    bgp_peer_s.reset();
+    client->WaitForIdle();
+    xc_s->Shutdown();
+    client->WaitForIdle();
+    xs_s->Shutdown();
+    client->WaitForIdle();
+
+    TcpServerManager::DeleteServer(xs_s);
+    TcpServerManager::DeleteServer(xc_s);
+    client->WaitForIdle();
+}
+
 }
 
 int main(int argc, char **argv) {
@@ -1486,6 +1572,8 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
     Agent::GetInstance()->SetAgentMcastLabelRange(0);
+    Agent::GetInstance()->SetXmppServer("127.0.0.2", 1);
+    Agent::GetInstance()->SetAgentMcastLabelRange(1);
 
     int ret = RUN_ALL_TESTS();
     Agent::GetInstance()->GetEventManager()->Shutdown();
