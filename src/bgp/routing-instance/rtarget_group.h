@@ -62,6 +62,13 @@ public:
     const RouteTarget &rt();
     bool empty(Address::Family family);
 
+    const RtGroupMembers &GetImportMembers() {
+        return import_;
+    }
+    const RtGroupMembers &GetExportMembers() {
+        return export_;
+    }
+
     const RtGroupMemberList &GetImportTables(Address::Family family);
     const RtGroupMemberList &GetExportTables(Address::Family family);
 

@@ -154,6 +154,7 @@ public:
             RtGroupMgrTableState *> RtGroupMgrTableStateList;
     typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
     typedef std::set<RouteTarget> RouteTargetTriggerList;
+    typedef std::set<RouteTarget> RtGroupRemoveList;
 
     RTargetGroupMgr(BgpServer *);
     virtual ~RTargetGroupMgr();
@@ -186,7 +187,8 @@ private:
 
     bool ProcessRTargetRouteList();
     bool ProcessRouteTargetList();
-    bool UnregisterTables();
+    void UnregisterTables();
+    bool RemoveRtGroups();
 
     bool VpnRouteNotify(DBTablePartBase *root,
                         DBEntryBase *entry);
@@ -203,10 +205,11 @@ private:
     RtGroupMap rt_group_map_;
     RtGroupMgrTableStateList table_state_;
     boost::scoped_ptr<TaskTrigger> rtarget_route_trigger_;
-    boost::scoped_ptr<TaskTrigger> unreg_trigger_;
+    boost::scoped_ptr<TaskTrigger> remove_rtgroup_trigger_;
     boost::scoped_ptr<TaskTrigger> rtarget_dep_trigger_;
     RTargetRouteTriggerList rtarget_route_list_;
     RouteTargetTriggerList rtarget_trigger_list_;
+    RtGroupRemoveList rtgroup_remove_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
     int id_;
 
