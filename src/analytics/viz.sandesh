@@ -303,6 +303,22 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'stat_type' : 'FieldNames'
+      'stat_attr' : 'fields'
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'fields.value',  'datatype' : 'string',    'index' : false},
+        ]
+    },
+    {
+      'stat_type' : 'FieldNames'
+      'stat_attr' : 'fieldi'
+      'obj_table' : 'NONE',
+      'attributes': [
+          { 'name' : 'fieldi.value',  'datatype' : 'int',    'index' : false},
+        ]
+    },
+    {
       'stat_type' : 'QueryPerfInfo',
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
