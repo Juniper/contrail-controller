@@ -51,7 +51,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
@@ -109,7 +109,7 @@ TestClient *StatsTestInit() {
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
@@ -153,7 +153,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     param->Init(init_file, "test", var_map);
 
     // Initialize the agent-init control class
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                0, NULL);
 

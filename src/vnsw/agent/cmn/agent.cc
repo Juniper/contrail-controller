@@ -210,10 +210,16 @@ void Agent::CreateModules() {
                               params_->log_category(),
                               params_->log_level());
     if (dss_addr_.empty()) {
-        Sandesh::InitGenerator
-            (g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second,
-             params_->host_name(), GetEventManager(),
-             params_->http_server_port());
+        Module::type module = Module::VROUTER_AGENT;
+        NodeType::type node_type =
+            g_vns_constants.Module2NodeType.find(module)->second;
+        Sandesh::InitGenerator(
+            g_vns_constants.ModuleNames.find(module)->second,
+            params_->host_name(),
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT,
+            GetEventManager(),
+            params_->http_server_port());
 
         if (params_->collector_port() != 0 && 
             !params_->collector().to_ulong() != 0) {

@@ -811,63 +811,6 @@ query_status_t WhereQuery::process_query()
         query_result = uniqued_result;  // only unique values of UUID return
     }
 
-    if (m_query->table == g_viz_constants.FLOW_SERIES_TABLE)
-    {
-        // do special processing to extract 8-tuple from all flows table
-        // Input is sub_query[0]->query_result and 
-        // output is this->query_result
-
-        std::map<boost::uuids::uuid, GenDb::DbDataValueVec> uuid_map;
-        create_uuid_tuple_map(uuid_map);
-        QE_TRACE(DEBUG, "# of UUIDs in UUID_MAP:" << uuid_map.size());
-
-        // now go over all the queried flows and attach 8-tuple info 
-        for (unsigned int i = 0; i < query_result.size(); i++)
-        {
-            boost::uuids::uuid u; flow_stats stats;
-            query_result[i].get_uuid_stats(u, stats);
-
-            //QE_TRACE(DEBUG, "Looking up 8-tuple for UUID : "<<u);
-
-            // query UUID map to get 8-tuple
-            std::map<boost::uuids::uuid, GenDb::DbDataValueVec>::iterator it;
-            it = uuid_map.find(u);
-            if (it == uuid_map.end())
-            {
-                QE_LOG(DEBUG, "could not find uuid:" << u);
-                query_result.erase(query_result.begin() + i);
-                i--; continue;  // ignore this data sample
-            }
-
-            for (GenDb::DbDataValueVec::iterator jt = it->second.begin();
-                    jt != it->second.end(); jt++) {
-                query_result[i].info.push_back(*jt);
-            }
-            //
-            // dump the info for the UUID
-            if (IS_TRACE_ENABLED(WHERE_RESULT_TRACE))
-            {
-                boost::uuids::uuid tmp_u; flow_stats tmp_stats; 
-                    flow_tuple tmp_tuple;
-                query_result[i].get_uuid_stats_8tuple
-                        (tmp_u, tmp_stats, tmp_tuple);
-                QE_TRACE(DEBUG, "WHERE result UUID:" << tmp_u << 
-                    " SVN: " << tmp_tuple.source_vn <<
-                    " DVN: " << tmp_tuple.dest_vn<<
-                    " SIP: " << tmp_tuple.source_ip <<
-                    " DIP: " << tmp_tuple.dest_ip <<
-                    " PROTO: " << tmp_tuple.protocol <<
-                    " SPORT: " << tmp_tuple.source_port <<
-                    " DPORT: " << tmp_tuple.dest_port <<
-                    " DIR: " << tmp_tuple.direction <<
-                    " Bytes: " << tmp_stats.bytes <<
-                    " Pkts: " << tmp_stats.pkts <<
-                    " Short-Flow: " << tmp_stats.short_flow
-                    );
-            }
-        }
-    }
-
     // Have the result ready and processing is done
     QE_TRACE(DEBUG, "WHERE processing done row #s:" << query_result.size());
     status_details = 0;

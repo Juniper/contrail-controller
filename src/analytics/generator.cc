@@ -49,13 +49,16 @@ using std::map;
 
 Generator::Generator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
-        const string &module) :
+        const string &module, const string &instance_id,
+        const string &node_type) :
         collector_(collector),
         state_machine_(state_machine),
         viz_session_(session),
         source_(source),
         module_(module),
-        name_(source_ + ":" + module_),
+        instance_id_(instance_id),
+        node_type_(node_type),
+        name_(source_ + ":" + node_type_ + ":" + module_ + ":" + instance_id_),
         db_handler_(new DbHandler(collector->event_manager(), boost::bind(&Generator::StartDbifReinit, this),
                 collector->cassandra_ip(), collector->cassandra_port(), collector->analytics_ttl(), name_)),
         db_connect_timer_(
@@ -135,10 +138,10 @@ bool Generator::DelWaitTimerExpired() {
     if (gen_attr_.get_connects() > gen_attr_.get_resets()) 
         return false;
 
-    collector_->GetOSP()->WithdrawGenerator(source_, module_);
+    collector_->GetOSP()->WithdrawGenerator(source_, node_type_, 
+         module_, instance_id_);
     GENERATOR_LOG(INFO, "DelWaitTimer is Withdrawing Generator " <<
-            source_ << ":" << module_);
-
+            name_);
     return false;
 }
 
@@ -283,7 +286,8 @@ void Generator::GetGeneratorInfo(ModuleServerState &genlist) const {
     gi.set_gen_attr(gen_attr_);
     giv.push_back(gi);
     genlist.set_generator_info(giv);
-    genlist.set_name(source_ + ":" + module_);
+    genlist.set_name(source_ + ":" + node_type_ + ":" + module_ + ":" +
+        instance_id_);
 }
 
 const std::string Generator::State() const {
