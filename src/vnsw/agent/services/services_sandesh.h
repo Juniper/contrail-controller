@@ -18,7 +18,7 @@ public:
     ServicesSandesh() {}
     virtual ~ServicesSandesh() {}
 
-    void HandleRequest(PktHandler::ModuleName mod, std::string ctxt, bool more);
+    void HandleRequest(PktHandler::PktModuleName mod, std::string ctxt, bool more);
     void MetadataHandleRequest(std::string ctxt, bool more);
     void PktStatsSandesh(std::string ctxt, bool more);
 

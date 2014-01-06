@@ -107,7 +107,7 @@ TestClient *StatsTestInit() {
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
-    param->Init("src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
+    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
@@ -229,7 +229,7 @@ void TestClient::Shutdown() {
     UveClient::GetInstance()->Shutdown();
     Agent::GetInstance()->ksync()->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
-    PktModule::Shutdown();  
+    Agent::GetInstance()->pkt()->Shutdown();  
     Agent::GetInstance()->services()->Shutdown();
     MulticastHandler::Shutdown();
     Agent::GetInstance()->oper_db()->Shutdown();

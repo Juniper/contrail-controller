@@ -1338,21 +1338,7 @@ TEST_F(CfgTest, Basic_2) {
     }
     EXPECT_TRUE(nh->PolicyEnabled());
 
-    Ip4Address addr(Ip4Address::from_string("169.254.169.254"));
-    rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
-    EXPECT_TRUE(rt != NULL);
-    if (rt == NULL) {
-        return;
-    }
-
-    nh = rt->GetActiveNextHop();
-    EXPECT_TRUE(nh != NULL);
-    if (nh == NULL) {
-        return;
-    }
-    EXPECT_TRUE(nh->PolicyEnabled());
-
-    addr = Ip4Address::from_string("1.1.1.1");
+    Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {

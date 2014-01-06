@@ -163,11 +163,11 @@ void BgpPeeringConfig::Update(BgpConfigManager *manager,
     while (it1 != current.end() && it2 != future.end()) {
         if (it1->first < it2->first) {
             BgpNeighborConfig *prev = it1->second;
-            instance_->NeighborDelete(manager, prev);
+            instance_->DeleteNeighbor(manager, prev);
             ++it1;
         } else if (it1->first > it2->first) {
             BgpNeighborConfig *neighbor = it2->second;
-            instance_->NeighborAdd(manager, neighbor);
+            instance_->AddNeighbor(manager, neighbor);
             neighbors_.insert(*it2);
             it2->second = NULL;
             ++it2;
@@ -176,7 +176,7 @@ void BgpPeeringConfig::Update(BgpConfigManager *manager,
             BgpNeighborConfig *update = it2->second;
             if (*neighbor != *update) {
                 neighbor->Update(update);
-                instance_->NeighborChange(manager, neighbor);
+                instance_->ChangeNeighbor(manager, neighbor);
             }
             neighbors_.insert(*it1);
             it1->second = NULL;
@@ -186,11 +186,11 @@ void BgpPeeringConfig::Update(BgpConfigManager *manager,
     }
     for (; it1 != current.end(); ++it1) {
         BgpNeighborConfig *prev = it1->second;
-        instance_->NeighborDelete(manager, prev);
+        instance_->DeleteNeighbor(manager, prev);
     }
     for (; it2 != future.end(); ++it2) {
         BgpNeighborConfig *neighbor = it2->second;
-        instance_->NeighborAdd(manager, neighbor);
+        instance_->AddNeighbor(manager, neighbor);
         neighbors_.insert(*it2);
         it2->second = NULL;
     }
@@ -212,7 +212,7 @@ void BgpPeeringConfig::Delete(BgpConfigManager *manager) {
     current.swap(neighbors_);
     for (NeighborMap::iterator iter = current.begin();
          iter != current.end(); ++iter) {
-        instance_->NeighborDelete(manager, iter->second);
+        instance_->DeleteNeighbor(manager, iter->second);
     }
     STLDeleteElements(&current);
     bgp_peering_.reset();
@@ -339,9 +339,9 @@ BgpNeighborConfig::address_families() const {
         return attr.address_families.family;
     }
 
-    const BgpProtocolConfig *bgp_config = instance_->bgp_config();
-    if (bgp_config && bgp_config->bgp_router()) {
-        const autogen::BgpRouterParams &params = bgp_config->router_params();
+    const BgpProtocolConfig *protocol = instance_->protocol_config();
+    if (protocol && protocol->bgp_router()) {
+        const autogen::BgpRouterParams &params = protocol->router_params();
         if (!params.address_families.family.empty()) {
             return params.address_families.family;
         }
@@ -391,7 +391,7 @@ void BgpProtocolConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
 }
 
 //
-// Update BgpProtocolConfig based on a new autogen::BgpRouter object.
+// Update autogen::BgpRouter object for this BgpProtocolConfig.
 //
 void BgpProtocolConfig::Update(BgpConfigManager *manager,
                                const autogen::BgpRouter *router) {
@@ -399,7 +399,7 @@ void BgpProtocolConfig::Update(BgpConfigManager *manager,
 }
 
 //
-//  BgpProtocolConfig based on a new autogen::BgpRouter object.
+// Delete autogen::BgpRouter object for this BgpProtocolConfig.
 //
 void BgpProtocolConfig::Delete(BgpConfigManager *manager) {
     manager->Notify(this, BgpConfigManager::CFG_DELETE);
@@ -414,7 +414,7 @@ const string &BgpProtocolConfig::InstanceName() const {
 // Constructor for BgpInstanceConfig.
 //
 BgpInstanceConfig::BgpInstanceConfig(const string &name)
-    : name_(name), bgp_router_(NULL), virtual_network_index_(0) {
+    : name_(name), protocol_(NULL), virtual_network_index_(0) {
 }
 
 //
@@ -435,18 +435,18 @@ void BgpInstanceConfig::SetNodeProxy(IFMapNodeProxy *proxy) {
 //
 // Get the BgpProtocolConfig for this BgpInstanceConfig, create it if needed.
 //
-BgpProtocolConfig *BgpInstanceConfig::BgpConfigLocate() {
-    if (bgp_router_.get() == NULL) {
-        bgp_router_.reset(new BgpProtocolConfig(this));
+BgpProtocolConfig *BgpInstanceConfig::LocateProtocol() {
+    if (protocol_.get() == NULL) {
+        protocol_.reset(new BgpProtocolConfig(this));
     }
-    return bgp_router_.get();
+    return protocol_.get();
 }
 
 //
 // Delete the BgpProtocolConfig for this BgpInstanceConfig.
 //
-void BgpInstanceConfig::BgpConfigReset() {
-    bgp_router_.reset();
+void BgpInstanceConfig::ResetProtocol() {
+    protocol_.reset();
 }
 
 //
@@ -576,7 +576,7 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
     if (name_ == BgpConfigManager::kMasterInstance) {
         return false;
     }
-    if (node() == NULL && bgp_router_.get() == NULL && neighbors_.empty()) {
+    if (node() == NULL && protocol_.get() == NULL && neighbors_.empty()) {
         manager->Notify(this, BgpConfigManager::CFG_DELETE);
         return true;
     }
@@ -589,7 +589,7 @@ bool BgpInstanceConfig::DeleteIfEmpty(BgpConfigManager *manager) {
 // The BgpNeighborConfig is added to the NeighborMap and the BgpConfigManager
 // is notified.
 //
-void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
+void BgpInstanceConfig::AddNeighbor(BgpConfigManager *manager,
                                     BgpNeighborConfig *neighbor) {
     vector<string> families(
         neighbor->session_attributes().address_families.begin(),
@@ -604,7 +604,7 @@ void BgpInstanceConfig::NeighborAdd(BgpConfigManager *manager,
 //
 // Change a BgpNeighborConfig that's already in this BgpInstanceConfig.
 //
-void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
+void BgpInstanceConfig::ChangeNeighbor(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     vector<string> families(
         neighbor->session_attributes().address_families.begin(),
@@ -622,7 +622,7 @@ void BgpInstanceConfig::NeighborChange(BgpConfigManager *manager,
 // NeighborMap. Note that the caller is responsible for actually deleting the
 // BgpNeighborConfig object.
 //
-void BgpInstanceConfig::NeighborDelete(BgpConfigManager *manager,
+void BgpInstanceConfig::DeleteNeighbor(BgpConfigManager *manager,
                                        BgpNeighborConfig *neighbor) {
     BGP_CONFIG_LOG_NEIGHBOR(Delete, manager->server(), neighbor,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
@@ -633,7 +633,7 @@ void BgpInstanceConfig::NeighborDelete(BgpConfigManager *manager,
 //
 // Find the BgpNeighborConfig by name in this BgpInstanceConfig.
 //
-const BgpNeighborConfig *BgpInstanceConfig::NeighborFind(string name) const {
+const BgpNeighborConfig *BgpInstanceConfig::FindNeighbor(string name) const {
     NeighborMap::const_iterator loc = neighbors_.find(name);
     return loc != neighbors_.end() ? loc->second : NULL;
 }
@@ -801,13 +801,13 @@ void BgpConfigManager::DefaultBgpRouterParams(autogen::BgpRouterParams &param) {
 //
 void BgpConfigManager::DefaultConfig() {
     BgpInstanceConfig *rti = config_->LocateInstance(kMasterInstance);
-    auto_ptr<autogen::BgpRouter> bgp_config(new autogen::BgpRouter());
+    auto_ptr<autogen::BgpRouter> router(new autogen::BgpRouter());
     autogen::BgpRouterParams param;
     DefaultBgpRouterParams(param);
-    bgp_config->SetProperty("bgp-router-parameters", &param);
+    router->SetProperty("bgp-router-parameters", &param);
+    BgpProtocolConfig *protocol = rti->LocateProtocol();
+    protocol->Update(this, router.release());
     Notify(rti, BgpConfigManager::CFG_ADD);
-    BgpProtocolConfig *localnode = rti->BgpConfigLocate();
-    localnode->Update(this, bgp_config.release());
 
     vector<string> import_rt;
     vector<string> export_rt;
@@ -817,13 +817,13 @@ void BgpConfigManager::DefaultConfig() {
         rti->virtual_network(), rti->virtual_network_index());
 
     vector<string> families(
-        localnode->router_params().address_families.begin(),
-        localnode->router_params().address_families.end());
-    BGP_CONFIG_LOG_PROTOCOL(Create, server_, localnode,
+        protocol->router_params().address_families.begin(),
+        protocol->router_params().address_families.end());
+    BGP_CONFIG_LOG_PROTOCOL(Create, server_, protocol,
         SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-        localnode->router_params().autonomous_system,
-        localnode->router_params().identifier,
-        localnode->router_params().address, families);
+        protocol->router_params().autonomous_system,
+        protocol->router_params().identifier,
+        protocol->router_params().address, families);
 }
 
 //
@@ -934,12 +934,12 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
     BgpConfigManager::EventType event = BgpConfigManager::CFG_CHANGE;
     string instance_name(IdentifierParent(delta.id_name));
     BgpInstanceConfig *rti = config_->FindInstance(instance_name);
-    BgpProtocolConfig *bgp_config = NULL;
+    BgpProtocolConfig *protocol = NULL;
     if (rti != NULL) {
-        bgp_config = rti->bgp_config_mutable();
+        protocol = rti->protocol_config_mutable();
     }
 
-    if (bgp_config == NULL) {
+    if (protocol == NULL) {
         IFMapNodeProxy *proxy = delta.node.get();
         if (proxy == NULL) {
             return;
@@ -958,22 +958,22 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
             rti = config_->LocateInstance(instance_name);
             Notify(rti, BgpConfigManager::CFG_ADD);
         }
-        bgp_config = rti->BgpConfigLocate();
-        bgp_config->SetNodeProxy(proxy);
+        protocol = rti->LocateProtocol();
+        protocol->SetNodeProxy(proxy);
     } else {
-        IFMapNode *node = bgp_config->node();
+        IFMapNode *node = protocol->node();
         if (node == NULL) {
             // The master instance creates a BgpRouter node internally. Ignore
             // an update that doesn't specify any content.
             if (delta.obj.get() == NULL) {
                 return;
             }
-            bgp_config->SetNodeProxy(delta.node.get());
+            protocol->SetNodeProxy(delta.node.get());
         } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
-            BGP_CONFIG_LOG_PROTOCOL(Delete, server_, bgp_config,
+            BGP_CONFIG_LOG_PROTOCOL(Delete, server_, protocol,
                 SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL);
-            bgp_config->Delete(this);
-            rti->BgpConfigReset();
+            protocol->Delete(this);
+            rti->ResetProtocol();
             if (rti->DeleteIfEmpty(this)) {
                 config_->DeleteInstance(rti);
             }
@@ -983,24 +983,27 @@ void BgpConfigManager::ProcessBgpProtocol(const BgpConfigDelta &delta) {
 
     autogen::BgpRouter *rt_config =
         static_cast<autogen::BgpRouter *>(delta.obj.get());
-    bgp_config->Update(this, rt_config);
-    Notify(bgp_config, event);
+    protocol->Update(this, rt_config);
+    Notify(protocol, event);
+
+    if (!rt_config)
+        return;
 
     vector<string> families(
-        bgp_config->router_params().address_families.begin(),
-        bgp_config->router_params().address_families.end());
+        protocol->router_params().address_families.begin(),
+        protocol->router_params().address_families.end());
     if (event == BgpConfigManager::CFG_ADD) {
-        BGP_CONFIG_LOG_PROTOCOL(Create, server_, bgp_config,
+        BGP_CONFIG_LOG_PROTOCOL(Create, server_, protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            bgp_config->router_params().autonomous_system,
-            bgp_config->router_params().identifier,
-            bgp_config->router_params().address, families);
-    } else if (bgp_config->bgp_router()) {
-        BGP_CONFIG_LOG_PROTOCOL(Update, server_, bgp_config,
+            protocol->router_params().autonomous_system,
+            protocol->router_params().identifier,
+            protocol->router_params().address, families);
+    } else if (protocol->bgp_router()) {
+        BGP_CONFIG_LOG_PROTOCOL(Update, server_, protocol,
             SandeshLevel::SYS_DEBUG, BGP_LOG_FLAG_ALL,
-            bgp_config->router_params().autonomous_system,
-            bgp_config->router_params().identifier,
-            bgp_config->router_params().address, families);
+            protocol->router_params().autonomous_system,
+            protocol->router_params().identifier,
+            protocol->router_params().address, families);
     }
 }
 

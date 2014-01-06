@@ -1305,7 +1305,7 @@ class OpServer(object):
                 if (table == stat_table):
                     objtab = t.obj_table
                     break
-            if (objtab != None): 
+            if (objtab != None) and (objtab != "None"): 
             #import pdb; pdb.set_trace()
                 return list(self._uve_server.get_uve_list(objtab,
                         None, None, None, None, False))

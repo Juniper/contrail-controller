@@ -797,24 +797,23 @@ void VmInterface::ApplyConfig(bool old_active, bool old_policy,
                               bool old_ipv4_forwarding, bool old_fabric_port,
                               bool old_need_linklocal_ip, bool sg_changed) {
     // Update services flag based on active state
-    UpdateServices(active_);
+    UpdateServices(ipv4_forwarding_);
 
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
     // Add/Del/Update L3 
-    if (active_ && ipv4_forwarding_ && fabric_port_ == false) {
+    if (active_ && ipv4_forwarding_) {
         UpdateL3(old_active, old_vrf, old_addr, old_vxlan_id, force_update,
                  policy_change);
-    } else if (old_active && old_ipv4_forwarding && old_fabric_port == false) {
+    } else if (old_active && old_ipv4_forwarding) {
         DeleteL3(old_active, old_vrf, old_addr, old_need_linklocal_ip);
     }
 
     // Add/Del/Update L2 
-    if (active_ && layer2_forwarding_ && fabric_port_ == false) {
+    if (active_ && layer2_forwarding_) {
         UpdateL2(old_active, old_vrf, old_vxlan_id, force_update, policy_change);
-    } else if (old_active && old_layer2_forwarding && 
-               old_fabric_port == false) {
+    } else if (old_active && old_layer2_forwarding) {
         DeleteL2(old_active, old_vrf);
     }
 

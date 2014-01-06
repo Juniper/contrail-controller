@@ -250,8 +250,8 @@ private:
 // for the local bgp-router in the routing-instance must be deleted and all
 // the BgpNeighborConfigs in the routing-instance must be deleted.
 //
-// The bgp_router_ field is a pointer to the local bgp-router object for the
-// routing-instance.
+// The protocol_ field is a pointer to the BgpProtocolConfig object for the
+// local bgp-router object, if any, in the routing-instance.
 // The NeighborMap keeps pointers to all the BgpNeighborConfig objects in a
 // BgpInstanceConfig.
 //
@@ -275,15 +275,15 @@ public:
     const RouteTargetList &import_list() const { return import_list_; }
     const RouteTargetList &export_list() const { return export_list_; }
 
-    const BgpProtocolConfig *bgp_config() const { return bgp_router_.get(); }
-    BgpProtocolConfig *bgp_config_mutable() { return bgp_router_.get(); }
-    BgpProtocolConfig *BgpConfigLocate();
-    void BgpConfigReset();
+    const BgpProtocolConfig *protocol_config() const { return protocol_.get(); }
+    BgpProtocolConfig *protocol_config_mutable() { return protocol_.get(); }
+    BgpProtocolConfig *LocateProtocol();
+    void ResetProtocol();
 
-    void NeighborAdd(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
-    void NeighborChange(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
-    void NeighborDelete(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
-    const BgpNeighborConfig *NeighborFind(std::string name) const;
+    void AddNeighbor(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
+    void ChangeNeighbor(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
+    void DeleteNeighbor(BgpConfigManager *manager, BgpNeighborConfig *neighbor);
+    const BgpNeighborConfig *FindNeighbor(std::string name) const;
 
     const NeighborMap &neighbors() const {
         return neighbors_;
@@ -304,7 +304,7 @@ private:
 
     std::string name_;
     IFMapNodeProxy node_proxy_;
-    boost::scoped_ptr<BgpProtocolConfig> bgp_router_;
+    boost::scoped_ptr<BgpProtocolConfig> protocol_;
     NeighborMap neighbors_;
 
     RouteTargetList import_list_;

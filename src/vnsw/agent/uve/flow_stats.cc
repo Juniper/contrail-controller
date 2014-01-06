@@ -35,7 +35,7 @@
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
 #include <algorithm>
-#include <pkt/pkt_flow.h>
+#include <pkt/flow_proto.h>
 #include <ksync/ksync_init.h>
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
@@ -178,7 +178,7 @@ bool FlowStatsCollector::Run() {
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
-    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
   
     run_counter_++;
     if (!flow_obj->Size()) {
@@ -223,7 +223,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowTable::GetFlowTableObject()->DeleteRevFlow
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
                 (entry->key, reverse_flow != NULL? true : false);
             entry = NULL;
             if (reverse_flow) {
@@ -266,7 +266,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, true);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(entry->key, true);
             entry = NULL;
             if (reverse_flow) {
                 count++;

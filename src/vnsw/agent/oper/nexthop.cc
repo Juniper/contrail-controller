@@ -514,7 +514,7 @@ void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
     NextHopTable::GetInstance()->Enqueue(&req);
 }
 
-void InterfaceNH::CreateHostPortReq(const string &ifname) {
+void InterfaceNH::CreatePacketInterfaceNhReq(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 

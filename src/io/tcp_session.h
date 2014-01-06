@@ -68,6 +68,8 @@ class TcpSession {
 
     virtual std::string ToString() const { return name_; }
 
+    void SetBufferSize(int buffer_size);
+
     // Getters and setters
     Socket *socket() { return socket_.get(); }
 

@@ -4,7 +4,7 @@
 
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_proto.h"
 
 struct PortInfo input[] = {
     {"vnet1", 1, "1.1.1.1", "00:00:01:01:01:01", 1, 1},
@@ -31,14 +31,14 @@ public:
                                         8, Ip4Address::from_string("1.1.1.2", ec),
                                         TunnelType::AllType(), 16, "TestVn");
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
     virtual void TearDown() {
-        int count = FlowTable::GetFlowTableObject()->Size();
+        int count = Agent::GetInstance()->pkt()->flow_table()->Size();
         
         client->EnqueueFlowFlush();
-        WAIT_FOR(count, 10000, (0 == FlowTable::GetFlowTableObject()->Size()));
+        WAIT_FOR(count, 10000, (0 == Agent::GetInstance()->pkt()->flow_table()->Size()));
         int a = count / 500;
         if (a == 0)
             a = 1;
@@ -61,7 +61,7 @@ TEST_F(FlowTest, FlowScaling_1) {
         strcpy(env, getenv("AGENT_FLOW_SCALE_COUNT"));
         count = strtoul(env, NULL, 0);
     }
-    int flow_count = FlowTable::GetFlowTableObject()->Size();
+    int flow_count = Agent::GetInstance()->pkt()->flow_table()->Size();
 
     for (int i = 0; i < count; i++) {
         Ip4Address addr(0x05000000 + i);
@@ -71,7 +71,7 @@ TEST_F(FlowTest, FlowScaling_1) {
 
     count = count * 2;
     WAIT_FOR(count, 10000,
-             (count == flow_count + (int) FlowTable::GetFlowTableObject()->Size()));
+             (count == flow_count + (int) Agent::GetInstance()->pkt()->flow_table()->Size()));
 }
 
 int main(int argc, char *argv[]) {

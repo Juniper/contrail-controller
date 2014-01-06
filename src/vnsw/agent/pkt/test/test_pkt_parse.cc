@@ -5,6 +5,7 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
+#include "cmn/agent_cmn.h"
 
 void RouterIdDepInit() {
 }
@@ -21,8 +22,10 @@ class PktParseTest : public ::testing::Test {
     }
 };
 
-uint32_t GetPktModuleCount(PktHandler::ModuleName mod) {
-    return PktHandler::GetPktHandler()->GetModuleStats(mod);
+uint32_t GetPktModuleCount(PktHandler::PktModuleName mod) {
+    PktHandler::PktStats stats =
+        Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
+    return stats.received[mod];
 }
 
 bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
@@ -32,7 +35,8 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
     pkt_info->pkt = ptr;
     pkt_info->len = len;
     AgentStats::GetInstance()->incr_pkt_exceptions();
-    if ((pkt = PktHandler::GetPktHandler()->ParseAgentHdr(pkt_info)) == NULL) {
+    if ((pkt = Agent::GetInstance()->pkt()->pkt_handler()->
+         ParseAgentHdr(pkt_info)) == NULL) {
         LOG(ERROR, "Error parsing Agent Header");
         return false;
     }
@@ -44,7 +48,7 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
     }
     pkt_info->vrf = intf->GetVrfId();
     pkt_info->type = PktType::INVALID;
-    PktHandler::GetPktHandler()->ParseUserPkt(pkt_info, intf, pkt_info->type, 
+    Agent::GetInstance()->pkt()->pkt_handler()->ParseUserPkt(pkt_info, intf, pkt_info->type, 
                                               pkt);
     return true;
 }
@@ -90,8 +94,8 @@ TEST_F(PktParseTest, InvalidAgentHdr_1) {
     pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, 
-                                              (sizeof(ethhdr) + sizeof(agent_hdr)));
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr, (sizeof(ethhdr) + sizeof(agent_hdr)));
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->pkt_exceptions());
@@ -123,7 +127,7 @@ TEST_F(PktParseTest, Arp_1) {
     pkt->AddIpHdr("1.1.1.1", "1.1.1.2", 1);
     uint8_t *ptr(new uint8_t[pkt->GetBuffLen()]);
     memcpy(ptr, pkt->GetBuff(), pkt->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
+    Agent::GetInstance()->pkt()->pkt_handler()->HandleRcvPkt(ptr, pkt->GetBuffLen());
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 1), AgentStats::GetInstance()->pkt_exceptions());
@@ -142,7 +146,8 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
@@ -151,7 +156,8 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
@@ -160,7 +166,8 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
@@ -169,7 +176,8 @@ TEST_F(PktParseTest, NonIp_On_Vnet_1) {
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->pkt_exceptions());
@@ -188,7 +196,8 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     pkt1->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x8100);
     uint8_t *ptr1(new uint8_t[pkt1->GetBuffLen() + 64]);
     memcpy(ptr1, pkt1->GetBuff(), pkt1->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr1, pkt1->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x88a8
     PktGen *pkt2 = new PktGen();
@@ -197,7 +206,8 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     pkt2->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x88a8);
     uint8_t *ptr2(new uint8_t[pkt2->GetBuffLen() + 64]);
     memcpy(ptr2, pkt2->GetBuff(), pkt2->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr2, pkt2->GetBuffLen() + 64);
 
     // Packet with VLAN header 0x9100
     PktGen *pkt3 = new PktGen();
@@ -206,7 +216,8 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     pkt3->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x9100);
     uint8_t *ptr3(new uint8_t[pkt3->GetBuffLen() + 64]);
     memcpy(ptr3, pkt3->GetBuff(), pkt3->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr3, pkt3->GetBuffLen() + 64);
 
     // Packet with ether-type 0x100
     PktGen *pkt4 = new PktGen();
@@ -215,7 +226,8 @@ TEST_F(PktParseTest, NonIp_On_Eth_1) {
     pkt4->AddEthHdr("00:00:00:00:00:01", "00:00:00:00:00:02", 0x100);
     uint8_t *ptr4(new uint8_t[pkt4->GetBuffLen() + 64]);
     memcpy(ptr4, pkt4->GetBuff(), pkt4->GetBuffLen());
-    PktHandler::GetPktHandler()->HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
+    Agent::GetInstance()->pkt()->pkt_handler()->
+        HandleRcvPkt(ptr4, pkt4->GetBuffLen() + 64);
 
     client->WaitForIdle();
     EXPECT_EQ((exception_count + 4), AgentStats::GetInstance()->pkt_exceptions());

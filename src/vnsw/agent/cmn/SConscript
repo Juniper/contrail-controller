@@ -63,7 +63,7 @@ env.GenerateBuildInfoCode(
     path=str(Dir('.').abspath))
 
 vnswcmn = env.Library('vnswcmn', ['buildinfo.cc'] + vnswcmn_sources)
-env.Depends('agent_cmn.o', 'buildinfo.cc')
+env.Depends('agent.o', 'buildinfo.cc')
 env.Depends('../main.o', 'buildinfo.cc')
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

@@ -392,7 +392,7 @@ TEST_F(KStateTest, FlowDumpTest) {
     client->WaitForIdle(2);
     EXPECT_TRUE(FlowGet("vrf3", vm2_ip, vm1_ip, 6, 200, 1000, true, 
                         "vn3", "vn3", hash_id++));
-    EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     TestFlowKState::Init(true, -1, 6);
     client->KStateResponseWait(1);
@@ -400,7 +400,7 @@ TEST_F(KStateTest, FlowDumpTest) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(1000, 1000, (0 == FlowTable::GetFlowTableObject()->Size()));
+    WAIT_FOR(1000, 1000, (0 == Agent::GetInstance()->pkt()->flow_table()->Size()));
     DeletePortsWithPolicy();
 }
 
