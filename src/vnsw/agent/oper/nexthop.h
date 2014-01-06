@@ -475,6 +475,8 @@ public:
     };
 
     static void CreateReq(const string &interface);
+    static void Create(NextHopTable *table, const string &interface);
+    static void Delete(NextHopTable *table, const string &interface);
     const Interface *GetInterface() const {return interface_.get();};
 private:
     InterfaceRef interface_;
@@ -742,8 +744,8 @@ public:
     static void DeleteVportReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateVirtualHostPort(const string &ifname);
-    static void DeleteVirtualHostPortReq(const string &ifname);
+    static void CreateInetInterfaceNextHop(const string &ifname);
+    static void DeleteInetInterfaceNextHop(const string &ifname);
 
 private:
     InterfaceRef interface_;

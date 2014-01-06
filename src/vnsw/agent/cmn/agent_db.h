@@ -62,6 +62,7 @@ public:
     AgentDBTablePartition(DBTable *parent, int index) : 
         DBTablePartition(parent, index) { };
     virtual ~AgentDBTablePartition() {};
+    virtual void Add(DBEntry *entry);
     virtual void Remove(DBEntryBase *entry);
 
 private:
@@ -110,6 +111,7 @@ public:
     void ClearRefState() const;
     bool IsActive() const;
 
+    virtual void PostAdd();
     virtual bool DBEntrySandesh(Sandesh *resp, std::string &name) const = 0;
 private:
     friend class AgentDBTable;

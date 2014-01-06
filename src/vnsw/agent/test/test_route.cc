@@ -122,9 +122,10 @@ protected:
     }
 
     void AddVhostRoute() {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRouteReq(
+                                                Agent::GetInstance()->GetLocalPeer(),
                                                 Agent::GetInstance()->GetDefaultVrf(),
-                                                "vhost0", vhost_ip_, false);
+                                                "vhost0", vhost_ip_, 32, "", false);
         client->WaitForIdle();
     }
 
@@ -154,8 +155,8 @@ protected:
     void AddGatewayRoute(const std::string &vrf_name, 
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddGatewayRoute
-            (Agent::GetInstance()->GetLocalPeer(), vrf_name, ip, plen, server);
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq
+            (vrf_name, ip, plen, server, "");
 
         client->WaitForIdle();
     }

@@ -357,7 +357,6 @@ private:
     void DeleteL3InterfaceRoute(bool old_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_addr);
     void UpdateInterfaceNH(bool force_update, bool policy_change);
-    void DeleteInterfaceNH();
     void UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf);
     void DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
                              bool old_need_linklocal_ip);

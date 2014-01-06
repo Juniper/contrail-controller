@@ -168,11 +168,17 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const RouteEntry *route;
   
-
     route = static_cast<RouteEntry *>(e);
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-    NHKSyncEntry nexthop(nh_object, route->GetActiveNextHop());
     NHKSyncEntry *old_nh = nh();
+
+    const NextHop *tmp = route->GetActiveNextHop();
+    if (tmp == NULL) {
+        DiscardNHKey key;
+        tmp = static_cast<NextHop *>
+            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+    }
+    NHKSyncEntry nexthop(nh_object, tmp);
 
     nh_ = static_cast<NHKSyncEntry *>(nh_object->GetReference(&nexthop));
     if (old_nh != nh()) {

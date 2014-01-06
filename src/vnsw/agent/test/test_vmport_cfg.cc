@@ -38,6 +38,13 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class CfgTest : public ::testing::Test {
+    virtual void SetUp() {
+    }
+
+    virtual void TearDown() {
+        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    }
+
 };
 
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
@@ -914,7 +921,8 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    WAIT_FOR(100, 1000, 
+             (3U == Agent::GetInstance()->GetInterfaceTable()->Size()));
     EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
@@ -1164,8 +1172,10 @@ TEST_F(CfgTest, Basic_1) {
                             eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost10", Agent::GetInstance()->GetDefaultVrf(),
-                                   InetInterface::VHOST);
+                             "vhost10", InetInterface::VHOST,
+                             Agent::GetInstance()->GetDefaultVrf(),
+                             Ip4Address(0), 0, Ip4Address(0), "");
+
     client->WaitForIdle();
 
     AddVn("vn5", 5);
@@ -1397,6 +1407,8 @@ TEST_F(CfgTest, SecurityGroup_1) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);

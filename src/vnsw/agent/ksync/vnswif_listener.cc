@@ -201,34 +201,36 @@ void VnswIfListener::KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt) 
 
 void VnswIfListener::CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
     Inet4UnicastAgentRouteTable *rt_table;
+    Agent *agent = Agent::GetInstance();
 
     std::string vrf_name = Agent::GetInstance()->GetDefaultVrf();
 
     rt_table = static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
-                         AgentRouteTableAPIS::INET4_UNICAST));
+        (agent->GetVrfTable()->GetRouteTable
+         (vrf_name, AgentRouteTableAPIS::INET4_UNICAST));
     if (rt_table == NULL) {
         assert(0);
     }
 
-    if (Agent::GetInstance()->GetPrefixLen() != 0) {
-        Ip4Address old = Agent::GetInstance()->GetRouterId();
+    if (agent->GetPrefixLen() != 0) {
+        Ip4Address old = agent->GetRouterId();
         LOG(ERROR, "Host IP update not supported!");
         LOG(ERROR, "Old IP is " << old.to_string() << " prefix len "
-                   << (unsigned short)Agent::GetInstance()->GetPrefixLen());
+                   << (unsigned short)agent->GetPrefixLen());
         LOG(ERROR, "New IP is " << host_ip.to_string() << " prefix len "
                    << (unsigned short)plen);
         return;
     }
     LOG(DEBUG, "New IP is " << host_ip.to_string() << " prefix len "
                << (unsigned short)plen);
-    Agent::GetInstance()->SetRouterId(host_ip);
-    rt_table->AddVHostRecvRoute(
-        vrf_name, Agent::GetInstance()->vhost_interface_name(), host_ip, false);
-    rt_table->AddVHostSubnetRecvRoute(
-        vrf_name, Agent::GetInstance()->vhost_interface_name(), host_ip, plen, false);
-    rt_table->AddResolveRoute(vrf_name, host_ip, plen);
-    Agent::GetInstance()->SetPrefixLen(plen);
+    agent->SetRouterId(host_ip);
+    agent->SetPrefixLen(plen);
+
+    InetInterface::CreateReq(agent->GetInterfaceTable(),
+                             agent->vhost_interface_name(),
+                             InetInterface::VHOST, agent->GetDefaultVrf(),
+                             host_ip, plen, agent->GetGatewayId(),
+                             agent->GetDefaultVrf());
 }
 
 void VnswIfListener::DeleteVhostRoutes(Ip4Address &host_ip, uint8_t plen) {
