@@ -278,6 +278,7 @@ struct query_table
 
 struct stat_table
 {
+    6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
@@ -292,6 +293,7 @@ const string STAT_VT_PREFIX      = "StatTable";
 
 const list<stat_table> _STAT_TABLES  = [
     {
+      'display_name' : 'CPU Information',
       'stat_type' : 'AnalyticsCpuState',
       'stat_attr' : 'cpu_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
@@ -303,6 +305,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'
       'obj_table' : 'NONE',
@@ -311,6 +314,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Values Table - integer',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fieldi'
       'obj_table' : 'NONE',
@@ -319,6 +323,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'QE Performance',
       'stat_type' : 'QueryPerfInfo',
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
@@ -340,6 +345,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'VN Agent',
       'stat_type' : 'UveVirtualNetworkAgent',
       'stat_attr' : 'vn_stats',
       'obj_table' : VN_TABLE,
