@@ -22,8 +22,8 @@ class StaticRouteProvisioner(object):
         self._parse_args(args_str)
 
         self._vnc_lib = VncApi(
-            self._args.admin_user, self._args.admin_password,
-            self._args.admin_tenant_name,
+            self._args.user, self._args.password,
+            self._args.tenant_name,
             self._args.api_server_ip,
             self._args.api_server_port, '/')
         
@@ -32,7 +32,8 @@ class StaticRouteProvisioner(object):
         vm_ip = self._args.virtual_machine_interface_ip
         vmi_id_got =None
         route_table_name = self._args.route_table_name
-        project_fq_name_str = self._args.project_fq_name
+        
+        project_fq_name_str = 'default-domain:'+ self._args.tenant_name
         project_fq_name = project_fq_name_str.split(':')
         project_obj = self._vnc_lib.project_read(fq_name=project_fq_name)
         
@@ -129,7 +130,7 @@ class StaticRouteProvisioner(object):
                                         --virtual_machine_id 57c8687a-2d63-4a5f-ac48-d49e834f2e89
                                         --virtual_machine_interface_ip 1.1.1.10  
                                         --route_table_name "MyRouteTable" 
-                                        --project_fq_name 'default-domain:admin'
+                                        --tenant_name "admin"
                                         --oper <add | del>
         '''
 
@@ -147,12 +148,11 @@ class StaticRouteProvisioner(object):
             'oper': 'add',
             'control_names': [],
             'route_table_name': 'CustomRouteTable',
-            'project_fq_name' : 'default-domain:admin',
         }
         ksopts = {
-            'admin_user': 'user1',
-            'admin_password': 'password1',
-            'admin_tenant_name': 'default-domain'
+            'user': 'user1',
+            'password': 'password1',
+            'tenant_name': 'default-domain'
         }
 
         if args.conf_file:
@@ -180,8 +180,6 @@ class StaticRouteProvisioner(object):
         parser.add_argument(
             "--virtual_machine_id", help="UUID of the VM")
         parser.add_argument(
-            "--project_fq_name", help="Fully qualified name of the Project")
-        parser.add_argument(
             "--api_server_ip", help="IP address of api server")
         parser.add_argument("--api_server_port", help="Port of api server")
         parser.add_argument(
@@ -190,7 +188,11 @@ class StaticRouteProvisioner(object):
         parser.add_argument(
             "--virtual_machine_interface_ip", help="VMI IP")
         parser.add_argument(
-            "--admin_tenant_name", help="Tenamt name for keystone admin user")
+            "--tenant_name", help="Tenamt name for keystone admin user")
+        parser.add_argument(
+            "--user", help="Name of keystone admin user")
+        parser.add_argument(
+            "--password", help="Password of keystone admin user")
         parser.add_argument(
             "--route_table_name", help="Route Table name. Default : CustomRouteTable")
 
