@@ -180,8 +180,10 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowEntry *fe,
 
 void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                                          uint64_t &diff_packets) {
-    const vr_flow_entry *k_flow = 
-        FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+    FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
+                                         flowtable_ksync_obj();
+    
+    const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
         (flow->flow_handle, false);
     if (k_flow) {
         uint64_t k_bytes, k_packets, bytes, packets;

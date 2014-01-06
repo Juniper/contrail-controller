@@ -48,6 +48,7 @@
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
 #include "uve/flow_uve.h"
+#include "uve/uve_init.h"
 #include "pkt/pkt_sandesh_flow.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
