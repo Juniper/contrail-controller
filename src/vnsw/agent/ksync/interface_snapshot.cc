@@ -33,7 +33,8 @@ void InterfaceKSnap::KernelInterfaceData(vr_interface_req *r) {
     }
 }
 
-bool InterfaceKSnap::FindInterfaceKSnapData(std::string &name, uint32_t &ip) {
+bool InterfaceKSnap::FindInterfaceKSnapData(const std::string &name, 
+                                            uint32_t &ip) {
     tbb::mutex::scoped_lock lock(mutex_);
     InterfaceKSnapIter it = data_map_.find(name);
     if (it != data_map_.end()) {

@@ -10,7 +10,6 @@
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
 #include <services/icmp_proto.h>
-#include <vr_defs.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 

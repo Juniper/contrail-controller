@@ -41,7 +41,6 @@ public:
     int AddMsg(char *buf, int buf_len);
     int ChangeMsg(char *buf, int buf_len);
     int DeleteMsg(char *buf, int buf_len);
-    //void Response();
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();

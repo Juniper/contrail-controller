@@ -26,7 +26,7 @@ public:
 
     void Init();
     void KernelInterfaceData(vr_interface_req *r);
-    bool FindInterfaceKSnapData(std::string &name, uint32_t &ip);
+    bool FindInterfaceKSnapData(const std::string &name, uint32_t &ip);
     bool Reset();
 private:
     Agent *agent_;
