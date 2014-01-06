@@ -37,6 +37,11 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class CfgTest : public ::testing::Test {
+public:    
+    CfgTest() : default_tunnel_type_(TunnelType::MPLS_GRE) { };
+    ~CfgTest() { };
+
+    TunnelType::Type default_tunnel_type_;
 };
 
 TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
@@ -81,6 +86,24 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
+}
+
+TEST_F(CfgTest, TunnelType_test) {
+    client->Reset();
+    ASSERT_TRUE(TunnelType::DefaultType() == default_tunnel_type_);
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+                default_tunnel_type_);
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+                TunnelType::MPLS_UDP);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+    ASSERT_TRUE(TunnelType::DefaultType() == default_tunnel_type_);
+    ASSERT_TRUE(TunnelType::ComputeType(TunnelType::AllType()) == 
+                default_tunnel_type_);
 }
 
 int main(int argc, char **argv) {

@@ -267,6 +267,8 @@ public:
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
     static void EncapPrioritySync(const std::vector<std::string> &cfg_list);
+    static void DeletePriorityList();
+
 private:
     Type type_;
     static PriorityList priority_list_;

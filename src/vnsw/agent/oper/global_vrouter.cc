@@ -370,6 +370,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
     } else {
         linklocal_services_map_.clear();
+        TunnelType::DeletePriorityList();
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             
