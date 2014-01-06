@@ -659,7 +659,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
     fe->teardown_time = UTCTimestampUsec();
-    fec->FlowExport(fe, 0, 0);
+    fec->FlowExport(fe, diff_bytes, diff_packets);
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->data.reverse_flow.get();
