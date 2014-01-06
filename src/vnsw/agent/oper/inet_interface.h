@@ -5,6 +5,8 @@
 #ifndef vnsw_agent_inet_interface_hpp
 #define vnsw_agent_inet_interface_hpp
 
+struct InetInterfaceData;
+
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of inet interfaces created in host-os. 
 //
@@ -19,20 +21,13 @@ public:
     enum SubType {
         VHOST,
         LINK_LOCAL,
-        GATEWAY
+        SIMPLE_GATEWAY
     };
 
-    InetInterface(const std::string &name, VrfEntry *vrf) :
-        Interface(Interface::INET, nil_uuid(), name, vrf), 
-        sub_type_(VHOST) { 
-    }
-
-    InetInterface(const std::string &name, VrfEntry *vrf,
-                         SubType sub_type) :
-        Interface(Interface::INET, nil_uuid(), name, vrf), 
-        sub_type_(sub_type) {
-    }
-
+    InetInterface(const std::string &name);
+    InetInterface(const std::string &name, SubType sub_type, VrfEntry *vrf,
+                  const Ip4Address &ip_addr, int plen, const Ip4Address &gw,
+                  const std::string &vn_name);
     virtual ~InetInterface() { }
 
     // DBTable virtual functions
@@ -40,51 +35,60 @@ public:
     std::string ToString() const { return "INET <" + name() + ">"; }
 
     // The interfaces are keyed by name. No UUID is allocated for them
-    virtual bool CmpInterface(const DBEntry &rhs) const {
-        const InetInterface &intf =
-            static_cast<const InetInterface &>(rhs);
-        return name_ < intf.name_;
-    }
-
+    virtual bool CmpInterface(const DBEntry &rhs) const;
     SubType sub_type() const { return sub_type_; }
+
+    void PostAdd();
+    bool OnChange(InetInterfaceData *data);
+    void Delete();
+    void Activate();
+    void DeActivate();
+
+    void ActivateSimpleGateway();
+    void DeActivateSimpleGateway();
+    void ActivateHostInterface();
+    void DeActivateHostInterface();
 
     // Helper functions
     static void CreateReq(InterfaceTable *table, const std::string &ifname,
-                          const std::string &vrf_name, SubType sub_type);
+                          SubType sub_type, const std::string &vrf_name,
+                          const Ip4Address &addr, int plen,
+                          const Ip4Address &gw, const std::string &vn_name);
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
 private:
     SubType sub_type_;
+    VrfEntryRef *vrf_;
+    Ip4Address ip_addr_;
+    int plen_;
+    Ip4Address gw_;
+    std::string vn_name_;
+    uint32_t label_;
+    bool active_;
     DISALLOW_COPY_AND_ASSIGN(InetInterface);
 };
 
 struct InetInterfaceKey : public InterfaceKey {
-    InetInterfaceKey(const std::string &name) :
-        InterfaceKey(AgentKey::ADD_DEL_CHANGE, Interface::INET,
-                     nil_uuid(), name, false) {
-    }
-
+    InetInterfaceKey(const std::string &name);
     virtual ~InetInterfaceKey() { }
 
-    Interface *AllocEntry(const InterfaceTable *table) const {
-        return new InetInterface(name_, NULL);
-    }
-
+    Interface *AllocEntry(const InterfaceTable *table) const;
     Interface *AllocEntry(const InterfaceTable *table,
                           const InterfaceData *data) const;
-
-    InterfaceKey *Clone() const {
-        return new InetInterfaceKey(*this);
-    }
+    InterfaceKey *Clone() const;
 };
 
 struct InetInterfaceData : public InterfaceData {
-    InetInterfaceData(const std::string &vrf_name,
-                             InetInterface::SubType sub_type) :
-        InterfaceData(), sub_type_(sub_type) {
-        VirtualHostInit(vrf_name);
+    InetInterfaceData(InetInterface::SubType sub_type, 
+                      const std::string &vrf_name, const Ip4Address &addr,
+                      int plen, const Ip4Address &gw,
+                      const std::string vn_name);
+    virtual ~InetInterfaceData() { }
 
-    }
     InetInterface::SubType sub_type_;
+    Ip4Address ip_addr_;
+    int plen_;
+    Ip4Address gw_;
+    std::string vn_name_;
 };
 
 #endif // vnsw_agent_inet_interface_hpp

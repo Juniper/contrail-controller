@@ -92,7 +92,7 @@ TEST_F(VgwTest, vn_route_1) {
 
     const InetInterface *vhost_intf;
     vhost_intf = static_cast<const InetInterface *>(intf);
-    EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::GATEWAY);
+    EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
 
 }
 

@@ -1085,10 +1085,6 @@ void VmInterface::UpdateInterfaceNH(bool force_update, bool policy_change) {
     InterfaceNH::CreateVport(GetUuid(), *mac, vrf_->GetName());
 }
 
-void VmInterface::DeleteInterfaceNH() {
-    InterfaceNH::DeleteVportReq(GetUuid());
-}
-
 // Add meta-data route if linklocal_ip is needed
 void VmInterface::UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf) {
     if (active_ == false || old_active == true)

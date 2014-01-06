@@ -61,6 +61,7 @@ public:
 
     // virtual functions for specific interface types
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
+    virtual void Delete() { };
     virtual void SendTrace(Trace event) const;
 
     // DBEntry comparator virtual function
@@ -180,7 +181,7 @@ struct InterfaceData : public AgentData {
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
     void PktInit() { vrf_name_ = ""; }
-    void VirtualHostInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
+    void InetInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
 
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;

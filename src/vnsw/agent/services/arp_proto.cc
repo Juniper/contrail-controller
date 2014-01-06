@@ -51,6 +51,7 @@ ArpProto::~ArpProto() {
     agent_->GetVrfTable()->Unregister(vid_);
     agent_->GetInterfaceTable()->Unregister(iid_);
     DelGraciousArpEntry();
+    assert(arp_cache_.Size() == 0);
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(PktInfo *info,
@@ -332,8 +333,8 @@ bool ArpHandler::HandleMessage() {
 
         case ITF_DELETE: {
             arp_proto->Iterate(boost::bind(&ArpHandler::EntryDelete, this, _2));
-            arp_proto->IPFabricIntf(NULL);
-            arp_proto->IPFabricIntfIndex(-1);
+            //arp_proto->IPFabricIntf(NULL);
+            //arp_proto->IPFabricIntfIndex(-1);
             break;
         }
 

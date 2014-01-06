@@ -409,8 +409,9 @@ TEST_F(ArpTest, GratArpSendTest) {
     Ip4Address ip1 = Ip4Address::from_string("1.1.1.1");
     //Add a vhost rcv route and check that grat arp entry gets created
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+                                                    Agent::GetInstance()->GetLocalPeer(),
                                                     Agent::GetInstance()->GetDefaultVrf(),
-                                                    "vhost0", ip1, false);
+                                                    "vhost0", ip1, 32, "", false);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip1.to_ulong());
 
@@ -424,8 +425,9 @@ TEST_F(ArpTest, GratArpSendTest) {
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+                                                       Agent::GetInstance()->GetLocalPeer(),
                                                        Agent::GetInstance()->GetDefaultVrf(),
-                                                       "vhost0", ip2, false);
+                                                       "vhost0", ip2, 32, "", false);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(

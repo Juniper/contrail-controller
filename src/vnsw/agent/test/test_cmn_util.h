@@ -40,6 +40,10 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
+NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
+                            InterfaceNHFlags::Type type, bool is_mcast,
+                            bool policy);
+NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy);
 bool VrfFind(const char *name);
 VrfEntry *VrfGet(const char *name);
 bool VnFind(int id);
@@ -61,6 +65,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
                              uint32_t obytes, uint32_t opkts);
+InetInterface *InetInterfaceGet(const char *ifname);
 bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
                   uint64_t out_bytes, uint64_t out_pkts);
 bool VmPortInactive(int id);
