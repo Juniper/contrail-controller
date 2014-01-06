@@ -22,15 +22,15 @@ class NHKSyncObject;
 
 class NHKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    NHKSyncEntry(const NHKSyncEntry *entry, uint32_t index, 
-                 NHKSyncObject *obj);
-    NHKSyncEntry(const NextHop *nh, NHKSyncObject *obj);
+    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
+                 uint32_t index);
+    NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
     virtual ~NHKSyncEntry();
 
     const NextHop *nh() { return nh_; }
     NextHop::Type type() const {return type_;}
-    IntfKSyncEntry *interface() const { 
-        return static_cast<IntfKSyncEntry *>(interface_.get());
+    InterfaceKSyncEntry *interface() const { 
+        return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
     KSyncDBObject *GetObject();
 
@@ -93,16 +93,16 @@ private:
 class NHKSyncObject : public KSyncDBObject {
 public:
     static const int kNHIndexCount = NH_TABLE_ENTRIES;
-    NHKSyncObject(Agent *agent);
+    NHKSyncObject(KSync *ksync);
     virtual ~NHKSyncObject();
 
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
 
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncObject);
 };
 

@@ -19,17 +19,15 @@
 #include "ksync/agent_ksync_types.h"
 #include "ksync/nexthop_ksync.h"
 
-#define RT_UCAST 0
-#define RT_MCAST 1
 #define RT_LAYER2 2
 
 class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    RouteKSyncEntry(const RouteKSyncEntry *entry, uint32_t index, 
-                    RouteKSyncObject* obj);
-    RouteKSyncEntry(const RouteEntry *route, RouteKSyncObject* obj);
+    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
+                    uint32_t index);
+    RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *route); 
     virtual ~RouteKSyncEntry();
 
     uint32_t prefix_len() const { return prefix_len_; }
@@ -82,10 +80,10 @@ public:
         bool seen_;
     };
 
-    RouteKSyncObject(Agent *agent, AgentRouteTable *rt_table);
+    RouteKSyncObject(KSync *ksync, AgentRouteTable *rt_table);
     virtual ~RouteKSyncObject();
 
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
 
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
@@ -94,7 +92,7 @@ public:
     virtual void EmptyTable();
 
 private:
-    Agent *agent_;
+    KSync *ksync_;
     bool marked_delete_;
     AgentRouteTable *rt_table_;
     LifetimeRef<RouteKSyncObject> table_delete_ref_;
@@ -109,8 +107,10 @@ public:
         bool seen_;
     };
 
-    VrfKSyncObject(Agent *agent);
+    VrfKSyncObject(KSync *ksync);
     virtual ~VrfKSyncObject();
+
+    KSync *ksync() const { return ksync_; }
 
     void RegisterDBClients();
     void Shutdown();
@@ -120,9 +120,8 @@ public:
     void DelFromVrfMap(RouteKSyncObject *);
     RouteKSyncObject *GetRouteKSyncObject(uint32_t vrf_id,
                                           uint32_t table_id) const;
-
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DBTableBase::ListenerId vrf_listener_id_;
     VrfRtObjectMap vrf_ucrt_object_map_;
     VrfRtObjectMap vrf_mcrt_object_map_;

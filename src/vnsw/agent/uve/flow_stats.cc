@@ -266,7 +266,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(entry->key, true);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
+                (entry->key, true);
             entry = NULL;
             if (reverse_flow) {
                 count++;

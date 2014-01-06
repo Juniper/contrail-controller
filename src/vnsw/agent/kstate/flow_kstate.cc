@@ -10,16 +10,17 @@
 
 using namespace std;
 
-FlowKState::FlowKState(const string &resp_ctx, int idx) :
+FlowKState::FlowKState(Agent *agent, const string &resp_ctx, int idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
             0), response_context_(resp_ctx), flow_idx_(idx), 
-    flow_iteration_key_(0) {
+    flow_iteration_key_(0), agent_(agent) {
 }
 
-FlowKState::FlowKState(const string &resp_ctx, const string &iter_idx) :
+FlowKState::FlowKState(Agent *agent, const string &resp_ctx, 
+                       const string &iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
             0), response_context_(resp_ctx), flow_idx_(-1), 
-    flow_iteration_key_(0) {
+    flow_iteration_key_(0), agent_(agent) {
     stringToInteger(iter_idx, flow_iteration_key_);
 }
 
@@ -123,8 +124,7 @@ bool FlowKState::Run() {
     const vr_flow_entry *k_flow;
     KFlowResp *resp;
 
-    FlowTableKSyncObject *ksync_obj = 
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
 
     if (flow_idx_ != -1) {
         k_flow = ksync_obj->GetKernelFlowEntry(flow_idx_, false);

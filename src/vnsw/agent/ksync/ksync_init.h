@@ -12,6 +12,7 @@
 #include <ksync/route_ksync.h>
 #include <ksync/vxlan_ksync.h>
 #include <ksync/vrf_assign_ksync.h>
+#include <ksync/interface_snapshot.h>
 
 class KSync {
 public:
@@ -34,13 +35,14 @@ public:
     void NetlinkInitTest();
     void NetlinkShutdownTest();
     void UpdateVhostMac();
+    Agent *agent() const  { return agent_; }
     MirrorKSyncObject *mirror_ksync_obj() const { 
         return mirror_ksync_obj_.get(); 
     }
     NHKSyncObject *nh_ksync_obj() const {
         return nh_ksync_obj_.get();
     }
-    IntfKSyncObject *interface_ksync_obj() const {
+    InterfaceKSyncObject *interface_ksync_obj() const {
         return interface_ksync_obj_.get();
     }
     VrfKSyncObject *vrf_ksync_obj() const {
@@ -54,7 +56,7 @@ public:
     }
 private:
     Agent *agent_;
-    boost::scoped_ptr<IntfKSyncObject> interface_ksync_obj_; 
+    boost::scoped_ptr<InterfaceKSyncObject> interface_ksync_obj_; 
     boost::scoped_ptr<FlowTableKSyncObject> flowtable_ksync_obj_; 
     boost::scoped_ptr<MplsKSyncObject> mpls_ksync_obj_; 
     boost::scoped_ptr<NHKSyncObject> nh_ksync_obj_; 

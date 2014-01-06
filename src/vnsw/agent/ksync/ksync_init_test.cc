@@ -61,7 +61,7 @@ void KSync::RegisterDBClientsTest(DB *db) {
 void KSync::NetlinkInitTest() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockTypeMap::Init(io, 1);

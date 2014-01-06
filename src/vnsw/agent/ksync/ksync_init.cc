@@ -38,14 +38,14 @@
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
 KSync::KSync(Agent *agent) 
-    : agent_(agent), interface_ksync_obj_(new IntfKSyncObject(agent_)), 
-      flowtable_ksync_obj_(new FlowTableKSyncObject(agent_)),  
-      mpls_ksync_obj_(new MplsKSyncObject(agent_)),
-      nh_ksync_obj_(new NHKSyncObject(agent_)), 
-      mirror_ksync_obj_(new MirrorKSyncObject(agent_)), 
-      vrf_ksync_obj_(new VrfKSyncObject(agent_)), 
-      vxlan_ksync_obj_(new VxLanKSyncObject(agent_)), 
-      vrf_assign_ksync_obj_(new VrfAssignKSyncObject(agent_)),
+    : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)), 
+      flowtable_ksync_obj_(new FlowTableKSyncObject(this)),  
+      mpls_ksync_obj_(new MplsKSyncObject(this)),
+      nh_ksync_obj_(new NHKSyncObject(this)), 
+      mirror_ksync_obj_(new MirrorKSyncObject(this)), 
+      vrf_ksync_obj_(new VrfKSyncObject(this)), 
+      vxlan_ksync_obj_(new VxLanKSyncObject(this)), 
+      vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
       interface_snapshot_(new InterfaceKSnap(agent)) {
 }
 
@@ -75,11 +75,12 @@ void KSync::InitFlowMem() {
 void KSync::NetlinkInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(flowtable_ksync_obj_.get()));
+    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
+                                            flowtable_ksync_obj_.get()));
 
     GenericNetlinkInit();
 }
@@ -134,7 +135,7 @@ void KSync::ResetVRouter() {
 void KSync::VnswIfListenerInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
     VnswIfListener::Init(io);
 }
@@ -149,7 +150,7 @@ void KSync::CreateVhostIntf() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->vhost_interface_name().c_str(),
+    strncpy(ifm.if_name, agent_->vhost_interface_name().c_str(),
             IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
@@ -173,12 +174,12 @@ void KSync::UpdateVhostMac() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->vhost_interface_name().c_str(),
+    strncpy(ifm.if_name, agent_->vhost_interface_name().c_str(),
             IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
-    GetPhyMac(Agent::GetInstance()->GetIpFabricItfName().c_str(), ifm.if_mac);
+    GetPhyMac(agent_->GetIpFabricItfName().c_str(), ifm.if_mac);
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);

@@ -54,7 +54,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         key.src_port = ntohs(r->get_fr_flow_sport());
         key.dst_port = ntohs(r->get_fr_flow_dport());
         key.protocol = r->get_fr_flow_proto();
-        FlowEntry *entry = Agent::GetInstance()->pkt()->flow_table()->Find(key);
+        FlowEntry *entry = flow_ksync_->ksync()->agent()->pkt()->flow_table()->
+                           Find(key);
         in_addr src;
         in_addr dst;
         src.s_addr = r->get_fr_flow_sip();
@@ -84,8 +85,9 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
         if (entry) {
             if (entry->flow_handle != FlowEntry::kInvalidFlowHandle) {
                 if ((int)entry->flow_handle != r->get_fr_index()) {
-                    LOG(DEBUG, "Flow index changed from <" << entry->flow_handle
-                        << "> to <" << r->get_fr_rindex() << ">");
+                    LOG(DEBUG, "Flow index changed from <" << 
+                        entry->flow_handle << "> to <" << 
+                        r->get_fr_rindex() << ">");
                 }
             }
             entry->flow_handle = r->get_fr_index();
@@ -106,6 +108,6 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
 }
 
 void KSyncSandeshContext::IfMsgHandler(vr_interface_req *r) {
-    flow_ksync_->agent()->ksync()->interface_snapshot()->KernelInterfaceData(r); 
+    flow_ksync_->ksync()->interface_snapshot()->KernelInterfaceData(r); 
     context_marker_ = r->get_vifr_idx();
 }

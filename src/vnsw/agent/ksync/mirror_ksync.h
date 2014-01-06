@@ -17,12 +17,12 @@ class MirrorKSyncObject;
 
 class MirrorKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    MirrorKSyncEntry(const MirrorEntry *, MirrorKSyncObject *obj);
-    MirrorKSyncEntry(const MirrorKSyncEntry *entry, uint32_t index,
-                     MirrorKSyncObject *obj);
-    MirrorKSyncEntry(const uint32_t vrf_id, uint32_t dip, uint16_t dport,
-                     MirrorKSyncObject *obj);
-    MirrorKSyncEntry(std::string &analyzer_name, MirrorKSyncObject *obj);
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorEntry *);
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const MirrorKSyncEntry *entry, 
+                     uint32_t index);
+    MirrorKSyncEntry(MirrorKSyncObject *obj, const uint32_t vrf_id, 
+                     uint32_t dip, uint16_t dport);
+    MirrorKSyncEntry(MirrorKSyncObject *obj, std::string &analyzer_name);
     virtual ~MirrorKSyncEntry();
 
     NHKSyncEntry *nh() const {
@@ -38,12 +38,12 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    MirrorKSyncObject *ksync_obj_;
     uint32_t vrf_id_;
     Ip4Address sip_;
     uint16_t   sport_;
     Ip4Address dip_;
     uint16_t   dport_;
-    MirrorKSyncObject *ksync_obj_;
     KSyncEntryPtr nh_;
     std::string analyzer_name_;
     DISALLOW_COPY_AND_ASSIGN(MirrorKSyncEntry);
@@ -52,17 +52,17 @@ private:
 class MirrorKSyncObject : public KSyncDBObject {
 public:
     static const int kMirrorIndexCount = 1000;
-    MirrorKSyncObject(Agent *agent);
+    MirrorKSyncObject(KSync *ksync);
     virtual ~MirrorKSyncObject();
 
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
 
     void RegisterDBClients();
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     uint32_t GetIdx(std::string analyzer_name);
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(MirrorKSyncObject);
 };
 

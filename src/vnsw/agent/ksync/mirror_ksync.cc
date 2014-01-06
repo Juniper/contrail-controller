@@ -8,31 +8,32 @@
 #include "ksync/ksync_init.h"
 #include <ksync/ksync_sock.h>
 
-MirrorKSyncEntry::MirrorKSyncEntry(const MirrorKSyncEntry *entry,
-                                   uint32_t index, MirrorKSyncObject *obj) : 
-    KSyncNetlinkDBEntry(index), vrf_id_(entry->vrf_id_), 
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
+                                   const MirrorKSyncEntry *entry,
+                                   uint32_t index) : 
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), vrf_id_(entry->vrf_id_), 
     sip_(entry->sip_), sport_(entry->sport_), dip_(entry->dip_), 
-    dport_(entry->dport_), ksync_obj_(obj), 
-    analyzer_name_(entry->analyzer_name_) {
+    dport_(entry->dport_), analyzer_name_(entry->analyzer_name_) {
 }
 
-MirrorKSyncEntry::MirrorKSyncEntry(const uint32_t vrf_id, uint32_t dip,
-                                   uint16_t dport, MirrorKSyncObject *obj) :
-    KSyncNetlinkDBEntry(kInvalidIndex), vrf_id_(vrf_id), dip_(dip), 
-    dport_(dport), ksync_obj_(obj) {
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj, 
+                                   const uint32_t vrf_id, uint32_t dip,
+                                   uint16_t dport) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), vrf_id_(vrf_id), 
+    dip_(dip), dport_(dport) {
 }
 
-MirrorKSyncEntry::MirrorKSyncEntry(const MirrorEntry *mirror_entry,
-                                   MirrorKSyncObject *obj) :
-    KSyncNetlinkDBEntry(kInvalidIndex), vrf_id_(mirror_entry->GetVrfId()),
-    sip_(*mirror_entry->GetSip()), sport_(mirror_entry->GetSPort()),
-    dip_(*mirror_entry->GetDip()), dport_(mirror_entry->GetDPort()), 
-    ksync_obj_(obj), nh_(NULL),
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
+                                   const MirrorEntry *mirror_entry) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    vrf_id_(mirror_entry->GetVrfId()), sip_(*mirror_entry->GetSip()), 
+    sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
+    dport_(mirror_entry->GetDPort()), nh_(NULL),
     analyzer_name_(mirror_entry->GetAnalyzerName()) {
 }
 
-MirrorKSyncEntry::MirrorKSyncEntry(std::string &analyzer_name,
-                                   MirrorKSyncObject *obj) :
+MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
+                                   std::string &analyzer_name) :
     ksync_obj_(obj), analyzer_name_(analyzer_name) { 
 }
 
@@ -66,12 +67,12 @@ bool MirrorKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MirrorEntry *mirror = static_cast<MirrorEntry *>(e);
 
-    NHKSyncObject *nh_object = ksync_obj_->agent()->ksync()->nh_ksync_obj();
+    NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     if (mirror->GetNH() == NULL) {
         LOG(DEBUG, "nexthop in Mirror entry is null");
         assert(0);
     }
-    NHKSyncEntry nh_entry(mirror->GetNH(), nh_object);
+    NHKSyncEntry nh_entry(nh_object, mirror->GetNH());
     NHKSyncEntry *old_nh = nh();
 
     nh_ = nh_object->GetReference(&nh_entry);
@@ -119,32 +120,32 @@ KSyncEntry *MirrorKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-MirrorKSyncObject::MirrorKSyncObject(Agent *agent) : 
-    KSyncDBObject(kMirrorIndexCount), agent_(agent) {
+MirrorKSyncObject::MirrorKSyncObject(KSync *ksync) : 
+    KSyncDBObject(kMirrorIndexCount), ksync_(ksync) {
 }
 
 MirrorKSyncObject::~MirrorKSyncObject() {
 }
 
 void MirrorKSyncObject::RegisterDBClients() {
-    RegisterDb(agent_->GetMirrorTable());
+    RegisterDb(ksync_->agent()->GetMirrorTable());
 }
 
 KSyncEntry *MirrorKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
     const MirrorKSyncEntry *mirror_entry = 
         static_cast<const MirrorKSyncEntry *>(entry);
-    MirrorKSyncEntry *ksync = new MirrorKSyncEntry(mirror_entry, index, this);
+    MirrorKSyncEntry *ksync = new MirrorKSyncEntry(this, mirror_entry, index);
     return static_cast<KSyncEntry *>(ksync);
 }
 
 KSyncEntry *MirrorKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     const MirrorEntry *mirror_entry = static_cast<const MirrorEntry *>(e);
-    MirrorKSyncEntry *ksync = new MirrorKSyncEntry(mirror_entry, this);
+    MirrorKSyncEntry *ksync = new MirrorKSyncEntry(this, mirror_entry);
     return static_cast<KSyncEntry *>(ksync);
 }
 
 uint32_t MirrorKSyncObject::GetIdx(std::string analyzer_name) {
-    MirrorKSyncEntry key(analyzer_name, this);
+    MirrorKSyncEntry key(this, analyzer_name);
     return Find(&key)->GetIndex();
 }
 

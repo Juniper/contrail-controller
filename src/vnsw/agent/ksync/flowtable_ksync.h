@@ -28,23 +28,25 @@ public:
                         uint32_t hash_id);
     virtual ~FlowTableKSyncEntry();
 
+    FlowEntryPtr flow_entry() const {return flow_entry_;}
+    uint32_t hash_id() const {return hash_id_;}
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
+    KSyncObject *GetObject();
+
+    void FillFlowInfo(sandesh_op::type op, uint16_t action, 
+                      uint16_t flag) const;
+    const std::string GetActionString(uint16_t action, uint16_t flag) const;
     std::string ToString() const;
     bool IsLess(const KSyncEntry &rhs) const;
-    KSyncObject *GetObject();
     int AddMsg(char *buf, int buf_len);
     int ChangeMsg(char *buf, int buf_len);
     int DeleteMsg(char *buf, int buf_len);
-    void Response();
-    FlowEntryPtr fe() const {return fe_;};
-    uint32_t hash_id() const {return hash_id_;};
-    int Encode(sandesh_op::type op, char *buf, int buf_len);
-    void FillFlowInfo(sandesh_op::type op, uint16_t action, uint16_t flag);
-    std::string GetActionString(uint16_t action, uint16_t flag);
+    //void Response();
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
 private:
-    FlowEntryPtr fe_;
+    FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
     uint32_t old_hash_id_;
     uint32_t old_reverse_flow_id_;
@@ -65,11 +67,11 @@ public:
     static const uint32_t AuditTimeout = 2000;           // in msec
     static const int AuditYield = 1024;
 
-    FlowTableKSyncObject(Agent *agent);
-    FlowTableKSyncObject(Agent *agent, int max_index);
+    FlowTableKSyncObject(KSync *ksync);
+    FlowTableKSyncObject(KSync *ksync, int max_index);
     virtual ~FlowTableKSyncObject();
     vr_flow_req &flow_req() { return flow_req_; }
-    Agent* agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     FlowTableKSyncEntry *Find(FlowEntry *key);
     void UpdateFlowStats(FlowEntry *fe, bool ignore_active_status);
@@ -93,7 +95,7 @@ public:
     }
 private:
     friend class KSyncSandeshContext;
-    Agent *agent_;
+    KSync *ksync_;
     int major_devid_;
     int flow_table_size_;
     vr_flow_req flow_req_;

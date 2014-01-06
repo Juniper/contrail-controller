@@ -19,14 +19,14 @@ class VrfAssignKSyncObject;
 
 class VrfAssignKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VrfAssignKSyncEntry(const VrfAssignKSyncEntry *entry, uint32_t index, 
-                        VrfAssignKSyncObject* obj);
-    VrfAssignKSyncEntry(const VrfAssign *rule, VrfAssignKSyncObject* obj);
+    VrfAssignKSyncEntry(VrfAssignKSyncObject* obj, 
+                        const VrfAssignKSyncEntry *entry, uint32_t index);
+    VrfAssignKSyncEntry(VrfAssignKSyncObject* obj, const VrfAssign *rule);
     virtual ~VrfAssignKSyncEntry();
 
     uint16_t vlan_tag() const {return vlan_tag_;};
-    IntfKSyncEntry *interface() const {
-        return static_cast<IntfKSyncEntry *>(interface_.get());
+    InterfaceKSyncEntry *interface() const {
+        return static_cast<InterfaceKSyncEntry *>(interface_.get());
     }
     KSyncDBObject *GetObject();
 
@@ -39,25 +39,25 @@ public:
     virtual int DeleteMsg(char *buf, int buf_len);
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    VrfAssignKSyncObject *ksync_obj_;
     KSyncEntryPtr interface_;
     uint16_t vlan_tag_;
     uint16_t vrf_id_;
-    VrfAssignKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignKSyncEntry);
 };
 
 class VrfAssignKSyncObject : public KSyncDBObject {
 public:
-    VrfAssignKSyncObject(Agent *agent);
+    VrfAssignKSyncObject(KSync *ksync);
     virtual ~VrfAssignKSyncObject();
 
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
 
     void RegisterDBClients();
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(VrfAssignKSyncObject);
 };
 

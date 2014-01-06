@@ -37,9 +37,11 @@
 #define TUN_INTF_CLONE_DEV      "/dev/net/tun"
 #define SOCK_RETRY_COUNT 4
 
-IntfKSyncEntry::IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index, 
-                               IntfKSyncObject *obj) :
-    KSyncNetlinkDBEntry(index), interface_name_(entry->interface_name_), 
+InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
+                                         const InterfaceKSyncEntry *entry, 
+                                         uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), 
+    interface_name_(entry->interface_name_), 
     type_(entry->type_), interface_id_(entry->interface_id_), 
     vrf_id_(entry->vrf_id_), fd_(kInvalidIndex),
     has_service_vlan_(entry->has_service_vlan_), mac_(entry->mac_),
@@ -49,18 +51,20 @@ IntfKSyncEntry::IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index,
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
     layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
-    parent_(entry->parent_), ksync_obj_(obj) {
+    parent_(entry->parent_) {
 }
 
-IntfKSyncEntry::IntfKSyncEntry(const Interface *intf, IntfKSyncObject *obj) :
-    KSyncNetlinkDBEntry(kInvalidIndex), interface_name_(intf->name()),
+InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
+                                         const Interface *intf) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    interface_name_(intf->name()),
     type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->GetVrfId()),
     fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), active_(false),
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
     ipv4_forwarding_(true), layer2_forwarding_(true),
-    vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL), ksync_obj_(obj) {
+    vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
        
     // Max name size supported by kernel
     assert(strlen(interface_name_.c_str()) < IF_NAMESIZE);
@@ -74,32 +78,33 @@ IntfKSyncEntry::IntfKSyncEntry(const Interface *intf, IntfKSyncObject *obj) :
         network_id_ = vmitf->vxlan_id();
         vlan_id_ = vmitf->vlan_id();
         if (vmitf->parent()) {
-            IntfKSyncEntry tmp(vmitf->parent(), ksync_obj_);
+            InterfaceKSyncEntry tmp(ksync_obj_, vmitf->parent());
             parent_ = ksync_obj_->GetReference(&tmp);
         }
     }
 }
 
-IntfKSyncEntry::~IntfKSyncEntry() {
+InterfaceKSyncEntry::~InterfaceKSyncEntry() {
 }
 
-KSyncDBObject *IntfKSyncEntry::GetObject() { 
+KSyncDBObject *InterfaceKSyncEntry::GetObject() { 
     return ksync_obj_;
 }
 
-bool IntfKSyncEntry::IsLess(const KSyncEntry &rhs) const {
-    const IntfKSyncEntry &entry = static_cast<const IntfKSyncEntry &>(rhs);
+bool InterfaceKSyncEntry::IsLess(const KSyncEntry &rhs) const {
+    const InterfaceKSyncEntry &entry = static_cast
+        <const InterfaceKSyncEntry &>(rhs);
     return interface_name_ < entry.interface_name_;
 }
 
-std::string IntfKSyncEntry::ToString() const {
+std::string InterfaceKSyncEntry::ToString() const {
     std::stringstream s;
     s << "Interface : " << interface_name_ << " Index : " << interface_id_ 
         << " Vrf : " << vrf_id_;
     return s.str();
 }
 
-bool IntfKSyncEntry::Sync(DBEntry *e) {
+bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     Interface *intf = static_cast<Interface *>(e);
     bool ret = false;
 
@@ -199,7 +204,7 @@ bool IntfKSyncEntry::Sync(DBEntry *e) {
     return ret;
 }
 
-KSyncEntry *IntfKSyncEntry::UnresolvedReference() {
+KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
     if (type_ != Interface::VM_INTERFACE) {
         return NULL;
     }
@@ -214,7 +219,7 @@ KSyncEntry *IntfKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
+int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
     int encode_len, error;
 
@@ -227,7 +232,8 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     encoder.set_h_op(op);
     switch (type_) {
     case Interface::VM_INTERFACE: {
-        std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
+        std::vector<int8_t> intf_mac(agent_vrrp_mac, 
+                                     agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
         if (layer2_forwarding_) {
             flags |= VIF_FLAG_L2_ENABLED;
@@ -238,7 +244,8 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_vifr_type(VIF_TYPE_VLAN);
             encoder.set_vifr_vlan_id(vlan_id_);
             encoder.set_vifr_parent_vif_idx
-                (static_cast<IntfKSyncEntry *>(parent_.get())->interface_id());
+                (static_cast<InterfaceKSyncEntry *>
+                     (parent_.get())->interface_id());
         }
         break;
     }
@@ -273,7 +280,8 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     case Interface::PACKET: {
         encoder.set_vifr_type(VIF_TYPE_AGENT); 
-        std::vector<int8_t> intf_mac(agent_vrrp_mac, agent_vrrp_mac + ETHER_ADDR_LEN);
+        std::vector<int8_t> intf_mac(agent_vrrp_mac, 
+                                     agent_vrrp_mac + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
         flags |= VIF_FLAG_L3_ENABLED;
         break;
@@ -289,8 +297,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         if (policy_enabled_) {
             flags |= VIF_FLAG_POLICY_ENABLED;
         }
-        MirrorKSyncObject* obj = ksync_obj_->agent()->ksync()->
-                                                      mirror_ksync_obj();
+        MirrorKSyncObject* obj = ksync_obj_->ksync()->mirror_ksync_obj();
         if (!analyzer_name_.empty()) {
             uint16_t idx = obj->GetIdx(analyzer_name_);
             if (Interface::MIRROR_TX == mirror_direction_) {
@@ -322,7 +329,7 @@ int IntfKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     return encode_len;
 }
 
-void IntfKSyncEntry::FillObjectLog(sandesh_op::type op, 
+void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op, 
                                    KSyncIntfInfo &info) const {
     info.set_name(interface_name_);
     info.set_idx(interface_id_);
@@ -343,7 +350,7 @@ void IntfKSyncEntry::FillObjectLog(sandesh_op::type op,
     }
 }
 
-int IntfKSyncEntry::AddMsg(char *buf, int buf_len) {
+int InterfaceKSyncEntry::AddMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
 
     FillObjectLog(sandesh_op::ADD, info);
@@ -351,45 +358,47 @@ int IntfKSyncEntry::AddMsg(char *buf, int buf_len) {
     return Encode(sandesh_op::ADD, buf, buf_len);
 }
 
-int IntfKSyncEntry::DeleteMsg(char *buf, int buf_len) {
+int InterfaceKSyncEntry::DeleteMsg(char *buf, int buf_len) {
     KSyncIntfInfo info;
     FillObjectLog(sandesh_op::DELETE, info);
     KSYNC_TRACE(Intf, info);
     return Encode(sandesh_op::DELETE, buf, buf_len);
 }
 
-int IntfKSyncEntry::ChangeMsg(char *buf, int buf_len) {
+int InterfaceKSyncEntry::ChangeMsg(char *buf, int buf_len) {
     return AddMsg(buf, buf_len);
 }
 
-IntfKSyncObject::IntfKSyncObject(Agent *agent)
-    : KSyncDBObject(kInterfaceCount), agent_(agent), 
-      physical_interface_mac_(), test_mode(false) {
+InterfaceKSyncObject::InterfaceKSyncObject(KSync *ksync) :
+    KSyncDBObject(kInterfaceCount), ksync_(ksync), 
+    physical_interface_mac_(), test_mode(false) {
 }
 
-IntfKSyncObject::~IntfKSyncObject() {
+InterfaceKSyncObject::~InterfaceKSyncObject() {
 }
 
-void IntfKSyncObject::RegisterDBClients() {
-    RegisterDb(agent_->GetInterfaceTable());
+void InterfaceKSyncObject::RegisterDBClients() {
+    RegisterDb(ksync_->agent()->GetInterfaceTable());
 }
 
-KSyncEntry *IntfKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
-    const IntfKSyncEntry *intf = static_cast<const IntfKSyncEntry *>(entry);
-    IntfKSyncEntry *ksync = new IntfKSyncEntry(intf, index, this);
+KSyncEntry *InterfaceKSyncObject::Alloc(const KSyncEntry *entry, 
+                                        uint32_t index) {
+    const InterfaceKSyncEntry *intf = 
+        static_cast<const InterfaceKSyncEntry *>(entry);
+    InterfaceKSyncEntry *ksync = new InterfaceKSyncEntry(this, intf, index);
     return static_cast<KSyncEntry *>(ksync);
 }
 
-KSyncEntry *IntfKSyncObject::DBToKSyncEntry(const DBEntry *e) {
+KSyncEntry *InterfaceKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     const Interface *intf = static_cast<const Interface *>(e);
-    IntfKSyncEntry *key = NULL;
+    InterfaceKSyncEntry *key = NULL;
 
     switch (intf->type()) {
         case Interface::PHYSICAL:
         case Interface::VM_INTERFACE:
         case Interface::PACKET:
         case Interface::INET:
-            key = new IntfKSyncEntry(intf, this);
+            key = new InterfaceKSyncEntry(this, intf);
             break;
 
         default:
@@ -399,15 +408,15 @@ KSyncEntry *IntfKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     return static_cast<KSyncEntry *>(key);
 }
 
-void IntfKSyncObject::Init() {
+void InterfaceKSyncObject::Init() {
     // Get MAC Address for vnsw interface
     test_mode = 0;
     Interface::set_test_mode(false);
-    GetPhyMac(agent_->vhost_interface_name().c_str(), 
+    GetPhyMac(ksync_->agent()->vhost_interface_name().c_str(), 
               physical_interface_mac_);
 }
 
-void IntfKSyncObject::InitTest() {
+void InterfaceKSyncObject::InitTest() {
     test_mode = 1;
     Interface::set_test_mode(true);
 }
@@ -431,54 +440,6 @@ void GetPhyMac(const char *ifname, char *mac) {
     close(fd);
 
     memcpy(mac, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// Snapshot of Kernel Interface data
-//////////////////////////////////////////////////////////////////////////////
-InterfaceKSnap::InterfaceKSnap(Agent *agent) 
-    : agent_(agent), timer_(NULL) {
-}
-
-void InterfaceKSnap::Init() {
-    timer_ = TimerManager::CreateTimer(
-             *(Agent::GetInstance()->GetEventManager())->io_service(), "InterfaceKSnapTimer");
-    timer_->Start(timeout_, boost::bind(&InterfaceKSnap::Reset, this));
-}
-
-InterfaceKSnap::~InterfaceKSnap() {
-    if (timer_) {
-        timer_->Cancel();
-        TimerManager::DeleteTimer(timer_);
-    }
-}
-
-void InterfaceKSnap::KernelInterfaceData(vr_interface_req *r) {
-    char name[IF_NAMESIZE + 1];
-    tbb::mutex::scoped_lock lock(mutex_);
-    if (r->get_vifr_os_idx() >= 0 && r->get_vifr_type() == VIF_TYPE_VIRTUAL) {
-        uint32_t ipaddr = r->get_vifr_ip();
-        if (ipaddr && if_indextoname(r->get_vifr_os_idx(), name)) {
-            std::string itf_name(name);
-            data_map_.insert(InterfaceKSnapPair(itf_name, ipaddr));
-        }
-    }
-}
-
-bool InterfaceKSnap::FindInterfaceKSnapData(std::string &name, uint32_t &ip) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    InterfaceKSnapIter it = data_map_.find(name);
-    if (it != data_map_.end()) {
-        ip = it->second;
-        return true;
-    }
-    return false;
-}
-
-bool InterfaceKSnap::Reset() { 
-    tbb::mutex::scoped_lock lock(mutex_);
-    data_map_.clear();
-    return false;
 }
 
 void vr_response::Process(SandeshContext *context) {

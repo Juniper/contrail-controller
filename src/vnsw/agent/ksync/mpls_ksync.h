@@ -18,9 +18,9 @@ class MplsKSyncObject;
 
 class MplsKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    MplsKSyncEntry(const MplsKSyncEntry *entry, uint32_t index,
-                   MplsKSyncObject* obj);
-    MplsKSyncEntry(const MplsLabel *label, MplsKSyncObject* obj);
+    MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *entry,
+                   uint32_t index);
+    MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *label);
     virtual ~MplsKSyncEntry();
 
     NHKSyncEntry *nh() const {
@@ -38,23 +38,23 @@ public:
     void FillObjectLog(sandesh_op::type op, KSyncMplsInfo &info) const;
 private:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    MplsKSyncObject *ksync_obj_;
     uint32_t label_;
     KSyncEntryPtr nh_;
-    MplsKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(MplsKSyncEntry);
 };
 
 class MplsKSyncObject : public KSyncDBObject {
 public:
     static const int kMplsIndexCount = 10000;
-    MplsKSyncObject(Agent *agent);
+    MplsKSyncObject(KSync *ksync);
     virtual ~MplsKSyncObject();
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(MplsKSyncObject);
 };
 

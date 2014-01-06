@@ -21,22 +21,22 @@
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync_init.h"
 
-VrfAssignKSyncEntry::VrfAssignKSyncEntry(const VrfAssignKSyncEntry *entry, 
-                                         uint32_t index, 
-                                         VrfAssignKSyncObject* obj)
-    : KSyncNetlinkDBEntry(index), interface_(entry->interface_),
-      vlan_tag_(entry->vlan_tag_), vrf_id_(entry->vrf_id_), ksync_obj_(obj) {
+VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
+                                         const VrfAssignKSyncEntry *entry, 
+                                         uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), interface_(entry->interface_),
+    vlan_tag_(entry->vlan_tag_), vrf_id_(entry->vrf_id_) {
 }
 
-VrfAssignKSyncEntry::VrfAssignKSyncEntry(const VrfAssign *vassign, 
-                                         VrfAssignKSyncObject* obj)
-    : KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj) {
+VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
+                                         const VrfAssign *vassign) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj) {
 
-    IntfKSyncObject *intf_object = 
-        ksync_obj_->agent()->ksync()->interface_ksync_obj();
-    IntfKSyncEntry intf(vassign->GetInterface(), intf_object);
+    InterfaceKSyncObject *intf_object = 
+        ksync_obj_->ksync()->interface_ksync_obj();
+    InterfaceKSyncEntry intf(intf_object, vassign->GetInterface());
 
-    interface_ = static_cast<IntfKSyncEntry *>
+    interface_ = static_cast<InterfaceKSyncEntry *>
         (intf_object->GetReference(&intf));
     assert(interface_);
 
@@ -71,12 +71,13 @@ bool VrfAssignKSyncEntry::IsLess(const KSyncEntry &rhs) const {
 
 std::string VrfAssignKSyncEntry::ToString() const {
     std::stringstream s;
-    IntfKSyncEntry *intf = interface();
+    InterfaceKSyncEntry *intf = interface();
 
     s << "VRF Assign : ";
     if (intf) {
-        s << "Interface : " << intf->interface_name() << " Intf-Service-Vlan : " <<
-            (intf->has_service_vlan() == true ? "Enable" : "Disable");
+        s << "Interface : " << intf->interface_name() << 
+             " Intf-Service-Vlan : " << 
+             (intf->has_service_vlan() == true ? "Enable" : "Disable");
     } else { 
         s << "Interface : <NULL> ";
     }
@@ -107,15 +108,15 @@ bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
 int VrfAssignKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_vrf_assign_req encoder;
     int encode_len, error;
-    IntfKSyncEntry *intf = interface();
+    InterfaceKSyncEntry *intf = interface();
 
     encoder.set_h_op(op);
     encoder.set_var_vif_index(intf->GetIndex());
     encoder.set_var_vlan_id(vlan_tag_);
     encoder.set_var_vif_vrf(vrf_id_);
     encode_len = encoder.WriteBinary((uint8_t *)buf, buf_len, &error);
-    LOG(DEBUG, "VRF Assign for Interface <" << intf->interface_name() << "> Tag <" 
-        << vlan_tag() << "> Vrf <" << vrf_id_ << ">");
+    LOG(DEBUG, "VRF Assign for Interface <" << intf->interface_name() << 
+        "> Tag <" << vlan_tag() << "> Vrf <" << vrf_id_ << ">");
     return encode_len;
 }
 
@@ -134,34 +135,34 @@ int VrfAssignKSyncEntry::DeleteMsg(char *buf, int buf_len) {
 }
 
 KSyncEntry *VrfAssignKSyncEntry::UnresolvedReference() {
-    IntfKSyncEntry *intf = interface();
+    InterfaceKSyncEntry *intf = interface();
     if (!intf->IsResolved()) {
         return intf;
     }
     return NULL;
 }
 
-VrfAssignKSyncObject::VrfAssignKSyncObject(Agent *agent) 
-    : KSyncDBObject(), agent_(agent) {
+VrfAssignKSyncObject::VrfAssignKSyncObject(KSync *ksync) 
+    : KSyncDBObject(), ksync_(ksync) {
 }
 
 VrfAssignKSyncObject::~VrfAssignKSyncObject() {
 }
 
 void VrfAssignKSyncObject::RegisterDBClients() {
-    RegisterDb(agent_->GetVrfAssignTable());
+    RegisterDb(ksync_->agent()->GetVrfAssignTable());
 }
 
 KSyncEntry *VrfAssignKSyncObject::Alloc(const KSyncEntry *ke, uint32_t index) {
     const VrfAssignKSyncEntry *rule = 
         static_cast<const VrfAssignKSyncEntry *>(ke);
-    VrfAssignKSyncEntry *ksync = new VrfAssignKSyncEntry(rule, index, this);
+    VrfAssignKSyncEntry *ksync = new VrfAssignKSyncEntry(this, rule, index);
     return static_cast<KSyncEntry *>(ksync);
 }
 
 KSyncEntry *VrfAssignKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     const VrfAssign *rule = static_cast<const VrfAssign *>(e);
-    VrfAssignKSyncEntry *key = new VrfAssignKSyncEntry(rule, this);
+    VrfAssignKSyncEntry *key = new VrfAssignKSyncEntry(this, rule);
     return static_cast<KSyncEntry *>(key);
 }
 

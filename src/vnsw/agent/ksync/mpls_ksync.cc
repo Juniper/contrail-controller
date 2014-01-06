@@ -12,15 +12,15 @@
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_sock.h>
 
-MplsKSyncEntry::MplsKSyncEntry(const MplsKSyncEntry *entry, uint32_t index,
-                               MplsKSyncObject* obj)
-    : KSyncNetlinkDBEntry(index), label_(entry->label_), nh_(NULL), 
-      ksync_obj_(obj) { 
+MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *me,
+                               uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(me->label_), 
+    nh_(NULL)  { 
 }
 
-MplsKSyncEntry::MplsKSyncEntry(const MplsLabel *mpls, MplsKSyncObject* obj)
-    : KSyncNetlinkDBEntry(kInvalidIndex), label_(mpls->GetLabel()), nh_(NULL), 
-      ksync_obj_(obj) {
+MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    label_(mpls->GetLabel()), nh_(NULL) {
 }
 
 MplsKSyncEntry::~MplsKSyncEntry() {
@@ -52,12 +52,12 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const MplsLabel *mpls = static_cast<MplsLabel *>(e);
 
-    NHKSyncObject *nh_object = ksync_obj_->agent()->ksync()->nh_ksync_obj();
+    NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     if (mpls->GetNextHop() == NULL) {
         LOG(DEBUG, "nexthop in mpls label is null");
         assert(0);
     }
-    NHKSyncEntry next_hop(mpls->GetNextHop(), nh_object);
+    NHKSyncEntry next_hop(nh_object, mpls->GetNextHop());
     NHKSyncEntry *old_nh = nh(); 
 
     nh_ = nh_object->GetReference(&next_hop);
@@ -125,26 +125,26 @@ KSyncEntry *MplsKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-MplsKSyncObject::MplsKSyncObject(Agent *agent) : 
-    KSyncDBObject(kMplsIndexCount), agent_(agent) {
+MplsKSyncObject::MplsKSyncObject(KSync *ksync) : 
+    KSyncDBObject(kMplsIndexCount), ksync_(ksync) {
 }
 
 MplsKSyncObject::~MplsKSyncObject() {
 }
 
 void MplsKSyncObject::RegisterDBClients() {
-    RegisterDb(agent_->GetMplsTable());
+    RegisterDb(ksync_->agent()->GetMplsTable());
 }
 
 KSyncEntry *MplsKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
     const MplsKSyncEntry *mpls = static_cast<const MplsKSyncEntry *>(entry);
-    MplsKSyncEntry *ksync = new MplsKSyncEntry(mpls, index, this);
+    MplsKSyncEntry *ksync = new MplsKSyncEntry(this, mpls, index);
     return static_cast<KSyncEntry *>(ksync);
 };
 
 KSyncEntry *MplsKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     const MplsLabel *mpls = static_cast<const MplsLabel *>(e);
-    MplsKSyncEntry *key = new MplsKSyncEntry(mpls, this);
+    MplsKSyncEntry *key = new MplsKSyncEntry(this, mpls);
     return static_cast<KSyncEntry *>(key);
 }
 

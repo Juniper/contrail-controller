@@ -21,9 +21,9 @@ class VxLanKSyncObject;
 
 class VxLanIdKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    VxLanIdKSyncEntry(const VxLanIdKSyncEntry *entry, uint32_t index, 
-                      VxLanKSyncObject *obj);
-    VxLanIdKSyncEntry(const VxLanId *label, VxLanKSyncObject *obj);
+    VxLanIdKSyncEntry(VxLanKSyncObject *obj, const VxLanIdKSyncEntry *entry, 
+                      uint32_t index);
+    VxLanIdKSyncEntry(VxLanKSyncObject *obj, const VxLanId *label);
     virtual ~VxLanIdKSyncEntry();
 
     NHKSyncEntry *nh() const {
@@ -50,14 +50,14 @@ private:
 class VxLanKSyncObject : public KSyncDBObject {
 public:
     static const int kVxLanIndexCount = 10000;
-    VxLanKSyncObject(Agent *agent);
+    VxLanKSyncObject(KSync *ksync);
     virtual ~VxLanKSyncObject();
-    Agent *agent() const { return agent_; }
+    KSync *ksync() const { return ksync_; }
     virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void RegisterDBClients();
 private:
-    Agent *agent_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(VxLanKSyncObject);
 };
 

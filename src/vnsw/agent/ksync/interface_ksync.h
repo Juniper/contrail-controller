@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_intf_ksync_h
-#define vnsw_agent_intf_ksync_h
+#ifndef vnsw_agent_interface_ksync_h
+#define vnsw_agent_interface_ksync_h
 
 #include <net/ethernet.h>
 
@@ -16,9 +16,8 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include "oper/interface_common.h"
-#include "vr_types.h"
-#include "vr_interface.h"
 #include "ksync/agent_ksync_types.h"
+#include "vr_types.h"
 
 using namespace std;
 
@@ -30,14 +29,14 @@ void KSyncInterfaceDelete(Interface::Type type, const char *if_name,
 void GetPhyMac(const char *ifname, char *mac);
 
 class Timer;
-class IntfKSyncObject;
+class InterfaceKSyncObject;
 
-class IntfKSyncEntry : public KSyncNetlinkDBEntry {
+class InterfaceKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    IntfKSyncEntry(const IntfKSyncEntry *entry, uint32_t index, 
-                   IntfKSyncObject *obj);
-    IntfKSyncEntry(const Interface *intf, IntfKSyncObject *obj);
-    virtual ~IntfKSyncEntry();
+    InterfaceKSyncEntry(InterfaceKSyncObject *obj, 
+                        const InterfaceKSyncEntry *entry, uint32_t index);
+    InterfaceKSyncEntry(InterfaceKSyncObject *obj, const Interface *intf);
+    virtual ~InterfaceKSyncEntry();
 
     const uint8_t *mac() const {return mac_.ether_addr_octet;}
     uint32_t interface_id() const {return interface_id_;}
@@ -54,8 +53,9 @@ public:
     virtual KSyncEntry *UnresolvedReference();
     void FillObjectLog(sandesh_op::type op, KSyncIntfInfo &info) const;
 private:
-    friend class IntfKSyncObject;
+    friend class InterfaceKSyncObject;
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    InterfaceKSyncObject *ksync_obj_;
     string interface_name_;     // Key
     Interface::Type type_;
     uint32_t interface_id_;
@@ -75,18 +75,17 @@ private:
     bool layer2_forwarding_;
     uint16_t vlan_id_;
     KSyncEntryPtr parent_;
-    IntfKSyncObject *ksync_obj_;
-    DISALLOW_COPY_AND_ASSIGN(IntfKSyncEntry);
+    DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncEntry);
 };
 
-class IntfKSyncObject : public KSyncDBObject {
+class InterfaceKSyncObject : public KSyncDBObject {
 public:
     static const int kInterfaceCount = 1000;        // Max interfaces
 
-    IntfKSyncObject(Agent *agent);
-    virtual ~IntfKSyncObject();
+    InterfaceKSyncObject(KSync *parent);
+    virtual ~InterfaceKSyncObject();
 
-    Agent *agent() const {return agent_; }
+    KSync *ksync() const { return ksync_; }
     const char *physical_interface_mac() const {return physical_interface_mac_;}
 
     void Init();
@@ -96,36 +95,10 @@ public:
     void RegisterDBClients();
 
 private:
-    Agent *agent_;
+    KSync *ksync_;
     char physical_interface_mac_[ETHER_ADDR_LEN];
     int test_mode;
-    DISALLOW_COPY_AND_ASSIGN(IntfKSyncObject);
+    DISALLOW_COPY_AND_ASSIGN(InterfaceKSyncObject);
 };
 
-// Store kernel interface snapshot
-class InterfaceKSnap {
-public:
-    typedef std::map<std::string, uint32_t> InterfaceKSnapMap;
-    typedef std::map<std::string, uint32_t>::iterator InterfaceKSnapIter;
-    typedef std::pair<std::string, uint32_t> InterfaceKSnapPair;
-
-    InterfaceKSnap(Agent *agent);
-    virtual ~InterfaceKSnap();
-
-    void Init();
-    void KernelInterfaceData(vr_interface_req *r);
-    bool FindInterfaceKSnapData(std::string &name, uint32_t &ip);
-    bool Reset();
-
-private:
-
-    Agent *agent_;
-    Timer *timer_;
-    tbb::mutex mutex_;
-    InterfaceKSnapMap data_map_;
-    static const uint32_t timeout_ = 180000; // 3 minutes
-
-    DISALLOW_COPY_AND_ASSIGN(InterfaceKSnap);
-};
-
-#endif // vnsw_agent_intf_ksync_h
+#endif // vnsw_agent_interface_ksync_h

@@ -25,16 +25,17 @@
 
 #include "ksync_init.h"
 
-VxLanIdKSyncEntry::VxLanIdKSyncEntry(const VxLanIdKSyncEntry *entry, 
-                                     uint32_t index, VxLanKSyncObject *obj)
-    : KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_), 
-      nh_(NULL) { 
+VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj, 
+                                     const VxLanIdKSyncEntry *entry, 
+                                     uint32_t index) :
+    KSyncNetlinkDBEntry(index), ksync_obj_(obj), label_(entry->label_), 
+    nh_(NULL) { 
 }
 
-VxLanIdKSyncEntry::VxLanIdKSyncEntry(const VxLanId *vxlan_id, 
-                                     VxLanKSyncObject *obj)
-    : KSyncNetlinkDBEntry(kInvalidIndex), label_(vxlan_id->vxlan_id()), 
-      nh_(NULL) {
+VxLanIdKSyncEntry::VxLanIdKSyncEntry(VxLanKSyncObject *obj,
+                                     const VxLanId *vxlan_id) : 
+    KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
+    label_(vxlan_id->vxlan_id()), nh_(NULL) {
 }
 
 VxLanIdKSyncEntry::~VxLanIdKSyncEntry() {
@@ -70,12 +71,12 @@ bool VxLanIdKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
     const VxLanId *vxlan_id = static_cast<VxLanId *>(e);
 
-    NHKSyncObject *nh_object = ksync_obj_->agent()->ksync()->nh_ksync_obj();
+    NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     if (vxlan_id->GetNextHop() == NULL) {
         LOG(DEBUG, "nexthop in network-id label is null");
         assert(0);
     }
-    NHKSyncEntry nexthop(vxlan_id->GetNextHop(), nh_object);
+    NHKSyncEntry nexthop(nh_object, vxlan_id->GetNextHop());
     NHKSyncEntry *old_nh = nh();
 
     nh_ = nh_object->GetReference(&nexthop);
@@ -143,27 +144,27 @@ KSyncEntry *VxLanIdKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
-VxLanKSyncObject::VxLanKSyncObject(Agent *agent) 
-    : KSyncDBObject(kVxLanIndexCount), agent_(agent) {
+VxLanKSyncObject::VxLanKSyncObject(KSync *ksync) 
+    : KSyncDBObject(kVxLanIndexCount), ksync_(ksync) {
 }
 
 VxLanKSyncObject::~VxLanKSyncObject() {
 }
 
 void VxLanKSyncObject::RegisterDBClients() {
-    RegisterDb(agent_->GetVxLanTable());
+    RegisterDb(ksync_->agent()->GetVxLanTable());
 }
 
 KSyncEntry *VxLanKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
     const VxLanIdKSyncEntry *vxlan = 
         static_cast<const VxLanIdKSyncEntry *>(entry);
-    VxLanIdKSyncEntry *ksync = new VxLanIdKSyncEntry(vxlan, index, this);
+    VxLanIdKSyncEntry *ksync = new VxLanIdKSyncEntry(this, vxlan, index);
     return static_cast<KSyncEntry *>(ksync);
 }
 
 KSyncEntry *VxLanKSyncObject::DBToKSyncEntry(const DBEntry *e) {
     const VxLanId *vxlan = static_cast<const VxLanId *>(e);
-    VxLanIdKSyncEntry *key = new VxLanIdKSyncEntry(vxlan, this);
+    VxLanIdKSyncEntry *key = new VxLanIdKSyncEntry(this, vxlan);
     return static_cast<KSyncEntry *>(key);
 }
 
