@@ -248,8 +248,7 @@ public:
         return ret;
     }
 
-    void MakeFlow(FlowEntry *flow, uint16_t port, const char *dest_vn,
-                  uint8_t proto, uint16_t sport, uint16_t dport) {
+    void MakeFlow(FlowEntry *flow, uint16_t port, const char *dest_vn) {
         VmInterface *intf = static_cast<VmInterface *>(VmPortGet(port));
         const VnEntry *vn = intf->vn();
         SecurityGroupList empty_sg_id_l;
@@ -259,9 +258,6 @@ public:
         flow->data.dest_sg_id_l = empty_sg_id_l;
         flow->data.vn_entry = vn;
         flow->data.intf_entry = intf;
-        flow->key.protocol = proto;
-        flow->key.src_port = sport;
-        flow->key.dst_port = dport;
     }
 
 protected:
@@ -269,8 +265,9 @@ protected:
 };
 
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
-    FlowEntry flow;
-    MakeFlow(&flow, 1, "VN2", IPPROTO_TCP, 1, 1);
+    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow(key);
+    MakeFlow(&flow, 1, "VN2");
     uve->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     uve->DeleteFlow(&flow);
@@ -279,8 +276,9 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
-    FlowEntry flow;
-    MakeFlow(&flow, 1, "VN2", IPPROTO_TCP, 1, 1);
+    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow(key);
+    MakeFlow(&flow, 1, "VN2");
     uve->NewFlow(&flow);
     uve->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
@@ -292,13 +290,15 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
-    FlowEntry flow1;
-    MakeFlow(&flow1, 1, "VN2", IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow1(key1);
+    MakeFlow(&flow1, 1, "VN2");
     uve->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowEntry flow2;
-    MakeFlow(&flow2, 2, "VN2", IPPROTO_TCP, 2, 2);
+    FlowKey key2(0, 0, 0, IPPROTO_TCP, 2, 2);
+    FlowEntry flow2(key2);
+    MakeFlow(&flow2, 2, "VN2");
     uve->NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
@@ -312,13 +312,15 @@ TEST_F(UvePortBitmapTest, PortBitmap_3) {
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
-    FlowEntry flow1;
-    MakeFlow(&flow1, 1, "VN2", IPPROTO_TCP, 1, 1);
+    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow1(key1);
+    MakeFlow(&flow1, 1, "VN2");
     uve->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowEntry flow2;
-    MakeFlow(&flow2, 2, "VN2", IPPROTO_TCP, 257, 257);
+    FlowKey key2(0, 0, 0, IPPROTO_TCP, 257, 257);
+    FlowEntry flow2(key2);
+    MakeFlow(&flow2, 2, "VN2");
     uve->NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
