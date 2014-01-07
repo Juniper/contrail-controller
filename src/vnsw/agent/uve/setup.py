@@ -9,9 +9,7 @@ setup(
     version='0.1dev',
     packages=['vrouter',
               'vrouter.vrouter', 
-              'vrouter.sandesh',
-              'vrouter.vrouter.cpuinfo',
-              'vrouter.sandesh.vns'
+              'vrouter.vrouter.cpuinfo'
              ],
     package_data={'':['*.html', '*.css', '*.xml']},
     zip_safe=False,
