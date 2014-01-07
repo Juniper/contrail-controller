@@ -387,12 +387,16 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             EvaluateUnresolvedRoutes();
             EvaluateUnresolvedNH();
         }
-        //If this route has a unresolved path, insert to unresolved list 
-        if (rt->HasUnresolvedPath() == true) {
-            AddUnresolvedRoute(rt);
-        }
     } else {
         DeleteRoute(part, rt, key->GetPeer());
+    }
+
+    //If this route has a unresolved path, insert to unresolved list
+    if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE ||
+        key->sub_op_ == AgentKey::RESYNC) {
+        if (rt && rt->HasUnresolvedPath() == true) {
+            AddUnresolvedRoute(rt);
+        }
     }
 
     //Route changed, trigger change on dependent routes
@@ -796,7 +800,7 @@ bool AgentPath::Sync(RouteEntry *sync_route) {
         rt = NULL;
     }
 
-    if (rt == NULL) {
+    if (rt == NULL || rt->GetPlen() == 0) {
         unresolved = true;
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
         Inet4UnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_);

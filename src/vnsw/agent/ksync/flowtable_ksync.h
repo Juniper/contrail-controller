@@ -8,63 +8,44 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
-#include <base/util.h>
-#include <base/timer.h>
 #include <db/db_entry.h>
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
-#include "ksync/agent_ksync_types.h"
+#include <ksync/agent_ksync_types.h>
 #include <pkt/flow_table.h>
 #include <vr_types.h>
 #include <vr_flow.h>
 
 class NHKSyncEntry;
+class FlowTableKSyncObject;
 
 class FlowTableKSyncEntry : public KSyncNetlinkEntry {
 public:
-    FlowTableKSyncEntry(FlowEntryPtr fe, uint32_t hash_id) : 
-        fe_(fe), hash_id_(hash_id), 
-        old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
-        old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF), 
-        old_second_mirror_index_(0xFFFF), trap_flow_(false), nh_(NULL){
-    };
-    FlowTableKSyncEntry() : hash_id_(0), 
-        old_reverse_flow_id_(FlowEntry::kInvalidFlowHandle), old_action_(0), 
-        old_component_nh_idx_(0xFFFF), old_first_mirror_index_(0xFFFF),
-        old_second_mirror_index_(0xFFFF), trap_flow_(false), nh_(NULL){
-    };
-    ~FlowTableKSyncEntry() {};
+    FlowTableKSyncEntry(FlowTableKSyncObject *obj, FlowEntryPtr fe, 
+                        uint32_t hash_id);
+    virtual ~FlowTableKSyncEntry();
 
-    std::string ToString() const {
-        std::ostringstream str;
-        str << fe_;
-        return str.str();
-    };
-
-    bool IsLess(const KSyncEntry &rhs) const {
-        const FlowTableKSyncEntry &entry = static_cast<const FlowTableKSyncEntry &>(rhs);
-        return fe_ < entry.fe_;
-    };
-
+    FlowEntryPtr flow_entry() const {return flow_entry_;}
+    uint32_t hash_id() const {return hash_id_;}
+    int Encode(sandesh_op::type op, char *buf, int buf_len);
     KSyncObject *GetObject();
+
+    void FillFlowInfo(sandesh_op::type op, uint16_t action, 
+                      uint16_t flag) const;
+    const std::string GetActionString(uint16_t action, uint16_t flag) const;
+    std::string ToString() const;
+    bool IsLess(const KSyncEntry &rhs) const;
     int AddMsg(char *buf, int buf_len);
     int ChangeMsg(char *buf, int buf_len);
     int DeleteMsg(char *buf, int buf_len);
-    void Response();
-    FlowEntryPtr GetFe() const {return fe_;};
-    int Encode(sandesh_op::type op, char *buf, int buf_len);
-    uint32_t GetHashId() const {return hash_id_;};
-    void FillFlowInfo(sandesh_op::type op, uint16_t action, uint16_t flag);
-    std::string GetActionString(uint16_t action, uint16_t flag);
     void SetPcapData(FlowEntryPtr fe, std::vector<int8_t> &data);
     virtual bool Sync();
     virtual KSyncEntry *UnresolvedReference();
-    NHKSyncEntry *GetNH() const;
 private:
-    FlowEntryPtr fe_;
+    FlowEntryPtr flow_entry_;
     uint32_t hash_id_;
     uint32_t old_hash_id_;
     uint32_t old_reverse_flow_id_;
@@ -74,6 +55,7 @@ private:
     uint32_t old_second_mirror_index_;
     uint32_t trap_flow_;
     KSyncEntryPtr nh_;
+    FlowTableKSyncObject *ksync_obj_;
     DISALLOW_COPY_AND_ASSIGN(FlowTableKSyncEntry);
 };
 
@@ -84,9 +66,11 @@ public:
     static const uint32_t AuditTimeout = 2000;           // in msec
     static const int AuditYield = 1024;
 
-    FlowTableKSyncObject();
-    FlowTableKSyncObject(int max_index);
-    ~FlowTableKSyncObject();
+    FlowTableKSyncObject(KSync *ksync);
+    FlowTableKSyncObject(KSync *ksync, int max_index);
+    virtual ~FlowTableKSyncObject();
+    vr_flow_req &flow_req() { return flow_req_; }
+    KSync *ksync() const { return ksync_; }
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
     FlowTableKSyncEntry *Find(FlowEntry *key);
     void UpdateFlowStats(FlowEntry *fe, bool ignore_active_status);
@@ -94,43 +78,28 @@ public:
                                             bool ignore_active_status);
     bool GetFlowKey(uint32_t index, FlowKey &key);
 
-    uint32_t GetFlowTableSize() { return flow_table_entries_; }
-    static bool AuditProcess(FlowTableKSyncObject *obj);
+    uint32_t flow_table_entries_count() { return flow_table_entries_count_; }
+    bool AuditProcess();
     void MapFlowMem();
     void MapFlowMemTest();
     void UnmapFlowMemTest();
-
-    static FlowTableKSyncObject *GetKSyncObject() { return singleton_; };
-    static void Init() {
-        assert(singleton_ == NULL);
-        singleton_ = new FlowTableKSyncObject();
-    };
-
-    static void InitFlowMem() {
-        singleton_->MapFlowMem();
+    void InitFlowMem() {
+        MapFlowMem();
     }
-
-    static void InitTest() {
-        assert(singleton_ == NULL);
-        singleton_ = new FlowTableKSyncObject();
-        singleton_->MapFlowMemTest();
-    };
-    static void Shutdown() {
-        singleton_->UnmapFlowMemTest();
-        delete singleton_->singleton_;
-        singleton_->singleton_ = NULL;
-    };
-
-    vr_flow_req &GetFlowReq() { return flow_req_; }
-
+    void InitTest() {
+        MapFlowMemTest();
+    }
+    void Shutdown() {
+        UnmapFlowMemTest();
+    }
 private:
     friend class KSyncSandeshContext;
-    static FlowTableKSyncObject *singleton_;
+    KSync *ksync_;
     int major_devid_;
     int flow_table_size_;
     vr_flow_req flow_req_;
     vr_flow_entry *flow_table_;
-    uint32_t flow_table_entries_;
+    uint32_t flow_table_entries_count_;
     int audit_yield_;
     uint32_t audit_timeout_;
     uint32_t audit_flow_idx_;

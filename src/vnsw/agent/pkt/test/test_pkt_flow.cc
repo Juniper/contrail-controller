@@ -133,16 +133,17 @@ public:
     }
 
     static void RunFlowAudit() {
-        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
-                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
-        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
-                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+        ksync_obj->AuditProcess();
+        ksync_obj->AuditProcess();
     }
 
     static bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip, 
                              const char *dip, int proto, int sport, int dport) {
-        if (hash_id >= 
-                FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize()) {
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+        if (hash_id >= ksync_obj->flow_table_entries_count()) {
             return false;
         }
         if (ksync_init_) {
@@ -170,9 +171,10 @@ public:
         if (ksync_init_) {
             return;
         }
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-        for (size_t count = 0; 
-             count < FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
+        for (size_t count = 0; count < ksync_obj->flow_table_entries_count();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
             vr_flow->fe_action = VR_FLOW_ACTION_DROP;

@@ -178,6 +178,8 @@ public:
         return unresolved_rt_tree_.begin(); };
     const_rt_iterator unresolved_route_end() { 
         return unresolved_rt_tree_.end(); };
+    int unresolved_route_size() { return unresolved_rt_tree_.size(); }
+
     const_nh_iterator unresolved_nh_begin() { 
         return unresolved_nh_tree_.begin(); };
     const_nh_iterator unresolved_nh_end() { 

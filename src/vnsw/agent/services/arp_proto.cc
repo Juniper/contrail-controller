@@ -15,6 +15,7 @@
 #include "services/arp_proto.h"
 #include "services/services_sandesh.h"
 #include "services_init.h"
+#include <vr_defs.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
