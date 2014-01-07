@@ -220,8 +220,8 @@ class FlowEntry {
 
     FlowData data;
 
-    bool ActionRecompute(MatchPolicy *policy);
-    void CompareAndModify(const MatchPolicy &m_policy, bool create);
+    bool ActionRecompute();
+    void CompareAndModify(bool create);
     void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
     int GetRefCount() { return refcount_; }
     void MakeShortFlow();
@@ -311,13 +311,15 @@ class FlowEntry {
         sport = key_.src_port;
         dport = key_.dst_port;
     }
-    void GetPolicyInfo(MatchPolicy *policy);
+    void GetPolicyInfo();
+    void GetPolicyInfo(const VnEntry *vn);
 
-    void GetPolicy(const VnEntry *vn, MatchPolicy *policy);
-    void GetSgList(const Interface *intf, MatchPolicy *policy);
-    bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
-    uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
+    void GetPolicy(const VnEntry *vn);
+    void GetSgList(const Interface *intf);
+    bool DoPolicy(const PacketHeader &hdr, bool ingress);
+    uint32_t MatchAcl(const PacketHeader &hdr,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
+    void ResetPolicy();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;
@@ -488,7 +490,7 @@ private:
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
-    void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
+    void ResyncAFlow(FlowEntry *fe, bool create);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
