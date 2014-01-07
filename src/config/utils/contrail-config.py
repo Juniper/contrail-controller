@@ -35,7 +35,7 @@ class ContrailConfigCmd(object):
                                api_server_port=self._args.listen_port)
 
         self.re_parser = re.compile('[ \t\n]+')
-        self.dfs_path = []
+        self.final_list = []
     #end __init__
 
     def _parse_args(self, args_str):
@@ -82,6 +82,21 @@ class ContrailConfigCmd(object):
         self._args = parser.parse_args(remaining_argv)
     #end _parse_args
 
+    def _delete_default_security_groups(self, objs, type):
+        for obj in objs.values():
+            if obj['type'] != type:
+                continue
+
+            fq_name = obj['data']['fq_name']
+            fq_name.append('default')
+            while 1:
+                try:
+                    self._vnc_lib.security_group_delete(fq_name=fq_name)
+                    break
+                except NoIdError:
+                    pass
+    #end _delete_default_security_groups
+
     def _create_objects(self, objs, type):
         for obj in objs.values():
             if obj['type'] != type:
@@ -94,7 +109,7 @@ class ContrailConfigCmd(object):
             for key, val in obj['data'].items():
                 if key not in ['uuid', 'fq_name', 'id_perms',
                                'parent_type', 'virtual_network_refs',
-                               'network_ipam_refs']:
+                               'network_ipam_refs', 'network_ipam_mgmt']:
                     continue
                 create_obj[key] = val
 
@@ -138,16 +153,23 @@ class ContrailConfigCmd(object):
                           % (obj['type'], obj['data']['fq_name'], e))
     #end _update_objects
 
-    #depth first search
-    def _dfs(self, tree, root):
-        if root in self.dfs_path:
-            return
-
-        self.dfs_path.append(root)
-        if root in tree.keys():
-            for val in tree[root]:
-                self._dfs(tree, val)
-    #end _dfs
+    #breadth first search
+    def _bfs(self, tree, root):
+        bfs_path = []
+        index = -1
+        bfs_path.append(root)
+        while index != len(bfs_path):
+            index += 1
+            try:
+                values = tree[bfs_path[index]]
+                values.sort()
+                for value in values:
+                    if value not in bfs_path:
+                        bfs_path.append(value)
+            except Exception as e:
+                pass
+        return bfs_path
+    #end _bfs
 
     #restore config from a file - overwrite old config with the same uuid
     def restore_contrail_config(self):
@@ -186,35 +208,38 @@ class ContrailConfigCmd(object):
             else:
                 if obj['type'] not in hierarchy[obj['data']['parent_type']]:
                     hierarchy[obj['data']['parent_type']].append(obj['type'])
+
+        #find top level
+        top_list = []
         for key, val in hierarchy.items():
-            val.sort()
+            top_level = True
+            for values in hierarchy.values():
+                if key in values:
+                    top_level = False
+                    break
+            if top_level:
+                top_list.append(key)
 
         #organize hierarchy
-        top_level = 'domain'
-        self._dfs(hierarchy, top_level)
-        for key, val in hierarchy.items():
-            if val == []:
-                continue
-            if key not in self.dfs_path:
-                self.dfs_path.append(key)
-                for child in val or []:
-                    self.dfs_path.append(child)
-        for key, val in hierarchy.items():
-            if val == []:
-                self.dfs_path.append(key)
+        for top_level in top_list:
+            bfs_list = self._bfs(hierarchy, top_level)
+            self.final_list.extend(bfs_list)
 
         #post(create) object to api server
+        print self.final_list
         print ("Phase create")
         print ("------------")
-        for type in self.dfs_path:
+        for type in self.final_list:
             print("%-64s -- start" % type)
             self._create_objects(objs, type)
+            if type == 'project':
+                self._delete_default_security_groups(objs, type)
             print("%-64s -- done" % '')
 
         #put(update) object in api server
         print ("Phase update")
         print ("------------")
-        for type in self.dfs_path:
+        for type in self.final_list:
             print("%-64s -- start" % type)
             self._update_objects(objs, type)
             print("%-64s -- done" % '')
