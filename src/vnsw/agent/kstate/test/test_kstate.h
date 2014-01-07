@@ -404,7 +404,8 @@ private:
 class TestFlowKState: public FlowKState, public TestKStateBase {
 public:
     TestFlowKState(bool ve, int count, std::string resp_ctx, int idx) :
-                   FlowKState(resp_ctx, idx), TestKStateBase(ve, count, -1) {}
+              FlowKState(Agent::GetInstance(), resp_ctx, idx), 
+              TestKStateBase(ve, count, -1) {}
     void SendResponse(KFlowResp *resp) {
         //UpdateFetchCount();
         vector<KFlowInfo> &list =
