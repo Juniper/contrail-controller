@@ -408,7 +408,7 @@ class VncApi(VncApiClientGen):
     #end fetch_records
 
     def restore_config(self, create, resource, json_body):
-        class_name = "%sClientGen" % (CamelCase(resource))
+        class_name = "%s" % (CamelCase(resource))
         cls = str_to_class(class_name)
         if create:
             uri = cls.create_uri
