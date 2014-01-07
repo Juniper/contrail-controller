@@ -416,11 +416,13 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             int idx = m_query->stat_table_index();
             if (idx != -1)
             {
+                bool isStr = false;
                 GenDb::DbDataValue smpl;
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 if (name == g_viz_constants.STAT_OBJECTID_FIELD) {
                     db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                     smpl = value;
+                    isStr = true;
                 } else {
                     int at_idx = -1;
                     for (size_t j = 0; 
@@ -437,6 +439,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                     if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "string") { 
                         db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                         smpl = value;
+                        isStr = true;
                     } else if (g_viz_constants._STAT_TABLES[idx].attributes[at_idx].datatype == "int") {
                         db_query->cfname = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
                         smpl = (uint64_t) strtoul(value.c_str(), NULL, 10);
@@ -450,15 +453,24 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 db_query->t_only_row = false;
 
                 // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
+                if (isStr) {
+                    QE_INVALIDARG_ERROR((op == EQUAL) || (op == PREFIX));
+                } else {
+                    QE_INVALIDARG_ERROR(op == EQUAL);
+                }
+
                 // string encoding
                 db_query->row_key_suffix.push_back(g_viz_constants._STAT_TABLES[idx].stat_type);
                 db_query->row_key_suffix.push_back(g_viz_constants._STAT_TABLES[idx].stat_attr);
                 db_query->row_key_suffix.push_back(name);
 
                 db_query->cr.start_.push_back(smpl);
-                db_query->cr.finish_.push_back(smpl);
-                db_query->cr.start_.push_back(std::string());
+                if (op == PREFIX) {
+                    std::string str_smpl2(value + "\x7f");
+                    db_query->cr.finish_.push_back(str_smpl2);
+                } else {
+                    db_query->cr.finish_.push_back(smpl);
+                }
                 db_query->cr.finish_.push_back(std::string());
                 QE_TRACE(DEBUG, "where match term for stat name: " <<
                     name << " value: " << value);
