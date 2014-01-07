@@ -62,7 +62,7 @@ public:
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 2, 1);
-        client->WaitForIdle(2);
+        client->WaitForIdle(10);
         vn_count++;
 
         EXPECT_TRUE(VmPortActive(input, 0));
@@ -85,7 +85,7 @@ public:
         //Prerequisites for interface stats test
         client->Reset();
         CreateVmportEnv(stats_if, 2);
-        client->WaitForIdle(2);
+        client->WaitForIdle(10);
         vn_count++;
 
         EXPECT_TRUE(VmPortActive(stats_if, 0));
@@ -110,27 +110,27 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     hash_id = 1;
     //Flow creation using IP packet
     TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2", 0, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, false, 
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxIpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1", 0, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 0, 0, 0, true, 
                           "vn5", "vn5", hash_id++));
 
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
                         "vn5", "vn5", hash_id++));
 
@@ -162,7 +162,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, 2, 60));
 
     client->EnqueueFlowFlush();
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
@@ -171,14 +171,14 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
                         "vn5", "vn5", hash_id++));
 
@@ -281,7 +281,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(1, 0, 0);
     KSyncSockTypeMap::SetOFlowStats(2, 0, 0);
     client->EnqueueFlowFlush();
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
@@ -290,14 +290,14 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     //Flow creation using TCP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     1000, 200, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, false,
                         "vn5", "vn5", hash_id++));
 
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                 200, 1000, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 200, 1000, true, 
                         "vn5", "vn5", hash_id++));
 
@@ -372,7 +372,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //Flow creation using IP packet
     TxTcpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.2",
                     30, 40, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, false, 
                         "vn5", "vn5", hash_id++));
 
@@ -389,8 +389,8 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //Create flow in reverse direction and make sure it is linked to previous flow
     TxTcpPacketUtil(flow1->id(), "1.1.1.2", "1.1.1.1",
                     40, 30, hash_id);
-    client->WaitForIdle(2);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
+    client->WaitForIdle(10);
     EXPECT_TRUE(FlowGet("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, true, 
                         "vn5", "vn5", hash_id++));
 
@@ -408,7 +408,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //Change the stats
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
 
     //Invoke FlowStatsCollector to update the stats
     AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
@@ -420,7 +420,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     //(3) Inter-VN stats between known and unknown VNs
     //Flow creation using IP packet
     TxIpPacketUtil(flow0->id(), "1.1.1.1", "1.1.1.3", 1, hash_id);
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
 
     // A short flow would be created with Source VN as "vn5" and dest-vn as "Unknown".
     // Not checking for creation of short flow because it will get removed during 
@@ -438,7 +438,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
 
     //clean-up. Flush flow table
     client->EnqueueFlowFlush();
-    client->WaitForIdle(2);
+    client->WaitForIdle(10);
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
