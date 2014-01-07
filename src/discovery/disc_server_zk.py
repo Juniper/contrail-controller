@@ -811,7 +811,8 @@ class DiscoveryServer():
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             rsp += '        <td>' + str(pub['in_use']) + '</td>\n'
-            rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
+            if pdata:
+                rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
                 pub, include_color=True)
             #status = "down" if expired else "up"
