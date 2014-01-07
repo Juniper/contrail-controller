@@ -103,6 +103,21 @@ struct RtGroupMgrReq {
 // 2. A VPN BgpRoute with the RouteTarget as one of it's targets is received.
 // 3. A RTargetRoute for the RouteTarget is received.
 //
+// The users of RtGroups invoke RemoveRtGroup when they no longer need it. If
+// the RtGroup is eligible to be deleted i.e. it has no state associated with
+// it, it gets added to the RtGroupRemoveList.  The list is processed in the
+// context of the bgp::RTFilter task.  The RtGroup is deleted if it's still
+// eligible for deletion i.e. it hasn't been resurrected after being enqueued.
+// Processing RtGroup deletion in this manner avoids race conditions wherein
+// one db::DBTable task deletes an RtGroup while another db::DBTable task has
+// a pointer to it.
+//
+// The RTargetGroupMgr needs to register as a listener for all VPN tables and
+// for bgp.rtarget.0. It keeps track of it's listener ids for the tables using
+// the RtGroupMgrTableStateList.  Note that it does not need to register for
+// any VRF tables, only for the VPN tables in the master routing instance and
+// bgp.rtarget.0 (which also belongs to the master instance).
+//
 // The RTargetGroupMgr registers as a listener for all VPN tables so that it
 // can maintain the list of the dependent VPN routes for a given RouteTarget.
 // The actual dependency is maintained in the associated RtGroup object based
