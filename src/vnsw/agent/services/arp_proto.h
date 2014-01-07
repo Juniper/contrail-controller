@@ -5,25 +5,13 @@
 #ifndef vnsw_agent_arp_proto_hpp
 #define vnsw_agent_arp_proto_hpp
 
-#include <map>
-#include <set>
-#include <vector>
-#include <netinet/in.h>
-#include <net/ethernet.h>
-#include <tbb/mutex.h>
-
 #include "pkt/proto.h"
-#include "pkt/proto_handler.h"
-#include "oper/nexthop.h"
-#include "oper/agent_route.h"
-#include <oper/interface_common.h>
-#include <oper/vrf.h>
-#include "ksync/ksync_index.h"
-#include "ksync/interface_ksync.h"
-#include "services/services_types.h"
-#include "base/timer.h"
+#include "services/arp_handler.h"
 
-#define GRATUITOUS_ARP 0x0100 // keep this different from standard ARP commands
+#define ARP_TRACE(obj, ...)                                                 \
+do {                                                                        \
+    Arp##obj::TraceMsg(ArpTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
+} while (false)                                                             \
 
 class ArpEntry;
 class ArpNHClient;
@@ -78,67 +66,6 @@ private:
     CacheMap cache_;
 };
 
-struct ArpKey {
-    in_addr_t ip;
-    const VrfEntry  *vrf;
-
-    ArpKey(in_addr_t addr, const VrfEntry *ventry) : ip(addr), vrf(ventry) {};
-    ArpKey(const ArpKey &key) : ip(key.ip), vrf(key.vrf) {};
-    bool operator <(const ArpKey &rhs) const { return (ip < rhs.ip); }
-};
-
-class ArpHandler : public ProtoHandler {
-public:
-    enum ArpMsgType {
-        VRF_DELETE,
-        ITF_DELETE,
-        ARP_RESOLVE,
-        ARP_DELETE,
-        ARP_SEND_GRACIOUS,
-        RETRY_TIMER_EXPIRED,
-        AGING_TIMER_EXPIRED,
-        GRACIOUS_TIMER_EXPIRED,
-    };
-
-    struct ArpIpc : InterTaskMsg {
-        ArpKey key;
-        ArpIpc(ArpMsgType msg, ArpKey &akey) : InterTaskMsg(msg), key(akey) {};
-        ArpIpc(ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
-            InterTaskMsg(msg), key(ip, vrf) {};
-    };
-
-    ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-               boost::asio::io_service &io)
-             : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
-    ArpHandler(Agent *agent, boost::asio::io_service &io) 
-             : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) { }
-    virtual ~ArpHandler() {}
-    bool Run();
-
-    static void SendArpIpc(ArpHandler::ArpMsgType type,
-                           in_addr_t ip, const VrfEntry *vrf);
-    static void SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key);
-
-    void SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
-                 unsigned const char *tmac, in_addr_t tip, 
-                 uint16_t itf, uint16_t vrf);
-    bool EntryDelete(ArpEntry *&entry);
-    void EntryDeleteWithKey(ArpKey &key);
-
-private:
-    bool HandlePacket();
-    bool HandleMessage();
-    bool OnVrfDelete(ArpEntry *&entry, const VrfEntry *vrf);
-    uint16_t ArpHdr(const unsigned char *, in_addr_t, const unsigned char *, 
-                    in_addr_t, uint16_t);
-
-    ether_arp *arp_;
-    in_addr_t arp_tpa_;
-    std::vector<ArpEntry *> arp_del_list_;
-
-    DISALLOW_COPY_AND_ASSIGN(ArpHandler);
-};
-
 class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
@@ -166,7 +93,7 @@ public:
         ArpStats() { Reset(); }
     };
 
-    void Init(boost::asio::io_service &io, bool run_with_vrouter);
+    void Init();
     void Shutdown();
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
@@ -237,56 +164,6 @@ private:
     uint32_t aging_timeout_;   // milli seconds
 
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
-};
-
-class ArpEntry {
-public:
-    enum State {
-        INITING = 0x01,
-        RESOLVING = 0x02,
-        ACTIVE = 0x04,
-        RERESOLVING  = 0x08,
-    };
-
-    ArpEntry(boost::asio::io_service &io, ArpHandler *handler, in_addr_t ip, 
-             const VrfEntry *vrf,
-             State state = ArpEntry::INITING) 
-        : key_(ip, vrf), state_(state), retry_count_(0), handler_(handler),
-        arp_timer_(NULL) {
-        memset(mac_, 0, ETH_ALEN);
-        arp_timer_ = TimerManager::CreateTimer(io, "Arp Entry timer");
-    }
-    virtual ~ArpEntry() {
-        arp_timer_->Cancel();
-        delete handler_;
-        TimerManager::DeleteTimer(arp_timer_);
-    }
-    bool IsResolved() {
-        return (state_ & (ArpEntry::ACTIVE | ArpEntry::RERESOLVING));
-    }
-    ArpKey &Key() { return key_; }
-    unsigned char * Mac() { return mac_; }
-    State GetState() { return state_; }
-
-    void Delete() { UpdateNhDBEntry(DBRequest::DB_ENTRY_DELETE); }
-    void HandleArpReply(uint8_t *mac);
-    bool HandleArpRequest();
-    void RetryExpiry();
-    void AgingExpiry();
-    void SendGraciousArp();
-
-private:
-    void StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype);
-    void SendArpRequest();
-    void UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved = false);
-
-    ArpKey key_;
-    unsigned char mac_[ETH_ALEN];
-    State state_;
-    int retry_count_;
-    ArpHandler *handler_;
-    Timer *arp_timer_;
-    DISALLOW_COPY_AND_ASSIGN(ArpEntry);
 };
 
 class ArpNHClient {
