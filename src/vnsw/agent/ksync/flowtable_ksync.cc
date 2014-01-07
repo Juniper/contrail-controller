@@ -457,17 +457,6 @@ FlowTableKSyncEntry *FlowTableKSyncObject::Find(FlowEntry *key) {
     return static_cast<FlowTableKSyncEntry *>(obj->Find(&entry));
 }
 
-void FlowTableKSyncObject::UpdateFlowStats(FlowEntry *fe,
-                                           bool ignore_active_status) {
-    const vr_flow_entry *k_flow = GetKernelFlowEntry
-        (fe->flow_handle, ignore_active_status);
-    if (k_flow) {
-        fe->data.bytes =  k_flow->fe_stats.flow_bytes;
-        fe->data.packets =  k_flow->fe_stats.flow_packets;
-    }
-
-}
-
 const vr_flow_entry *FlowTableKSyncObject::GetKernelFlowEntry
     (uint32_t idx, bool ignore_active_status) { 
     if (idx == FlowEntry::kInvalidFlowHandle) {
