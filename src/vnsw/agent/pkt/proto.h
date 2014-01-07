@@ -27,14 +27,14 @@ public:
         return false;
     }
 
-    virtual ProtoHandler *AllocProtoHandler(PktInfo *info,
+    virtual ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                             boost::asio::io_service &io) = 0;
-    virtual bool ValidateAndEnqueueMessage(PktInfo *msg);
-    bool ProcessProto(PktInfo *msg_info);
+    virtual bool ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg);
+    bool ProcessProto(boost::shared_ptr<PktInfo> msg_info);
 
 protected:
     Agent *agent_;
-    WorkQueue<PktInfo *> work_queue_;
+    WorkQueue<boost::shared_ptr<PktInfo> > work_queue_;
     boost::asio::io_service &io_;
     DISALLOW_COPY_AND_ASSIGN(Proto);
 };

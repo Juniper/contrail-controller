@@ -8,17 +8,15 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-ProtoHandler::ProtoHandler(Agent *agent, PktInfo *info,
+ProtoHandler::ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                            boost::asio::io_service &io)
     : agent_(agent), pkt_info_(info), io_(io) {}
 
 ProtoHandler::ProtoHandler(Agent *agent, boost::asio::io_service &io) 
-    : agent_(agent), io_(io) {
-    pkt_info_ = new PktInfo();
+    : agent_(agent), pkt_info_(new PktInfo()), io_(io) {
 }
 
 ProtoHandler::~ProtoHandler() { 
-    delete pkt_info_;
 }
 
 // send packet to the pkt0 interface

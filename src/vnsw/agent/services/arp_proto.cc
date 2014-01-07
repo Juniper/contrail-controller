@@ -53,7 +53,7 @@ ArpProto::~ArpProto() {
     DelGraciousArpEntry();
 }
 
-ProtoHandler *ArpProto::AllocProtoHandler(PktInfo *info,
+ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                           boost::asio::io_service &io) {
     return new ArpHandler(agent(), info, io);
 }

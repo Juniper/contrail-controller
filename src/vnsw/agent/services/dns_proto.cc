@@ -59,7 +59,7 @@ DnsProto::~DnsProto() {
     agent_->GetVnTable()->Unregister(Vnlid_);
 }
 
-ProtoHandler *DnsProto::AllocProtoHandler(PktInfo *info,
+ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                           boost::asio::io_service &io) {
     return new DnsHandler(agent(), info, io);
 }
@@ -347,7 +347,8 @@ inline uint16_t DnsProto::GetTransId() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DnsHandler::DnsHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io)
+DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                       boost::asio::io_service &io)
     : ProtoHandler(agent, info, io), resp_ptr_(NULL), dns_resp_size_(0),
       xid_(-1), retries_(0), action_(NONE), rkey_(NULL),
       query_name_update_(false), pend_req_(0) {

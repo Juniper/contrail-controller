@@ -11,7 +11,8 @@
 // ICMP protocol handler
 class IcmpHandler : public ProtoHandler {
 public:
-    IcmpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) 
+    IcmpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                boost::asio::io_service &io) 
         : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp) {
         icmp_len_ = ntohs(pkt_info_->ip->tot_len) - (pkt_info_->ip->ihl * 4);
     }
@@ -43,7 +44,8 @@ public:
     void Shutdown();
     IcmpProto(Agent *agent, boost::asio::io_service &io);
     virtual ~IcmpProto();
-    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                    boost::asio::io_service &io);
 
     void IncrStatsGwPing() { stats_.icmp_gw_ping++; }
     void IncrStatsGwPingErr() { stats_.icmp_gw_ping_err++; }

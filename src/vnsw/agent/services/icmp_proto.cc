@@ -26,7 +26,7 @@ IcmpProto::IcmpProto(Agent *agent, boost::asio::io_service &io) :
 IcmpProto::~IcmpProto() {
 }
 
-ProtoHandler *IcmpProto::AllocProtoHandler(PktInfo *info,
+ProtoHandler *IcmpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                            boost::asio::io_service &io) {
     return new IcmpHandler(agent(), info, io);
 }

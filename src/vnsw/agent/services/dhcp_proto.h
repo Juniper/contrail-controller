@@ -138,7 +138,8 @@ struct DhcpOptions {
 // DHCP protocol handler
 class DhcpHandler : public ProtoHandler {
 public:
-    DhcpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
+    DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                boost::asio::io_service &io);
     virtual ~DhcpHandler() {};
 
     bool Run();
@@ -203,7 +204,8 @@ public:
     void Shutdown();
     DhcpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~DhcpProto();
-    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                    boost::asio::io_service &io);
 
     Interface *IPFabricIntf() { return ip_fabric_intf_; }
     void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }

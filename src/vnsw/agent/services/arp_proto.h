@@ -107,8 +107,9 @@ public:
             InterTaskMsg(msg), key(ip, vrf) {};
     };
 
-    ArpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) : 
-               ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
+    ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+               boost::asio::io_service &io)
+             : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
     ArpHandler(Agent *agent, boost::asio::io_service &io) 
              : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) { }
     virtual ~ArpHandler() {}
@@ -170,7 +171,8 @@ public:
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();
 
-    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                    boost::asio::io_service &io);
     bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
 
     bool Add(ArpKey &key, ArpEntry *ent) { return arp_cache_.Add(key, ent); }

@@ -50,7 +50,7 @@ DhcpProto::~DhcpProto() {
     agent_->GetInterfaceTable()->Unregister(iid_);
 }
 
-ProtoHandler *DhcpProto::AllocProtoHandler(PktInfo *info,
+ProtoHandler *DhcpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                            boost::asio::io_service &io) {
     return new DhcpHandler(agent(), info, io);
 }
@@ -81,7 +81,7 @@ void DhcpProto::ItfUpdate(DBEntryBase *entry) {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-DhcpHandler::DhcpHandler(Agent *agent, PktInfo *info,
+DhcpHandler::DhcpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                          boost::asio::io_service &io)
         : ProtoHandler(agent, info, io), vm_itf_(NULL), vm_itf_index_(-1),
           msg_type_(DHCP_UNKNOWN), out_msg_type_(DHCP_UNKNOWN), req_ip_addr_(0),
@@ -402,7 +402,7 @@ bool DhcpHandler::ReadOption82(DhcpOptions *opt) {
 }
 
 bool DhcpHandler::CreateRelayPacket(bool is_request) {
-    PktInfo in_pkt_info = *pkt_info_;
+    PktInfo in_pkt_info = *pkt_info_.get();
     pkt_info_->pkt = new uint8_t[DHCP_PKT_SIZE];
     memset(pkt_info_->pkt, 0, DHCP_PKT_SIZE);
     pkt_info_->vrf = in_pkt_info.vrf;

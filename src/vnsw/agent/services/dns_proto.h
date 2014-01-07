@@ -127,7 +127,8 @@ public:
             : InterTaskMsg(DnsHandler::DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
     };
 
-    DnsHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
+    DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+               boost::asio::io_service &io);
     virtual ~DnsHandler();
     bool Run();
     bool TimerExpiry(uint16_t xid);
@@ -234,7 +235,8 @@ public:
     void Shutdown();
     DnsProto(Agent *agent, boost::asio::io_service &io);
     virtual ~DnsProto();
-    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                    boost::asio::io_service &io);
     void UpdateDnsEntry(const VmInterface *vmitf,
                         const std::string &name, const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,

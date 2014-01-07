@@ -187,15 +187,14 @@ public:
     static void FlowAdd(int hash_id, int vrf, const char *sip, const char *dip,
                         int proto, int sport, int dport, const char *nat_sip,
                         const char *nat_dip, int nat_vrf) {
-        PktInfo pkt_1;
-        PktInfo *pkt = &pkt_1;
-        PktFlowInfo flow_info_1(pkt);
+        boost::shared_ptr<PktInfo> pkt_1(new PktInfo());
+        PktFlowInfo flow_info_1(pkt_1);
         PktFlowInfo *flow_info = &flow_info_1;
         MatchPolicy policy;
         string svn = "svn";
         string dvn = "dvn";
 
-        memset(pkt, 0, sizeof(*pkt));
+        PktInfo *pkt = pkt_1.get();
         pkt->vrf = vrf;
         pkt->ip_saddr = ntohl(inet_addr(sip));
         pkt->ip_daddr = ntohl(inet_addr(dip));

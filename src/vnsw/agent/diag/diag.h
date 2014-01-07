@@ -15,7 +15,8 @@ class DiagProto;
 
 class DiagPktHandler : public ProtoHandler {
 public:
-    DiagPktHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io):
+    DiagPktHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                   boost::asio::io_service &io):
         ProtoHandler(agent, info, io) { };
     virtual bool Run();
     void SetReply();
