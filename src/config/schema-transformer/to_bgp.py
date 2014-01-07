@@ -3020,6 +3020,8 @@ def run_schema_transformer(args):
             connected = True
         except requests.exceptions.ConnectionError:
             time.sleep(3)
+        except ResourceExhaustionError: # haproxy throws 503
+            time.sleep(3)
 
     transformer = SchemaTransformer(args)
     ssrc_task = gevent.spawn(launch_ssrc, transformer)
