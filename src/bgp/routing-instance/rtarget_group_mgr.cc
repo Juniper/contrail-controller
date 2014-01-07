@@ -26,7 +26,7 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     remove_rtgroup_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::RemoveRtGroups, this),
-           TaskScheduler::GetInstance()->GetTaskId("bgp::Config"), 0)),
+           TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
     rtarget_dep_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)) {
@@ -512,7 +512,7 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
 }
 
 void RTargetGroupMgr::UnregisterTables() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::Config", "bgp::RTFilter");
     if (rt_group_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
         RoutingInstance *master = 
@@ -535,7 +535,7 @@ void RTargetGroupMgr::UnregisterTables() {
 }
 
 bool RTargetGroupMgr::RemoveRtGroups() {
-    CHECK_CONCURRENCY("bgp::Config");
+    CHECK_CONCURRENCY("bgp::RTFilter");
     for (RtGroupRemoveList::iterator it = rtgroup_remove_list_.begin(); 
          it != rtgroup_remove_list_.end(); it++) {
         RtGroupMap::iterator loc = rt_group_map_.find(*it);
