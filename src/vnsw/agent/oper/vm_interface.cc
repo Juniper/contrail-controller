@@ -880,6 +880,16 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
 
+void VmInterface::GetOsParams() {
+    if (vlan_id_ == VmInterface::kInvalidVlanId) {
+        Interface::GetOsParams();
+        return;
+    }
+
+    os_index_ = Interface::kInvalidIndex;
+    memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+}
+
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
 // config. We can get DHCP IP in two ways,
 // - By snooping dhcp packets

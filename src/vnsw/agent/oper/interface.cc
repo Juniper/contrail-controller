@@ -242,9 +242,10 @@ void Interface::GetOsParams() {
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-            "> quering mac-address for interface <" << name_ << ">");
+            "> querying mac-address for interface <" << name_ << ">");
         os_index_ = Interface::kInvalidIndex;
         bzero(&mac_, sizeof(mac_));
+        close(fd);
         return;
     }
     close(fd);
