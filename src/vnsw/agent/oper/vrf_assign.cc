@@ -52,7 +52,6 @@ DBEntry *VrfAssignTable::Add(const DBRequest *req) {
     const VrfAssign::VrfAssignKey *key = 
         static_cast<const VrfAssign::VrfAssignKey *>(req->key.get());
     VrfAssign *rule = AllocWithKey(key);
-    rule->set_table(this);
     if (rule->interface_.get() == NULL) {
         delete rule;
         return NULL;

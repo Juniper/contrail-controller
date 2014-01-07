@@ -236,7 +236,6 @@ DBEntry *VnTable::Add(const DBRequest *req) {
     VnKey *key = static_cast<VnKey *>(req->key.get());
     VnData *data = static_cast<VnData *>(req->data.get());
     VnEntry *vn = new VnEntry(key->uuid_);
-    vn->set_table(this);
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
