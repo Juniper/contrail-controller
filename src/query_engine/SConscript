@@ -111,7 +111,6 @@ if sys.platform != 'darwin':
 qed_sources = [
     'QEOpServerProxy.cc',
     'qed.cc',
-    'rac_alloc.cc'
 ]
 
 qed_except_sources = [
@@ -132,28 +131,30 @@ env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
     source = buildinfo_dep_libs + qed_sources + SandeshGenSrcs +
     qed_except_sources +
-    ['../analytics/redis_connection.cc', '../analytics/vizd_table_desc.cc'],
+    ['../analytics/redis_connection.cc', '../analytics/vizd_table_desc.cc', 'rac_alloc.cc'],
     path = Dir('.').path)
+
+build_obj = map(lambda x : env.Object(x), ['buildinfo.cc'])
 
 qed = env.Program(
         target = 'qed', 
-        source = qed_objs + qed_except_objs + ['buildinfo.cc'] +
+        source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj +
-        ['../analytics/vizd_table_desc.o', ]
+        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
         )
 
 if env['OPT'] == 'coverage':
     qedt = env.UnitTest(
         target = 'qedt', 
-        source = qed_objs + qed_except_objs +
+        source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj + 
-        ['../analytics/vizd_table_desc.o', ]
+        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
         )
 
 else:
     qedt = env.UnitTest(
         target = 'qedt', 
-        source = qed_objs + qed_except_objs +
+        source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', ] +
         ['rac_alloc_test.cc']
