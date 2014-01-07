@@ -426,7 +426,6 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     //VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_);
-    vrf->set_table(this);
     vrf->Init();
 
     // Add VRF into name based tree

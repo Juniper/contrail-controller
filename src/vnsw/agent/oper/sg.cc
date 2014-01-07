@@ -54,7 +54,6 @@ DBEntry *SgTable::Add(const DBRequest *req) {
     SgKey *key = static_cast<SgKey *>(req->key.get());
     SgData *data = static_cast<SgData *>(req->data.get());
     SgEntry *sg = new SgEntry(key->sg_uuid_);
-    sg->set_table(this);
     sg->sg_id_ = data->sg_id_;
     ChangeHandler(sg, req);
     sg->SendObjectLog(AgentLogEvent::ADD);

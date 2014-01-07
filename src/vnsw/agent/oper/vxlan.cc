@@ -48,7 +48,6 @@ void VxLanTable::Process(DBRequest &req) {
 DBEntry *VxLanTable::Add(const DBRequest *req) {
     VxLanIdKey *key = static_cast<VxLanIdKey *>(req->key.get());
     VxLanId *vxlan_id = new VxLanId(key->vxlan_id());
-    vxlan_id->set_table(this);
 
     ChangeHandler(vxlan_id, req);
     vxlan_id->SendObjectLog(AgentLogEvent::ADD);

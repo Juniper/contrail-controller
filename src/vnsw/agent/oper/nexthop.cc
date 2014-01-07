@@ -197,7 +197,6 @@ std::auto_ptr<DBEntry> NextHopTable::GetEntry(const DBRequestKey *key) const {
 DBEntry *NextHopTable::Add(const DBRequest *req) {
     const NextHopKey *key = static_cast<const NextHopKey *>(req->key.get());
     NextHop *nh = AllocWithKey(key);
-    nh->set_table(this);
 
     if (nh->CanAdd() == false) {
         delete nh;

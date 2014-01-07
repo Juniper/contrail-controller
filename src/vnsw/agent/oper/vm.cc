@@ -91,7 +91,6 @@ DBEntry *VmTable::Add(const DBRequest *req) {
     VmKey *key = static_cast<VmKey *>(req->key.get());
     VmData *data = static_cast<VmData *>(req->data.get());
     VmEntry *vm = new VmEntry(key->uuid_);
-    vm->set_table(this);
     vm->SetCfgName(data->name_);
     return vm;
 }

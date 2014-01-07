@@ -65,7 +65,6 @@ DBEntry *InterfaceTable::Add(const DBRequest *req) {
     if (intf == NULL)
         return NULL;
 
-    intf->set_table(this);
     intf->id_ = index_table_.Insert(intf);
 
     // Get the os-ifindex and mac of interface
