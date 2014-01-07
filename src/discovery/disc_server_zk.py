@@ -278,6 +278,7 @@ class DiscoveryServer():
                      --zk_server_port 9160
                      --listen_ip_addr 127.0.0.1
                      --listen_port 5998
+                     --worker_id 1
         '''
 
         # Source any specified config/ini file
@@ -441,7 +442,12 @@ class DiscoveryServer():
         pdata = self.get_pub_data(entry['service_id'])
         timedelta = datetime.timedelta(
             seconds=(int(time.time()) - pdata['heartbeat']))
-        if timedelta.seconds <= self._args.hc_interval:
+
+        if self._args.hc_interval <= 0:
+            # health check has been disabled
+            color = "#00FF00"   # green - all good
+            expired = False
+        elif timedelta.seconds <= self._args.hc_interval:
             color = "#00FF00"   # green - all good
             expired = False
         elif (timedelta.seconds > (self._args.hc_interval *
@@ -629,7 +635,8 @@ class DiscoveryServer():
             self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
-        sdata['ttl_expires'] += 1
+        if sdata:
+            sdata['ttl_expires'] += 1
 
         # need to send short ttl?
         pubs = self._db_conn.lookup_service(service_type) or []
@@ -966,6 +973,10 @@ class DiscoveryServer():
             (service_type, client_id, service_id, mtime, ttl) = client
             cl_entry = self._db_conn.lookup_client(service_type, client_id)
             sdata = self.get_sub_data(client_id, service_type)
+            if sdata is None:
+                self.syslog('Missing sdata for client %s, service %s' %
+                            (client_id, service_type))
+                continue
             entry = cl_entry.copy()
             entry.update(sdata)
 
