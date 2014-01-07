@@ -4,10 +4,12 @@
 #
 
 import sys
+import time
 import argparse
 import ConfigParser
 
 from vnc_api.vnc_api import *
+from cfgm_common.exceptions import *
 
 
 class VrouterProvisioner(object):
@@ -18,11 +20,18 @@ class VrouterProvisioner(object):
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
 
-        self._vnc_lib = VncApi(
-            self._args.admin_user, self._args.admin_password,
-            self._args.admin_tenant_name,
-            self._args.api_server_ip,
-            self._args.api_server_port, '/')
+        connected = False
+        while not connected:
+            try:
+                self._vnc_lib = VncApi(
+                    self._args.admin_user, self._args.admin_password,
+                    self._args.admin_tenant_name,
+                    self._args.api_server_ip,
+                    self._args.api_server_port, '/')
+                connected = True
+            except ResourceExhaustionError: # haproxy throws 503
+                time.sleep(3)
+
         gsc_obj = self._vnc_lib.global_system_config_read(
             fq_name=['default-global-system-config'])
         self._global_system_config_obj = gsc_obj

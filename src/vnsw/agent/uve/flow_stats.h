@@ -8,6 +8,7 @@
 #include <sandesh/common/flow_types.h>
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
+#include <vr_flow.h>
 #include <pkt/flow_table.h>
 #include <ksync/flowtable_ksync.h>
 

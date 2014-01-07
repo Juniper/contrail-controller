@@ -479,7 +479,7 @@ class OpServer(object):
 
             stt = query_table(
                 name = STAT_VT_PREFIX + "." + stat_id,
-                display_name = STAT_VT_PREFIX + "." + stat_id,
+                display_name = t.display_name,
                 schema = sch,
                 columnvalues = [STAT_OBJECTID_FIELD])
             self._VIRTUAL_TABLES.append(stt)

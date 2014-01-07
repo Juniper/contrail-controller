@@ -1005,6 +1005,12 @@ class VncDbClient(object):
         return check_results
     # end db_check
 
+    def db_read(self):
+        # Read contents from cassandra
+        read_results = self._cassandra_db.walk(self._dbe_read)
+        return read_results
+    # end db_check
+
     def set_uuid(self, obj_dict, id):
         # set uuid in the perms meta
         msb_id = id.int >> 64
@@ -1074,6 +1080,20 @@ class VncDbClient(object):
         except Exception as e:
             return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
     # end _dbe_check
+
+    def _dbe_read(self, obj_uuid, obj_cols):
+        obj_type = None
+        try:
+            obj_type = json.loads(obj_cols['type'])
+            method = getattr(self._cassandra_db,
+                             "_cassandra_%s_read" % (obj_type))
+            (ok, obj_dict) = method(obj_uuid)
+            obj_dict['type'] = obj_type
+            obj_dict['uuid'] = obj_uuid
+            return obj_dict
+        except Exception as e:
+            return {'uuid': obj_uuid, 'type': obj_type, 'error': str(e)}
+    # end _dbe_read
 
     # Public Methods
     # Returns created ifmap_id

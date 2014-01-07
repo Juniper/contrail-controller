@@ -99,7 +99,7 @@ public:
             vector<KInterfaceInfo> &list = 
                 const_cast<std::vector<KInterfaceInfo>&>(resp->get_if_list());
             fetched_count_ += list.size();
-            PrintIfResp(resp);
+            //PrintIfResp(resp);
         }
     }
 
@@ -168,7 +168,7 @@ public:
             vector<KNHInfo> &list = 
                 const_cast<std::vector<KNHInfo>&>(resp->get_nh_list());
             fetched_count_ += list.size();
-            PrintNHResp(resp);
+            //PrintNHResp(resp);
         }
     }
 private:
@@ -235,7 +235,7 @@ public:
             vector<KMplsInfo> &list = 
                 const_cast<std::vector<KMplsInfo>&>(resp->get_mpls_list());
             fetched_count_ += list.size();
-            PrintMplsResp(resp);
+            //PrintMplsResp(resp);
         }
     }
 private:
@@ -302,7 +302,7 @@ public:
             vector<KMirrorInfo> &list = 
                 const_cast<std::vector<KMirrorInfo>&>(resp->get_mirror_list());
             fetched_count_ += list.size();
-            PrintMirrorResp(resp);
+            //PrintMirrorResp(resp);
         }
     }
 private:
@@ -381,7 +381,7 @@ public:
             vector<KRouteInfo> &list = 
                 const_cast<std::vector<KRouteInfo>&>(resp->get_rt_list());
             fetched_count_ += list.size();
-            PrintRouteResp(resp);
+            //PrintRouteResp(resp);
         }
     }
 private:
@@ -404,9 +404,9 @@ private:
 class TestFlowKState: public FlowKState, public TestKStateBase {
 public:
     TestFlowKState(bool ve, int count, std::string resp_ctx, int idx) :
-                   FlowKState(resp_ctx, idx), TestKStateBase(ve, count, -1) {}
-    void SendResponse(KFlowResp *resp) {
-        //UpdateFetchCount();
+              FlowKState(Agent::GetInstance(), resp_ctx, idx), 
+              TestKStateBase(ve, count, -1) {}
+    void SendResponse(KFlowResp *resp) const {
         vector<KFlowInfo> &list =
                 const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
         fetched_count_ += list.size();
@@ -426,10 +426,6 @@ public:
 
 private:
     void UpdateFetchCount() {
-        /*KFlowResp *resp = response_object_;
-        vector<KFlowInfo> &list =
-                const_cast<std::vector<KFlowInfo>&>(resp->get_flow_list());
-        fetched_count_ += list.size();*/
     }
     static TestFlowKState *singleton_;
 };
