@@ -440,8 +440,11 @@ class DiscoveryServer():
     # check if service expired (return color along)
     def service_expired(self, entry, include_color=False, include_down=True):
         pdata = self.get_pub_data(entry['service_id'])
-        timedelta = datetime.timedelta(
-            seconds=(int(time.time()) - pdata['heartbeat']))
+        if pdata:
+            timedelta = datetime.timedelta(
+                seconds=(int(time.time()) - pdata['heartbeat']))
+        else:
+            timedelta = -1
 
         if self._args.hc_interval <= 0:
             # health check has been disabled
