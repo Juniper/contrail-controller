@@ -133,6 +133,8 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
                                       DBTableBase::ListenerId id, 
                                       RTargetState *dbstate,
                                       RtGroup::InterestedPeerList &current) {
+    CHECK_CONCURRENCY("bgp::RTFilter");
+
     std::set<BgpPeer *> impacted_peers;
     RouteTarget rtarget = rt->GetPrefix().rtarget();
     RtGroup *rtgroup = LocateRtGroup(rtarget);
@@ -203,6 +205,8 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
 
 void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table, 
                                 RTargetRoute *rt, DBTableBase::ListenerId id) {
+    CHECK_CONCURRENCY("bgp::RTFilter");
+
     RTargetState *dbstate = 
         static_cast<RTargetState *>(rt->GetState(table, id));
 
@@ -325,6 +329,8 @@ RTargetGroupMgr::RTargetDepSync(DBTablePartBase *root, BgpRoute *rt,
                                 DBTableBase::ListenerId id,
                                 VpnRouteState *dbstate,
                                 VpnRouteState::RTargetList &current) {
+    CHECK_CONCURRENCY("db::DBTable");
+
     VpnRouteState::RTargetList::iterator cur_it = current.begin();
     VpnRouteState::RTargetList::iterator dbstate_next_it, dbstate_it;
     BgpTable *table = static_cast<BgpTable *>(root->parent());
@@ -397,6 +403,8 @@ DBTableBase::ListenerId RTargetGroupMgr::GetListenerId(BgpTable *table) {
 
 bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
                                      DBEntryBase *entry) {
+    CHECK_CONCURRENCY("db::DBTable");
+
     BgpTable *table = static_cast<BgpTable *>(root->parent());
     BgpRoute *rt = static_cast<BgpRoute *>(entry);
     // Get the Listener id
@@ -436,6 +444,8 @@ bool RTargetGroupMgr::VpnRouteNotify(DBTablePartBase *root,
 
 bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
                                          DBEntryBase *entry) {
+    CHECK_CONCURRENCY("db::DBTable");
+
     BgpTable *table = static_cast<BgpTable *>(root->parent());
     RTargetRoute *rt = static_cast<RTargetRoute *>(entry);
     // Get the Listener id
@@ -513,6 +523,7 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
 
 void RTargetGroupMgr::UnregisterTables() {
     CHECK_CONCURRENCY("bgp::Config", "bgp::RTFilter");
+
     if (rt_group_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
         RoutingInstance *master = 
@@ -536,6 +547,7 @@ void RTargetGroupMgr::UnregisterTables() {
 
 bool RTargetGroupMgr::RemoveRtGroups() {
     CHECK_CONCURRENCY("bgp::RTFilter");
+
     for (RtGroupRemoveList::iterator it = rtgroup_remove_list_.begin(); 
          it != rtgroup_remove_list_.end(); it++) {
         RtGroupMap::iterator loc = rt_group_map_.find(*it);
