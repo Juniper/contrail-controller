@@ -388,6 +388,7 @@ class DiscoveryServer():
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
                             help="Filename for the logs to be written to")
+        parser.add_argument("--worker_id", help="Worker Id")
         self._args = parser.parse_args(remaining_argv)
         self._args.conf_file = args.conf_file
         if type(self._args.collectors) is str:
