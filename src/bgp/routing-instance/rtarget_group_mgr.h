@@ -28,6 +28,10 @@ class BgpServer;
 class RTargetRoute;
 
 
+//
+// This keeps track of the RTargetGroupMgr's listener state for a BgpTable.
+// The BgpTable could be a VPN table or bgp.rtarget.0.
+//
 class RtGroupMgrTableState {
 public:
     RtGroupMgrTableState(BgpTable *table, DBTableBase::ListenerId id);
@@ -46,6 +50,13 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RtGroupMgrTableState);
 };
 
+//
+// The RTargetGroupMgr sets VPNRouteState on dependent VPN BgpRoutes.  This
+// VPNRouteState is simply a list of the current RouteTargets that we have
+// seen and processed for the BgpRoute. When the RouteTargets for a BgpRoute
+// get updated, the VPNRouteState is used to update the appropriate RtGroups
+// list of dependent VPN routes.
+//
 class VpnRouteState : public DBState {
 public:
     typedef std::set<RouteTarget> RTargetList;
@@ -61,6 +72,12 @@ private:
     RTargetList list_;
 };
 
+//
+// The RTargetGroupMgr sets RTargetState on RTargetRoutes. This RTargetState
+// is the current InterestedPeerList that we have seen and processed for the
+// RTargetRoute.  When a BgpPath is added or deleted for a RTargetRoute the
+// RTargetState is used to update the appropriate RtGroups InterestedPeerList.
+//
 class RTargetState : public DBState {
 public:
     const RtGroup::InterestedPeerList &GetList() const {
