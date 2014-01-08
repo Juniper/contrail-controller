@@ -9,7 +9,6 @@
 #include "cmn/agent_cmn.h"
 #include "controller/controller_dns.h"
 #include "base/timer.h"
-#include "pkt/pkt_init.h"
 
 DnsHandler::DnsHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                        boost::asio::io_service &io)
@@ -47,7 +46,8 @@ bool DnsHandler::HandleRequest() {
     dns_proto->IncrStatsReq();
 
     uint16_t ret = DNS_ERR_NO_ERROR;
-    const Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
+    const Interface *itf =
+        agent()->GetInterfaceTable()->FindInterface(GetIntf());
     if (!itf || (itf->type() != Interface::VM_INTERFACE) || 
         dns_->flags.req) {
         dns_proto->IncrStatsDrop();
@@ -238,7 +238,8 @@ void DnsHandler::DefaultDnsResolveHandler(const boost::system::error_code &error
 
         dns_->ans_rrcount = htons(dns_->ans_rrcount);
     }
-    SendDnsIpc(DnsHandler::DNS_DEFAULT_RESPONSE, 0, NULL, this);
+    agent()->GetDnsProto()->SendDnsIpc(DnsProto::DNS_DEFAULT_RESPONSE,
+                                       0, NULL, this);
 }
 
 void DnsHandler::DefaultDnsSendResponse() {
@@ -290,8 +291,9 @@ bool DnsHandler::HandleVirtualDnsRequest(const VmInterface *vmitf) {
         case DNS_OPCODE_UPDATE: {
             if (vdns_type_.dynamic_records_from_client) {
                 DnsUpdateData *update_data = new DnsUpdateData();
-                DnsUpdateIpc *update = new DnsUpdateIpc(DnsAgentXmpp::Update, 
-                                                        update_data, vmitf, false);
+                DnsProto::DnsUpdateIpc *update =
+                    new DnsProto::DnsUpdateIpc(DnsAgentXmpp::Update, 
+                                               update_data, vmitf, false);
                 if (BindUtil::ParseDnsUpdate((uint8_t *)dns_, *update_data)) {
                     update_data->virtual_dns = ipam_type_.ipam_dns_server.
                                                virtual_dns_server_name;
@@ -360,25 +362,25 @@ cleanup:
 
 bool DnsHandler::HandleMessage() {
     switch (pkt_info_->ipc->cmd) {
-        case DnsHandler::DNS_DEFAULT_RESPONSE:
+        case DnsProto::DNS_DEFAULT_RESPONSE:
             return HandleDefaultDnsResponse();
 
-        case DnsHandler::DNS_BIND_RESPONSE:
+        case DnsProto::DNS_BIND_RESPONSE:
             return HandleBindResponse();
 
-        case DnsHandler::DNS_TIMER_EXPIRED:
+        case DnsProto::DNS_TIMER_EXPIRED:
             return HandleRetryExpiry();
 
-        case DnsHandler::DNS_XMPP_SEND_UPDATE:
+        case DnsProto::DNS_XMPP_SEND_UPDATE:
             return HandleUpdate();
 
-        case DnsHandler::DNS_XMPP_MODIFY_VDNS:
+        case DnsProto::DNS_XMPP_MODIFY_VDNS:
             return HandleModifyVdns();
 
-        case DnsHandler::DNS_XMPP_UPDATE_RESPONSE:
+        case DnsProto::DNS_XMPP_UPDATE_RESPONSE:
             return HandleUpdateResponse();
 
-        case DnsHandler::DNS_XMPP_SEND_UPDATE_ALL:
+        case DnsProto::DNS_XMPP_SEND_UPDATE_ALL:
             return UpdateAll();
 
         default:
@@ -387,14 +389,14 @@ bool DnsHandler::HandleMessage() {
 }
 
 bool DnsHandler::HandleDefaultDnsResponse() {
-    DnsIpc *ipc = static_cast<DnsIpc *>(pkt_info_->ipc);
+    DnsProto::DnsIpc *ipc = static_cast<DnsProto::DnsIpc *>(pkt_info_->ipc);
     ipc->handler->DefaultDnsSendResponse();
     delete ipc;
     return true;
 }
 
 bool DnsHandler::HandleBindResponse() {
-    DnsIpc *ipc = static_cast<DnsIpc *>(pkt_info_->ipc);
+    DnsProto::DnsIpc *ipc = static_cast<DnsProto::DnsIpc *>(pkt_info_->ipc);
     uint16_t xid = ntohs(*(uint16_t *)ipc->resp);
     DnsProto *dns_proto = agent()->GetDnsProto();
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(xid);
@@ -433,7 +435,7 @@ bool DnsHandler::HandleBindResponse() {
 }
 
 bool DnsHandler::HandleRetryExpiry() {
-    DnsIpc *ipc = static_cast<DnsIpc *>(pkt_info_->ipc);
+    DnsProto::DnsIpc *ipc = static_cast<DnsProto::DnsIpc *>(pkt_info_->ipc);
     DnsProto *dns_proto = agent()->GetDnsProto();
     DnsHandler *handler = dns_proto->GetDnsQueryHandler(ipc->xid);
     if (handler && !handler->SendDnsQuery()) {
@@ -446,13 +448,15 @@ bool DnsHandler::HandleRetryExpiry() {
 }
 
 bool DnsHandler::HandleUpdateResponse() {
-    DnsUpdateIpc *ipc = static_cast<DnsUpdateIpc *>(pkt_info_->ipc);
+    DnsProto::DnsUpdateIpc *ipc =
+        static_cast<DnsProto::DnsUpdateIpc *>(pkt_info_->ipc);
     delete ipc;
     return true;
 }
 
 bool DnsHandler::HandleUpdate() {
-    DnsUpdateIpc *ipc = static_cast<DnsUpdateIpc *>(pkt_info_->ipc);
+    DnsProto::DnsUpdateIpc *ipc =
+        static_cast<DnsProto::DnsUpdateIpc *>(pkt_info_->ipc);
     if (!ipc->xmpp_data) {
         DelUpdate(ipc);
     } else {
@@ -462,9 +466,10 @@ bool DnsHandler::HandleUpdate() {
 }
 
 bool DnsHandler::HandleModifyVdns() {
-    DnsUpdateIpc *ipc = static_cast<DnsUpdateIpc *>(pkt_info_->ipc);
+    DnsProto::DnsUpdateIpc *ipc =
+        static_cast<DnsProto::DnsUpdateIpc *>(pkt_info_->ipc);
     DnsProto *dns_proto = agent()->GetDnsProto();
-    std::vector<DnsHandler::DnsUpdateIpc *> change_list;
+    std::vector<DnsProto::DnsUpdateIpc *> change_list;
     const DnsProto::DnsUpdateSet &update_set = dns_proto->GetUpdateRequestSet();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
          it != update_set.end(); ++it) {
@@ -515,9 +520,10 @@ done:
 }
 
 bool DnsHandler::UpdateAll() {
-    DnsUpdateAllIpc *ipc = static_cast<DnsUpdateAllIpc *>(pkt_info_->ipc);
+    DnsProto::DnsUpdateAllIpc *ipc =
+        static_cast<DnsProto::DnsUpdateAllIpc *>(pkt_info_->ipc);
     const DnsProto::DnsUpdateSet &update_set =
-          agent()->GetDnsProto()->GetUpdateRequestSet();
+        agent()->GetDnsProto()->GetUpdateRequestSet();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin(); 
          it != update_set.end(); ++it) {
         SendXmppUpdate(ipc->channel, (*it)->xmpp_data);
@@ -689,10 +695,11 @@ void DnsHandler::UpdateGWAddress(DnsItem &item) {
     }
 }
 
-void DnsHandler::Update(DnsUpdateIpc *update) {
+void DnsHandler::Update(InterTaskMsg *msg) {
+    DnsProto::DnsUpdateIpc *update = static_cast<DnsProto::DnsUpdateIpc *>(msg);
     bool free_update = true;
     DnsProto *dns_proto = agent()->GetDnsProto();
-    DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
+    DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     if (update_req) {
         DnsUpdateData *data = update_req->xmpp_data;
         for (DnsItems::iterator item = update->xmpp_data->items.begin(); 
@@ -730,9 +737,10 @@ done:
         delete update;
 }
 
-void DnsHandler::DelUpdate(DnsUpdateIpc *update) {
+void DnsHandler::DelUpdate(InterTaskMsg *msg) {
+    DnsProto::DnsUpdateIpc *update = static_cast<DnsProto::DnsUpdateIpc *>(msg);
     DnsProto *dns_proto = agent()->GetDnsProto();
-    DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
+    DnsProto::DnsUpdateIpc *update_req = dns_proto->FindUpdateRequest(update);
     while (update_req) {
         for (DnsItems::iterator item = update_req->xmpp_data->items.begin(); 
              item != update_req->xmpp_data->items.end(); ++item) {
@@ -774,7 +782,7 @@ void DnsHandler::UpdateStats() {
 }
 
 bool DnsHandler::TimerExpiry(uint16_t xid) {
-    SendDnsIpc(DnsHandler::DNS_TIMER_EXPIRED, xid);
+    agent()->GetDnsProto()->SendDnsIpc(DnsProto::DNS_TIMER_EXPIRED, xid);
     return false;
 }
 
@@ -785,42 +793,4 @@ std::string DnsHandler::DnsItemsToString(std::vector<DnsItem> &items) {
         str.append(" ");
     }
     return str;
-}
-
-void DnsHandler::SendDnsIpc(uint8_t *pkt) {
-    DnsIpc *ipc = new DnsIpc(pkt, 0, NULL, DnsHandler::DNS_BIND_RESPONSE);
-    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
-                                                            ipc);
-}
-
-void DnsHandler::SendDnsIpc(IpcCommand cmd, uint16_t xid, uint8_t *msg,
-                            DnsHandler *handler) {
-    DnsIpc *ipc = new DnsIpc(msg, xid, handler, cmd);
-    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
-                                                            ipc);
-}
-
-void DnsHandler::SendDnsUpdateIpc(DnsUpdateData *data,
-                                  DnsAgentXmpp::XmppType type,
-                                  const VmInterface *vm, bool floating) {
-    DnsUpdateIpc *ipc = new DnsUpdateIpc(type, data, vm, floating);
-    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
-                                                            ipc);
-}
-
-void DnsHandler::SendDnsUpdateIpc(const VmInterface *vm,
-                                  const std::string &new_vdns,
-                                  const std::string &old_vdns,
-                                  const std::string &new_dom,
-                                  uint32_t ttl, bool is_floating) {
-    DnsUpdateIpc *ipc = new DnsUpdateIpc(vm, new_vdns, old_vdns, new_dom,
-                                         ttl, is_floating);
-    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
-                                                            ipc);
-}
-
-void DnsHandler::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
-    DnsUpdateAllIpc *ipc = new DnsUpdateAllIpc(channel);
-    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::DNS,
-                                                            ipc);
 }

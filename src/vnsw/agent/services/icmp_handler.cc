@@ -19,7 +19,7 @@ IcmpHandler::~IcmpHandler() {
 
 bool IcmpHandler::Run() {
     IcmpProto *icmp_proto = agent()->GetIcmpProto();
-    Interface *itf = InterfaceTable::GetInstance()->FindInterface(GetIntf());
+    Interface *itf = agent()->GetInterfaceTable()->FindInterface(GetIntf());
     if (itf == NULL) {
         return true;
     }

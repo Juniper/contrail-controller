@@ -18,15 +18,84 @@ public:
     static const uint32_t kDnsMaxRetries = 2;
     static const uint32_t kDnsDefaultTtl = 84600;
 
-    typedef std::map<uint32_t, DnsHandler *> DnsBindQueryMap;
-    typedef std::pair<uint32_t, DnsHandler *> DnsBindQueryPair;
-    typedef std::set<DnsHandler::QueryKey> DnsVmRequestSet;
-    typedef std::set<DnsHandler::DnsUpdateIpc *,
-                     DnsHandler::UpdateCompare> DnsUpdateSet;
-    typedef std::map<uint32_t, std::string> IpVdnsMap;
-    typedef std::pair<uint32_t, std::string> IpVdnsPair;
-    typedef std::map<const VmInterface *, IpVdnsMap> VmDataMap;
-    typedef std::pair<const VmInterface *, IpVdnsMap> VmDataPair;
+    enum IpcCommand {
+        DNS_NONE,
+        DNS_DEFAULT_RESPONSE,
+        DNS_BIND_RESPONSE,
+        DNS_TIMER_EXPIRED,
+        DNS_XMPP_SEND_UPDATE,
+        DNS_XMPP_SEND_UPDATE_ALL,
+        DNS_XMPP_UPDATE_RESPONSE,
+        DNS_XMPP_MODIFY_VDNS,
+    };
+
+    struct DnsIpc : InterTaskMsg {
+        uint8_t *resp;
+        uint16_t xid;
+        DnsHandler *handler;
+
+        DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h, IpcCommand cmd)
+            : InterTaskMsg(cmd), resp(msg), xid(id), handler(h) {}
+
+        virtual ~DnsIpc() {
+            if (resp)
+                delete [] resp;
+            if (handler)
+                delete handler;
+        }
+    };
+
+    struct DnsUpdateIpc : InterTaskMsg {
+        DnsUpdateData *xmpp_data;
+        const VmInterface *itf;
+        bool floatingIp;
+        uint32_t ttl;
+        std::string new_vdns;
+        std::string old_vdns;
+        std::string new_domain;
+
+        DnsUpdateIpc(const VmInterface *vm, const std::string &nvdns,
+                     const std::string &ovdns, const std::string &dom,
+                     uint32_t ttl_value, bool is_floating)
+                   : InterTaskMsg(DNS_XMPP_MODIFY_VDNS), xmpp_data(NULL),
+                     itf(vm), floatingIp(is_floating), ttl(ttl_value),
+                     new_vdns(nvdns), old_vdns(ovdns), new_domain(dom) {}
+
+        DnsUpdateIpc(DnsAgentXmpp::XmppType type, DnsUpdateData *data,
+                     const VmInterface *vm, bool floating)
+                   : InterTaskMsg(DNS_NONE), xmpp_data(data), itf(vm),
+                     floatingIp(floating), ttl(0) {
+            if (type == DnsAgentXmpp::Update)
+                cmd = DNS_XMPP_SEND_UPDATE;
+            else if (type == DnsAgentXmpp::UpdateResponse)
+                cmd = DNS_XMPP_UPDATE_RESPONSE;
+        }
+
+        virtual ~DnsUpdateIpc() {
+            if (xmpp_data)
+                delete xmpp_data;
+        }
+    };
+
+    struct UpdateCompare {
+        bool operator() (DnsUpdateIpc *const &lhs, DnsUpdateIpc *const &rhs) {
+            if (!lhs || !rhs)
+                return lhs < rhs;
+            if (lhs->itf != rhs->itf)
+                return lhs->itf < rhs->itf;
+            if (lhs->floatingIp != rhs->floatingIp)
+                return lhs->floatingIp < rhs->floatingIp;
+            DnsUpdateData::Compare tmp;
+            return tmp(lhs->xmpp_data, rhs->xmpp_data);
+        }
+    };
+
+    struct DnsUpdateAllIpc : InterTaskMsg {
+        AgentDnsXmppChannel *channel;
+
+        DnsUpdateAllIpc(AgentDnsXmppChannel *ch) 
+            : InterTaskMsg(DNS_XMPP_SEND_UPDATE_ALL), channel(ch) {}
+    };
 
     struct DnsStats {
         uint32_t requests;
@@ -41,6 +110,15 @@ public:
         }
         DnsStats() { Reset(); }
     };
+
+    typedef std::map<uint32_t, DnsHandler *> DnsBindQueryMap;
+    typedef std::pair<uint32_t, DnsHandler *> DnsBindQueryPair;
+    typedef std::set<DnsHandler::QueryKey> DnsVmRequestSet;
+    typedef std::set<DnsUpdateIpc *, UpdateCompare> DnsUpdateSet;
+    typedef std::map<uint32_t, std::string> IpVdnsMap;
+    typedef std::pair<uint32_t, std::string> IpVdnsPair;
+    typedef std::map<const VmInterface *, IpVdnsMap> VmDataMap;
+    typedef std::pair<const VmInterface *, IpVdnsMap> VmDataPair;
 
     void Init();
     void ConfigInit();
@@ -60,10 +138,24 @@ public:
     void VdnsUpdate(IFMapNode *node);
     uint16_t GetTransId();
 
+    void SendDnsIpc(uint8_t *pkt);
+    void SendDnsIpc(IpcCommand cmd, uint16_t xid,
+                    uint8_t *msg = NULL, DnsHandler *handler = NULL);
+    void SendDnsUpdateIpc(DnsUpdateData *data,
+                          DnsAgentXmpp::XmppType type,
+                          const VmInterface *vm,
+                          bool floating = false);
+    void SendDnsUpdateIpc(const VmInterface *vm,
+                          const std::string &new_vdns,
+                          const std::string &old_vdns,
+                          const std::string &new_dom,
+                          uint32_t ttl, bool is_floating);
+    void SendDnsUpdateIpc(AgentDnsXmppChannel *channel);
+
     const DnsUpdateSet &GetUpdateRequestSet() { return update_set_; }
-    void AddUpdateRequest(DnsHandler::DnsUpdateIpc *ipc) { update_set_.insert(ipc); }
-    void DelUpdateRequest(DnsHandler::DnsUpdateIpc *ipc) { update_set_.erase(ipc); }
-    DnsHandler::DnsUpdateIpc *FindUpdateRequest(DnsHandler::DnsUpdateIpc *ipc) {
+    void AddUpdateRequest(DnsUpdateIpc *ipc) { update_set_.insert(ipc); }
+    void DelUpdateRequest(DnsUpdateIpc *ipc) { update_set_.erase(ipc); }
+    DnsUpdateIpc *FindUpdateRequest(DnsUpdateIpc *ipc) {
         DnsUpdateSet::iterator it = update_set_.find(ipc);
         if (it != update_set_.end())
             return *it;

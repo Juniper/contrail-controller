@@ -758,23 +758,27 @@ void ShowArpCache::HandleRequest() const {
     ArpCacheResp *resp = new ArpCacheResp();
     resp->set_context(context());
     ArpSandesh *arp_sandesh = new ArpSandesh(resp);
-    ArpProto::ArpCache &cache = const_cast<ArpProto::ArpCache &>
+    const ArpProto::ArpCache &cache =
               (Agent::GetInstance()->GetArpProto()->GetArpCache());
-    cache.Iterate(boost::bind(&ArpSandesh::SetArpEntry, arp_sandesh, _1, _2));
+    for (ArpProto::ArpCache::const_iterator it = cache.begin();
+         it != cache.end(); it++) {
+        if (!arp_sandesh->SetArpEntry(it->first, it->second))
+            break;
+    }
     arp_sandesh->Response();
     delete arp_sandesh;
 }
 
-bool ArpSandesh::SetArpEntry(const ArpKey &key, ArpEntry *&entry) {
+bool ArpSandesh::SetArpEntry(const ArpKey &key, const ArpEntry *entry) {
     ArpCacheResp *vresp = static_cast<ArpCacheResp *>(resp_);
     ArpSandeshData data;
     boost::asio::ip::address_v4 ip(key.ip);
     data.set_ip(ip.to_string());
     data.set_vrf(key.vrf->GetName());
     std::string mac_str;
-    ServicesSandesh::MacToString(entry->Mac(), mac_str);
+    ServicesSandesh::MacToString(entry->mac_address(), mac_str);
     data.set_mac(mac_str);
-    switch (entry->GetState()) {
+    switch (entry->state()) {
         case ArpEntry::INITING:
             data.set_state("initing");
             break;

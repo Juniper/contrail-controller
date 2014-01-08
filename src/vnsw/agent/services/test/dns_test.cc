@@ -300,7 +300,7 @@ public:
         for (int i = 0; i < numAdd; i++)
             ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
 
-        DnsHandler::SendDnsIpc(buf);
+        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
     }
 
 private:
@@ -477,7 +477,7 @@ TEST_F(DnsTesting, DnsXmppTest) {
     CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
 
     //TODO : create an XMPP channel
-    DnsHandler::SendDnsUpdateIpc(NULL);
+    Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(NULL);
 
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, false);
     client->WaitForIdle();

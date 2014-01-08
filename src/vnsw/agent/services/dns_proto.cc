@@ -8,6 +8,7 @@
 #include "cmn/agent_cmn.h"
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_table.h"
+#include "pkt/pkt_init.h"
 
 void DnsProto::Init() {
 }
@@ -24,7 +25,7 @@ void DnsProto::ConfigInit() {
             dns_servers.push_back(server);
     }
     BindResolver::Init(*agent()->GetEventManager()->io_service(), dns_servers,
-                       boost::bind(&DnsHandler::SendDnsIpc, _1));
+                       boost::bind(&DnsProto::SendDnsIpc, this, _1));
 }
 
 DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
@@ -57,8 +58,8 @@ void DnsProto::ItfUpdate(DBEntryBase *entry) {
 
     const VmInterface *vmitf = static_cast<VmInterface *>(entry);
     if (entry->IsDeleted()) {
-        DnsHandler::SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf);
-        DnsHandler::SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, true);
+        SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf);
+        SendDnsUpdateIpc(NULL, DnsAgentXmpp::Update, vmitf, true);
         all_vms_.erase(vmitf);
     } else {
         uint32_t ttl = kDnsDefaultTtl;
@@ -203,7 +204,7 @@ void DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
 
     DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
                    " VDNS : " << data->virtual_dns << " Zone : " << data->zone);
-    DnsHandler::SendDnsUpdateIpc(data, DnsAgentXmpp::Update, vmitf, is_floating);
+    SendDnsUpdateIpc(data, DnsAgentXmpp::Update, vmitf, is_floating);
 
     // Add a PTR record as well
     DnsUpdateData *ptr_data = new DnsUpdateData();
@@ -223,7 +224,7 @@ void DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
     DNS_BIND_TRACE(DnsBindTrace, "DNS update sent for : " << item.ToString() <<
                    " VDNS : " << ptr_data->virtual_dns <<
                    " Zone : " << ptr_data->zone);
-    DnsHandler::SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, vmitf, is_floating);
+    SendDnsUpdateIpc(ptr_data, DnsAgentXmpp::Update, vmitf, is_floating);
 }
 
 // Update the floating ip entries
@@ -302,8 +303,8 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
                    " new VDNS : " << new_vdns_name <<
                    " ttl : " << ttl <<
                    " floating : " << (is_floating ? "yes" : "no"));
-    DnsHandler::SendDnsUpdateIpc(vmitf, new_vdns_name,
-                                 old_vdns_name, new_domain, ttl, is_floating);
+    SendDnsUpdateIpc(vmitf, new_vdns_name,
+                     old_vdns_name, new_domain, ttl, is_floating);
     return true;
 }
 
@@ -329,4 +330,37 @@ bool DnsProto::GetVdnsData(const VnEntry *vn, const Ip4Address &vm_addr,
 
 uint16_t DnsProto::GetTransId() {
     return (++xid_ == 0 ? ++xid_ : xid_);
+}
+
+void DnsProto::SendDnsIpc(uint8_t *pkt) {
+    DnsIpc *ipc = new DnsIpc(pkt, 0, NULL, DnsProto::DNS_BIND_RESPONSE);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsProto::SendDnsIpc(IpcCommand cmd, uint16_t xid, uint8_t *msg,
+                          DnsHandler *handler) {
+    DnsIpc *ipc = new DnsIpc(msg, xid, handler, cmd);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsProto::SendDnsUpdateIpc(DnsUpdateData *data,
+                                DnsAgentXmpp::XmppType type,
+                                const VmInterface *vm, bool floating) {
+    DnsUpdateIpc *ipc = new DnsUpdateIpc(type, data, vm, floating);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsProto::SendDnsUpdateIpc(const VmInterface *vm,
+                                const std::string &new_vdns,
+                                const std::string &old_vdns,
+                                const std::string &new_dom,
+                                uint32_t ttl, bool is_floating) {
+    DnsUpdateIpc *ipc = new DnsUpdateIpc(vm, new_vdns, old_vdns, new_dom,
+                                         ttl, is_floating);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsProto::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
+    DnsUpdateAllIpc *ipc = new DnsUpdateAllIpc(channel);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }

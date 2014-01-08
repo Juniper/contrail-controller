@@ -147,10 +147,10 @@ public:
     }
 
     void SendArpMessage(ArpHandler::ArpMsgType type, uint32_t addr) {
-        ArpHandler::ArpIpc *ipc = 
-                new ArpHandler::ArpIpc(type, addr, 
-                Agent::GetInstance()->GetVrfTable()->
-                FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
+        ArpProto::ArpIpc *ipc = 
+                new ArpProto::ArpIpc(type, addr, 
+                    Agent::GetInstance()->GetVrfTable()->
+                    FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
@@ -412,7 +412,7 @@ TEST_F(ArpTest, GratArpSendTest) {
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     "vhost0", ip1, false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip1.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->key().ip == ip1.to_ulong());
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->GetLocalPeer(), 
@@ -427,7 +427,7 @@ TEST_F(ArpTest, GratArpSendTest) {
                                                        Agent::GetInstance()->GetDefaultVrf(),
                                                        "vhost0", ip2, false);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip2.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->GetLocalPeer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),

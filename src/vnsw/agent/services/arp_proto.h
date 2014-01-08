@@ -7,64 +7,22 @@
 
 #include "pkt/proto.h"
 #include "services/arp_handler.h"
+#include "services/arp_entry.h"
 
 #define ARP_TRACE(obj, ...)                                                 \
 do {                                                                        \
     Arp##obj::TraceMsg(ArpTraceBuf, __FILE__, __LINE__, ##__VA_ARGS__);     \
 } while (false)                                                             \
 
-class ArpEntry;
-class ArpNHClient;
-
-template <typename CacheKey, typename CacheEntry>
-class Cache {
-public:
-    typedef std::map<CacheKey, CacheEntry> CacheMap;
-    typedef std::pair<CacheKey, CacheEntry> CachePair;
-    typedef typename std::map<CacheKey, CacheEntry>::iterator CacheIter;
-    // Callback for iteration; retuns true to continue, false to stop
-    typedef boost::function<bool(const CacheKey &, CacheEntry &)> Callback;
-
-    static const uint32_t max_cache_size = 1024;
-
-    bool Add(CacheKey &key, CacheEntry &entry) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        if (cache_.size() < max_cache_size)
-            return cache_.insert(CachePair(key, entry)).second;
-        return false;
-    };
-    bool Delete(CacheKey &key) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return (bool) cache_.erase(key);
-    };
-    CacheEntry Find(CacheKey &key) {
-        tbb::mutex::scoped_lock lock(mutex_);
-        CacheIter it = cache_.find(key);
-        if (it == cache_.end())
-            return NULL;
-        return it->second;
-    };
-    void Iterate(Callback cb) { 
-        if (cb) {
-            tbb::mutex::scoped_lock lock(mutex_);
-            for (CacheIter it = cache_.begin(); it != cache_.end(); it++) 
-                if (!cb(it->first, it->second))
-                    return;
-        }
-    };
-    std::size_t Size() { 
-        tbb::mutex::scoped_lock lock(mutex_);
-        return cache_.size(); 
-    };
-    void Clear() { 
-        tbb::mutex::scoped_lock lock(mutex_);
-        cache_.clear(); 
-    };
-
-private:
-    tbb::mutex mutex_;
-    CacheMap cache_;
+struct ArpVrfState : public DBState {
+    bool seen_;
 };
+
+struct ArpRouteState : public DBState {
+    bool seen_;
+};
+
+class ArpEntry;
 
 class ArpProto : public Proto {
 public:
@@ -74,7 +32,8 @@ public:
     static const uint32_t kRetryTimeout = 2000;            // milli seconds
     static const uint32_t kAgingTimeout = (5 * 60 * 1000); // milli seconds
 
-    typedef Cache<ArpKey, ArpEntry *> ArpCache;
+    typedef std::map<ArpKey, ArpEntry *> ArpCache;
+    typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
 
     struct ArpStats {
@@ -93,6 +52,14 @@ public:
         ArpStats() { Reset(); }
     };
 
+    struct ArpIpc : InterTaskMsg {
+        ArpKey key;
+        ArpIpc(ArpHandler::ArpMsgType msg, ArpKey &akey)
+            : InterTaskMsg(msg), key(akey) {}
+        ArpIpc(ArpHandler::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
+            InterTaskMsg(msg), key(ip, vrf) {}
+    };
+
     void Init();
     void Shutdown();
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
@@ -101,12 +68,21 @@ public:
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
     bool TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type);
+    void UpdateArp(Ip4Address &ip, struct ether_addr &mac, const string &vrf,
+                   const Interface &intf, DBRequest::DBOperation op, 
+                   bool resolved);
 
-    bool Add(ArpKey &key, ArpEntry *ent) { return arp_cache_.Add(key, ent); }
-    bool Delete(ArpKey &key) { return arp_cache_.Delete(key); }
-    ArpEntry *Find(ArpKey &key) { return arp_cache_.Find(key); }
-    void Iterate(Callback cb) { arp_cache_.Iterate(cb); }
-    std::size_t GetArpCacheSize() { return arp_cache_.Size(); }
+    bool Add(const ArpKey &key, ArpEntry *entry) {
+        return arp_cache_.insert(ArpCachePair(key, entry)).second;
+    }
+    bool Delete(const ArpKey &key) { return (bool) arp_cache_.erase(key); }
+    ArpEntry *Find(const ArpKey &key) {
+        ArpCache::iterator it = arp_cache_.find(key);
+        if (it == arp_cache_.end())
+            return NULL;
+        return it->second;
+    }
+    std::size_t GetArpCacheSize() { return arp_cache_.size(); }
     const ArpCache& GetArpCache() { return arp_cache_; }
 
     Interface *IPFabricIntf() { return ip_fabric_intf_; }
@@ -118,7 +94,6 @@ public:
         memcpy(ip_fabric_intf_mac_, mac, ETH_ALEN);
     }
 
-    ArpNHClient *GetArpNHClient() { return arp_nh_client_; }
     boost::asio::io_service &GetIoService() { return Proto::io_; }
 
     ArpEntry *GraciousArpEntry() { return gracious_arp_entry_; }
@@ -143,13 +118,17 @@ public:
     void AgingTimeout(uint32_t timeout) { aging_timeout_ = timeout; }
 
 private:
-    void VrfUpdate(DBTablePartBase *part, DBEntryBase *entry);
-    void ItfUpdate(DBEntryBase *entry);
+    void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
+    void InterfaceNotify(DBEntryBase *entry);
+    void NextHopNotify(DBEntryBase *e);
     void RouteUpdate(DBTablePartBase *part, DBEntryBase *entry);
+    void SendArpIpc(ArpHandler::ArpMsgType type,
+                    in_addr_t ip, const VrfEntry *vrf);
+    void SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key);
+
 
     ArpCache arp_cache_;
     ArpStats arp_stats_;
-    ArpNHClient *arp_nh_client_;
     bool run_with_vrouter_;
     uint16_t ip_fabric_intf_index_;
     unsigned char ip_fabric_intf_mac_[ETH_ALEN];
@@ -157,6 +136,7 @@ private:
     ArpEntry *gracious_arp_entry_;
     DBTableBase::ListenerId vid_;
     DBTableBase::ListenerId iid_;
+    DBTableBase::ListenerId nhid_;
     DBTableBase::ListenerId fabric_route_table_listener_;
 
     uint16_t max_retries_;
@@ -164,30 +144,6 @@ private:
     uint32_t aging_timeout_;   // milli seconds
 
     DISALLOW_COPY_AND_ASSIGN(ArpProto);
-};
-
-class ArpNHClient {
-public:
-    ArpNHClient(boost::asio::io_service &io);
-    virtual ~ArpNHClient();
-    void Notify(DBTablePartBase *partition, DBEntryBase *e);
-    void HandleArpNHmodify(ArpNH *arp_nh);
-    void UpdateArp(Ip4Address &ip, struct ether_addr &mac, const string &vrf,
-                   const Interface &intf, DBRequest::DBOperation op, 
-                   bool resolved);
-
-private:
-    DBTableBase::ListenerId listener_id_;
-    boost::asio::io_service &io_;
-    DISALLOW_COPY_AND_ASSIGN(ArpNHClient);
-};
-
-struct ArpVrfState : public DBState {
-    bool seen_;
-};
-
-struct ArpRouteState : public DBState {
-    bool seen_;
 };
 
 #endif // vnsw_agent_arp_proto_hpp

@@ -2,7 +2,6 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/logging.h"
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
 #include "oper/nexthop.h"
@@ -29,18 +28,19 @@ ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
     ip_fabric_intf_(NULL), gracious_arp_entry_(NULL), max_retries_(kMaxRetries),
     retry_timeout_(kRetryTimeout), aging_timeout_(kAgingTimeout) {
 
-    arp_nh_client_ = new ArpNHClient(io);
     memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
     vid_ = agent->GetVrfTable()->Register(
-                  boost::bind(&ArpProto::VrfUpdate, this, _1, _2));
+                  boost::bind(&ArpProto::VrfNotify, this, _1, _2));
     iid_ = agent->GetInterfaceTable()->Register(
-                  boost::bind(&ArpProto::ItfUpdate, this, _2));
+                  boost::bind(&ArpProto::InterfaceNotify, this, _2));
+    nhid_ = agent->GetNextHopTable()->Register(
+                  boost::bind(&ArpProto::NextHopNotify, this, _2));
 }
 
 ArpProto::~ArpProto() {
-    delete arp_nh_client_;
     agent_->GetVrfTable()->Unregister(vid_);
     agent_->GetInterfaceTable()->Unregister(iid_);
+    agent_->GetNextHopTable()->Unregister(nhid_);
     DelGraciousArpEntry();
 }
 
@@ -49,13 +49,13 @@ ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new ArpHandler(agent(), info, io);
 }
 
-void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
+void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     ArpVrfState *state;
 
     state = static_cast<ArpVrfState *>(entry->GetState(part->parent(), vid_)); 
     if (entry->IsDeleted()) {
-        ArpHandler::SendArpIpc(ArpHandler::VRF_DELETE, 0, vrf);
+        SendArpIpc(ArpHandler::VRF_DELETE, 0, vrf);
         if (state) {
             vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->
                 Unregister(fabric_route_table_listener_);
@@ -85,7 +85,7 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 
     if (entry->IsDeleted()) {
         if (state) {
-            if (GraciousArpEntry() && GraciousArpEntry()->Key().ip ==
+            if (GraciousArpEntry() && GraciousArpEntry()->key().ip ==
                                       route->GetIpAddress().to_ulong()) {
                 DelGraciousArpEntry();
             }
@@ -101,18 +101,17 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         entry->SetState(part->parent(), fabric_route_table_listener_, state);
         DelGraciousArpEntry();
         //Send Grat ARP
-        ArpHandler::SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
-                               route->GetIpAddress().to_ulong(), 
-                               route->GetVrfEntry());
+        SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
+                   route->GetIpAddress().to_ulong(), route->GetVrfEntry());
     }
 }
 
-void ArpProto::ItfUpdate(DBEntryBase *entry) {
+void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
             itf->name() == agent_->GetIpFabricItfName()) {
-            ArpHandler::SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
+            SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
             //assert(0);
         }
     } else {
@@ -131,8 +130,29 @@ void ArpProto::ItfUpdate(DBEntryBase *entry) {
     }
 }
 
+void ArpProto::NextHopNotify(DBEntryBase *entry) {
+    NextHop *nh = static_cast<NextHop *>(entry);
+
+    switch(nh->GetType()) {
+    case NextHop::ARP: {
+        ArpNH *arp_nh = (static_cast<ArpNH *>(nh));
+        if (arp_nh->IsDeleted()) {
+            SendArpIpc(ArpHandler::ARP_DELETE, arp_nh->GetIp()->to_ulong(),
+                       arp_nh->GetVrf());
+        } else if (arp_nh->IsValid() == false) { 
+            SendArpIpc(ArpHandler::ARP_RESOLVE, arp_nh->GetIp()->to_ulong(),
+                       arp_nh->GetVrf());
+        }
+        break;
+    }
+
+    default:
+        break;
+    }
+}
+
 bool ArpProto::TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type) {
-    ArpHandler::SendArpIpc(timer_type, key);
+    SendArpIpc(timer_type, key);
     return false;
 }
 
@@ -143,23 +163,13 @@ void ArpProto::DelGraciousArpEntry() {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
-ArpNHClient::ArpNHClient(boost::asio::io_service &io) : io_(io) {
-    listener_id_ = Agent::GetInstance()->GetNextHopTable()->Register
-                   (boost::bind(&ArpNHClient::Notify, this, _1, _2));
-}
-
-ArpNHClient::~ArpNHClient() {
-    Agent::GetInstance()->GetNextHopTable()->Unregister(listener_id_);
-}
-
-void ArpNHClient::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
-                            const string &vrf_name, const Interface &intf,
-                            DBRequest::DBOperation op, bool resolved) {
+void ArpProto::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
+                         const string &vrf_name, const Interface &intf,
+                         DBRequest::DBOperation op, bool resolved) {
     ArpNH      *arp_nh;
     ArpNHKey   nh_key(vrf_name, ip);
-    arp_nh = static_cast<ArpNH *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&nh_key));
+    arp_nh = static_cast<ArpNH *>(agent_->GetNextHopTable()->
+                                  FindActiveEntry(&nh_key));
 
     std::string mac_str;
     ServicesSandesh::MacToString(mac.ether_addr_octet, mac_str);
@@ -169,7 +179,7 @@ void ArpNHClient::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
         if (arp_nh) {
             if (arp_nh->GetResolveState() && 
                 memcmp(&mac, arp_nh->GetMac(), sizeof(mac)) == 0) {
-                // MAC address unchanges ignore
+                // MAC address unchanged, ignore
                 return;
             }
         }
@@ -187,29 +197,17 @@ void ArpNHClient::UpdateArp(Ip4Address &ip, struct ether_addr &mac,
         assert(0);
     }
 
-	Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->ArpRoute(
+	agent_->GetDefaultInet4UnicastRouteTable()->ArpRoute(
                               op, ip, mac, vrf_name, intf, resolved, 32);
 }
 
-void ArpNHClient::HandleArpNHmodify(ArpNH *nh) {
-    if (nh->IsDeleted()) {
-        ArpHandler::SendArpIpc(ArpHandler::ARP_DELETE,
-                               nh->GetIp()->to_ulong(), nh->GetVrf());
-    } else if (nh->IsValid() == false) { 
-        ArpHandler::SendArpIpc(ArpHandler::ARP_RESOLVE,
-                               nh->GetIp()->to_ulong(), nh->GetVrf());
-    }
+void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type, 
+                          in_addr_t ip, const VrfEntry *vrf) {
+    ArpIpc *ipc = new ArpIpc(type, ip, vrf);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }
 
-void ArpNHClient::Notify(DBTablePartBase *partition, DBEntryBase *e) {
-    NextHop *nh = static_cast<NextHop *>(e);
-
-    switch(nh->GetType()) {
-    case NextHop::ARP:
-        HandleArpNHmodify(static_cast<ArpNH *>(nh));
-        break;
-
-    default:
-        break;
-    }
+void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key) {
+    ArpIpc *ipc = new ArpIpc(type, key);
+    agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
 }

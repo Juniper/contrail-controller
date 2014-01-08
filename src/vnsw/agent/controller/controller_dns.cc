@@ -42,7 +42,8 @@ void AgentDnsXmppChannel::ReceiveMsg(const XmppStanza::XmppMessage *msg) {
         std::auto_ptr<DnsUpdateData> xmpp_data(new DnsUpdateData);
         if (DnsAgentXmpp::DnsAgentXmppDecode(node, xmpp_type, xid, 
                                              code, xmpp_data.get())) {
-            DnsHandler::SendDnsUpdateIpc(xmpp_data.release(), xmpp_type, NULL);
+            Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(
+                                  xmpp_data.release(), xmpp_type, NULL);
         }
     }
 }
@@ -65,7 +66,7 @@ void AgentDnsXmppChannel::HandleXmppClientChannelEvent(
     if (state == xmps::READY) {
         if (Agent::GetInstance()->GetXmppDnsCfgServerIdx() == -1)
             Agent::GetInstance()->SetXmppDnsCfgServer(peer->xs_idx_);
-        DnsHandler::SendDnsUpdateIpc(peer);
+        Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(peer);
     } else {
         if (Agent::GetInstance()->GetXmppDnsCfgServerIdx() == peer->xs_idx_) {
             Agent::GetInstance()->SetXmppDnsCfgServer(-1);
