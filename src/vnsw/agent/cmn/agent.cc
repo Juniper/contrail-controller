@@ -325,7 +325,7 @@ void Agent::InitDone() {
 
     // Diag module needs PktModule
     if (pkt_.get()) {
-        DiagTable::Init(this);
+	diag_=std::auto_ptr<DiagTable>(new DiagTable(this));
     }
 
     if (init_->create_vhost()) {
