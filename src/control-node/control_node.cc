@@ -23,6 +23,7 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy exclude_all;
     const char *task_ids[] = {
         "bgp::Config",
+        "bgp::RTFilter",
         "bgp::SendTask",
         "bgp::ServiceChain",
         "bgp::StateMachine",
@@ -103,7 +104,5 @@ void ControlNode::SetDefaultSchedulingPolicy() {
 
     scheduler->SetPolicy(scheduler->GetTaskId("bgp::RTFilter"),
                             rtfilter_task_policy);
-
-
 }
 
