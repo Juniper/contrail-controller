@@ -44,8 +44,6 @@ class MetadataProvisioner(object):
             return
 
         current_linklocal=current_config.get_linklocal_services()
-        encapsulation_priorities=current_config.get_encapsulation_priorities()
-        vxlan_network_identifier_mode=current_config.get_vxlan_network_identifier_mode()
         if current_linklocal is None:
             obj = {'linklocal_service_entry': []}
         else:
@@ -66,9 +64,7 @@ class MetadataProvisioner(object):
                 new_linklocal.append(linklocal_obj)
             obj[key] = new_linklocal
         
-        conf_obj=GlobalVrouterConfig(linklocal_services=obj,
-                                     encapsulation_priorities=encapsulation_priorities,
-                                     vxlan_network_identifier_mode=vxlan_network_identifier_mode)
+        conf_obj=GlobalVrouterConfig(linklocal_services=obj)
         result=self._vnc_lib.global_vrouter_config_update(conf_obj)
         print 'Updated.%s'%(result)
 
