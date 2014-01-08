@@ -35,7 +35,8 @@
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
 #include <algorithm>
-#include <pkt/pkt_flow.h>
+#include <pkt/flow_proto.h>
+#include <ksync/ksync_init.h>
 
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
@@ -81,7 +82,8 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid));
     }
 
-    // Flow setup and teardown messages are sent with higher priority
+    // Flow setup(first) and teardown(last) messages are sent with higher 
+    // priority.
     if (!flow->exported) {
         s_flow.set_setup_time(flow->setup_time);
         flow->exported = true;
@@ -89,6 +91,11 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
     }
     if (flow->teardown_time) {
         s_flow.set_teardown_time(flow->teardown_time);
+        //Teardown time will be set in flow only when flow is deleted.
+        //We need to reset the exported flag when flow is getting deleted to 
+        //handle flow entry reuse case (Flow add request coming for flows 
+        //marked as deleted)
+        flow->exported = false;
         level = SandeshLevel::SYS_ERR;
     }
 
@@ -171,13 +178,38 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowEntry *fe,
     return (oflow_pkts |= k_flow_pkts);
 }
 
+void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
+                                         uint64_t &diff_packets) {
+    FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
+                                         flowtable_ksync_obj();
+    
+    const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
+        (flow->flow_handle, false);
+    if (k_flow) {
+        uint64_t k_bytes, k_packets, bytes, packets;
+        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+                               k_flow->fe_stats.flow_bytes);
+        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
+                                 k_flow->fe_stats.flow_packets);
+        bytes = GetUpdatedFlowBytes(flow, k_bytes);
+        packets = GetUpdatedFlowPackets(flow, k_packets);
+        diff_bytes = bytes - flow->data.bytes;
+        diff_packets = packets - flow->data.packets;
+        flow->data.bytes = bytes;
+        flow->data.packets = packets;
+    } else {
+        diff_bytes = 0;
+        diff_packets = 0;
+    }
+}
+
 bool FlowStatsCollector::Run() {
     FlowTable::FlowEntryMap::iterator it;
     FlowEntry *entry = NULL, *reverse_flow;
     uint32_t count = 0;
     bool key_updation_reqd = true, deleted;
     uint64_t diff_bytes, diff_pkts;
-    FlowTable *flow_obj = FlowTable::GetFlowTableObject();
+    FlowTable *flow_obj = Agent::GetInstance()->pkt()->flow_table();
   
     run_counter_++;
     if (!flow_obj->Size()) {
@@ -188,6 +220,8 @@ bool FlowStatsCollector::Run() {
     if (it == flow_obj->flow_entry_map_.end()) {
         it = flow_obj->flow_entry_map_.begin();
     }
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     while (it != flow_obj->flow_entry_map_.end()) {
         entry = it->second;
@@ -196,8 +230,7 @@ bool FlowStatsCollector::Run() {
         deleted = false;
 
         flow_iteration_key_ = entry->key;
-        const vr_flow_entry *k_flow = 
-            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+        const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
             (entry->flow_handle, false);
         reverse_flow = entry->data.reverse_flow.get();
         // Can the flow be aged?
@@ -205,8 +238,7 @@ bool FlowStatsCollector::Run() {
             // If reverse_flow is present, wait till both are aged
             if (reverse_flow) {
                 const vr_flow_entry *k_flow_rev;
-                k_flow_rev = 
-                    FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
+                k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle, false);
                 if (ShouldBeAged(reverse_flow, k_flow_rev, curr_time)) {
                     deleted = true;
@@ -222,7 +254,7 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowTable::GetFlowTableObject()->DeleteRevFlow
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
                 (entry->key, reverse_flow != NULL? true : false);
             entry = NULL;
             if (reverse_flow) {
@@ -265,7 +297,8 @@ bool FlowStatsCollector::Run() {
                     it++;
                 }
             }
-            FlowTable::GetFlowTableObject()->DeleteRevFlow(entry->key, true);
+            Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow
+                (entry->key, true);
             entry = NULL;
             if (reverse_flow) {
                 count++;

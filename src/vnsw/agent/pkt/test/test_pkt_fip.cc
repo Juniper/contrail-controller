@@ -4,9 +4,10 @@
 
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_proto.h"
 
 #define AGE_TIME 10*1000
+#define MEDATA_NAT_DPORT 8775
 
 void RouterIdDepInit() {
 }
@@ -14,13 +15,13 @@ void RouterIdDepInit() {
 class FlowTest : public ::testing::Test {
     virtual void SetUp() {
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
     virtual void TearDown() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 };
 
@@ -46,7 +47,7 @@ struct PortInfo input4[] = {
 VmInterface *vnet[16];
 char vnet_addr[16][32];
 
-VirtualHostInterface *vhost;
+InetInterface *vhost;
 char vhost_addr[32];
 
 Inet4UnicastAgentRouteTable *vnet_table[16];
@@ -150,6 +151,53 @@ static void AddAllowAcl(const char *name, int id) {
     Agent::GetInstance()->GetIfMapAgentParser()->ConfigParse(xdoc_.first_child(), 0);
 }
 
+static void SetupMetadataService() {
+    boost::system::error_code ec;
+    std::stringstream global_config;
+    global_config << "<linklocal-services>\n";
+    global_config << "<linklocal-service-entry>\n";
+    global_config << "<linklocal-service-name>metdata</linklocal-service-name>\n";
+    global_config << "<linklocal-service-ip>169.254.169.254</linklocal-service-ip>\n";
+    global_config << "<linklocal-service-port>80</linklocal-service-port>\n";
+    global_config << "<ip-fabric-DNS-service-name>";
+    global_config << Agent::GetInstance()->GetRouterId().to_string();
+    global_config << "</ip-fabric-DNS-service-name>\n";
+    global_config << "<ip-fabric-service-ip></ip-fabric-service-ip>\n";
+    global_config << "<ip-fabric-service-port>";
+    global_config << MEDATA_NAT_DPORT;
+    global_config << "</ip-fabric-service-port>\n";
+    global_config << "</linklocal-service-entry>\n";
+    global_config << "</linklocal-services>";
+
+    char buf[4096];
+    int len = 0;
+    memset(buf, 0, 4096);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, global_config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
+static void RemoveMetadataService() {
+    std::stringstream global_config;
+    global_config << "<linklocal-services>\n";
+    global_config << "<linklocal-service-entry>\n";
+    global_config << "</linklocal-service-entry>\n";
+    global_config << "</linklocal-services>";
+
+    char buf[4096];
+    int len = 0;
+    memset(buf, 0, 4096);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, global_config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
 static void Setup() {
     int ret = true;
     hash_id = 1;
@@ -250,8 +298,8 @@ static void Setup() {
         ret = false;
     }
 
-    boost::scoped_ptr<VirtualHostInterfaceKey> key(new VirtualHostInterfaceKey("vhost0"));
-    vhost = static_cast<VirtualHostInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
+    boost::scoped_ptr<InetInterfaceKey> key(new InetInterfaceKey("vhost0"));
+    vhost = static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(key.get()));
     strcpy(vhost_addr, Agent::GetInstance()->GetRouterId().to_string().c_str());
 
     EXPECT_TRUE(ret);
@@ -322,6 +370,8 @@ TEST_F(FlowTest, Mdata_FabricToVm_1) {
 
 TEST_F(FlowTest, Mdata_FabricToServer_1) {
     // Packet from fabric to Server using MData service addresses
+    SetupMetadataService();
+    client->WaitForIdle();
     TxIpMplsPacket(eth->id(), "10.1.1.2", vhost_addr, 
                    vnet[1]->label(), "1.1.1.10", "169.254.169.254", 1);
     client->WaitForIdle();
@@ -346,6 +396,8 @@ TEST_F(FlowTest, Mdata_FabricToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(),"1.1.1.10",
                          "169.254.169.254", IPPROTO_TCP, 1001, 80));
+    RemoveMetadataService();
+    client->WaitForIdle();
 }
 
 TEST_F(FlowTest, VmToVm_Invalid_1) {
@@ -394,6 +446,8 @@ TEST_F(FlowTest, VmToVm_Invalid_1) {
 
 // Test for traffic from server to VM
 TEST_F(FlowTest, ServerToVm_1) {
+    SetupMetadataService();
+    client->WaitForIdle();
     // Packet with no route for IP-DA
     TxIpPacketUtil(vhost->id(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
@@ -440,24 +494,29 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 IPPROTO_TCP, 10, 20, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 10, 20, 
                                 Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+    RemoveMetadataService();
+    client->WaitForIdle();
 }
 
 // Test for traffic from VM to server
 TEST_F(FlowTest, VmToServer_1) {
+    SetupMetadataService();
+    client->WaitForIdle();
     // HTTP packet from VM to Server
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254", 10000, 80);
+    client->WaitForIdle();
 
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "169.254.169.254",
                                 IPPROTO_TCP, 10000, 80, 1, 
                                 vhost->vrf()->GetName().c_str(),
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
-                                vhost_addr, 10000, 
-                                Agent::GetInstance()->GetMetadataServerPort(),
+                                vhost_addr, 10000, MEDATA_NAT_DPORT,
                                 "vn1",
                                 Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
+#if 0
     TxIpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254", 1);
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "169.254.169.254",
@@ -467,6 +526,7 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vhost_addr, 0, 0, "vn1",
                                 Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
+#endif
 
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "169.254.169.254",
                 10, 20, 1, 1);
@@ -495,6 +555,8 @@ TEST_F(FlowTest, VmToServer_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowFail(vnet[1]->vrf()->GetName(), vnet_addr[1],
                          "169.254.169.254", IPPROTO_TCP, 10, 20));
+    RemoveMetadataService();
+    client->WaitForIdle();
 }
 
 // FloatingIP test for traffic from VM to local VM
@@ -600,25 +662,25 @@ TEST_F(FlowTest, FipFabricToVm_1) {
 
 // NAT Flow aging
 TEST_F(FlowTest, FlowAging_1) {
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Trigger to Age the flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     usleep(AGE_TIME*2);
     //Trigger to Age the flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in flow-stats and aging time is up
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1, 1);
     client->WaitForIdle();
@@ -626,13 +688,13 @@ TEST_F(FlowTest, FlowAging_1) {
     client->WaitForIdle();
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 10, 20, 3);
     client->WaitForIdle();
-    EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     // Trigger aging cycle
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //Flow stats would be updated from Kernel flows . Hence they won't be deleted
-    EXPECT_EQ(6U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(6U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Trigger flow-aging
     usleep(AGE_TIME*2);
@@ -641,7 +703,7 @@ TEST_F(FlowTest, FlowAging_1) {
 
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
 // Duplicate Nat-Flow test 
@@ -677,7 +739,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     EXPECT_FALSE(vnet[1]->HasFloatingIp());
 
     // Deleting floating-ip will remove associated flows also
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Send the traffic again (to convert Nat-flow to Non-Nat flow)
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -704,7 +766,7 @@ TEST_F(FlowTest, Nat2NonNat) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
@@ -747,12 +809,12 @@ TEST_F(FlowTest, NonNat2Nat) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
     //No change in stats. Flows should be aged by now
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 }
 
 // Two floating-IPs for a given interface. Negative test-case
 TEST_F(FlowTest, TwoFloatingIp) {
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Create a Nat Flow
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
@@ -765,7 +827,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
                    "2.1.1.100", vnet_addr[3], 0, 0) == false) {
         EXPECT_STREQ("", "Error quering flow");
     }
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     const VmInterface::FloatingIpList list = vnet[1]->floating_ip_list();
     EXPECT_EQ(1U, list.list_.size());
@@ -787,7 +849,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
         EXPECT_STREQ("", "Error quering flow");
     }
 
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Send traffic in reverse direction for the second floating IP
     TxIpPacket(vnet[3]->id(), vnet_addr[3], "2.1.1.101", 1);
@@ -808,8 +870,8 @@ TEST_F(FlowTest, TwoFloatingIp) {
     //cleanup
     client->EnqueueFlowFlush();
     client->WaitForIdle(2);
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Delete the second floating IP created by this test-case
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
@@ -819,6 +881,8 @@ TEST_F(FlowTest, TwoFloatingIp) {
 }
 
 TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
+    SetupMetadataService();
+    client->WaitForIdle();
     //Add a flow from vhost interface to VM metadata address
     TxTcpPacket(vhost->id(), vhost_addr, 
                 vnet[7]->mdata_ip_addr().to_string().c_str(), 100, 100, 2);
@@ -836,7 +900,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
                 "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
                 vhost->vrf()->GetName().c_str(), 
                 vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10, 
-                Agent::GetInstance()->GetMetadataServerPort()));
+                MEDATA_NAT_DPORT));
     char mdata_ip[32];
     strcpy(mdata_ip, vnet[7]->mdata_ip_addr().to_string().c_str());
 
@@ -847,9 +911,13 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     EXPECT_TRUE(FlowFail("vrf7", "7.1.1.1", "169.254.169.254", 6, 10, 80));
     IntfCfgAdd(input1, 0);
     client->WaitForIdle();
+    RemoveMetadataService();
+    client->WaitForIdle();
 }
 
 TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
+    SetupMetadataService();
+    client->WaitForIdle();
     struct PortInfo input[] = {
         {"vnet8", 8, "8.1.1.1", "00:00:08:01:01:01", 8, 8}
     };
@@ -871,8 +939,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
                            "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
                            vhost->vrf()->GetName().c_str(), mdata_ip,
-                           vhost_addr, 10, 
-                           Agent::GetInstance()->GetMetadataServerPort()));
+                           vhost_addr, 10, MEDATA_NAT_DPORT));
     client->WaitForIdle();
     DelLink("virtual-machine-interface", "vnet8", "virtual-network", "vn8");
     client->WaitForIdle();
@@ -881,6 +948,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
     EXPECT_TRUE(FlowFail(vhost->vrf()->GetName(), vhost_addr, mdata_ip, 6,
                          100, 100));
     EXPECT_TRUE(FlowFail("vrf8", "8.1.1.1", "169.254.169.254", 6, 10, 80));
+    RemoveMetadataService();
+    client->WaitForIdle();
 }
 
 //Ping from floating IP to local interface route, 

@@ -34,6 +34,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include <ksync/ksync_init.h>
 
 #include <services/dns_proto.h>
 
@@ -796,24 +797,23 @@ void VmInterface::ApplyConfig(bool old_active, bool old_policy,
                               bool old_ipv4_forwarding, bool old_fabric_port,
                               bool old_need_linklocal_ip, bool sg_changed) {
     // Update services flag based on active state
-    UpdateServices(active_);
+    UpdateServices(ipv4_forwarding_);
 
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
     // Add/Del/Update L3 
-    if (active_ && ipv4_forwarding_ && fabric_port_ == false) {
+    if (active_ && ipv4_forwarding_) {
         UpdateL3(old_active, old_vrf, old_addr, old_vxlan_id, force_update,
                  policy_change);
-    } else if (old_active && old_ipv4_forwarding && old_fabric_port == false) {
+    } else if (old_active && old_ipv4_forwarding) {
         DeleteL3(old_active, old_vrf, old_addr, old_need_linklocal_ip);
     }
 
     // Add/Del/Update L2 
-    if (active_ && layer2_forwarding_ && fabric_port_ == false) {
+    if (active_ && layer2_forwarding_) {
         UpdateL2(old_active, old_vrf, old_vxlan_id, force_update, policy_change);
-    } else if (old_active && old_layer2_forwarding && 
-               old_fabric_port == false) {
+    } else if (old_active && old_layer2_forwarding) {
         DeleteL2(old_active, old_vrf);
     }
 
@@ -892,7 +892,7 @@ bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
     }
 
     uint32_t addr;
-    InterfaceKSnap *intf = InterfaceKSnap::GetInstance();
+    InterfaceKSnap *intf = Agent::GetInstance()->ksync()->interface_snapshot();
     if (intf) {
         if (intf->FindInterfaceKSnapData(name, addr)) {
             *ip = Ip4Address(addr);
@@ -1103,7 +1103,7 @@ void VmInterface::UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf) {
     Agent *agent = table->agent();
     table->VmPortToMetaDataIp(id(), vrf_->GetVrfId(), &mdata_addr_);
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
-        (agent->GetMdataPeer(), agent->GetDefaultVrf(), mdata_addr_,
+        (agent->GetLinkLocalPeer(), agent->GetDefaultVrf(), mdata_addr_,
          32, GetUuid(), vn_->GetName(), label_, true);
 }
 
@@ -1116,7 +1116,7 @@ void VmInterface::DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    Inet4UnicastAgentRouteTable::Delete(agent->GetMdataPeer(),
+    Inet4UnicastAgentRouteTable::Delete(agent->GetLinkLocalPeer(),
                                         agent->GetDefaultVrf(),
                                         mdata_addr_, 32);
 }

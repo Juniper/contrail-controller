@@ -91,7 +91,7 @@ private:
 
     redisAsyncContext *context_;
     //boost::scoped_ptr<redisBoostClient> client_;
-    redisBoostClient *client_;
+    boost::shared_ptr<redisBoostClient> client_;
     tbb::mutex mutex_;
     RedisState state_;
     boost::asio::deadline_timer reconnect_timer_;

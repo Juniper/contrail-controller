@@ -30,9 +30,10 @@
 #include <ksync/ksync_init.h>
 #include <services/services_init.h>
 #include <pkt/pkt_init.h>
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 #include <pkt/pkt_types.h>
 #include <pkt/proto.h>
+#include <pkt/proto_handler.h>
 #include <uve/flow_stats.h>
 #include <uve/uve_init.h>
 #include <uve/uve_client.h>
@@ -59,8 +60,8 @@ const string &Agent::GetHostInterfaceName() {
     return Agent::null_str_;
 };
 
-const string &Agent::GetVirtualHostInterfaceName() {
-    return virtual_host_intf_name_;
+const string &Agent::vhost_interface_name() const {
+    return vhost_interface_name_;
 };
 
 const string &Agent::GetHostName() {
@@ -182,7 +183,7 @@ void Agent::GetConfig() {
         dss_xs_instances_ = params_->xmpp_instance_count();
     }
 
-    virtual_host_intf_name_ = params_->vhost_name();
+    vhost_interface_name_ = params_->vhost_name();
     ip_fabric_intf_name_ = params_->eth_port();
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
@@ -225,10 +226,7 @@ void Agent::CreateModules() {
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
     uve_ = std::auto_ptr<AgentUve>(new AgentUve(this));
-
-    if (init_->ksync_enable()) {
-        ksync_ = std::auto_ptr<KSync>(new KSync(this));
-    }
+    ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
         pkt_ = std::auto_ptr<PktModule>(new PktModule(this));
@@ -252,7 +250,7 @@ void Agent::CreateDBTables() {
 void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->RegisterDBClients(db_);
     } else {
         ksync_.get()->RegisterDBClientsTest(db_);
@@ -265,7 +263,7 @@ void Agent::CreateDBClients() {
 }
 
 void Agent::InitModules() {
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->NetlinkInit();
         ksync_.get()->VRouterInterfaceSnapshot();
         ksync_.get()->InitFlowMem();
@@ -274,6 +272,7 @@ void Agent::InitModules() {
             ksync_.get()->CreateVhostIntf();
         }
     } else {
+        ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();
     }
 
@@ -314,35 +313,6 @@ void Agent::CreateInterfaces() {
     cfg_.get()->CreateInterfaces();
 }
 
-void Agent::GlobalVrouterConfig(IFMapNode *node) {
-    if (node->IsDeleted() == false) {
-        autogen::GlobalVrouterConfig *cfg = 
-            static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
-        VxLanNetworkIdentifierMode cfg_vxlan_mode;
-        if (cfg->vxlan_network_identifier_mode() == "configured") {
-            cfg_vxlan_mode = Agent::CONFIGURED;
-        } else {
-            cfg_vxlan_mode = Agent::AUTOMATIC; 
-        }
-        if (cfg_vxlan_mode != 
-            vxlan_network_identifier_mode_) {
-            set_vxlan_network_identifier_mode(cfg_vxlan_mode);
-            GetVnTable()->UpdateVxLanNetworkIdentifierMode();
-            GetInterfaceTable()->UpdateVxLanNetworkIdentifierMode();
-        }
-        const std::vector<autogen::LinklocalServiceEntryType> &linklocal_list = 
-            cfg->linklocal_services();
-        for (std::vector<autogen::LinklocalServiceEntryType>::const_iterator it=
-             linklocal_list.begin(); it != linklocal_list.end(); it++) {
-            if (boost::to_lower_copy(it->linklocal_service_name) == "metadata")
-                SetIpFabricMetadataServerAddress
-                    (*(it->ip_fabric_service_ip.begin()));
-                SetIpFabricMetadataServerPort(it->ip_fabric_service_port);
-        }
-    }
-}
-
 void Agent::InitDone() {
     //Open up mirror socket
     mirror_table_->MirrorSockInit();
@@ -353,7 +323,7 @@ void Agent::InitDone() {
 
     // Diag module needs PktModule
     if (pkt_.get()) {
-        DiagTable::Init();
+        DiagTable::Init(this);
     }
 
     if (init_->create_vhost()) {
@@ -399,10 +369,10 @@ Agent::Agent() :
     gateway_id_(0), xs_cfg_addr_(""), xs_idx_(0), xs_addr_(), xs_port_(),
     xs_stime_(), xs_dns_idx_(0), xs_dns_addr_(), xs_dns_port_(),
     dss_addr_(""), dss_port_(0), dss_xs_instances_(0), label_range_(),
-    ip_fabric_intf_name_(""), virtual_host_intf_name_(""),
-    cfg_listener_(NULL), arp_proto_(NULL), dhcp_proto_(NULL),
-    dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
-    local_peer_(NULL), local_vm_peer_(NULL), mdata_vm_peer_(NULL),
+    ip_fabric_intf_name_(""), vhost_interface_name_(""),
+    pkt_interface_name_("pkt0"), cfg_listener_(NULL), arp_proto_(NULL),
+    dhcp_proto_(NULL), dns_proto_(NULL), icmp_proto_(NULL), flow_proto_(NULL),
+    local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
     mgmt_ip_(""), vxlan_network_identifier_mode_(AUTOMATIC) {

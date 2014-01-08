@@ -5,10 +5,13 @@
 #include <boost/assign/list_of.hpp>
 #include <pkt/pkt_handler.h>
 #include <oper/mirror_table.h>
+#include <pkt/pkt_init.h>
+#include <services/services_init.h>
 #include <services/dhcp_proto.h>
 #include <services/arp_proto.h>
 #include <services/dns_proto.h>
 #include <services/icmp_proto.h>
+#include <services/metadata_proxy.h>
 #include <services/services_types.h>
 #include <services/services_sandesh.h>
 #include <vr_defs.h>
@@ -55,10 +58,10 @@ bool ServicesSandesh::ValidateMac(std::string mac, unsigned char *mac_addr) {
     }
     if (colon != 5) 
         return false;
-    unsigned int val[MAC_ALEN] = {0, 0, 0, 0, 0, 0};
+    unsigned int val[ETH_ALEN] = {0, 0, 0, 0, 0, 0};
     sscanf(mac_copy.data(), "%x:%x:%x:%x:%x:%x", &val[0], &val[1], 
            &val[2], &val[3], &val[4], &val[5]);
-    for (int i = 0; i < MAC_ALEN; i++)
+    for (int i = 0; i < ETH_ALEN; i++)
         mac_addr[i] = val[i];
     return true;
 }
@@ -108,19 +111,25 @@ std::string &ServicesSandesh::DhcpMsgType(uint32_t msg_type) {
 
 void ServicesSandesh::PktStatsSandesh(std::string ctxt, bool more) {
     PktStats *resp = new PktStats();
-    PktHandler::PktStats stats = PktHandler::GetPktHandler()->GetStats();
-    resp->set_total_rcvd(stats.total_rcvd);
-    resp->set_dhcp_rcvd(stats.dhcp_rcvd);
-    resp->set_arp_rcvd(stats.arp_rcvd);
-    resp->set_dns_rcvd(stats.dns_rcvd);
-    resp->set_icmp_rcvd(stats.icmp_rcvd);
-    resp->set_flow_rcvd(stats.flow_rcvd);
+    PktHandler::PktStats stats = Agent::GetInstance()->pkt()->pkt_handler()->GetStats();
+    uint32_t total_rcvd = 0;
+    uint32_t total_sent = 0;
+    for (int i = 0; i < PktHandler::MAX_MODULES; ++i) {
+        total_rcvd += stats.received[i];
+        total_sent += stats.sent[i];
+    }
+    resp->set_total_rcvd(total_rcvd);
+    resp->set_dhcp_rcvd(stats.received[PktHandler::DHCP]);
+    resp->set_arp_rcvd(stats.received[PktHandler::ARP]);
+    resp->set_dns_rcvd(stats.received[PktHandler::DNS]);
+    resp->set_icmp_rcvd(stats.received[PktHandler::ICMP]);
+    resp->set_flow_rcvd(stats.received[PktHandler::FLOW]);
     resp->set_dropped(stats.dropped);
-    resp->set_total_sent(stats.total_sent);
-    resp->set_dhcp_sent(stats.dhcp_sent);
-    resp->set_arp_sent(stats.arp_sent);
-    resp->set_dns_sent(stats.dns_sent);
-    resp->set_icmp_sent(stats.icmp_sent);
+    resp->set_total_sent(total_sent);
+    resp->set_dhcp_sent(stats.sent[PktHandler::DHCP]);
+    resp->set_arp_sent(stats.sent[PktHandler::ARP]);
+    resp->set_dns_sent(stats.sent[PktHandler::DNS]);
+    resp->set_icmp_sent(stats.sent[PktHandler::ICMP]);
     resp->set_context(ctxt);
     resp->set_more(more);
     resp->Response();
@@ -515,7 +524,7 @@ void ServicesSandesh::DhcpPktTrace(PktTrace::Pkt &pkt, DhcpPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::pkt_trace_size) - 
+    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDhcpv4Hdr((dhcphdr *)ptr, data.dhcp_hdr, remaining);
@@ -535,7 +544,7 @@ void ServicesSandesh::DnsPktTrace(PktTrace::Pkt &pkt, DnsPktSandesh *resp) {
     ptr += (data.ip_hdr.hdrlen * 4);
     FillUdpHdr((udphdr *)ptr, data.udp_hdr); 
     ptr += sizeof(udphdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::pkt_trace_size) - 
+    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr) + 
                          data.ip_hdr.hdrlen * 4 + sizeof(udphdr));
     FillDnsHdr((dnshdr *)ptr, data.dns_hdr, remaining);
@@ -566,7 +575,7 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     uint8_t *ptr = pkt.pkt + sizeof(ethhdr) + sizeof(agent_hdr);
     FillMacHdr((ethhdr *)ptr, data.mac_hdr);
     ptr += sizeof(ethhdr);
-    int32_t remaining = std::min(pkt.len, PktTrace::pkt_trace_size) - 
+    int32_t remaining = std::min(pkt.len, PktTrace::kPktTraceSize) - 
                         (2 * sizeof(ethhdr) + sizeof(agent_hdr));
     PktToHexString(ptr, remaining, data.pkt);
     std::vector<PktDump> &list =
@@ -574,7 +583,7 @@ void ServicesSandesh::OtherPktTrace(PktTrace::Pkt &pkt, PktSandesh *resp) {
     list.push_back(data);
 }
 
-void ServicesSandesh::HandleRequest(PktHandler::ModuleName mod,
+void ServicesSandesh::HandleRequest(PktHandler::PktModuleName mod,
                                     std::string ctxt, bool more = false) {
     SandeshResponse *resp = NULL;
     boost::function<void(PktTrace::Pkt &)> cb;
@@ -627,7 +636,22 @@ void ServicesSandesh::HandleRequest(PktHandler::ModuleName mod,
             break;
     }
 
-    PktHandler::GetPktHandler()->PktTraceIterate(mod, cb);
+    Agent::GetInstance()->pkt()->pkt_handler()->PktTraceIterate(mod, cb);
+    resp->set_context(ctxt);
+    resp->set_more(more);
+    resp->Response();
+}
+
+void ServicesSandesh::MetadataHandleRequest(std::string ctxt, bool more = false) {
+    MetadataResponse *resp = new MetadataResponse();
+    resp->set_metadata_server_port(
+          Agent::GetInstance()->GetMetadataServerPort());
+    const MetadataProxy::MetadataStats &stats = 
+          Agent::GetInstance()->services()->metadataproxy()->metadatastats();
+    resp->set_metadata_requests(stats.requests);
+    resp->set_metadata_responses(stats.responses);
+    resp->set_metadata_proxy_sessions(stats.proxy_sessions);
+    resp->set_metadata_internal_errors(stats.internal_errors);
     resp->set_context(ctxt);
     resp->set_more(more);
     resp->Response();
@@ -656,11 +680,8 @@ void IcmpInfo::HandleRequest() const {
 }
 
 void MetadataInfo::HandleRequest() const {
-    MetadataResponse *resp = new MetadataResponse();
-    resp->set_metadata_server_port(
-          Agent::GetInstance()->GetMetadataServerPort());
-    resp->set_context(context());
-    resp->Response();
+    ServicesSandesh ssandesh;
+    ssandesh.MetadataHandleRequest(context());
 }
 
 void ShowAllInfo::HandleRequest() const {
@@ -672,22 +693,26 @@ void ShowAllInfo::HandleRequest() const {
     ssandesh.HandleRequest(PktHandler::ICMP, context(), true);
     ssandesh.HandleRequest(PktHandler::FLOW, context(), true);
     ssandesh.HandleRequest(PktHandler::DIAG, context(), true);
-    ssandesh.HandleRequest(PktHandler::INVALID, context(), false);
+    ssandesh.HandleRequest(PktHandler::INVALID, context(), true);
+    ssandesh.MetadataHandleRequest(context(), false);
 }
 
 void ClearAllInfo::HandleRequest() const {
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::DHCP);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::ARP);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::DNS);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::ICMP);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::FLOW);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::DIAG);
-    PktHandler::GetPktHandler()->PktTraceClear(PktHandler::INVALID);
-    PktHandler::GetPktHandler()->ClearStats();
-    Agent::GetInstance()->GetDhcpProto()->ClearStats();
-    Agent::GetInstance()->GetArpProto()->ClearStats();
-    Agent::GetInstance()->GetDnsProto()->ClearStats();
-    Agent::GetInstance()->GetIcmpProto()->ClearStats();
+    Agent *agent = Agent::GetInstance();
+    PktHandler *pkt_handler = agent->pkt()->pkt_handler();
+    pkt_handler->PktTraceClear(PktHandler::DHCP);
+    pkt_handler->PktTraceClear(PktHandler::ARP);
+    pkt_handler->PktTraceClear(PktHandler::DNS);
+    pkt_handler->PktTraceClear(PktHandler::ICMP);
+    pkt_handler->PktTraceClear(PktHandler::FLOW);
+    pkt_handler->PktTraceClear(PktHandler::DIAG);
+    pkt_handler->PktTraceClear(PktHandler::INVALID);
+    pkt_handler->ClearStats();
+    agent->GetDhcpProto()->ClearStats();
+    agent->GetArpProto()->ClearStats();
+    agent->GetDnsProto()->ClearStats();
+    agent->GetIcmpProto()->ClearStats();
+    agent->services()->metadataproxy()->ClearStats();
 
     PktErrorResp *resp = new PktErrorResp();
     resp->set_context(context());

@@ -8,10 +8,21 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
-#include <pkt/flowtable.h>
+#include <pkt/flow_table.h>
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
 #include <ksync/flowtable_ksync.h>
+#include <ksync/ksync_init.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+
+#include "route/route.h"
+#include "cmn/agent_cmn.h"
+#include "oper/interface_common.h"
+#include "oper/nexthop.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -32,14 +43,14 @@
 #include "filter/acl.h"
 
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "pkt/pkt_handler.h"
-#include "pkt/flowtable.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
 #include "uve/flow_uve.h"
+#include "uve/uve_init.h"
 #include "pkt/pkt_sandesh_flow.h"
 
-FlowTable* FlowTable::singleton_;
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 
@@ -49,7 +60,7 @@ inline void intrusive_ptr_add_ref(FlowEntry *fe) {
 inline void intrusive_ptr_release(FlowEntry *fe) {
     int prev = fe->refcount_.fetch_and_decrement();
     if (prev == 1) {
-        FlowTable *table = FlowTable::GetFlowTableObject();
+        FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
         FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key);
         assert(it != table->flow_entry_map_.end());
         table->flow_entry_map_.erase(it);
@@ -109,8 +120,10 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
     if ((hdr.protocol == IPPROTO_ICMP ||
          (hdr.protocol == IPPROTO_UDP && 
           (hdr.src_port == DNS_SERVER_PORT || hdr.dst_port == DNS_SERVER_PORT))) &&
-        (PktHandler::GetPktHandler()->IsGwPacket(data.intf_entry.get(), hdr.dst_ip) ||
-         PktHandler::GetPktHandler()->IsGwPacket(data.intf_entry.get(), hdr.src_ip))) {
+        (Agent::GetInstance()->pkt()->pkt_handler()->
+         IsGwPacket(data.intf_entry.get(), hdr.dst_ip) ||
+         Agent::GetInstance()->pkt()->pkt_handler()->
+         IsGwPacket(data.intf_entry.get(), hdr.src_ip))) {
         return (1 << TrafficAction::PASS);
     }
 
@@ -257,8 +270,8 @@ void FlowEntry::GetSgList(const Interface *intf, MatchPolicy *policy) {
     policy->m_sg_acl_l.clear();
     policy->m_out_sg_acl_l.clear();
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 
@@ -344,8 +357,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn, MatchPolicy *policy) {
         policy->m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for meta-data flow
-    if (mdata_flow) {
+    // Dont apply network-policy for linklocal flow
+    if (linklocal_flow) {
         return;
     }
 
@@ -389,20 +402,22 @@ void FlowEntry::UpdateKSync(FlowTableKSyncEntry *entry, bool create) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
     FlowStatsCollector::FlowExport(this, 0, 0);
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     if (entry == NULL) {
         FLOW_TRACE(Trace, "Add", flow_info);
-        FlowTableKSyncEntry key(this, flow_handle);
-        FlowTableKSyncObject::GetKSyncObject()->Create(&key);    
+        FlowTableKSyncEntry key(ksync_obj, this, flow_handle);
+        ksync_obj->Create(&key);    
     } else {
         FLOW_TRACE(Trace, "Change", flow_info);
-        FlowTableKSyncObject::GetKSyncObject()->Change(entry);    
+        ksync_obj->Change(entry);    
     }
 }
 
 void FlowEntry::CompareAndModify(const MatchPolicy &m_policy, bool create) {
     FlowTableKSyncEntry *entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(this);
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(this);
 
     data.match_p = m_policy;
     UpdateKSync(entry, create);
@@ -636,10 +651,16 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fe->set_deleted(true);
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    FlowTableKSyncObject::GetKSyncObject()->UpdateFlowStats(fe, false);
+    FlowStatsCollector *fec = Agent::GetInstance()->uve()->
+                                  GetFlowStatsCollector();
+    uint64_t diff_bytes, diff_packets;
+    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+
     fe->teardown_time = UTCTimestampUsec();
-    FlowStatsCollector::FlowExport(fe, 0, 0);
+    fec->FlowExport(fe, diff_bytes, diff_packets);
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->data.reverse_flow.get();
@@ -650,11 +671,10 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     DeleteFlowInfo(fe);
 
-    FlowTableKSyncEntry *ksync_entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(fe);
+    FlowTableKSyncEntry *ksync_entry = ksync_obj->Find(fe);
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
     if (ksync_entry) {
-        FlowTableKSyncObject::GetKSyncObject()->Delete(ksync_entry);
+        ksync_obj->Delete(ksync_entry);
     } else {
         FLOW_TRACE(Err, fe->flow_handle, "Entry not found in ksync");
         if (fe->data.reverse_flow.get() != NULL) {
@@ -771,7 +791,6 @@ void FlowTable::DeleteAll()
             it->second == entry->data.reverse_flow.get()) {
             ++it;
         }
-
         DeleteNatFlow(entry->key, true);
     }
 }
@@ -800,28 +819,24 @@ SandeshTraceBufferPtr FlowTraceBuf(SandeshTraceBufferCreate("Flow", 5000));
 void FlowTable::Init() {
 
     FlowEntry::alloc_count_ = 0;
-    assert(singleton_ == NULL);
-    singleton_ = new FlowTable;
 
-    singleton_->acl_listener_id_ = Agent::GetInstance()->GetAclTable()->Register
-        (boost::bind(&FlowTable::AclNotify, singleton_, _1, _2));
+    acl_listener_id_ = Agent::GetInstance()->GetAclTable()->Register
+        (boost::bind(&FlowTable::AclNotify, this, _1, _2));
 
-    singleton_->intf_listener_id_ = Agent::GetInstance()->GetInterfaceTable()->Register
-        (boost::bind(&FlowTable::IntfNotify, singleton_, _1, _2));
+    intf_listener_id_ = Agent::GetInstance()->GetInterfaceTable()->Register
+        (boost::bind(&FlowTable::IntfNotify, this, _1, _2));
 
-    singleton_->vn_listener_id_ = Agent::GetInstance()->GetVnTable()->Register
-        (boost::bind(&FlowTable::VnNotify, singleton_, _1, _2));
+    vn_listener_id_ = Agent::GetInstance()->GetVnTable()->Register
+        (boost::bind(&FlowTable::VnNotify, this, _1, _2));
 
-    singleton_->vrf_listener_id_ = Agent::GetInstance()->GetVrfTable()->Register
-            (boost::bind(&FlowTable::VrfNotify, singleton_, _1, _2));
+    vrf_listener_id_ = Agent::GetInstance()->GetVrfTable()->Register
+            (boost::bind(&FlowTable::VrfNotify, this, _1, _2));
 
-    singleton_->nh_listener_ = new NhListener();
+    nh_listener_ = new NhListener();
     return;
 }
 
 void FlowTable::Shutdown() {
-    delete singleton_;
-    singleton_ = NULL;
 }
 
 void FlowTable::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
@@ -1024,7 +1039,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     if (marked_delete_ || route->IsDeleted()) {
         RouteFlowKey rkey(route->GetVrfEntry()->GetVrfId(),
                           route->GetIpAddress().to_ulong(), route->GetPlen());
-        FlowTable::GetFlowTableObject()->DeleteRouteFlows(rkey);
+        Agent::GetInstance()->pkt()->flow_table()->DeleteRouteFlows(rkey);
         if (state) {
             route->ClearState(partition->parent(), id_);
             delete state;
@@ -1042,7 +1057,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     sort (new_sg_l.begin(), new_sg_l.end());
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
-        FlowTable::GetFlowTableObject()->ResyncRouteFlows(skey, new_sg_l);
+        Agent::GetInstance()->pkt()->flow_table()->ResyncRouteFlows(skey, new_sg_l);
     }
 
     //Trigger RPF NH sync, if active nexthop changes
@@ -1057,7 +1072,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     }
 
     if ((state->active_nh_ != active_nh) || (state->local_nh_ != local_nh)) {
-        FlowTable::GetFlowTableObject()->ResyncRpfNH(skey, route);
+        Agent::GetInstance()->pkt()->flow_table()->ResyncRpfNH(skey, route);
         state->active_nh_ = active_nh;
         state->local_nh_ = local_nh;
     }
@@ -1185,7 +1200,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
         if (nh) {
             nh_state = static_cast<const NhState *>(
                     nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                        FlowTable::GetFlowTableObject()->nh_listener_id()));
+                        Agent::GetInstance()->pkt()->flow_table()->nh_listener_id()));
         }
 
         if (flow->data.nh_state_ != nh_state) {
@@ -1194,8 +1209,8 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
 
             flow->data.nh_state_ = nh_state;
-             FlowTableKSyncEntry *ksync_entry =
-                 FlowTableKSyncObject::GetKSyncObject()->Find(flow);
+            FlowTableKSyncEntry *ksync_entry =
+               Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(flow);
             flow->UpdateKSync(ksync_entry, false);
         }
     }
@@ -1689,7 +1704,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create) {
     rflow->ActionRecompute(&rflow->data.match_p);
 
     FlowTableKSyncEntry *entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(rflow);
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(rflow);
     if (entry) {
         rflow->UpdateKSync(entry, false);
     }

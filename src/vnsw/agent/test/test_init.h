@@ -55,7 +55,7 @@
 #include <uve/flow_stats.h>
 #include <uve/agent_stats.h>
 #include "pkt_gen.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_table.h"
 #include "testing/gunit.h"
 #include "kstate/kstate.h"
 #include "pkt/pkt_init.h"
@@ -115,7 +115,7 @@ public:
     FlowFlush() : Task((TaskScheduler::GetInstance()->GetTaskId("FlowFlush")), 0) {
     }
     virtual bool Run() {
-        FlowTable::GetFlowTableObject()->DeleteAll();
+        Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
         return true;
     }
 };
@@ -376,7 +376,7 @@ public:
     bool PortNotifyWait(int port_count) {
         int i = 0;
 
-        while (port_notify_ != port_count) {
+        while (port_notify_ < port_count) {
             if (i++ < 25) {
                 usleep(10000);
             } else {
@@ -385,8 +385,8 @@ public:
         }
 
         WaitForIdle();
-        EXPECT_EQ(port_count, port_notify_);
-        return (port_notify_ == port_count);
+        EXPECT_GE(port_notify_, port_count);
+        return (port_notify_ >= port_count);
     }
 
     bool PortDelNotifyWait(int port_count) {

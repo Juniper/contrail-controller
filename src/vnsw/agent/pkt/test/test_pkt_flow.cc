@@ -64,19 +64,19 @@ public:
         int i = 1000;
         while (i > 0) {
             i--;
-            if (FlowTable::GetFlowTableObject()->Size() == count) {
+            if (Agent::GetInstance()->pkt()->flow_table()->Size() == count) {
                 break;
             }
             client->WaitForIdle();
             usleep(1);
         }
-        return (FlowTable::GetFlowTableObject()->Size() == count);
+        return (Agent::GetInstance()->pkt()->flow_table()->Size() == count);
     }
 
     void FlushFlowTable() {
         client->EnqueueFlowFlush();
         client->WaitForIdle();
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
     }
 
     void CreateLocalRoute(const char *vrf, const char *ip,
@@ -128,21 +128,22 @@ public:
         key.protocol = proto;
         key.src_port = sport;
         key.dst_port = dport;
-        FlowTable::GetFlowTableObject()->DeleteRevFlow(key, del_reverse_flow);
+        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, del_reverse_flow);
         client->WaitForIdle();
     }
 
     static void RunFlowAudit() {
-        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
-                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
-        FlowTableKSyncObject::GetKSyncObject()->AuditProcess(
-                FlowTableKSyncObject::GetKSyncObject()->GetKSyncObject());
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+        ksync_obj->AuditProcess();
+        ksync_obj->AuditProcess();
     }
 
     static bool KFlowHoldAdd(uint32_t hash_id, int vrf, const char *sip, 
                              const char *dip, int proto, int sport, int dport) {
-        if (hash_id >= 
-                FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize()) {
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+        if (hash_id >= ksync_obj->flow_table_entries_count()) {
             return false;
         }
         if (ksync_init_) {
@@ -170,9 +171,10 @@ public:
         if (ksync_init_) {
             return;
         }
+        FlowTableKSyncObject *ksync_obj = 
+            Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-        for (size_t count = 0; 
-             count < FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
+        for (size_t count = 0; count < ksync_obj->flow_table_entries_count();
              count++) {
             vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(count);
             vr_flow->fe_action = VR_FLOW_ACTION_DROP;
@@ -237,7 +239,7 @@ public:
         PktControlInfo out;
 
         flow_info->Add(pkt, &in, &out);
-        //FlowTable::GetFlowTableObject()->Add(pkt, flow_info);
+        //Agent::GetInstance()->pkt()->flow_table()->Add(pkt, flow_info);
         client->WaitForIdle();
     }
     
@@ -278,7 +280,7 @@ public:
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
-        EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+        EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
         hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 3, 1);
@@ -420,13 +422,13 @@ TEST_F(FlowTest, FlowAdd_1) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
 }
@@ -434,7 +436,7 @@ TEST_F(FlowTest, FlowAdd_1) {
 //Egress flow test (IP fabric to VMPort - Same VN)
 //Flow creation using GRE packets
 TEST_F(FlowTest, FlowAdd_2) {
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Create PHYSICAL interface to receive GRE packets on it.
     PhysicalInterfaceKey key(eth_itf);
@@ -490,13 +492,13 @@ TEST_F(FlowTest, FlowAdd_2) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(4U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify ingress and egress flow count
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -556,14 +558,14 @@ TEST_F(FlowTest, FlowAdd_3) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -622,14 +624,14 @@ TEST_F(FlowTest, FlowAdd_4) {
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
     vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -653,24 +655,24 @@ TEST_F(FlowTest, FlowAdd_5) {
     };
 
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Send duplicate flow creation request
     CreateFlow(flow, 1);
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = flow[0].pkt_.FlowFetch();
     vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -701,13 +703,13 @@ TEST_F(FlowTest, FlowAdd_6) {
 
 
     CreateFlow(fwd_flow, 1);
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = fwd_flow[0].pkt_.FlowFetch();
     const VnEntry *vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
@@ -716,12 +718,12 @@ TEST_F(FlowTest, FlowAdd_6) {
     //Send request for reverse flow again
     CreateFlow(rev_flow, 1);
     //Send request for forward flow again 
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = fwd_flow[0].pkt_.FlowFetch();
     vn = fe->data.vn_entry.get();
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 }
@@ -753,7 +755,7 @@ TEST_F(FlowTest, FlowAge_1) {
     };
 
     CreateFlow(flow, 2);
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     KSyncSockTypeMap::IncrFlowStats(1, 1, 30);
     client->WaitForIdle();
 
@@ -764,7 +766,7 @@ TEST_F(FlowTest, FlowAge_1) {
     //of difference in stats between oper flow and Kernel flow
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Update reverse-flow stats to postpone aging of forward-flow
     KSyncSockTypeMap::IncrFlowStats(2, 1, 30);
@@ -776,7 +778,7 @@ TEST_F(FlowTest, FlowAge_1) {
 
     //Verify that forward-flow is not removed even though it is eligible to be removed
     //because reverse-flow is not aged
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     // Sleep for age-time
     usleep(tmp_age_time + 10);
@@ -786,7 +788,7 @@ TEST_F(FlowTest, FlowAge_1) {
     client->WaitForIdle();
 
     //Verify that both flows get removed after reverse-flow ages
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
+    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -827,7 +829,7 @@ TEST_F(FlowTest, FlowAge_3) {
     };
 
     CreateFlow(flow, 4);
-    EXPECT_EQ(8U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(8U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     // Flow entries are created with #pkts = 1. 
     // Do first sleep for aging to work correctly below
@@ -837,8 +839,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     // Delete of 2 linked flows
     CreateFlow(flow, 2);
@@ -849,8 +851,8 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     // Delete 2 out of 4 linked entries
     CreateFlow(flow, 2);
@@ -861,16 +863,16 @@ TEST_F(FlowTest, FlowAge_3) {
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (2U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(1000, 1000, (2U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(1, vm1_ip, vm2_ip, 1, 0, 0, false, -1, -1));
     EXPECT_TRUE(FlowGet(1, vm2_ip, vm1_ip, 1, 0, 0, false, -1, -1));
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(100, 1, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -903,7 +905,7 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
         CreateFlow(flow, 2);
     }
     EXPECT_EQ((total_flows * 2), 
-            FlowTable::GetFlowTableObject()->Size());
+            Agent::GetInstance()->pkt()->flow_table()->Size());
     //Set the flow age time to 200 milliseconds
     AgentUve::GetInstance()->
         GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
@@ -918,8 +920,8 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
     WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= (passes * 2)));
     client->WaitForIdle(2);
 
-    WAIT_FOR(5000, 500, (0U == FlowTable::GetFlowTableObject()->Size()));
-    EXPECT_EQ(0U, FlowTable::GetFlowTableObject()->Size());
+    WAIT_FOR(5000, 500, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -953,7 +955,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
-    EXPECT_EQ(2U, FlowTable::GetFlowTableObject()->Size());
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0, 
                         false, -1, -1));
     EXPECT_TRUE(FlowGet(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0, 
@@ -964,7 +966,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
     AgentUve::GetInstance()->
@@ -1078,7 +1080,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 
@@ -1170,7 +1172,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatFlowAdd_1) {
@@ -1277,7 +1279,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
                        vm1_fip, 1, 0, 0) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNonNat_2) {
@@ -1316,7 +1318,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_1) {
@@ -1350,7 +1352,7 @@ TEST_F(FlowTest, NatAddOldNat_1) {
  
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_2) {
@@ -1384,7 +1386,7 @@ TEST_F(FlowTest, NatAddOldNat_2) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 TEST_F(FlowTest, NatAddOldNat_3) {
@@ -1418,7 +1420,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 }
 
 //Create same Nat flow with different flow handles
@@ -1457,7 +1459,7 @@ TEST_F(FlowTest, FlowAudit) {
     EXPECT_TRUE(FlowTableWait(2));
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
     KFlowPurgeHold();
 
     FlowAdd(1, 1, "1.1.1.1", "2.2.2.2", 1, 0, 0, "3.3.3.3", "2.2.2.2", 1);
@@ -1475,7 +1477,7 @@ TEST_F(FlowTest, FlowAudit) {
             tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
-    WAIT_FOR(1000, 1000, (FlowTable::GetFlowTableObject()->Size() == 0U));
+    WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
     AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
             bkp_age_time);
     KFlowPurgeHold();

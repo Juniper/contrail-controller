@@ -5,8 +5,8 @@
 #ifndef vnsw_agent_inter_vn_stats_h
 #define vnsw_agent_inter_vn_stats_h
 
-#include "pkt/pkt_flow.h"
-#include "pkt/flowtable.h"
+#include "pkt/flow_proto.h"
+#include "pkt/flow_table.h"
 #include <set>
 #include <map>
 #include <tbb/mutex.h>

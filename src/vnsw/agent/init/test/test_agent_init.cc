@@ -43,6 +43,7 @@
 #include <uve/uve_client.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
+#include <pkt/proto_handler.h>
 #include <diag/diag.h>
 #include <vgw/vgw.h>
 
@@ -117,6 +118,7 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.mgmt_ip().to_ulong(), 0);
     EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
+    EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
     EXPECT_STREQ(param.config_file().c_str(), 
                  "controller/src/vnsw/agent/init/test/cfg.xml");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");

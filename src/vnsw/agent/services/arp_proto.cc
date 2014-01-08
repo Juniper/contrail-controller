@@ -11,9 +11,11 @@
 #include "oper/agent_route.h"
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
+#include "pkt/pkt_init.h"
 #include "services/arp_proto.h"
 #include "services/services_sandesh.h"
 #include "services_init.h"
+#include <vr_defs.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -30,24 +32,31 @@ void ArpProto::Init(boost::asio::io_service &io, bool run_with_vrouter) {
 void ArpProto::Shutdown() {
 }
 
-ArpProto::ArpProto(boost::asio::io_service &io, bool run_with_vrouter) :
-    Proto<ArpHandler>("Agent::Services", PktHandler::ARP, io),
+ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
+                   bool run_with_vrouter) :
+    Proto(agent, "Agent::Services", PktHandler::ARP, io),
     run_with_vrouter_(run_with_vrouter), ip_fabric_intf_index_(-1),
     ip_fabric_intf_(NULL), gracious_arp_entry_(NULL), max_retries_(kMaxRetries),
     retry_timeout_(kRetryTimeout), aging_timeout_(kAgingTimeout) {
+
     arp_nh_client_ = new ArpNHClient(io);
-    memset(ip_fabric_intf_mac_, 0, MAC_ALEN);
-    vid_ = Agent::GetInstance()->GetVrfTable()->Register(
+    memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
+    vid_ = agent->GetVrfTable()->Register(
                   boost::bind(&ArpProto::VrfUpdate, this, _1, _2));
-    iid_ = Agent::GetInstance()->GetInterfaceTable()->Register(
+    iid_ = agent->GetInterfaceTable()->Register(
                   boost::bind(&ArpProto::ItfUpdate, this, _2));
 }
 
 ArpProto::~ArpProto() {
     delete arp_nh_client_;
-    Agent::GetInstance()->GetVrfTable()->Unregister(vid_);
-    Agent::GetInstance()->GetInterfaceTable()->Unregister(iid_);
+    agent_->GetVrfTable()->Unregister(vid_);
+    agent_->GetInterfaceTable()->Unregister(iid_);
     DelGraciousArpEntry();
+}
+
+ProtoHandler *ArpProto::AllocProtoHandler(PktInfo *info,
+                                          boost::asio::io_service &io) {
+    return new ArpHandler(agent(), info, io);
 }
 
 void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
@@ -66,7 +75,7 @@ void ArpProto::VrfUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         return;
     }
 
-    if (!state && vrf->GetName() == Agent::GetInstance()->GetDefaultVrf()) {
+    if (!state && vrf->GetName() == agent_->GetDefaultVrf()) {
         state = new ArpVrfState;
         //Set state to seen
         state->seen_ = true;
@@ -112,20 +121,20 @@ void ArpProto::ItfUpdate(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             ArpHandler::SendArpIpc(ArpHandler::ITF_DELETE, 0, itf->vrf());
             //assert(0);
         }
     } else {
         if (itf->type() == Interface::PHYSICAL && 
-            itf->name() == Agent::GetInstance()->GetIpFabricItfName()) {
+            itf->name() == agent_->GetIpFabricItfName()) {
             IPFabricIntf(itf);
             IPFabricIntfIndex(itf->id());
             if (run_with_vrouter_) {
                 IPFabricIntfMac((char *)itf->mac().ether_addr_octet);
             } else {
-                char mac[MAC_ALEN];
-                memset(mac, 0, MAC_ALEN);
+                char mac[ETH_ALEN];
+                memset(mac, 0, ETH_ALEN);
                 IPFabricIntfMac(mac);
             }
         }
@@ -148,7 +157,7 @@ void ArpProto::DelGraciousArpEntry() {
 
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (Agent::GetInstance()->GetArpProto()->IPFabricIntf() == NULL)
+    if (agent()->GetArpProto()->IPFabricIntf() == NULL)
         return true;
 
     switch(pkt_info_->type) {
@@ -161,7 +170,7 @@ bool ArpHandler::Run() {
 }
 
 bool ArpHandler::HandlePacket() {
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     uint16_t arp_cmd;
     if (pkt_info_->ip) {
         arp_tpa_ = ntohl(pkt_info_->ip->daddr);
@@ -171,7 +180,7 @@ bool ArpHandler::HandlePacket() {
         arp_ = pkt_info_->arp;
         if ((ntohs(arp_->ea_hdr.ar_hrd) != ARPHRD_ETHER) || 
             (ntohs(arp_->ea_hdr.ar_pro) != 0x800) ||
-            (arp_->ea_hdr.ar_hln != MAC_ALEN) || 
+            (arp_->ea_hdr.ar_hln != ETH_ALEN) || 
             (arp_->ea_hdr.ar_pln != IPv4_ALEN)) {
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "Received Invalid ARP packet");
@@ -192,13 +201,8 @@ bool ArpHandler::HandlePacket() {
             arp_tpa_ = spa;
         
         // if it is our own, ignore for now : TODO check also for MAC
-        if (arp_tpa_ == Agent::GetInstance()->GetRouterId().to_ulong()) {
+        if (arp_tpa_ == agent()->GetRouterId().to_ulong()) {
             arp_proto->StatsGracious();
-            return true;
-        }
-
-        if (arp_tpa_ == ntohl(inet_addr(GW_IP_ADDR))) {
-            SendGwArpReply();
             return true;
         }
 
@@ -314,7 +318,7 @@ bool ArpHandler::HandlePacket() {
 bool ArpHandler::HandleMessage() {
     bool ret = true;
     ArpIpc *ipc = static_cast<ArpIpc *>(pkt_info_->ipc);
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     switch(pkt_info_->ipc->cmd) {
         case VRF_DELETE: {
             arp_proto->Iterate(boost::bind(
@@ -398,7 +402,7 @@ bool ArpHandler::EntryDelete(ArpEntry *&entry) {
 }
 
 void ArpHandler::EntryDeleteWithKey(ArpKey &key) {
-    ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
+    ArpProto *arp_proto = agent()->GetArpProto();
     ArpEntry *entry = arp_proto->Find(key);
     if (entry) {
         arp_proto->Delete(key);
@@ -411,7 +415,7 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
          const unsigned char *tmac, in_addr_t tip, uint16_t op) {
     arp_->ea_hdr.ar_hrd = htons(ARPHRD_ETHER);
     arp_->ea_hdr.ar_pro = htons(0x800);
-    arp_->ea_hdr.ar_hln = MAC_ALEN;
+    arp_->ea_hdr.ar_hln = ETH_ALEN;
     arp_->ea_hdr.ar_pln = IPv4_ALEN;
     arp_->ea_hdr.ar_op = htons(op);
     memcpy(arp_->arp_sha, smac, ETHER_ADDR_LEN);
@@ -421,18 +425,6 @@ uint16_t ArpHandler::ArpHdr(const unsigned char *smac, in_addr_t sip,
     tip = htonl(tip);
     memcpy(arp_->arp_tpa, &tip, sizeof(in_addr_t));
     return sizeof(ether_arp);
-}
-
-void ArpHandler::SendGwArpReply() {
-    in_addr_t src_ip = ntohl(inet_addr(GW_IP_ADDR));
-
-    // Reuse the incoming buffer
-    uint16_t len = 
-        ArpHdr(agent_vrrp_mac, src_ip, agent_vrrp_mac, src_ip, ARPOP_REPLY);
-    EthHdr(agent_vrrp_mac, pkt_info_->eth->h_source, 0x806);
-    len += sizeof(ethhdr);
-
-    Send(len, GetIntf(), pkt_info_->vrf, 0, PktHandler::ARP);
 }
 
 void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
@@ -455,12 +447,14 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
 void ArpHandler::SendArpIpc(ArpHandler::ArpMsgType type, 
                             in_addr_t ip, const VrfEntry *vrf) {
     ArpIpc *ipc = new ArpIpc(type, ip, vrf);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::ARP, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP,
+                                                            ipc);
 }
 
 void ArpHandler::SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key) {
     ArpIpc *ipc = new ArpIpc(type, key);
-    PktHandler::GetPktHandler()->SendMessage(PktHandler::ARP, ipc);
+    Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP,
+                                                            ipc);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -545,7 +539,7 @@ void ArpEntry::AgingExpiry() {
 void ArpEntry::UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved) {
     Ip4Address ip(key_.ip);
     struct ether_addr mac;
-    memcpy(mac.ether_addr_octet, mac_, MAC_ALEN);
+    memcpy(mac.ether_addr_octet, mac_, ETH_ALEN);
     ArpProto *arp_proto = Agent::GetInstance()->GetArpProto();
     Interface *itf = arp_proto->IPFabricIntf();
     if (key_.vrf->GetName() == Agent::GetInstance()->GetLinkLocalVrfName()) {

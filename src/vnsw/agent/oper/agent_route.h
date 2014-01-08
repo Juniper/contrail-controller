@@ -178,6 +178,8 @@ public:
         return unresolved_rt_tree_.begin(); };
     const_rt_iterator unresolved_route_end() { 
         return unresolved_rt_tree_.end(); };
+    int unresolved_route_size() { return unresolved_rt_tree_.size(); }
+
     const_nh_iterator unresolved_nh_begin() { 
         return unresolved_nh_tree_.begin(); };
     const_nh_iterator unresolved_nh_end() { 
@@ -397,24 +399,23 @@ private:
     DISALLOW_COPY_AND_ASSIGN(RemoteVmRoute);
 };
 
-class VirtualHostInterfaceRoute : public RouteData {
+class InetInterfaceRoute : public RouteData {
 public:
-    VirtualHostInterfaceRoute(const VirtualHostInterfaceKey &intf,
-                              uint32_t label, int tunnel_bmap,
-                              const string &dest_vn_name,
-                              Op op = RouteData::CHANGE) : 
+    InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
+                       int tunnel_bmap, const string &dest_vn_name,
+                       Op op = RouteData::CHANGE) : 
         RouteData(op,false), intf_(intf), label_(label), 
         tunnel_bmap_(tunnel_bmap), dest_vn_name_(dest_vn_name) { };
-    virtual ~VirtualHostInterfaceRoute() { };
+    virtual ~InetInterfaceRoute() { };
     virtual bool AddChangePath(AgentPath *path);
     virtual string ToString() const {return "host";};;
 
 private:
-    VirtualHostInterfaceKey intf_;
+    InetInterfaceKey intf_;
     uint32_t label_;
     int tunnel_bmap_;
     string dest_vn_name_;
-    DISALLOW_COPY_AND_ASSIGN(VirtualHostInterfaceRoute);
+    DISALLOW_COPY_AND_ASSIGN(InetInterfaceRoute);
 };
 
 class HostRoute : public RouteData {
@@ -484,7 +485,7 @@ private:
 
 class ReceiveRoute : public RouteData {
 public:
-    ReceiveRoute(const VirtualHostInterfaceKey &intf, uint32_t label,
+    ReceiveRoute(const InetInterfaceKey &intf, uint32_t label,
                  uint32_t tunnel_bmap, bool policy, const string &vn,
                  Op op  = RouteData::CHANGE) : 
         RouteData(op, false), intf_(intf), 
@@ -496,7 +497,7 @@ public:
     virtual string ToString() const {return "receive";};;
 
 private:
-    VirtualHostInterfaceKey intf_;
+    InetInterfaceKey intf_;
     uint32_t label_;
     int tunnel_bmap_;
     bool policy_;
@@ -762,6 +763,7 @@ public:
                                   uint32_t label,
                                   const string &dest_vn_name,
                                   const SecurityGroupList &sg_list_);
+    static void CheckAndAddArpReq(const string &vrf_name, const Ip4Address &ip);
     static void AddArpReq(const string &vrf_name, const Ip4Address &ip); 
     static void ArpRoute(DBRequest::DBOperation op, 
                          const Ip4Address &ip, 

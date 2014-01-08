@@ -111,7 +111,17 @@ class DiscoveryService(object):
             kazoo.client.KazooClient(server_list,
                 handler=kazoo.handlers.gevent.SequentialGeventHandler(),
                 logger=logger)
-        self._zk_client.start()
+
+        # connect
+        while True:
+            try:
+                self._zk_client.start()
+                break
+            except gevent.event.Timeout as e:
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                gevent.sleep(1)
     # end __init__
 
     def master_election(self, path, identifier, func, *args, **kwargs):

@@ -25,10 +25,7 @@
 
 #include "ksync_init.h"
 #include "ksync/interface_ksync.h"
-#include "ksync/nexthop_ksync.h"
-#include "ksync/mpls_ksync.h"
 #include "ksync/route_ksync.h"
-#include "ksync/flowtable_ksync.h"
 #include "ksync/mirror_ksync.h"
 #include "ksync/vrf_assign_ksync.h"
 #include "ksync/vxlan_ksync.h"
@@ -40,57 +37,62 @@
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
-static int Encode(Sandesh &encoder, uint8_t *buf, int buf_len) {
-    int len, error;
-    len = encoder.WriteBinary(buf, buf_len, &error);
-    return len;
+KSync::KSync(Agent *agent) 
+    : agent_(agent), interface_ksync_obj_(new InterfaceKSyncObject(this)), 
+      flowtable_ksync_obj_(new FlowTableKSyncObject(this)),  
+      mpls_ksync_obj_(new MplsKSyncObject(this)),
+      nh_ksync_obj_(new NHKSyncObject(this)), 
+      mirror_ksync_obj_(new MirrorKSyncObject(this)), 
+      vrf_ksync_obj_(new VrfKSyncObject(this)), 
+      vxlan_ksync_obj_(new VxLanKSyncObject(this)), 
+      vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
+      interface_snapshot_(new InterfaceKSnap(agent)) {
 }
 
-void GenericNetlinkInit() {
-    struct nl_client    *cl;
-    int    family;
-    
-    assert((cl = nl_register_client()) != NULL);
-    assert(nl_socket(cl, NETLINK_GENERIC) >= 0);
-
-    family = vrouter_get_family_id(cl);
-    LOG(DEBUG, "Vrouter family is " << family);
-    KSyncSock::SetNetlinkFamilyId(family);
-    nl_free_client(cl);
-    return;
+KSync::~KSync() {
 }
 
 void KSync::RegisterDBClients(DB *db) {
     KSyncObjectManager::Init();
-    IntfKSyncObject::Init(Agent::GetInstance()->GetInterfaceTable());
-    VrfKSyncObject::Init(Agent::GetInstance()->GetVrfTable());
-    NHKSyncObject::Init(Agent::GetInstance()->GetNextHopTable());
-    MplsKSyncObject::Init(Agent::GetInstance()->GetMplsTable());
-    MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
-    VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
-    VxLanKSyncObject::Init(Agent::GetInstance()->GetVxLanTable());
-    FlowTableKSyncObject::Init();
-    Agent::GetInstance()->SetRouterIdConfigured(false);
+    interface_ksync_obj_.get()->RegisterDBClients();
+    vrf_ksync_obj_.get()->RegisterDBClients();
+    nh_ksync_obj_.get()->RegisterDBClients();
+    mpls_ksync_obj_.get()->RegisterDBClients();
+    mirror_ksync_obj_.get()->RegisterDBClients();
+    vrf_assign_ksync_obj_.get()->RegisterDBClients();
+    vxlan_ksync_obj_.get()->RegisterDBClients();
+    agent_->SetRouterIdConfigured(false);
+}
+
+void KSync::Init() {
+    interface_ksync_obj_.get()->Init();
 }
 
 void KSync::InitFlowMem() {
-    FlowTableKSyncObject::InitFlowMem();
+    flowtable_ksync_obj_.get()->InitFlowMem();
 }
 
 void KSync::NetlinkInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockNetlink::Init(io, DB::PartitionCount(), NETLINK_GENERIC);
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext);
+    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext(
+                                            flowtable_ksync_obj_.get()));
 
     GenericNetlinkInit();
 }
 
+int KSync::Encode(Sandesh &encoder, uint8_t *buf, int buf_len) {
+    int len, error;
+    len = encoder.WriteBinary(buf, buf_len, &error);
+    return len;
+}
+
 void KSync::VRouterInterfaceSnapshot() {
-    InterfaceKSnap::Init();
+    interface_snapshot_.get()->Init();
 
     int len = 0;
     KSyncSandeshContext *ctxt = static_cast<KSyncSandeshContext *>
@@ -101,7 +103,7 @@ void KSync::VRouterInterfaceSnapshot() {
         vr_interface_req req;
         req.set_h_op(sandesh_op::DUMP);
         req.set_vifr_idx(0);
-        req.set_vifr_marker(ctxt->GetContextMarker());
+        req.set_vifr_marker(ctxt->context_marker());
         uint8_t msg[KSYNC_DEFAULT_MSG_SIZE];
         len = Encode(req, msg, KSYNC_DEFAULT_MSG_SIZE);
         sock->BlockingSend((char *)msg, len);
@@ -109,7 +111,7 @@ void KSync::VRouterInterfaceSnapshot() {
             LOG(ERROR, "Error getting interface dump from VROUTER");
             return;
         }
-    } while (ctxt->GetResponseCode() & VR_MESSAGE_DUMP_INCOMPLETE);
+    } while (ctxt->response_code() & VR_MESSAGE_DUMP_INCOMPLETE);
     ctxt->Reset();
 }
 
@@ -133,7 +135,7 @@ void KSync::ResetVRouter() {
 void KSync::VnswIfListenerInit() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
     VnswIfListener::Init(io);
 }
@@ -148,8 +150,8 @@ void KSync::CreateVhostIntf() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
-	    IFNAMSIZ);
+    strncpy(ifm.if_name, agent_->vhost_interface_name().c_str(),
+            IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
@@ -172,12 +174,12 @@ void KSync::UpdateVhostMac() {
     struct nl_response *resp;
 
     memset(&ifm, 0, sizeof(ifm));
-    strncpy(ifm.if_name, Agent::GetInstance()->GetVirtualHostInterfaceName().c_str(),
-	    IFNAMSIZ);
+    strncpy(ifm.if_name, agent_->vhost_interface_name().c_str(),
+            IFNAMSIZ);
     ifm.if_name[IFNAMSIZ - 1] = '\0';
     strcpy(ifm.if_kind, VHOST_KIND);
     ifm.if_flags = IFF_UP;
-    GetPhyMac(Agent::GetInstance()->GetIpFabricItfName().c_str(), ifm.if_mac);
+    GetPhyMac(agent_->GetIpFabricItfName().c_str(), ifm.if_mac);
     assert(nl_build_if_create_msg(cl, &ifm, 1) == 0);
     assert(nl_sendmsg(cl) > 0);
     assert(nl_recvmsg(cl) > 0);
@@ -187,14 +189,30 @@ void KSync::UpdateVhostMac() {
 }
 
 void KSync::Shutdown() {
-    IntfKSyncObject::Shutdown();
-    VrfKSyncObject::Shutdown();
-    NHKSyncObject::Shutdown();
-    MplsKSyncObject::Shutdown();
+    interface_ksync_obj_.reset(NULL);
+    vrf_ksync_obj_.get()->Shutdown();
+    vrf_ksync_obj_.reset(NULL);
+    nh_ksync_obj_.reset(NULL);
+    mpls_ksync_obj_.reset(NULL);
+    flowtable_ksync_obj_.reset(NULL);
+    mirror_ksync_obj_.reset(NULL);
+    vrf_assign_ksync_obj_.reset(NULL);
+    vxlan_ksync_obj_.reset(NULL);
     KSyncSock::Shutdown();
-    FlowTableKSyncObject::Shutdown();
-    MirrorKSyncObject::Shutdown();
-    VrfAssignKSyncObject::Shutdown();
-    VxLanKSyncObject::Shutdown();
     KSyncObjectManager::Shutdown();
 }
+
+void GenericNetlinkInit() {
+    struct nl_client    *cl;
+    int    family;
+    
+    assert((cl = nl_register_client()) != NULL);
+    assert(nl_socket(cl, NETLINK_GENERIC) >= 0);
+
+    family = vrouter_get_family_id(cl);
+    LOG(DEBUG, "Vrouter family is " << family);
+    KSyncSock::SetNetlinkFamilyId(family);
+    nl_free_client(cl);
+    return;
+}
+

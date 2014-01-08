@@ -816,7 +816,7 @@ bool UveClient::UpdateVnFlowCount(const VnEntry *vn, LastVnUveSet::iterator &it,
                                   UveVirtualNetworkAgent *s_vn) {
     bool changed = false;
     uint32_t in_count, out_count;
-    FlowTable::GetFlowTableObject()->VnFlowCounters(vn, &in_count, &out_count);
+    Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     if (UveVnInFlowCountChanged(in_count, it->second.uve_info)) {
         s_vn->set_ingress_flow_count(in_count);
         it->second.uve_info.set_ingress_flow_count(in_count);
@@ -1360,7 +1360,7 @@ void UveClient::SendVrouterUve() {
         vrouter_agent.set_phy_if(phy_if_list);
 
         //vhost attributes
-        VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
+        InetInterfaceKey key(Agent::GetInstance()->vhost_interface_name());
         const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
         if (vhost) {
             AgentInterface vitf;
@@ -2007,7 +2007,7 @@ bool UveClient::SendAgentStats() {
         change = true;
     }
 
-    uint64_t active_flow_count = FlowTable::GetFlowTableObject()->Size(); 
+    uint64_t active_flow_count = Agent::GetInstance()->pkt()->flow_table()->Size(); 
     if (prev_stats_.get_active_flows() != active_flow_count || first) {
         stats.set_active_flows(active_flow_count);
         prev_stats_.set_active_flows(active_flow_count);
@@ -2112,13 +2112,13 @@ bool UveClient::SendAgentStats() {
         //The following avoids handling of count overflow cases.
         count = 0;
     }
-    VirtualHostInterfaceKey key(Agent::GetInstance()->GetVirtualHostInterfaceName());
+    InetInterfaceKey key(Agent::GetInstance()->vhost_interface_name());
     const Interface *vhost = static_cast<const Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     const AgentStatsCollector::IfStats *s = 
         AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(vhost);
     if (s != NULL) {
         AgentIfStats vhost_stats;
-        vhost_stats.set_name(Agent::GetInstance()->GetVirtualHostInterfaceName());
+        vhost_stats.set_name(Agent::GetInstance()->vhost_interface_name());
         vhost_stats.set_in_pkts(s->in_pkts);
         vhost_stats.set_in_bytes(s->in_bytes);
         vhost_stats.set_out_pkts(s->out_pkts);

@@ -33,11 +33,11 @@ VirtualGateway::VirtualGateway(Agent *agent) : agent_(agent), lid_(0),
 void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
                                      DBEntryBase *entry) {
     Interface *interface = static_cast<Interface *>(entry);
-    if (interface->type() != Interface::VIRTUAL_HOST)
+    if (interface->type() != Interface::INET)
         return;
 
-    VirtualHostInterface *vhost = static_cast<VirtualHostInterface *>(entry);
-    if (vhost->sub_type() != VirtualHostInterface::GATEWAY)
+    InetInterface *vhost = static_cast<InetInterface *>(entry);
+    if (vhost->sub_type() != InetInterface::GATEWAY)
         return;
 
     if (entry->IsDeleted()) {
@@ -71,7 +71,7 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
                                          (32 - vgw_config_->plen())));
     rt_table->AddVHostRecvRoute(agent_->GetLocalVmPeer(),
                                 agent_->GetDefaultVrf(),
-                                agent_->GetVirtualHostInterfaceName(),
+                                agent_->vhost_interface_name(),
                                 addr, vgw_config_->plen(), vgw_config_->vrf(),
                                 false);
 
@@ -101,10 +101,9 @@ void VirtualGateway::CreateInterfaces() {
     if (vgw_config_ == NULL) {
         return;
     }
-    VirtualHostInterface::CreateReq(agent_->GetInterfaceTable(),
-                                    vgw_config_->interface(),
-                                    vgw_config_->vrf(), 
-                                    VirtualHostInterface::GATEWAY);
+    InetInterface::CreateReq(agent_->GetInterfaceTable(),
+                             vgw_config_->interface(), vgw_config_->vrf(),
+                             InetInterface::GATEWAY);
 }
 
 void VirtualGateway::Init() {
@@ -141,8 +140,8 @@ void VirtualGateway::Shutdown() {
     MplsLabel::DeleteReq(label_);
 
     // Delete Interface
-    VirtualHostInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                    vgw_config_->interface());
+    InetInterface::DeleteReq(agent_->GetInterfaceTable(),
+                             vgw_config_->interface());
 
     // Delete VRF for "public" virtual-network
     agent_->GetVrfTable()->DeleteVrf(vgw_config_->vrf());

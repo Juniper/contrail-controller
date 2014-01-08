@@ -479,7 +479,7 @@ class OpServer(object):
 
             stt = query_table(
                 name = STAT_VT_PREFIX + "." + stat_id,
-                display_name = STAT_VT_PREFIX + "." + stat_id,
+                display_name = t.display_name,
                 schema = sch,
                 columnvalues = [STAT_OBJECTID_FIELD])
             self._VIRTUAL_TABLES.append(stt)
@@ -1305,7 +1305,7 @@ class OpServer(object):
                 if (table == stat_table):
                     objtab = t.obj_table
                     break
-            if (objtab != None): 
+            if (objtab != None) and (objtab != "None"): 
             #import pdb; pdb.set_trace()
                 return list(self._uve_server.get_uve_list(objtab,
                         None, None, None, None, False))

@@ -10,31 +10,26 @@
 #include "route/route.h"
 
 #include "cmn/agent_cmn.h"
+#include "init/agent_param.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
 #include "oper/agent_route.h"
 #include "oper/vrf.h"
 #include "oper/sg.h"
+#include "oper/global_vrouter.h"
+#include "oper/operdb_init.h"
 
 #include "filter/packet_header.h"
 #include "filter/acl.h"
 
 #include "pkt/proto.h"
+#include "pkt/proto_handler.h"
 #include "pkt/pkt_handler.h"
-#include "pkt/flowtable.h"
-#include "pkt/pkt_flow.h"
+#include "pkt/flow_table.h"
+#include "pkt/flow_proto.h"
 #include "pkt/pkt_sandesh_flow.h"
 #include "ksync/flowtable_ksync.h"
-
-SandeshTraceBufferPtr PktFlowTraceBuf(SandeshTraceBufferCreate("FlowHandler", 5000));
-
-void FlowHandler::Init(boost::asio::io_service &io) {
-    FlowProto::Init(io);
-}
-
-void FlowHandler::Shutdown() {
-    FlowProto::Shutdown();
-}
+#include <ksync/ksync_init.h>
 
 static void LogError(const PktInfo *pkt, const char *str) {
     FLOW_TRACE(DetailErr, pkt->agent_hdr.cmd_param, pkt->agent_hdr.ifindex,
@@ -181,14 +176,6 @@ static const VnEntry *InterfaceToVn(const Interface *intf) {
     return vm_port->vn();
 }
 
-static const VmEntry *InterfaceToVm(const Interface *intf) {
-    if (intf->type() != Interface::VM_INTERFACE)
-        return NULL;
-
-    const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
-    return vm_port->vm();
-}
-
 static bool IntfHasFloatingIp(const Interface *intf) {
     if (intf->type() != Interface::VM_INTERFACE)
         return NULL;
@@ -197,9 +184,9 @@ static bool IntfHasFloatingIp(const Interface *intf) {
     return vm_port->HasFloatingIp();
 }
 
-static bool IsMdataRoute(const Inet4UnicastRouteEntry *rt) {
+static bool IsLinkLocalRoute(const Inet4UnicastRouteEntry *rt) {
     const AgentPath *path = rt->GetActivePath();
-    if (path && path->GetPeer() == Agent::GetInstance()->GetMdataPeer())
+    if (path && path->GetPeer() == Agent::GetInstance()->GetLinkLocalPeer())
         return true;
 
     return false;
@@ -317,29 +304,21 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_dest_vrf = pkt->vrf;
 }
 
-void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
-                                     PktControlInfo *out) {
+void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
+                                         PktControlInfo *out) {
     const VmInterface *vm_port = 
         static_cast<const VmInterface *>(in->intf_);
-    bool drop = false;
 
-    // Allow metadata request (tcp, port=8775) or ICMP to Mdata IP only
-    if (pkt->ip_daddr != METADATA_IP_ADDR) {
-        drop = true;
-    }
-
-    if (pkt->ip_proto != IPPROTO_TCP && pkt->ip_proto != IPPROTO_ICMP) {
-        drop = true;
-    }
-
-    if (pkt->ip_proto == IPPROTO_TCP && pkt->dport != METADATA_NAT_PORT) {
-        drop = true;
-    }
-
-    if (drop) {
-        in->rt_ = NULL;
-        out->rt_ = NULL;
-        return;
+    uint16_t nat_port;
+    Ip4Address nat_server;
+    std::string service_name;
+    if (!Agent::GetInstance()->oper_db()->global_vrouter()->
+        FindLinkLocalService(Ip4Address(pkt->ip_daddr), pkt->dport,
+                             &service_name, &nat_server, &nat_port)) {
+        // link local service not configured, drop the request
+        in->rt_ = NULL; 
+        out->rt_ = NULL; 
+        return; 
     }
 
     out->vrf_ = Agent::GetInstance()->GetVrfTable()->
@@ -347,26 +326,31 @@ void PktFlowInfo::MdataServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     dest_vrf = out->vrf_->GetVrfId();
 
     // Set NAT flow fields
-    mdata_flow = true;
+    linklocal_flow = true;
     nat_done = true;
-    nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
-    nat_ip_daddr = Agent::GetInstance()->GetRouterId().to_ulong();
-    if (pkt->ip_proto == IPPROTO_TCP) {
-        nat_dport = Agent::GetInstance()->GetMetadataServerPort();
+    if (nat_server == Agent::GetInstance()->GetRouterId()) {
+        // In case of metadata or when link local destination is local host,
+        // set VM's metadata address as NAT source address. This is required
+        // to avoid response from the linklocal service being looped back and
+        // the packet not coming to vrouter for reverse NAT.
+        // Destination would be local host (FindLinkLocalService returns this)
+        nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
     } else {
-        nat_dport = pkt->dport;
+        nat_ip_saddr = Agent::GetInstance()->GetRouterId().to_ulong();
     }
-
+    nat_ip_daddr = nat_server.to_ulong();
     nat_sport = pkt->sport;
+    nat_dport = nat_port;
+
     nat_vrf = dest_vrf;
     nat_dest_vrf = vm_port->GetVrfId();
 
-    out->rt_ = out->vrf_->GetUcRoute(Ip4Address(nat_ip_daddr));
+    out->rt_ = out->vrf_->GetUcRoute(nat_server);
     return;
 }
 
-void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
-                                       PktControlInfo *out) {
+void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
+                                           PktControlInfo *out) {
     if (RouteToOutInfo(out->rt_, pkt, this, out) == false) {
         return;
     }
@@ -391,7 +375,7 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
     dest_vrf = vm_port->GetVrfId();
     out->vrf_ = vm_port->vrf();
 
-    mdata_flow = true;
+    linklocal_flow = true;
     nat_done = true;
     nat_ip_saddr = METADATA_IP_ADDR;
     nat_ip_daddr = vm_port->ip_addr().to_ulong();
@@ -406,12 +390,12 @@ void PktFlowInfo::MdataServiceFromHost(const PktInfo *pkt, PktControlInfo *in,
     return;
 }
 
-void PktFlowInfo::MdataServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
-                                        PktControlInfo *out) {
+void PktFlowInfo::LinkLocalServiceTranslate(const PktInfo *pkt, PktControlInfo *in,
+                                            PktControlInfo *out) {
     if (in->intf_->type() == Interface::VM_INTERFACE) {
-        MdataServiceFromVm(pkt, in, out);
+        LinkLocalServiceFromVm(pkt, in, out);
     } else {
-        MdataServiceFromHost(pkt, in, out);
+        LinkLocalServiceFromHost(pkt, in, out);
     }
 }
 
@@ -551,7 +535,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
                                  PktControlInfo *out) {
     // Flow packets are expected only on VMPort interfaces
     if (in->intf_->type() != Interface::VM_INTERFACE &&
-        in->intf_->type() != Interface::VIRTUAL_HOST) {
+        in->intf_->type() != Interface::INET) {
         LogError(pkt, "Unexpected packet on Non-VM interface");
         return;
     }
@@ -592,10 +576,10 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
         }
     }
 
-    // Packets needing metadata service will have route added by Mdata peer
-    if ((in->rt_ && IsMdataRoute(in->rt_)) || 
-        (out->rt_ && IsMdataRoute(out->rt_))) {
-        MdataServiceTranslate(pkt, in, out);
+    // Packets needing linklocal service will have route added by LinkLocal peer
+    if ((in->rt_ && IsLinkLocalRoute(in->rt_)) || 
+        (out->rt_ && IsLinkLocalRoute(out->rt_))) {
+        LinkLocalServiceTranslate(pkt, in, out);
     }
 
     // If out-interface was not found, get it based on out-route
@@ -711,7 +695,7 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                       PktControlInfo *out) {
     FlowKey key(pkt->vrf, pkt->ip_saddr, pkt->ip_daddr,
                 pkt->ip_proto, pkt->sport, pkt->dport);
-    FlowEntryPtr flow(FlowTable::GetFlowTableObject()->Allocate(key));
+    FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
     FlowEntryPtr rflow(NULL);
     uint16_t r_sport;
@@ -731,17 +715,17 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
     if (nat_done) {
         FlowKey rkey(nat_vrf, nat_ip_daddr, nat_ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     } else {
         FlowKey rkey(dest_vrf, pkt->ip_daddr, pkt->ip_saddr,
                      pkt->ip_proto, r_sport, r_dport);
-        rflow = FlowTable::GetFlowTableObject()->Allocate(rkey);
+        rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
 
     InitFwdFlow(flow.get(), pkt, in, out);
     InitRevFlow(rflow.get(), pkt, out, in);
 
-    FlowTable::GetFlowTableObject()->Add(flow.get(), rflow.get());
+    Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
 
 //If a packet is trapped for ecmp resolve, dp might have already
@@ -752,16 +736,18 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     std::ostringstream ostr;
     ostr << "ECMP Resolve for flow index " << flow_index;
     PKTFLOW_TRACE(Err,ostr.str());
+    FlowTableKSyncObject *obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     FlowKey key;
-    if (!FlowTableKSyncObject::GetKSyncObject()->GetFlowKey(flow_index, key)) {
+    if (!obj->GetFlowKey(flow_index, key)) {
         std::ostringstream ostr;
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
         PKTFLOW_TRACE(Err,ostr.str());
         return;
     }
 
-    FlowEntry *flow = FlowTable::GetFlowTableObject()->Find(key);
+    FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
     if (!flow) {
         std::ostringstream ostr;  
         ostr << "ECMP Resolve: unable to find flow index " << flow_index;
@@ -785,60 +771,6 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     return;
 }
 
-bool FlowHandler::Run() {
-    PktControlInfo in;
-    PktControlInfo out;
-    PktFlowInfo info(pkt_info_);
-
-    MatchPolicy m_policy;
-
-    SecurityGroupList empty_sg_id_l;
-    info.source_sg_id_l = &empty_sg_id_l;
-    info.dest_sg_id_l = &empty_sg_id_l;
-
-    if (info.Process(pkt_info_, &in, &out) == false) {
-        info.short_flow = true;
-    }
-
-    if (in.rt_) {
-        const AgentPath *path = in.rt_->GetActivePath();
-        info.source_sg_id_l = &(path->GetSecurityGroupList());
-        info.source_plen = in.rt_->GetPlen();
-    }
-
-    if (out.rt_) {
-        const AgentPath *path = out.rt_->GetActivePath();
-        info.dest_sg_id_l = &(path->GetSecurityGroupList());
-        info.dest_plen = out.rt_->GetPlen();
-    }
-
-    if (info.source_vn == NULL)
-        info.source_vn = FlowHandler::UnknownVn();
-
-    if (info.dest_vn == NULL)
-        info.dest_vn = FlowHandler::UnknownVn();
-
-    if (in.intf_ && ((in.intf_->type() != Interface::VM_INTERFACE) &&
-                     (in.intf_->type() != Interface::VIRTUAL_HOST))) {
-        in.intf_ = NULL;
-    }
-
-    if (in.intf_ && out.intf_) {
-        info.local_flow = true;
-    }
-
-    if (in.intf_) {
-        in.vm_ = InterfaceToVm(in.intf_);
-    }
-
-    if (out.intf_) {
-        out.vm_ = InterfaceToVm(out.intf_);
-    }
-
-    info.Add(pkt_info_, &in, &out);
-    return true;
-}
-
 bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
                               PktControlInfo *rev_ctrl) {
     if (flow->last_modified_time) {
@@ -849,7 +781,7 @@ bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
     }
 
     flow->last_modified_time = UTCTimestampUsec();
-    flow->mdata_flow = mdata_flow;
+    flow->linklocal_flow = linklocal_flow;
     flow->nat = nat_done;
     flow->short_flow = short_flow;
     flow->local_flow = local_flow;
@@ -888,7 +820,8 @@ void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
     }
     flow->data.nh_state_ = static_cast<const NhState *>(
                            nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                           FlowTable::GetFlowTableObject()->nh_listener_id()));
+                           Agent::GetInstance()->pkt()->flow_table()->
+                           nh_listener_id()));
 }
 
 void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,

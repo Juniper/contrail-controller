@@ -338,6 +338,21 @@ response sandesh ErrorResp {
     1: string resp = "   Invalid Input !!!   ";
 }
 
+request sandesh LinkLocalServiceInfo {
+}
+
+struct LinkLocalServiceData {
+    1: string linklocal_service_name;
+    2: string linklocal_service_ip;
+    3: i32    linklocal_service_port;
+    4: string ipfabric_dns_name;
+    5: list<string> ipfabric_ip;
+    6: i32    ipfabric_port;
+}
+
+response sandesh LinkLocalServiceResponse {
+    1: list<LinkLocalServiceData> service_list;
+}
 
 // ACL Sandesh
 struct SandeshRange {

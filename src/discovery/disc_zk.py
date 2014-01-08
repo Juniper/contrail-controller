@@ -37,6 +37,10 @@ class DiscoveryZkClient(object):
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
                 gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                self.syslog('%s -will retry in a second' % (str(e)))
+                gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
 
         if reset_config:

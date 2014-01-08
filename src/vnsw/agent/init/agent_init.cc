@@ -46,6 +46,7 @@
 #include <uve/uve_client.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
+#include <pkt/proto_handler.h>
 #include <diag/diag.h>
 #include <vgw/cfg_vgw.h>
 #include <vgw/vgw.h>
@@ -103,19 +104,19 @@ void AgentInit::DeleteRoutes() {
                                       ~(0xFFFFFFFF << (32 - agent_->GetPrefixLen()))), 32);
 }
 
-void AgentInit::DeleteNextHop() {
+void AgentInit::DeleteNextHops() {
     NextHopKey *key = new DiscardNHKey();
     agent_->GetNextHopTable()->Delete(key);
 
     key = new ResolveNHKey();
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new ReceiveNHKey(new VirtualHostInterfaceKey(
-                           agent_->GetVirtualHostInterfaceName()), false);
+    key = new ReceiveNHKey(new InetInterfaceKey(
+                           agent_->vhost_interface_name()), false);
     agent_->GetNextHopTable()->Delete(key);
 
-    key = new ReceiveNHKey(new VirtualHostInterfaceKey(
-                           agent_->GetVirtualHostInterfaceName()), true);
+    key = new ReceiveNHKey(new InetInterfaceKey(
+                           agent_->vhost_interface_name()), true);
     agent_->GetNextHopTable()->Delete(key);
 
     key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(),
@@ -124,15 +125,15 @@ void AgentInit::DeleteNextHop() {
     agent_->GetNextHopTable()->Delete(key);
 }
 
-void AgentInit::DeleteVrf() {
+void AgentInit::DeleteVrfs() {
     agent_->GetVrfTable()->DeleteVrf(agent_->GetDefaultVrf());
 }
 
-void AgentInit::DeleteInterface() {
+void AgentInit::DeleteInterfaces() {
     PacketInterface::DeleteReq(agent_->GetInterfaceTable(),
                                agent_->GetHostInterfaceName());
-    VirtualHostInterface::DeleteReq(agent_->GetInterfaceTable(),
-                                    agent_->GetVirtualHostInterfaceName());
+    InetInterface::DeleteReq(agent_->GetInterfaceTable(),
+                             agent_->vhost_interface_name());
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
                                  agent_->GetIpFabricItfName());
 
@@ -140,13 +141,6 @@ void AgentInit::DeleteInterface() {
         return;
     PhysicalInterface::DeleteReq(agent_->GetInterfaceTable(),
                                  params_->vmware_physical_port());
-}
-
-void AgentInit::DeleteStaticEntries() {
-    DeleteRoutes();
-    DeleteNextHop();
-    DeleteVrf();
-    DeleteInterface();
 }
 
 void AgentInit::Shutdown() {
@@ -170,7 +164,7 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
                 (agent_->GetVrfTable()->GetRouteTable(agent_->GetDefaultVrf(),
                                    AgentRouteTableAPIS::INET4_MULTICAST));
     mc_rt_table->AddVHostRecvRoute(agent_->GetDefaultVrf(),
-                                   agent_->GetVirtualHostInterfaceName(),
+                                   agent_->vhost_interface_name(),
                                    bcast_ip, false);
 
     //Create Receive and resolve route
@@ -183,12 +177,13 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
 
         agent_->SetRouterId(params_->vhost_addr());
         agent_->SetPrefixLen(params_->vhost_plen());
-        rt_table->AddVHostRecvRoute(
-            agent_->GetDefaultVrf(), agent_->GetVirtualHostInterfaceName(),
-            params_->vhost_addr(), false);
-        rt_table->AddVHostSubnetRecvRoute(
-            agent_->GetDefaultVrf(), agent_->GetVirtualHostInterfaceName(),
-            params_->vhost_addr(), params_->vhost_plen(), false);
+        rt_table->AddVHostRecvRoute(agent_->GetDefaultVrf(),
+                                    agent_->vhost_interface_name(),
+                                    params_->vhost_addr(), false);
+        rt_table->AddVHostSubnetRecvRoute(agent_->GetDefaultVrf(),
+                                          agent_->vhost_interface_name(),
+                                          params_->vhost_addr(),
+                                          params_->vhost_plen(), false);
         rt_table->AddResolveRoute(agent_->GetDefaultVrf(),
                                   params_->vhost_prefix(),
                                   params_->vhost_plen());
@@ -216,10 +211,10 @@ void AgentInit::InitXenLinkLocalIntf() {
     }
     params_->set_xen_ll_name(dev_name);
 
-    VirtualHostInterface::CreateReq(agent_->GetInterfaceTable(),
-                                    params_->xen_ll_name(),
-                                    agent_->GetLinkLocalVrfName(), 
-                                    VirtualHostInterface::LINK_LOCAL);
+    InetInterface::CreateReq(agent_->GetInterfaceTable(),
+                             params_->xen_ll_name(),
+                             agent_->GetLinkLocalVrfName(), 
+                             InetInterface::LINK_LOCAL);
 
     Inet4UnicastAgentRouteTable *rt_table;
     rt_table = static_cast<Inet4UnicastAgentRouteTable *>
@@ -299,10 +294,9 @@ void AgentInit::CreateInterfaces(DB *db) {
     intf_client_id_ = agent_->GetInterfaceTable()->Register
         (boost::bind(&AgentInit::OnInterfaceCreate, this, _2));
 
-    VirtualHostInterface::CreateReq(agent_->GetInterfaceTable(),
-                                    params_->vhost_name(), 
-                                    agent_->GetDefaultVrf(), 
-                                    VirtualHostInterface::HOST);
+    InetInterface::CreateReq(agent_->GetInterfaceTable(),
+                             params_->vhost_name(), agent_->GetDefaultVrf(),
+                             InetInterface::VHOST);
     PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
                                  params_->eth_port(), agent_->GetDefaultVrf());
     InitXenLinkLocalIntf();

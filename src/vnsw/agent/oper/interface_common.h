@@ -17,7 +17,7 @@
 #include <oper/interface.h>
 #include <oper/vm_interface.h>
 #include <oper/physical_interface.h>
-#include <oper/virtual_host_interface.h>
+#include <oper/inet_interface.h>
 #include <oper/packet_interface.h>
 
 #endif // vnsw_agent_interface_common_hpp

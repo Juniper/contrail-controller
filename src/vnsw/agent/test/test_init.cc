@@ -6,6 +6,7 @@
 #include "oper/mirror_table.h"
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
+#include "ksync/ksync_init.h"
 
 static AgentTestInit *agent_init;
 namespace opt = boost::program_options;
@@ -63,6 +64,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     init->set_uve_enable(uve_init);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -79,11 +81,11 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     }
 
     if (init_file == NULL) {
-        agent->SetVirtualHostInterfaceName("vhost0");
-        VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                        "vhost0",
-                                        Agent::GetInstance()->GetDefaultVrf(),
-                                        VirtualHostInterface::HOST);
+        agent->set_vhost_interface_name("vhost0");
+        InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                                 "vhost0",
+                                 Agent::GetInstance()->GetDefaultVrf(),
+                                 InetInterface::VHOST);
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId
             (Ip4Address::from_string("10.1.1.1", ec));
@@ -105,7 +107,7 @@ TestClient *StatsTestInit() {
 
     // Read agent parameters from config file and arguments
     opt::variables_map var_map;
-    param->Init("src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
+    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
@@ -128,11 +130,10 @@ TestClient *StatsTestInit() {
     AsioRun();
 
     sleep(1);
-    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost0",
-                                    Agent::GetInstance()->GetDefaultVrf(),
-                                   VirtualHostInterface::HOST);
+    Agent::GetInstance()->set_vhost_interface_name("vhost0");
+    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                             InetInterface::VHOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -180,11 +181,10 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     AsioRun();
 
     usleep(100);
-    Agent::GetInstance()->SetVirtualHostInterfaceName("vhost0");
-    VirtualHostInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost0",
-                                    Agent::GetInstance()->GetDefaultVrf(),
-                                    VirtualHostInterface::HOST);
+    Agent::GetInstance()->set_vhost_interface_name("vhost0");
+    InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
+                             InetInterface::VHOST);
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -227,9 +227,9 @@ void TestClient::Shutdown() {
     Agent::GetInstance()->init()->Shutdown();
     AgentUve::GetInstance()->Shutdown();
     UveClient::GetInstance()->Shutdown();
-    KSync::NetlinkShutdownTest();
-    KSync::Shutdown();
-    PktModule::Shutdown();  
+    Agent::GetInstance()->ksync()->NetlinkShutdownTest();
+    Agent::GetInstance()->ksync()->Shutdown();
+    Agent::GetInstance()->pkt()->Shutdown();  
     Agent::GetInstance()->services()->Shutdown();
     MulticastHandler::Shutdown();
     Agent::GetInstance()->oper_db()->Shutdown();
@@ -246,7 +246,17 @@ void TestShutdown() {
     if (Agent::GetInstance()->vgw()) {
         Agent::GetInstance()->vgw()->Shutdown();
     }
-    Agent::GetInstance()->init()->DeleteStaticEntries();
+
+    Agent::GetInstance()->init()->DeleteRoutes();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteInterfaces();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteVrfs();
+    client->WaitForIdle();
+
+    Agent::GetInstance()->init()->DeleteNextHops();
     client->WaitForIdle();
 
     WaitForDbCount(Agent::GetInstance()->GetInterfaceTable(), 0, 100);
