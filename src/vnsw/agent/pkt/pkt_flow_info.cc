@@ -722,8 +722,8 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
         rflow = Agent::GetInstance()->pkt()->flow_table()->Allocate(rkey);
     }
 
-    InitFwdFlow(flow.get(), pkt, in, out);
-    InitRevFlow(rflow.get(), pkt, out, in);
+    flow->InitFwdFlow(this, pkt, in, out);
+    rflow->InitRevFlow(this, out, in);
 
     Agent::GetInstance()->pkt()->flow_table()->Add(flow.get(), rflow.get());
 }
@@ -763,132 +763,11 @@ void PktFlowInfo::RewritePktInfo(uint32_t flow_index) {
     pkt->dport = key.dst_port;
     pkt->agent_hdr.vrf = key.vrf;
     //Flow transition from Non ECMP to ECMP, use index 0
-    if (flow->data.component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
+    if (flow->data().component_nh_idx == CompositeNH::kInvalidComponentNHIdx) {
         out_component_nh_idx = 0;
     } else {
-        out_component_nh_idx = flow->data.component_nh_idx;
+        out_component_nh_idx = flow->data().component_nh_idx;
     }
     return;
 }
 
-bool PktFlowInfo::InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
-                              PktControlInfo *rev_ctrl) {
-    if (flow->stats().last_modified_time) {
-        if (flow->nat_flow() != nat_done) {
-            flow->MakeShortFlow();
-            return false;
-        }
-    }
-
-    flow->stats().last_modified_time = UTCTimestampUsec();
-    flow->set_linklocal_flow(linklocal_flow);
-    flow->set_nat_flow(nat_done);
-    flow->set_short_flow(short_flow);
-    flow->set_local_flow(local_flow);
-
-    flow->data.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
-    flow->data.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
-    flow->data.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
-    SetRpfNH(flow, ctrl);
-
-    return true;
-}
-
-void PktFlowInfo::SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl) {
-    if (ctrl->rt_ == NULL) {
-        return;
-    }
-    const NextHop *nh = ctrl->rt_->GetActiveNextHop();
-    if (nh->GetType() == NextHop::COMPOSITE && !flow->local_flow() && 
-        ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
-            //Logic for RPF check for ecmp
-            //  Get reverse flow, and its corresponding ecmp index
-            //  Check if source matches composite nh in reverse flow ecmp index,
-            //  if not DP would trap packet for ECMP resolve.
-            //  If there is only one instance of ECMP in compute node, then 
-            //  RPF NH would only point to local interface NH.
-            //  If there are multiple instances of ECMP in local server
-            //  then RPF NH would point to local composite NH(containing 
-            //  local members only)
-        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
-        nh = comp_nh->GetLocalNextHop();
-    }
-
-    if (!nh) {
-        flow->data.nh_state_ = NULL;
-        return;
-    }
-    flow->data.nh_state_ = static_cast<const NhState *>(
-                           nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                           Agent::GetInstance()->pkt()->flow_table()->
-                           nh_listener_id()));
-}
-
-void PktFlowInfo::InitFwdFlow(FlowEntry *flow, const PktInfo *pkt,
-                              PktControlInfo *ctrl, PktControlInfo *rev_ctrl) {
-    if (flow->flow_handle() != pkt->GetAgentHdr().cmd_param) {
-        if (flow->flow_handle() != FlowEntry::kInvalidFlowHandle) {
-            LOG(DEBUG, "Flow index changed from " << flow->flow_handle() 
-                << " to " << pkt->GetAgentHdr().cmd_param);
-        }
-        flow->set_flow_handle(pkt->GetAgentHdr().cmd_param);
-    }
-
-    if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
-        return;
-    }
-    flow->set_reverse_flow(false);
-    flow->stats().intf_in = pkt->GetAgentHdr().ifindex;
-
-    flow->set_ingress(ingress);
-    flow->data.source_vn = *(source_vn);
-    flow->data.dest_vn = *(dest_vn);
-    flow->data.source_sg_id_l = *(source_sg_id_l);
-    flow->data.dest_sg_id_l = *(dest_sg_id_l);
-    flow->data.flow_source_vrf = flow_source_vrf;
-    flow->data.flow_dest_vrf = flow_dest_vrf;
-    flow->data.dest_vrf = dest_vrf;
-    if (flow->data.vn_entry && flow->data.vn_entry->GetVrf()) {
-        flow->data.mirror_vrf = flow->data.vn_entry->GetVrf()->GetVrfId();
-    }
-
-    flow->set_ecmp(ecmp);
-    flow->data.component_nh_idx = out_component_nh_idx;
-    flow->set_trap(false);
-    flow->data.source_plen = source_plen;
-    flow->data.dest_plen = dest_plen;
-}
-
-void PktFlowInfo::InitRevFlow(FlowEntry *flow, const PktInfo *pkt,
-                              PktControlInfo *ctrl, PktControlInfo *rev_ctrl) {
-    if (InitFlowCmn(flow, ctrl, rev_ctrl) == false) {
-        return;
-    }
-    flow->set_reverse_flow(true);
-    if (ctrl->intf_) {
-        flow->stats().intf_in = ctrl->intf_->id();
-    } else {
-        flow->stats().intf_in = Interface::kInvalidIndex;
-    }
-
-    // Compute reverse flow fields
-    flow->set_ingress(false);
-    if (ctrl->intf_) {
-        flow->set_ingress(ComputeDirection(ctrl->intf_));
-    }
-    flow->data.source_vn = *(dest_vn);
-    flow->data.dest_vn = *(source_vn);
-    flow->data.source_sg_id_l = *(dest_sg_id_l);
-    flow->data.dest_sg_id_l = *(source_sg_id_l);
-    flow->data.flow_source_vrf = flow_dest_vrf;
-    flow->data.flow_dest_vrf = flow_source_vrf;
-    flow->data.dest_vrf = nat_dest_vrf;
-    if (flow->data.vn_entry && flow->data.vn_entry->GetVrf()) {
-        flow->data.mirror_vrf = flow->data.vn_entry->GetVrf()->GetVrfId();
-    }
-    flow->set_ecmp(ecmp);
-    flow->data.component_nh_idx = in_component_nh_idx;
-    flow->set_trap(trap_rev_flow);
-    flow->data.source_plen = dest_plen;
-    flow->data.dest_plen = source_plen;
-}

@@ -65,8 +65,8 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
     s_flow.set_protocol(flow->key().protocol);
     s_flow.set_sport(flow->key().src_port);
     s_flow.set_dport(flow->key().dst_port);
-    s_flow.set_sourcevn(flow->data.source_vn);
-    s_flow.set_destvn(flow->data.dest_vn);
+    s_flow.set_sourcevn(flow->data().source_vn);
+    s_flow.set_destvn(flow->data().dest_vn);
 
     if (stats.intf_in != Interface::kInvalidIndex) {
         Interface *intf = InterfaceTable::GetInstance()->FindInterface(stats.intf_in);

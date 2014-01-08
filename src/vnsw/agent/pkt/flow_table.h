@@ -218,8 +218,6 @@ class FlowEntry {
         alloc_count_.fetch_and_decrement();
     };
 
-    FlowData data;
-
     bool ActionRecompute();
     void CompareAndModify(bool create);
     void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
@@ -228,6 +226,7 @@ class FlowEntry {
     FlowStats &stats() { return stats_;};
     const FlowStats &stats() const { return stats_;};
     const FlowKey &key() const { return key_;};
+    const FlowData &data() const { return data_;};
     const uuid &flow_uuid() const { return flow_uuid_; };
     const uuid &egress_uuid() const { return egress_uuid_; };
     uint32_t flow_handle() const { return flow_handle_; };
@@ -302,7 +301,7 @@ class FlowEntry {
         }
     };
     bool ImplicitDenyFlow() const { 
-        return ((data.match_p.action_info.action & 
+        return ((data_.match_p.action_info.action & 
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);
     }
     void FillFlowInfo(FlowInfo &info);
@@ -327,13 +326,28 @@ class FlowEntry {
     void SetAclAction(std::vector<AclAction> &acl_action_l) const;
     uint32_t IngressReflexiveAction() const;
     uint32_t EgressReflexiveAction() const;
-    const Interface *intf_entry() const { return data.intf_entry.get();};
-    const VnEntry *vn_entry() const { return data.vn_entry.get();};
-    const VmEntry *vm_entry() const { return data.vm_entry.get();};
+    void UpdateReflexiveAction();
+    const Interface *intf_entry() const { return data_.intf_entry.get();};
+    const VnEntry *vn_entry() const { return data_.vn_entry.get();};
+    const VmEntry *vm_entry() const { return data_.vm_entry.get();};
+    bool set_nh_state(const NhState * nh_state);
+    const MatchPolicy &match_p() const { return data_.match_p; };
+    void SetAclFlowSandeshData(const AclDBEntry *acl,
+            FlowSandeshData &fe_sandesh_data) const;
+    void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
+            const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
+    void InitRevFlow(const PktFlowInfo *info,
+            const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
+    void InitAuditFlow(uint32_t flow_idx);
+    void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; };
+    void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; };
 private:
     friend class FlowTable;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
+    void SetRpfNH(const PktControlInfo *ctrl);
+    bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
+                     const PktControlInfo *rev_ctrl);
     enum FlowEntryFlags {
         NatFlow         = 1 << 0,
         LocalFlow       = 1 << 1,
@@ -345,6 +359,7 @@ private:
         Trap            = 1 << 7
     };
     FlowKey key_;
+    FlowData data_;
     FlowStats stats_;
     uuid flow_uuid_;
     //egress_uuid is used only during flow-export and applicable only for local-flows
@@ -500,7 +515,7 @@ private:
     void DeleteVmFlowInfo(FlowEntry *fe);
     void DeleteIntfFlowInfo(FlowEntry *fe);
     void DeleteRouteFlowInfo(FlowEntry *fe);
-    void DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, AclEntryIDList &id_list);
+    void DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, const AclEntryIDList &id_list);
 
     void DeleteVnFlows(const VnEntry *vn);
     void DeleteVmIntfFlows(const Interface *intf);
@@ -508,7 +523,7 @@ private:
 
     void AddFlowInfo(FlowEntry *fe);
     void AddAclFlowInfo(FlowEntry *fe);
-    void UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow, AclEntryIDList &id_list);
+    void UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow, const AclEntryIDList &id_list);
     void AddIntfFlowInfo(FlowEntry *fe);
     void AddVnFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe);

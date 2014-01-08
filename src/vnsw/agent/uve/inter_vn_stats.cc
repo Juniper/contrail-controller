@@ -74,11 +74,11 @@ void InterVnStatsCollector::Remove(string vn) {
 
 void InterVnStatsCollector::UpdateVnStats(FlowEntry *fe, uint64_t bytes, 
                                           uint64_t pkts) {
-    string src_vn = fe->data.source_vn, dst_vn = fe->data.dest_vn;
+    string src_vn = fe->data().source_vn, dst_vn = fe->data().dest_vn;
 
-    if (!fe->data.source_vn.length())
+    if (!fe->data().source_vn.length())
         src_vn = *FlowHandler::UnknownVn();
-    if (!fe->data.dest_vn.length())
+    if (!fe->data().dest_vn.length())
         dst_vn = *FlowHandler::UnknownVn();
 
     /* When packet is going from src_vn to dst_vn it should be interpreted 

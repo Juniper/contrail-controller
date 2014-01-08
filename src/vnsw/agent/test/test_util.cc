@@ -1699,13 +1699,13 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
-    if (svn.compare(entry->data.source_vn) != 0) {
+    EXPECT_STREQ(svn.c_str(), entry->data().source_vn.c_str());
+    if (svn.compare(entry->data().source_vn) != 0) {
         return false;
     }
 
-    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
-    if (dvn.compare(entry->data.dest_vn) != 0) {
+    EXPECT_STREQ(dvn.c_str(), entry->data().dest_vn.c_str());
+    if (dvn.compare(entry->data().dest_vn) != 0) {
         return false;
     }
 
@@ -1859,13 +1859,13 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
-    if (svn.compare(entry->data.source_vn) != 0) {
+    EXPECT_STREQ(svn.c_str(), entry->data().source_vn.c_str());
+    if (svn.compare(entry->data().source_vn) != 0) {
         return false;
     }
 
-    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
-    if (dvn.compare(entry->data.dest_vn) != 0) {
+    EXPECT_STREQ(dvn.c_str(), entry->data().dest_vn.c_str());
+    if (dvn.compare(entry->data().dest_vn) != 0) {
         return false;
     }
 
@@ -1959,7 +1959,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         ret = false;
     }
 
-    if (entry->data.match_p.action_info.action & (1 << SimpleAction::PASS)) {
+    if (entry->match_p().action_info.action & (1 << SimpleAction::PASS)) {
         flow_fwd = true;
     }
     EXPECT_EQ(flow_fwd, fwd);

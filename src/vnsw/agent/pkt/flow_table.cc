@@ -86,8 +86,27 @@ static uint32_t ReflexiveAction(uint32_t action) {
     return (action |= (1 << TrafficAction::TRAP));
 }
 
+static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParams> &acl_l,
+                            std::vector<AceId> &ace_l) {
+    std::list<MatchAclParams>::const_iterator ma_it;
+    for (ma_it = acl_l.begin();
+         ma_it != acl_l.end();
+         ++ma_it) {
+        if ((*ma_it).acl != acl) {
+            continue;
+        }
+        AclEntryIDList::const_iterator ait;
+        for (ait = (*ma_it).ace_id_list.begin(); 
+             ait != (*ma_it).ace_id_list.end(); ++ ait) {
+            AceId ace_id;
+            ace_id.id = *ait;
+            ace_l.push_back(ace_id);
+        }
+    }
+}
+
 FlowEntry::FlowEntry() :
-    data(), key_(), stats_(), flow_handle_(kInvalidFlowHandle),
+    key_(), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     deleted_(false), flags_(0) {
     flow_uuid_ = nil_uuid(); 
     egress_uuid_ = nil_uuid(); 
@@ -96,7 +115,7 @@ FlowEntry::FlowEntry() :
 }
 
 FlowEntry::FlowEntry(const FlowKey &k) : 
-    data(), key_(k), stats_(), flow_handle_(kInvalidFlowHandle),
+    key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     deleted_(false), flags_(0) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
@@ -117,9 +136,9 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
          (hdr.protocol == IPPROTO_UDP && 
           (hdr.src_port == DNS_SERVER_PORT || hdr.dst_port == DNS_SERVER_PORT))) &&
         (Agent::GetInstance()->pkt()->pkt_handler()->
-         IsGwPacket(data.intf_entry.get(), hdr.dst_ip) ||
+         IsGwPacket(data_.intf_entry.get(), hdr.dst_ip) ||
          Agent::GetInstance()->pkt()->pkt_handler()->
-         IsGwPacket(data.intf_entry.get(), hdr.src_ip))) {
+         IsGwPacket(data_.intf_entry.get(), hdr.src_ip))) {
         return (1 << TrafficAction::PASS);
     }
 
@@ -133,8 +152,8 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
         if (it->acl->PacketMatch(hdr, *it)) {
             action |= it->action_info.action;
             if (it->action_info.action & (1 << TrafficAction::MIRROR)) {
-                data.match_p.action_info.mirror_l.insert
-                    (data.match_p.action_info.mirror_l.end(),
+                data_.match_p.action_info.mirror_l.insert
+                    (data_.match_p.action_info.mirror_l.end(),
                      it->action_info.mirror_l.begin(),
                      it->action_info.mirror_l.end());
             }
@@ -157,9 +176,9 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
 
-    action = data.match_p.policy_action | data.match_p.sg_action |
-        data.match_p.out_policy_action | data.match_p.out_sg_action |
-        data.match_p.mirror_action | data.match_p.out_mirror_action;
+    action = data_.match_p.policy_action | data_.match_p.sg_action |
+        data_.match_p.out_policy_action | data_.match_p.out_sg_action |
+        data_.match_p.mirror_action | data_.match_p.out_mirror_action;
 
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
@@ -171,8 +190,8 @@ bool FlowEntry::ActionRecompute() {
         action = (1 << TrafficAction::TRAP);
     }
 
-    if (action != data.match_p.action_info.action) {
-        data.match_p.action_info.action = action;
+    if (action != data_.match_p.action_info.action) {
+        data_.match_p.action_info.action = action;
         return true;
     }
 
@@ -199,56 +218,50 @@ bool FlowEntry::ActionRecompute() {
 //      Out-Network Policy
 //      SG and out-SG from forward flow
 bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
-    data.match_p.action_info.Clear();
-    data.match_p.policy_action = 0;
-    data.match_p.out_policy_action = 0;
-    data.match_p.sg_action = 0;
-    data.match_p.out_sg_action = 0;
-    data.match_p.mirror_action = 0;
-    data.match_p.out_mirror_action = 0;
+    data_.match_p.action_info.Clear();
+    data_.match_p.policy_action = 0;
+    data_.match_p.out_policy_action = 0;
+    data_.match_p.sg_action = 0;
+    data_.match_p.out_sg_action = 0;
+    data_.match_p.mirror_action = 0;
+    data_.match_p.out_mirror_action = 0;
 
     // Mirror is valid even if packet is to be dropped. So, apply it first
-    data.match_p.mirror_action = MatchAcl(hdr, data.match_p.m_mirror_acl_l,
+    data_.match_p.mirror_action = MatchAcl(hdr, data_.match_p.m_mirror_acl_l,
                                      false);
-    data.match_p.out_mirror_action = MatchAcl(hdr,
-                                         data.match_p.m_out_mirror_acl_l, false);
+    data_.match_p.out_mirror_action = MatchAcl(hdr,
+                                         data_.match_p.m_out_mirror_acl_l, false);
 
     // Apply network policy
-    data.match_p.policy_action = MatchAcl(hdr, data.match_p.m_acl_l, true);
-    if (ShouldDrop(data.match_p.policy_action)) {
+    data_.match_p.policy_action = MatchAcl(hdr, data_.match_p.m_acl_l, true);
+    if (ShouldDrop(data_.match_p.policy_action)) {
         goto done;
     }
 
-    data.match_p.out_policy_action = MatchAcl(hdr, data.match_p.m_out_acl_l,
+    data_.match_p.out_policy_action = MatchAcl(hdr, data_.match_p.m_out_acl_l,
                                          true);
-    if (ShouldDrop(data.match_p.out_policy_action)) {
+    if (ShouldDrop(data_.match_p.out_policy_action)) {
         goto done;
     }
 
     // Apply security-group
     if (!reverse_flow()) {
-        data.match_p.sg_action = MatchAcl(hdr, data.match_p.m_sg_acl_l, true);
-        if (ShouldDrop(data.match_p.sg_action)) {
+        data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true);
+        if (ShouldDrop(data_.match_p.sg_action)) {
             goto done;
         }
 
-        data.match_p.out_sg_action = MatchAcl(hdr, data.match_p.m_out_sg_acl_l,
+        data_.match_p.out_sg_action = MatchAcl(hdr, data_.match_p.m_out_sg_acl_l,
                                          true);
-        if (ShouldDrop(data.match_p.out_sg_action)) {
+        if (ShouldDrop(data_.match_p.out_sg_action)) {
             goto done;
         }
     } else {
         // SG is reflexive ACL. For reverse-flow, copy SG action from
         // forward flow 
-        if (reverse_flow_entry_.get()) {
-            data.match_p.sg_action = reverse_flow_entry_->IngressReflexiveAction();
-            data.match_p.out_sg_action = reverse_flow_entry_->EgressReflexiveAction();
-        } else {
-            data.match_p.sg_action = (1 << TrafficAction::PASS);
-            data.match_p.out_sg_action = (1 << TrafficAction::PASS);
-        }
+        UpdateReflexiveAction();
 
-        if (ShouldDrop(data.match_p.sg_action) || ShouldDrop(data.match_p.out_sg_action)){
+        if (ShouldDrop(data_.match_p.sg_action) || ShouldDrop(data_.match_p.out_sg_action)){
             goto done;
         }
     }
@@ -276,7 +289,7 @@ void FlowEntry::GetSgList(const Interface *intf) {
 
     const VmInterface *vm_port = static_cast<const VmInterface *>(intf);
     if (vm_port->sg_list().list_.size()) {
-        data.match_p.nw_policy = true;
+        data_.match_p.nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
@@ -287,7 +300,7 @@ void FlowEntry::GetSgList(const Interface *intf) {
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
-            data.match_p.m_sg_acl_l.push_back(acl);
+            data_.match_p.m_sg_acl_l.push_back(acl);
         }
     }
 
@@ -309,7 +322,7 @@ void FlowEntry::GetSgList(const Interface *intf) {
     vm_port = static_cast<const VmInterface *>
         (rflow->intf_entry());
     if (vm_port->sg_list().list_.size()) {
-        data.match_p.nw_policy = true;
+        data_.match_p.nw_policy = true;
         VmInterface::SecurityGroupEntrySet::const_iterator it;
         for (it = vm_port->sg_list().list_.begin();
              it != vm_port->sg_list().list_.end(); ++it) {
@@ -320,20 +333,20 @@ void FlowEntry::GetSgList(const Interface *intf) {
             // If SG does not have ACL. Skip it
             if (acl.acl == NULL)
                 continue;
-            data.match_p.m_out_sg_acl_l.push_back(acl);
+            data_.match_p.m_out_sg_acl_l.push_back(acl);
         }
     }
 }
 
 void FlowEntry::ResetPolicy() {
     /* Reset acl list*/
-    data.match_p.m_acl_l.clear();
-    data.match_p.m_out_acl_l.clear();
-    data.match_p.m_mirror_acl_l.clear();
-    data.match_p.m_out_mirror_acl_l.clear();
+    data_.match_p.m_acl_l.clear();
+    data_.match_p.m_out_acl_l.clear();
+    data_.match_p.m_mirror_acl_l.clear();
+    data_.match_p.m_out_mirror_acl_l.clear();
     /* Reset sg acl list*/
-    data.match_p.m_sg_acl_l.clear();
-    data.match_p.m_out_sg_acl_l.clear();
+    data_.match_p.m_sg_acl_l.clear();
+    data_.match_p.m_out_sg_acl_l.clear();
 }
 
 void FlowEntry::GetPolicy(const VnEntry *vn) {
@@ -345,12 +358,12 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     // Get Mirror configuration first
     if (vn->GetMirrorAcl()) {
         acl.acl = vn->GetMirrorAcl();
-        data.match_p.m_mirror_acl_l.push_back(acl);
+        data_.match_p.m_mirror_acl_l.push_back(acl);
     }
 
     if (vn->GetMirrorCfgAcl()) {
         acl.acl = vn->GetMirrorCfgAcl();
-        data.match_p.m_mirror_acl_l.push_back(acl);
+        data_.match_p.m_mirror_acl_l.push_back(acl);
     }
 
     // Dont apply network-policy for linklocal flow
@@ -360,8 +373,8 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
 
     if (vn->GetAcl()) {
         acl.acl = vn->GetAcl();
-        data.match_p.m_acl_l.push_back(acl);
-        data.match_p.nw_policy = true;
+        data_.match_p.m_acl_l.push_back(acl);
+        data_.match_p.nw_policy = true;
     }
 
     const VnEntry *rvn = NULL;
@@ -379,18 +392,18 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
 
     if (rvn->GetAcl()) {
         acl.acl = rvn->GetAcl();
-        data.match_p.m_out_acl_l.push_back(acl);
-        data.match_p.nw_policy = true;
+        data_.match_p.m_out_acl_l.push_back(acl);
+        data_.match_p.nw_policy = true;
     }
 
     if (rvn->GetMirrorAcl()) {
         acl.acl = rvn->GetMirrorAcl();
-        data.match_p.m_out_mirror_acl_l.push_back(acl);
+        data_.match_p.m_out_mirror_acl_l.push_back(acl);
     }
 
     if (rvn->GetMirrorCfgAcl()) {
         acl.acl = rvn->GetMirrorCfgAcl();
-        data.match_p.m_out_mirror_acl_l.push_back(acl);
+        data_.match_p.m_out_mirror_acl_l.push_back(acl);
     }
 }
 
@@ -427,30 +440,30 @@ void FlowEntry::MakeShortFlow() {
 
 void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
     // Default make it false
-    data.match_p.nw_policy = false;
+    data_.match_p.nw_policy = false;
     ResetPolicy();
 
     if (short_flow()) {
-        data.match_p.action_info.action = (1 << TrafficAction::DROP);
+        data_.match_p.action_info.action = (1 << TrafficAction::DROP);
         return;
     }
 
     // ACL supported on VMPORT interfaces only
-    if (data.intf_entry == NULL)
+    if (data_.intf_entry == NULL)
         return;
 
-    if  (data.intf_entry->type() != Interface::VM_INTERFACE)
+    if  (data_.intf_entry->type() != Interface::VM_INTERFACE)
         return;
 
     // Get Network policy/mirror cfg policy/mirror policies 
     GetPolicy(vn);
 
     // Get Sg list
-    GetSgList(data.intf_entry.get());
+    GetSgList(data_.intf_entry.get());
 }
 
 void FlowEntry::GetPolicyInfo() {
-    GetPolicyInfo(data.vn_entry.get());
+    GetPolicyInfo(data_.vn_entry.get());
 }
 
 void FlowTable::Add(FlowEntry *flow, FlowEntry *rflow) {
@@ -538,7 +551,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_vrf(key_.vrf);
 
     std::ostringstream str;
-    uint32_t fe_action = data.match_p.action_info.action;
+    uint32_t fe_action = data_.match_p.action_info.action;
     if (fe_action & (1 << TrafficAction::DENY)) {
         str << "DENY";
     } else if (fe_action & (1 << TrafficAction::PASS)) {
@@ -567,18 +580,18 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
                 info.set_nat_destination_port(nat_flow->key().src_port);
             }
             info.set_nat_protocol(nat_flow->key().protocol);
-            info.set_nat_vrf(data.dest_vrf);
+            info.set_nat_vrf(data_.dest_vrf);
             info.set_reverse_index(nat_flow->flow_handle());
-            info.set_nat_mirror_vrf(nat_flow->data.mirror_vrf);
+            info.set_nat_mirror_vrf(nat_flow->data().mirror_vrf);
         }
     }
 
-    if (data.match_p.action_info.action & (1 << TrafficAction::MIRROR)) {
+    if (data_.match_p.action_info.action & (1 << TrafficAction::MIRROR)) {
         str << " MIRROR";
         std::vector<MirrorActionSpec>::iterator it;
         std::vector<MirrorInfo> mirror_l;
-        for (it = data.match_p.action_info.mirror_l.begin();
-             it != data.match_p.action_info.mirror_l.end();
+        for (it = data_.match_p.action_info.mirror_l.begin();
+             it != data_.match_p.action_info.mirror_l.end();
              ++it) {
             MirrorInfo mirror_info;
             mirror_info.set_mirror_destination((*it).ip.to_string());
@@ -589,13 +602,13 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         }
         info.set_mirror_l(mirror_l);
     }
-    info.set_mirror_vrf(data.mirror_vrf);
+    info.set_mirror_vrf(data_.mirror_vrf);
     info.set_action(str.str());
     info.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
     info.set_short_flow(short_flow() ? "yes" : "no");
     if (ecmp() && 
-            data.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
-        info.set_ecmp_index(data.component_nh_idx);
+            data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
+        info.set_ecmp_index(data_.component_nh_idx);
     }
     if (trap()) {
         info.set_trap("true");
@@ -603,31 +616,263 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
 }
 
 bool FlowEntry::FlowSrcMatch(const RouteFlowKey &rkey) const {
-    uint32_t prefix = rkey.GetPrefix(key_.src.ipv4, data.source_plen);
-    if (data.flow_source_vrf == rkey.vrf &&
+    uint32_t prefix = rkey.GetPrefix(key_.src.ipv4, data_.source_plen);
+    if (data_.flow_source_vrf == rkey.vrf &&
         prefix == rkey.ip.ipv4 &&
-        data.source_plen == rkey.plen) {
+        data_.source_plen == rkey.plen) {
         return true;
     }
     return false;
 }
 
 bool FlowEntry::FlowDestMatch(const RouteFlowKey &rkey) const {
-    uint32_t prefix = rkey.GetPrefix(key_.dst.ipv4, data.dest_plen);
-    if (data.flow_dest_vrf == rkey.vrf &&
+    uint32_t prefix = rkey.GetPrefix(key_.dst.ipv4, data_.dest_plen);
+    if (data_.flow_dest_vrf == rkey.vrf &&
         prefix == rkey.ip.ipv4 &&
-        data.dest_plen == rkey.plen) {
+        data_.dest_plen == rkey.plen) {
         return true;
     }
     return false;
 }
 
 uint32_t FlowEntry::IngressReflexiveAction() const {
-    return ReflexiveAction(data.match_p.sg_action);
+    return ReflexiveAction(data_.match_p.sg_action);
 }
 
 uint32_t FlowEntry::EgressReflexiveAction() const {
-    return ReflexiveAction(data.match_p.out_sg_action);
+    return ReflexiveAction(data_.match_p.out_sg_action);
+}
+
+void FlowEntry::UpdateReflexiveAction() {
+    if (reverse_flow_entry_.get()) {
+        data_.match_p.sg_action = reverse_flow_entry_->IngressReflexiveAction();
+        data_.match_p.out_sg_action = reverse_flow_entry_->EgressReflexiveAction();
+    } else {
+        data_.match_p.sg_action = (1 << TrafficAction::PASS);
+        data_.match_p.out_sg_action = (1 << TrafficAction::PASS);
+    }
+}
+
+bool FlowEntry::set_nh_state(const NhState * nh_state) {
+    if (data_.nh_state_ == nh_state) {
+        return false;
+    }
+
+    data_.nh_state_ = nh_state;
+    FlowTableKSyncEntry *ksync_entry =
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(this);
+    UpdateKSync(ksync_entry, false);
+    return true;
+}
+
+void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
+        FlowSandeshData &fe_sandesh_data) const {
+    fe_sandesh_data.set_vrf(integerToString(key_.vrf));
+    fe_sandesh_data.set_src(Ip4Address(key_.src.ipv4).to_string());
+    fe_sandesh_data.set_dst(Ip4Address(key_.dst.ipv4).to_string());
+    fe_sandesh_data.set_src_port(key_.src_port);
+    fe_sandesh_data.set_dst_port(key_.dst_port);
+    fe_sandesh_data.set_protocol(key_.protocol);
+    fe_sandesh_data.set_ingress(ingress());
+    std::vector<ActionStr> action_str_l;
+    SetActionStr(data_.match_p.action_info, action_str_l);
+    fe_sandesh_data.set_action_l(action_str_l);
+
+    std::vector<AclAction> acl_action_l;
+    SetAclAction(acl_action_l);
+    fe_sandesh_data.set_acl_action_l(acl_action_l);
+
+    fe_sandesh_data.set_flow_uuid(UuidToString(flow_uuid_));
+    fe_sandesh_data.set_flow_handle(integerToString(flow_handle_));
+    fe_sandesh_data.set_source_vn(data_.source_vn);
+    fe_sandesh_data.set_dest_vn(data_.dest_vn);
+    std::vector<uint32_t> v;
+    SecurityGroupList::const_iterator it;
+    for (it = data_.source_sg_id_l.begin(); 
+            it != data_.source_sg_id_l.end(); it++) {
+        v.push_back(*it);
+    }
+    fe_sandesh_data.set_source_sg_id_l(v);
+    v.clear();
+    for (it = data_.dest_sg_id_l.begin(); it != data_.dest_sg_id_l.end(); it++) {
+        v.push_back(*it);
+    }
+    fe_sandesh_data.set_dest_sg_id_l(v);
+    fe_sandesh_data.set_bytes(integerToString(stats_.bytes));
+    fe_sandesh_data.set_packets(integerToString(stats_.packets));
+    fe_sandesh_data.set_setup_time(
+            integerToString(UTCUsecToPTime(stats_.setup_time)));
+    fe_sandesh_data.set_setup_time_utc(stats_.setup_time);
+    if (stats_.teardown_time) {
+        fe_sandesh_data.set_teardown_time(
+                integerToString(UTCUsecToPTime(stats_.teardown_time)));
+    } else {
+        fe_sandesh_data.set_teardown_time("");
+    }
+    fe_sandesh_data.set_current_time(integerToString(
+                UTCUsecToPTime(UTCTimestampUsec())));
+
+    SetAclListAceId(acl, data_.match_p.m_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_sg_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_mirror_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_out_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_out_sg_acl_l, fe_sandesh_data.ace_l);
+    SetAclListAceId(acl, data_.match_p.m_out_mirror_acl_l, fe_sandesh_data.ace_l);
+
+    if (reverse_flow_entry()) {
+        fe_sandesh_data.set_reverse_flow("yes");
+    } else {
+        fe_sandesh_data.set_reverse_flow("no");
+    }
+    if (nat_flow()) {
+        fe_sandesh_data.set_nat("yes");
+    } else {
+        fe_sandesh_data.set_nat("no");
+    }
+    if (ImplicitDenyFlow()) {
+        fe_sandesh_data.set_implicit_deny("yes");
+    } else {
+        fe_sandesh_data.set_implicit_deny("no");
+    }
+    if (short_flow()) {
+        fe_sandesh_data.set_short_flow("yes");
+    } else {
+        fe_sandesh_data.set_short_flow("no");
+    }
+}
+
+void FlowEntry::SetRpfNH(const PktControlInfo *ctrl) {
+    if (ctrl->rt_ == NULL) {
+        return;
+    }
+    const NextHop *nh = ctrl->rt_->GetActiveNextHop();
+    if (nh->GetType() == NextHop::COMPOSITE && !local_flow() && 
+        ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
+            //Logic for RPF check for ecmp
+            //  Get reverse flow, and its corresponding ecmp index
+            //  Check if source matches composite nh in reverse flow ecmp index,
+            //  if not DP would trap packet for ECMP resolve.
+            //  If there is only one instance of ECMP in compute node, then 
+            //  RPF NH would only point to local interface NH.
+            //  If there are multiple instances of ECMP in local server
+            //  then RPF NH would point to local composite NH(containing 
+            //  local members only)
+        const CompositeNH *comp_nh = static_cast<const CompositeNH *>(nh);
+        nh = comp_nh->GetLocalNextHop();
+    }
+
+    if (!nh) {
+        data_.nh_state_ = NULL;
+        return;
+    }
+    data_.nh_state_ = static_cast<const NhState *>(
+                     nh->GetState(Agent::GetInstance()->GetNextHopTable(),
+                     Agent::GetInstance()->pkt()->flow_table()->
+                     nh_listener_id()));
+}
+
+bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
+                            const PktControlInfo *rev_ctrl) {
+    if (stats_.last_modified_time) {
+        if (nat_flow() != info->nat_done) {
+            MakeShortFlow();
+            return false;
+        }
+    }
+
+    stats_.last_modified_time = UTCTimestampUsec();
+    set_linklocal_flow(info->linklocal_flow);
+    set_nat_flow(info->nat_done);
+    set_short_flow(info->short_flow);
+    set_local_flow(info->local_flow);
+
+    data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
+    data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
+    data_.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
+    SetRpfNH(ctrl);
+
+    return true;
+}
+
+void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
+                            const PktControlInfo *ctrl,
+                            const PktControlInfo *rev_ctrl) {
+    if (flow_handle_ != pkt->GetAgentHdr().cmd_param) {
+        if (flow_handle_ != FlowEntry::kInvalidFlowHandle) {
+            LOG(DEBUG, "Flow index changed from " << flow_handle_ 
+                << " to " << pkt->GetAgentHdr().cmd_param);
+        }
+        flow_handle_ = pkt->GetAgentHdr().cmd_param;
+    }
+
+    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+        return;
+    }
+    set_reverse_flow(false);
+    stats_.intf_in = pkt->GetAgentHdr().ifindex;
+
+    set_ingress(info->ingress);
+    data_.source_vn = *(info->source_vn);
+    data_.dest_vn = *(info->dest_vn);
+    data_.source_sg_id_l = *(info->source_sg_id_l);
+    data_.dest_sg_id_l = *(info->dest_sg_id_l);
+    data_.flow_source_vrf = info->flow_source_vrf;
+    data_.flow_dest_vrf = info->flow_dest_vrf;
+    data_.dest_vrf = info->dest_vrf;
+    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
+        data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
+    }
+
+    set_ecmp(info->ecmp);
+    data_.component_nh_idx = info->out_component_nh_idx;
+    set_trap(false);
+    data_.source_plen = info->source_plen;
+    data_.dest_plen = info->dest_plen;
+}
+
+void FlowEntry::InitRevFlow(const PktFlowInfo *info,
+                            const PktControlInfo *ctrl,
+                            const PktControlInfo *rev_ctrl) {
+    if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
+        return;
+    }
+    set_reverse_flow(true);
+    if (ctrl->intf_) {
+        stats_.intf_in = ctrl->intf_->id();
+    } else {
+        stats_.intf_in = Interface::kInvalidIndex;
+    }
+
+    // Compute reverse flow fields
+    set_ingress(false);
+    if (ctrl->intf_) {
+        set_ingress(info->ComputeDirection(ctrl->intf_));
+    }
+    data_.source_vn = *(info->dest_vn);
+    data_.dest_vn = *(info->source_vn);
+    data_.source_sg_id_l = *(info->dest_sg_id_l);
+    data_.dest_sg_id_l = *(info->source_sg_id_l);
+    data_.flow_source_vrf = info->flow_dest_vrf;
+    data_.flow_dest_vrf = info->flow_source_vrf;
+    data_.dest_vrf = info->nat_dest_vrf;
+    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
+        data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
+    }
+    set_ecmp(info->ecmp);
+    data_.component_nh_idx = info->in_component_nh_idx;
+    set_trap(info->trap_rev_flow);
+    data_.source_plen = info->dest_plen;
+    data_.dest_plen = info->source_plen;
+}
+
+void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
+    flow_handle_ = flow_idx;
+    set_short_flow(true);
+    data_.source_vn = *FlowHandler::UnknownVn();
+    data_.dest_vn = *FlowHandler::UnknownVn();
+    SecurityGroupList empty_sg_id_l;
+    data_.source_sg_id_l = empty_sg_id_l;
+    data_.dest_sg_id_l = empty_sg_id_l;
 }
 
 FlowEntry *FlowTable::Allocate(const FlowKey &key) {
@@ -1181,15 +1426,10 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
                         Agent::GetInstance()->pkt()->flow_table()->nh_listener_id()));
         }
 
-        if (flow->data.nh_state_ != nh_state) {
+        if (flow->set_nh_state(nh_state) == true) {
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
-
-            flow->data.nh_state_ = nh_state;
-            FlowTableKSyncEntry *ksync_entry =
-               Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(flow);
-            flow->UpdateKSync(ksync_entry, false);
         }
     }
 }
@@ -1210,9 +1450,9 @@ void FlowTable::ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l)
         DeleteFlowInfo(fe);
         fe->GetPolicyInfo();
         if (fe->FlowSrcMatch(key)) {
-            fe->data.source_sg_id_l = sg_l;
+            fe->set_source_sg_id_l(sg_l);
         } else if (fe->FlowDestMatch(key)) {
-            fe->data.dest_sg_id_l = sg_l;
+            fe->set_dest_sg_id_l(sg_l);
         } else {
             FLOW_TRACE(Err, fe->flow_handle(), 
                        "Not found route key, vrf:"
@@ -1275,34 +1515,34 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
     FlowUve::GetInstance()->DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
-    std::list<MatchAclParams>::iterator acl_it;
-    for (acl_it = fe->data.match_p.m_acl_l.begin(); acl_it != fe->data.match_p.m_acl_l.end();
+    std::list<MatchAclParams>::const_iterator acl_it;
+    for (acl_it = fe->match_p().m_acl_l.begin(); acl_it != fe->match_p().m_acl_l.end();
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
-    for (acl_it = fe->data.match_p.m_sg_acl_l.begin(); 
-         acl_it != fe->data.match_p.m_sg_acl_l.end();
+    for (acl_it = fe->match_p().m_sg_acl_l.begin(); 
+         acl_it != fe->match_p().m_sg_acl_l.end();
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
-    for (acl_it = fe->data.match_p.m_mirror_acl_l.begin(); 
-         acl_it != fe->data.match_p.m_mirror_acl_l.end();
+    for (acl_it = fe->match_p().m_mirror_acl_l.begin(); 
+         acl_it != fe->match_p().m_mirror_acl_l.end();
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
 
 
-    for (acl_it = fe->data.match_p.m_out_acl_l.begin();
-         acl_it != fe->data.match_p.m_out_acl_l.end(); ++acl_it) {
+    for (acl_it = fe->match_p().m_out_acl_l.begin();
+         acl_it != fe->match_p().m_out_acl_l.end(); ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
-    for (acl_it = fe->data.match_p.m_out_sg_acl_l.begin(); 
-         acl_it != fe->data.match_p.m_out_sg_acl_l.end();
+    for (acl_it = fe->match_p().m_out_sg_acl_l.begin(); 
+         acl_it != fe->match_p().m_out_sg_acl_l.end();
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
-    for (acl_it = fe->data.match_p.m_out_mirror_acl_l.begin(); 
-         acl_it != fe->data.match_p.m_out_mirror_acl_l.end();
+    for (acl_it = fe->match_p().m_out_mirror_acl_l.begin(); 
+         acl_it != fe->match_p().m_out_mirror_acl_l.end();
          ++acl_it) {
         DeleteAclFlowInfo((*acl_it).acl.get(), fe, (*acl_it).ace_id_list);
     }
@@ -1337,7 +1577,8 @@ void FlowTable::DeleteVnFlowInfo(FlowEntry *fe)
     }
 }
 
-void FlowTable::DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, AclEntryIDList &id_list)
+void FlowTable::DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow,
+        const AclEntryIDList &id_list)
 {
     AclFlowTree::iterator acl_it;
     acl_it = acl_flow_tree_.find(acl);
@@ -1347,7 +1588,7 @@ void FlowTable::DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, AclEnt
 
     // Delete flow entry from the Flow entry list
     AclFlowInfo *af_info = acl_it->second;
-    AclEntryIDList::iterator id_it;
+    AclEntryIDList::const_iterator id_it;
     for (id_it = id_list.begin(); id_it != id_list.end(); ++id_it) {
         af_info->aceid_cnt_map[*id_it] -= 1;
     }
@@ -1393,8 +1634,8 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe)
 void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 {
     RouteFlowTree::iterator rf_it;
-    RouteFlowKey skey(fe->data.flow_source_vrf, fe->key().src.ipv4, 
-                      fe->data.source_plen);
+    RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src.ipv4, 
+                      fe->data().source_plen);
     rf_it = route_flow_tree_.find(skey);
     RouteFlowInfo *route_flow_info;
     if (rf_it != route_flow_tree_.end()) {
@@ -1406,8 +1647,8 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
         }
     }
    
-    RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key().dst.ipv4,
-                      fe->data.dest_plen);
+    RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst.ipv4,
+                      fe->data().dest_plen);
     rf_it = route_flow_tree_.find(dkey);
     if (rf_it != route_flow_tree_.end()) {
         route_flow_info = rf_it->second;
@@ -1436,43 +1677,43 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
 
 void FlowTable::AddAclFlowInfo (FlowEntry *fe) 
 {
-    std::list<MatchAclParams>::iterator it;
-    for (it = fe->data.match_p.m_acl_l.begin();
-         it != fe->data.match_p.m_acl_l.end();
+    std::list<MatchAclParams>::const_iterator it;
+    for (it = fe->match_p().m_acl_l.begin();
+         it != fe->match_p().m_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
-    for (it = fe->data.match_p.m_sg_acl_l.begin();
-         it != fe->data.match_p.m_sg_acl_l.end();
+    for (it = fe->match_p().m_sg_acl_l.begin();
+         it != fe->match_p().m_sg_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
-    for (it = fe->data.match_p.m_mirror_acl_l.begin();
-         it != fe->data.match_p.m_mirror_acl_l.end();
+    for (it = fe->match_p().m_mirror_acl_l.begin();
+         it != fe->match_p().m_mirror_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
 
 
-    for (it = fe->data.match_p.m_out_acl_l.begin();
-         it != fe->data.match_p.m_out_acl_l.end();
+    for (it = fe->match_p().m_out_acl_l.begin();
+         it != fe->match_p().m_out_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
-    for (it = fe->data.match_p.m_out_sg_acl_l.begin();
-         it != fe->data.match_p.m_out_sg_acl_l.end();
+    for (it = fe->match_p().m_out_sg_acl_l.begin();
+         it != fe->match_p().m_out_sg_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
-    for (it = fe->data.match_p.m_out_mirror_acl_l.begin();
-         it != fe->data.match_p.m_out_mirror_acl_l.end();
+    for (it = fe->match_p().m_out_mirror_acl_l.begin();
+         it != fe->match_p().m_out_mirror_acl_l.end();
          ++it) {
         UpdateAclFlow(it->acl.get(), fe, it->ace_id_list);
     }
 }
 
 void FlowTable::UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow,
-                              AclEntryIDList &id_list)
+                              const AclEntryIDList &id_list)
 {
     AclFlowTree::iterator it;
     pair<set<FlowEntryPtr>::iterator,bool> ret;
@@ -1492,7 +1733,7 @@ void FlowTable::UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow,
     }
     
     if (id_list.size()) {
-        AclEntryIDList::iterator id_it;
+        AclEntryIDList::const_iterator id_it;
         for (id_it = id_list.begin(); id_it != id_list.end(); ++id_it) {
             af_info->aceid_cnt_map[*id_it] += 1;
         }        
@@ -1612,9 +1853,9 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
 {
     RouteFlowTree::iterator it;
     RouteFlowInfo *route_flow_info;
-    if (fe->data.flow_source_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey skey(fe->data.flow_source_vrf, fe->key().src.ipv4,
-                          fe->data.source_plen);
+    if (fe->data().flow_source_vrf != VrfEntry::kInvalidIndex) {
+        RouteFlowKey skey(fe->data().flow_source_vrf, fe->key().src.ipv4,
+                          fe->data().source_plen);
         it = route_flow_tree_.find(skey);
         if (it == route_flow_tree_.end()) {
             route_flow_info = new RouteFlowInfo();
@@ -1626,9 +1867,9 @@ void FlowTable::AddRouteFlowInfo (FlowEntry *fe)
         }
     }
 
-    if (fe->data.flow_dest_vrf != VrfEntry::kInvalidIndex) {
-        RouteFlowKey dkey(fe->data.flow_dest_vrf, fe->key().dst.ipv4, 
-                          fe->data.dest_plen);
+    if (fe->data().flow_dest_vrf != VrfEntry::kInvalidIndex) {
+        RouteFlowKey dkey(fe->data().flow_dest_vrf, fe->key().dst.ipv4, 
+                          fe->data().dest_plen);
         it = route_flow_tree_.find(dkey);
         if (it == route_flow_tree_.end()) {
             route_flow_info = new RouteFlowInfo();
@@ -1653,10 +1894,10 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
         hdr.src_port = 0;
         hdr.dst_port = 0;
     }
-    hdr.src_policy_id = &(fe->data.source_vn);
-    hdr.dst_policy_id = &(fe->data.dest_vn);
-    hdr.src_sg_id_l = &(fe->data.source_sg_id_l);
-    hdr.dst_sg_id_l = &(fe->data.dest_sg_id_l);
+    hdr.src_policy_id = &(fe->data().source_vn);
+    hdr.dst_policy_id = &(fe->data().dest_vn);
+    hdr.src_sg_id_l = &(fe->data().source_sg_id_l);
+    hdr.dst_sg_id_l = &(fe->data().dest_sg_id_l);
 
     fe->DoPolicy(hdr, fe->ingress());
     fe->CompareAndModify(create);
@@ -1671,8 +1912,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
         return;
     }
 
-    rflow->data.match_p.sg_action = fe->IngressReflexiveAction();
-    rflow->data.match_p.out_sg_action = fe->EgressReflexiveAction();
+    rflow->UpdateReflexiveAction();
     // Check if there is change in action for reverse flow
     rflow->ActionRecompute();
 
@@ -1776,27 +2016,27 @@ static void SetAclListAclAction(const std::list<MatchAclParams> &acl_l, std::vec
 
 void FlowEntry::SetAclAction(std::vector<AclAction> &acl_action_l) const
 {
-    const std::list<MatchAclParams> &acl_l = data.match_p.m_acl_l;
+    const std::list<MatchAclParams> &acl_l = data_.match_p.m_acl_l;
     std::string acl_type("nw policy");
     SetAclListAclAction(acl_l, acl_action_l, acl_type);
 
-    const std::list<MatchAclParams> &sg_acl_l = data.match_p.m_sg_acl_l;
+    const std::list<MatchAclParams> &sg_acl_l = data_.match_p.m_sg_acl_l;
     acl_type = "sg";
     SetAclListAclAction(sg_acl_l, acl_action_l, acl_type);
 
-    const std::list<MatchAclParams> &m_acl_l = data.match_p.m_mirror_acl_l;
+    const std::list<MatchAclParams> &m_acl_l = data_.match_p.m_mirror_acl_l;
     acl_type = "dynamic";
     SetAclListAclAction(m_acl_l, acl_action_l, acl_type);
 
-    const std::list<MatchAclParams> &out_acl_l = data.match_p.m_out_acl_l;
+    const std::list<MatchAclParams> &out_acl_l = data_.match_p.m_out_acl_l;
     acl_type = "o nw policy";
     SetAclListAclAction(out_acl_l, acl_action_l, acl_type);
 
-    const std::list<MatchAclParams> &out_sg_acl_l = data.match_p.m_out_sg_acl_l;
+    const std::list<MatchAclParams> &out_sg_acl_l = data_.match_p.m_out_sg_acl_l;
     acl_type = "o sg";
     SetAclListAclAction(out_sg_acl_l, acl_action_l, acl_type);
 
-    const std::list<MatchAclParams> &out_m_acl_l = data.match_p.m_out_mirror_acl_l;
+    const std::list<MatchAclParams> &out_m_acl_l = data_.match_p.m_out_mirror_acl_l;
     acl_type = "o dynamic";
     SetAclListAclAction(out_m_acl_l, acl_action_l, acl_type);
 }
@@ -1855,25 +2095,6 @@ string FlowTable::GetAclFlowSandeshDataKey(const AclDBEntry *acl, const int last
     return ss.str();
 }
 
-static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParams> &acl_l,
-                            std::vector<AceId> &ace_l) {
-    std::list<MatchAclParams>::const_iterator ma_it;
-    for (ma_it = acl_l.begin();
-         ma_it != acl_l.end();
-         ++ma_it) {
-        if ((*ma_it).acl != acl) {
-            continue;
-        }
-        AclEntryIDList::const_iterator ait;
-        for (ait = (*ma_it).ace_id_list.begin(); 
-             ait != (*ma_it).ace_id_list.end(); ++ ait) {
-            AceId ace_id;
-            ace_id.id = *ait;
-            ace_l.push_back(ace_id);
-        }
-    }
-}
-
 void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data, 
                                       const int last_count)
 {
@@ -1898,80 +2119,8 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
     while(fe_tree_it != fe_tree->end()) {
         const FlowEntry &fe = *(*fe_tree_it);
         FlowSandeshData fe_sandesh_data;
-        fe_sandesh_data.set_vrf(integerToString(fe.key().vrf));
-        fe_sandesh_data.set_src(Ip4Address(fe.key().src.ipv4).to_string());
-        fe_sandesh_data.set_dst(Ip4Address(fe.key().dst.ipv4).to_string());
-        fe_sandesh_data.set_src_port(fe.key().src_port);
-        fe_sandesh_data.set_dst_port(fe.key().dst_port);
-        fe_sandesh_data.set_protocol(fe.key().protocol);
-        fe_sandesh_data.set_ingress(fe.ingress());
-        std::vector<ActionStr> action_str_l;
-        SetActionStr(fe.data.match_p.action_info, action_str_l);
-        fe_sandesh_data.set_action_l(action_str_l);
-        
-        std::vector<AclAction> acl_action_l;
-        fe.SetAclAction(acl_action_l);
-        fe_sandesh_data.set_acl_action_l(acl_action_l);
+        fe.SetAclFlowSandeshData(acl, fe_sandesh_data);
 
-        fe_sandesh_data.set_flow_uuid(UuidToString(fe.flow_uuid()));
-        fe_sandesh_data.set_flow_handle(integerToString(fe.flow_handle()));
-        fe_sandesh_data.set_source_vn(fe.data.source_vn);
-        fe_sandesh_data.set_dest_vn(fe.data.dest_vn);
-        std::vector<uint32_t> v;
-        SecurityGroupList::const_iterator it;
-        for (it = fe.data.source_sg_id_l.begin(); 
-             it != fe.data.source_sg_id_l.end(); it++) {
-            v.push_back(*it);
-        }
-        fe_sandesh_data.set_source_sg_id_l(v);
-        v.clear();
-        for (it = fe.data.dest_sg_id_l.begin(); 
-             it != fe.data.dest_sg_id_l.end(); it++) {
-            v.push_back(*it);
-        }
-        fe_sandesh_data.set_dest_sg_id_l(v);
-        fe_sandesh_data.set_bytes(integerToString(fe.stats().bytes));
-        fe_sandesh_data.set_packets(integerToString(fe.stats().packets));
-        fe_sandesh_data.set_setup_time(
-                            integerToString(UTCUsecToPTime(fe.stats().setup_time)));
-        fe_sandesh_data.set_setup_time_utc(fe.stats().setup_time);
-        if (fe.stats().teardown_time) {
-            fe_sandesh_data.set_teardown_time(
-                integerToString(UTCUsecToPTime(fe.stats().teardown_time)));
-        } else {
-            fe_sandesh_data.set_teardown_time("");
-        }
-        fe_sandesh_data.set_current_time(integerToString(
-                                         UTCUsecToPTime(UTCTimestampUsec())));
-        
-        SetAclListAceId(acl, fe.data.match_p.m_acl_l, fe_sandesh_data.ace_l);
-        SetAclListAceId(acl, fe.data.match_p.m_sg_acl_l, fe_sandesh_data.ace_l);
-        SetAclListAceId(acl, fe.data.match_p.m_mirror_acl_l, fe_sandesh_data.ace_l);
-        SetAclListAceId(acl, fe.data.match_p.m_out_acl_l, fe_sandesh_data.ace_l);
-        SetAclListAceId(acl, fe.data.match_p.m_out_sg_acl_l, fe_sandesh_data.ace_l);
-        SetAclListAceId(acl, fe.data.match_p.m_out_mirror_acl_l, fe_sandesh_data.ace_l);
-
-        if (fe.reverse_flow_entry()) {
-            fe_sandesh_data.set_reverse_flow("yes");
-        } else {
-            fe_sandesh_data.set_reverse_flow("no");
-        }
-        if (fe.nat_flow()) {
-            fe_sandesh_data.set_nat("yes");
-        } else {
-            fe_sandesh_data.set_nat("no");
-        }
-        if (fe.ImplicitDenyFlow()) {
-            fe_sandesh_data.set_implicit_deny("yes");
-        } else {
-            fe_sandesh_data.set_implicit_deny("no");
-        }
-        if (fe.short_flow()) {
-            fe_sandesh_data.set_short_flow("yes");
-        } else {
-            fe_sandesh_data.set_short_flow("no");
-        }
-    
         flow_entries_l.push_back(fe_sandesh_data);
         count++;
         ++fe_tree_it;
