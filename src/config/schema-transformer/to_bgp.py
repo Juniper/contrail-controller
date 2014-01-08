@@ -38,8 +38,8 @@ from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.virtual_network.ttypes import *
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
 import discovery.client as client
@@ -2134,8 +2134,13 @@ class SchemaTransformer(object):
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request =\
             self.sandesh_ri_handle_request
+        module = Module.SCHEMA_TRANSFORMER
+        module_name = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = INSTANCE_ID_DEFAULT
         _sandesh.init_generator(
-            ModuleNames[Module.SCHEMA_TRANSFORMER], socket.gethostname(),
+            module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'to_bgp_context', int(args.http_server_port),
             ['cfgm_common', 'schema_transformer.sandesh'], self._disc)
         _sandesh.set_logging_params(enable_local_log=args.log_local,
@@ -2146,7 +2151,7 @@ class SchemaTransformer(object):
         # create cpu_info object to send periodic updates
         sysinfo_req = False
         cpu_info = vnc_cpu_info.CpuInfo(
-            Module.SCHEMA_TRANSFORMER, sysinfo_req, _sandesh, 60)
+            module_name, instance_id, sysinfo_req, _sandesh, 60)
         self._cpu_info = cpu_info
 
     # end __init__
@@ -3014,6 +3019,8 @@ def run_schema_transformer(args):
                 args.api_server_ip, args.api_server_port)
             connected = True
         except requests.exceptions.ConnectionError:
+            time.sleep(3)
+        except ResourceExhaustionError: # haproxy throws 503
             time.sleep(3)
 
     transformer = SchemaTransformer(args)

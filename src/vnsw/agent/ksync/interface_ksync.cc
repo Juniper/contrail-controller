@@ -261,7 +261,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     case Interface::INET: {
         switch (sub_type_) {
-        case InetInterface::GATEWAY:
+        case InetInterface::SIMPLE_GATEWAY:
             encoder.set_vifr_type(VIF_TYPE_GATEWAY);
             break;
         case InetInterface::LINK_LOCAL:

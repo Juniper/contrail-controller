@@ -114,7 +114,8 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
         Generator *gen = vsession->gen_;
         std::vector<UVETypeInfo> vu;
         std::map<std::string, int32_t> seqReply;
-        bool retc = osp_->GetSeq(gen->source(), gen->module(), seqReply);
+        bool retc = osp_->GetSeq(gen->source(), gen->node_type(),
+                        gen->module(), gen->instance_id(), seqReply);
         if (retc) {
             for (map<string,int32_t>::const_iterator it = seqReply.begin();
                     it != seqReply.end(); it++) {
@@ -196,14 +197,15 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
                 sandesh->Name() << ": Session: " << vsession->ToString());
         return false;
     }
-    Generator::GeneratorId id(std::make_pair(snh->get_source(),
-            snh->get_module_name()));
+    Generator::GeneratorId id(boost::make_tuple(snh->get_source(),
+            snh->get_module_name(), snh->get_instance_id_name(),
+            snh->get_node_type_name()));
     Generator *gen;
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     GeneratorMap::iterator gen_it = gen_map_.find(id);
     if (gen_it == gen_map_.end()) {
-        gen = new Generator(this, vsession, state_machine, id.first,
-                id.second);
+        gen = new Generator(this, vsession, state_machine, id.get<0>(),
+                id.get<1>(), id.get<2>(), id.get<3>());
         gen_map_.insert(id, gen);
     } else {
         // Update the generator if needed
@@ -231,7 +233,9 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     std::vector<UVETypeInfo> vu;
     if (snh->get_sucessful_connections() > 1) {
         std::map<std::string, int32_t> seqReply;
-        bool retc = osp_->GetSeq(snh->get_source(), snh->get_module_name(), seqReply);
+        bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
+                        snh->get_module_name(), snh->get_instance_id_name(),
+                        seqReply);
         if (retc) {
             for (map<string,int32_t>::const_iterator it = seqReply.begin();
                     it != seqReply.end(); it++) {
@@ -250,7 +254,8 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
         }
 
     } else {
-        bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_module_name());
+        bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_node_type_name(),
+                        snh->get_module_name(), snh->get_instance_id_name());
         if (retc) {
             SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
         } else {
@@ -263,7 +268,8 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     }
 
     LOG(DEBUG, "Sent good Ctrl Msg: Size " << vu.size() << " " <<
-            snh->get_source() << ":" << snh->get_module_name()); 
+            snh->get_source() << ":" << snh->get_module_name() << ":" <<
+            snh->get_instance_id_name() << ":" << snh->get_node_type_name()); 
     gen->ReceiveSandeshCtrlMsg(snh->get_sucessful_connections());
     return true;
 }
@@ -335,7 +341,7 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         ginfo.set_session_tx_socket_stats(tx_stats); 
          
         ginfo.set_msg_stats(ssiv);
-        ginfo.set_name(gen->source() + ":" + gen->module());
+        ginfo.set_name(gen->ToString());
         genlist.push_back(ginfo);
     }
 }
@@ -352,8 +358,10 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
         vector<GeneratorInfo> giv = ginfo.get_generator_info();
         GeneratorInfoAttr gen_attr = giv[0].get_gen_attr();
         if (gen_attr.get_connects() > gen_attr.get_resets()) {
-            gsinfo.set_source(gm_it->first.first);
-            gsinfo.set_module_id(gm_it->first.second);
+            gsinfo.set_source(gm_it->first.get<0>());
+            gsinfo.set_module_id(gm_it->first.get<1>());
+            gsinfo.set_instance_id(gm_it->first.get<2>());
+            gsinfo.set_node_type(gm_it->first.get<3>());
             gsinfo.set_state(gen->State());
             genlist.push_back(gsinfo);
         }
@@ -362,11 +370,11 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
 
 bool Collector::SendRemote(const string& destination, const string& dec_sandesh) {
     std::vector<std::string> dest;
-    // destination is of the format "source:module"
-    // source/module can be wildcard
+    // destination is of the format "source:module:instance_id:node_type"
+    // source/module/instance_id/node_type can be wildcard
     boost::split(dest, destination, boost::is_any_of(":"),
                  boost::token_compress_on);
-    if (dest.size() != 2) {
+    if (dest.size() != 4) {
         LOG(ERROR, "Invalid destination " << destination << "." <<
             "Failed to send sandesh request: " << dec_sandesh);
         return false;
@@ -375,8 +383,10 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         Generator::GeneratorId id(gm_it->first);
-        if (((dest[0] != "*") && (id.first != dest[0])) ||
-            ((dest[1] != "*") && (id.second != dest[1]))) {
+        if (((dest[0] != "*") && (id.get<0>() != dest[0])) ||
+            ((dest[1] != "*") && (id.get<1>() != dest[1])) ||
+            ((dest[2] != "*") && (id.get<2>() != dest[2])) ||
+            ((dest[3] != "*") && (id.get<3>() != dest[3]))) {
             continue;
         }
         const Generator *gen = gm_it->second;

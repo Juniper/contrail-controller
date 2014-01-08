@@ -33,6 +33,10 @@ void init_vizd_tables() {
                        GenDb::DbDataType::AsciiType)
                       (g_viz_constants.MODULE,
                        GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.INSTANCE_ID,
+                       GenDb::DbDataType::AsciiType)
+                      (g_viz_constants.NODE_TYPE,
+                       GenDb::DbDataType::AsciiType)
                       (g_viz_constants.CONTEXT,
                        GenDb::DbDataType::AsciiType)
                       (g_viz_constants.TIMESTAMP,
@@ -190,77 +194,132 @@ void init_vizd_tables() {
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_SVN_SIP,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::AsciiType)
                       (GenDb::DbDataType::Unsigned32Type)
-                      (GenDb::DbDataType::Unsigned32Type),
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::AsciiType)
                      ))
 
     /* (DVN,DIP) index table */
     (GenDb::NewCf(g_viz_constants.FLOW_TABLE_DVN_DIP,
                   boost::assign::list_of
                   (GenDb::DbDataType::Unsigned32Type)
+                  (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::Unsigned8Type),
                   boost::assign::list_of
                   (GenDb::DbDataType::AsciiType)
                   (GenDb::DbDataType::Unsigned32Type)
-                  (GenDb::DbDataType::Unsigned32Type),
+                  (GenDb::DbDataType::Unsigned32Type)
+                  (GenDb::DbDataType::LexicalUUIDType),
                   boost::assign::list_of
                   (GenDb::DbDataType::Unsigned64Type)
                   (GenDb::DbDataType::Unsigned64Type)
                   (GenDb::DbDataType::Unsigned8Type)
                   (GenDb::DbDataType::LexicalUUIDType)
+                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::AsciiType)
+                  (GenDb::DbDataType::Unsigned32Type)
+                  (GenDb::DbDataType::Unsigned32Type)
+                  (GenDb::DbDataType::Unsigned8Type)
+                  (GenDb::DbDataType::Unsigned16Type)
+                  (GenDb::DbDataType::Unsigned16Type)
+                  (GenDb::DbDataType::AsciiType)
                  ))
 
  /* (PROT, SP) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_PROT_SP,
                 boost::assign::list_of
                 (GenDb::DbDataType::Unsigned32Type)
+                (GenDb::DbDataType::Unsigned8Type)
                 (GenDb::DbDataType::Unsigned8Type),
                 boost::assign::list_of
                 (GenDb::DbDataType::Unsigned8Type)
                 (GenDb::DbDataType::Unsigned16Type)
-                (GenDb::DbDataType::Unsigned32Type),
+                (GenDb::DbDataType::Unsigned32Type)
+                (GenDb::DbDataType::LexicalUUIDType),
                 boost::assign::list_of
                 (GenDb::DbDataType::Unsigned64Type)
                 (GenDb::DbDataType::Unsigned64Type)
                 (GenDb::DbDataType::Unsigned8Type)
                 (GenDb::DbDataType::LexicalUUIDType)
+                (GenDb::DbDataType::AsciiType)
+                (GenDb::DbDataType::AsciiType)
+                (GenDb::DbDataType::AsciiType)
+                (GenDb::DbDataType::Unsigned32Type)
+                (GenDb::DbDataType::Unsigned32Type)
+                (GenDb::DbDataType::Unsigned8Type)
+                (GenDb::DbDataType::Unsigned16Type)
+                (GenDb::DbDataType::Unsigned16Type)
+                (GenDb::DbDataType::AsciiType)
                 ))
         /* (PROT, DP) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_PROT_DP,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned16Type)
-                      (GenDb::DbDataType::Unsigned32Type),
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::AsciiType)
                      ))
  /* (VROUTER) index table */
         (GenDb::NewCf(g_viz_constants.FLOW_TABLE_VROUTER,
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::Unsigned8Type),
                       boost::assign::list_of
                       (GenDb::DbDataType::AsciiType)
-                      (GenDb::DbDataType::Unsigned32Type),
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::LexicalUUIDType),
                       boost::assign::list_of
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned64Type)
                       (GenDb::DbDataType::Unsigned8Type)
                       (GenDb::DbDataType::LexicalUUIDType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::AsciiType)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned32Type)
+                      (GenDb::DbDataType::Unsigned8Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::Unsigned16Type)
+                      (GenDb::DbDataType::AsciiType)
                      ))
 /* Stats Table by String,Str tag
  * The schema is as follows:

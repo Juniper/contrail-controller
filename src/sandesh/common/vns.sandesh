@@ -21,6 +21,12 @@ enum Module {
     DISCOVERY_SERVICE,
     IFMAP_SERVER,
     XMPP_SERVER,
+    ANALYTICS_NODE_MGR,
+    CONTROL_NODE_MGR,
+    CONFIG_NODE_MGR,
+    DATABASE_NODE_MGR,
+    WEBUI_NODE_MGR,
+    COMPUTE_NODE_MGR,    
     MAX_MODULE,
 }
 
@@ -37,6 +43,12 @@ const map<Module, string> ModuleNames = {
     Module.DISCOVERY_SERVICE  : "DiscoveryService"
     Module.IFMAP_SERVER       : "IfmapServer",
     Module.XMPP_SERVER        : "XmppServer",
+    Module.ANALYTICS_NODE_MGR : "Contrail-Analytics-Nodemgr",
+    Module.CONTROL_NODE_MGR   : "Contrail-Control-Nodemgr",
+    Module.CONFIG_NODE_MGR    : "Contrail-Config-Nodemgr",
+    Module.DATABASE_NODE_MGR  : "Contrail-Database-Nodemgr",
+    Module.WEBUI_NODE_MGR     : "Contrail-WebUI-Nodemgr",
+    Module.COMPUTE_NODE_MGR   : "Contrail-Vrouter-Nodemgr",
 }
 
 const map<string, Module> ModuleIds = {
@@ -52,7 +64,58 @@ const map<string, Module> ModuleIds = {
     "DiscoveryService"      : Module.DISCOVERY_SERVICE
     "IfmapServer"           : Module.IFMAP_SERVER,
     "XmppServer"            : Module.XMPP_SERVER,
+    "Contrail-Analytics-Nodemgr" : Module.ANALYTICS_NODE_MGR,
+    "Contrail-Control-Nodemgr"   : Module.CONTROL_NODE_MGR,
+    "Contrail-Config-Nodemgr"    : Module.CONFIG_NODE_MGR,
+    "Contrail-Database-Nodemgr"  : Module.DATABASE_NODE_MGR,
+    "Contrail-WebUI-Nodemgr"     : Module.WEBUI_NODE_MGR,
+    "Contrail-Vrouter-Nodemgr"   : Module.COMPUTE_NODE_MGR,
 }
+
+enum NodeType {
+    INVALID,
+    CONFIG,
+    CONTROL,
+    ANALYTICS,
+    COMPUTE,
+    WEBUI,
+    DATABASE,
+    OPENSTACK,
+}
+
+const map<NodeType, string> NodeTypeNames = {
+    NodeType.INVALID         : "Invalid",
+    NodeType.CONFIG          : "Config",
+    NodeType.CONTROL         : "Control",
+    NodeType.ANALYTICS       : "Analytics",
+    NodeType.COMPUTE         : "Compute",
+    NodeType.WEBUI           : "WebUI",
+    NodeType.DATABASE        : "Database",
+    NodeType.OPENSTACK       : "OpenStack",
+}
+
+const map <Module, NodeType> Module2NodeType = {
+    Module.CONTROL_NODE       : NodeType.CONTROL,
+    Module.VROUTER_AGENT      : NodeType.COMPUTE,
+    Module.API_SERVER         : NodeType.CONFIG,
+    Module.SCHEMA_TRANSFORMER : NodeType.CONFIG,
+    Module.OPSERVER           : NodeType.ANALYTICS,
+    Module.COLLECTOR          : NodeType.ANALYTICS,
+    Module.QUERY_ENGINE       : NodeType.ANALYTICS,
+    Module.SVC_MONITOR        : NodeType.CONFIG,
+    Module.DNS                : NodeType.CONTROL,
+    Module.DISCOVERY_SERVICE  : NodeType.CONFIG,
+    Module.IFMAP_SERVER       : NodeType.CONFIG,
+    Module.XMPP_SERVER        : NodeType.CONTROL,
+    Module.ANALYTICS_NODE_MGR : NodeType.ANALYTICS,
+    Module.CONTROL_NODE_MGR   : NodeType.CONTROL,
+    Module.CONFIG_NODE_MGR    : NodeType.CONFIG,
+    Module.DATABASE_NODE_MGR  : NodeType.DATABASE,
+    Module.WEBUI_NODE_MGR     : NodeType.WEBUI,
+    Module.COMPUTE_NODE_MGR   : NodeType.COMPUTE,
+}
+
+const string INSTANCE_ID_DEFAULT = "0"
 
 enum Category {
     DEFAULT,

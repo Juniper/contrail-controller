@@ -2,12 +2,12 @@
 -- Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 --
 
-local sm = ARGV[1]..":"..ARGV[2]
-local typ = ARGV[3]
-local attr = ARGV[4]
-local key = ARGV[5]
-local seq = ARGV[6]
-local val = ARGV[7]
+local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
+local typ = ARGV[5]
+local attr = ARGV[6]
+local key = ARGV[7]
+local seq = ARGV[8]
+local val = ARGV[9]
 
 local _types = KEYS[1]
 local _origins = KEYS[2]

@@ -34,11 +34,15 @@ if sys.platform != 'darwin':
     test_linklocal = env.Program(target = 'test_linklocal', source = ['test_linklocal.cc'])
     env.Alias('src/vnsw/agent/oper/test:test_linklocal', test_linklocal)
 
+    test_inet_interface = env.Program(target = 'test_inet_interface', source = ['test_inet_interface.cc'])
+    env.Alias('src/vnsw/agent/oper/test:test_inet_interface', test_inet_interface)
     oper_test_suite = [
+                       test_inet_interface,
                        test_intf,
                        test_vrf_assign,
                        test_linklocal,
                        ]
+
     test = env.TestSuite('agent`-test', oper_test_suite)
     env.Alias('src/vnsw/agent:test', test)
     Return('oper_test_suite')
