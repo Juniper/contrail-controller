@@ -188,6 +188,12 @@ void Agent::GetConfig() {
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
     sandesh_port_ = params_->http_server_port();
+    prefix_len_ = params_->vhost_plen();
+    gateway_id_ = params_->vhost_gw();
+    router_id_ = params_->vhost_addr();
+    if (router_id_.to_ulong()) {
+        router_id_configured_ = false;
+    }
 
     if (params_->tunnel_type() == "MPLSoUDP")
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
@@ -310,13 +316,14 @@ void Agent::CreateInterfaces() {
         pkt_.get()->CreateInterfaces();
     }
 
+    init_->CreateInterfaces(db_);
+    cfg_.get()->CreateInterfaces();
+
     // Create VRF for VGw
     if (vgw_.get()) {
         vgw_.get()->CreateInterfaces();
     }
 
-    init_->CreateInterfaces(db_);
-    cfg_.get()->CreateInterfaces();
 }
 
 void Agent::InitDone() {

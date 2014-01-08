@@ -13,16 +13,29 @@ void RouterIdDepInit() {
 
 class VmwareTest : public ::testing::Test {
 public:
-    void SetUp() {
+    virtual void SetUp() {
         agent = Agent::GetInstance();
         param = agent->params();
+
+        intf_count_ = agent->GetInterfaceTable()->Size();
+        nh_count_ = agent->GetNextHopTable()->Size();
+        vrf_count_ = agent->GetVrfTable()->Size();
     }
 
-    void TearDown() {
+    virtual void TearDown() {
+        WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Size() == intf_count_));
+        WAIT_FOR(100, 1000, (agent->GetVrfTable()->Size() == vrf_count_));
+        WAIT_FOR(100, 1000, (agent->GetNextHopTable()->Size() == nh_count_));
+        WAIT_FOR(100, 1000, (agent->GetVmTable()->Size() == 0U));
+        WAIT_FOR(100, 1000, (agent->GetVnTable()->Size() == 0U));
     }
 
-    Agent *agent;
     AgentParam *param;
+    Agent *agent;
+
+    int intf_count_;
+    int nh_count_;
+    int vrf_count_;
 };
 
 // Validate the vmware parameters set in AgentParam
@@ -80,7 +93,9 @@ int main(int argc, char **argv) {
 
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
+    usleep(1000);
     TestShutdown();
+    usleep(1000);
     delete client;
     return ret;
 }
