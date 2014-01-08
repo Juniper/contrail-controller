@@ -38,8 +38,9 @@ import output
 # sandesh
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh.vns.ttypes import Module
-from sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
+    INSTANCE_ID_DEFAULT    
 from sandesh.discovery_introspect import ttypes as sandesh
 
 from gevent.coros import BoundedSemaphore
@@ -163,8 +164,13 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        module = Module.DISCOVERY_SERVICE
+        module_name = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = self._args.worker_id
         self._sandesh.init_generator(
-            ModuleNames[Module.DISCOVERY_SERVICE], socket.gethostname(),
+            module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'discovery_context', 
             int(self._args.http_server_port), ['sandesh', 'uve'])
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
@@ -298,7 +304,8 @@ class DiscoveryServer():
             'log_local': False,
             'log_level': SandeshLevel.SYS_DEBUG,
             'log_category': '',
-            'log_file': Sandesh._DEFAULT_LOG_FILE
+            'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'worker_id': INSTANCE_ID_DEFAULT,
         }
 
         # per service options

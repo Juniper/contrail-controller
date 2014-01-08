@@ -58,8 +58,8 @@ bool CollectorCPULogger(const string & hostname) {
     state.set_name(hostname);
 
     ModuleCpuInfo cinfo;
-    cinfo.set_module_id(
-            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
+    cinfo.set_module_id(Sandesh::module());
+    cinfo.set_instance_id(Sandesh::instance_id());
     cinfo.set_cpu_info(cpu_load_info);
     vector<ModuleCpuInfo> cciv;
     cciv.push_back(cinfo);
@@ -75,9 +75,8 @@ bool CollectorCPULogger(const string & hostname) {
     astate.set_name(hostname);
 
     AnalyticsCpuInfo ainfo;
-    ainfo.set_module_id(
-            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second);
-    ainfo.set_inst_id(0);
+    ainfo.set_module_instance_id(Sandesh::module() + ":" + 
+                                 Sandesh::instance_id());
     ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
     ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
     vector<AnalyticsCpuInfo> aciv;
@@ -123,7 +122,8 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
     // instance owns its generators
     for (vector<GeneratorSummaryInfo>::const_iterator it = infos.begin(); 
             it != infos.end(); it++) {
-        osp->RefreshGenerator(it->get_source(), it->get_module_id());
+        osp->RefreshGenerator(it->get_source(), it->get_node_type(),
+            it->get_module_id(), it->get_instance_id());
     }
 
     osp->GeneratorCleanup(HandleGenCleanup);
@@ -327,9 +327,15 @@ int main(int argc, char *argv[])
     analytics.Init();
 
     VizSandeshContext vsc(&analytics);
+    Module::type module = Module::COLLECTOR;
+    NodeType::type node_type =
+        g_vns_constants.Module2NodeType.find(module)->second;
     Sandesh::InitCollector(
-            g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second,
-            analytics.name(), &evm, "127.0.0.1", var_map["listen-port"].as<int>(),
+            g_vns_constants.ModuleNames.find(module)->second,
+            analytics.name(),
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT, 
+            &evm, "127.0.0.1", var_map["listen-port"].as<int>(),
             var_map["http-server-port"].as<int>(), &vsc);
     Sandesh::SetLoggingParams(var_map.count("log"),
             var_map["log-category"].as<string>(),

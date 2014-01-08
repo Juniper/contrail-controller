@@ -94,8 +94,13 @@ void DiscoveryAgentClient::DiscoverServices() {
 
             //subscribe to collector service
             if (param_->collector().to_ulong() == 0) {
+                Module::type module = Module::VROUTER_AGENT;
+                NodeType::type node_type = 
+                    g_vns_constants.Module2NodeType.find(module)->second;
                 std::string subscriber_name = 
-                    g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second;
+                    g_vns_constants.ModuleNames.find(module)->second;
+                std::string node_type_name = 
+                    g_vns_constants.NodeTypeNames.find(node_type)->second;
 
                 Sandesh::CollectorSubFn csf = 0;
                 csf = boost::bind(&DiscoveryServiceClient::Subscribe, 
@@ -103,9 +108,11 @@ void DiscoveryAgentClient::DiscoverServices() {
                 std::vector<std::string> list;
                 list.clear();
                 Sandesh::InitGenerator(subscriber_name,
-                                       agent_cfg_->agent()->GetHostName(), 
-                                       agent_cfg_->agent()->GetEventManager(),
-                                       agent_cfg_->agent()->GetSandeshPort(),
+                                       Agent::GetInstance()->GetHostName(),
+                                       node_type_name,
+                                       g_vns_constants.INSTANCE_ID_DEFAULT, 
+                                       Agent::GetInstance()->GetEventManager(),
+                                       Agent::GetInstance()->GetSandeshPort(),
                                        csf,
                                        list,
                                        NULL);

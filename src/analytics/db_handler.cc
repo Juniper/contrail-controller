@@ -325,6 +325,14 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     if (!header.get_Context().empty()) {
         columns.push_back(GenDb::NewCol(g_viz_constants.CONTEXT, header.get_Context()));
     }
+    if (!header.get_InstanceId().empty()) {
+        columns.push_back(GenDb::NewCol(g_viz_constants.INSTANCE_ID, 
+                                        header.get_InstanceId()));
+    }
+    if (!header.get_NodeType().empty()) {
+        columns.push_back(GenDb::NewCol(g_viz_constants.NODE_TYPE,
+                                        header.get_NodeType()));
+    }    
     // Convert to network byte order
     temp_u64 = header.get_Timestamp();
     columns.push_back(GenDb::NewCol(g_viz_constants.TIMESTAMP, temp_u64));
@@ -717,6 +725,66 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             boost::uuids::uuid uuidval = boost::uuids::string_generator()(runnode.child_value());
             col_value.push_back(uuidval);
 
+            // Add 8-tuple to col value
+            col_value.push_back(rmsg.hdr.get_Source());
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            runstring = runnode.child_value();
+            col_value.push_back(runstring);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            runstring = runnode.child_value();
+            col_value.push_back(runstring);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            stringToInteger(runnode.child_value(), runint32);
+            col_value.push_back((uint32_t)runint32);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            stringToInteger(runnode.child_value(), runint32);
+            col_value.push_back((uint32_t)runint32);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            stringToInteger(runnode.child_value(), runint32);
+            col_value.push_back((uint8_t)runint32);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            stringToInteger(runnode.child_value(), runint32);
+            col_value.push_back((uint16_t)runint32);
+
+            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second);
+            runnode = parent.find_node(pugi_p);
+            if (!runnode) {
+                VIZD_ASSERT(0);
+            }
+            stringToInteger(runnode.child_value(), runint32);
+            col_value.push_back((uint16_t)runint32);
+            col_value.push_back("");
+
             pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DIRECTION_ING)->second);
             runnode = parent.find_node(pugi_p);
             if (!runnode) {
@@ -724,6 +792,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             }
             stringToInteger(runnode.child_value(), runint32);
             uint8_t dir_val = (uint8_t)runint32;
+            uint8_t partition_no = 0;
         /* insert into index tables */
           {
             GenDb::ColList *col_list(new GenDb::ColList);
@@ -736,7 +805,9 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             int32_t runint32;
 
             /* setup the rowkey */
+
             rowkey.push_back(t2);
+            rowkey.push_back(partition_no);
             rowkey.push_back(dir_val);
 
             std::vector<GenDb::NewCol>& columns = col_list->columns_;
@@ -758,9 +829,12 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             }
             stringToInteger(runnode.child_value(), runint32);
             col_name.push_back((uint32_t)runint32);
-
+            
             /* T1 */
             col_name.push_back(t1);
+
+            /* UUID in col name */
+            col_name.push_back(uuidval);
 
             columns.push_back(GenDb::NewCol(col_name, col_value));
 
@@ -783,6 +857,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
 
             /* setup the rowkey */
             rowkey.push_back(t2);
+            rowkey.push_back(partition_no);
             rowkey.push_back(dir_val);
 
             std::vector<GenDb::NewCol>& columns = col_list->columns_;
@@ -808,6 +883,9 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             /* T1 */
             col_name.push_back(t1);
 
+            /* UUID in col name */
+            col_name.push_back(uuidval);
+
             columns.push_back(GenDb::NewCol(col_name, col_value));
 
             std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
@@ -829,6 +907,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
 
             /* setup the rowkey */
             rowkey.push_back(t2);
+            rowkey.push_back(partition_no);
             rowkey.push_back(dir_val);
 
             std::vector<GenDb::NewCol>& columns = col_list->columns_;
@@ -854,6 +933,9 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             /* T1 */
             col_name.push_back(t1);
 
+            /* UUID in col name */
+            col_name.push_back(uuidval);
+
             columns.push_back(GenDb::NewCol(col_name, col_value));
 
             std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
@@ -875,6 +957,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
 
             /* setup the rowkey */
             rowkey.push_back(t2);
+            rowkey.push_back(partition_no);
             rowkey.push_back(dir_val);
 
             std::vector<GenDb::NewCol>& columns = col_list->columns_;
@@ -900,6 +983,9 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             /* T1 */
             col_name.push_back(t1);
 
+            /* UUID in col name */
+            col_name.push_back(uuidval);
+
             columns.push_back(GenDb::NewCol(col_name, col_value));
 
             std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
@@ -920,6 +1006,7 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
 
             /* setup the rowkey */
             rowkey.push_back(t2);
+            rowkey.push_back(partition_no);
             rowkey.push_back(dir_val);
 
             std::vector<GenDb::NewCol>& columns = col_list->columns_;
@@ -927,8 +1014,12 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
             GenDb::DbDataValueVec col_name;
             /* setup the column-name */
             col_name.push_back(rmsg.hdr.get_Source());
+
             /* T1 */
             col_name.push_back(t1);
+
+            /* UUID in col name */
+            col_name.push_back(uuidval);
 
             columns.push_back(GenDb::NewCol(col_name, col_value));
 

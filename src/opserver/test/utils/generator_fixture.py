@@ -49,7 +49,7 @@ class GeneratorFixture(fixtures.Fixture):
         self._sandesh_instance = Sandesh()
         self._http_port = AnalyticsFixture.get_free_port()
         self._sandesh_instance.init_generator(
-            self._name, socket.gethostname(), self._collectors,
+            self._name, socket.gethostname(), "Test", "0", self._collectors,
             '', self._http_port, sandesh_req_uve_pkg_list=['sandesh'])
         self._sandesh_instance.set_logging_params(enable_local_log=True,
                                                   level=SandeshLevel.UT_DEBUG)

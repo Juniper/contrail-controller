@@ -32,8 +32,10 @@ from redis_sentinel_client import RedisSentinelClient
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
+     ModuleCategoryMap, Module2NodeType, NodeTypeNames,\
+     INSTANCE_ID_DEFAULT
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
@@ -399,12 +401,20 @@ class OpServer(object):
         self._homepage_links.append(LinkObject('analytics', '/analytics'))
 
         super(OpServer, self).__init__()
-        self._moduleid = ModuleNames[Module.OPSERVER]
+        module = Module.OPSERVER
+        self._moduleid = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        if self._args.worker_id:
+            self._instance_id = self._args.worker_id
+        else:
+            self._instance_id = INSTANCE_ID_DEFAULT
         self._hostname = socket.gethostname()
         if self._args.dup:
             self._hostname += 'dup'
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
         sandesh_global.init_generator(self._moduleid, self._hostname,
+                                      node_type_name, self._instance_id,
                                       self._args.collectors, 'opserver_context',
                                       int(self._args.http_server_port),
                                       ['sandesh'])
@@ -529,7 +539,7 @@ class OpServer(object):
                              'GET', self.column_values_process)
                 bottle.route('/analytics/table/<table>/column-values/<column>',
                              'GET', self.column_process)
-        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
+        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', self.send_trace_buffer)
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
@@ -557,6 +567,7 @@ class OpServer(object):
                                --log_level SYS_DEBUG
                                --log_category test
                                --log_file <stdout>
+                               --worker_id 0
         '''
 
         parser = argparse.ArgumentParser(
@@ -613,6 +624,9 @@ class OpServer(object):
         parser.add_argument("--dup", action="store_true",
             default=False,
             help="Internal use")
+        parser.add_argument(
+            "--worker_id",
+            help="Worker Id")
 
         self._args = parser.parse_args()
         if type(self._args.collectors) is str:
@@ -1178,11 +1192,20 @@ class OpServer(object):
         return json.dumps(uvetype_links)
     # end uves_http_get
 
-    def send_trace_buffer(self, source, module, name):
+    def send_trace_buffer(self, source, module, instance_id, name):
         response = {}
         trace_req = SandeshTraceRequest(name)
+        if module not in ModuleIds:
+            response['status'] = 'fail'
+            response['error'] = 'Invalid module'
+            return json.dumps(response)
+        module_id = ModuleIds[module]
+        node_type = Module2NodeTye[module_id]
+        node_type_name = NodeTypeNames[node_type]
         if self._state_server.redis_publish(msg_type='send-tracebuffer',
-                                            destination=source + ':' + module,
+                                            destination=source + ':' + 
+                                            node_type_name + ':' + module +
+                                            ':' + instance_id,
                                             msg=trace_req):
             response['status'] = 'pass'
         else:
@@ -1349,6 +1372,7 @@ class OpServer(object):
         while True:
             mod_cpu_info = ModuleCpuInfo()
             mod_cpu_info.module_id = self._moduleid
+            mod_cpu_info.instance_id = self._instance_id
             mod_cpu_info.cpu_info = opserver_cpu_info.get_cpu_info(
                 system=False)
             mod_cpu_state = ModuleCpuState()
@@ -1367,8 +1391,7 @@ class OpServer(object):
             aly_cpu_state.name = self._hostname
 
             aly_cpu_info = AnalyticsCpuInfo()
-            aly_cpu_info.module_id = self._moduleid
-            aly_cpu_info.inst_id = 0
+            aly_cpu_info.module_instance_id = self._moduleid + ':' + self._instance_id
             aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
             aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
             aly_cpu_state.cpu_info = [aly_cpu_info]

@@ -20,9 +20,9 @@ local function sub_del(_values)
     end
 end
 
-local sm = ARGV[1]..":"..ARGV[2]
-local typ = ARGV[3]
-local key = ARGV[4]
+local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
+local typ = ARGV[5]
+local key = ARGV[6]
 
 local _del = KEYS[1]
 local _values = KEYS[2]
