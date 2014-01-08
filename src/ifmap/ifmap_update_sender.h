@@ -57,6 +57,7 @@ private:
     void ProcessUpdate(IFMapUpdate *update, const BitSet &base_send_set);
 
     void GetSendScheduled(BitSet *current);
+    void LogSentUpdate(IFMapUpdate *update, const BitSet &base_send_set);
 
     IFMapServer *server_;
     IFMapUpdateQueue *queue_;
