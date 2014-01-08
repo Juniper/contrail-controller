@@ -489,10 +489,16 @@ int main(int argc, char *argv[]) {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (!var_map.count("discovery-server")) { 
+    if (!var_map.count("discovery-server")) {
+        Module::type module = Module::CONTROL_NODE;
+        NodeType::type node_type = 
+            g_vns_constants.Module2NodeType.find(module)->second; 
         Sandesh::InitGenerator(
-            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second,
-            hostname, &evm,
+            g_vns_constants.ModuleNames.find(module)->second,
+            hostname, 
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT, 
+            &evm,
             var_map["http-server-port"].as<int>(), &sandesh_context);
     }
 
@@ -587,14 +593,23 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-           
+            Module::type module = Module::CONTROL_NODE;
+            NodeType::type node_type = 
+                g_vns_constants.Module2NodeType.find(module)->second;
+            string subscriber_name = 
+                g_vns_constants.ModuleNames.find(module)->second;
+            string node_type_name = 
+                g_vns_constants.NodeTypeNames.find(node_type)->second; 
             Sandesh::CollectorSubFn csf = 0;
             csf = boost::bind(&DiscoveryServiceClient::Subscribe,
                               ds_client, _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
-                                   hostname, &evm,
+                                   hostname,
+                                   node_type_name,
+                                   g_vns_constants.INSTANCE_ID_DEFAULT, 
+                                   &evm,
                                    var_map["http-server-port"].as<int>(),
                                    csf,
                                    list,

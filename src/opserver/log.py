@@ -16,7 +16,7 @@ import json
 import datetime
 from opserver.opserver_util import OpServerUtils
 from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
+from sandesh_common.vns.constants import ModuleNames, NodeTypeNames
 import opserver.sandesh.viz.constants as VizConstants
 from pysandesh.gen_py.sandesh.ttypes import SandeshType, SandeshLevel
 
@@ -35,7 +35,9 @@ class LogQuerier(object):
         Eg. python log.py --opserver-ip 127.0.0.1
                           --opserver-port 8081
                           --source 127.0.0.1
+                          --node-type Control
                           --module bgp | cfgm | vnswad
+                          --instance-id 0
                           --message-type UveVirtualMachineConfigTrace
                           --category xmpp
                           --level SYS_INFO | SYS_ERROR
@@ -67,8 +69,11 @@ class LogQuerier(object):
             "--last", help="Logs from last time period (format 10m, 1d)")
 
         parser.add_argument("--source", help="Logs from source address")
+        parser.add_argument("--node-type", help="Logs from node type",
+            choices=NodeTypeNames.values())
         parser.add_argument(
             "--module", help="Logs from module", choices=ModuleNames.values())
+        parser.add_argument("--instance-id", help="Logs from module instance")
         parser.add_argument("--category", help="Logs of category")
         parser.add_argument("--level", help="Logs of level")
         parser.add_argument("--message-type", help="Logs of message type")
@@ -160,6 +165,20 @@ class LogQuerier(object):
                 value=SandeshLevel._NAMES_TO_VALUES[self._args.level],
                 op=OpServerUtils.MatchOp.GEQ)
             filter.append(level_match.__dict__)
+
+        if self._args.node_type is not None:
+            node_type_match = OpServerUtils.Match(
+                name=VizConstants.NODE_TYPE,
+                value=self._args.node_type,
+                op=OpServerUtils.MatchOp.EQUAL)
+            filter.append(node_type_match.__dict__)
+
+        if self._args.instance_id is not None:
+            instance_id_match = OpServerUtils.Match(
+                name=VizConstants.INSTANCE_ID,
+                value=self._args.instance_id,
+                op=OpServerUtils.MatchOp.EQUAL)
+            filter.append(instance_id_match.__dict__)
 
         if (self._args.object is not None or
             self._args.object_id is not None or
@@ -264,6 +283,8 @@ class LogQuerier(object):
                 VizConstants.DATA,
                 VizConstants.SANDESH_TYPE,
                 VizConstants.LEVEL,
+                VizConstants.NODE_TYPE,
+                VizConstants.INSTANCE_ID,
             ]
 
         if len(filter) == 0:
@@ -327,10 +348,18 @@ class LogQuerier(object):
                 source = messages_dict[VizConstants.SOURCE]
             else:
                 source = 'Source: NA'
+            if VizConstants.NODE_TYPE in messages_dict:
+                node_type = messages_dict[VizConstants.NODE_TYPE]
+            else:
+                node_type = ''
             if VizConstants.MODULE in messages_dict:
                 module = messages_dict[VizConstants.MODULE]
             else:
                 module = 'Module: NA'
+            if VizConstants.INSTANCE_ID in messages_dict:
+                instance_id = messages_dict[VizConstants.INSTANCE_ID]
+            else:
+                instance_id = ''
             if VizConstants.MESSAGE_TYPE in messages_dict:
                 message_type = messages_dict[VizConstants.MESSAGE_TYPE]
             else:
@@ -372,8 +401,8 @@ class LogQuerier(object):
                     print '{0} {1}:{2} {3}'.format(
                         message_ts, message_type, seq_num, data_str)
                 else:
-                    print '{0} {1} [{2}:{3}][{4}] : {5}:{6} {7}'.format(
-                        message_ts, source, module,
+                    print '{0} {1} [{2}:{3}:{4}:{5}][{6}] : {7}:{8} {9}'.format(
+                        message_ts, source, node_type, module, instance_id,
                         category, level, message_type, seq_num, data_str)
             else:
                 for obj_sel_field in self._args.object_select_field:
@@ -393,8 +422,8 @@ class LogQuerier(object):
                             else:
                                 data_str = messages_dict[obj_sel_field]
                         if data_str:
-                            print '{0} [{1}:{2}] : {3}: {4}'.format(
-                                message_ts, source, module,
+                            print '{0} {1} [{2}:{3}:{4}] : {5}: {6}'.format(
+                                message_ts, source, node_type, module, instance_id,
                                 message_type, data_str)
     # end display
 

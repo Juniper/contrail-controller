@@ -209,6 +209,7 @@ public:
         const VmInterface &intf=static_cast<const VmInterface &>(rhs);
         return uuid_ < intf.uuid_;
     }
+    virtual void GetOsParams();
     void SendTrace(Trace ev);
 
     // DBEntry vectors
@@ -357,7 +358,6 @@ private:
     void DeleteL3InterfaceRoute(bool old_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_addr);
     void UpdateInterfaceNH(bool force_update, bool policy_change);
-    void DeleteInterfaceNH();
     void UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf);
     void DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
                              bool old_need_linklocal_ip);

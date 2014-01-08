@@ -45,7 +45,7 @@ public:
     virtual void SetUp() {
         evm_.reset(new EventManager());
         thread_.reset(new ServerThread(evm_.get()));
-        Sandesh::InitGenerator("VizdTest", "127.0.0.1", evm_.get(),
+        Sandesh::InitGenerator("VizdTest", "127.0.0.1", "Test", "Test", evm_.get(),
                                0, NULL);
         Sandesh::ConnectToCollector(collector_server, collector_port);
     }

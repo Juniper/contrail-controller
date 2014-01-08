@@ -83,7 +83,8 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         s_flow.set_reverse_uuid(to_string(rev_flow->flow_uuid()));
     }
 
-    // Flow setup and teardown messages are sent with higher priority
+    // Flow setup(first) and teardown(last) messages are sent with higher 
+    // priority.
     if (!stats.exported) {
         s_flow.set_setup_time(stats.setup_time);
         stats.exported = true;
@@ -91,6 +92,10 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
     }
     if (stats.teardown_time) {
         s_flow.set_teardown_time(stats.teardown_time);
+        //Teardown time will be set in flow only when flow is deleted.
+        //We need to reset the exported flag when flow is getting deleted to 
+        //handle flow entry reuse case (Flow add request coming for flows 
+        //marked as deleted)
         stats.exported = false;
         level = SandeshLevel::SYS_ERR;
     }
@@ -172,6 +177,32 @@ uint64_t FlowStatsCollector::GetUpdatedFlowPackets(const FlowStats *stats,
         oflow_pkts += 0x0000010000000000ULL;
     }
     return (oflow_pkts |= k_flow_pkts);
+}
+
+void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
+                                         uint64_t &diff_packets) {
+    FlowTableKSyncObject *ksync_obj = Agent::GetInstance()->ksync()->
+                                         flowtable_ksync_obj();
+    
+    const vr_flow_entry *k_flow = ksync_obj->GetKernelFlowEntry
+        (flow->flow_handle(), false);
+    if (k_flow) {
+        uint64_t k_bytes, k_packets, bytes, packets;
+        k_bytes = GetFlowStats(k_flow->fe_stats.flow_bytes_oflow, 
+                               k_flow->fe_stats.flow_bytes);
+        k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
+                                 k_flow->fe_stats.flow_packets);
+        FlowStats *stats = &(flow->stats());
+        bytes = GetUpdatedFlowBytes(stats, k_bytes);
+        packets = GetUpdatedFlowPackets(stats, k_packets);
+        diff_bytes = bytes - stats->bytes;
+        diff_packets = packets - stats->packets;
+        stats->bytes = bytes;
+        stats->packets = packets;
+    } else {
+        diff_bytes = 0;
+        diff_packets = 0;
+    }
 }
 
 bool FlowStatsCollector::Run() {

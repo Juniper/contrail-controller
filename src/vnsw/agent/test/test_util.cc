@@ -455,6 +455,11 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
     return VmPortPolicyEnabled(input[id].intf_id);
 }
 
+InetInterface *InetInterfaceGet(const char *ifname) {
+    InetInterfaceKey key(ifname);
+    return static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+}
+
 Interface *VmPortGet(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     return static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
@@ -1065,6 +1070,12 @@ bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type typ
                     policy, type);
     NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
     return (nh != NULL);
+}
+
+NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy) {
+    InetInterfaceKey *intf_key = new InetInterfaceKey(ifname);
+    return static_cast<NextHop *>
+        (table->FindActiveEntry(new ReceiveNHKey(intf_key, policy)));
 }
 
 bool TunnelNHFind(const Ip4Address &server_ip) {

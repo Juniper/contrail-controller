@@ -758,13 +758,6 @@ void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
     } catch (const std::out_of_range& oor) {
         QE_ASSERT(0);
     }
-    try {
-        tuple.direction = boost::get<uint8_t>(info.at(index++));
-    } catch (boost::bad_get& ex) {
-        QE_ASSERT(0);
-    } catch (const std::out_of_range& oor) {
-        QE_ASSERT(0);
-    }
     return;
 }
 
