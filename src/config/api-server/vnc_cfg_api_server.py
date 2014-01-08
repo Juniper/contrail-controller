@@ -499,7 +499,8 @@ class VncApiServer(VncApiServerGen):
             'multi_tenancy': False,
             'disc_server_ip': None,
             'disc_server_port': None,
-            'zk_server_ip':'127.0.0.1:2181'
+            'zk_server_ip': '127.0.0.1:2181',
+            'worker_id': '0',
         }
         # ssl options
         secopts = {

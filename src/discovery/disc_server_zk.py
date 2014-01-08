@@ -278,6 +278,7 @@ class DiscoveryServer():
                      --zk_server_port 9160
                      --listen_ip_addr 127.0.0.1
                      --listen_port 5998
+                     --worker_id 1
         '''
 
         # Source any specified config/ini file
@@ -388,6 +389,7 @@ class DiscoveryServer():
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
                             help="Filename for the logs to be written to")
+        parser.add_argument("--worker_id", help="Worker Id")
         self._args = parser.parse_args(remaining_argv)
         self._args.conf_file = args.conf_file
         if type(self._args.collectors) is str:
@@ -438,9 +440,17 @@ class DiscoveryServer():
     # check if service expired (return color along)
     def service_expired(self, entry, include_color=False, include_down=True):
         pdata = self.get_pub_data(entry['service_id'])
-        timedelta = datetime.timedelta(
-            seconds=(int(time.time()) - pdata['heartbeat']))
-        if timedelta.seconds <= self._args.hc_interval:
+        if pdata:
+            timedelta = datetime.timedelta(
+                seconds=(int(time.time()) - pdata['heartbeat']))
+        else:
+            timedelta = -1
+
+        if self._args.hc_interval <= 0:
+            # health check has been disabled
+            color = "#00FF00"   # green - all good
+            expired = False
+        elif timedelta.seconds <= self._args.hc_interval:
             color = "#00FF00"   # green - all good
             expired = False
         elif (timedelta.seconds > (self._args.hc_interval *
@@ -628,7 +638,8 @@ class DiscoveryServer():
             self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
-        sdata['ttl_expires'] += 1
+        if sdata:
+            sdata['ttl_expires'] += 1
 
         # need to send short ttl?
         pubs = self._db_conn.lookup_service(service_type) or []
@@ -800,7 +811,8 @@ class DiscoveryServer():
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             rsp += '        <td>' + str(pub['in_use']) + '</td>\n'
-            rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
+            if pdata:
+                rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
                 pub, include_color=True)
             #status = "down" if expired else "up"
@@ -965,6 +977,10 @@ class DiscoveryServer():
             (service_type, client_id, service_id, mtime, ttl) = client
             cl_entry = self._db_conn.lookup_client(service_type, client_id)
             sdata = self.get_sub_data(client_id, service_type)
+            if sdata is None:
+                self.syslog('Missing sdata for client %s, service %s' %
+                            (client_id, service_type))
+                continue
             entry = cl_entry.copy()
             entry.update(sdata)
 

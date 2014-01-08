@@ -1212,6 +1212,9 @@ def run_svc_monitor(args=None):
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
+        except ResourceExhaustionError: # haproxy throws 503
+            time.sleep(3)
+
 
     monitor = SvcMonitor(vnc_api, args)
     ssrc_task = gevent.spawn(launch_ssrc, monitor)

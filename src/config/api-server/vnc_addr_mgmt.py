@@ -327,18 +327,18 @@ class AddrMgmt(object):
         # given a VN return its subnets in list of net/prefixlen strings
 
         ipam_refs = obj_dict.get('network_ipam_refs', None)
-        subnet_list = None
-        if ipam_refs:
+        if ipam_refs != None:
+            subnet_list = []
             for ref in ipam_refs:
                 vnsn_data = ref['attr']
                 ipam_subnets = vnsn_data['ipam_subnets']
                 for ipam_subnet in ipam_subnets:
-                    if not subnet_list:
-                        subnet_list = []
                     subnet = ipam_subnet['subnet']
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
                     subnet_list.append(subnet_name)
+        else:
+            subnet_list = None
 
         return subnet_list
     # end _vn_to_subnets
@@ -381,8 +381,17 @@ class AddrMgmt(object):
         #     requested [1.1.1.0/24] OR
         #     requested [1.1.1.0/28, 2.2.2.0/24]
         requested_subnets = self._vn_to_subnets(req_vn_dict)
-        if not requested_subnets:
+        if requested_subnets == None:
+            # subnets not modified in request
             return True, ""
+
+        # if all subnets are being removed, check for any iip backrefs
+        # or floating pools still present in DB version of VN
+        if len(requested_subnets) == 0:
+            if db_vn_dict.get('instance_ip_back_refs'):
+                return False, "Cannot Delete IP Block, Instance IP(s) in use"
+            if db_vn_dict.get('floating_ip_pools'):
+                return False, "Cannot Delete IP Block, Floating Pool(s) in use"
 
         instip_refs = db_vn_dict.get('instance_ip_back_refs', [])
         for ref in instip_refs:
