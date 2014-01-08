@@ -18,7 +18,7 @@ public:
     static const uint32_t kDnsMaxRetries = 2;
     static const uint32_t kDnsDefaultTtl = 84600;
 
-    enum IpcCommand {
+    enum InterTaskMessage {
         DNS_NONE,
         DNS_DEFAULT_RESPONSE,
         DNS_BIND_RESPONSE,
@@ -34,7 +34,7 @@ public:
         uint16_t xid;
         DnsHandler *handler;
 
-        DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h, IpcCommand cmd)
+        DnsIpc(uint8_t *msg, uint16_t id, DnsHandler *h, InterTaskMessage cmd)
             : InterTaskMsg(cmd), resp(msg), xid(id), handler(h) {}
 
         virtual ~DnsIpc() {
@@ -127,32 +127,29 @@ public:
     virtual ~DnsProto();
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
-    void UpdateDnsEntry(const VmInterface *vmitf,
-                        const std::string &name, const Ip4Address &ip, uint32_t plen,
+    void UpdateDnsEntry(const VmInterface *vmitf, const std::string &name,
+                        const Ip4Address &ip, uint32_t plen,
                         const std::string &vdns_name,
                         const autogen::VirtualDnsType &vdns_type,
                         bool is_floating, bool is_delete);
     bool UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
                         const Ip4Address &ip, bool is_deleted);
-    void IpamUpdate(IFMapNode *node);
-    void VdnsUpdate(IFMapNode *node);
+    void IpamNotify(IFMapNode *node);
+    void VdnsNotify(IFMapNode *node);
     uint16_t GetTransId();
 
     void SendDnsIpc(uint8_t *pkt);
-    void SendDnsIpc(IpcCommand cmd, uint16_t xid,
+    void SendDnsIpc(InterTaskMessage cmd, uint16_t xid,
                     uint8_t *msg = NULL, DnsHandler *handler = NULL);
-    void SendDnsUpdateIpc(DnsUpdateData *data,
-                          DnsAgentXmpp::XmppType type,
-                          const VmInterface *vm,
-                          bool floating = false);
-    void SendDnsUpdateIpc(const VmInterface *vm,
-                          const std::string &new_vdns,
+    void SendDnsUpdateIpc(DnsUpdateData *data, DnsAgentXmpp::XmppType type,
+                          const VmInterface *vm, bool floating = false);
+    void SendDnsUpdateIpc(const VmInterface *vm, const std::string &new_vdns,
                           const std::string &old_vdns,
                           const std::string &new_dom,
                           uint32_t ttl, bool is_floating);
     void SendDnsUpdateIpc(AgentDnsXmppChannel *channel);
 
-    const DnsUpdateSet &GetUpdateRequestSet() { return update_set_; }
+    const DnsUpdateSet &update_set() const { return update_set_; }
     void AddUpdateRequest(DnsUpdateIpc *ipc) { update_set_.insert(ipc); }
     void DelUpdateRequest(DnsUpdateIpc *ipc) { update_set_.erase(ipc); }
     DnsUpdateIpc *FindUpdateRequest(DnsUpdateIpc *ipc) {
@@ -162,30 +159,19 @@ public:
         return NULL;
     }
 
-    void AddDnsQuery(uint16_t xid, DnsHandler *handler) { 
-        dns_query_map_.insert(DnsBindQueryPair(xid, handler));
-    }
-    void DelDnsQuery(uint16_t xid) { dns_query_map_.erase(xid); }
-    bool IsDnsQueryInProgress(uint16_t xid) {
-        return dns_query_map_.find(xid) != dns_query_map_.end();
-    }
-    DnsHandler *GetDnsQueryHandler(uint16_t xid) {
-        DnsBindQueryMap::iterator it = dns_query_map_.find(xid);
-        if (it != dns_query_map_.end())
-            return it->second;
-        return NULL;
-    }
+    void AddDnsQuery(uint16_t xid, DnsHandler *handler);
+    void DelDnsQuery(uint16_t xid);
+    bool IsDnsQueryInProgress(uint16_t xid);
+    DnsHandler *GetDnsQueryHandler(uint16_t xid);
 
-    void AddVmRequest(DnsHandler::QueryKey *key) { curr_vm_requests_.insert(*key); }
-    void DelVmRequest(DnsHandler::QueryKey *key) { curr_vm_requests_.erase(*key); }
-    bool IsVmRequestDuplicate(DnsHandler::QueryKey *key) {
-        return curr_vm_requests_.find(*key) != curr_vm_requests_.end();
-    }
+    void AddVmRequest(DnsHandler::QueryKey *key);
+    void DelVmRequest(DnsHandler::QueryKey *key);
+    bool IsVmRequestDuplicate(DnsHandler::QueryKey *key);
 
-    uint32_t GetTimeout() { return timeout_; }
-    void SetTimeout(uint32_t timeout) { timeout_ = timeout; }
-    uint32_t GetMaxRetries() { return max_retries_; }
-    void SetMaxRetries(uint32_t retries) { max_retries_ = retries; }
+    uint32_t timeout() const { return timeout_; }
+    void set_timeout(uint32_t timeout) { timeout_ = timeout; }
+    uint32_t max_retries() const { return max_retries_; }
+    void set_max_retries(uint32_t retries) { max_retries_ = retries; }
 
     void IncrStatsReq() { stats_.requests++; }
     void IncrStatsRetransmitReq() { stats_.retransmit_reqs++; }
@@ -197,9 +183,9 @@ public:
     void ClearStats() { stats_.Reset(); }
 
 private:
-    void ItfUpdate(DBEntryBase *entry);
-    void VnUpdate(DBEntryBase *entry);
-    void ProcessUpdate(std::string name, bool is_deleted, bool is_ipam);
+    void InterfaceNotify(DBEntryBase *entry);
+    void VnNotify(DBEntryBase *entry);
+    void ProcessNotify(std::string name, bool is_deleted, bool is_ipam);
     void CheckForUpdate(IpVdnsMap &ipvdns, const VmInterface *vmitf,
                         const VnEntry *vn, const Ip4Address &ip,
                         std::string &vdns_name, std::string &domain,

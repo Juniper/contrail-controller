@@ -24,11 +24,12 @@ void ArpProto::Shutdown() {
 ArpProto::ArpProto(Agent *agent, boost::asio::io_service &io,
                    bool run_with_vrouter) :
     Proto(agent, "Agent::Services", PktHandler::ARP, io),
-    run_with_vrouter_(run_with_vrouter), ip_fabric_intf_index_(-1),
-    ip_fabric_intf_(NULL), gracious_arp_entry_(NULL), max_retries_(kMaxRetries),
-    retry_timeout_(kRetryTimeout), aging_timeout_(kAgingTimeout) {
+    run_with_vrouter_(run_with_vrouter), ip_fabric_interface_index_(-1),
+    ip_fabric_interface_(NULL), gracious_arp_entry_(NULL),
+    max_retries_(kMaxRetries), retry_timeout_(kRetryTimeout),
+    aging_timeout_(kAgingTimeout) {
 
-    memset(ip_fabric_intf_mac_, 0, ETH_ALEN);
+    memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
     vid_ = agent->GetVrfTable()->Register(
                   boost::bind(&ArpProto::VrfNotify, this, _1, _2));
     iid_ = agent->GetInterfaceTable()->Register(
@@ -41,7 +42,7 @@ ArpProto::~ArpProto() {
     agent_->GetVrfTable()->Unregister(vid_);
     agent_->GetInterfaceTable()->Unregister(iid_);
     agent_->GetNextHopTable()->Unregister(nhid_);
-    DelGraciousArpEntry();
+    del_gracious_arp_entry();
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
@@ -85,9 +86,9 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
 
     if (entry->IsDeleted()) {
         if (state) {
-            if (GraciousArpEntry() && GraciousArpEntry()->key().ip ==
-                                      route->GetIpAddress().to_ulong()) {
-                DelGraciousArpEntry();
+            if (gracious_arp_entry() && gracious_arp_entry()->key().ip ==
+                                        route->GetIpAddress().to_ulong()) {
+                del_gracious_arp_entry();
             }
             entry->ClearState(part->parent(), fabric_route_table_listener_);
             delete state;
@@ -99,7 +100,7 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         state = new ArpRouteState;
         state->seen_ = true;
         entry->SetState(part->parent(), fabric_route_table_listener_, state);
-        DelGraciousArpEntry();
+        del_gracious_arp_entry();
         //Send Grat ARP
         SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
                    route->GetIpAddress().to_ulong(), route->GetVrfEntry());
@@ -117,14 +118,14 @@ void ArpProto::InterfaceNotify(DBEntryBase *entry) {
     } else {
         if (itf->type() == Interface::PHYSICAL && 
             itf->name() == agent_->GetIpFabricItfName()) {
-            IPFabricIntf(itf);
-            IPFabricIntfIndex(itf->id());
+            set_ip_fabric_interface(itf);
+            set_ip_fabric_interface_index(itf->id());
             if (run_with_vrouter_) {
-                IPFabricIntfMac((char *)itf->mac().ether_addr_octet);
+                set_ip_fabric_interface_mac((char *)itf->mac().ether_addr_octet);
             } else {
                 char mac[ETH_ALEN];
                 memset(mac, 0, ETH_ALEN);
-                IPFabricIntfMac(mac);
+                set_ip_fabric_interface_mac(mac);
             }
         }
     }
@@ -156,7 +157,7 @@ bool ArpProto::TimerExpiry(ArpKey &key, ArpHandler::ArpMsgType timer_type) {
     return false;
 }
 
-void ArpProto::DelGraciousArpEntry() {
+void ArpProto::del_gracious_arp_entry() {
     if (gracious_arp_entry_) {
         delete gracious_arp_entry_;
         gracious_arp_entry_ = NULL;
@@ -210,4 +211,19 @@ void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type,
 void ArpProto::SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key) {
     ArpIpc *ipc = new ArpIpc(type, key);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
+}
+
+bool ArpProto::AddArpEntry(const ArpKey &key, ArpEntry *entry) {
+    return arp_cache_.insert(ArpCachePair(key, entry)).second;
+}
+
+bool ArpProto::DeleteArpEntry(const ArpKey &key) {
+    return (bool) arp_cache_.erase(key);
+}
+
+ArpEntry *ArpProto::FindArpEntry(const ArpKey &key) {
+    ArpCache::iterator it = arp_cache_.find(key);
+    if (it == arp_cache_.end())
+        return NULL;
+    return it->second;
 }

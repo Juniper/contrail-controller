@@ -725,7 +725,7 @@ void ShowDnsEntries::HandleRequest() const {
     AgentDnsEntries *resp = new AgentDnsEntries();
     std::vector<VmDnsSandesh> dns_list;
     const DnsProto::DnsUpdateSet &dns_update_set = 
-                    Agent::GetInstance()->GetDnsProto()->GetUpdateRequestSet();
+                    Agent::GetInstance()->GetDnsProto()->update_set();
     for (DnsProto::DnsUpdateSet::const_iterator it = dns_update_set.begin();
          it != dns_update_set.end(); ++it) {
         VmDnsSandesh vmdata;
@@ -759,7 +759,7 @@ void ShowArpCache::HandleRequest() const {
     resp->set_context(context());
     ArpSandesh *arp_sandesh = new ArpSandesh(resp);
     const ArpProto::ArpCache &cache =
-              (Agent::GetInstance()->GetArpProto()->GetArpCache());
+              (Agent::GetInstance()->GetArpProto()->arp_cache());
     for (ArpProto::ArpCache::const_iterator it = cache.begin();
          it != cache.end(); it++) {
         if (!arp_sandesh->SetArpEntry(it->first, it->second))

@@ -32,13 +32,13 @@ DnsProto::DnsProto(Agent *agent, boost::asio::io_service &io) :
     Proto(agent, "Agent::Services", PktHandler::DNS, io),
     xid_(0), timeout_(kDnsTimeout), max_retries_(kDnsMaxRetries) {
     lid_ = agent->GetInterfaceTable()->Register(
-                  boost::bind(&DnsProto::ItfUpdate, this, _2));
+                  boost::bind(&DnsProto::InterfaceNotify, this, _2));
     Vnlid_ = agent->GetVnTable()->Register(
-                  boost::bind(&DnsProto::VnUpdate, this, _2));
+                  boost::bind(&DnsProto::VnNotify, this, _2));
     agent->GetDomainConfigTable()->RegisterIpamCb(
-                  boost::bind(&DnsProto::IpamUpdate, this, _1));
+                  boost::bind(&DnsProto::IpamNotify, this, _1));
     agent->GetDomainConfigTable()->RegisterVdnsCb(
-                  boost::bind(&DnsProto::VdnsUpdate, this, _1));
+                  boost::bind(&DnsProto::VdnsNotify, this, _1));
 }
 
 DnsProto::~DnsProto() {
@@ -51,7 +51,7 @@ ProtoHandler *DnsProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new DnsHandler(agent(), info, io);
 }
 
-void DnsProto::ItfUpdate(DBEntryBase *entry) {
+void DnsProto::InterfaceNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (itf->type() != Interface::VM_INTERFACE)
         return;
@@ -81,7 +81,7 @@ void DnsProto::ItfUpdate(DBEntryBase *entry) {
     }
 }
 
-void DnsProto::VnUpdate(DBEntryBase *entry) {
+void DnsProto::VnNotify(DBEntryBase *entry) {
     const VnEntry *vn = static_cast<const VnEntry *>(entry);
     if (vn->IsDeleted() || vn->GetVnIpam().size() == 0)
         return;
@@ -108,13 +108,13 @@ void DnsProto::VnUpdate(DBEntryBase *entry) {
     }
 }
 
-void DnsProto::IpamUpdate(IFMapNode *node) {
+void DnsProto::IpamNotify(IFMapNode *node) {
     if (node->IsDeleted())
         return;
-    ProcessUpdate(node->name(), node->IsDeleted(), true);
+    ProcessNotify(node->name(), node->IsDeleted(), true);
 }
 
-void DnsProto::VdnsUpdate(IFMapNode *node) {
+void DnsProto::VdnsNotify(IFMapNode *node) {
     // Update any existing records prior to checking for new ones
     if (!node->IsDeleted()) {
         autogen::VirtualDns *virtual_dns =
@@ -124,10 +124,10 @@ void DnsProto::VdnsUpdate(IFMapNode *node) {
         UpdateDnsEntry(NULL, name, name, vdns_type.domain_name,
                        (uint32_t)vdns_type.default_ttl_seconds, false);
     }
-    ProcessUpdate(node->name(), node->IsDeleted(), false);
+    ProcessNotify(node->name(), node->IsDeleted(), false);
 }
 
-void DnsProto::ProcessUpdate(std::string name, bool is_deleted, bool is_ipam) {
+void DnsProto::ProcessNotify(std::string name, bool is_deleted, bool is_ipam) {
     for (VmDataMap::iterator it = all_vms_.begin(); it != all_vms_.end(); ++it) {
         uint32_t ttl = kDnsDefaultTtl;
         std::string vdns_name, domain;
@@ -256,15 +256,18 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
 }
 
 bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
-                              const std::string &vdns_name, const Ip4Address &ip,
+                              const std::string &vdns_name,
+                              const Ip4Address &ip,
                               bool is_floating, bool is_deleted) {
     if (!vdns_name.empty()) {
         uint32_t plen = 0;
         const std::vector<VnIpam> &ipam = vn->GetVnIpam();
         unsigned int i;
         for (i = 0; i < ipam.size(); ++i) {
-            uint32_t mask = ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
-            if ((ip.to_ulong() & mask) == (ipam[i].ip_prefix.to_ulong() & mask)) {
+            uint32_t mask =
+                ipam[i].plen ? (0xFFFFFFFF << (32 - ipam[i].plen)) : 0;
+            if ((ip.to_ulong() & mask) ==
+                (ipam[i].ip_prefix.to_ulong() & mask)) {
                 plen = ipam[i].plen;
                 break;
             }
@@ -295,8 +298,10 @@ bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf, const VnEntry *vn,
 
 // Move DNS entries for a VM from one VDNS to another
 bool DnsProto::UpdateDnsEntry(const VmInterface *vmitf,
-                              std::string &new_vdns_name, std::string &old_vdns_name,
-                              std::string &new_domain, uint32_t ttl, bool is_floating) {
+                              std::string &new_vdns_name,
+                              std::string &old_vdns_name,
+                              std::string &new_domain,
+                              uint32_t ttl, bool is_floating) {
     std::string name = (vmitf ? vmitf->vm_name() : "All Vms");
     DNS_BIND_TRACE(DnsBindTrace, "VDNS modify for VM <" << name <<
                    " old VDNS : " << old_vdns_name <<
@@ -337,7 +342,7 @@ void DnsProto::SendDnsIpc(uint8_t *pkt) {
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
 }
 
-void DnsProto::SendDnsIpc(IpcCommand cmd, uint16_t xid, uint8_t *msg,
+void DnsProto::SendDnsIpc(InterTaskMessage cmd, uint16_t xid, uint8_t *msg,
                           DnsHandler *handler) {
     DnsIpc *ipc = new DnsIpc(msg, xid, handler, cmd);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
@@ -363,4 +368,35 @@ void DnsProto::SendDnsUpdateIpc(const VmInterface *vm,
 void DnsProto::SendDnsUpdateIpc(AgentDnsXmppChannel *channel) {
     DnsUpdateAllIpc *ipc = new DnsUpdateAllIpc(channel);
     agent_->pkt()->pkt_handler()->SendMessage(PktHandler::DNS, ipc);
+}
+
+void DnsProto::AddDnsQuery(uint16_t xid, DnsHandler *handler) { 
+    dns_query_map_.insert(DnsBindQueryPair(xid, handler));
+}
+
+void DnsProto::DelDnsQuery(uint16_t xid) {
+    dns_query_map_.erase(xid);
+}
+
+bool DnsProto::IsDnsQueryInProgress(uint16_t xid) {
+    return dns_query_map_.find(xid) != dns_query_map_.end();
+}
+
+DnsHandler *DnsProto::GetDnsQueryHandler(uint16_t xid) {
+    DnsBindQueryMap::iterator it = dns_query_map_.find(xid);
+    if (it != dns_query_map_.end())
+        return it->second;
+    return NULL;
+}
+
+void DnsProto::AddVmRequest(DnsHandler::QueryKey *key) {
+    curr_vm_requests_.insert(*key);
+}
+
+void DnsProto::DelVmRequest(DnsHandler::QueryKey *key) {
+    curr_vm_requests_.erase(*key);
+}
+
+bool DnsProto::IsVmRequestDuplicate(DnsHandler::QueryKey *key) {
+    return curr_vm_requests_.find(*key) != curr_vm_requests_.end();
 }

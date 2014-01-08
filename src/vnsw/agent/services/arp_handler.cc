@@ -9,9 +9,21 @@
 #include "services/services_init.h"
 #include "services/services_sandesh.h"
 
+ArpHandler::ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                       boost::asio::io_service &io)
+    : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) {
+}
+
+ArpHandler::ArpHandler(Agent *agent, boost::asio::io_service &io) 
+    : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) {
+}
+
+ArpHandler::~ArpHandler() {
+}
+
 bool ArpHandler::Run() {
     // Process ARP only when the IP Fabric interface is configured
-    if (agent()->GetArpProto()->IPFabricIntf() == NULL)
+    if (agent()->GetArpProto()->ip_fabric_interface() == NULL)
         return true;
 
     switch(pkt_info_->type) {
@@ -122,7 +134,7 @@ bool ArpHandler::HandlePacket() {
     }
 
     ArpKey key(arp_tpa_, vrf);
-    ArpEntry *entry = arp_proto->Find(key);
+    ArpEntry *entry = arp_proto->FindArpEntry(key);
 
     switch (arp_cmd) {
         case ARPOP_REQUEST: {
@@ -132,7 +144,7 @@ bool ArpHandler::HandlePacket() {
                 return true;
             } else {
                 entry = new ArpEntry(io_, this, arp_tpa_, vrf);
-                arp_proto->Add(entry->key(), entry);
+                arp_proto->AddArpEntry(entry->key(), entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
                 entry->HandleArpRequest();
@@ -156,7 +168,7 @@ bool ArpHandler::HandlePacket() {
             } else {
                 entry = new ArpEntry(io_, this, arp_tpa_, vrf);
                 entry->HandleArpReply(arp_->arp_sha);
-                arp_proto->Add(entry->key(), entry);
+                arp_proto->AddArpEntry(entry->key(), entry);
                 delete[] pkt_info_->pkt;
                 pkt_info_->pkt = NULL;
                 return false;
@@ -175,7 +187,7 @@ bool ArpHandler::HandleMessage() {
     ArpProto *arp_proto = agent()->GetArpProto();
     switch(pkt_info_->ipc->cmd) {
         case VRF_DELETE: {
-            const ArpProto::ArpCache &cache = arp_proto->GetArpCache();
+            const ArpProto::ArpCache &cache = arp_proto->arp_cache();
             for (ArpProto::ArpCache::const_iterator it = cache.begin();
                  it != cache.end(); it++) {
                 OnVrfDelete(it->second, ipc->key.vrf);
@@ -189,21 +201,21 @@ bool ArpHandler::HandleMessage() {
         }
 
         case ITF_DELETE: {
-            const ArpProto::ArpCache &cache = arp_proto->GetArpCache();
+            const ArpProto::ArpCache &cache = arp_proto->arp_cache();
             for (ArpProto::ArpCache::const_iterator it = cache.begin();
                  it != cache.end(); it++) {
-                EntryDelete(it->second);
+                it->second->Delete();
             }
-            arp_proto->IPFabricIntf(NULL);
-            arp_proto->IPFabricIntfIndex(-1);
+            arp_proto->set_ip_fabric_interface(NULL);
+            arp_proto->set_ip_fabric_interface_index(-1);
             break;
         }
 
         case ARP_RESOLVE: {
-            ArpEntry *entry = arp_proto->Find(ipc->key);
+            ArpEntry *entry = arp_proto->FindArpEntry(ipc->key);
             if (!entry) {
                 entry = new ArpEntry(io_, this, ipc->key.ip, ipc->key.vrf);
-                arp_proto->Add(entry->key(), entry);
+                arp_proto->AddArpEntry(entry->key(), entry);
                 entry->HandleArpRequest();
                 arp_proto->StatsArpReq();
                 ret = false;
@@ -212,35 +224,36 @@ bool ArpHandler::HandleMessage() {
         }
 
         case RETRY_TIMER_EXPIRED: {
-            if (ArpEntry *entry = arp_proto->Find(ipc->key))
+            if (ArpEntry *entry = arp_proto->FindArpEntry(ipc->key))
                 entry->RetryExpiry();
             break;
         }
 
         case AGING_TIMER_EXPIRED: {
-            if (ArpEntry *entry = arp_proto->Find(ipc->key))
+            if (ArpEntry *entry = arp_proto->FindArpEntry(ipc->key))
                 entry->AgingExpiry();
             break;
         }
 
         case ARP_SEND_GRACIOUS: {
-            if (!arp_proto->GraciousArpEntry()) {
-                arp_proto->GraciousArpEntry(new ArpEntry(io_, this, ipc->key.ip,
-                                            ipc->key.vrf, ArpEntry::ACTIVE));
+            if (!arp_proto->gracious_arp_entry()) {
+                arp_proto->set_gracious_arp_entry(
+                           new ArpEntry(io_, this, ipc->key.ip,
+                                        ipc->key.vrf, ArpEntry::ACTIVE));
                 ret = false;
             }
-            arp_proto->GraciousArpEntry()->SendGraciousArp();
+            arp_proto->gracious_arp_entry()->SendGraciousArp();
             break;
         }
 
         case GRACIOUS_TIMER_EXPIRED: {
-            if (arp_proto->GraciousArpEntry())
-                arp_proto->GraciousArpEntry()->SendGraciousArp();
+            if (arp_proto->gracious_arp_entry())
+                arp_proto->gracious_arp_entry()->SendGraciousArp();
             break;
         }
 
         case ARP_DELETE: {
-            EntryDeleteWithKey(ipc->key);
+            EntryDelete(ipc->key);
             break;
         }
 
@@ -257,16 +270,11 @@ bool ArpHandler::OnVrfDelete(ArpEntry *entry, const VrfEntry *vrf) {
     return true;
 }
 
-bool ArpHandler::EntryDelete(ArpEntry *entry) {
-    entry->Delete();
-    return true;
-}
-
-void ArpHandler::EntryDeleteWithKey(ArpKey &key) {
+void ArpHandler::EntryDelete(ArpKey &key) {
     ArpProto *arp_proto = agent()->GetArpProto();
-    ArpEntry *entry = arp_proto->Find(key);
+    ArpEntry *entry = arp_proto->FindArpEntry(key);
     if (entry) {
-        arp_proto->Delete(key);
+        arp_proto->DeleteArpEntry(key);
         // this request comes when ARP NH is deleted; nothing more to do
         delete entry;
     }

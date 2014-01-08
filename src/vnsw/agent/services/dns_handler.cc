@@ -331,7 +331,7 @@ bool DnsHandler::SendDnsQuery() {
     DnsProto *dns_proto = agent()->GetDnsProto();
     bool in_progress = dns_proto->IsDnsQueryInProgress(xid_);
     if (in_progress) {
-        if (retries_ >= dns_proto->GetMaxRetries()) {
+        if (retries_ >= dns_proto->max_retries()) {
             DNS_BIND_TRACE(DnsBindTrace, 
                            "Max retries reached for query; xid = " << xid_ <<
                            "; " << DnsItemsToString(items_) << ";");
@@ -349,7 +349,7 @@ bool DnsHandler::SendDnsQuery() {
                                           len)) {
         DNS_BIND_TRACE(DnsBindTrace, "DNS query sent to server; xid = " << 
                        xid_ << "; " << DnsItemsToString(items_) << ";");
-        timer_->Start(dns_proto->GetTimeout(),
+        timer_->Start(dns_proto->timeout(),
                       boost::bind(&DnsHandler::TimerExpiry, this, xid_));
         return true;
     } 
@@ -470,7 +470,7 @@ bool DnsHandler::HandleModifyVdns() {
         static_cast<DnsProto::DnsUpdateIpc *>(pkt_info_->ipc);
     DnsProto *dns_proto = agent()->GetDnsProto();
     std::vector<DnsProto::DnsUpdateIpc *> change_list;
-    const DnsProto::DnsUpdateSet &update_set = dns_proto->GetUpdateRequestSet();
+    const DnsProto::DnsUpdateSet &update_set = dns_proto->update_set();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin();
          it != update_set.end(); ++it) {
         if ((ipc->itf &&
@@ -523,7 +523,7 @@ bool DnsHandler::UpdateAll() {
     DnsProto::DnsUpdateAllIpc *ipc =
         static_cast<DnsProto::DnsUpdateAllIpc *>(pkt_info_->ipc);
     const DnsProto::DnsUpdateSet &update_set =
-        agent()->GetDnsProto()->GetUpdateRequestSet();
+        agent()->GetDnsProto()->update_set();
     for (DnsProto::DnsUpdateSet::const_iterator it = update_set.begin(); 
          it != update_set.end(); ++it) {
         SendXmppUpdate(ipc->channel, (*it)->xmpp_data);

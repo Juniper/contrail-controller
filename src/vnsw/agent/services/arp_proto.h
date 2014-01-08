@@ -22,8 +22,6 @@ struct ArpRouteState : public DBState {
     bool seen_;
 };
 
-class ArpEntry;
-
 class ArpProto : public Proto {
 public:
     static const uint16_t kGratRetries = 2;
@@ -35,6 +33,14 @@ public:
     typedef std::map<ArpKey, ArpEntry *> ArpCache;
     typedef std::pair<ArpKey, ArpEntry *> ArpCachePair;
     typedef boost::function<bool(const ArpKey &, ArpEntry *)> Callback;
+
+    struct ArpIpc : InterTaskMsg {
+        ArpKey key;
+        ArpIpc(ArpHandler::ArpMsgType msg, ArpKey &akey)
+            : InterTaskMsg(msg), key(akey) {}
+        ArpIpc(ArpHandler::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
+            InterTaskMsg(msg), key(ip, vrf) {}
+    };
 
     struct ArpStats {
         uint32_t pkts_dropped;
@@ -52,14 +58,6 @@ public:
         ArpStats() { Reset(); }
     };
 
-    struct ArpIpc : InterTaskMsg {
-        ArpKey key;
-        ArpIpc(ArpHandler::ArpMsgType msg, ArpKey &akey)
-            : InterTaskMsg(msg), key(akey) {}
-        ArpIpc(ArpHandler::ArpMsgType msg, in_addr_t ip, const VrfEntry *vrf) : 
-            InterTaskMsg(msg), key(ip, vrf) {}
-    };
-
     void Init();
     void Shutdown();
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
@@ -72,33 +70,30 @@ public:
                    const Interface &intf, DBRequest::DBOperation op, 
                    bool resolved);
 
-    bool Add(const ArpKey &key, ArpEntry *entry) {
-        return arp_cache_.insert(ArpCachePair(key, entry)).second;
-    }
-    bool Delete(const ArpKey &key) { return (bool) arp_cache_.erase(key); }
-    ArpEntry *Find(const ArpKey &key) {
-        ArpCache::iterator it = arp_cache_.find(key);
-        if (it == arp_cache_.end())
-            return NULL;
-        return it->second;
-    }
+    bool AddArpEntry(const ArpKey &key, ArpEntry *entry);
+    bool DeleteArpEntry(const ArpKey &key);
+    ArpEntry *FindArpEntry(const ArpKey &key);
     std::size_t GetArpCacheSize() { return arp_cache_.size(); }
-    const ArpCache& GetArpCache() { return arp_cache_; }
+    const ArpCache& arp_cache() { return arp_cache_; }
 
-    Interface *IPFabricIntf() { return ip_fabric_intf_; }
-    void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
-    uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
-    void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
-    unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
-    void IPFabricIntfMac(char *mac) { 
-        memcpy(ip_fabric_intf_mac_, mac, ETH_ALEN);
+    Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
+    uint16_t ip_fabric_interface_index() const {
+        return ip_fabric_interface_index_;
+    }
+    const unsigned char *ip_fabric_interface_mac() const { 
+        return ip_fabric_interface_mac_;
+    }
+    void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
+    void set_ip_fabric_interface_index(uint16_t ind) {
+        ip_fabric_interface_index_ = ind;
+    }
+    void set_ip_fabric_interface_mac(char *mac) { 
+        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
     }
 
-    boost::asio::io_service &GetIoService() { return Proto::io_; }
-
-    ArpEntry *GraciousArpEntry() { return gracious_arp_entry_; }
-    void GraciousArpEntry(ArpEntry *entry) { gracious_arp_entry_ = entry; }
-    void DelGraciousArpEntry();
+    ArpEntry *gracious_arp_entry() const { return gracious_arp_entry_; }
+    void set_gracious_arp_entry(ArpEntry *entry) { gracious_arp_entry_ = entry; }
+    void del_gracious_arp_entry();
 
     void StatsPktsDropped() { arp_stats_.pkts_dropped++; }
     void StatsArpReq() { arp_stats_.arp_req++; }
@@ -110,12 +105,12 @@ public:
     ArpStats GetStats() { return arp_stats_; }
     void ClearStats() { arp_stats_.Reset(); }
 
-    uint16_t MaxRetries() { return max_retries_; }
-    void MaxRetries(uint16_t retries) { max_retries_ = retries; }
-    uint32_t RetryTimeout() { return retry_timeout_; }
-    void RetryTimeout(uint32_t timeout) { retry_timeout_ = timeout; }
-    uint32_t AgingTimeout() { return aging_timeout_; }
-    void AgingTimeout(uint32_t timeout) { aging_timeout_ = timeout; }
+    uint16_t max_retries() const { return max_retries_; }
+    uint32_t retry_timeout() const { return retry_timeout_; }
+    uint32_t aging_timeout() const { return aging_timeout_; }
+    void set_max_retries(uint16_t retries) { max_retries_ = retries; }
+    void set_retry_timeout(uint32_t timeout) { retry_timeout_ = timeout; }
+    void set_aging_timeout(uint32_t timeout) { aging_timeout_ = timeout; }
 
 private:
     void VrfNotify(DBTablePartBase *part, DBEntryBase *entry);
@@ -126,13 +121,12 @@ private:
                     in_addr_t ip, const VrfEntry *vrf);
     void SendArpIpc(ArpHandler::ArpMsgType type, ArpKey &key);
 
-
     ArpCache arp_cache_;
     ArpStats arp_stats_;
     bool run_with_vrouter_;
-    uint16_t ip_fabric_intf_index_;
-    unsigned char ip_fabric_intf_mac_[ETH_ALEN];
-    Interface *ip_fabric_intf_;
+    uint16_t ip_fabric_interface_index_;
+    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
+    Interface *ip_fabric_interface_;
     ArpEntry *gracious_arp_entry_;
     DBTableBase::ListenerId vid_;
     DBTableBase::ListenerId iid_;

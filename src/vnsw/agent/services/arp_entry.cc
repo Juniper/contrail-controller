@@ -40,7 +40,7 @@ void ArpEntry::HandleArpReply(uint8_t *mac) {
         if (state_ == ArpEntry::RESOLVING)
             arp_proto->StatsResolved();
         state_ = ArpEntry::ACTIVE;
-        StartTimer(arp_proto->AgingTimeout(), ArpHandler::AGING_TIMER_EXPIRED);
+        StartTimer(arp_proto->aging_timeout(), ArpHandler::AGING_TIMER_EXPIRED);
         UpdateNhDBEntry(DBRequest::DB_ENTRY_ADD_CHANGE, true);
     }
 }
@@ -49,7 +49,7 @@ void ArpEntry::RetryExpiry() {
     if (state_ & ArpEntry::ACTIVE)
         return;
     ArpProto *arp_proto = handler_->agent()->GetArpProto();
-    if (retry_count_ < arp_proto->MaxRetries()) {
+    if (retry_count_ < arp_proto->max_retries()) {
         retry_count_++;
         SendArpRequest();
     } else {
@@ -80,10 +80,10 @@ void ArpEntry::SendGraciousArp() {
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
     if (agent->GetRouterIdConfigured()) {
-        handler_->SendArp(ARPOP_REQUEST, arp_proto->IPFabricIntfMac(),
+        handler_->SendArp(ARPOP_REQUEST, arp_proto->ip_fabric_interface_mac(),
                           agent->GetRouterId().to_ulong(), zero_mac,
                           agent->GetRouterId().to_ulong(),
-                          arp_proto->IPFabricIntfIndex(), 
+                          arp_proto->ip_fabric_interface_index(), 
                           key_.vrf->GetVrfId());
     }
 
@@ -114,8 +114,8 @@ void ArpEntry::StartTimer(uint32_t timeout, ArpHandler::ArpMsgType mtype) {
 void ArpEntry::SendArpRequest() {
     Agent *agent = handler_->agent();
     ArpProto *arp_proto = agent->GetArpProto();
-    uint16_t itf_index = arp_proto->IPFabricIntfIndex();
-    const unsigned char *smac = arp_proto->IPFabricIntfMac();
+    uint16_t itf_index = arp_proto->ip_fabric_interface_index();
+    const unsigned char *smac = arp_proto->ip_fabric_interface_mac();
     Ip4Address ip = agent->GetRouterId();
 
     handler_->SendArp(ARPOP_REQUEST, smac, ip.to_ulong(), 
@@ -123,7 +123,7 @@ void ArpEntry::SendArpRequest() {
                       agent->GetVrfTable()->FindVrfFromName(
                           agent->GetDefaultVrf())->GetVrfId());
 
-    StartTimer(arp_proto->RetryTimeout(), ArpHandler::RETRY_TIMER_EXPIRED);
+    StartTimer(arp_proto->retry_timeout(), ArpHandler::RETRY_TIMER_EXPIRED);
 }
 
 void ArpEntry::UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved) {
@@ -131,7 +131,7 @@ void ArpEntry::UpdateNhDBEntry(DBRequest::DBOperation op, bool resolved) {
     struct ether_addr mac;
     memcpy(mac.ether_addr_octet, mac_address_, ETH_ALEN);
     ArpProto *arp_proto = handler_->agent()->GetArpProto();
-    Interface *itf = arp_proto->IPFabricIntf();
+    Interface *itf = arp_proto->ip_fabric_interface();
     if (key_.vrf->GetName() == handler_->agent()->GetLinkLocalVrfName()) {
         // Do not squash existing route entry.
         // UpdateArp should be smarter and not replace an existing route.

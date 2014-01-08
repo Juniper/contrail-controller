@@ -39,13 +39,19 @@ public:
     ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io);
 
-    Interface *IPFabricIntf() { return ip_fabric_intf_; }
-    void IPFabricIntf(Interface *itf) { ip_fabric_intf_ = itf; }
-    uint16_t IPFabricIntfIndex() { return ip_fabric_intf_index_; }
-    void IPFabricIntfIndex(uint16_t ind) { ip_fabric_intf_index_ = ind; }
-    unsigned char *IPFabricIntfMac() { return ip_fabric_intf_mac_; }
-    void IPFabricIntfMac(char *mac) {
-        memcpy(ip_fabric_intf_mac_, mac, ETH_ALEN);
+    Interface *ip_fabric_interface() const { return ip_fabric_interface_; }
+    void set_ip_fabric_interface(Interface *itf) { ip_fabric_interface_ = itf; }
+    uint16_t ip_fabric_interface_index() const {
+        return ip_fabric_interface_index_;
+    }
+    void set_ip_fabric_interface_index(uint16_t ind) {
+        ip_fabric_interface_index_ = ind;
+    }
+    const unsigned char *ip_fabric_interface_mac() const {
+        return ip_fabric_interface_mac_;
+    }
+    void set_ip_fabric_interface_mac(char *mac) {
+        memcpy(ip_fabric_interface_mac_, mac, ETH_ALEN);
     }
 
     void IncrStatsDiscover() { stats_.discover++; }
@@ -66,9 +72,9 @@ private:
     void ItfUpdate(DBEntryBase *entry);
 
     bool run_with_vrouter_;
-    Interface *ip_fabric_intf_;
-    uint16_t ip_fabric_intf_index_;
-    unsigned char ip_fabric_intf_mac_[ETH_ALEN];
+    Interface *ip_fabric_interface_;
+    uint16_t ip_fabric_interface_index_;
+    unsigned char ip_fabric_interface_mac_[ETH_ALEN];
     DBTableBase::ListenerId iid_;
     DhcpStats stats_;
 

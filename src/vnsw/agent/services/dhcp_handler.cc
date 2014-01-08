@@ -41,7 +41,7 @@ bool DhcpHandler::Run() {
     }
 
     // We snoop DHCP packets to / from VM interfaces in default VRF
-    if (itf == dhcp_proto->IPFabricIntf()) {
+    if (itf == dhcp_proto->ip_fabric_interface()) {
         RelayResponseFromFabric();
         return true;
     }
@@ -428,7 +428,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
     IpHdr(pkt_info_->len, in_pkt_info.ip->saddr,
           in_pkt_info.ip->daddr, IPPROTO_UDP);
     if (is_request) {
-        EthHdr(agent()->GetDhcpProto()->IPFabricIntfMac(),
+        EthHdr(agent()->GetDhcpProto()->ip_fabric_interface_mac(),
                in_pkt_info.eth->h_dest, 0x800);
     } else {
         EthHdr(in_pkt_info.eth->h_source, dhcp->chaddr, 0x800);
@@ -440,7 +440,7 @@ bool DhcpHandler::CreateRelayPacket(bool is_request) {
 void DhcpHandler::RelayRequestToFabric() {
     CreateRelayPacket(true);
     DhcpProto *dhcp_proto = agent()->GetDhcpProto();
-    Send(pkt_info_->len, dhcp_proto->IPFabricIntfIndex(),
+    Send(pkt_info_->len, dhcp_proto->ip_fabric_interface_index(),
          pkt_info_->vrf, AGENT_CMD_SWITCH, PktHandler::DHCP);
     dhcp_proto->IncrStatsRelayReqs();
 }

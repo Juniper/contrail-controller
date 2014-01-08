@@ -26,23 +26,20 @@ public:
     };
 
     ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
-               boost::asio::io_service &io)
-             : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) { }
-    ArpHandler(Agent *agent, boost::asio::io_service &io) 
-             : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) { }
-    virtual ~ArpHandler() {}
-    bool Run();
+               boost::asio::io_service &io);
+    ArpHandler(Agent *agent, boost::asio::io_service &io);
+    virtual ~ArpHandler();
 
+    bool Run();
     void SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip, 
                  unsigned const char *tmac, in_addr_t tip, 
                  uint16_t itf, uint16_t vrf);
-    bool EntryDelete(ArpEntry *entry);
-    void EntryDeleteWithKey(ArpKey &key);
 
 private:
     bool HandlePacket();
     bool HandleMessage();
     bool OnVrfDelete(ArpEntry *entry, const VrfEntry *vrf);
+    void EntryDelete(ArpKey &key);
     uint16_t ArpHdr(const unsigned char *, in_addr_t, const unsigned char *, 
                     in_addr_t, uint16_t);
 
