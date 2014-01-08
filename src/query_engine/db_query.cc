@@ -33,8 +33,17 @@ query_status_t DbQueryUnit::process_query()
         if (t_only_row)
         {
             rowkey.push_back(t2);
+            if (m_query->is_flow_query()) {
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+            }
         } else {
             rowkey.push_back(t2);
+            if (m_query->is_flow_query()) {
+                uint8_t partition_no = 0;
+                rowkey.push_back(partition_no);
+            }
+
             for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
                     it!=row_key_suffix.end(); it++) {
                 rowkey.push_back(*it);
@@ -65,6 +74,15 @@ query_status_t DbQueryUnit::process_query()
                         assert(i->value.size()==1);                        
                         try {
                             t1 = boost::get<uint32_t>(i->name[2]);
+                        } catch (boost::bad_get& ex) {
+                            assert(0);
+                        }
+                    } else if (m_query->is_flow_query()) {
+                        int ts_at = i->name.size() - 2;
+                        assert(ts_at >= 0);
+                        
+                        try {
+                            t1 = boost::get<uint32_t>(i->name.at(ts_at));
                         } catch (boost::bad_get& ex) {
                             assert(0);
                         }

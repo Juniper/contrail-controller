@@ -247,6 +247,7 @@ query_status_t SelectQuery::process_fs_query(
         flow_stats stats;
         flow_tuple tuple;
         where_result_it->get_uuid_stats_8tuple(uuid, stats, tuple);
+        tuple.direction = mquery->wherequery_->direction_ing;
         uint64_t t = where_result_it->timestamp;
         // Check if the timestamp is interesting to us
         if (t < mquery->from_time || t > mquery->end_time) {

@@ -178,6 +178,8 @@ public:
         return unresolved_rt_tree_.begin(); };
     const_rt_iterator unresolved_route_end() { 
         return unresolved_rt_tree_.end(); };
+    int unresolved_route_size() { return unresolved_rt_tree_.size(); }
+
     const_nh_iterator unresolved_nh_begin() { 
         return unresolved_nh_tree_.begin(); };
     const_nh_iterator unresolved_nh_end() { 
@@ -773,37 +775,35 @@ public:
     static void AddResolveRoute(const string &vrf_name, 
                                 const Ip4Address &ip, 
                                 const uint8_t plen); 
-    static void AddVHostInterfaceRoute(const Peer *peer, const string &vm_vrf,
-                                       const Ip4Address &addr, uint8_t plen,
-                                       const string &interface, uint32_t label,
-                                       const string &vn_name);
-    static void AddVHostRecvRoute(const Peer *peer,
-                                  const string &vm_vrf,
-                                  const string &interface_name,
-                                  const Ip4Address &addr,
-                                  uint8_t plen,
-                                  const string &vn,
-                                  bool policy);
-    static void AddVHostRecvRoute(const string &vm_vrf,
-                                  const string &interface_name,
-                                  const Ip4Address &addr,
-                                  bool policy);
-    static void AddVHostRecvRoute(const string &vm_vrf,
-                                  const string &interface_name,
-                                  const Ip4Address &addr,
-                                  const string &vn,
-                                  bool policy);
-    static void AddVHostSubnetRecvRoute(const string &vm_vrf, 
-                                        const string &interface_name,
-                                        const Ip4Address &addr, uint8_t plen, 
+    static void AddInetInterfaceRoute(const Peer *peer, const string &vm_vrf,
+                                      const Ip4Address &addr, uint8_t plen,
+                                      const string &interface, uint32_t label,
+                                      const string &vn_name);
+    static void AddVHostRecvRoute(const Peer *peer, const string &vrf,
+                                  const string &interface,
+                                  const Ip4Address &addr, uint8_t plen,
+                                  const string &vn_name, bool policy);
+    static void AddVHostRecvRouteReq(const Peer *peer, const string &vrf,
+                                     const string &interface,
+                                     const Ip4Address &addr, uint8_t plen,
+                                     const string &vn_name, bool policy);
+    static void AddVHostSubnetRecvRoute(const Peer *peer, const string &vrf,
+                                        const string &interface,
+                                        const Ip4Address &addr, uint8_t plen,
+                                        const std::string &vn_name,
                                         bool policy);
+    static void DelVHostSubnetRecvRoute(const string &vm_vrf,
+                                        const Ip4Address &addr, uint8_t plen);
     static void AddDropRoute(const string &vm_vrf,
                              const Ip4Address &addr, uint8_t plen);
-    static void DelVHostSubnetRecvRoute(const string &vm_vrf, 
-                                        const Ip4Address &addr, uint8_t plen);
-    static void AddGatewayRoute(const Peer *peer, const string &vrf_name,
+    static void AddGatewayRoute(const string &vrf_name,
                                 const Ip4Address &dst_addr,uint8_t plen,
-                                const Ip4Address &gw_ip);
+                                const Ip4Address &gw_ip,
+                                const std::string &vn_name);
+    static void AddGatewayRouteReq(const string &vrf_name,
+                                   const Ip4Address &dst_addr,uint8_t plen,
+                                   const Ip4Address &gw_ip,
+                                   const std::string &vn_name);
 
 private:
     Inet4RouteTree tree_;
@@ -875,7 +875,8 @@ public:
     static void DeleteMulticastRoute(const string &vrf_name, 
                                      const Ip4Address &src_addr,
                                      const Ip4Address &grp_addr); 
-
+    static void Delete(const string &vrf_name, const Ip4Address &src_addr,
+                       const Ip4Address &grp_addr);
 private:
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(Inet4MulticastAgentRouteTable);

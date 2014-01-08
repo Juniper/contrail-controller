@@ -14,6 +14,8 @@ const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
+const string INSTANCE_ID            = "InstanceId"
+const string NODE_TYPE              = "NodeType"
 const string TIMESTAMP              = "MessageTS"
 const string SANDESH_TYPE           = "Type"
 const string CATEGORY               = "Category"
@@ -165,7 +167,7 @@ const map<FlowRecordFields, string> FlowRecordNames = {
 
 /* REDIS RELATED NAMES/CONSTANTS */
 
-const string GENERATORS_SET         = "GENERATORS"
+const string GENERATORS_SET         = "NGENERATORS"
 const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 
 // each row will have equivalent of 2^23 = 8388608 usec
@@ -278,6 +280,7 @@ struct query_table
 
 struct stat_table
 {
+    6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
@@ -292,6 +295,7 @@ const string STAT_VT_PREFIX      = "StatTable";
 
 const list<stat_table> _STAT_TABLES  = [
     {
+      'display_name' : 'CPU Information',
       'stat_type' : 'AnalyticsCpuState',
       'stat_attr' : 'cpu_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
@@ -303,6 +307,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'
       'obj_table' : 'NONE',
@@ -311,6 +316,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Values Table - integer',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fieldi'
       'obj_table' : 'NONE',
@@ -319,6 +325,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'QE Performance',
       'stat_type' : 'QueryPerfInfo',
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
@@ -340,6 +347,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'VN Agent',
       'stat_type' : 'UveVirtualNetworkAgent',
       'stat_attr' : 'vn_stats',
       'obj_table' : VN_TABLE,
@@ -366,6 +374,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
                { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'InstanceId', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'NodeType', 'datatype' : 'string', 'index' : false },
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },

@@ -2,11 +2,11 @@
 -- Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 --
 
-redis.log(redis.LOG_NOTICE,"GetSeq for "..ARGV[1]..":"..ARGV[2].." Vizd "..ARGV[3])
-local typ = redis.call('smembers',"TYPES:"..ARGV[1]..":"..ARGV[2])
+redis.log(redis.LOG_NOTICE,"GetSeq for "..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4].." Vizd "..ARGV[5])
+local typ = redis.call('smembers',"TYPES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
 local res = {}
 for k,v in pairs(typ) do
-    local lres = redis.call('zrange',"UVES:"..ARGV[1]..":"..ARGV[2]..":"..v, -1, -1, "withscores")
+    local lres = redis.call('zrange',"UVES:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]..":"..v, -1, -1, "withscores")
     if #lres == 2 then 
 	    table.insert(res,v)
 	    table.insert(res,lres[2])
@@ -14,10 +14,10 @@ for k,v in pairs(typ) do
 		redis.log(redis.LOG_NOTICE,"GetSeq no seq for "..v)
 	end
 end
-redis.call('sadd', "GENERATORS", ARGV[1]..":"..ARGV[2])
-if ARGV[4] ~= "0" then
-    redis.call('set', "GENERATOR:"..ARGV[1]..":"..ARGV[2],ARGV[3],"EX",ARGV[4])
+redis.call('sadd', "NGENERATORS", ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4])
+if ARGV[6] ~= "0" then
+    redis.call('set', "NGENERATOR:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4], ARGV[5], "EX", ARGV[6])
 else
-    redis.call('set', "GENERATOR:"..ARGV[1]..":"..ARGV[2],ARGV[3])
+    redis.call('set', "NGENERATOR:"..ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4], ARGV[5])
 end
 return res

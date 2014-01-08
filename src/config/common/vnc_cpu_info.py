@@ -13,18 +13,16 @@ from uve.cfgm_cpuinfo.ttypes import *
 from uve.cfgm_cpuinfo.cpuinfo.ttypes import *
 from buildinfo import build_info
 
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
-
 # CpuInfo object for config-node
 
 
 class CpuInfo(object):
 
-    def __init__(self, module_num, sysinfo_req, sandesh,
+    def __init__(self, module_id, instance_id, sysinfo_req, sandesh,
                  time_interval, server_ip=None):
         # store cpuinfo at init
-        self._module_id = ModuleNames[module_num]
+        self._module_id = module_id
+        self._instance_id = instance_id 
         self._sysinfo = sysinfo_req
         self._sandesh = sandesh
         self._time_interval = time_interval
@@ -132,6 +130,7 @@ class CpuInfo(object):
     def _send_cpustats(self):
         mod_cpu = ModuleCpuInfo()
         mod_cpu.module_id = self._module_id
+        mod_cpu.instance_id = self._instance_id
 
         mod_cpu.cpu_info = CpuLoadInfo()
 

@@ -13,6 +13,7 @@
 #include <db/db_table_partition.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
+#include <ksync/interface_ksync.h>
 #include "oper/nexthop.h"
 
 #include "vr_nexthop.h"
@@ -21,23 +22,17 @@ class NHKSyncObject;
 
 class NHKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    NHKSyncEntry(const NHKSyncEntry *entry, uint32_t index) : 
-        KSyncNetlinkDBEntry(index), type_(entry->type_),vrf_id_(entry->vrf_id_),
-        label_(entry->label_), interface_(entry->interface_),
-        sip_(entry->sip_), dip_(entry->dip_), sport_(entry->sport_), 
-        dport_(entry->dport_), smac_(entry->smac_), dmac_(entry->dmac_), 
-        valid_(entry->valid_), policy_(entry->policy_) , 
-        is_mcast_nh_(entry->is_mcast_nh_), defer_(entry->defer_), 
-        component_nh_list_(entry->component_nh_list_),
-        nh_(entry->nh_), vlan_tag_(entry->vlan_tag_), 
-        is_local_ecmp_nh_(entry->is_local_ecmp_nh_),
-        is_layer2_(entry->is_layer2_),
-        comp_type_(entry->comp_type_), tunnel_type_(entry->tunnel_type_),
-        plen_(entry->plen_) {
-    };
+    NHKSyncEntry(NHKSyncObject *obj, const NHKSyncEntry *entry, 
+                 uint32_t index);
+    NHKSyncEntry(NHKSyncObject *obj, const NextHop *nh);
+    virtual ~NHKSyncEntry();
 
-    NHKSyncEntry(const NextHop *nh);
-    virtual ~NHKSyncEntry() {};
+    const NextHop *nh() { return nh_; }
+    NextHop::Type type() const {return type_;}
+    InterfaceKSyncEntry *interface() const { 
+        return static_cast<InterfaceKSyncEntry *>(interface_.get());
+    }
+    KSyncDBObject *GetObject();
 
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
@@ -46,15 +41,7 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
-    KSyncDBObject *GetObject();
-    const NextHop *GetNH() { return nh_; };
-
-    NextHop::Type GetType() const {return type_;};
-    TunnelType::Type GetTunnelType() const {return tunnel_type_.GetType();};
-    IntfKSyncEntry *GetIntf() const { 
-        return static_cast<IntfKSyncEntry *>(interface_.get());
-    }
-    void FillObjectLog(sandesh_op::type op, KSyncNhInfo &info);
+    void FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) const;
 private:
     class KSyncComponentNH {
     public:
@@ -62,11 +49,11 @@ private:
             label_(label), nh_(entry) {
         }
 
-        KSyncEntry *GetNH() {
+        KSyncEntry *nh() const {
             return nh_.get();
         }
 
-        uint32_t GetLabel() {
+        uint32_t label() const {
             return label_;
         }
     private:
@@ -77,6 +64,7 @@ private:
     typedef std::vector<KSyncComponentNH> KSyncComponentNHList;
 
     int Encode(sandesh_op::type op, char *buf, int buf_len);
+    NHKSyncObject *ksync_obj_;
     NextHop::Type type_;
     uint32_t vrf_id_;
     uint32_t label_;
@@ -98,44 +86,24 @@ private:
     bool is_layer2_;
     COMPOSITETYPE comp_type_;
     TunnelType tunnel_type_;
-    uint8_t plen_;
+    uint8_t prefix_len_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncEntry);
 };
 
 class NHKSyncObject : public KSyncDBObject {
 public:
     static const int kNHIndexCount = NH_TABLE_ENTRIES;
-    NHKSyncObject(DBTableBase *table) : 
-        KSyncDBObject(table, kNHIndexCount) {};
+    NHKSyncObject(KSync *ksync);
+    virtual ~NHKSyncObject();
 
-    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
-        const NHKSyncEntry *nh = static_cast<const NHKSyncEntry *>(entry);
-        NHKSyncEntry *ksync = new NHKSyncEntry(nh, index);
-        return static_cast<KSyncEntry *>(ksync);
-    };
+    KSync *ksync() const { return ksync_; }
 
-    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const NextHop *nh = static_cast<const NextHop *>(e);
-        NHKSyncEntry *key = new NHKSyncEntry(nh);
-        return static_cast<KSyncEntry *>(key);
-    }
-
-    static void Init(NextHopTable *table) {
-        assert(singleton_ == NULL);
-        singleton_ = new NHKSyncObject(table);
-    };
-
-    static void Shutdown() {
-        delete singleton_;
-        singleton_ = NULL;
-    }
-
-    static NHKSyncObject *GetKSyncObject() { return singleton_; };
-
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
+    void RegisterDBClients();
 private:
-    static NHKSyncObject *singleton_;
+    KSync *ksync_;
     DISALLOW_COPY_AND_ASSIGN(NHKSyncObject);
-
 };
 
 #endif // vnsw_agent_nh_ksync_h

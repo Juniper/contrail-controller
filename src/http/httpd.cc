@@ -214,7 +214,7 @@ main(int argc, char *argv[]) {
     http.RegisterHandler("quitquitquit",
 	boost::bind(&ServerShutdown, &http, _1, _2));
     http.Initialize(8090);
-    Sandesh::InitGeneratorTest("httpd", boost::asio::ip::host_name(), &evm, 8080);
+    Sandesh::InitGeneratorTest("httpd", boost::asio::ip::host_name(), "httpd", "httpd", &evm, 8080);
     Sandesh::SetLoggingParams(true, "HttpSession", SandeshLevel::UT_INFO);
     evm.Run();
     http.Shutdown();

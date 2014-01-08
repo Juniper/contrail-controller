@@ -188,6 +188,13 @@ static inline bool IsIp4SubnetMember(
                 (ip.to_ulong() | ~(0xFFFFFFFF << (32 - plen))));
 }
 
+static inline boost::asio::ip::address_v4 GetIp4SubnetBroadcastAddress(
+              const boost::asio::ip::address_v4 &ip_prefix, uint16_t plen) {
+    boost::asio::ip::address_v4 subnet(ip_prefix.to_ulong() | 
+                                       ~(0xFFFFFFFF << (32 - plen)));
+    return subnet;
+}
+
 // Writes a number into a string
 template <typename NumberType>
 static inline const std::string integerToString(const NumberType &num) {

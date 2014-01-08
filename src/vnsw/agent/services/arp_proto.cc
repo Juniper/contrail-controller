@@ -43,6 +43,7 @@ ArpProto::~ArpProto() {
     agent_->GetInterfaceTable()->Unregister(iid_);
     agent_->GetNextHopTable()->Unregister(nhid_);
     del_gracious_arp_entry();
+    assert(arp_cache_.Size() == 0);
 }
 
 ProtoHandler *ArpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,

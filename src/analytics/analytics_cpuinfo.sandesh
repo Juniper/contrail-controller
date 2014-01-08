@@ -10,14 +10,14 @@ include "base/sandesh/cpuinfo.sandesh"
 
 struct  ModuleCpuInfo {
     1: string                              module_id
+    2: string                              instance_id
     4: cpuinfo.CpuLoadInfo                 cpu_info
 }
 
 struct AnalyticsCpuInfo {
-    1: string                              module_id
-    2: u16                                 inst_id
-    3: u32                                 mem_virt
-    4: double                              cpu_share
+    1: string                              module_instance_id
+    2: u32                                 mem_virt
+    3: double                              cpu_share
 }
 
 // This struct is part of the Collector UVE. (key is hostname of the Analytics Node)
@@ -38,6 +38,7 @@ struct  ModuleCpuState {
     10: optional u32                       queryengine_mem_virt (aggtype="stats", hbin="100000")
     11: optional u32                       opserver_mem_virt (aggtype="stats", hbin="100000")
 }
+
 uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState                   data
 }
@@ -45,8 +46,9 @@ uve sandesh ModuleCpuStateTrace {
 struct  AnalyticsCpuState {
     1: string                              name (key="ObjectCollectorInfo")
     2: optional bool                       deleted
-    3: optional list<AnalyticsCpuInfo>     cpu_info (tags=".module_id")
+    3: optional list<AnalyticsCpuInfo>     cpu_info (tags=".module_instance_id")
 }
+
 uve sandesh AnalyticsCpuStateTrace {
     1: AnalyticsCpuState data
 }

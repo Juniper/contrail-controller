@@ -24,8 +24,12 @@ class DiscoveryZkClient(object):
         self._ds = discServer
         self._zk_sem = BoundedSemaphore(1)
 
+        zk_endpts = []
+        for ip in zk_srv_ip.split(','):
+            zk_endpts.append('%s:%s' %(ip, zk_srv_port))
+
         self._zk = kazoo.client.KazooClient(
-            hosts='%s:%s' % (zk_srv_ip, zk_srv_port), timeout=120,
+            hosts=','.join(zk_endpts), timeout=120,
             handler=kazoo.handlers.gevent.SequentialGeventHandler())
 
         # connect
@@ -36,6 +40,10 @@ class DiscoveryZkClient(object):
             except gevent.event.Timeout as e:
                 self.syslog(
                     'Failed to connect with Zookeeper -will retry in a second')
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                self.syslog('%s -will retry in a second' % (str(e)))
                 gevent.sleep(1)
         self.syslog('Connected to ZooKeeper!')
 
@@ -368,6 +376,9 @@ class DiscoveryZkClient(object):
             gevent.sleep(10)
 
     def service_oos_loop(self):
+        if self._ds._args.hc_interval <= 0:
+            return
+
         while True:
             for entry in self.service_entries():
                 if not self._ds.service_expired(entry, include_down=False):

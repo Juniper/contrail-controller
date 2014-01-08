@@ -188,6 +188,12 @@ void Agent::GetConfig() {
     host_name_ = params_->host_name();
     prog_name_ = params_->program_name();
     sandesh_port_ = params_->http_server_port();
+    prefix_len_ = params_->vhost_plen();
+    gateway_id_ = params_->vhost_gw();
+    router_id_ = params_->vhost_addr();
+    if (router_id_.to_ulong()) {
+        router_id_configured_ = false;
+    }
 
     if (params_->tunnel_type() == "MPLSoUDP")
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
@@ -210,10 +216,16 @@ void Agent::CreateModules() {
                               params_->log_category(),
                               params_->log_level());
     if (dss_addr_.empty()) {
-        Sandesh::InitGenerator
-            (g_vns_constants.ModuleNames.find(Module::VROUTER_AGENT)->second,
-             params_->host_name(), GetEventManager(),
-             params_->http_server_port());
+        Module::type module = Module::VROUTER_AGENT;
+        NodeType::type node_type =
+            g_vns_constants.Module2NodeType.find(module)->second;
+        Sandesh::InitGenerator(
+            g_vns_constants.ModuleNames.find(module)->second,
+            params_->host_name(),
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT,
+            GetEventManager(),
+            params_->http_server_port());
 
         if (params_->collector_port() != 0 && 
             !params_->collector().to_ulong() != 0) {
@@ -226,10 +238,7 @@ void Agent::CreateModules() {
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
     uve_ = std::auto_ptr<AgentUve>(new AgentUve(this));
-
-    if (init_->ksync_enable()) {
-        ksync_ = std::auto_ptr<KSync>(new KSync(this));
-    }
+    ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
         pkt_ = std::auto_ptr<PktModule>(new PktModule(this));
@@ -253,7 +262,7 @@ void Agent::CreateDBTables() {
 void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->RegisterDBClients(db_);
     } else {
         ksync_.get()->RegisterDBClientsTest(db_);
@@ -266,7 +275,7 @@ void Agent::CreateDBClients() {
 }
 
 void Agent::InitModules() {
-    if (ksync_.get()) {
+    if (!test_mode_) {
         ksync_.get()->NetlinkInit();
         ksync_.get()->VRouterInterfaceSnapshot();
         ksync_.get()->InitFlowMem();
@@ -275,6 +284,7 @@ void Agent::InitModules() {
             ksync_.get()->CreateVhostIntf();
         }
     } else {
+        ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();
     }
 
@@ -306,13 +316,14 @@ void Agent::CreateInterfaces() {
         pkt_.get()->CreateInterfaces();
     }
 
+    init_->CreateInterfaces(db_);
+    cfg_.get()->CreateInterfaces();
+
     // Create VRF for VGw
     if (vgw_.get()) {
         vgw_.get()->CreateInterfaces();
     }
 
-    init_->CreateInterfaces(db_);
-    cfg_.get()->CreateInterfaces();
 }
 
 void Agent::InitDone() {

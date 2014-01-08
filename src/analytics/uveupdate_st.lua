@@ -27,14 +27,14 @@ local function histbin(hist,hval)
 end
 
 
-local sm = ARGV[1]..":"..ARGV[2]
-local typ = ARGV[3]
-local attr = ARGV[4]
-local key = ARGV[5]
-local seq = ARGV[6]
-local hist = tonumber(ARGV[7])
-local tim = ARGV[8]
-local val = tonumber(ARGV[9])
+local sm = ARGV[1]..":"..ARGV[2]..":"..ARGV[3]..":"..ARGV[4]
+local typ = ARGV[5]
+local attr = ARGV[6]
+local key = ARGV[7]
+local seq = ARGV[8]
+local hist = tonumber(ARGV[9])
+local tim = ARGV[10]
+local val = tonumber(ARGV[11])
 
 local _types = KEYS[1]
 local _origins = KEYS[2]

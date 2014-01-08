@@ -38,8 +38,9 @@ import output
 # sandesh
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-from sandesh.vns.ttypes import Module
-from sandesh.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames,\
+    INSTANCE_ID_DEFAULT    
 from sandesh.discovery_introspect import ttypes as sandesh
 
 from gevent.coros import BoundedSemaphore
@@ -163,8 +164,13 @@ class DiscoveryServer():
 
         # sandesh init
         self._sandesh = Sandesh()
+        module = Module.DISCOVERY_SERVICE
+        module_name = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = self._args.worker_id
         self._sandesh.init_generator(
-            ModuleNames[Module.DISCOVERY_SERVICE], socket.gethostname(),
+            module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'discovery_context', 
             int(self._args.http_server_port), ['sandesh', 'uve'])
         self._sandesh.set_logging_params(enable_local_log=self._args.log_local,
@@ -272,6 +278,7 @@ class DiscoveryServer():
                      --zk_server_port 9160
                      --listen_ip_addr 127.0.0.1
                      --listen_port 5998
+                     --worker_id 1
         '''
 
         # Source any specified config/ini file
@@ -298,7 +305,8 @@ class DiscoveryServer():
             'log_local': False,
             'log_level': SandeshLevel.SYS_DEBUG,
             'log_category': '',
-            'log_file': Sandesh._DEFAULT_LOG_FILE
+            'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'worker_id': INSTANCE_ID_DEFAULT,
         }
 
         # per service options
@@ -381,6 +389,7 @@ class DiscoveryServer():
             help="Category filter for local logging of sandesh messages")
         parser.add_argument("--log_file",
                             help="Filename for the logs to be written to")
+        parser.add_argument("--worker_id", help="Worker Id")
         self._args = parser.parse_args(remaining_argv)
         self._args.conf_file = args.conf_file
         if type(self._args.collectors) is str:
@@ -431,9 +440,17 @@ class DiscoveryServer():
     # check if service expired (return color along)
     def service_expired(self, entry, include_color=False, include_down=True):
         pdata = self.get_pub_data(entry['service_id'])
-        timedelta = datetime.timedelta(
-            seconds=(int(time.time()) - pdata['heartbeat']))
-        if timedelta.seconds <= self._args.hc_interval:
+        if pdata:
+            timedelta = datetime.timedelta(
+                seconds=(int(time.time()) - pdata['heartbeat']))
+        else:
+            timedelta = -1
+
+        if self._args.hc_interval <= 0:
+            # health check has been disabled
+            color = "#00FF00"   # green - all good
+            expired = False
+        elif timedelta.seconds <= self._args.hc_interval:
             color = "#00FF00"   # green - all good
             expired = False
         elif (timedelta.seconds > (self._args.hc_interval *
@@ -621,7 +638,8 @@ class DiscoveryServer():
             self._db_conn.insert_client_data(service_type, client_id, cl_entry)
 
         sdata = self.get_sub_data(client_id, service_type)
-        sdata['ttl_expires'] += 1
+        if sdata:
+            sdata['ttl_expires'] += 1
 
         # need to send short ttl?
         pubs = self._db_conn.lookup_service(service_type) or []
@@ -793,7 +811,8 @@ class DiscoveryServer():
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             rsp += '        <td>' + str(pub['in_use']) + '</td>\n'
-            rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
+            if pdata:
+                rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
                 pub, include_color=True)
             #status = "down" if expired else "up"
@@ -958,6 +977,10 @@ class DiscoveryServer():
             (service_type, client_id, service_id, mtime, ttl) = client
             cl_entry = self._db_conn.lookup_client(service_type, client_id)
             sdata = self.get_sub_data(client_id, service_type)
+            if sdata is None:
+                self.syslog('Missing sdata for client %s, service %s' %
+                            (client_id, service_type))
+                continue
             entry = cl_entry.copy()
             entry.update(sdata)
 

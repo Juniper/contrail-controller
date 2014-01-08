@@ -6,19 +6,21 @@
 #include "flow_kstate.h"
 #include <ksync/flowtable_ksync.h>
 #include <base/util.h>
+#include <ksync/ksync_init.h>
 
 using namespace std;
 
-FlowKState::FlowKState(const string &resp_ctx, int idx) :
+FlowKState::FlowKState(Agent *agent, const string &resp_ctx, int idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
             0), response_context_(resp_ctx), flow_idx_(idx), 
-    flow_iteration_key_(0) {
+    flow_iteration_key_(0), agent_(agent) {
 }
 
-FlowKState::FlowKState(const string &resp_ctx, const string &iter_idx) :
+FlowKState::FlowKState(Agent *agent, const string &resp_ctx, 
+                       const string &iter_idx) :
     Task((TaskScheduler::GetInstance()->GetTaskId("Agent::FlowResponder")),
             0), response_context_(resp_ctx), flow_idx_(-1), 
-    flow_iteration_key_(0) {
+    flow_iteration_key_(0), agent_(agent) {
     stringToInteger(iter_idx, flow_iteration_key_);
 }
 
@@ -122,9 +124,10 @@ bool FlowKState::Run() {
     const vr_flow_entry *k_flow;
     KFlowResp *resp;
 
+    FlowTableKSyncObject *ksync_obj = agent_->ksync()->flowtable_ksync_obj();
+
     if (flow_idx_ != -1) {
-        k_flow = FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry
-            (flow_idx_, false);
+        k_flow = ksync_obj->GetKernelFlowEntry(flow_idx_, false);
         if (k_flow) {
             resp = new KFlowResp();
             vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
@@ -139,16 +142,13 @@ bool FlowKState::Run() {
         return true;
     }
     uint32_t idx = flow_iteration_key_;
-    uint32_t max_flows = 
-        FlowTableKSyncObject::GetKSyncObject()->GetFlowTableSize();
+    uint32_t max_flows = ksync_obj->flow_table_entries_count();
     
     resp = new KFlowResp();
     vector<KFlowInfo> &list = const_cast<std::vector<KFlowInfo>&>
                                   (resp->get_flow_list());
     while(idx < max_flows) {
-        k_flow = 
-            FlowTableKSyncObject::GetKSyncObject()->GetKernelFlowEntry(idx,
-                                                                       false);
+        k_flow = ksync_obj->GetKernelFlowEntry(idx, false);
         if (k_flow) {
             count++;
             SetFlowData(list, k_flow, idx);

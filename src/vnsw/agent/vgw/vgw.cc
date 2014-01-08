@@ -23,69 +23,13 @@
 
 using namespace std;
 
-VirtualGateway::VirtualGateway(Agent *agent) : agent_(agent), lid_(0),
-    label_(MplsTable::kInvalidLabel) {
+VirtualGateway::VirtualGateway(Agent *agent) : agent_(agent) {
     vgw_config_ = agent->params()->vgw_config();
     if (vgw_config_->vrf() == "")
         vgw_config_ = NULL;
 }
 
-void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
-                                     DBEntryBase *entry) {
-    Interface *interface = static_cast<Interface *>(entry);
-    if (interface->type() != Interface::INET)
-        return;
-
-    InetInterface *vhost = static_cast<InetInterface *>(entry);
-    if (vhost->sub_type() != InetInterface::GATEWAY)
-        return;
-
-    if (entry->IsDeleted()) {
-        return;
-    }
-
-    if (label_ != MplsTable::kInvalidLabel) {
-        return;
-    }
-
-    // Allocate MPLS Label 
-    label_ = agent_->GetMplsTable()->AllocLabel();
-
-    // Create InterfaceNH before MPLS is created
-    InterfaceNH::CreateVirtualHostPort(vgw_config_->interface());
-
-    // Create MPLS entry pointing to virtual host interface-nh
-    MplsLabel::CreateVirtualHostPortLabel(label_, vgw_config_->interface(),
-                                          false, InterfaceNHFlags::INET4);
-
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vgw_config_->vrf(), 
-                                  AgentRouteTableAPIS::INET4_UNICAST));
-
-    // Packets received on fabric vrf and destined to IP address in "public" 
-    // network reach kernel. Linux kernel will put back the packets on vgw
-    // interface. Add route to trap the public addresses to linux kernel
-    Ip4Address addr = vgw_config_->ip();
-    addr = Ip4Address(addr.to_ulong() & (0xFFFFFFFF <<
-                                         (32 - vgw_config_->plen())));
-    rt_table->AddVHostRecvRoute(agent_->GetLocalVmPeer(),
-                                agent_->GetDefaultVrf(),
-                                agent_->vhost_interface_name(),
-                                addr, vgw_config_->plen(), vgw_config_->vrf(),
-                                false);
-
-    // Add default route in public network. BGP will export this route to
-    // other compute nodes
-    rt_table->AddVHostInterfaceRoute(agent_->GetLocalVmPeer(),
-                                     vgw_config_->vrf(), Ip4Address(0), 0,
-                                     vgw_config_->interface(), label_,
-                                     vgw_config_->vrf());
-}
-
 void VirtualGateway::RegisterDBClients() {
-    lid_ = agent_->GetInterfaceTable()->Register
-        (boost::bind(&VirtualGateway::InterfaceNotify, this, _1, _2));
 }
 
 // Create VRF for "public" virtual-network
@@ -102,8 +46,10 @@ void VirtualGateway::CreateInterfaces() {
         return;
     }
     InetInterface::CreateReq(agent_->GetInterfaceTable(),
-                             vgw_config_->interface(), vgw_config_->vrf(),
-                             InetInterface::GATEWAY);
+                             vgw_config_->interface(),
+                             InetInterface::SIMPLE_GATEWAY,
+                             vgw_config_->vrf(), vgw_config_->ip(),
+                             vgw_config_->plen(), Ip4Address(0), "");
 }
 
 void VirtualGateway::Init() {
@@ -112,32 +58,6 @@ void VirtualGateway::Init() {
 void VirtualGateway::Shutdown() {
     if (vgw_config_ == NULL)
         return;
-
-    agent_->GetInterfaceTable()->Unregister(lid_);
-
-    // Delete routes
-    Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vgw_config_->vrf(), 
-                                  AgentRouteTableAPIS::INET4_UNICAST));
-    if (rt_table == NULL)
-        return;
-
-    Ip4Address addr = vgw_config_->ip();
-    addr = Ip4Address(addr.to_ulong() & (0xFFFFFFFF <<
-                                         (32 - vgw_config_->plen())));
-    rt_table->DeleteReq(agent_->GetLocalVmPeer(),
-                        agent_->GetDefaultVrf(),
-                        addr, vgw_config_->plen());
-
-    rt_table->DeleteReq(agent_->GetLocalVmPeer(),
-                        vgw_config_->vrf(), Ip4Address(0), 0);
-
-    // Delete NH
-    InterfaceNH::DeleteVirtualHostPortReq(vgw_config_->interface());
-
-    // Delete MPLS Label
-    MplsLabel::DeleteReq(label_);
 
     // Delete Interface
     InetInterface::DeleteReq(agent_->GetInterfaceTable(),
