@@ -63,6 +63,7 @@ public:
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
     virtual void Delete() { };
     virtual void SendTrace(Trace event) const;
+    virtual void GetOsParams();
 
     // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
@@ -80,7 +81,6 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void GetOsParams();
 
     // Tunnelled packets are expected on PHYSICAL interfaces only
     bool IsTunnelEnabled() const { return (type_ == PHYSICAL);}

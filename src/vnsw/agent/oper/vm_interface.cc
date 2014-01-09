@@ -146,6 +146,11 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
                     continue;
                 }
+                // Checking whether it is default vrf of not
+                unsigned found = vrf_node->name().find_last_of(':');
+                if (vn_node->name().compare(vrf_node->name().substr(0, found)) != 0) {
+                    continue;
+                }
 
                 FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
                 assert(fip != NULL);
@@ -879,6 +884,16 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 /////////////////////////////////////////////////////////////////////////////
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
+
+void VmInterface::GetOsParams() {
+    if (vlan_id_ == VmInterface::kInvalidVlanId) {
+        Interface::GetOsParams();
+        return;
+    }
+
+    os_index_ = Interface::kInvalidIndex;
+    memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+}
 
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
 // config. We can get DHCP IP in two ways,

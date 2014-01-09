@@ -304,11 +304,11 @@ bool NHKSyncEntry::Sync(DBEntry *e) {
         dmac_ = intf_nh->GetDMac();
         uint16_t vlan_tag = VmInterface::kInvalidVlanId;
         if (intf_nh->GetInterface()->type() == Interface::VM_INTERFACE) {
+            vlan_tag = vlan_tag_;
             vlan_tag_ = (static_cast<const VmInterface *>
                          (intf_nh->GetInterface()))->vlan_id();
+            ret = vlan_tag != vlan_tag_;
         }
-
-        ret = vlan_tag != vlan_tag_;
         break;
     }
 
@@ -755,6 +755,10 @@ void NHKSyncEntry::FillObjectLog(sandesh_op::type op, KSyncNhInfo &info)
     info.set_valid(valid_);
     if (interface()) {
         info.set_intf_name(interface()->interface_name());
+        info.set_out_if_index(interface()->interface_id());
+    } else {
+        info.set_intf_name("NULL");
+        info.set_out_if_index(kInvalidIndex);
     }
 }
 
