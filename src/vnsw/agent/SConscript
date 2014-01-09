@@ -3,6 +3,8 @@
 #
 
 import re
+import time
+import subprocess
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -239,6 +241,49 @@ if env['OPT'] == 'coverage':
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)
     env.Alias('src/vnsw/agent:test_coverage', test_coverage)
+
+def run_ut(target, source, env):
+    # execute tests
+    import subprocess
+    #import pdb; pdb.set_trace()
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    # Get test alias from agent-test test suite 
+    for test in env.ans['agent-test'].sources:
+        cmd = test.sources[0].path
+        log = test.sources[0].path + '.log'
+        logfile = open(cmd + '.log', 'w')
+        proc = subprocess.Popen(cmd, stdout=logfile, stderr=logfile, env=ShEnv)
+
+        # 60 second timeout
+        timeout = 60
+        for i in range(timeout):
+            code = proc.poll()
+            if not code is None:
+                break
+            time.sleep(1)
+
+        if code is None:
+            proc.kill()
+            logfile.write('[  TIMEOUT  ] ')
+            print cmd + '\033[91m' + " TIMEOUT" + '\033[0m'
+            return
+
+        if code == 0:
+            print cmd + '\033[94m' + " PASS" + '\033[0m'
+        else:
+            logfile.write('[  FAILED  ] ')
+            if code < 0:
+                logfile.write('Terminated by signal: ' + str(-code) + '\n')
+            else:
+                logfile.write('Program returned ' + str(code) + '\n')
+            print cmd + '\033[91m' + " FAIL" + '\033[0m'
+
+
+
+run_ut = env.Command(Dir('run_ut'), '', run_ut)
+env.AlwaysBuild(run_ut)
+env.Alias('src/vnsw/agent:run_ut', run_ut)
 
 # Local Variables:
 # mode: python

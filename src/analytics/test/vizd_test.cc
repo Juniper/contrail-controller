@@ -56,7 +56,7 @@ public:
     GeneratorTest() : 
         evm_(new EventManager()),
         thread_(new ServerThread(evm_.get())) {
-        Sandesh::InitGenerator("GeneratorTest", sourcehost, evm_.get(),
+        Sandesh::InitGenerator("GeneratorTest", sourcehost, "Test", "Test", evm_.get(),
                 collector_server, collector_port, 0, NULL, true);
 
         thread_->Start();

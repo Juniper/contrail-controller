@@ -50,8 +50,8 @@ from cfgm_common.uve.virtual_machine.ttypes import VMLog
 from cfgm_common.uve.virtual_network.ttypes import UveVirtualNetworkConfig,\
     UveVirtualNetworkConfigTrace, VnPolicy, VNLog
 from cfgm_common.uve.vrouter.ttypes import VRLog
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from provision_defaults import Provision
 from gen.resource_xsd import *
 from gen.resource_common import *
@@ -240,17 +240,17 @@ class VncApiServer(VncApiServerGen):
 
         # sandesh init
         self._sandesh = Sandesh()
+        module = Module.API_SERVER
+        module_name = ModuleNames[Module.API_SERVER]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
         if self._args.worker_id:
-            # HACK till rest of infra catches up, worker 0 doesn't
-            # encode in name
-            if self._args.worker_id == '0':
-                module = ModuleNames[Module.API_SERVER]
-            else:
-                module = ModuleNames[Module.API_SERVER] + self._args.worker_id
+            instance_id = self._args.worker_id
         else:
-            module = ModuleNames[Module.API_SERVER]
-        self._sandesh.init_generator(module, socket.gethostname(),
-                                     self._args.collectors,
+            instance_id = INSTANCE_ID_DEFAULT
+        self._sandesh.init_generator(module_name, socket.gethostname(),
+                                     node_type_name, instance_id,
+                                     self._args.collectors, 
                                      'vnc_api_server_context',
                                      int(self._args.http_server_port),
                                      ['cfgm_common', 'sandesh'], self._disc)
@@ -313,7 +313,8 @@ class VncApiServer(VncApiServerGen):
         sysinfo_req = True
         config_node_ip = self.get_server_ip()
         cpu_info = vnc_cpu_info.CpuInfo(
-            Module.API_SERVER, sysinfo_req, self._sandesh, 60, config_node_ip)
+            self._sandesh.module(), self._sandesh.instance_id(), sysinfo_req, 
+            self._sandesh, 60, config_node_ip)
         self._cpu_info = cpu_info
 
     # end __init__
@@ -498,7 +499,8 @@ class VncApiServer(VncApiServerGen):
             'multi_tenancy': False,
             'disc_server_ip': None,
             'disc_server_port': None,
-            'zk_server_ip':'127.0.0.1:2181'
+            'zk_server_ip': '127.0.0.1:2181',
+            'worker_id': '0',
         }
         # ssl options
         secopts = {

@@ -262,14 +262,14 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     Ip4Address vm1_ip = Ip4Address::from_string(input[0].addr);
     Ip4Address vm2_ip = Ip4Address::from_string(input[1].addr);
 
-    CreateVmportEnv(input, 2);
+    CreateVmportFIpEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
-    EXPECT_TRUE(DBTableFind("vrf1.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vrf1", vm1_ip, 32));
+    EXPECT_TRUE(DBTableFind("vn1:vn1.uc.route.0"));
+    EXPECT_TRUE(RouteFind("vn1:vn1", vm1_ip, 32));
 
-    EXPECT_TRUE(DBTableFind("vrf2.uc.route.0"));
-    EXPECT_TRUE(RouteFind("vrf2", vm2_ip, 32));
+    EXPECT_TRUE(DBTableFind("vn2:vn2.uc.route.0"));
+    EXPECT_TRUE(RouteFind("vn2:vn2", vm2_ip, 32));
 
     //Add floating IP for vm2 to talk to vm1
     AddFloatingIpPool("fip-pool1", 1);
@@ -280,8 +280,8 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
-    EXPECT_TRUE(RouteFind("vrf1", floating_ip, 32));
-    WAIT_FOR(100, 10000, PathCount("vrf1", floating_ip, 32) == 2);
+    EXPECT_TRUE(RouteFind("vn1:vn1", floating_ip, 32));
+    WAIT_FOR(100, 10000, PathCount("vn1:vn1", floating_ip, 32) == 2);
 
     //Delete floating IP and expect route to get deleted
     DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
@@ -289,8 +289,8 @@ TEST_F(VrfTest, FloatingIpRouteWithdraw) {
     DelLink("virtual-machine-interface", "vnet2", "floating-ip", "fip1");
     DelFloatingIp("fip1");
     client->WaitForIdle();
-    WAIT_FOR(100, 1000, RouteFind("vrf1", floating_ip, 32) == false);
-    DeleteVmportEnv(input, 2, true);
+    WAIT_FOR(100, 1000, RouteFind("vn1:vn1", floating_ip, 32) == false);
+    DeleteVmportFIpEnv(input, 2, true);
     client->WaitForIdle();
 }
 

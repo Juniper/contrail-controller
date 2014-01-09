@@ -10,13 +10,16 @@
 #include "ksync/ksync_entry.h"
 #include "ksync/ksync_object.h"
 #include "ksync/ksync_sock.h"
+#include <ksync/flowtable_ksync.h>
 
 /* Sandesh Context used for processing vr_response and vr_flow_req
  * which is in response to Sandesh Adds/Deletes
  */
 class KSyncSandeshContext : public AgentSandeshContext {
 public:
-    KSyncSandeshContext() { Reset(); }
+    KSyncSandeshContext(FlowTableKSyncObject *obj) : flow_ksync_(obj) { 
+        Reset(); 
+    }
 
     virtual void IfMsgHandler(vr_interface_req *req);
     virtual void NHMsgHandler(vr_nexthop_req *req) {
@@ -46,14 +49,15 @@ public:
     virtual int VrResponseMsgHandler(vr_response *r);
     virtual void FlowMsgHandler(vr_flow_req *r);
     
-    int GetResponseCode() { return resp_code_; }
-    int GetContextMarker() { return context_marker_; }
+    int response_code() const { return response_code_; }
+    int context_marker() const { return context_marker_; }
     void Reset() {
-        resp_code_ = 0;
+        response_code_ = 0;
         context_marker_ = -1;
     }
-
 private:
-    int resp_code_;
+    FlowTableKSyncObject *flow_ksync_;
+    int response_code_;
     int context_marker_;
+    DISALLOW_COPY_AND_ASSIGN(KSyncSandeshContext);
 };

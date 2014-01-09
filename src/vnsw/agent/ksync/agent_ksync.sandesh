@@ -50,8 +50,8 @@ struct KSyncNhInfo {
     1: u32  index;
     2: string operation;
     3: string type;
-    4: u32    vrf;
-    5: string intf_name;
+    4: optional u32    vrf;
+    5: optional string intf_name;
     6: optional string sip;
     7: optional string dip;
     8: optional u32 sport;
@@ -62,6 +62,7 @@ struct KSyncNhInfo {
    13: optional u32 sub_nh_count;
    14: optional list<KSyncComponentNHLog> sub_nh_list;
    15: optional u32 sub_type;
+   16: optional u32 out_if_index;
 }
 
 traceobject sandesh KSyncNH {

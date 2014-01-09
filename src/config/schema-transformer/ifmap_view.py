@@ -333,7 +333,7 @@ vnc_viewer.parse_args()
 vnc_viewer.db_connect()
 
 #vnc = VncApi('admin', 'contrail123', 'admin', '127.0.0.1', '8082')
-vnc = VncApiClientGen()
+vnc = VncApiClientGen(obj_serializer=None)
 outfile = file("debug.txt", "w")
 
 """ sample search metas

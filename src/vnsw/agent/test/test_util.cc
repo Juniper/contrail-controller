@@ -469,6 +469,11 @@ bool VmPortPolicyEnabled(PortInfo *input, int id) {
     return VmPortPolicyEnabled(input[id].intf_id);
 }
 
+InetInterface *InetInterfaceGet(const char *ifname) {
+    InetInterfaceKey key(ifname);
+    return static_cast<InetInterface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+}
+
 Interface *VmPortGet(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     return static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
@@ -1101,6 +1106,12 @@ bool TunnelNHFind(const Ip4Address &server_ip, bool policy, TunnelType::Type typ
     return (nh != NULL);
 }
 
+NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy) {
+    InetInterfaceKey *intf_key = new InetInterfaceKey(ifname);
+    return static_cast<NextHop *>
+        (table->FindActiveEntry(new ReceiveNHKey(intf_key, policy)));
+}
+
 bool TunnelNHFind(const Ip4Address &server_ip) {
     return TunnelNHFind(server_ip, false, TunnelType::MPLS_GRE);
 }
@@ -1532,6 +1543,83 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     return false;
 }
 
+void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
+                        const char *vn, const char *vrf) {
+    char vn_name[80];
+    char vm_name[80];
+    char vrf_name[80];
+    char acl_name[80];
+    char instance_ip[80];
+
+    if (acl_id) {
+        sprintf(acl_name, "acl%d", acl_id);
+    }
+   
+    for (int i = 0; i < count; i++) {
+        if (vn)
+            strncpy(vn_name, vn, MAX_TESTNAME_LEN);
+        else
+            sprintf(vn_name, "vn%d", input[i].vn_id);
+        if (vrf)
+            strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
+        else
+            sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+        sprintf(vm_name, "vm%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        boost::system::error_code ec;
+        DelLink("virtual-machine-interface-routing-instance", input[i].name,
+                "routing-instance", vrf_name);
+        DelLink("virtual-machine-interface-routing-instance", input[i].name,
+                "virtual-machine-interface", input[i].name);
+        DelLink("virtual-machine", vm_name, "virtual-machine-interface",
+                input[i].name);
+        DelLink("virtual-machine-interface", input[i].name, "instance-ip",
+                instance_ip);
+        DelLink("virtual-network", vn_name, "virtual-machine-interface",
+                input[i].name);
+        DelNode("virtual-machine-interface", input[i].name);
+        DelNode("virtual-machine-interface-routing-instance", input[i].name);
+        IntfCfgDel(input, i);
+
+        DelNode("virtual-machine", vm_name);
+    }
+
+    if (del_vn) {
+        for (int i = 0; i < count; i++) {
+            int j = 0;
+            for (; j < i; j++) {
+                if (input[i].vn_id == input[j].vn_id) {
+                    break;
+                }
+            }
+
+            if (j < i) {
+                break;
+            }
+            if (vn)
+                sprintf(vn_name, "%s", vn);
+            else
+                sprintf(vn_name, "vn%d", input[i].vn_id);
+            if (vrf)
+                sprintf(vrf_name, "%s", vrf);
+            else
+                sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+            sprintf(vm_name, "vm%d", input[i].vm_id);
+            DelLink("virtual-network", vn_name, "routing-instance", vrf_name);
+            if (acl_id) {
+                DelLink("virtual-network", vn_name, "access-control-list", acl_name);
+            }
+
+            DelNode("virtual-network", vn_name);
+            DelNode("routing-instance", vrf_name);
+        }
+    }
+
+    if (acl_id) {
+        DelNode("access-control-list", acl_name);
+    }
+}
+
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
                      const char *vn, const char *vrf) {
     char vn_name[80];
@@ -1606,6 +1694,58 @@ void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id,
 
     if (acl_id) {
         DelNode("access-control-list", acl_name);
+    }
+}
+
+void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id, 
+                        const char *vn, const char *vrf) {
+    char vn_name[MAX_TESTNAME_LEN];
+    char vm_name[MAX_TESTNAME_LEN];
+    char vrf_name[MAX_TESTNAME_LEN];
+    char acl_name[MAX_TESTNAME_LEN];
+    char instance_ip[MAX_TESTNAME_LEN];
+
+    if (acl_id) {
+        sprintf(acl_name, "acl%d", acl_id);
+        AddAcl(acl_name, acl_id);
+    }
+ 
+    for (int i = 0; i < count; i++) {
+        if (vn)
+            strncpy(vn_name, vn, MAX_TESTNAME_LEN);
+        else
+            sprintf(vn_name, "vn%d", input[i].vn_id);
+        if (vrf)
+            strncpy(vrf_name, vrf, MAX_TESTNAME_LEN);
+        else
+            sprintf(vrf_name, "vn%d:vn%d", input[i].vn_id, input[i].vn_id);
+        sprintf(vm_name, "vm%d", input[i].vm_id);
+        sprintf(instance_ip, "instance%d", input[i].vm_id);
+        AddVn(vn_name, input[i].vn_id);
+        AddVrf(vrf_name);
+        AddVm(vm_name, input[i].vm_id);
+        AddVmPortVrf(input[i].name, "", 0);
+
+        //AddNode("virtual-machine-interface-routing-instance", input[i].name, 
+        //        input[i].intf_id);
+        IntfCfgAdd(input, i);
+        AddPort(input[i].name, input[i].intf_id);
+        AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
+        AddLink("virtual-machine", vm_name, "virtual-machine-interface",
+                input[i].name);
+        AddLink("virtual-network", vn_name, "virtual-machine-interface",
+                input[i].name);
+        AddLink("virtual-machine-interface-routing-instance", input[i].name,
+                "routing-instance", vrf_name);
+        AddLink("virtual-machine-interface-routing-instance", input[i].name,
+                "virtual-machine-interface", input[i].name);
+        AddLink("virtual-machine-interface", input[i].name,
+                "instance-ip", instance_ip);
+
+        if (acl_id) {
+            AddLink("virtual-network", vn_name, "access-control-list", acl_name);
+        }
     }
 }
 

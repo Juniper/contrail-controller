@@ -18,6 +18,7 @@
 #include "bind/bind_util.h"
 #include "bind/xmpp_dns_agent.h"
 #include <boost/assign/list_of.hpp>
+#include <vr_defs.h>
 
 ///////////////////////////////////////////////////////////////////////////////
 

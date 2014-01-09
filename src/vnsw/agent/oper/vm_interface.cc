@@ -34,6 +34,7 @@
 #include "sandesh/sandesh_trace.h"
 #include "sandesh/common/vns_types.h"
 #include "sandesh/common/vns_constants.h"
+#include <ksync/ksync_init.h>
 
 #include <services/dns_proto.h>
 
@@ -143,6 +144,11 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     static_cast<IFMapNode *>(vn_iter.operator->());
                 if (cfg_listener->SkipNode
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
+                    continue;
+                }
+                // Checking whether it is default vrf of not
+                unsigned found = vrf_node->name().find_last_of(':');
+                if (vn_node->name().compare(vrf_node->name().substr(0, found)) != 0) {
                     continue;
                 }
 
@@ -895,6 +901,16 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 // VM Port Entry utility routines
 /////////////////////////////////////////////////////////////////////////////
 
+void VmInterface::GetOsParams() {
+    if (vlan_id_ == VmInterface::kInvalidVlanId) {
+        Interface::GetOsParams();
+        return;
+    }
+
+    os_index_ = Interface::kInvalidIndex;
+    memcpy(mac_.ether_addr_octet, agent_vrrp_mac, ETHER_ADDR_LEN);
+}
+
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
 // config. We can get DHCP IP in two ways,
 // - By snooping dhcp packets
@@ -907,7 +923,7 @@ bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
     }
 
     uint32_t addr;
-    InterfaceKSnap *intf = InterfaceKSnap::GetInstance();
+    InterfaceKSnap *intf = Agent::GetInstance()->ksync()->interface_snapshot();
     if (intf) {
         if (intf->FindInterfaceKSnapData(name, addr)) {
             *ip = Ip4Address(addr);
@@ -1138,10 +1154,6 @@ void VmInterface::UpdateInterfaceNH(bool force_update, bool policy_change) {
     InterfaceNH::CreateVport(GetUuid(), *mac, vrf_->GetName());
 }
 */
-
-void VmInterface::DeleteInterfaceNH() {
-    InterfaceNH::DeleteVportReq(GetUuid());
-}
 
 // Add meta-data route if linklocal_ip is needed
 void VmInterface::UpdateMetadataRoute(bool old_l3_active, VrfEntry *old_vrf) {

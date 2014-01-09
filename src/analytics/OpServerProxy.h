@@ -33,23 +33,31 @@ public:
     virtual ~OpServerProxy();
 
     virtual bool UVEUpdate(const std::string &type, const std::string &attr,
-                           const std::string &source, const std::string &module,
+                           const std::string &source, const std::string &node_type,
+                           const std::string &module, 
+                           const std::string &instance_id,
                            const std::string &key, const std::string &message,
                            int32_t seq, const std::string& agg, 
                            const std::string& atyp, int64_t ts);
 
     // Use this to delete the object when the deleted attribute is set
     virtual bool UVEDelete(const std::string &type,
-                       const std::string &source, const std::string &module,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, const std::string &instance_id,
                        const std::string &key, int32_t seq);
 
-    virtual bool GetSeq(const std::string &source, const std::string &module,
+    virtual bool GetSeq(const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id,
         std::map<std::string,int32_t> & seqReply);
 
-    virtual bool DeleteUVEs(const std::string &source, const std::string &module);
+    virtual bool DeleteUVEs(const std::string &source, const std::string &node_type,
+                            const std::string &module, 
+                            const std::string &instance_id);
 
-    bool RefreshGenerator(const std::string &source, const std::string &module);
-    bool WithdrawGenerator(const std::string &source, const std::string &module);
+    bool RefreshGenerator(const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id);
+    bool WithdrawGenerator(const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id);
     typedef boost::function<void(int)> GenCleanupReply;
     bool GeneratorCleanup(GenCleanupReply gcr);
     void FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info);

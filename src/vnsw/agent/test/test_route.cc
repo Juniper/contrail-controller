@@ -122,9 +122,10 @@ protected:
     }
 
     void AddVhostRoute() {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRouteReq(
+                                                Agent::GetInstance()->GetLocalPeer(),
                                                 Agent::GetInstance()->GetDefaultVrf(),
-                                                "vhost0", vhost_ip_, false);
+                                                "vhost0", vhost_ip_, 32, "", false);
         client->WaitForIdle();
     }
 
@@ -154,8 +155,8 @@ protected:
     void AddGatewayRoute(const std::string &vrf_name, 
                          const Ip4Address &ip, int plen,
                          const Ip4Address &server) {
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddGatewayRoute
-            (Agent::GetInstance()->GetLocalPeer(), vrf_name, ip, plen, server);
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq
+            (vrf_name, ip, plen, server, "");
 
         client->WaitForIdle();
     }
@@ -194,7 +195,6 @@ protected:
 
     std::string vrf_name_;
     std::string eth_name_;
-    Inet4UnicastAgentRouteTable *rt_table_;
     Ip4Address  default_dest_ip_;
     Ip4Address  local_vm_ip_;
     Ip4Address  subnet_vm_ip_1_;
@@ -670,6 +670,46 @@ TEST_F(RouteTest, GatewayRoute_2) {
     EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), c, 32));
 }
 
+TEST_F(RouteTest, ResyncUnresolvedRoute_1) {
+    // There should be no unresolved route
+    Inet4UnicastAgentRouteTable *table =
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable();
+    EXPECT_EQ(table->unresolved_route_size(), 0);
+    Ip4Address gw = Ip4Address::from_string("1.1.1.2");
+
+    // Add an unresolved gateway route.
+    // Add a route to force RESYNC of unresolved route
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32,
+                    gw);
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_,
+                          32));
+    // One unresolved route should be added
+    EXPECT_EQ(table->unresolved_route_size(), 1);
+
+    Inet4UnicastRouteEntry *rt =
+        RouteGet(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32);
+    rt->RouteResyncReq();
+    client->WaitForIdle();
+    EXPECT_EQ(table->unresolved_route_size(), 1);
+
+    // Add second route.
+    AddGatewayRoute(Agent::GetInstance()->GetDefaultVrf(), server2_ip_, 32,
+                    gw);
+    EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server2_ip_,
+                          32));
+    WAIT_FOR(100, 1000, (table->unresolved_route_size() == 2));
+
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(),
+                Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32);
+    DeleteRoute(Agent::GetInstance()->GetLocalPeer(),
+                Agent::GetInstance()->GetDefaultVrf(), server2_ip_, 32);
+
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server1_ip_,
+                           32));
+    EXPECT_FALSE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), server2_ip_,
+                           32));
+}
+
 TEST_F(RouteTest, FindLPM) {
     Inet4UnicastRouteEntry *rt;
     AddResolveRoute(lpm1_ip_, 8);
@@ -978,7 +1018,6 @@ TEST_F(RouteTest, RtEntryReuse) {
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->Unregister(id);
 }
-
 
 TEST_F(RouteTest, ScaleRouteAddDel_1) {
     uint32_t i = 0;

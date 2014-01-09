@@ -12,6 +12,17 @@
 #include <uve/flow_stats.h>
 #include <uve/inter_vn_stats.h>
 #include <ksync/flowtable_ksync.h>
+#include <ksync/ksync_init.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+
+#include "route/route.h"
+#include "cmn/agent_cmn.h"
+#include "oper/interface_common.h"
+#include "oper/nexthop.h"
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -37,6 +48,7 @@
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
 #include "uve/flow_uve.h"
+#include "uve/uve_init.h"
 #include "pkt/pkt_sandesh_flow.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
@@ -390,20 +402,22 @@ void FlowEntry::UpdateKSync(FlowTableKSyncEntry *entry, bool create) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
     FlowStatsCollector::FlowExport(this, 0, 0);
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     if (entry == NULL) {
         FLOW_TRACE(Trace, "Add", flow_info);
-        FlowTableKSyncEntry key(this, flow_handle);
-        FlowTableKSyncObject::GetKSyncObject()->Create(&key);    
+        FlowTableKSyncEntry key(ksync_obj, this, flow_handle);
+        ksync_obj->Create(&key);    
     } else {
         FLOW_TRACE(Trace, "Change", flow_info);
-        FlowTableKSyncObject::GetKSyncObject()->Change(entry);    
+        ksync_obj->Change(entry);    
     }
 }
 
 void FlowEntry::CompareAndModify(const MatchPolicy &m_policy, bool create) {
     FlowTableKSyncEntry *entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(this);
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(this);
 
     data.match_p = m_policy;
     UpdateKSync(entry, create);
@@ -637,10 +651,16 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fe->set_deleted(true);
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
+    FlowTableKSyncObject *ksync_obj = 
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    FlowTableKSyncObject::GetKSyncObject()->UpdateFlowStats(fe, false);
+    FlowStatsCollector *fec = Agent::GetInstance()->uve()->
+                                  GetFlowStatsCollector();
+    uint64_t diff_bytes, diff_packets;
+    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+
     fe->teardown_time = UTCTimestampUsec();
-    FlowStatsCollector::FlowExport(fe, 0, 0);
+    fec->FlowExport(fe, diff_bytes, diff_packets);
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->data.reverse_flow.get();
@@ -651,11 +671,10 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     DeleteFlowInfo(fe);
 
-    FlowTableKSyncEntry *ksync_entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(fe);
+    FlowTableKSyncEntry *ksync_entry = ksync_obj->Find(fe);
     KSyncEntry::KSyncEntryPtr ksync_ptr = ksync_entry;
     if (ksync_entry) {
-        FlowTableKSyncObject::GetKSyncObject()->Delete(ksync_entry);
+        ksync_obj->Delete(ksync_entry);
     } else {
         FLOW_TRACE(Err, fe->flow_handle, "Entry not found in ksync");
         if (fe->data.reverse_flow.get() != NULL) {
@@ -1190,8 +1209,8 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
 
             flow->data.nh_state_ = nh_state;
-             FlowTableKSyncEntry *ksync_entry =
-                 FlowTableKSyncObject::GetKSyncObject()->Find(flow);
+            FlowTableKSyncEntry *ksync_entry =
+               Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(flow);
             flow->UpdateKSync(ksync_entry, false);
         }
     }
@@ -1685,7 +1704,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create) {
     rflow->ActionRecompute(&rflow->data.match_p);
 
     FlowTableKSyncEntry *entry = 
-        FlowTableKSyncObject::GetKSyncObject()->Find(rflow);
+        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(rflow);
     if (entry) {
         rflow->UpdateKSync(entry, false);
     }

@@ -196,7 +196,10 @@ class NetworkIpamServer(NetworkIpamServerGen):
         (read_ok, read_result) = db_conn.dbe_read('network-ipam', ipam_id)
         if not read_ok:
             return (False, (503, "Internal error : IPAM is not valid"))
-        old_ipam_mgmt = read_result['network_ipam_mgmt']
+        old_ipam_mgmt = read_result.get('network_ipam_mgmt')
+        if not old_ipam_mgmt:
+            return True, ""
+
         old_dns_method = old_ipam_mgmt['ipam_dns_method']
         new_ipam_mgmt = obj_dict['network_ipam_mgmt']
         new_dns_method = new_ipam_mgmt['ipam_dns_method']

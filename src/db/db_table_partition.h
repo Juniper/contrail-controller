@@ -86,10 +86,10 @@ public:
     ///////////////////////////////////////////////////////////
 
     // Add a DB Entry
-    void Add(DBEntry *entry);
+    virtual void Add(DBEntry *entry);
 
     // Generate Change notification for an entry
-    void Change(DBEntry *entry);
+    virtual void Change(DBEntry *entry);
 
     // Remove an entry from DB Table. Entry will not be accessible from 
     // DB anymore

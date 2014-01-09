@@ -31,18 +31,22 @@ public:
     typedef std::map<std::pair<QEOpServerProxy::AggOper,std::string>, size_t> AggSortT;
 
     typedef std::map<std::string, StatVal> StatMap;
+    struct StatEntry {
+        std::string name;
+        StatVal value;
+    };
 
-	StatsSelect(AnalyticsQuery * main_query, const std::vector<std::string> & select_fields);
+    StatsSelect(AnalyticsQuery * main_query, const std::vector<std::string> & select_fields);
 
     // This should be called after the post processing is over
     void SetSortOrder(const std::vector<sort_field_t>& sort_fields);
 
-	// The client call this function once with every row from the where result.
-	// cols that are not in the SELECT will be silently dropped.
-	bool LoadRow(boost::uuids::uuid u, uint64_t timestamp,
-            const StatMap& row, MapBufT& output);
+    // The client call this function once with every row from the where result.
+    // cols that are not in the SELECT will be silently dropped.
+    bool LoadRow(boost::uuids::uuid u, uint64_t timestamp,
+            const std::vector<StatEntry>& row, MapBufT& output);
 
-	bool Status() { return status_; }
+    bool Status() { return status_; }
 
     bool IsMergeNeeded() { return !isT_; }
 
@@ -67,10 +71,10 @@ private:
             const QEOpServerProxy::AggRowT& narows,
             MapBufT& output);
 
-	bool status_;
+    bool status_;
 
-	AnalyticsQuery * const main_query;
-	const std::vector<std::string> select_fields_;
+    AnalyticsQuery * const main_query;
+    const std::vector<std::string> select_fields_;
 
 	// If T= is in the SELECT, this gives the timeperiod
     uint32_t ts_period_;

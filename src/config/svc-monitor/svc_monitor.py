@@ -35,8 +35,8 @@ from vnc_api.vnc_api import *
 from pysandesh.sandesh_base import Sandesh
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
 from cfgm_common.uve.service_instance.ttypes import *
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from sandesh.svc_mon_introspect import ttypes as sandesh
 
 # nova imports
@@ -92,8 +92,13 @@ class SvcMonitor(object):
         self._sandesh = Sandesh()
         sandesh.ServiceInstanceList.handle_request =\
             self.sandesh_si_handle_request
+        module = Module.SVC_MONITOR
+        module_name = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        instance_id = INSTANCE_ID_DEFAULT
         self._sandesh.init_generator(
-            ModuleNames[Module.SVC_MONITOR], socket.gethostname(),
+            module_name, socket.gethostname(), node_type_name, instance_id,
             self._args.collectors, 'svc_monitor_context',
             int(self._args.http_server_port), ['cfgm_common', 'sandesh'],
             self._disc)
@@ -111,7 +116,7 @@ class SvcMonitor(object):
         #create cpu_info object to send periodic updates
         sysinfo_req = False
         cpu_info = vnc_cpu_info.CpuInfo(
-            Module.SVC_MONITOR, sysinfo_req, self._sandesh, 60)
+            module_name, instance_id, sysinfo_req, self._sandesh, 60)
         self._cpu_info = cpu_info
 
         # logging
@@ -1207,6 +1212,9 @@ def run_svc_monitor(args=None):
             time.sleep(3)
         except ResourceExhaustionError:  # haproxy throws 503
             time.sleep(3)
+        except ResourceExhaustionError: # haproxy throws 503
+            time.sleep(3)
+
 
     monitor = SvcMonitor(vnc_api, args)
     ssrc_task = gevent.spawn(launch_ssrc, monitor)

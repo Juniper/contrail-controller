@@ -416,7 +416,7 @@ class UVEServer(object):
             redish = redis.StrictRedis(host=self._local_ip,
                                        port=self._local_port, db=0)
             for entry in redish.smembers("TABLE:" + key):
-                info = (entry.split(':', 1)[1]).rsplit(':', 3)
+                info = (entry.split(':', 1)[1]).rsplit(':', 5)
                 uve_key = info[0]
                 if kfilter is not None:
                     kfilter_match = False
@@ -430,18 +430,21 @@ class UVEServer(object):
                 if sfilter is not None:
                     if sfilter != src:
                         continue
-                mdule = info[2]
+                node_type = info[2]
+                mdule = info[3]
                 if mfilter is not None:
                     if mfilter != mdule:
                         continue
-                typ = info[3]
+                inst = info[4] 
+                typ = info[5]
                 if tfilter is not None:
                     if typ not in tfilter:
                         continue
                 if parse_afilter:
                     if tfilter is not None and len(tfilter[typ]):
                         valkey = "VALUES:" + key + ":" + uve_key + ":" + \
-                                 src + ":" + mdule + ":" + typ
+                                 src + ":" + node_type + ":" + mdule + \
+                                 ":" + inst + ":" + typ
                         for afilter in tfilter[typ]:
                             attrval = redish.hget(valkey, afilter)
                             if attrval is not None:
