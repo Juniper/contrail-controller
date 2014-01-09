@@ -14,6 +14,8 @@ const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
+const string INSTANCE_ID            = "InstanceId"
+const string NODE_TYPE              = "NodeType"
 const string TIMESTAMP              = "MessageTS"
 const string SANDESH_TYPE           = "Type"
 const string CATEGORY               = "Category"
@@ -165,7 +167,7 @@ const map<FlowRecordFields, string> FlowRecordNames = {
 
 /* REDIS RELATED NAMES/CONSTANTS */
 
-const string GENERATORS_SET         = "GENERATORS"
+const string GENERATORS_SET         = "NGENERATORS"
 const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 
 // each row will have equivalent of 2^23 = 8388608 usec
@@ -372,6 +374,8 @@ const list<query_table> _TABLES = [
                { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
                { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'InstanceId', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'NodeType', 'datatype' : 'string', 'index' : false },
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },

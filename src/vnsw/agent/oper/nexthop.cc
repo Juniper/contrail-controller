@@ -484,7 +484,7 @@ void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
              InterfaceNHFlags::INET4);
 }
 
-void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
+void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -500,7 +500,7 @@ void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
     NextHopTable::GetInstance()->Process(req);
 }
 
-void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
+void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -510,7 +510,7 @@ void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
     req.key.reset(key);
 
     req.data.reset(NULL);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
 void InterfaceNH::CreatePacketInterfaceNhReq(const string &ifname) {
@@ -860,28 +860,30 @@ void ReceiveNH::SetKey(const DBRequestKey *key) {
 
 // Create 2 ReceiveNH for every VPort. One with policy another without 
 // policy
-void ReceiveNH::CreateReq(const string &interface) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+void ReceiveNH::Create(NextHopTable *table, const string &interface) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, false));
+    req.data.reset(new ReceiveNHData());
+    table->Process(req);
 
-    NextHopKey *key = new ReceiveNHKey(new InetInterfaceKey(interface),
-                                       false);
-    req.key.reset(key);
-
-    ReceiveNHData *rcv_data =new ReceiveNHData();
-    req.data.reset(rcv_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
-
-    DBRequest policy_req;
-    policy_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *policy_key = new ReceiveNHKey(new InetInterfaceKey(
-                                                              interface), true);
-    policy_req.key.reset(policy_key);
-
-    ReceiveNHData *policy_data =new ReceiveNHData();
-    policy_req.data.reset(policy_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&policy_req);
+    intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, true));
+    table->Process(req);
 }
+
+void ReceiveNH::Delete(NextHopTable *table, const string &interface) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, false));
+    req.data.reset(NULL);
+    table->Process(req);
+
+    intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, true));
+    table->Process(req);
+}
+
 
 void ReceiveNH::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;

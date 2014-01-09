@@ -7,6 +7,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <string>
+#include <boost/tuple/tuple.hpp>
 #include "viz_message.h"
 #include "base/queue_task.h"
 
@@ -40,11 +41,13 @@ struct RedisReplyMsg : public ssm::Message {
 
 class Generator {
 public:
-    typedef std::pair<std::string /* Source */, std::string /* Module */> GeneratorId;
+    typedef boost::tuple<std::string /* Source */, std::string /* Module */,
+        std::string /* Instance id */, std::string /* Node type */> GeneratorId;
 
     Generator(Collector * const collector, VizSession *session,
             SandeshStateMachine *state_machine,
-            const std::string &source, const std::string &module);
+            const std::string &source, const std::string &module,
+            const std::string &instance_id, const std::string &node_type);
     ~Generator();
 
     void ReceiveSandeshCtrlMsg(uint32_t connects);
@@ -62,6 +65,8 @@ public:
 
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
+    const std::string &instance_id() const { return instance_id_; }
+    const std::string &node_type() const { return node_type_; }
     VizSession * session() const { return viz_session_; }
     const std::string ToString() const { return name_; }
     SandeshStateMachine * get_state_machine(void) {
@@ -122,6 +127,8 @@ private:
 
     const std::string source_;
     const std::string module_;
+    const std::string instance_id_;
+    const std::string node_type_;
     const std::string name_;
 
     boost::scoped_ptr<DbHandler> db_handler_;

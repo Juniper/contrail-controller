@@ -480,7 +480,7 @@ TEST_F(CfgTest, EcmpNH_3) {
         {"vnet5", 5, "1.1.1.5", "00:00:00:02:02:05", 1, 5}
     };
 
-    CreateVmportEnv(input1, 5);
+    CreateVmportFIpEnv(input1, 5);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(1));
     EXPECT_TRUE(VmPortActive(2));
@@ -492,7 +492,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     struct PortInfo input2[] = {
         {"vnet6", 6, "1.1.1.1", "00:00:00:01:01:01", 2, 6},
     };
-    CreateVmportEnv(input2, 1);
+    CreateVmportFIpEnv(input2, 1);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(6));
 
@@ -507,7 +507,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     client->WaitForIdle();
     //First VM added, route points to composite NH
     Ip4Address ip = Ip4Address::from_string("2.2.2.2");
-    Inet4UnicastRouteEntry *rt = RouteGet("vrf2", ip, 32);
+    Inet4UnicastRouteEntry *rt = RouteGet("vn2:vn2", ip, 32);
     EXPECT_TRUE(rt != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
@@ -629,7 +629,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     EXPECT_TRUE(rt->GetActiveNextHop() == intf_nh);
 
     //Make sure composite NH is also deleted
-    CompositeNHKey key("vrf2", ip, 32, true);
+    CompositeNHKey key("vn2:vn2", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
     //Expect MPLS label to be not present
     EXPECT_FALSE(FindMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label));
@@ -637,7 +637,7 @@ TEST_F(CfgTest, EcmpNH_3) {
     DelLink("virtual-machine-interface", "vnet5", "floating-ip", "fip1");
     DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
     client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vrf2", ip, 32));
+    EXPECT_FALSE(RouteFind("vn2:vn2", ip, 32));
 
     DeleteVmportEnv(input2, 1, true);
     DeleteVmportEnv(input1, 5, true);

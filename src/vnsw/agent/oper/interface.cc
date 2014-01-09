@@ -88,6 +88,7 @@ bool InterfaceTable::OnChange(DBEntry *entry, const DBRequest *req) {
         if (intf) {
             // Get the os-ifindex and mac of interface
             intf->GetOsParams();
+            intf->OnChange(static_cast<InetInterfaceData *>(req->data.get()));
             ret = true;
         }
         break;
@@ -110,12 +111,8 @@ bool InterfaceTable::Resync(DBEntry *entry, DBRequest *req) {
 }
 
 void InterfaceTable::Delete(DBEntry *entry, const DBRequest *req) {
-    InterfaceKey *key = static_cast<InterfaceKey *>(req->key.get());
     Interface *intf = static_cast<Interface *>(entry);
-    if (key->type_ == Interface::VM_INTERFACE) {
-        VmInterface *vmport_intf = static_cast<VmInterface *>(entry);
-        vmport_intf->Delete();
-    }
+    intf->Delete();
     intf->SendTrace(Interface::DELETE);
 }
 
@@ -244,9 +241,10 @@ void Interface::GetOsParams() {
     assert(fd >= 0);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-            "> quering mac-address for interface <" << name_ << ">");
+            "> querying mac-address for interface <" << name_ << ">");
         os_index_ = Interface::kInvalidIndex;
         bzero(&mac_, sizeof(mac_));
+        close(fd);
         return;
     }
     close(fd);
@@ -292,43 +290,6 @@ void PacketInterface::DeleteReq(InterfaceTable *table,
                                 const std::string &ifname) {
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new PacketInterfaceKey(nil_uuid(), ifname));
-    req.data.reset(NULL);
-    table->Enqueue(&req);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-// Virtual Host Interface routines
-/////////////////////////////////////////////////////////////////////////////
-DBEntryBase::KeyPtr InetInterface::GetDBRequestKey() const {
-    InterfaceKey *key = new InetInterfaceKey(name_);
-    return DBEntryBase::KeyPtr(key);
-}
-
-Interface *InetInterfaceKey::AllocEntry(const InterfaceTable *table,
-                                        const InterfaceData *data)const {
-    const InetInterfaceData *vhost_data;
-    vhost_data = static_cast<const InetInterfaceData *>(data);
-    VrfKey key(data->vrf_name_);
-    VrfEntry *vrf = static_cast<VrfEntry *>
-        (table->agent()->GetVrfTable()->FindActiveEntry(&key));
-    assert(vrf);
-    return new InetInterface(name_, vrf,
-                                    vhost_data->sub_type_);
-}
-
-// Enqueue DBRequest to create a Host Interface
-void InetInterface::CreateReq(InterfaceTable *table, const string &ifname,
-                              const string &vrf_name, SubType sub_type) {
-    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new InetInterfaceKey(ifname));
-    req.data.reset(new InetInterfaceData(vrf_name, sub_type));
-    table->Enqueue(&req);
-}
-
-// Enqueue DBRequest to delete a Host Interface
-void InetInterface::DeleteReq(InterfaceTable *table, const string &ifname) {
-    DBRequest req(DBRequest::DB_ENTRY_DELETE);
-    req.key.reset(new InetInterfaceKey(ifname));
     req.data.reset(NULL);
     table->Enqueue(&req);
 }

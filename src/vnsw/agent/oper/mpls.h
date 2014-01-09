@@ -40,7 +40,7 @@ public:
                              uint16_t tag);
     static void CreateVPortLabel(uint32_t label, const uuid &intf_uuid,
                                  bool policy, InterfaceNHFlags::Type type);
-    static void CreateVirtualHostPortLabel(uint32_t label,
+    static void CreateInetInterfaceLabel(uint32_t label,
                                            const string &ifname,
                                            bool policy,
                                            InterfaceNHFlags::Type type);
@@ -90,10 +90,8 @@ class MplsLabelData : public AgentData {
 public:
     MplsLabelData(const string &intf_name, bool policy,
                   InterfaceNHFlags::Type type) : 
-        AgentData(), 
-        nh_key(new InterfaceNHKey
-               (new InetInterfaceKey(intf_name), policy,
-               type)) {
+        AgentData(), nh_key(new InterfaceNHKey(new InetInterfaceKey
+                                               (intf_name), policy, type)) {
     }
 
     MplsLabelData(const uuid &intf_uuid, bool policy, 

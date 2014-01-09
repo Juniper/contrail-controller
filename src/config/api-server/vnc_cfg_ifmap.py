@@ -9,6 +9,7 @@ from cfgm_common.discovery import DiscoveryService, IndexAllocator
 from gevent import ssl, monkey
 monkey.patch_all()
 import gevent
+import gevent.event
 import sys
 import time
 from pprint import pformat
@@ -918,7 +919,13 @@ class VncZkClient(object):
     _SUBNET_PATH = "/api-server/subnets/"
 
     def __init__(self, zk_server_ip):
-        self._zk_client = DiscoveryService(zk_server_ip)
+        while True:
+            try:
+                self._zk_client = DiscoveryService(zk_server_ip)
+                break
+            except gevent.event.Timeout as e:
+                pass
+
         self._subnet_allocators = {}
     # end __init__
 

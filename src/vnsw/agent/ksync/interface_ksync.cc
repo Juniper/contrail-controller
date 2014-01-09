@@ -66,8 +66,6 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ipv4_forwarding_(true), layer2_forwarding_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
        
-    // Max name size supported by kernel
-    assert(strlen(interface_name_.c_str()) < IF_NAMESIZE);
     network_id_ = 0;
     if (type_ == Interface::VM_INTERFACE) {
         const VmInterface *vmitf = 
@@ -219,12 +217,24 @@ KSyncEntry *InterfaceKSyncEntry::UnresolvedReference() {
     return NULL;
 }
 
+bool IsValidOsIndex(size_t os_index, Interface::Type type, uint16_t vlan_id) {
+    if (os_index != Interface::kInvalidIndex)
+        return true;
+
+    if (type == Interface::VM_INTERFACE &&
+        vlan_id != VmInterface::kInvalidVlanId) {
+        return true;
+    }
+
+    return false;
+}
+
 int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     vr_interface_req encoder;
     int encode_len, error;
 
     // Dont send message if interface index not known
-    if (os_index_ == Interface::kInvalidIndex) {
+    if (IsValidOsIndex(os_index_, type_, vlan_id_) == false) {
         return 0;
     }
 
@@ -261,7 +271,7 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     case Interface::INET: {
         switch (sub_type_) {
-        case InetInterface::GATEWAY:
+        case InetInterface::SIMPLE_GATEWAY:
             encoder.set_vifr_type(VIF_TYPE_GATEWAY);
             break;
         case InetInterface::LINK_LOCAL:
@@ -434,7 +444,7 @@ void GetPhyMac(const char *ifname, char *mac) {
     strncpy(ifr.ifr_name, ifname, IF_NAMESIZE);
     if (ioctl(fd, SIOCGIFHWADDR, (void *)&ifr) < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
-            "> quering mac-address for interface <" << ifname << ">");
+            "> querying mac-address for interface <" << ifname << ">");
         assert(0);
     }
     close(fd);

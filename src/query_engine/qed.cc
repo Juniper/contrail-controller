@@ -56,8 +56,8 @@ bool QEInfoLogger(const string &hostname) {
     state.set_name(hostname);
 
     ModuleCpuInfo cinfo;
-    cinfo.set_module_id(
-            g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second);
+    cinfo.set_module_id(Sandesh::module());
+    cinfo.set_instance_id(Sandesh::instance_id());
     cinfo.set_cpu_info(cpu_load_info);
     vector<ModuleCpuInfo> cciv;
     cciv.push_back(cinfo);
@@ -74,9 +74,8 @@ bool QEInfoLogger(const string &hostname) {
     astate.set_name(hostname);
 
     AnalyticsCpuInfo ainfo;
-    ainfo.set_module_id(
-            g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second);
-    ainfo.set_inst_id(0);
+    ainfo.set_module_instance_id(Sandesh::module() + ":" +
+                                 Sandesh::instance_id());
     ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
     ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
     vector<AnalyticsCpuInfo> aciv;
@@ -200,6 +199,8 @@ main(int argc, char *argv[]) {
     DiscoveryServiceClient *ds_client = NULL;
     ip::tcp::endpoint dss_ep;
     Sandesh::CollectorSubFn csf = 0;
+    Module::type module = Module::QUERY_ENGINE;
+    string module_name = g_vns_constants.ModuleNames.find(module)->second;
     if (var_map.count("discovery-server")) {
         error_code error;
         dss_ep.address(
@@ -227,9 +228,14 @@ main(int argc, char *argv[]) {
     LOG(INFO, "Max-slice " << var_map["max-slice"].as<int>());
 
     // Initialize Sandesh
+    NodeType::type node_type = 
+        g_vns_constants.Module2NodeType.find(module)->second;
     Sandesh::InitGenerator(
-            g_vns_constants.ModuleNames.find(Module::QUERY_ENGINE)->second,
-            hostname, &evm,
+            module_name,
+            hostname, 
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT,
+            &evm,
             var_map["http-server-port"].as<int>(),
             csf,
             var_map["collectors"].as<vector<string> >(),

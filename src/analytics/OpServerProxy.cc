@@ -138,18 +138,16 @@ class OpServerProxy::OpServerImpl {
             processor_cb_proc_fn = boost::bind(&OpServerImpl::processorCallbackProcess, this, _1, _2, _3);
             to_ops_conn_.get()->SetClientAsyncCmdCb(processor_cb_proc_fn);
 
-            string module = g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
-            VizSandeshContext * vsc = static_cast<VizSandeshContext *>(Sandesh::client_context());
-            string source;
-            if (vsc)
-                source = vsc->Analytics()->name();
-            else 
-                source = Sandesh::source();
+            string module = Sandesh::module();
+            string source = Sandesh::source();
+            string instance_id = Sandesh::instance_id();
+            string node_type = Sandesh::node_type();
             
             if (!started_) {
                 RedisProcessorExec::SyncDeleteUVEs(redis_uve_.GetIp(), 
                                                    redis_uve_.GetPort(),
-                                                   source, module, "", 0);
+                                                   source, node_type,
+                                                   module, instance_id, "", 0);
                 started_=true;
             }
             if (collector_) 
@@ -367,7 +365,9 @@ OpServerProxy::~OpServerProxy() {
 
 bool
 OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
-                       const std::string &source, const std::string &module,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, 
+                       const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string& agg, 
                        const std::string& atyp, int64_t ts) {
@@ -379,14 +379,16 @@ OpServerProxy::UVEUpdate(const std::string &type, const std::string &attr,
     }
 
     bool ret = RedisProcessorExec::UVEUpdate(prac.get(), NULL, type, attr,
-            source, module, key, message, seq, agg, atyp, ts);
+            source, node_type, module, instance_id, key, message, seq, agg, atyp, ts);
     ret ? impl_->redis_uve_.RedisUveUpdate() : impl_->redis_uve_.RedisUveUpdateFail(); 
     return ret;
 }
 
 bool
 OpServerProxy::UVEDelete(const std::string &type,
-                       const std::string &source, const std::string &module,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, 
+                       const std::string &instance_id,
                        const std::string &key, int32_t seq) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
@@ -396,13 +398,14 @@ OpServerProxy::UVEDelete(const std::string &type,
     }
 
     bool ret = RedisProcessorExec::UVEDelete(prac.get(), NULL, type, source, 
-            module, key, seq);
+            node_type, module, instance_id, key, seq);
     ret ? impl_->redis_uve_.RedisUveDelete() : impl_->redis_uve_.RedisUveDeleteFail(); 
     return ret;
 }
 
 bool 
-OpServerProxy::GetSeq(const string &source, const string &module, 
+OpServerProxy::GetSeq(const string &source, const string &node_type, 
+        const string &module, const string &instance_id,
         std::map<std::string,int32_t> & seqReply) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
@@ -417,12 +420,13 @@ OpServerProxy::GetSeq(const string &source, const string &module,
         coll = Sandesh::source();
 
     return RedisProcessorExec::SyncGetSeq(impl_->redis_uve_.GetIp(), 
-            impl_->redis_uve_.GetPort(), source, module, coll, 
-            gen_timeout_, seqReply);
+            impl_->redis_uve_.GetPort(), source, node_type, module, 
+            instance_id, coll, gen_timeout_, seqReply);
 }
 
 bool 
-OpServerProxy::DeleteUVEs(const string &source, const string &module) {
+OpServerProxy::DeleteUVEs(const string &source, const string &module,
+                          const string &node_type, const string &instance_id) {
 
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if  (!(prac && prac->IsConnUp())) return false;
@@ -435,7 +439,8 @@ OpServerProxy::DeleteUVEs(const string &source, const string &module) {
         coll = Sandesh::source();
 
     return RedisProcessorExec::SyncDeleteUVEs(impl_->redis_uve_.GetIp(), 
-            impl_->redis_uve_.GetPort(), source, module, coll, gen_timeout_);
+            impl_->redis_uve_.GetPort(), source, node_type, module, instance_id,
+            coll, gen_timeout_);
 }
 
 bool 
@@ -449,7 +454,10 @@ OpServerProxy::GeneratorCleanup(GenCleanupReply gcr) {
 }
 
 bool
-OpServerProxy::RefreshGenerator(const std::string &source, const std::string &module) {
+OpServerProxy::RefreshGenerator(const std::string &source, 
+                                const std::string &node_type,
+                                const std::string &module,
+                                const std::string &instance_id) {
 
     if (!gen_timeout_) return true;
 
@@ -464,13 +472,18 @@ OpServerProxy::RefreshGenerator(const std::string &source, const std::string &mo
     else 
         coll = Sandesh::source();
 
-    RedisProcessorExec::RefreshGenerator(prac.get(), source, module, coll, gen_timeout_); 
+    RedisProcessorExec::RefreshGenerator(prac.get(), source, node_type, 
+                                         module, instance_id,
+                                         coll, gen_timeout_); 
 
     return true;    
 }
 
 bool
-OpServerProxy::WithdrawGenerator(const std::string &source, const std::string &module) {
+OpServerProxy::WithdrawGenerator(const std::string &source, 
+                                 const std::string &node_type,
+                                 const std::string &module,
+                                 const std::string &instance_id) {
     shared_ptr<RedisAsyncConnection> prac = impl_->to_ops_conn();
     if  (!(prac && prac->IsConnUp())) return false;
 
@@ -481,7 +494,8 @@ OpServerProxy::WithdrawGenerator(const std::string &source, const std::string &m
     else 
         coll = Sandesh::source();
 
-    RedisProcessorExec::WithdrawGenerator(prac.get(), source, module, coll);
+    RedisProcessorExec::WithdrawGenerator(prac.get(), source, node_type, 
+                                          module, instance_id, coll);
 
     return true;
 }

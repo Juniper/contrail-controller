@@ -48,6 +48,7 @@
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
 #include "uve/flow_uve.h"
+#include "uve/uve_init.h"
 #include "pkt/pkt_sandesh_flow.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
@@ -653,9 +654,13 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
-    ksync_obj->UpdateFlowStats(fe, false);
+    FlowStatsCollector *fec = Agent::GetInstance()->uve()->
+                                  GetFlowStatsCollector();
+    uint64_t diff_bytes, diff_packets;
+    fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
+
     fe->teardown_time = UTCTimestampUsec();
-    FlowStatsCollector::FlowExport(fe, 0, 0);
+    fec->FlowExport(fe, diff_bytes, diff_packets);
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->data.reverse_flow.get();

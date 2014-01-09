@@ -119,7 +119,7 @@ void MplsLabel::CreateVlanNh(uint32_t label, const uuid &intf_uuid,
     return;
 }
 
-void MplsLabel::CreateVirtualHostPortLabel(uint32_t label,
+void MplsLabel::CreateInetInterfaceLabel(uint32_t label,
                                            const string &ifname,
                                            bool policy, 
                                            InterfaceNHFlags::Type type) {
