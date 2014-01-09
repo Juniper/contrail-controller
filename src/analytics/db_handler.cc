@@ -377,7 +377,9 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     string sname;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
-    pv = string("Messagetype");
+    std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
+    name_val.append(":Messagetype");
+    pv = name_val;
     tmap.insert(make_pair("name", make_pair(pv, amap)));
     attribs.insert(make_pair(string("name"), pv));
     string sattrname("fields.value");
@@ -454,13 +456,35 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
         columns.push_back(GenDb::NewCol(col_name, col_value));
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
+	/*
+ 	 * Inserting to the the stats table
+ 	 */
+
         if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
             LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
             return;
         }
-      }
+	
+	//Handle insertion into the Stats table
+	DbHandler::TagMap tmap;
+	DbHandler::AttribMap amap;
+	string sname;
+	DbHandler::Var pv;
+	DbHandler::AttribMap attribs;
+	std::string name_val = string(table);
+	name_val.append(":Objecttype");
+	pv = name_val;
+	tmap.insert(make_pair("name", make_pair(pv, amap)));
+	attribs.insert(make_pair(string("name"), pv));
+	string sattrname("fields.value");
+	pv = string(rowkey_str);
+	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
+	attribs.insert(make_pair(sattrname,pv));
+	StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
+    }
+        
 }
 
 
