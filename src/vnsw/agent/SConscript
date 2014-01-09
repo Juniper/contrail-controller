@@ -334,9 +334,9 @@ def run_ut(target, source, env):
 
 
 
-run_ut = env.Command(Dir('run_ut'), '', run_ut)
-env.AlwaysBuild(run_ut)
-env.Alias('src/vnsw/agent:run_ut', run_ut)
+#run_ut = env.Command(Dir('run_ut'), '', run_ut)
+#env.AlwaysBuild(run_ut)
+#env.Alias('src/vnsw/agent:run_ut', run_ut)
 env.Depends('main.o', 'buildinfo.cc')
 
 # Local Variables:

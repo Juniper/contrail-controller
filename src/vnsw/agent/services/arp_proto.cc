@@ -8,7 +8,7 @@
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/mirror_table.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "ksync/ksync_index.h"
 #include "ksync/interface_ksync.h"
 #include "pkt/pkt_init.h"
@@ -246,7 +246,7 @@ bool ArpHandler::HandlePacket() {
 
     //Look for subnet broadcast
     Ip4Address arp_addr(arp_tpa_);
-    RouteEntry *route = 
+    AgentRoute *route = 
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
             GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
             FindLPM(arp_addr);

@@ -6,7 +6,7 @@
 #include <cmn/agent_cmn.h>
 
 #include <base/logging.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/tunnel_nh.h>
