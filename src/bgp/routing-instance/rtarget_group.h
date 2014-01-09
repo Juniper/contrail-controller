@@ -77,7 +77,6 @@ public:
     bool RemoveImportTable(Address::Family family, BgpTable *tbl);
     bool RemoveExportTable(Address::Family family, BgpTable *tbl);
 
-
     void AddDepRoute(int part_id, BgpRoute *rt);
     void RemoveDepRoute(int part_id, BgpRoute *rt);
     bool RouteDepListEmpty();
@@ -91,9 +90,9 @@ public:
     bool peer_list_empty() const;
 
 private:
+    RouteTarget rt_;
     RtGroupMembers import_;
     RtGroupMembers export_;
-    RouteTarget rt_;
     // Mutex for route dep list
     tbb::spin_rw_mutex rw_mutex_;
     RTargetDepRouteList dep_;
