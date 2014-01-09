@@ -179,6 +179,11 @@ struct RtGroupMgrReq {
 // allow more than 1 bgp::RTFilter task to run at the same time, this ensures
 // that the RouteTargetTriggerList is not modified while it's being processed.
 //
+// A mutex is used to protect the RtGroupMap since LocateRtGroup/GetRtGroup
+// is called from multiple db::DBTable tasks concurrently. The same mutex is
+// also used to protect the RtGroupRemoveList as multiple db::DBTable tasks
+// can try to add RtGroups to the list concurrently.
+//
 class RTargetGroupMgr {
 public:
     typedef boost::ptr_map<const RouteTarget, RtGroup> RtGroupMap;
@@ -202,6 +207,7 @@ public:
 
 private:
     static int rtfilter_task_id_;
+
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
