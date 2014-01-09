@@ -456,7 +456,6 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
         columns.push_back(GenDb::NewCol(col_name, col_value));
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-
         if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
             LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
                     ", message UUID " << unm << " " << table << " into table "
