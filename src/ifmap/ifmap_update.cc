@@ -64,7 +64,7 @@ IFMapMarker::IFMapMarker()
     : IFMapListEntry(MARKER) {
 }
 
-IFMapState::IFMapState() : sig_(kInvalidSig) {
+IFMapState::IFMapState() : sig_(kInvalidSig), crc_(0) {
 }
 
 IFMapState::~IFMapState() {
