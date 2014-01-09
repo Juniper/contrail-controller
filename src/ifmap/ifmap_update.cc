@@ -40,7 +40,7 @@ std::string IFMapUpdate::ToString() {
         IFMapLink *link = data().u.link;
         first = link->ToString();
     }
-    return first + ":" + TypeToString();
+    return TypeToString() + " of " + first;
 }
 
 void IFMapUpdate::AdvertiseReset(const BitSet &set) {
