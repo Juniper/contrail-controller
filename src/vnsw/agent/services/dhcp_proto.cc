@@ -6,7 +6,7 @@
 #include "cmn/agent_cmn.h"
 #include "ksync/ksync_index.h"
 #include "oper/interface_common.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/mirror_table.h"
 #include "ksync/interface_ksync.h"
 #include "pkt/pkt_init.h"

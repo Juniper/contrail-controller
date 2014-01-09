@@ -8,7 +8,7 @@
 #include <vnc_cfg_types.h>
 #include "base/task_annotations.h"
 #include <base/logging.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>

@@ -15,7 +15,7 @@
 #include <cfg/cfg_interface.h>
 #include <cmn/agent.h>
 #include <oper/operdb_init.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/vrf.h>

@@ -20,7 +20,7 @@
 #include <instance_service_server.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/mpls.h>
 #include <oper/vm.h>

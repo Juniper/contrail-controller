@@ -14,7 +14,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/vn.h>
 #include <oper/nexthop.h>

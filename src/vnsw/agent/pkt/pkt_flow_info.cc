@@ -13,7 +13,7 @@
 #include "init/agent_param.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/vrf.h"
 #include "oper/sg.h"
 #include "oper/global_vrouter.h"
@@ -452,7 +452,7 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     nat_vrf = dest_vrf;
 
     if (in->rt_) {
-        flow_source_vrf = static_cast<const RouteEntry *>(in->rt_)->GetVrfId();
+        flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->GetVrfId();
     } else {
         flow_source_vrf = VrfEntry::kInvalidIndex;
     }
@@ -674,7 +674,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         dest_vn = RouteToVn(out->rt_);
     }
 
-    flow_source_vrf = static_cast<const RouteEntry *>(in->rt_)->GetVrfId();
+    flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->GetVrfId();
     flow_dest_vrf = out->rt_->GetVrfId();
 
     //If source is ECMP, establish a reverse flow pointing
