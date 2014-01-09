@@ -90,7 +90,7 @@ public:
     const boost::uuids::uuid &GetUuid() const {return uuid_;}
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
-    bool l3_active() const {return l3_active_;}
+    bool ipv4_active() const {return ipv4_active_;}
     bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
     bool dhcp_enabled() const {return dhcp_enabled_;}
@@ -111,7 +111,7 @@ protected:
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
-    bool l3_active_;
+    bool ipv4_active_;
     bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;

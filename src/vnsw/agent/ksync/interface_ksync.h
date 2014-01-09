@@ -67,7 +67,7 @@ private:
     bool policy_enabled_;
     string analyzer_name_;
     Interface::MirrorDirection mirror_direction_;
-    bool l3_active_;
+    bool ipv4_active_;
     bool l2_active_;
     size_t os_index_;
     int network_id_;

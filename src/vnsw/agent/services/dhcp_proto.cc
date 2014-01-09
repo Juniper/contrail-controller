@@ -264,7 +264,7 @@ bool DhcpHandler::FindLeaseData() {
     Ip4Address ip = vm_itf_->ip_addr();
     // Change client name to VM name; this is the name assigned to the VM
     client_name_ = vm_itf_->vm_name();
-    if (vm_itf_->l3_active()) {
+    if (vm_itf_->ipv4_active()) {
         if (vm_itf_->fabric_port()) {
             Inet4UnicastRouteEntry *rt = 
                 Inet4UnicastAgentRouteTable::FindResolveRoute(

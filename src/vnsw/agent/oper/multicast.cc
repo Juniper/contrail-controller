@@ -311,7 +311,7 @@ void MulticastHandler::VisitUnresolvedVMList(const VnEntry *vn)
         vm_itf = (*it_itf);
         intf = static_cast<const Interface *>(vm_itf);
 
-        if ((vm_itf == NULL) || ((intf->l3_active() != true) &&
+        if ((vm_itf == NULL) || ((intf->ipv4_active() != true) &&
                                  (intf->l2_active() != true))) {
             //Delete vm itf
             it_itf++;
@@ -436,7 +436,7 @@ void MulticastHandler::ModifyVmInterface(DBTablePartBase *partition,
         return;
     }
 
-    if (intf->IsDeleted() || ((intf->l3_active() == false) &&
+    if (intf->IsDeleted() || ((intf->ipv4_active() == false) &&
                              (intf->l2_active() == false))) {
         MulticastHandler::GetInstance()->DeleteVmInterface(intf);
         return;

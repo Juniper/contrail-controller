@@ -48,7 +48,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     ip_(entry->ip_), policy_enabled_(entry->policy_enabled_),
     analyzer_name_(entry->analyzer_name_),
     mirror_direction_(entry->mirror_direction_), 
-    l3_active_(false), l2_active_(false),
+    ipv4_active_(false), l2_active_(false),
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
     layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
@@ -62,7 +62,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->GetVrfId()),
     fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
     policy_enabled_(false), analyzer_name_(),
-    mirror_direction_(Interface::UNKNOWN), l3_active_(false), l2_active_(false),
+    mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
     ipv4_forwarding_(true), layer2_forwarding_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
@@ -107,8 +107,8 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     Interface *intf = static_cast<Interface *>(e);
     bool ret = false;
 
-    if (l3_active_ != intf->l3_active()) {
-        l3_active_ = intf->l3_active();
+    if (ipv4_active_ != intf->ipv4_active()) {
+        ipv4_active_ = intf->ipv4_active();
         ret = true;
     }
 
@@ -151,7 +151,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     std::string analyzer_name;    
     Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
     bool has_service_vlan = false;
-    if (l2_active_ || l3_active_) {
+    if (l2_active_ || ipv4_active_) {
         vrf_id = intf->GetVrfId();
         if (vrf_id == VrfEntry::kInvalidIndex) {
             vrf_id = VIF_VRF_INVALID;
@@ -361,7 +361,7 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
         info.set_os_idx(os_index_);
         info.set_vrf_id(vrf_id_);
         info.set_l2_active(l2_active_);
-        info.set_active(l3_active_);
+        info.set_active(ipv4_active_);
         info.set_policy_enabled(policy_enabled_);
         info.set_service_enabled(has_service_vlan_);
         info.set_analyzer_name(analyzer_name_);

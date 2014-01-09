@@ -546,7 +546,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     bool ret = false;
 
     // Copy old values used to update config below
-    bool old_l3_active = l3_active_;
+    bool old_ipv4_active = ipv4_active_;
     bool old_l2_active = l2_active_;
     bool old_policy = policy_enabled_;
     VrfEntryRef old_vrf = vrf_;
@@ -574,9 +574,9 @@ bool VmInterface::Resync(VmInterfaceData *data) {
         }
     }
 
-    l3_active_ = IsL3Active();
+    ipv4_active_ = IsL3Active();
     l2_active_ = IsL2Active();
-    if (l3_active_ != old_l3_active) {
+    if (ipv4_active_ != old_ipv4_active) {
         ret = true;
     }
 
@@ -590,7 +590,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     }
 
     // Apply config based on old and new values
-    ApplyConfig(old_l3_active, old_l2_active, old_policy, old_vrf.get(), 
+    ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
                 old_addr, old_vxlan_id, old_fabric_port,
                 old_need_linklocal_ip, sg_changed);
 
@@ -598,11 +598,11 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 }
 
 void VmInterface::Delete() {
-    bool old_l3_active = l3_active_;
+    bool old_ipv4_active = ipv4_active_;
     bool old_l2_active = l2_active_;
-    l3_active_ = false;
+    ipv4_active_ = false;
     l2_active_ = false;
-    ApplyConfig(old_l3_active, old_l2_active, policy_enabled_, 
+    ApplyConfig(old_ipv4_active, old_l2_active, policy_enabled_, 
                 vrf_.get(), ip_addr_, vxlan_id_, fabric_port_,
                 need_linklocal_ip_, false);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
@@ -760,25 +760,25 @@ bool VmInterface::CopyConfig(VmInterfaceConfigData *data, bool *sg_changed) {
     return ret;
 }
 
-void VmInterface::UpdateL3(bool old_l3_active, VrfEntry *old_vrf,
+void VmInterface::UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_addr, int old_vxlan_id,
                            bool force_update, bool policy_change) {
     UpdateSecurityGroup();
-    UpdateL3NextHop(old_l3_active);
+    UpdateL3NextHop(old_ipv4_active);
     UpdateL3TunnelId(force_update, policy_change);
-    UpdateL3InterfaceRoute(old_l3_active, force_update, policy_change,
+    UpdateL3InterfaceRoute(old_ipv4_active, force_update, policy_change,
                            old_vrf, old_addr);
-    UpdateMetadataRoute(old_l3_active, old_vrf);
+    UpdateMetadataRoute(old_ipv4_active, old_vrf);
     UpdateFloatingIp(force_update, policy_change);
     UpdateServiceVlan(force_update, policy_change);
     UpdateStaticRoute(force_update, policy_change);
 }
 
-void VmInterface::DeleteL3(bool old_l3_active, VrfEntry *old_vrf,
+void VmInterface::DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                            const Ip4Address &old_addr,
                            bool old_need_linklocal_ip) {
-    DeleteL3InterfaceRoute(old_l3_active, old_vrf, old_addr);
-    DeleteMetadataRoute(old_l3_active, old_vrf, old_need_linklocal_ip);
+    DeleteL3InterfaceRoute(old_ipv4_active, old_vrf, old_addr);
+    DeleteMetadataRoute(old_ipv4_active, old_vrf, old_need_linklocal_ip);
     DeleteFloatingIp();
     DeleteServiceVlan();
     DeleteStaticRoute();
@@ -803,24 +803,24 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
 }
 
 // Apply the latest configuration
-void VmInterface::ApplyConfig(bool old_l3_active, bool old_l2_active, bool old_policy, 
+void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy, 
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 
                               int old_vxlan_id, bool old_fabric_port,
                               bool old_need_linklocal_ip, bool sg_changed) {
     // Update services flag based on l3 active state
-    UpdateL3Services(l3_active_);
+    UpdateL3Services(ipv4_active_);
 
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
-    UpdateMulticastNextHop(old_l3_active || old_l2_active);
+    UpdateMulticastNextHop(old_ipv4_active || old_l2_active);
 
     // Add/Del/Update L3 
-    if (l3_active_ && ipv4_forwarding_) {
-        UpdateL3(old_l3_active, old_vrf, old_addr, old_vxlan_id, force_update,
+    if (ipv4_active_ && ipv4_forwarding_) {
+        UpdateL3(old_ipv4_active, old_vrf, old_addr, old_vxlan_id, force_update,
                  policy_change);
-    } else if (old_l3_active) {
-        DeleteL3(old_l3_active, old_vrf, old_addr, old_need_linklocal_ip);
+    } else if (old_ipv4_active) {
+        DeleteL3(old_ipv4_active, old_vrf, old_addr, old_need_linklocal_ip);
     }
 
     // Add/Del/Update L2 
@@ -839,8 +839,8 @@ void VmInterface::ApplyConfig(bool old_l3_active, bool old_l2_active, bool old_p
         }
     }
     
-    if (old_l3_active != l3_active_) {
-        if (l3_active_) {
+    if (old_ipv4_active != ipv4_active_) {
+        if (ipv4_active_) {
             SendTrace(ACTIVATED_L3);
         } else {
             SendTrace(DEACTIVATED_L3);
@@ -883,7 +883,7 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
         return ret;
     }
 
-    bool old_l3_active = l3_active_;
+    bool old_ipv4_active = ipv4_active_;
     Ip4Address old_addr = ip_addr_;
 
     Ip4Address ipaddr = data->ip_addr_;
@@ -891,8 +891,8 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
         ret = true;
     }
 
-    l3_active_ = IsL3Active();
-    ApplyConfig(old_l3_active, l2_active_, policy_enabled_, vrf_.get(), old_addr,
+    ipv4_active_ = IsL3Active();
+    ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(), old_addr,
                 vxlan_id_, fabric_port_, need_linklocal_ip_, false);
     return ret;
 }
@@ -1068,7 +1068,7 @@ void VmInterface::DeleteL3TunnelId() {
 
 void VmInterface::UpdateMulticastNextHop(bool interface_active) {
     if (interface_active == true ||
-        ((l2_active_ == false) && (l3_active_ == false)))
+        ((l2_active_ == false) && (ipv4_active_ == false)))
        return; 
 
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
@@ -1084,8 +1084,8 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
     InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
 }
 
-void VmInterface::UpdateL3NextHop(bool old_l3_active) {
-    if (l3_active_ == false || old_l3_active == true)
+void VmInterface::UpdateL3NextHop(bool old_ipv4_active) {
+    if (ipv4_active_ == false || old_ipv4_active == true)
         return;
 
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
@@ -1093,13 +1093,13 @@ void VmInterface::UpdateL3NextHop(bool old_l3_active) {
 }
 
 // Add/Update route. Delete old route if VRF or address changed
-void VmInterface::UpdateL3InterfaceRoute(bool old_l3_active, bool force_update,
+void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update,
                                          bool policy_change,
                                          VrfEntry * old_vrf,
                                          const Ip4Address &old_addr) {
     // If interface was already active earlier and there is no force_update or
     // policy_change, return
-    if (old_l3_active == true && force_update == false
+    if (old_ipv4_active == true && force_update == false
         && policy_change == false) {
         return;
     }
@@ -1107,7 +1107,7 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_l3_active, bool force_update,
     // We need to have valid IP and VRF to add route
     if (ip_addr_.to_ulong() != 0 && vrf_.get() != NULL) {
         // Add route if old was inactive or force_update is set
-        if (old_l3_active == false || force_update == true) {
+        if (old_ipv4_active == false || force_update == true) {
             AddRoute(vrf_->GetName(), ip_addr_, 32, policy_enabled_);
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
@@ -1119,11 +1119,11 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_l3_active, bool force_update,
 
     // If there is change in VRF or IP address, delete old route
     if (old_vrf != vrf_.get() || ip_addr_ != old_addr) {
-        DeleteL3InterfaceRoute(old_l3_active, old_vrf, old_addr);
+        DeleteL3InterfaceRoute(old_ipv4_active, old_vrf, old_addr);
     }
 }
 
-void VmInterface::DeleteL3InterfaceRoute(bool old_l3_active, VrfEntry *old_vrf,
+void VmInterface::DeleteL3InterfaceRoute(bool old_ipv4_active, VrfEntry *old_vrf,
                                          const Ip4Address &old_addr) {
     if ((old_vrf == NULL) || (old_addr.to_ulong() == 0))
         return;
@@ -1132,8 +1132,8 @@ void VmInterface::DeleteL3InterfaceRoute(bool old_l3_active, VrfEntry *old_vrf,
 }
 
 // Add meta-data route if linklocal_ip is needed
-void VmInterface::UpdateMetadataRoute(bool old_l3_active, VrfEntry *old_vrf) {
-    if (l3_active_ == false || old_l3_active == true)
+void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
+    if (ipv4_active_ == false || old_ipv4_active == true)
         return;
 
     if (!need_linklocal_ip_) {

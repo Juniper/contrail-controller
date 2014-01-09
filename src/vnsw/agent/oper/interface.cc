@@ -215,7 +215,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf) :
     type_(type), uuid_(uuid), name_(name),
     vrf_(vrf), label_(MplsTable::kInvalidLabel), 
-    l2_label_(MplsTable::kInvalidLabel), l3_active_(true), l2_active_(true),
+    l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
     os_index_(kInvalidIndex) { 
 }
@@ -333,7 +333,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     else
         data.set_vrf_name("--ERROR--");
 
-    if (l3_active_) {
+    if (ipv4_active_) {
         data.set_active("Active");
     } else {
         data.set_active("Inactive");
@@ -381,7 +381,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_policy("Disable");
         }
 
-        if ((l3_active_ == false) ||
+        if ((ipv4_active_ == false) ||
             (l2_active_ == false)) {
             string common_reason = "";
             if (vintf->vn() == NULL) {
@@ -400,7 +400,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
                 common_reason += "no-dev ";
             }
 
-            if (!l3_active_) {
+            if (!ipv4_active_) {
                 string reason = "Inactive< " + common_reason;
                 if (vintf->ip_addr().to_ulong() == 0) {
                     reason += "no-ip-addr ";

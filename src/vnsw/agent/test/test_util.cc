@@ -447,7 +447,7 @@ bool VmPortActive(int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->l3_active() == true);
+    return (intf->ipv4_active() == true);
 }
 
 bool VmPortActive(PortInfo *input, int id) {
@@ -669,7 +669,7 @@ bool VmPortInactive(int id) {
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
-    return (intf->l3_active() == false);
+    return (intf->ipv4_active() == false);
 }
 
 bool VmPortInactive(PortInfo *input, int id) {
@@ -680,7 +680,7 @@ bool VmPortInactive(PortInfo *input, int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->l3_active() == false);
+    return (intf->ipv4_active() == false);
 }
 
 PhysicalInterface *EthInterfaceGet(const char *name) {
