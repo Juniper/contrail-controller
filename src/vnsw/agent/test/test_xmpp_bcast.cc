@@ -535,6 +535,7 @@ protected:
 	// Bcast Route with updated olist 
 	WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 3));
     client->CompositeNHWait(7);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 5));
     client->MplsWait(5);
 
 	NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
@@ -576,6 +577,7 @@ protected:
 	// Bcast Route with updated olist
 	WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 4));
     client->CompositeNHWait(11);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->MplsWait(6);
 
 	nh = const_cast<NextHop *>(rt_m->GetActiveNextHop());
@@ -689,6 +691,11 @@ protected:
         DeleteVmportEnv(input, 2, 1, 0);
         client->WaitForIdle();
         WAIT_FOR(100, 1000, (client->CompositeNHDelWait(cnh_del_cnt) == true));
+        WAIT_FOR(100, 10000, (client->CompositeNHCount() == 0));
+        WAIT_FOR(100, 1000, 
+                 (Agent::GetInstance()->GetMplsTable()->Size() == 0));
+        WAIT_FOR(100, 1000, (VrfFind("vrf1") == false)); 
+        WAIT_FOR(100, 1000, (VrfFind("vrf2") == false)); 
         client->NextHopReset();
         client->MplsReset();
     }
@@ -730,6 +737,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_VmDeActivate) {
     //Delete vm-port and route entry in vrf1
     IntfCfgDel(input, 0);
     client->CompositeNHWait(16);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     // Route delete send to control-node 
     WAIT_FOR(1000, 10000, (mock_peer.get()->Count() == 11));
 
@@ -879,7 +887,8 @@ TEST_F(AgentXmppUnitTest, L2OnlyBcast_Test_SessionDownUp) {
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
-    //client->CompositeNHWait(11);
+    client->CompositeNHWait(11);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 3));
     client->MplsWait(5);
     client->WaitForIdle();
 
@@ -932,6 +941,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     addr = Ip4Address::from_string("1.1.1.2");
     rt = RouteGet("vrf1", addr, 32);
     WAIT_FOR(100, 10000, (rt->FindPath(ch->GetBgpPeer()) == NULL));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 5)); 
     client->CompositeNHWait(17);
 
     //ensure route learnt via control-node is updated
@@ -992,6 +1002,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 5));
     client->CompositeNHWait(19);
     client->MplsWait(9);
 
@@ -1020,6 +1031,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
                           "127.0.0.1", alloc_label+10);
     // Bcast Route with updated olist
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(23);
     client->MplsWait(10);
 
@@ -1143,6 +1155,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
     client->MplsWait(8);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(13);
 
     //verify sub-nh list count
@@ -1177,6 +1190,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
 			  "255.255.255.255", alloc_label + 3,  
                           "127.0.0.1", alloc_label+13);
     // Bcast Route with updated olist
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(17);
     client->MplsWait(10);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
@@ -1239,7 +1253,8 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           alloc_label + 13);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
-    client->CompositeNHWait(13);
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
+    client->CompositeNHWait(13);  
     client->MplsWait(6);
 
     //verify sub-nh list count ( 2 local-VMs + 1 fabric member in olist )
@@ -1257,6 +1272,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
 			  "1.1.1.255", alloc_label,  
                           "127.0.0.1", alloc_label + 14);
     // Bcast Route with updated olist 
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(15);
     client->MplsWait(6);
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
@@ -1298,6 +1314,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           alloc_label + 16);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(18);
     client->MplsWait(6);
 
@@ -1317,6 +1334,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
                           "127.0.0.1", alloc_label + 17);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(21);
     client->MplsWait(6);
 
@@ -1378,6 +1396,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           alloc_label + 12);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 5));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(13);
     client->MplsWait(8);
 
@@ -1397,6 +1416,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           "127.0.0.1", alloc_label + 14);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 6));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(15);
     client->MplsWait(10);
 
@@ -1437,6 +1457,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           alloc_label + 15);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 7));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(19);
     client->MplsWait(12);
 
@@ -1456,6 +1477,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
                           "127.0.0.1", alloc_label + 17);
     // Bcast Route with updated olist 
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 8));
+    WAIT_FOR(100, 10000, (client->CompositeNHCount() == 6));
     client->CompositeNHWait(23);
     client->MplsWait(14);
 
@@ -1481,6 +1503,8 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
 
 TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
 
+    Agent::GetInstance()->SetXmppServer("127.0.0.2", 1);
+    Agent::GetInstance()->SetAgentMcastLabelRange(1);
     client->Reset();
     XmppConnectionSetUp(true);
     client->WaitForIdle();
@@ -1535,13 +1559,6 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
 	//Verify mpls table, shud not be deleted when retract message comes from
     //non multicast tree builder peer
 	ASSERT_TRUE(Agent::GetInstance()->GetMplsTable()->Size() == 6);
-    /*
-	MplsLabel *mpls = 
-	    Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label);
-	ASSERT_TRUE(mpls != NULL); 
-	mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(alloc_label + 1);
-	ASSERT_TRUE(mpls != NULL); 
-    */
     client->WaitForIdle();
     XmppSubnetTearDown();
 
@@ -1563,6 +1580,8 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     TcpServerManager::DeleteServer(xs_s);
     TcpServerManager::DeleteServer(xc_s);
     client->WaitForIdle();
+    Agent::GetInstance()->SetXmppServer("", 1);
+    Agent::GetInstance()->SetAgentXmppChannel(NULL, 1);
 }
 
 }
@@ -1572,8 +1591,6 @@ int main(int argc, char **argv) {
     client = TestInit(init_file, ksync_init);
     Agent::GetInstance()->SetXmppServer("127.0.0.1", 0);
     Agent::GetInstance()->SetAgentMcastLabelRange(0);
-    Agent::GetInstance()->SetXmppServer("127.0.0.2", 1);
-    Agent::GetInstance()->SetAgentMcastLabelRange(1);
 
     int ret = RUN_ALL_TESTS();
     Agent::GetInstance()->GetEventManager()->Shutdown();

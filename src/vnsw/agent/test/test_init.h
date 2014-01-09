@@ -159,6 +159,7 @@ public:
         mpls_del_notify_ = 0;
         nh_del_notify_ = 0;
         shutdown_done_ = false;
+        comp_nh_list_.clear();
     };
     virtual ~TestClient() { };
 
@@ -200,8 +201,16 @@ public:
         if (nh->GetType() != NextHop::COMPOSITE) 
             return;
         nh_notify_++;
+        std::vector<const NextHop *>::iterator it = 
+            std::find(comp_nh_list_.begin(), comp_nh_list_.end(), nh);
         if (e->IsDeleted()) {
             nh_del_notify_++;
+            if (it != comp_nh_list_.end())
+                comp_nh_list_.erase(it);
+        } else { 
+            if (it == comp_nh_list_.end()) {
+                comp_nh_list_.push_back(nh);
+            }
         }
     };
 
@@ -236,6 +245,7 @@ public:
     void VmReset() {vm_notify_ = 0;};
     void PortReset() {port_notify_ = port_del_notify_ = 0;};
     void NextHopReset() {nh_notify_ = nh_del_notify_ = 0;};
+    void CompositeNHReset() {comp_nh_list_.clear();};
     void MplsReset() {mpls_notify_ = mpls_del_notify_ = 0;};
     void Reset() {vrf_notify_ = acl_notify_ = port_notify_ = vn_notify_ = 
         vm_notify_ = cfg_notify_ = port_del_notify_ =  
@@ -453,68 +463,25 @@ public:
         return (vrf_del_notify_ == count);
     }
 
+    size_t CompositeNHCount() {return comp_nh_list_.size();};
     bool CompositeNHDelWait(int nh_count) {
-        int i = 0;
-
-        while (nh_notify_ != nh_count) {
-            if (i++ < 100) {
-                usleep(10000);
-            } else {
-                break;
-            }
-        }
-
-        WaitForIdle();
-        EXPECT_EQ(nh_count, nh_del_notify_);
-        return (nh_del_notify_ == nh_count);
+        WAIT_FOR(100, 10000, (nh_del_notify_ >= nh_count));
+        return (nh_del_notify_ >= nh_count);
     }
 
     bool CompositeNHWait(int nh_count) {
-        int i = 0;
-
-        while (nh_notify_ != nh_count) {
-            if (i++ < 100) {
-                usleep(10000);
-            } else {
-                break;
-            }
-        }
-
-        WaitForIdle();
-        EXPECT_EQ(nh_count, nh_notify_);
-        return (nh_notify_ == nh_count);
+        WAIT_FOR(100, 10000, (nh_notify_ >= nh_count));
+        return (nh_notify_ >= nh_count);
     }
 
     bool MplsDelWait(int mpls_count) {
-        int i = 0;
-
-        while (mpls_notify_ != mpls_count) {
-            if (i++ < 100) {
-                usleep(10000);
-            } else {
-                break;
-            }
-        }
-
-        WaitForIdle();
-        EXPECT_EQ(mpls_count, mpls_del_notify_);
-        return (mpls_del_notify_ == mpls_count);
+        WAIT_FOR(100, 10000, (mpls_del_notify_ >= mpls_count));
+        return (mpls_del_notify_ >= mpls_count);
     }
 
     bool MplsWait(int mpls_count) {
-        int i = 0;
-
-        while (mpls_notify_ != mpls_count) {
-            if (i++ < 100) {
-                usleep(10000);
-            } else {
-                break;
-            }
-        }
-
-        WaitForIdle();
-        EXPECT_EQ(mpls_count, mpls_notify_);
-        return (mpls_notify_ == mpls_count);
+        WAIT_FOR(100, 10000, (mpls_notify_ >= mpls_count));
+        return (mpls_notify_ >= mpls_count);
     }
     
     bool NotifyWait(int port_count, int vn_count, int vm_count) {
@@ -591,6 +558,7 @@ public:
     int mpls_del_notify_;
     int nh_notify_;
     int mpls_notify_;
+    std::vector<const NextHop *> comp_nh_list_;
 };
 
 class AgentTestInit {
