@@ -8,62 +8,8 @@ import sys
 Import('AgentEnv')
 env = AgentEnv.Clone()
 
-buildinfo_dep_libs = [
-    '#build/lib/libthrift.a',
-    '#build/lib/libthriftasio.a',
-    '#build/lib/libboost_program_options.a',
-    '#build/lib/libboost_regex.a',
-    '#build/lib/libboost_system.a', 
-    '#build/lib/libcurl.a',
-    '#build/lib/libhttp.a',
-    '#build/lib/libhttp_parser.a', 
-    '#build/lib/liblog4cplus.a',
-    '#build/lib/libpugixml.a',
-    '../../../../lib/libsandesh.a',
-    '../../../../lib/libsandeshflow.a', 
-    '../../../../lib/libsandeshvns.a',
-    '../../../base/libbase.a',
-    '../../../base/libcpuinfo.a',
-    '../../../db/libdb.a',
-    '../../../dns/bind/libbind_interface.a',
-    '../../../ifmap/libifmap_agent.a',
-    '../../../ifmap/libifmap_common.a', 
-    '../../../io/libio.a', 
-    '../../../ksync/libksync.a',
-    '../../../net/libnet.a',
-    '../../../route/libroute.a', 
-    '../../../schema/libbgp_schema.a',
-    '../../../schema/libifmap_vnc.a',
-    '../../../schema/libxmpp_unicast.a',
-    '../../../schema/libxmpp_multicast.a',
-    '../../../vrouter/utils/libvrutil.a',
-    '../../../xml/libxml.a',
-    '../../../xmpp/libxmpp.a', 
-    '../cfg/libcfg.a',
-    '../controller/libvnswctrl.a',
-    '../filter/libfilter.a',
-    '../kstate/libkstate.a',
-    '../ksync/libvnswksync.a',
-    '../openstack/libnova_ins.a',
-    '../openstack/libnova_ins_thrift.a', 
-    '../oper/libvnswoperdb.a',
-    '../pkt/libpkt.a', '../diag/libdiag.a', 
-    '../services/libagent_services.a',
-    '../uve/libagentuve.a',
-    ]
-
-if sys.platform != 'darwin':
-    buildinfo_dep_libs += [ '../../../../lib/libtbb_debug.so.2' ]
-
 vnswcmn_sources = ['agent.cc', 'agent_db.cc', 'agent_stats.cc']
 
-env.GenerateBuildInfoCode(
-    target='buildinfo.cc',
-    source = buildinfo_dep_libs + vnswcmn_sources + ['../main.cc'],
-    path=str(Dir('.').abspath))
-
-vnswcmn = env.Library('vnswcmn', ['buildinfo.cc'] + vnswcmn_sources)
-env.Depends('agent.o', 'buildinfo.cc')
-env.Depends('../main.o', 'buildinfo.cc')
+vnswcmn = env.Library('vnswcmn', vnswcmn_sources)
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

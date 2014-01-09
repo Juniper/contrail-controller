@@ -13,7 +13,6 @@
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>
-#include <cmn/buildinfo.h>
 
 #include <init/agent_param.h>
 #include <init/agent_init.h>
@@ -66,10 +65,6 @@ const string &Agent::vhost_interface_name() const {
 
 const string &Agent::GetHostName() {
     return host_name_;
-};
-
-bool Agent::GetBuildInfo(std::string &build_info_str) {
-    return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 };
 
 bool Agent::isXenMode() {

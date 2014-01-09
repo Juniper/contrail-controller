@@ -14,7 +14,7 @@
 #include <oper/nexthop.h>
 #include <oper/mpls.h>
 #include <oper/mirror_table.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 

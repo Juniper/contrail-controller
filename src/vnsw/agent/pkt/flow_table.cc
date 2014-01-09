@@ -34,7 +34,7 @@
 #include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/vrf.h"
 #include "oper/vm.h"
 #include "oper/sg.h"

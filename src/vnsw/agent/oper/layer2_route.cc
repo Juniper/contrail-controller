@@ -7,7 +7,7 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
@@ -38,12 +38,12 @@ Layer2AgentRouteTable::FindRoute(const string &vrf_name,
     return static_cast<Layer2RouteEntry *>(rt_table->Find(rt_key));
 }
 
-RouteEntry *
+AgentRoute *
 Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Layer2RouteEntry * entry = new Layer2RouteEntry(vrf, dmac_, vm_ip_, plen_, 
                                                     GetPeer()->GetType(), is_multicast); 
-    return static_cast<RouteEntry *>(entry);
+    return static_cast<AgentRoute *>(entry);
 }
 
 void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
