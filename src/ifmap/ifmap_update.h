@@ -5,6 +5,7 @@
 #ifndef __DB_IFMAP_UPDATE_H__
 #define __DB_IFMAP_UPDATE_H__
 
+#include <boost/crc.hpp>      // for boost::crc_32_type
 #include <boost/intrusive/list.hpp>
 #include <boost/intrusive/slist.hpp>
 
@@ -94,6 +95,7 @@ struct IFMapMarker : public IFMapListEntry {
 // State associated with each DB entry.
 class IFMapState : public DBState {
 public:
+    typedef boost::crc_32_type::value_type crc32type;
     typedef boost::intrusive::member_hook<
         IFMapUpdate, boost::intrusive::slist_member_hook<>, &IFMapUpdate::node_
     > MemberHook;
@@ -126,6 +128,8 @@ public:
     virtual void ClearValid() { sig_ = kInvalidSig; }
     virtual bool IsValid() const { return sig_ != kInvalidSig; }
     virtual bool IsInvalid() const { return sig_ == kInvalidSig; }
+    const crc32type &crc() const { return crc_; }
+    void SetCrc(crc32type &crc) { crc_ = crc; }
 
 protected:
     static const uint32_t kInvalidSig = -1;
@@ -139,6 +143,8 @@ private:
     BitSet advertised_;
 
     UpdateList update_list_;
+
+    crc32type crc_;
 };
 
 class IFMapNodeState : public IFMapState {
