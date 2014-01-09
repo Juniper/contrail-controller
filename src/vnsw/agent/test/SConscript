@@ -32,6 +32,8 @@ if sys.platform != 'darwin':
     test_lib_srcs = ['test_init.cc', 'test_util.cc']
     env.Library('agent_test', test_lib_srcs)
     env.Prepend(LIBS=['agent_test']);
+    env.Library('agent_test_buildinfo', 'test_buildinfo.cc')
+    env.Append(LIBS=['agent_test_buildinfo'])
 
     test_vn = env.Program(target = 'test_vn', source = ['test_vn.cc'])
     env.Alias('src/vnsw/agent/test:test_vn', test_vn)

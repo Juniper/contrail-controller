@@ -1384,7 +1384,7 @@ void UveClient::SendVrouterUve() {
 
     if (!build_info) {
         string build_info_str;
-        build_info = Agent::GetInstance()->GetBuildInfo(build_info_str);
+        build_info = GetBuildInfo(build_info_str);
         if (prev_vrouter_.get_build_info() != build_info_str) {
             vrouter_agent.set_build_info(build_info_str);
             prev_vrouter_.set_build_info(build_info_str);

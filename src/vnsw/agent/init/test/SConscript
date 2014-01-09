@@ -19,6 +19,7 @@ import sys
 if sys.platform != 'darwin':
     env.Append(LIBPATH=['../../test'])
     env.Prepend(LIBS=['agent_test']);
+    env.Append(LIBS=['agent_test_buildinfo']);
 
     test_agent_init = env.Program(target = 'test_agent_init', 
                                   source = ['test_agent_init.cc'])

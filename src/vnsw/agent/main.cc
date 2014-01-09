@@ -52,6 +52,10 @@ void RouterIdDepInit() {
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
 }
 
+bool GetBuildInfo(std::string &build_info_str) {
+    return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
+}
+
 int main(int argc, char *argv[]) {
     opt::options_description desc("Command line options");
     desc.add_options()
@@ -119,7 +123,7 @@ int main(int argc, char *argv[]) {
     }
 
     string build_info;
-    Agent::GetInstance()->GetBuildInfo(build_info);
+    GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
     // Create agent 
