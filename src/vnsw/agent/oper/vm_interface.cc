@@ -146,6 +146,11 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
                     continue;
                 }
+                // Checking whether it is default vrf of not
+                unsigned found = vrf_node->name().find_last_of(':');
+                if (vn_node->name().compare(vrf_node->name().substr(0, found)) != 0) {
+                    continue;
+                }
 
                 FloatingIp *fip = static_cast<FloatingIp *>(node->GetObject());
                 assert(fip != NULL);
