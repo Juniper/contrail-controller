@@ -18,7 +18,8 @@ if '-fno-exceptions' in cflags:
 import sys
 if sys.platform != 'darwin':
     env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test']);
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
 
     test_vgw = env.Program(target = 'test_vgw', source = ['test_vgw.cc'])
     env.Alias('src/vnsw/agent/vgw/test:test_vgw', test_vgw)

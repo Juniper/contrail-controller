@@ -16,7 +16,8 @@ env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
 import sys
 if sys.platform != 'darwin':
     env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test']);
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
 
     test_kstate = env.Program(target = 'test_kstate', source = ['test_kstate.cc'])
     env.Alias('src/vnsw/agent/kstate/test:test_kstate', test_kstate)
