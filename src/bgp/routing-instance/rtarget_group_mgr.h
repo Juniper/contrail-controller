@@ -191,7 +191,7 @@ public:
             RtGroupMgrTableState *> RtGroupMgrTableStateList;
     typedef std::set<RTargetRoute *> RTargetRouteTriggerList;
     typedef std::set<RouteTarget> RouteTargetTriggerList;
-    typedef std::set<RouteTarget> RtGroupRemoveList;
+    typedef std::set<RtGroup *> RtGroupRemoveList;
 
     RTargetGroupMgr(BgpServer *);
     virtual ~RTargetGroupMgr();
