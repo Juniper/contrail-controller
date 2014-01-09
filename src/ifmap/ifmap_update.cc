@@ -31,12 +31,31 @@ IFMapUpdate::IFMapUpdate(IFMapLink *link, bool positive)
       data_(link) {
 }
 
+std::string IFMapUpdate::ConfigName() {
+    std::string name;
+    if (data().type == IFMapObjectPtr::NODE) {
+        IFMapNode *node = data().u.node;
+        name = node->ToString();
+    } else if (data().type == IFMapObjectPtr::LINK) {
+        IFMapLink *link = data().u.link;
+        name = link->ToString();
+    }
+    return name;
+}
+
+std::string IFMapUpdate::ToString() {
+    std::string name = ConfigName();
+    return TypeToString() + " of " + name;
+}
+
 void IFMapUpdate::AdvertiseReset(const BitSet &set) {
     advertise_.Reset(set);
 }
+
 void IFMapUpdate::AdvertiseOr(const BitSet &set) {
     advertise_ |= set;
 }
+
 void IFMapUpdate::SetAdvertise(const BitSet &set) {
     advertise_ = set;
 }

@@ -52,6 +52,17 @@ struct IFMapListEntry {
     bool IsMarker() const { return ((type == MARKER) ? true : false); }
     bool IsUpdate() const { return ((type == UPDATE) ? true : false); }
     bool IsDelete() const { return ((type == DELETE) ? true : false); }
+    std::string TypeToString() {
+        if (IsMarker()) {
+            return "Marker";
+        } else if (IsUpdate()) {
+            return "Update";
+        } else if (IsDelete()) {
+            return "Delete";
+        } else {
+            return "Unknown";
+        }
+    }
 };
 
 class IFMapUpdate : public IFMapListEntry {
@@ -65,6 +76,8 @@ public:
     const BitSet &advertise() const { return advertise_; }
 
     const IFMapObjectPtr &data() const { return data_; }
+    std::string ConfigName();
+    std::string ToString();
 
 private:
     friend class IFMapState;
