@@ -305,12 +305,13 @@ void IFMapUpdateSender::LogSentUpdate(IFMapUpdate *update,
     size_t total = base_send_set.count();
     // Avoid dealing with return value of BitSet::npos
     if (total) {
-        string update_info = update->ToString();
+        string name = update->ConfigName();
+        string operation = update->TypeToString();
         size_t client_id = base_send_set.find_first();
         while (total--) {
             IFMapClient *client = server_->GetClient(client_id);
             if (client) {
-                IFMAP_DEBUG_ONLY(IFMapClientSendInfo, update_info,
+                IFMAP_DEBUG_ONLY(IFMapClientSendInfo, operation, name,
                                  client->name());
             }
             client_id = base_send_set.find_next(client_id);

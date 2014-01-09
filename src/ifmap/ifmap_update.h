@@ -76,6 +76,7 @@ public:
     const BitSet &advertise() const { return advertise_; }
 
     const IFMapObjectPtr &data() const { return data_; }
+    std::string ConfigName();
     std::string ToString();
 
 private:
