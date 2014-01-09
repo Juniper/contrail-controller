@@ -605,7 +605,7 @@ void VmInterface::Delete() {
     ApplyConfig(old_l3_active, old_l2_active, policy_enabled_, 
                 vrf_.get(), ip_addr_, vxlan_id_, fabric_port_,
                 need_linklocal_ip_, false);
-    InterfaceNH::DeleteVportReq(GetUuid());
+    InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 
 bool VmInterface::CopyIpAddress(Ip4Address &addr) {
@@ -1072,11 +1072,8 @@ void VmInterface::UpdateMulticastNextHop(bool interface_active) {
        return; 
 
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    if (addrp == NULL) {
-        return;
-    }
-
-    InterfaceNH::CreateMulticastVport(GetUuid(), *addrp, vrf_->GetName());
+    InterfaceNH::CreateMulticastVmInterfaceNH(GetUuid(), *addrp, 
+                                              vrf_->GetName());
 }
 
 void VmInterface::UpdateL2NextHop(bool old_l2_active) {
@@ -1084,11 +1081,7 @@ void VmInterface::UpdateL2NextHop(bool old_l2_active) {
         return;
 
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    if (addrp == NULL) {
-        return;
-    }
-
-    InterfaceNH::CreateL2Vport(GetUuid(), *addrp, vrf_->GetName());
+    InterfaceNH::CreateL2VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
 }
 
 void VmInterface::UpdateL3NextHop(bool old_l3_active) {
@@ -1096,11 +1089,7 @@ void VmInterface::UpdateL3NextHop(bool old_l3_active) {
         return;
 
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
-    if (addrp == NULL) {
-        return;
-    }
-
-    InterfaceNH::CreateL3Vport(GetUuid(), *addrp, vrf_->GetName());
+    InterfaceNH::CreateL3VmInterfaceNH(GetUuid(), *addrp, vrf_->GetName());
 }
 
 // Add/Update route. Delete old route if VRF or address changed
@@ -1141,19 +1130,6 @@ void VmInterface::DeleteL3InterfaceRoute(bool old_l3_active, VrfEntry *old_vrf,
 
     DeleteRoute(old_vrf->GetName(), old_addr, 32);
 }
-
-/*
-void VmInterface::UpdateInterfaceNH(bool force_update, bool policy_change) {
-    struct ether_addr *mac = ether_aton(vm_mac_.c_str());
-    if (mac == NULL) {
-        LOG(ERROR, "Invalid mac address " << vm_mac_ << " on port " 
-            << cfg_name_);
-        return;
-    }
-
-    InterfaceNH::CreateVport(GetUuid(), *mac, vrf_->GetName());
-}
-*/
 
 // Add meta-data route if linklocal_ip is needed
 void VmInterface::UpdateMetadataRoute(bool old_l3_active, VrfEntry *old_vrf) {

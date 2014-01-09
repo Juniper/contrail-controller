@@ -334,9 +334,9 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         data.set_vrf_name("--ERROR--");
 
     if (l3_active_) {
-        data.set_active("L3 Active");
+        data.set_active("Active");
     } else {
-        data.set_active("L3 Inactive");
+        data.set_active("Inactive");
     }
 
     if (l2_active_) {
@@ -381,55 +381,41 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_policy("Disable");
         }
 
-        if (l3_active_ == false) {
-            string reason = "Inactive L3< ";
+        if ((l3_active_ == false) ||
+            (l2_active_ == false)) {
+            string common_reason = "";
             if (vintf->vn() == NULL) {
-                reason += "vn-null ";
+                common_reason += "vn-null ";
             }
 
             if (vintf->vm() == NULL) {
-                reason += "vm-null ";
+                common_reason += "vm-null ";
             }
 
             if (vintf->vrf() == NULL) {
-                reason += "vrf-null ";
+                common_reason += "vrf-null ";
             }
 
             if (vintf->os_index() == Interface::kInvalidIndex) {
-                reason += "no-dev ";
+                common_reason += "no-dev ";
             }
 
-            if (vintf->ip_addr().to_ulong() == 0) {
-                reason += "no-ip-addr ";
+            if (!l3_active_) {
+                string reason = "Inactive< " + common_reason;
+                if (vintf->ip_addr().to_ulong() == 0) {
+                    reason += "no-ip-addr ";
+                }
+                reason += " >";
+                data.set_active(reason);
             }
-            reason += " >";
 
-            data.set_active(reason);
+            if (!l2_active_) {
+                string reason = "Inactive L2< " + common_reason;
+                reason += " >";
+                data.set_l2_active(reason);
+            }
         }
         
-        if (l2_active_ == false) {
-            string reason = "Inactive L2< ";
-            if (vintf->vn() == NULL) {
-                reason += "vn-null ";
-            }
-
-            if (vintf->vm() == NULL) {
-                reason += "vm-null ";
-            }
-
-            if (vintf->vrf() == NULL) {
-                reason += "vrf-null ";
-            }
-
-            if (vintf->os_index() == Interface::kInvalidIndex) {
-                reason += "no-dev ";
-            }
-
-            reason += " >";
-
-            data.set_l2_active(reason);
-        }
-
         std::vector<FloatingIpSandeshList> fip_list;
         VmInterface::FloatingIpSet::const_iterator it = 
             vintf->floating_ip_list().list_.begin();

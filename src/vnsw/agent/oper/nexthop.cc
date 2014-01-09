@@ -456,25 +456,25 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
     Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
-// Create 3 InterfaceNH for every VPort. One with policy another without 
+// Create 3 InterfaceNH for every Vm interface. One with policy another without 
 // policy, third one is for multicast.
-void InterfaceNH::CreateL3Vport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name) {
+void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
 }
 
-void InterfaceNH::CreateL2Vport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name) {
+void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
 }
 
-void InterfaceNH::CreateMulticastVport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name) {
+void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                               const struct ether_addr &dmac, 
+                                               const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::MULTICAST, false, vrf_name);
 }
 
@@ -489,7 +489,7 @@ static void DeleteNH(const uuid &intf_uuid, bool policy,
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
-void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
+void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4);

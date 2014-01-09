@@ -389,7 +389,6 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
                                         Agent::GetInstance()->GetLocalVmPeer(), 
                                         (*it)->GetVrfName(), 
                                         (*it)->GetGroupAddress(), 32);
-                continue;
             }
         }
         if ((*it)->IsMultiProtoSupported() && 

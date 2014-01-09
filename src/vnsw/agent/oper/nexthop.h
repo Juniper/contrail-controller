@@ -740,16 +740,16 @@ public:
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
-    static void CreateMulticastVport(const uuid &intf_uuid,
-                                    const struct ether_addr &dmac, 
-                                    const string &vrf_name);
-    static void CreateL2Vport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name);
-    static void CreateL3Vport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name);
-    static void DeleteVportReq(const uuid &intf_uuid);
+    static void CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                             const struct ether_addr &dmac, 
+                                             const string &vrf_name);
+    static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
+                                      const struct ether_addr &dmac, 
+                                      const string &vrf_name);
+    static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
+                                      const struct ether_addr &dmac, 
+                                      const string &vrf_name);
+    static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
     static void CreateInetInterfaceNextHop(const string &ifname);
