@@ -456,9 +456,6 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
         columns.push_back(GenDb::NewCol(col_name, col_value));
 
         std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-	/*
- 	 * Inserting to the the stats table
- 	 */
 
         if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
             LOG(ERROR, __func__ << ": Addition of " << rowkey_str <<
@@ -466,8 +463,10 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
             return;
         }
-	
-	//Handle insertion into the Stats table
+
+	/*
+	 * Inserting into the stat table
+	 */
 	DbHandler::TagMap tmap;
 	DbHandler::AttribMap amap;
 	string sname;
