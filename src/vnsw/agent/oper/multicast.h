@@ -6,7 +6,7 @@
 #define multicast_agent_oper_hpp
 
 #include <oper/nexthop.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>

@@ -46,7 +46,7 @@
 #include <oper/multicast.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/sg.h>
 #include <uve/stats_collector.h>

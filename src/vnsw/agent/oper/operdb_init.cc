@@ -9,7 +9,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <cfg/cfg_init.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
