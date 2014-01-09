@@ -516,7 +516,7 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     }
 
     if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-        rtgroup_remove_list_.insert(rt);
+        rtgroup_remove_list_.insert(rtgroup);
         remove_rtgroup_trigger_->Set();
     }
 }
@@ -547,13 +547,7 @@ void RTargetGroupMgr::UnregisterTables() {
 
 bool RTargetGroupMgr::RemoveRtGroups() {
     CHECK_CONCURRENCY("bgp::RTFilter");
-
-    for (RtGroupRemoveList::iterator it = rtgroup_remove_list_.begin(); 
-         it != rtgroup_remove_list_.end(); it++) {
-        RtGroupMap::iterator loc = rt_group_map_.find(*it);
-        RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
-        assert(rtgroup);
-
+    BOOST_FOREACH(RtGroup *rtgroup, rtgroup_remove_list_) {
         BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
                       rtgroup->GetImportMembers()) {
             if (!family_members.second.empty()) continue;
@@ -565,7 +559,7 @@ bool RTargetGroupMgr::RemoveRtGroups() {
         }
 
         if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-            rt_group_map_.erase(*it);
+            rt_group_map_.erase(rtgroup->rt());
         }
     }
 
@@ -585,6 +579,5 @@ RtGroupMgrTableState::RtGroupMgrTableState(BgpTable *table,
 RtGroupMgrTableState::~RtGroupMgrTableState() {
 }
 
-// TODO: verify that the RoutePathReplicator is going to Leave this table.
 void RtGroupMgrTableState::ManagedDelete() {
 }
