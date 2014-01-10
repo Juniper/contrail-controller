@@ -43,7 +43,25 @@ ulong src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
+    ArpTest() : trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
+                         TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
+                         0) {
+    }
+
     void CheckSandeshResponse(Sandesh *sandesh) {
+    }
+
+    void TriggerAddVhostRcvRoute(Ip4Address &ip) {
+        vhost_rcv_route_ = ip;
+        trigger_.Set();
+    }
+
+    bool AddVhostRcvRoute() {
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+            AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(),
+                              Agent::GetInstance()->GetDefaultVrf(),
+                              "vhost0", vhost_rcv_route_, 32, "", false);
+        return true;
     }
 
     void SendArpReq(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
@@ -226,6 +244,9 @@ public:
         usleep(1000);
         client->WaitForIdle();
     }
+private:
+    Ip4Address vhost_rcv_route_;
+    TaskTrigger trigger_;
 };
 
 class AsioRunEvent : public Task {
@@ -408,10 +429,7 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
 TEST_F(ArpTest, GratArpSendTest) {
     Ip4Address ip1 = Ip4Address::from_string("1.1.1.1");
     //Add a vhost rcv route and check that grat arp entry gets created
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
-                                                    Agent::GetInstance()->GetLocalPeer(),
-                                                    Agent::GetInstance()->GetDefaultVrf(),
-                                                    "vhost0", ip1, 32, "", false);
+    TriggerAddVhostRcvRoute(ip1);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip1.to_ulong());
 
@@ -424,10 +442,7 @@ TEST_F(ArpTest, GratArpSendTest) {
 
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
-                                                       Agent::GetInstance()->GetLocalPeer(),
-                                                       Agent::GetInstance()->GetDefaultVrf(),
-                                                       "vhost0", ip2, 32, "", false);
+    TriggerAddVhostRcvRoute(ip2);
     client->WaitForIdle();
     EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
