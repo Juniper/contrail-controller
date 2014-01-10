@@ -55,17 +55,14 @@ const RouteTarget &RtGroup::rt() {
 }
 
 void RtGroup::AddDepRoute(int part_id, BgpRoute *rt) {
-    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     dep_[part_id].insert(rt);
 }
 
 void RtGroup::RemoveDepRoute(int part_id, BgpRoute *rt) {
-    tbb::spin_rw_mutex::scoped_lock write_lock(rw_mutex_, true);
     dep_[part_id].erase(rt);
 }
 
 bool RtGroup::RouteDepListEmpty() {
-    tbb::spin_rw_mutex::scoped_lock read_lock(rw_mutex_, false);
     for (RtGroup::RTargetDepRouteList::const_iterator it = dep_.begin(); 
          it != dep_.end(); it++) {
         if (!it->empty()) {

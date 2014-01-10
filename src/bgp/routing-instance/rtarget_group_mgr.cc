@@ -505,20 +505,8 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
     assert(rtgroup);
 
-    BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
-                  rtgroup->GetImportMembers()) {
-        if (!family_members.second.empty()) return;
-    }
-
-    BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
-                  rtgroup->GetExportMembers()) {
-        if (!family_members.second.empty()) return;
-    }
-
-    if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-        rtgroup_remove_list_.insert(rtgroup);
-        remove_rtgroup_trigger_->Set();
-    }
+    rtgroup_remove_list_.insert(rtgroup);
+    remove_rtgroup_trigger_->Set();
 }
 
 void RTargetGroupMgr::UnregisterTables() {
@@ -548,18 +536,29 @@ void RTargetGroupMgr::UnregisterTables() {
 bool RTargetGroupMgr::RemoveRtGroups() {
     CHECK_CONCURRENCY("bgp::RTFilter");
     BOOST_FOREACH(RtGroup *rtgroup, rtgroup_remove_list_) {
+        bool members_empty = true;
         BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
                       rtgroup->GetImportMembers()) {
-            if (!family_members.second.empty()) continue;
+            if (!family_members.second.empty()) {
+                members_empty = false;
+                break;
+            }
         }
+        if (!members_empty) continue;
 
+        members_empty = true;
         BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &family_members, 
                       rtgroup->GetExportMembers()) {
-            if (!family_members.second.empty()) continue;
+            if (!family_members.second.empty()) {
+                members_empty = false;
+                break;
+            }
         }
+        if (!members_empty) continue;
 
         if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
-            rt_group_map_.erase(rtgroup->rt());
+            RouteTarget rt = rtgroup->rt();
+            rt_group_map_.erase(rt);
         }
     }
 
