@@ -841,9 +841,9 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
     
     if (old_ipv4_active != ipv4_active_) {
         if (ipv4_active_) {
-            SendTrace(ACTIVATED_L3);
+            SendTrace(ACTIVATED_IPV4);
         } else {
-            SendTrace(DEACTIVATED_L3);
+            SendTrace(DEACTIVATED_IPV4);
         }
     }
 }
@@ -2075,11 +2075,11 @@ void VmInterface::SendTrace(Trace event) {
     intf_info.set_index(id_);
 
     switch(event) {
-    case ACTIVATED_L3:
-        intf_info.set_op("L3 Activated");
+    case ACTIVATED_IPV4:
+        intf_info.set_op("IPV4 Activated");
         break;
-    case DEACTIVATED_L3:
-        intf_info.set_op("L3 Deactivated");
+    case DEACTIVATED_IPV4:
+        intf_info.set_op("IPV4 Deactivated");
         break;
     case ACTIVATED_L2:
         intf_info.set_op("L2 Activated");

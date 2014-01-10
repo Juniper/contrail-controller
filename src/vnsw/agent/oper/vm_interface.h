@@ -169,9 +169,9 @@ public:
     enum Trace {
         ADD,
         DELETE,
-        ACTIVATED_L3,
+        ACTIVATED_IPV4,
         ACTIVATED_L2,
-        DEACTIVATED_L3,
+        DEACTIVATED_IPV4,
         DEACTIVATED_L2,
         FLOATING_IP_CHANGE,
         SERVICE_CHANGE,
