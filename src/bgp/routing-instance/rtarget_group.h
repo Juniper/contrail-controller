@@ -8,8 +8,6 @@
 #include <set>
 #include <vector>
 
-#include <tbb/spin_rw_mutex.h>
-
 #include "bgp/bgp_table.h"
 #include "bgp/rtarget/rtarget_address.h"
 
@@ -93,8 +91,6 @@ private:
     RouteTarget rt_;
     RtGroupMembers import_;
     RtGroupMembers export_;
-    // Mutex for route dep list
-    tbb::spin_rw_mutex rw_mutex_;
     RTargetDepRouteList dep_;
     InterestedPeerList peer_list_;
 
