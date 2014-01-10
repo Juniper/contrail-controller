@@ -124,7 +124,7 @@ public:
             return;
         }
 
-        Agent::GetInstance()->pkt()->flow_table()->DeleteNatFlow(key, true);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
         client->WaitForIdle();
         EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Find(key) == NULL);
     };
@@ -160,14 +160,14 @@ public:
     virtual ~VerifyVn() {};
 
     virtual void Verify(FlowEntry *fe) {
-        EXPECT_TRUE(fe->data.source_vn == src_vn_);
-        EXPECT_TRUE(fe->data.dest_vn == dest_vn_);
+        EXPECT_TRUE(fe->data().source_vn == src_vn_);
+        EXPECT_TRUE(fe->data().dest_vn == dest_vn_);
 
         if (true) {
-            FlowEntry *rev = fe->data.reverse_flow.get();
+            FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->data.source_vn == dest_vn_);
-            EXPECT_TRUE(rev->data.dest_vn == src_vn_);
+            EXPECT_TRUE(rev->data().source_vn == dest_vn_);
+            EXPECT_TRUE(rev->data().dest_vn == src_vn_);
         }
     };
 
@@ -191,14 +191,14 @@ public:
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(dest_vrf_);
         EXPECT_TRUE(dest_vrf != NULL);
 
-        EXPECT_TRUE(fe->data.flow_source_vrf == src_vrf->GetVrfId());
-        EXPECT_TRUE(fe->data.flow_dest_vrf == dest_vrf->GetVrfId());
+        EXPECT_TRUE(fe->data().flow_source_vrf == src_vrf->GetVrfId());
+        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->GetVrfId());
 
         if (true) {
-            FlowEntry *rev = fe->data.reverse_flow.get();
+            FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->data.flow_source_vrf == dest_vrf->GetVrfId());
-            EXPECT_TRUE(rev->data.flow_dest_vrf == src_vrf->GetVrfId());
+            EXPECT_TRUE(rev->data().flow_source_vrf == dest_vrf->GetVrfId());
+            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->GetVrfId());
         }
     };
 
@@ -216,12 +216,12 @@ public:
     virtual ~VerifyNat() { };
 
     void Verify(FlowEntry *fe) {
-        FlowEntry *rev = fe->data.reverse_flow.get();
+        FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
-        EXPECT_TRUE(rev->key.src.ipv4 == ntohl(inet_addr(nat_sip_.c_str())));
-        EXPECT_TRUE(rev->key.dst.ipv4 == ntohl(inet_addr(nat_dip_.c_str())));
-        EXPECT_TRUE(rev->key.src_port == nat_sport_);
-        EXPECT_TRUE(rev->key.dst_port == nat_dport_);
+        EXPECT_TRUE(rev->key().src.ipv4 == ntohl(inet_addr(nat_sip_.c_str())));
+        EXPECT_TRUE(rev->key().dst.ipv4 == ntohl(inet_addr(nat_dip_.c_str())));
+        EXPECT_TRUE(rev->key().src_port == nat_sport_);
+        EXPECT_TRUE(rev->key().dst_port == nat_dport_);
     };
 
 private:
@@ -237,23 +237,23 @@ public:
         fwd_flow_is_ecmp_(fwd_ecmp), rev_flow_is_ecmp_(rev_ecmp) { };
     virtual ~VerifyEcmp() { };
     void Verify(FlowEntry *fe) {
-        FlowEntry *rev = fe->data.reverse_flow.get();
+        FlowEntry *rev = fe->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
 
         if (fwd_flow_is_ecmp_) {
-            EXPECT_TRUE(fe->data.ecmp == true);
-            EXPECT_TRUE(fe->data.component_nh_idx != (uint32_t) -1);
+            EXPECT_TRUE(fe->is_flags_set(FlowEntry::EcmpFlow) == true);
+            EXPECT_TRUE(fe->data().component_nh_idx != (uint32_t) -1);
         } else {
-            EXPECT_TRUE(fe->data.ecmp == false);
-            EXPECT_TRUE(fe->data.component_nh_idx == (uint32_t) -1);
+            EXPECT_TRUE(fe->is_flags_set(FlowEntry::EcmpFlow) == false);
+            EXPECT_TRUE(fe->data().component_nh_idx == (uint32_t) -1);
         }
 
         if (rev_flow_is_ecmp_) {
-            EXPECT_TRUE(rev->data.ecmp == true);
-            EXPECT_TRUE(rev->data.component_nh_idx != (uint32_t) -1);
+            EXPECT_TRUE(rev->is_flags_set(FlowEntry::EcmpFlow) == true);
+            EXPECT_TRUE(rev->data().component_nh_idx != (uint32_t) -1);
         } else {
-            EXPECT_TRUE(rev->data.ecmp == false);
-            EXPECT_TRUE(rev->data.component_nh_idx == (uint32_t) -1);
+            EXPECT_TRUE(rev->is_flags_set(FlowEntry::EcmpFlow) == false);
+            EXPECT_TRUE(rev->data().component_nh_idx == (uint32_t) -1);
         }
     };
 

@@ -128,7 +128,7 @@ public:
         key.protocol = proto;
         key.src_port = sport;
         key.dst_port = dport;
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, del_reverse_flow);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, del_reverse_flow);
         client->WaitForIdle();
     }
 
@@ -427,7 +427,7 @@ TEST_F(FlowTest, FlowAdd_1) {
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
@@ -497,7 +497,7 @@ TEST_F(FlowTest, FlowAdd_2) {
     //Verify ingress and egress flow count
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -557,14 +557,14 @@ TEST_F(FlowTest, FlowAdd_3) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -623,14 +623,14 @@ TEST_F(FlowTest, FlowAdd_4) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -660,7 +660,7 @@ TEST_F(FlowTest, FlowAdd_5) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -671,7 +671,7 @@ TEST_F(FlowTest, FlowAdd_5) {
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = flow[0].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -708,7 +708,7 @@ TEST_F(FlowTest, FlowAdd_6) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = fwd_flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -722,7 +722,7 @@ TEST_F(FlowTest, FlowAdd_6) {
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = fwd_flow[0].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);

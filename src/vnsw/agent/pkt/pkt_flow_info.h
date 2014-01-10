@@ -65,14 +65,7 @@ public:
     static bool GetIngressNwPolicyAclList(const Interface *intf,
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
-    bool InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
-                     PktControlInfo *rev_ctrl);
-    void InitFwdFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
-                     PktControlInfo *rev_flow);
-    void InitRevFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
-                     PktControlInfo *rev_flow);
     void RewritePktInfo(uint32_t index);
-    void SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl);
 public:
     PktInfo             *pkt;
 
