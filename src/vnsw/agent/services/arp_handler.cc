@@ -206,8 +206,8 @@ bool ArpHandler::HandleMessage() {
                  it != cache.end(); it++) {
                 it->second->Delete();
             }
-            arp_proto->set_ip_fabric_interface(NULL);
-            arp_proto->set_ip_fabric_interface_index(-1);
+            // arp_proto->set_ip_fabric_interface(NULL);
+            // arp_proto->set_ip_fabric_interface_index(-1);
             break;
         }
 

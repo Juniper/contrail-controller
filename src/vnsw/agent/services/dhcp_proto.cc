@@ -18,7 +18,7 @@ DhcpProto::DhcpProto(Agent *agent, boost::asio::io_service &io,
     ip_fabric_interface_index_(-1) {
     memset(ip_fabric_interface_mac_, 0, ETH_ALEN);
     iid_ = agent->GetInterfaceTable()->Register(
-                  boost::bind(&DhcpProto::ItfUpdate, this, _2));
+                  boost::bind(&DhcpProto::ItfNotify, this, _2));
 }
 
 DhcpProto::~DhcpProto() {
@@ -30,7 +30,7 @@ ProtoHandler *DhcpProto::AllocProtoHandler(boost::shared_ptr<PktInfo> info,
     return new DhcpHandler(agent(), info, io);
 }
 
-void DhcpProto::ItfUpdate(DBEntryBase *entry) {
+void DhcpProto::ItfNotify(DBEntryBase *entry) {
     Interface *itf = static_cast<Interface *>(entry);
     if (entry->IsDeleted()) {
         if (itf->type() == Interface::PHYSICAL && 

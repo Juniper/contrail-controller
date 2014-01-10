@@ -69,7 +69,7 @@ public:
     void ClearStats() { stats_.Reset(); }
 
 private:
-    void ItfUpdate(DBEntryBase *entry);
+    void ItfNotify(DBEntryBase *entry);
 
     bool run_with_vrouter_;
     Interface *ip_fabric_interface_;

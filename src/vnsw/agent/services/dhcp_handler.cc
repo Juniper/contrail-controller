@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include "vr_defs.h"
 #include "cmn/agent_cmn.h"
 #include "oper/agent_route.h"
 #include "ksync/interface_ksync.h"
