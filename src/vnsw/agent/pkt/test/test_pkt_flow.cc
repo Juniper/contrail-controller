@@ -323,7 +323,7 @@ protected:
 
         /* Create interface flow4 in vn4 */
         client->Reset();
-        CreateVmportEnv(input3, 1);
+        CreateVmportFIpEnv(input3, 1);
         client->WaitForIdle(5);
         vn_count++;
         EXPECT_TRUE(VmPortActive(input3, 0));
@@ -366,7 +366,7 @@ protected:
         EXPECT_FALSE(VmPortFind(input2, 0));
 
         client->Reset();
-        DeleteVmportEnv(input3, 1, true);
+        DeleteVmportFIpEnv(input3, 1, true);
         client->WaitForIdle(3);
         client->PortDelNotifyWait(1);
         EXPECT_EQ(4U, Agent::GetInstance()->GetInterfaceTable()->Size());
@@ -958,7 +958,7 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0, 
                         false, -1, -1));
-    EXPECT_TRUE(FlowGet(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0, 
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0, 
                         false, -1, -1));
 
     // Sleep for age-time
@@ -1071,7 +1071,7 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
     //Make sure NAT reverse flow is also deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
                           0, 0));
 
     DeleteFlow(non_nat_flow, 1); 
@@ -1088,7 +1088,7 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 #if 0
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id()),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
@@ -1098,7 +1098,7 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
 
     TestFlow non_nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id()),
             {
                 new VerifyVn(unknown_vn_, unknown_vn_)
@@ -1115,7 +1115,7 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
     //Make sure NAT reverse flow is deleted
     EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 
                          0, 0));
-    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
                          0, 0));
 
     // Add Non-NAT reverse flow
@@ -1158,7 +1158,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
     DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
     client->WaitForIdle();
     //Make sure NAT reverse flow is also deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
                 0, 0));
 
     // Add Non-NAT forward flow
@@ -1167,7 +1167,7 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
     EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm5_ip, vm1_ip, 1, 
                 0, 0));
     //Make sure NAT reverse flow is not present
-    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
                 0, 0));
 
     client->EnqueueFlowAge();
@@ -1193,7 +1193,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
-            TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+            TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
@@ -1204,7 +1204,7 @@ TEST_F(FlowTest, NatFlowAdd_1) {
 
     //Delete a forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vrf4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
 
     CreateFlow(nat_flow, 1); 
     DeleteFlow(nat_rev_flow, 1);
@@ -1229,7 +1229,7 @@ TEST_F(FlowTest, NatFlowAdd_2) {
     //Send a reverse nat flow packet
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id(), 2),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)
@@ -1275,7 +1275,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
     CreateFlow(nat_flow, 1);
     DeleteFlow(nat_flow, 1);
 
-    EXPECT_TRUE(FlowGet(VrfGet("vrf4")->GetVrfId(), vm5_ip, 
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, 
                        vm1_fip, 1, 0, 0) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -1303,7 +1303,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
     client->WaitForIdle();
     TestFlow nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id(), 1),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0) 
@@ -1408,7 +1408,7 @@ TEST_F(FlowTest, NatAddOldNat_3) {
 
     TestFlow new_nat_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id(), 1),
             {
                 new VerifyNat(vm2_ip, vm5_ip, 1, 0, 0)
@@ -1438,7 +1438,7 @@ TEST_F(FlowTest, TwoNatFlow) {
     CreateFlow(nat_flow, 1);
     TestFlow nat_rev_flow[] = {
         {
-             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vrf4", 
+             TestFlowPkt(vm5_ip, vm1_fip, 1, 0, 0, "vn4:vn4", 
                     flow4->id(), 1),
             {
                 new VerifyNat(vm1_ip, vm5_ip, 1, 0, 0)

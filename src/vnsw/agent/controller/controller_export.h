@@ -8,7 +8,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/nexthop.h>
 #include <controller/controller_vrf_export.h>
 

@@ -16,7 +16,8 @@ env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
 import sys
 if sys.platform != 'darwin':
     env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test']);
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
 
     test_vn_vmlist = env.Program(target = 'test_vn_vmlist', source = ['test_vn_vmlist.cc'])
     env.Alias('src/vnsw/agent/uve/test:test_vn_vmlist', test_vn_vmlist)

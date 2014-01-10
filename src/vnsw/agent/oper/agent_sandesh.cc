@@ -8,7 +8,7 @@
 #include <init/agent_init.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -104,7 +104,7 @@ void AgentInet4McRtSandesh::Alloc() {
 }
 
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
-    RouteEntry *rt = static_cast<RouteEntry *>(entry);
+    AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_);
 }
 
@@ -118,7 +118,7 @@ void AgentLayer2RtSandesh::Alloc() {
 }
 
 bool AgentLayer2RtSandesh::UpdateResp(DBEntryBase *entry) {
-    RouteEntry *rt = static_cast<RouteEntry *>(entry);
+    AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_);
 }
 

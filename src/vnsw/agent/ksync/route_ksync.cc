@@ -15,7 +15,7 @@
 
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/mirror_table.h"
 
 #include "ksync/interface_ksync.h"
@@ -38,7 +38,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     tunnel_type_(entry->tunnel_type_) {
 }
 
-RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *rt) :
+RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->GetVrfId()), nh_(NULL), label_(0), proxy_arp_(false),
     tunnel_type_(TunnelType::DefaultType()) {
@@ -166,9 +166,9 @@ std::string RouteKSyncEntry::ToString() const {
 
 bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
-    const RouteEntry *route;
+    const AgentRoute *route;
   
-    route = static_cast<RouteEntry *>(e);
+    route = static_cast<AgentRoute *>(e);
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
     NHKSyncEntry *old_nh = nh();
 
@@ -399,7 +399,7 @@ KSyncEntry *RouteKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
 }
 
 KSyncEntry *RouteKSyncObject::DBToKSyncEntry(const DBEntry *e) {
-    const RouteEntry *route = static_cast<const RouteEntry *>(e);
+    const AgentRoute *route = static_cast<const AgentRoute *>(e);
     RouteKSyncEntry *key = new RouteKSyncEntry(this, route);
     return static_cast<KSyncEntry *>(key);
 }

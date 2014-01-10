@@ -5,6 +5,7 @@
 #ifndef __ctrlplane__ifmap_node__
 #define __ctrlplane__ifmap_node__
 
+#include <boost/crc.hpp>      // for boost::crc_32_type
 #include <boost/intrusive/list.hpp>
 
 #include "db/db_graph_vertex.h"
@@ -12,6 +13,7 @@
 
 class IFMapNode : public DBGraphVertex {
 public:
+    typedef boost::crc_32_type::value_type crc32type;
     typedef boost::intrusive::member_hook<IFMapObject,
         boost::intrusive::list_member_hook<>,
         &IFMapObject::node_> MemberHook;
@@ -44,13 +46,14 @@ public:
     static IFMapNode *DescriptorLookup(DB *db, const Descriptor &descriptor);
     
     const std::string &name() const { return name_; }
-    
+
     IFMapObject *Find(IFMapOrigin origin);
     void Insert(IFMapObject *obj);
     void Remove(IFMapObject *obj);
     
     IFMapObject *GetObject();
     const IFMapObject *GetObject() const;
+    crc32type GetConfigCrc();
     void PrintAllObjects();
     int get_object_list_size() { return list_.size(); }
 

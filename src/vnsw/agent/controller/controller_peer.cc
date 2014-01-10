@@ -881,7 +881,7 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
-                                               RouteEntry *route, 
+                                               AgentRoute *route, 
                                                std::string vn, 
                                                const SecurityGroupList *sg_list,
                                                uint32_t mpls_label,
@@ -982,7 +982,7 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
-                                               RouteEntry *route, 
+                                               AgentRoute *route, 
                                                std::string vn, 
                                                uint32_t label,
                                                uint32_t tunnel_bmap,
@@ -1087,7 +1087,7 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
-                                           RouteEntry *route, 
+                                           AgentRoute *route, 
                                            std::string vn, 
                                            uint32_t label,
                                            TunnelType::TypeBmap bmap,
@@ -1108,7 +1108,7 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
-                                                RouteEntry *route, 
+                                                AgentRoute *route, 
                                                 bool add_route) {
 
     static int id = 0;

@@ -1037,8 +1037,8 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
  
     AddVn("vn2", 2);
-    AddVrf("vrf2", 2);
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    AddVrf("vn2:vn2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     //Add floating IP for vnet1
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "2.1.1.100");
@@ -1048,14 +1048,14 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
     Ip4Address floating_ip = Ip4Address::from_string("2.1.1.100");
-    EXPECT_TRUE(RouteFind("vrf2", floating_ip, 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", floating_ip, 32));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
 
     //Delete config for vnet1, forcing interface to deactivate
     //verify that route and floating ip map gets cleaned up
     DelNode("virtual-machine-interface", input[0].name);
     client->WaitForIdle();
-    EXPECT_FALSE(RouteFind("vrf2", floating_ip, 32));
+    EXPECT_FALSE(RouteFind("vn2:vn2", floating_ip, 32));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));
 
     //Clean up
@@ -1064,13 +1064,13 @@ TEST_F(IntfTest, VmPortFloatingIpDelete_1) {
     DelFloatingIp("fip1");
     DelFloatingIpPool("fip-pool1");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
-    DelVrf("vrf2");
+    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
+    DelVrf("vn2:vn2");
     DelVn("vn2");
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf1"));
-    EXPECT_FALSE(VrfFind("vrf2"));
+    EXPECT_FALSE(VrfFind("vn2:vn2"));
 }
 
 TEST_F(IntfTest, VmPortServiceVlanDelete_1) {

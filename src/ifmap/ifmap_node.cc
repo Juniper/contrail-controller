@@ -72,6 +72,19 @@ const IFMapObject *IFMapNode::GetObject() const {
     return &list_.front();
 }
 
+IFMapNode::crc32type IFMapNode::GetConfigCrc() {
+    IFMapNode::crc32type crc = 0;
+    IFMapObject *object = Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
+    if (object) {
+        crc = object->CalculateCrc();
+        if (crc == 0) {
+            crc = 0xffffffff;
+        }
+    }
+
+    return crc;
+}
+
 void IFMapNode::PrintAllObjects() {
     cout << name_ << ": " << list_.size() << " objects" << endl;
     for (ObjectList::iterator iter = list_.begin(); iter != list_.end();

@@ -35,6 +35,11 @@ do { \
     IFMAP_TRACE(obj##Trace, __VA_ARGS__); \
 } while(0)
 
+#define IFMAP_DEBUG_ONLY(obj, ...) \
+do { \
+    IFMAP_DEBUG_LOG(obj, Category::IFMAP, __VA_ARGS__); \
+} while(0)
+
 #define IFMAP_XMPP_DEBUG(obj, ...) \
 do { \
     IFMAP_DEBUG_LOG(obj, Category::IFMAP_XMPP, __VA_ARGS__); \

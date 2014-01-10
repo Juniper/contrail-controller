@@ -16,7 +16,7 @@
 #include <init/agent_param.h>
 #include <init/agent_init.h>
 #include <cfg/cfg_init.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/mirror_table.h>
 #include <ksync/ksync_index.h>
 #include <ksync/interface_ksync.h>

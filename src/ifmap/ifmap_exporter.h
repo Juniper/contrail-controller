@@ -9,6 +9,7 @@
 #include <memory>
 #include <map>
 #include <string>
+#include <boost/crc.hpp>      // for boost::crc_32_type
 #include <boost/scoped_ptr.hpp>
 
 #include "db/db_table.h"
@@ -36,6 +37,7 @@ class IFMapUpdateSender;
 // must come after the links that refer to the node have been deleted.
 class IFMapExporter {
 public:
+    typedef boost::crc_32_type::value_type crc32type;
     explicit IFMapExporter(IFMapServer *server);
     ~IFMapExporter();
 
@@ -89,10 +91,10 @@ private:
     const BitSet *MergeClientInterest(IFMapNode *node, IFMapNodeState *state,
                                       std::auto_ptr<BitSet> *ptr);
 
-
     const TableInfo *Find(const DBTable *table) const;
 
     void TableStateClear(DBTable *table, DBTable::ListenerId tsid);
+    bool ConfigChanged(IFMapNode *node);
 
     IFMapUpdateQueue *queue();
     IFMapUpdateSender *sender();

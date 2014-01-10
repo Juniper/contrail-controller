@@ -15,7 +15,7 @@
 #include <cfg/cfg_interface.h>
 #include <cmn/agent.h>
 #include <oper/operdb_init.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/vrf.h>
@@ -144,6 +144,11 @@ static void BuildFloatingIpList(Agent *agent, VmInterfaceConfigData *data,
                     static_cast<IFMapNode *>(vn_iter.operator->());
                 if (cfg_listener->SkipNode
                     (vrf_node, agent->cfg()->cfg_vrf_table())){
+                    continue;
+                }
+                // Checking whether it is default vrf of not
+                unsigned found = vrf_node->name().find_last_of(':');
+                if (vn_node->name().compare(vrf_node->name().substr(0, found)) != 0) {
                     continue;
                 }
 

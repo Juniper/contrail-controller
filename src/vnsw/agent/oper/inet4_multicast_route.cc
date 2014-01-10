@@ -7,7 +7,7 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
@@ -131,12 +131,12 @@ void Inet4MulticastRouteEntry::RouteResyncReq() const {
                                                   dst_addr_); 
 }
 
-RouteEntry *
+AgentRoute *
 Inet4MulticastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Inet4MulticastRouteEntry * entry = new Inet4MulticastRouteEntry(vrf, dip_,
                                                                     sip_);
-    return static_cast<RouteEntry *>(entry);
+    return static_cast<AgentRoute *>(entry);
 }
 
 string Inet4MulticastRouteEntry::ToString() const {

@@ -7,7 +7,7 @@
 
 #include <base/dependency.h>
 #include <oper/nexthop.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 
 class TunnelNH : public NextHop {
 public:
@@ -31,7 +31,7 @@ public:
     const VrfEntry *GetVrf() const {return vrf_.get();};
     const Ip4Address *GetSip() const {return &sip_;};
     const Ip4Address *GetDip() const {return &dip_;};
-    const RouteEntry *GetRt() const {return arp_rt_.get();};
+    const AgentRoute *GetRt() const {return arp_rt_.get();};
     const TunnelType &GetTunnelType() const {return tunnel_type_;};
     virtual void SendObjectLog(AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
@@ -42,7 +42,7 @@ private:
     Ip4Address sip_;
     Ip4Address dip_;
     TunnelType tunnel_type_;
-    DependencyRef<NextHop, RouteEntry> arp_rt_;
+    DependencyRef<NextHop, AgentRoute> arp_rt_;
     DISALLOW_COPY_AND_ASSIGN(TunnelNH);
 };
 
@@ -100,7 +100,7 @@ public:
     const uint16_t GetSPort() const {return sport_;}; 
     const Ip4Address *GetDip() const {return &dip_;};
     const uint16_t GetDPort() const {return dport_;};
-    const RouteEntry *GetRt() const {return arp_rt_.get();};
+    const AgentRoute *GetRt() const {return arp_rt_.get();};
     virtual std::string ToString() const { return "Mirror to " + dip_.to_string(); };
     virtual void SendObjectLog(AgentLogEvent::type event) const;
     virtual bool DeleteOnZeroRefCount() const {
@@ -112,7 +112,7 @@ private:
     uint16_t sport_;
     Ip4Address dip_;
     uint16_t dport_;
-    DependencyRef<NextHop, RouteEntry> arp_rt_;
+    DependencyRef<NextHop, AgentRoute> arp_rt_;
     DISALLOW_COPY_AND_ASSIGN(MirrorNH);
 };
 #endif
