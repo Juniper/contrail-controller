@@ -174,19 +174,19 @@ void InterfaceTable::VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid,
     *addr = Ip4Address(ip);
 }
 
-bool InterfaceTable::VmInterfaceWalk(DBTablePartBase *partition,
+bool InterfaceTable::L2VmInterfaceWalk(DBTablePartBase *partition,
                                      DBEntryBase *entry) {
     Interface *intf = static_cast<Interface *>(entry);
     if ((intf->type() != Interface::VM_INTERFACE) || intf->IsDeleted())
         return true;
 
     VmInterface *vm_intf = static_cast<VmInterface *>(entry);
-    if (!vm_intf->active())
+    if (!vm_intf->l2_active())
         return true;
 
     const VnEntry *vn = vm_intf->vn();
     if (vm_intf->layer2_forwarding() && 
-        (vn->vxlan_id() != vm_intf->vxlan_id())) {
+        (vn->GetVxLanId() != vm_intf->vxlan_id())) {
         vm_intf->UpdateL2();
     }
     return true;
@@ -202,7 +202,7 @@ void InterfaceTable::UpdateVxLanNetworkIdentifierMode() {
         walker->WalkCancel(walkid_);
     }
     walkid_ = walker->WalkTable(this, NULL,
-                      boost::bind(&InterfaceTable::VmInterfaceWalk, 
+                      boost::bind(&InterfaceTable::L2VmInterfaceWalk, 
                                   this, _1, _2),
                       boost::bind(&InterfaceTable::VmInterfaceWalkDone, 
                                   this, _1));
@@ -215,7 +215,7 @@ Interface::Interface(Type type, const uuid &uuid, const string &name,
                      VrfEntry *vrf) :
     type_(type), uuid_(uuid), name_(name),
     vrf_(vrf), label_(MplsTable::kInvalidLabel), 
-    l2_label_(MplsTable::kInvalidLabel), active_(true),
+    l2_label_(MplsTable::kInvalidLabel), ipv4_active_(true), l2_active_(true),
     id_(kInvalidIndex), dhcp_enabled_(true), dns_enabled_(true), mac_(),
     os_index_(kInvalidIndex) { 
 }
@@ -333,10 +333,16 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
     else
         data.set_vrf_name("--ERROR--");
 
-    if (active_) {
+    if (ipv4_active_) {
         data.set_active("Active");
     } else {
         data.set_active("Inactive");
+    }
+
+    if (l2_active_) {
+        data.set_l2_active("L2 Active");
+    } else {
+        data.set_l2_active("L2 Inactive");
     }
 
     if (dhcp_enabled_) {
@@ -375,31 +381,41 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
             data.set_policy("Disable");
         }
 
-        if (active_ == false) {
-            string reason = "Inactive< ";
+        if ((ipv4_active_ == false) ||
+            (l2_active_ == false)) {
+            string common_reason = "";
             if (vintf->vn() == NULL) {
-                reason += "vn-null ";
+                common_reason += "vn-null ";
             }
 
             if (vintf->vm() == NULL) {
-                reason += "vm-null ";
+                common_reason += "vm-null ";
             }
 
             if (vintf->vrf() == NULL) {
-                reason += "vrf-null ";
+                common_reason += "vrf-null ";
             }
 
             if (vintf->os_index() == Interface::kInvalidIndex) {
-                reason += "no-dev ";
+                common_reason += "no-dev ";
             }
 
-            if (vintf->ip_addr().to_ulong() == 0) {
-                reason += "no-ip-addr ";
+            if (!ipv4_active_) {
+                string reason = "Inactive< " + common_reason;
+                if (vintf->ip_addr().to_ulong() == 0) {
+                    reason += "no-ip-addr ";
+                }
+                reason += " >";
+                data.set_active(reason);
             }
-            reason += " >";
 
-            data.set_active(reason);
+            if (!l2_active_) {
+                string reason = "Inactive L2< " + common_reason;
+                reason += " >";
+                data.set_l2_active(reason);
+            }
         }
+        
         std::vector<FloatingIpSandeshList> fip_list;
         VmInterface::FloatingIpSet::const_iterator it = 
             vintf->floating_ip_list().list_.begin();

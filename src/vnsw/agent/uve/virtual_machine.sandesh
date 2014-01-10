@@ -24,6 +24,7 @@ struct VmInterfaceAgent {
     7: bool active;
     8: string vm_name;
     9: string gateway;
+   10: bool l2_active;
 }
 
 struct VmInterfaceAgentStats {
