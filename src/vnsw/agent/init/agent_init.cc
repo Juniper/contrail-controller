@@ -128,6 +128,10 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
         itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
+    agent_->SetRouterId(params_->vhost_addr());
+    agent_->SetPrefixLen(params_->vhost_plen());
+    agent_->SetGatewayId(params_->vhost_gw());
+
     // Trigger initialization to continue
     TriggerInit();
     intf_trigger_ = SafeDBUnregister(agent_->GetInterfaceTable(),
