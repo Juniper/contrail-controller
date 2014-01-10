@@ -74,6 +74,7 @@ IFMapNode *IFMapServerTable::EntryLocate(RequestKey *request, bool *changep) {
         if (node->IsDeleted()) {
             node->ClearDelete();
             graph_->AddNode(node);
+            IFMAP_DEBUG(IFMapNodeOperation, "Re-creating", node->ToString());
             *changep = true;
         }
         return node;
@@ -85,6 +86,7 @@ IFMapNode *IFMapServerTable::EntryLocate(RequestKey *request, bool *changep) {
             static_cast<DBTablePartition *>(GetTablePartition(0));
     partition->Add(node);
     graph_->AddNode(node);
+    IFMAP_DEBUG(IFMapNodeOperation, "Creating", node->ToString());
     return node;
 }
 
@@ -143,6 +145,7 @@ std::string IFMapServerTable::LinkAttrKey(IFMapNode *first, IFMapNode *second) {
 }
 
 void IFMapServerTable::DeleteNode(IFMapNode *node) {
+    IFMAP_DEBUG(IFMapNodeOperation, "Deleting", node->ToString());
     DBTablePartition *partition =
         static_cast<DBTablePartition *>(GetTablePartition(0));
     graph_->RemoveNode(node);
