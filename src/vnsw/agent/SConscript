@@ -140,11 +140,64 @@ libpath = MapBuildDir(
 
 env.Append(LIBPATH=libpath)
 
+buildinfo_dep_libs = [
+    '#build/lib/libthrift.a',
+    '#build/lib/libthriftasio.a',
+    '#build/lib/libboost_program_options.a',
+    '#build/lib/libboost_regex.a',
+    '#build/lib/libboost_system.a', 
+    '#build/lib/libcurl.a',
+    '#build/lib/libhttp.a',
+    '#build/lib/libhttp_parser.a', 
+    '#build/lib/liblog4cplus.a',
+    '#build/lib/libpugixml.a',
+    '../../../lib/libsandesh.a',
+    '../../../lib/libsandeshflow.a', 
+    '../../../lib/libsandeshvns.a',
+    '../../base/libbase.a',
+    '../../base/libcpuinfo.a',
+    '../../db/libdb.a',
+    '../../dns/bind/libbind_interface.a',
+    '../../ifmap/libifmap_agent.a',
+    '../../ifmap/libifmap_common.a', 
+    '../../io/libio.a', 
+    '../../ksync/libksync.a',
+    '../../net/libnet.a',
+    '../../route/libroute.a', 
+    '../../schema/libbgp_schema.a',
+    '../../schema/libifmap_vnc.a',
+    '../../schema/libxmpp_unicast.a',
+    '../../schema/libxmpp_multicast.a',
+    '../../vrouter/utils/libvrutil.a',
+    '../../xml/libxml.a',
+    '../../xmpp/libxmpp.a', 
+    'cfg/libcfg.a',
+    'cmn/libvnswcmn.a',
+    'controller/libvnswctrl.a',
+    'filter/libfilter.a',
+    'kstate/libkstate.a',
+    'ksync/libvnswksync.a',
+    'openstack/libnova_ins.a',
+    'openstack/libnova_ins_thrift.a', 
+    'oper/libvnswoperdb.a',
+    'pkt/libpkt.a', 'diag/libdiag.a', 
+    'services/libagent_services.a',
+    'uve/libagentuve.a',
+    ]
+
+if sys.platform != 'darwin':
+    buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
+
+env.GenerateBuildInfoCode(
+    target='buildinfo.cc',
+    source = buildinfo_dep_libs + ['main.cc'],
+    path=str(Dir('.').abspath))
+
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h
 cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
-vnswad = env.Program(target = 'vnswad', source = ['main.cc'])
+vnswad = env.Program(target = 'vnswad', source = ['buildinfo.cc', 'main.cc'])
 env.Alias('src/vnsw/agent:vnswad', vnswad)
 env.Default(vnswad)
 
@@ -281,9 +334,10 @@ def run_ut(target, source, env):
 
 
 
-run_ut = env.Command(Dir('run_ut'), '', run_ut)
-env.AlwaysBuild(run_ut)
-env.Alias('src/vnsw/agent:run_ut', run_ut)
+#run_ut = env.Command(Dir('run_ut'), '', run_ut)
+#env.AlwaysBuild(run_ut)
+#env.Alias('src/vnsw/agent:run_ut', run_ut)
+env.Depends('main.o', 'buildinfo.cc')
 
 # Local Variables:
 # mode: python

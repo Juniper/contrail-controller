@@ -145,7 +145,11 @@ void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
+void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,

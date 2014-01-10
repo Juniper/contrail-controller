@@ -14,13 +14,18 @@
 #include "ifmap/ifmap_link.h"
 #include "ifmap/ifmap_link_table.h"
 #include "ifmap/ifmap_server.h"
+#include "ifmap/ifmap_server_parser.h"
 #include "ifmap/ifmap_server_table.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_update_queue.h"
 #include "ifmap/ifmap_update_sender.h"
 #include "ifmap/test/ifmap_test_util.h"
+#include "schema/bgp_schema_types.h"
 #include "schema/vnc_cfg_types.h"
 #include "testing/gunit.h"
+
+#include <iostream>
+#include <fstream>
 
 using namespace boost::asio;
 using namespace std;
@@ -67,12 +72,15 @@ class IFMapExporterTest : public ::testing::Test {
 protected:
     IFMapExporterTest()
             : server_(&db_, &graph_, evm_.io_service()),
-              exporter_(server_.exporter()) {
+              exporter_(server_.exporter()), parser_(NULL) {
     }
 
     virtual void SetUp() {
         IFMapLinkTable_Init(&db_, &graph_);
+        parser_ = IFMapServerParser::GetInstance("vnc_cfg");
+        vnc_cfg_ParserInit(parser_);
         vnc_cfg_Server_ModuleInit(&db_, &graph_);
+        bgp_schema_ParserInit(parser_);
         server_.Initialize();
     }
 
@@ -83,6 +91,7 @@ protected:
         IFMapTable::ClearTables(&db_);
         task_util::WaitForIdle();
         db_.Clear();
+        parser_->MetadataClear("vnc_cfg");
         evm_.Shutdown();
     }
 
@@ -129,7 +138,15 @@ protected:
     EventManager evm_;
     IFMapServerTest server_;
     IFMapExporter *exporter_;
+    IFMapServerParser *parser_;
 };
+
+static string FileRead(const string &filename) {
+    ifstream file(filename.c_str());
+    string content((istreambuf_iterator<char>(file)),
+                   istreambuf_iterator<char>());
+    return content;
+}
 
 TEST_F(IFMapExporterTest, Basic) {
     server_.SetSender(new IFMapUpdateSenderMock(&server_));
@@ -222,9 +239,11 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
 
     IFMapUpdate *update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
-    EXPECT_TRUE(update->advertise().test(c1.index()));
-    EXPECT_FALSE(update->advertise().test(c2.index()));
-    EXPECT_TRUE(update->advertise().test(c3.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c3.index()));
+    // Call ProcessQueue() since our QueueActive() does not do anything
+    ProcessQueue();
 
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.2", "vm_w");
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.3", "vm_y");
@@ -234,9 +253,12 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     state = exporter_->NodeStateLookup(blue);
     update = state->GetUpdate(IFMapListEntry::UPDATE);
     ASSERT_TRUE(update != NULL);
-    EXPECT_TRUE(update->advertise().test(c1.index()));
-    EXPECT_FALSE(update->advertise().test(c3.index()));
-    EXPECT_FALSE(update->advertise().test(c4.index()));
+    TASK_UTIL_EXPECT_TRUE(update->advertise().test(c1.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c2.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c3.index()));
+    TASK_UTIL_EXPECT_FALSE(update->advertise().test(c4.index()));
+    // Call ProcessQueue() since our QueueActive() does not do anything
+    ProcessQueue();
 
     IFMapMsgUnlink("virtual-machine-interface", "virtual-network",
                    "vm_z:veth0", "red");
@@ -250,6 +272,8 @@ TEST_F(IFMapExporterTest, InterestChangeIntersect) {
     EXPECT_TRUE(update->advertise().test(c1.index()));
     EXPECT_FALSE(update->advertise().test(c3.index()));
     EXPECT_TRUE(update->advertise().test(c4.index()));
+    // Call ProcessQueue() since our QueueActive() does not do anything
+    ProcessQueue();
 
     IFMapNode *red = TableLookup("virtual-network", "red");
     ASSERT_TRUE(red != NULL);
@@ -316,6 +340,7 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
     IFMapMsgLink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
  
+    // Call ProcessQueue() since our QueueActive() does not do anything
     ProcessQueue();
     IFMapMsgUnlink("virtual-router", "virtual-machine", "192.168.1.1", "vm_x");
     task_util::WaitForIdle();
@@ -339,6 +364,171 @@ TEST_F(IFMapExporterTest, LinkDeleteDependency) {
                 << link->ToString() << " after " << link->right()->ToString();
         }
     }
+}
+
+TEST_F(IFMapExporterTest, CrcChecks) {
+    // Round 1 of reading config
+    string content = FileRead("controller/src/ifmap/testdata/crc.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    IFMapNode *idn = TableLookup("virtual-router", "host1");
+    ASSERT_TRUE(idn != NULL);
+    IFMapNodeState *state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_uuid1 = state->crc();
+
+    idn = TableLookup("virtual-router", "host2");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_perm1 = state->crc();
+
+    idn = TableLookup("virtual-router", "host3");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_bool1 = state->crc();
+
+    idn = TableLookup("virtual-router", "host4");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_string1 = state->crc();
+
+    idn = TableLookup("virtual-router", "host5");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_idperms1 = state->crc();
+
+    idn = TableLookup("network-policy", "policy1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_np_vec_complex1 = state->crc();
+
+    idn = TableLookup("virtual-machine-interface", "vm1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_vm_vec_simple1 = state->crc();
+
+    // Round 2 of reading config
+    content = FileRead("controller/src/ifmap/testdata/crc1.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    idn = TableLookup("virtual-router", "host1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_uuid2 = state->crc();
+
+    idn = TableLookup("virtual-router", "host2");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_perm2 = state->crc();
+
+    idn = TableLookup("virtual-router", "host3");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_bool2 = state->crc();
+
+    idn = TableLookup("virtual-router", "host4");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_string2 = state->crc();
+
+    idn = TableLookup("virtual-router", "host5");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_idperms2 = state->crc();
+
+    idn = TableLookup("network-policy", "policy1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_np_vec_complex2 = state->crc();
+
+    idn = TableLookup("virtual-machine-interface", "vm1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_vm_vec_simple2 = state->crc();
+
+    ASSERT_TRUE(crc_uuid1 != crc_uuid2);
+    ASSERT_TRUE(crc_perm1 != crc_perm2);
+    ASSERT_TRUE(crc_bool1 != crc_bool2);
+    ASSERT_TRUE(crc_string1 != crc_string2);
+    // both should be same since config is same
+    ASSERT_TRUE(crc_idperms1 == crc_idperms2);
+    ASSERT_TRUE(crc_np_vec_complex1 != crc_np_vec_complex2);
+    ASSERT_TRUE(crc_vm_vec_simple1 != crc_vm_vec_simple2);
+
+    // Round 3 of reading config
+    // Read crc.xml again. After reading, all the crc's should match with the
+    // crc's calculated during round 1.
+    content = FileRead("controller/src/ifmap/testdata/crc.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    task_util::WaitForIdle();
+
+    idn = TableLookup("virtual-router", "host1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_uuid3 = state->crc();
+
+    idn = TableLookup("virtual-router", "host2");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_perm3 = state->crc();
+
+    idn = TableLookup("virtual-router", "host3");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_bool3 = state->crc();
+
+    idn = TableLookup("virtual-router", "host4");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_string3 = state->crc();
+
+    idn = TableLookup("virtual-router", "host5");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_idperms3 = state->crc();
+
+    idn = TableLookup("network-policy", "policy1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_np_vec_complex3 = state->crc();
+
+    idn = TableLookup("virtual-machine-interface", "vm1");
+    ASSERT_TRUE(idn != NULL);
+    state = exporter_->NodeStateLookup(idn);
+    ASSERT_TRUE(state != NULL);
+    IFMapState::crc32type crc_vm_vec_simple3 = state->crc();
+
+    ASSERT_TRUE(crc_uuid1 == crc_uuid3);
+    ASSERT_TRUE(crc_perm1 == crc_perm3);
+    ASSERT_TRUE(crc_bool1 == crc_bool3);
+    ASSERT_TRUE(crc_string1 == crc_string3);
+    ASSERT_TRUE(crc_idperms1 == crc_idperms3);
+    ASSERT_TRUE(crc_np_vec_complex1 == crc_np_vec_complex3);
+    ASSERT_TRUE(crc_vm_vec_simple1 == crc_vm_vec_simple3);
 }
 
 int main(int argc, char **argv) {

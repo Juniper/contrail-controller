@@ -64,9 +64,8 @@ def BuildTest(env, testname, sources, libs):
     env.Alias('src/ifmap:' + testname, target)
     return target
 
-ifmap_exporter_test = vnc_cfg_env.UnitTest(
-    'ifmap_exporter_test', ['ifmap_exporter_test.cc'])
-env.Alias('src/ifmap:ifmap_exporter_test', ifmap_exporter_test)
+BuildTest(env, 'ifmap_exporter_test', ['ifmap_exporter_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
 BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'],
           ['schema/ifmap_vnc', 'schema/bgp_schema'])
@@ -103,7 +102,6 @@ env.Alias('src/ifmap:ifmap_xmpp_test', ifmap_xmpp_test)
 test = env.TestSuite('ifmap-test',
                      test_suite +
                      [ifmap_server_table_test,
-                      ifmap_exporter_test,
                       ifmap_update_queue_test,
                       ifmap_update_sender_test,
                       ifmap_xmpp_test,

@@ -6,6 +6,7 @@
 
 #include <boost/bind.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/crc.hpp>      // for boost::crc_32_type
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -58,6 +59,9 @@ public:
             attr_set_ = false;
         }
     }
+    virtual boost::crc_32_type::value_type CalculateCrc() {
+        return 0;
+    }
 
     bool empty() const {
         return !attr_set_;
@@ -83,6 +87,9 @@ public:
     }
     virtual void ClearProperty(const string &attr_key) {
     }
+    virtual boost::crc_32_type::value_type CalculateCrc() {
+        return 0;
+    }
 
 private:
 };
@@ -102,6 +109,9 @@ public:
     }
     virtual void ClearProperty(const string &attr_key) {
     }
+    virtual boost::crc_32_type::value_type CalculateCrc() {
+        return 0;
+    }
 
 private:
 };
@@ -120,6 +130,9 @@ public:
         return true;
     }
     virtual void ClearProperty(const string &attr_key) {
+    }
+    virtual boost::crc_32_type::value_type CalculateCrc() {
+        return 0;
     }
 
 private:
@@ -146,6 +159,9 @@ public:
             return true;
         }
         return false;
+    }
+    virtual boost::crc_32_type::value_type CalculateCrc() {
+        return 0;
     }
 
     const string &attr() const { return attr_; }

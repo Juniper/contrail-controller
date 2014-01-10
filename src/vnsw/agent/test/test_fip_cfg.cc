@@ -34,11 +34,11 @@ class FipCfg : public ::testing::Test {
         AddVm("vm1", 1);
         AddVn("vn1", 1);
         AddVn("vn2", 2);
-        AddVrf("vrf1");
-        AddVrf("vrf2");
+        AddVrf("vn1:vn1");
+        AddVrf("vn2:vn2");
         AddPort("vnet1", 1);
-        AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
-        AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+        AddLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
+        AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
         AddFloatingIpPool("fip-pool2", 2);
         AddFloatingIp("fip1", 2, "2.2.2.100");
         AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
@@ -47,7 +47,7 @@ class FipCfg : public ::testing::Test {
         // Add vm-port interface to vrf link
         AddVmPortVrf("vmvrf1", "", 0);
         AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
-                "routing-instance", "vrf1");
+                "routing-instance", "vn1:vn1");
         AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
         client->WaitForIdle();
@@ -56,14 +56,14 @@ class FipCfg : public ::testing::Test {
         EXPECT_TRUE(VmFind(1));
         EXPECT_TRUE(VnFind(1));
         EXPECT_TRUE(VnFind(2));
-        EXPECT_TRUE(VrfFind("vrf1"));
-        EXPECT_TRUE(VrfFind("vrf2"));
+        EXPECT_TRUE(VrfFind("vn1:vn1"));
+        EXPECT_TRUE(VrfFind("vn2:vn2"));
         client->WaitForIdle();
     }
 
     virtual void TearDown() {
-        DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
-        DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+        DelLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
+        DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
         DelLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
         DelLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool2");
         client->WaitForIdle();
@@ -74,7 +74,7 @@ class FipCfg : public ::testing::Test {
 
         // Delete virtual-machine-interface to vrf link attribute
         DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
-                "routing-instance", "vrf1");
+                "routing-instance", "vn1:vn1");
         DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
                 "virtual-machine-interface", "vnet1");
         DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
@@ -83,13 +83,13 @@ class FipCfg : public ::testing::Test {
         DelPort("vnet1");
         DelVn("vn1");
         DelVn("vn2");
-        DelVrf("vrf1");
-        DelVrf("vrf2");
+        DelVrf("vn1:vn1");
+        DelVrf("vn2:vn2");
         DelVm("vm1");
         client->WaitForIdle();
 
-        EXPECT_FALSE(VrfFind("vrf1"));
-        EXPECT_FALSE(VrfFind("vrf2"));
+        EXPECT_FALSE(VrfFind("vn1:vn1"));
+        EXPECT_FALSE(VrfFind("vn2:vn2"));
         EXPECT_FALSE(VnFind(1));
         EXPECT_FALSE(VnFind(2));
         EXPECT_FALSE(VmFind(1));
@@ -115,8 +115,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(VmFind(2));
 
     client->Reset();
-    AddVrf("vrf1");
-    AddVrf("vrf2");
+    AddVrf("vn1:vn1");
+    AddVrf("vn2:vn2");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
 
@@ -126,8 +126,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(client->VnNotifyWait(2));
     EXPECT_EQ(2U, Agent::GetInstance()->GetVnTable()->Size());
 
-    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    AddLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
+    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
 
     client->Reset();
     IntfCfgAdd(input, 0);
@@ -142,13 +142,13 @@ TEST_F(CfgTest, FloatingIp_1) {
     // Add vm-port interface to vrf link
     AddVmPortVrf("vmvrf1", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
         "virtual-machine-interface", "vnet1");
 
     AddVmPortVrf("vmvrf2", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf2",
-            "routing-instance", "vrf2");
+            "routing-instance", "vn2:vn2");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf2",
         "virtual-machine-interface", "vnet2");
     client->WaitForIdle();
@@ -186,17 +186,17 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.2"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.2"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
     PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
                             "enet1", Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
 
     AddArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
-    TunnelRouteAdd("10.1.1.2", "1.1.1.3", "vrf1", 16, "Test");
-    TunnelRouteAdd("10.1.1.2", "2.2.2.3", "vrf2", 16, "Test");
+    TunnelRouteAdd("10.1.1.2", "1.1.1.3", "vn1:vn1", 16, "Test");
+    TunnelRouteAdd("10.1.1.2", "2.2.2.3", "vn2:vn2", 16, "Test");
     // Port Active since VRF and VM already added
     client->WaitForIdle();
 
@@ -204,9 +204,9 @@ TEST_F(CfgTest, FloatingIp_1) {
     LOG(DEBUG, "Doing cleanup");
 
     // Delete routes
-    Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf1", 
+    Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vn1:vn1", 
                                Ip4Address::from_string("1.1.1.3"), 32);
-    Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vrf2", 
+    Inet4UnicastAgentRouteTable::DeleteReq(bgp_peer_, "vn2:vn2", 
                                Ip4Address::from_string("2.2.2.3"), 32);
     client->WaitForIdle();
     DelArp("10.1.1.2", "00:00:00:00:00:02", "enet1");
@@ -228,8 +228,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool2");
 
-    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
+    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
 
     PhysicalInterface::DeleteReq(Agent::GetInstance()->GetInterfaceTable(), "enet1");
     client->WaitForIdle();
@@ -237,7 +237,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     EXPECT_TRUE(VmPortInactive(input, 0));
     EXPECT_TRUE(VmPortInactive(input, 1));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 0));
-    EXPECT_FALSE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_FALSE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
     DelFloatingIp("fip2");
     DelFloatingIpPool("fip-pool1");
@@ -245,12 +245,12 @@ TEST_F(CfgTest, FloatingIp_1) {
 
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf2",
-            "routing-instance", "vrf2");
+            "routing-instance", "vn2:vn2");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf2",
             "virtual-machine-interface", "vnet2");
     DelNode("virtual-machine-interface-routing-instance", "vmvrf2");
@@ -262,8 +262,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelVn("vn1");
     DelVn("vn2");
 
-    DelVrf("vrf1");
-    DelVrf("vrf2");
+    DelVrf("vn1:vn1");
+    DelVrf("vn2:vn2");
 
     DelVm("vm1");
     DelVm("vm2");
@@ -272,8 +272,8 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelPort(input[1].name);
 
     client->WaitForIdle();
-    EXPECT_FALSE(VrfFind("vrf1"));
-    EXPECT_FALSE(VrfFind("vrf2"));
+    EXPECT_FALSE(VrfFind("vn1:vn1"));
+    EXPECT_FALSE(VrfFind("vn2:vn2"));
     EXPECT_FALSE(VnFind(1));
     EXPECT_FALSE(VnFind(2));
     EXPECT_FALSE(VmFind(1));
@@ -304,8 +304,8 @@ TEST_F(FipCfg, FloatingIp_CfgOrder_1) {
     // Port Active since VRF and VM already added
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
     // Cleanup
     LOG(DEBUG, "Doing cleanup");
@@ -347,8 +347,8 @@ TEST_F(FipCfg, FloatingIp_CfgOrder_2) {
     // Port Active since VRF and VM already added
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
     // Cleanup
     LOG(DEBUG, "Doing cleanup");
@@ -382,13 +382,13 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_3) {
     AddVm("vm1", 1);
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     AddVn("vn1", 1);
-    AddVrf("vrf1");
-    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddVrf("vn1:vn1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
-    AddVrf("vrf2");
+    AddVrf("vn2:vn2");
     AddVn("vn2", 2);
     AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
@@ -399,24 +399,24 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_3) {
     // Add vm-port interface to vrf link
     AddVmPortVrf("vmvrf1", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
         "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
 
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
     client->WaitForIdle();
 
     // Cleanup
     LOG(DEBUG, "Doing cleanup");
     DelLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool2");
-    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
@@ -424,15 +424,15 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_3) {
     DelFloatingIp("fip2");
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
     client->WaitForIdle();
     DelVm("vm1");
     DelVn("vn1");
-    DelVrf("vrf1");
-    DelVrf("vrf2");
+    DelVrf("vn1:vn1");
+    DelVrf("vn2:vn2");
     DelVn("vn2");
     IntfCfgDel(input, 0);
     client->WaitForIdle();
@@ -454,21 +454,21 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_4) {
     AddVm("vm1", 1);
     AddLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     AddVn("vn1", 1);
-    AddVrf("vrf1");
-    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddVrf("vn1:vn1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
-    AddVrf("vrf2");
+    AddVrf("vn2:vn2");
     AddVn("vn2", 2);
     // Add vm-port interface to vrf link
     AddVmPortVrf("vmvrf1", "", 0);
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
         "virtual-machine-interface", "vnet1");
     client->WaitForIdle();
 
     AddLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     AddInstanceIp("instance0", input[0].vm_id, input[0].addr);
     AddLink("virtual-machine-interface", input[0].name,
@@ -484,24 +484,24 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_4) {
     }
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
     client->WaitForIdle();
 
     // Cleanup
     LOG(DEBUG, "Doing cleanup");
     // Delete virtual-machine-interface to vrf link attribute
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
-            "routing-instance", "vrf1");
+            "routing-instance", "vn1:vn1");
     DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
             "virtual-machine-interface", "vnet1");
     DelNode("virtual-machine-interface-routing-instance", "vmvrf1");
     client->WaitForIdle();
     DelLink("floating-ip-pool", "fip-pool2", "virtual-network", "vn2");
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     DelLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool2");
-    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    DelLink("virtual-network", "vn1", "routing-instance", "vn1:vn1");
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip2");
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("instance-ip", "instance0", "virtual-machine-interface", "vnet1");
@@ -509,8 +509,8 @@ TEST_F(CfgTest, FloatingIp_CfgOrder_4) {
     DelFloatingIp("fip2");
     DelVm("vm1");
     DelVn("vn1");
-    DelVrf("vrf1");
-    DelVrf("vrf2");
+    DelVrf("vn1:vn1");
+    DelVrf("vn2:vn2");
     DelVn("vn2");
     IntfCfgDel(input, 0);
     client->WaitForIdle();
@@ -539,15 +539,15 @@ TEST_F(FipCfg, FloatingIp_Add_1) {
     // Port Active since VRF and VM already added
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortFloatingIpCount(1, 1));
-    EXPECT_TRUE(RouteFind("vrf1", Ip4Address::from_string("1.1.1.1"), 32));
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_TRUE(RouteFind("vn1:vn1", Ip4Address::from_string("1.1.1.1"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
 
     // Add one more FIP
     AddFloatingIp("fip1_1", 3, "3.3.3.100");
     AddLink("floating-ip", "fip1_1", "floating-ip-pool", "fip-pool2");
     AddLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1_1");
     client->WaitForIdle();
-    EXPECT_TRUE(RouteFind("vrf2", Ip4Address::from_string("3.3.3.100"), 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", Ip4Address::from_string("3.3.3.100"), 32));
 
     // Cleanup
     LOG(DEBUG, "Doing cleanup");
@@ -556,8 +556,8 @@ TEST_F(FipCfg, FloatingIp_Add_1) {
     client->WaitForIdle();
 
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_FALSE(RouteFind("vrf2", Ip4Address::from_string("3.3.3.100"), 32));
-    EXPECT_FALSE(RouteFind("vrf2", Ip4Address::from_string("2.2.2.100"), 32));
+    EXPECT_FALSE(RouteFind("vn2:vn2", Ip4Address::from_string("3.3.3.100"), 32));
+    EXPECT_FALSE(RouteFind("vn2:vn2", Ip4Address::from_string("2.2.2.100"), 32));
     client->WaitForIdle();
 
     // Delete links

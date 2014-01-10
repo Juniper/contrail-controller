@@ -3,7 +3,7 @@
  */
 
 #include "vr_defs.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "pkt/pkt_init.h"
 #include "services/arp_proto.h"
 #include "services/services_init.h"
@@ -111,7 +111,7 @@ bool ArpHandler::HandlePacket() {
 
     //Look for subnet broadcast
     Ip4Address arp_addr(arp_tpa_);
-    RouteEntry *route = 
+    AgentRoute *route = 
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
             GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
             FindLPM(arp_addr);

@@ -285,6 +285,8 @@ public:
                 << recv_buffer_.size());
             return false;
         }
+        cout << "Set size is " << set1.size() << endl;
+        PrintSet(set1);
 
         // Decode the contents of the master file into set2
         result = doc2.load_file(master_file_path.c_str());
@@ -1842,8 +1844,8 @@ TEST_F(XmppIfmapTest, Cli2Vn2Np2Add) {
     EXPECT_TRUE(cli1 != NULL);
     EXPECT_TRUE(cli2 != NULL);
 
-    // Allow senders to run and send all the config. GSC and NwIpam dups to cli1
-    TASK_UTIL_EXPECT_EQ(20, vnsw_cli1->Count());
+    // Allow senders to run and send all the config.
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
@@ -1963,7 +1965,7 @@ TEST_F(XmppIfmapTest, Cli2Vn2Vm2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config
-    TASK_UTIL_EXPECT_EQ(20, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(18, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(18, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
@@ -2099,7 +2101,7 @@ TEST_F(XmppIfmapTest, Cli2Vn3Vm6Np2Add) {
     EXPECT_TRUE(cli2 != NULL);
 
     // Allow senders to run and send all the config. GSC and NwIpam dups to cli1
-    TASK_UTIL_EXPECT_EQ(50, vnsw_cli1->Count());
+    TASK_UTIL_EXPECT_EQ(48, vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(cli1->msgs_sent(), vnsw_cli1->Count());
     TASK_UTIL_EXPECT_EQ(26, vnsw_cli2->Count());
     TASK_UTIL_EXPECT_EQ(cli2->msgs_sent(), vnsw_cli2->Count());
