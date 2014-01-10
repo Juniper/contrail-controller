@@ -96,7 +96,7 @@ void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     VnswIntfState *state = static_cast<VnswIntfState *>(s);
     VnswRouteEvent *re;
 
-    if (vmport->IsDeleted() || !vmport->active() ||
+    if (vmport->IsDeleted() || !vmport->ipv4_active() ||
         !vmport->need_linklocal_ip()) {
         if (state) {
             re = new VnswRouteEvent(state->addr(), VnswRouteEvent::DEL_REQ);

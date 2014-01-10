@@ -165,6 +165,51 @@ TEST_F(RouteTest, LocalVmRoute_1) {
         {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
     };
 
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    client->Reset();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortL2Active(input, 0));
+    MulticastGroupObject *obj = 
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+    EXPECT_TRUE(obj != NULL);
+    EXPECT_TRUE(obj->Ipv4Forwarding() == false);
+    EXPECT_TRUE(obj->layer2_forwarding() == true);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+    Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
+    EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
+    const NextHop *nh = rt->GetActiveNextHop();
+    EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    uint32_t label = rt->GetMplsLabel();
+    MplsLabelKey key(MplsLabel::MCAST_NH, label);
+    MplsLabel *mpls = 
+        static_cast<MplsLabel *>(Agent::GetInstance()->
+                                 GetMplsTable()->Find(&key, true));
+
+    EXPECT_TRUE(mpls->GetNextHop() == nh);
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
+    EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    int i = 0;
+    while(L2RouteFind(vrf_name_, *local_vm_mac_) == true && ++i < 25) {
+        client->WaitForIdle();
+    }
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, LocalVmRoute_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
     VxLanNetworkIdentifierMode(true);
     client->WaitForIdle();
     client->Reset();
@@ -250,6 +295,8 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetLabel() == 1);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
+    Inet4UnicastRouteEntry *inet_rt = RouteGet(vrf_name_, local_vm_ip_, 32);
+    EXPECT_TRUE(inet_rt->GetActivePath()->GetLabel() != MplsTable::kInvalidLabel);
 
     vxlan_vm_mac = ether_aton("00:00:02:02:02:22");
     TunnelType::TypeBmap bmap;
