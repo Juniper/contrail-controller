@@ -49,6 +49,7 @@ from datetime import datetime
 from pycassa.util import *
 
 import redis
+import redis.exceptions
 
 #from cfgm_common import vnc_type_conv
 from provision_defaults import *
@@ -773,12 +774,29 @@ class VncCassandraClient(VncCassandraClientGen):
 class VncRedisClient(object):
     def __init__(self, db_client_mgr, redis_srv_ip, redis_srv_port, ifmap_db):
         self._db_client_mgr = db_client_mgr
-        self._sync_conn = redis.StrictRedis(host=redis_srv_ip,
-                                            port=int(redis_srv_port))
-        self._async_conn = self._sync_conn.pubsub()
+        self._redis_srv_ip = redis_srv_ip
+        self._redis_srv_port = redis_srv_port
         self._ifmap_db = ifmap_db
-        gevent.spawn(self._dbe_oper_subscribe)
+        self._connect()
     #end __init__
+
+    def _reconnect(self, greenlet):
+        print "_dbe_oper_subscribe exited"
+        try:
+            self._async_conn.close()
+            #self._sync_conn.close()
+        except Exception:
+            pass
+        time.sleep(1)
+        self._connect()
+
+    def _connect(self):
+        self._sync_conn = redis.StrictRedis(host=self._redis_srv_ip,
+                                            port=int(self._redis_srv_port))
+        self._async_conn = self._sync_conn.pubsub()
+        g = gevent.spawn(self._dbe_oper_subscribe)
+        g.link(self._reconnect)
+    # end _connect
 
     def dbe_create(self, obj_ids, val):
         self._sync_conn.set(obj_ids['uuid'], json.dumps(val))
@@ -812,6 +830,8 @@ class VncRedisClient(object):
         method_name = obj_info['type'].replace('-', '_')
         method = getattr(self._ifmap_db, "_ifmap_%s_create" % (method_name))
         (ok, result) = method(obj_info, obj_dict)
+        if not ok:
+            raise Exception(result)
     #end _dbe_create_notification
 
     def dbe_update_publish(self, obj_type, obj_ids):
@@ -829,11 +849,15 @@ class VncRedisClient(object):
                                                         obj_info['uuid'])
 
         (ok, result) = self._db_client_mgr.dbe_read(obj_info['type'], obj_info)
+        if not ok:
+            raise Exception(result)
         new_obj_dict = result
 
         method_name = obj_info['type'].replace('-', '_')
         method = getattr(self._ifmap_db, "_ifmap_%s_update" % (method_name))
         (ok, ifmap_result) = method(ifmap_id, new_obj_dict)
+        if not ok:
+            raise Exception(ifmap_result)
     #end _dbe_update_notification
 
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
@@ -852,6 +876,8 @@ class VncRedisClient(object):
         method_name = obj_info['type'].replace('-', '_')
         method = getattr(self._ifmap_db, "_ifmap_%s_delete" % (method_name))
         (ok, ifmap_result) = method(obj_info)
+        if not ok:
+            raise Exception(ifmap_result)
     #end _dbe_delete_notification
 
     def _dbe_oper_subscribe(self):
