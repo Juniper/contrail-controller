@@ -229,7 +229,6 @@ static bool WaitForDbFree(const string &name, int msec) {
 }
 
 void TestClient::Shutdown() {
-    VnswIfListener::Shutdown();
     Agent::GetInstance()->init()->Shutdown();
     AgentUve::GetInstance()->Shutdown();
     UveClient::GetInstance()->Shutdown();

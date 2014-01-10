@@ -46,7 +46,8 @@ KSync::KSync(Agent *agent)
       vrf_ksync_obj_(new VrfKSyncObject(this)), 
       vxlan_ksync_obj_(new VxLanKSyncObject(this)), 
       vrf_assign_ksync_obj_(new VrfAssignKSyncObject(this)),
-      interface_snapshot_(new InterfaceKSnap(agent)) {
+      interface_scanner_(new InterfaceKScan(agent)),
+      vnsw_interface_listner_(new VnswInterfaceListener(agent)) {
 }
 
 KSync::~KSync() {
@@ -92,7 +93,7 @@ int KSync::Encode(Sandesh &encoder, uint8_t *buf, int buf_len) {
 }
 
 void KSync::VRouterInterfaceSnapshot() {
-    interface_snapshot_.get()->Init();
+    interface_scanner_.get()->Init();
 
     int len = 0;
     KSyncSandeshContext *ctxt = static_cast<KSyncSandeshContext *>
@@ -132,12 +133,8 @@ void KSync::ResetVRouter() {
     KSyncSock::Start();
 }
 
-void KSync::VnswIfListenerInit() {
-    EventManager *event_mgr;
-
-    event_mgr = agent_->GetEventManager();
-    boost::asio::io_service &io = *event_mgr->io_service();
-    VnswIfListener::Init(io);
+void KSync::VnswInterfaceListenerInit() {
+    vnsw_interface_listner_->Init();
 }
 
 void KSync::CreateVhostIntf() {
@@ -189,6 +186,8 @@ void KSync::UpdateVhostMac() {
 }
 
 void KSync::Shutdown() {
+    vnsw_interface_listner_->Shutdown();
+    vnsw_interface_listner_.reset(NULL);
     interface_ksync_obj_.reset(NULL);
     vrf_ksync_obj_.get()->Shutdown();
     vrf_ksync_obj_.reset(NULL);

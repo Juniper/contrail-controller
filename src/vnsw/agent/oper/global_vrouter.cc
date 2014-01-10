@@ -358,7 +358,7 @@ void GlobalVrouter::CreateDBClients() {
 
 // Handle incoming global vrouter configuration
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
-    Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode =                 
+    Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
@@ -370,9 +370,10 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
     } else {
         linklocal_services_map_.clear();
+        TunnelType::DeletePriorityList();
     }
 
-    if (cfg_vxlan_network_identifier_mode !=                                       
+    if (cfg_vxlan_network_identifier_mode !=                             
         oper_->agent()->vxlan_network_identifier_mode()) {
         oper_->agent()->set_vxlan_network_identifier_mode(
                         cfg_vxlan_network_identifier_mode);

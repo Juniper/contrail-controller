@@ -133,7 +133,8 @@ bool UveClient::FrameIntfMsg(const VmInterface *vm_intf,
     }
     s_intf->set_floating_ips(uve_fip_list);
     s_intf->set_label(vm_intf->label());
-    s_intf->set_active(vm_intf->active());
+    s_intf->set_active(vm_intf->ipv4_active());
+    s_intf->set_l2_active(vm_intf->l2_active());
     string gw;
     if (GetVmIntfGateway(vm_intf, gw)) {
         s_intf->set_gateway(gw);
@@ -269,14 +270,16 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
     UveState *state = static_cast<UveState *>
         (e->GetState(partition->parent(), intf_listener_id_));
-    bool vmport_active = false;
+    bool vmport_ipv4_active = false;
+    bool vmport_l2_active = false;
     const VmInterface *vm_port = NULL;
     switch(intf->type()) {
     case Interface::VM_INTERFACE: {
         vm_port = static_cast<const VmInterface*>(intf);
         if (!e->IsDeleted() && !state) {
             set_state = true;
-            vmport_active = vm_port->active();
+            vmport_ipv4_active = vm_port->ipv4_active();
+            vmport_l2_active = vm_port->l2_active();
             VrouterObjectIntfNotify(intf);
         } else if (e->IsDeleted()) {
             if (state) {
@@ -284,15 +287,20 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
                 VrouterObjectIntfNotify(intf);
             }
         } else {
-            if (state && vm_port->active() != state->vmport_active_) { 
+            if (state && vm_port->ipv4_active() != state->vmport_ipv4_active_) { 
                 VrouterObjectIntfNotify(intf);
-                state->vmport_active_ = vm_port->active();
+                state->vmport_ipv4_active_ = vm_port->ipv4_active();
+            }
+            if (state && vm_port->l2_active() != state->vmport_l2_active_) { 
+                VrouterObjectIntfNotify(intf);
+                state->vmport_l2_active_ = vm_port->l2_active();
             }
         }
 
         // Send update for interface port
         // VM it belong to, and also the VN
-        if (e->IsDeleted() || (intf->active() == false)) {
+        if (e->IsDeleted() || ((intf->ipv4_active() == false) && 
+                               (intf->l2_active() == false))) {
             if (state) {
                 DelIntfFromVm(intf);
                 DelIntfFromVn(intf);
@@ -340,7 +348,8 @@ void UveClient::IntfNotify(DBTablePartBase *partition, DBEntryBase *e) {
     }
     if (set_state) {
         state = new UveState();
-        state->vmport_active_ = vmport_active;
+        state->vmport_ipv4_active_ = vmport_ipv4_active;
+        state->vmport_l2_active_ = vmport_l2_active;
         if (vm_port) {
             const VmEntry *vm = vm_port->vm();
             const VnEntry *vn = vm_port->vn();
@@ -1622,7 +1631,7 @@ bool UveClient::AppendIntf(DBTablePartBase *part, DBEntryBase *entry,
                 nova_if_list->push_back(UuidToString(port->GetUuid()));
             } else {
                 intf_list->push_back(port->cfg_name());
-                if (!intf->active()) {
+                if (!intf->ipv4_active() && !intf->l2_active()) {
                     err_if_list->push_back(port->cfg_name());
                 }
             }

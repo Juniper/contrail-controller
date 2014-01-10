@@ -176,7 +176,8 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
     if (tmp == NULL) {
         DiscardNHKey key;
         tmp = static_cast<NextHop *>
-            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key));
+            (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+             FindActiveEntry(&key));
     }
     NHKSyncEntry nexthop(nh_object, tmp);
 

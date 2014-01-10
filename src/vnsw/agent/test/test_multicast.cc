@@ -305,7 +305,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
         const InterfaceNH *l2_comp_nh = 
             static_cast<const InterfaceNH *>(l2_cnh->GetNH(i));
         EXPECT_TRUE(l3_comp_nh->GetFlags() == 
-                    (InterfaceNHFlags::INET4 | InterfaceNHFlags::MULTICAST));
+                    (InterfaceNHFlags::MULTICAST));
         EXPECT_TRUE(l2_comp_nh->GetFlags() == InterfaceNHFlags::LAYER2);
         EXPECT_TRUE(l3_comp_nh->GetIfUuid() == l2_comp_nh->GetIfUuid());
     }
