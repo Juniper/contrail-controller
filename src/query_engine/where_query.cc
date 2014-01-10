@@ -419,7 +419,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 bool isStr = false;
                 GenDb::DbDataValue smpl;
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
-                if (name == g_viz_constants.STAT_OBJECTID_FIELD) {
+                if ((name == g_viz_constants.STAT_OBJECTID_FIELD) || 
+                    (name == g_viz_constants.STAT_SOURCE_FIELD)) {
                     db_query->cfname = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                     smpl = value;
                     isStr = true;

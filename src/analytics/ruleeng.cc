@@ -338,6 +338,12 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
                         attribs.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, pv));
                     }
 
+                    // Add source as a mandatory index field
+                    tmap.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD,
+                                          make_pair(source, DbHandler::AttribMap())));
+                    attribs.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, source));
+
+
                     // Load all tags and non-tags
                     for (pugi::xml_node sattr = elem.first_child(); sattr;
                             sattr = sattr.next_sibling()) {
@@ -357,7 +363,7 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
                   " Name: " << object.name() <<  " Node: " << node.name()  <<
                   " Bad Stat type " << ltype); 
             }
-
+            continue;
         }
         
         if (!osp_->UVEUpdate(object.name(), node.name(),

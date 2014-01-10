@@ -33,3 +33,14 @@ uve sandesh BGPRouterInfo {
 // This causes control-node process to gracefully shutdown (and possibly restart)
 request sandesh ShutdownControlNode {
 }
+
+struct ControlCpuState {
+    1: string                                 name (key="ObjectBgpRouter")
+    2: optional bool                          deleted
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id")
+}
+
+uve sandesh ControlCpuStateTrace {
+    1: ControlCpuState data
+}
+
