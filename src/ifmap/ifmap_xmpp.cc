@@ -134,6 +134,7 @@ IFMapXmppChannel::IFMapXmppChannel(XmppChannel *channel, IFMapServer *server,
       ifmap_client_(new IFMapSender(this)), client_added_(false),
       channel_name_(channel->connection()->ToUVEKey()) {
 
+    ifmap_client_->SetName(channel->connection()->ToUVEKey());
     channel_->RegisterReceive(xmps::CONFIG, 
                               boost::bind(&IFMapXmppChannel::ReceiveUpdate, 
                                           this, _1));

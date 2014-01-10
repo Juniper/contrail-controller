@@ -175,6 +175,15 @@ systemlog sandesh IFMapXmppVmSubUnsub {
     3: string vm_name
 }
 
+systemlog sandesh IFMapClientSendInfo {
+    1: "Sent"
+    2: string operation
+    3: "of"
+    4: string object_name
+    5: "to vRouter"
+    6: string client_name (key="ObjectVRouter")
+}
+
 trace sandesh JoinVertexTrace {
     1: "JoinVertex:"
     2: string vertex_name
