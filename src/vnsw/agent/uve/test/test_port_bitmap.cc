@@ -225,13 +225,12 @@ public:
     }
 
     bool ValidateFlow(FlowEntry *flow) {
-        uint8_t proto = 0;
-        uint16_t sport = 0;
-        uint16_t dport = 0;
+        uint8_t proto = flow->key().protocol;
+        uint16_t sport = flow->key().src_port;
+        uint16_t dport = flow->key().dst_port;
         bool ret = true;
 
         // Validate vrouter port bitmap
-        flow->GetPort(proto, sport, dport);
         EXPECT_TRUE(ValidateVrouter(proto, sport, dport));
 
         if (ValidateVn(flow, proto, sport, dport) != true) {

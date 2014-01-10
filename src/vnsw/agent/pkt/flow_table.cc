@@ -246,7 +246,7 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
     }
 
     // Apply security-group
-    if (!reverse_flow()) {
+    if (!is_flags_set(FlowEntry::ReverseFlow)) {
         data_.match_p.sg_action = MatchAcl(hdr, data_.match_p.m_sg_acl_l, true);
         if (ShouldDrop(data_.match_p.sg_action)) {
             goto done;
@@ -275,12 +275,12 @@ done:
 
 void FlowEntry::GetSgList(const Interface *intf) {
     // Dont apply network-policy for linklocal flow
-    if (linklocal_flow()) {
+    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
         return;
     }
 
     // SG ACL's are reflexive. Skip SG for reverse flow
-    if (reverse_flow()) {
+    if (is_flags_set(FlowEntry::ReverseFlow)) {
         return;
     }
 
@@ -307,7 +307,7 @@ void FlowEntry::GetSgList(const Interface *intf) {
 
     // For local flows, we have to apply SG Policy from out-intf also
     FlowEntry *rflow = reverse_flow_entry_.get();
-    if (!local_flow() || rflow == NULL) {
+    if (!is_flags_set(FlowEntry::LocalFlow) || rflow == NULL) {
         // Not local flow
         return;
     }
@@ -368,7 +368,7 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     }
 
     // Dont apply network-policy for linklocal flow
-    if (linklocal_flow()) {
+    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
         return;
     }
 
@@ -381,7 +381,7 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
     const VnEntry *rvn = NULL;
     FlowEntry *rflow = reverse_flow_entry_.get();
     // For local flows, we have to apply NW Policy from out-vn also
-    if (!local_flow() || rflow == NULL) {
+    if (!is_flags_set(FlowEntry::LocalFlow) || rflow == NULL) {
         // Not local flow
         return;
     }
@@ -433,9 +433,9 @@ void FlowEntry::CompareAndModify(bool create) {
 }
 
 void FlowEntry::MakeShortFlow() {
-    set_short_flow(true);
+    set_flags(FlowEntry::ShortFlow);
     if (reverse_flow_entry_) {
-        reverse_flow_entry_->set_short_flow(true);
+        reverse_flow_entry_->set_flags(FlowEntry::ShortFlow);
     }
 }
 
@@ -444,7 +444,7 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
     data_.match_p.nw_policy = false;
     ResetPolicy();
 
-    if (short_flow()) {
+    if (is_flags_set(FlowEntry::ShortFlow)) {
         data_.match_p.action_info.action = (1 << TrafficAction::DROP);
         return;
     }
@@ -536,7 +536,8 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
     }
 
     if (rflow) {
-        if (flow->short_flow() || rflow->short_flow()) {
+        if (flow->is_flags_set(FlowEntry::ShortFlow) ||
+            rflow->is_flags_set(FlowEntry::ShortFlow)) {
             flow->MakeShortFlow();
         }
     }
@@ -559,7 +560,7 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
         str << "ALLOW, ";
     }
 
-    if (nat_flow()) {
+    if (is_flags_set(FlowEntry::NatFlow)) {
         FlowEntry *nat_flow = reverse_flow_entry_.get();
         str << " NAT";
         if (nat_flow) {
@@ -606,12 +607,12 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_mirror_vrf(data_.mirror_vrf);
     info.set_action(str.str());
     info.set_implicit_deny(ImplicitDenyFlow() ? "yes" : "no");
-    info.set_short_flow(short_flow() ? "yes" : "no");
-    if (ecmp() && 
+    info.set_short_flow(is_flags_set(FlowEntry::ShortFlow) ? "yes" : "no");
+    if (is_flags_set(FlowEntry::EcmpFlow) && 
             data_.component_nh_idx != CompositeNH::kInvalidComponentNHIdx) {
         info.set_ecmp_index(data_.component_nh_idx);
     }
-    if (trap()) {
+    if (is_flags_set(FlowEntry::Trap)) {
         info.set_trap("true");
     }
 }
@@ -654,18 +655,6 @@ void FlowEntry::UpdateReflexiveAction() {
     }
 }
 
-bool FlowEntry::set_nh_state(const NhState * nh_state) {
-    if (data_.nh_state_ == nh_state) {
-        return false;
-    }
-
-    data_.nh_state_ = nh_state;
-    FlowTableKSyncEntry *ksync_entry =
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(this);
-    UpdateKSync(ksync_entry, false);
-    return true;
-}
-
 void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
         FlowSandeshData &fe_sandesh_data) const {
     fe_sandesh_data.set_vrf(integerToString(key_.vrf));
@@ -674,7 +663,7 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     fe_sandesh_data.set_src_port(key_.src_port);
     fe_sandesh_data.set_dst_port(key_.dst_port);
     fe_sandesh_data.set_protocol(key_.protocol);
-    fe_sandesh_data.set_ingress(ingress());
+    fe_sandesh_data.set_ingress(is_flags_set(FlowEntry::IngressDir));
     std::vector<ActionStr> action_str_l;
     SetActionStr(data_.match_p.action_info, action_str_l);
     fe_sandesh_data.set_action_l(action_str_l);
@@ -725,7 +714,7 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     } else {
         fe_sandesh_data.set_reverse_flow("no");
     }
-    if (nat_flow()) {
+    if (is_flags_set(FlowEntry::NatFlow)) {
         fe_sandesh_data.set_nat("yes");
     } else {
         fe_sandesh_data.set_nat("no");
@@ -735,20 +724,18 @@ void FlowEntry::SetAclFlowSandeshData(const AclDBEntry *acl,
     } else {
         fe_sandesh_data.set_implicit_deny("no");
     }
-    if (short_flow()) {
+    if (is_flags_set(FlowEntry::ShortFlow)) {
         fe_sandesh_data.set_short_flow("yes");
     } else {
         fe_sandesh_data.set_short_flow("no");
     }
 }
 
-void FlowEntry::SetRpfNH(const PktControlInfo *ctrl) {
-    if (ctrl->rt_ == NULL) {
-        return;
-    }
-    const NextHop *nh = ctrl->rt_->GetActiveNextHop();
-    if (nh->GetType() == NextHop::COMPOSITE && !local_flow() && 
-        ctrl->intf_ && ctrl->intf_->type() == Interface::VM_INTERFACE) {
+bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
+    const NextHop *nh = rt->GetActiveNextHop();
+    if (nh->GetType() == NextHop::COMPOSITE &&
+        !is_flags_set(FlowEntry::LocalFlow) &&
+        is_flags_set(FlowEntry::IngressDir)) {
             //Logic for RPF check for ecmp
             //  Get reverse flow, and its corresponding ecmp index
             //  Check if source matches composite nh in reverse flow ecmp index,
@@ -762,35 +749,55 @@ void FlowEntry::SetRpfNH(const PktControlInfo *ctrl) {
         nh = comp_nh->GetLocalNextHop();
     }
 
-    if (!nh) {
-        data_.nh_state_ = NULL;
-        return;
+    const NhState *nh_state = NULL;
+    if (nh) {
+        nh_state = static_cast<const NhState *>(
+                nh->GetState(Agent::GetInstance()->GetNextHopTable(),
+                    Agent::GetInstance()->pkt()->flow_table()->
+                    nh_listener_id()));
     }
-    data_.nh_state_ = static_cast<const NhState *>(
-                     nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                     Agent::GetInstance()->pkt()->flow_table()->
-                     nh_listener_id()));
+
+    if (data_.nh_state_ != nh_state) {
+        data_.nh_state_ = nh_state;
+        return true;
+    }
+    return false;
 }
 
 bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                             const PktControlInfo *rev_ctrl) {
     if (stats_.last_modified_time) {
-        if (nat_flow() != info->nat_done) {
+        if (is_flags_set(FlowEntry::NatFlow) != info->nat_done) {
             MakeShortFlow();
             return false;
         }
     }
 
     stats_.last_modified_time = UTCTimestampUsec();
-    set_linklocal_flow(info->linklocal_flow);
-    set_nat_flow(info->nat_done);
-    set_short_flow(info->short_flow);
-    set_local_flow(info->local_flow);
+    if (info->linklocal_flow) {
+        set_flags(FlowEntry::LinkLocalFlow);
+    } else {
+        reset_flags(FlowEntry::LinkLocalFlow);
+    }
+    if (info->nat_done) {
+        set_flags(FlowEntry::NatFlow);
+    } else {
+        reset_flags(FlowEntry::NatFlow);
+    }
+    if (info->short_flow) {
+        set_flags(FlowEntry::ShortFlow);
+    } else {
+        reset_flags(FlowEntry::ShortFlow);
+    }
+    if (info->local_flow) {
+        set_flags(FlowEntry::LocalFlow);
+    } else {
+        reset_flags(FlowEntry::LocalFlow);
+    }
 
     data_.intf_entry = ctrl->intf_ ? ctrl->intf_ : rev_ctrl->intf_;
     data_.vn_entry = ctrl->vn_ ? ctrl->vn_ : rev_ctrl->vn_;
     data_.vm_entry = ctrl->vm_ ? ctrl->vm_ : rev_ctrl->vm_;
-    SetRpfNH(ctrl);
 
     return true;
 }
@@ -809,10 +816,17 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
         return;
     }
-    set_reverse_flow(false);
+    reset_flags(FlowEntry::ReverseFlow);
     stats_.intf_in = pkt->GetAgentHdr().ifindex;
 
-    set_ingress(info->ingress);
+    if (info->ingress) {
+        set_flags(FlowEntry::IngressDir);
+    } else {
+        reset_flags(FlowEntry::IngressDir);
+    }
+    if (ctrl->rt_ != NULL) {
+        SetRpfNH(ctrl->rt_);
+    }
     data_.source_vn = *(info->source_vn);
     data_.dest_vn = *(info->dest_vn);
     data_.source_sg_id_l = *(info->source_sg_id_l);
@@ -824,9 +838,13 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
         data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
     }
 
-    set_ecmp(info->ecmp);
+    if (info->ecmp) {
+        set_flags(FlowEntry::EcmpFlow);
+    } else {
+        reset_flags(FlowEntry::EcmpFlow);
+    }
     data_.component_nh_idx = info->out_component_nh_idx;
-    set_trap(false);
+    reset_flags(FlowEntry::Trap);
     data_.source_plen = info->source_plen;
     data_.dest_plen = info->dest_plen;
 }
@@ -837,7 +855,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
         return;
     }
-    set_reverse_flow(true);
+    set_flags(FlowEntry::ReverseFlow);
     if (ctrl->intf_) {
         stats_.intf_in = ctrl->intf_->id();
     } else {
@@ -845,9 +863,16 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     }
 
     // Compute reverse flow fields
-    set_ingress(false);
+    reset_flags(FlowEntry::IngressDir);
     if (ctrl->intf_) {
-        set_ingress(info->ComputeDirection(ctrl->intf_));
+        if (info->ComputeDirection(ctrl->intf_)) {
+            set_flags(FlowEntry::IngressDir);
+        } else {
+            reset_flags(FlowEntry::IngressDir);
+        }
+    }
+    if (ctrl->rt_ != NULL) {
+        SetRpfNH(ctrl->rt_);
     }
     data_.source_vn = *(info->dest_vn);
     data_.dest_vn = *(info->source_vn);
@@ -859,16 +884,24 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     if (data_.vn_entry && data_.vn_entry->GetVrf()) {
         data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
     }
-    set_ecmp(info->ecmp);
+    if (info->ecmp) {
+        set_flags(FlowEntry::EcmpFlow);
+    } else {
+        reset_flags(FlowEntry::EcmpFlow);
+    }
     data_.component_nh_idx = info->in_component_nh_idx;
-    set_trap(info->trap_rev_flow);
+    if (info->trap_rev_flow) {
+        set_flags(FlowEntry::Trap);
+    } else {
+        reset_flags(FlowEntry::Trap);
+    }
     data_.source_plen = info->dest_plen;
     data_.dest_plen = info->source_plen;
 }
 
 void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     flow_handle_ = flow_idx;
-    set_short_flow(true);
+    set_flags(FlowEntry::ShortFlow);
     data_.source_vn = *FlowHandler::UnknownVn();
     data_.dest_vn = *FlowHandler::UnknownVn();
     SecurityGroupList empty_sg_id_l;
@@ -886,7 +919,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         flow->set_deleted(false);
         DeleteFlowInfo(flow);
     } else {
-        flow->stats().setup_time = UTCTimestampUsec();
+        flow->stats_.setup_time = UTCTimestampUsec();
         AgentStats::GetInstance()->incr_flow_created();
     }
 
@@ -923,7 +956,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
-    fe->stats().teardown_time = UTCTimestampUsec();
+    fe->stats_.teardown_time = UTCTimestampUsec();
     fec->FlowExport(fe, diff_bytes, diff_packets);
 
     // Unlink the reverse flow, if one exists
@@ -956,7 +989,7 @@ bool FlowTable::Delete(FlowEntryMap::iterator &it, bool rev_flow)
 
     fe = it->second;
     FlowEntry *reverse_flow = NULL;
-    if (fe->nat_flow() || rev_flow) {
+    if (fe->is_flags_set(FlowEntry::NatFlow) || rev_flow) {
         reverse_flow = fe->reverse_flow_entry();
     }
     DeleteInternal(it);
@@ -1409,29 +1442,10 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
             continue;
         }
 
-        const NextHop *nh = rt->GetActiveNextHop();
-        if (nh->GetType() == NextHop::COMPOSITE && !flow->local_flow() &&
-            flow->ingress()) {
-            //Logic for RPF check for ecmp
-            //  Get reverse flow, and its corresponding ecmp index
-            //  Check if source matches component nh at reverse flow ecmp index,
-            //  if not DP would trap packet for ECMP resolve.
-            //  If there is only one instance of ECMP in compute node, then 
-            //  RPF NH would only point to local interface NH, as if packet
-            //  oringates from other source just drop the packet in dp
-            const CompositeNH *comp_nh = 
-                static_cast<const CompositeNH *>(nh);
-            nh = comp_nh->GetLocalNextHop();
-        }
-
-        const NhState *nh_state = NULL;
-        if (nh) {
-            nh_state = static_cast<const NhState *>(
-                    nh->GetState(Agent::GetInstance()->GetNextHopTable(),
-                        Agent::GetInstance()->pkt()->flow_table()->nh_listener_id()));
-        }
-
-        if (flow->set_nh_state(nh_state) == true) {
+        if (flow->SetRpfNH(rt) == true) {
+            FlowTableKSyncEntry *ksync_entry =
+                Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(flow);
+            flow->UpdateKSync(ksync_entry, false);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
             FLOW_TRACE(Trace, "Resync RPF NH", flow_info);
@@ -1789,11 +1803,11 @@ void FlowTable::AddVmFlowInfo (FlowEntry *fe)
 
 void FlowTable::IncrVnFlowCounter(VnFlowInfo *vn_flow_info, 
                                   const FlowEntry *fe) {
-    if (fe->local_flow()) {
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {
         vn_flow_info->ingress_flow_count++;
         vn_flow_info->egress_flow_count++;
     } else {
-        if (fe->ingress()) {
+        if (fe->is_flags_set(FlowEntry::IngressDir)) {
             vn_flow_info->ingress_flow_count++;
         } else {
             vn_flow_info->egress_flow_count++;
@@ -1803,11 +1817,11 @@ void FlowTable::IncrVnFlowCounter(VnFlowInfo *vn_flow_info,
 
 void FlowTable::DecrVnFlowCounter(VnFlowInfo *vn_flow_info, 
                                   const FlowEntry *fe) {
-    if (fe->local_flow()) {
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {
         vn_flow_info->ingress_flow_count--;
         vn_flow_info->egress_flow_count--;
     } else {
-        if (fe->ingress()) {
+        if (fe->is_flags_set(FlowEntry::IngressDir)) {
             vn_flow_info->ingress_flow_count--;
         } else {
             vn_flow_info->egress_flow_count--;
@@ -1904,11 +1918,11 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
     hdr.src_sg_id_l = &(fe->data().source_sg_id_l);
     hdr.dst_sg_id_l = &(fe->data().dest_sg_id_l);
 
-    fe->DoPolicy(hdr, fe->ingress());
+    fe->DoPolicy(hdr, fe->is_flags_set(FlowEntry::IngressDir));
     fe->CompareAndModify(create);
 
     // If this is forward flow, update the SG action for reflexive entry
-    if (fe->reverse_flow()) {
+    if (fe->is_flags_set(FlowEntry::ReverseFlow)) {
         return;
     }
 

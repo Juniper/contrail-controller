@@ -41,7 +41,8 @@
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
 void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
     FlowEntry *rev_flow = flow->reverse_flow_entry();
-    if (flow->nat_flow() && s_flow.get_direction_ing() && rev_flow) {
+    if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
+        rev_flow) {
         const FlowKey *nat_key = &rev_flow->key();
         if (flow->key().src.ipv4 != nat_key->dst.ipv4) {
             s_flow.set_sourceip(nat_key->dst.ipv4);
@@ -52,7 +53,7 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow)
 void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
-    FlowStats &stats = flow->stats();
+    FlowStats &stats = flow->stats_;
 
     s_flow.set_flowuuid(to_string(flow->flow_uuid()));
     s_flow.set_bytes(stats.bytes);
@@ -100,7 +101,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         level = SandeshLevel::SYS_ERR;
     }
 
-    if (flow->local_flow()) {
+    if (flow->is_flags_set(FlowEntry::LocalFlow)) {
         /* For local flows we need to send two flow log messages.
          * 1. With direction as ingress
          * 2. With direction as egress
@@ -118,7 +119,7 @@ void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64
         s_flow.set_flowuuid(to_string(flow->egress_uuid()));
         FLOW_DATA_IPV4_OBJECT_LOG("", level, s_flow);
     } else {
-        if (flow->ingress()) {
+        if (flow->is_flags_set(FlowEntry::IngressDir)) {
             s_flow.set_direction_ing(1);
             SourceIpOverride(flow, s_flow);
         } else {
@@ -192,7 +193,7 @@ void FlowStatsCollector::UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes,
                                k_flow->fe_stats.flow_bytes);
         k_packets = GetFlowStats(k_flow->fe_stats.flow_packets_oflow, 
                                  k_flow->fe_stats.flow_packets);
-        FlowStats *stats = &(flow->stats());
+        FlowStats *stats = &(flow->stats_);
         bytes = GetUpdatedFlowBytes(stats, k_bytes);
         packets = GetUpdatedFlowPackets(stats, k_packets);
         diff_bytes = bytes - stats->bytes;
@@ -228,7 +229,7 @@ bool FlowStatsCollector::Run() {
 
     while (it != flow_obj->flow_entry_map_.end()) {
         entry = it->second;
-        stats = &(entry->stats());
+        stats = &(entry->stats_);
         it++;
         assert(entry);
         deleted = false;
@@ -244,7 +245,7 @@ bool FlowStatsCollector::Run() {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle(), false);
-                if (ShouldBeAged(&(reverse_flow->stats()), k_flow_rev, curr_time)) {
+                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev, curr_time)) {
                     deleted = true;
                 }
             } else {
@@ -295,7 +296,7 @@ bool FlowStatsCollector::Run() {
             }
         }
 
-        if ((!deleted) && entry->short_flow()) {
+        if ((!deleted) && entry->is_flags_set(FlowEntry::ShortFlow)) {
             if (it != flow_obj->flow_entry_map_.end()) {
                 if (it->second == reverse_flow) {
                     it++;

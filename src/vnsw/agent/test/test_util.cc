@@ -1705,8 +1705,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(entry->nat_flow());
-    if (!entry->nat_flow()) {
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow));
+    if (!entry->is_flags_set(FlowEntry::NatFlow)) {
         return false;
     }
 
@@ -1743,8 +1743,8 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(rentry->nat_flow());
-    if (!rentry->nat_flow()) {
+    EXPECT_TRUE(rentry->is_flags_set(FlowEntry::NatFlow));
+    if (!rentry->is_flags_set(FlowEntry::NatFlow)) {
         return false;
     }
 
@@ -1798,8 +1798,8 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
         }
     }
 
-    EXPECT_EQ(entry->short_flow(), short_flow);
-    if (entry->short_flow() != short_flow) {
+    EXPECT_EQ(entry->is_flags_set(FlowEntry::ShortFlow), short_flow);
+    if (entry->is_flags_set(FlowEntry::ShortFlow) != short_flow) {
         return false;
     }
 
@@ -1807,8 +1807,8 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
         bool ret = true;
         FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat_flow() == false);
-        if (entry->nat_flow() == true)
+        EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == false);
+        if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
         EXPECT_EQ(entry->key().vrf, rev->key().vrf);
@@ -1907,8 +1907,8 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         bool ret = true;
         FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat_flow() == false);
-        if (entry->nat_flow() == true)
+        EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == false);
+        if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
         if (rflow_vrf == -1) {
@@ -1965,8 +1965,8 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_EQ(entry->nat_flow(), nat);
-    if (entry->nat_flow() != nat) {
+    EXPECT_EQ(entry->is_flags_set(FlowEntry::NatFlow), nat);
+    if (entry->is_flags_set(FlowEntry::NatFlow) != nat) {
         ret = false;
     }
 

@@ -241,18 +241,18 @@ public:
         EXPECT_TRUE(rev != NULL);
 
         if (fwd_flow_is_ecmp_) {
-            EXPECT_TRUE(fe->ecmp() == true);
+            EXPECT_TRUE(fe->is_flags_set(FlowEntry::EcmpFlow) == true);
             EXPECT_TRUE(fe->data().component_nh_idx != (uint32_t) -1);
         } else {
-            EXPECT_TRUE(fe->ecmp() == false);
+            EXPECT_TRUE(fe->is_flags_set(FlowEntry::EcmpFlow) == false);
             EXPECT_TRUE(fe->data().component_nh_idx == (uint32_t) -1);
         }
 
         if (rev_flow_is_ecmp_) {
-            EXPECT_TRUE(rev->ecmp() == true);
+            EXPECT_TRUE(rev->is_flags_set(FlowEntry::EcmpFlow) == true);
             EXPECT_TRUE(rev->data().component_nh_idx != (uint32_t) -1);
         } else {
-            EXPECT_TRUE(rev->ecmp() == false);
+            EXPECT_TRUE(rev->is_flags_set(FlowEntry::EcmpFlow) == false);
             EXPECT_TRUE(rev->data().component_nh_idx == (uint32_t) -1);
         }
     };

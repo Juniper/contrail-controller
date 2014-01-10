@@ -212,6 +212,16 @@ class FlowEntry {
         PCAP_DEST_VN = 4,
         PCAP_TLV_END = 255
     };
+    enum FlowEntryFlags {
+        NatFlow         = 1 << 0,
+        LocalFlow       = 1 << 1,
+        ShortFlow       = 1 << 2,
+        LinkLocalFlow   = 1 << 3,
+        ReverseFlow     = 1 << 4,
+        EcmpFlow        = 1 << 5,
+        IngressDir      = 1 << 6,
+        Trap            = 1 << 7
+    };
     FlowEntry();
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
@@ -223,93 +233,27 @@ class FlowEntry {
     void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
     int GetRefCount() { return refcount_; }
     void MakeShortFlow();
-    FlowStats &stats() { return stats_;};
-    const FlowStats &stats() const { return stats_;};
-    const FlowKey &key() const { return key_;};
-    const FlowData &data() const { return data_;};
-    const uuid &flow_uuid() const { return flow_uuid_; };
-    const uuid &egress_uuid() const { return egress_uuid_; };
-    uint32_t flow_handle() const { return flow_handle_; };
-    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; };
-    FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); };
-    const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); };
+    const FlowStats &stats() const { return stats_;}
+    const FlowKey &key() const { return key_;}
+    const FlowData &data() const { return data_;}
+    const uuid &flow_uuid() const { return flow_uuid_; }
+    const uuid &egress_uuid() const { return egress_uuid_; }
+    uint32_t flow_handle() const { return flow_handle_; }
+    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; }
+    FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
+    const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
     void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
         reverse_flow_entry_ = reverse_flow_entry;
-    };
-    bool nat_flow() const { return (flags_ & NatFlow); };
-    void set_nat_flow(const bool &nat) {
-        if (nat) {
-            flags_ |= NatFlow;
-        } else {
-            flags_ &= ~NatFlow;
-        }
-    };
-    bool local_flow() const { return (flags_ & LocalFlow); };
-    void set_local_flow(const bool &local) {
-        if (local) {
-            flags_ |= LocalFlow;
-        } else {
-            flags_ &= ~LocalFlow;
-        }
-    };
-    bool short_flow() const { return (flags_ & ShortFlow); };
-    void set_short_flow(const bool &short_flow) {
-        if (short_flow) {
-            flags_ |= ShortFlow;
-        } else {
-            flags_ &= ~ShortFlow;
-        }
-    };
-    bool linklocal_flow() const { return (flags_ & LinkLocalFlow); };
-    void set_linklocal_flow(const bool &linklocal_flow) {
-        if (linklocal_flow) {
-            flags_ |= LinkLocalFlow;
-        } else {
-            flags_ &= ~LinkLocalFlow;
-        }
-    };
-    bool reverse_flow() const { return (flags_ & ReverseFlow); };
-    void set_reverse_flow(const bool &reverse_flow) {
-        if (reverse_flow) {
-            flags_ |= ReverseFlow;
-        } else {
-            flags_ &= ~ReverseFlow;
-        }
-    };
-    bool ecmp() const { return (flags_ & EcmpFlow); };
-    void set_ecmp(const bool &ecmp) {
-        if (ecmp) {
-            flags_ |= EcmpFlow;
-        } else {
-            flags_ &= ~EcmpFlow;
-        }
-    };
-    bool ingress() const { return (flags_ & IngressDir); };
-    void set_ingress(const bool &ingress) {
-        if (ingress) {
-            flags_ |= IngressDir;
-        } else {
-            flags_ &= ~IngressDir;
-        }
-    };
-    bool trap() const { return (flags_ & Trap); };
-    void set_trap(const bool &trap) {
-        if (trap) {
-            flags_ |= Trap;
-        } else {
-            flags_ &= ~Trap;
-        }
-    };
+    }
+    bool is_flags_set(const FlowEntryFlags &flags) const { return (flags_ & flags); }
+    void set_flags(const FlowEntryFlags &flags) { flags_ |= flags; }
+    void reset_flags(const FlowEntryFlags &flags) { flags_ &= ~flags; }
+
     bool ImplicitDenyFlow() const { 
         return ((data_.match_p.action_info.action & 
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);
     }
     void FillFlowInfo(FlowInfo &info);
-    void GetPort(uint8_t &proto, uint16_t &sport, uint16_t &dport) const {
-        proto = key_.protocol;
-        sport = key_.src_port;
-        dport = key_.dst_port;
-    }
     void GetPolicyInfo();
     void GetPolicyInfo(const VnEntry *vn);
 
@@ -327,11 +271,10 @@ class FlowEntry {
     uint32_t IngressReflexiveAction() const;
     uint32_t EgressReflexiveAction() const;
     void UpdateReflexiveAction();
-    const Interface *intf_entry() const { return data_.intf_entry.get();};
-    const VnEntry *vn_entry() const { return data_.vn_entry.get();};
-    const VmEntry *vm_entry() const { return data_.vm_entry.get();};
-    bool set_nh_state(const NhState * nh_state);
-    const MatchPolicy &match_p() const { return data_.match_p; };
+    const Interface *intf_entry() const { return data_.intf_entry.get();}
+    const VnEntry *vn_entry() const { return data_.vn_entry.get();}
+    const VmEntry *vm_entry() const { return data_.vm_entry.get();}
+    const MatchPolicy &match_p() const { return data_.match_p; }
     void SetAclFlowSandeshData(const AclDBEntry *acl,
             FlowSandeshData &fe_sandesh_data) const;
     void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
@@ -339,25 +282,16 @@ class FlowEntry {
     void InitRevFlow(const PktFlowInfo *info,
             const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
     void InitAuditFlow(uint32_t flow_idx);
-    void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; };
-    void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; };
+    void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; }
+    void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
 private:
     friend class FlowTable;
+    friend class FlowStatsCollector;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
-    void SetRpfNH(const PktControlInfo *ctrl);
+    bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
-    enum FlowEntryFlags {
-        NatFlow         = 1 << 0,
-        LocalFlow       = 1 << 1,
-        ShortFlow       = 1 << 2,
-        LinkLocalFlow   = 1 << 3,
-        ReverseFlow     = 1 << 4,
-        EcmpFlow        = 1 << 5,
-        IngressDir      = 1 << 6,
-        Trap            = 1 << 7
-    };
     FlowKey key_;
     FlowData data_;
     FlowStats stats_;

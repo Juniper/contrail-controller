@@ -231,7 +231,7 @@ TEST_F(EcmpTest, EcmpTest_2) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -257,7 +257,7 @@ TEST_F(EcmpTest, EcmpTest_3) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -282,7 +282,7 @@ TEST_F(EcmpTest, EcmpTest_7) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -346,7 +346,7 @@ TEST_F(EcmpTest, EcmpTest_5) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     FlowEntry *rev_entry = entry->reverse_flow_entry();
     EXPECT_TRUE(rev_entry->data().component_nh_idx == 
@@ -363,7 +363,7 @@ TEST_F(EcmpTest, EcmpTest_6) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx != 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
 
     //Reverse flow should be set and should also be ECMP
     FlowEntry *rev_entry = entry->reverse_flow_entry();
@@ -440,7 +440,7 @@ TEST_F(EcmpTest, EcmpTest_9) {
     EXPECT_TRUE(entry != NULL);
     EXPECT_TRUE(entry->data().component_nh_idx == 
             CompositeNH::kInvalidComponentNHIdx);
-    EXPECT_TRUE(entry->nat_flow() == true);
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == true);
     EXPECT_TRUE(entry->key().vrf == VrfGet("vrf3")->GetVrfId());
     EXPECT_TRUE(entry->data().dest_vrf == VrfGet("vrf4")->GetVrfId());
     EXPECT_TRUE(entry->data().source_vn == "vn4");

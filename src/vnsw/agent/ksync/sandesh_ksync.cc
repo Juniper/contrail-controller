@@ -92,7 +92,8 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
             }
             entry->set_flow_handle(r->get_fr_index());
             //Tie forward flow and reverse flow
-            if (entry->nat_flow() || entry->ecmp()) {
+            if (entry->is_flags_set(FlowEntry::NatFlow) ||
+                entry->is_flags_set(FlowEntry::EcmpFlow)) {
                  FlowEntry *rev_flow = entry->reverse_flow_entry();
                  if (rev_flow) {
                      FlowTableKSyncEntry *rev_ksync_entry =

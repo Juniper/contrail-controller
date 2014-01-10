@@ -11,23 +11,23 @@
 using boost::system::error_code;
 
 #define SET_SANDESH_FLOW_DATA(data, fe)                                     \
-    data.set_vrf(fe->key().vrf);                                              \
-    Ip4Address sip(fe->key().src.ipv4);                                       \
+    data.set_vrf(fe->key().vrf);                                            \
+    Ip4Address sip(fe->key().src.ipv4);                                     \
     data.set_sip(sip.to_string());                                          \
-    Ip4Address dip(fe->key().dst.ipv4);                                       \
+    Ip4Address dip(fe->key().dst.ipv4);                                     \
     data.set_dip(dip.to_string());                                          \
-    data.set_src_port((unsigned)fe->key().src_port);                          \
-    data.set_dst_port((unsigned)fe->key().dst_port);                          \
-    data.set_protocol(fe->key().protocol);                                    \
-    data.set_dest_vrf(fe->data().dest_vrf);                                   \
-    data.set_action(fe->match_p().action_info.action);                   \
+    data.set_src_port((unsigned)fe->key().src_port);                        \
+    data.set_dst_port((unsigned)fe->key().dst_port);                        \
+    data.set_protocol(fe->key().protocol);                                  \
+    data.set_dest_vrf(fe->data().dest_vrf);                                 \
+    data.set_action(fe->match_p().action_info.action);                      \
     std::vector<ActionStr> action_str_l;                                    \
-    SetActionStr(fe->match_p().action_info, action_str_l);               \
+    SetActionStr(fe->match_p().action_info, action_str_l);                  \
     data.set_action_str(action_str_l);                                      \
-    std::vector<MirrorActionSpec>::const_iterator mait;                           \
+    std::vector<MirrorActionSpec>::const_iterator mait;                     \
     std::vector<MirrorInfo> mirror_l;                                       \
-    for (mait = fe->match_p().action_info.mirror_l.begin();              \
-         mait != fe->match_p().action_info.mirror_l.end();               \
+    for (mait = fe->match_p().action_info.mirror_l.begin();                 \
+         mait != fe->match_p().action_info.mirror_l.end();                  \
          ++mait) {                                                          \
          MirrorInfo minfo;                                                  \
          minfo.set_mirror_destination((*mait).ip.to_string());              \
@@ -35,38 +35,38 @@ using boost::system::error_code;
          mirror_l.push_back(minfo);                                         \
     }                                                                       \
     data.set_mirror_l(mirror_l);                                            \
-    if (fe->ingress()) {                                                 \
+    if (fe->is_flags_set(FlowEntry::IngressDir)) {                          \
         data.set_direction("ingress");                                      \
     } else {                                                                \
         data.set_direction("egress");                                       \
     }                                                                       \
-    data.set_stats_bytes(fe->stats().bytes);                                   \
-    data.set_stats_packets(fe->stats().packets);                               \
-    data.set_uuid(UuidToString(fe->flow_uuid()));                             \
-    if (fe->nat_flow()) {                                                          \
+    data.set_stats_bytes(fe->stats().bytes);                                \
+    data.set_stats_packets(fe->stats().packets);                            \
+    data.set_uuid(UuidToString(fe->flow_uuid()));                           \
+    if (fe->is_flags_set(FlowEntry::NatFlow)) {                             \
         data.set_nat("enabled");                                            \
     } else {                                                                \
         data.set_nat("disabled");                                           \
     }                                                                       \
-    data.set_flow_handle(fe->flow_handle());                                  \
-    data.set_interface_idx(fe->stats().intf_in);                                    \
+    data.set_flow_handle(fe->flow_handle());                                \
+    data.set_interface_idx(fe->stats().intf_in);                            \
     data.set_setup_time(                                                    \
                     integerToString(UTCUsecToPTime(fe->stats().setup_time)));       \
     data.set_refcount(fe->GetRefCount());                                   \
     data.set_implicit_deny(fe->ImplicitDenyFlow() ? "yes" : "no");          \
-    data.set_short_flow(fe->short_flow() ? "yes" : "no");                    \
-    data.set_local_flow(fe->local_flow() ? "yes" : "no");                     \
-    if (fe->local_flow()) {                                                   \
-        data.set_egress_uuid(UuidToString(fe->egress_uuid()));                \
+    data.set_short_flow(fe->is_flags_set(FlowEntry::ShortFlow) ? "yes" : "no");     \
+    data.set_local_flow(fe->is_flags_set(FlowEntry::LocalFlow) ? "yes" : "no");     \
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {                           \
+        data.set_egress_uuid(UuidToString(fe->egress_uuid()));              \
     }                                                                       \
-    data.set_src_vn(fe->data().source_vn);                                    \
-    data.set_dst_vn(fe->data().dest_vn);                                      \
-    data.set_setup_time_utc(fe->stats().setup_time);                                \
-    if (fe->ecmp() &&                                                    \
+    data.set_src_vn(fe->data().source_vn);                                  \
+    data.set_dst_vn(fe->data().dest_vn);                                    \
+    data.set_setup_time_utc(fe->stats().setup_time);                        \
+    if (fe->is_flags_set(FlowEntry::EcmpFlow) &&                            \
         fe->data().component_nh_idx != CompositeNH::kInvalidComponentNHIdx) { \
         data.set_ecmp_index(fe->data().component_nh_idx);                     \
     }                                                                       \
-    data.set_reverse_flow(fe->reverse_flow() ? "yes" : "no");              \
+    data.set_reverse_flow(fe->is_flags_set(FlowEntry::ReverseFlow) ? "yes" : "no"); \
     SetAclInfo(data, fe);                                                   \
 
 const std::string PktSandeshFlow::start_key = "0:0:0:0:0.0.0.0:0.0.0.0";

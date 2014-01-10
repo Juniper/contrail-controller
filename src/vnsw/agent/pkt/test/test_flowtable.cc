@@ -179,7 +179,7 @@ public:
             return ret;
         }
 
-        if (!flow->local_flow()) {
+        if (!flow->is_flags_set(FlowEntry::LocalFlow)) {
             EXPECT_EQ(flow->match_p().m_out_acl_l.size(), 0U);
             EXPECT_EQ(flow->match_p().m_out_sg_acl_l.size(), 0U);
             if ((flow->match_p().m_out_acl_l.size() != 0) || 
@@ -338,23 +338,23 @@ protected:
         key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, svn_name,
                                dvn_name, 1, 1, 1);
         flow1 = FlowInit(key1);
-        flow1->set_local_flow(true);
+        flow1->set_flags(FlowEntry::LocalFlow);
 
         key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, dvn_name,
                                  svn_name, 2, 1, 2);
         flow1_r = FlowInit(key1_r);
-        flow1_r->set_local_flow(true);
+        flow1_r->set_flags(FlowEntry::LocalFlow);
         FlowAdd(flow1, flow1_r);
 
         key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, svn_name,
                                dvn_name, 1, 1, 1);
         flow2 = FlowInit(key2);
-        flow2->set_local_flow(false);
+        flow2->reset_flags(FlowEntry::LocalFlow);
 
         key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, dvn_name,
                                  svn_name, 2, 1, 2);
         flow2_r = FlowInit(key2_r);
-        flow2_r->set_local_flow(false);
+        flow2_r->reset_flags(FlowEntry::LocalFlow);
         FlowAdd(flow2, flow2_r);
     }
 

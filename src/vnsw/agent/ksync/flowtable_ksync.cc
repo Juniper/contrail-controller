@@ -64,7 +64,7 @@ void FlowTableKSyncEntry::SetPcapData(FlowEntryPtr fe,
     data.push_back(0x4);
     uint32_t action;
     action = fe->match_p().action_info.action;
-    if (fe->ingress()) {
+    if (fe->is_flags_set(FlowEntry::IngressDir)) {
         // Set 31st bit for ingress
         action |= 0x40000000;
     }
@@ -93,7 +93,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
 
     //If action is NAT and reverse flow entry is not valid
     //then we should wait for the reverse flow to be programmed
-    if ((flow_entry_->nat_flow() || flow_entry_->ecmp()) &&
+    if ((flow_entry_->is_flags_set(FlowEntry::NatFlow) ||
+         flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) &&
         rev_flow && rev_flow->flow_handle() == FlowEntry::kInvalidFlowHandle) {
         return 0;
     }
@@ -126,7 +127,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             action = VR_FLOW_ACTION_DROP;
         }
 
-        if (action == VR_FLOW_ACTION_FORWARD && flow_entry_->nat_flow()) {
+        if (action == VR_FLOW_ACTION_FORWARD &&
+            flow_entry_->is_flags_set(FlowEntry::NatFlow)) {
             action = VR_FLOW_ACTION_NAT;
         }
 
@@ -182,7 +184,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_ftable_size(0);
         req.set_fr_ecmp_nh_index(flow_entry_->data().component_nh_idx);
 
-        if (flow_entry_->ecmp()) {
+        if (flow_entry_->is_flags_set(FlowEntry::EcmpFlow)) {
             flags |= VR_RFLOW_VALID; 
             FlowEntry *rev_flow = flow_entry_->reverse_flow_entry();
             req.set_fr_rindex(rev_flow->flow_handle());
@@ -215,7 +217,7 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             req.set_fr_rindex(nat_flow->flow_handle());
         }
 
-        if (flow_entry_->trap()) {
+        if (flow_entry_->is_flags_set(FlowEntry::Trap)) {
             flags |= VR_FLOW_FLAG_TRAP_ECMP;
             action = VR_FLOW_ACTION_HOLD;
         }
@@ -332,8 +334,8 @@ bool FlowTableKSyncEntry::Sync() {
     }
 
     //Trap reverse flow
-    if (trap_flow_ != flow_entry_->trap()) {
-        trap_flow_ = flow_entry_->trap();
+    if (trap_flow_ != flow_entry_->is_flags_set(FlowEntry::Trap)) {
+        trap_flow_ = flow_entry_->is_flags_set(FlowEntry::Trap);
         changed = true;
     }
 
