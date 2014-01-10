@@ -368,7 +368,8 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
         }
     }
     if (flow_entry_->data.match_p.action_info.mirror_l.size()) {
-        MirrorKSyncObject *mirror_object = ksync_obj_->ksync()->mirror_ksync_obj();
+        MirrorKSyncObject *mirror_object = 
+            ksync_obj_->ksync()->mirror_ksync_obj();
         std::vector<MirrorActionSpec>::iterator it;
         it = flow_entry_->data.match_p.action_info.mirror_l.begin();
         std::string analyzer1 = (*it).analyzer_name;
@@ -383,8 +384,8 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
             std::string analyzer2 = (*it).analyzer_name;
             if (analyzer1 != analyzer2) {
                 MirrorKSyncEntry mksync2(mirror_object, analyzer2);
-                MirrorKSyncEntry *mirror2 =
-           static_cast<MirrorKSyncEntry *>(mirror_object->GetReference(&mksync2));
+                MirrorKSyncEntry *mirror2 = static_cast<MirrorKSyncEntry *>
+                    (mirror_object->GetReference(&mksync2));
                 if (mirror2 && !mirror2->IsResolved()) {
                     return mirror2;
                 }
@@ -538,8 +539,8 @@ bool FlowTableKSyncObject::AuditProcess() {
                 SecurityGroupList empty_sg_id_l;
                 flow->data.source_sg_id_l = empty_sg_id_l;
                 flow->data.dest_sg_id_l = empty_sg_id_l;
-                AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD entry "
-                                " to short flow");
+                AGENT_ERROR(FlowLog, flow_idx, "FlowAudit : Converting HOLD "
+                            "entry to short flow");
                 ksync_->agent()->pkt()->flow_table()->Add(flow.get(), NULL);
             }
 

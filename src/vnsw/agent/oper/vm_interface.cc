@@ -914,7 +914,7 @@ void VmInterface::GetOsParams() {
 // Get DHCP IP address. DHCP IP is used only if IP address not specified in 
 // config. We can get DHCP IP in two ways,
 // - By snooping dhcp packets
-// - To support agent restart, the snooped address are stored in InterfaceKSnap
+// - To support agent restart, the snooped address are stored in InterfaceKScan
 //   table. Query the table to find DHCP Snooped address
 bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
     if (dhcp_snoop_ip_) {
@@ -923,9 +923,9 @@ bool VmInterface::IsDhcpSnoopIp(std::string &name, Ip4Address *ip) const {
     }
 
     uint32_t addr;
-    InterfaceKSnap *intf = Agent::GetInstance()->ksync()->interface_snapshot();
+    InterfaceKScan *intf = Agent::GetInstance()->ksync()->interface_scanner();
     if (intf) {
-        if (intf->FindInterfaceKSnapData(name, addr)) {
+        if (intf->FindInterfaceKScanData(name, addr)) {
             *ip = Ip4Address(addr);
             return true;
         }
