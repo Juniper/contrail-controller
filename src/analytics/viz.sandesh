@@ -288,6 +288,7 @@ struct stat_table
 }
 
 const string STAT_OBJECTID_FIELD = "name";
+const string STAT_SOURCE_FIELD   = SOURCE;
 const string STAT_TIME_FIELD     = "T";
 const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
@@ -295,15 +296,51 @@ const string STAT_VT_PREFIX      = "StatTable";
 
 const list<stat_table> _STAT_TABLES  = [
     {
-      'display_name' : 'CPU Information',
+      'display_name' : 'Analytics CPU Information',
       'stat_type' : 'AnalyticsCpuState',
       'stat_attr' : 'cpu_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
-          { 'name' : 'cpu_info.inst_id',   'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
           { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Config CPU Information',
+      'stat_type' : 'ConfigCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : CONFIG_NODE_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Control CPU Information',
+      'stat_type' : 'ControlCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : BGP_ROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Compute CPU Information',
+      'stat_type' : 'ComputeCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.used_sys_mem', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.one_min_cpuload', 'datatype' : 'double', 'index' : false},
         ]
     },
     {
@@ -369,8 +406,8 @@ const list<query_table> _TABLES = [
              'type' : 'LOG',
              'columns' :  [
                { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false},
-               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
+               { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
                { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
                { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
@@ -382,7 +419,7 @@ const list<query_table> _TABLES = [
                { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
                ]
               },
-          'columnvalues' : [ 'ModuleId', 'Source', 'Category', 'Level' ],
+          'columnvalues' : [ MODULE, SOURCE, 'Category', 'Level' ],
     },
     {
          'name' : FLOW_TABLE,
@@ -443,12 +480,12 @@ const query_schema_type _OBJECT_TABLE_SCHEMA =
              'columns' :  [
                { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false },
                { 'name' : 'ObjectId', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
+               { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'ObjectLog', 'datatype' : 'string', 'index' : false },
                { 'name' : 'SystemLog', 'datatype' : 'string', 'index' : false },
                ]
         }
-const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ 'ModuleId', 'Source', 'Category', 'Level' ]
+const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ MODULE, SOURCE, 'Category', 'Level' ]
 

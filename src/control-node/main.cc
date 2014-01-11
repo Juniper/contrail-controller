@@ -266,6 +266,19 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
+    ControlCpuState  astate;
+    astate.set_name(server->localname());
+
+    ProcessCpuInfo ainfo;
+    ainfo.set_module_id(Sandesh::module());
+    ainfo.set_inst_id(Sandesh::instance_id());
+    ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
+    ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
+    vector<ProcessCpuInfo> aciv;
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    ControlCpuStateTrace::Send(astate);
+
     uint32_t num_xmpp = xmpp_channel_mgr->count();
     if (num_xmpp != prev_state.get_num_xmpp_peer() || first) {
         state.set_num_xmpp_peer(num_xmpp);
