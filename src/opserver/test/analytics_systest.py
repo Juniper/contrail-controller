@@ -395,6 +395,28 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         return True
     # end test_04_flow_query 
 
+    #@unittest.skip(' Messagetype and Objecttype queries')
+    def test_08_fieldname_query(self):
+        '''
+        This test starts redis,vizd,opserver and qed
+        It uses the test class' cassandra instance
+        It then queries the stats table for messagetypes
+        and objecttypes
+        '''
+        logging.info("*** test_08_fieldname_query ***")
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        assert vizd_obj.verify_fieldname_messagetype();
+        assert vizd_obj.verify_fieldname_objecttype();
+        return True;
+    #end test_08_fieldname_query
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
