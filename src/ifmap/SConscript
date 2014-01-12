@@ -42,7 +42,7 @@ libifmap_common = env.Library('ifmap_common',
                                'ifmap_link_table.cc',
                                'ifmap_node.cc',
                                'ifmap_object.cc',
-                               'ifmap_log.cc'])
+                               'ifmap_log.cc'] + sandesh_objs)
 
 # control-node
 libifmap = env.Library('ifmap_server',
@@ -73,5 +73,37 @@ libifmap_agent = env.Library('ifmap_agent',
                         'ifmap_agent_sandesh.cc',
                         ] + AgentSandeshGenSrcs)
 
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('client/SConscript', exports='BuildEnv', duplicate = 0)
+
+test_suite = env.SConscript('test/SConscript',
+                            exports='BuildEnv', duplicate = 0)
+
+def code_coverage(target, source, env):
+    import shutil
+    shutil.rmtree(target[0].path, ignore_errors = True)
+
+    # lcov --base-directory $ROOT -- directory . --zerocounters -q
+    import os
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' --zerocounters -q')
+    # execute tests
+    import subprocess
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    for test in test_suite:
+        cmd = test[0].path
+        logfile = open(cmd + '.log', 'w')
+        subprocess.call([cmd], stdout=logfile, env=ShEnv)
+
+    # lcov --base-directory $ROOT -- directory . -c -o ifmap_test.info
+    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+              ' -c -o ifmap_test.info')
+
+    # genhtml -o ifmap/test_coverage ifmap_test.info
+    os.system('genhtml -o ' + target[0].path +
+              ' -t "test coverage" --num-spaces 4 ifmap_test.info')
+
+if env['OPT'] == 'coverage':
+    test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
+    env.AlwaysBuild(test_coverage)
+    env.Alias('src/ifmap:test_coverage', test_coverage)
