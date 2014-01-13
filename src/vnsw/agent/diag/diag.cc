@@ -8,7 +8,7 @@
 #include "cmn/agent_cmn.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
-#include "diag/diag.h"
+#include "diag/diag_table.h"
 #include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "oper/mirror_table.h"
@@ -20,7 +20,7 @@ const std::string KDiagName("DiagTimeoutHandler");
 
 DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag):
     diag_(diag),timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(Agent::GetInstance()->GetEventManager())->io_service(), 
+    timer_(TimerManager::CreateTimer(*(diag->GetAgent()->GetEventManager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 

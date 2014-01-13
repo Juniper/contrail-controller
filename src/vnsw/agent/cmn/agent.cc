@@ -39,7 +39,7 @@
 #include <uve/uve_client.h>
 #include <vgw/vgw.h>
 
-#include <diag/diag.h>
+#include <diag/diag_table.h>
 
 const std::string Agent::null_str_ = "";
 const std::string Agent::fabric_vn_name_ = 

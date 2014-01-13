@@ -12,7 +12,7 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
-#include "diag/diag.h"
+#include "diag/diag_table.h"
 #include "diag/ping.h"
 
 using namespace boost::posix_time;
