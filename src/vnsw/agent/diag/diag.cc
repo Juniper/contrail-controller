@@ -18,9 +18,9 @@ const std::string KDiagName("DiagTimeoutHandler");
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag):
-    diag_(diag),timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(diag->GetAgent()->GetEventManager())->io_service(), 
+DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag_table):
+    diag_table_(diag_table) , timeout_(timeout), 
+    timer_(TimerManager::CreateTimer(*(diag_table->GetAgent()->GetEventManager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 
@@ -28,13 +28,12 @@ DiagEntry::~DiagEntry() {
     timer_->Cancel();
     TimerManager::DeleteTimer(timer_);
     //Delete entry in DiagTable
-    diag_->Delete(this);
+    diag_table_->Delete(this);
 }
 
 void DiagEntry::Init() {
     DiagEntryOp *entry_op = new DiagEntryOp(DiagEntryOp::ADD, this);
-    entry_op->de_->diag_=diag_;
-    diag_->Enqueue(entry_op);
+    diag_table_->Enqueue(entry_op);
 }
 
 void DiagEntry::RestartTimer() {
@@ -51,8 +50,7 @@ bool DiagEntry::TimerExpiry( uint32_t seq_no) {
     } else {
         op = new DiagEntryOp(DiagEntryOp::RETRY, this);
     }
-    op->de_->diag_=diag_;
-    diag_->Enqueue(op);
+    diag_table_->Enqueue(op);
     return false;
 }
 
@@ -99,7 +97,7 @@ bool DiagPktHandler::Run() {
 
     //Reply for a query we sent
     DiagEntry::DiagKey key = ntohl(ad->key_);
-    DiagEntry *entry = diag_->Find(key);
+    DiagEntry *entry = diag_table_->Find(key);
     if (!entry) {
         return true;
     }
@@ -109,7 +107,7 @@ bool DiagPktHandler::Run() {
     if (entry->GetSeqNo() == entry->GetCount()) {
         DiagEntryOp *op;
         op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
-        entry->GetDiag()->Enqueue(op);
+        entry->GetDiagTable()->Enqueue(op);
     } else {
         entry->Retry();
     }
@@ -139,8 +137,7 @@ bool DiagTable::Process(DiagEntryOp *op) {
     return true;
 }
 
-DiagTable::DiagTable(Agent *agent) {
-    agent_=agent;
+DiagTable::DiagTable(Agent *agent):agent_(agent) {
     diag_proto_.reset(
         new DiagProto(agent, *(agent->GetEventManager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
@@ -155,7 +152,7 @@ void DiagTable::Shutdown() {
 }
 
 DiagTable::~DiagTable() {
-    assert(tree_.size() != 0);
+    assert(tree_.size() == 0);
 }
 
 void DiagTable::Add(DiagEntry *de) {

@@ -19,7 +19,7 @@ public:
     typedef uint32_t DiagKey;
     typedef Timer DiagTimer;
 
-    DiagEntry(int timeout, int count,DiagTable *diag);
+    DiagEntry(int timeout, int count, DiagTable *diag_table);
     virtual ~DiagEntry();
     void Init();
     virtual void SendRequest() = 0;
@@ -36,15 +36,12 @@ public:
     bool TimerCancel() {
         return timer_->Cancel();
     }
-    void SetDiagTable(DiagTable *diag) {
-        diag_ = diag;
-    }
-    DiagTable* GetDiag() {
-        return diag_;
+    DiagTable* GetDiagTable() {
+        return diag_table_;
     }
 
 protected:
-    DiagTable *diag_;
+    DiagTable *diag_table_;
     DiagKey key_;
     int timeout_;
     DiagTimer *timer_;

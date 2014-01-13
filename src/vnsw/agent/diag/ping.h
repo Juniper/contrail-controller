@@ -14,7 +14,7 @@ public:
         sizeof(iphdr) + sizeof(udphdr) + IPC_HDR_LEN;
     static const uint32_t KPingTcpHdr = sizeof(ethhdr) + 
         sizeof(iphdr) + sizeof(tcphdr) + IPC_HDR_LEN;
-    Ping(const PingReq *pr,DiagTable *diag);
+    Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();
     virtual void HandleReply(DiagPktHandler *handler);

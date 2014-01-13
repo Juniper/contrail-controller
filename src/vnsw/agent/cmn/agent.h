@@ -503,8 +503,8 @@ public:
     void Shutdown() {
     }
 
-    DiagTable *diag() {
-	return diag_.get();
+    DiagTable *diagTable() {
+	return diag_table_.get();
     }
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
@@ -545,7 +545,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
-    std::auto_ptr<DiagTable> diag_;
+    std::auto_ptr<DiagTable> diag_table_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];

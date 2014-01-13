@@ -11,7 +11,7 @@ struct AgentDiagPktData;
 class DiagPktHandler : public ProtoHandler {
 public:
     DiagPktHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io):
-        ProtoHandler(agent, info, io) {diag_=agent->diag(); };
+        ProtoHandler(agent, info, io) {diag_table_ = agent->diagTable(); };
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();
@@ -20,6 +20,6 @@ public:
         return (AgentDiagPktData *)(pkt_info_->data);
     }
 private:
-    DiagTable *diag_;
+    DiagTable *diag_table_;
 };
 #endif
