@@ -99,6 +99,7 @@ class FlowProto;
 
 class Peer;
 class LifetimeManager;
+class DiagTable;
 
 extern void RouterIdDepInit();
 
@@ -501,6 +502,9 @@ public:
     void Shutdown() {
     }
 
+    DiagTable *diag() {
+	return diag_.get();
+    }
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
     void SetAgentTaskPolicy();
@@ -540,6 +544,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
+    std::auto_ptr<DiagTable> diag_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];

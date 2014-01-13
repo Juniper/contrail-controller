@@ -12,7 +12,8 @@
 #include <ksync/route_ksync.h>
 #include <ksync/vxlan_ksync.h>
 #include <ksync/vrf_assign_ksync.h>
-#include <ksync/interface_snapshot.h>
+#include <ksync/interface_scan.h>
+#include <ksync/vnswif_listener.h>
 
 class KSync {
 public:
@@ -26,7 +27,7 @@ public:
     void NetlinkInit();
     void VRouterInterfaceSnapshot();
     void ResetVRouter();
-    void VnswIfListenerInit();
+    void VnswInterfaceListenerInit();
     void CreateVhostIntf();
     void Shutdown();
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
@@ -51,8 +52,11 @@ public:
     FlowTableKSyncObject *flowtable_ksync_obj() const {
         return flowtable_ksync_obj_.get();
     }
-    InterfaceKSnap *interface_snapshot() const {
-        return interface_snapshot_.get();
+    InterfaceKScan *interface_scanner() const {
+        return interface_scanner_.get();
+    }
+    VnswInterfaceListener *vnsw_interface_listner() const  {
+        return vnsw_interface_listner_.get();
     }
 private:
     Agent *agent_;
@@ -64,7 +68,8 @@ private:
     boost::scoped_ptr<VrfKSyncObject> vrf_ksync_obj_;
     boost::scoped_ptr<VxLanKSyncObject> vxlan_ksync_obj_;
     boost::scoped_ptr<VrfAssignKSyncObject> vrf_assign_ksync_obj_;
-    boost::scoped_ptr<InterfaceKSnap> interface_snapshot_;
+    boost::scoped_ptr<InterfaceKScan> interface_scanner_;
+    boost::scoped_ptr<VnswInterfaceListener> vnsw_interface_listner_;
     DISALLOW_COPY_AND_ASSIGN(KSync);
 };
 

@@ -49,3 +49,10 @@ struct ProcessState {
     8: optional string                     last_stop_time
     9: optional string                     last_exit_time
 }
+
+struct ProcessCpuInfo {
+    1: string                              module_id
+    2: string                              inst_id
+    3: u32                                 mem_virt
+    4: double                              cpu_share
+}

@@ -5,9 +5,10 @@
 #include "ifmap/ifmap_server_parser.h"
 
 #include <pugixml/pugixml.hpp>
-#include "base/logging.h"
 #include "db/db.h"
 #include "ifmap/ifmap_server_table.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 
 using namespace std;
 using namespace pugi;
@@ -217,7 +218,7 @@ void IFMapServerParser::Receive(DB *db, const char *data, size_t length,
     xml_document xdoc;
     pugi::xml_parse_result result = xdoc.load_buffer(data, length);
     if (!result) {
-        LOG(WARN, "Unable to load XML document");
+        IFMAP_WARN(IFMapXmlLoadError, "Unable to load XML document", length);
         return;
     }
 
@@ -235,6 +236,8 @@ void IFMapServerParser::Receive(DB *db, const char *data, size_t length,
         IFMapTable *table = IFMapTable::FindTable(db, key->id_type);
         if (table != NULL) {
             table->Enqueue(req.get());
+        } else {
+            IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table", key->id_type);
         }
     }
 }

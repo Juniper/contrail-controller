@@ -12,6 +12,7 @@ struct KSyncIntfInfo {
     7: optional u32 policy_enabled;
     8: optional u32 service_enabled;
     9: optional string analyzer_name;
+   10: optional u32 l2_active;
 }
 
 traceobject sandesh KSyncIntf {

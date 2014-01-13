@@ -55,6 +55,8 @@ bool VmFind(int id);
 bool VmPortFind(int id);
 uint32_t VmPortGetId(int id);
 bool VmPortFind(PortInfo *input, int id);
+bool VmPortL2Active(int id);
+bool VmPortL2Active(PortInfo *input, int id);
 bool VmPortActive(int id);
 bool VmPortActive(PortInfo *input, int id);
 bool VmPortPolicyEnabled(int id);
@@ -122,6 +124,8 @@ void AddVm(const char *name, int id);
 void DelVm(const char *name);
 void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
+void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
+void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
 void AddPort(const char *name, int id);
@@ -146,6 +150,11 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL, 
+                     bool l2_vn = false);
+void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);

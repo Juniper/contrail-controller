@@ -8,20 +8,19 @@
 #include "cmn/agent_cmn.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
-#include "diag/diag.h"
+#include "diag/diag_table.h"
 #include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "oper/mirror_table.h"
 
-DiagTable* DiagTable::singleton_;
 
 const std::string KDiagName("DiagTimeoutHandler");
 
 ////////////////////////////////////////////////////////////////////////////////
 
-DiagEntry::DiagEntry(int timeout, int count):
-    timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(Agent::GetInstance()->GetEventManager())->io_service(), 
+DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag):
+    diag_(diag),timeout_(timeout), 
+    timer_(TimerManager::CreateTimer(*(diag->GetAgent()->GetEventManager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 
@@ -29,12 +28,13 @@ DiagEntry::~DiagEntry() {
     timer_->Cancel();
     TimerManager::DeleteTimer(timer_);
     //Delete entry in DiagTable
-    DiagTable::GetTable()->Delete(this);
+    diag_->Delete(this);
 }
 
 void DiagEntry::Init() {
     DiagEntryOp *entry_op = new DiagEntryOp(DiagEntryOp::ADD, this);
-    DiagTable::GetTable()->Enqueue(entry_op);
+    entry_op->de_->diag_=diag_;
+    diag_->Enqueue(entry_op);
 }
 
 void DiagEntry::RestartTimer() {
@@ -43,16 +43,16 @@ void DiagEntry::RestartTimer() {
     timer_->Start(timeout_, boost::bind(&DiagEntry::TimerExpiry, this, seq_no_));
 }
 
-bool DiagEntry::TimerExpiry(DiagEntry *entry, uint32_t seq_no) {
+bool DiagEntry::TimerExpiry( uint32_t seq_no) {
     DiagEntryOp *op;
-    entry->RequestTimedOut(seq_no);
-    if (seq_no == entry->GetCount()) {
-        op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
+    RequestTimedOut(seq_no);
+    if (seq_no == GetCount()) {
+        op = new DiagEntryOp(DiagEntryOp::DELETE, this);
     } else {
-        op = new DiagEntryOp(DiagEntryOp::RETRY, entry);
+        op = new DiagEntryOp(DiagEntryOp::RETRY, this);
     }
-    DiagTable::GetTable()->Enqueue(op);
-
+    op->de_->diag_=diag_;
+    diag_->Enqueue(op);
     return false;
 }
 
@@ -99,7 +99,7 @@ bool DiagPktHandler::Run() {
 
     //Reply for a query we sent
     DiagEntry::DiagKey key = ntohl(ad->key_);
-    DiagEntry *entry = DiagTable::GetTable()->Find(key);
+    DiagEntry *entry = diag_->Find(key);
     if (!entry) {
         return true;
     }
@@ -109,7 +109,7 @@ bool DiagPktHandler::Run() {
     if (entry->GetSeqNo() == entry->GetCount()) {
         DiagEntryOp *op;
         op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
-        DiagTable::GetTable()->Enqueue(op);
+        entry->GetDiag()->Enqueue(op);
     } else {
         entry->Retry();
     }
@@ -140,6 +140,7 @@ bool DiagTable::Process(DiagEntryOp *op) {
 }
 
 DiagTable::DiagTable(Agent *agent) {
+    agent_=agent;
     diag_proto_.reset(
         new DiagProto(agent, *(agent->GetEventManager())->io_service()));
     entry_op_queue_ = new WorkQueue<DiagEntryOp *>
@@ -154,7 +155,7 @@ void DiagTable::Shutdown() {
 }
 
 DiagTable::~DiagTable() {
-    assert(tree_.size() != 0);
+    assert(tree_.size() == 0);
 }
 
 void DiagTable::Add(DiagEntry *de) {

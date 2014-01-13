@@ -12,13 +12,13 @@
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
 #include "diag/diag_types.h"
-#include "diag/diag.h"
+#include "diag/diag_table.h"
 #include "diag/ping.h"
 
 using namespace boost::posix_time;
 
-Ping::Ping(const PingReq *ping_req):
-    DiagEntry(ping_req->get_interval() * 100, ping_req->get_count()),
+Ping::Ping(const PingReq *ping_req,DiagTable *diag):
+    DiagEntry(ping_req->get_interval() * 100, ping_req->get_count(),diag),
     sip_(Ip4Address::from_string(ping_req->get_source_ip(), ec_)),
     dip_(Ip4Address::from_string(ping_req->get_dest_ip(), ec_)),
     proto_(ping_req->get_protocol()), sport_(ping_req->get_source_port()),
@@ -238,7 +238,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
     }
-    ping = new Ping(this);
+    ping = new Ping(this, Agent::GetInstance()->diag());
     ping->Init();
     return;
 

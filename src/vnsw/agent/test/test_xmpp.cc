@@ -723,7 +723,7 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
 
     //expect subscribe for __default__, vrf1,route
     //at the mock server
-    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 11));
+    WAIT_FOR(100, 10000, (mock_peer.get()->Count() == 12));
 
     VxLanNetworkIdentifierMode(false);
     client->WaitForIdle();

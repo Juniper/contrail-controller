@@ -126,6 +126,9 @@ if sys.platform != 'darwin':
     test_route_mock = env.Program(target = 'test_route_mock', source = ['test_route_mock.cc'])
     env.Alias('src/vnsw/agent/test:test_route_mock', test_route_mock)
 
+    test_global_vrouter_config = env.Program(target = 'test_global_vrouter_config', source = ['test_global_vrouter_config.cc'])
+    env.Alias('src/vnsw/agent/test:test_global_vrouter_config', test_global_vrouter_config)
+
 #    test_sg = env.Program(target = 'test_sg', source = ['test_sg.cc'])
 #    env.Alias('src/vnsw/agent/test:test_sg', test_sg)
 
@@ -153,6 +156,7 @@ test_suite = [test_dummy,
               test_xmpp_bcast,
               test_xmppcs_bcast,
               test_cfg_listener,
+              test_global_vrouter_config,
 #              test_sg
                  ]
 

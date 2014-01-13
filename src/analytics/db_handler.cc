@@ -377,7 +377,9 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     string sname;
     DbHandler::Var pv;
     DbHandler::AttribMap attribs;
-    pv = string("Messagetype");
+    std::string name_val = string(g_viz_constants.COLLECTOR_GLOBAL_TABLE);
+    name_val.append(":Messagetype");
+    pv = name_val;
     tmap.insert(make_pair("name", make_pair(pv, amap)));
     attribs.insert(make_pair(string("name"), pv));
     string sattrname("fields.value");
@@ -460,7 +462,27 @@ void DbHandler::ObjectTableInsert(const std::string table, const std::string row
                     << g_viz_constants.OBJECT_VALUE_TABLE << " FAILED");
             return;
         }
-      }
+
+	/*
+	 * Inserting into the stat table
+	 */
+	DbHandler::TagMap tmap;
+	DbHandler::AttribMap amap;
+	string sname;
+	DbHandler::Var pv;
+	DbHandler::AttribMap attribs;
+	std::string name_val = string(table);
+	name_val.append(":Objecttype");
+	pv = name_val;
+	tmap.insert(make_pair("name", make_pair(pv, amap)));
+	attribs.insert(make_pair(string("name"), pv));
+	string sattrname("fields.value");
+	pv = string(rowkey_str);
+	tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
+	attribs.insert(make_pair(sattrname,pv));
+	StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
+    }
+        
 }
 
 
