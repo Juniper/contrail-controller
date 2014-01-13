@@ -14,13 +14,12 @@ class PktFlowInfo;
 
 class FlowHandler : public ProtoHandler {
 public:
-    FlowHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) :
-        ProtoHandler(agent, info, io) {}
+    FlowHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                boost::asio::io_service &io)
+              : ProtoHandler(agent, info, io) {}
     virtual ~FlowHandler() {}
 
     bool Run();
-    void PktFlowTrace(const PktInfo *pkt_info,
-                      const PktFlowInfo &flow_info);
 
     static const std::string *UnknownVn() { return &unknown_vn_; }
     static const std::string *LinkLocalVn() {

@@ -28,7 +28,7 @@ bool FlowHandler::Run() {
     info.source_sg_id_l = &empty_sg_id_l;
     info.dest_sg_id_l = &empty_sg_id_l;
 
-    if (info.Process(pkt_info_, &in, &out) == false) {
+    if (info.Process(pkt_info_.get(), &in, &out) == false) {
         info.short_flow = true;
     }
 
@@ -67,6 +67,6 @@ bool FlowHandler::Run() {
         out.vm_ = InterfaceToVm(out.intf_);
     }
 
-    info.Add(pkt_info_, &in, &out);
+    info.Add(pkt_info_.get(), &in, &out);
     return true;
 }

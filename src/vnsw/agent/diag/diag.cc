@@ -155,7 +155,7 @@ void DiagTable::Shutdown() {
 }
 
 DiagTable::~DiagTable() {
-    assert(tree_.size() != 0);
+    assert(tree_.size() == 0);
 }
 
 void DiagTable::Add(DiagEntry *de) {

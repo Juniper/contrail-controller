@@ -21,9 +21,8 @@ Proto::~Proto() {
     work_queue_. Shutdown();
 }
 
-bool Proto::ValidateAndEnqueueMessage(PktInfo *msg) {
-    if (!Validate(msg)) {
-        delete msg;
+bool Proto::ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg) {
+    if (!Validate(msg.get())) {
         return true;
     }
 
@@ -41,7 +40,7 @@ bool Proto::ValidateAndEnqueueMessage(PktInfo *msg) {
     return work_queue_.Enqueue(msg);
 }
 
-bool Proto::ProcessProto(PktInfo *msg_info) {
+bool Proto::ProcessProto(boost::shared_ptr<PktInfo> msg_info) {
     ProtoHandler *handler = AllocProtoHandler(msg_info, io_);
     if (handler->Run())
         delete handler;

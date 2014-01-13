@@ -33,7 +33,8 @@ struct PseudoTcpHdr {
 // Each protocol has a handler derived from this
 class ProtoHandler {
 public:
-    ProtoHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                 boost::asio::io_service &io);
     ProtoHandler(Agent *agent, boost::asio::io_service &io);
     virtual ~ProtoHandler();
 
@@ -64,7 +65,7 @@ public:
 
 protected:
     Agent   *agent_;
-    PktInfo *pkt_info_;
+    boost::shared_ptr<PktInfo> pkt_info_;
     boost::asio::io_service &io_;
 
 private:

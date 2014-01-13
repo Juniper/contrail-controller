@@ -49,7 +49,7 @@ Ping::CreateTcpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                    *(Agent::GetInstance()->GetEventManager())->io_service());
 
@@ -75,7 +75,7 @@ Ping::CreateUdpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                     *(Agent::GetInstance()->GetEventManager())->io_service());
 
