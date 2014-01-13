@@ -25,52 +25,35 @@ public:
         INTF_DOWN
     };
 
-    VnswRouteEvent(Ip4Address addr, Event event) : addr_(addr), event_(event) {};
+    VnswRouteEvent(Ip4Address addr, Event event) 
+        : addr_(addr), event_(event) {}
 
     Ip4Address addr_;
     Event event_;
 };
 
-class VnswIfListener {
+class VnswInterfaceListener {
 public:
     static const int kVnswRtmProto = 109;
     enum { max_buf_size = 4096 };
-    VnswIfListener(boost::asio::io_service & io);
-    virtual ~VnswIfListener() {
-        if (read_buf_){
-            delete [] read_buf_;
-            read_buf_ = NULL;
-        }
-        delete revent_queue_;
-    }
+
+    VnswInterfaceListener(Agent *agent);
+    virtual ~VnswInterfaceListener();
     
-    static void Init (boost::asio::io_service &io) {
-        assert(instance_ == NULL);
-        instance_ = new VnswIfListener(io);
-    }
-    static void Shutdown() { 
-        boost::system::error_code ec;
-        if (instance_) {
-            instance_->sock_.close(ec);
-        }
-    };
-
-    void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
-    void KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
-
-    static VnswIfListener *GetInstance() {return instance_; }
-
+    void Init();
+    void Shutdown();
 private:
     typedef std::set<Ip4Address> Ip4HostTableType;
     class VnswIntfState : public DBState {
     public:
-        VnswIntfState(Ip4Address addr) : addr_(addr) { };
-        virtual ~VnswIntfState() { };
-        Ip4Address ip_addr() { return addr_; };
+        VnswIntfState(Ip4Address addr) : addr_(addr) { }
+        virtual ~VnswIntfState() { }
+        Ip4Address addr() { return addr_; }
     private:
         Ip4Address addr_;
     };
 
+    void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
     void InitRouterId();
     void ReadHandler(const boost::system::error_code &, std::size_t length);
     void CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen);
@@ -82,6 +65,7 @@ private:
     uint32_t FetchVhostAddress(bool netmask);
     void InitFetchLinks();
     void InitFetchRoutes();
+    void KUpdateLinkLocalRoute(const Ip4Address &addr, bool del_rt);
     bool RouteEventProcess(VnswRouteEvent *re);
     void RouteHandler(struct nlmsghdr *nlh);
     void InterfaceHandler(struct nlmsghdr *nlh);
@@ -89,7 +73,7 @@ private:
     int AddAttr(int type, void *data, int alen);
     int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
 
-    static VnswIfListener *instance_;
+    Agent *agent_;
     uint8_t *read_buf_;
     uint8_t tx_buf_[max_buf_size];
 

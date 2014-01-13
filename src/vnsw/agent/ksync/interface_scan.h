@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_interface_snapshot_f
-#define vnsw_agent_interface_snapshot_h
+#ifndef vnsw_agent_interface_scanner_f
+#define vnsw_agent_interface_scanner_h
 
 #include <db/db_entry.h>
 #include <db/db_table.h>
@@ -15,26 +15,26 @@
 #include <cmn/agent_cmn.h>
 
 // Store kernel interface snapshot
-class InterfaceKSnap {
+class InterfaceKScan {
 public:
-    typedef std::map<std::string, uint32_t> InterfaceKSnapMap;
-    typedef std::map<std::string, uint32_t>::iterator InterfaceKSnapIter;
-    typedef std::pair<std::string, uint32_t> InterfaceKSnapPair;
+    typedef std::map<std::string, uint32_t> InterfaceKScanMap;
+    typedef std::map<std::string, uint32_t>::iterator InterfaceKScanIter;
+    typedef std::pair<std::string, uint32_t> InterfaceKScanPair;
 
-    InterfaceKSnap(Agent *agent);
-    virtual ~InterfaceKSnap();
+    InterfaceKScan(Agent *agent);
+    virtual ~InterfaceKScan();
 
     void Init();
     void KernelInterfaceData(vr_interface_req *r);
-    bool FindInterfaceKSnapData(const std::string &name, uint32_t &ip);
+    bool FindInterfaceKScanData(const std::string &name, uint32_t &ip);
     bool Reset();
 private:
     Agent *agent_;
     Timer *timer_;
     tbb::mutex mutex_;
-    InterfaceKSnapMap data_map_;
+    InterfaceKScanMap data_map_;
     static const uint32_t timeout_ = 180000; // 3 minutes
-    DISALLOW_COPY_AND_ASSIGN(InterfaceKSnap);
+    DISALLOW_COPY_AND_ASSIGN(InterfaceKScan);
 };
 
-#endif // vnsw_agent_interface_snapshot_h
+#endif // vnsw_agent_interface_scanner_h

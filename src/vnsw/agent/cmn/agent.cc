@@ -341,7 +341,7 @@ void Agent::InitDone() {
     }
 
     if (init_->ksync_enable()) {
-        ksync_.get()->VnswIfListenerInit();
+        ksync_.get()->VnswInterfaceListenerInit();
     }
 
     if (init_->router_id_dep_enable() && GetRouterIdConfigured()) {

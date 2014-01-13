@@ -1382,6 +1382,8 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
         }
         if (g_viz_constants.STAT_OBJECTID_FIELD == where_field) 
             return true;        
+        if (g_viz_constants.STAT_SOURCE_FIELD == where_field) 
+            return true;        
         return false;
     }
 

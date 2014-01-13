@@ -1853,27 +1853,26 @@ void UveClient::FetchDropStats(AgentDropStats &ds) {
 }
 
 void UveClient::NewFlow(const FlowEntry *flow) {
-    uint8_t proto = 0;
-    uint16_t sport = 0;
-    uint16_t dport = 0;
+    uint8_t proto = flow->key().protocol;
+    uint16_t sport = flow->key().src_port;
+    uint16_t dport = flow->key().dst_port;
 
     // Update vrouter port bitmap
-    flow->GetPort(proto, sport, dport);
     port_bitmap_.AddPort(proto, sport, dport);
 
     // Update source-vn port bitmap
-    LastVnUveSet::iterator vn_it = last_vn_uve_set_.find(flow->data.source_vn);
+    LastVnUveSet::iterator vn_it = last_vn_uve_set_.find(flow->data().source_vn);
     if (vn_it != last_vn_uve_set_.end()) {
         vn_it->second.port_bitmap.AddPort(proto, sport, dport);
     }
 
     // Update dest-vn port bitmap
-    vn_it = last_vn_uve_set_.find(flow->data.dest_vn);
+    vn_it = last_vn_uve_set_.find(flow->data().dest_vn);
     if (vn_it != last_vn_uve_set_.end()) {
         vn_it->second.port_bitmap.AddPort(proto, sport, dport);
     }
 
-    const Interface *intf = flow->data.intf_entry.get();
+    const Interface *intf = flow->data().intf_entry.get();
     if (intf == NULL) {
         return;
     }
