@@ -504,7 +504,7 @@ public:
     }
 
     DiagTable *diagTable() {
-	return diag_table_.get();
+        return diag_table_.get();
     }
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
