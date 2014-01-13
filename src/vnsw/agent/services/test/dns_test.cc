@@ -299,7 +299,7 @@ public:
         for (int i = 0; i < numAdd; i++)
             ptr = BindUtil::AddAnswerSection(ptr, add[i], len);
 
-        DnsHandler::SendDnsIpc(buf);
+        Agent::GetInstance()->GetDnsProto()->SendDnsIpc(buf);
     }
 
 private:
@@ -406,16 +406,16 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 8, 4, 2, 1, 1, 0);
 
-    Agent::GetInstance()->GetDnsProto()->SetTimeout(30);
-    Agent::GetInstance()->GetDnsProto()->SetMaxRetries(1);
+    Agent::GetInstance()->GetDnsProto()->set_timeout(30);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(1);
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);
     g_xid++;
     usleep(100000); // wait for retry timer to expire
     client->WaitForIdle();
     CHECK_CONDITION(stats.drop < 1);
     CHECK_STATS(stats, 9, 4, 2, 1, 1, 1);
-    Agent::GetInstance()->GetDnsProto()->SetTimeout(2000);
-    Agent::GetInstance()->GetDnsProto()->SetMaxRetries(2);
+    Agent::GetInstance()->GetDnsProto()->set_timeout(2000);
+    Agent::GetInstance()->GetDnsProto()->set_max_retries(2);
 
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, true);
     client->WaitForIdle();
@@ -476,7 +476,7 @@ TEST_F(DnsTesting, DnsXmppTest) {
     CHECK_STATS(stats, 1, 1, 0, 0, 0, 0);
 
     //TODO : create an XMPP channel
-    DnsHandler::SendDnsUpdateIpc(NULL);
+    Agent::GetInstance()->GetDnsProto()->SendDnsUpdateIpc(NULL);
 
     SendDnsReq(DNS_OPCODE_UPDATE, GetItfId(0), 1, a_items, false);
     client->WaitForIdle();

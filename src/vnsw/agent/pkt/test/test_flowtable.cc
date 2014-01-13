@@ -230,8 +230,9 @@ public:
         t->InitFlowKey(&key);
         FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
 
-        PktInfo pkt;
-        PktFlowInfo info(&pkt);
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
+        PktFlowInfo info(pkt_info);
+        PktInfo *pkt = pkt_info.get();
         info.source_vn = t->svn_;
         info.dest_vn = t->dvn_;
         SecurityGroupList empty_sg_id_l;
@@ -243,7 +244,7 @@ public:
         ctrl.intf_ = VmPortGet(t->ifindex_);
         ctrl.vm_ = VmGet(t->vm_);
 
-        flow->InitFwdFlow(&info, &pkt, &ctrl, &ctrl);
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
         return flow;
     }
 

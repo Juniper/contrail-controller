@@ -14,7 +14,7 @@ public:
 
     virtual ~DiagProto() {}
 
-    ProtoHandler *AllocProtoHandler(PktInfo *info,
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                     boost::asio::io_service &io) {
         return new DiagPktHandler(agent(), info, io);
     }

@@ -23,7 +23,8 @@ public:
     void Init() {}
     void Shutdown() {}
 
-    FlowHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io) {
+    FlowHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                   boost::asio::io_service &io) {
         return new FlowHandler(agent(), info, io);
     }
 

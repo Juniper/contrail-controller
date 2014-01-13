@@ -245,8 +245,9 @@ public:
         const VnEntry *vn = intf->vn();
         SecurityGroupList empty_sg_id_l;
 
-        PktInfo pkt;
-        PktFlowInfo info(&pkt);
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
+        PktFlowInfo info(pkt_info);
+        PktInfo *pkt = pkt_info.get();
         info.source_vn = &vn->GetName();
         info.dest_vn = dest_vn;
         info.source_sg_id_l = &empty_sg_id_l;
@@ -256,7 +257,7 @@ public:
         ctrl.vn_ = vn;
         ctrl.intf_ = intf;
 
-        flow->InitFwdFlow(&info, &pkt, &ctrl, &ctrl);
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
     }
 
 protected:

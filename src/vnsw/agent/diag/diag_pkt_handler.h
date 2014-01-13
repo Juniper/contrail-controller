@@ -10,8 +10,9 @@ struct AgentDiagPktData;
 
 class DiagPktHandler : public ProtoHandler {
 public:
-    DiagPktHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io):
-        ProtoHandler(agent, info, io) {diag_=agent->diag(); };
+    DiagPktHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
+                   boost::asio::io_service &io):
+        ProtoHandler(agent, info, io), diag_(agent->diag()) {}
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();
@@ -19,7 +20,9 @@ public:
     AgentDiagPktData* GetData() {
         return (AgentDiagPktData *)(pkt_info_->data);
     }
+
 private:
     DiagTable *diag_;
 };
+
 #endif
