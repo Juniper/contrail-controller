@@ -38,7 +38,7 @@
 #include <uve/agent_uve_test.h>
 #include <vgw/vgw.h>
 
-#include <diag/diag.h>
+#include <diag/diag_table.h>
 
 const std::string Agent::null_str_ = "";
 const std::string Agent::fabric_vn_name_ = 
@@ -338,7 +338,7 @@ void Agent::InitDone() {
 
     // Diag module needs PktModule
     if (pkt_.get()) {
-        DiagTable::Init(this);
+	diag_=std::auto_ptr<DiagTable>(new DiagTable(this));
     }
 
     if (init_->create_vhost()) {

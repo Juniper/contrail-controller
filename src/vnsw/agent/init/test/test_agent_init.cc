@@ -43,7 +43,7 @@
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
-#include <diag/diag.h>
+#include <diag/diag_table.h>
 #include <vgw/vgw.h>
 #include <uve/agent_uve.h>
 
