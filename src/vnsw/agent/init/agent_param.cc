@@ -31,8 +31,8 @@
 #include <init/agent_param.h>
 #include <vgw/cfg_vgw.h>
 
-#include <uve/agent_stats.h>
-#include <uve/flow_stats.h>
+#include <uve/agent_stats_collector.h>
+#include <uve/flow_stats_collector.h>
 
 using namespace std;
 using namespace boost::property_tree;

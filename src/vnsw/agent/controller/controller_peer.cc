@@ -722,7 +722,7 @@ void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
         // Walk route-tables and notify unicast routes
         // and notify subnet and broadcast if TreeBuilder  
         peer->GetBgpPeer()->PeerNotifyRoutes();
-        AgentStats::GetInstance()->incr_incr_xmpp_reconnects(peer->GetXmppServerIdx());
+        AgentStats::GetInstance()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
 
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                          Agent::GetInstance()->GetControlNodeMulticastBuilder()->GetBgpPeer()->GetName(),

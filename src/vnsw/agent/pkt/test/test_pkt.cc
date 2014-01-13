@@ -26,8 +26,6 @@
 #include "oper/mpls.h"
 #include "oper/vm.h"
 #include "oper/vn.h"
-#include "uve/uve_init.h"
-
 #include "pkt/pkt_handler.h"
 
 #include "vr_interface.h"
@@ -35,7 +33,6 @@
 
 #include "test/test_cmn_util.h"
 #include "test/pkt_gen.h"
-#include <uve/uve_init.h>
 #include <controller/controller_vrf_export.h>
 
 void RouterIdDepInit() {

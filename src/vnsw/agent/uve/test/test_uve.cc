@@ -18,12 +18,14 @@
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
 #include "xmpp/test/xmpp_test_util.h"
+#include <uve/vn_uve_table_test.h>
+#include <uve/vm_uve_table_test.h>
 
 int vrf_array[] = {1, 2};
 
@@ -63,8 +65,10 @@ TEST_F(UveTest, VmAddDelTest1) {
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
     EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 1U);
 
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -73,8 +77,8 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
-    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 0U);
 
     DelLink("virtual-machine", "vm2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
@@ -83,8 +87,8 @@ TEST_F(UveTest, VmAddDelTest1) {
     client->WaitForIdle(2);
     //second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 0U);
     client->WaitForIdle(2);
 
     //Cleanup other things created by this test-case
@@ -112,8 +116,10 @@ TEST_F(UveTest, VnAddDelTest1) {
     EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
 
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 1U);
 
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
@@ -122,8 +128,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VnDelNotifyWait(1);
     //One Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
-    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (1 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 0U);
 
     DelLink("virtual-network", "vn2", "virtual-machine-interface", "vnet2");
     DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
@@ -132,8 +138,8 @@ TEST_F(UveTest, VnAddDelTest1) {
     client->VnDelNotifyWait(2);
     //Second Vmport inactive
     EXPECT_TRUE(VmPortInactive(input, 1));
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 0U);
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);
@@ -159,20 +165,22 @@ TEST_F(UveTest, IntAddDelTest1) {
     WAIT_FOR(500, 1000, (VmPortActive(input, 1) == true));
     EXPECT_EQ(2U, Agent::GetInstance()->GetIntfCfgTable()->Size());
     //Two entries in VM and VN map
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (2 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 1U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 1U);
 
     IntfCfgDel(input, 0);
     client->WaitForIdle(2);
     client->PortDelNotifyWait(1);
-    EXPECT_EQ(1U, UveClient::GetInstance()->VnIntfMapSize());
-    EXPECT_EQ(1U, UveClient::GetInstance()->VmIntfMapSize());
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm1")) == 0U);
 
     IntfCfgDel(input, 1);
     client->WaitForIdle(2);
     client->PortDelNotifyWait(2);
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VnIntfMapSize()));
-    WAIT_FOR(500, 1000, (0 == UveClient::GetInstance()->VmIntfMapSize()));
+    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 0U);
+    WAIT_FOR(500, 1000, (VmUveTableTest::GetInstance()->GetVmUveInterfaceCount("vm2")) == 0U);
 
     //Cleanup other things created by this test-case
     DeleteVmportEnv(input, 2, 1);

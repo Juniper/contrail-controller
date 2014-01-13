@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_stats_h
-#define vnsw_agent_stats_h
+#ifndef vnsw_agent_stats_collector_h
+#define vnsw_agent_stats_collector_h
 
 #include <ksync/ksync_index.h>
 #include <ksync/ksync_entry.h>
@@ -12,17 +12,27 @@
 
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
-#include "vr_message.h"
+#include <boost/scoped_ptr.hpp>
+#include <uve/agent_stats_sandesh_context.h>
 
+//Defines the functionality to periodically poll interface, vrf and drop
+//statistics from vrouter and updates its data-structures with this
+//information. Stats collection request runs in the context of 
+//"Agent::StatsCollector" which has exclusion with "db::DBTable", 
+//"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
+//Stats collection response runs in the context of "Agent::Uve" which has 
+//exclusion with "db::DBTable"
 class AgentStatsCollector : public StatsCollector {
 public:
-    static const uint32_t AgentStatsInterval = (30 * 1000); // time in milliseconds
-    struct IfStats {
-        IfStats() : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0), 
-                  out_pkts(0), out_bytes(0), prev_in_bytes(0), prev_out_bytes(0), 
-                  prev_5min_in_bytes(0), prev_5min_out_bytes(0), 
-                  prev_10min_in_bytes(0), prev_10min_out_bytes(10), 
-                  stats_time(0) {}
+    static const uint32_t AgentStatsInterval = (30 * 1000); // time in millisecs
+    struct InterfaceStats {
+        InterfaceStats() 
+            : name(""), speed(0), duplexity(0), in_pkts(0), in_bytes(0),
+              out_pkts(0), out_bytes(0), prev_in_bytes(0), 
+              prev_out_bytes(0), prev_5min_in_bytes(0), 
+              prev_5min_out_bytes(0), prev_10min_in_bytes(0), 
+              prev_10min_out_bytes(10), stats_time(0) {
+        }
         std::string name;
         int32_t  speed;
         int32_t  duplexity;
@@ -98,123 +108,56 @@ public:
     };
 
     enum StatsType {
-        IntfStatsType,
+        InterfaceStatsType,
         VrfStatsType,
         DropStatsType
     };
-    typedef std::map<const Interface *, IfStats> IntfToIfStatsTree;
-    typedef std::pair<const Interface *, IfStats> IfStatsPair;
+    typedef std::map<const Interface *, InterfaceStats> InterfaceStatsTree;
+    typedef std::pair<const Interface *, InterfaceStats> InterfaceStatsPair;
     typedef std::map<int, VrfStats> VrfIdToVrfStatsTree;
     typedef std::pair<int, VrfStats> VrfStatsPair;
 
-    AgentStatsCollector(boost::asio::io_service &io, int intvl) : 
-        StatsCollector(TaskScheduler::GetInstance()->GetTaskId(
-                       "Agent::StatsCollector"), 
-                       StatsCollector::AgentStatsCollector, 
-                       io, intvl, "Agent Stats collector"), 
-        vrf_stats_responses_(0), drop_stats_responses_(0) {
-        AddNamelessVrfStatsEntry();
-    }
-    virtual ~AgentStatsCollector() { 
-        assert(if_stats_tree_.size() == 0);
-    };
+    AgentStatsCollector(boost::asio::io_service &io, Agent *agent);
+    virtual ~AgentStatsCollector();
+    Agent* agent() const { return agent_; }
+    vr_drop_stats_req drop_stats() const { return drop_stats_; }
+    void set_drop_stats(vr_drop_stats_req &req) { drop_stats_ = req; }
 
-    void SendIntfBulkGet();
+    void SendInterfaceBulkGet();
     void SendVrfStatsBulkGet();
     void SendDropStatsBulkGet();
     bool Run();
-
-    void AddIfStatsEntry(const Interface *intf);
-    void DelIfStatsEntry(const Interface *intf);
-    void AddUpdateVrfStatsEntry(const VrfEntry *intf);
-    void DelVrfStatsEntry(const VrfEntry *intf);
+    void RegisterDBClients();
     void SendStats();
-    IfStats* GetIfStats(const Interface *intf);
+    InterfaceStats* GetInterfaceStats(const Interface *intf);
     VrfStats* GetVrfStats(int vrf_id);
-    vr_drop_stats_req GetDropStats() const { return drop_stats_; }
-    void SetDropStats(vr_drop_stats_req &req) { drop_stats_ = req; }
     std::string GetNamelessVrf() { return "__untitled__"; }
     int GetNamelessVrfId() { return -1; }
+    void Shutdown(void);
+
     int vrf_stats_responses_; //used only in UT code
     int drop_stats_responses_; //used only in UT code
 private:
+    void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
+    void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
     void AddNamelessVrfStatsEntry();
     void SendAsync(char* buf, uint32_t buf_len, StatsType type);
     bool SendRequest(Sandesh &encoder, StatsType type);
+    void AddUpdateVrfStatsEntry(const VrfEntry *intf);
+    void DelVrfStatsEntry(const VrfEntry *intf);
+    void AddInterfaceStatsEntry(const Interface *intf);
+    void DelInterfaceStatsEntry(const Interface *intf);
 
-    IntfToIfStatsTree if_stats_tree_;
+    InterfaceStatsTree if_stats_tree_;
     VrfIdToVrfStatsTree vrf_stats_tree_;
     vr_drop_stats_req drop_stats_;
+    DBTableBase::ListenerId vrf_listener_id_;
+    DBTableBase::ListenerId intf_listener_id_;
+    Agent *agent_;
+    boost::scoped_ptr<AgentStatsSandeshContext> intf_stats_sandesh_ctx_;
+    boost::scoped_ptr<AgentStatsSandeshContext> vrf_stats_sandesh_ctx_;
+    boost::scoped_ptr<AgentStatsSandeshContext> drop_stats_sandesh_ctx_;
     DISALLOW_COPY_AND_ASSIGN(AgentStatsCollector);
 };
 
-class AgentStatsSandeshContext: public AgentSandeshContext {
-public:
-    AgentStatsSandeshContext() : marker_id_(-1) {}
-    virtual void IfMsgHandler(vr_interface_req *req);
-    virtual void NHMsgHandler(vr_nexthop_req *req) {
-        assert(0);
-    }
-    virtual void RouteMsgHandler(vr_route_req *req) {
-        assert(0);
-    }
-    virtual void MplsMsgHandler(vr_mpls_req *req) {
-        assert(0);
-    }
-    virtual void MirrorMsgHandler(vr_mirror_req *req) {
-        assert(0);
-    }
-    virtual void VrfAssignMsgHandler(vr_vrf_assign_req *req) {
-        assert(0);
-    }
-    virtual void VxLanMsgHandler(vr_vxlan_req *req) {
-        assert(0);
-    }
-    virtual void VrfStatsMsgHandler(vr_vrf_stats_req *req);
-    virtual void DropStatsMsgHandler(vr_drop_stats_req *req);
-    /* Vr-response is expected from kernel and mock code.
-     * For each dump response we get vr_response with negative 
-     * value for errors and positive value (indicating number of 
-     * entries being sent) for success.
-     */
-    virtual int VrResponseMsgHandler(vr_response *r);
-    virtual void FlowMsgHandler(vr_flow_req *req) {
-        assert(0);
-    }
-    int GetMarker() const { return marker_id_; }
-    void SetMarker(int id) { marker_id_ = id; }
-    bool MoreData() const { return (response_code_ & VR_MESSAGE_DUMP_INCOMPLETE); }
-    void SetResponseCode(int value) { response_code_ = value; }
-private:
-    int marker_id_;
-    int response_code_;
-};
-
-class IntfStatsIoContext: public IoContext {
-public:
-    IntfStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
-                       AgentStatsSandeshContext *ctx, IoContext::IoContextWorkQId id) 
-        : IoContext(msg, msg_len, seqno, ctx, id) {}
-    void Handler();
-    void ErrorHandler(int err);
-};
-
-class VrfStatsIoContext: public IoContext {
-public:
-    VrfStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
-                      AgentStatsSandeshContext *ctx, IoContext::IoContextWorkQId id) 
-        : IoContext(msg, msg_len, seqno, ctx, id) {}
-    void Handler();
-    void ErrorHandler(int err);
-};
-
-class DropStatsIoContext: public IoContext {
-public:
-    DropStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
-                       AgentStatsSandeshContext *ctx, IoContext::IoContextWorkQId id) 
-        : IoContext(msg, msg_len, seqno, ctx, id) {}
-    void Handler();
-    void ErrorHandler(int err);
-};
-
-#endif //vnsw_agent_stats_h
+#endif //vnsw_agent_stats_collector_h

@@ -6,7 +6,7 @@
 #include "pkt/pkt_init.h"
 #include "pkt/flow_table.h"
 #include "test_cmn_util.h"
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
  
 #define MAX_VNET 6
 
@@ -147,7 +147,7 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_TRUE(FlowStats(flow_input, 1, (28 * 2), 2));
     client->WaitForIdle();
 
-    UveClient::GetInstance()->SendVnStats();
+    //UveClient::GetInstance()->SendVnStats();
 
     /* Flush all the Flows */
     Agent::GetInstance()->pkt()->flow_table()->DeleteAll();

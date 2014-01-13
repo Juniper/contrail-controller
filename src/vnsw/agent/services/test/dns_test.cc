@@ -23,7 +23,6 @@
 #include <pugixml/pugixml.hpp>
 #include <services/dns_proto.h>
 #include <vr_interface.h>
-#include "uve/uve_init.h"
 #include "bind/bind_util.h"
 #include "bind/bind_resolver.h"
 #include <test/test_cmn_util.h>

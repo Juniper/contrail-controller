@@ -311,7 +311,7 @@ static void Setup() {
     client->SetFlowFlushExclusionPolicy();
     client->SetFlowAgeExclusionPolicy();
 
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(AGE_TIME);
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
 }

@@ -9,8 +9,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <pkt/flow_table.h>
-#include <uve/flow_stats.h>
-#include <uve/inter_vn_stats.h>
+#include <uve/flow_stats_collector.h>
 #include <ksync/flowtable_ksync.h>
 #include <ksync/ksync_init.h>
 
@@ -47,8 +46,7 @@
 #include "pkt/pkt_handler.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
-#include "uve/flow_uve.h"
-#include "uve/uve_init.h"
+#include "uve/agent_uve.h"
 #include "pkt/pkt_sandesh_flow.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
@@ -952,7 +950,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     FlowStatsCollector *fec = Agent::GetInstance()->uve()->
-                                  GetFlowStatsCollector();
+                                  flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -1531,7 +1529,7 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
-    FlowUve::GetInstance()->DeleteFlow(fe);
+    Agent::GetInstance()->uve()->DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -1681,7 +1679,7 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::AddFlowInfo(FlowEntry *fe)
 {
-    FlowUve::GetInstance()->NewFlow(fe);
+    Agent::GetInstance()->uve()->NewFlow(fe);
     // Add AclFlowTree
     AddAclFlowInfo(fe);
     // Add IntfFlowTree
