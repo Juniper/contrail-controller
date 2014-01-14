@@ -455,7 +455,8 @@ TEST_F(FlowTest, ServerToVm_1) {
     TxIpPacketUtil(vhost->id(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80", 
-                        1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
+                        1, 0, 0, false, Agent::GetInstance()->GetDefaultVrf().c_str(),
+                        // 1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
                         Agent::GetInstance()->GetFabricVnName().c_str(), 1, true, false));
 
     EXPECT_TRUE(FlowDelete(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80",
@@ -474,7 +475,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 1, 0, 0, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 0, 0, 
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // UDP from server to vnet1
     TxUdpPacket(vhost->id(), vhost_addr,
@@ -485,7 +487,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_UDP, 10, 20, 1, "vrf1",
                                 "169.254.169.254", vnet_addr[1], 10, 20,
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // TCP from server to vnet1
     TxTcpPacket(vhost->id(), vhost_addr,
@@ -496,7 +499,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_TCP, 10, 20, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 10, 20, 
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
     RemoveMetadataService();
     client->WaitForIdle();
 }
@@ -516,7 +520,8 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 vhost_addr, 10000, MEDATA_NAT_DPORT,
                                 "vn1",
-                                Agent::GetInstance()->GetFabricVnName().c_str()));
+                                Agent::GetInstance()->GetDefaultVrf().c_str()));
+                                // Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
 #if 0
@@ -892,7 +897,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr,
                 vnet[7]->mdata_ip_addr().to_string().c_str(), 6, 100, 100,
-                Agent::GetInstance()->GetFabricVnName(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
+                Agent::GetInstance()->GetDefaultVrf(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
+                // Agent::GetInstance()->GetFabricVnName(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
                 "169.254.169.254", vnet_addr[7], 100, 100));
 
     TxTcpPacket(vnet[7]->id(), vnet_addr[7], 
@@ -900,7 +906,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vnet[7]->vrf()->GetName(), vnet_addr[7],
                 "169.254.169.254", 6, 10, 80,
-                "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
+                "vn7", Agent::GetInstance()->GetDefaultVrf(), 3, 
+                // "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
                 vhost->vrf()->GetName().c_str(), 
                 vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10, 
                 MEDATA_NAT_DPORT));
@@ -933,14 +940,16 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                 vnet[8]->mdata_ip_addr().to_string().c_str(), 100, 100, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr, mdata_ip,
-                           6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
+                           6, 100, 100, Agent::GetInstance()->GetDefaultVrf(), "vn8", 2,
+                           // 6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
                            "vrf8", "169.254.169.254", vnet_addr[8], 100, 100));
 
     TxTcpPacket(vnet[8]->id(), vnet_addr[8], 
                 "169.254.169.254", 10, 80, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
-                           "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
+                           "vn8", Agent::GetInstance()->GetDefaultVrf(), 3,
+                           // "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
                            vhost->vrf()->GetName().c_str(), mdata_ip,
                            vhost_addr, 10, MEDATA_NAT_DPORT));
     client->WaitForIdle();
