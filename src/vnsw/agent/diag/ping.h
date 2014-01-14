@@ -5,7 +5,7 @@
 #ifndef vnsw_agent_diag_ping_hpp
 #define vnsw_agent_diag_ping_hpp
 
-#include "diag/diag_table.h"
+#include "diag/diag.h"
 #include "diag/diag_types.h"
 class DiagTable;
 class Ping: public DiagEntry {
@@ -14,7 +14,7 @@ public:
         sizeof(iphdr) + sizeof(udphdr) + IPC_HDR_LEN;
     static const uint32_t KPingTcpHdr = sizeof(ethhdr) + 
         sizeof(iphdr) + sizeof(tcphdr) + IPC_HDR_LEN;
-    Ping(const PingReq *pr,DiagTable *diag);
+    Ping(const PingReq *pr,DiagTable *diag_table);
     virtual ~Ping();
     virtual void SendRequest();
     virtual void HandleReply(DiagPktHandler *handler);
