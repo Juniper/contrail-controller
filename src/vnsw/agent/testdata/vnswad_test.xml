@@ -60,7 +60,7 @@
         <expect type="interface-table">
             <intf>
                 <name>vnet8</name>
-                <mac>00:01:00:5e:00:00</mac>
+                <mac>00:00:5e:00:01:00</mac>
                 <type>VIRTUAL</type>
                 <mtu>1000</mtu>
             </intf>
@@ -104,7 +104,7 @@
 	<expect type="interface-table">
 		<intf>
 			<name>vnet8</name>
-			<mac>00:01:00:5e:00:00</mac>
+			<mac>00:00:5e:00:01:00</mac>
 			<type>VIRTUAL</type>
             <mtu>1000</mtu>
 		</intf>
