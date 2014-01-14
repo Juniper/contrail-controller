@@ -5,7 +5,7 @@
 #ifndef vnsw_agent_diag_ping_hpp
 #define vnsw_agent_diag_ping_hpp
 
-#include "diag/diag_table.h"
+#include "diag/diag.h"
 #include "diag/diag_types.h"
 class DiagTable;
 class Ping: public DiagEntry {

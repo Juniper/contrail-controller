@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_diag_diag_table_hpp
-#define vnsw_agent_diag_diag_table_hpp
+#ifndef vnsw_agent_diag_diag_hpp
+#define vnsw_agent_diag_diag_hpp
 
 #include <base/logging.h>
 #include <net/address.h>
@@ -36,7 +36,7 @@ public:
     bool TimerCancel() {
         return timer_->Cancel();
     }
-    DiagTable* GetDiagTable() {
+    DiagTable* diag_table() const {
         return diag_table_;
     }
 

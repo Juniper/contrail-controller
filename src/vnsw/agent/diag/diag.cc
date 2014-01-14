@@ -8,7 +8,7 @@
 #include "cmn/agent_cmn.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
-#include "diag/diag_table.h"
+#include "diag/diag.h"
 #include "diag/diag_proto.h"
 #include "diag/ping.h"
 #include "oper/mirror_table.h"
@@ -57,62 +57,6 @@ bool DiagEntry::TimerExpiry( uint32_t seq_no) {
 void DiagEntry::Retry() {
     SendRequest();
     RestartTimer();
-}
-
-void DiagPktHandler::SetReply() {
-    AgentDiagPktData *ad = (AgentDiagPktData *)pkt_info_->data;
-    ad->op_ = htonl(AgentDiagPktData::DIAG_REPLY);
-}
-
-void DiagPktHandler::SetDiagChkSum() {
-    pkt_info_->ip->check = 0xffff;
-}
-
-void DiagPktHandler::Reply() {
-    SetReply();
-    Swap();
-    SetDiagChkSum();
-    Send(GetLen() - (2 * IPC_HDR_LEN), GetIntf(), GetVrf(), 
-         AGENT_CMD_ROUTE, PktHandler::DIAG);
-}
- 
-bool DiagPktHandler::Run() {
-    AgentDiagPktData *ad = (AgentDiagPktData *)pkt_info_->data;
-
-    if (!ad) {
-        //Ignore if packet doesnt have proper L4 header
-        return true;
-    }
-
-    if (ntohl(ad->op_) == AgentDiagPktData::DIAG_REQUEST) {
-        //Request received swap the packet
-        //and dump the packet back
-        Reply();
-        return false;
-    }
-
-    if (ntohl(ad->op_) != AgentDiagPktData::DIAG_REPLY) {
-        return true;
-    }
-
-    //Reply for a query we sent
-    DiagEntry::DiagKey key = ntohl(ad->key_);
-    DiagEntry *entry = diag_table_->Find(key);
-    if (!entry) {
-        return true;
-    }
-
-    entry->HandleReply(this);
-
-    if (entry->GetSeqNo() == entry->GetCount()) {
-        DiagEntryOp *op;
-        op = new DiagEntryOp(DiagEntryOp::DELETE, entry);
-        entry->GetDiagTable()->Enqueue(op);
-    } else {
-        entry->Retry();
-    }
-        
-    return true;
 }
 
 bool DiagTable::Process(DiagEntryOp *op) {

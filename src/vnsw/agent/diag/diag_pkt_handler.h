@@ -1,3 +1,6 @@
+/*
+ *  * Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+ *   */
 #ifndef vnsw_agent_diag_diag_pkt_handler_hpp
 #define vnsw_agent_diag_diag_pkt_handler_hpp
 
@@ -11,7 +14,7 @@ struct AgentDiagPktData;
 class DiagPktHandler : public ProtoHandler {
 public:
     DiagPktHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io):
-        ProtoHandler(agent, info, io) {diag_table_ = agent->diagTable(); };
+        ProtoHandler(agent, info, io) {diag_table_ = agent->diag_table(); };
     virtual bool Run();
     void SetReply();
     void SetDiagChkSum();

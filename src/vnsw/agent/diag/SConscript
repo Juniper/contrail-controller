@@ -28,5 +28,6 @@ if sys.platform != 'darwin':
                    sandesh_objs +
                    [
                     'diag.cc',
-                    'ping.cc'
+                    'ping.cc',
+                    'diag_pkt_handler.cc'
                    ])

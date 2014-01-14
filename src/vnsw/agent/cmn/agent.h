@@ -503,7 +503,7 @@ public:
     void Shutdown() {
     }
 
-    DiagTable *diagTable() {
+    DiagTable *diag_table() const {
         return diag_table_.get();
     }
     void CreateLifetimeManager();
