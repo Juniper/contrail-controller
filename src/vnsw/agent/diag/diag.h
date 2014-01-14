@@ -2,8 +2,8 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_diag_diag_table_hpp
-#define vnsw_agent_diag_diag_table_hpp
+#ifndef vnsw_agent_diag_diag_hpp
+#define vnsw_agent_diag_diag_hpp
 
 #include <base/logging.h>
 #include <net/address.h>
@@ -19,7 +19,7 @@ public:
     typedef uint32_t DiagKey;
     typedef Timer DiagTimer;
 
-    DiagEntry(int timeout, int count,DiagTable *diag);
+    DiagEntry(int timeout, int count, DiagTable *diag_table);
     virtual ~DiagEntry();
     void Init();
     virtual void SendRequest() = 0;
@@ -36,15 +36,12 @@ public:
     bool TimerCancel() {
         return timer_->Cancel();
     }
-    void SetDiagTable(DiagTable *diag) {
-        diag_ = diag;
-    }
-    DiagTable* GetDiag() {
-        return diag_;
+    DiagTable* diag_table() const {
+        return diag_table_;
     }
 
 protected:
-    DiagTable *diag_;
+    DiagTable *diag_table_;
     DiagKey key_;
     int timeout_;
     DiagTimer *timer_;

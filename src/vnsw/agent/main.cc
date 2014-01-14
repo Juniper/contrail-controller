@@ -38,7 +38,7 @@
 #include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
-#include <diag/diag_table.h>
+#include <diag/diag.h>
 #include <vgw/vgw.h>
 
 namespace opt = boost::program_options;
