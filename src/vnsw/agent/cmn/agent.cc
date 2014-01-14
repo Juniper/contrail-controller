@@ -33,9 +33,9 @@
 #include <pkt/pkt_types.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
-#include <uve/flow_stats.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/flow_stats_collector.h>
+#include <uve/agent_uve.h>
+#include <uve/agent_uve_test.h>
 #include <vgw/vgw.h>
 
 #include <diag/diag.h>
@@ -232,7 +232,13 @@ void Agent::CreateModules() {
     cfg_ = std::auto_ptr<AgentConfig>(new AgentConfig(this));
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
-    uve_ = std::auto_ptr<AgentUve>(new AgentUve(this));
+    if (IsTestMode()) {
+        uve_ = std::auto_ptr<AgentUve>(new AgentUveTest(
+                    this, AgentUve::kBandwidthInterval));
+    } else {
+        uve_ = std::auto_ptr<AgentUve>(new AgentUve(
+                    this, AgentUve::kBandwidthInterval));
+    }
     ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
@@ -257,6 +263,7 @@ void Agent::CreateDBTables() {
 void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
+    uve_.get()->RegisterDBClients();
     if (!test_mode_) {
         ksync_.get()->RegisterDBClients(db_);
     } else {

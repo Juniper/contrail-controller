@@ -34,8 +34,8 @@ struct L4PortBitmap {
         void Encode(std::vector<uint32_t> &bmap);
     };
 
-    L4PortBitmap() : tcp_sport_(), tcp_dport_(), udp_sport_(), udp_dport_() {}
-    ~L4PortBitmap() {}
+    L4PortBitmap();
+    ~L4PortBitmap();
 
     void AddPort(uint8_t proto, uint16_t sport, uint16_t dport);
     void DelPort(uint8_t proto, uint16_t sport, uint16_t dport);
@@ -46,31 +46,6 @@ struct L4PortBitmap {
     PortBitmap tcp_dport_;
     PortBitmap udp_sport_;
     PortBitmap udp_dport_;
-};
-
-class FlowUve {
-public:
-    FlowUve() { }
-    virtual ~FlowUve() { }
-
-    static void Init() {
-        assert(singleton_ == NULL);
-        singleton_ = new FlowUve();
-    }
-
-    static void Shutdown() {
-        delete singleton_;
-        singleton_ = NULL;
-    };
-
-    static FlowUve *GetInstance() {return singleton_;}
-
-    void NewFlow(const FlowEntry *flow);
-    void DeleteFlow(const FlowEntry *flow);
-
-private:
-    static FlowUve *singleton_;
-    DISALLOW_COPY_AND_ASSIGN(FlowUve);
 };
 
 #endif // vnsw_agent_flow_uve_h

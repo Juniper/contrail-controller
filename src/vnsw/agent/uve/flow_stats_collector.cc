@@ -2,17 +2,10 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <net/if.h>
-#include <linux/netlink.h>
-#include <linux/rtnetlink.h>
-#include <linux/genetlink.h>
-#include <linux/if_tun.h>
-
 #include <boost/uuid/uuid_io.hpp>
 
 #include <db/db.h>
 #include <base/util.h>
-#include <cmn/agent_cmn.h>
 
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
@@ -21,25 +14,44 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include <ksync/ksync_sock.h>
-
-#include "vr_genetlink.h"
-#include "vr_interface.h"
-#include "vr_types.h"
-#include "nl_util.h"
-
-#include <ksync/flowtable_ksync.h>
-
-#include <uve/stats_collector.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
-#include <uve/flow_stats.h>
-#include <uve/inter_vn_stats.h>
+#include <uve/agent_uve.h>
+#include <uve/flow_stats_collector.h>
+#include <uve/vn_uve_table.h>
 #include <algorithm>
 #include <pkt/flow_proto.h>
 #include <ksync/ksync_init.h>
 
+FlowStatsCollector::FlowStatsCollector(boost::asio::io_service &io, int intvl,
+                                       AgentUve *uve) :
+        StatsCollector(TaskScheduler::GetInstance()->GetTaskId
+                       ("Agent::StatsCollector"),
+                       StatsCollector::FlowStatsCollector, 
+                       io, intvl, "Flow stats collector"), 
+        agent_uve_(uve) {
+        flow_iteration_key_.Reset();
+        flow_default_interval_ = intvl;
+        flow_age_time_intvl_ = FlowAgeTime;
+        flow_count_per_pass_ = FlowCountPerPass;
+        UpdateFlowMultiplier();
+}
+
+FlowStatsCollector::~FlowStatsCollector() { 
+}
+
+void FlowStatsCollector::UpdateFlowMultiplier() {
+    uint32_t age_time_millisec = flow_age_time_intvl_ / 1000;
+    if (age_time_millisec == 0) {
+        age_time_millisec = 1;
+    }
+    uint64_t default_age_time_millisec = FlowAgeTime / 1000;
+    uint64_t max_flows = (MaxFlows * age_time_millisec) / 
+                                            default_age_time_millisec;
+    flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
+}
+
 /* For ingress flows, change the SIP as Nat-IP instead of Native IP */
-void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow) {
+void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, 
+                                          FlowDataIpv4 &s_flow) {
     FlowEntry *rev_flow = flow->reverse_flow_entry();
     if (flow->is_flags_set(FlowEntry::NatFlow) && s_flow.get_direction_ing() &&
         rev_flow) {
@@ -50,7 +62,8 @@ void FlowStatsCollector::SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow)
     }
 }
 
-void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts) {
+void FlowStatsCollector::FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
+                                    uint64_t diff_pkts) {
     FlowDataIpv4   s_flow;
     SandeshLevel::type level = SandeshLevel::SYS_DEBUG;
     FlowStats &stats = flow->stats_;
@@ -147,7 +160,7 @@ bool FlowStatsCollector::ShouldBeAged(FlowStats *stats,
     }
 
     uint64_t diff_time = curr_time - stats->last_modified_time;
-    if (diff_time < GetFlowAgeTime()) {
+    if (diff_time < flow_age_time_intvl()) {
         return false;
     }
     return true;
@@ -245,7 +258,8 @@ bool FlowStatsCollector::Run() {
                 const vr_flow_entry *k_flow_rev;
                 k_flow_rev = ksync_obj->GetKernelFlowEntry
                     (reverse_flow->flow_handle(), false);
-                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev, curr_time)) {
+                if (ShouldBeAged(&(reverse_flow->stats_), k_flow_rev, 
+                                 curr_time)) {
                     deleted = true;
                 }
             } else {
@@ -287,8 +301,8 @@ bool FlowStatsCollector::Run() {
                 diff_bytes = bytes - stats->bytes;
                 diff_pkts = packets - stats->packets;
                 //Update Inter-VN stats
-                AgentUve::GetInstance()->GetInterVnStatsCollector()->UpdateVnStats(entry, 
-                                                                    diff_bytes, diff_pkts);
+                VnUveTable *vn_table = agent_uve_->vn_uve_table();
+                vn_table->UpdateInterVnStats(entry, diff_bytes, diff_pkts);
                 stats->bytes = bytes;
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;
@@ -335,19 +349,21 @@ bool FlowStatsCollector::Run() {
     uint32_t total_flows = flow_obj->Size();
     uint32_t flow_timer_interval;
 
-    uint32_t age_time_millisec = GetFlowAgeTime() / 1000;
+    uint32_t age_time_millisec = flow_age_time_intvl() / 1000;
 
     if (total_flows > 0) {
-        flow_timer_interval = std::min((age_time_millisec * flow_multiplier_)/total_flows, 1000U);
+        flow_timer_interval = std::min((age_time_millisec * flow_multiplier_)/
+                                        total_flows, 1000U);
     } else {
         flow_timer_interval = flow_default_interval_;
     }
 
     if (age_time_millisec > 0) {
-        flow_count_per_pass_ = std::max((flow_timer_interval * total_flows)/age_time_millisec, 100U);
+        flow_count_per_pass_ = std::max((flow_timer_interval * total_flows)/
+                                         age_time_millisec, 100U);
     } else {
         flow_count_per_pass_ = 100U;
     }
-    SetExpiryTime(flow_timer_interval);
+    set_expiry_time(flow_timer_interval);
     return true;
 }

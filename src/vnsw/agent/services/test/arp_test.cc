@@ -24,7 +24,6 @@
 #include <pugixml/pugixml.hpp>
 #include <services/arp_proto.h>
 #include <vr_interface.h>
-#include "uve/uve_init.h"
 #include <test/test_cmn_util.h>
 #include <test/pkt_gen.h>
 #include "vr_types.h"

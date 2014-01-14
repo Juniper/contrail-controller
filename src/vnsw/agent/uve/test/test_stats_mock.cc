@@ -6,8 +6,8 @@
 #include "pkt/pkt_init.h"
 #include "pkt/flow_table.h"
 #include "test_cmn_util.h"
-#include <uve/uve_client.h>
-#include <uve/inter_vn_stats.h>
+#include <uve/agent_uve.h>
+#include <uve/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
 
  
@@ -34,20 +34,21 @@ VmInterface *test0, *test1;
 
 class StatsTestMock : public ::testing::Test {
 public:
-    bool InterVnStatsMatch(string svn, string dvn, uint32_t pkts, 
-                                  uint32_t bytes, bool out) {
-        InterVnStatsCollector::VnStatsSet *stats_set = 
-                AgentUve::GetInstance()->GetInterVnStatsCollector()->Find(svn);
+    bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
+                           uint32_t bytes, bool out) {
+        const VnUveEntry::VnStatsSet *stats_set =
+            VnUveTableTest::GetInstance()->FindInterVnStats(svn);
 
         if (!stats_set) {
             return false;
         }
-        VnStats key(dvn, 0, 0, false);
-        InterVnStatsCollector::VnStatsSet::iterator it = stats_set->find(&key);
+        VnUveEntry::VnStatsPtr key(new VnUveEntry::VnStats(dvn, 0, 0, false));
+        VnUveEntry::VnStatsSet::iterator it = stats_set->find(key);
         if (it == stats_set->end()) {
-            return false; 
+            return false;
         }
-        VnStats *stats = *it;
+        VnUveEntry::VnStatsPtr stats_ptr(*it);
+        const VnUveEntry::VnStats *stats = stats_ptr.get();
         if (out && stats->out_bytes_ == bytes && stats->out_pkts_ == pkts) {
             return true;
         }
@@ -100,7 +101,7 @@ public:
         assert(test1);
 
         //To disable flow aging set the flow age time to high value
-        AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(1000000 * 60 * 10);
+        Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(1000000 * 60 * 10);
 
         client->SetFlowFlushExclusionPolicy();
     }
@@ -138,7 +139,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 1, 30));
@@ -153,7 +154,7 @@ TEST_F(StatsTestMock, FlowStatsTest) {
     KSyncSockTypeMap::IncrFlowStats(4, 1, 30);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 0, 0, 0, 2, 60));
@@ -186,7 +187,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
@@ -201,7 +202,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 1, 1);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000000ULL, 0x100000000ULL));
@@ -212,7 +213,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x100000001ULL, 0x100000010ULL));
@@ -223,7 +224,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 4, 5);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x200000001ULL, 0x300000010ULL));
@@ -237,7 +238,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 0xC, 0xD);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0xA00000002ULL, 0xB00000020ULL));
@@ -249,7 +250,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::IncrFlowStats(2, -1, -0x10);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000001ULL, 0x1000B00000010ULL));
@@ -260,7 +261,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::IncrFlowStats(2, 1, 0x10);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10A00000002ULL, 0x1000B00000020ULL));
@@ -271,7 +272,7 @@ TEST_F(StatsTestMock, FlowStatsOverflowTest) {
     KSyncSockTypeMap::SetOFlowStats(2, 0xC1, 0xD1);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify the updated flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x1A100000002ULL, 0x100B100000020ULL));
@@ -305,7 +306,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 1, 30));
@@ -317,7 +318,7 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     KSyncSockTypeMap::IncrFlowStats(2, -1, -30);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 1000, 200, 0x10000000000ULL, 0x1000000000000ULL));
@@ -325,11 +326,11 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
 
     int tmp_age_time = 1000 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
 
     //Set the flow age time to 1000 microsecond
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     usleep(tmp_age_time + 10);
     client->EnqueueFlowAge();
@@ -337,12 +338,12 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
-    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
@@ -353,7 +354,7 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     KSyncSockTypeMap::IfStatsUpdate(test1->id(), 1, 50, 0, 1, 20, 0);
 
     //Wait for stats to be updated
-    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     //Verify the updated flow stats
@@ -377,7 +378,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                         "vn5", "vn5", hash_id++));
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.1", "1.1.1.2", 6, 30, 40, 1, 30));
@@ -395,7 +396,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
                         "vn5", "vn5", hash_id++));
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify flow stats
     EXPECT_TRUE(FlowStatsMatch("vrf5", "1.1.1.2", "1.1.1.1", 6, 40, 30, 1, 30));
@@ -411,7 +412,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     client->WaitForIdle(10);
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     //Verify Inter-Vn stats
     InterVnStatsMatch("vn5", "vn5", 4, 120, true); //outgoing stats
@@ -427,7 +428,7 @@ TEST_F(StatsTestMock, InterVnStatsTest) {
     // the next flow-age evaluation cycle
 
     //Invoke FlowStatsCollector to update the stats
-    AgentUve::GetInstance()->GetFlowStatsCollector()->Run();
+    Agent::GetInstance()->uve()->flow_stats_collector()->Run();
 
     /* Make sure that the short flow is removed */
     WAIT_FOR(100, 10000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 2U));
@@ -471,7 +472,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      31, 32, 33, 34, 35);
 
     //Wait for stats to be updated in agent
-    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verfify the stats read from kernel
@@ -518,7 +519,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      57, 58, 59, 60, 61);
 
     //Wait for stats to be updated in agent
-    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
@@ -545,7 +546,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     EXPECT_TRUE(vrf != NULL);
 
     //Wait for stats to be updated in agent
-    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats's entry stats are set to 0
@@ -563,7 +564,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      83, 84, 85, 86, 87);
 
     //Wait for stats to be updated in agent
-    AgentUve::GetInstance()->GetStatsCollector()->vrf_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats_entry's stats are set to values after the vrf was added
@@ -585,7 +586,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 }
 
 TEST_F(StatsTestMock, VnStatsTest) {
-    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     //Verify vn stats at the start of test case
@@ -601,7 +602,7 @@ TEST_F(StatsTestMock, VnStatsTest) {
     KSyncSockTypeMap::IfStatsUpdate(test0->id(), 50, 1, 0, 20, 1, 0);
 
     //Wait for stats to be updated
-    AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
     client->IfStatsTimerWait(2);
 
     //Verify the updated vn stats
@@ -612,7 +613,7 @@ TEST_F(StatsTestMock, VnStatsTest) {
         KSyncSockTypeMap::IfStatsUpdate(test1->id(), 50, 1, 0, 20, 1, 0);
 
         //Wait for stats to be updated
-        AgentUve::GetInstance()->GetStatsCollector()->run_counter_ = 0;
+        Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
         client->IfStatsTimerWait(2);
 
         //Verify the updated vn stats

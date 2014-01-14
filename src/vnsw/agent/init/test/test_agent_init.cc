@@ -38,14 +38,14 @@
 #include <controller/controller_vrf_export.h>
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
+#include <uve/agent_uve.h>
 #include <ksync/ksync_init.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
 #include <diag/diag.h>
 #include <vgw/vgw.h>
+#include <uve/agent_uve.h>
 
 namespace opt = boost::program_options;
 
