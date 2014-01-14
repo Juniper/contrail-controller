@@ -26,8 +26,8 @@ public:
     static AgentStats *GetInstance() {return singleton_;}
     void Shutdown() { }
 
-    void incr_incr_xmpp_reconnects(uint8_t idx) {xmpp_reconnect_[idx]++;}
-    uint16_t incr_xmpp_reconnects(uint8_t idx) const {
+    void incr_xmpp_reconnects(uint8_t idx) {xmpp_reconnect_[idx]++;}
+    uint16_t xmpp_reconnects(uint8_t idx) const {
         return xmpp_reconnect_[idx];
     }
 
@@ -37,8 +37,8 @@ public:
     void incr_xmpp_out_msgs(uint8_t idx) {xmpp_out_msgs_[idx]++;}
     uint64_t xmpp_out_msgs(uint8_t idx) const {return xmpp_out_msgs_[idx];}
 
-    void incr_xmpp_reconnects() {sandesh_reconnects_++;}
-    uint16_t xmpp_reconnects() const {return sandesh_reconnects_;}
+    void incr_sandesh_reconnects() {sandesh_reconnects_++;}
+    uint16_t sandesh_reconnects() const {return sandesh_reconnects_;}
 
     void incr_sandesh_in_msgs() {sandesh_in_msgs_++;}
     uint64_t sandesh_in_msgs() const {return sandesh_in_msgs_;}

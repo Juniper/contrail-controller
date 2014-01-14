@@ -2,20 +2,20 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#ifndef vnsw_agent_flow_stats_h
-#define vnsw_agent_flow_stats_h
+#ifndef vnsw_agent_flow_stats_collector_h
+#define vnsw_agent_flow_stats_collector_h
 
 #include <sandesh/common/flow_types.h>
 #include <cmn/agent_cmn.h>
 #include <uve/stats_collector.h>
-#include <vr_flow.h>
 #include <pkt/flow_table.h>
 #include <ksync/flowtable_ksync.h>
 
-struct FlowEntry;
-struct PktInfo;
-struct FlowKey;
-
+//Defines the functionality to periodically read flow stats from
+//shared memory (between agent and Kernel) and export this stats info to
+//collector. Also responsible for aging of flow entries. Runs in the context 
+//of "Agent::StatsCollector" which has exclusion with "db::DBTable", 
+//"Agent::FlowHandler", "sandesh::RecvQueue", "bgp::Config" & "Agent::KSync"
 class FlowStatsCollector : public StatsCollector {
 public:
     static const uint64_t FlowAgeTime = 1000000 * 180;
@@ -24,35 +24,19 @@ public:
     static const uint32_t FlowStatsMinInterval = (100); // time in milliseconds
     static const uint32_t MaxFlows= (256 * 1024); // time in milliseconds
 
-    FlowStatsCollector(boost::asio::io_service &io, int intvl) :
-        StatsCollector(TaskScheduler::GetInstance()->GetTaskId
-                       ("Agent::StatsCollector"),
-                       StatsCollector::FlowStatsCollector, 
-                       io, intvl, "Flow stats collector") {
-        flow_iteration_key_.Reset();
-        flow_default_interval_ = intvl;
-        flow_age_time_intvl_ = FlowAgeTime;
-        flow_count_per_pass_ = FlowCountPerPass;
-        UpdateFlowMultiplier();
-    }
-    virtual ~FlowStatsCollector() { };
-    void UpdateFlowMultiplier() {
-        uint32_t age_time_millisec = flow_age_time_intvl_ / 1000;
-        if (age_time_millisec == 0) {
-            age_time_millisec = 1;
-        }
-        uint64_t default_age_time_millisec = FlowAgeTime / 1000;
-        uint64_t max_flows = (MaxFlows * age_time_millisec) / default_age_time_millisec;
-        flow_multiplier_ = (max_flows * FlowStatsMinInterval)/age_time_millisec;
-    }
+    FlowStatsCollector(boost::asio::io_service &io, int intvl,
+                       AgentUve *uve);
+    virtual ~FlowStatsCollector();
 
-    static void FlowExport(FlowEntry *flow, uint64_t diff_bytes, uint64_t diff_pkts);
+    uint64_t flow_age_time_intvl() { return flow_age_time_intvl_; }
+    void UpdateFlowMultiplier();
     bool Run();
-    uint64_t GetFlowAgeTime() { return flow_age_time_intvl_; }
-    void SetFlowAgeTime(uint64_t usecs) { 
+    void UpdateFlowAgeTime(uint64_t usecs) { 
         flow_age_time_intvl_ = usecs; 
         UpdateFlowMultiplier();
     }
+    static void FlowExport(FlowEntry *flow, uint64_t diff_bytes, 
+                           uint64_t diff_pkts);
     void UpdateFlowStats(FlowEntry *flow, uint64_t &diff_bytes, 
                          uint64_t &diff_pkts);
 private:
@@ -62,6 +46,7 @@ private:
     static void SourceIpOverride(FlowEntry *flow, FlowDataIpv4 &s_flow);
     uint64_t GetUpdatedFlowPackets(const FlowStats *stats, uint64_t k_flow_pkts);
     uint64_t GetUpdatedFlowBytes(const FlowStats *stats, uint64_t k_flow_bytes);
+    AgentUve *agent_uve_;
     FlowKey flow_iteration_key_;
     uint64_t flow_age_time_intvl_;
     uint32_t flow_count_per_pass_;
@@ -70,4 +55,4 @@ private:
     DISALLOW_COPY_AND_ASSIGN(FlowStatsCollector);
 };
 
-#endif //vnsw_agent_flow_stats_h
+#endif //vnsw_agent_flow_stats_collector_h

@@ -730,9 +730,9 @@ TEST_F(FlowTest, FlowAdd_6) {
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(
             tmp_age_time);
 
     //Create bidirectional flow
@@ -790,18 +790,18 @@ TEST_F(FlowTest, FlowAge_1) {
     WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 // Aging with more than 2 entries
 TEST_F(FlowTest, FlowAge_3) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -874,14 +874,14 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, ScaleFlowAge_1) {
     int tmp_age_time = 200 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     int total_flows = 200;
 
     for (int i = 0; i < total_flows; i++) {
@@ -906,34 +906,34 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
     EXPECT_EQ((total_flows * 2), 
             Agent::GetInstance()->pkt()->flow_table()->Size());
     //Set the flow age time to 200 milliseconds
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ = 0;
 
     int passes = GetFlowPassCount((total_flows * 2), tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle(5);
-    WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= passes));
+    WAIT_FOR(5000, 1000, (Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ >= passes));
     usleep(tmp_age_time + 1000);
-    WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= (passes * 2)));
-    client->WaitForIdle(2);
+        WAIT_FOR(5000, 1000, (Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ >= (passes * 2)));
+        client->WaitForIdle(2);
 
     WAIT_FOR(5000, 500, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, Nat_FlowAge_1) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     TestFlow flow[] = {
         {
@@ -968,8 +968,8 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 #if 0
@@ -1470,15 +1470,15 @@ TEST_F(FlowTest, FlowAudit) {
     usleep(500);
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 10 microsecond
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
-            tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
-            bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
     KFlowPurgeHold();
 }
 

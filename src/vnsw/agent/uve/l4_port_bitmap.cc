@@ -13,22 +13,28 @@
 #include <virtual_machine_types.h>
 #include <virtual_network_types.h>
 #include <vrouter_types.h>
-#include <uve/flow_uve.h>
+#include <uve/l4_port_bitmap.h>
 
 #include <oper/interface_common.h>
 #include <oper/vm.h>
 #include <oper/vn.h>
 #include <oper/mirror_table.h>
 #include <cmn/agent_cmn.h>
-#include <uve/uve_client.h>
-#include <uve/flow_uve.h>
-#include <pkt/flow_proto.h>
+#include <uve/agent_uve.h>
+#include "pkt/flow_proto.h"
 
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////
 // Routines to manage the L4 Port Bitmaps
 ////////////////////////////////////////////////////////////////////////////
+L4PortBitmap::L4PortBitmap() 
+    : tcp_sport_(), tcp_dport_(), udp_sport_(), udp_dport_() {
+}
+
+L4PortBitmap::~L4PortBitmap() {
+}
+
 void L4PortBitmap::PortBitmap::AddPort(uint16_t port) {
     int idx = port / kBucketCount;
     counts_[idx]++;
@@ -141,12 +147,3 @@ void L4PortBitmap::Encode(PortBucketBitmap &bmap) {
     bmap.set_udp_dport_bitmap(tmp);
 }
 
-FlowUve *FlowUve::singleton_;
-
-void FlowUve::NewFlow(const FlowEntry *flow) {
-    UveClient::GetInstance()->NewFlow(flow);
-}
-
-void FlowUve::DeleteFlow(const FlowEntry *flow) {
-    UveClient::GetInstance()->DeleteFlow(flow);
-}

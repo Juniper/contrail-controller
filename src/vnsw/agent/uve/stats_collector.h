@@ -10,6 +10,8 @@
 #include "base/timer.h"
 #include "base/queue_task.h"
 
+//The base class for statistics collector classes.
+//Defines Timer functionality to trigger the stats collection events
 class StatsCollector {
 public:
     enum StatsInstance {
@@ -37,8 +39,8 @@ public:
     }
 
     virtual bool Run() = 0;
-    int GetExpiryTime() const { return expiry_time_; }
-    void SetExpiryTime(int time) {
+    int expiry_time() const { return expiry_time_; }
+    void set_expiry_time(int time) {
         if (time != expiry_time_) {
             expiry_time_ = time;
             timer_restart_trigger_->Set();

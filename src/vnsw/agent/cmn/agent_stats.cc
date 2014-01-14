@@ -9,7 +9,7 @@
 #include <vnc_cfg_types.h>
 #include <cmn/agent_cmn.h>
 #include <cmn/agent_stats.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 
 AgentStats *AgentStats::singleton_;
 
@@ -56,7 +56,7 @@ void AgentStatsReq::HandleRequest() const {
             if (xc == NULL) {
                 continue;
             }
-            peer.set_reconnect(stats->incr_xmpp_reconnects(count));
+            peer.set_reconnect(stats->xmpp_reconnects(count));
             peer.set_in_msgs(stats->xmpp_in_msgs(count));
             peer.set_out_msgs(stats->xmpp_out_msgs(count));
             list.push_back(peer);
@@ -71,7 +71,7 @@ void AgentStatsReq::HandleRequest() const {
     sandesh->set_sandesh_in_msgs(stats->sandesh_in_msgs());
     sandesh->set_sandesh_out_msgs(stats->sandesh_out_msgs());
     sandesh->set_sandesh_http_sessions(stats->sandesh_http_sessions());
-    sandesh->set_sandesh_reconnects(stats->xmpp_reconnects());
+    sandesh->set_sandesh_reconnects(stats->sandesh_reconnects());
     sandesh->set_context(context());
     sandesh->set_more(false);
     sandesh->Response();
