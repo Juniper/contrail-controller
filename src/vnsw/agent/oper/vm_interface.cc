@@ -808,7 +808,7 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               int old_vxlan_id, bool old_fabric_port,
                               bool old_need_linklocal_ip, bool sg_changed) {
     // Update services flag based on l3 active state
-    UpdateL3Services(ipv4_active_);
+    UpdateL3Services(ipv4_forwarding_);
 
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
