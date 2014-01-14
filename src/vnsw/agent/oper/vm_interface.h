@@ -169,8 +169,10 @@ public:
     enum Trace {
         ADD,
         DELETE,
-        ACTIVATED,
-        DEACTIVATED,
+        ACTIVATED_IPV4,
+        ACTIVATED_L2,
+        DEACTIVATED_IPV4,
+        DEACTIVATED_L2,
         FLOATING_IP_CHANGE,
         SERVICE_CHANGE,
     };
@@ -185,7 +187,8 @@ public:
         mac_set_(false), vlan_id_(kInvalidVlanId), parent_(NULL),
         sg_list_(), floating_ip_list_(), service_vlan_list_(),
         static_route_list_() { 
-        active_ = false;
+        ipv4_active_ = false;
+        l2_active_ = false;
     }
 
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
@@ -200,7 +203,8 @@ public:
         vxlan_id_(0), layer2_forwarding_(true), ipv4_forwarding_(true), 
         mac_set_(false), vlan_id_(vlan_id), parent_(parent), sg_list_(),
         floating_ip_list_(), service_vlan_list_(), static_route_list_() {
-        active_ = false;
+        ipv4_active_ = false;
+        l2_active_ = false;
     }
 
     virtual ~VmInterface() { }
@@ -209,6 +213,7 @@ public:
         const VmInterface &intf=static_cast<const VmInterface &>(rhs);
         return uuid_ < intf.uuid_;
     }
+    virtual void GetOsParams();
     void SendTrace(Trace ev);
 
     // DBEntry vectors
@@ -311,8 +316,10 @@ public:
     void UpdateL2();
 private:
     bool IsActive();
+    bool IsL3Active();
+    bool IsL2Active();
     bool PolicyEnabled();
-    void UpdateServices(bool val);
+    void UpdateL3Services(bool val);
     void AddRoute(const std::string &vrf_name, const Ip4Address &ip,
                   uint32_t plen, bool policy);
     void DeleteRoute(const std::string &vrf_name, const Ip4Address &ip,
@@ -322,44 +329,44 @@ private:
     void ServiceVlanRouteAdd(const ServiceVlan &entry);
     void ServiceVlanRouteDel(const ServiceVlan &entry);
 
-    bool OnResyncFloatingIp(VmInterfaceConfigData *data, bool new_active);
+    bool OnResyncFloatingIp(VmInterfaceConfigData *data, bool new_ipv4_active);
     bool OnResyncSecurityGroupList(VmInterfaceConfigData *data,
-                                   bool new_active);
-    bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_active);
+                                   bool new_ipv4_active);
+    bool OnResyncStaticRoute(VmInterfaceConfigData *data, bool new_ipv4_active);
     bool ResyncMirror(VmInterfaceMirrorData *data);
     bool ResyncIpAddress(const VmInterfaceIpAddressData *data);
     bool ResyncConfig(VmInterfaceConfigData *data);
     bool CopyIpAddress(Ip4Address &addr);
     bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed);
-    void ApplyConfig(bool old_active, bool old_policy, VrfEntry *old_vrf,
-                     const Ip4Address &old_addr, int old_vxlan_id,
-                     bool old_layer2_forwarding, bool old_ipv4_forwarding,
-                     bool old_fabric_port, bool old_need_linklocal_ip,
-                     bool sg_changed);
+    void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy, 
+                     VrfEntry *old_vrf, const Ip4Address &old_addr, 
+                     int old_vxlan_id, bool old_fabric_port, 
+                     bool old_need_linklocal_ip, bool sg_changed);
 
-    void UpdateL3(bool old_active, VrfEntry *old_vrf,
+    void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_vxlan_id,
                   bool force_update, bool policy_change);
-    void DeleteL3(bool old_active, VrfEntry *old_vrf,
+    void DeleteL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, bool old_need_linklocal_ip);
-    void UpdateL2(bool old_active, VrfEntry *old_vrf, int old_vxlan_id,
+    void UpdateL2(bool old_l2_active, VrfEntry *old_vrf, int old_vxlan_id,
                   bool force_update, bool policy_change);
-    void DeleteL2(bool old_active, VrfEntry *old_vrf);
+    void DeleteL2(bool old_l2_active, VrfEntry *old_vrf);
 
     void AllocL3MplsLabel(bool force_update, bool policy_change);
     void DeleteL3MplsLabel();
     void UpdateL3TunnelId(bool force_update, bool policy_change);
     void DeleteL3TunnelId();
-    void UpdateNextHop(bool old_active);
-    void UpdateL3InterfaceRoute(bool old_active, bool force_update,
+    void UpdateMulticastNextHop(bool interface_active);
+    void UpdateL2NextHop(bool old_ipv4_active);
+    void UpdateL3NextHop(bool old_l2_active);
+    void UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update,
                              bool policy_change, VrfEntry * old_vrf,
                              const Ip4Address &old_addr);
-    void DeleteL3InterfaceRoute(bool old_active, VrfEntry *old_vrf,
+    void DeleteL3InterfaceRoute(bool old_ipv4_active, VrfEntry *old_vrf,
                                 const Ip4Address &old_addr);
-    void UpdateInterfaceNH(bool force_update, bool policy_change);
     void DeleteInterfaceNH();
-    void UpdateMetadataRoute(bool old_active, VrfEntry *old_vrf);
-    void DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
+    void UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf);
+    void DeleteMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf,
                              bool old_need_linklocal_ip);
     void UpdateFloatingIp(bool force_update, bool policy_change);
     void DeleteFloatingIp();
@@ -371,8 +378,8 @@ private:
     void DeleteSecurityGroup();
     void UpdateL2TunnelId(bool force_update, bool policy_change);
     void DeleteL2TunnelId();
-    void UpdateL2InterfaceRoute(bool old_active, bool force_update);
-    void DeleteL2InterfaceRoute(bool old_active, VrfEntry *old_vrf);
+    void UpdateL2InterfaceRoute(bool old_l2_active, bool force_update);
+    void DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf);
 
     void DeleteL2Route(const std::string &vrf_name,
                        const struct ether_addr &mac);

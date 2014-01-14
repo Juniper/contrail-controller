@@ -157,9 +157,14 @@ int main(int argc, char *argv[]) {
     string hostname = host_name(ec);
     Dns::SetHostName(hostname);
     if (!var_map.count("discovery-server")) {
+        Module::type module = Module::DNS;
+        NodeType::type node_type = 
+            g_vns_constants.Module2NodeType.find(module)->second;
         Sandesh::InitGenerator(
-                    g_vns_constants.ModuleNames.find(Module::DNS)->second,
+                    g_vns_constants.ModuleNames.find(module)->second,
                     hostname,
+                    g_vns_constants.NodeTypeNames.find(node_type)->second,
+                    g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
                     sandesh_http_port, &sandesh_context);
     }
@@ -230,16 +235,22 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
+            Module::type module = Module::DNS;
+            NodeType::type node_type = 
+                g_vns_constants.Module2NodeType.find(module)->second;
             string subscriber_name = 
-                g_vns_constants.ModuleNames.find(Module::DNS)->second;
-
+                g_vns_constants.ModuleNames.find(module)->second;
+            string node_type_name =
+                g_vns_constants.NodeTypeNames.find(node_type)->second;
             Sandesh::CollectorSubFn csf = 0;
             csf = boost::bind(&DiscoveryServiceClient::Subscribe, ds_client,
                               _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
-                                   hostname, Dns::GetEventManager(),
+                                   hostname, node_type_name,
+                                   g_vns_constants.INSTANCE_ID_DEFAULT,
+                                   Dns::GetEventManager(),
                                    sandesh_http_port,
                                    csf,
                                    list,

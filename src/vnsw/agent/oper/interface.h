@@ -61,7 +61,9 @@ public:
 
     // virtual functions for specific interface types
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
+    virtual void Delete() { };
     virtual void SendTrace(Trace event) const;
+    virtual void GetOsParams();
 
     // DBEntry comparator virtual function
     bool IsLess(const DBEntry &rhs) const {
@@ -79,7 +81,6 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    void GetOsParams();
 
     // Tunnelled packets are expected on PHYSICAL interfaces only
     bool IsTunnelEnabled() const { return (type_ == PHYSICAL);}
@@ -89,7 +90,8 @@ public:
     const boost::uuids::uuid &GetUuid() const {return uuid_;}
     const std::string &name() const {return name_;}
     VrfEntry *vrf() const {return vrf_.get();}
-    bool active() const {return active_;}
+    bool ipv4_active() const {return ipv4_active_;}
+    bool l2_active() const {return l2_active_;}
     const uint32_t id() const {return id_;}
     bool dhcp_enabled() const {return dhcp_enabled_;}
     bool dns_enabled() const {return dns_enabled_;}
@@ -109,7 +111,8 @@ protected:
     VrfEntryRef vrf_;
     uint32_t label_;
     uint32_t l2_label_;
-    bool active_;
+    bool ipv4_active_;
+    bool l2_active_;
     size_t id_;
     bool dhcp_enabled_;
     bool dns_enabled_;
@@ -129,14 +132,12 @@ struct InterfaceKey : public AgentKey {
         type_ = rhs.type_;
         uuid_ = rhs.uuid_;
         name_ = rhs.name_;
-        is_mcast_nh_ = rhs.is_mcast_nh_;
     }
 
     InterfaceKey(AgentKey::DBSubOperation sub_op, Interface::Type type,
                  const boost::uuids::uuid &uuid,
                  const std::string &name, bool is_mcast) :
-        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name),
-        is_mcast_nh_(is_mcast) {
+        AgentKey(sub_op), type_(type), uuid_(uuid), name_(name) {
     }
 
     void Init(Interface::Type type, const boost::uuids::uuid &intf_uuid,
@@ -144,7 +145,6 @@ struct InterfaceKey : public AgentKey {
         type_ = type;
         uuid_ = intf_uuid;
         name_ = name;
-        is_mcast_nh_ = false;
     }
 
     bool Compare(const InterfaceKey &rhs) const {
@@ -154,10 +154,8 @@ struct InterfaceKey : public AgentKey {
         if (uuid_ != rhs.uuid_)
             return false;
 
-        if (name_ != rhs.name_)
-            return false;
+        return (name_ == rhs.name_);
 
-        return is_mcast_nh_ == rhs.is_mcast_nh_;
     }
 
     // Virtual methods for interface keys
@@ -169,7 +167,6 @@ struct InterfaceKey : public AgentKey {
     Interface::Type type_;
     boost::uuids::uuid uuid_;
     std::string name_;
-    bool is_mcast_nh_;
 };
 
 // Common data for all interfaces. The data is further derived based on type
@@ -180,7 +177,7 @@ struct InterfaceData : public AgentData {
     void VmPortInit() { vrf_name_ = ""; }
     void EthInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
     void PktInit() { vrf_name_ = ""; }
-    void VirtualHostInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
+    void InetInit(const std::string &vrf_name) { vrf_name_ = vrf_name; }
 
     // This is constant-data. Set only during create and not modified later
     std::string vrf_name_;
@@ -240,7 +237,7 @@ public:
     OperDB *operdb() const { return operdb_; }
 
 private:
-    bool VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    bool L2VmInterfaceWalk(DBTablePartBase *partition, DBEntryBase *entry);
     void VmInterfaceWalkDone(DBTableBase *partition);
 
     static InterfaceTable *interface_table_;

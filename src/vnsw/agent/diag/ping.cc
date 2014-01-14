@@ -7,7 +7,7 @@
 #include <sandesh/sandesh_types.h>
 #include "cmn/agent_cmn.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/mirror_table.h"
 #include "pkt/proto.h"
 #include "pkt/proto_handler.h"
@@ -49,7 +49,7 @@ Ping::CreateTcpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                    *(Agent::GetInstance()->GetEventManager())->io_service());
 
@@ -75,7 +75,7 @@ Ping::CreateUdpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
     DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
                                     *(Agent::GetInstance()->GetEventManager())->io_service());
 
@@ -105,7 +105,7 @@ void Ping::SendRequest() {
         break;
     }
 
-    RouteEntry *rt;
+    AgentRoute *rt;
     rt = Inet4UnicastAgentRouteTable::FindRoute(vrf_name_, sip_);
     if (!rt) {
         delete pkt_handler;
@@ -227,7 +227,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
 
-    RouteEntry *rt;
+    AgentRoute *rt;
     rt = Inet4UnicastAgentRouteTable::FindRoute(get_vrf_name(), sip);
     const NextHop *nh = NULL;
     if (rt) {

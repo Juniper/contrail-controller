@@ -20,7 +20,8 @@ public:
     static bool
     UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &type, const std::string &attr,
-                       const std::string &source, const std::string &module,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, const std::string &instance_id,
                        const std::string &key, const std::string &message,
                        int32_t seq, const std::string &agg,
                        const std::string &atyp, int64_t ts);
@@ -28,29 +29,34 @@ public:
     static bool
     UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
             const std::string &type,
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string &key, int32_t seq);
 
     static bool
     SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string & coll,  int timeout,
             std::map<std::string,int32_t> & seqReply);
 
     static bool 
     SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string & coll,  int timeout);
 
     static void
     RefreshGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string &coll, int timeout);
 
   
     static void
     WithdrawGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string &coll);
            
 };

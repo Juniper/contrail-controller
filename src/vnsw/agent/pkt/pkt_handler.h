@@ -136,7 +136,7 @@ struct PktInfo {
 // or to other tasks.
 class PktHandler {
 public:
-    typedef boost::function<bool(PktInfo *)> RcvQueueFunc;
+    typedef boost::function<bool(boost::shared_ptr<PktInfo>)> RcvQueueFunc;
     typedef boost::function<void(PktTrace::Pkt &)> PktTraceCallback;
 
     enum PktModuleName {

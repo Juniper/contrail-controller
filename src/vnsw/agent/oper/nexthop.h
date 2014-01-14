@@ -267,6 +267,8 @@ public:
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
     static void EncapPrioritySync(const std::vector<std::string> &cfg_list);
+    static void DeletePriorityList();
+
 private:
     Type type_;
     static PriorityList priority_list_;
@@ -475,6 +477,8 @@ public:
     };
 
     static void CreateReq(const string &interface);
+    static void Create(NextHopTable *table, const string &interface);
+    static void Delete(NextHopTable *table, const string &interface);
     const Interface *GetInterface() const {return interface_.get();};
 private:
     InterfaceRef interface_;
@@ -736,14 +740,20 @@ public:
     const uuid &GetIfUuid() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
 
-    static void CreateVport(const uuid &intf_uuid,
-                            const struct ether_addr &dmac, 
-                            const string &vrf_name);
-    static void DeleteVportReq(const uuid &intf_uuid);
+    static void CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                             const struct ether_addr &dmac, 
+                                             const string &vrf_name);
+    static void CreateL2VmInterfaceNH(const uuid &intf_uuid,
+                                      const struct ether_addr &dmac, 
+                                      const string &vrf_name);
+    static void CreateL3VmInterfaceNH(const uuid &intf_uuid,
+                                      const struct ether_addr &dmac, 
+                                      const string &vrf_name);
+    static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateVirtualHostPort(const string &ifname);
-    static void DeleteVirtualHostPortReq(const string &ifname);
+    static void CreateInetInterfaceNextHop(const string &ifname);
+    static void DeleteInetInterfaceNextHop(const string &ifname);
 
 private:
     InterfaceRef interface_;

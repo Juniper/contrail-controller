@@ -43,7 +43,25 @@ ulong src_ip, dest_ip, target_ip, gw_ip, bcast_ip, static_ip;
 
 class ArpTest : public ::testing::Test {
 public:
+    ArpTest() : trigger_(boost::bind(&ArpTest::AddVhostRcvRoute, this),
+                         TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
+                         0) {
+    }
+
     void CheckSandeshResponse(Sandesh *sandesh) {
+    }
+
+    void TriggerAddVhostRcvRoute(Ip4Address &ip) {
+        vhost_rcv_route_ = ip;
+        trigger_.Set();
+    }
+
+    bool AddVhostRcvRoute() {
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
+            AddVHostRecvRoute(Agent::GetInstance()->GetLocalPeer(),
+                              Agent::GetInstance()->GetDefaultVrf(),
+                              "vhost0", vhost_rcv_route_, 32, "", false);
+        return true;
     }
 
     void SendArpReq(short ifindex, short vrf, uint32_t sip, uint32_t tip) {
@@ -147,10 +165,10 @@ public:
     }
 
     void SendArpMessage(ArpHandler::ArpMsgType type, uint32_t addr) {
-        ArpHandler::ArpIpc *ipc = 
-                new ArpHandler::ArpIpc(type, addr, 
-                Agent::GetInstance()->GetVrfTable()->
-                FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
+        ArpProto::ArpIpc *ipc = 
+                new ArpProto::ArpIpc(type, addr, 
+                    Agent::GetInstance()->GetVrfTable()->
+                    FindVrfFromName(Agent::GetInstance()->GetDefaultVrf()));
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
@@ -184,9 +202,9 @@ public:
         Ip4Address ip(addr);
         ether_addr mac;
         Inet4UnicastAgentRouteTable::ArpRoute(op, ip, mac, 
-                              Agent::GetInstance()->GetDefaultVrf(), 
-                              *Agent::GetInstance()->GetArpProto()->IPFabricIntf(),
-                              false, 32);
+                          Agent::GetInstance()->GetDefaultVrf(), 
+                          *Agent::GetInstance()->GetArpProto()->ip_fabric_interface(),
+                          false, 32);
     }
 
     void TunnelNH(DBRequest::DBOperation op, uint32_t saddr, uint32_t daddr) {
@@ -226,6 +244,9 @@ public:
         usleep(1000);
         client->WaitForIdle();
     }
+private:
+    Ip4Address vhost_rcv_route_;
+    TaskTrigger trigger_;
 };
 
 class AsioRunEvent : public Task {
@@ -408,32 +429,28 @@ TEST_F(ArpTest, ArpVrfDeleteTest) {
 TEST_F(ArpTest, GratArpSendTest) {
     Ip4Address ip1 = Ip4Address::from_string("1.1.1.1");
     //Add a vhost rcv route and check that grat arp entry gets created
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
-                                                    Agent::GetInstance()->GetDefaultVrf(),
-                                                    "vhost0", ip1, false);
+    TriggerAddVhostRcvRoute(ip1);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip1.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip1.to_ulong());
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->GetLocalPeer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip1, 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry() == NULL);
 
     Ip4Address ip2 = Ip4Address::from_string("1.1.1.10");
     //Add yet another vhost rcv route and check that grat arp entry get created
-    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute(
-                                                       Agent::GetInstance()->GetDefaultVrf(),
-                                                       "vhost0", ip2, false);
+    TriggerAddVhostRcvRoute(ip2);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry()->Key().ip == ip2.to_ulong());
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry()->key().ip == ip2.to_ulong());
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                                     Agent::GetInstance()->GetLocalPeer(), 
                                                     Agent::GetInstance()->GetDefaultVrf(),
                                                     ip2, 32);
     client->WaitForIdle();
-    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->GraciousArpEntry() == NULL);
+    EXPECT_TRUE(Agent::GetInstance()->GetArpProto()->gracious_arp_entry() == NULL);
 }
 
 #if 0
@@ -493,8 +510,8 @@ int main(int argc, char *argv[]) {
     target_ip = dest_ip + 1;
     bcast_ip = (src_ip & 0xFFFFFF00) | 0xFF;
     static_ip = src_ip + 10;
-    Agent::GetInstance()->GetArpProto()->MaxRetries(1);
-    Agent::GetInstance()->GetArpProto()->RetryTimeout(50);
+    Agent::GetInstance()->GetArpProto()->set_max_retries(1);
+    Agent::GetInstance()->GetArpProto()->set_retry_timeout(50);
 
     int ret = RUN_ALL_TESTS();
     TestShutdown();

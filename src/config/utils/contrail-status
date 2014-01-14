@@ -129,8 +129,6 @@ if test "$control"; then
   printf "== Contrail Control ==\n"
    check_svc supervisor-control
    (supervisorctl -s http://localhost:9003 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9003 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
-   check_svc supervisor-dns
-   (supervisorctl -s http://localhost:9006 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9006 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
 if test "$analytics"; then

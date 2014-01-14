@@ -53,7 +53,7 @@ public:
     const Ip4Address &xen_ll_addr() const { return xen_ll_.addr_; }
     const Ip4Address &xen_ll_prefix() const { return xen_ll_.prefix_; }
     const int xen_ll_plen() const { return xen_ll_.plen_; }
-    const Ip4Address &xen_ll_gw_() const { return xen_ll_.gw_; }
+    const Ip4Address &xen_ll_gw() const { return xen_ll_.gw_; }
 
     const std::string &eth_port() const { return eth_port_; }
     const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }

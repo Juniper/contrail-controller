@@ -14,6 +14,8 @@ const string UUID_KEY               = "UuidKey"
 const string SOURCE                 = "Source"
 const string NAMESPACE              = "Namespace"
 const string MODULE                 = "ModuleId"
+const string INSTANCE_ID            = "InstanceId"
+const string NODE_TYPE              = "NodeType"
 const string TIMESTAMP              = "MessageTS"
 const string SANDESH_TYPE           = "Type"
 const string CATEGORY               = "Category"
@@ -165,7 +167,7 @@ const map<FlowRecordFields, string> FlowRecordNames = {
 
 /* REDIS RELATED NAMES/CONSTANTS */
 
-const string GENERATORS_SET         = "GENERATORS"
+const string GENERATORS_SET         = "NGENERATORS"
 const string ANALYTICS_START        = "ANALYTICS_START_TIME"
 
 // each row will have equivalent of 2^23 = 8388608 usec
@@ -173,7 +175,7 @@ const i32 RowTimeInBits             = 23
 const i32 RowTimeInMask             = 0x7fffff
 
 // analytics data ttl in the db in hours 
-const i32 AnalyticsTTL              = 168 
+const i32 AnalyticsTTL              = 48 
 
 const map<string, string> UVE_MAP = {
     "virtual-network" : VN_TABLE,
@@ -278,6 +280,7 @@ struct query_table
 
 struct stat_table
 {
+    6: string display_name;
     1: string stat_type;
     2: string stat_attr;
     3: string obj_table;
@@ -285,6 +288,7 @@ struct stat_table
 }
 
 const string STAT_OBJECTID_FIELD = "name";
+const string STAT_SOURCE_FIELD   = SOURCE;
 const string STAT_TIME_FIELD     = "T";
 const string STAT_TIMEBIN_FIELD  = "T=";
 const string STAT_UUID_FIELD     = "UUID";
@@ -292,17 +296,55 @@ const string STAT_VT_PREFIX      = "StatTable";
 
 const list<stat_table> _STAT_TABLES  = [
     {
+      'display_name' : 'Analytics CPU Information',
       'stat_type' : 'AnalyticsCpuState',
       'stat_attr' : 'cpu_info',
       'obj_table' : COLLECTOR_INFO_TABLE,
       'attributes': [
           { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
-          { 'name' : 'cpu_info.inst_id',   'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
           { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
         ]
     },
     {
+      'display_name' : 'Config CPU Information',
+      'stat_type' : 'ConfigCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : CONFIG_NODE_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Control CPU Information',
+      'stat_type' : 'ControlCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : BGP_ROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.inst_id',   'datatype' : 'string', 'index' : false},
+          { 'name' : 'cpu_info.module_id', 'datatype' : 'string', 'index' : true},
+        ]
+    },
+    {
+      'display_name' : 'Compute CPU Information',
+      'stat_type' : 'ComputeCpuState',
+      'stat_attr' : 'cpu_info',
+      'obj_table' : VROUTER_TABLE,
+      'attributes': [
+          { 'name' : 'cpu_info.mem_virt',  'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.cpu_share', 'datatype' : 'double', 'index' : false},
+          { 'name' : 'cpu_info.used_sys_mem', 'datatype' : 'int',    'index' : false},
+          { 'name' : 'cpu_info.one_min_cpuload', 'datatype' : 'double', 'index' : false},
+        ]
+    },
+    {
+      'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'
       'obj_table' : 'NONE',
@@ -311,6 +353,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Values Table - integer',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fieldi'
       'obj_table' : 'NONE',
@@ -319,6 +362,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'QE Performance',
       'stat_type' : 'QueryPerfInfo',
       'stat_attr' : 'query_stats',
       'obj_table' : COLLECTOR_INFO_TABLE,
@@ -340,6 +384,7 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'VN Agent',
       'stat_type' : 'UveVirtualNetworkAgent',
       'stat_attr' : 'vn_stats',
       'obj_table' : VN_TABLE,
@@ -361,18 +406,20 @@ const list<query_table> _TABLES = [
              'type' : 'LOG',
              'columns' :  [
                { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false},
-               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
+               { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
                { 'name' : 'Category', 'datatype' : 'string', 'index' : true },
                { 'name' : 'Level', 'datatype' : 'int', 'index' : true },
                { 'name' : 'Type', 'datatype' : 'int', 'index' : false },
+               { 'name' : 'InstanceId', 'datatype' : 'string', 'index' : false },
+               { 'name' : 'NodeType', 'datatype' : 'string', 'index' : false },
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'SequenceNum', 'datatype' : 'int', 'index' : false },
                { 'name' : 'Context', 'datatype' : 'string', 'index' : false },
                { 'name' : 'Xmlmessage', 'datatype' : 'string', 'index' : false },
                ]
               },
-          'columnvalues' : [ 'ModuleId', 'Source', 'Category', 'Level' ],
+          'columnvalues' : [ MODULE, SOURCE, 'Category', 'Level' ],
     },
     {
          'name' : FLOW_TABLE,
@@ -433,12 +480,12 @@ const query_schema_type _OBJECT_TABLE_SCHEMA =
              'columns' :  [
                { 'name' : 'MessageTS', 'datatype' : 'int', 'index' : false },
                { 'name' : 'ObjectId', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'Source', 'datatype' : 'string', 'index' : true },
-               { 'name' : 'ModuleId', 'datatype' : 'string', 'index' : true },
+               { 'name' : SOURCE, 'datatype' : 'string', 'index' : true },
+               { 'name' : MODULE, 'datatype' : 'string', 'index' : true },
                { 'name' : 'Messagetype', 'datatype' : 'string', 'index' : true },
                { 'name' : 'ObjectLog', 'datatype' : 'string', 'index' : false },
                { 'name' : 'SystemLog', 'datatype' : 'string', 'index' : false },
                ]
         }
-const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ 'ModuleId', 'Source', 'Category', 'Level' ]
+const list<string> _OBJECT_TABLE_COLUMN_VALUES = [ MODULE, SOURCE, 'Category', 'Level' ]
 

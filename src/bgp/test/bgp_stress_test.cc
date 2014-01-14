@@ -513,7 +513,8 @@ void BgpStressTest::SetUp() {
 
         boost::system::error_code error;
         string hostname(boost::asio::ip::host_name(error));
-        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, &evm_,
+        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, 
+                               "BgpTest", "Test", &evm_,
                                 d_http_port_, sandesh_context_.get());
         Sandesh::ConnectToCollector("127.0.0.1",
                                     sandesh_server_->GetPort());

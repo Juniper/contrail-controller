@@ -122,7 +122,6 @@ public:
     Agent();
     virtual ~Agent();
     const std::string &GetHostName();
-    bool GetBuildInfo(std::string &build_info_str);
     const std::string &GetProgramName() {return prog_name_;};
     static const std::string &NullString() {return null_str_;};
     static const std::string &VrrpMac() {return vrrp_mac_;};

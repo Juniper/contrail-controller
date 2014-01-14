@@ -153,6 +153,8 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
     std::string type(rmsg.messagetype);
     std::string source(rmsg.hdr.get_Source());
     std::string module(rmsg.hdr.get_Module());
+    std::string instance_id(rmsg.hdr.get_InstanceId());
+    std::string node_type(rmsg.hdr.get_NodeType());
     int32_t seq = rmsg.hdr.get_SequenceNum();
     int64_t ts = rmsg.hdr.get_Timestamp();
 
@@ -160,7 +162,8 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
     RuleMsg::RuleMsgPredicate p1(type);
     pugi::xml_node object = parent.find_node(p1);
     if (!object) {
-        LOG(ERROR, __func__ << " Message: " << type << " Source: " << source <<
+        LOG(ERROR, __func__ << " Message: " << type << " : " << source <<
+            ":" << node_type << ":" << module << ":" << instance_id <<
             " object NOT PRESENT");
         return false;
     }
@@ -191,7 +194,8 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
     std::string key = table + ":" + barekey;
 
     if (table.empty()) {
-        LOG(ERROR, __func__ << " Message: " << type << " Source: " << source <<
+        LOG(ERROR, __func__ << " Message: " << type << " : " << source <<
+            ":" << node_type << ":" << module << ":" << instance_id <<
             " key NOT PRESENT");
         return false;
     }
@@ -334,6 +338,12 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
                         attribs.insert(make_pair(g_viz_constants.STAT_OBJECTID_FIELD, pv));
                     }
 
+                    // Add source as a mandatory index field
+                    tmap.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD,
+                                          make_pair(source, DbHandler::AttribMap())));
+                    attribs.insert(make_pair(g_viz_constants.STAT_SOURCE_FIELD, source));
+
+
                     // Load all tags and non-tags
                     for (pugi::xml_node sattr = elem.first_child(); sattr;
                             sattr = sattr.next_sibling()) {
@@ -349,30 +359,37 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
 
             } else {
                 LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+                  ":" << node_type << ":" << module << ":" << instance_id << 
                   " Name: " << object.name() <<  " Node: " << node.name()  <<
                   " Bad Stat type " << ltype); 
             }
-
+            continue;
         }
         
         if (!osp_->UVEUpdate(object.name(), node.name(),
-                             source, module,
+                             source, node_type, module, instance_id,
                              key, ostr.str(), seq,
                              agg, node.attribute("hbin").value(), ts)) {
-            LOG(ERROR, __func__ << " Message: "  << type << " Source: " << source <<
+            LOG(ERROR, __func__ << " Message: "  << type << " : " << source <<
+              ":" << node_type << ":" << module << ":" << instance_id <<
               " Name: " << object.name() <<  " UVEUpdate Failed"); 
-            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key , node.name(), false);
+            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key, 
+                node.name(), false, node_type, instance_id);
         } else {
-            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key , node.name(), true);
+            PUBLISH_UVE_UPDATE_TRACE(UVETraceBuf, source, module, type, key,
+                node.name(), true, node_type, instance_id);
         }
     }
 
     if (deleted) {
-        if (!osp_->UVEDelete(object.name(), source, module, key, seq)) {
+        if (!osp_->UVEDelete(object.name(), source, node_type, module, 
+                             instance_id, key, seq)) {
             LOG(ERROR, __func__ << " Cannot Delete " << key);
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key, seq, false);
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+                seq, false, node_type, instance_id);
         } else {
-            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key, seq, true);
+            PUBLISH_UVE_DELETE_TRACE(UVETraceBuf, source, module, type, key,
+                seq, true, node_type, instance_id);
         }
         LOG(DEBUG, __func__ << " Deleted " << key);
     }

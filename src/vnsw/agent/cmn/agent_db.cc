@@ -27,6 +27,9 @@ bool AgentDBEntry::IsActive() const {
     return !IsDeleted();
 }
 
+void AgentDBEntry::PostAdd() {
+}
+
 AgentDBEntry *AgentDBTable::FindActiveEntry(const DBEntry *key) {
     AgentDBEntry *entry = static_cast<AgentDBEntry *> (Find(key));
     if (entry && (entry->IsActive() == false)) {
@@ -65,6 +68,11 @@ AgentDBEntry *AgentDBTable::Find(const DBEntry *key) {
 
 AgentDBEntry *AgentDBTable::Find(const DBRequestKey *key) {
     return static_cast<AgentDBEntry *>(DBTable::Find(key));
+}
+
+void AgentDBTablePartition::Add(DBEntry *entry) {
+    DBTablePartition::Add(entry);
+    static_cast<AgentDBEntry *>(entry)->PostAdd();
 }
 
 void AgentDBTablePartition::Remove(DBEntryBase *entry) {

@@ -12,31 +12,35 @@
 #include <db/db_table.h>
 #include <db/db_table_partition.h>
 #include <base/lifetime.h>
-#include <ksync/mpls_ksync.h>
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "ksync/agent_ksync_types.h"
+#include "ksync/nexthop_ksync.h"
 
-#define RT_UCAST 0
-#define RT_MCAST 1
 #define RT_LAYER2 2
+
+class RouteKSyncObject;
 
 class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
-    RouteKSyncEntry(const RouteKSyncEntry *entry, uint32_t index) : 
-        KSyncNetlinkDBEntry(index), 
-        rt_type_(entry->rt_type_), vrf_id_(entry->vrf_id_), 
-        addr_(entry->addr_), src_addr_(entry->src_addr_), mac_(entry->mac_), 
-        plen_(entry->plen_), nh_(entry->nh_), label_(entry->label_), 
-        proxy_arp_(false), address_string_(entry->address_string_),
-        tunnel_type_(entry->tunnel_type_) {
-    };
+    RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
+                    uint32_t index);
+    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route); 
+    virtual ~RouteKSyncEntry();
 
-    RouteKSyncEntry(const RouteEntry *route);
-    virtual ~RouteKSyncEntry() { };
+    uint32_t prefix_len() const { return prefix_len_; }
+    uint32_t label() const { return label_; }
+    bool proxy_arp() const { return proxy_arp_; }
+    NHKSyncEntry* nh() const { 
+        return static_cast<NHKSyncEntry *>(nh_.get());
+    }
+    void set_prefix_len(uint32_t len) { prefix_len_ = len; }
+    void set_ip(IpAddress addr) { addr_ = addr; }
+    KSyncDBObject *GetObject();
 
+    void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info) const;
     virtual bool IsLess(const KSyncEntry &rhs) const;
     virtual std::string ToString() const;
     virtual KSyncEntry *UnresolvedReference();
@@ -44,18 +48,6 @@ public:
     virtual int AddMsg(char *buf, int buf_len);
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
-    KSyncDBObject *GetObject();
-    void SetPLen(uint32_t len) {
-        plen_ = len;
-    }
-    void SetIp(IpAddress addr) { addr_ = addr; }
-    uint32_t GetPLen() const { return plen_; }
-    uint32_t GetLabel() const { return label_; }
-    bool GetProxyArp() const { return proxy_arp_; }
-    NHKSyncEntry* GetNH() const { 
-        return static_cast<NHKSyncEntry *>(nh_.get());
-    }
-    void FillObjectLog(sandesh_op::type op, KSyncRouteInfo &info);
 private:
     int Encode(sandesh_op::type op, uint8_t replace_plen,
                char *buf, int buf_len);
@@ -64,12 +56,13 @@ private:
     bool UcIsLess(const KSyncEntry &rhs) const;
     bool McIsLess(const KSyncEntry &rhs) const;
     bool L2IsLess(const KSyncEntry &rhs) const;
+    RouteKSyncObject* ksync_obj_;
     uint32_t rt_type_;
     uint32_t vrf_id_;
     IpAddress addr_;
     IpAddress src_addr_;
     struct ether_addr mac_;
-    uint32_t plen_;
+    uint32_t prefix_len_;
     KSyncEntryPtr nh_;
     uint32_t label_;
     uint8_t type_;
@@ -87,26 +80,19 @@ public:
         bool seen_;
     };
 
-    RouteKSyncObject(AgentRouteTable *rt_table);
+    RouteKSyncObject(KSync *ksync, AgentRouteTable *rt_table);
     virtual ~RouteKSyncObject();
-    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index) {
-        const RouteKSyncEntry *route = static_cast<const RouteKSyncEntry *>(entry);
-        RouteKSyncEntry *ksync = new RouteKSyncEntry(route, index);
-        return static_cast<KSyncEntry *>(ksync);
-    };
 
-    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e) {
-        const RouteEntry *route = static_cast<const RouteEntry *>(e);
-        RouteKSyncEntry *key = new RouteKSyncEntry(route);
-        return static_cast<KSyncEntry *>(key);
-    };
+    KSync *ksync() const { return ksync_; }
 
+    virtual KSyncEntry *Alloc(const KSyncEntry *entry, uint32_t index);
+    virtual KSyncEntry *DBToKSyncEntry(const DBEntry *e);
     void ManagedDelete();
-    bool IsDeleteMarked() {return marked_delete_;};
     void Unregister();
     virtual void EmptyTable();
 
 private:
+    KSync *ksync_;
     bool marked_delete_;
     AgentRouteTable *rt_table_;
     LifetimeRef<RouteKSyncObject> table_delete_ref_;
@@ -121,22 +107,21 @@ public:
         bool seen_;
     };
 
-    VrfKSyncObject() {};
-    virtual ~VrfKSyncObject() {};
+    VrfKSyncObject(KSync *ksync);
+    virtual ~VrfKSyncObject();
 
-    static void Init(VrfTable *vrf_table);
-    static void Shutdown();
-    static void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
-    static VrfKSyncObject *GetKSyncObject() {return singleton_;};
+    KSync *ksync() const { return ksync_; }
 
+    void RegisterDBClients();
+    void Shutdown();
+    void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void AddToVrfMap(uint32_t vrf_id, RouteKSyncObject *,
                      unsigned int table_id);
     void DelFromVrfMap(RouteKSyncObject *);
     RouteKSyncObject *GetRouteKSyncObject(uint32_t vrf_id,
-                                          unsigned int table_id);
-
+                                          uint32_t table_id) const;
 private:
-    static VrfKSyncObject *singleton_;
+    KSync *ksync_;
     DBTableBase::ListenerId vrf_listener_id_;
     VrfRtObjectMap vrf_ucrt_object_map_;
     VrfRtObjectMap vrf_mcrt_object_map_;

@@ -40,6 +40,10 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac);
 void IntfCfgAdd(PortInfo *input, int id);
 void IntfCfgDel(PortInfo *input, int id);
+NextHop *InetInterfaceNHGet(NextHopTable *table, const char *ifname,
+                            InterfaceNHFlags::Type type, bool is_mcast,
+                            bool policy);
+NextHop *ReceiveNHGet(NextHopTable *table, const char *ifname, bool policy);
 bool VrfFind(const char *name);
 VrfEntry *VrfGet(const char *name);
 bool VnFind(int id);
@@ -51,6 +55,8 @@ bool VmFind(int id);
 bool VmPortFind(int id);
 uint32_t VmPortGetId(int id);
 bool VmPortFind(PortInfo *input, int id);
+bool VmPortL2Active(int id);
+bool VmPortL2Active(PortInfo *input, int id);
 bool VmPortActive(int id);
 bool VmPortActive(PortInfo *input, int id);
 bool VmPortPolicyEnabled(int id);
@@ -61,6 +67,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts);
 bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts);
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts, 
                              uint32_t obytes, uint32_t opkts);
+InetInterface *InetInterfaceGet(const char *ifname);
 bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
                   uint64_t out_bytes, uint64_t out_pkts);
 bool VmPortInactive(int id);
@@ -117,6 +124,8 @@ void AddVm(const char *name, int id);
 void DelVm(const char *name);
 void AddVrf(const char *name, int id = 0);
 void DelVrf(const char *name);
+void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode);
+void AddL2Vn(const char *name, int id);
 void AddVn(const char *name, int id);
 void DelVn(const char *name);
 void AddPort(const char *name, int id);
@@ -140,7 +149,16 @@ void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);
 void DeleteVmportEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
+void DeleteVmportFIpEnv(struct PortInfo *input, int count, int del_vn, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL, 
+                     bool l2_vn = false);
+void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void FlushFlowTable();
 bool FlowDelete(const string &vrf_name, const char *sip,

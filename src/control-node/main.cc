@@ -266,6 +266,19 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
+    ControlCpuState  astate;
+    astate.set_name(server->localname());
+
+    ProcessCpuInfo ainfo;
+    ainfo.set_module_id(Sandesh::module());
+    ainfo.set_inst_id(Sandesh::instance_id());
+    ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
+    ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
+    vector<ProcessCpuInfo> aciv;
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    ControlCpuStateTrace::Send(astate);
+
     uint32_t num_xmpp = xmpp_channel_mgr->count();
     if (num_xmpp != prev_state.get_num_xmpp_peer() || first) {
         state.set_num_xmpp_peer(num_xmpp);
@@ -489,10 +502,16 @@ int main(int argc, char *argv[]) {
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (!var_map.count("discovery-server")) { 
+    if (!var_map.count("discovery-server")) {
+        Module::type module = Module::CONTROL_NODE;
+        NodeType::type node_type = 
+            g_vns_constants.Module2NodeType.find(module)->second; 
         Sandesh::InitGenerator(
-            g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second,
-            hostname, &evm,
+            g_vns_constants.ModuleNames.find(module)->second,
+            hostname, 
+            g_vns_constants.NodeTypeNames.find(node_type)->second,
+            g_vns_constants.INSTANCE_ID_DEFAULT, 
+            &evm,
             var_map["http-server-port"].as<int>(), &sandesh_context);
     }
 
@@ -587,14 +606,23 @@ int main(int argc, char *argv[]) {
 
         //subscribe to collector service if not configured
         if (!var_map.count("collector")) {
-           
+            Module::type module = Module::CONTROL_NODE;
+            NodeType::type node_type = 
+                g_vns_constants.Module2NodeType.find(module)->second;
+            string subscriber_name = 
+                g_vns_constants.ModuleNames.find(module)->second;
+            string node_type_name = 
+                g_vns_constants.NodeTypeNames.find(node_type)->second; 
             Sandesh::CollectorSubFn csf = 0;
             csf = boost::bind(&DiscoveryServiceClient::Subscribe,
                               ds_client, _1, _2, _3);
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
-                                   hostname, &evm,
+                                   hostname,
+                                   node_type_name,
+                                   g_vns_constants.INSTANCE_ID_DEFAULT, 
+                                   &evm,
                                    var_map["http-server-port"].as<int>(),
                                    csf,
                                    list,

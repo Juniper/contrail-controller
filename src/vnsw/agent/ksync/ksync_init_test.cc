@@ -26,7 +26,6 @@
 
 #include "ksync_init.h"
 #include "ksync/interface_ksync.h"
-#include "ksync/nexthop_ksync.h"
 #include "ksync/mpls_ksync.h"
 #include "ksync/route_ksync.h"
 #include "ksync/flowtable_ksync.h"
@@ -36,6 +35,11 @@
 #include "vnswif_listener.h"
 #include "ksync/sandesh_ksync.h"
 
+void KSync::InitTest() {
+    interface_ksync_obj_.get()->InitTest();
+    flowtable_ksync_obj_.get()->InitTest();
+}
+
 void GenericNetlinkInitTest() {
     LOG(DEBUG, "Vrouter family is 24");
     KSyncSock::SetNetlinkFamilyId(24);
@@ -44,25 +48,25 @@ void GenericNetlinkInitTest() {
 
 void KSync::RegisterDBClientsTest(DB *db) {
     KSyncObjectManager::Init();
-    IntfKSyncObject::InitTest(Agent::GetInstance()->GetInterfaceTable());
-    VrfKSyncObject::Init(Agent::GetInstance()->GetVrfTable());
-    NHKSyncObject::Init(Agent::GetInstance()->GetNextHopTable());
-    MplsKSyncObject::Init(Agent::GetInstance()->GetMplsTable());
-    MirrorKSyncObject::Init(Agent::GetInstance()->GetMirrorTable());
-    FlowTableKSyncObject::InitTest();
-    VrfAssignKSyncObject::Init(Agent::GetInstance()->GetVrfAssignTable());
-    VxLanKSyncObject::Init(Agent::GetInstance()->GetVxLanTable());
-    Agent::GetInstance()->SetRouterIdConfigured(false);
+    interface_ksync_obj_.get()->RegisterDBClients();
+    vrf_ksync_obj_.get()->RegisterDBClients();
+    nh_ksync_obj_.get()->RegisterDBClients();
+    mpls_ksync_obj_.get()->RegisterDBClients();
+    mirror_ksync_obj_.get()->RegisterDBClients();
+    vrf_assign_ksync_obj_.get()->RegisterDBClients();
+    vxlan_ksync_obj_.get()->RegisterDBClients();
+    agent_->SetRouterIdConfigured(false);
 }
 
 void KSync::NetlinkInitTest() {
     EventManager *event_mgr;
 
-    event_mgr = Agent::GetInstance()->GetEventManager();
+    event_mgr = agent_->GetEventManager();
     boost::asio::io_service &io = *event_mgr->io_service();
 
     KSyncSockTypeMap::Init(io, 1);
-    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext);
+    KSyncSock::SetAgentSandeshContext(new KSyncSandeshContext
+                                                (flowtable_ksync_obj_.get()));
 
     GenericNetlinkInitTest();
     KSyncSock::Start();

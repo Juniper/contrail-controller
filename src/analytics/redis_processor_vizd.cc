@@ -26,9 +26,11 @@ using boost::assign::list_of;
 
 void 
 RedisProcessorExec::RefreshGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string &coll, int timeout) {
-    string gkey = string("GENERATOR:") + source + ":" + module;
+    string gkey = string("NGENERATOR:") + source + ":" + node_type + ":" +
+                  module + ":" + instance_id;
     std::ostringstream tstr;
     tstr << timeout;
 
@@ -40,18 +42,22 @@ RedisProcessorExec::RefreshGenerator(RedisAsyncConnection * rac,
 
 void 
 RedisProcessorExec::WithdrawGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &module,
+            const std::string &source, const std::string &node_type,
+            const std::string &module, const std::string &instance_id,
             const std::string &coll) {
 
     string lua_scr(reinterpret_cast<char *>(withdrawgen_lua), withdrawgen_lua_len);
     rac->RedisAsyncArgCmd(NULL,
-        list_of(string("EVAL"))(lua_scr)("0")(source)(module)(coll));
+        list_of(string("EVAL"))(lua_scr)("0")(source)(node_type)(module)
+                (instance_id)(coll));
 }
 
 bool
 RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
                        const std::string &type, const std::string &attr,
-                       const std::string &source, const std::string &module,
+                       const std::string &source, const std::string &node_type,
+                       const std::string &module, 
+                       const std::string &instance_id,
                        const std::string &key, const std::string &msg,
                        int32_t seq, const std::string &agg,
                        const std::string &hist, int64_t ts) {
@@ -73,32 +79,43 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         if (hist == "") {
             lhist = string("1");
         }
-        ss = string("HISTORY-10:") + key + ":" + source + ":" + module + ":" + type + ":" + attr;  
-        sc = string("S-3600-TOPVALS:") + key + ":" + source + ":" + module + ":" + type + ":" + attr + ":" + tsbinstr.str();
-        sp = string("S-3600-SUMMARY:") + key + ":" + source + ":" + module + ":" + type + ":" + attr + ":" + tsbinstr.str();
+        ss = string("HISTORY-10:") + key + ":" + source + ":" + node_type + ":" + 
+             module + ":" + instance_id + ":" + type + ":" + attr;  
+        sc = string("S-3600-TOPVALS:") + key + ":" + source + ":" + node_type + 
+             ":" + module + ":" + instance_id + ":" + type + ":" + attr + 
+             ":" + tsbinstr.str();
+        sp = string("S-3600-SUMMARY:") + key + ":" + source + ":" + node_type + 
+             ":" + module + ":" + instance_id + ":" + type + ":" + attr + 
+             ":" + tsbinstr.str();
 
         string lua_scr(reinterpret_cast<char *>(uveupdate_st_lua), uveupdate_st_lua_len);
         ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("8")(
-                string("TYPES:") + source + ":" + module)(
+                string("TYPES:") + source + ":" + node_type + ":" + module + ":" + instance_id)(
                 string("ORIGINS:") + key)(
                 string("TABLE:") + table)(
-                string("UVES:") + source + ":" + module + ":" + type)(
-                string("VALUES:") + key + ":" + source + ":" + module + ":" + type)(
+                string("UVES:") + source + ":" + node_type + ":" + module + 
+                ":" + instance_id + ":" + type)(
+                string("VALUES:") + key + ":" + source + ":" + node_type +
+                ":" + module + ":" + instance_id + ":" + type)(
                 ss)(sc)(sp)(
-                source)(module)(type)(attr)(key)(seqstr.str())(lhist)(tsstr.str())(msg));
+                source)(node_type)(module)(instance_id)(type)(attr)(key)
+                (seqstr.str())(lhist)(tsstr.str())(msg));
 
     } else {
 
         string lua_scr(reinterpret_cast<char *>(uveupdate_lua), uveupdate_lua_len);
         ret = rac->RedisAsyncArgCmd(rpi,
             list_of(string("EVAL"))(lua_scr)("5")(
-                string("TYPES:") + source + ":" + module)(
+                string("TYPES:") + source + ":" + node_type + ":" + module + ":" + instance_id)(
                 string("ORIGINS:") + key)(
                 string("TABLE:") + table)(
-                string("UVES:") + source + ":" + module + ":" + type)(
-                string("VALUES:") + key + ":" + source + ":" + module + ":" + type)(
-                source)(module)(type)(attr)(key)(seqstr.str())(msg));        
+                string("UVES:") + source + ":" + node_type + ":" + module +
+                ":" + instance_id + ":" + type)(
+                string("VALUES:") + key + ":" + source + ":" + node_type + 
+                ":" + module + ":" + instance_id + ":" + type)(
+                source)(node_type)(module)(instance_id)(type)(attr)(key)
+                (seqstr.str())(msg));        
     }
     return ret;
 }
@@ -106,7 +123,8 @@ RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
 bool
 RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
         const std::string &type,
-        const std::string &source, const std::string &module,
+        const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id,
         const string &key, const int32_t seq) {
 
     size_t sep = key.find(":");
@@ -118,35 +136,43 @@ RedisProcessorExec::UVEDelete(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
     string lua_scr(reinterpret_cast<char *>(uvedelete_lua), uvedelete_lua_len);
     return rac->RedisAsyncArgCmd(rpi,
         list_of(string("EVAL"))(lua_scr)("6")(
-            string("DEL:") + key + ":" + source + ":" + module + ":" + type + ":" + seqstr.str())(
-            string("VALUES:") + key + ":" + source + ":" + module + ":" + type)(
-            string("UVES:") + source + ":" + module + ":" + type)(
+            string("DEL:") + key + ":" + source + ":" + node_type + ":" +
+            module + ":" + instance_id + ":" + type + ":" + seqstr.str())(
+            string("VALUES:") + key + ":" + source + ":" + node_type + ":" + 
+            module + ":" + instance_id + ":" + type)(
+            string("UVES:") + source + ":" + node_type + ":" + module + ":" +
+            instance_id + ":" + type)(
             string("ORIGINS:") + key)(
             string("TABLE:") + table)(
             string("DELETED"))(
-            source)(module)(type)(key));
+            source)(node_type)(module)(instance_id)(type)(key));
 
 }
 
 
 bool
 RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
-        const std::string &source, const std::string &module,
+        const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id,
         const std::string & coll,  int timeout,
         std::map<std::string,int32_t> & seqReply) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
 
     if (c->err) {
-        LOG(ERROR, "No connection for SyncGetSeq " << source << ":" << module);
+        LOG(ERROR, "No connection for SyncGetSeq " << source << ":" << node_type
+            << ":" << module << ":" << instance_id);
         redisFree(c); 
         return false;
     } 
 
     string lua_scr(reinterpret_cast<char *>(seqnum_lua), seqnum_lua_len);
 
-    redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s %s %s %d",
-            lua_scr.c_str(), source.c_str(), module.c_str(), coll.c_str(), timeout);
+    redisReply * reply = (redisReply *) redisCommand(c, 
+            "EVAL %s 0 %s %s %s %s %s %d",
+            lua_scr.c_str(), source.c_str(), node_type.c_str(),
+            module.c_str(), instance_id.c_str(),
+            coll.c_str(), timeout);
 
     if (!reply) {
         LOG(INFO, "SeqQuery Error : " << c->errstr);
@@ -156,7 +182,8 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
 
     if (reply->type == REDIS_REPLY_ARRAY) {
         for (uint iter=0; iter < reply->elements; iter+=2) {
-            LOG(INFO, "SeqQuery <" << source << ":" << module << 
+            LOG(INFO, "SeqQuery <" << source << ":" << node_type << 
+                    ":" << module << ":" << instance_id << 
                     "> : " << reply->element[iter]->str <<
                     " seq " << reply->element[iter+1]->str);
             seqReply.insert(make_pair(reply->element[iter]->str,
@@ -167,7 +194,8 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
         return true;
     }
     LOG(ERROR, "Unrecognized reponse of type " << reply->type <<
-            " for SyncGetSeq " << source << ":" << module);
+            " for SyncGetSeq " << source << ":" << node_type << ":" << 
+            module << ":" << instance_id);
     freeReplyObject(reply);
     redisFree(c); 
     return false;
@@ -176,21 +204,26 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
 
 bool 
 RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
-        const std::string &source, const std::string &module,
+        const std::string &source, const std::string &node_type,
+        const std::string &module, const std::string &instance_id,
         const std::string & coll,  int timeout) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
 
     if (c->err) {
-        LOG(ERROR, "No connection for SyncDeleteUVEs " << source << ":" << module);
+        LOG(ERROR, "No connection for SyncDeleteUVEs " << source << ":" << 
+            node_type << ":" << module << ":" << instance_id);
         redisFree(c); 
         return false;
     } 
 
     string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
-    redisReply * reply = (redisReply *) redisCommand(c, "EVAL %s 0 %s %s %s %d",
-            lua_scr.c_str(), source.c_str(), module.c_str(), coll.c_str(), timeout);
+    redisReply * reply = (redisReply *) redisCommand(c, 
+            "EVAL %s 0 %s %s %s %s %s %d",
+            lua_scr.c_str(), source.c_str(), node_type.c_str(),
+            module.c_str(), instance_id.c_str(),
+            coll.c_str(), timeout);
 
     if (!reply) {
         LOG(INFO, "SyncDeleteUVEs Error : " << c->errstr);
@@ -204,7 +237,8 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
         return true;
     }
     LOG(ERROR, "Unrecognized reponse of type " << reply->type <<
-            " for SyncDeleteUVEs " << source << ":" << module);
+            " for SyncDeleteUVEs " << source << ":" << node_type << ":" <<
+            module << ":" << instance_id);
     freeReplyObject(reply);
     redisFree(c); 
     return false;
@@ -237,11 +271,14 @@ struct GenClear : public RedisProcessorIf {
     typedef boost::function<void(const std::string &, bool)> finFn;
     // callback function to parent
     GenClear(RedisAsyncConnection * rac, finFn fn,
-            const std::string& source, const std::string& module) : 
-            rac_(rac), fin_(fn), source_(source), module_(module) {}
+            const std::string& source, const std::string& node_type,
+            const std::string& module, const std::string& instance_id) : 
+            rac_(rac), fin_(fn), source_(source), node_type_(node_type),
+            module_(module), instance_id_(instance_id) {}
 
     string Key() {
-        string vkey = "GENERATOR:" + source_ + ":" + module_ ;
+        string vkey = "NGENERATOR:" + source_ + ":" + node_type_ + ":" +
+                      module_ + ":" + instance_id_;
         return vkey;
     }
 
@@ -252,8 +289,8 @@ struct GenClear : public RedisProcessorIf {
         string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
         return rac_->RedisAsyncArgCmd(this,
-            list_of(string("EVAL"))(lua_scr)("0")(source_)(module_)(
-                "")("-1"));
+            list_of(string("EVAL"))(lua_scr)("0")(source_)(node_type_)
+                    (module_)(instance_id_)("")("-1"));
     }
 
     void ProcessCallback(redisReply *reply) {
@@ -275,7 +312,9 @@ private:
     RedisAsyncConnection * rac_;
     finFn fin_;
     std::string source_;
+    std::string node_type_;
     std::string module_;
+    std::string instance_id_;
     bool res_;    
 };
 
@@ -284,7 +323,7 @@ GenCleanupReq::GenCleanupReq (RedisAsyncConnection * rac,
         finFn fn) : rac_(rac), fin_(fn), res_(0) {}
 
 string GenCleanupReq::Key() {
-    string vkey = "GENERATOR_CLEANUP";
+    string vkey = "NGENERATOR_CLEANUP";
     return vkey;
 }
 
@@ -303,11 +342,12 @@ void GenCleanupReq::ProcessCallback(redisReply *reply) {
     vector<RedisProcessorIf *> vch;
 
     if (reply->type == REDIS_REPLY_ARRAY) {
-        assert((reply->elements % 2) == 0);
-        for (uint iter=0; iter < reply->elements; iter+=2) {
+        assert((reply->elements % 4) == 0);
+        for (uint iter=0; iter < reply->elements; iter+=4) {
             GenClear * gc = new GenClear(rac_,
                 boost::bind(&GenCleanupReq::CallbackFromChild, this, _1, _2),
-                reply->element[iter]->str, reply->element[iter+1]->str);
+                reply->element[iter]->str, reply->element[iter+1]->str,
+                reply->element[iter+2]->str, reply->element[iter+3]->str);
             vch.push_back(gc);
             LOG(INFO, "Creating GenClear for " << gc->Key());
         }

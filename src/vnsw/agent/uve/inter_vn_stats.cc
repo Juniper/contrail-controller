@@ -74,11 +74,11 @@ void InterVnStatsCollector::Remove(string vn) {
 
 void InterVnStatsCollector::UpdateVnStats(FlowEntry *fe, uint64_t bytes, 
                                           uint64_t pkts) {
-    string src_vn = fe->data.source_vn, dst_vn = fe->data.dest_vn;
+    string src_vn = fe->data().source_vn, dst_vn = fe->data().dest_vn;
 
-    if (!fe->data.source_vn.length())
+    if (!fe->data().source_vn.length())
         src_vn = *FlowHandler::UnknownVn();
-    if (!fe->data.dest_vn.length())
+    if (!fe->data().dest_vn.length())
         dst_vn = *FlowHandler::UnknownVn();
 
     /* When packet is going from src_vn to dst_vn it should be interpreted 
@@ -87,11 +87,11 @@ void InterVnStatsCollector::UpdateVnStats(FlowEntry *fe, uint64_t bytes,
      * it should be considered as out-stats for dst_vn w.r.t. src_vn.
      * Here the direction "in" and "out" should be interpreted w.r.t vrouter
      */
-    if (fe->local_flow) {
+    if (fe->is_flags_set(FlowEntry::LocalFlow)) {
         VnStatsUpdateInternal(src_vn, dst_vn, bytes, pkts, false);
         VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, true);
     } else {
-        if (fe->data.ingress) {
+        if (fe->is_flags_set(FlowEntry::IngressDir)) {
             VnStatsUpdateInternal(src_vn, dst_vn, bytes, pkts, false);
         } else {
             VnStatsUpdateInternal(dst_vn, src_vn, bytes, pkts, true);

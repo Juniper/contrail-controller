@@ -184,9 +184,18 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
 
     pugi::xml_node node_check = pugi->FindNode("retract");
     if (!pugi->IsNull(node_check)) {
+        pugi->ReadNode("retract"); //sets the context
+        std::string retract_id = pugi->ReadAttrib("id");
+        if (bgp_peer_id_ !=
+            Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+            GetBgpPeer()) {
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                       "Ignore retract request from non multicast tree "
+                       "builder peer; Multicast Delete Node id:" + retract_id);
+            return;
+        }
 
         for (node = node.first_child(); node; node = node.next_sibling()) {
-
             if (strcmp(node.name(), "retract") == 0) { 
                 std::string id = node.first_attribute().value();
                 CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
@@ -227,6 +236,20 @@ void AgentXmppChannel::ReceiveMulticastUpdate(XmlPugi *pugi) {
             }
         }
         return;
+    }
+
+    pugi::xml_node items_node = pugi->FindNode("item");
+    if (!pugi->IsNull(items_node)) {
+        pugi->ReadNode("item"); //sets the context
+        std::string item_id = pugi->ReadAttrib("id");
+        if (bgp_peer_id_ !=
+            Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+            GetBgpPeer()) {
+            CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                             "Ignore request from non multicast tree "
+                             "builder peer; Multicast Delete Node:" + item_id);
+            return;
+        }
     }
 
     //Call Auto-generated Code to return struct
@@ -393,7 +416,15 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
                 (static_cast<Layer2AgentRouteTable *>(vrf->
                 GetRouteTable(AgentRouteTableAPIS::LAYER2))->
                 FindActiveEntry(&key));
-            nh = route->GetActiveNextHop();
+            if (route) {
+                nh = route->GetActiveNextHop();
+            } else {
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "route not found, ignoring request");
+            }
+        } else {
+                CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                                 "vrf not found, ignoring request");
         }
     } else {
         MplsLabel *mpls = 
@@ -415,6 +446,9 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
                              "label points to invalid NH");
         }
+    } else {
+        CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
+                         "nexthop not found, ignoring request");
     }
 }
 
@@ -468,7 +502,7 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                              item->entry.virtual_network, label,
                                              item->entry.security_group_list.security_group);
             } else if (interface->type() == Interface::INET) {
-                rt_table->AddVHostInterfaceRoute(bgp_peer_id_, vrf_name,
+                rt_table->AddInetInterfaceRoute(bgp_peer_id_, vrf_name,
                                                  prefix_addr, prefix_len,
                                                  interface->name(),
                                                  label,
@@ -881,7 +915,7 @@ bool AgentXmppChannel::ControllerSendSubscribe(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
-                                               RouteEntry *route, 
+                                               AgentRoute *route, 
                                                std::string vn, 
                                                const SecurityGroupList *sg_list,
                                                uint32_t mpls_label,
@@ -982,7 +1016,7 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
-                                               RouteEntry *route, 
+                                               AgentRoute *route, 
                                                std::string vn, 
                                                uint32_t label,
                                                uint32_t tunnel_bmap,
@@ -1087,7 +1121,7 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
-                                           RouteEntry *route, 
+                                           AgentRoute *route, 
                                            std::string vn, 
                                            uint32_t label,
                                            TunnelType::TypeBmap bmap,
@@ -1108,7 +1142,7 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
 }
 
 bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
-                                                RouteEntry *route, 
+                                                AgentRoute *route, 
                                                 bool add_route) {
 
     static int id = 0;

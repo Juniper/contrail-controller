@@ -119,8 +119,12 @@ QEOpServerProxy::VarType StatsSelect::Parse(int sidx,
 
     if (vname == g_viz_constants.STAT_OBJECTID_FIELD) {
         return QEOpServerProxy::STRING;
-
     }
+
+    if (vname == g_viz_constants.STAT_SOURCE_FIELD) {
+        return QEOpServerProxy::STRING;
+    }
+
     if (vname == g_viz_constants.STAT_TIME_FIELD) {
         return QEOpServerProxy::UINT64;
     }
@@ -403,7 +407,7 @@ std::size_t boost::hash_value(const StatsSelect::StatVal& sv) {
 }
 
 bool StatsSelect::LoadRow(boost::uuids::uuid u,
-		uint64_t timestamp, const StatMap& row, MapBufT& output) {
+		uint64_t timestamp, const vector<StatEntry>& row, MapBufT& output) {
 
 	if (!Status()) return false;
     uint64_t ts = 0;
@@ -422,15 +426,15 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
     }
 
     if (ts_period_) {
-		ts = timestamp - (timestamp % ts_period_);
+        ts = timestamp - (timestamp % ts_period_);
         uniks.insert(make_pair(g_viz_constants.STAT_TIMEBIN_FIELD,ts)); 
-	}
+    }
 
-    for (StatsSelect::StatMap::const_iterator it = row.begin();
+    for (vector<StatEntry>::const_iterator it = row.begin();
             it != row.end(); it++) {
-        set<string>::const_iterator uit = unik_cols_.find(it->first);
+        set<string>::const_iterator uit = unik_cols_.find(it->name);
         if (uit!=unik_cols_.end()) {
-            uniks.insert(make_pair(it->first, it->second));
+            uniks.insert(make_pair(it->name, it->value));
         }
     }
 
@@ -448,12 +452,12 @@ bool StatsSelect::LoadRow(boost::uuids::uuid u,
     }
 
     QEOpServerProxy::AggRowT narows;
-    for (StatsSelect::StatMap::const_iterator it = row.begin();
+    for (vector<StatEntry>::const_iterator it = row.begin();
             it != row.end(); it++) {
-        set<string>::const_iterator uit = sum_cols_.find(it->first);
+        set<string>::const_iterator uit = sum_cols_.find(it->name);
         if (uit!=sum_cols_.end()) {
-            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::SUM,it->first);
-            narows.insert(make_pair(aggkey,  it->second)); 
+            pair<QEOpServerProxy::AggOper,string> aggkey(QEOpServerProxy::SUM,it->name);
+            narows.insert(make_pair(aggkey,  it->value)); 
         }
     }
 

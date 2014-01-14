@@ -7,7 +7,7 @@
 #include <cmn/agent_cmn.h>
 #include <route/route.h>
 
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vrf.h>
 #include <oper/tunnel_nh.h>
 #include <oper/mpls.h>
@@ -66,7 +66,6 @@ Inet4MulticastAgentRouteTable::AddVHostRecvRoute(const string &vm_vrf,
 {
     DBRequest req;
 
-    ReceiveNH::CreateReq(interface_name);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     Inet4MulticastRouteKey *rt_key = new Inet4MulticastRouteKey(vm_vrf, addr);
     req.key.reset(rt_key);
@@ -100,6 +99,16 @@ Inet4MulticastAgentRouteTable::DeleteMulticastRoute(const string &vrf_name,
         GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Enqueue(&req);
 }
 
+void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,
+                                           const Ip4Address &src_addr,
+                                           const Ip4Address &grp_addr) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    req.key.reset(new Inet4MulticastRouteKey(vrf_name, grp_addr, src_addr));
+    req.data.reset(NULL);
+    AgentRouteTableAPIS::GetInstance()->
+        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Process(req);
+}
+
 void Inet4MulticastAgentRouteTable::RouteResyncReq(const string &vrf_name,
                                                    const Ip4Address &src_addr,
                                                    const Ip4Address &dst_addr) {
@@ -122,12 +131,12 @@ void Inet4MulticastRouteEntry::RouteResyncReq() const {
                                                   dst_addr_); 
 }
 
-RouteEntry *
+AgentRoute *
 Inet4MulticastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Inet4MulticastRouteEntry * entry = new Inet4MulticastRouteEntry(vrf, dip_,
                                                                     sip_);
-    return static_cast<RouteEntry *>(entry);
+    return static_cast<AgentRoute *>(entry);
 }
 
 string Inet4MulticastRouteEntry::ToString() const {

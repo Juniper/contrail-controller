@@ -26,7 +26,7 @@
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 
 class FlowStatsCollector;
 class PktSandeshFlow;
@@ -65,8 +65,6 @@ struct RouteFlowKey {
         uint32_t ipv4;
     } ip;
     uint8_t plen;
-    bool FlowSrcMatch(FlowEntry *flow) const;
-    bool FlowDestMatch(FlowEntry *flow) const;
 };
 
 struct RouteFlowKeyCmp {
@@ -156,16 +154,28 @@ struct FlowKeyCmp {
     }
 };
 
+struct FlowStats {
+    FlowStats() : setup_time(0), teardown_time(0), last_modified_time(0),
+        bytes(0), packets(0), intf_in(0), exported(false) {};
+
+    uint64_t setup_time;
+    uint64_t teardown_time;
+    uint64_t last_modified_time; //used for aging
+    uint64_t bytes;
+    uint64_t packets;
+    uint32_t intf_in;
+    bool exported;
+};
+
 struct FlowData {
     FlowData() : 
         source_vn(""), dest_vn(""), source_sg_id_l(), dest_sg_id_l(),
         flow_source_vrf(VrfEntry::kInvalidIndex),
         flow_dest_vrf(VrfEntry::kInvalidIndex), match_p(), vn_entry(NULL),
         intf_entry(NULL), vm_entry(NULL), mirror_vrf(VrfEntry::kInvalidIndex),
-        reverse_flow(), dest_vrf(), ingress(false), ecmp(false),
+        dest_vrf(),
         component_nh_idx((uint32_t)CompositeNH::kInvalidComponentNHIdx),
-        bytes(0), packets(0), trap(false), nh_state_(NULL), source_plen(0),
-        dest_plen(0) {};
+        nh_state_(NULL), source_plen(0), dest_plen(0) {};
 
     std::string source_vn;
     std::string dest_vn;
@@ -180,19 +190,11 @@ struct FlowData {
     VmEntryConstRef vm_entry;
     uint32_t mirror_vrf;
 
-    FlowEntryPtr reverse_flow;
     uint16_t dest_vrf;
 
-    // Flow direction (ingress or egress)
-    bool ingress;
-
-    bool ecmp;
     uint32_t component_nh_idx;
 
     // Stats
-    uint64_t bytes;
-    uint64_t packets;
-    bool trap;
     NhStatePtr nh_state_;
     uint8_t source_plen;
     uint8_t dest_plen;
@@ -210,82 +212,97 @@ class FlowEntry {
         PCAP_DEST_VN = 4,
         PCAP_TLV_END = 255
     };
-    FlowEntry() :
-        key(), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false), 
-        is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0), last_modified_time(0), deleted_(false) {
-        flow_uuid = nil_uuid(); 
-        egress_uuid = nil_uuid(); 
-        refcount_ = 0;
-        alloc_count_.fetch_and_increment();
+    enum FlowEntryFlags {
+        NatFlow         = 1 << 0,
+        LocalFlow       = 1 << 1,
+        ShortFlow       = 1 << 2,
+        LinkLocalFlow   = 1 << 3,
+        ReverseFlow     = 1 << 4,
+        EcmpFlow        = 1 << 5,
+        IngressDir      = 1 << 6,
+        Trap            = 1 << 7
     };
-    FlowEntry(const FlowKey &k) : 
-        key(k), data(), intf_in(0), flow_handle(kInvalidFlowHandle), nat(false),
-        local_flow(false), short_flow(false), linklocal_flow(false),
-        is_reverse_flow(false), setup_time(0), exported(false),
-        teardown_time(0), last_modified_time(0), deleted_(false) {
-        flow_uuid = nil_uuid(); 
-        egress_uuid = nil_uuid(); 
-        refcount_ = 0;
-        alloc_count_.fetch_and_increment();
-    };
+    FlowEntry();
+    FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
         alloc_count_.fetch_and_decrement();
     };
 
-    FlowKey key;
-    FlowData data;
-    uuid flow_uuid;
-    //egress_uuid is used only during flow-export and applicable only for local-flows
-    uuid egress_uuid;
-    uint32_t intf_in;
-    uint32_t flow_handle;
-
-    // Flow flags
-    bool nat;
-    bool local_flow;
-    bool short_flow;
-    bool linklocal_flow;
-    bool is_reverse_flow;
-
-    uint64_t setup_time;
-    bool exported;
-    uint64_t teardown_time;
-    uint64_t last_modified_time; //used for aging
-
-    bool ActionRecompute(MatchPolicy *policy);
-    void CompareAndModify(const MatchPolicy &m_policy, bool create);
+    bool ActionRecompute();
+    void CompareAndModify(bool create);
     void UpdateKSync(FlowTableKSyncEntry *entry, bool create);
     int GetRefCount() { return refcount_; }
-    bool ShortFlow() const {return short_flow;};
     void MakeShortFlow();
+    const FlowStats &stats() const { return stats_;}
+    const FlowKey &key() const { return key_;}
+    const FlowData &data() const { return data_;}
+    const uuid &flow_uuid() const { return flow_uuid_; }
+    const uuid &egress_uuid() const { return egress_uuid_; }
+    uint32_t flow_handle() const { return flow_handle_; }
+    void set_flow_handle(uint32_t flow_handle) { flow_handle_ = flow_handle; }
+    FlowEntry * reverse_flow_entry() { return reverse_flow_entry_.get(); }
+    const FlowEntry * reverse_flow_entry() const { return reverse_flow_entry_.get(); }
+    void set_reverse_flow_entry(FlowEntry *reverse_flow_entry) {
+        reverse_flow_entry_ = reverse_flow_entry;
+    }
+    bool is_flags_set(const FlowEntryFlags &flags) const { return (flags_ & flags); }
+    void set_flags(const FlowEntryFlags &flags) { flags_ |= flags; }
+    void reset_flags(const FlowEntryFlags &flags) { flags_ &= ~flags; }
+
     bool ImplicitDenyFlow() const { 
-        return ((data.match_p.action_info.action & 
+        return ((data_.match_p.action_info.action & 
                  (1 << TrafficAction::IMPLICIT_DENY)) ? true : false);
     }
     void FillFlowInfo(FlowInfo &info);
-    void GetPort(uint8_t &proto, uint16_t &sport, uint16_t &dport) const {
-        proto = key.protocol;
-        sport = key.src_port;
-        dport = key.dst_port;
-    }
-    void SetEgressUuid();
-    void GetPolicyInfo(MatchPolicy *policy);
+    void GetPolicyInfo();
+    void GetPolicyInfo(const VnEntry *vn);
 
-    void GetPolicy(const VnEntry *vn, MatchPolicy *policy);
-    void GetSgList(const Interface *intf, MatchPolicy *policy);
-    bool DoPolicy(const PacketHeader &hdr, MatchPolicy *policy, bool ingress);
-    uint32_t MatchAcl(const PacketHeader &hdr, MatchPolicy *policy,
+    void GetPolicy(const VnEntry *vn);
+    void GetSgList(const Interface *intf);
+    bool DoPolicy(const PacketHeader &hdr, bool ingress);
+    uint32_t MatchAcl(const PacketHeader &hdr,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
+    void ResetPolicy();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
+    bool FlowSrcMatch(const RouteFlowKey &rkey) const;
+    bool FlowDestMatch(const RouteFlowKey &rkey) const;
+    void SetAclAction(std::vector<AclAction> &acl_action_l) const;
+    uint32_t IngressReflexiveAction() const;
+    uint32_t EgressReflexiveAction() const;
+    void UpdateReflexiveAction();
+    const Interface *intf_entry() const { return data_.intf_entry.get();}
+    const VnEntry *vn_entry() const { return data_.vn_entry.get();}
+    const VmEntry *vm_entry() const { return data_.vm_entry.get();}
+    const MatchPolicy &match_p() const { return data_.match_p; }
+    void SetAclFlowSandeshData(const AclDBEntry *acl,
+            FlowSandeshData &fe_sandesh_data) const;
+    void InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
+            const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
+    void InitRevFlow(const PktFlowInfo *info,
+            const PktControlInfo *ctrl, const PktControlInfo *rev_ctrl);
+    void InitAuditFlow(uint32_t flow_idx);
+    void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; }
+    void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
 private:
     friend class FlowTable;
+    friend class FlowStatsCollector;
     friend void intrusive_ptr_add_ref(FlowEntry *fe);
     friend void intrusive_ptr_release(FlowEntry *fe);
+    bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
+    bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
+                     const PktControlInfo *rev_ctrl);
+    FlowKey key_;
+    FlowData data_;
+    FlowStats stats_;
+    uuid flow_uuid_;
+    //egress_uuid is used only during flow-export and applicable only for local-flows
+    uuid egress_uuid_;
+    uint32_t flow_handle_;
+    FlowEntryPtr reverse_flow_entry_;
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
+    uint32_t flags_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };
@@ -364,9 +381,7 @@ public:
     FlowEntry *Allocate(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     FlowEntry *Find(const FlowKey &key);
-
-    bool DeleteNatFlow(FlowKey &key, bool del_nat_flow);
-    bool DeleteRevFlow(FlowKey &key, bool del_reverse_flow);
+    bool Delete(const FlowKey &key, bool del_reverse_flow);
 
     size_t Size() {return flow_entry_map_.size();};
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
@@ -424,7 +439,7 @@ private:
     void DecrVnFlowCounter(VnFlowInfo *vn_flow_info, const FlowEntry *fe);
     void ResyncVnFlows(const VnEntry *vn);
     void ResyncRouteFlows(RouteFlowKey &key, SecurityGroupList &sg_l);
-    void ResyncAFlow(FlowEntry *fe, MatchPolicy &policy, bool create);
+    void ResyncAFlow(FlowEntry *fe, bool create);
     void ResyncVmPortFlows(const VmInterface *intf);
     void ResyncRpfNH(const RouteFlowKey &key, const Inet4UnicastRouteEntry *rt);
     void DeleteRouteFlows(const RouteFlowKey &key);
@@ -434,7 +449,7 @@ private:
     void DeleteVmFlowInfo(FlowEntry *fe);
     void DeleteIntfFlowInfo(FlowEntry *fe);
     void DeleteRouteFlowInfo(FlowEntry *fe);
-    void DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, AclEntryIDList &id_list);
+    void DeleteAclFlowInfo(const AclDBEntry *acl, FlowEntry* flow, const AclEntryIDList &id_list);
 
     void DeleteVnFlows(const VnEntry *vn);
     void DeleteVmIntfFlows(const Interface *intf);
@@ -442,7 +457,7 @@ private:
 
     void AddFlowInfo(FlowEntry *fe);
     void AddAclFlowInfo(FlowEntry *fe);
-    void UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow, AclEntryIDList &id_list);
+    void UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow, const AclEntryIDList &id_list);
     void AddIntfFlowInfo(FlowEntry *fe);
     void AddVnFlowInfo(FlowEntry *fe);
     void AddVmFlowInfo(FlowEntry *fe);

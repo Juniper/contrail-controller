@@ -26,9 +26,9 @@ public:
     uint32_t vxlan_id() const {return vxlan_id_;};
     const NextHop *GetNextHop() const {return nh_.get();};
 
-    static void CreateReq(uint32_t vxlan_id, const std::string &vrf_name);
+    static void Create(uint32_t vxlan_id, const std::string &vrf_name);
     // Delete vxlan_id vxlan_id entry
-    static void DeleteReq(uint32_t vxlan_id);
+    static void Delete(uint32_t vxlan_id);
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VxLanId>::GetRefCount();

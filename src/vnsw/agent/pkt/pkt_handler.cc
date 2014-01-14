@@ -12,7 +12,7 @@
 #include "cmn/agent_stats.h"
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/vrf.h"
 #include "pkt/tap_interface.h"
 #include "pkt/test_tap_interface.h"
@@ -88,14 +88,14 @@ void PktHandler::Send(uint8_t *msg, std::size_t len, PktModuleName mod) {
  
 // Process the packet received from tap interface
 void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
-    PktInfo *pkt_info(new PktInfo(ptr, len));
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(ptr, len));
     PktType::Type pkt_type = PktType::INVALID;
     PktModuleName mod = INVALID;
     Interface *intf = NULL;
     uint8_t *pkt;
 
     agent_->stats()->incr_pkt_exceptions();
-    if ((pkt = ParseAgentHdr(pkt_info)) == NULL) {
+    if ((pkt = ParseAgentHdr(pkt_info.get())) == NULL) {
         PKT_TRACE(Err, "Error parsing Agent Header");
         agent_->stats()->incr_pkt_invalid_agent_hdr();
         goto drop;
@@ -120,7 +120,7 @@ void PktHandler::HandleRcvPkt(uint8_t *ptr, std::size_t len) {
         }
     }
 
-    ParseUserPkt(pkt_info, intf, pkt_type, pkt);
+    ParseUserPkt(pkt_info.get(), intf, pkt_type, pkt);
     pkt_info->vrf = pkt_info->agent_hdr.vrf;
 
     // Handle ARP packet
@@ -185,7 +185,6 @@ enqueue:
 
 drop:
     agent_->stats()->incr_pkt_dropped();
-    delete pkt_info;
     return;
 }
 
@@ -396,7 +395,7 @@ uint8_t *PktHandler::ParseUserPkt(PktInfo *pkt_info, Interface *intf,
 // Enqueue an inter-task message to the specified module
 void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
-        PktInfo *pkt_info(new PktInfo(msg));
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
             std::stringstream str;
             str << mod;
