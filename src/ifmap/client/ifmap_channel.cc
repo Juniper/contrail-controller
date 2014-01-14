@@ -512,12 +512,17 @@ int IFMapChannel::ReadPollResponse() {
         assert(pos != string::npos);
         string poll_string = reply_str.substr(pos);
         increment_recv_msg_cnt();
+        bool success = true;
         if (manager_->pollreadcb()) {
-            (manager_->pollreadcb())(poll_string.c_str(), poll_string.length(),
-                                     sequence_number_);
+            success = (manager_->pollreadcb())(poll_string.c_str(),
+                           poll_string.length(), sequence_number_);
         }
         response_state_ = NONE;
-        return 0;
+        if (success) {
+            return 0;
+        } else {
+            return -1;
+        }
     } else {
         assert(0);
     }
