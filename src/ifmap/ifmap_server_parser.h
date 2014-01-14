@@ -35,7 +35,7 @@ public:
     void MetadataClear(const std::string &module);
     void SetOrigin(struct DBRequest *result) const;
 
-    void Receive(DB *db, const char *data, size_t length,
+    bool Receive(DB *db, const char *data, size_t length,
                  uint64_t sequence_number);
 
     static IFMapServerParser *GetInstance(const std::string &module);
