@@ -147,8 +147,6 @@ TEST_F(StatsTest, FlowStatsTest) {
     EXPECT_TRUE(FlowStats(flow_input, 1, (28 * 2), 2));
     client->WaitForIdle();
 
-    //UveClient::GetInstance()->SendVnStats();
-
     /* Flush all the Flows */
     Agent::GetInstance()->pkt()->flow_table()->DeleteAll();
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());

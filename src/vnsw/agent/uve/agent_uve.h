@@ -20,9 +20,9 @@ class VrouterStatsCollector;
 //objects required for sending UVE information to collector.
 class AgentUve {
 public:
-    static const uint64_t band_intvl = (1000000); // time in microseconds
+    static const uint64_t kBandwidthInterval = (1000000); // time in microseconds
     AgentUve(Agent *agent, uint64_t intvl);
-    ~AgentUve();
+    virtual ~AgentUve();
 
     void Shutdown();
     uint64_t bandwidth_intvl() const { return bandwidth_intvl_; } 

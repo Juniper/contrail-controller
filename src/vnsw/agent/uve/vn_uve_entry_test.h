@@ -9,7 +9,7 @@ class VnUveEntryTest : public VnUveEntry {
 public:
     VnUveEntryTest(Agent *agent, const VnEntry *vn) : VnUveEntry(agent, vn) {}
     VnUveEntryTest(Agent *agent) : VnUveEntry(agent) {}
-    ~VnUveEntryTest() {}
+    virtual ~VnUveEntryTest() {}
     const VnStatsSet* inter_vn_stats() const { return &inter_vn_stats_; }
     int VmCount() const { return vm_tree_.size(); }
     int InterfaceCount() const { return interface_tree_.size(); }

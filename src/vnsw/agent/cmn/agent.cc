@@ -234,10 +234,10 @@ void Agent::CreateModules() {
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
     if (IsTestMode()) {
         uve_ = std::auto_ptr<AgentUve>(new AgentUveTest(
-                    this, AgentUve::band_intvl));
+                    this, AgentUve::kBandwidthInterval));
     } else {
         uve_ = std::auto_ptr<AgentUve>(new AgentUve(
-                    this, AgentUve::band_intvl));
+                    this, AgentUve::kBandwidthInterval));
     }
     ksync_ = std::auto_ptr<KSync>(new KSync(this));
 

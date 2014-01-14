@@ -10,6 +10,7 @@
 class VrouterUveEntryTest : public VrouterUveEntry {
 public:
     VrouterUveEntryTest(Agent *agent);
+    virtual ~VrouterUveEntryTest() {}
     void DispatchVrouterMsg(const VrouterAgent &uve) {}
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {}
     static VrouterUveEntryTest* GetInstance() { return singleton_; }

@@ -30,7 +30,7 @@ public:
         L4PortBitmap port_bitmap_;
 
         UveInterfaceEntry(const Interface *i) : intf_(i), port_bitmap_() { }
-        ~UveInterfaceEntry() {}
+        virtual ~UveInterfaceEntry() {}
     };
     typedef boost::shared_ptr<UveInterfaceEntry> UveInterfaceEntryPtr;
 

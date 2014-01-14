@@ -10,7 +10,7 @@
 class AgentUveTest : public AgentUve {
 public:
     AgentUveTest(Agent *agent, uint64_t intvl);
-    ~AgentUveTest();
+    virtual ~AgentUveTest();
     static AgentUveTest *GetInstance() {return singleton_;}
 private:
     static AgentUveTest *singleton_;

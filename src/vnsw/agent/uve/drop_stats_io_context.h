@@ -12,7 +12,7 @@ public:
     DropStatsIoContext(int msg_len, char *msg, uint32_t seqno, 
                        AgentStatsSandeshContext *ctx, 
                        IoContext::IoContextWorkQId id);
-    ~DropStatsIoContext();
+    virtual ~DropStatsIoContext();
     void Handler();
     void ErrorHandler(int err);
 private:

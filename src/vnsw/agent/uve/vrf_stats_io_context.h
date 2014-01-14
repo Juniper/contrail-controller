@@ -13,7 +13,7 @@ public:
                       AgentStatsSandeshContext *ctx, 
                       IoContext::IoContextWorkQId id) 
         : IoContext(msg, msg_len, seqno, ctx, id) {}
-    ~VrfStatsIoContext() {}
+    virtual ~VrfStatsIoContext() {}
     void Handler();
     void ErrorHandler(int err);
 private:

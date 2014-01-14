@@ -24,7 +24,7 @@ class AgentStatsCollector;
 class AgentStatsSandeshContext: public AgentSandeshContext {
 public:
     AgentStatsSandeshContext(AgentStatsCollector *col) ;
-    ~AgentStatsSandeshContext();
+    virtual ~AgentStatsSandeshContext();
 
     AgentStatsCollector *collector() { return collector_; }
     int marker_id() const { return marker_id_; }

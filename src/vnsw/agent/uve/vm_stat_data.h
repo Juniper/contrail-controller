@@ -7,21 +7,6 @@
 
 class VmStat;
 
-/*class VmStatData {
-public:
-    VmStatData(VmStat::DoneCb &cb):
-       cb_(cb) {
-    }
-
-    VmStat::DoneCb& cb() {
-        return cb_;
-    }
-
-private:
-    VmStat::DoneCb cb_;
-    DISALLOW_COPY_AND_ASSIGN(VmStatData);
-}; */
-
 class VmStatData {
 public:
     VmStatData(VmStat *obj):
