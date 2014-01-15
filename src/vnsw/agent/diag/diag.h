@@ -88,7 +88,7 @@ public:
     void Shutdown();
     void Enqueue(DiagEntryOp *op);
     bool Process(DiagEntryOp *op);
-    Agent* GetAgent() {
+    Agent* agent() const {
 	return agent_;
     }
 private:

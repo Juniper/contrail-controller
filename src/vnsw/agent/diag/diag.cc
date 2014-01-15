@@ -20,7 +20,7 @@ const std::string KDiagName("DiagTimeoutHandler");
 
 DiagEntry::DiagEntry(int timeout, int count,DiagTable *diag_table):
     diag_table_(diag_table) , timeout_(timeout), 
-    timer_(TimerManager::CreateTimer(*(diag_table->GetAgent()->GetEventManager())->io_service(), 
+    timer_(TimerManager::CreateTimer(*(diag_table->agent()->GetEventManager())->io_service(), 
     "DiagTimeoutHandler")), count_(count), seq_no_(0) {
 }
 
