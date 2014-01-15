@@ -232,6 +232,87 @@ TEST_F(IFMapStateMachineTest, ErrorlessRun) {
     EventWait(2);
 }
 
+TEST_F(IFMapStateMachineTest, ReadPollRespError) {
+
+    EXPECT_CALL(*mock_channel(), DoResolve())
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcResolveResponse,
+                        state_machine(), success_ec())));
+    EXPECT_CALL(*mock_channel(), ReconnectPreparation())
+        .Times(1)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcConnectionCleaned,
+                        state_machine())));
+
+    EXPECT_CALL(*mock_channel(), DoConnect(true))
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcConnectResponse,
+                        state_machine(), success_ec())));
+    EXPECT_CALL(*mock_channel(), DoSslHandshake(true))
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcHandshakeResponse,
+                        state_machine(), success_ec())));
+    EXPECT_CALL(*mock_channel(), SendNewSessionRequest())
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcNewSessionWrite,
+                        state_machine(), success_ec(), kReturnBytes)));
+    EXPECT_CALL(*mock_channel(), NewSessionResponseWait())
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcNewSessionResponse,
+                        state_machine(), success_ec(), kReturnBytes)));
+    EXPECT_CALL(*mock_channel(), ExtractPubSessionId())
+        .Times(2)
+        .WillRepeatedly(Return(kOpSuccess));
+    EXPECT_CALL(*mock_channel(), SendSubscribe())
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcSubscribeWrite,
+                        state_machine(), success_ec(), kReturnBytes)));
+    EXPECT_CALL(*mock_channel(), SubscribeResponseWait())
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcSubscribeResponse,
+                        state_machine(), success_ec(), kReturnBytes)));
+    EXPECT_CALL(*mock_channel(), ReadSubscribeResponseStr())
+        .Times(2)
+        .WillRepeatedly(Return(kOpSuccess));
+    EXPECT_CALL(*mock_channel(), DoConnect(false))
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcConnectResponse,
+                        state_machine(), success_ec())));
+    EXPECT_CALL(*mock_channel(), DoSslHandshake(false))
+        .Times(2)
+        .WillRepeatedly(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcHandshakeResponse,
+                        state_machine(), success_ec())));
+    // end the test after sending the third poll request
+    EXPECT_CALL(*mock_channel(), SendPollRequest())
+        .Times(2)
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcPollWrite,
+                        state_machine(), success_ec(), kReturnBytes)))
+        // Just to end the test somewhere, return i.e. no action
+        .WillOnce(Return());
+    EXPECT_CALL(*mock_channel(), PollResponseWait())
+        .Times(1)
+        .WillOnce(InvokeWithoutArgs(boost::bind(
+                        &IFMapStateMachine::ProcPollResponseRead,
+                        state_machine(), success_ec(), kReturnBytes)));
+    EXPECT_CALL(*mock_channel(), ReadPollResponse())
+        .Times(1)
+        .WillOnce(Return(kOpFailure));
+
+    Start("10.1.2.3", "8443");
+    // Wait for the sequence of events to occur
+    EventWait(2);
+}
+
 // seven consecutive connect failures to test exp-backoff
 TEST_F(IFMapStateMachineTest, SevenSsrcConnectFailures) {
 

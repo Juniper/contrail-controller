@@ -22,7 +22,7 @@ class PeerIFMapServerFinder;
 // This class is the window to the ifmap server for the rest of the system
 class IFMapManager {
 public:
-    typedef boost::function<void(const char *data, size_t length,
+    typedef boost::function<bool(const char *data, size_t length,
                                  uint64_t sequence_number)> PollReadCb;
 
     IFMapManager();
