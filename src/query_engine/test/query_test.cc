@@ -52,7 +52,7 @@ void CdbIfMock::initialize_tables()
 
 bool CdbIfMock::Db_Init() {return true;}
 
-bool CdbIfMock::Db_AddSetTablespace(const std::string& tablespace)
+bool CdbIfMock::Db_AddSetTablespace(const std::string& tablespace, const std::string& replication_factor)
 { 
     QE_ASSERT(tablespace == g_viz_constants.COLLECTOR_KEYSPACE);
     return true;

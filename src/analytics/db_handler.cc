@@ -169,7 +169,7 @@ bool DbHandler::Initialize(int instance) {
         return false;
     }
 
-    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
         LOG(ERROR, __func__ << ": Create/Set KEYSPACE: " <<
             g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
