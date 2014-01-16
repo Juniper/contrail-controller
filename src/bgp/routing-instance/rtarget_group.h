@@ -14,6 +14,9 @@
 class BgpRoute;
 class RTargetRoute;
 
+class RtGroupInterestedPeerSet : public BitSet {
+};
+
 //
 // This class keeps track of state per RouteTarget.  It maintains three main
 // pieces of information.
@@ -82,6 +85,7 @@ public:
 
     const InterestedPeerList &PeerList() const;
     void GetInterestedPeers(std::set<const BgpPeer *> &peer_set) const;
+    const RtGroupInterestedPeerSet& GetInterestedPeers() const;
     void AddInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
     void RemoveInterestedPeer(const BgpPeer *peer, RTargetRoute *rt);
     bool IsPeerInterested(const BgpPeer *peer) const;
@@ -93,6 +97,7 @@ private:
     RtGroupMembers export_;
     RTargetDepRouteList dep_;
     InterestedPeerList peer_list_;
+    RtGroupInterestedPeerSet interested_peers_;
 
     DISALLOW_COPY_AND_ASSIGN(RtGroup);
 };

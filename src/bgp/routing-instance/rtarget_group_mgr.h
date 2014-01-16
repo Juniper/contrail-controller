@@ -6,10 +6,12 @@
 #define ctrlplane_rtgroup_mgr_h
 
 #include <boost/ptr_container/ptr_map.hpp>
+#include <boost/shared_ptr.hpp>
 
 #include <base/queue_task.h>
 #include <base/lifetime.h>
 
+#include <tbb/atomic.h>
 #include <tbb/mutex.h>
 
 #include <sandesh/sandesh_types.h>
@@ -26,7 +28,6 @@
 
 class BgpServer;
 class RTargetRoute;
-
 
 //
 // This keeps track of the RTargetGroupMgr's listener state for a BgpTable.
@@ -203,7 +204,15 @@ public:
     RtGroupMap &GetRtGroupMap() { return rt_group_map_; }
     void RemoveRtGroup(const RouteTarget &rt);
 
+    virtual void GetRibOutInterestedPeers(RibOut *ribout, 
+             const ExtCommunity *ext_community, 
+             const RibPeerSet &peerset, RibPeerSet &new_peerset);
+
     void Enqueue(RtGroupMgrReq *req);
+
+    void Initialize();
+
+    void ManagedDelete();
 
 private:
     static int rtfilter_task_id_;
@@ -221,10 +230,11 @@ private:
 
     BgpServer *server() { return server_; }
 
-    void RoutingInstanceCallback(std::string name, int op);
-
     bool ProcessRTargetRouteList();
-    bool ProcessRouteTargetList();
+
+    void TriggerRTGroupDepWalk();
+    bool ProcessRouteTargetList(int part_id);
+
     void UnregisterTables();
     bool RemoveRtGroups();
 
@@ -244,12 +254,14 @@ private:
     RtGroupMgrTableStateList table_state_;
     boost::scoped_ptr<TaskTrigger> rtarget_route_trigger_;
     boost::scoped_ptr<TaskTrigger> remove_rtgroup_trigger_;
-    boost::scoped_ptr<TaskTrigger> rtarget_dep_trigger_;
+    std::vector<boost::shared_ptr<TaskTrigger> > rtarget_dep_triggers_;
     RTargetRouteTriggerList rtarget_route_list_;
+    tbb::atomic<long> num_dep_rt_triggers_;
     RouteTargetTriggerList rtarget_trigger_list_;
+    RouteTargetTriggerList pending_rtarget_trigger_list_;
     RtGroupRemoveList rtgroup_remove_list_;
     WorkQueue<RtGroupMgrReq *> *process_queue_;
-    int id_;
+    LifetimeRef<RTargetGroupMgr> master_instance_delete_ref_;
 
     DISALLOW_COPY_AND_ASSIGN(RTargetGroupMgr);
 };

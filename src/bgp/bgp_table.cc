@@ -158,35 +158,10 @@ UpdateInfo *BgpTable::GetUpdateInfo(RibOut *ribout, BgpRoute *route,
             }
         }
 
-        // Handle rtarget route
         if (attr->ext_community() != NULL) {
-            const ExtCommunity *ext_community = attr->ext_community();
-            std::set<const BgpPeer *> interested_peer = 
-                std::set<const BgpPeer *>();
-            BgpServer *server = rtinstance_->server();
-            RTargetGroupMgr *mgr = server->rtarget_group_mgr();
-            RtGroup *null_rtgroup = mgr->GetRtGroup(RouteTarget::null_rtarget);
-            if (null_rtgroup) null_rtgroup->GetInterestedPeers(interested_peer);
-            BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
-                          ext_community->communities()) {
-                if (ExtCommunity::is_route_target(comm)) {
-                    RtGroup *rtgroup = mgr->GetRtGroup(comm);
-                    if (!rtgroup) continue;
-                    rtgroup->GetInterestedPeers(interested_peer);
-                }
-            }
-            RibOut::PeerIterator iter(ribout, peerset);
-            while (iter.HasNext()) {
-                int current_index = iter.index();
-                IPeerUpdate *peer = iter.Next();
-                BgpPeer *tmp = dynamic_cast<BgpPeer *>(peer);
-                assert(tmp);
-                if (tmp->IsFamilyNegotiated(Address::RTARGET)) {
-                    if (interested_peer.find(tmp) == interested_peer.end()) {
-                        new_peerset.reset(current_index);
-                    }
-                }
-            }
+            // Handle route-target filtering
+            rtinstance_->server()->rtarget_group_mgr()->GetRibOutInterestedPeers
+                (ribout, attr->ext_community(), peerset, new_peerset);
             if (new_peerset.empty()) return NULL;
         }
 

@@ -21,6 +21,7 @@
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/routing-instance/routing_instance.h"
+#include "bgp/routing-instance/rtarget_group_mgr.h"
 #include "control-node/control_node.h"
 #include "db/db_graph.h"
 #include "ifmap/ifmap_link_table.h"
@@ -533,6 +534,7 @@ int main(int argc, char *argv[]) {
     BgpConfigParser parser(&config_db);
     parser.Parse(FileRead(var_map["config-file"].as<string>().c_str()));
 
+    bgp_server->rtarget_group_mgr()->Initialize();
     // TODO:  Initialize throws an exception (via boost) in case the
     // user does not have permissions to bind to the port.
 

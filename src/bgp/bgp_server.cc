@@ -194,7 +194,7 @@ BgpServer::BgpServer(EventManager *evm)
       session_mgr_(BgpObjectFactory::Create<BgpSessionManager>(evm, this)),
       sched_mgr_(new SchedulingGroupManager),
       inst_mgr_(BgpObjectFactory::Create<RoutingInstanceMgr>(this)),
-      rtarget_group_mgr_(new RTargetGroupMgr(this)),
+      rtarget_group_mgr_(BgpObjectFactory::Create<RTargetGroupMgr>(this)),
       membership_mgr_(BgpObjectFactory::Create<PeerRibMembershipManager>(this)),
       condition_listener_(new BgpConditionListener(this)),
       inetvpn_replicator_(new RoutePathReplicator(this, Address::INETVPN)),

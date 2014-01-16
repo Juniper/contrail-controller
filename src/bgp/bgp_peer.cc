@@ -1001,6 +1001,7 @@ void BgpPeer::EndOfRibTimerErrorHandler(string error_name,
 }
 
 void BgpPeer::RegisterToVpnTables(bool established) {
+    CHECK_CONCURRENCY("bgp::StateMachine", "bgp::RTFilter");
     if (!IsReady()) return;
 
     PeerRibMembershipManager *membership_mgr = server_->membership_mgr();
