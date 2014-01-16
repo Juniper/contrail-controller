@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
@@ -36,14 +36,18 @@ done
 systemctl --version >/dev/null 2>&1 && systemctl=1
 [ "$systemctl" ] || RUNLEVEL=$(LANG=C who -r | sed 's/.*run-level \([0-9]\).*/\1/')
 
-rpm -q contrail-libs > /dev/null && clibs='clibs'
-rpm -q contrail-control > /dev/null && control='control'
-rpm -q contrail-analytics > /dev/null && analytics='analytics'
-rpm -q contrail-vrouter > /dev/null && agent='agent'
-rpm -q contrail-config > /dev/null && capi='capi'
-rpm -q openstack-quantum-contrail > /dev/null && cquantum='cquantum'
-rpm -q contrail-webui > /dev/null && cwebui='cwebui'
-rpm -q contrail-database > /dev/null && database='database'
+grep -qi ubuntu /etc/issue
+if [ "$?" != "0" ]; then
+    rpm -q contrail-libs > /dev/null && clibs='clibs'
+    rpm -q contrail-control > /dev/null && control='control'
+    rpm -q contrail-analytics > /dev/null && analytics='analytics'
+    rpm -q contrail-vrouter > /dev/null && agent='agent'
+    rpm -q contrail-config > /dev/null && capi='capi'
+    rpm -q openstack-quantum-contrail > /dev/null && cquantum='cquantum'
+    rpm -q contrail-webui > /dev/null && cwebui='cwebui'
+    rpm -q contrail-database > /dev/null && database='database'
+fi
+
 lsmod | grep vrouter > /dev/null && vr='vr'
 
 declare -a failedlist
