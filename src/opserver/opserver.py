@@ -378,7 +378,7 @@ class OpServer(object):
             import discoveryclient.client as client
         except:
             try:
-		# TODO: Try importing from the server. This should go away..
+                # TODO: Try importing from the server. This should go away..
                 import discovery.client as client
             except:
                 raise Exception('Could not get Discovery Client')
