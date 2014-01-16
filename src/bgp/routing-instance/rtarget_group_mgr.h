@@ -201,17 +201,13 @@ public:
     RtGroup *GetRtGroup(const RouteTarget &rt);
     RtGroup *GetRtGroup(const ExtCommunity::ExtCommunityValue &comm);
     RtGroup *LocateRtGroup(const RouteTarget &rt);
-    RtGroupMap &GetRtGroupMap() { return rt_group_map_; }
+    RtGroupMap &GetRtGroupMap() { return rtgroup_map_; }
     void RemoveRtGroup(const RouteTarget &rt);
-
     virtual void GetRibOutInterestedPeers(RibOut *ribout, 
              const ExtCommunity *ext_community, 
              const RibPeerSet &peerset, RibPeerSet &new_peerset);
-
     void Enqueue(RtGroupMgrReq *req);
-
     void Initialize();
-
     void ManagedDelete();
 
 private:
@@ -220,37 +216,25 @@ private:
     void RTargetDepSync(DBTablePartBase *root, BgpRoute *rt, 
                         DBTableBase::ListenerId id, VpnRouteState *dbstate,
                         VpnRouteState::RTargetList &current);
-
     void RTargetPeerSync(BgpTable *table, RTargetRoute *rt, 
                          DBTableBase::ListenerId id, RTargetState *dbstate,
                          RtGroup::InterestedPeerList &current);
-
     void BuildRTargetDistributionGraph(BgpTable *table, RTargetRoute *rt, 
                                        DBTableBase::ListenerId id);
-
     BgpServer *server() { return server_; }
-
     bool ProcessRTargetRouteList();
-
     void TriggerRTGroupDepWalk();
     bool ProcessRouteTargetList(int part_id);
-
+    DBTableBase::ListenerId GetListenerId(BgpTable *table);
     void UnregisterTables();
     bool RemoveRtGroups();
-
-    bool VpnRouteNotify(DBTablePartBase *root,
-                        DBEntryBase *entry);
-
-    bool RTargetRouteNotify(DBTablePartBase *root,
-                            DBEntryBase *entry);
-
+    bool VpnRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
+    bool RTargetRouteNotify(DBTablePartBase *root, DBEntryBase *entry);
     bool RequestHandler(RtGroupMgrReq *req);
-
-    DBTableBase::ListenerId GetListenerId(BgpTable *table);
 
     BgpServer *server_;
     tbb::mutex mutex_;
-    RtGroupMap rt_group_map_;
+    RtGroupMap rtgroup_map_;
     RtGroupMgrTableStateList table_state_;
     boost::scoped_ptr<TaskTrigger> rtarget_route_trigger_;
     boost::scoped_ptr<TaskTrigger> remove_rtgroup_trigger_;

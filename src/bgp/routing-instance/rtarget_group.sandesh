@@ -2,14 +2,17 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+struct MemberTableList {
+    1: string family;
+    2: list<string> tables;
+}
+
 struct ShowRtGroupInfo {
     1: string rtarget;
-    2: list<string> l3vpn_import_tables;
-    3: list<string> l3vpn_export_tables;
-    4: list<string> evpn_import_tables;
-    5: list<string> evpn_export_tables;
-    6: list<string> peers_interested;
-    7: list<string> dep_route;
+    2: MemberTableList import_members;
+    3: MemberTableList export_members;
+    4: list<string> peers_interested;
+    5: list<string> dep_route;
 }
 
 response sandesh ShowRtGroupResp {

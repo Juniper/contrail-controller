@@ -57,55 +57,53 @@ bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
             ShowRtGroupResp *resp = 
                 static_cast<ShowRtGroupResp *>(req->snh_resp_);
             std::vector<ShowRtGroupInfo> rtgroup_info_list;
-            for (RtGroupMap::iterator it = rt_group_map_.begin(); 
-                 it != rt_group_map_.end(); it++) {
+            for (RtGroupMap::iterator it = rtgroup_map_.begin(); 
+                 it != rtgroup_map_.end(); it++) {
                 ShowRtGroupInfo info;
-                info.set_rtarget(it->second->rt().ToString());
-                std::vector<std::string> l3vpn_export_tables;
-                BOOST_FOREACH(BgpTable *bgptable, 
-                              it->second->GetExportTables(Address::INETVPN)) {
-                    l3vpn_export_tables.push_back(bgptable->name());
+                RtGroup *rtgroup = it->second;
+                info.set_rtarget(rtgroup->rt().ToString());
+                MemberTableList export_members;
+                BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
+                              rtgroup->GetExportMembers()) {
+                    std::vector<std::string> export_tables;
+                    BOOST_FOREACH(BgpTable *table, tables.second)
+                        export_tables.push_back(table->name());
+                    export_members.set_family(
+                                      Address::FamilyToString(tables.first));
+                    export_members.set_tables(export_tables);
                 }
-                info.set_l3vpn_export_tables(l3vpn_export_tables);
+                info.set_export_members(export_members);
 
-                std::vector<std::string> l3vpn_import_tables;
-                BOOST_FOREACH(BgpTable *bgptable, 
-                              it->second->GetImportTables(Address::INETVPN)) {
-                    l3vpn_import_tables.push_back(bgptable->name());
+                MemberTableList import_members;
+                BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
+                              rtgroup->GetImportMembers()) {
+                    std::vector<std::string> import_tables;
+                    BOOST_FOREACH(BgpTable *table, tables.second)
+                        import_tables.push_back(table->name());
+                    import_members.set_tables(import_tables);
+                    import_members.set_family(
+                                      Address::FamilyToString(tables.first));
                 }
-                info.set_l3vpn_import_tables(l3vpn_import_tables);
-
-                std::vector<std::string> evpn_export_tables;
-                BOOST_FOREACH(BgpTable *bgptable, 
-                              it->second->GetExportTables(Address::EVPN)) {
-                    evpn_export_tables.push_back(bgptable->name());
-                }
-                info.set_evpn_export_tables(evpn_export_tables);
-
-                std::vector<std::string> evpn_import_tables;
-                BOOST_FOREACH(BgpTable *bgptable, 
-                              it->second->GetImportTables(Address::EVPN)) {
-                    evpn_import_tables.push_back(bgptable->name());
-                }
-                info.set_evpn_import_tables(evpn_import_tables);
+                info.set_import_members(import_members);
 
                 const RtGroup::RTargetDepRouteList &dep_rt_list = 
-                    it->second->DepRouteList();
+                    rtgroup->DepRouteList();
                 std::vector<std::string> rtlist;
                 for (RtGroup::RTargetDepRouteList::const_iterator dep_it = 
-                     dep_rt_list.begin(); dep_it != dep_rt_list.end(); dep_it++) {
+                     dep_rt_list.begin(); dep_it != dep_rt_list.end(); 
+                     dep_it++) {
                     for (RtGroup::RouteList::const_iterator dep_rt_it = 
-                         dep_it->begin(); dep_rt_it != dep_it->end(); dep_rt_it++) {
+                         dep_it->begin(); dep_rt_it != dep_it->end(); 
+                         dep_rt_it++) {
                         rtlist.push_back((*dep_rt_it)->ToString());
                     }
                 }
                 info.set_dep_route(rtlist);
+
                 std::vector<std::string> interested_peers;
-                const RtGroup::InterestedPeerList &peer_list = it->second->PeerList();
-                for (RtGroup::InterestedPeerList::const_iterator peer_it = 
-                     peer_list.begin(); peer_it != peer_list.end(); peer_it++) {
-                    interested_peers.push_back(peer_it->first->peer_name());
-                }
+                BOOST_FOREACH(const RtGroup::InterestedPeerList::value_type 
+                              &peers, rtgroup->PeerList())
+                    interested_peers.push_back(peers.first->peer_name());
                 info.set_peers_interested(interested_peers);
                 rtgroup_info_list.push_back(info);
             }
@@ -132,7 +130,6 @@ void ShowRtGroupReq::HandleRequest() const {
         new RtGroupMgrReq(RtGroupMgrReq::SHOW_RTGROUP, resp);
     mgr->Enqueue(req);
 }
-
 
 void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt, 
                                       DBTableBase::ListenerId id, 
@@ -230,7 +227,6 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
         if (path->GetPeer()->IsXmppPeer()) continue;
         const BgpPeer *peer = static_cast<const BgpPeer *>(path->GetPeer());
         BgpProto::BgpPeerType peer_type = peer->PeerType();
-
 
         std::pair<RtGroup::InterestedPeerList::iterator,bool> ret = 
             peer_list.insert(std::pair<const BgpPeer *, 
@@ -335,7 +331,7 @@ void RTargetGroupMgr::Initialize() {
 }
 
 void RTargetGroupMgr::ManagedDelete() {
-    if (rt_group_map_.empty()) remove_rtgroup_trigger_->Set();
+    if (rtgroup_map_.empty()) remove_rtgroup_trigger_->Set();
 }
 
 void 
@@ -482,14 +478,14 @@ bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
 
 RTargetGroupMgr::~RTargetGroupMgr() {
     delete process_queue_;
-    assert(rt_group_map_.empty());
+    assert(rtgroup_map_.empty());
 }
 
 // Search a RtGroup
 RtGroup *RTargetGroupMgr::GetRtGroup(const RouteTarget &rt) {
     tbb::mutex::scoped_lock lock(mutex_);
-    RtGroupMap::iterator loc = rt_group_map_.find(rt);
-    if (loc != rt_group_map_.end()) {
+    RtGroupMap::iterator loc = rtgroup_map_.find(rt);
+    if (loc != rtgroup_map_.end()) {
         return loc->second;
     }
     return NULL;
@@ -504,19 +500,19 @@ RtGroup *RTargetGroupMgr::GetRtGroup(const ExtCommunity::ExtCommunityValue
 
 RtGroup *RTargetGroupMgr::LocateRtGroup(const RouteTarget &rt) {
     tbb::mutex::scoped_lock lock(mutex_);
-    RtGroupMap::iterator loc = rt_group_map_.find(rt);
-    RtGroup *group = (loc != rt_group_map_.end()) ? loc->second : NULL;
+    RtGroupMap::iterator loc = rtgroup_map_.find(rt);
+    RtGroup *group = (loc != rtgroup_map_.end()) ? loc->second : NULL;
     if (group == NULL) {
         group = new RtGroup(rt);
-        rt_group_map_.insert(rt, group);
+        rtgroup_map_.insert(rt, group);
     }
     return group;
 }
 
 void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     tbb::mutex::scoped_lock lock(mutex_);
-    RtGroupMap::iterator loc = rt_group_map_.find(rt);
-    RtGroup *rtgroup = (loc != rt_group_map_.end()) ? loc->second : NULL;
+    RtGroupMap::iterator loc = rtgroup_map_.find(rt);
+    RtGroup *rtgroup = (loc != rtgroup_map_.end()) ? loc->second : NULL;
     assert(rtgroup);
 
     rtgroup_remove_list_.insert(rtgroup);
@@ -554,7 +550,7 @@ void RTargetGroupMgr::GetRibOutInterestedPeers(RibOut *ribout,
 void RTargetGroupMgr::UnregisterTables() {
     CHECK_CONCURRENCY("bgp::RTFilter");
 
-    if (rt_group_map_.empty()) {
+    if (rtgroup_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
         RoutingInstance *master = 
             mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
@@ -601,13 +597,13 @@ bool RTargetGroupMgr::RemoveRtGroups() {
 
         if (rtgroup->RouteDepListEmpty() && rtgroup->peer_list_empty()) {
             RouteTarget rt = rtgroup->rt();
-            rt_group_map_.erase(rt);
+            rtgroup_map_.erase(rt);
         }
     }
 
     rtgroup_remove_list_.clear();
 
-    if (rt_group_map_.empty()) UnregisterTables();
+    if (rtgroup_map_.empty()) UnregisterTables();
 
     return true;
 }
