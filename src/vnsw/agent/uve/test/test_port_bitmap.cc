@@ -49,7 +49,8 @@ public:
             {"vnet22", 5, "2.2.2.2", "00:00:00:00:02:01", 1, 5},
         };
 
-        uve = VrouterUveEntryTest::GetInstance();
+        uve = static_cast<VrouterUveEntryTest *>
+            (Agent::GetInstance()->uve()->vrouter_uve_entry());
         CreateVmportEnv(input, 5);
         client->WaitForIdle();
         //Don't expect bitmaps to be reset on start of each test
