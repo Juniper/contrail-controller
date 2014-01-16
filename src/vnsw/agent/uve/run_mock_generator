@@ -1,0 +1,8 @@
+#!/bin/bash
+
+source /opt/contrail/vrouter-venv/bin/activate
+python /opt/contrail/vrouter-venv/bin/mock_generator $* &>/dev/null &
+ret=$?
+deactivate
+
+exit $ret
