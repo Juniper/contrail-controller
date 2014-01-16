@@ -375,22 +375,26 @@ class OpServer(object):
 
     def disc_publish(self):
         try:
-            import discovery.client as client
+            import discoveryclient.client as client
         except:
-            raise Exception('Could not get Discovery Client')
-        else:
-            data = {
-                'ip-address': self._args.host_ip,
-                'port': self._args.rest_api_port,
-            }
-            disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.OPSERVER])
-            self._logger.info("Disc Publish to %s : %d - %s"
-                              % (self._args.disc_server_ip,
-                                 self._args.disc_server_port, str(data)))
-            disc.publish(self._moduleid, data)
+            try:
+		# TODO: Try importing from the server. This should go away..
+                import discovery.client as client
+            except:
+                raise Exception('Could not get Discovery Client')
+
+        data = {
+            'ip-address': self._args.host_ip,
+            'port': self._args.rest_api_port,
+        }
+        disc = client.DiscoveryClient(
+            self._args.disc_server_ip,
+            self._args.disc_server_port,
+            ModuleNames[Module.OPSERVER])
+        self._logger.info("Disc Publish to %s : %d - %s"
+                          % (self._args.disc_server_ip,
+                             self._args.disc_server_port, str(data)))
+        disc.publish(self._moduleid, data)
     # end
 
     def __init__(self):
