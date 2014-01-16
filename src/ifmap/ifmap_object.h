@@ -5,6 +5,7 @@
 #ifndef ctrlplane_ifmap_entry_h
 #define ctrlplane_ifmap_entry_h
 
+#include <boost/crc.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <boost/intrusive/list.hpp>
 #include <boost/dynamic_bitset.hpp>
@@ -36,6 +37,7 @@ public:
     }
     IFMapOrigin origin() const { return origin_; }
     virtual bool ResolveStaleness() = 0; // return true if something was stale
+    virtual boost::crc_32_type::value_type CalculateCrc() = 0;
 
 private:
     friend class IFMapNode;

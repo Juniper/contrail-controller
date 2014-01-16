@@ -5,6 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
+#include "uve/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
 
@@ -426,6 +427,20 @@ bool VmPortFind(PortInfo *input, int id) {
     return VmPortFind(input[id].intf_id);
 }
 
+bool VmPortL2Active(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->l2_active() == true);
+}
+
+bool VmPortL2Active(PortInfo *input, int id) {
+    return VmPortL2Active(input[id].intf_id);
+}
+
 bool VmPortActive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
@@ -433,7 +448,7 @@ bool VmPortActive(int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->active() == true);
+    return (intf->ipv4_active() == true);
 }
 
 bool VmPortActive(PortInfo *input, int id) {
@@ -486,7 +501,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -503,7 +518,7 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
                    uint64_t encaps, uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
-                        AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
+                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -549,7 +564,7 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
                    uint64_t multi_proto_composites, uint64_t encaps, 
                    uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
-                        AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
+                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -579,20 +594,24 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
     return false;
 }
 
-bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
+bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
                   uint64_t out_bytes, uint64_t out_pkts) {
-    UveVnEntry entry;
-    bool found = UveClient::GetInstance()->GetUveVnEntry(string(vn), entry);
-    if (!found) {
+    const VnUveEntry* entry = VnUveTableTest::GetInstance()->
+                                                     GetVnUveEntry(string(vn));
+    if (!entry) {
         LOG(DEBUG, "Vn " << string(vn) << " NOT FOUND");
         return false;
     }
-    if (entry.uve_info.get_in_bytes() == in_bytes && entry.uve_info.get_in_tpkts() == in_pkts &&
-        entry.uve_info.get_out_bytes() == out_bytes && entry.uve_info.get_out_tpkts() == out_pkts) {
+    uint64_t match_in_bytes, match_out_bytes, match_in_pkts, match_out_pkts;
+    entry->GetInStats(&match_in_bytes, &match_in_pkts);
+    entry->GetOutStats(&match_out_bytes, &match_out_pkts);
+
+    if (match_in_bytes == in_bytes && match_in_pkts == in_pkts &&
+        match_out_bytes == out_bytes && match_out_pkts == out_pkts) {
         return true;
     }
-    LOG(DEBUG, "in_bytes " << entry.uve_info.get_in_bytes() << " in_tpkts " << entry.uve_info.get_in_tpkts() <<
-               "out bytes " << entry.uve_info.get_out_bytes()  << " out_tpkts " << entry.uve_info.get_out_tpkts());
+    LOG(DEBUG, "in_bytes " << match_in_bytes << " in_tpkts " << match_in_pkts <<
+               "out bytes " << match_out_bytes  << " out_tpkts " << match_out_pkts);
     return false;
 }
 
@@ -604,7 +623,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -615,7 +634,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
 
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
                       uint32_t obytes, uint32_t opkts) {
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE(st != NULL);
     if (st == NULL)
         return false;
@@ -629,13 +648,33 @@ bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
     return false;
 }
 
+bool VmPortL2Inactive(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+    return (intf->l2_active() == false);
+}
+
+bool VmPortL2Inactive(PortInfo *input, int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(input[id].intf_id),
+                       input[id].name);
+    intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    if (intf == NULL)
+        return false;
+
+    return (intf->l2_active() == false);
+}
+
 bool VmPortInactive(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf=static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     if (intf == NULL)
         return false;
-    return (intf->active() == false);
+    return (intf->ipv4_active() == false);
 }
 
 bool VmPortInactive(PortInfo *input, int id) {
@@ -646,7 +685,7 @@ bool VmPortInactive(PortInfo *input, int id) {
     if (intf == NULL)
         return false;
 
-    return (intf->active() == false);
+    return (intf->ipv4_active() == false);
 }
 
 PhysicalInterface *EthInterfaceGet(const char *name) {
@@ -1146,6 +1185,28 @@ void DelVrf(const char *name) {
     DelNode("routing-instance", name);
 }
 
+void ModifyForwardingModeVn(const string &name, int id, const string &fw_mode) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <network-id>" << id << "</network-id>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>" << fw_mode << "</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+
+    AddNode("virtual-network", name.c_str(), id, str.str().c_str());
+}
+
+void AddL2Vn(const char *name, int id) {
+    std::stringstream str;
+    str << "<virtual-network-properties>" << endl;
+    str << "    <network-id>" << id << "</network-id>" << endl;
+    str << "    <vxlan-network-identifier>" << (id+100) << "</vxlan-network-identifier>" << endl;
+    str << "    <forwarding-mode>l2</forwarding-mode>" << endl;
+    str << "</virtual-network-properties>" << endl;
+
+    AddNode("virtual-network", name, id, str.str().c_str());
+}
+
 void AddVn(const char *name, int id) {
     std::stringstream str;
     str << "<virtual-network-properties>" << endl;
@@ -1479,8 +1540,8 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
         return false;
     }
 
-    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
-    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
+    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
         return true;
     }
 
@@ -1693,8 +1754,8 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
     }
 }
 
-void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
-                     const char *vn, const char *vrf) {
+void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
+                     const char *vn, const char *vrf, bool l2_vn) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -1717,8 +1778,10 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
             sprintf(vrf_name, "vrf%d", input[i].vn_id);
         sprintf(vm_name, "vm%d", input[i].vm_id);
         sprintf(instance_ip, "instance%d", input[i].vm_id);
-        AddVn(vn_name, input[i].vn_id);
-        AddVrf(vrf_name);
+        if (!l2_vn) {
+            AddVn(vn_name, input[i].vn_id);
+            AddVrf(vrf_name);
+        }
         AddVm(vm_name, input[i].vm_id);
         AddVmPortVrf(input[i].name, "", 0);
 
@@ -1727,7 +1790,9 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
         AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
-        AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
+        if (!l2_vn) {
+            AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
+        }
         AddLink("virtual-machine", vm_name, "virtual-machine-interface",
                 input[i].name);
         AddLink("virtual-network", vn_name, "virtual-machine-interface",
@@ -1743,6 +1808,16 @@ void CreateVmportEnv(struct PortInfo *input, int count, int acl_id,
             AddLink("virtual-network", vn_name, "access-control-list", acl_name);
         }
     }
+}
+
+void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
+                     const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false);
+}
+
+void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
+                     const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true);
 }
 
 void FlushFlowTable() {
@@ -1772,7 +1847,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    table->DeleteNatFlow(key, true);
+    table->Delete(key, true);
     return true;
 }
 
@@ -1834,24 +1909,24 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(entry->nat);
-    if (!entry->nat) {
+    EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow));
+    if (!entry->is_flags_set(FlowEntry::NatFlow)) {
         return false;
     }
 
-    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
-    if (svn.compare(entry->data.source_vn) != 0) {
+    EXPECT_STREQ(svn.c_str(), entry->data().source_vn.c_str());
+    if (svn.compare(entry->data().source_vn) != 0) {
         return false;
     }
 
-    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
-    if (dvn.compare(entry->data.dest_vn) != 0) {
+    EXPECT_STREQ(dvn.c_str(), entry->data().dest_vn.c_str());
+    if (dvn.compare(entry->data().dest_vn) != 0) {
         return false;
     }
 
     if ((int)hash_id >= 0) {
-        EXPECT_TRUE(entry->flow_handle == hash_id);
-        if (entry->flow_handle != hash_id) {
+        EXPECT_TRUE(entry->flow_handle() == hash_id);
+        if (entry->flow_handle() != hash_id) {
             return false;
         }
     }
@@ -1872,16 +1947,16 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_TRUE(rentry->nat);
-    if (!rentry->nat) {
+    EXPECT_TRUE(rentry->is_flags_set(FlowEntry::NatFlow));
+    if (!rentry->is_flags_set(FlowEntry::NatFlow)) {
         return false;
     }
 
-    EXPECT_TRUE(entry->data.reverse_flow == rentry);
-    EXPECT_TRUE(rentry->data.reverse_flow == entry);
-    if (entry->data.reverse_flow != rentry)
+    EXPECT_TRUE(entry->reverse_flow_entry() == rentry);
+    EXPECT_TRUE(rentry->reverse_flow_entry() == entry);
+    if (entry->reverse_flow_entry() != rentry)
         return false;
-    if (rentry->data.reverse_flow != entry)
+    if (rentry->reverse_flow_entry() != entry)
         return false;
 
     return true;
@@ -1921,53 +1996,53 @@ bool FlowGet(int vrf_id, const char *sip, const char *dip, uint8_t proto,
     }
 
     if (hash_id >= 0) {
-        EXPECT_EQ(entry->flow_handle, (uint32_t)hash_id);
-        if (entry->flow_handle != (uint32_t)hash_id) {
+        EXPECT_EQ(entry->flow_handle(), (uint32_t)hash_id);
+        if (entry->flow_handle() != (uint32_t)hash_id) {
             return false;
         }
     }
 
-    EXPECT_EQ(entry->short_flow, short_flow);
-    if (entry->short_flow != short_flow) {
+    EXPECT_EQ(entry->is_flags_set(FlowEntry::ShortFlow), short_flow);
+    if (entry->is_flags_set(FlowEntry::ShortFlow) != short_flow) {
         return false;
     }
 
     if (reverse_hash_id == 0) {
         bool ret = true;
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat == false);
-        if (entry->nat == true)
+        EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == false);
+        if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
-        EXPECT_EQ(entry->key.vrf, rev->key.vrf);
-        if (entry->key.vrf != rev->key.vrf)
+        EXPECT_EQ(entry->key().vrf, rev->key().vrf);
+        if (entry->key().vrf != rev->key().vrf)
             ret = false;
 
-        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
-        if (entry->key.protocol != rev->key.protocol)
+        EXPECT_EQ(entry->key().protocol, rev->key().protocol);
+        if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
-        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
+        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
             ret = false;
 
-        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
-        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
+        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
             ret = false;
 
         return ret;
     }
 
     if (reverse_hash_id > 0) {
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
         EXPECT_TRUE(rev != NULL);
         if (rev == NULL) {
             return false;
         }
 
-        EXPECT_EQ(rev->flow_handle, (uint32_t)reverse_hash_id);
-        if (rev->flow_handle != (uint32_t)reverse_hash_id) {
+        EXPECT_EQ(rev->flow_handle(), (uint32_t)reverse_hash_id);
+        if (rev->flow_handle() != (uint32_t)reverse_hash_id) {
             return false;
         }
     }
@@ -1999,19 +2074,19 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_STREQ(svn.c_str(), entry->data.source_vn.c_str());
-    if (svn.compare(entry->data.source_vn) != 0) {
+    EXPECT_STREQ(svn.c_str(), entry->data().source_vn.c_str());
+    if (svn.compare(entry->data().source_vn) != 0) {
         return false;
     }
 
-    EXPECT_STREQ(dvn.c_str(), entry->data.dest_vn.c_str());
-    if (dvn.compare(entry->data.dest_vn) != 0) {
+    EXPECT_STREQ(dvn.c_str(), entry->data().dest_vn.c_str());
+    if (dvn.compare(entry->data().dest_vn) != 0) {
         return false;
     }
 
     if (hash_id >= 0) {
-        EXPECT_EQ(entry->flow_handle, hash_id);
-        if (entry->flow_handle != hash_id) {
+        EXPECT_EQ(entry->flow_handle(), hash_id);
+        if (entry->flow_handle() != hash_id) {
             return false;
         }
     }
@@ -2026,38 +2101,38 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         if (rentry == NULL) {
             return false;
         }
-        EXPECT_TRUE(entry->data.reverse_flow == rentry);
-        EXPECT_TRUE(rentry->data.reverse_flow == entry);
-        if (entry->data.reverse_flow != rentry)
+        EXPECT_TRUE(entry->reverse_flow_entry() == rentry);
+        EXPECT_TRUE(rentry->reverse_flow_entry() == entry);
+        if (entry->reverse_flow_entry() != rentry)
             return false;
-        if (rentry->data.reverse_flow != entry)
+        if (rentry->reverse_flow_entry() != entry)
             return false;
     } else {
         bool ret = true;
-        FlowEntry *rev = entry->data.reverse_flow.get();
+        FlowEntry *rev = entry->reverse_flow_entry();
 
-        EXPECT_TRUE(entry->nat == false);
-        if (entry->nat == true)
+        EXPECT_TRUE(entry->is_flags_set(FlowEntry::NatFlow) == false);
+        if (entry->is_flags_set(FlowEntry::NatFlow) == true)
             ret = false;
 
         if (rflow_vrf == -1) {
-            EXPECT_EQ(entry->key.vrf, rev->key.vrf);
-            if (entry->key.vrf != rev->key.vrf)
+            EXPECT_EQ(entry->key().vrf, rev->key().vrf);
+            if (entry->key().vrf != rev->key().vrf)
                 ret = false;
         } else {
-            EXPECT_EQ((uint32_t) rflow_vrf, rev->key.vrf);
+            EXPECT_EQ((uint32_t) rflow_vrf, rev->key().vrf);
         }
 
-        EXPECT_EQ(entry->key.protocol, rev->key.protocol);
-        if (entry->key.protocol != rev->key.protocol)
+        EXPECT_EQ(entry->key().protocol, rev->key().protocol);
+        if (entry->key().protocol != rev->key().protocol)
             ret = false;
 
-        EXPECT_EQ(entry->key.src.ipv4, rev->key.dst.ipv4);
-        if (entry->key.src.ipv4 != rev->key.dst.ipv4)
+        EXPECT_EQ(entry->key().src.ipv4, rev->key().dst.ipv4);
+        if (entry->key().src.ipv4 != rev->key().dst.ipv4)
             ret = false;
 
-        EXPECT_EQ(entry->key.dst.ipv4, rev->key.src.ipv4);
-        if (entry->key.dst.ipv4 != rev->key.src.ipv4)
+        EXPECT_EQ(entry->key().dst.ipv4, rev->key().src.ipv4);
+        if (entry->key().dst.ipv4 != rev->key().src.ipv4)
             ret = false;
 
         return ret;
@@ -2094,12 +2169,12 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_EQ(entry->nat, nat);
-    if (entry->nat != nat) {
+    EXPECT_EQ(entry->is_flags_set(FlowEntry::NatFlow), nat);
+    if (entry->is_flags_set(FlowEntry::NatFlow) != nat) {
         ret = false;
     }
 
-    if (entry->data.match_p.action_info.action & (1 << SimpleAction::PASS)) {
+    if (entry->match_p().action_info.action & (1 << SimpleAction::PASS)) {
         flow_fwd = true;
     }
     EXPECT_EQ(flow_fwd, fwd);
@@ -2133,8 +2208,8 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
     if (fe == NULL) {
         return false;
     }
-    LOG(DEBUG, " bytes " << fe->data.bytes << " pkts " << fe->data.packets);
-    if (fe->data.bytes == bytes && fe->data.packets == pkts) {
+    LOG(DEBUG, " bytes " << fe->stats().bytes << " pkts " << fe->stats().packets);
+    if (fe->stats().bytes == bytes && fe->stats().packets == pkts) {
         return true;
     }
 
@@ -2167,8 +2242,8 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
     }
 
     if (nat == false) {
-        EXPECT_TRUE(entry->data.reverse_flow == NULL);
-        if (entry->data.reverse_flow == NULL)
+        EXPECT_TRUE(entry->reverse_flow_entry() == NULL);
+        if (entry->reverse_flow_entry() == NULL)
             return true;
 
         return false;
@@ -2192,11 +2267,11 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
     }
 
-    EXPECT_EQ(entry->data.reverse_flow, nat_entry);
-    EXPECT_EQ(nat_entry->data.reverse_flow, entry);
+    EXPECT_EQ(entry->reverse_flow_entry(), nat_entry);
+    EXPECT_EQ(nat_entry->reverse_flow_entry(), entry);
 
-    if ((entry->data.reverse_flow == nat_entry) &&
-        (nat_entry->data.reverse_flow == entry)) {
+    if ((entry->reverse_flow_entry() == nat_entry) &&
+        (nat_entry->reverse_flow_entry() == entry)) {
         return true;
     }
 

@@ -42,8 +42,7 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
@@ -127,6 +126,10 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
     if (type != Interface::PHYSICAL ||
         itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
+
+    agent_->SetRouterId(params_->vhost_addr());
+    agent_->SetPrefixLen(params_->vhost_plen());
+    agent_->SetGatewayId(params_->vhost_gw());
 
     // Trigger initialization to continue
     TriggerInit();

@@ -9,7 +9,7 @@
 #include <db/db_table.h>
 
 #include <cmn/agent_cmn.h>
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/nexthop.h"
 #include "oper/tunnel_nh.h"
 #include "oper/vrf.h"

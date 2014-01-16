@@ -124,6 +124,7 @@ TestClient *StatsTestInit() {
     init->set_uve_enable(false);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -170,6 +171,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     init->set_uve_enable(true);
     init->set_vgw_enable(true);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -227,10 +229,8 @@ static bool WaitForDbFree(const string &name, int msec) {
 }
 
 void TestClient::Shutdown() {
-    VnswIfListener::Shutdown();
     Agent::GetInstance()->init()->Shutdown();
-    AgentUve::GetInstance()->Shutdown();
-    UveClient::GetInstance()->Shutdown();
+    Agent::GetInstance()->uve()->Shutdown();
     Agent::GetInstance()->ksync()->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  

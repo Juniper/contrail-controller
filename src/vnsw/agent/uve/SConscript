@@ -69,20 +69,32 @@ SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('agent_uve.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('stats_interval.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 SandeshGenObjs = env.Object(SandeshGenSrcs)
 
 libagentuve = env.Library('agentuve',
                          SandeshGenObjs +
-                         ['agent_stats.cc',
-                          'inter_vn_stats.cc',
-                          'flow_stats.cc',
-                          'flow_uve.cc',
-                          'uve_client.cc',
-                          'uve_init.cc',
-                          'vrouter_stats.cc'
+                         ['agent_stats_collector.cc',
+                          'agent_stats_sandesh_context.cc',
+                          'drop_stats_io_context.cc',
+                          'flow_stats_collector.cc',
+                          'l4_port_bitmap.cc',
+                          'interface_stats_io_context.cc',
+                          'agent_uve.cc',
+                          'vm_uve_entry.cc',
+                          'vm_uve_table.cc',
+                          'vm_stat.cc',
+                          'vn_uve_entry.cc',
+                          'vn_uve_table.cc',
+                          'vrf_stats_io_context.cc',
+                          'vrouter_stats_collector.cc',
+                          'vrouter_uve_entry.cc',
+                          'agent_uve_test.cc',
+                          'vm_uve_table_test.cc',
+                          'vn_uve_table_test.cc',
+                          'vrouter_uve_entry_test.cc',
                           ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

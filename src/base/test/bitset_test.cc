@@ -1836,6 +1836,22 @@ TEST_F(BitSetTest, String2) {
     }
 }
 
+TEST_F(BitSetTest, NumberedString) {
+    BitSet even_bitset;
+    for (int num = 0; num <=10 ; num+=2) {
+        even_bitset.set(num);
+    }
+    BitSet odd_bitset;
+    for (int num = 1; num <=11 ; num+=2) {
+        odd_bitset.set(num);
+    }
+
+    string even_string = even_bitset.ToNumberedString();
+    string odd_string = odd_bitset.ToNumberedString();
+    EXPECT_EQ(even_string, "0,2,4,6,8,10");
+    EXPECT_EQ(odd_string, "1,3,5,7,9,11");
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);

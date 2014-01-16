@@ -35,8 +35,7 @@
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <diag/diag.h>
@@ -50,6 +49,10 @@ void RouterIdDepInit() {
     // Parse config and then connect
     VNController::Connect();
     LOG(DEBUG, "Router ID Dependent modules (Nova and BGP) INITIALIZED");
+}
+
+bool GetBuildInfo(std::string &build_info_str) {
+    return MiscUtils::GetBuildInfo(MiscUtils::Agent, BuildInfo, build_info_str);
 }
 
 int main(int argc, char *argv[]) {
@@ -119,7 +122,7 @@ int main(int argc, char *argv[]) {
     }
 
     string build_info;
-    Agent::GetInstance()->GetBuildInfo(build_info);
+    GetBuildInfo(build_info);
     MiscUtils::LogVersionInfo(build_info, Category::VROUTER);
 
     // Create agent 

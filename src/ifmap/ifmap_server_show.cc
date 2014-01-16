@@ -48,8 +48,8 @@ public:
 
         if (state) {
             // Get the interests and advertised from state
-            dest->interests = state->interest().ToString();
-            dest->advertised = state->advertised().ToString();
+            dest->interests = state->interest().ToNumberedString();
+            dest->advertised = state->advertised().ToNumberedString();
         } else {
             dest->dbentryflags.append("No state, ");
         }
@@ -343,8 +343,8 @@ void ShowIFMapLinkTable::CopyNode(IFMapLinkShowInfo *dest, DBEntryBase *src,
     dest->right = src_link->right()->ToString();
 
     // Get the interests and advertised from state
-    dest->interests = state->interest().ToString();
-    dest->advertised = state->advertised().ToString();
+    dest->interests = state->interest().ToNumberedString();
+    dest->advertised = state->advertised().ToNumberedString();
 
     if (src_link->IsDeleted()) {
         dest->dbentryflags.append("Deleted, ");

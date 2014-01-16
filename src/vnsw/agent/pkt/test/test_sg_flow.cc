@@ -324,30 +324,30 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
                     int dport, int action) {
     bool ret = true;
     FlowEntry *fe = FlowGet(vrfid, sip, dip, proto, sport, dport);
-    FlowEntry *rfe = fe->data.reverse_flow.get();
+    FlowEntry *rfe = fe->reverse_flow_entry();
 
-    EXPECT_TRUE((fe->data.match_p.sg_action & (1 << action)) != 0);
-    if ((fe->data.match_p.sg_action & (1 << action)) == 0) {
+    EXPECT_TRUE((fe->match_p().sg_action & (1 << action)) != 0);
+    if ((fe->match_p().sg_action & (1 << action)) == 0) {
         ret = false;
     }
 
-    if (fe->data.match_p.sg_action & (1 << TrafficAction::TRAP) ||
-            rfe->data.match_p.sg_action & (1 << TrafficAction::TRAP)) {
+    if (fe->match_p().sg_action & (1 << TrafficAction::TRAP) ||
+            rfe->match_p().sg_action & (1 << TrafficAction::TRAP)) {
         return ret;
     }
 
-    if (!(fe->data.match_p.sg_action & (1 << TrafficAction::TRAP)) && 
-        !(rfe->data.match_p.sg_action & (1 << TrafficAction::TRAP))) {
-        EXPECT_EQ(fe->data.match_p.sg_action, rfe->data.match_p.sg_action);
-        if (fe->data.match_p.sg_action != rfe->data.match_p.sg_action) {
+    if (!(fe->match_p().sg_action & (1 << TrafficAction::TRAP)) && 
+        !(rfe->match_p().sg_action & (1 << TrafficAction::TRAP))) {
+        EXPECT_EQ(fe->match_p().sg_action, rfe->match_p().sg_action);
+        if (fe->match_p().sg_action != rfe->match_p().sg_action) {
             ret = false;
         }
     }
 
-    EXPECT_EQ(fe->data.match_p.action_info.action,
-              rfe->data.match_p.action_info.action);
-    if (fe->data.match_p.action_info.action !=
-        rfe->data.match_p.action_info.action) {
+    EXPECT_EQ(fe->match_p().action_info.action,
+              rfe->match_p().action_info.action);
+    if (fe->match_p().action_info.action !=
+        rfe->match_p().action_info.action) {
         ret = false;
     }
 

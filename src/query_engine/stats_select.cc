@@ -119,8 +119,12 @@ QEOpServerProxy::VarType StatsSelect::Parse(int sidx,
 
     if (vname == g_viz_constants.STAT_OBJECTID_FIELD) {
         return QEOpServerProxy::STRING;
-
     }
+
+    if (vname == g_viz_constants.STAT_SOURCE_FIELD) {
+        return QEOpServerProxy::STRING;
+    }
+
     if (vname == g_viz_constants.STAT_TIME_FIELD) {
         return QEOpServerProxy::UINT64;
     }

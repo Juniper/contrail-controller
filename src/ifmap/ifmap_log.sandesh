@@ -175,6 +175,30 @@ systemlog sandesh IFMapXmppVmSubUnsub {
     3: string vm_name
 }
 
+systemlog sandesh IFMapClientSendInfo {
+    1: "Sent"
+    2: string operation
+    3: "of"
+    4: string object_name
+    5: "to vRouter"
+    6: string client_name (key="ObjectVRouter")
+}
+
+systemlog sandesh IFMapNodeOperation {
+    1: string op
+    2: string node_name
+}
+
+systemlog sandesh IFMapLinkOperation {
+    1: string op
+    2: string node_name
+}
+
+systemlog sandesh IFMapXmlLoadError {
+    1: string message
+    2: u32 length
+}
+
 trace sandesh JoinVertexTrace {
     1: "JoinVertex:"
     2: string vertex_name
@@ -346,5 +370,20 @@ trace sandesh IFMapXmppVmSubUnsubTrace {
     1: string op
     2: string client_name (key="ObjectVRouter")
     3: string vm_name
+}
+
+trace sandesh IFMapNodeOperationTrace {
+    1: string op
+    2: string node_name
+}
+
+trace sandesh IFMapLinkOperationTrace {
+    1: string op
+    2: string node_name
+}
+
+trace sandesh IFMapXmlLoadErrorTrace {
+    1: string message
+    2: u32 length
 }
 

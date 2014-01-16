@@ -88,7 +88,7 @@ void VxLanTable::Delete(DBEntry *entry, const DBRequest *req) {
 
 void VxLanTable::OnZeroRefcount(AgentDBEntry *e) {
     const VxLanId *vxlan_id = static_cast<const VxLanId *>(e);
-    VxLanId::DeleteReq(vxlan_id->vxlan_id());
+    VxLanId::Delete(vxlan_id->vxlan_id());
 }
 
 DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
@@ -98,7 +98,7 @@ DBTableBase *VxLanTable::CreateTable(DB *db, const std::string &name) {
     return vxlan_id_table_;
 }
 
-void VxLanId::CreateReq(uint32_t vxlan_id, const string &vrf_name) {
+void VxLanId::Create(uint32_t vxlan_id, const string &vrf_name) {
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     VrfNHKey *vrf_nh_key = new VrfNHKey(vrf_name, false);
@@ -118,7 +118,7 @@ void VxLanId::CreateReq(uint32_t vxlan_id, const string &vrf_name) {
     return;
 }
                                    
-void VxLanId::DeleteReq(uint32_t vxlan_id) {
+void VxLanId::Delete(uint32_t vxlan_id) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 

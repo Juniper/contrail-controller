@@ -66,6 +66,7 @@ static inline void CfgUuidSet(uint64_t ms_long, uint64_t ls_long,
 }
 
 extern SandeshTraceBufferPtr OperDBTraceBuf;
+extern bool GetBuildInfo(std::string &build_info_str);
 
 #define OPER_TRACE(obj, ...)\
 do {\

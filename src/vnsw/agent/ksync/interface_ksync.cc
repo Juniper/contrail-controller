@@ -47,7 +47,8 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     has_service_vlan_(entry->has_service_vlan_), mac_(entry->mac_),
     ip_(entry->ip_), policy_enabled_(entry->policy_enabled_),
     analyzer_name_(entry->analyzer_name_),
-    mirror_direction_(entry->mirror_direction_), active_(false),
+    mirror_direction_(entry->mirror_direction_), 
+    ipv4_active_(false), l2_active_(false),
     os_index_(Interface::kInvalidIndex), network_id_(entry->network_id_),
     sub_type_(entry->sub_type_), ipv4_forwarding_(entry->ipv4_forwarding_),
     layer2_forwarding_(entry->layer2_forwarding_), vlan_id_(entry->vlan_id_),
@@ -61,7 +62,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
     type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->GetVrfId()),
     fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
     policy_enabled_(false), analyzer_name_(),
-    mirror_direction_(Interface::UNKNOWN), active_(false),
+    mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
     os_index_(intf->os_index()), sub_type_(InetInterface::VHOST),
     ipv4_forwarding_(true), layer2_forwarding_(true),
     vlan_id_(VmInterface::kInvalidVlanId), parent_(NULL) {
@@ -106,8 +107,13 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     Interface *intf = static_cast<Interface *>(e);
     bool ret = false;
 
-    if (active_ != intf->active()) {
-        active_ = intf->active();
+    if (ipv4_active_ != intf->ipv4_active()) {
+        ipv4_active_ = intf->ipv4_active();
+        ret = true;
+    }
+
+    if (l2_active_ != intf->l2_active()) {
+        l2_active_ = intf->l2_active();
         ret = true;
     }
 
@@ -145,11 +151,12 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     std::string analyzer_name;    
     Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
     bool has_service_vlan = false;
-    if (active_) {
+    if (l2_active_ || ipv4_active_) {
         vrf_id = intf->GetVrfId();
         if (vrf_id == VrfEntry::kInvalidIndex) {
             vrf_id = VIF_VRF_INVALID;
         }
+
         if (intf->type() == Interface::VM_INTERFACE) {
             VmInterface *vm_port = static_cast<VmInterface *>(intf);
             has_service_vlan = vm_port->HasServiceVlan();
@@ -353,7 +360,8 @@ void InterfaceKSyncEntry::FillObjectLog(sandesh_op::type op,
     if (op == sandesh_op::ADD) {
         info.set_os_idx(os_index_);
         info.set_vrf_id(vrf_id_);
-        info.set_active(active_);
+        info.set_l2_active(l2_active_);
+        info.set_active(ipv4_active_);
         info.set_policy_enabled(policy_enabled_);
         info.set_service_enabled(has_service_vlan_);
         info.set_analyzer_name(analyzer_name_);

@@ -10,6 +10,8 @@
 #include "db/db_graph.h"
 #include "db/db_table_partition.h"
 #include "ifmap/ifmap_link.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 
 using namespace std;
 
@@ -48,6 +50,7 @@ void IFMapLinkTable::AddLink(DBGraphBase::edge_descriptor edge,
     }
     link->SetProperties(left, right, metadata, sequence_number, origin);
     graph_->SetEdgeProperty(link);
+    IFMAP_DEBUG(IFMapLinkOperation, "Creating", link->ToString());
 }
 
 IFMapLink *IFMapLinkTable::FindLink(DBGraphBase::edge_descriptor edge) {
@@ -61,6 +64,7 @@ IFMapLink *IFMapLinkTable::FindLink(DBGraphBase::edge_descriptor edge) {
 
 void IFMapLinkTable::DeleteLink(DBGraphEdge *edge) {
     IFMapLink *link = static_cast<IFMapLink *>(edge);
+    IFMAP_DEBUG(IFMapLinkOperation, "Deleting", link->ToString());
     link->set_last_change_at_to_now();
     link->ClearNodes();
     DBTablePartition *partition =

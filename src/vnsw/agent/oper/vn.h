@@ -167,7 +167,14 @@ public:
     bool GetIpamVdnsData(const Ip4Address &vm_addr, 
                          autogen::IpamType *ipam_type,
                          autogen::VirtualDnsType *vdns_type) const;
-    int vxlan_id() const;
+    int GetVxLanId() const;
+    bool Resync(); 
+    bool VxLanNetworkIdentifierChanged();
+    bool ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
+                         bool new_layer2_forwarding,
+                         bool vxlan_network_identifier_mode_changed);
+
+    const VxLanId *vxlan_id_ref() const {return vxlan_id_ref_.get();}
     bool layer2_forwarding() const {return layer2_forwarding_;};
     bool Ipv4Forwarding() const {return ipv4_forwarding_;};
 
@@ -178,8 +185,11 @@ public:
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     void SendObjectLog(AgentLogEvent::type event) const;
+
 private:
+    void RebakeVxLan(int vxlan_id);
     friend class VnTable;
+
     uuid uuid_;
     string name_;
     AclDBEntryRef acl_;
@@ -209,6 +219,7 @@ public:
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
     virtual void Delete(DBEntry *entry, const DBRequest *req);
+    virtual bool Resync(DBEntry *entry, DBRequest *req); 
 
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 

@@ -30,11 +30,16 @@ if sys.platform != 'darwin':
     libservices = env.Library('agent_services',
                      sandesh_objs +
                      [
-                      'dhcp_proto.cc',
-                      'dns_proto.cc',
+                      'arp_entry.cc',
+                      'arp_handler.cc',
                       'arp_proto.cc',
-                      'metadata_proxy.cc',
+                      'dhcp_handler.cc',
+                      'dhcp_proto.cc',
+                      'dns_handler.cc',
+                      'dns_proto.cc',
+                      'icmp_handler.cc',
                       'icmp_proto.cc',
+                      'metadata_proxy.cc',
                       'services_init.cc',
                       'services_sandesh.cc',
                       ])

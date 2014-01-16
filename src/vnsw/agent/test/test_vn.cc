@@ -206,6 +206,303 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
 
 }
 
+TEST_F(CfgTest, VrfChangeVxlanTest) {
+    char buff[4096];
+    int len = 0;
+
+    client->WaitForIdle();
+    AddVn("vn1", 1);
+    AddVrf("vrf1", 1);
+    AddXmlHdr(buff, len);
+    AddLinkString(buff, len, "virtual-network", "vn1", "routing-instance", "vrf1");
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+
+    CheckVnAdd(1, 1);
+    VnEntry *vn = VnGet(1);
+    EXPECT_TRUE(vn->GetVrf() != NULL);
+    EXPECT_TRUE(vn->vxlan_id_ref() != NULL);
+
+    AddXmlHdr(buff, len);
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    AddXmlTail(buff, len);
+    ApplyXmlString(buff);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(vn->GetVrf() == NULL);
+    EXPECT_TRUE(vn->vxlan_id_ref() == NULL);
+
+
+    DelVn("vn1");
+    DelVrf("vrf1");
+    client->WaitForIdle();
+
+    CheckVnDel(1, 1);
+    EXPECT_FALSE(VnFind(1));
+    EXPECT_FALSE(VrfFind("vrf1"));
+}
+
+TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    VnEntry *vn = VnGet(1);
+    //Auto vxlan id as mode is automatic
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    std::stringstream str;
+
+    //Set to configured
+    str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 101);
+
+    //Any other string than configured/automatic should default to automatic
+    str << "<vxlan-network-identifier-mode>junk</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    //Set to configured and then delete node 
+    str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    DelNode("global-vrouter-config", "vrouter-config");
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, vn_forwarding_mode_changed_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    VnEntry *vn = VnGet(1);
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    string vrf_name = "vrf1";
+    struct ether_addr *vxlan_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vxlan_vm_mac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
+    struct ether_addr *vxlan_flood_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vxlan_flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"), sizeof(struct ether_addr));
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
+    Ip4Address subnet_ip = Ip4Address::from_string("1.1.1.255");
+    Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
+    CompositeNH *cnh = NULL;
+
+    //By default l2_l3 mode
+    Layer2RouteEntry *l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    Layer2RouteEntry *l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    Inet4UnicastRouteEntry *uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    Inet4UnicastRouteEntry *subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    Inet4MulticastRouteEntry *flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt != NULL);
+    EXPECT_TRUE(subnet_rt != NULL);
+    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    //Move to l2 mode
+    ModifyForwardingModeVn("vn1", 1, "l2");
+    client->WaitForIdle();
+    l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt == NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    //Move to l2_l3 mode
+    ModifyForwardingModeVn("vn1", 1, "l2_l3");
+    client->WaitForIdle();
+    l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt != NULL);
+    EXPECT_TRUE(subnet_rt != NULL);
+    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    client->Reset();
+    DelIPAM("vn1"); 
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, vn_forwarding_mode_changed_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    IpamInfo ipam_info[] = {
+        {"1.1.1.0", 24, "1.1.1.200"},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortL2Active(input, 0));
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+    VnEntry *vn = VnGet(1);
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    string vrf_name = "vrf1";
+    struct ether_addr *vxlan_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vxlan_vm_mac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
+    struct ether_addr *vxlan_flood_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vxlan_flood_mac, ether_aton("ff:ff:ff:ff:ff:ff"), sizeof(struct ether_addr));
+    Ip4Address vm_ip = Ip4Address::from_string("1.1.1.10");
+    Ip4Address subnet_ip = Ip4Address::from_string("1.1.1.255");
+    Ip4Address flood_ip = Ip4Address::from_string("255.255.255.255");
+    CompositeNH *cnh = NULL;
+
+    Layer2RouteEntry *l2_uc_rt;
+    Layer2RouteEntry *l2_flood_rt;
+    Inet4UnicastRouteEntry *uc_rt;
+    Inet4UnicastRouteEntry *subnet_rt;
+    Inet4MulticastRouteEntry *flood_rt;
+    
+    //default to l2 mode
+    client->WaitForIdle();
+    l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt == NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    //Move to l2_l3 mode
+    ModifyForwardingModeVn("vn1", 1, "l2_l3");
+    client->WaitForIdle();
+    l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt != NULL);
+    EXPECT_TRUE(subnet_rt != NULL);
+    EXPECT_TRUE(flood_rt != NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    EXPECT_TRUE(subnet_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) flood_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    cnh = ((CompositeNH *) subnet_rt->GetActiveNextHop());
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+
+    //Move back to l2
+    ModifyForwardingModeVn("vn1", 1, "l2");
+    client->WaitForIdle();
+    l2_uc_rt = L2RouteGet(vrf_name, *vxlan_vm_mac);
+    l2_flood_rt = L2RouteGet(vrf_name, *vxlan_flood_mac);
+    uc_rt = RouteGet(vrf_name, vm_ip, 32);
+    subnet_rt = RouteGet(vrf_name, subnet_ip, 32);
+    flood_rt = MCRouteGet(vrf_name, flood_ip);
+    EXPECT_TRUE(l2_uc_rt != NULL);
+    EXPECT_TRUE(l2_flood_rt != NULL);
+    EXPECT_TRUE(uc_rt == NULL);
+    EXPECT_TRUE(subnet_rt == NULL);
+    EXPECT_TRUE(flood_rt == NULL);
+    EXPECT_TRUE(l2_uc_rt->GetActiveNextHop()->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(l2_flood_rt->GetActiveNextHop()->GetType() == NextHop::COMPOSITE);
+    cnh = ((CompositeNH *) l2_flood_rt->GetActiveNextHop());
+    //Fabric COMP + Interface COMP
+    EXPECT_TRUE(cnh->ComponentNHCount() == 2);
+    client->Reset();
+
+    DelIPAM("vn1"); 
+    client->WaitForIdle();
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

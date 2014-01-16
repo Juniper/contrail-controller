@@ -39,9 +39,11 @@ from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
-    STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD
+    STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD, \
+    STAT_SOURCE_FIELD, SOURCE, MODULE
 from sandesh.viz.constants import *
 from sandesh.analytics_cpuinfo.ttypes import *
+from sandesh.analytics_cpuinfo.cpuinfo.ttypes import ProcessCpuInfo
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
@@ -404,7 +406,7 @@ class OpServer(object):
         module = Module.OPSERVER
         self._moduleid = ModuleNames[module]
         node_type = Module2NodeType[module]
-        node_type_name = NodeTypeNames[node_type]
+        self._node_type_name = NodeTypeNames[node_type]
         if self._args.worker_id:
             self._instance_id = self._args.worker_id
         else:
@@ -414,7 +416,7 @@ class OpServer(object):
             self._hostname += 'dup'
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
         sandesh_global.init_generator(self._moduleid, self._hostname,
-                                      node_type_name, self._instance_id,
+                                      self._node_type_name, self._instance_id,
                                       self._args.collectors, 'opserver_context',
                                       int(self._args.http_server_port),
                                       ['sandesh'])
@@ -465,6 +467,9 @@ class OpServer(object):
             keyln = query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
             scols.append(keyln)
 
+            keyln = query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
+            scols.append(keyln)
+
             tln = query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
@@ -491,7 +496,7 @@ class OpServer(object):
                 name = STAT_VT_PREFIX + "." + stat_id,
                 display_name = t.display_name,
                 schema = sch,
-                columnvalues = [STAT_OBJECTID_FIELD])
+                columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
 
         bottle.route('/', 'GET', self.homepage_http_get)
@@ -1295,7 +1300,7 @@ class OpServer(object):
     # end column_values_process
 
     def generator_info(self, table, column):
-        if ((column == 'ModuleId') or (column == 'Source')):
+        if ((column == MODULE) or (column == SOURCE)):
             try:
                 redish = redis.StrictRedis(
                     db=0,
@@ -1303,16 +1308,16 @@ class OpServer(object):
                     port=int(self._args.redis_server_port))
                 sources = []
                 moduleids = []
-                for key in redish.smembers("GENERATORS"):
+                for key in redish.smembers("NGENERATORS"):
                     source = key.split(':')[0]
-                    module = key.split(':')[1]
+                    module = key.split(':')[2]
                     if (sources.count(source) == 0):
                         sources.append(source)
                     if (moduleids.count(module) == 0):
                         moduleids.append(module)
-                if (column == 'ModuleId'):
+                if (column == MODULE):
                     return moduleids
-                elif (column == 'Source'):
+                elif (column == SOURCE):
                     return sources
             except Exception as e:
                 print e
@@ -1390,8 +1395,9 @@ class OpServer(object):
             aly_cpu_state = AnalyticsCpuState()
             aly_cpu_state.name = self._hostname
 
-            aly_cpu_info = AnalyticsCpuInfo()
-            aly_cpu_info.module_instance_id = self._moduleid + ':' + self._instance_id
+            aly_cpu_info = ProcessCpuInfo()
+            aly_cpu_info.module_id= self._moduleid
+            aly_cpu_info.inst_id = self._instance_id
             aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
             aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
             aly_cpu_state.cpu_info = [aly_cpu_info]

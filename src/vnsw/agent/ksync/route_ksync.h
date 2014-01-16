@@ -15,7 +15,7 @@
 #include <ksync/ksync_entry.h>
 #include <ksync/ksync_object.h>
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "ksync/agent_ksync_types.h"
 #include "ksync/nexthop_ksync.h"
 
@@ -27,7 +27,7 @@ class RouteKSyncEntry : public KSyncNetlinkDBEntry {
 public:
     RouteKSyncEntry(RouteKSyncObject* obj, const RouteKSyncEntry *entry, 
                     uint32_t index);
-    RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *route); 
+    RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *route); 
     virtual ~RouteKSyncEntry();
 
     uint32_t prefix_len() const { return prefix_len_; }

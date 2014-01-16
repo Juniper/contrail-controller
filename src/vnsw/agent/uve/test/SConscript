@@ -16,20 +16,26 @@ env.Prepend(CCFLAGS = ['-Wno-return-type', '-Wno-unused-function'])
 import sys
 if sys.platform != 'darwin':
     env.Append(LIBPATH=['../../test'])
-    env.Prepend(LIBS=['agent_test']);
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
 
-    test_vn_vmlist = env.Program(target = 'test_vn_vmlist', source = ['test_vn_vmlist.cc'])
-    env.Alias('src/vnsw/agent/uve/test:test_vn_vmlist', test_vn_vmlist)
+    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_vn_uve', test_vn_uve)
 
     test_port_bitmap = env.Program(target = 'test_port_bitmap', source = ['test_port_bitmap.cc'])
     env.Alias('src/vnsw/agent/uve/test:test_port_bitmap', test_port_bitmap)
 
-    #uve_timer = env.Program(target = 'uve_timer', source = ['uve_timer.cc'])
-    #env.Alias('src/vnsw/agent/uve/test:uve_timer', uve_timer)
+    test_stats_mock =  env.Program(target = 'test_stats_mock', source = ['test_stats_mock.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_stats_mock', test_stats_mock)
+
+    test_uve = env.Program(target = 'test_uve', source = ['test_uve.cc'])
+    env.Alias('src/vnsw/agent/uve/test:test_uve', test_uve)
 
     uve_test_suite = [
-                      test_vn_vmlist,
-                      test_port_bitmap
+                      test_vn_uve,
+                      test_port_bitmap,
+                      test_stats_mock,
+                      test_uve
                       ]
     test = env.TestSuite('agent-test', uve_test_suite)
     env.Alias('src/vnsw/agent:test', test)

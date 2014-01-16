@@ -31,7 +31,7 @@ struct PktControlInfo {
 
 class PktFlowInfo {
 public:
-    PktFlowInfo(PktInfo *info): 
+    PktFlowInfo(boost::shared_ptr<PktInfo> info): 
         pkt(info), source_vn(NULL), dest_vn(NULL), flow_source_vrf(-1),
         flow_dest_vrf(-1), source_sg_id_l(NULL), dest_sg_id_l(NULL),
         nat_done(false), nat_ip_saddr(0),
@@ -65,16 +65,9 @@ public:
     static bool GetIngressNwPolicyAclList(const Interface *intf,
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
-    bool InitFlowCmn(FlowEntry *flow, PktControlInfo *ctrl,
-                     PktControlInfo *rev_ctrl);
-    void InitFwdFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
-                     PktControlInfo *rev_flow);
-    void InitRevFlow(FlowEntry *flow, const PktInfo *pkt, PktControlInfo *ctrl,
-                     PktControlInfo *rev_flow);
     void RewritePktInfo(uint32_t index);
-    void SetRpfNH(FlowEntry *flow, const PktControlInfo *ctrl);
 public:
-    PktInfo             *pkt;
+    boost::shared_ptr<PktInfo> pkt;
 
     const std::string   *source_vn;
     const std::string   *dest_vn;

@@ -73,12 +73,12 @@ bool QEInfoLogger(const string &hostname) {
     AnalyticsCpuState  astate;
     astate.set_name(hostname);
 
-    AnalyticsCpuInfo ainfo;
-    ainfo.set_module_instance_id(Sandesh::module() + ":" +
-                                 Sandesh::instance_id());
+    ProcessCpuInfo ainfo;
+    ainfo.set_module_id(Sandesh::module());
+    ainfo.set_inst_id(Sandesh::instance_id());
     ainfo.set_cpu_share(cpu_load_info.get_cpu_share());
     ainfo.set_mem_virt(cpu_load_info.get_meminfo().get_virt());
-    vector<AnalyticsCpuInfo> aciv;
+    vector<ProcessCpuInfo> aciv;
     aciv.push_back(ainfo);
     astate.set_cpu_info(aciv);
     AnalyticsCpuStateTrace::Send(astate);

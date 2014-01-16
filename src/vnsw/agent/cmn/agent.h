@@ -99,6 +99,7 @@ class FlowProto;
 
 class Peer;
 class LifetimeManager;
+class DiagTable;
 
 extern void RouterIdDepInit();
 
@@ -121,7 +122,6 @@ public:
     Agent();
     virtual ~Agent();
     const std::string &GetHostName();
-    bool GetBuildInfo(std::string &build_info_str);
     const std::string &GetProgramName() {return prog_name_;};
     static const std::string &NullString() {return null_str_;};
     static const std::string &VrrpMac() {return vrrp_mac_;};
@@ -502,6 +502,9 @@ public:
     void Shutdown() {
     }
 
+    DiagTable *diag_table() const {
+        return diag_table_.get();
+    }
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
     void SetAgentTaskPolicy();
@@ -541,6 +544,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
+    std::auto_ptr<DiagTable> diag_table_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];

@@ -14,7 +14,7 @@
 
 #include <cfg/cfg_init.h>
 #include <route/route.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vn.h>
 #include <oper/vrf.h>
 #include <oper/peer.h>

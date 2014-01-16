@@ -8,7 +8,7 @@
 #include <vnc_cfg_types.h>
 #include "base/task_annotations.h"
 #include <base/logging.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
@@ -55,6 +55,10 @@ void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
     priority_list_ = l;
 
     return;
+}
+
+void TunnelType::DeletePriorityList() {
+    priority_list_.clear();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -451,17 +455,26 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
     Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
-// Create 3 InterfaceNH for every VPort. One with policy another without 
+// Create 3 InterfaceNH for every Vm interface. One with policy another without 
 // policy, third one is for multicast.
-void InterfaceNH::CreateVport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name) {
-    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4 | 
-                  InterfaceNHFlags::MULTICAST, false,vrf_name);
+void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
+}
+
+void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
+}
+
+void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                               const struct ether_addr &dmac, 
+                                               const string &vrf_name) {
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::MULTICAST, false, vrf_name);
 }
 
 static void DeleteNH(const uuid &intf_uuid, bool policy, 
@@ -475,13 +488,12 @@ static void DeleteNH(const uuid &intf_uuid, bool policy,
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
-void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
+void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4);
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST | 
-             InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
 }
 
 void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {

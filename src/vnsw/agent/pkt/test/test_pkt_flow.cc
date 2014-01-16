@@ -128,7 +128,7 @@ public:
         key.protocol = proto;
         key.src_port = sport;
         key.dst_port = dport;
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, del_reverse_flow);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, del_reverse_flow);
         client->WaitForIdle();
     }
 
@@ -189,15 +189,14 @@ public:
     static void FlowAdd(int hash_id, int vrf, const char *sip, const char *dip,
                         int proto, int sport, int dport, const char *nat_sip,
                         const char *nat_dip, int nat_vrf) {
-        PktInfo pkt_1;
-        PktInfo *pkt = &pkt_1;
-        PktFlowInfo flow_info_1(pkt);
+        boost::shared_ptr<PktInfo> pkt_1(new PktInfo());
+        PktFlowInfo flow_info_1(pkt_1);
         PktFlowInfo *flow_info = &flow_info_1;
         MatchPolicy policy;
         string svn = "svn";
         string dvn = "dvn";
 
-        memset(pkt, 0, sizeof(*pkt));
+        PktInfo *pkt = pkt_1.get();
         pkt->vrf = vrf;
         pkt->ip_saddr = ntohl(inet_addr(sip));
         pkt->ip_daddr = ntohl(inet_addr(dip));
@@ -427,7 +426,7 @@ TEST_F(FlowTest, FlowAdd_1) {
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
@@ -497,7 +496,7 @@ TEST_F(FlowTest, FlowAdd_2) {
     //Verify ingress and egress flow count
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -557,14 +556,14 @@ TEST_F(FlowTest, FlowAdd_3) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -623,14 +622,14 @@ TEST_F(FlowTest, FlowAdd_4) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 
     //Verify ingress and egress flow count of VN "vn3"
     fe = flow[1].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -660,7 +659,7 @@ TEST_F(FlowTest, FlowAdd_5) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -671,7 +670,7 @@ TEST_F(FlowTest, FlowAdd_5) {
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = flow[0].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -708,7 +707,7 @@ TEST_F(FlowTest, FlowAdd_6) {
     //Verify ingress and egress flow count of VN "vn5"
     uint32_t in_count, out_count;
     const FlowEntry *fe = fwd_flow[0].pkt_.FlowFetch();
-    const VnEntry *vn = fe->data.vn_entry.get();
+    const VnEntry *vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -722,7 +721,7 @@ TEST_F(FlowTest, FlowAdd_6) {
 
     //Verify ingress and egress flow count for VN "vn5" does not change
     fe = fwd_flow[0].pkt_.FlowFetch();
-    vn = fe->data.vn_entry.get();
+    vn = fe->data().vn_entry.get();
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
@@ -731,9 +730,9 @@ TEST_F(FlowTest, FlowAdd_6) {
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(
             tmp_age_time);
 
     //Create bidirectional flow
@@ -791,18 +790,18 @@ TEST_F(FlowTest, FlowAge_1) {
     WAIT_FOR(100, 1, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 // Aging with more than 2 entries
 TEST_F(FlowTest, FlowAge_3) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     //Create bidirectional flow
     TestFlow flow[] = {
@@ -875,14 +874,14 @@ TEST_F(FlowTest, FlowAge_3) {
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, ScaleFlowAge_1) {
     int tmp_age_time = 200 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     int total_flows = 200;
 
     for (int i = 0; i < total_flows; i++) {
@@ -907,34 +906,34 @@ TEST_F(FlowTest, ScaleFlowAge_1) {
     EXPECT_EQ((total_flows * 2), 
             Agent::GetInstance()->pkt()->flow_table()->Size());
     //Set the flow age time to 200 milliseconds
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
-    AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ = 0;
+    Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ = 0;
 
     int passes = GetFlowPassCount((total_flows * 2), tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle(5);
-    WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= passes));
+    WAIT_FOR(5000, 1000, (Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ >= passes));
     usleep(tmp_age_time + 1000);
-    WAIT_FOR(5000, 1000, (AgentUve::GetInstance()->GetFlowStatsCollector()->run_counter_ >= (passes * 2)));
-    client->WaitForIdle(2);
+        WAIT_FOR(5000, 1000, (Agent::GetInstance()->uve()->flow_stats_collector()->run_counter_ >= (passes * 2)));
+        client->WaitForIdle(2);
 
     WAIT_FOR(5000, 500, (0U == Agent::GetInstance()->pkt()->flow_table()->Size()));
     EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 TEST_F(FlowTest, Nat_FlowAge_1) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 100 microsecond
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
 
     TestFlow flow[] = {
         {
@@ -969,8 +968,8 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
 
     //Restore flow aging time
-    AgentUve::GetInstance()->
-        GetFlowStatsCollector()->SetFlowAgeTime(bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
 }
 
 #if 0
@@ -1471,15 +1470,15 @@ TEST_F(FlowTest, FlowAudit) {
     usleep(500);
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
-        AgentUve::GetInstance()->GetFlowStatsCollector()->GetFlowAgeTime();
+        Agent::GetInstance()->uve()->flow_stats_collector()->flow_age_time_intvl();
     //Set the flow age time to 10 microsecond
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
-            tmp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(tmp_age_time);
     client->EnqueueFlowAge();
     client->WaitForIdle();
     WAIT_FOR(1000, 1000, (Agent::GetInstance()->pkt()->flow_table()->Size() == 0U));
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(
-            bkp_age_time);
+    Agent::GetInstance()->uve()->
+        flow_stats_collector()->UpdateFlowAgeTime(bkp_age_time);
     KFlowPurgeHold();
 }
 
