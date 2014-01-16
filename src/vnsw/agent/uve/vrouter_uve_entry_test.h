@@ -16,7 +16,7 @@ public:
     void clear_count();
     void DispatchVrouterMsg(const VrouterAgent &uve) const {}
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) const {}
-    void DispatchComputeCputStateMsg(const ComputeCpuState &ccs);
+    void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
 private:
     uint32_t compute_state_send_count_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryTest);

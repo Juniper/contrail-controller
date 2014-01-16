@@ -61,7 +61,7 @@ void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve)
     VrouterStats::Send(uve);
 }
 
-void VrouterUveEntry::DispatchComputeCputStateMsg(const ComputeCpuState &ccs) {
+void VrouterUveEntry::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
     ComputeCpuStateTrace::Send(ccs);
 }
 
@@ -286,7 +286,7 @@ void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
     ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
     aciv.push_back(ainfo);
     astate.set_cpu_info(aciv);
-    DispatchComputeCputStateMsg(astate);
+    DispatchComputeCpuStateMsg(astate);
 }
 
 bool VrouterUveEntry::SendVrouterMsg() {

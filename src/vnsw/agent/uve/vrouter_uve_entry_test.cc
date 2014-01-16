@@ -15,7 +15,7 @@ void VrouterUveEntryTest::clear_count() {
     compute_state_send_count_ = 0;
 }
 
-void VrouterUveEntryTest::DispatchComputeCputStateMsg
+void VrouterUveEntryTest::DispatchComputeCpuStateMsg
                              (const ComputeCpuState &ccs) {
     compute_state_send_count_++;
 }
