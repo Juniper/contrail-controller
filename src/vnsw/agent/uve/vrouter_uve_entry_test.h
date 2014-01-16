@@ -10,12 +10,15 @@
 class VrouterUveEntryTest : public VrouterUveEntry {
 public:
     VrouterUveEntryTest(Agent *agent);
-    virtual ~VrouterUveEntryTest() {}
-    void DispatchVrouterMsg(const VrouterAgent &uve) {}
-    void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {}
-    static VrouterUveEntryTest* GetInstance() { return singleton_; }
+    virtual ~VrouterUveEntryTest();
+    uint32_t compute_state_send_count() const 
+        { return compute_state_send_count_; }
+    void clear_count();
+    void DispatchVrouterMsg(const VrouterAgent &uve) const {}
+    void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) const {}
+    void DispatchComputeCputStateMsg(const ComputeCpuState &ccs);
 private:
-    static VrouterUveEntryTest* singleton_;
+    uint32_t compute_state_send_count_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntryTest);
 };
 
