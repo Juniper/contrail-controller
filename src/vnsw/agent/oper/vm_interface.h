@@ -340,8 +340,8 @@ private:
     bool CopyConfig(VmInterfaceConfigData *data, bool *sg_changed);
     void ApplyConfig(bool old_ipv4_active,bool old_l2_active,  bool old_policy, 
                      VrfEntry *old_vrf, const Ip4Address &old_addr, 
-                     int old_vxlan_id, bool old_fabric_port, 
-                     bool old_need_linklocal_ip, bool sg_changed);
+                     int old_vxlan_id, bool old_need_linklocal_ip,
+                     bool sg_changed);
 
     void UpdateL3(bool old_ipv4_active, VrfEntry *old_vrf,
                   const Ip4Address &old_addr, int old_vxlan_id,

@@ -188,10 +188,10 @@ public:
     void CreateDBClients();
     void DeleteDBClients();
     void AddArpRoute(const Ip4Address &srv);
-    void UpdateAllVns(const LinkLocalServiceKey *key, bool is_add);
+    void UpdateAllVns(const LinkLocalServiceKey &key, bool is_add);
 
 private:
-    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey *key,
+    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey &key,
                       bool is_add);
     void VnWalkDone();
     bool VnNotify(DBTablePartBase *partition, DBEntryBase *entry);
@@ -223,12 +223,12 @@ void GlobalVrouter::LinkLocalRouteManager::AddArpRoute(const Ip4Address &srv) {
 
 // Walk thru all the VNs
 void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
-                    const LinkLocalServiceKey *key, bool is_add) {
+                    const LinkLocalServiceKey &key, bool is_add) {
     if (is_add) {
-        if (!linklocal_address_list_.insert(key->linklocal_service_ip).second)
+        if (!linklocal_address_list_.insert(key.linklocal_service_ip).second)
             return;
     } else {
-        if (!linklocal_address_list_.erase(key->linklocal_service_ip))
+        if (!linklocal_address_list_.erase(key.linklocal_service_ip))
             return;
     }
 
@@ -243,7 +243,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
 // Vn Walk method
 // For each Vn, add or delete receive route for the specified linklocal service
 bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
-    DBEntryBase *entry, const LinkLocalServiceKey *key, bool is_add) {
+    DBEntryBase *entry, const LinkLocalServiceKey &key, bool is_add) {
 
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->IsDeleted()) {
@@ -270,13 +270,13 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
             rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
-                                        key->linklocal_service_ip, 32,
+                                        key.linklocal_service_ip, 32,
                                         agent->GetLinkLocalVnName(),
                                         true);
         }
     } else {
         rt_table->DeleteReq(agent->GetLinkLocalPeer(), vrf_entry->GetName(),
-                            key->linklocal_service_ip, 32);
+                            key.linklocal_service_ip, 32);
     }
     return true;
 }
@@ -541,7 +541,7 @@ bool GlobalVrouter::ChangeNotify(LinkLocalServicesMap *old_value,
 // New link local service
 void GlobalVrouter::AddLinkLocalService(
                     const LinkLocalServicesMap::iterator &it) {
-    linklocal_route_mgr_->UpdateAllVns(&it->first, true);
+    linklocal_route_mgr_->UpdateAllVns(it->first, true);
     BOOST_FOREACH(Ip4Address ip, it->second.ipfabric_service_ip) {
         linklocal_route_mgr_->AddArpRoute(ip);
     }
@@ -551,7 +551,7 @@ void GlobalVrouter::AddLinkLocalService(
 void GlobalVrouter::DeleteLinkLocalService(
                     const LinkLocalServicesMap::iterator &it) {
     if (!IsLinkLocalAddressInUse(it->first.linklocal_service_ip))
-        linklocal_route_mgr_->UpdateAllVns(&it->first, false);
+        linklocal_route_mgr_->UpdateAllVns(it->first, false);
 }
 
 // Change in Link local service
@@ -561,8 +561,8 @@ void GlobalVrouter::ChangeLinkLocalService(
     if (old_it->first.linklocal_service_ip !=
         new_it->first.linklocal_service_ip) {
         if (!IsLinkLocalAddressInUse(old_it->first.linklocal_service_ip))
-            linklocal_route_mgr_->UpdateAllVns(&old_it->first, false);
-        linklocal_route_mgr_->UpdateAllVns(&new_it->first, true);
+            linklocal_route_mgr_->UpdateAllVns(old_it->first, false);
+        linklocal_route_mgr_->UpdateAllVns(new_it->first, true);
     }
     LinkLocalRouteUpdate(new_it->second.ipfabric_service_ip);
 }
