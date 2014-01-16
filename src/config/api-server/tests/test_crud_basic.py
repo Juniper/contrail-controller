@@ -180,7 +180,8 @@ class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
         self.assertThat(policy_name, Equals('policy2222'))
 
         # ipam referring to virtual dns
-        vdns_data = VirtualDnsType(domain_name='abc.net')
+        vdns_data = VirtualDnsType(domain_name='abc.net', record_order='fixed',
+                                   default_ttl_seconds=360)
         vdns_fixt = self.useFixture(
             VirtualDnsTestFixtureGen(self._vnc_lib, virtual_DNS_name='vdns1',
                                      virtual_DNS_data=vdns_data))
@@ -189,7 +190,7 @@ class TestFixtures(testtools.TestCase, fixtures.TestWithFixtures):
         dns_server = IpamDnsAddressType(
             virtual_dns_server_name=vdns_fixt.getObj().get_fq_name_str())
         ipam_mgmt = IpamType(
-            ipam_dns_method='vdns-server', ipam_dns_server=dns_server)
+            ipam_dns_method=dns_method, ipam_dns_server=dns_server)
         ipam_fixt = self.useFixture(
             NetworkIpamTestFixtureGen(
                 self._vnc_lib, network_ipam_name='ipam1',
