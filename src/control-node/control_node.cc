@@ -98,8 +98,6 @@ void ControlNode::SetDefaultSchedulingPolicy() {
     TaskPolicy rtfilter_task_policy =
         boost::assign::list_of
         (TaskExclusion(scheduler->GetTaskId("db::DBTable")))
-        (TaskExclusion(scheduler->GetTaskId("db::StaticRoute")))
-        (TaskExclusion(scheduler->GetTaskId("db::ServiceChain")))
         (TaskExclusion(scheduler->GetTaskId("bgp::StateMachine")))
         (TaskExclusion(scheduler->GetTaskId("bgp::RTFilter")))
         (TaskExclusion(scheduler->GetTaskId("bgp::Config")));

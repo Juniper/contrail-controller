@@ -10,6 +10,7 @@
 #include "base/task_annotations.h"
 
 #include "bgp/bgp_config.h"
+#include "bgp/bgp_ribout.h"
 #include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_server.h"
 #include "bgp/routing-instance/routepath_replicator.h"
@@ -27,9 +28,7 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
     remove_rtgroup_trigger_(new TaskTrigger(
            boost::bind(&RTargetGroupMgr::RemoveRtGroups, this),
            TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)),
-    rtarget_dep_trigger_(new TaskTrigger(
-           boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, this),
-           TaskScheduler::GetInstance()->GetTaskId("bgp::RTFilter"), 0)) {
+    master_instance_delete_ref_(this, NULL) {
 
     if (rtfilter_task_id_ == -1) {
         TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -40,8 +39,14 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
         new WorkQueue<RtGroupMgrReq *>(rtfilter_task_id_, 0, 
              boost::bind(&RTargetGroupMgr::RequestHandler, this, _1));
 
-    id_ = server->routing_instance_mgr()->RegisterInstanceOpCallback(
-        boost::bind(&RTargetGroupMgr::RoutingInstanceCallback, this, _1, _2));
+    num_dep_rt_triggers_ = 0;
+
+    for (int i = 0; i < DB::PartitionCount(); i++) {
+        rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new 
+               TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, 
+                                       this, i), 
+               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)));
+    }
 }
 
 bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
@@ -153,7 +158,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
             assert(r.second);
             // Add Peer to RtGroup
             rtgroup->AddInterestedPeer(cur_it->first, rt);
-            rtarget_trigger_list_.insert(rtarget);
+            pending_rtarget_trigger_list_.insert(rtarget);
             impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
             cur_it++;
         } else if (*cur_it > *dbstate_it) {
@@ -161,7 +166,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
             // Remove the Peer from RtGroup
             rtgroup->RemoveInterestedPeer(dbstate_it->first, rt);
             impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
-            rtarget_trigger_list_.insert(rtarget);
+            pending_rtarget_trigger_list_.insert(rtarget);
             // Remove from DBstate
             dbstate->GetMutableList()->erase(dbstate_it);
             dbstate_it = dbstate_next_it;
@@ -177,7 +182,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         // Add route to rtarget to route dep tree
         rtgroup->AddInterestedPeer(cur_it->first, rt);
         impacted_peers.insert(const_cast<BgpPeer *>(cur_it->first));
-        rtarget_trigger_list_.insert(rtarget);
+        pending_rtarget_trigger_list_.insert(rtarget);
         assert(r.second);
     }
     for (dbstate_next_it = dbstate_it; 
@@ -187,7 +192,7 @@ void RTargetGroupMgr::RTargetPeerSync(BgpTable *table, RTargetRoute *rt,
         // Remove the route from rtarget to route dep tree
         rtgroup->RemoveInterestedPeer(dbstate_it->first, rt);
         impacted_peers.insert(const_cast<BgpPeer *>(dbstate_it->first));
-        rtarget_trigger_list_.insert(rtarget);
+        pending_rtarget_trigger_list_.insert(rtarget);
         dbstate->GetMutableList()->erase(dbstate_it);
     }
 
@@ -222,9 +227,7 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
          it != rt->GetPathList().end(); it++) {
         BgpPath *path = static_cast<BgpPath *>(it.operator->());
         if (!path->IsFeasible()) break;
-        if (path->GetPeer()->IsXmppPeer()) {
-            continue;
-        }
+        if (path->GetPeer()->IsXmppPeer()) continue;
         const BgpPeer *peer = static_cast<const BgpPeer *>(path->GetPeer());
         BgpProto::BgpPeerType peer_type = peer->PeerType();
 
@@ -242,28 +245,27 @@ void RTargetGroupMgr::BuildRTargetDistributionGraph(BgpTable *table,
     RTargetPeerSync(table, rt, id, dbstate, peer_list);
 }
 
-bool RTargetGroupMgr::ProcessRouteTargetList() {
-    CHECK_CONCURRENCY("bgp::RTFilter");
+bool RTargetGroupMgr::ProcessRouteTargetList(int part_id) {
+    CHECK_CONCURRENCY("db::DBTable");
 
-    for (RouteTargetTriggerList::iterator it = rtarget_trigger_list_.begin(), 
-         itnext; it != rtarget_trigger_list_.end(); it = itnext) {
-        itnext = it;
-        itnext++;
+    for (RouteTargetTriggerList::iterator it = rtarget_trigger_list_.begin(); 
+         it != rtarget_trigger_list_.end(); it++) {
         RtGroup *rtgroup = GetRtGroup(*it);
         if (rtgroup) {
             const RtGroup::RTargetDepRouteList &dep_rt_list = 
                 rtgroup->DepRouteList();
-            for (RtGroup::RTargetDepRouteList::const_iterator dep_it = 
-                 dep_rt_list.begin(); dep_it != dep_rt_list.end(); dep_it++) {
-                for (RtGroup::RouteList::const_iterator dep_rt_it = 
-                     dep_it->begin(); dep_rt_it != dep_it->end(); dep_rt_it++) {
-                    DBTablePartBase *partition = 
-                        (*dep_rt_it)->get_table_partition();
-                    partition->Notify(*dep_rt_it);
-                }
+            for (RtGroup::RouteList::const_iterator dep_rt_it = 
+                 dep_rt_list[part_id].begin(); 
+                 dep_rt_it != dep_rt_list[part_id].end(); dep_rt_it++) {
+                DBTablePartBase *dbpart = (*dep_rt_it)->get_table_partition();
+                dbpart->Notify(*dep_rt_it);
             }
         }
-        rtarget_trigger_list_.erase(it);
+    }
+    long num_dep_walkers = num_dep_rt_triggers_.fetch_and_decrement();
+    if (num_dep_walkers == 1) {
+        rtarget_trigger_list_.clear();
+        TriggerRTGroupDepWalk();
     }
     return true;
 }
@@ -285,43 +287,55 @@ bool RTargetGroupMgr::ProcessRTargetRouteList() {
 
     rtarget_route_list_.clear();
 
-    if (rtarget_trigger_list_.size())
-        rtarget_dep_trigger_->Set();
+    TriggerRTGroupDepWalk();
     return true;
 }
 
+void RTargetGroupMgr::TriggerRTGroupDepWalk() {
+    CHECK_CONCURRENCY("bgp::RTFilter", "db::DBTable");
 
-void RTargetGroupMgr::RoutingInstanceCallback(std::string name, int op) {
-    if (name == BgpConfigManager::kMasterInstance) {
-        if ((op == RoutingInstanceMgr::INSTANCE_DELETE) && 
-            rt_group_map_.empty()) {
-            UnregisterTables();
-        } else if (op == RoutingInstanceMgr::INSTANCE_ADD) {
-            RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
-            RoutingInstance *master =
-                mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
-            BgpTable *vpntable = master->GetTable(Address::INETVPN);
-            DBTableBase::ListenerId id = 
-                vpntable->Register(boost::bind(&RTargetGroupMgr::VpnRouteNotify, 
-                                                  this, _1, _2));
-            RtGroupMgrTableState *ts = new RtGroupMgrTableState(vpntable, id);
-            table_state_.insert(std::make_pair(vpntable, ts));
+    if (pending_rtarget_trigger_list_.empty()) return;
+    if (num_dep_rt_triggers_) return;
 
-            vpntable = master->GetTable(Address::EVPN);
-            id = 
-                vpntable->Register(boost::bind(&RTargetGroupMgr::VpnRouteNotify, 
-                                                 this, _1, _2));
-            ts = new RtGroupMgrTableState(vpntable, id);
-            table_state_.insert(std::make_pair(vpntable, ts));
+    assert(rtarget_trigger_list_.empty());
 
-            BgpTable *rttable = master->GetTable(Address::RTARGET);
-            id = 
-                rttable->Register(boost::bind(&RTargetGroupMgr::RTargetRouteNotify, 
-                                              this, _1, _2));
-            ts = new RtGroupMgrTableState(rttable, id);
-            table_state_.insert(std::make_pair(rttable, ts));
-        }
+    rtarget_trigger_list_.swap(pending_rtarget_trigger_list_);
+    num_dep_rt_triggers_ = DB::PartitionCount();
+    for (int i = 0; i < DB::PartitionCount(); i++)
+        rtarget_dep_triggers_[i]->Set();
+}
+
+void RTargetGroupMgr::Initialize() {
+    RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
+    RoutingInstance *master =
+        mgr->GetRoutingInstance(BgpConfigManager::kMasterInstance);
+    assert(master);
+
+    master_instance_delete_ref_.Reset(master->deleter());
+
+    RoutingInstance::RouteTableList const table_list = master->GetTables();
+    DBTableBase::ListenerId id;
+    RtGroupMgrTableState *ts = NULL;
+    for (RoutingInstance::RouteTableList::const_iterator it = table_list.begin();
+         it != table_list.end(); ++it) {
+        if (!it->second->IsVpnTable()) continue;
+
+        BgpTable *vpntable = it->second;
+        id = vpntable->Register(boost::bind(&RTargetGroupMgr::VpnRouteNotify, 
+                                            this, _1, _2));
+        ts = new RtGroupMgrTableState(vpntable, id);
+        table_state_.insert(std::make_pair(vpntable, ts));
     }
+
+    BgpTable *rttable = master->GetTable(Address::RTARGET);
+    id = rttable->Register(boost::bind(&RTargetGroupMgr::RTargetRouteNotify, 
+                                      this, _1, _2));
+    ts = new RtGroupMgrTableState(rttable, id);
+    table_state_.insert(std::make_pair(rttable, ts));
+}
+
+void RTargetGroupMgr::ManagedDelete() {
+    if (rt_group_map_.empty()) remove_rtgroup_trigger_->Set();
 }
 
 void 
@@ -468,7 +482,7 @@ bool RTargetGroupMgr::RTargetRouteNotify(DBTablePartBase *root,
 
 RTargetGroupMgr::~RTargetGroupMgr() {
     delete process_queue_;
-    server()->routing_instance_mgr()->UnregisterInstanceOpCallback(id_);
+    assert(rt_group_map_.empty());
 }
 
 // Search a RtGroup
@@ -509,8 +523,36 @@ void RTargetGroupMgr::RemoveRtGroup(const RouteTarget &rt) {
     remove_rtgroup_trigger_->Set();
 }
 
+void RTargetGroupMgr::GetRibOutInterestedPeers(RibOut *ribout, 
+             const ExtCommunity *ext_community, 
+             const RibPeerSet &peerset, RibPeerSet &new_peerset) {
+    RtGroupInterestedPeerSet peer_set; 
+    RtGroup *null_rtgroup = GetRtGroup(RouteTarget::null_rtarget);
+    if (null_rtgroup) peer_set = null_rtgroup->GetInterestedPeers();
+    BOOST_FOREACH(const ExtCommunity::ExtCommunityValue &comm, 
+                  ext_community->communities()) {
+        if (ExtCommunity::is_route_target(comm)) {
+            RtGroup *rtgroup = GetRtGroup(comm);
+            if (!rtgroup) continue;
+            peer_set |= rtgroup->GetInterestedPeers();
+        }
+    }
+    RibOut::PeerIterator iter(ribout, peerset);
+    while (iter.HasNext()) {
+        int current_index = iter.index();
+        IPeerUpdate *peer = iter.Next();
+        BgpPeer *tmp = dynamic_cast<BgpPeer *>(peer);
+        assert(tmp);
+        if (tmp->IsFamilyNegotiated(Address::RTARGET)) {
+            if (!peer_set.test(tmp->GetIndex())) {
+                new_peerset.reset(current_index);
+            }
+        }
+    }
+}
+
 void RTargetGroupMgr::UnregisterTables() {
-    CHECK_CONCURRENCY("bgp::Config", "bgp::RTFilter");
+    CHECK_CONCURRENCY("bgp::RTFilter");
 
     if (rt_group_map_.empty()) {
         RoutingInstanceMgr *mgr = server()->routing_instance_mgr();
@@ -529,6 +571,7 @@ void RTargetGroupMgr::UnregisterTables() {
                 table_state_.erase(it);
                 delete ts;
             }
+            master_instance_delete_ref_.Reset(NULL);
         }
     }
 }

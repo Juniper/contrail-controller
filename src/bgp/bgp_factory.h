@@ -27,7 +27,7 @@ class RibOut;
 class RibOutUpdates;
 class RoutingInstance;
 class RoutingInstanceMgr;
-class SchedulingGroup;
+class RTargetGroupMgr;
 class StateMachine;
 
 class BgpObjectFactory : public Factory<BgpObjectFactory> {
@@ -41,6 +41,7 @@ class BgpObjectFactory : public Factory<BgpObjectFactory> {
     FACTORY_TYPE_N1(BgpObjectFactory, PeerRibMembershipManager, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, RibOutUpdates, RibOut *);
     FACTORY_TYPE_N1(BgpObjectFactory, RoutingInstanceMgr, BgpServer *);
+    FACTORY_TYPE_N1(BgpObjectFactory, RTargetGroupMgr, BgpServer *);
     FACTORY_TYPE_N1(BgpObjectFactory, StateMachine, BgpPeer *);
     FACTORY_TYPE_N2(BgpObjectFactory, BgpSessionManager,
                     EventManager *, BgpServer *);
