@@ -1,4 +1,6 @@
-
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
 #include <boost/bind.hpp>
 #include <base/logging.h>
 #include "udp_server.h"
