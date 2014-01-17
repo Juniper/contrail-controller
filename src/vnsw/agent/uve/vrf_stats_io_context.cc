@@ -5,6 +5,7 @@
 #include <uve/vrf_stats_io_context.h>
 #include <uve/agent_stats_collector.h>
 #include <uve/agent_uve.h>
+#include <ksync/ksync_types.h>
 
 void VrfStatsIoContext::Handler() {
     AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
@@ -20,6 +21,9 @@ void VrfStatsIoContext::Handler() {
 }
 
 void VrfStatsIoContext::ErrorHandler(int err) {
+    KSYNC_ERROR(VRouterError, "VRouter VRF stats query failed. Error <", err,
+                ":", strerror(err), ">. Object <", "N/A", ">. State <", "N/A",
+                ">. Message number :", GetSeqno());
     LOG(ERROR, "Error reading Vrf Stats. Error <" << err << ": "
         << strerror(err) << ": Sequence No : " << GetSeqno());
 }

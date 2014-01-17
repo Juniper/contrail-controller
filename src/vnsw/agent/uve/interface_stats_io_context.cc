@@ -4,6 +4,7 @@
 
 #include <uve/interface_stats_io_context.h>
 #include <uve/agent_stats_collector.h>
+#include <ksync/ksync_types.h>
 
 InterfaceStatsIoContext::InterfaceStatsIoContext(int msg_len, char *msg, 
                                                  uint32_t seqno, 
@@ -29,6 +30,9 @@ void InterfaceStatsIoContext::Handler() {
 }
 
 void InterfaceStatsIoContext::ErrorHandler(int err) {
+    KSYNC_ERROR(VRouterError, "VRouter Interface query failed. Error <", err,
+                ":", strerror(err), ">. Object <", "N/A", ">. State <", "N/A",
+                ">. Message number :", GetSeqno());
     LOG(ERROR, "Error reading Interface Stats. Error <" << err << ": "
         << strerror(err) << ": Sequence No : " << GetSeqno());
 }
