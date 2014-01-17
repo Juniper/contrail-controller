@@ -134,6 +134,9 @@ class AuthServiceKeystone(object):
         if not self._auth_method:
             return None
 
+        if not self._multi_tenancy:
+            return None
+
         # keystone middleware is needed for fetching objects
 
         # app = bottle.app()
@@ -149,9 +152,6 @@ class AuthServiceKeystone(object):
                 self._server_mgr.config_log_error(
                     "Error in getting admin token: " + str(e))
                 time.sleep(2)
-
-        if not self._multi_tenancy:
-            return None
 
         # open access for troubleshooting
         self._open_app = AuthOpen('127.0.0.1', '8095', bottle.app())
