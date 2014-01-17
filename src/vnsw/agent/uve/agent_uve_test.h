@@ -11,9 +11,7 @@ class AgentUveTest : public AgentUve {
 public:
     AgentUveTest(Agent *agent, uint64_t intvl);
     virtual ~AgentUveTest();
-    static AgentUveTest *GetInstance() {return singleton_;}
 private:
-    static AgentUveTest *singleton_;
     DISALLOW_COPY_AND_ASSIGN(AgentUveTest);
 };
 #endif //vnsw_agent_uve_test_h

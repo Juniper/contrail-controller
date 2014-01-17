@@ -5,11 +5,8 @@
 #include <uve/vm_uve_table_test.h>
 #include <uve/vm_uve_entry_test.h>
 
-VmUveTableTest *VmUveTableTest::singleton_;
-
 VmUveTableTest::VmUveTableTest(Agent *agent) 
     : VmUveTable(agent) {
-    singleton_ = this;
 }
 
 int VmUveTableTest::GetVmUveInterfaceCount(const std::string &vm) const {

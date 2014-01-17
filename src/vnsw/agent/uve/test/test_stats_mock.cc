@@ -36,8 +36,9 @@ class StatsTestMock : public ::testing::Test {
 public:
     bool InterVnStatsMatch(const string &svn, const string &dvn, uint32_t pkts,
                            uint32_t bytes, bool out) {
-        const VnUveEntry::VnStatsSet *stats_set =
-            VnUveTableTest::GetInstance()->FindInterVnStats(svn);
+        VnUveTableTest *vut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+        const VnUveEntry::VnStatsSet *stats_set = vut->FindInterVnStats(svn);
 
         if (!stats_set) {
             return false;

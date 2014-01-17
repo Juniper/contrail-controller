@@ -157,9 +157,10 @@ public:
                     uint16_t dport) {
         bool ret = true;
         PortBucketBitmap port_uve;
+        VnUveTableTest *vut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
 
-        L4PortBitmap *bmap = VnUveTableTest::GetInstance()->GetVnUvePortBitmap
-            (flow->data().source_vn);
+        L4PortBitmap *bmap = vut->GetVnUvePortBitmap(flow->data().source_vn);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
@@ -167,8 +168,7 @@ public:
             }
         }
 
-        bmap = VnUveTableTest::GetInstance()->GetVnUvePortBitmap
-            (flow->data().dest_vn);
+        bmap = vut->GetVnUvePortBitmap(flow->data().dest_vn);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
@@ -186,8 +186,10 @@ public:
         const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data().intf_entry.get());
         const VmEntry *vm = intf->vm();
+        VmUveTableTest *vut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
 
-        L4PortBitmap *bmap = VmUveTableTest::GetInstance()->GetVmUvePortBitmap(vm);
+        L4PortBitmap *bmap = vut->GetVmUvePortBitmap(vm);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
@@ -202,12 +204,14 @@ public:
                       uint16_t dport) {
         PortBucketBitmap port_uve;
         bool ret = true;
+        VmUveTableTest *vut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
 
         const VmInterface *intf = static_cast<const VmInterface *>
             (flow->data().intf_entry.get());
         const VmEntry *vm = intf->vm();
 
-        L4PortBitmap *bmap = VmUveTableTest::GetInstance()->GetVmIntfPortBitmap(vm, intf);
+        L4PortBitmap *bmap = vut->GetVmIntfPortBitmap(vm, intf);
         if (bmap) {
             bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
@@ -271,7 +275,7 @@ TEST_F(UvePortBitmapTest, PortBitmap_1) {
     MakeFlow(&flow, 1, &dest_vn_name);
     Agent::GetInstance()->uve()->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    AgentUve::GetInstance()->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
@@ -283,9 +287,9 @@ TEST_F(UvePortBitmapTest, PortBitmap_2) {
     Agent::GetInstance()->uve()->NewFlow(&flow);
     Agent::GetInstance()->uve()->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    AgentUve::GetInstance()->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    AgentUve::GetInstance()->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
@@ -325,10 +329,10 @@ TEST_F(UvePortBitmapTest, PortBitmap_4) {
     Agent::GetInstance()->uve()->NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
-    AgentUve::GetInstance()->DeleteFlow(&flow1);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
-    AgentUve::GetInstance()->DeleteFlow(&flow2);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
     client->WaitForIdle();
