@@ -21,7 +21,6 @@ public:
     int GetVnUveVmCount(const std::string &vn);
     L4PortBitmap* GetVnUvePortBitmap(const std::string &vn);
     UveVirtualNetworkAgent* VnUveObject(const std::string &vn);
-    static VnUveTableTest *GetInstance() {return singleton_;}
 
 private:
     virtual VnUveEntryPtr Allocate(const VnEntry *vn);
@@ -29,7 +28,6 @@ private:
 
     uint32_t send_count_;
     uint32_t delete_count_;
-    static VnUveTableTest * singleton_;
     DISALLOW_COPY_AND_ASSIGN(VnUveTableTest);
 };
 

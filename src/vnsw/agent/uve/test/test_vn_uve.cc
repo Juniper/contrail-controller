@@ -107,21 +107,23 @@ public:
 };
 
 TEST_F(UveVnUveTest, VnAddDel_1) {
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     VnAdd(1);
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(1U, vnut->send_count());
 
-    UveVirtualNetworkAgent *uve1 =  VnUveTableTest::GetInstance()->VnUveObject("vn1");
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     //Delete VN
     VnDelete(1);
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->delete_count());
+    EXPECT_EQ(1U, vnut->delete_count());
 
     //clear counters at the end of test case
     client->Reset();
-    VnUveTableTest::GetInstance()->ClearCount();
+    vnut->ClearCount();
 }
 
 TEST_F(UveVnUveTest, VnIntfAddDel_1) {
@@ -129,11 +131,13 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
         {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 1, 1},
     };
 
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     VnAdd(input[0].vn_id);
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(1U, vnut->send_count());
 
-    UveVirtualNetworkAgent *uve1 =  VnUveTableTest::GetInstance()->VnUveObject("vn1");
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
@@ -148,7 +152,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
 
     //Since the port is inactive, verify that no additional VN UVE send has 
     //happened since port addition
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(1U, vnut->send_count());
 
     //Add necessary objects and links to make vm-intf active
     VmAdd(input[0].vm_id);
@@ -174,7 +178,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_TRUE(VmPortActive(input, 0));
 
     //Verify UVE 
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(2U, vnut->send_count());
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
@@ -189,7 +193,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_TRUE(VmPortInactive(input, 0));
 
     //Verify UVE 
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(3U, vnut->send_count());
     EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
@@ -197,7 +201,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     VnDelete(input[0].vn_id);
 
     //Verify UVE 
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->delete_count());
+    EXPECT_EQ(1U, vnut->delete_count());
 
     //other cleanup
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
@@ -218,15 +222,17 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
 
     //clear counters at the end of test case
     client->Reset();
-    VnUveTableTest::GetInstance()->ClearCount();
+    vnut->ClearCount();
 }
 
 TEST_F(UveVnUveTest, VnChange_1) {
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
     VnAdd(1);
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(1U, vnut->send_count());
 
-    UveVirtualNetworkAgent *uve1 =  VnUveTableTest::GetInstance()->VnUveObject("vn1");
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_EQ(0U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
@@ -236,7 +242,7 @@ TEST_F(UveVnUveTest, VnChange_1) {
     client->WaitForIdle();
 
     //Verify UVE
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(2U, vnut->send_count());
     EXPECT_TRUE((uve1->get_acl().compare(string("acl1")) == 0));
 
     //Disasociate ACL from VN
@@ -245,7 +251,7 @@ TEST_F(UveVnUveTest, VnChange_1) {
     client->WaitForIdle();
 
     //Verify UVE
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(3U, vnut->send_count());
     EXPECT_TRUE((uve1->get_acl().compare(string("")) == 0));
 
     //Associate VN with a new ACL
@@ -254,16 +260,16 @@ TEST_F(UveVnUveTest, VnChange_1) {
     client->WaitForIdle();
 
     //Verify UVE
-    EXPECT_EQ(4U, VnUveTableTest::GetInstance()->send_count());
+    EXPECT_EQ(4U, vnut->send_count());
     EXPECT_TRUE((uve1->get_acl().compare(string("acl2")) == 0));
 
     //Delete VN
     VnDelete(1);
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->delete_count());
+    EXPECT_EQ(1U, vnut->delete_count());
 
     //clear counters at the end of test case
     client->Reset();
-    VnUveTableTest::GetInstance()->ClearCount();
+    vnut->ClearCount();
 }
 
 TEST_F(UveVnUveTest, VnUVE_2) {
@@ -272,20 +278,22 @@ TEST_F(UveVnUveTest, VnUVE_2) {
         {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2},
     };
 
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
 
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn2"));
 
     struct PortInfo input1[] = {
         {"vnet3", 3, "1.1.1.3", "00:00:00:01:01:03", 1, 3},
@@ -298,25 +306,25 @@ TEST_F(UveVnUveTest, VnUVE_2) {
 
     CreateVmportEnv(input2, 1);
     client->WaitForIdle();
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(3U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(3U, vnut->GetVnUveInterfaceCount("vn1"));
 
     client->Reset();
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(2U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(2U, vnut->GetVnUveInterfaceCount("vn1"));
     DeleteVmportEnv(input2, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn2"));
 }
 
 TEST_F(UveVnUveTest, VnUVE_3) {
@@ -325,27 +333,29 @@ TEST_F(UveVnUveTest, VnUVE_3) {
         {"vnet2", 2, "2.2.2.2", "00:00:00:02:02:02", 2, 2},
     };
 
-    VnUveTableTest::GetInstance()->ClearCount();
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    vnut->ClearCount();
     //Create VM, VN, VRF and Vmport
     CreateVmportEnv(input, 2);
     client->WaitForIdle();
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(VmPortActive(input, 1));
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2")) == 1U);
-    WAIT_FOR(500, 1000, (VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn1")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveVmCount("vn2")) == 1U);
+    WAIT_FOR(500, 1000, (vnut->GetVnUveInterfaceCount("vn2")) == 1U);
 
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn2"));
 
-    UveVirtualNetworkAgent *uve1 =  VnUveTableTest::GetInstance()->VnUveObject("vn1");
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
-    UveVirtualNetworkAgent *uve2 =  VnUveTableTest::GetInstance()->VnUveObject("vn2");
+    UveVirtualNetworkAgent *uve2 =  vnut->VnUveObject("vn2");
     EXPECT_EQ(1U, uve2->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve2->get_interface_list().size()); 
 
@@ -360,38 +370,38 @@ TEST_F(UveVnUveTest, VnUVE_3) {
 
     CreateVmportEnv(input2, 1);
     client->WaitForIdle();
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(3U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(3U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(3U, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(3U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(3U, uve1->get_interface_list().size()); 
 
     client->Reset();
     DeleteVmportEnv(input1, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(2U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(2U, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(2U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(2U, uve1->get_interface_list().size()); 
 
     DeleteVmportEnv(input2, 1, false);
     client->WaitForIdle();
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(1U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(1U, vnut->GetVnUveInterfaceCount("vn1"));
     EXPECT_EQ(1U, uve1->get_virtualmachine_list().size()); 
     EXPECT_EQ(1U, uve1->get_interface_list().size()); 
 
     DeleteVmportEnv(input, 2, true);
     client->WaitForIdle();
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn1"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn1"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveVmCount("vn2"));
-    EXPECT_EQ(0U, VnUveTableTest::GetInstance()->GetVnUveInterfaceCount("vn2"));
+    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn1"));
+    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn1"));
+    EXPECT_EQ(0U, vnut->GetVnUveVmCount("vn2"));
+    EXPECT_EQ(0U, vnut->GetVnUveInterfaceCount("vn2"));
 
-    uve1 =  VnUveTableTest::GetInstance()->VnUveObject("vn1");
-    uve2 =  VnUveTableTest::GetInstance()->VnUveObject("vn2");
+    uve1 =  vnut->VnUveObject("vn1");
+    uve2 =  vnut->VnUveObject("vn2");
     EXPECT_TRUE(uve1 == NULL);
     EXPECT_TRUE(uve2 == NULL);
-    EXPECT_EQ(2U, VnUveTableTest::GetInstance()->delete_count());
+    EXPECT_EQ(2U, vnut->delete_count());
 }
 
 int main(int argc, char **argv) {

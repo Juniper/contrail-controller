@@ -596,8 +596,9 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
 
 bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
                   uint64_t out_bytes, uint64_t out_pkts) {
-    const VnUveEntry* entry = VnUveTableTest::GetInstance()->
-                                                     GetVnUveEntry(string(vn));
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    const VnUveEntry* entry = vnut->GetVnUveEntry(string(vn));
     if (!entry) {
         LOG(DEBUG, "Vn " << string(vn) << " NOT FOUND");
         return false;
