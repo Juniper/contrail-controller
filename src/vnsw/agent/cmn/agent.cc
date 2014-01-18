@@ -301,6 +301,7 @@ void Agent::InitModules() {
     cfg_.get()->Init();
     oper_db_.get()->Init();
     uve_.get()->Init();
+    ksync_.get()->Init();
 }
 
 void Agent::CreateVrf() {
