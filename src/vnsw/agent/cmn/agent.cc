@@ -285,6 +285,7 @@ void Agent::InitModules() {
         if (init_->create_vhost()) {
             ksync_.get()->CreateVhostIntf();
         }
+        ksync_.get()->Init();
     } else {
         ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();
@@ -301,7 +302,6 @@ void Agent::InitModules() {
     cfg_.get()->Init();
     oper_db_.get()->Init();
     uve_.get()->Init();
-    ksync_.get()->Init();
 }
 
 void Agent::CreateVrf() {
