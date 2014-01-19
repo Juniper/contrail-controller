@@ -70,7 +70,7 @@ def run_tests(build_top = "../../../../../build"):
         with prefix("source bin/activate"):
             pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             local(
-                "cp ../../../../../src/config/api-server/tests/"
+                "cp ../../../../../controller/src/config/api-server/tests/"
                 "test_crud_basic.py lib/python%s/site-packages/"
                 "vnc_cfg_api_server/" % (pyver))
             local(

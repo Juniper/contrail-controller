@@ -62,6 +62,7 @@ sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
+env.Alias("vrouter:node_mgr", sdist_gen)
 
 # Generate the C++ source files
 SandeshGenFiles  = env.SandeshGenCpp('port_bmap.sandesh')

@@ -1,0 +1,38 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+import sys
+
+Import('BuildEnv')
+OpEnv = BuildEnv.Clone()
+
+node_setup_sources = [
+           '__init__.py',
+           'setup.py',
+           'MANIFEST.in',
+          ]
+
+node_setup_sources_rules = []
+for file in node_setup_sources:
+    node_setup_sources_rules.append(
+        OpEnv.Install("", '#controller/src/opserver/node_mgr/' + file))
+
+# Generate nodemgr python package
+analytics_cpuinfo_pkg = OpEnv.SandeshGenPy(
+	'#controller/src/analytics/analytics_cpuinfo.sandesh', "", False)
+node_cpu_info_pkg = OpEnv.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh',
+                                       'analytics_cpuinfo/', False)
+OpEnv.Depends(node_cpu_info_pkg, analytics_cpuinfo_pkg)
+ 
+node_sdist_depends = [node_setup_sources_rules, analytics_cpuinfo_pkg,
+	node_cpu_info_pkg]
+
+node_sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
+# install everything before building distribution
+OpEnv.Depends(node_sdist_gen, node_sdist_depends)
+
+OpEnv.Default(node_sdist_gen)
+OpEnv.Alias("opserver:node_mgr", node_sdist_gen)
