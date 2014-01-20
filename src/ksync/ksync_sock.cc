@@ -19,8 +19,6 @@
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include <common/vns_constants.h>
-#include <common/vns_types.h>
 
 #include "ksync_index.h"
 #include "ksync_entry.h"
@@ -35,13 +33,6 @@
 #include "vr_types.h"
 
 using namespace boost::asio;
-
-#define KSYNC_ERROR(obj, ...)\
-do {\
-    if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
@@ -516,4 +507,8 @@ void KSyncIoContext::ErrorHandler(int err) {
                 ":", strerror(err), ">. Object <", entry_->ToString(), 
                 ">. State <", entry_->StateString(), ">. Message number :", 
                 GetSeqno());
+    LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
+                strerror(err) << ">. Object <" << entry_->ToString() <<
+                ">. State <" << entry_->StateString() << ">. Message number :"
+                << GetSeqno());
 }
