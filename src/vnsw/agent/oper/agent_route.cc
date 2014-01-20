@@ -50,7 +50,7 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
 };
 
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name) :
-    RouteTable(db, name), new_walkid_(DBTableWalker::kInvalidWalkerId),
+    RouteTable(db, name), walkid_(DBTableWalker::kInvalidWalkerId),
     db_(db), deleter_(new DeleteActor(this)),
     vrf_delete_ref_(this, NULL) { 
 }
@@ -445,9 +445,9 @@ void AgentRouteTable::UnicastRouteNotifyDone(DBTableBase *base,
 void AgentRouteTable::RebakeRouteEntryWalkDone(DBTableBase *part,
                                                bool unicast_walk, 
                                                bool multicast_walk) {
-    new_walkid_ = DBTableWalker::kInvalidWalkerId;
     AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done route rebake walk ", 
-                       GetTableName(), 0, "", "", 0);
+                       GetTableName(), walkid_, "", "", 0);
+    walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
 bool AgentRouteTable::RebakeRouteEntryWalk(bool unicast_walk, 
@@ -464,11 +464,15 @@ void AgentRouteTable::RouteTableWalkerRebake(VrfEntry *vrf,
                                               bool multicast_walk) {
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
 
-    if (new_walkid_ != DBTableWalker::kInvalidWalkerId) {
-        walker->WalkCancel(new_walkid_);
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel route rebake walk ", 
+                           GetTableName(), walkid_, "", "", 0);
+        walker->WalkCancel(walkid_);
     }
 
-    new_walkid_ = walker->WalkTable(this, NULL, 
+    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Starting route rebake walk ", 
+                       GetTableName(), walkid_, "", "", 0);
+    walkid_ = walker->WalkTable(this, NULL, 
                 boost::bind(&AgentRouteTable::RebakeRouteEntryWalk, 
                             this, unicast_walk, multicast_walk, 
                             _1, _2),

@@ -266,7 +266,7 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         if (path) {
             PathSandeshData pdata;
             path->GetNextHop()->SetNHSandeshData(pdata.nh);
-            if ((path->GetTunnelBmap() == (1 << TunnelType::VXLAN)) ||
+            if ((path->tunnel_type() == TunnelType::VXLAN) ||
                 IsMulticast()) {
                 pdata.set_vxlan_id(path->vxlan_id());
             } else {

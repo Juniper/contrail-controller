@@ -668,14 +668,23 @@ bool VrfTable::VrfEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
 }
 
 void VrfTable::VrfEntryWalkDone(DBTableBase *partition) {
+    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done, encap change walk ", 
+                       "VrfTable(UpdateRouteEncapsulation)",
+                       walkid_, "", "", 0);
     walkid_ = DBTableWalker::kInvalidWalkerId;
 }
 
 void VrfTable::UpdateRouteEncapsulation() {
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
     if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        AGENT_DBWALK_TRACE(AgentDBWalkLog, "Cancel route encap change walk ", 
+                           "VrfTable(UpdateRouteEncapsulation)",
+                           walkid_, "", "", 0);
         walker->WalkCancel(walkid_);
     }
+    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Start route encap change walk ", 
+                       "VrfTable(UpdateRouteEncapsulation)",
+                       walkid_, "", "", 0);
     walkid_ = walker->WalkTable(GetInstance(), NULL,
                       boost::bind(&VrfTable::VrfEntryWalk, 
                                   VrfTable::GetInstance(), _1, _2),

@@ -143,6 +143,7 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
         cnh->GetComponentNHList();
 
     TunnelType::Type new_tunnel_type;
+    //Only MPLS types are supported for multicast
     if (sync_route->IsMulticast()) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
         if (new_tunnel_type == TunnelType::VXLAN)

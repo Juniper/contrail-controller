@@ -220,7 +220,7 @@ private:
                      const Peer *peer);
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
-    DBTableWalker::WalkId new_walkid_;
+    DBTableWalker::WalkId walkid_;
     DB *db_;
     VrfEntryRef vrf_entry_;
     boost::scoped_ptr<DeleteActor> deleter_;
