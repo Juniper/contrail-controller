@@ -144,9 +144,19 @@ public:
 
     virtual void ProcessDelete(AgentRoute *rt) { };
     virtual void ProcessAdd(AgentRoute *rt) { };
+    //Notify walk is done on per peer basis for exporting route
     virtual void RouteTableWalkerNotify(VrfEntry *vrf, AgentXmppChannel *, 
                                         DBState *, bool associate,
                                         bool unicast_walk, bool multicast_walk);
+    //Rebake walk is to modify routes
+    void RouteTableWalkerRebake(VrfEntry *vrf, bool unicast_walk, 
+                                bool multicast_walk);
+    bool RebakeRouteEntryWalk(bool unicast_walk, bool multicast_walk,
+                              DBTablePartBase *part, 
+                              DBEntryBase *entry); 
+    void RebakeRouteEntryWalkDone(DBTableBase *part,
+                                  bool unicast_walk, 
+                                  bool multicast_walk); 
     virtual AgentRouteTableAPIS::TableType GetTableType() const = 0;
     virtual string GetTableName() const = 0;
 
@@ -210,7 +220,7 @@ private:
                      const Peer *peer);
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
-    DBTableWalker::WalkId walkid_;
+    DBTableWalker::WalkId new_walkid_;
     DB *db_;
     VrfEntryRef vrf_entry_;
     boost::scoped_ptr<DeleteActor> deleter_;

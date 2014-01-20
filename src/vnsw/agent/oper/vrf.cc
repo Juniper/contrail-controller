@@ -653,6 +653,36 @@ void VrfTable::VrfTableWalkerMulticastNotify(Peer *peer, bool associate) {
                        peer->NoOfWalks()); 
 }
 
+bool VrfTable::VrfEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
+    VrfEntry *vrf_entry = static_cast<VrfEntry *>(entry);
+    uint8_t table_type;
+
+    AgentRouteTable *table = NULL;
+    for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+         table_type++) {
+        table = static_cast<AgentRouteTable *>
+            (vrf_entry->GetRouteTable(table_type));
+        table->RouteTableWalkerRebake(vrf_entry, true, true);
+    }
+    return true;
+}
+
+void VrfTable::VrfEntryWalkDone(DBTableBase *partition) {
+    walkid_ = DBTableWalker::kInvalidWalkerId;
+}
+
+void VrfTable::UpdateRouteEncapsulation() {
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    if (walkid_ != DBTableWalker::kInvalidWalkerId) {
+        walker->WalkCancel(walkid_);
+    }
+    walkid_ = walker->WalkTable(GetInstance(), NULL,
+                      boost::bind(&VrfTable::VrfEntryWalk, 
+                                  VrfTable::GetInstance(), _1, _2),
+                      boost::bind(&VrfTable::VrfEntryWalkDone, 
+                                  VrfTable::GetInstance(), _1));
+}
+
 void VrfTable::Input(DBTablePartition *partition, DBClient *client,
                      DBRequest *req) {
 

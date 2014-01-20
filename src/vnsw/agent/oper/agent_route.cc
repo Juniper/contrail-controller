@@ -50,7 +50,8 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
 };
 
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name) :
-    RouteTable(db, name), db_(db), deleter_(new DeleteActor(this)),
+    RouteTable(db, name), new_walkid_(DBTableWalker::kInvalidWalkerId),
+    db_(db), deleter_(new DeleteActor(this)),
     vrf_delete_ref_(this, NULL) { 
 }
 
@@ -439,6 +440,40 @@ void AgentRouteTable::UnicastRouteNotifyDone(DBTableBase *base,
 
     vrf_state->ucwalkid_[GetTableType()] = 
         DBTableWalker::kInvalidWalkerId;
+}
+
+void AgentRouteTable::RebakeRouteEntryWalkDone(DBTableBase *part,
+                                               bool unicast_walk, 
+                                               bool multicast_walk) {
+    new_walkid_ = DBTableWalker::kInvalidWalkerId;
+    AGENT_DBWALK_TRACE(AgentDBWalkLog, "Done route rebake walk ", 
+                       GetTableName(), 0, "", "", 0);
+}
+
+bool AgentRouteTable::RebakeRouteEntryWalk(bool unicast_walk, 
+                                           bool multicast_walk,
+                                           DBTablePartBase *part, 
+                                           DBEntryBase *entry) {
+    AgentRoute *route = static_cast<AgentRoute *>(entry);
+    route->RouteResyncReq();
+    return true;
+}
+
+void AgentRouteTable::RouteTableWalkerRebake(VrfEntry *vrf,
+                                              bool unicast_walk,
+                                              bool multicast_walk) {
+    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+
+    if (new_walkid_ != DBTableWalker::kInvalidWalkerId) {
+        walker->WalkCancel(new_walkid_);
+    }
+
+    new_walkid_ = walker->WalkTable(this, NULL, 
+                boost::bind(&AgentRouteTable::RebakeRouteEntryWalk, 
+                            this, unicast_walk, multicast_walk, 
+                            _1, _2),
+                boost::bind(&AgentRouteTable::RebakeRouteEntryWalkDone, 
+                            this, _1, unicast_walk, multicast_walk));
 }
 
 void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,

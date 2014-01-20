@@ -151,6 +151,9 @@ public:
     void VrfTableWalkerNotify(Peer *peer);
     void VrfTableWalkerMulticastNotify(Peer *peer, bool associate);
     virtual bool CanNotify(IFMapNode *dbe);
+    bool VrfEntryWalk(DBTablePartBase *partition, DBEntryBase *entry);
+    void VrfEntryWalkDone(DBTableBase *partition);
+    void UpdateRouteEncapsulation();
     
 private:
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);

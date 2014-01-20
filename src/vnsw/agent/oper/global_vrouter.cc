@@ -360,10 +360,11 @@ void GlobalVrouter::CreateDBClients() {
 void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     Agent::VxLanNetworkIdentifierMode cfg_vxlan_network_identifier_mode = 
                                             Agent::AUTOMATIC;
+    bool encap_changed = false;
     if (node->IsDeleted() == false) {
         autogen::GlobalVrouterConfig *cfg = 
             static_cast<autogen::GlobalVrouterConfig *>(node->GetObject());
-        TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
+        encap_changed = TunnelType::EncapPrioritySync(cfg->encapsulation_priorities());
         if (cfg->vxlan_network_identifier_mode() == "configured") {
             cfg_vxlan_network_identifier_mode = Agent::CONFIGURED;
         }
@@ -371,6 +372,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     } else {
         linklocal_services_map_.clear();
         TunnelType::DeletePriorityList();
+        encap_changed = true;
     }
 
     if (cfg_vxlan_network_identifier_mode !=                             
@@ -380,6 +382,10 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         oper_->agent()->GetVnTable()->UpdateVxLanNetworkIdentifierMode();
         oper_->agent()->GetInterfaceTable()->
                         UpdateVxLanNetworkIdentifierMode();
+    }
+
+    if (encap_changed) {
+        oper_->agent()->GetVrfTable()->UpdateRouteEncapsulation();
     }
 }
 

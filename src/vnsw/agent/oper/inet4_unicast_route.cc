@@ -187,6 +187,14 @@ bool Inet4UnicastEcmpRoute::AddChangePath(AgentPath *path) {
         ret = true;
     }
 
+    path->SetTunnelBmap(TunnelType::MplsType());
+    TunnelType::Type new_tunnel_type = 
+        TunnelType::ComputeType(path->tunnel_bmap());
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
+        ret = true;
+    }
+
     SecurityGroupList path_sg_list;
     path_sg_list = path->GetSecurityGroupList();
     if (path_sg_list != sg_list_) {
@@ -315,7 +323,7 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list));
 
@@ -338,7 +346,7 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list));
 
