@@ -204,3 +204,20 @@ uve sandesh VrouterStats {
     1: VrouterStatsAgent data;
 }
 
+struct VrouterCpuInfo {
+    1: u32                            mem_virt
+    2: double                         cpu_share
+    3: u32                            used_sys_mem
+    4: double                         one_min_cpuload
+}
+
+struct ComputeCpuState {
+    1: string                         name (key="ObjectVRouter")
+    2: optional bool                  deleted
+    3: optional list<VrouterCpuInfo>  cpu_info (tags="")
+}
+
+uve sandesh ComputeCpuStateTrace {
+    1: ComputeCpuState data
+}
+

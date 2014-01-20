@@ -4,9 +4,19 @@
 
 #include <uve/vrouter_uve_entry_test.h>
 
-VrouterUveEntryTest *VrouterUveEntryTest::singleton_;
-
 VrouterUveEntryTest::VrouterUveEntryTest(Agent *agent)
-        : VrouterUveEntry(agent) {
-    singleton_ = this;
+        : VrouterUveEntry(agent), compute_state_send_count_(0) {
 }
+
+VrouterUveEntryTest::~VrouterUveEntryTest() {
+}
+
+void VrouterUveEntryTest::clear_count() {
+    compute_state_send_count_ = 0;
+}
+
+void VrouterUveEntryTest::DispatchComputeCpuStateMsg
+                             (const ComputeCpuState &ccs) {
+    compute_state_send_count_++;
+}
+

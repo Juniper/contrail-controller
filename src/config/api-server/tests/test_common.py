@@ -8,6 +8,7 @@ from cfgm_common.test_utils import *
 import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
 import discovery.client as disc_client
+from cfgm_common.discovery import DiscoveryService
 
 import vnc_cfg_api_server
 
@@ -40,6 +41,7 @@ def setup_flexmock():
 
     flexmock(disc_client.DiscoveryClient, __init__=stub)
     flexmock(disc_client.DiscoveryClient, publish_obj=stub)
+    flexmock(DiscoveryService, __new__=DiscoveryServiceMock)
 
     flexmock(redis.StrictRedis, __new__=FakeRedis)
 #end setup_flexmock

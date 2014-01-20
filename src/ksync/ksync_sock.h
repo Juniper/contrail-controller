@@ -16,11 +16,21 @@
 #include <base/queue_task.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
+#include <common/vns_constants.h>
+#include <common/vns_types.h>
 #include "vr_types.h"
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
 #define KSYNC_ACK_WAIT_THRESHOLD  200
+
+#define KSYNC_ERROR(obj, ...)\
+do {\
+    if (LoggingDisabled()) break;\
+    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
+              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
+} while (false);\
+
 class KSyncEntry;
 
 /* Base class to hold sandesh context information which is passed to 

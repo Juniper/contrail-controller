@@ -76,4 +76,4 @@ OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
 OpEnv.Alias("src/opserver:opserver", sdist_gen)
-
+OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)

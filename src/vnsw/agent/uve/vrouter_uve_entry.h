@@ -57,10 +57,12 @@ public:
     void InterfaceWalkDone(DBTableBase *base, StringVectorPtr if_l,
                            StringVectorPtr err_if_l, 
                            StringVectorPtr nova_if_l);
-
 private:
     virtual void DispatchVrouterMsg(const VrouterAgent &uve) const;
     virtual void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) const;
+    //DispatchComputeCpuStateMsg is not made const function because in derived 
+    //class it needs to be non-const
+    virtual void DispatchComputeCpuStateMsg(const ComputeCpuState &ccs);
     void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VmNotify(DBTablePartBase *partition, DBEntryBase *e);
     void VnNotify(DBTablePartBase *partition, DBEntryBase *e);
@@ -80,6 +82,7 @@ private:
     bool BuildPhysicalInterfaceList(std::vector<AgentIfStats> &list) const;
     void BuildXmppStatsList(std::vector<AgentXmppStats> &list) const;
     void SendVrouterUve();
+    void BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info);
     
     Agent *agent_;
     PhysicalInterfaceSet phy_intf_set_;

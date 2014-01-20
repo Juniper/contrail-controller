@@ -171,13 +171,13 @@ void CdbIf::Db_Uninit(bool shutdown) {
     }
 }
 
-bool CdbIf::Db_AddTablespace(const std::string& tablespace) {
+bool CdbIf::Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor) {
     if (!Db_FindTablespace(tablespace)) {
         KsDef ks_def;
         ks_def.__set_name(tablespace);
         ks_def.__set_strategy_class("SimpleStrategy");
         std::map<std::string, std::string> strat_options;
-        strat_options.insert(std::pair<std::string, std::string>("replication_factor", "1"));
+        strat_options.insert(std::pair<std::string, std::string>("replication_factor", replication_factor));
         ks_def.__set_strategy_options(strat_options);
 
         try {
@@ -235,8 +235,8 @@ bool CdbIf::Db_SetTablespace(const std::string& tablespace) {
     return true;
 }
 
-bool CdbIf::Db_AddSetTablespace(const std::string& tablespace) {
-    if (!Db_AddTablespace(tablespace)) {
+bool CdbIf::Db_AddSetTablespace(const std::string& tablespace,const std::string& replication_factor) {
+    if (!Db_AddTablespace(tablespace,replication_factor)) {
         return false;
     }
     if (!Db_SetTablespace(tablespace)) {

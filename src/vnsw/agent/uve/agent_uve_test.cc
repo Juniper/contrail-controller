@@ -11,14 +11,11 @@
 #include <uve/vm_uve_table_test.h>
 #include <uve/vrouter_uve_entry_test.h>
 
-AgentUveTest *AgentUveTest::singleton_;
-
 AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl) 
     : AgentUve(agent, intvl) {
     vn_uve_table_.reset(new VnUveTableTest(agent)); 
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
-    singleton_ = this;
 }
 
 AgentUveTest::~AgentUveTest() {

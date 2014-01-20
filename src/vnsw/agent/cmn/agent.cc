@@ -285,6 +285,7 @@ void Agent::InitModules() {
         if (init_->create_vhost()) {
             ksync_.get()->CreateVhostIntf();
         }
+        ksync_.get()->Init();
     } else {
         ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();

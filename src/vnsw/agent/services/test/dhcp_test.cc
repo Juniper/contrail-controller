@@ -651,7 +651,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
     };
     DhcpProto::DhcpStats stats;
 
-    CreateVmportEnv(input, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+    CreateVmportEnv(input, 1, 0, NULL,
                     Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
 
@@ -665,7 +665,7 @@ TEST_F(DhcpTest, DhcpFabricPortTest) {
     EXPECT_EQ(1U, stats.acks);
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+    DeleteVmportEnv(input, 1, 1, 0, NULL,
                     Agent::GetInstance()->GetDefaultVrf().c_str()); 
     client->WaitForIdle();
 
@@ -689,7 +689,7 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     };
     DhcpProto::DhcpStats stats;
 
-    CreateVmportEnv(input, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+    CreateVmportEnv(input, 1, 0, NULL,
                     Agent::GetInstance()->GetDefaultVrf().c_str());
     client->WaitForIdle();
 
@@ -706,7 +706,7 @@ TEST_F(DhcpTest, DhcpZeroIpTest) {
     EXPECT_TRUE(RouteFind(Agent::GetInstance()->GetDefaultVrf(), vmaddr, 32));
 
     client->Reset();
-    DeleteVmportEnv(input, 1, 1, 0, Agent::GetInstance()->GetLinkLocalVnName().c_str(),
+    DeleteVmportEnv(input, 1, 1, 0, NULL,
                     Agent::GetInstance()->GetDefaultVrf().c_str()); 
     client->WaitForIdle();
 

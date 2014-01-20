@@ -61,6 +61,10 @@ void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve)
     VrouterStats::Send(uve);
 }
 
+void VrouterUveEntry::DispatchComputeCpuStateMsg(const ComputeCpuState &ccs) {
+    ComputeCpuStateTrace::Send(ccs);
+}
+
 void VrouterUveEntry::VmWalkDone(DBTableBase *base, StringVectorPtr list) {
     VrouterAgent vrouter_agent;
     vrouter_agent.set_name(agent_->GetHostName());
@@ -270,6 +274,21 @@ void VrouterUveEntry::InterfaceNotify(DBTablePartBase *partition,
     return;
 }
 
+void VrouterUveEntry::BuildAndSendComputeCpuStateMsg(const CpuLoadInfo &info) {
+    ComputeCpuState astate;
+    VrouterCpuInfo ainfo;
+    vector<VrouterCpuInfo> aciv;
+
+    astate.set_name(agent_->GetHostName());
+    ainfo.set_cpu_share(info.get_cpu_share());
+    ainfo.set_mem_virt(info.get_meminfo().get_virt());
+    ainfo.set_used_sys_mem(info.get_sys_mem_info().get_used());
+    ainfo.set_one_min_cpuload(info.get_cpuload().get_one_min_avg());
+    aciv.push_back(ainfo);
+    astate.set_cpu_info(aciv);
+    DispatchComputeCpuStateMsg(astate);
+}
+
 bool VrouterUveEntry::SendVrouterMsg() {
     static bool first = true;
     bool change = false;
@@ -369,28 +388,21 @@ bool VrouterUveEntry::SendVrouterMsg() {
         CpuLoadData::FillCpuInfo(cpu_load_info, true);
         if (prev_stats_.get_cpu_info() != cpu_load_info || cpu_first) {
             stats.set_cpu_info(cpu_load_info);
-            if ((prev_stats_.get_cpu_info().get_cpu_share() != 
-                cpu_load_info.get_cpu_share()) || cpu_first) {
-                stats.set_cpu_share(cpu_load_info.get_cpu_share());
-            }
-            if ((prev_stats_.get_cpu_info().get_meminfo().get_virt() != 
-                cpu_load_info.get_meminfo().get_virt()) || cpu_first) {
-                stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
-            }
-            if ((prev_stats_.get_cpu_info().get_sys_mem_info().get_used() != 
-                cpu_load_info.get_sys_mem_info().get_used()) || cpu_first) {
-                stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().
-                                                                   get_used());
-            }
-            if ((prev_stats_.get_cpu_info().get_cpuload().get_one_min_avg() != 
-                cpu_load_info.get_cpuload().get_one_min_avg()) || cpu_first) {
-                stats.set_one_min_avg_cpuload(
-                        cpu_load_info.get_cpuload().get_one_min_avg());
-            }
             prev_stats_.set_cpu_info(cpu_load_info);
             change = true;
             cpu_first = false;
         }
+        //Cpu and mem stats needs to be sent always regardless of whether stats
+        //have changed since last send
+        stats.set_cpu_share(cpu_load_info.get_cpu_share());
+        stats.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
+        stats.set_used_sys_mem(cpu_load_info.get_sys_mem_info().get_used());
+        stats.set_one_min_avg_cpuload(
+                cpu_load_info.get_cpuload().get_one_min_avg());
+        
+        //Stats oracle interface for cpu and mem stats. Needs to be sent
+        //always regardless of whether the stats have changed since last send
+        BuildAndSendComputeCpuStateMsg(cpu_load_info);
         cpu_stats_count = 0;
     }
     vector<AgentIfStats> phy_if_list;

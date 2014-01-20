@@ -119,11 +119,11 @@ class GenDbIf {
         virtual void Db_Uninit(bool shutdown) = 0;
         virtual void Db_SetInitDone(bool init_done) = 0;
         /* api to create a table space */
-        virtual bool Db_AddTablespace(const std::string& tablespace) = 0;
+        virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor) = 0;
         /* api to set the current table space */
         virtual bool Db_SetTablespace(const std::string& tablespace) = 0;
         /* api to set the current table space */
-        virtual bool Db_AddSetTablespace(const std::string& tablespace) = 0;
+        virtual bool Db_AddSetTablespace(const std::string& tablespace,const std::string& replication_factor="1") = 0;
         /* api to add a column family in the current table space */
         virtual bool Db_FindTablespace(const std::string& tablespace) = 0;
 

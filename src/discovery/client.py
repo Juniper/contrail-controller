@@ -13,7 +13,6 @@ import sys
 import socket
 from disc_utils import *
 from disc_consts import *
-import xmltodict
 import services
 import hashlib
 import socket

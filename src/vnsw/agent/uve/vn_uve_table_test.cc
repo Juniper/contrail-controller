@@ -5,11 +5,8 @@
 #include <uve/vn_uve_table_test.h>
 #include <uve/vn_uve_entry_test.h>
 
-VnUveTableTest *VnUveTableTest::singleton_;
-
 VnUveTableTest::VnUveTableTest(Agent *agent) 
     : VnUveTable(agent), send_count_(0), delete_count_(0) {
-    singleton_ = this;
 }
 
 const VnUveEntry::VnStatsSet* VnUveTableTest::FindInterVnStats

@@ -3,6 +3,7 @@
  */
 
 #include "kstate_io_context.h"
+#include "ksync/ksync_types.h"
 
 void KStateIoContext::Handler() {
 
@@ -16,7 +17,10 @@ void KStateIoContext::Handler() {
 }
 
 void KStateIoContext::ErrorHandler(int err) {
+    KSYNC_ERROR(VRouterError, "VRouter query operation failed. Error <", err,
+                ":", strerror(err), ">. Object <", "N/A", ">. State <", "N/A",
+                ">. Message number :", GetSeqno());
     LOG(ERROR, "Error reading kstate. Error <" << err << ": " 
-        << strerror(err) << ": Sequnce No : " << GetSeqno());
+        << strerror(err) << ": Sequence No : " << GetSeqno());
 }
 
