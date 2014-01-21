@@ -62,27 +62,31 @@ bool RTargetGroupMgr::RequestHandler(RtGroupMgrReq *req) {
                 ShowRtGroupInfo info;
                 RtGroup *rtgroup = it->second;
                 info.set_rtarget(rtgroup->rt().ToString());
-                MemberTableList export_members;
+                std::vector<MemberTableList> export_members;
                 BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
                               rtgroup->GetExportMembers()) {
+                    MemberTableList member;
                     std::vector<std::string> export_tables;
                     BOOST_FOREACH(BgpTable *table, tables.second)
                         export_tables.push_back(table->name());
-                    export_members.set_family(
+                    member.set_family(
                                       Address::FamilyToString(tables.first));
-                    export_members.set_tables(export_tables);
+                    member.set_tables(export_tables);
+                    export_members.push_back(member);
                 }
                 info.set_export_members(export_members);
 
-                MemberTableList import_members;
+                std::vector<MemberTableList> import_members;
                 BOOST_FOREACH(const RtGroup::RtGroupMembers::value_type &tables,
                               rtgroup->GetImportMembers()) {
+                    MemberTableList member;
                     std::vector<std::string> import_tables;
                     BOOST_FOREACH(BgpTable *table, tables.second)
                         import_tables.push_back(table->name());
-                    import_members.set_tables(import_tables);
-                    import_members.set_family(
+                    member.set_tables(import_tables);
+                    member.set_family(
                                       Address::FamilyToString(tables.first));
+                    import_members.push_back(member);
                 }
                 info.set_import_members(import_members);
 

@@ -74,6 +74,7 @@ public:
     void StartDeleteTimer();
     bool DeleteTimeout();
     void CancelDeleteTimer();
+    void PostAdd();
     void Init();
     void AddNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
     void DeleteNH(Ip4Address ip, uint8_t plen, ComponentNHData *nh_data) ;
@@ -163,6 +164,7 @@ public:
     }
 
 private:
+    friend class VrfEntry;
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMulticastDone(DBTableBase *base, Peer *);

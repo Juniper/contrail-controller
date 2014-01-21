@@ -9,8 +9,8 @@ struct MemberTableList {
 
 struct ShowRtGroupInfo {
     1: string rtarget;
-    2: MemberTableList import_members;
-    3: MemberTableList export_members;
+    2: list<MemberTableList> import_members;
+    3: list<MemberTableList> export_members;
     4: list<string> peers_interested;
     5: list<string> dep_route;
 }
