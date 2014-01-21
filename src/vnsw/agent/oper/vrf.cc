@@ -160,6 +160,18 @@ string VrfEntry::ToString() const {
     return "VRF";
 }
 
+void VrfEntry::PostAdd() {
+    Init();
+    AgentRouteTableAPIS::GetInstance()->CreateRouteTablesInVrf(
+                           Agent::GetInstance()->GetDB(), name_, rt_table_db_);
+    int rt_table_cnt;
+    for (rt_table_cnt = 0; rt_table_cnt < AgentRouteTableAPIS::MAX; 
+         rt_table_cnt++) {
+        ((VrfTable *)get_table())->dbtree_[rt_table_cnt].insert(
+                        VrfTable::VrfDbPair(name_, rt_table_db_[rt_table_cnt]));
+    }
+}
+
 DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
     VrfKey *key = new VrfKey(name_);
     return DBEntryBase::KeyPtr(key);
@@ -426,7 +438,6 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     VrfKey *key = static_cast<VrfKey *>(req->key.get());
     //VrfData *data = static_cast<VrfData *>(req->data.get());
     VrfEntry *vrf = new VrfEntry(key->name_);
-    vrf->Init();
 
     // Add VRF into name based tree
     if (FindVrfFromName(key->name_)) {
@@ -435,17 +446,6 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
         return NULL;
     }
     name_tree_.insert( VrfNamePair(key->name_, vrf));
-
-    AgentRouteTableAPIS::GetInstance()->CreateRouteTablesInVrf(
-                                                Agent::GetInstance()->GetDB(), 
-                                                key->name_, 
-                                                vrf->rt_table_db_);
-    int rt_table_cnt;
-    for (rt_table_cnt = 0; rt_table_cnt < AgentRouteTableAPIS::MAX; 
-         rt_table_cnt++) {
-        dbtree_[rt_table_cnt].insert(VrfDbPair(key->name_, 
-                                         vrf->rt_table_db_[rt_table_cnt]));
-    }
 
     vrf->id_ = index_table_.Insert(vrf);
     vrf->SendObjectLog(AgentLogEvent::ADD);

@@ -77,6 +77,7 @@ public:
     void StartDeleteTimer();
     bool DeleteTimeout();
     void CancelDeleteTimer();
+    void PostAdd();
     void Init();
     VrfNHMap* GetNHMap() {
         return nh_map_.get();
@@ -153,6 +154,7 @@ public:
     virtual bool CanNotify(IFMapNode *dbe);
     
 private:
+    friend class VrfEntry;
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
     void VrfNotifyMulticastDone(DBTableBase *base, Peer *);
