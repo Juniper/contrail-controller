@@ -42,8 +42,8 @@ Inet4UnicastAgentRouteTable::FindRoute(const string &vrf_name,
 
 Inet4UnicastRouteEntry *
 Inet4UnicastAgentRouteTable::FindLPM(const Ip4Address &ip) {
-    Inet4UnicastRouteEntry key(NULL, ip);
-    return tree_.LPMFind(&key);
+    lpm_find_key_.SetAddr(ip);
+    return tree_.LPMFind(&lpm_find_key_);
 }
 
 Inet4UnicastRouteEntry *

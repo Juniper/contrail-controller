@@ -222,7 +222,7 @@ uint8_t *PktHandler::ParseIpPacket(PktInfo *pkt_info,
     pkt_info->ip_saddr = ntohl(pkt_info->ip->saddr);
     pkt_info->ip_daddr = ntohl(pkt_info->ip->daddr);
     pkt_info->ip_proto = pkt_info->ip->protocol;
-    pkt += (pkt_info->ip->ihl * 4);
+    pkt += (pkt_info->ip->ihl << 2);
 
     switch (pkt_info->ip_proto) {
     case IPPROTO_UDP : {

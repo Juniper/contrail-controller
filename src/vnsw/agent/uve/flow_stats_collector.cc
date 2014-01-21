@@ -307,6 +307,9 @@ bool FlowStatsCollector::Run() {
                 stats->packets = packets;
                 stats->last_modified_time = curr_time;
                 FlowExport(entry, diff_bytes, diff_pkts);
+            } else if (!stats->exported && !entry->deleted()) {
+                /* export flow (reverse) for which traffic is not seen yet. */
+                FlowExport(entry, 0, 0);
             }
         }
 

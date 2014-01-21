@@ -95,7 +95,7 @@ public:
 
     Inet4UnicastAgentRouteTable(DB *db, const std::string &name) :
         Inet4AgentRouteTable(Inet4AgentRouteTable::UNICAST, db, name), 
-        walkid_(DBTableWalker::kInvalidWalkerId) { };
+        walkid_(DBTableWalker::kInvalidWalkerId), lpm_find_key_(NULL, Ip4Address()) { };
     virtual ~Inet4UnicastAgentRouteTable() { };
 
     Inet4UnicastRouteEntry *FindLPM(const Ip4Address &ip);
@@ -234,6 +234,7 @@ private:
     Inet4RouteTree tree_;
     Patricia::Node rtnode_;
     DBTableWalker::WalkId walkid_;
+    Inet4UnicastRouteEntry lpm_find_key_;
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastAgentRouteTable);
 };
 
