@@ -39,7 +39,7 @@ std::string Collector::self_ip_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
-const std::vector<DbHandler::DbQueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo = 
+const std::vector<DbHandler::DbQueueWaterMarkInfo> Collector::kDbQueueWaterMarkInfo =
     boost::assign::tuple_list_of
         (100000, SandeshLevel::SYS_ERR, true)
         (50000, SandeshLevel::SYS_DEBUG, true)
@@ -92,9 +92,9 @@ void Collector::RedisUpdate(bool rsc) {
     LOG(INFO, "RedisUpdate " << rsc);
 
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
-    for (GeneratorMap::iterator gen_it = gen_map_.begin(); 
+    for (GeneratorMap::iterator gen_it = gen_map_.begin();
             gen_it != gen_map_.end(); gen_it++) {
-        Generator *gen = gen_it->second;
+        SandeshGenerator *gen = gen_it->second;
         if (gen->session()) gen->get_state_machine()->ResourceUpdate(rsc);
     }
     return;
@@ -110,8 +110,8 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
     }
     if (vsession->gen_) {
         if (!rsc) return true;
-        
-        Generator *gen = vsession->gen_;
+
+        SandeshGenerator *gen = vsession->gen_;
         std::vector<UVETypeInfo> vu;
         std::map<std::string, int32_t> seqReply;
         bool retc = osp_->GetSeq(gen->source(), gen->node_type(),
@@ -127,7 +127,7 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
             SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
         } else {
             increment_redis_error();
-            LOG(ERROR, "Resource OSP GetSeq FAILED: " << gen->ToString() << 
+            LOG(ERROR, "Resource OSP GetSeq FAILED: " << gen->ToString() <<
                 " Session: " << vsession->ToString());
             gen->DisconnectSession(vsession);
             return false;
@@ -137,9 +137,9 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
     } else {
         increment_no_generator_error();
         LOG(ERROR, __func__ << "Resource State " << rsc <<
-                ": Generator NOT PRESENT: Session: " << vsession->ToString());
+                ": SandeshGenerator NOT PRESENT: Session: " << vsession->ToString());
         return false;
-    }     
+    }
 }
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
@@ -165,14 +165,14 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
     } else {
         increment_no_generator_error();
         LOG(ERROR, __func__ << ": Sandesh message " << message_type <<
-                ": Generator NOT PRESENT: Session: " << vsession->ToString());
+                ": SandeshGenerator NOT PRESENT: Session: " << vsession->ToString());
         return false;
     }
 }
 
- 
+
 TcpSession* Collector::AllocSession(Socket *socket) {
-    VizSession *session = new VizSession(this, socket, AllocConnectionIndex(), 
+    VizSession *session = new VizSession(this, socket, AllocConnectionIndex(),
                                          session_writer_task_id(),
                                          session_reader_task_id());
     session->SetBufferSize(kDefaultSessionBufferSize);
@@ -197,14 +197,14 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
                 sandesh->Name() << ": Session: " << vsession->ToString());
         return false;
     }
-    Generator::GeneratorId id(boost::make_tuple(snh->get_source(),
+    SandeshGenerator::GeneratorId id(boost::make_tuple(snh->get_source(),
             snh->get_module_name(), snh->get_instance_id_name(),
             snh->get_node_type_name()));
-    Generator *gen;
+    SandeshGenerator *gen;
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     GeneratorMap::iterator gen_it = gen_map_.find(id);
     if (gen_it == gen_map_.end()) {
-        gen = new Generator(this, vsession, state_machine, id.get<0>(),
+        gen = new SandeshGenerator(this, vsession, state_machine, id.get<0>(),
                 id.get<1>(), id.get<2>(), id.get<3>());
         gen_map_.insert(id, gen);
     } else {
@@ -269,7 +269,7 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
 
     LOG(DEBUG, "Sent good Ctrl Msg: Size " << vu.size() << " " <<
             snh->get_source() << ":" << snh->get_module_name() << ":" <<
-            snh->get_instance_id_name() << ":" << snh->get_node_type_name()); 
+            snh->get_instance_id_name() << ":" << snh->get_node_type_name());
     gen->ReceiveSandeshCtrlMsg(snh->get_sucessful_connections());
     return true;
 }
@@ -281,7 +281,7 @@ void Collector::DisconnectSession(SandeshSession *session) {
         LOG(ERROR, __func__ << " NO VizSession");
         return;
     }
-    Generator *gen = vsession->gen_;
+    SandeshGenerator *gen = vsession->gen_;
     assert(gen);
     LOG(INFO, "Received Disconnect: " << gen->ToString() << " Session:"
             << vsession->ToString());
@@ -293,7 +293,7 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
-        const Generator * const gen = gm_it->second;
+        const SandeshGenerator * const gen = gm_it->second;
         // Only send if generator is connected
         VizSession *session = gen->session();
         if (!session) {
@@ -314,7 +314,7 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         uint64_t sm_queue_count;
         if (gen->GetSandeshStateMachineQueueCount(sm_queue_count)) {
             ginfo.set_sm_queue_count(sm_queue_count);
-        } 
+        }
 	SandeshStateMachineStats sm_stats;
         SandeshGeneratorStats sm_msg_stats;
         if (gen->GetSandeshStateMachineStats(sm_stats, sm_msg_stats)) {
@@ -335,11 +335,11 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
         ginfo.set_session_stats(session->GetStats());
         TcpServerSocketStats rx_stats;
         session->GetRxSocketStats(rx_stats);
-        ginfo.set_session_rx_socket_stats(rx_stats); 
+        ginfo.set_session_rx_socket_stats(rx_stats);
         TcpServerSocketStats tx_stats;
         session->GetTxSocketStats(tx_stats);
-        ginfo.set_session_tx_socket_stats(tx_stats); 
-         
+        ginfo.set_session_tx_socket_stats(tx_stats);
+
         ginfo.set_msg_stats(ssiv);
         ginfo.set_name(gen->ToString());
         genlist.push_back(ginfo);
@@ -352,7 +352,7 @@ void Collector::GetGeneratorSummaryInfo(vector<GeneratorSummaryInfo> &genlist) {
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         GeneratorSummaryInfo gsinfo;
-        const Generator * const gen = gm_it->second;
+        const SandeshGenerator * const gen = gm_it->second;
         ModuleServerState ginfo;
         gen->GetGeneratorInfo(ginfo);
         vector<GeneratorInfo> giv = ginfo.get_generator_info();
@@ -382,20 +382,20 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
-        Generator::GeneratorId id(gm_it->first);
+        SandeshGenerator::GeneratorId id(gm_it->first);
         if (((dest[0] != "*") && (id.get<0>() != dest[0])) ||
             ((dest[1] != "*") && (id.get<1>() != dest[1])) ||
             ((dest[2] != "*") && (id.get<2>() != dest[2])) ||
             ((dest[3] != "*") && (id.get<3>() != dest[3]))) {
             continue;
         }
-        const Generator *gen = gm_it->second;
+        const SandeshGenerator *gen = gm_it->second;
         SandeshSession *session = gen->session();
         if (session) {
             session->EnqueueBuffer((uint8_t *)dec_sandesh.c_str(), dec_sandesh.size());
         } else {
             increment_no_session_error();
-            LOG(ERROR, "No connection to " << destination << 
+            LOG(ERROR, "No connection to " << destination <<
                 ". Failed to send sandesh " << dec_sandesh);
         }
     }
@@ -406,7 +406,7 @@ void Collector::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     GeneratorMap::iterator gen_it = gen_map_.begin();
     for (; gen_it != gen_map_.end(); gen_it++) {
-        Generator *gen = gen_it->second;
+        SandeshGenerator *gen = gen_it->second;
         gen->SetDbQueueWaterMarkInfo(wm);
     }
     db_queue_wm_info_.push_back(wm);
@@ -416,7 +416,7 @@ void Collector::ResetDbQueueWaterMarkInfo() {
     tbb::mutex::scoped_lock lock(gen_map_mutex_);
     GeneratorMap::iterator gen_it = gen_map_.begin();
     for (; gen_it != gen_map_.end(); gen_it++) {
-        Generator *gen = gen_it->second;
+        SandeshGenerator *gen = gen_it->second;
         gen->ResetDbQueueWaterMarkInfo();
     }
     db_queue_wm_info_.clear();
@@ -451,7 +451,7 @@ public:
         resp->set_tx_socket_stats(tx_socket_stats);
         // Collector statistics
         resp->set_stats(vsc->Analytics()->GetCollector()->GetStats());
-        // Generator summary info
+        // SandeshGenerator summary info
         vector<GeneratorSummaryInfo> generators;
         vsc->Analytics()->GetCollector()->GetGeneratorSummaryInfo(generators);
         resp->set_generators(generators);
@@ -477,7 +477,7 @@ void ShowCollectorServerReq::HandleRequest() const {
 }
 
 static void SendDbQueueParamsError(std::string estr, std::string context) {
-    // Generator is required, send error
+    // SandeshGenerator is required, send error
     DbQueueParamsError *eresp(new DbQueueParamsError);
     eresp->set_context(context);
     eresp->set_error(estr);

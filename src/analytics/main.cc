@@ -234,6 +234,9 @@ int main(int argc, char *argv[])
         ("listen-port",
          opt::value<int>()->default_value(ContrailPorts::CollectorPort),
          "vizd listener port")
+        ("syslog-port",
+         opt::value<int>()->default_value(ContrailPorts::SyslogPort),
+         "Syslog listener port")
         ("host-ip", opt::value<string>(),
          "IP address of Analytics Node")
         ("http-server-port",
@@ -308,6 +311,7 @@ int main(int argc, char *argv[])
             cassandra_port,
             string("127.0.0.1"),
             var_map["redis-sentinel-port"].as<int>(),
+            var_map["syslog-port"].as<int>(),
             var_map["gen-timeout"].as<int>(),
             dup,
             var_map["analytics-data-ttl"].as<int>());
