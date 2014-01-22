@@ -660,7 +660,7 @@ void BgpPeer::SendOpen(TcpSession *session) {
     }
 
     // Add restart capability for generating End-Of-Rib
-    const uint8_t restart_cap[2] = { 0x0, 0x78 };
+    const uint8_t restart_cap[2] = { 0x0, 0x0 };
     BgpProto::OpenMessage::Capability *cap =
         new BgpProto::OpenMessage::Capability(
                           BgpProto::OpenMessage::Capability::GracefulRestart, 
