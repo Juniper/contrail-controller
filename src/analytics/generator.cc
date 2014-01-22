@@ -47,10 +47,7 @@ using std::map;
         }                                                                      \
     } while (false)
 
-Generator::Generator (const string &source, const string &module,
-   boost::shared_ptr<DbHandler> db_handler) :
-        source_ (source),
-        module_ (module),
+Generator::Generator (boost::shared_ptr<DbHandler> db_handler) :
         db_handler_(db_handler)
 {
 }
@@ -107,16 +104,19 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
         const string &node_type) :
-        Generator (source, module, boost::shared_ptr<DbHandler> (new DbHandler (
+        Generator (boost::shared_ptr<DbHandler> (new DbHandler (
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
             collector->cassandra_ip(), collector->cassandra_port(),
-            collector->analytics_ttl(), source + ":" + module))),
+            collector->analytics_ttl(), source + ":" + node_type + ":" +
+                module + ":" + instance_id))),
         collector_(collector),
         state_machine_(state_machine),
         viz_session_(session),
         instance_id_(instance_id),
         node_type_(node_type),
+        source_ (source),
+        module_ (module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
         db_connect_timer_(TimerManager::CreateTimer(
             *collector->event_manager()->io_service(),
@@ -125,7 +125,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
             session->GetSessionInstance())),
         del_wait_timer_(
                 TimerManager::CreateTimer(*collector->event_manager()->io_service(),
-                    "Delete wait timer" + source + module)) {
+                    "Delete wait timer" + name_)) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
@@ -332,9 +332,10 @@ void SandeshGenerator::ResetDbQueueWaterMarkInfo() {
 
 SyslogGenerator::SyslogGenerator (SyslogListeners *const listeners,
         const string &source, const string &module) :
-          Generator (source, module,
-            boost::shared_ptr<DbHandler> (listeners->GetDbHandler ())),
+          Generator (boost::shared_ptr<DbHandler> (listeners->GetDbHandler ())),
           syslog_(listeners),
+          source_ (source),
+          module_ (module),
           name_(source + ":" + module)
 {
 }

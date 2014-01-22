@@ -370,7 +370,7 @@ class SyslogParser
             std::string   ip(GetMapVals (v, "ip"));
 
             hdr.set_Timestamp(GetMapVal (v, "timestamp"));
-            hdr.set_Module(GetMapVals (v, "prog", "syslog"));
+            hdr.set_Module(GetMapVals (v, "prog", "UNKNOWN"));
             hdr.set_Source(GetMapVals (v, "hostname", GetMapVals (v, "ip")));
             hdr.set_Type(SandeshType::SYSLOG);
             hdr.set_Level (GetMapVal (v, "severity"));

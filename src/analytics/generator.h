@@ -42,12 +42,9 @@ struct RedisReplyMsg : public ssm::Message {
 
 class Generator {
   public:
-    Generator(const std::string &source, const std::string &module,
-        boost::shared_ptr<DbHandler> db_handler);
+    Generator(boost::shared_ptr<DbHandler> db_handler);
     ~Generator() {}
 
-    const std::string &module() const { return module_; }
-    const std::string &source() const { return source_; }
     virtual const std::string ToString() const = 0;
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
     virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg,
@@ -73,8 +70,6 @@ class Generator {
     typedef boost::ptr_map<std::string /* Log level */, LogLevelStats> LogLevelStatsMap;
     LogLevelStatsMap log_level_stats_map_;
 
-    const std::string source_;
-    const std::string module_;
     boost::shared_ptr<DbHandler> db_handler_;
   private:
 };
@@ -105,6 +100,8 @@ public:
     const std::string &instance_id() const { return instance_id_; }
     const std::string &node_type() const { return node_type_; }
     VizSession * session() const { return viz_session_; }
+    const std::string &module() const { return module_; }
+    const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
     SandeshStateMachine * get_state_machine(void) {
         return state_machine_;
@@ -146,6 +143,8 @@ private:
 
     const std::string instance_id_;
     const std::string node_type_;
+    const std::string source_;
+    const std::string module_;
     const std::string name_;
 
     Timer *db_connect_timer_;
@@ -157,11 +156,15 @@ class SyslogGenerator : public Generator {
   public:
     SyslogGenerator (SyslogListeners *const listeners,
         const std::string &source, const std::string &module);
+    const std::string &module() const { return module_; }
+    const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
   private:
     virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
 
     SyslogListeners * const syslog_;
+    const std::string source_;
+    const std::string module_;
     const std::string name_;
 };
 
