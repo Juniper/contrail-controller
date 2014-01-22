@@ -231,9 +231,8 @@ int BgpServer::RegisterPeer(BgpPeer *peer) {
 }
 
 void BgpServer::UnregisterPeer(BgpPeer *peer) {
-    BgpPeerList::iterator loc = peer_list_.find(peer->peer_name());
-    assert(loc != peer_list_.end());
-    peer_list_.erase(loc);
+    size_t count = peer_list_.erase(peer->peer_name());
+    assert(count == 1);
 
     peer_bmap_.set(peer->GetIndex());
     for (size_t i = peer_bmap_.size(); i != 0; i--) {
