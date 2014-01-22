@@ -592,7 +592,14 @@ int main(int argc, char *argv[]) {
             tcp::resolver::iterator iter = resolver.resolve(query);
             self_ip = iter->endpoint().address().to_string();
         }
-        ControlNode::SetSelfIp(self_ip);
+
+        // verify string is a valid ip before publishing
+        boost::asio::ip::address::from_string(self_ip, error);
+        if (error) {
+            self_ip.clear();
+        } else { 
+            ControlNode::SetSelfIp(self_ip);
+        }
 
         if (!self_ip.empty()) {
             stringstream pub_ss;
