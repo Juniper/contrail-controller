@@ -12,7 +12,6 @@
 #include "rapidjson/document.h"
 #include "base/logging.h"
 #include "query.h"
-#include "viz_constants.cpp"
 #include <boost/assign/list_of.hpp>
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
