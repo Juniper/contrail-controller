@@ -597,6 +597,51 @@ void BgpNeighborReq::HandleRequest() const {
 
 }
 
+class ClearBgpNeighborHandler {
+public:
+    static bool CallbackS1(const Sandesh *sr,
+                           const RequestPipeline::PipeSpec ps, int stage,
+                           int instNum, RequestPipeline::InstData * data);
+};
+
+bool ClearBgpNeighborHandler::CallbackS1(
+        const Sandesh *sr, const RequestPipeline::PipeSpec ps,
+        int stage, int instNum, RequestPipeline::InstData *data) {
+    const ClearBgpNeighborReq *req;
+    BgpSandeshContext *bsc;
+
+    req = static_cast<const ClearBgpNeighborReq *>(ps.snhRequest_.get());
+    bsc = static_cast<BgpSandeshContext *>(req->client_context());
+    BgpPeer *peer = bsc->bgp_server->FindPeer(req->get_name());
+
+    ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
+    if (peer) {
+        peer->Clear();
+        resp->set_success(true);
+    } else {
+        resp->set_success(false);
+    }
+    resp->set_context(req->context());
+    resp->Response();
+
+    return true;
+}
+
+// handler for 'clear bgp neighbor'
+void ClearBgpNeighborReq::HandleRequest() const {
+
+    // Use config task since neighbors are added/deleted under that task.
+    // to compute the number of neighbors.
+    RequestPipeline::StageSpec s1;
+    s1.taskId_ = TaskScheduler::GetInstance()->GetTaskId("bgp::Config");
+    s1.instances_.push_back(0);
+    s1.cbFn_ = ClearBgpNeighborHandler::CallbackS1;
+
+    RequestPipeline::PipeSpec ps(this);
+    ps.stages_= list_of(s1);
+    RequestPipeline rp(ps);
+}
+
 class ShowRoutingInstanceHandler {
 public:
     static void FillRoutingTableStats(ShowRoutingInstanceTable &rit,

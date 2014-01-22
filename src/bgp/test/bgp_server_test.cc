@@ -11,6 +11,7 @@
 #include "bgp/bgp_config_parser.h"
 #include "bgp/bgp_factory.h"
 #include "bgp/bgp_peer.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -99,12 +100,16 @@ protected:
                         string bgp_identifier1, string bgp_identifier2,
                         vector<string> families1, vector<string> families2,
                         bool delete_config);
+    static void HandleClearBgpNeighborResponse(Sandesh *sandesh, bool success);
 
     auto_ptr<EventManager> evm_;
     auto_ptr<ServerThread> thread_;
     auto_ptr<BgpServerTest> a_;
     auto_ptr<BgpServerTest> b_;
+    static bool validate_done_;
 };
+
+bool BgpServerUnitTest::validate_done_;
 
 string BgpServerUnitTest::GetConfigStr(int peer_count,
         unsigned short port_a, unsigned short port_b,
@@ -222,6 +227,13 @@ void BgpServerUnitTest::VerifyPeers(int peer_count,
             TASK_UTIL_EXPECT_TRUE(peer_b->get_tr_keepalive() > 2);
         }
     }
+}
+
+void BgpServerUnitTest::HandleClearBgpNeighborResponse(
+    Sandesh *sandesh, bool success) {
+    ClearBgpNeighborResp *resp = dynamic_cast<ClearBgpNeighborResp *>(sandesh);
+    TASK_UTIL_EXPECT_EQ(success, resp->get_success());
+    validate_done_ = true;
 }
 
 TEST_F(BgpServerUnitTest, Connection) {
@@ -992,6 +1004,281 @@ TEST_F(BgpServerUnitTest, AddressFamilyNegotiation8) {
                               (peer_b->get_rx_notification() > 2));
         TASK_UTIL_EXPECT_NE(peer_a->GetState(), StateMachine::ESTABLISHED);
         TASK_UTIL_EXPECT_NE(peer_b->GetState(), StateMachine::ESTABLISHED);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ClearNeighbor1) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+
+    //
+    // Clear neighbors via sandesh
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = a_.get();
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(
+            boost::bind(HandleClearBgpNeighborResponse, _1, true));
+        ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
+        validate_done_ = false;
+        clear_req->set_name(peer_a->peer_name());
+        clear_req->HandleRequest();
+        clear_req->Release();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(validate_done_);
+    }
+
+    //
+    // Make sure that the peers come up again
+    //
+    VerifyPeers(peer_count);
+
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ClearNeighbor2) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem + 1,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+
+    //
+    // Clear neighbors via sandesh
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = a_.get();
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(
+            boost::bind(HandleClearBgpNeighborResponse, _1, true));
+        ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
+        validate_done_ = false;
+        clear_req->set_name(peer_a->peer_name());
+        clear_req->HandleRequest();
+        clear_req->Release();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(validate_done_);
+    }
+
+    //
+    // Make sure that the peers come up again
+    //
+    VerifyPeers(peer_count, false,
+                BgpConfigManager::kDefaultAutonomousSystem,
+                BgpConfigManager::kDefaultAutonomousSystem + 1);
+
+    //
+    // Make sure that the peers did flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_TRUE(peer_a->flap_count() > flap_count_a[j]);
+        TASK_UTIL_EXPECT_TRUE(peer_b->flap_count() > flap_count_b[j]);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ClearNeighbor3) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+
+    //
+    // Attempt to clear neighbors (without matching name) via sandesh
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = a_.get();
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(
+            boost::bind(HandleClearBgpNeighborResponse, _1, false));
+        ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
+        validate_done_ = false;
+        clear_req->set_name(peer_a->peer_name() + "extra");
+        clear_req->HandleRequest();
+        clear_req->Release();
+        task_util::WaitForIdle();
+        TASK_UTIL_EXPECT_TRUE(validate_done_);
+    }
+
+    //
+    // Make sure that the peers are still up
+    //
+    VerifyPeers(peer_count);
+
+    //
+    // Make sure that the peers did not flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->flap_count(), flap_count_a[j]);
+        TASK_UTIL_EXPECT_EQ(peer_b->flap_count(), flap_count_b[j]);
+    }
+}
+
+TEST_F(BgpServerUnitTest, ClearNeighbor4) {
+    int peer_count = 3;
+
+    BgpPeerTest::verbose_name(true);
+    SetupPeers(peer_count, a_->session_manager()->GetPort(),
+               b_->session_manager()->GetPort(), false,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               BgpConfigManager::kDefaultAutonomousSystem,
+               "127.0.0.1", "127.0.0.1",
+               "192.168.0.10", "192.168.0.11");
+    VerifyPeers(peer_count);
+
+    vector<uint32_t> flap_count_a;
+    vector<uint32_t> flap_count_b;
+
+    //
+    // Note down the current flap count
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        flap_count_a.push_back(peer_a->flap_count());
+        flap_count_b.push_back(peer_b->flap_count());
+    }
+
+
+    //
+    // Attempt to clear neighbor(s) with an empty name.
+    //
+    BgpSandeshContext sandesh_context;
+    sandesh_context.bgp_server = a_.get();
+    Sandesh::set_client_context(&sandesh_context);
+    Sandesh::set_response_callback(
+        boost::bind(HandleClearBgpNeighborResponse, _1, false));
+    ClearBgpNeighborReq *clear_req = new ClearBgpNeighborReq;
+    validate_done_ = false;
+    clear_req->set_name("");
+    clear_req->HandleRequest();
+    clear_req->Release();
+    task_util::WaitForIdle();
+    TASK_UTIL_EXPECT_TRUE(validate_done_);
+
+    //
+    // Make sure that the peers are still up
+    //
+    VerifyPeers(peer_count);
+
+    //
+    // Make sure that the peers did not flap
+    //
+    for (int j = 0; j < peer_count; j++) {
+        string uuid = BgpConfigParser::session_uuid("A", "B", j + 1);
+        BgpPeer *peer_a = a_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        BgpPeer *peer_b = b_->FindPeerByUuid(BgpConfigManager::kMasterInstance,
+                                             uuid);
+        TASK_UTIL_EXPECT_EQ(peer_a->flap_count(), flap_count_a[j]);
+        TASK_UTIL_EXPECT_EQ(peer_b->flap_count(), flap_count_b[j]);
     }
 }
 

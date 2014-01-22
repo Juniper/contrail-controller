@@ -265,7 +265,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_key_(config),
           peer_name_(config->name()),
           config_(config),
-          index_(server->AllocPeerIndex()),
+          index_(server->RegisterPeer(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex()),
@@ -439,9 +439,8 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
 
 // Release resources for a peer that is going to be deleted.
 void BgpPeer::PostCloseRelease() {
-    // Blow away the peer index if allocated
     if (index_ != -1) {
-        server_->FreePeerIndex(index_);
+        server_->UnregisterPeer(this);
         index_ = -1;
     }
     TimerManager::DeleteTimer(keepalive_timer_);
