@@ -419,15 +419,15 @@ struct Idle : sc::state<Idle, StateMachine> {
 //
 struct Active : sc::state<Active, StateMachine> {
     typedef mpl::list<
-        TransitToIdle<EvStop>::reaction,
+        IdleCease<EvStop>::reaction,
         sc::custom_reaction<EvConnectTimerExpired>,
         sc::custom_reaction<EvOpenTimerExpired>,
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
         TransitToIdle<EvBgpNotification>::reaction,
-        TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleFsmError<EvBgpKeepalive>::reaction,
+        IdleFsmError<EvBgpUpdate>::reaction,
         IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
         IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
         IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
@@ -525,7 +525,7 @@ struct Active : sc::state<Active, StateMachine> {
 //
 struct Connect : sc::state<Connect, StateMachine> {
     typedef mpl::list<
-        TransitToIdle<EvStop>::reaction,
+        IdleCease<EvStop>::reaction,
         sc::custom_reaction<EvConnectTimerExpired>,
         sc::custom_reaction<EvOpenTimerExpired>,
         sc::custom_reaction<EvTcpConnected>,
@@ -534,8 +534,8 @@ struct Connect : sc::state<Connect, StateMachine> {
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
         TransitToIdle<EvBgpNotification>::reaction,
-        TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleFsmError<EvBgpKeepalive>::reaction,
+        IdleFsmError<EvBgpUpdate>::reaction,
         IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
         IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
         IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
@@ -1302,6 +1302,11 @@ BgpSession *StateMachine::passive_session() {
 
 void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
         int subcode, const std::string &data) {
+    // Prefer the passive session if available since it's operational.
+    if (!session)
+        session = passive_session_;
+    if (!session)
+        session = active_session_;
     if (session && code != 0)
         peer_->SendNotification(session, code, subcode, data);
 
