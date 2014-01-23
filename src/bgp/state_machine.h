@@ -95,11 +95,12 @@ public:
     ~StateMachine();
 
     void Initialize();
-    void Shutdown();
+    void Shutdown(int subcode);
     void SetAdminState(bool down);
 
-    template <class Ev, int code> void OnIdle(const Ev &event);
-    template <class Ev, int code> void OnIdleError(const Ev &event);
+    template <typename Ev, int code> void OnIdle(const Ev &event);
+    template <typename Ev> void OnIdleCease(const Ev &event);
+    template <typename Ev, int code> void OnIdleError(const Ev &event);
     void OnIdleNotification(const fsm::EvBgpNotification &event);
 
     int GetConnectTime() const;

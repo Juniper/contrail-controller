@@ -230,7 +230,7 @@ void PeerManager::ClearAllPeers() {
         ++next;
         RTINSTANCE_LOG_PEER(Clear, instance_, peer,
             SandeshLevel::SYS_INFO, RTINSTANCE_LOG_FLAG_ALL);
-        peer->Clear();
+        peer->Clear(BgpProto::Notification::OtherConfigChange);
     }
 }
 
