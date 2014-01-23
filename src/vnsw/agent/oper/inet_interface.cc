@@ -93,7 +93,7 @@ void InetInterface::ActivateSimpleGateway() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
 
-    if (label_ != MplsTable::kInvalidLabel) {
+    if (label_ == MplsTable::kInvalidLabel) {
         // Allocate MPLS Label 
         label_ = agent->GetMplsTable()->AllocLabel();
         // Create MPLS entry pointing to virtual host interface-nh
@@ -232,7 +232,7 @@ void InetInterface::ActivateHostInterface() {
 }
 
 void InetInterface::DeActivateHostInterface() {
-    active_ = false;
+    ipv4_active_ = false;
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
@@ -265,14 +265,17 @@ void InetInterface::DeActivateHostInterface() {
 /////////////////////////////////////////////////////////////////////////////
 InetInterface::InetInterface(const std::string &name) :
     Interface(Interface::INET, nil_uuid(), name, NULL) {
+    ipv4_active_ = false;
+    l2_active_ = false;
 }
 
 InetInterface::InetInterface(const std::string &name, SubType sub_type,
                              VrfEntry *vrf, const Ip4Address &ip_addr, int plen,
                              const Ip4Address &gw, const std::string &vn_name) :
     Interface(Interface::INET, nil_uuid(), name, vrf), sub_type_(sub_type),
-    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name),
-    label_(MplsTable::kInvalidLabel), active_(false) {
+    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name) {
+    ipv4_active_ = false;
+    l2_active_ = false;
 }
 
 bool InetInterface::CmpInterface(const DBEntry &rhs) const {
@@ -286,7 +289,7 @@ DBEntryBase::KeyPtr InetInterface::GetDBRequestKey() const {
 }
 
 void InetInterface::Activate() {
-    active_ = true;
+    ipv4_active_ = true;
     if (sub_type_ == SIMPLE_GATEWAY) {
         InetInterface::ActivateSimpleGateway();
     } else {
@@ -296,9 +299,8 @@ void InetInterface::Activate() {
     return;
 }
 
-
 void InetInterface::DeActivate() {
-    active_ = false;
+    ipv4_active_ = false;
 
     if (sub_type_ == SIMPLE_GATEWAY) {
         InetInterface::DeActivateSimpleGateway();
@@ -324,7 +326,7 @@ bool InetInterface::OnChange(InetInterfaceData *data) {
 
     // A Delete followed by Add will result in OnChange callback. Interface is
     // Deactivated on delete. Activate it again to create Interface NH etc...
-    if (active_ != true) {
+    if (ipv4_active_ != true) {
         Activate();
         ret = true;
     }

@@ -9,6 +9,7 @@
 #include "test/test_cmn_util.h"
 #include "vgw/cfg_vgw.h"
 #include "vgw/vgw.h"
+#include "oper/mpls.h"
 
 namespace opt = boost::program_options;
 
@@ -39,6 +40,18 @@ TEST_F(VgwTest, conf_file_1) {
     EXPECT_STREQ(cfg->interface().c_str(), "vgw");
     EXPECT_STREQ(cfg->ip().to_string().c_str(), "1.1.1.1");
     EXPECT_EQ(cfg->plen(), 24);
+}
+
+// Validate interface configuration
+TEST_F(VgwTest, interface_1) {
+    const InetInterface *gw = InetInterfaceGet("vgw");
+    EXPECT_TRUE(gw != NULL);
+    if (gw == NULL)
+        return;
+
+    EXPECT_TRUE(gw->sub_type() == InetInterface::SIMPLE_GATEWAY);
+    EXPECT_TRUE(gw->ipv4_active());
+    EXPECT_NE(gw->label(), 0xFFFFFFFF);
 }
 
 // The route for public-vn in fabric-vrf shold point to receive NH
@@ -93,7 +106,6 @@ TEST_F(VgwTest, vn_route_1) {
     const InetInterface *vhost_intf;
     vhost_intf = static_cast<const InetInterface *>(intf);
     EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
-
 }
 
 int main(int argc, char **argv) {
