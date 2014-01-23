@@ -616,7 +616,7 @@ bool ClearBgpNeighborHandler::CallbackS1(
 
     ClearBgpNeighborResp *resp = new ClearBgpNeighborResp;
     if (peer) {
-        peer->Clear();
+        peer->Clear(BgpProto::Notification::AdminReset);
         resp->set_success(true);
     } else {
         resp->set_success(false);

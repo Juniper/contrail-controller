@@ -54,11 +54,12 @@ struct EvStart : sc::event<EvStart> {
 };
 
 struct EvStop : sc::event<EvStop> {
-    EvStop() {
+    EvStop(int subcode) : subcode(subcode) {
     }
     static const char *Name() {
         return "EvStop";
     }
+    int subcode;
 };
 
 struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
@@ -333,7 +334,7 @@ struct TransitToIdle<EvBgpNotification, 0> {
 template <typename Ev>
 struct IdleCease {
     typedef sc::transition<Ev, Idle, StateMachine,
-        &StateMachine::OnIdle<Ev, BgpProto::Notification::Cease> > reaction;
+        &StateMachine::OnIdleCease<Ev> > reaction;
 };
 
 template <typename Ev>
@@ -1074,13 +1075,13 @@ void StateMachine::Initialize() {
     Enqueue(fsm::EvStart());
 }
 
-void StateMachine::Shutdown(void) {
-    Enqueue(fsm::EvStop());
+void StateMachine::Shutdown(int subcode) {
+    Enqueue(fsm::EvStop(subcode));
 }
 
 void StateMachine::SetAdminState(bool down) {
     if (down) {
-        Enqueue(fsm::EvStop());
+        Enqueue(fsm::EvStop(BgpProto::Notification::AdminShutdown));
     } else {
         reset_idle_hold_time();
         peer_->reset_flap_count();
@@ -1092,8 +1093,20 @@ void StateMachine::SetAdminState(bool down) {
 
 template <typename Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
-    // Release all resources
-    SendNotificationAndClose(peer()->session(), code);
+    // Release all resources.
+    SendNotificationAndClose(peer_->session(), code);
+
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+template <typename Ev>
+void StateMachine::OnIdleCease(const Ev &event) {
+    // Release all resources.
+    SendNotificationAndClose(
+        peer_->session(), BgpProto::Notification::Cease, event.subcode);
 
     bool flap = (state_ == ESTABLISHED);
     if (flap)

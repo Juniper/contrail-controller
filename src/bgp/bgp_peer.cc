@@ -222,7 +222,7 @@ class BgpPeer::DeleteActor : public LifetimeActor {
 
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
-        peer_->Clear();
+        peer_->Clear(BgpProto::Notification::PeerDeconfigured);
     }
 
     virtual void Destroy() {
@@ -398,7 +398,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
                      BGP_PEER_DIR_NA,
                      "Session cleared due to configuration change");
         BGPPeerInfo::Send(peer_info);
-        Clear();
+        Clear(BgpProto::Notification::OtherConfigChange);
     }
 }
 
@@ -498,8 +498,8 @@ IPeerDebugStats *BgpPeer::peer_stats() {
 }
 
 
-void BgpPeer::Clear() {
-    state_machine_->Shutdown();
+void BgpPeer::Clear(int subcode) {
+    state_machine_->Shutdown(subcode);
 }
 
 //
