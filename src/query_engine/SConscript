@@ -140,7 +140,7 @@ qed = env.Program(
         target = 'qed', 
         source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj +
-        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
+        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc', '../analytics/viz_constants.o']
         )
 
 if env['OPT'] == 'coverage':
@@ -148,7 +148,7 @@ if env['OPT'] == 'coverage':
         target = 'qedt', 
         source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj + 
-        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
+        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc','../analytics/viz_constants.o']
         )
 
 else:
@@ -157,7 +157,7 @@ else:
         source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj +
         ['../analytics/vizd_table_desc.o', ] +
-        ['rac_alloc_test.cc']
+        ['rac_alloc_test.cc','../analytics/viz_constants.o']
         )
 
 env.Alias("src/query_engine:qed", qed)

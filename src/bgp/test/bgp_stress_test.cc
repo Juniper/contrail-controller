@@ -1852,7 +1852,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
                                     peers_[peer_id]->peer()->flap_count()));
         established.insert(make_pair(peer_id,
             peers_[peer_id]->peer()->GetState() == StateMachine::ESTABLISHED));
-        peers_[peer_id]->peer()->Clear();
+        peers_[peer_id]->peer()->Clear(BgpProto::Notification::AdminReset);
     }
 
     BOOST_FOREACH(int peer_id, peer_ids) {

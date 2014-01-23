@@ -220,7 +220,9 @@ LifetimeActor *BgpServer::deleter() {
     return deleter_.get();
 }
 
-int BgpServer::AllocPeerIndex() {
+int BgpServer::RegisterPeer(BgpPeer *peer) {
+    peer_list_.insert(make_pair(peer->peer_name(), peer));
+
     size_t bit = peer_bmap_.find_first();
     if (bit == peer_bmap_.npos) {
         bit = peer_bmap_.size();
@@ -230,9 +232,11 @@ int BgpServer::AllocPeerIndex() {
     return bit;
 }
 
-void BgpServer::FreePeerIndex(int id) {
-    peer_bmap_.set(id);
+void BgpServer::UnregisterPeer(BgpPeer *peer) {
+    size_t count = peer_list_.erase(peer->peer_name());
+    assert(count == 1);
 
+    peer_bmap_.set(peer->GetIndex());
     for (size_t i = peer_bmap_.size(); i != 0; i--) {
         if (peer_bmap_[i-1] != true) {
             if (i != peer_bmap_.size()) {
@@ -242,6 +246,11 @@ void BgpServer::FreePeerIndex(int id) {
         }
     }
     peer_bmap_.clear();
+}
+
+BgpPeer *BgpServer::FindPeer(const string &name) {
+    BgpPeerList::iterator loc = peer_list_.find(name);
+    return (loc != peer_list_.end() ? loc->second : NULL);
 }
 
 const std::string &BgpServer::localname() const {

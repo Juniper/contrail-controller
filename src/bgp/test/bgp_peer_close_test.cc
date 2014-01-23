@@ -931,7 +931,7 @@ TEST_P(BgpPeerCloseTest, ClosePeers) {
 
     // Trigger ribin deletes
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-        npeer->peer()->Clear();
+        npeer->peer()->Clear(BgpProto::Notification::AdminReset);
     }
 
     XmppPeerClose();
@@ -1032,7 +1032,7 @@ TEST_P(BgpPeerCloseTest, ClosePeersWithRouteStalingAndDelete) {
 
     // Trigger ribin deletes
     BOOST_FOREACH(BgpNullPeer *npeer, peers_) {
-        npeer->peer()->Clear();
+        npeer->peer()->Clear(BgpProto::Notification::AdminReset);
     }
 
     XmppPeerClose();

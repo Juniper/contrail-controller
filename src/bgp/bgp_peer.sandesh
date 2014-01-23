@@ -87,6 +87,14 @@ response sandesh ShowNeighborStatisticsResp {
     4: u32 count;
 }
 
+request sandesh ClearBgpNeighborReq {
+    1: string name;
+}
+
+response sandesh ClearBgpNeighborResp {
+    1: bool success;
+}
+
 struct ShowRoutePath {
     1: string protocol;
     2: u32 preference;
