@@ -121,8 +121,15 @@ bool MiscUtils::GetBuildInfo(BuildModule id, const string &build_info,
 
     bool ret = GetContrailVersionInfo(id, rpm_version, build_num);
     rapidjson::Document d;
-    d.Parse<0>(const_cast<char *>(build_info.c_str()));
+    if (d.Parse<0>(const_cast<char *>(build_info.c_str())).HasParseError()) {
+        result = build_info;
+        return false;
+    }
     rapidjson::Value& fields = d["build-info"];
+    if (!fields.IsArray()) {
+        result = build_info;
+        return false;
+    }
     fields[0u].AddMember("build-id", const_cast<char *>(rpm_version.c_str()), 
                          d.GetAllocator());
     fields[0u].AddMember("build-number", const_cast<char *>(build_num.c_str()), 

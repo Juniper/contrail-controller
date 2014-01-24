@@ -1370,7 +1370,7 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
         state->inet4_unicast_update_ = 
             Inet4RouteUpdate::UnicastInit(
             static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)));
+            GetInet4UnicastRouteTable()));
         vrf->SetState(part->parent(), vrf_listener_id_, state);
     }
     return;

@@ -84,18 +84,28 @@ public:
             Ip4Address::from_string(params.identifier, ec);
 
         if (server_->bgp_identifier_ != bgp_identifier) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
-                        BGP_LOG_FLAG_SYSLOG,
-                        "Updated bgp_identifier from " <<
+            SandeshLevel::type log_level;
+            if (!server_->bgp_identifier_.is_unspecified()) {
+                log_level = SandeshLevel::SYS_NOTICE;
+            } else {
+                log_level = SandeshLevel::SYS_DEBUG;
+            }
+            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Router ID from " <<
                         server_->bgp_identifier_.to_string() << " to " <<
                         params.identifier);
             server_->bgp_identifier_ = bgp_identifier;
         }
 
         if (server_->autonomous_system_ != params.autonomous_system) {
-            BGP_LOG_STR(BgpConfig, SandeshLevel::SYS_DEBUG,
-                        BGP_LOG_FLAG_SYSLOG,
-                        "Updated local autonomous_system number from " <<
+            SandeshLevel::type log_level;
+            if (server_->autonomous_system_ != 0) {
+                log_level = SandeshLevel::SYS_NOTICE;
+            } else {
+                log_level = SandeshLevel::SYS_DEBUG;
+            }
+            BGP_LOG_STR(BgpConfig, log_level, BGP_LOG_FLAG_SYSLOG,
+                        "Updated Autonomous System from " <<
                         server_->autonomous_system_ << " to "
                         << params.autonomous_system);
             server_->autonomous_system_ = params.autonomous_system;
@@ -218,7 +228,9 @@ LifetimeActor *BgpServer::deleter() {
     return deleter_.get();
 }
 
-int BgpServer::AllocPeerIndex() {
+int BgpServer::RegisterPeer(BgpPeer *peer) {
+    peer_list_.insert(make_pair(peer->peer_name(), peer));
+
     size_t bit = peer_bmap_.find_first();
     if (bit == peer_bmap_.npos) {
         bit = peer_bmap_.size();
@@ -228,9 +240,11 @@ int BgpServer::AllocPeerIndex() {
     return bit;
 }
 
-void BgpServer::FreePeerIndex(int id) {
-    peer_bmap_.set(id);
+void BgpServer::UnregisterPeer(BgpPeer *peer) {
+    size_t count = peer_list_.erase(peer->peer_name());
+    assert(count == 1);
 
+    peer_bmap_.set(peer->GetIndex());
     for (size_t i = peer_bmap_.size(); i != 0; i--) {
         if (peer_bmap_[i-1] != true) {
             if (i != peer_bmap_.size()) {
@@ -240,6 +254,11 @@ void BgpServer::FreePeerIndex(int id) {
         }
     }
     peer_bmap_.clear();
+}
+
+BgpPeer *BgpServer::FindPeer(const string &name) {
+    BgpPeerList::iterator loc = peer_list_.find(name);
+    return (loc != peer_list_.end() ? loc->second : NULL);
 }
 
 const std::string &BgpServer::localname() const {

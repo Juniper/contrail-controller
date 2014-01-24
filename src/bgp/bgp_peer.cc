@@ -222,7 +222,7 @@ class BgpPeer::DeleteActor : public LifetimeActor {
 
     virtual void Shutdown() {
         CHECK_CONCURRENCY("bgp::Config");
-        peer_->Clear();
+        peer_->Clear(BgpProto::Notification::PeerDeconfigured);
     }
 
     virtual void Destroy() {
@@ -265,7 +265,7 @@ BgpPeer::BgpPeer(BgpServer *server, RoutingInstance *instance,
           peer_key_(config),
           peer_name_(config->name()),
           config_(config),
-          index_(server->AllocPeerIndex()),
+          index_(server->RegisterPeer(this)),
           trigger_(boost::bind(&BgpPeer::ResumeClose, this),
                    TaskScheduler::GetInstance()->GetTaskId("bgp::StateMachine"),
                    GetIndex()),
@@ -398,7 +398,7 @@ void BgpPeer::ConfigUpdate(const BgpNeighborConfig *config) {
                      BGP_PEER_DIR_NA,
                      "Session cleared due to configuration change");
         BGPPeerInfo::Send(peer_info);
-        Clear();
+        Clear(BgpProto::Notification::OtherConfigChange);
     }
 }
 
@@ -439,9 +439,8 @@ bool BgpPeer::IsFamilyNegotiated(Address::Family family) {
 
 // Release resources for a peer that is going to be deleted.
 void BgpPeer::PostCloseRelease() {
-    // Blow away the peer index if allocated
     if (index_ != -1) {
-        server_->FreePeerIndex(index_);
+        server_->UnregisterPeer(this);
         index_ = -1;
     }
     TimerManager::DeleteTimer(keepalive_timer_);
@@ -499,8 +498,8 @@ IPeerDebugStats *BgpPeer::peer_stats() {
 }
 
 
-void BgpPeer::Clear() {
-    state_machine_->Shutdown();
+void BgpPeer::Clear(int subcode) {
+    state_machine_->Shutdown(subcode);
 }
 
 //

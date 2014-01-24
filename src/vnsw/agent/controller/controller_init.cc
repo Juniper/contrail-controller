@@ -157,7 +157,7 @@ void VNController::XmppServerDisConnect() {
             VrfTable *vrf_table = Agent::GetInstance()->GetVrfTable();
             Peer *peer = Agent::GetInstance()->GetAgentXmppChannel(count)->GetBgpPeer();
             peer->SetNoOfWalks(vrf_table->Size() + 
-                               (vrf_table->Size() * AgentRouteTableAPIS::MAX));
+                               (vrf_table->Size() * Agent::ROUTE_TABLE_MAX));
        
             //shutdown triggers cleanup of routes learnt from
             //the control-node. 

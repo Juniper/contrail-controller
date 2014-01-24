@@ -380,7 +380,7 @@ protected:
         sm_->Initialize();
     }
     void EvStop() {
-        sm_->Shutdown();
+        sm_->Shutdown(BgpProto::Notification::AdminShutdown);
     }
     void EvAdminUp() {
         peer_->SetAdminState(false);

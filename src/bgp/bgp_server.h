@@ -20,7 +20,6 @@ class BgpAttrDB;
 class BgpConditionListener;
 class BgpConfigManager;
 class BgpPeer;
-struct BgpPeerKey;
 class BgpSessionManager;
 class CommunityDB;
 class ExtCommunityDB;
@@ -42,8 +41,9 @@ public:
 
     virtual bool IsPeerCloseGraceful();
 
-    int AllocPeerIndex();
-    void FreePeerIndex(int index);
+    int RegisterPeer(BgpPeer *peer);
+    void UnregisterPeer(BgpPeer *peer);
+    BgpPeer *FindPeer(const std::string &name);
 
     void Shutdown();
 
@@ -110,6 +110,7 @@ private:
     class ConfigUpdater;
     class DeleteActor;
     friend class BgpServerTest;
+    typedef std::map<std::string, BgpPeer *> BgpPeerList;
 
     void RoutingInstanceMgrDeletionComplete(RoutingInstanceMgr *mgr);
 
@@ -120,6 +121,7 @@ private:
     DB db_;
     boost::dynamic_bitset<> peer_bmap_;
     tbb::atomic<uint32_t> num_up_peer_;
+    BgpPeerList peer_list_;
 
     boost::scoped_ptr<LifetimeManager> lifetime_manager_;
     boost::scoped_ptr<DeleteActor> deleter_;

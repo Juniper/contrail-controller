@@ -19,8 +19,9 @@ public:
     //Nexthop will be stored in path as lcoalvmpeer peer so that it falls in line
     //Override virtual routines for no action w.r.t. multicast
     virtual string GetTableName() const {return "Inet4MulticastAgentRouteTable";};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_MULTICAST;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_MULTICAST;
+    }
 
     void McRtRouteNotifyDone(DBTableBase *base, DBState *);
     void AddVHostRecvRoute(const string &vm_vrf,
@@ -63,8 +64,9 @@ public:
     virtual const string GetAddressString() const {
         return dst_addr_.to_string();};
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_MULTICAST;};;
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_MULTICAST;
+    }
 
     void SetDstIpAddress(const Ip4Address &dst) {dst_addr_ = dst;};
     void SetSrcIpAddress(const Ip4Address &src) {src_addr_ = src;};
@@ -99,10 +101,10 @@ public:
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
         return (static_cast<Inet4MulticastAgentRouteTable *>
-                (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)));
+                (vrf->GetInet4MulticastRouteTable()));
     };
-    virtual AgentRouteTableAPIS::TableType GetRouteTableType() {
-       return AgentRouteTableAPIS::INET4_MULTICAST;
+    virtual Agent::RouteTableType GetRouteTableType() {
+       return Agent::INET4_MULTICAST;
     }; 
     virtual string ToString() const { return ("Inet4MulticastRouteKey"); };
 

@@ -54,11 +54,12 @@ struct EvStart : sc::event<EvStart> {
 };
 
 struct EvStop : sc::event<EvStop> {
-    EvStop() {
+    EvStop(int subcode) : subcode(subcode) {
     }
     static const char *Name() {
         return "EvStop";
     }
+    int subcode;
 };
 
 struct EvIdleHoldTimerExpired : sc::event<EvIdleHoldTimerExpired> {
@@ -333,7 +334,7 @@ struct TransitToIdle<EvBgpNotification, 0> {
 template <typename Ev>
 struct IdleCease {
     typedef sc::transition<Ev, Idle, StateMachine,
-        &StateMachine::OnIdle<Ev, BgpProto::Notification::Cease> > reaction;
+        &StateMachine::OnIdleCease<Ev> > reaction;
 };
 
 template <typename Ev>
@@ -418,15 +419,15 @@ struct Idle : sc::state<Idle, StateMachine> {
 //
 struct Active : sc::state<Active, StateMachine> {
     typedef mpl::list<
-        TransitToIdle<EvStop>::reaction,
+        IdleCease<EvStop>::reaction,
         sc::custom_reaction<EvConnectTimerExpired>,
         sc::custom_reaction<EvOpenTimerExpired>,
         sc::custom_reaction<EvTcpPassiveOpen>,
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
         TransitToIdle<EvBgpNotification>::reaction,
-        TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleFsmError<EvBgpKeepalive>::reaction,
+        IdleFsmError<EvBgpUpdate>::reaction,
         IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
         IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
         IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
@@ -524,7 +525,7 @@ struct Active : sc::state<Active, StateMachine> {
 //
 struct Connect : sc::state<Connect, StateMachine> {
     typedef mpl::list<
-        TransitToIdle<EvStop>::reaction,
+        IdleCease<EvStop>::reaction,
         sc::custom_reaction<EvConnectTimerExpired>,
         sc::custom_reaction<EvOpenTimerExpired>,
         sc::custom_reaction<EvTcpConnected>,
@@ -533,8 +534,8 @@ struct Connect : sc::state<Connect, StateMachine> {
         sc::custom_reaction<EvTcpClose>,
         sc::custom_reaction<EvBgpOpen>,
         TransitToIdle<EvBgpNotification>::reaction,
-        TransitToIdle<EvBgpKeepalive>::reaction,
-        TransitToIdle<EvBgpUpdate>::reaction,
+        IdleFsmError<EvBgpKeepalive>::reaction,
+        IdleFsmError<EvBgpUpdate>::reaction,
         IdleError<EvBgpHeaderError, BgpProto::Notification::MsgHdrErr>::reaction,
         IdleError<EvBgpOpenError, BgpProto::Notification::OpenMsgErr>::reaction,
         IdleError<EvBgpUpdateError, BgpProto::Notification::UpdateMsgErr>::reaction
@@ -1074,13 +1075,13 @@ void StateMachine::Initialize() {
     Enqueue(fsm::EvStart());
 }
 
-void StateMachine::Shutdown(void) {
-    Enqueue(fsm::EvStop());
+void StateMachine::Shutdown(int subcode) {
+    Enqueue(fsm::EvStop(subcode));
 }
 
 void StateMachine::SetAdminState(bool down) {
     if (down) {
-        Enqueue(fsm::EvStop());
+        Enqueue(fsm::EvStop(BgpProto::Notification::AdminShutdown));
     } else {
         reset_idle_hold_time();
         peer_->reset_flap_count();
@@ -1092,8 +1093,20 @@ void StateMachine::SetAdminState(bool down) {
 
 template <typename Ev, int code>
 void StateMachine::OnIdle(const Ev &event) {
-    // Release all resources
-    SendNotificationAndClose(peer()->session(), code);
+    // Release all resources.
+    SendNotificationAndClose(peer_->session(), code);
+
+    bool flap = (state_ == ESTABLISHED);
+    if (flap)
+        peer()->increment_flap_count();
+    set_state(IDLE);
+}
+
+template <typename Ev>
+void StateMachine::OnIdleCease(const Ev &event) {
+    // Release all resources.
+    SendNotificationAndClose(
+        peer_->session(), BgpProto::Notification::Cease, event.subcode);
 
     bool flap = (state_ == ESTABLISHED);
     if (flap)
@@ -1289,6 +1302,11 @@ BgpSession *StateMachine::passive_session() {
 
 void StateMachine::SendNotificationAndClose(BgpSession *session, int code,
         int subcode, const std::string &data) {
+    // Prefer the passive session if available since it's operational.
+    if (!session)
+        session = passive_session_;
+    if (!session)
+        session = active_session_;
     if (session && code != 0)
         peer_->SendNotification(session, code, subcode, data);
 

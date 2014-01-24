@@ -43,7 +43,7 @@ struct RedisReplyMsg : public ssm::Message {
 class Generator {
   public:
     Generator(boost::shared_ptr<DbHandler> db_handler);
-    ~Generator() {}
+    virtual ~Generator() {}
 
     virtual const std::string ToString() const = 0;
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
