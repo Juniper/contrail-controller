@@ -227,8 +227,7 @@ void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip,
     std::string vrf_name = agent_->GetDefaultVrf();
 
     rt_table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->GetVrfTable()->GetRouteTable
-         (vrf_name, AgentRouteTableAPIS::INET4_UNICAST));
+        (agent_->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name));
     if (rt_table == NULL) {
         assert(0);
     }
@@ -261,8 +260,7 @@ void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip,
     std::string vrf_name = agent_->GetDefaultVrf();
 
     rt_table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->GetVrfTable()->GetRouteTable(vrf_name,
-                         AgentRouteTableAPIS::INET4_UNICAST));
+        (agent_->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name));
     if (rt_table == NULL) {
         assert(0);
     }

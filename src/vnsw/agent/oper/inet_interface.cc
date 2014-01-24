@@ -25,7 +25,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -104,8 +103,7 @@ void InetInterface::ActivateSimpleGateway() {
 
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (VrfTable::GetInstance()->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     // Packets received on fabric vrf and destined to IP address in "public" 
     // network reach kernel. Linux kernel will put back the packets on vgw
@@ -126,8 +124,7 @@ void InetInterface::ActivateSimpleGateway() {
 void InetInterface::DeActivateSimpleGateway() {
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (VrfTable::GetInstance()->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
@@ -211,8 +208,7 @@ void InetInterface::ActivateHostInterface() {
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         AddHostRoutes(agent, uc_rt_table, vrf(), name(), ip_addr_, plen_,
                       vn_name_);
@@ -225,8 +221,7 @@ void InetInterface::ActivateHostInterface() {
     // Add receive-route for broadcast address
     Inet4MulticastAgentRouteTable *mc_rt_table = 
         static_cast<Inet4MulticastAgentRouteTable *> 
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_MULTICAST));
+        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     mc_rt_table->AddVHostRecvRoute(vrf()->GetName(), name_,
                                    Ip4Address(0xFFFFFFFF), false);
 }
@@ -238,8 +233,7 @@ void InetInterface::DeActivateHostInterface() {
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         DeleteHostRoutes(agent, uc_rt_table, vrf(), ip_addr_, plen_);
     }
@@ -250,8 +244,7 @@ void InetInterface::DeActivateHostInterface() {
 
     Inet4MulticastAgentRouteTable *mc_rt_table = 
         static_cast<Inet4MulticastAgentRouteTable *> 
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_MULTICAST));
+        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     // Add receive-route for broadcast address
     mc_rt_table->Delete(vrf()->GetName(), Ip4Address(0), 
                         Ip4Address(0xFFFFFFFF));
@@ -341,8 +334,7 @@ bool InetInterface::OnChange(InetInterfaceData *data) {
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     if (ip_addr_ != data->ip_addr_ || plen_ != data->plen_) {
         // Delete routes based on old ip-addr and prefix

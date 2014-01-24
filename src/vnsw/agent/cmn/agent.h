@@ -65,7 +65,6 @@ class SgTable;
 class VrfTable;
 class MplsTable;
 class RouteTable;
-class AgentRouteTableAPIS;
 class AgentRouteTable;
 class Inet4UnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
@@ -119,6 +118,14 @@ public:
         AUTOMATIC,
         CONFIGURED
     };
+
+    enum RouteTableType {
+        INET4_UNICAST = 0,
+        INET4_MULTICAST,
+        LAYER2,
+        ROUTE_TABLE_MAX
+    };
+
     Agent();
     virtual ~Agent();
     const std::string &GetHostName();
@@ -137,6 +144,7 @@ public:
         return mc_rt_table_;
     };
     Layer2AgentRouteTable *GetLayer2AgentRouteTable() {return l2_rt_table_;};
+    VrfTable *vrf_table() const { return vrf_table_;}
     VrfTable *GetVrfTable() { return vrf_table_;};
     VmTable *GetVmTable() { return vm_table_;};
     VnTable *GetVnTable() { return vn_table_;};

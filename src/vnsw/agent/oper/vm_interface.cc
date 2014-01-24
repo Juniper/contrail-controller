@@ -25,7 +25,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
