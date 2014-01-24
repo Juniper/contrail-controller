@@ -63,7 +63,7 @@ void RouteExport::ManagedDelete() {
 }
 
 void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
-                         bool associate, AgentRouteTableAPIS::TableType type, 
+                         bool associate, Agent::RouteTableType type, 
                          DBTablePartBase *partition, DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
@@ -77,7 +77,7 @@ void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
 
 void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
                                 DBTablePartBase *partition, DBEntryBase *e,
-                                AgentRouteTableAPIS::TableType type) {
+                                Agent::RouteTableType type) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));

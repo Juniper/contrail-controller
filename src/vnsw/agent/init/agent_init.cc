@@ -176,12 +176,11 @@ void AgentInit::OnVrfCreate(DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (vrf->GetName() == agent_->GetDefaultVrf() && vrf_trigger_ == NULL) {
         // Default VRF created; create nexthops
-        agent_->SetDefaultInet4UnicastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-        agent_->SetDefaultInet4MulticastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
-        agent_->SetDefaultLayer2RouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::LAYER2));
+        agent_->SetDefaultInet4UnicastRouteTable
+            (vrf->GetInet4UnicastRouteTable());
+        agent_->SetDefaultInet4MulticastRouteTable
+            (vrf->GetInet4MulticastRouteTable());
+        agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
         DiscardNH::CreateReq();
         ResolveNH::CreateReq();
 

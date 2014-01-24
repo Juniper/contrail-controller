@@ -78,8 +78,7 @@ void AgentVrfSandesh::Alloc() {
 }
 
 DBTable *AgentInet4UcRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+    return static_cast<DBTable *>(vrf_->GetInet4UnicastRouteTable());
 }
 
 void AgentInet4UcRtSandesh::Alloc() {
@@ -95,8 +94,7 @@ bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
 }
 
 DBTable *AgentInet4McRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+    return static_cast<DBTable *>(vrf_->GetInet4MulticastRouteTable());
 }
 
 void AgentInet4McRtSandesh::Alloc() {
@@ -109,8 +107,7 @@ bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
 }
 
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::LAYER2));
+    return static_cast<DBTable *>(vrf_->GetLayer2RouteTable());
 }
 
 void AgentLayer2RtSandesh::Alloc() {

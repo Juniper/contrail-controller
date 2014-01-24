@@ -263,7 +263,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
 
     Inet4UnicastAgentRouteTable *rt_table =
         static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+            GetInet4UnicastRouteTable());
 
     if (is_add) {
         if (vn_entry->Ipv4Forwarding()) {
@@ -296,8 +296,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
         if (!state)
             return true;
         Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>(state->vrf_->
-                GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+            static_cast<Inet4UnicastAgentRouteTable *>
+            (state->vrf_->GetInet4UnicastRouteTable());
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
@@ -322,8 +322,8 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
         LinkLocalDBState *state = new LinkLocalDBState(vrf_entry);
         vn_entry->SetState(partition->parent(), vn_id_, state);
         Inet4UnicastAgentRouteTable *rt_table =
-            static_cast<Inet4UnicastAgentRouteTable *>(vrf_entry->
-                GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+            static_cast<Inet4UnicastAgentRouteTable *>
+            (vrf_entry->GetInet4UnicastRouteTable());
 
         const GlobalVrouter::LinkLocalServicesMap &services =
                    global_vrouter_->linklocal_services_map();

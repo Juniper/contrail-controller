@@ -59,7 +59,7 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
     if (entry->IsDeleted()) {
         SendArpIpc(ArpHandler::VRF_DELETE, 0, vrf);
         if (state) {
-            vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->
+            vrf->GetInet4UnicastRouteTable()->
                 Unregister(fabric_route_table_listener_);
             entry->ClearState(part->parent(), vid_);
             delete state;
@@ -72,7 +72,7 @@ void ArpProto::VrfNotify(DBTablePartBase *part, DBEntryBase *entry) {
         //Set state to seen
         state->seen_ = true;
         fabric_route_table_listener_ = vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)->
+            GetInet4UnicastRouteTable()->
             Register(boost::bind(&ArpProto::RouteUpdate, this,  _1, _2));
         entry->SetState(part->parent(), vid_, state);
     }

@@ -21,8 +21,9 @@ public:
     virtual void ProcessDelete(AgentRoute *rt) { };
     virtual void ProcessAdd(AgentRoute *rt) { };
     virtual string GetTableName() const {return "Inet4AgentRouteTable";};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_UNICAST;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_UNICAST;
+    }
     Type GetInetRouteType() { return type_; };
 
 private:
@@ -51,8 +52,9 @@ public:
     virtual void RouteResyncReq() const;
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
     virtual const string GetAddressString() const {return addr_.to_string();};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_UNICAST;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_UNICAST;
+    }
 
     bool DBEntrySandesh(Sandesh *sresp, 
                         Ip4Address addr,
@@ -100,8 +102,9 @@ public:
 
     Inet4UnicastRouteEntry *FindLPM(const Ip4Address &ip);
     virtual string GetTableName() const {return "Inet4UnicastAgentRouteTable";};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_UNICAST;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_UNICAST;
+    }
     virtual void ProcessAdd(AgentRoute *rt) { 
         tree_.Insert(static_cast<Inet4UnicastRouteEntry *>(rt));
     };
@@ -247,11 +250,11 @@ public:
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
-        return (static_cast<AgentRouteTable *>(vrf->
-                         GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)));
+        return (static_cast<AgentRouteTable *>
+                (vrf->GetInet4UnicastRouteTable()));
     };
-    virtual AgentRouteTableAPIS::TableType GetRouteTableType() {
-       return AgentRouteTableAPIS::INET4_UNICAST;
+    virtual Agent::RouteTableType GetRouteTableType() {
+       return Agent::INET4_UNICAST;
     }; 
     virtual string ToString() const { return ("Inet4UnicastRouteKey"); };
 

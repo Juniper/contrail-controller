@@ -16,7 +16,7 @@
 VrfExport::State::State() : DBState(), exported_(false), 
     force_chg_(false), rt_export_() {
         for (uint32_t rt_table_type = 0; 
-             rt_table_type < AgentRouteTableAPIS::MAX; rt_table_type++) {
+             rt_table_type < Agent::ROUTE_TABLE_MAX; rt_table_type++) {
             ucwalkid_[rt_table_type] = DBTableWalker::kInvalidWalkerId;
             mcwalkid_[rt_table_type] = DBTableWalker::kInvalidWalkerId;
         }
@@ -26,7 +26,7 @@ VrfExport::State::~State() {
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
 
     for (uint32_t rt_table_type = 0; 
-         rt_table_type < AgentRouteTableAPIS::MAX; rt_table_type++)
+         rt_table_type < Agent::ROUTE_TABLE_MAX; rt_table_type++)
     {
         if (ucwalkid_[rt_table_type] != DBTableWalker::kInvalidWalkerId)
             walker->WalkCancel(ucwalkid_[rt_table_type]);
@@ -51,7 +51,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
         }
 
         if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
-            for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+            for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
                  table_type++) {
                 state->rt_export_[table_type]->Unregister();
             }
@@ -82,7 +82,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
 
         if (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0) {
             // Dont export routes belonging to Fabric VRF table
-            for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+            for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
                  table_type++)
             {
                 state->rt_export_[table_type] = 
@@ -106,7 +106,7 @@ void VrfExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
                     bool associate = true;
                     AgentRouteTable *table;
                     uint8_t table_type;
-                    for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+                    for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX;
                          table_type++) {
                         table = static_cast<AgentRouteTable *>
                             (vrf->GetRouteTable(table_type));
