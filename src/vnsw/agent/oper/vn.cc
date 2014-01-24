@@ -651,37 +651,34 @@ void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
 void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        AddHostRoute(vrf->GetName(), 
-                     ipam.default_gw, 32, 
-                     vn->GetName());
+        GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                                                   ipam.default_gw, 32,
+                                                   vn->GetName());
 }
 
 // Del receive route for default gw
 void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                  vrf->GetName(), 
-                  ipam.default_gw, 32);
+    static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf->GetInet4UnicastRouteTable())->DeleteReq
+        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+         ipam.default_gw, 32);
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        AddDropRoute(vrf->GetName(), ipam.GetSubnetAddress(),
-                     ipam.plen);
+        GetInet4UnicastRouteTable())->AddDropRoute
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
 }
 
 // Del receive route for default gw
 void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                  vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+        GetInet4UnicastRouteTable())->DeleteReq
+        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+         ipam.GetSubnetAddress(), ipam.plen);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {

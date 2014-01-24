@@ -162,14 +162,27 @@ string VrfEntry::ToString() const {
 
 void VrfEntry::PostAdd() {
     Init();
-    AgentRouteTableAPIS::GetInstance()->CreateRouteTablesInVrf(
-                           Agent::GetInstance()->GetDB(), name_, rt_table_db_);
-    int rt_table_cnt;
-    for (rt_table_cnt = 0; rt_table_cnt < AgentRouteTableAPIS::MAX; 
-         rt_table_cnt++) {
-        ((VrfTable *)get_table())->dbtree_[rt_table_cnt].insert(
-                        VrfTable::VrfDbPair(name_, rt_table_db_[rt_table_cnt]));
-    }
+
+    // Create the route-tables and insert them into dbtree_
+    Agent::RouteTableType type = Agent::INET4_UNICAST;
+    DB *db = get_table()->database();
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+
+    type = Agent::INET4_MULTICAST;
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+
+    type = Agent::LAYER2;
+    rt_table_db_[type] = static_cast<AgentRouteTable *>
+        (db->CreateTable(name_ + AgentRouteTable::GetSuffix(type)));
+    ((VrfTable *)get_table())->dbtree_[type].insert(VrfTable::VrfDbPair(name_, 
+                                                        rt_table_db_[type]));
+
 }
 
 DBEntryBase::KeyPtr VrfEntry::GetDBRequestKey() const {
@@ -182,13 +195,10 @@ void VrfEntry::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
-    return static_cast<AgentRouteTable *>(rt_table_db_[table_type]);
-};
-
 Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
-    Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
-        (GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+    Inet4UnicastAgentRouteTable *table;
+    table = static_cast<Inet4UnicastAgentRouteTable *>
+        (GetInet4UnicastRouteTable());
     if (table == NULL)
         return NULL;
 
@@ -215,7 +225,7 @@ bool VrfEntry::DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry,
         }
 
         int route_tables;
-        for (route_tables = 0; route_tables < AgentRouteTableAPIS::MAX; route_tables++) {
+        for (route_tables = 0; route_tables < Agent::ROUTE_TABLE_MAX; route_tables++) {
             AgentRouteTable *table = static_cast<AgentRouteTable *> 
                 (vrf->GetRouteTable(route_tables));
             if (state->ucwalkid_[route_tables] != DBTableWalker::kInvalidWalkerId) {
@@ -306,7 +316,7 @@ bool VrfEntry::VrfNotifyEntryMulticastWalk(DBTablePartBase *part,
         if (state && (vrf->GetName().compare(Agent::GetInstance()->GetDefaultVrf()) != 0)) {
 
             int rt_table_cnt;
-            for (rt_table_cnt = 0; rt_table_cnt < AgentRouteTableAPIS::MAX;
+            for (rt_table_cnt = 0; rt_table_cnt < Agent::ROUTE_TABLE_MAX;
                  rt_table_cnt++) {
                 AgentRouteTable *table = static_cast<AgentRouteTable *> 
                     (vrf->GetRouteTable(rt_table_cnt));
@@ -319,6 +329,22 @@ bool VrfEntry::VrfNotifyEntryMulticastWalk(DBTablePartBase *part,
     }
 
     return false;
+}
+
+AgentRouteTable *VrfEntry::GetRouteTable(uint8_t table_type) const {
+    return rt_table_db_[table_type];
+}
+
+AgentRouteTable *VrfEntry::GetInet4UnicastRouteTable() const {
+    return rt_table_db_[Agent::INET4_UNICAST];
+}
+
+AgentRouteTable *VrfEntry::GetInet4MulticastRouteTable() const {
+    return rt_table_db_[Agent::INET4_MULTICAST];
+}
+
+AgentRouteTable *VrfEntry::GetLayer2RouteTable() const {
+    return rt_table_db_[Agent::LAYER2];
 }
 
 bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
@@ -368,9 +394,9 @@ void VrfEntry::SendObjectLog(AgentLogEvent::type event) const {
 
 bool VrfEntry::DeleteTimeout() {
     std::ostringstream str;
-    str << "Unicast routes: " << rt_table_db_[AgentRouteTableAPIS::INET4_UNICAST]->Size();
-    str << " Mutlicast routes: " << rt_table_db_[AgentRouteTableAPIS::INET4_MULTICAST]->Size();
-    str << " Layer2 routes: " << rt_table_db_[AgentRouteTableAPIS::LAYER2]->Size();
+    str << "Unicast routes: " << rt_table_db_[Agent::INET4_UNICAST]->Size();
+    str << " Mutlicast routes: " << rt_table_db_[Agent::INET4_MULTICAST]->Size();
+    str << " Layer2 routes: " << rt_table_db_[Agent::LAYER2]->Size();
     str << " Reference: " << GetRefCount();
     OPER_TRACE(Vrf, "VRF delete failed, " + str.str(), name_);
     assert(0);
@@ -449,6 +475,7 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
 
     vrf->id_ = index_table_.Insert(vrf);
     vrf->SendObjectLog(AgentLogEvent::ADD);
+
     return vrf;
 }
 
@@ -482,7 +509,7 @@ void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
     VrfEntry *vrf = static_cast<VrfEntry *>(e);
     if (e->IsDeleted()) {
         int table_type;
-        for (table_type = 0; table_type < AgentRouteTableAPIS::MAX; table_type++) {
+        for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
             Agent::GetInstance()->GetDB()->RemoveTable(vrf->GetRouteTable(table_type));
             dbtree_[table_type].erase(vrf->GetName());
         }
@@ -509,7 +536,20 @@ VrfEntry *VrfTable::FindVrfFromName(const string &name) {
     return static_cast<VrfEntry *>(it->second);
 }
 
-AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name, uint8_t table_type) {
+AgentRouteTable *VrfTable::GetInet4UnicastRouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::INET4_UNICAST);
+}
+
+AgentRouteTable *VrfTable::GetInet4MulticastRouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::INET4_MULTICAST);
+}
+
+AgentRouteTable *VrfTable::GetLayer2RouteTable(const string &vrf_name) {
+    return GetRouteTable(vrf_name, Agent::LAYER2);
+}
+
+AgentRouteTable *VrfTable::GetRouteTable(const string &vrf_name,
+                                         uint8_t table_type) {
     VrfDbTree::const_iterator it;
     
     it = dbtree_[table_type].find(vrf_name);

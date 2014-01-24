@@ -95,10 +95,10 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     VrfEntryRef vrf2 = VrfGet("test_vrf2");
 
     Inet4UnicastAgentRouteTable *rt_table1, *rt_table2;
-    rt_table1 = static_cast<Inet4UnicastAgentRouteTable *>(vrf1->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-    rt_table2 = static_cast<Inet4UnicastAgentRouteTable *>(vrf2->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+    rt_table1 = static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf1->GetInet4UnicastRouteTable());
+    rt_table2 = static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf2->GetInet4UnicastRouteTable());
     std::size_t old_rt1_entries, old_rt2_entries;
     old_rt1_entries = rt_table1->Size();
     old_rt2_entries = rt_table2->Size();
@@ -165,8 +165,8 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
 
     VrfEntryRef vrf = VrfGet("test_vrf3");
     Inet4UnicastAgentRouteTable *rt_table =
-        static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf->GetInet4UnicastRouteTable());
 
     AddRt(peer1, vrf_name, ip1, fabric_ip1, 99, rt_table);
     AddRt(peer1, vrf_name, ip2, fabric_ip2, 75, rt_table);

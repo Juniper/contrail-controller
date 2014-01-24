@@ -20,65 +20,6 @@
 using namespace std;
 using namespace boost::asio;
 
-string AgentRouteTableAPIS::GetSuffix(TableType type) {
-    switch (type) {
-      case AgentRouteTableAPIS::INET4_UNICAST:
-          return ".uc.route.0";
-      case AgentRouteTableAPIS::INET4_MULTICAST:
-          return ".mc.route.0";
-      case AgentRouteTableAPIS::LAYER2:
-          return ".l2.route.0";
-      default:
-          return "";
-    }
-}
-
-void AgentRouteTableAPIS::CreateRouteTablesInVrf(DB *db, const string &name,
-                                          AgentRouteTable *table_list[]) {
-    for (int rt_table_cnt = 0; rt_table_cnt < AgentRouteTableAPIS::MAX;
-         rt_table_cnt++) {
-        table_list[rt_table_cnt] = static_cast<AgentRouteTable *>
-            (db->CreateTable(name + AgentRouteTableAPIS::GetSuffix(
-               static_cast<AgentRouteTableAPIS::TableType>(rt_table_cnt))));
-    }
-}
-
-DBTableBase *AgentRouteTableAPIS::CreateRouteTable(DB *db, const std::string &name,
-                                                   TableType type) {
-    AgentRouteTable *table;
-    size_t index;
-
-    switch (type) {
-      case AgentRouteTableAPIS::INET4_UNICAST:
-          table = static_cast<AgentRouteTable *>(new Inet4UnicastAgentRouteTable(db, name));
-          index = name.rfind(GetSuffix(AgentRouteTableAPIS::INET4_UNICAST));
-          break;
-      case AgentRouteTableAPIS::INET4_MULTICAST:
-          table = static_cast<AgentRouteTable *>(new Inet4MulticastAgentRouteTable(db, name));
-          index = name.rfind(GetSuffix(AgentRouteTableAPIS::INET4_MULTICAST));
-          break;
-      case AgentRouteTableAPIS::LAYER2:
-          table = static_cast<AgentRouteTable *>(new Layer2AgentRouteTable(db, name));
-          index = name.rfind(GetSuffix(AgentRouteTableAPIS::LAYER2));
-          break;
-      default:
-          return NULL;
-    }
-    table->Init();
-    assert(index != string::npos);
-    string vrf = name.substr(0, index);
-    VrfEntry *vrf_entry = 
-        static_cast<VrfEntry *>(Agent::GetInstance()->
-                                GetVrfTable()->FindVrfFromName(vrf));
-    assert(vrf_entry);
-    table->SetVrfEntry(vrf_entry);
-    table->SetVrfDeleteRef(vrf_entry->deleter());
-
-    if (RouteTableTree[type] == NULL)
-        RouteTableTree[type] = table;
-    return table;
-};
-
 const NextHop* AgentPath::GetNextHop(void) const {
     if (nh_) {
         return nh_.get();
@@ -492,7 +433,7 @@ void UnresolvedNH::HandleRequest() const {
     int count = 0;
     std::string empty(""); 
     AgentRouteTable *rt_table = static_cast<AgentRouteTable *>
-        (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf->GetInet4UnicastRouteTable());
     AgentRouteTable::const_nh_iterator it;
     NhListResp *resp = new NhListResp();
 
