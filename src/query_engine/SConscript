@@ -147,13 +147,15 @@ if env['OPT'] == 'coverage':
     env.AppendUnique(CCFLAGS='-g')
     env.AppendUnique(CCFLAGS='-O0')
     env.AppendUnique(CCFLAGS='--coverage')
+    rac = 'rac_alloc.cc'
+else:
+    rac = 'rac_alloc_test.cc'
 
 qedt = env.UnitTest(
         target = 'qedt', 
         source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj + 
-        ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
-        )
+        ['../analytics/vizd_table_desc.o', rac])
 
 env.Alias("src/query_engine:qed", qed)
 env.Alias("src/query_engine:qedt", qedt)
