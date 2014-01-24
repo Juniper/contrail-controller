@@ -449,8 +449,11 @@ CfgIntfStaleCleaner::~CfgIntfStaleCleaner() {
 }
 
 CfgIntfStaleCleaner::CfgIntfStaleCleaner(DB *db, boost::asio::io_service &io_service) :
+        // Create the timer under db table context with instance id 0
         db_(db), timer_(TimerManager::CreateTimer(io_service,
-                                                  "Interface Stale cleanup timer")),
+                         "Interface Stale cleanup timer",
+                         TaskScheduler::GetInstance()->GetTaskId("db::DBTable"),
+                                                  0)),
         walkid_(DBTableWalker::kInvalidWalkerId) {
             
 }
