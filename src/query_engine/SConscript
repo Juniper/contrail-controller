@@ -144,20 +144,15 @@ qed = env.Program(
         )
 
 if env['OPT'] == 'coverage':
-    qedt = env.UnitTest(
+    env.AppendUnique(CCFLAGS='-g')
+    env.AppendUnique(CCFLAGS='-O0')
+    env.AppendUnique(CCFLAGS='--coverage')
+
+qedt = env.UnitTest(
         target = 'qedt', 
         source = qed_objs + qed_except_objs + build_obj +
         SandeshGenObjs +  RedisConn_obj + 
         ['../analytics/vizd_table_desc.o', 'rac_alloc.cc']
-        )
-
-else:
-    qedt = env.UnitTest(
-        target = 'qedt', 
-        source = qed_objs + qed_except_objs + build_obj +
-        SandeshGenObjs +  RedisConn_obj +
-        ['../analytics/vizd_table_desc.o', ] +
-        ['rac_alloc_test.cc']
         )
 
 env.Alias("src/query_engine:qed", qed)

@@ -113,6 +113,10 @@ def RedisLuaBuild(env, scr_name):
   env.Depends('redis_processor_vizd.cc','%s_lua.cpp' % scr_name)
 
 AnalyticsEnv.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
+if AnalyticsEnv['OPT'] == 'coverage':
+    AnalyticsEnv.AppendUnique(CCFLAGS='-g')
+    AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
+    AnalyticsEnv.AppendUnique(CCFLAGS='--coverage')
 vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc',
                 'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc',
                 'redis_sentinel_client.cc', 'syslog_collector.cc']
