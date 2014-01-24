@@ -479,8 +479,12 @@ protected:
                 RtGroup *rtgroup = 
                     server->rtarget_group_mgr()->GetRtGroup(comm);
                 if (rtgroup) {
-                    super_set.insert(rtgroup->GetImportTables(replicator->family()).begin(),
-                                     rtgroup->GetImportTables(replicator->family()).end());
+                    RtGroup::RtGroupMemberList import_list = 
+                        rtgroup->GetImportTables(replicator->family());
+                    if (!import_list.empty()) 
+                        super_set.insert(import_list.begin(), 
+                                         import_list.end());
+
                 }
             }
 

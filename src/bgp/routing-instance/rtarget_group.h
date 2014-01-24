@@ -61,7 +61,7 @@ public:
 
     RtGroup(const RouteTarget &rt);
     const RouteTarget &rt();
-    bool empty(Address::Family family);
+    bool empty(Address::Family family) const;
 
     const RtGroupMembers &GetImportMembers() {
         return import_;
@@ -70,8 +70,8 @@ public:
         return export_;
     }
 
-    const RtGroupMemberList &GetImportTables(Address::Family family);
-    const RtGroupMemberList &GetExportTables(Address::Family family);
+    const RtGroupMemberList GetImportTables(Address::Family family) const;
+    const RtGroupMemberList GetExportTables(Address::Family family) const;
 
     bool AddImportTable(Address::Family family, BgpTable *tbl);
     bool AddExportTable(Address::Family family, BgpTable *tbl);

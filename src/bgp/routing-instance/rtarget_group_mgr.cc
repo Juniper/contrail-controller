@@ -45,7 +45,7 @@ RTargetGroupMgr::RTargetGroupMgr(BgpServer *server) : server_(server),
         rtarget_dep_triggers_.push_back(boost::shared_ptr<TaskTrigger>(new 
                TaskTrigger(boost::bind(&RTargetGroupMgr::ProcessRouteTargetList, 
                                        this, i), 
-               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), 0)));
+               TaskScheduler::GetInstance()->GetTaskId("db::DBTable"), i)));
     }
 }
 

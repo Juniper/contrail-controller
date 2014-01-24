@@ -454,10 +454,11 @@ bool RoutePathReplicator::BgpTableListener(DBTablePartBase *root,
             } else if (ExtCommunity::is_route_target(comm)) {
                 RtGroup *rtgroup = 
                     server()->rtarget_group_mgr()->GetRtGroup(comm);
-                if (!rtgroup)
-                    continue;
-                super_set.insert(rtgroup->GetImportTables(family()).begin(),
-                                 rtgroup->GetImportTables(family()).end());
+                if (!rtgroup) continue;
+                RtGroup::RtGroupMemberList import_list = 
+                    rtgroup->GetImportTables(family());
+                if (import_list.empty()) continue;
+                super_set.insert(import_list.begin(), import_list.end());
             }
         }
 

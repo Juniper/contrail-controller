@@ -16,12 +16,16 @@ const RtGroup::RTargetDepRouteList &RtGroup::DepRouteList() const {
     return dep_;
 }
 
-const RtGroup::RtGroupMemberList &RtGroup::GetImportTables(Address::Family family) {
-    return import_[family];
+const RtGroup::RtGroupMemberList RtGroup::GetImportTables(Address::Family family) const {
+    RtGroupMembers::const_iterator loc = import_.find(family);
+    if (loc == import_.end()) return RtGroup::RtGroupMemberList();
+    return loc->second;
 }
 
-const RtGroup::RtGroupMemberList &RtGroup::GetExportTables(Address::Family family) {
-    return export_[family];
+const RtGroup::RtGroupMemberList RtGroup::GetExportTables(Address::Family family) const {
+    RtGroupMembers::const_iterator loc = export_.find(family);
+    if (loc == export_.end()) return RtGroup::RtGroupMemberList();
+    return loc->second;
 }
 
 bool RtGroup::AddImportTable(Address::Family family, BgpTable *tbl) {
@@ -46,8 +50,17 @@ bool RtGroup::RemoveExportTable(Address::Family family, BgpTable *tbl) {
     return export_[family].empty();
 }
 
-bool RtGroup::empty(Address::Family family) {
-    return import_[family].empty() && export_[family].empty();
+bool RtGroup::empty(Address::Family family) const {
+    RtGroupMembers::const_iterator it_import = import_.find(family);
+    RtGroupMembers::const_iterator it_export = export_.find(family);
+    bool import_empty = true;
+    bool export_empty = true;
+    if (it_import != import_.end())
+        import_empty = it_import->second.empty();
+    if (it_export != export_.end())
+        export_empty = it_export->second.empty();
+
+    return (import_empty && export_empty);
 }
 
 const RouteTarget &RtGroup::rt() {
