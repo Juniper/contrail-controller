@@ -19,6 +19,8 @@ from kazoo.client import KazooClient
 
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
+zookeeper_version = '3.4.5'
+zookeeper_url = '/tmp/zookeeper-'+zookeeper_version+'.tar.gz'
 
 def start_zoo(cport):
     '''
@@ -26,13 +28,22 @@ def start_zoo(cport):
     Arguments:
         cport : An unused TCP port for zookeeper to use as the client port
     '''
-    basefile = "zookeeper-3.4.5"
-    tarfile = os.path.dirname(os.path.abspath(__file__)) + "/" + basefile + ".tar.gz"
+    zookeeper_download = 'curl -o ' +\
+        zookeeper_url + ' -s -m 120 http://archive.apache.org/dist/zookeeper/zookeeper-'+\
+        zookeeper_version+'/zookeeper-'+zookeeper_version+'.tar.gz'
+    if not os.path.exists(zookeeper_url):
+        process = subprocess.Popen(zookeeper_download.split(' '))
+        process.wait()
+        if process.returncode is not 0:
+            return
+
+    basefile = "zookeeper-"+zookeeper_version
+    tarfile = zookeeper_url
     cassbase = "/tmp/zoo." + str(cport) + "/"
     confdir = cassbase + basefile + "/conf/"
     output,_ = call_command_("mkdir " + cassbase)
 
-    logging.info('Installing zookeeper in ' + cassbase + " conf " + confdir)
+    logging.info('Installing zookeeper in ' + cassbase) 
     os.system("cat " + tarfile + " | tar -xpzf - -C " + cassbase)
 
     output,_ = call_command_("cp " + confdir + "zoo_sample.cfg " + confdir + "zoo.cfg")
@@ -59,10 +70,8 @@ def stop_zoo(cport):
         cport : The Client Port for the instance of zookeper be stopped
     '''
     cassbase = "/tmp/zoo." + str(cport) + "/"
-    input = open(cassbase + "zookeeper_server.pid")
-    s=input.read()
-    logging.info('Killing zookeeper pid %d' % int(s))
-    output,_ = call_command_("kill -9 %d" % int(s))
+    logging.info('Killing zookeeper %d' % cport)
+    output,_ = call_command_(cassbase + 'bin/zkServer.sh stop')
     output,_ = call_command_("rm -rf " + cassbase)
     
 def replace_string_(filePath, findreplace):
