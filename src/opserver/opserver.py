@@ -104,7 +104,7 @@ def redis_query_status(host, port, qid):
     chunks = []
     # For now, the number of chunks will be always 1
     res = redish.lrange("REPLY:" + qid, -1, -1)
-    if res is None:
+    if not res:
         return None
     chunk_resp = json.loads(res[0])
     ttl = redish.ttl("REPLY:" + qid)
@@ -702,7 +702,7 @@ class OpServer(object):
         else:
             if resp is None:
                 return bottle.HTTPError(_ERRORS[errno.ENOENT], 
-                    'Invalid query id')
+                    'Invalid query id or Abandoned query id')
             resp_header = {'Content-Type': 'application/json'}
             resp_code = 200
             self._logger.debug("query [%s] status: %s" % (qid, resp))
@@ -924,15 +924,25 @@ class OpServer(object):
             processing_queries = redish.lrange(
                 'ENGINE:' + socket.gethostname(), 0, -1)
             processing_queries_info = []
+            abandoned_queries_info = []
+            error_queries_info = []
             for query_id in processing_queries:
                 status = redis_query_status(host='127.0.0.1',
                                             port=int(
                                                 self._args.redis_query_port),
                                             qid=query_id)
                 query_data = redis_query_info(redish, query_id)
-                query_data['progress'] = status['progress']
-                processing_queries_info.append(query_data)
+                if status is None:
+                     abandoned_queries_info.append(query_data)
+                elif status['progress'] < 0:
+                     query_data['error_code'] = status['progress']
+                     error_queries_info.append(query_data)
+                else:
+                     query_data['progress'] = status['progress']
+                     processing_queries_info.append(query_data)
             queries['queries_being_processed'] = processing_queries_info
+            queries['abandoned_queries'] = abandoned_queries_info
+            queries['error_queries'] = error_queries_info
         except redis.exceptions.ConnectionError:
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
