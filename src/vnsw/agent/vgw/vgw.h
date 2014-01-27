@@ -10,6 +10,7 @@ class VirtualGateway {
 public:
     VirtualGateway(Agent *agent);
     ~VirtualGateway() {};
+    void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry);
 
     void Init();
     void Shutdown();
@@ -19,7 +20,8 @@ public:
 private:
     // Cached entries
     Agent *agent_;
-    VirtualGatewayConfig *vgw_config_;
+    DBTableBase::ListenerId listener_id_;
+    VirtualGatewayConfigTable *vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(VirtualGateway);
 };
