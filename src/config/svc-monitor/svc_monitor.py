@@ -848,7 +848,7 @@ class SvcMonitor(object):
 
         self._nova[proj_name] = nc.Client(
             '2', username=self._args.admin_user, project_id=proj_name,
-            api_key=self._args.admin_password,
+            api_key=self._args.admin_password, service_type='compute',
             auth_url='http://' + self._args.auth_host + ':5000/v2.0')
         return self._nova[proj_name]
     # end _novaclient_get
