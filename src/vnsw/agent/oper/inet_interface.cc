@@ -100,25 +100,6 @@ void InetInterface::ActivateSimpleGateway() {
                                             InterfaceNHFlags::INET4);
 
     }
-
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetInet4UnicastRouteTable(vrf()->GetName()));
-
-    // Packets received on fabric vrf and destined to IP address in "public" 
-    // network reach kernel. Linux kernel will put back the packets on vgw
-    // interface. Add route to trap the public addresses to linux kernel
-    Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
-    uc_rt_table->AddVHostRecvRoute(agent->GetLocalVmPeer(),
-                                   agent->GetDefaultVrf(),
-                                   agent->vhost_interface_name(),
-                                   addr, plen_, vrf()->GetName(), false);
-
-    // Add default route in public network. BGP will export this route to
-    // other compute nodes
-    uc_rt_table->AddInetInterfaceRoute(agent->GetLocalVmPeer(), vrf()->GetName(),
-                                       Ip4Address(0), 0, name(), label_,
-                                       vrf()->GetName());
 }
 
 void InetInterface::DeActivateSimpleGateway() {
