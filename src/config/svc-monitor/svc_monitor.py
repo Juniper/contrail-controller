@@ -451,6 +451,7 @@ class SvcMonitor(object):
             if vn_id is None:
                 continue
             nic['net-id'] = vn_id
+            nic['v4-fixed-ip'] = None
 
             # set shared ip
             if st_if.shared_ip:
