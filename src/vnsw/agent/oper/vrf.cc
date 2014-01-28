@@ -182,7 +182,7 @@ Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
 
 Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const {
     Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
-        (GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        (GetInet4UnicastRouteTable());
     if (table == NULL)
         return NULL;
 
