@@ -20,6 +20,7 @@
 #include "Thrift.h"
 #include "OpServerProxy.h"
 #include "viz_constants.h"
+#include "syslog_collector.h"
 
 class Ruleeng;
 
@@ -30,7 +31,8 @@ public:
     VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
             std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
-            int gen_timeout = 0, bool dup=false, int analytics_ttl=g_viz_constants.AnalyticsTTL);
+            int syslog_port, int gen_timeout = 0, bool dup=false,
+            int analytics_ttl=g_viz_constants.AnalyticsTTL);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);
     ~VizCollector();
@@ -42,6 +44,9 @@ public:
 
     DbHandler *GetDbHandler() const {
         return db_handler_.get();
+    }
+    SyslogListeners *GetSyslogListener () const {
+        return syslog_listener_;
     }
     Collector *GetCollector() const {
         return collector_;
@@ -63,6 +68,7 @@ private:
     boost::scoped_ptr<DbHandler> db_handler_;
     boost::scoped_ptr<Ruleeng> ruleeng_;
     Collector *collector_;
+    SyslogListeners *syslog_listener_;
     std::string name_;
 
     Timer *dbif_timer_;

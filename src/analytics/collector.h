@@ -108,8 +108,8 @@ private:
     int analytics_ttl_;
     int db_task_id_;
 
-    // Generator map
-    typedef boost::ptr_map<Generator::GeneratorId, Generator> GeneratorMap;
+    // SandeshGenerator map
+    typedef boost::ptr_map<SandeshGenerator::GeneratorId, SandeshGenerator> GeneratorMap;
     mutable tbb::mutex gen_map_mutex_;
     GeneratorMap gen_map_;
 
@@ -129,7 +129,7 @@ private:
 
 class VizSession : public SandeshSession {
 public:
-    Generator *gen_;
+    SandeshGenerator *gen_;
     VizSession(TcpServer *client, Socket *socket, int task_instance,
             int writer_task_id, int reader_task_id) :
         SandeshSession(client, socket, task_instance, writer_task_id,

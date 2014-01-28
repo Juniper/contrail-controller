@@ -976,6 +976,30 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
     # end verify_flow_series_aggregation_binning
 
+    def verify_fieldname_messagetype(self):
+        self.logger.info('Verify stats table for stats name field');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        res = vns.post_query('StatTable.FieldNames.fields',
+                             start_time='-10m',
+                             end_time='now',
+                             select_fields=['fields.value'],
+                             where_clause='name=MessageTable*')
+        self.logger.info(str(res))
+        assert(len(res)>1)
+        return True
+
+    def verify_fieldname_objecttype(self):
+        self.logger.info('Verify stats table for stats name field');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        res = vns.post_query('StatTable.FieldNames.fields',
+                             start_time='-10m',
+                             end_time='now',
+                             select_fields=['fields.value'],
+                             where_clause='name=Object*')
+        self.logger.info(str(res))
+        assert(len(res) > 1)
+        return True
+
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
 

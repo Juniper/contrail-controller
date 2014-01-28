@@ -185,12 +185,11 @@ public:
         Inet4UnicastRouteKey rt_key(Peer::GetPeer(LOCAL_PEER_NAME), vrf_name,
                              ip, 32);
         VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-        if (!vrf || !(vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)))
+        if (!vrf || !(vrf->GetInet4UnicastRouteTable()))
             return false;
         Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
             (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-             FindActiveEntry(&rt_key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&rt_key));
         if (rt)
             return true;
         else

@@ -44,7 +44,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     tunnel_type_(TunnelType::DefaultType()) {
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
-    case AgentRouteTableAPIS::INET4_UNICAST: {
+    case Agent::INET4_UNICAST: {
           const Inet4UnicastRouteEntry *uc_rt = 
               static_cast<const Inet4UnicastRouteEntry *>(rt);
           addr_ = uc_rt->GetIpAddress();
@@ -53,7 +53,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           rt_type_ = RT_UCAST;
           break;
     }
-    case AgentRouteTableAPIS::INET4_MULTICAST: {
+    case Agent::INET4_MULTICAST: {
           const Inet4MulticastRouteEntry *mc_rt = 
               static_cast<const Inet4MulticastRouteEntry *>(rt);
           addr_ = mc_rt->GetDstIpAddress();
@@ -62,7 +62,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
           rt_type_ = RT_MCAST;
           break;
     }
-    case AgentRouteTableAPIS::LAYER2: {
+    case Agent::LAYER2: {
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
@@ -515,14 +515,14 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         // Get Inet4 Route table and register with KSync
         AgentRouteTable *rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+                          GetInet4UnicastRouteTable());
 
         // Register route-table with KSync
         RouteKSyncObject *ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_UCAST);
 
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::LAYER2));
+                          GetLayer2RouteTable());
 
         ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_LAYER2);
@@ -532,7 +532,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //TODO Enhance ksyncobject for UC/MC, currently there is only one entry
         //in MC so just use the UC object for time being.
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+                          GetInet4MulticastRouteTable());
         ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_MCAST);
     }

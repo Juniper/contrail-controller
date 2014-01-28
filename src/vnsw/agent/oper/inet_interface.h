@@ -57,13 +57,10 @@ public:
     static void DeleteReq(InterfaceTable *table, const std::string &ifname);
 private:
     SubType sub_type_;
-    VrfEntryRef *vrf_;
     Ip4Address ip_addr_;
     int plen_;
     Ip4Address gw_;
     std::string vn_name_;
-    uint32_t label_;
-    bool active_;
     DISALLOW_COPY_AND_ASSIGN(InetInterface);
 };
 

@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# Copyright (c) 2014 Juniper Networks, Inc. All rights reserved.
+#
+# Gets dpkg data and displays the name, version & build-id
+# build-id could be one of:
+# build number - if the package was installed from an ISO
+# repo name - if the package was installed/updated from an debian repository
+# RPM name - if the package was intalled locally (rpm install or yum localinstall)
+# Example output
+# contrail-analytics                     1-1304082216        148                 
+# openstack-dashboard.noarch             2012.1.3-1.fc17     updates             
+# contrail-agent                         1-1304091654        contrail-agent-1-1304091654.x86_64
+
+TMPFILE=/tmp/yl.${BASHPID}
+CONTRAILRPMS=/etc/contrail/debs_list.txt
+VERSIONFILE=/opt/contrail/contrail_packages/VERSION
+# CONTRAIL_INSTALLS="contrail_install_repo"
+CONTRAIL_INSTALLS="Installed:"
+
+# Installs variable - BUILDID in the env
+if [ -f $VERSIONFILE ];
+then
+    source $VERSIONFILE
+fi
+
+echo "Package                                Version                 Build-ID | Repo | Package Name"
+echo "-------------------------------------- ----------------------- ----------------------------------"
+for i in `cat $CONTRAILRPMS`; do
+  ret_code=$?
+  if [ $ret_code == 0 ]; then
+      v="";
+      v=$(dpkg --list $i | awk '/^.i/ { print $3 }') 2> /dev/null 1> /dev/null
+      rr=$(apt-cache policy $i | grep $CONTRAIL_INSTALLS | awk '{print $2}') 2> /dev/null 1> /dev/null
+      # Override if @contrail_install_repo
+      if [[ -n $rr ]] && [[ -n $BUILDID ]]; then
+          rr=$BUILDID
+      fi
+  fi
+  # Only Installed packages are displayed
+  if [[ -n $rr ]]; then
+      printf "%-39s%-24s%-20s\n" $i $v $rr
+      unset rr
+  fi
+done

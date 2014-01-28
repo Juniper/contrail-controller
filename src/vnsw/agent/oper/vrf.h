@@ -10,11 +10,9 @@
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <cmn/agent_cmn.h>
-#include <oper/route_types.h>
 #include <cmn/index_vector.h>
 #include <ksync/ksync_index.h>
 #include <oper/peer.h>
-//#include <oper/vxlan.h>
 #include <oper/agent_types.h>
 
 using namespace std;
@@ -60,7 +58,6 @@ public:
     }
 
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
-    AgentRouteTable *GetRouteTable(uint8_t table_type) const; 
     Inet4UnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
     Inet4UnicastRouteEntry *GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const;
     static bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry,
@@ -91,6 +88,10 @@ public:
     bool FindNH(const Ip4Address &ip, uint8_t plen,
                 const ComponentNHData &nh_data);
 
+    AgentRouteTable *GetInet4UnicastRouteTable() const;
+    AgentRouteTable *GetInet4MulticastRouteTable() const;
+    AgentRouteTable *GetLayer2RouteTable() const;
+    AgentRouteTable *GetRouteTable(uint8_t table_type) const;
 private:
     friend class VrfTable;
     class DeleteActor;
@@ -102,7 +103,7 @@ private:
     DBTableWalker::WalkId walkid_;
     boost::scoped_ptr<DeleteActor> deleter_;
     boost::scoped_ptr<VrfNHMap> nh_map_;
-    AgentRouteTable *rt_table_db_[AgentRouteTableAPIS::MAX];
+    AgentRouteTable *rt_table_db_[Agent::ROUTE_TABLE_MAX];
     Timer *delete_timeout_timer_;
     DISALLOW_COPY_AND_ASSIGN(VrfEntry);
 };
@@ -144,8 +145,6 @@ public:
 
     VrfEntry *FindVrfFromName(const string &name);
     VrfEntry *FindVrfFromId(size_t index) {return index_table_.At(index);};
-    AgentRouteTable *GetRouteTable(const string &vrf_name, 
-                                   uint8_t table_type);
     void FreeVrfId(size_t index) {index_table_.Remove(index);};
 
     void DelPeerRoutes(Peer *peer, Peer::DelPeerDone cb);
@@ -153,6 +152,10 @@ public:
     void VrfTableWalkerMulticastNotify(Peer *peer, bool associate);
     virtual bool CanNotify(IFMapNode *dbe);
     
+    AgentRouteTable *GetInet4UnicastRouteTable(const std::string &vrf_name);
+    AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
+    AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
+    AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
 private:
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
@@ -161,7 +164,7 @@ private:
     static VrfTable *vrf_table_;
     IndexVector<VrfEntry> index_table_;
     VrfNameTree name_tree_;
-    VrfDbTree dbtree_[AgentRouteTableAPIS::MAX];
+    VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };

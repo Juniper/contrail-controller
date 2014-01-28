@@ -26,8 +26,6 @@
 #include "ksync_sock.h"
 #include "ksync_sock_user.h"
 
-#include "oper/vrf.h"
-
 #include "nl_util.h"
 #include "vr_genetlink.h"
 #include "vr_message.h"

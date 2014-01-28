@@ -25,7 +25,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -1180,7 +1179,9 @@ void VmInterface::DeleteFloatingIp() {
     while (it != floating_ip_list_.list_.end()) {
         FloatingIpSet::iterator prev = it++;
         prev->DeActivate(this);
-        floating_ip_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            floating_ip_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -1202,7 +1203,9 @@ void VmInterface::DeleteServiceVlan() {
     while (it != service_vlan_list_.list_.end()) {
         ServiceVlanSet::iterator prev = it++;
         prev->DeActivate(this);
-        service_vlan_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            service_vlan_list_.list_.erase(prev);
+        }
     }
 } 
 
@@ -1224,7 +1227,9 @@ void VmInterface::DeleteStaticRoute() {
     while (it != static_route_list_.list_.end()) {
         StaticRouteSet::iterator prev = it++;
         prev->DeActivate(this);
-        static_route_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            static_route_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -1244,7 +1249,9 @@ void VmInterface::DeleteSecurityGroup() {
     SecurityGroupEntrySet::iterator it = sg_list_.list_.begin();
     while (it != sg_list_.list_.end()) {
         SecurityGroupEntrySet::iterator prev = it++;
-        sg_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            sg_list_.list_.erase(prev);
+        }
     }
 }
 
