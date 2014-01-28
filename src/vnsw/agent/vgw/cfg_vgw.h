@@ -21,17 +21,19 @@ public:
     typedef std::vector<Subnet> SubnetList;
 
     VirtualGatewayConfig(const std::string &interface) :
-        interface_(interface), vrf_(""), subnets_() { }
+        interface_(interface), vrf_(""), subnets_(), routes_() { }
     VirtualGatewayConfig(const std::string &interface, const std::string &vrf,
-                         const SubnetList &subnets) : 
-        interface_(interface), vrf_(vrf), subnets_(subnets) {}
+                         const SubnetList &subnets, const SubnetList &routes) : 
+        interface_(interface), vrf_(vrf), subnets_(subnets), routes_(routes) {}
     VirtualGatewayConfig(const VirtualGatewayConfig &rhs) :
-        interface_(rhs.interface_), vrf_(rhs.vrf_), subnets_(rhs.subnets_) {}
+        interface_(rhs.interface_), vrf_(rhs.vrf_), subnets_(rhs.subnets_),
+        routes_(rhs.routes_) {}
     ~VirtualGatewayConfig() {}
 
     const std::string interface() const {return interface_;}
     const std::string vrf() const {return vrf_;}
     const SubnetList subnets() const {return subnets_;}
+    const SubnetList routes() const {return routes_;}
 private:
     // Interface connecting gateway to host-os
     std::string interface_;
@@ -39,6 +41,8 @@ private:
     std::string vrf_;
     // Vector of subnets
     SubnetList subnets_;
+    // Vector of routes
+    SubnetList routes_;
 };
 
 class VirtualGatewayConfigTable {

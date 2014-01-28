@@ -26,6 +26,8 @@
             <interface>vgw1</interface>
             <subnet>2.2.1.0/24</subnet>
             <subnet>2.2.2.0/24</subnet>
+            <route>10.10.10.1/24</route>
+            <route>0.0.0.0/0</route>
         </gateway>
     </agent>
 </config>

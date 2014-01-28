@@ -73,19 +73,42 @@ void VirtualGateway::InterfaceNotify(DBTablePartBase *partition,
         (agent_->vrf_table()->GetInet4UnicastRouteTable(it->vrf()));
 
     state->active_ = active;
+
+    // Add gateway routes in virtual-network. 
+    // BGP will export the route to other compute nodes
+    uint32_t idx = 0;
     if (active) {
-        // Add default route in public network. BGP will export this route to
-        // other compute nodes
-        rt_table->AddInetInterfaceRoute(agent_->GetLocalVmPeer(), it->vrf(),
-                                        Ip4Address(0), 0, it->interface(),
-                                        intf->label(), it->vrf());
+        // Add routes configured. Add default route if none configured
+        if (it->routes().size() == 0) {
+            rt_table->AddInetInterfaceRoute(agent_->GetLocalVmPeer(), it->vrf(),
+                                            Ip4Address(0), 0, it->interface(),
+                                            intf->label(), it->vrf());
+        } else {
+            for (idx = 0; idx < it->routes().size(); idx++) {
+                Ip4Address addr = GetIp4SubnetAddress(it->routes()[idx].ip_,
+                                                      it->routes()[idx].plen_);
+                rt_table->AddInetInterfaceRoute(agent_->GetLocalVmPeer(),
+                                                it->vrf(), addr,
+                                                it->routes()[idx].plen_,
+                                                it->interface(), intf->label(),
+                                                it->vrf());
+            }
+        }
     } else {
-        // Delete the default route added in virtual-network
-        rt_table->DeleteReq(agent_->GetLocalVmPeer(), it->vrf(),
-                            Ip4Address(0), 0);
+        // Delete the routes added in virtual-network
+        if (it->routes().size() == 0) {
+            rt_table->DeleteReq(agent_->GetLocalVmPeer(), it->vrf(),
+                                Ip4Address(0), 0);
+        } else {
+            for (idx = 0; idx < it->routes().size(); idx++) {
+                Ip4Address addr = GetIp4SubnetAddress(it->routes()[idx].ip_,
+                                                      it->routes()[idx].plen_);
+                rt_table->DeleteReq(agent_->GetLocalVmPeer(), it->vrf(),
+                                    addr, it->routes()[idx].plen_);
+            }
+        }
     }
 
-    uint32_t idx;
     for (idx = 0; idx < it->subnets().size(); idx++) {
         Ip4Address addr = GetIp4SubnetAddress(it->subnets()[idx].ip_,
                                               it->subnets()[idx].plen_);
