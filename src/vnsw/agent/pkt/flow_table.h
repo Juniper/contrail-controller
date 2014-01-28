@@ -372,7 +372,7 @@ public:
     FlowTable() : 
         flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(), intf_listener_id_(),
         vn_listener_id_(), vm_listener_id_(), vrf_listener_id_(), 
-        nh_listener_(NULL) {};
+        nh_listener_(NULL), route_key_(NULL, Ip4Address()) {};
     virtual ~FlowTable();
     
     void Init();
@@ -406,6 +406,11 @@ public:
     }
 
     DBTableBase::ListenerId nh_listener_id();
+    Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr) {
+        route_key_.SetAddr(addr);
+        return entry->GetUcRoute(route_key_);
+    }
+
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
     friend class FetchFlowRecord;
@@ -427,6 +432,8 @@ private:
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId vrf_listener_id_;
     NhListener *nh_listener_;
+
+    Inet4UnicastRouteEntry route_key_;
 
     void AclNotify(DBTablePartBase *part, DBEntryBase *e);
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
