@@ -13,7 +13,6 @@
 #include "xmpp/xmpp_channel.h"
 #include "xmpp_enet_types.h"
 #include "xmpp_unicast_types.h"
-#include <oper/route_types.h>
 
 class AgentRoute;
 class Peer;
@@ -47,7 +46,7 @@ public:
                                     uint32_t tunnel_bmap,
                                     const SecurityGroupList *sg_list, 
                                     bool add_route, 
-                                    AgentRouteTableAPIS::TableType type);
+                                    Agent::RouteTableType type);
     static bool ControllerSendMcastRoute(AgentXmppChannel *peer,
                                          AgentRoute *route, bool add_route);
     static bool ControllerSendV4UnicastRoute(AgentXmppChannel *peer,

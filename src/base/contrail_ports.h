@@ -30,7 +30,6 @@ public:
     static const short DnsRndc = 8094;
     static const short ApiServerOpen = 8095;
     static const short AnalyzerUdpPort = 8099;
-    static const short SyslogPort = 514;
 
     // following ports are reserved for supervisord usage
     static const short supervisord_analytics = 9002;

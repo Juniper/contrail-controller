@@ -449,7 +449,7 @@ void AgentParam::Init(const string &config_file, const string &program_name,
     InitFromConfig();
     InitFromArguments(var_map);
     Validate();
-    vgw_config_->Init(config_file.c_str());
+    vgw_config_table_->Init(config_file.c_str());
     LogConfig();
 }
 
@@ -496,6 +496,6 @@ AgentParam::AgentParam() :
         agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
         vmware_physical_port_("") {
-    vgw_config_ = std::auto_ptr<VirtualGatewayConfig>
-        (new VirtualGatewayConfig());
+    vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
+        (new VirtualGatewayConfigTable());
 }

@@ -113,8 +113,7 @@ bool ArpHandler::HandlePacket() {
     Ip4Address arp_addr(arp_tpa_);
     AgentRoute *route = 
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-            FindLPM(arp_addr);
+            GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
         if (route->IsMulticast()) {
             arp_proto->StatsErrors();

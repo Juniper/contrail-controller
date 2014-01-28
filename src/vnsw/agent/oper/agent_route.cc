@@ -49,13 +49,39 @@ class AgentRouteTable::DeleteActor : public LifetimeActor {
     AgentRouteTable *table_;
 };
 
+bool RouteComparator::operator() (const AgentRoute *rt1,
+                                  const AgentRoute *rt2) {
+    return rt1->IsLess(*rt2);
+}
+
+bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
+    return nh1->IsLess(*nh2);
+}
+
+void AgentRouteTable::InitRouteTable(DB *db, AgentRouteTable *table,
+                                     const std::string &name,
+                                     Agent::RouteTableType type) {
+    assert(type < Agent::ROUTE_TABLE_MAX);
+    table->Init();
+
+    size_t index = name.rfind(GetSuffix(type));
+    assert(index != string::npos);
+    string vrf = name.substr(0, index);
+    VrfEntry *vrf_entry = static_cast<VrfEntry *>
+        (Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf));
+    assert(vrf_entry);
+
+    table->SetVrfEntry(vrf_entry);
+    table->SetVrfDeleteRef(vrf_entry->deleter());
+}
+
 AgentRouteTable::AgentRouteTable(DB *db, const std::string &name) :
     RouteTable(db, name), db_(db), deleter_(new DeleteActor(this)),
     vrf_delete_ref_(this, NULL) { 
 }
 
 AgentRouteTable::~AgentRouteTable() {
-};
+}
 
 auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const RouteKey *key = static_cast<const RouteKey*>(k);
@@ -500,6 +526,19 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
     }
 }
 
+string AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
+    switch (type) {
+    case Agent::INET4_UNICAST:
+        return ".uc.route.0";
+    case Agent::INET4_MULTICAST:
+        return ".mc.route.0";
+    case Agent::LAYER2:
+        return ".l2.route.0";
+    default:
+        return "";
+    }
+}
+
 uint32_t AgentRoute::GetMplsLabel() const { 
     return GetActivePath()->GetLabel();
 };
@@ -580,7 +619,7 @@ bool AgentRoute::CanDissociate() const {
         const CompositeNH *cnh = static_cast<const CompositeNH *>(nh);
         if (cnh && cnh->ComponentNHCount() == 0) 
             return true;
-        if (GetTableType() == AgentRouteTableAPIS::LAYER2) {
+        if (GetTableType() == Agent::LAYER2) {
             const MulticastGroupObject *obj = 
                 MulticastHandler::GetInstance()->
                 FindFloodGroupObject(GetVrfEntry()->GetName());
@@ -589,7 +628,7 @@ bool AgentRoute::CanDissociate() const {
             }
         }
 
-        if (GetTableType() == AgentRouteTableAPIS::INET4_MULTICAST) {
+        if (GetTableType() == Agent::INET4_MULTICAST) {
             const MulticastGroupObject *obj = 
                 MulticastHandler::GetInstance()->
                 FindFloodGroupObject(GetVrfEntry()->GetName());

@@ -15,8 +15,9 @@ public:
     virtual ~Layer2AgentRouteTable() { };
 
     virtual string GetTableName() const {return "Layer2AgentRouteTable";};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::LAYER2;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::LAYER2;
+    }
 
     static void RouteResyncReq(const string &vrf_name, 
                                const struct ether_addr &mac);
@@ -89,8 +90,9 @@ public:
             return "255.255.255.255";
         return ToString();
     };
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::LAYER2;};;
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::LAYER2;
+    }
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
 
     const struct ether_addr &GetAddress() const {return mac_;};
@@ -122,11 +124,10 @@ public:
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
     //Enqueue add/chg/delete for route
     virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
-        return (static_cast<AgentRouteTable *>(vrf->
-                            GetRouteTable(AgentRouteTableAPIS::LAYER2)));
+        return (static_cast<AgentRouteTable *>(vrf->GetLayer2RouteTable()));
     };
-    virtual AgentRouteTableAPIS::TableType GetRouteTableType() {
-        return AgentRouteTableAPIS::LAYER2;
+    virtual Agent::RouteTableType GetRouteTableType() {
+        return Agent::LAYER2;
     }; 
     virtual string ToString() const { return ("Layer2RouteKey"); };
     const struct ether_addr &GetMac() const { return dmac_;};

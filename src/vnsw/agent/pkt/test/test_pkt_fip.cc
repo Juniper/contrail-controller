@@ -255,13 +255,13 @@ static void Setup() {
     // Get route tables
     vnet_table[1] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vrf1", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vrf1"));
     vnet_table[2] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vn2:vn2", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vn2:vn2"));
     vnet_table[3] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vrf3", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vrf3"));
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&
                 vnet_table[3] != NULL);
     if (vnet_table[1] == NULL || vnet_table[2] == NULL ||

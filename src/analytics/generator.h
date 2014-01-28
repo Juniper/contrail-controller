@@ -41,17 +41,24 @@ struct RedisReplyMsg : public ssm::Message {
 };
 
 class Generator {
-  public:
+public:
     Generator(boost::shared_ptr<DbHandler> db_handler);
     virtual ~Generator() {}
 
     virtual const std::string ToString() const = 0;
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
-    virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg,
+    virtual bool ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
             bool rsc) = 0;
-  protected:
+    void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
+    void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
+
+protected:
+    boost::shared_ptr<DbHandler> db_handler_;
+
+private:
     void UpdateMessageTypeStats(VizMsg *vmsg);
     void UpdateLogLevelStats(VizMsg *vmsg);
+
     struct Stats {
         Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
         uint64_t messages_;
@@ -70,8 +77,7 @@ class Generator {
     typedef boost::ptr_map<std::string /* Log level */, LogLevelStats> LogLevelStatsMap;
     LogLevelStatsMap log_level_stats_map_;
 
-    boost::shared_ptr<DbHandler> db_handler_;
-  private:
+    mutable tbb::mutex smutex_;
 };
 
 class SandeshGenerator : public Generator {
@@ -89,8 +95,6 @@ public:
     void DisconnectSession(VizSession *vsession);
     void ConnectSession(VizSession *vsession, SandeshStateMachine *state_machine);
 
-    void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
-    void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
     bool GetSandeshStateMachineQueueCount(uint64_t &queue_count) const;
     bool GetSandeshStateMachineStats(SandeshStateMachineStats &sm_stats,
                                      SandeshGeneratorStats &sm_msg_stats) const;

@@ -983,8 +983,7 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-         FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1002,8 +1001,7 @@ bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
-                       FindActiveEntry(&key));
+             GetLayer2RouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1017,8 +1015,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1037,8 +1034,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1057,8 +1053,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name,
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
-                       FindActiveEntry(&key));
+             GetLayer2RouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1071,8 +1066,7 @@ Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr,
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1085,8 +1079,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &g
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1099,8 +1092,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -2406,8 +2398,7 @@ bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry *route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Resolve route not found");
         return false;
@@ -2439,8 +2430,7 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Vhost Receive route not found");
         return false;
@@ -2469,8 +2459,7 @@ uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         return 0;
     }
