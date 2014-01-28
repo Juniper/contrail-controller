@@ -77,7 +77,7 @@ private:
     typedef boost::ptr_map<std::string /* Log level */, LogLevelStats> LogLevelStatsMap;
     LogLevelStatsMap log_level_stats_map_;
 
-    mutable tbb::mutex mutex_;
+    mutable tbb::mutex smutex_;
 };
 
 class SandeshGenerator : public Generator {

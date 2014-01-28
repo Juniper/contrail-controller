@@ -53,7 +53,7 @@ Generator::Generator (boost::shared_ptr<DbHandler> db_handler) :
 }
 
 void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
-    tbb::mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(smutex_);
     MessageTypeStatsMap::iterator stats_it =
             stats_map_.find(vmsg->messagetype);
     if (stats_it == stats_map_.end()) {
@@ -67,7 +67,7 @@ void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
 }
 
 void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
-    tbb::mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(smutex_);
     // For system log, update the log level stats
     if (vmsg->hdr.get_Type() == SandeshType::SYSTEM) {
         SandeshLevel::type level =
@@ -91,7 +91,7 @@ void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
 }
 
 void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
-    tbb::mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(smutex_);
     for (MessageTypeStatsMap::const_iterator mt_it = stats_map_.begin();
          mt_it != stats_map_.end();
          mt_it++) {
@@ -105,7 +105,7 @@ void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
 }
 
 void Generator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
-    tbb::mutex::scoped_lock lock(mutex_);
+    tbb::mutex::scoped_lock lock(smutex_);
     for (LogLevelStatsMap::const_iterator ls_it = log_level_stats_map_.begin();
          ls_it != log_level_stats_map_.end(); ls_it++) {
         SandeshLogLevelStats level_stats;
