@@ -53,6 +53,7 @@ Generator::Generator (boost::shared_ptr<DbHandler> db_handler) :
 }
 
 void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
+    tbb::mutex::scoped_lock lock(mutex_);
     MessageTypeStatsMap::iterator stats_it =
             stats_map_.find(vmsg->messagetype);
     if (stats_it == stats_map_.end()) {
@@ -66,6 +67,7 @@ void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
 }
 
 void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
+    tbb::mutex::scoped_lock lock(mutex_);
     // For system log, update the log level stats
     if (vmsg->hdr.get_Type() == SandeshType::SYSTEM) {
         SandeshLevel::type level =
@@ -88,6 +90,34 @@ void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
     }
 }
 
+void Generator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    for (MessageTypeStatsMap::const_iterator mt_it = stats_map_.begin();
+         mt_it != stats_map_.end();
+         mt_it++) {
+        SandeshStats sstats;
+        sstats.message_type = mt_it->first;
+        sstats.messages = (mt_it->second)->messages_;
+        sstats.bytes = (mt_it->second)->bytes_;
+        sstats.last_msg_timestamp = (mt_it->second)->last_msg_timestamp_;
+        ssv.push_back(sstats);
+    }
+}
+
+void Generator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
+    tbb::mutex::scoped_lock lock(mutex_);
+    for (LogLevelStatsMap::const_iterator ls_it = log_level_stats_map_.begin();
+         ls_it != log_level_stats_map_.end(); ls_it++) {
+        SandeshLogLevelStats level_stats;
+        level_stats.level = ls_it->first;
+        level_stats.messages = (ls_it->second)->messages_;
+        level_stats.bytes = (ls_it->second)->bytes_;
+        level_stats.last_msg_timestamp =
+                (ls_it->second)->last_msg_timestamp_;
+        lsv.push_back(level_stats);
+    }
+}
+
 bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
     // This is a message from the application on the generator side.
     // It will be processed by the rule engine callback after we
@@ -98,7 +128,6 @@ bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
     UpdateLogLevelStats(vmsg.get());
     return ProcessRules (vmsg, rsc);
 }
-
 
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
@@ -267,32 +296,6 @@ bool SandeshGenerator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
     std::string &drop_level, uint64_t &msg_dropped) const {
     return db_handler_->GetStats(queue_count, enqueues, drop_level,
                msg_dropped);
-}
-
-void SandeshGenerator::GetMessageTypeStats(vector<SandeshStats> &ssv) const {
-    for (MessageTypeStatsMap::const_iterator mt_it = stats_map_.begin();
-         mt_it != stats_map_.end();
-         mt_it++) {
-        SandeshStats sstats;
-        sstats.message_type = mt_it->first;
-        sstats.messages = (mt_it->second)->messages_;
-        sstats.bytes = (mt_it->second)->bytes_;
-        sstats.last_msg_timestamp = (mt_it->second)->last_msg_timestamp_;
-        ssv.push_back(sstats);
-    }
-}
-
-void SandeshGenerator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
-    for (LogLevelStatsMap::const_iterator ls_it = log_level_stats_map_.begin();
-         ls_it != log_level_stats_map_.end(); ls_it++) {
-        SandeshLogLevelStats level_stats;
-        level_stats.level = ls_it->first;
-        level_stats.messages = (ls_it->second)->messages_;
-        level_stats.bytes = (ls_it->second)->bytes_;
-        level_stats.last_msg_timestamp =
-                (ls_it->second)->last_msg_timestamp_;
-        lsv.push_back(level_stats);
-    }
 }
 
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {
