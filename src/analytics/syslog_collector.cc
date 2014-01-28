@@ -501,9 +501,11 @@ SyslogListeners::SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
 }
 void SyslogListeners::Start ()
 {
-    SyslogTcpListener::Start (ipaddress_, port_);
-    SyslogUDPListener::Start (ipaddress_, port_);
-    inited_ = true;
+    if (port_ != -1) {
+        SyslogTcpListener::Start (ipaddress_, port_);
+        SyslogUDPListener::Start (ipaddress_, port_);
+        inited_ = true;
+    }
 }
 void SyslogListeners::Parse (SyslogQueueEntry &sqe)
 {

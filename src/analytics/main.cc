@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
          opt::value<int>()->default_value(ContrailPorts::CollectorPort),
          "vizd listener port")
         ("syslog-port",
-         opt::value<int>()->default_value(ContrailPorts::SyslogPort),
+         opt::value<int>()->default_value(-1),
          "Syslog listener port")
         ("host-ip", opt::value<string>(),
          "IP address of Analytics Node")
