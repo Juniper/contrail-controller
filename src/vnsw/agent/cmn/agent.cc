@@ -194,8 +194,10 @@ void Agent::GetConfig() {
         TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
     else if (params_->tunnel_type() == "VXLAN")
         TunnelType::SetDefaultType(TunnelType::VXLAN);
-    else
+    else if (params_->tunnel_type() == "MPLSoGRE")
         TunnelType::SetDefaultType(TunnelType::MPLS_GRE);
+    else
+        TunnelType::SetDefaultType(TunnelType::MPLS_UDP);
 }
 
 DiscoveryAgentClient *Agent::discovery_client() const {
