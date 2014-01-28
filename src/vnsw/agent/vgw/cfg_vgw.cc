@@ -101,24 +101,31 @@ void VirtualGatewayConfigTable::Init(const char *init_file) {
 
         // Iterate thru all subnets in gateway
         VirtualGatewayConfig::SubnetList subnets;
+        VirtualGatewayConfig::SubnetList routes;
         Ip4Address addr;
         int plen;
         BOOST_FOREACH(ptree::value_type &v, node) {
             optional<string> subnet_str;
             try {
-                if (v.first == "subnet") {
+                if (v.first == "subnet" || v.first == "route") {
                     if (subnet_str = v.second.get<string>("")) {
                         ec = Ip4PrefixParse(subnet_str.get(), &addr, &plen);
                         if (ec != 0 || plen >= 32) {
                             continue;
                         }
-                        subnets.push_back(VirtualGatewayConfig::Subnet(addr,
-                                                                       plen));
+
+                        if (v.first == "subnet")
+                            subnets.push_back(VirtualGatewayConfig::Subnet
+                                              (addr, plen));
+                        else
+                            routes.push_back(VirtualGatewayConfig::Subnet
+                                              (addr, plen));
                     }
                 }
             } catch (exception &e) {
-                LOG(ERROR, "Error reading \"gateway\" node in config file <"
-                    << init_file << ">. Error <" << e.what() << ">");
+                LOG(ERROR, "Error reading \"gateway\" or \"route\" node in "
+                    "config file <" << init_file << ">. Error <" << e.what() 
+                    << ">");
                 continue;
             }
         }
@@ -127,7 +134,7 @@ void VirtualGatewayConfigTable::Init(const char *init_file) {
             return;
         }
 
-        table_.insert(VirtualGatewayConfig(interface, vrf, subnets));
+        table_.insert(VirtualGatewayConfig(interface, vrf, subnets, routes));
     }
     return;
 }

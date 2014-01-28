@@ -56,14 +56,26 @@ TEST_F(VgwTest, conf_file_1) {
     EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public1:public1");
     EXPECT_STREQ(it->interface().c_str(), "vgw1");
     EXPECT_EQ(it->subnets().size(), 2);
+    if (it->routes().size() == 2) {
+        subnet = it->subnets()[0];
+        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.1.0");
+        EXPECT_EQ(subnet.plen_, 24);
 
-    subnet = it->subnets()[0];
-    EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.1.0");
-    EXPECT_EQ(subnet.plen_, 24);
+        subnet = it->subnets()[1];
+        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.2.0");
+        EXPECT_EQ(subnet.plen_, 24);
+    }
 
-    subnet = it->subnets()[1];
-    EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.2.0");
-    EXPECT_EQ(subnet.plen_, 24);
+    EXPECT_EQ(it->routes().size(), 2);
+    if (it->routes().size() == 2) {
+        subnet = it->routes()[0];
+        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");
+        EXPECT_EQ(subnet.plen_, 24);
+
+        subnet = it->routes()[1];
+        EXPECT_STREQ(subnet.ip_.to_string().c_str(), "0.0.0.0");
+        EXPECT_EQ(subnet.plen_, 0);
+    }
 }
 
 // Validate interface configuration
@@ -127,16 +139,8 @@ TEST_F(VgwTest, fabric_route_1) {
     EXPECT_TRUE(nh->GetType() == NextHop::RECEIVE);
 }
 
-// The default route in public-vn vrf should point to interface-nh for vgw
-TEST_F(VgwTest, vn_route_1) {
-    Inet4UnicastRouteEntry *route;
-
-    route = RouteGet("default-domain:admin:public:public",
-                     Ip4Address::from_string("0.0.0.0"), 0);
-    EXPECT_TRUE(route != NULL);
-    if (route == NULL)
-        return;
-
+static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
+                                 const char *name) {
     const NextHop *nh = route->GetActiveNextHop();
     EXPECT_TRUE(nh != NULL);
     if (nh == NULL)
@@ -156,39 +160,36 @@ TEST_F(VgwTest, vn_route_1) {
     if (intf->type() != Interface::INET)
         return;
 
+    const InetInterface *inet_intf;
+    inet_intf = static_cast<const InetInterface *>(intf);
+    EXPECT_TRUE(inet_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
+    EXPECT_STREQ(intf->name().c_str(), name);
+}
 
-    const InetInterface *vhost_intf;
-    vhost_intf = static_cast<const InetInterface *>(intf);
-    EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
-    EXPECT_STREQ(intf->name().c_str(), "vgw");
+// The route in public-vn vrf should point to interface-nh for vgw
+TEST_F(VgwTest, vn_route_1) {
+    Inet4UnicastRouteEntry *route;
+
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_TRUE(route != NULL);
+    if (route == NULL)
+        return;
+    ValidateVgwInterface(route, "vgw");
 
     route = RouteGet("default-domain:admin:public1:public1",
                      Ip4Address::from_string("0.0.0.0"), 0);
     EXPECT_TRUE(route != NULL);
     if (route == NULL)
         return;
+    ValidateVgwInterface(route, "vgw1");
 
-    nh = route->GetActiveNextHop();
-    EXPECT_TRUE(nh != NULL);
-    if (nh == NULL)
+    route = RouteGet("default-domain:admin:public1:public1",
+                     Ip4Address::from_string("10.10.10.0"), 24);
+    EXPECT_TRUE(route != NULL);
+    if (route == NULL)
         return;
-
-    EXPECT_TRUE(nh->GetType() == NextHop::INTERFACE);
-    if (nh->GetType() != NextHop::INTERFACE)
-        return;
-
-    intf = static_cast<const InterfaceNH *>(nh)->GetInterface();
-    EXPECT_TRUE(intf != NULL);
-    if (intf == NULL)
-        return;
-
-    EXPECT_TRUE(intf->type() == Interface::INET);
-    if (intf->type() != Interface::INET)
-        return;
-
-    vhost_intf = static_cast<const InetInterface *>(intf);
-    EXPECT_TRUE(vhost_intf->sub_type() == InetInterface::SIMPLE_GATEWAY);
-    EXPECT_STREQ(intf->name().c_str(), "vgw1");
+    ValidateVgwInterface(route, "vgw1");
 }
 
 int main(int argc, char **argv) {
