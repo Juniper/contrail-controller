@@ -65,14 +65,14 @@ public:
     //Key for patricia node lookup 
     class Rtkey {
       public:
-          static std::size_t Length(AgentRoute *key) {
-              Inet4UnicastRouteEntry *uckey =
-                  static_cast<Inet4UnicastRouteEntry *>(key);
+          static std::size_t Length(const AgentRoute *key) {
+              const Inet4UnicastRouteEntry *uckey =
+                  static_cast<const Inet4UnicastRouteEntry *>(key);
               return uckey->GetPlen();
           }
-          static char ByteValue(AgentRoute *key, std::size_t i) {
-              Inet4UnicastRouteEntry *uckey =
-                  static_cast<Inet4UnicastRouteEntry *>(key);
+          static char ByteValue(const AgentRoute *key, std::size_t i) {
+              const Inet4UnicastRouteEntry *uckey =
+                  static_cast<const Inet4UnicastRouteEntry *>(key);
               const Ip4Address::bytes_type &addr_bytes = 
                   uckey->GetIpAddress().to_bytes();
               return static_cast<char>(addr_bytes[i]);
@@ -99,7 +99,7 @@ public:
     virtual ~Inet4UnicastAgentRouteTable() { };
 
     Inet4UnicastRouteEntry *FindLPM(const Ip4Address &ip);
-    Inet4UnicastRouteEntry *FindLPM(Inet4UnicastRouteEntry &rt_key);
+    Inet4UnicastRouteEntry *FindLPM(const Inet4UnicastRouteEntry &rt_key);
     virtual string GetTableName() const {return "Inet4UnicastAgentRouteTable";};
     virtual AgentRouteTableAPIS::TableType GetTableType() const {
         return AgentRouteTableAPIS::INET4_UNICAST;};

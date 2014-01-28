@@ -96,15 +96,15 @@ public:
         return RemoveNode(DataToNode(data));
     }
 
-    D * Find(D * data) {
+    D * Find(const D * data) {
         return NodeToData(FindNode(DataToNode(data)));
     }
 
-    D * FindNext(D * data) {
+    D * FindNext(const D * data) {
         return NodeToData(FindNextNode(DataToNode(data)));
     }
 
-    D * LPMFind(D * data) {
+    D * LPMFind(const D * data) {
         return NodeToData(FindBestMatchNode(DataToNode(data)));
     }
 
@@ -113,9 +113,25 @@ public:
     }
 
 private:
+    const Node *DataToNode (const D * data) {
+        if (data) {
+            return static_cast<const Node *>(&(data->*P));
+        } else {
+            return NULL;
+        }
+    }
+
     Node *DataToNode (D * data) {
         if (data) {
             return static_cast<Node *>(&(data->*P));
+        } else {
+            return NULL;
+        }
+    }
+
+    const D *NodeToData (const Node * node) {
+        if (node) {
+            return boost::intrusive::detail::parent_from_member<D, Node>(node, P);
         } else {
             return NULL;
         }
@@ -338,7 +354,7 @@ private:
         return true;
     }
 
-    Node * FindNode(Node * node) {
+    Node * FindNode(const Node * node) {
         Node * p, * x;
 
         p = NULL;
@@ -366,7 +382,7 @@ private:
         return x;
     }
 
-    Node * FindNextNode(Node * node) {
+    Node * FindNextNode(const Node * node) {
         Node * p, * x, *l;
         std::size_t i = 0;
 
@@ -454,7 +470,7 @@ private:
         return NULL;
     }
 
-    Node * FindBestMatchNode(Node * node) {
+    Node * FindBestMatchNode(const Node * node) {
         Node * p, * x, *l;
         std::size_t i = 0;
 
@@ -514,8 +530,8 @@ private:
         return x;
     }
 
-    bool GetBit(Node * node, std::size_t pos) {
-        D * data = NodeToData(node);
+    bool GetBit(const Node * node, std::size_t pos) {
+        const D * data = NodeToData(node);
         if (pos >= K::Length(data)) {
             return false;
         }
@@ -523,9 +539,9 @@ private:
         return K::ByteValue(data, pos >> 3) & (0x80 >> (pos & 7));
     }
 
-    bool Compare(Node *node_left, Node *node_right) {
-        D * data_left = NodeToData(node_left);
-        D * data_right = NodeToData(node_right);
+    bool Compare(const Node *node_left, const Node *node_right) {
+        const D * data_left = NodeToData(node_left);
+        const D * data_right = NodeToData(node_right);
         if (K::Length(data_left) != K::Length(data_right)) {
             return false;
         }
@@ -548,9 +564,9 @@ private:
         return true;
     }
 
-    bool Compare(Node *node_left, Node *node_right, std::size_t start, std::size_t& pos) {
-        D * data_left = NodeToData(node_left);
-        D * data_right = NodeToData(node_right);
+    bool Compare(const Node *node_left, const Node *node_right, std::size_t start, std::size_t& pos) {
+        const D * data_left = NodeToData(node_left);
+        const D * data_right = NodeToData(node_right);
         std::size_t shortLen;
 
         bool isEqual;

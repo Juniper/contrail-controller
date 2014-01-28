@@ -183,7 +183,7 @@ Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
     return table->FindLPM(addr);
 }
 
-Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(Inet4UnicastRouteEntry &rt_key) const {
+Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const {
     Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
         (GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
     if (table == NULL)

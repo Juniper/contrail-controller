@@ -47,7 +47,7 @@ Inet4UnicastAgentRouteTable::FindLPM(const Ip4Address &ip) {
 }
 
 Inet4UnicastRouteEntry *
-Inet4UnicastAgentRouteTable::FindLPM(Inet4UnicastRouteEntry &rt_key) {
+Inet4UnicastAgentRouteTable::FindLPM(const Inet4UnicastRouteEntry &rt_key) {
     return tree_.LPMFind(&rt_key);
 }
 

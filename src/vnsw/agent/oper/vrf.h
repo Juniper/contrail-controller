@@ -62,7 +62,7 @@ public:
     bool DBEntrySandesh(Sandesh *sresp, std::string &name) const;
     AgentRouteTable *GetRouteTable(uint8_t table_type) const; 
     Inet4UnicastRouteEntry *GetUcRoute(const Ip4Address &addr) const;
-    Inet4UnicastRouteEntry *GetUcRoute(Inet4UnicastRouteEntry &rt_key) const;
+    Inet4UnicastRouteEntry *GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const;
     static bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry,
                               Peer *peer);
 

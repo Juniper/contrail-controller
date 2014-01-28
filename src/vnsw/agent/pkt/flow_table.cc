@@ -1998,6 +1998,12 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
 }
 
+Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
+        const Ip4Address &addr) {
+        route_key_.SetAddr(addr);
+        return entry->GetUcRoute(route_key_);
+}
+
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
 {
     std::bitset<32> bs(action_info.action);

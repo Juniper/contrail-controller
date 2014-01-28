@@ -406,10 +406,7 @@ public:
     }
 
     DBTableBase::ListenerId nh_listener_id();
-    Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr) {
-        route_key_.SetAddr(addr);
-        return entry->GetUcRoute(route_key_);
-    }
+    Inet4UnicastRouteEntry * GetUcRoute(const VrfEntry *entry, const Ip4Address &addr);
 
     friend class FlowStatsCollector;
     friend class PktSandeshFlow;
