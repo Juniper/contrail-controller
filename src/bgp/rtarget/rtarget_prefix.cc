@@ -9,7 +9,7 @@ using namespace std;
 using boost::system::error_code;
 
 RTargetPrefix::RTargetPrefix()
-  : as_(0) {
+  : as_(0), rtarget_(RouteTarget::null_rtarget) {
 }
 
 RTargetPrefix::RTargetPrefix(const BgpProtoPrefix &prefix) {
@@ -42,11 +42,10 @@ void RTargetPrefix::BuildProtoPrefix(BgpProtoPrefix *prefix) const {
 RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
     RTargetPrefix prefix;
     
-    size_t pos = str.rfind(':');
+    size_t pos = str.find(':');
     if (pos == string::npos) {
-        if (errorp != NULL) {
+        if (errorp != NULL)
             *errorp = make_error_code(boost::system::errc::invalid_argument);
-        }
         return prefix;
     }
 
@@ -57,7 +56,7 @@ RTargetPrefix RTargetPrefix::FromString(const string &str, error_code *errorp) {
     error_code rtarget_err;
     prefix.rtarget_ = RouteTarget::FromString(rtargetstr, &rtarget_err);
     if (rtarget_err != 0) {
-        *errorp = rtarget_err;
+        if (errorp != NULL) *errorp = rtarget_err;
     }
     return prefix;
 }
