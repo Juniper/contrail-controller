@@ -4,11 +4,12 @@
 
 #include "ifmap/ifmap_update_sender.h"
 #include "base/task.h"
-#include "ifmap/ifmap_encoder.h"
-#include "ifmap/ifmap_exporter.h"
-#include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_client.h"
 #include "ifmap/ifmap_server.h"
+#include "ifmap/ifmap_encoder.h"
+#include "ifmap/ifmap_exporter.h"
+#include "ifmap/ifmap_log.h"
+#include "ifmap/ifmap_log_types.h"
 #include "ifmap/ifmap_update.h"
 #include "ifmap/ifmap_update_queue.h"
 
@@ -209,6 +210,8 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
 
 void IFMapUpdateSender::ProcessUpdate(IFMapUpdate *update,
                                       const BitSet &base_send_set) {
+    LogSentUpdate(update, base_send_set);
+
     // Append the contents of the update-node to the message.
     message_->EncodeUpdate(update);
 
@@ -295,5 +298,24 @@ IFMapMarker* IFMapUpdateSender::ProcessMarker(IFMapMarker *marker,
 
     // next_marker has the ready_set if done is false
     return next_marker;
+}
+
+void IFMapUpdateSender::LogSentUpdate(IFMapUpdate *update,
+                                      const BitSet &base_send_set) {
+    size_t total = base_send_set.count();
+    // Avoid dealing with return value of BitSet::npos
+    if (total) {
+        string name = update->ConfigName();
+        string operation = update->TypeToString();
+        size_t client_id = base_send_set.find_first();
+        while (total--) {
+            IFMapClient *client = server_->GetClient(client_id);
+            if (client) {
+                IFMAP_DEBUG_ONLY(IFMapClientSendInfo, operation, name,
+                                 client->name());
+            }
+            client_id = base_send_set.find_next(client_id);
+        }
+    }
 }
 

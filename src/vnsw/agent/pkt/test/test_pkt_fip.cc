@@ -54,10 +54,13 @@ Inet4UnicastAgentRouteTable *vnet_table[16];
 PhysicalInterface *eth;
 int hash_id;
 
-static bool VmPortSetup(struct PortInfo *input, int count, int aclid) {
+static bool VmPortSetup(struct PortInfo *input, int count, int aclid, bool fip = false) {
     bool ret = true;
-
-    CreateVmportEnv(input, count,  aclid);
+    if (fip) {
+        CreateVmportFIpEnv(input, count,  aclid);
+    } else {
+        CreateVmportEnv(input, count,  aclid);
+    }
     client->WaitForIdle();
 
     for (int i = 0; i < count; i++) {
@@ -207,7 +210,7 @@ static void Setup() {
         ret = false;
     }
 
-    if (VmPortSetup(input2, 2, 2) != true) {
+    if (VmPortSetup(input2, 2, 2, true) != true) {
         ret = false;
     }
 
@@ -252,13 +255,13 @@ static void Setup() {
     // Get route tables
     vnet_table[1] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vrf1", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vrf1"));
     vnet_table[2] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vrf2", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vn2:vn2"));
     vnet_table[3] = static_cast<Inet4UnicastAgentRouteTable *>
         (Agent::GetInstance()->GetVrfTable()->
-        GetRouteTable("vrf3", AgentRouteTableAPIS::INET4_UNICAST));
+        GetInet4UnicastRouteTable("vrf3"));
     EXPECT_TRUE(vnet_table[1] != NULL && vnet_table[2] != NULL &&
                 vnet_table[3] != NULL);
     if (vnet_table[1] == NULL || vnet_table[2] == NULL ||
@@ -276,13 +279,13 @@ static void Setup() {
 
     /* Add Local VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.10");
-    vnet_table[2]->AddLocalVmRouteReq(NULL, "vrf2", addr, 32, 
+    vnet_table[2]->AddLocalVmRouteReq(NULL, "vn2:vn2", addr, 32, 
                                       vnet[3]->GetUuid(),
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
                                       0);
     client->WaitForIdle();
-    EXPECT_TRUE(RouteFind("vrf2", addr, 32));
+    EXPECT_TRUE(RouteFind("vn2:vn2", addr, 32));
 
     /* Add Remote VM route in vrf1 from vrf2 */
     addr = Ip4Address::from_string("2.1.1.11");
@@ -308,7 +311,7 @@ static void Setup() {
     client->SetFlowFlushExclusionPolicy();
     client->SetFlowAgeExclusionPolicy();
 
-    AgentUve::GetInstance()->GetFlowStatsCollector()->SetFlowAgeTime(AGE_TIME);
+    Agent::GetInstance()->uve()->flow_stats_collector()->UpdateFlowAgeTime(AGE_TIME);
     AddAllowAcl("acl1", 1);
     client->WaitForIdle();
 }
@@ -452,7 +455,8 @@ TEST_F(FlowTest, ServerToVm_1) {
     TxIpPacketUtil(vhost->id(), vhost_addr, "80.80.80.80", 1, 1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGet(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80", 
-                        1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
+                        1, 0, 0, false, Agent::GetInstance()->GetDefaultVrf().c_str(),
+                        // 1, 0, 0, false, Agent::GetInstance()->GetFabricVnName().c_str(),
                         Agent::GetInstance()->GetFabricVnName().c_str(), 1, true, false));
 
     EXPECT_TRUE(FlowDelete(vhost->vrf()->GetName(), vhost_addr, "80.80.80.80",
@@ -471,7 +475,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 1, 0, 0, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 0, 0, 
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // UDP from server to vnet1
     TxUdpPacket(vhost->id(), vhost_addr,
@@ -482,7 +487,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_UDP, 10, 20, 1, "vrf1",
                                 "169.254.169.254", vnet_addr[1], 10, 20,
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
 
     // TCP from server to vnet1
     TxTcpPacket(vhost->id(), vhost_addr,
@@ -493,7 +499,8 @@ TEST_F(FlowTest, ServerToVm_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 IPPROTO_TCP, 10, 20, 1, "vrf1", "169.254.169.254", 
                                 vnet_addr[1], 10, 20, 
-                                Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
+                                Agent::GetInstance()->GetDefaultVrf().c_str(), "vn1"));
+                                // Agent::GetInstance()->GetFabricVnName().c_str(), "vn1"));
     RemoveMetadataService();
     client->WaitForIdle();
 }
@@ -513,7 +520,8 @@ TEST_F(FlowTest, VmToServer_1) {
                                 vnet[1]->mdata_ip_addr().to_string().c_str(),
                                 vhost_addr, 10000, MEDATA_NAT_DPORT,
                                 "vn1",
-                                Agent::GetInstance()->GetFabricVnName().c_str()));
+                                Agent::GetInstance()->GetDefaultVrf().c_str()));
+                                // Agent::GetInstance()->GetFabricVnName().c_str()));
     client->WaitForIdle();
 
 #if 0
@@ -589,19 +597,19 @@ TEST_F(FlowTest, FipVmToRemoteVm_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.10", 1);
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "2.1.1.10", 1, 0, 0, 1,
-                                "vrf2", "2.1.1.100", "2.1.1.10", 0, 0,
+                                "vn2:vn2", "2.1.1.100", "2.1.1.10", 0, 0,
                                 "vn2", "vn2"));
 
     TxTcpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.10", 10, 20);
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "2.1.1.10", IPPROTO_TCP, 10, 20,
-                                1, "vrf2", "2.1.1.100", "2.1.1.10", 10, 20,
+                                1, "vn2:vn2", "2.1.1.100", "2.1.1.10", 10, 20,
                                 "vn2", "vn2"));
 
     TxUdpPacket(vnet[1]->id(), vnet_addr[1], "2.1.1.10", 10, 20);
     EXPECT_TRUE(NatValidateFlow(1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "2.1.1.10", IPPROTO_UDP, 10, 20,
-                                1, "vrf2", "2.1.1.100", "2.1.1.10", 10, 20,
+                                1, "vn2:vn2", "2.1.1.100", "2.1.1.10", 10, 20,
                                 "vn2", "vn2"));
 }
 
@@ -714,7 +722,7 @@ TEST_F(FlowTest, DuplicateFlow_1) {
     client->WaitForIdle();
     EXPECT_TRUE(NatValidateFlow(-1, vnet[1]->vrf()->GetName().c_str(),
                                 vnet_addr[1], "2.1.1.10", 1, 0, 0, 1,
-                                "vrf2", "2.1.1.100", "2.1.1.10", 0, 0,
+                                "vn2:vn2", "2.1.1.100", "2.1.1.10", 0, 0,
                                 "vn2", "vn2"));
 }
 
@@ -889,7 +897,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr,
                 vnet[7]->mdata_ip_addr().to_string().c_str(), 6, 100, 100,
-                Agent::GetInstance()->GetFabricVnName(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
+                Agent::GetInstance()->GetDefaultVrf(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
+                // Agent::GetInstance()->GetFabricVnName(), "vn7", 2, vnet[7]->vrf()->GetName().c_str(), 
                 "169.254.169.254", vnet_addr[7], 100, 100));
 
     TxTcpPacket(vnet[7]->id(), vnet_addr[7], 
@@ -897,7 +906,8 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_1) {
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vnet[7]->vrf()->GetName(), vnet_addr[7],
                 "169.254.169.254", 6, 10, 80,
-                "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
+                "vn7", Agent::GetInstance()->GetDefaultVrf(), 3, 
+                // "vn7", Agent::GetInstance()->GetFabricVnName(), 3, 
                 vhost->vrf()->GetName().c_str(), 
                 vnet[7]->mdata_ip_addr().to_string().c_str(), vhost_addr, 10, 
                 MEDATA_NAT_DPORT));
@@ -930,14 +940,16 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
                 vnet[8]->mdata_ip_addr().to_string().c_str(), 100, 100, 2);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat(vhost->vrf()->GetName(), vhost_addr, mdata_ip,
-                           6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
+                           6, 100, 100, Agent::GetInstance()->GetDefaultVrf(), "vn8", 2,
+                           // 6, 100, 100, Agent::GetInstance()->GetFabricVnName(), "vn8", 2,
                            "vrf8", "169.254.169.254", vnet_addr[8], 100, 100));
 
     TxTcpPacket(vnet[8]->id(), vnet_addr[8], 
                 "169.254.169.254", 10, 80, 3);
     client->WaitForIdle();
     EXPECT_TRUE(FlowGetNat("vrf8", vnet_addr[8], "169.254.169.254", 6, 10, 80,
-                           "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
+                           "vn8", Agent::GetInstance()->GetDefaultVrf(), 3,
+                           // "vn8", Agent::GetInstance()->GetFabricVnName(), 3,
                            vhost->vrf()->GetName().c_str(), mdata_ip,
                            vhost_addr, 10, MEDATA_NAT_DPORT));
     client->WaitForIdle();
@@ -956,7 +968,7 @@ TEST_F(FlowTest, FlowCleanup_on_intf_del_2) {
 //which was leaked due to policy
 TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     //Leak a route from vrf3 to vrf2
-    vnet_table[2]->AddLocalVmRouteReq(NULL, "vrf2", vnet[5]->ip_addr(), 32,
+    vnet_table[2]->AddLocalVmRouteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
                                       vnet[5]->label(), 0);
@@ -971,7 +983,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
                                 80, 1, vnet[5]->vrf()->GetName().c_str(), 
                                 "2.1.1.100", vnet_addr[5],
                                 10000, 80, "vn2", "vn3"));
-    vnet_table[2]->DeleteReq(NULL, "vrf2", vnet[5]->ip_addr(), 32);
+    vnet_table[2]->DeleteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32);
     client->WaitForIdle();
 }
 

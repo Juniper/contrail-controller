@@ -6,7 +6,7 @@
 #define multicast_agent_oper_hpp
 
 #include <oper/nexthop.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <netinet/in.h>
 #include <net/ethernet.h>
 #include <cmn/agent_cmn.h>
@@ -49,7 +49,7 @@ public:
                          bool multi_proto_support) :
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         vn_name_(vn_name), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
         boost::system::error_code ec;
         src_address_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
         src_mpls_label_ = 0;
@@ -62,7 +62,7 @@ public:
                          bool multi_proto_support) : 
         vrf_name_(vrf_name), grp_address_(grp_addr), 
         src_address_(src_addr), multi_proto_support_(multi_proto_support),
-        layer2_forwarding_(true), ipv4_forwarding_(true), vxlan_id_(0) {
+        layer2_forwarding_(true), ipv4_forwarding_(false), vxlan_id_(0) {
         src_mpls_label_ = 0;
         local_olist_.clear();
         deleted_ = false;
@@ -208,7 +208,7 @@ private:
     void AddVmInterfaceInFloodGroup(const std::string &vrf_name, const uuid &itf_uuid, 
                                     const VnEntry *vn);
     void AddVmInterfaceInSubnet(const std::string &vrf_name, const Ip4Address &addr, 
-                                const uuid &itf_uuid, const string &vn_name);
+                                const uuid &itf_uuid, const VnEntry *vn);
 
     //Unresolved VM list, waiting on ipam for subnet broadcast
     void VisitUnresolvedVMList(const VnEntry *vn);

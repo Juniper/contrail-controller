@@ -32,14 +32,18 @@ from redis_sentinel_client import RedisSentinelClient
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames, CategoryNames, ModuleCategoryMap
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
+     ModuleCategoryMap, Module2NodeType, NodeTypeNames,\
+     INSTANCE_ID_DEFAULT
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
     _STAT_TABLES, STAT_OBJECTID_FIELD, STAT_VT_PREFIX, \
-    STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD
+    STAT_TIME_FIELD, STAT_TIMEBIN_FIELD, STAT_UUID_FIELD, \
+    STAT_SOURCE_FIELD, SOURCE, MODULE
 from sandesh.viz.constants import *
 from sandesh.analytics_cpuinfo.ttypes import *
+from sandesh.analytics_cpuinfo.cpuinfo.ttypes import ProcessCpuInfo
 from opserver_util import OpServerUtils
 from cpuinfo import CpuInfoData
 from sandesh_req_impl import OpserverSandeshReqImpl
@@ -104,7 +108,7 @@ def redis_query_status(host, port, qid):
     chunks = []
     # For now, the number of chunks will be always 1
     res = redish.lrange("REPLY:" + qid, -1, -1)
-    if res is None:
+    if not res:
         return None
     chunk_resp = json.loads(res[0])
     ttl = redish.ttl("REPLY:" + qid)
@@ -371,22 +375,26 @@ class OpServer(object):
 
     def disc_publish(self):
         try:
-            import discovery.client as client
+            import discoveryclient.client as client
         except:
-            raise Exception('Could not get Discovery Client')
-        else:
-            data = {
-                'ip-address': self._args.host_ip,
-                'port': self._args.rest_api_port,
-            }
-            disc = client.DiscoveryClient(
-                self._args.disc_server_ip,
-                self._args.disc_server_port,
-                ModuleNames[Module.OPSERVER])
-            self._logger.info("Disc Publish to %s : %d - %s"
-                              % (self._args.disc_server_ip,
-                                 self._args.disc_server_port, str(data)))
-            disc.publish(self._moduleid, data)
+            try:
+                # TODO: Try importing from the server. This should go away..
+                import discovery.client as client
+            except:
+                raise Exception('Could not get Discovery Client')
+
+        data = {
+            'ip-address': self._args.host_ip,
+            'port': self._args.rest_api_port,
+        }
+        disc = client.DiscoveryClient(
+            self._args.disc_server_ip,
+            self._args.disc_server_port,
+            ModuleNames[Module.OPSERVER])
+        self._logger.info("Disc Publish to %s : %d - %s"
+                          % (self._args.disc_server_ip,
+                             self._args.disc_server_port, str(data)))
+        disc.publish(self._moduleid, data)
     # end
 
     def __init__(self):
@@ -399,12 +407,20 @@ class OpServer(object):
         self._homepage_links.append(LinkObject('analytics', '/analytics'))
 
         super(OpServer, self).__init__()
-        self._moduleid = ModuleNames[Module.OPSERVER]
+        module = Module.OPSERVER
+        self._moduleid = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        self._node_type_name = NodeTypeNames[node_type]
+        if self._args.worker_id:
+            self._instance_id = self._args.worker_id
+        else:
+            self._instance_id = INSTANCE_ID_DEFAULT
         self._hostname = socket.gethostname()
         if self._args.dup:
             self._hostname += 'dup'
         opserver_sandesh_req_impl = OpserverSandeshReqImpl(self) 
         sandesh_global.init_generator(self._moduleid, self._hostname,
+                                      self._node_type_name, self._instance_id,
                                       self._args.collectors, 'opserver_context',
                                       int(self._args.http_server_port),
                                       ['sandesh'])
@@ -455,6 +471,9 @@ class OpServer(object):
             keyln = query_column(name=STAT_OBJECTID_FIELD, datatype='string', index=True)
             scols.append(keyln)
 
+            keyln = query_column(name=STAT_SOURCE_FIELD, datatype='string', index=True)
+            scols.append(keyln)
+
             tln = query_column(name=STAT_TIME_FIELD, datatype='int', index=False)
             scols.append(tln)
 
@@ -481,7 +500,7 @@ class OpServer(object):
                 name = STAT_VT_PREFIX + "." + stat_id,
                 display_name = t.display_name,
                 schema = sch,
-                columnvalues = [STAT_OBJECTID_FIELD])
+                columnvalues = [STAT_OBJECTID_FIELD, SOURCE])
             self._VIRTUAL_TABLES.append(stt)
 
         bottle.route('/', 'GET', self.homepage_http_get)
@@ -529,7 +548,7 @@ class OpServer(object):
                              'GET', self.column_values_process)
                 bottle.route('/analytics/table/<table>/column-values/<column>',
                              'GET', self.column_process)
-        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
+        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', self.send_trace_buffer)
         bottle.route('/documentation/<filename:path>',
                      'GET', self.documentation_http_get)
@@ -557,6 +576,7 @@ class OpServer(object):
                                --log_level SYS_DEBUG
                                --log_category test
                                --log_file <stdout>
+                               --worker_id 0
         '''
 
         parser = argparse.ArgumentParser(
@@ -613,6 +633,9 @@ class OpServer(object):
         parser.add_argument("--dup", action="store_true",
             default=False,
             help="Internal use")
+        parser.add_argument(
+            "--worker_id",
+            help="Worker Id")
 
         self._args = parser.parse_args()
         if type(self._args.collectors) is str:
@@ -702,7 +725,7 @@ class OpServer(object):
         else:
             if resp is None:
                 return bottle.HTTPError(_ERRORS[errno.ENOENT], 
-                    'Invalid query id')
+                    'Invalid query id or Abandoned query id')
             resp_header = {'Content-Type': 'application/json'}
             resp_code = 200
             self._logger.debug("query [%s] status: %s" % (qid, resp))
@@ -924,15 +947,25 @@ class OpServer(object):
             processing_queries = redish.lrange(
                 'ENGINE:' + socket.gethostname(), 0, -1)
             processing_queries_info = []
+            abandoned_queries_info = []
+            error_queries_info = []
             for query_id in processing_queries:
                 status = redis_query_status(host='127.0.0.1',
                                             port=int(
                                                 self._args.redis_query_port),
                                             qid=query_id)
                 query_data = redis_query_info(redish, query_id)
-                query_data['progress'] = status['progress']
-                processing_queries_info.append(query_data)
+                if status is None:
+                     abandoned_queries_info.append(query_data)
+                elif status['progress'] < 0:
+                     query_data['error_code'] = status['progress']
+                     error_queries_info.append(query_data)
+                else:
+                     query_data['progress'] = status['progress']
+                     processing_queries_info.append(query_data)
             queries['queries_being_processed'] = processing_queries_info
+            queries['abandoned_queries'] = abandoned_queries_info
+            queries['error_queries'] = error_queries_info
         except redis.exceptions.ConnectionError:
             return bottle.HTTPError(_ERRORS[errno.EIO],
                     'Failure in connection to the query DB')
@@ -1178,11 +1211,20 @@ class OpServer(object):
         return json.dumps(uvetype_links)
     # end uves_http_get
 
-    def send_trace_buffer(self, source, module, name):
+    def send_trace_buffer(self, source, module, instance_id, name):
         response = {}
         trace_req = SandeshTraceRequest(name)
+        if module not in ModuleIds:
+            response['status'] = 'fail'
+            response['error'] = 'Invalid module'
+            return json.dumps(response)
+        module_id = ModuleIds[module]
+        node_type = Module2NodeTye[module_id]
+        node_type_name = NodeTypeNames[node_type]
         if self._state_server.redis_publish(msg_type='send-tracebuffer',
-                                            destination=source + ':' + module,
+                                            destination=source + ':' + 
+                                            node_type_name + ':' + module +
+                                            ':' + instance_id,
                                             msg=trace_req):
             response['status'] = 'pass'
         else:
@@ -1272,7 +1314,7 @@ class OpServer(object):
     # end column_values_process
 
     def generator_info(self, table, column):
-        if ((column == 'ModuleId') or (column == 'Source')):
+        if ((column == MODULE) or (column == SOURCE)):
             try:
                 redish = redis.StrictRedis(
                     db=0,
@@ -1280,16 +1322,16 @@ class OpServer(object):
                     port=int(self._args.redis_server_port))
                 sources = []
                 moduleids = []
-                for key in redish.smembers("GENERATORS"):
+                for key in redish.smembers("NGENERATORS"):
                     source = key.split(':')[0]
-                    module = key.split(':')[1]
+                    module = key.split(':')[2]
                     if (sources.count(source) == 0):
                         sources.append(source)
                     if (moduleids.count(module) == 0):
                         moduleids.append(module)
-                if (column == 'ModuleId'):
+                if (column == MODULE):
                     return moduleids
-                elif (column == 'Source'):
+                elif (column == SOURCE):
                     return sources
             except Exception as e:
                 print e
@@ -1349,6 +1391,7 @@ class OpServer(object):
         while True:
             mod_cpu_info = ModuleCpuInfo()
             mod_cpu_info.module_id = self._moduleid
+            mod_cpu_info.instance_id = self._instance_id
             mod_cpu_info.cpu_info = opserver_cpu_info.get_cpu_info(
                 system=False)
             mod_cpu_state = ModuleCpuState()
@@ -1366,9 +1409,9 @@ class OpServer(object):
             aly_cpu_state = AnalyticsCpuState()
             aly_cpu_state.name = self._hostname
 
-            aly_cpu_info = AnalyticsCpuInfo()
-            aly_cpu_info.module_id = self._moduleid
-            aly_cpu_info.inst_id = 0
+            aly_cpu_info = ProcessCpuInfo()
+            aly_cpu_info.module_id= self._moduleid
+            aly_cpu_info.inst_id = self._instance_id
             aly_cpu_info.cpu_share = mod_cpu_info.cpu_info.cpu_share
             aly_cpu_info.mem_virt = mod_cpu_info.cpu_info.meminfo.virt
             aly_cpu_state.cpu_info = [aly_cpu_info]

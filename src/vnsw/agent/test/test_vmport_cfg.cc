@@ -38,6 +38,13 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class CfgTest : public ::testing::Test {
+    virtual void SetUp() {
+    }
+
+    virtual void TearDown() {
+        EXPECT_EQ(0U, Agent::GetInstance()->GetAclTable()->Size());
+    }
+
 };
 
 TEST_F(CfgTest, AddDelVmPortNoVn_1) {
@@ -914,7 +921,8 @@ TEST_F(CfgTest, VnDepOnVrfAcl_1) {
     EXPECT_TRUE(client->PortNotifyWait(2));
     EXPECT_FALSE(VmFind(1));
     EXPECT_FALSE(VmPortFind(input, 0));
-    EXPECT_EQ(3U, Agent::GetInstance()->GetInterfaceTable()->Size());
+    WAIT_FOR(100, 1000, 
+             (3U == Agent::GetInstance()->GetInterfaceTable()->Size()));
     EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
     EXPECT_EQ(1U, Agent::GetInstance()->GetVnTable()->Size());
     EXPECT_EQ(0U, Agent::GetInstance()->GetVmTable()->Size());
@@ -973,18 +981,18 @@ TEST_F(CfgTest, FloatingIp_1) {
     AddVn("vn2", 2);
     client->WaitForIdle();
     EXPECT_TRUE(client->VnNotifyWait(1));
-    AddVrf("vrf7");
+    AddVrf("vn2:vn2");
     AddVrf("vrf8");
     client->WaitForIdle();
     EXPECT_TRUE(client->VrfNotifyWait(2));
-    EXPECT_TRUE(VrfFind("vrf7"));
+    EXPECT_TRUE(VrfFind("vn2:vn2"));
     EXPECT_TRUE(VrfFind("vrf8"));
     AddFloatingIpPool("fip-pool1", 1);
     AddFloatingIp("fip1", 1, "1.1.1.1");
     AddFloatingIp("fip3", 3, "2.2.2.5");
     AddFloatingIp("fip4", 4, "2.2.2.1");
     client->WaitForIdle();
-    AddLink("virtual-network", "vn2", "routing-instance", "vrf7");
+    AddLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn2");
     AddLink("floating-ip", "fip1", "floating-ip-pool", "fip-pool1");
     AddLink("floating-ip", "fip3", "floating-ip-pool", "fip-pool1");
@@ -1049,7 +1057,7 @@ TEST_F(CfgTest, FloatingIp_1) {
     client->WaitForIdle();
     DelLink("virtual-network", "vn2", "routing-instance", "vrf8");
     client->WaitForIdle();
-    DelLink("virtual-network", "vn2", "routing-instance", "vrf7");
+    DelLink("virtual-network", "vn2", "routing-instance", "vn2:vn2");
     client->WaitForIdle();
     DelLink("virtual-machine-interface", "vnet1", "floating-ip", "fip1");
     client->WaitForIdle();
@@ -1087,9 +1095,9 @@ TEST_F(CfgTest, FloatingIp_1) {
     DelNode("routing-instance", "vrf6");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf6"));
-    DelNode("routing-instance", "vrf7");
+    DelNode("routing-instance", "vn2:vn2");
     client->WaitForIdle();
-    EXPECT_FALSE(VrfFind("vrf7"));
+    EXPECT_FALSE(VrfFind("vn2:vn2"));
     DelNode("routing-instance", "vrf8");
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf8"));
@@ -1164,8 +1172,10 @@ TEST_F(CfgTest, Basic_1) {
                             eth_intf, Agent::GetInstance()->GetDefaultVrf());
     client->WaitForIdle();
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                    "vhost10", Agent::GetInstance()->GetDefaultVrf(),
-                                   InetInterface::VHOST);
+                             "vhost10", InetInterface::VHOST,
+                             Agent::GetInstance()->GetDefaultVrf(),
+                             Ip4Address(0), 0, Ip4Address(0), "");
+
     client->WaitForIdle();
 
     AddVn("vn5", 5);
@@ -1397,6 +1407,8 @@ TEST_F(CfgTest, SecurityGroup_1) {
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "security-group", "acl1");
+    client->WaitForIdle();
+    DelNode("access-control-list", "acl1");
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);

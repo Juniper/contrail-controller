@@ -52,7 +52,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
@@ -83,16 +83,17 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     if (init_file == NULL) {
         agent->set_vhost_interface_name("vhost0");
         InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                                 "vhost0",
+                                 "vhost0", InetInterface::VHOST,
                                  Agent::GetInstance()->GetDefaultVrf(),
-                                 InetInterface::VHOST);
+                                 Ip4Address(0), 0, Ip4Address(0), "");
         boost::system::error_code ec;
         Agent::GetInstance()->SetRouterId
             (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
         agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
-            (Agent::GetInstance()->GetDefaultVrf(), "vhost0",
-             Agent::GetInstance()->GetRouterId(), false);
+            (Agent::GetInstance()->GetLocalPeer(),
+             Agent::GetInstance()->GetDefaultVrf(), "vhost0",
+             Agent::GetInstance()->GetRouterId(), 32, "", false);
     }
 
     return client;
@@ -111,7 +112,7 @@ TestClient *StatsTestInit() {
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
@@ -123,6 +124,7 @@ TestClient *StatsTestInit() {
     init->set_uve_enable(false);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -132,8 +134,10 @@ TestClient *StatsTestInit() {
     sleep(1);
     Agent::GetInstance()->set_vhost_interface_name("vhost0");
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
-                             InetInterface::VHOST);
+                             "vhost0", InetInterface::VHOST,
+                             Agent::GetInstance()->GetDefaultVrf(),
+                             Ip4Address(0), 0, Ip4Address(0), "");
+
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -155,7 +159,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     param->Init(init_file, "test", var_map);
 
     // Initialize the agent-init control class
-    Sandesh::InitGeneratorTest("VNSWAgent", "Agent",
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
                                Agent::GetInstance()->GetEventManager(),
                                0, NULL);
 
@@ -167,6 +171,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     init->set_uve_enable(true);
     init->set_vgw_enable(true);
     init->set_router_id_dep_enable(false);
+    agent->SetTestMode();
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);
@@ -183,8 +188,9 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     usleep(100);
     Agent::GetInstance()->set_vhost_interface_name("vhost0");
     InetInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
-                             "vhost0", Agent::GetInstance()->GetDefaultVrf(),
-                             InetInterface::VHOST);
+                             "vhost0", InetInterface::VHOST,
+                             Agent::GetInstance()->GetDefaultVrf(),
+                             Ip4Address(0), 0, Ip4Address(0), "");
     boost::system::error_code ec;
     Agent::GetInstance()->SetRouterId(Ip4Address::from_string("10.1.1.1", ec));
 
@@ -223,10 +229,8 @@ static bool WaitForDbFree(const string &name, int msec) {
 }
 
 void TestClient::Shutdown() {
-    VnswIfListener::Shutdown();
     Agent::GetInstance()->init()->Shutdown();
-    AgentUve::GetInstance()->Shutdown();
-    UveClient::GetInstance()->Shutdown();
+    Agent::GetInstance()->uve()->Shutdown();
     Agent::GetInstance()->ksync()->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  

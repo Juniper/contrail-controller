@@ -11,6 +11,9 @@ env.Prepend(LIBS=['gunit'])
 cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
 
+env.Append(LIBPATH=['../../test'])
+env.Append(LIBS=['agent_test_buildinfo'])
+
 import sys
 test = env.Program(target = 'test', source = ['test.cc'])
 env.Alias('src/vnsw/agent/cmn/test:test', test)

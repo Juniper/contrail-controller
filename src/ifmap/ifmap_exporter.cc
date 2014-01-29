@@ -383,8 +383,7 @@ void IFMapExporter::NodeTableExport(DBTablePartBase *partition,
         BitSet rm_set;
         rm_set.BuildComplement(state->advertised(), state->interest());
 
-        // TODO: detect a change in the record.
-        bool change = true;
+        bool change = ConfigChanged(node);
         
         // enqueue update
         // If there is a previous update in the queue, if that update has
@@ -590,3 +589,16 @@ bool IFMapExporter::FilterNeighbor(IFMapNode *lnode, IFMapNode *rnode) {
     return walker_->FilterNeighbor(lnode, rnode);
 }
 
+bool IFMapExporter::ConfigChanged(IFMapNode *node) {
+    IFMapNodeState *state = NodeStateLookup(node);
+    bool changed = false;
+    assert(state);
+
+    IFMapExporter::crc32type node_crc = node->GetConfigCrc();
+    if (state->crc() != node_crc) {
+        changed = true;
+        state->SetCrc(node_crc);
+    }
+
+    return changed;
+}

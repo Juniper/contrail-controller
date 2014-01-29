@@ -8,7 +8,7 @@
 #include <vnc_cfg_types.h>
 #include "base/task_annotations.h"
 #include <base/logging.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/nexthop.h>
 #include <oper/mirror_table.h>
@@ -55,6 +55,10 @@ void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
     priority_list_ = l;
 
     return;
+}
+
+void TunnelType::DeletePriorityList() {
+    priority_list_.clear();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -452,17 +456,26 @@ static void AddInterfaceNH(const uuid &intf_uuid, const struct ether_addr &dmac,
     Agent::GetInstance()->GetNextHopTable()->Process(req);
 }
 
-// Create 3 InterfaceNH for every VPort. One with policy another without 
+// Create 3 InterfaceNH for every Vm interface. One with policy another without 
 // policy, third one is for multicast.
-void InterfaceNH::CreateVport(const uuid &intf_uuid,
-                              const struct ether_addr &dmac, 
-                              const string &vrf_name) {
-    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4 | 
-                  InterfaceNHFlags::MULTICAST, false,vrf_name);
+void InterfaceNH::CreateL3VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, true, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::INET4, false, vrf_name);
+}
+
+void InterfaceNH::CreateL2VmInterfaceNH(const uuid &intf_uuid,
+                                        const struct ether_addr &dmac, 
+                                        const string &vrf_name) {
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, false, vrf_name);
     AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::LAYER2, true, vrf_name);
+}
+
+void InterfaceNH::CreateMulticastVmInterfaceNH(const uuid &intf_uuid,
+                                               const struct ether_addr &dmac, 
+                                               const string &vrf_name) {
+    AddInterfaceNH(intf_uuid, dmac, InterfaceNHFlags::MULTICAST, false, vrf_name);
 }
 
 static void DeleteNH(const uuid &intf_uuid, bool policy, 
@@ -476,16 +489,15 @@ static void DeleteNH(const uuid &intf_uuid, bool policy,
 }
 
 // Delete the 2 InterfaceNH. One with policy another without policy
-void InterfaceNH::DeleteVportReq(const uuid &intf_uuid) {
+void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::LAYER2);
     DeleteNH(intf_uuid, false, InterfaceNHFlags::INET4);
     DeleteNH(intf_uuid, true, InterfaceNHFlags::INET4);
-    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST | 
-             InterfaceNHFlags::INET4);
+    DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
 }
 
-void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
+void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -501,7 +513,7 @@ void InterfaceNH::CreateVirtualHostPort(const string &ifname) {
     NextHopTable::GetInstance()->Process(req);
 }
 
-void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
+void InterfaceNH::DeleteInetInterfaceNextHop(const string &ifname) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_DELETE;
 
@@ -511,7 +523,7 @@ void InterfaceNH::DeleteVirtualHostPortReq(const string &ifname) {
     req.key.reset(key);
 
     req.data.reset(NULL);
-    NextHopTable::GetInstance()->Enqueue(&req);
+    NextHopTable::GetInstance()->Process(req);
 }
 
 void InterfaceNH::CreatePacketInterfaceNhReq(const string &ifname) {
@@ -671,8 +683,8 @@ bool TunnelNH::Change(const DBRequest *req) {
     bool valid = false;
 
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
@@ -701,8 +713,8 @@ bool TunnelNH::Change(const DBRequest *req) {
 
 void TunnelNH::Delete(const DBRequest *req) {
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }
 
@@ -778,8 +790,8 @@ bool MirrorNH::Change(const DBRequest *req) {
         return true;
     }
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
@@ -812,8 +824,8 @@ void MirrorNH::Delete(const DBRequest *req) {
         return;
     }
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }
 
@@ -861,28 +873,30 @@ void ReceiveNH::SetKey(const DBRequestKey *key) {
 
 // Create 2 ReceiveNH for every VPort. One with policy another without 
 // policy
-void ReceiveNH::CreateReq(const string &interface) {
-    DBRequest req;
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+void ReceiveNH::Create(NextHopTable *table, const string &interface) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, false));
+    req.data.reset(new ReceiveNHData());
+    table->Process(req);
 
-    NextHopKey *key = new ReceiveNHKey(new InetInterfaceKey(interface),
-                                       false);
-    req.key.reset(key);
-
-    ReceiveNHData *rcv_data =new ReceiveNHData();
-    req.data.reset(rcv_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
-
-    DBRequest policy_req;
-    policy_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *policy_key = new ReceiveNHKey(new InetInterfaceKey(
-                                                              interface), true);
-    policy_req.key.reset(policy_key);
-
-    ReceiveNHData *policy_data =new ReceiveNHData();
-    policy_req.data.reset(policy_data);
-    Agent::GetInstance()->GetNextHopTable()->Enqueue(&policy_req);
+    intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, true));
+    table->Process(req);
 }
+
+void ReceiveNH::Delete(NextHopTable *table, const string &interface) {
+    DBRequest req(DBRequest::DB_ENTRY_DELETE);
+    InetInterfaceKey *intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, false));
+    req.data.reset(NULL);
+    table->Process(req);
+
+    intf_key = new InetInterfaceKey(interface);
+    req.key.reset(new ReceiveNHKey(intf_key, true));
+    table->Process(req);
+}
+
 
 void ReceiveNH::SendObjectLog(AgentLogEvent::type event) const {
     NextHopObjectLogInfo info;

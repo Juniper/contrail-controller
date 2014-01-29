@@ -22,6 +22,8 @@ if sys.platform != 'darwin':
     env.Prepend(LIBS = ['cfg'])
     env.Prepend(LIBS = ['nova_ins'])
     env.Append(LIBS = ['gunit'])
+    env.Append(LIBPATH=['../../test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
 
 
     nova_info_server_test = env.Program(target = 'nova_info_server_test',

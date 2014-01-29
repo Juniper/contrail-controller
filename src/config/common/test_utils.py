@@ -574,3 +574,54 @@ def Fake_uuid_to_time(time_uuid_in_db):
     ts = time.mktime(time_uuid_in_db.timetuple())
     return ts
 # end of Fake_uuid_to_time
+
+class DiscoveryServiceMock(object):
+
+    def __init__(self, *args, **kwargs):
+        self._count = 0
+        self._values = {}
+    # end __init__
+
+    def alloc_from(self, path, max_id):
+        self._count = self._count + 1
+        return self._count
+    # end alloc_from
+
+    def alloc_from_str(self, path, value=''):
+        self._count = self._count + 1
+        zk_val = "%(#)010d" % {'#': self._count}
+        self._values[path + zk_val] = value
+        return zk_val
+    # end alloc_from_str
+
+    def delete(self, path):
+        del self._values[path]
+    # end delete
+
+    def read(self, path):
+        try:
+            return self._values[path]
+        except Exception as err:
+            raise pycassa.NotFoundException
+    # end read
+
+    def get_children(self, path):
+        return []
+    # end get_children
+
+    def read_node(self, path):
+        try:
+            return self.read(path)
+        except pycassa.NotFoundException:
+            return None
+    # end read_node
+
+    def create_node(self, path, value=''):
+        self._values[path] = value
+    # end create_node
+
+    def delete_node(self, path):
+        del self._values[path]
+    # end delete_node
+# end Class DiscoveryServiceMock
+

@@ -3,6 +3,7 @@
  */
 
 #include "base/bitset.h"
+#include "base/util.h"
 
 #include <cassert>
 #include <string>
@@ -507,3 +508,17 @@ void BitSet::FromString(string str) {
     if (str[0] == '1')
         set(0);
 }
+
+string BitSet::ToNumberedString() const {
+    string str;
+    if (count()) {
+        size_t number = find_first();
+        str = integerToString(number);
+        for (size_t i = 1; i < count(); ++i) {
+            number = find_next(number);
+            str += "," + integerToString(number);
+        }
+    }
+    return str;
+}
+

@@ -6,27 +6,7 @@
 #define vnsw_agent_icmp_proto_h_
 
 #include "pkt/proto.h"
-#include "pkt/proto_handler.h"
-
-// ICMP protocol handler
-class IcmpHandler : public ProtoHandler {
-public:
-    IcmpHandler(Agent *agent, PktInfo *info, boost::asio::io_service &io) 
-        : ProtoHandler(agent, info, io), icmp_(pkt_info_->transp.icmp) {
-        icmp_len_ = ntohs(pkt_info_->ip->tot_len) - (pkt_info_->ip->ihl * 4);
-    }
-    virtual ~IcmpHandler() {}
-
-    bool Run();
-
-private:
-    bool CheckPacket();
-    void SendResponse();
-
-    icmphdr *icmp_;
-    uint16_t icmp_len_;
-    DISALLOW_COPY_AND_ASSIGN(IcmpHandler);
-};
+#include "services/icmp_handler.h"
 
 class IcmpProto : public Proto {
 public:
@@ -39,11 +19,12 @@ public:
         void Reset() { icmp_gw_ping = icmp_gw_ping_err = icmp_drop = 0; }
     };
 
-    void Init(boost::asio::io_service &io);
-    void Shutdown();
+    void Init() {}
+    void Shutdown() {}
     IcmpProto(Agent *agent, boost::asio::io_service &io);
     virtual ~IcmpProto();
-    ProtoHandler *AllocProtoHandler(PktInfo *info, boost::asio::io_service &io);
+    ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
+                                    boost::asio::io_service &io);
 
     void IncrStatsGwPing() { stats_.icmp_gw_ping++; }
     void IncrStatsGwPingErr() { stats_.icmp_gw_ping_err++; }

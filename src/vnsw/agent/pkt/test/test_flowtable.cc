@@ -10,6 +10,9 @@
 void RouterIdDepInit() {
 }
 
+const std::string svn_name("svn");
+const std::string dvn_name("dvn");
+
 struct TestFlowKey {
     uint16_t        vrfid_;
     const char      *sip_;
@@ -17,18 +20,18 @@ struct TestFlowKey {
     uint8_t         proto_;
     uint16_t        sport_;
     uint16_t        dport_;
-    const char      *svn_;
-    const char      *dvn_;
+    const std::string      *svn_;
+    const std::string      *dvn_;
     uint16_t        ifindex_;
     uint16_t        vn_;
     uint16_t        vm_;
 
     TestFlowKey(uint16_t vrf, const char *sip, const char *dip, uint8_t proto,
-                uint16_t sport, uint16_t dport, const char *svn,
-                const char *dvn, uint16_t ifindex, uint16_t vn, uint16_t vm) :
+                uint16_t sport, uint16_t dport, const std::string &svn,
+                const std::string &dvn, uint16_t ifindex, uint16_t vn, uint16_t vm) :
     
         vrfid_(vrf), sip_(sip), dip_(dip), proto_(proto), sport_(sport),
-        dport_(dport), svn_(svn), dvn_(dvn), ifindex_(ifindex), vn_(vn),
+        dport_(dport), svn_(&svn), dvn_(&dvn), ifindex_(ifindex), vn_(vn),
         vm_(vm) {
     }
 
@@ -136,27 +139,27 @@ public:
         if (rev) {
             rev->InitFlowKey(&key);
             rflow = Agent::GetInstance()->pkt()->flow_table()->Find(key);
-            EXPECT_EQ(flow->data.reverse_flow.get(), rflow);
-            if (flow->data.reverse_flow.get() != rflow) {
+            EXPECT_EQ(flow->reverse_flow_entry(), rflow);
+            if (flow->reverse_flow_entry() != rflow) {
                 ret = false;
             }
         }
 
         // Match action
-        EXPECT_TRUE((flow->data.match_p.action_info.action & action) != 0);
-        if ((flow->data.match_p.action_info.action & action) == 0)
+        EXPECT_TRUE((flow->match_p().action_info.action & action) != 0);
+        if ((flow->match_p().action_info.action & action) == 0)
             ret = false;
 
         // Match Policy from VN
-        const VnEntry *vn = flow->data.vn_entry.get();
+        const VnEntry *vn = flow->data().vn_entry.get();
         if (vn && vn->GetAcl() &&
-            FindAcl(flow->data.match_p.m_acl_l, vn->GetAcl()) == false) {
+            FindAcl(flow->match_p().m_acl_l, vn->GetAcl()) == false) {
             EXPECT_STREQ("Policy not found in flow", "");
             ret = false;
         }
 
         const VmInterface *intf = static_cast<const VmInterface *>
-            (flow->data.intf_entry.get());
+            (flow->data().intf_entry.get());
         if (intf) {
             const VmInterface::SecurityGroupEntrySet sg_list = intf->sg_list().list_;
             VmInterface::SecurityGroupEntrySet::const_iterator it;
@@ -164,7 +167,7 @@ public:
                 if (it->sg_->GetAcl() == NULL) {
                     continue;
                 }
-                if (FindAcl(flow->data.match_p.m_sg_acl_l,
+                if (FindAcl(flow->match_p().m_sg_acl_l,
                             it->sg_->GetAcl()) == false) {
                     EXPECT_STREQ("SG not found in flow", "");
                     ret = false;
@@ -176,26 +179,26 @@ public:
             return ret;
         }
 
-        if (flow->local_flow == false) {
-            EXPECT_EQ(flow->data.match_p.m_out_acl_l.size(), 0U);
-            EXPECT_EQ(flow->data.match_p.m_out_sg_acl_l.size(), 0U);
-            if ((flow->data.match_p.m_out_acl_l.size() != 0) || 
-                (flow->data.match_p.m_out_sg_acl_l.size() != 0)) {
+        if (!flow->is_flags_set(FlowEntry::LocalFlow)) {
+            EXPECT_EQ(flow->match_p().m_out_acl_l.size(), 0U);
+            EXPECT_EQ(flow->match_p().m_out_sg_acl_l.size(), 0U);
+            if ((flow->match_p().m_out_acl_l.size() != 0) || 
+                (flow->match_p().m_out_sg_acl_l.size() != 0)) {
                 ret = false;
             }
 
             return ret;
         }
 
-        vn = rflow->data.vn_entry.get();
+        vn = rflow->data().vn_entry.get();
         if (vn && vn->GetAcl() &&
-            FindAcl(flow->data.match_p.m_out_acl_l, vn->GetAcl()) == false){
+            FindAcl(flow->match_p().m_out_acl_l, vn->GetAcl()) == false){
             EXPECT_STREQ("Out Policy not found in flow", "");
             ret = false;
         }
 
         intf = static_cast<const VmInterface *>
-            (rflow->data.intf_entry.get());
+            (rflow->data().intf_entry.get());
         if (intf) {
             const VmInterface::SecurityGroupEntrySet sg_list = intf->sg_list().list_;
             VmInterface::SecurityGroupEntrySet::const_iterator it;
@@ -203,7 +206,7 @@ public:
                 if (it->sg_->GetAcl() == NULL) {
                     continue;
                 }
-                if (FindAcl(flow->data.match_p.m_out_sg_acl_l,
+                if (FindAcl(flow->match_p().m_out_sg_acl_l,
                             it->sg_->GetAcl()) == false) {
                     EXPECT_STREQ("Out SG not found in flow", "");
                     ret = false;
@@ -218,7 +221,7 @@ public:
     static void FlowDel(const TestFlowKey *flow) {
         FlowKey key;
         flow->InitFlowKey(&key);
-        Agent::GetInstance()->pkt()->flow_table()->DeleteRevFlow(key, true);
+        Agent::GetInstance()->pkt()->flow_table()->Delete(key, true);
         client->WaitForIdle();
     }
 
@@ -227,11 +230,21 @@ public:
         t->InitFlowKey(&key);
         FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
 
-        flow->data.source_vn = *t->svn_;
-        flow->data.dest_vn = *t->dvn_;
-        flow->data.vn_entry = VnGet(t->vn_);
-        flow->data.intf_entry = VmPortGet(t->ifindex_);
-        flow->data.vm_entry = VmGet(t->vm_);
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
+        PktFlowInfo info(pkt_info);
+        PktInfo *pkt = pkt_info.get();
+        info.source_vn = t->svn_;
+        info.dest_vn = t->dvn_;
+        SecurityGroupList empty_sg_id_l;
+        info.source_sg_id_l = &empty_sg_id_l;
+        info.dest_sg_id_l = &empty_sg_id_l;
+
+        PktControlInfo ctrl;
+        ctrl.vn_ = VnGet(t->vn_);
+        ctrl.intf_ = VmPortGet(t->ifindex_);
+        ctrl.vm_ = VmGet(t->vm_);
+
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
         return flow;
     }
 
@@ -323,26 +336,26 @@ protected:
         client->EnqueueFlowAge();
         client->WaitForIdle();
 
-        key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, "svn",
-                               "dvn", 1, 1, 1);
+        key1 = new TestFlowKey(1, "1.1.1.1", "1.1.1.2", 1, 0, 0, svn_name,
+                               dvn_name, 1, 1, 1);
         flow1 = FlowInit(key1);
-        flow1->local_flow = true;
+        flow1->set_flags(FlowEntry::LocalFlow);
 
-        key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, "dvn",
-                                 "svn", 2, 1, 2);
+        key1_r = new TestFlowKey(1, "1.1.1.2", "1.1.1.1", 1, 0, 0, dvn_name,
+                                 svn_name, 2, 1, 2);
         flow1_r = FlowInit(key1_r);
-        flow1_r->local_flow = true;
+        flow1_r->set_flags(FlowEntry::LocalFlow);
         FlowAdd(flow1, flow1_r);
 
-        key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, "svn",
-                               "dvn", 1, 1, 1);
+        key2 = new TestFlowKey(1, "1.1.1.1", "1.1.1.3", 1, 0, 0, svn_name,
+                               dvn_name, 1, 1, 1);
         flow2 = FlowInit(key2);
-        flow2->local_flow = false;
+        flow2->reset_flags(FlowEntry::LocalFlow);
 
-        key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, "dvn",
-                                 "svn", 2, 1, 2);
+        key2_r = new TestFlowKey(1, "1.1.1.3", "1.1.1.1", 1, 0, 0, dvn_name,
+                                 svn_name, 2, 1, 2);
         flow2_r = FlowInit(key2_r);
-        flow2_r->local_flow = false;
+        flow2_r->reset_flags(FlowEntry::LocalFlow);
         FlowAdd(flow2, flow2_r);
     }
 

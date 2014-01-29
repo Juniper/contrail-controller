@@ -15,7 +15,7 @@
 
 #include "oper/interface_common.h"
 #include "oper/nexthop.h"
-#include "oper/agent_route.h"
+#include "oper/route_common.h"
 #include "oper/mirror_table.h"
 
 #include "ksync/interface_ksync.h"
@@ -38,13 +38,13 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj,
     tunnel_type_(entry->tunnel_type_) {
 }
 
-RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *rt) :
+RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     vrf_id_(rt->GetVrfId()), nh_(NULL), label_(0), proxy_arp_(false),
     tunnel_type_(TunnelType::DefaultType()) {
     boost::system::error_code ec;
     switch (rt->GetTableType()) {
-    case AgentRouteTableAPIS::INET4_UNICAST: {
+    case Agent::INET4_UNICAST: {
           const Inet4UnicastRouteEntry *uc_rt = 
               static_cast<const Inet4UnicastRouteEntry *>(rt);
           addr_ = uc_rt->GetIpAddress();
@@ -53,7 +53,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *rt) :
           rt_type_ = RT_UCAST;
           break;
     }
-    case AgentRouteTableAPIS::INET4_MULTICAST: {
+    case Agent::INET4_MULTICAST: {
           const Inet4MulticastRouteEntry *mc_rt = 
               static_cast<const Inet4MulticastRouteEntry *>(rt);
           addr_ = mc_rt->GetDstIpAddress();
@@ -62,7 +62,7 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const RouteEntry *rt) :
           rt_type_ = RT_MCAST;
           break;
     }
-    case AgentRouteTableAPIS::LAYER2: {
+    case Agent::LAYER2: {
           const Layer2RouteEntry *l2_rt =
               static_cast<const Layer2RouteEntry *>(rt);              
           mac_ = l2_rt->GetAddress();
@@ -166,13 +166,20 @@ std::string RouteKSyncEntry::ToString() const {
 
 bool RouteKSyncEntry::Sync(DBEntry *e) {
     bool ret = false;
-    const RouteEntry *route;
+    const AgentRoute *route;
   
-
-    route = static_cast<RouteEntry *>(e);
+    route = static_cast<AgentRoute *>(e);
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-    NHKSyncEntry nexthop(nh_object, route->GetActiveNextHop());
     NHKSyncEntry *old_nh = nh();
+
+    const NextHop *tmp = route->GetActiveNextHop();
+    if (tmp == NULL) {
+        DiscardNHKey key;
+        tmp = static_cast<NextHop *>
+            (ksync_obj_->ksync()->agent()->GetNextHopTable()->
+             FindActiveEntry(&key));
+    }
+    NHKSyncEntry nexthop(nh_object, tmp);
 
     nh_ = static_cast<NHKSyncEntry *>(nh_object->GetReference(&nexthop));
     if (old_nh != nh()) {
@@ -393,7 +400,7 @@ KSyncEntry *RouteKSyncObject::Alloc(const KSyncEntry *entry, uint32_t index) {
 }
 
 KSyncEntry *RouteKSyncObject::DBToKSyncEntry(const DBEntry *e) {
-    const RouteEntry *route = static_cast<const RouteEntry *>(e);
+    const AgentRoute *route = static_cast<const AgentRoute *>(e);
     RouteKSyncEntry *key = new RouteKSyncEntry(this, route);
     return static_cast<KSyncEntry *>(key);
 }
@@ -508,14 +515,14 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
 
         // Get Inet4 Route table and register with KSync
         AgentRouteTable *rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+                          GetInet4UnicastRouteTable());
 
         // Register route-table with KSync
         RouteKSyncObject *ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_UCAST);
 
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::LAYER2));
+                          GetLayer2RouteTable());
 
         ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_LAYER2);
@@ -525,7 +532,7 @@ void VrfKSyncObject::VrfNotify(DBTablePartBase *partition, DBEntryBase *e) {
         //TODO Enhance ksyncobject for UC/MC, currently there is only one entry
         //in MC so just use the UC object for time being.
         rt_table = static_cast<AgentRouteTable *>(vrf->
-                          GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+                          GetInet4MulticastRouteTable());
         ksync = new RouteKSyncObject(ksync_, rt_table);
         AddToVrfMap(vrf->GetVrfId(), ksync, RT_MCAST);
     }

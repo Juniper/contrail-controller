@@ -513,7 +513,8 @@ void BgpStressTest::SetUp() {
 
         boost::system::error_code error;
         string hostname(boost::asio::ip::host_name(error));
-        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, &evm_,
+        Sandesh::InitGenerator("BgpUnitTestSandeshClient", hostname, 
+                               "BgpTest", "Test", &evm_,
                                 d_http_port_, sandesh_context_.get());
         Sandesh::ConnectToCollector("127.0.0.1",
                                     sandesh_server_->GetPort());
@@ -1850,7 +1851,7 @@ void BgpStressTest::ClearBgpPeer(vector<int> peer_ids) {
                                     peers_[peer_id]->peer()->flap_count()));
         established.insert(make_pair(peer_id,
             peers_[peer_id]->peer()->GetState() == StateMachine::ESTABLISHED));
-        peers_[peer_id]->peer()->Clear();
+        peers_[peer_id]->peer()->Clear(BgpProto::Notification::AdminReset);
     }
 
     BOOST_FOREACH(int peer_id, peer_ids) {

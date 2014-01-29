@@ -164,12 +164,12 @@ int main (int argc, char **argv) {
         exit(0);
     }
     if (var_map.count("setup-file")) {
-       snprintf(setup_file, sizeof(setup_file),
+       snprintf(setup_file, sizeof(setup_file), "%s",
                 var_map["setup-file"].as<string>().c_str());
     }
     LOG(DEBUG, "Setup File:" << setup_file);
     if (var_map.count("config-file")) {
-       snprintf(config_file, sizeof(config_file),
+       snprintf(config_file, sizeof(config_file), "%s",
                 var_map["config-file"].as<string>().c_str());
     } else {
         strcpy(config_file, DEFAULT_VNSW_CONFIG_FILE);

@@ -42,8 +42,7 @@
 #include <pkt/pkt_init.h>
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
@@ -79,49 +78,20 @@ static bool interface_exist(string &name) {
 }
 
 void AgentInit::DeleteRoutes() {
-    boost::system::error_code ec;
-    Ip4Address bcast_ip = Ip4Address::from_string("255.255.255.255", ec);
-    Ip4Address ip = Ip4Address::from_string("0.0.0.0", ec);
     Inet4UnicastAgentRouteTable *uc_rt_table =
         agent_->GetDefaultInet4UnicastRouteTable();
-    Inet4MulticastAgentRouteTable *mc_rt_table =
-        agent_->GetDefaultInet4MulticastRouteTable();
 
-    mc_rt_table->DeleteMulticastRoute(agent_->GetDefaultVrf(), ip, bcast_ip);
-
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
-                           bcast_ip, 32);
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
-                           ip, 0);
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
-                           agent_->GetRouterId(), 32);
     uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
                            agent_->GetGatewayId(), 32);
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
-                           agent_->GetRouterId(), agent_->GetPrefixLen());
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
-                           Ip4Address(agent_->GetRouterId().to_ulong() |
-                                      ~(0xFFFFFFFF << (32 - agent_->GetPrefixLen()))), 32);
 }
 
 void AgentInit::DeleteNextHops() {
-    NextHopKey *key = new DiscardNHKey();
-    agent_->GetNextHopTable()->Delete(key);
+    agent_->GetNextHopTable()->Delete(new DiscardNHKey());
+    agent_->GetNextHopTable()->Delete(new ResolveNHKey());
 
-    key = new ResolveNHKey();
-    agent_->GetNextHopTable()->Delete(key);
-
-    key = new ReceiveNHKey(new InetInterfaceKey(
-                           agent_->vhost_interface_name()), false);
-    agent_->GetNextHopTable()->Delete(key);
-
-    key = new ReceiveNHKey(new InetInterfaceKey(
-                           agent_->vhost_interface_name()), true);
-    agent_->GetNextHopTable()->Delete(key);
-
-    key = new InterfaceNHKey(new PacketInterfaceKey(nil_uuid(),
-                             agent_->GetHostInterfaceName()), false,
-                             InterfaceNHFlags::INET4);
+    NextHopKey *key = new InterfaceNHKey
+        (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
+         false, InterfaceNHFlags::INET4);
     agent_->GetNextHopTable()->Delete(key);
 }
 
@@ -157,43 +127,10 @@ void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
         itf->name() != Agent::GetInstance()->GetIpFabricItfName())
         return;
 
-    boost::system::error_code ec;
-    Ip4Address bcast_ip = Ip4Address::from_string("255.255.255.255", ec);
-    Inet4MulticastAgentRouteTable *mc_rt_table = 
-        static_cast<Inet4MulticastAgentRouteTable *>
-                (agent_->GetVrfTable()->GetRouteTable(agent_->GetDefaultVrf(),
-                                   AgentRouteTableAPIS::INET4_MULTICAST));
-    mc_rt_table->AddVHostRecvRoute(agent_->GetDefaultVrf(),
-                                   agent_->vhost_interface_name(),
-                                   bcast_ip, false);
-
-    //Create Receive and resolve route
-    if (params_->vhost_addr().to_ulong()) {
-        Inet4UnicastAgentRouteTable *rt_table;
-
-        rt_table = static_cast<Inet4UnicastAgentRouteTable *>
-            (agent_->GetVrfTable()->GetRouteTable
-             (agent_->GetDefaultVrf(), AgentRouteTableAPIS::INET4_UNICAST));
-
-        agent_->SetRouterId(params_->vhost_addr());
-        agent_->SetPrefixLen(params_->vhost_plen());
-        rt_table->AddVHostRecvRoute(agent_->GetDefaultVrf(),
-                                    agent_->vhost_interface_name(),
-                                    params_->vhost_addr(), false);
-        rt_table->AddVHostSubnetRecvRoute(agent_->GetDefaultVrf(),
-                                          agent_->vhost_interface_name(),
-                                          params_->vhost_addr(),
-                                          params_->vhost_plen(), false);
-        rt_table->AddResolveRoute(agent_->GetDefaultVrf(),
-                                  params_->vhost_prefix(),
-                                  params_->vhost_plen());
-    }
-
+    agent_->SetRouterId(params_->vhost_addr());
+    agent_->SetPrefixLen(params_->vhost_plen());
     agent_->SetGatewayId(params_->vhost_gw());
-    Ip4Address default_dest_ip = Ip4Address::from_string("0.0.0.0", ec);
-    agent_->GetDefaultInet4UnicastRouteTable()->AddGatewayRoute
-        (agent_->GetLocalPeer(), agent_->GetDefaultVrf(), default_dest_ip, 0,
-         params_->vhost_gw());
+
     // Trigger initialization to continue
     TriggerInit();
     intf_trigger_ = SafeDBUnregister(agent_->GetInterfaceTable(),
@@ -212,25 +149,11 @@ void AgentInit::InitXenLinkLocalIntf() {
     params_->set_xen_ll_name(dev_name);
 
     InetInterface::CreateReq(agent_->GetInterfaceTable(),
-                             params_->xen_ll_name(),
-                             agent_->GetLinkLocalVrfName(), 
-                             InetInterface::LINK_LOCAL);
-
-    Inet4UnicastAgentRouteTable *rt_table;
-    rt_table = static_cast<Inet4UnicastAgentRouteTable *>
-        (agent_->GetVrfTable()->GetRouteTable
-         (agent_->GetLinkLocalVrfName(), AgentRouteTableAPIS::INET4_UNICAST));
-    rt_table->AddVHostRecvRoute(rt_table->GetVrfName(),
-                                params_->xen_ll_name(), 
-                                params_->xen_ll_addr(), false);
-
-    rt_table->AddVHostSubnetRecvRoute(rt_table->GetVrfName(),
-                                      params_->xen_ll_name(),
-                                      params_->xen_ll_addr(),
-                                      params_->xen_ll_plen(), false);
-
-    rt_table->AddResolveRoute(rt_table->GetVrfName(), params_->xen_ll_prefix(),
-                              params_->xen_ll_plen());
+                             params_->xen_ll_name(), InetInterface::LINK_LOCAL,
+                             agent_->GetLinkLocalVrfName(),
+                             params_->xen_ll_addr(), params_->xen_ll_plen(),
+                             params_->xen_ll_gw(),
+                             agent_->GetLinkLocalVrfName());
 }
 
 // Initialization for VMWare specific interfaces
@@ -253,12 +176,11 @@ void AgentInit::OnVrfCreate(DBEntryBase *entry) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
     if (vrf->GetName() == agent_->GetDefaultVrf() && vrf_trigger_ == NULL) {
         // Default VRF created; create nexthops
-        agent_->SetDefaultInet4UnicastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
-        agent_->SetDefaultInet4MulticastRouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
-        agent_->SetDefaultLayer2RouteTable(vrf->
-                   GetRouteTable(AgentRouteTableAPIS::LAYER2));
+        agent_->SetDefaultInet4UnicastRouteTable
+            (vrf->GetInet4UnicastRouteTable());
+        agent_->SetDefaultInet4MulticastRouteTable
+            (vrf->GetInet4MulticastRouteTable());
+        agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
         DiscardNH::CreateReq();
         ResolveNH::CreateReq();
 
@@ -295,8 +217,10 @@ void AgentInit::CreateInterfaces(DB *db) {
         (boost::bind(&AgentInit::OnInterfaceCreate, this, _2));
 
     InetInterface::CreateReq(agent_->GetInterfaceTable(),
-                             params_->vhost_name(), agent_->GetDefaultVrf(),
-                             InetInterface::VHOST);
+                             params_->vhost_name(), InetInterface::VHOST,
+                             agent_->GetDefaultVrf(),
+                             params_->vhost_addr(), params_->vhost_plen(), 
+                             params_->vhost_gw(), agent_->GetDefaultVrf());
     PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
                                  params_->eth_port(), agent_->GetDefaultVrf());
     InitXenLinkLocalIntf();

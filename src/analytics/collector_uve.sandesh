@@ -73,6 +73,8 @@ struct GeneratorSummaryInfo {
     1: string                              source
     2: string                              module_id    
     3: string                              state
+    4: string                              instance_id
+    5: string                              node_type    
 }
 
 struct CollectorStats {
@@ -122,6 +124,8 @@ trace sandesh publish_uve_update {
     4: string key
     5: string attr
     6: bool success
+    7: string node_type
+    8: string instance_id
 }
 
 trace sandesh publish_uve_delete {
@@ -131,6 +135,8 @@ trace sandesh publish_uve_delete {
     4: string key
     5: u32 seq
     6: bool success
+    7: string node_type
+    8: string instance_id
 }
 
 trace sandesh generator_getseq {

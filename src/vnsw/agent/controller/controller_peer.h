@@ -13,9 +13,8 @@
 #include "xmpp/xmpp_channel.h"
 #include "xmpp_enet_types.h"
 #include "xmpp_unicast_types.h"
-#include <oper/route_types.h>
 
-class RouteEntry;
+class AgentRoute;
 class Peer;
 class VrfEntry;
 class XmlPugi;
@@ -42,21 +41,21 @@ public:
                                         VrfEntry *vrf,
                                         bool subscribe);
     static bool ControllerSendRoute(AgentXmppChannel *peer,
-                                    RouteEntry *route, std::string vn,
+                                    AgentRoute *route, std::string vn,
                                     uint32_t label, 
                                     uint32_t tunnel_bmap,
                                     const SecurityGroupList *sg_list, 
                                     bool add_route, 
-                                    AgentRouteTableAPIS::TableType type);
+                                    Agent::RouteTableType type);
     static bool ControllerSendMcastRoute(AgentXmppChannel *peer,
-                                         RouteEntry *route, bool add_route);
+                                         AgentRoute *route, bool add_route);
     static bool ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
-                                             RouteEntry *route, 
+                                             AgentRoute *route, 
                                              std::string vn,
                                              const SecurityGroupList *sg_list,
                                              uint32_t mpls_label, bool add_route);
     static bool ControllerSendEvpnRoute(AgentXmppChannel *peer,
-                                        RouteEntry *route, 
+                                        AgentRoute *route, 
                                         std::string vn,
                                         uint32_t mpls_label, 
                                         uint32_t tunnel_bmap, 

@@ -1,0 +1,15 @@
+# -*- mode: python; -*-
+
+vpath = '#/third_party/cpp-driver'
+
+env = DefaultEnvironment()
+
+cmd = ('(cd ' + Dir('.').abspath + '; BOOST_INCLUDEDIR=' + Dir('#build/include').abspath + ' BOOST_LIBRARYDIR=' + Dir('#build/lib').abspath + ' cmake -DCMAKE_INSTALL_PREFIX=' + Dir('#build').abspath + ' ' + str(Dir(vpath)) + '; make; make install)')
+
+products = [ str(File('#build/lib/libcql_static.a')),
+             str(File('#build/include/cql/cql.hpp')) ]
+
+libcql = env.Command('Makefile', str(Dir(vpath)), cmd)
+
+env.SideEffect(products, libcql)
+env.Requires(libcql, '#/build/include/boost')

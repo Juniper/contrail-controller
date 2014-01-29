@@ -13,18 +13,16 @@ from uve.cfgm_cpuinfo.ttypes import *
 from uve.cfgm_cpuinfo.cpuinfo.ttypes import *
 from buildinfo import build_info
 
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
-
 # CpuInfo object for config-node
 
 
 class CpuInfo(object):
 
-    def __init__(self, module_num, sysinfo_req, sandesh,
+    def __init__(self, module_id, instance_id, sysinfo_req, sandesh,
                  time_interval, server_ip=None):
         # store cpuinfo at init
-        self._module_id = ModuleNames[module_num]
+        self._module_id = module_id
+        self._instance_id = instance_id 
         self._sysinfo = sysinfo_req
         self._sandesh = sandesh
         self._time_interval = time_interval
@@ -36,7 +34,6 @@ class CpuInfo(object):
         self._phymem_buffers = 0
         self._num_cpus = 0
         self._cpu_share = 0
-        self._change = 0
         self._curr_build_info = None
         self._new_build_info = None
         self._curr_ip = server_ip
@@ -58,45 +55,37 @@ class CpuInfo(object):
         cfg_process = psutil.Process(os.getpid())
         while True:
             # collect Vmsizes
-            self._change = 0
             self._ip_change = 0
             self._build_change = 0
             rss = cfg_process.get_memory_info().rss
             if (self._rss != rss):
                 self._rss = rss
-                self._change = 1
 
             vms = cfg_process.get_memory_info().vms
             if (self._vms != vms):
                 self._vms = vms
-                self._change = 1
 
             pvms = vms
             if (pvms > self._pvms):
                 self._pvms = pvms
-                self._change = 1
 
             if self._sysinfo:
                 # collect CPU Load avg
                 load_avg = os.getloadavg()
                 if (load_avg != self._load_avg):
                     self._load_avg = load_avg
-                    self._change = 1
 
                 # collect systemmeory info
                 phymem_usage = psutil.phymem_usage()
                 if (phymem_usage != self._phymem_usage):
                     self._phymem_usage = phymem_usage
-                    self._change = 1
 
                 phymem_buffers = psutil.phymem_buffers()
                 if (phymem_buffers != self._phymem_buffers):
                     self._phymem_buffers = phymem_buffers
-                    self._change = 1
 
                 if (self._new_ip != self._curr_ip):
                     self._new_ip = self.get_config_node_ip()
-                    self._ip_change = 1
 
                 # Retrieve build_info from package/rpm and cache it
                 if self._curr_build_info is None:
@@ -114,16 +103,12 @@ class CpuInfo(object):
             num_cpus = psutil.NUM_CPUS
             if (num_cpus != self._num_cpus):
                 self._num_cpus = num_cpus
-                self._change = 1
 
             cpu_percent = cfg_process.get_cpu_percent(interval=0.1)
             cpu_share = cpu_percent / num_cpus
-            if (cpu_share != self._cpu_share):
-                self._cpu_share = cpu_share
-                self._change = 1
+            self._cpu_share = cpu_share
 
-            if self._change:
-                self._send_cpustats()
+            self._send_cpustats()
 
             gevent.sleep(self._time_interval)
     # end cpu_stats
@@ -132,6 +117,7 @@ class CpuInfo(object):
     def _send_cpustats(self):
         mod_cpu = ModuleCpuInfo()
         mod_cpu.module_id = self._module_id
+        mod_cpu.instance_id = self._instance_id
 
         mod_cpu.cpu_info = CpuLoadInfo()
 
@@ -187,6 +173,21 @@ class CpuInfo(object):
         cpu_info_trace = ModuleCpuStateTrace(
             data=cfgm_cpu_uve, sandesh=self._sandesh)
         cpu_info_trace.send(sandesh=self._sandesh)
+
+        cnf_cpu_state = ConfigCpuState()
+        cnf_cpu_state.name = socket.gethostname()
+
+        cnf_cpu_info = ProcessCpuInfo()
+        cnf_cpu_info.module_id =  self._module_id
+        cnf_cpu_info.inst_id = self._instance_id
+        cnf_cpu_info.cpu_share = self._cpu_share
+        cnf_cpu_info.mem_virt = mod_cpu.cpu_info.meminfo.virt
+        cnf_cpu_state.cpu_info = [cnf_cpu_info]
+
+        cnf_cpu_state_trace = ConfigCpuStateTrace(
+            sandesh=self._sandesh, data=cnf_cpu_state)
+        cnf_cpu_state_trace.send(sandesh=self._sandesh)
+
     # end _send_cpustats
 
 # end class CpuInfo

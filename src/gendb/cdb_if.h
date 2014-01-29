@@ -69,9 +69,9 @@ class CdbIf : public GenDbIf {
         virtual bool Db_Init(std::string task_id, int task_instance);
         virtual void Db_Uninit(bool shutdown);
         virtual void Db_SetInitDone(bool);
-        virtual bool Db_AddTablespace(const std::string& tablespace);
+        virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor);
         virtual bool Db_SetTablespace(const std::string& tablespace);
-        virtual bool Db_AddSetTablespace(const std::string& tablespace);
+        virtual bool Db_AddSetTablespace(const std::string& tablespace,const std::string& replication_factor = "1");
         virtual bool Db_FindTablespace(const std::string& tablespace);
         /* api to add a column family in the current table space */
         virtual bool NewDb_AddColumnfamily(const GenDb::NewCf& cf);

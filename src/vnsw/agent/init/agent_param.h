@@ -6,7 +6,7 @@
 #define vnsw_agent_param_hpp
 
 #include <boost/program_options.hpp>
-class VirtualGatewayConfig;
+class VirtualGatewayConfigTable;
 
 // Class handling agent configuration parameters from config file and 
 // arguments
@@ -53,7 +53,7 @@ public:
     const Ip4Address &xen_ll_addr() const { return xen_ll_.addr_; }
     const Ip4Address &xen_ll_prefix() const { return xen_ll_.prefix_; }
     const int xen_ll_plen() const { return xen_ll_.plen_; }
-    const Ip4Address &xen_ll_gw_() const { return xen_ll_.gw_; }
+    const Ip4Address &xen_ll_gw() const { return xen_ll_.gw_; }
 
     const std::string &eth_port() const { return eth_port_; }
     const Ip4Address &xmpp_server_1() const { return xmpp_server_1_; }
@@ -80,7 +80,9 @@ public:
     int flow_stats_interval() const { return flow_stats_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
     void set_flow_stats_interval(int val) { flow_stats_interval_ = val; }
-    VirtualGatewayConfig *vgw_config() const { return vgw_config_.get(); }
+    VirtualGatewayConfigTable *vgw_config_table() const { 
+        return vgw_config_table_.get();
+    }
     const std::string &vmware_physical_port() const {
         return vmware_physical_port_;
     }
@@ -131,7 +133,7 @@ private:
     int flow_stats_interval_;
     std::string vmware_physical_port_;
 
-    std::auto_ptr<VirtualGatewayConfig> vgw_config_;
+    std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

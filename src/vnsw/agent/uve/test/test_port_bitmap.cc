@@ -19,7 +19,10 @@
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <oper/mirror_table.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
+#include <uve/vn_uve_table_test.h>
+#include <uve/vm_uve_table_test.h>
+#include <uve/vrouter_uve_entry_test.h>
 
 #include "testing/gunit.h"
 #include "test_cmn_util.h"
@@ -28,6 +31,7 @@
 
 using namespace std;
 
+const std::string dest_vn_name("VN2");
 void RouterIdDepInit() {
 }
 
@@ -45,7 +49,8 @@ public:
             {"vnet22", 5, "2.2.2.2", "00:00:00:00:02:01", 1, 5},
         };
 
-        uve = UveClient::GetInstance();
+        uve = static_cast<VrouterUveEntryTest *>
+            (Agent::GetInstance()->uve()->vrouter_uve_entry());
         CreateVmportEnv(input, 5);
         client->WaitForIdle();
         //Don't expect bitmaps to be reset on start of each test
@@ -144,7 +149,7 @@ public:
 
     bool ValidateVrouter(uint8_t proto, uint16_t sport, uint16_t dport) {
         PortBucketBitmap port_uve;
-        uve->port_bitmap_.Encode(port_uve);
+        uve->port_bitmap().Encode(port_uve);
         return ValidateBmap(port_uve, proto, sport, dport);
     }
 
@@ -152,19 +157,20 @@ public:
                     uint16_t dport) {
         bool ret = true;
         PortBucketBitmap port_uve;
+        VnUveTableTest *vut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
 
-        UveClient::LastVnUveSet::iterator it = 
-            uve->last_vn_uve_set_.find(flow->data.source_vn);
-        if (it != uve->last_vn_uve_set_.end()) {
-            it->second.port_bitmap.Encode(port_uve);
+        L4PortBitmap *bmap = vut->GetVnUvePortBitmap(flow->data().source_vn);
+        if (bmap) {
+            bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
                 ret = false;
             }
         }
 
-        it = uve->last_vn_uve_set_.find(flow->data.dest_vn);
-        if (it == uve->last_vn_uve_set_.end()) {
-            it->second.port_bitmap.Encode(port_uve);
+        bmap = vut->GetVnUvePortBitmap(flow->data().dest_vn);
+        if (bmap) {
+            bmap->Encode(port_uve);
             if (ValidateBmap(port_uve, proto, sport, dport) == false) {
                 ret = false;
             }
@@ -178,18 +184,17 @@ public:
         PortBucketBitmap port_uve;
         bool ret = true;
         const VmInterface *intf = static_cast<const VmInterface *>
-            (flow->data.intf_entry.get());
+            (flow->data().intf_entry.get());
         const VmEntry *vm = intf->vm();
+        VmUveTableTest *vut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
 
-        UveClient::LastVmUveSet::iterator it = 
-            uve->last_vm_uve_set_.find(vm->GetCfgName());
-        if (it == uve->last_vm_uve_set_.end()) {
-            return false;
-        }
-
-        it->second.port_bitmap.Encode(port_uve);
-        if (ValidateBmap(port_uve, proto, sport, dport) == false) {
-            ret = false;
+        L4PortBitmap *bmap = vut->GetVmUvePortBitmap(vm);
+        if (bmap) {
+            bmap->Encode(port_uve);
+            if (ValidateBmap(port_uve, proto, sport, dport) == false) {
+                ret = false;
+            }
         }
 
         return ret;
@@ -199,38 +204,30 @@ public:
                       uint16_t dport) {
         PortBucketBitmap port_uve;
         bool ret = true;
+        VmUveTableTest *vut = static_cast<VmUveTableTest *>
+        (Agent::GetInstance()->uve()->vm_uve_table());
 
         const VmInterface *intf = static_cast<const VmInterface *>
-            (flow->data.intf_entry.get());
+            (flow->data().intf_entry.get());
         const VmEntry *vm = intf->vm();
 
-        UveClient::LastVmUveSet::iterator it = 
-            uve->last_vm_uve_set_.find(vm->GetCfgName());
-        if (it == uve->last_vm_uve_set_.end()) {
-            return false;
-        }
-
-        for (UveClient::VmIntfMap::iterator it = uve->vm_intf_map_.find(vm);
-             it != uve->vm_intf_map_.end(); it++) {
-            if (vm == it->first && intf == it->second.intf) {
-                it->second.port_bitmap.Encode(port_uve);
-                if (ValidateBmap(port_uve, proto, sport, dport) == false) {
-                    ret = false;
-                }
-                break;
+        L4PortBitmap *bmap = vut->GetVmIntfPortBitmap(vm, intf);
+        if (bmap) {
+            bmap->Encode(port_uve);
+            if (ValidateBmap(port_uve, proto, sport, dport) == false) {
+                ret = false;
             }
         }
         return ret;
     }
 
     bool ValidateFlow(FlowEntry *flow) {
-        uint8_t proto = 0;
-        uint16_t sport = 0;
-        uint16_t dport = 0;
+        uint8_t proto = flow->key().protocol;
+        uint16_t sport = flow->key().src_port;
+        uint16_t dport = flow->key().dst_port;
         bool ret = true;
 
         // Validate vrouter port bitmap
-        flow->GetPort(proto, sport, dport);
         EXPECT_TRUE(ValidateVrouter(proto, sport, dport));
 
         if (ValidateVn(flow, proto, sport, dport) != true) {
@@ -248,84 +245,94 @@ public:
         return ret;
     }
 
-    void MakeFlow(FlowEntry *flow, uint16_t port, const char *dest_vn,
-                  uint8_t proto, uint16_t sport, uint16_t dport) {
+    void MakeFlow(FlowEntry *flow, uint16_t port, const std::string *dest_vn) {
         VmInterface *intf = static_cast<VmInterface *>(VmPortGet(port));
         const VnEntry *vn = intf->vn();
         SecurityGroupList empty_sg_id_l;
-        flow->data.source_vn = vn->GetName();
-        flow->data.dest_vn = dest_vn;
-        flow->data.source_sg_id_l = empty_sg_id_l;
-        flow->data.dest_sg_id_l = empty_sg_id_l;
-        flow->data.vn_entry = vn;
-        flow->data.intf_entry = intf;
-        flow->key.protocol = proto;
-        flow->key.src_port = sport;
-        flow->key.dst_port = dport;
+
+        boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
+        PktFlowInfo info(pkt_info);
+        PktInfo *pkt = pkt_info.get();
+        info.source_vn = &vn->GetName();
+        info.dest_vn = dest_vn;
+        info.source_sg_id_l = &empty_sg_id_l;
+        info.dest_sg_id_l = &empty_sg_id_l;
+
+        PktControlInfo ctrl;
+        ctrl.vn_ = vn;
+        ctrl.intf_ = intf;
+
+        flow->InitFwdFlow(&info, pkt, &ctrl, &ctrl);
     }
 
 protected:
-    UveClient *uve;
+    VrouterUveEntryTest *uve;
 };
 
 TEST_F(UvePortBitmapTest, PortBitmap_1) {
-    FlowEntry flow;
-    MakeFlow(&flow, 1, "VN2", IPPROTO_TCP, 1, 1);
-    uve->NewFlow(&flow);
+    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow(key);
+    MakeFlow(&flow, 1, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    uve->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_2) {
-    FlowEntry flow;
-    MakeFlow(&flow, 1, "VN2", IPPROTO_TCP, 1, 1);
-    uve->NewFlow(&flow);
-    uve->NewFlow(&flow);
+    FlowKey key(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow(key);
+    MakeFlow(&flow, 1, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow);
+    Agent::GetInstance()->uve()->NewFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    uve->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
-    uve->DeleteFlow(&flow);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow);
     EXPECT_TRUE(ValidateFlow(&flow));
     client->WaitForIdle();
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_3) {
-    FlowEntry flow1;
-    MakeFlow(&flow1, 1, "VN2", IPPROTO_TCP, 1, 1);
-    uve->NewFlow(&flow1);
+    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow1(key1);
+    MakeFlow(&flow1, 1, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowEntry flow2;
-    MakeFlow(&flow2, 2, "VN2", IPPROTO_TCP, 2, 2);
-    uve->NewFlow(&flow2);
+    FlowKey key2(0, 0, 0, IPPROTO_TCP, 2, 2);
+    FlowEntry flow2(key2);
+    MakeFlow(&flow2, 2, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
-    uve->DeleteFlow(&flow1);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
-    uve->DeleteFlow(&flow2);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
     client->WaitForIdle();
 }
 
 TEST_F(UvePortBitmapTest, PortBitmap_4) {
-    FlowEntry flow1;
-    MakeFlow(&flow1, 1, "VN2", IPPROTO_TCP, 1, 1);
-    uve->NewFlow(&flow1);
+    FlowKey key1(0, 0, 0, IPPROTO_TCP, 1, 1);
+    FlowEntry flow1(key1);
+    MakeFlow(&flow1, 1, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
 
-    FlowEntry flow2;
-    MakeFlow(&flow2, 2, "VN2", IPPROTO_TCP, 257, 257);
-    uve->NewFlow(&flow2);
+    FlowKey key2(0, 0, 0, IPPROTO_TCP, 257, 257);
+    FlowEntry flow2(key2);
+    MakeFlow(&flow2, 2, &dest_vn_name);
+    Agent::GetInstance()->uve()->NewFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow2));
 
-    uve->DeleteFlow(&flow1);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow1);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
-    uve->DeleteFlow(&flow2);
+    Agent::GetInstance()->uve()->DeleteFlow(&flow2);
     EXPECT_TRUE(ValidateFlow(&flow1));
     EXPECT_TRUE(ValidateFlow(&flow2));
     client->WaitForIdle();

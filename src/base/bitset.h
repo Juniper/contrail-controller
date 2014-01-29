@@ -47,6 +47,7 @@ public:
     bool Contains(const BitSet &rhs) const;
     std::string ToString() const;
     void FromString(std::string str);
+    std::string ToNumberedString() const;
 
 private:
     friend class BitSetTest;

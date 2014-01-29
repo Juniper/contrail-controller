@@ -9,6 +9,7 @@ include "base/sandesh/cpuinfo.sandesh"
 struct  ModuleCpuInfo {
     1: string module_id
     2: cpuinfo.CpuLoadInfo cpu_info
+    3: string instance_id
 }
 
 // This struct is part of the Config None UVE. 
@@ -34,4 +35,14 @@ struct  ModuleCpuState {
 }
 uve sandesh ModuleCpuStateTrace {
     1: ModuleCpuState data
+}
+
+struct ConfigCpuState {
+    1: string                                 name (key="ObjectConfigNode")
+    2: optional bool                          deleted
+    3: optional list<cpuinfo.ProcessCpuInfo>  cpu_info (tags=".module_id")
+}
+
+uve sandesh ConfigCpuStateTrace {
+    1: ConfigCpuState data
 }

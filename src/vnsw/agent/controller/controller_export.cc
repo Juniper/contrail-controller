@@ -5,7 +5,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/peer.h>
 #include <oper/nexthop.h>
 #include <oper/peer.h>
@@ -63,9 +63,9 @@ void RouteExport::ManagedDelete() {
 }
 
 void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer, 
-                         bool associate, AgentRouteTableAPIS::TableType type, 
+                         bool associate, Agent::RouteTableType type, 
                          DBTablePartBase *partition, DBEntryBase *e) {
-    RouteEntry *route = static_cast<RouteEntry *>(e);
+    AgentRoute *route = static_cast<AgentRoute *>(e);
 
     //If multicast or subnetbroadcast digress to multicast
     if (route->IsMulticast()) {
@@ -77,8 +77,8 @@ void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
 
 void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
                                 DBTablePartBase *partition, DBEntryBase *e,
-                                AgentRouteTableAPIS::TableType type) {
-    RouteEntry *route = static_cast<RouteEntry *>(e);
+                                Agent::RouteTableType type) {
+    AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(),
                                                         id_));
     AgentPath *path = route->FindPath(Agent::GetInstance()->GetLocalVmPeer());
@@ -107,7 +107,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                              false, path->GetLabel());
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
-                        static_cast<RouteEntry * >(route), state->vn_, 
+                        static_cast<AgentRoute * >(route), state->vn_, 
                         state->label_, path->GetTunnelBmap(),
                         &path->GetSecurityGroupList(), true, type);
         }
@@ -120,7 +120,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                     true, 0);
 
             AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
-                    static_cast<RouteEntry *>(route), state->vn_, 
+                    static_cast<AgentRoute *>(route), state->vn_, 
                     state->label_, TunnelType::AllType(), NULL, false, type);
             state->exported_ = false;
         }
@@ -138,7 +138,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                   bool associate, 
                                   DBTablePartBase *partition, 
                                   DBEntryBase *e) {
-    RouteEntry *route = static_cast<RouteEntry *>(e);
+    AgentRoute *route = static_cast<AgentRoute *>(e);
     State *state = static_cast<State *>(route->GetState(partition->parent(), id_));
     bool route_can_be_dissociated = route->CanDissociate();
 

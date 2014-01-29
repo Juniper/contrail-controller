@@ -8,7 +8,7 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include <cmn/agent_cmn.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/nexthop.h>
 #include <controller/controller_vrf_export.h>
 
@@ -34,7 +34,7 @@ public:
     ~RouteExport();
 
     void Notify(AgentXmppChannel *bgp_xmpp_peer, bool associate,
-                AgentRouteTableAPIS::TableType type, 
+                Agent::RouteTableType type,
                 DBTablePartBase *partition, DBEntryBase *e);
     void ManagedDelete();
     DBTableBase::ListenerId GetListenerId() const {return id_;};
@@ -53,7 +53,7 @@ private:
                 DBTablePartBase *partition, DBEntryBase *e);
     void UnicastNotify(AgentXmppChannel *bgp_xmpp_peer, 
                 DBTablePartBase *partition, DBEntryBase *e,
-                AgentRouteTableAPIS::TableType type);
+                Agent::RouteTableType type);
     LifetimeRef<RouteExport> table_delete_ref_;
 };
 

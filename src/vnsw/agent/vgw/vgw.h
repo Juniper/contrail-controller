@@ -10,23 +10,18 @@ class VirtualGateway {
 public:
     VirtualGateway(Agent *agent);
     ~VirtualGateway() {};
+    void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry);
 
     void Init();
     void Shutdown();
-    void InterfaceNotify(DBTablePartBase *partition, DBEntryBase *entry);
     void CreateVrf();
     void CreateInterfaces();
     void RegisterDBClients();
 private:
     // Cached entries
     Agent *agent_;
-    VirtualGatewayConfig *vgw_config_;
-
-    // Listener to interface oper-db. Waits for interface creation
-    // before adding route and nexthop
-    DBTableBase::ListenerId lid_;
-
-    uint32_t label_;   // Label for vgw interface
+    DBTableBase::ListenerId listener_id_;
+    VirtualGatewayConfigTable *vgw_config_table_;
 
     DISALLOW_COPY_AND_ASSIGN(VirtualGateway);
 };

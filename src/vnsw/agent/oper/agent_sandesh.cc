@@ -8,7 +8,7 @@
 #include <init/agent_init.h>
 #include <oper/agent_sandesh.h>
 #include <oper/agent_types.h>
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
 #include <oper/interface_common.h>
@@ -78,8 +78,7 @@ void AgentVrfSandesh::Alloc() {
 }
 
 DBTable *AgentInet4UcRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+    return static_cast<DBTable *>(vrf_->GetInet4UnicastRouteTable());
 }
 
 void AgentInet4UcRtSandesh::Alloc() {
@@ -95,8 +94,7 @@ bool AgentInet4UcRtSandesh::UpdateResp(DBEntryBase *entry) {
 }
 
 DBTable *AgentInet4McRtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+    return static_cast<DBTable *>(vrf_->GetInet4MulticastRouteTable());
 }
 
 void AgentInet4McRtSandesh::Alloc() {
@@ -104,13 +102,12 @@ void AgentInet4McRtSandesh::Alloc() {
 }
 
 bool AgentInet4McRtSandesh::UpdateResp(DBEntryBase *entry) {
-    RouteEntry *rt = static_cast<RouteEntry *>(entry);
+    AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_);
 }
 
 DBTable *AgentLayer2RtSandesh::AgentGetTable() {
-    return static_cast<DBTable *>(vrf_->
-       GetRouteTable(AgentRouteTableAPIS::LAYER2));
+    return static_cast<DBTable *>(vrf_->GetLayer2RouteTable());
 }
 
 void AgentLayer2RtSandesh::Alloc() {
@@ -118,7 +115,7 @@ void AgentLayer2RtSandesh::Alloc() {
 }
 
 bool AgentLayer2RtSandesh::UpdateResp(DBEntryBase *entry) {
-    RouteEntry *rt = static_cast<RouteEntry *>(entry);
+    AgentRoute *rt = static_cast<AgentRoute *>(entry);
     return rt->DBEntrySandesh(resp_);
 }
 

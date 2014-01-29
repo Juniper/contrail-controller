@@ -3,6 +3,8 @@
 #
 
 import re
+import time
+import subprocess
 
 Import('BuildEnv')
 env = BuildEnv.Clone()
@@ -21,6 +23,7 @@ env.Prepend(CPPPATH = env['TOP'] + '/dns')
 env.Prepend(CPPPATH = env['TOP'] + '/http/client')
 env.Prepend(CPPPATH = env['TOP'] + '/ifmap')
 env.Prepend(CPPPATH = env['TOP'] + '/schema')
+env.Prepend(CPPPATH = env['TOP'] + '/sandesh')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/cmn')
 env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/init')
@@ -138,11 +141,64 @@ libpath = MapBuildDir(
 
 env.Append(LIBPATH=libpath)
 
+buildinfo_dep_libs = [
+    '#build/lib/libthrift.a',
+    '#build/lib/libthriftasio.a',
+    '#build/lib/libboost_program_options.a',
+    '#build/lib/libboost_regex.a',
+    '#build/lib/libboost_system.a', 
+    '#build/lib/libcurl.a',
+    '#build/lib/libhttp.a',
+    '#build/lib/libhttp_parser.a', 
+    '#build/lib/liblog4cplus.a',
+    '#build/lib/libpugixml.a',
+    '../../../lib/libsandesh.a',
+    '../../../lib/libsandeshflow.a', 
+    '../../../lib/libsandeshvns.a',
+    '../../base/libbase.a',
+    '../../base/libcpuinfo.a',
+    '../../db/libdb.a',
+    '../../dns/bind/libbind_interface.a',
+    '../../ifmap/libifmap_agent.a',
+    '../../ifmap/libifmap_common.a', 
+    '../../io/libio.a', 
+    '../../ksync/libksync.a',
+    '../../net/libnet.a',
+    '../../route/libroute.a', 
+    '../../schema/libbgp_schema.a',
+    '../../schema/libifmap_vnc.a',
+    '../../schema/libxmpp_unicast.a',
+    '../../schema/libxmpp_multicast.a',
+    '../../vrouter/utils/libvrutil.a',
+    '../../xml/libxml.a',
+    '../../xmpp/libxmpp.a', 
+    'cfg/libcfg.a',
+    'cmn/libvnswcmn.a',
+    'controller/libvnswctrl.a',
+    'filter/libfilter.a',
+    'kstate/libkstate.a',
+    'ksync/libvnswksync.a',
+    'openstack/libnova_ins.a',
+    'openstack/libnova_ins_thrift.a', 
+    'oper/libvnswoperdb.a',
+    'pkt/libpkt.a', 'diag/libdiag.a', 
+    'services/libagent_services.a',
+    'uve/libagentuve.a',
+    ]
+
+if sys.platform != 'darwin':
+    buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
+
+env.GenerateBuildInfoCode(
+    target='buildinfo.cc',
+    source = buildinfo_dep_libs + ['main.cc'],
+    path=str(Dir('.').abspath))
+
 #Add -Wno-return-type to ignore errors from thrift generated code in 
 #InstanceService.h
 cflags = env['CCFLAGS']
 cflags.append('-Wno-return-type')
-vnswad = env.Program(target = 'vnswad', source = ['main.cc'])
+vnswad = env.Program(target = 'vnswad', source = ['buildinfo.cc', 'main.cc'])
 env.Alias('src/vnsw/agent:vnswad', vnswad)
 env.Default(vnswad)
 
@@ -239,6 +295,50 @@ if env['OPT'] == 'coverage':
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)
     env.Alias('src/vnsw/agent:test_coverage', test_coverage)
+
+def run_ut(target, source, env):
+    # execute tests
+    import subprocess
+    #import pdb; pdb.set_trace()
+    ShEnv = {env['ENV_SHLIB_PATH']: 'build/lib'}
+
+    # Get test alias from agent-test test suite 
+    for test in env.ans['agent-test'].sources:
+        cmd = test.sources[0].path
+        log = test.sources[0].path + '.log'
+        logfile = open(cmd + '.log', 'w')
+        proc = subprocess.Popen(cmd, stdout=logfile, stderr=logfile, env=ShEnv)
+
+        # 60 second timeout
+        timeout = 60
+        for i in range(timeout):
+            code = proc.poll()
+            if not code is None:
+                break
+            time.sleep(1)
+
+        if code is None:
+            proc.kill()
+            logfile.write('[  TIMEOUT  ] ')
+            print cmd + '\033[91m' + " TIMEOUT" + '\033[0m'
+            return
+
+        if code == 0:
+            print cmd + '\033[94m' + " PASS" + '\033[0m'
+        else:
+            logfile.write('[  FAILED  ] ')
+            if code < 0:
+                logfile.write('Terminated by signal: ' + str(-code) + '\n')
+            else:
+                logfile.write('Program returned ' + str(code) + '\n')
+            print cmd + '\033[91m' + " FAIL" + '\033[0m'
+
+
+
+#run_ut = env.Command(Dir('run_ut'), '', run_ut)
+#env.AlwaysBuild(run_ut)
+#env.Alias('src/vnsw/agent:run_ut', run_ut)
+env.Depends('main.o', 'buildinfo.cc')
 
 # Local Variables:
 # mode: python

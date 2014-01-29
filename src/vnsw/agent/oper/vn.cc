@@ -14,7 +14,7 @@
 #include <cfg/cfg_mirror.h>
 #include <cmn/agent_cmn.h>
 
-#include <oper/agent_route.h>
+#include <oper/route_common.h>
 #include <oper/interface_common.h>
 #include <oper/vn.h>
 #include <oper/nexthop.h>
@@ -101,7 +101,7 @@ bool VnEntry::GetIpamVdnsData(const Ip4Address &vm_addr,
     return true;
 }
 
-int VnEntry::vxlan_id() const {
+int VnEntry::GetVxLanId() const {
     if (Agent::GetInstance()->vxlan_network_identifier_mode() == 
         Agent::CONFIGURED) {
         return vxlan_id_;
@@ -110,19 +110,103 @@ int VnEntry::vxlan_id() const {
     }
 }
 
+void VnEntry::RebakeVxLan(int vxlan_id) {
+    VxLanId::Create(vxlan_id, GetVrf()->GetName());
+    VxLanId *vxlan_id_entry = NULL;
+    VxLanIdKey vxlan_key(vxlan_id);
+    vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
+                            GetVxLanTable()->FindActiveEntry(&vxlan_key));
+    vxlan_id_ref_ = vxlan_id_entry;
+}
+
+bool VnEntry::ReEvaluateVxlan(VrfEntry *old_vrf, int new_vxlan_id, int new_vnid,
+                              bool new_layer2_forwarding, 
+                              bool vxlan_network_identifier_mode_changed) {
+    bool ret = false; 
+    bool rebake_vxlan = false;
+
+    //Two cases in which VXLAN needs to be rebaked.
+    // - Firstly In case of global vxlan network identifier mode change
+    // - Secondly in case of VN config change which can impact VXLAN.
+    if (vxlan_network_identifier_mode_changed) {
+        rebake_vxlan = true;
+        ret = true;
+    } else {
+        if (old_vrf != GetVrf()) {
+            rebake_vxlan = true;
+        }
+
+        if (new_layer2_forwarding != layer2_forwarding_) {
+            layer2_forwarding_ = new_layer2_forwarding;
+            rebake_vxlan = true;
+        }
+
+        if (new_vxlan_id != vxlan_id_) {
+            //Ignore rebake if mode is not configured as user configured vxlan
+            //is not in use.
+            if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
+                Agent::CONFIGURED) {
+                rebake_vxlan = true;
+            }
+            vxlan_id_ = new_vxlan_id; 
+            ret = true;
+        }
+
+        if (new_vnid != vnid_) {
+            //Ignore rebake if mode is not automatic as auto assigned vxlan
+            //is not in use.
+            if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
+                Agent::AUTOMATIC) {
+                rebake_vxlan = true;
+            }
+            vnid_ = new_vnid;
+            ret = true;
+        }
+    }
+
+    if (!GetVrf()) {
+        vxlan_id_ref_ = NULL;
+        ret = true;
+    } else {
+        if (rebake_vxlan) {
+            int active_vxlan_id = GetVxLanId();
+            if (active_vxlan_id) {
+                RebakeVxLan(active_vxlan_id);
+            } else {
+                vxlan_id_ref_ = NULL;
+            }
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+bool VnEntry::VxLanNetworkIdentifierChanged() {
+    //No change in VN config. 
+    //Need to pick vxlan based on config mode
+    return ReEvaluateVxlan(NULL, 0, 0, true, true);
+}
+
+bool VnEntry::Resync() {
+    return VxLanNetworkIdentifierChanged();
+}
+
+bool VnTable::Resync(DBEntry *entry, DBRequest *req) {
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    bool ret = vn->Resync();
+    return ret;
+}
+
 bool VnTable::VnEntryWalk(DBTablePartBase *partition, DBEntryBase *entry) {
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->GetVrf()) {
-        VxLanId::CreateReq(vn_entry->vxlan_id(), 
-                           vn_entry->GetVrf()->GetName());
-        VxLanIdKey key(vn_entry->vxlan_id());
-        VxLanId *vxlan_id = 
-            static_cast<VxLanId *>(Agent::GetInstance()->
-                                   GetVxLanTable()->FindActiveEntry(&key));
-        if (vxlan_id) {
-            vn_entry->vxlan_id_ref_ = vxlan_id;
-        }
-        MulticastHandler::GetInstance()->HandleVxLanChange(vn_entry);
+        VnKey *key = new VnKey(vn_entry->GetUuid());
+        key->sub_op_ = AgentKey::RESYNC;
+        DBRequest req;
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        req.key.reset(key); 
+        req.data.reset(NULL);
+        Agent::GetInstance()->GetVnTable()->Enqueue(&req); 
     }
     return true;
 }
@@ -168,7 +252,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     bool ret = false;
     VnEntry *vn = static_cast<VnEntry *>(entry);
     VnData *data = static_cast<VnData *>(req->data.get());
-    bool vxlan_rebake = false;
+    VrfEntry *old_vrf = vn->vrf_.get();
 
     AclKey key(data->acl_id_);
     AclDBEntry *acl = static_cast<AclDBEntry *>
@@ -197,11 +281,10 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
     VrfKey vrf_key(data->vrf_name_);
     VrfEntry *vrf = static_cast<VrfEntry *>
         (Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
-    if (vrf != vn->vrf_.get()) {
+    if (vrf != old_vrf) {
         if (!vrf)
             DeleteAllIpamRoutes(vn);
         vn->vrf_ = vrf;
-        vxlan_rebake = true;
         ret = true;
     }
 
@@ -226,46 +309,9 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
         ret = true;
     }
 
-    if (vn->vxlan_id_ != data->vxlan_id_) {
-        vn->vxlan_id_ = data->vxlan_id_;
-        if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
-            Agent::CONFIGURED) {
-            vxlan_rebake = true;
-        }
-        ret = true;
-    }
-
-    if (vn->vnid_ != data->vnid_) {
-        vn->vnid_ = data->vnid_;
-        if (Agent::GetInstance()->vxlan_network_identifier_mode() ==
-            Agent::AUTOMATIC) {
-            vxlan_rebake = true;
-        }
-        ret = true;
-    }
-
-    if (vn->layer2_forwarding_ != data->layer2_forwarding_) {
-        vn->layer2_forwarding_ = data->layer2_forwarding_;
-        vxlan_rebake = true;
-        ret = true;
-    }
-
-    if (vn->GetVrf()) {
-        if (!vn->vxlan_id()) {
-            vn->vxlan_id_ref_ = NULL;
-            return ret;
-        }
-        if (vxlan_rebake) {
-            VxLanId::CreateReq(vn->vxlan_id(), vn->GetVrf()->GetName());
-        }
-        VxLanId *vxlan_id = NULL;
-        VxLanIdKey vxlan_key(vn->vxlan_id());
-        vxlan_id = static_cast<VxLanId *>(Agent::GetInstance()->
-                                          GetVxLanTable()->FindActiveEntry(&vxlan_key));
-        if (vxlan_id) {
-            vn->vxlan_id_ref_ = vxlan_id;
-        }
-    }
+    ret |= vn->ReEvaluateVxlan(old_vrf, data->vxlan_id_, data->vnid_,
+                              data->layer2_forwarding_, false);
+    
 
     return ret;
 }
@@ -606,37 +652,34 @@ void VnTable::DelIPAMRoutes(VnEntry *vn, VnIpam &ipam) {
 void VnTable::AddHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        AddHostRoute(vrf->GetName(), 
-                     ipam.default_gw, 32, 
-                     vn->GetName());
+        GetInet4UnicastRouteTable())->AddHostRoute(vrf->GetName(),
+                                                   ipam.default_gw, 32,
+                                                   vn->GetName());
 }
 
 // Del receive route for default gw
 void VnTable::DelHostRouteForGw(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
-    static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                  vrf->GetName(), 
-                  ipam.default_gw, 32);
+    static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf->GetInet4UnicastRouteTable())->DeleteReq
+        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+         ipam.default_gw, 32);
 }
 
 void VnTable::AddSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        AddDropRoute(vrf->GetName(), ipam.GetSubnetAddress(),
-                     ipam.plen);
+        GetInet4UnicastRouteTable())->AddDropRoute
+        (vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
 }
 
 // Del receive route for default gw
 void VnTable::DelSubnetRoute(VnEntry *vn, VnIpam &ipam) {
     VrfEntry *vrf = vn->GetVrf();
     static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
-                  vrf->GetName(), ipam.GetSubnetAddress(), ipam.plen);
+        GetInet4UnicastRouteTable())->DeleteReq
+        (Agent::GetInstance()->GetLocalPeer(), vrf->GetName(),
+         ipam.GetSubnetAddress(), ipam.plen);
 }
 
 bool VnEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {

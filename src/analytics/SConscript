@@ -29,8 +29,8 @@ AnalyticsEnv.Append(LIBS=['boost_python', python])
 def MapBuildDir(list):
     return map(lambda x: '#/' + Dir('.').path + '/../' + x, list)
 
-AnalyticsEnv.Prepend(LIBS=['cpuinfo',                   
-        'ds', 
+AnalyticsEnv.Prepend(LIBS=['cpuinfo',
+        'ds',
         'sandesh',
         'httpc',
         'http',
@@ -94,10 +94,10 @@ db_handler_obj = AnalyticsEnv_excep.Object('db_handler.o', 'db_handler.cc')
 main_obj = AnalyticsEnv_excep.Object('main.o', 'main.cc')
 AnalyticsEnv_excep.Depends(main_obj, 'buildinfo.cc')
 
-buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a', 
-                      '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a', 
-                      '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a', 
-                      '../../lib/libsandeshvns.a', '../../lib/libpugixml.a', '../../lib/libhiredis.a', 
+buildinfo_dep_libs = ['../base/libcpuinfo.a', '../../lib/libsandesh.a', '../../lib/libhttp.a', '../../lib/libhttp_parser.a',
+                      '../../lib/libcurl.a', '../gendb/libgendb.a', '../../lib/libthrift.a', '../cdb/libcdb.a',
+                      '../analytics/ruleparser/libruleparser.a', '../xml/libxml.a', '../base/libbase.a', '../io/libio.a',
+                      '../../lib/libsandeshvns.a', '../../lib/libpugixml.a', '../../lib/libhiredis.a',
                       '../../lib/libboost_program_options.a', '../../lib/libboost_system.a',
                       '../../lib/liblog4cplus.a', '../../lib/libboost_python.a']
 
@@ -112,9 +112,14 @@ def RedisLuaBuild(env, scr_name):
                scr_name, Dir('.').path, scr_name))
   env.Depends('redis_processor_vizd.cc','%s_lua.cpp' % scr_name)
 
-vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc', 
+AnalyticsEnv.AppendUnique(CCFLAGS='-DBOOST_NO_UNREACHABLE_RETURN_DETECTION')
+if AnalyticsEnv['OPT'] == 'coverage':
+    AnalyticsEnv.AppendUnique(CCFLAGS='-g')
+    AnalyticsEnv.AppendUnique(CCFLAGS='-O0')
+    AnalyticsEnv.AppendUnique(CCFLAGS='--coverage')
+vizd_sources = ['viz_collector.cc', 'ruleeng.cc', 'collector.cc', 'vizd_table_desc.cc',
                 'viz_message.cc','generator.cc','redis_connection.cc', 'redis_processor_vizd.cc',
-                'redis_sentinel_client.cc']
+                'redis_sentinel_client.cc', 'syslog_collector.cc']
 
 RedisLuaBuild(AnalyticsEnv, 'seqnum')
 RedisLuaBuild(AnalyticsEnv, 'delrequest')
@@ -126,7 +131,7 @@ RedisLuaBuild(AnalyticsEnv, 'withdrawgen')
 
 
 AnalyticsEnv.GenerateBuildInfoCode(
-    target=['buildinfo.h', 'buildinfo.cc'], 
+    target=['buildinfo.h', 'buildinfo.cc'],
     source = AnalyticsSandeshGenSrcs + vizd_sources +
     ['OpServerProxy.cc',
      'db_handler.cc',

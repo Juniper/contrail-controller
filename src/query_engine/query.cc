@@ -12,7 +12,6 @@
 #include "rapidjson/document.h"
 #include "base/logging.h"
 #include "query.h"
-#include "viz_constants.cpp"
 #include <boost/assign/list_of.hpp>
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
@@ -758,13 +757,6 @@ void query_result_unit_t::get_uuid_stats_8tuple(boost::uuids::uuid& u,
     } catch (const std::out_of_range& oor) {
         QE_ASSERT(0);
     }
-    try {
-        tuple.direction = boost::get<uint8_t>(info.at(index++));
-    } catch (boost::bad_get& ex) {
-        QE_ASSERT(0);
-    } catch (const std::out_of_range& oor) {
-        QE_ASSERT(0);
-    }
     return;
 }
 
@@ -1388,6 +1380,8 @@ bool AnalyticsQuery::is_valid_where_field(const std::string& where_field)
                 return true;
         }
         if (g_viz_constants.STAT_OBJECTID_FIELD == where_field) 
+            return true;        
+        if (g_viz_constants.STAT_SOURCE_FIELD == where_field) 
             return true;        
         return false;
     }

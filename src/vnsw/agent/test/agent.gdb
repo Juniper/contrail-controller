@@ -215,6 +215,33 @@ document dump_ifmap_entries
      Syntax: pdb_ifmap_entries <table>: Prints all entries in IFMAP table
 end
 
+define pwait_tree
+    if $argc != 1
+        help pwait_tree
+    else
+        # set the node equal to first node and end marker
+        set $Xtree = &((KSyncSock *)$arg0)->wait_tree_.tree_
+        set $Xnode = $Xtree->data_.node_plus_pred_.header_plus_size_.header_.left_
+        set $Xend = &($Xtree->data_.node_plus_pred_.header_plus_size_.header_)
+
+        set $Xtotal_len = (int)0
+
+        while $Xnode != $Xend
+            set $Kentry = (IoContext *) ((size_t)$Xnode - (size_t)&(IoContext::node_))
+            printf " IoContext = (KSyncIoContext *) %p      msg_len = %4d\n", $Kentry, $Kentry->msg_len_
+            set $Xtotal_len = $Xtotal_len + $Kentry->msg_len_
+            grbtree_next_node
+        end
+
+        printf "Total Length of pending messages %d bytes \n", $Xtotal_len
+    end
+end
+
+document pwait_tree
+     Prints entries in Ksync object set
+     Syntax: pwait_tree <KSyncSock *>
+end
+
 define pksync_entries
     if $argc != 1 && $argc != 2
         help pksync_entries

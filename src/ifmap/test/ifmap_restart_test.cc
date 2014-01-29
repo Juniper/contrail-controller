@@ -158,12 +158,16 @@ TEST_F(IFMapRestartTest, BasicTest) {
 
     IFMapNode *idn1 = TableLookup("domain", "user1");
     ASSERT_TRUE(idn1 != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     IFMapObject *obj = idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 1);
 
     IFMapNode *idn2 = TableLookup("project", "vnc");
     ASSERT_TRUE(idn2 != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        idn2->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = idn2->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 1);
@@ -182,12 +186,16 @@ TEST_F(IFMapRestartTest, BasicTest) {
     // All the nodes should exist
     idn1 = TableLookup("domain", "user1");
     ASSERT_TRUE(idn1 != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 2);
 
     idn2 = TableLookup("project", "vnc");
     ASSERT_TRUE(idn2 != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        idn2->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = idn2->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 2);
@@ -312,7 +320,8 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
 
     IFMapNode *idn1 = TableLookup("domain", "user1");
     ASSERT_TRUE(idn1 != NULL);
-
+    TASK_UTIL_EXPECT_TRUE(
+        idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     IFMapObject *obj = idn1->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     ASSERT_TRUE(obj != NULL);
     ASSERT_TRUE(obj->sequence_number() == 1);
@@ -368,6 +377,8 @@ TEST_F(IFMapRestartTest, LinkAttr) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "vn1") != NULL);
     IFMapNode *left = TableLookup("virtual-network", "vn1");
     EXPECT_TRUE(left != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     IFMapObject *obj = left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -377,6 +388,8 @@ TEST_F(IFMapRestartTest, LinkAttr) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", "ipam1") != NULL);
     IFMapNode *right = TableLookup("network-ipam", "ipam1");
     EXPECT_TRUE(right != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -430,6 +443,8 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "vn1") != NULL);
     IFMapNode *left = TableLookup("virtual-network", "vn1");
     EXPECT_TRUE(left != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     IFMapObject *obj = left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -452,6 +467,8 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", "ipam1") != NULL);
     IFMapNode *right = TableLookup("network-ipam", "ipam1");
     EXPECT_TRUE(right != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -537,7 +554,7 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     task_util::WaitForIdle();
 }
 
-TEST_F(IFMapRestartTest, XXX) {
+TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
     server_.SetSender(new IFMapUpdateSenderMock(&server_));
     TestClient c1("192.168.1.1");
     server_.ClientRegister(&c1);
@@ -553,6 +570,8 @@ TEST_F(IFMapRestartTest, XXX) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("virtual-network", "vn1") != NULL);
     IFMapNode *left = TableLookup("virtual-network", "vn1");
     EXPECT_TRUE(left != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     IFMapObject *obj = left->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -575,6 +594,8 @@ TEST_F(IFMapRestartTest, XXX) {
     TASK_UTIL_EXPECT_TRUE(TableLookup("network-ipam", "ipam1") != NULL);
     IFMapNode *right = TableLookup("network-ipam", "ipam1");
     EXPECT_TRUE(right != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) != NULL);
     obj = right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER));
     EXPECT_TRUE(obj != NULL);
     EXPECT_TRUE(obj->sequence_number() == 1);
@@ -629,7 +650,7 @@ TEST_F(IFMapRestartTest, XXX) {
 
     task_util::WaitForIdle();
 
-    // XXXXXX
+    // Update the VN with seq-num 3 and 1 property
     ipt = new autogen::IdPermsType();
     IFMapMsgPropertyAdd("virtual-network", "vn1", "id-perms", ipt, 3);
     IFMapMsgLink("virtual-network", "network-ipam", "vn1", "ipam1", 3);
@@ -640,11 +661,13 @@ TEST_F(IFMapRestartTest, XXX) {
     StaleNodesProcTimeout();
     task_util::WaitForIdle();
 
-    // XXXXXX
+    // All the nodes should exist
     left = TableLookup("virtual-network", "vn1");
     EXPECT_TRUE(left != NULL);
     right = TableLookup("network-ipam", "ipam1");
     EXPECT_TRUE(right != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        right->Find(IFMapOrigin(IFMapOrigin::MAP_SERVER)) == NULL);
     midnode = TableLookup("virtual-network-network-ipam", "attr(ipam1,vn1)");
     EXPECT_TRUE(midnode != NULL);
 
@@ -655,7 +678,7 @@ TEST_F(IFMapRestartTest, XXX) {
     StaleNodesProcTimeout();
     task_util::WaitForIdle();
 
-    // XXXXXX
+    // All the nodes should be cleaned up
     left = TableLookup("virtual-network", "vn1");
     EXPECT_TRUE(left == NULL);
     right = TableLookup("network-ipam", "ipam1");

@@ -23,6 +23,8 @@ public:
 
     virtual const std::string &identifier() const = 0;
     virtual bool SendUpdate(const std::string &msg) = 0;
+    virtual const std::string &name() const { return name_; }
+    virtual void SetName(const std::string &name) { name_ = name; }
 
     int index() const { return index_; }
     uint64_t msgs_sent() const { return msgs_sent_; }
@@ -63,6 +65,7 @@ private:
     uint64_t msgs_blocked_;
     bool send_is_blocked_;
     VmMap vm_map_;
+    std::string name_;
 };
 
 #endif
