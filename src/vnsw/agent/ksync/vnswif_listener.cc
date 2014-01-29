@@ -21,6 +21,7 @@
 #include <ksync/ksync_index.h>
 #include <ksync/interface_ksync.h>
 #include <ksync/vnswif_listener.h>
+#include <vgw/vgw.h>
 
 extern void RouterIdDepInit();
 
@@ -181,7 +182,7 @@ void VnswInterfaceListener::InitFetchRoutes() {
 }
  
 void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr, 
-                                           bool del_rt) {
+                                                  bool del_rt) {
     struct nlmsghdr *nlh;
     struct rtmsg *rtm;
     uint32_t ipaddr;
@@ -191,7 +192,7 @@ void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr,
     nlh = (struct nlmsghdr *) tx_buf_;
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
 
-    /* Fill in the nlmsg header*/
+    /* Fill in the nlmsg header */
     nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
     if (del_rt) {
         nlh->nlmsg_type = RTM_DELROUTE;
@@ -430,9 +431,10 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     struct rtmsg *rtm;
     struct rtattr *rth;
     int rtl;
-    uint32_t dst_ip = 0;
+    uint32_t dst_ip = 0, dst_gw = 0;
 
     rtm = (struct rtmsg *) NLMSG_DATA (nlh);
+
     if (rtm->rtm_family != AF_INET) {
         return;
     }
@@ -442,10 +444,11 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     if (rtm->rtm_type != RTN_UNICAST) {
         return;
     }
-    if (rtm->rtm_dst_len != 32 || rtm->rtm_scope != RT_SCOPE_LINK ||
-        rtm->rtm_protocol != kVnswRtmProto) {
-        return;
-    }
+
+    uint16_t prefix_len, proto;
+    int oif = -1;
+    proto = rtm->rtm_protocol;
+    prefix_len = rtm->rtm_dst_len;
 
     /* Get attributes of route_entry */
     rth = (struct rtattr *) RTM_RTA(rtm);
@@ -456,18 +459,117 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
         /* Get the gateway (Next hop) */
         if (rth->rta_type == RTA_DST) {
             dst_ip = *((int *)RTA_DATA(rth));
-            break;
+        }
+        if (rth->rta_type == RTA_GATEWAY) {
+            dst_gw = *((int *)RTA_DATA(rth));
+        }
+        if (rth->rta_type == RTA_OIF) {
+            oif = *((int *)RTA_DATA(rth));
         }
     }
 
-    Ip4Address dst_addr((unsigned long)ntohl(dst_ip));
+    if (oif == -1) {
+        return;
+    } 
+    dst_ip = ntohl((unsigned long)dst_ip);
+    bool link_local_route = 
+        ((dst_ip & 0xFFFF0000) == (METADATA_IP_ADDR & 0xFFFF0000));
+    if (link_local_route && proto != kVnswRtmProto) {
+        return;
+    }
+
+    char name[IFNAMSIZ];
+    if_indextoname(oif, name);
+    InetInterfaceKey key(name);
+    const InetInterface *itf = dynamic_cast<const InetInterface *>
+        (agent_->GetInterfaceTable()->FindActiveEntry(&key));
+    if (!itf || (itf->sub_type() != InetInterface::VHOST &&
+        itf->sub_type() != InetInterface::SIMPLE_GATEWAY)) {
+        LOG(DEBUG, "Ignoring route notification for " << dst_ip << 
+            " on interface " << name << "(Not VHOST/GATEWAY interface)");
+        return;
+    }
+    /* Ignore routes on vhost interface if vhost is configured via agent
+     * config file
+     */
+    if (!link_local_route && (itf->sub_type() == InetInterface::VHOST) &&
+        agent_->params()->IsVHostConfigured()) {
+        return;
+    }
+    /* Ignore routes on gateway interface if any gateway subnet is configured 
+     * via agent config file
+     */
+    if ((itf->sub_type() == InetInterface::SIMPLE_GATEWAY) &&
+        (agent_->vgw()->SubnetCount(name) > 0)) {
+        return;
+    }
+
+    Ip4Address gw_addr((unsigned long)ntohl(dst_gw));
+    /* Add route for default gateway */
+    if (dst_gw != 0) {
+        if (dst_ip == 0) {
+            agent_->SetGatewayId(gw_addr);
+            InetInterface::CreateReq(agent_->GetInterfaceTable(), itf->name(),
+                InetInterface::VHOST, agent_->GetDefaultVrf(),
+                agent_->GetRouterId(), agent_->GetPrefixLen(), 
+                gw_addr, agent_->GetDefaultVrf());
+            return;
+        }
+    }
+
+    Ip4Address dst_addr(dst_ip);
     VnswRouteEvent *re = NULL;
     switch (nlh->nlmsg_type) {
     case RTM_NEWROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::ADD_RESP);
+        if (link_local_route) {
+            re = new VnswRouteEvent(dst_addr, VnswRouteEvent::ADD_RESP);
+        } else {
+            if (itf->sub_type() == InetInterface::VHOST) {
+                if (IsIp4SubnetMember(dst_addr, agent_->GetRouterId(), 
+                            agent_->GetPrefixLen())) {
+                    if (prefix_len == 32) {
+                        Inet4UnicastAgentRouteTable::AddArpReq
+                            (agent_->GetDefaultVrf(), dst_addr);
+                    }
+                } else {
+                    agent_->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq(
+                            agent_->GetDefaultVrf(), dst_addr, prefix_len, gw_addr, 
+                            agent_->GetFabricVnName());
+                }
+            } else {
+                agent_->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRouteReq(
+                                            agent_->GetLocalVmPeer(),
+                                            agent_->GetDefaultVrf(),
+                                            agent_->vhost_interface_name(),
+                                            dst_addr, prefix_len,
+                                            itf->vrf()->GetName(), false);
+            }
+        }
         break;
     case RTM_DELROUTE:
-        re = new VnswRouteEvent(dst_addr, VnswRouteEvent::DEL_RESP);
+        if ((dst_ip & 0xFFFF0000) == (METADATA_IP_ADDR & 0xFFFF0000)) {
+            re = new VnswRouteEvent(dst_addr, VnswRouteEvent::DEL_RESP);
+        } else {
+            if (itf->sub_type() == InetInterface::VHOST) {
+                if (IsIp4SubnetMember(dst_addr, agent_->GetRouterId(), 
+                                      agent_->GetPrefixLen())) {
+                    if (prefix_len == 32) {
+                        agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                                agent_->GetLocalPeer(), agent_->GetDefaultVrf(), 
+                                dst_addr, 32);
+                    }
+                } else {
+                    agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                            agent_->GetLocalPeer(), agent_->GetDefaultVrf(), 
+                            dst_addr, prefix_len);
+                }
+            } else {
+                agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+                                    agent_->GetLocalVmPeer(),
+                                    agent_->GetDefaultVrf(),
+                                    dst_addr, prefix_len);
+            }
+        }
         break;
     default:
         break;

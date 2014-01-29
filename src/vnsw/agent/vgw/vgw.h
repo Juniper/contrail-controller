@@ -17,6 +17,7 @@ public:
     void CreateVrf();
     void CreateInterfaces();
     void RegisterDBClients();
+    int SubnetCount(std::string interface) const;
 private:
     // Cached entries
     Agent *agent_;
