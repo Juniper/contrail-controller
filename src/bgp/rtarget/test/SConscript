@@ -83,9 +83,20 @@ rtarget_peer_test = env.UnitTest('rtarget_peer_test',
                                  ['rtarget_peer_test.cc'])
 env.Alias('src/bgp/rtarget:rtarget_peer_test', rtarget_peer_test)
 
+rtarget_table_test = env.UnitTest('rtarget_table_test', 
+                                    ['rtarget_table_test.cc'])
+env.Alias('src/bgp/rtarget:rtarget_table_test', rtarget_table_test)
+
+rtarget_prefix_test = env.UnitTest('rtarget_prefix_test', 
+                                    ['rtarget_prefix_test.cc'])
+env.Alias('src/bgp/rtarget:rtarget_prefix_test', rtarget_prefix_test)
+
+
 test_suite = [
     rtarget_address_test,
     rtarget_peer_test,
+    rtarget_table_test,
+    rtarget_prefix_test,
 ]
 
 test = env.TestSuite('rtarget-test', test_suite)
