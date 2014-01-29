@@ -8,33 +8,51 @@ import argparse
 import os
 import socket
 import random
+import math
+import uuid
+from netaddr import IPAddress
 from pysandesh.sandesh_base import *
-from sandesh_common.vns.ttypes import Module
-from sandesh_common.vns.constants import ModuleNames
+from pysandesh.util import UTCTimestampUsec
+from sandesh_common.vns.ttypes import Module, NodeType
+from sandesh_common.vns.constants import ModuleNames, Module2NodeType, \
+    NodeTypeNames
 from vrouter.sandesh.virtual_network.ttypes import UveVirtualNetworkAgent, \
     InterVnStats, UveInterVnStats, UveVirtualNetworkAgentTrace 
 from vrouter.sandesh.virtual_machine.ttypes import VmInterfaceAgent, \
     UveVirtualMachineAgent, UveVirtualMachineAgentTrace
 from vrouter.vrouter.ttypes import VrouterStatsAgent, VrouterStats
 from vrouter.cpuinfo import CpuInfoData
+from vrouter.sandesh.flow.ttypes import *
 
 class MockGenerator(object):
 
     _VN_PREFIX = 'default-domain:mock-gen-test:vn'
     _VM_PREFIX = 'vm'
     _BYTES_PER_PACKET = 1024
-    _OTHER_VN_PKTS_PER_SEC = 100
-    _UVE_MSG_INTVL_IN_SEC = 1
+    _OTHER_VN_PKTS_PER_SEC = 1000
+    _UVE_MSG_INTVL_IN_SEC = 10 
     _GEVENT_SPAWN_DELAY_IN_SEC = 10
+    _FLOW_GEVENT_SPAWN_DELAY_IN_SEC = 30
+    _NUM_FLOWS_IN_ITERATION = 145 * 10
+    _FLOW_MSG_INTVL_IN_SEC = 1
+    _FLOW_PKTS_PER_SEC = 100
 
-    def __init__(self, hostname, module_name, start_vn, end_vn, other_vn, \
-                 collectors):
+    def __init__(self, hostname, module_name, node_type_name, instance_id,
+                 start_vn, end_vn, other_vn,
+                 num_vns, vm_iterations, collectors, ip_vns, ip_start_index,
+                 num_flows_per_vm):
         self._module_name = module_name
         self._hostname = hostname
+        self._node_type_name = node_type_name
+        self._instance_id = instance_id
         self._start_vn = start_vn
         self._end_vn = end_vn
-        self._num_vns = end_vn - start_vn
+        self._num_vns = num_vns 
         self._other_vn = other_vn
+        self._ip_vns = ip_vns
+        self._ip_start_index = ip_start_index
+        self._vm_iterations = vm_iterations
+        self._num_flows_per_vm = num_flows_per_vm
         self._sandesh_instance = Sandesh()
         if not isinstance(collectors, list):
             collectors = [collectors] 
@@ -43,18 +61,76 @@ class MockGenerator(object):
 
     def run_generator(self):
         self._sandesh_instance.init_generator(self._module_name, self._hostname,
-                self._collectors, '', -1, 
-                ['vrouter'])
-        self._sandesh_instance.set_logging_params(enable_local_log = True,
-                                                  level = SandeshLevel.SYS_DEBUG)
+            self._node_type_name, self._instance_id, self._collectors, 
+            '', -1, ['vrouter']) 
+        self._sandesh_instance.set_logging_params(enable_local_log = False,
+                                                  level = SandeshLevel.SYS_EMERG)
         send_uve_task = gevent.spawn_later(
             random.randint(0, self._GEVENT_SPAWN_DELAY_IN_SEC),
             self._send_uve_sandesh)
         cpu_info_task = gevent.spawn_later(
             random.randint(0, self._GEVENT_SPAWN_DELAY_IN_SEC),
             self._send_cpu_info)
-        return [send_uve_task, cpu_info_task]
+        send_flow_task = gevent.spawn_later(
+            random.randint(5, self._FLOW_GEVENT_SPAWN_DELAY_IN_SEC),
+            self._send_flow_sandesh)
+        return [send_uve_task, cpu_info_task, send_flow_task]
     #end run_generator
+
+    def _send_flow_sandesh(self):
+        flows = []
+        while True:
+            # Populate flows if not done
+            if len(flows) == 0:
+                other_vn = self._other_vn
+                for vn in range(self._start_vn, self._end_vn):
+                    for nvm in range(self._vm_iterations):
+                        for nflow in range(self._num_flows_per_vm):
+                            init_packets = random.randint(1, \
+                                self._FLOW_PKTS_PER_SEC)
+                            init_bytes = init_packets * \
+                                random.randint(1, self._BYTES_PER_PACKET)
+                            sourceip = int(self._ip_vns[vn] + \
+                                self._ip_start_index + nvm)
+                            destip = int(self._ip_vns[other_vn] + \
+                                self._ip_start_index + nvm)
+                            flows.append(FlowDataIpv4(
+                                flowuuid = str(uuid.uuid1()),
+                                direction_ing = random.randint(0, 1),
+                                sourcevn = self._VN_PREFIX + str(vn),
+                                destvn = self._VN_PREFIX + str(other_vn),
+                                sourceip = sourceip,
+                                destip = destip,
+                                sport = random.randint(0, 65535), 
+                                dport = random.randint(0, 65535),
+                                protocol = random.choice([6, 17, 1]),
+                                setup_time = UTCTimestampUsec(),
+                                packets = init_packets,
+                                bytes = init_bytes,
+                                diff_packets = init_packets,
+                                diff_bytes = init_bytes))
+                    other_vn = (other_vn + 1) % self._num_vns
+
+            # Send the flows periodically
+            flow_cnt = 0
+            for flow_data in flows:
+                new_packets = random.randint(1, self._FLOW_PKTS_PER_SEC)
+                new_bytes = new_packets * \
+                    random.randint(1, self._BYTES_PER_PACKET)
+                flow_data.packets += new_packets
+                flow_data.bytes += new_bytes
+                flow_data.diff_packets = new_packets
+                flow_data.diff_bytes = new_bytes
+                flow_object = FlowDataIpv4Object(flowdata = flow_data,
+                                  sandesh = self._sandesh_instance)
+                flow_object.send(sandesh = self._sandesh_instance)
+                flow_cnt += 1
+                if flow_cnt == self._NUM_FLOWS_IN_ITERATION:
+                    flow_cnt = 0
+                    gevent.sleep(self._FLOW_MSG_INTVL_IN_SEC)
+                else:
+                    gevent.sleep(0)
+    #end _send_flow_sandesh
 
     def _send_cpu_info(self):
         vrouter_cpu_info = CpuInfoData()
@@ -76,13 +152,13 @@ class MockGenerator(object):
         intervn = InterVnStats()
         intervn.other_vn = other_vn_name
         intervn.vrouter = self._module_name
-        intervn.in_tpkts = random.randint(0, self._OTHER_VN_PKTS_PER_SEC * \
+        intervn.in_tpkts = random.randint(1, self._OTHER_VN_PKTS_PER_SEC * \
             self._num_vns * self._UVE_MSG_INTVL_IN_SEC)
-        intervn.in_bytes = intervn.in_tpkts * random.randint(0, \
+        intervn.in_bytes = intervn.in_tpkts * random.randint(1, \
             self._BYTES_PER_PACKET)
-        intervn.out_tpkts = random.randint(0, self._OTHER_VN_PKTS_PER_SEC * \
+        intervn.out_tpkts = random.randint(1, self._OTHER_VN_PKTS_PER_SEC * \
             self._num_vns * self._UVE_MSG_INTVL_IN_SEC)
-        intervn.out_bytes = intervn.out_tpkts * random.randint(0, \
+        intervn.out_bytes = intervn.out_tpkts * random.randint(1, \
             self._BYTES_PER_PACKET)
         if vn in vn_stats:
             other_vn_stats = vn_stats[vn]
@@ -132,7 +208,7 @@ class MockGenerator(object):
                     uve_agent_vn = UveVirtualNetworkAgentTrace( \
                         data = vn_agent, sandesh = self._sandesh_instance)
                     uve_agent_vn.send(sandesh = self._sandesh_instance)
-                    gevent.sleep(self._UVE_MSG_INTVL_IN_SEC)
+                    gevent.sleep(random.randint(0, self._UVE_MSG_INTVL_IN_SEC))
                 vn_vm_list_sent = True
                 
             other_vn = self._other_vn
@@ -154,26 +230,32 @@ class MockGenerator(object):
                 uve_agent_vn = UveVirtualNetworkAgentTrace(data = vn_agent, 
                                    sandesh = self._sandesh_instance)
                 uve_agent_vn.send(sandesh = self._sandesh_instance)
-
-                vm_if = VmInterfaceAgent()
-                vm_if.name = 'p2p1'
-                vm_agent = UveVirtualMachineAgent()
-                vm_name = vn_agent.name + ':' + self._module_name + ':' + \
-                    self._VM_PREFIX + str(vn)
-                vm_agent.name = vm_name
-                vm_agent.interface_list = []
-                vm_agent.interface_list.append(vm_if)
-                uve_agent_vm = UveVirtualMachineAgentTrace(data = vm_agent, 
-                                   sandesh = self._sandesh_instance)
-                uve_agent_vm.send(sandesh = self._sandesh_instance)
-                # Populate VN VM list
-                if not vn in vn_vm_list:
-                    vn_vm_list[vn] = [vm_name]
-                else:
-                    vm_list = vn_vm_list[vn]
-                    vm_list.append(vm_name) 
+                
+                for nvm in range(self._vm_iterations):
+                    vm_if = VmInterfaceAgent()
+                    vm_if.name = 'p2p1'
+                    vm_if.ip_address = str(self._ip_vns[vn] + \
+                        self._ip_start_index + nvm)
+                    vm_if.virtual_network = vn_agent.name
+                    vm_agent = UveVirtualMachineAgent()
+                    vm_name = vn_agent.name + ':' + self._module_name + ':' + \
+                        self._VM_PREFIX + str(vn) + '-' + str(nvm)
+                    vm_agent.name = vm_name
+                    vm_agent.interface_list = []
+                    vm_agent.interface_list.append(vm_if)
+                    uve_agent_vm = UveVirtualMachineAgentTrace(data = vm_agent, 
+                                       sandesh = self._sandesh_instance)
+                    uve_agent_vm.send(sandesh = self._sandesh_instance)
+                    # Populate VN VM list
+                    if not vn in vn_vm_list:
+                        vn_vm_list[vn] = [vm_name]
+                    else:
+                        vm_list = vn_vm_list[vn]
+                        vm_list.append(vm_name)
+                    gevent.sleep(random.randint(0, self._UVE_MSG_INTVL_IN_SEC))
+ 
                 other_vn += 1
-                gevent.sleep(self._UVE_MSG_INTVL_IN_SEC)
+                gevent.sleep(random.randint(0, self._UVE_MSG_INTVL_IN_SEC))
 
             vn_vm_list_populated = True
     #end _send_uve_sandesh
@@ -189,26 +271,35 @@ class MockGeneratorTest(object):
     def _parse_args(self):
         '''
         Eg. python mock_generator.py 
-                               --num_generators 1000
+                               --num_generators 10
                                --collectors 127.0.0.1:8086
-                               --num_instances_per_generator 100
-                               --num_networks 1000 
+                               --num_instances_per_generator 10
+                               --num_networks 100
+                               --num_flows_per_instance 10
+                               --start_ip_address 1.0.0.1
+                               
         '''
         parser = argparse.ArgumentParser(
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument("--num_generators", type=int,
-            default=1000,
+            default=10,
             help="Number of mock generators")
         parser.add_argument("--num_instances_per_generator", type=int,
-            default=100,
+            default=10,
             help="Number of instances (virtual machines) per generator")
         parser.add_argument("--num_networks", type=int,
-            default=1000,
+            default=100,
             help="Number of virtual networks")
         parser.add_argument("--collectors",
             default='127.0.0.1:8086',
             help="List of Collector IP addresses in ip:port format",
             nargs="+")
+        parser.add_argument("--num_flows_per_instance", type=int,
+            default=10,
+            help="Number of flows per instance (virtual machine)")
+        parser.add_argument("--start_ip_address",
+            default="1.0.0.1",
+            help="Start IP address to be used for instances")
         
         self._args = parser.parse_args()
         if isinstance(self._args.collectors, basestring):
@@ -222,18 +313,39 @@ class MockGeneratorTest(object):
         num_instances = self._args.num_instances_per_generator
         num_networks = self._args.num_networks
         module = Module.VROUTER_AGENT
-        hostname = socket.gethostname()
-        module_names = [ModuleNames[module] + '-' + hostname + '-' + \
-            str(pid) + '-' + str(x) for x in range(ngens)]
-        start_vns = [(x * num_instances) % num_networks for x in range(ngens)]
-        end_vns = [((x + 1) * num_instances - 1) % num_networks + 1 \
+        moduleid = ModuleNames[module]
+        node_type = Module2NodeType[module]
+        node_type_name = NodeTypeNames[node_type]
+        hostname = socket.gethostname() + '-' + str(pid)
+        hostnames = [hostname + '-' + str(x) for x in range(ngens)]
+        gen_factor = num_networks / num_instances
+        if gen_factor == 0:
+            print("Number of virtual networks(%d) should be "
+                "greater than number of instances per generator(%d)" % \
+                (num_networks, num_instances))
+            return False
+        start_vns = [(x % gen_factor) * num_instances for x in range(ngens)]
+        end_vns = [((x % gen_factor) + 1) * num_instances \
             for x in range(ngens)]
         other_vn_adj = num_networks / 2
         other_vns = [x - other_vn_adj if x >= other_vn_adj \
             else x + other_vn_adj for x in start_vns]
-        self._generators = [MockGenerator(hostname, module_names[x], \
-            start_vns[x], end_vns[x], other_vns[x], \
-            collectors[x % len(collectors)]) for x in range(ngens)]
+        instance_iterations = int(math.ceil(float(num_instances) / \
+            num_networks))
+        num_ips_per_vn = int(math.ceil(float(ngens * num_instances) / \
+            num_networks))
+        start_ip_address = IPAddress(self._args.start_ip_address)
+        ip_vns = [start_ip_address + num_ips_per_vn * x for x in \
+            range(num_networks)]
+        start_ip_index = [x * num_instances / num_networks for x in \
+            range(ngens)]
+        self._generators = [MockGenerator(hostnames[x], moduleid, \
+            node_type_name, str(x), start_vns[x], end_vns[x], other_vns[x], \
+            num_networks, instance_iterations, \
+            collectors[x % len(collectors)], ip_vns, \
+            start_ip_index[x], self._args.num_flows_per_instance) \
+            for x in range(ngens)]
+        return True
     #end setup
 
     def run(self):
@@ -247,8 +359,9 @@ class MockGeneratorTest(object):
 
 def main():
     test = MockGeneratorTest()
-    test.setup()
-    test.run()
+    success = test.setup()
+    if success:
+        test.run()
 #end main
 
 if __name__ == '__main__':
