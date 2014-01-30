@@ -31,9 +31,12 @@ SandeshTraceBufferPtr OperDBTraceBuf(SandeshTraceBufferCreate("Oper DB", 5000));
 void OperDB::CreateDBTables(DB *db) {
     DB::RegisterFactory("db.interface.0", &InterfaceTable::CreateTable);
     DB::RegisterFactory("db.nexthop.0", &NextHopTable::CreateTable);
-    DB::RegisterFactory("uc.route.0", &Inet4UnicastAgentRouteTable::CreateTable);
-    DB::RegisterFactory("mc.route.0", &Inet4MulticastAgentRouteTable::CreateTable);
-    DB::RegisterFactory("l2.route.0", &Layer2AgentRouteTable::CreateTable);
+    DB::RegisterFactory(AgentRouteTable::GetSuffix(Agent::INET4_UNICAST),
+                        &Inet4UnicastAgentRouteTable::CreateTable);
+    DB::RegisterFactory(AgentRouteTable::GetSuffix(Agent::INET4_MULTICAST),
+                        &Inet4MulticastAgentRouteTable::CreateTable);
+    DB::RegisterFactory(AgentRouteTable::GetSuffix(Agent::LAYER2),
+                        &Layer2AgentRouteTable::CreateTable);
     DB::RegisterFactory("db.vrf.0", &VrfTable::CreateTable);
     DB::RegisterFactory("db.vn.0", &VnTable::CreateTable);
     DB::RegisterFactory("db.vm.0", &VmTable::CreateTable);

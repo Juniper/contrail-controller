@@ -688,7 +688,7 @@ TEST_F(RouteTest, ResyncUnresolvedRoute_1) {
 
     Inet4UnicastRouteEntry *rt =
         RouteGet(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32);
-    rt->RouteResyncReq();
+    rt->ReEvaluatePaths();
     client->WaitForIdle();
     EXPECT_EQ(table->unresolved_route_size(), 1);
 
