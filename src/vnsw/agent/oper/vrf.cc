@@ -180,6 +180,15 @@ Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
     return table->FindLPM(addr);
 }
 
+Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const {
+    Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
+        (GetInet4UnicastRouteTable());
+    if (table == NULL)
+        return NULL;
+
+    return table->FindLPM(rt_key);
+}
+
 bool VrfEntry::DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, 
                              Peer *peer) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
@@ -448,6 +457,7 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
         assert(0);
         return NULL;
     }
+    vrf->id_ = index_table_.Insert(vrf);
     name_tree_.insert( VrfNamePair(key->name_, vrf));
 
     // Create the route-tables and insert them into dbtree_
@@ -455,19 +465,21 @@ DBEntry *VrfTable::Add(const DBRequest *req) {
     DB *db = database();
     vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
+    vrf->rt_table_db_[type]->SetVrf(vrf);
     dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
 
     type = Agent::INET4_MULTICAST;
     vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
+    vrf->rt_table_db_[type]->SetVrf(vrf);
     dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
 
     type = Agent::LAYER2;
     vrf->rt_table_db_[type] = static_cast<AgentRouteTable *>
         (db->CreateTable(key->name_ + AgentRouteTable::GetSuffix(type)));
+    vrf->rt_table_db_[type]->SetVrf(vrf);
     dbtree_[type].insert(VrfDbPair(key->name_, vrf->rt_table_db_[type]));
 
-    vrf->id_ = index_table_.Insert(vrf);
     vrf->SendObjectLog(AgentLogEvent::ADD);
     return vrf;
 }

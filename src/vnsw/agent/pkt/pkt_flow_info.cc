@@ -345,7 +345,8 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_vrf = dest_vrf;
     nat_dest_vrf = vm_port->GetVrfId();
 
-    out->rt_ = out->vrf_->GetUcRoute(nat_server);
+    out->rt_ = Agent::GetInstance()->pkt()->flow_table()->GetUcRoute(out->vrf_,
+            nat_server);
     return;
 }
 
@@ -433,12 +434,13 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
+    FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     in->vn_ = NULL;
     if (nat_done == false) {
-        in->rt_ = it->vrf_.get()->GetUcRoute(Ip4Address(pkt->ip_saddr));
+        in->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_saddr));
         nat_dest_vrf = it->vrf_.get()->GetVrfId();
     }
-    out->rt_ = it->vrf_.get()->GetUcRoute(Ip4Address(pkt->ip_daddr));
+    out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
     out->vn_ = it->vn_.get();
     dest_vn = &(it->vn_.get()->GetName());
     dest_vrf = out->intf_->vrf()->GetVrfId();
@@ -467,13 +469,14 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         static_cast<const VmInterface *>(in->intf_);
     const VmInterface::FloatingIpSet &fip_list = intf->floating_ip_list().list_;
     VmInterface::FloatingIpSet::const_iterator it = fip_list.begin();
+    FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
     // Find Floating-IP matching destination-ip
     for ( ; it != fip_list.end(); ++it) {
         if (it->vrf_.get() == NULL) {
             continue;
         }
 
-        out->rt_ = it->vrf_.get()->GetUcRoute(Ip4Address(pkt->ip_daddr));
+        out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
         if (out->rt_ != NULL) {
             break;
         }
@@ -491,7 +494,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
 
     // Floating-ip found. We will change src-ip to floating-ip. Recompute route
     // for new source-ip. All policy decisions will be based on this new route
-    in->rt_ = it->vrf_.get()->GetUcRoute(it->floating_ip_);
+    in->rt_ = ftable->GetUcRoute(it->vrf_.get(), it->floating_ip_);
     if (in->rt_ == NULL) {
         return;
     }
@@ -542,12 +545,13 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     // We always expect route for source-ip for ingress flows.
     // If route not present, return from here so that a short flow is added
-    in->rt_ = in->vrf_->GetUcRoute(Ip4Address(pkt->ip_saddr));
+    FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
+    in->rt_ = ftable->GetUcRoute(in->vrf_, Ip4Address(pkt->ip_saddr));
     in->vn_ = InterfaceToVn(in->intf_);
 
     // Compute Out-VRF and Route for dest-ip
     out->vrf_ = in->vrf_;
-    out->rt_ = out->vrf_->GetUcRoute(Ip4Address(pkt->ip_daddr));
+    out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
     if (out->rt_) {
         // Compute out-intf and ECMP info from out-route
         if (RouteToOutInfo(out->rt_, pkt, this, out)) {
@@ -603,8 +607,9 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    out->rt_ = out->vrf_->GetUcRoute(Ip4Address(pkt->ip_daddr));
-    in->rt_ = out->vrf_->GetUcRoute(Ip4Address(pkt->ip_saddr));
+    FlowTable *ftable = Agent::GetInstance()->pkt()->flow_table();
+    out->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_daddr));
+    in->rt_ = ftable->GetUcRoute(out->vrf_, Ip4Address(pkt->ip_saddr));
     if (out->intf_) {
         out->vn_ = InterfaceToVn(out->intf_);
     }

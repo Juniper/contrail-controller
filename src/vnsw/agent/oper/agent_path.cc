@@ -434,10 +434,10 @@ void UnresolvedNH::HandleRequest() const {
     std::string empty(""); 
     AgentRouteTable *rt_table = static_cast<AgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable());
-    AgentRouteTable::const_nh_iterator it;
     NhListResp *resp = new NhListResp();
 
     //TODO - Convert inet4ucroutetable to agentroutetable
+    AgentRouteTable::UnresolvedNHTree::const_iterator it;
     it = rt_table->unresolved_nh_begin();
     for (;it != rt_table->unresolved_nh_end(); it++) {
         count++;
