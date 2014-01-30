@@ -620,6 +620,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 
 <xsd:element name="virtual-machine" type="ifmap:IdentityType"/>
 
+<xsd:element name="virtual-machine-project"/>
+<!--#IFMAP-SEMANTICS-IDL 
+     Link('virtual-machine-project',
+          'virtual-machine', 'project', ['ref']) -->
+
 <xsd:element name="virtual-machine-interface-security-group"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-machine-interface-security-group',
