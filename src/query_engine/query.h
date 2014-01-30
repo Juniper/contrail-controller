@@ -419,12 +419,6 @@ public:
     int32_t direction_ing;
     const std::string json_string_;
 private:
-    // Create UUID to 8-tuple map by querying special flow table for
-    // the given time range
-    void create_uuid_tuple_map(
-            std::map<boost::uuids::uuid, GenDb::DbDataValueVec>& uuid_map);
-
-
 };
 
 typedef std::vector<std::string> final_result_row_t;
@@ -728,15 +722,6 @@ private:
 
 class AnalyticsQuery: public QueryUnit {
 public:
-    AnalyticsQuery(GenDb::GenDbIf *db_if, std::string qid,
-    std::map<std::string, std::string>& json_api_data, 
-    uint64_t analytics_start_time);
-
-    AnalyticsQuery(std::string qid, std::map<std::string, 
-            std::string>& json_api_data, uint64_t analytics_start_time,
-            EventManager *evm, const std::string & cassandra_ip, 
-            unsigned short cassandra_port);
-
     AnalyticsQuery(std::string qid, std::map<std::string, 
             std::string>& json_api_data, uint64_t analytics_start_time,
             EventManager *evm, const std::string & cassandra_ip, 
