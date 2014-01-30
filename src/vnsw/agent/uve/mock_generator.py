@@ -135,7 +135,7 @@ class MockGenerator(object):
     def _send_cpu_info(self):
         vrouter_cpu_info = CpuInfoData()
         vrouter_stats = VrouterStatsAgent()
-        vrouter_stats.name = self._module_name
+        vrouter_stats.name = self._hostname
         while True:
             vrouter_stats.cpu_info = vrouter_cpu_info.get_cpu_info(system = False)
             vrouter_stats.cpu_share = vrouter_stats.cpu_info.cpu_share
@@ -151,7 +151,7 @@ class MockGenerator(object):
         other_vn_name = self._VN_PREFIX + str(other_vn)
         intervn = InterVnStats()
         intervn.other_vn = other_vn_name
-        intervn.vrouter = self._module_name
+        intervn.vrouter = self._hostname
         intervn.in_tpkts = random.randint(1, self._OTHER_VN_PKTS_PER_SEC * \
             self._num_vns * self._UVE_MSG_INTVL_IN_SEC)
         intervn.in_bytes = intervn.in_tpkts * random.randint(1, \
@@ -238,7 +238,7 @@ class MockGenerator(object):
                         self._ip_start_index + nvm)
                     vm_if.virtual_network = vn_agent.name
                     vm_agent = UveVirtualMachineAgent()
-                    vm_name = vn_agent.name + ':' + self._module_name + ':' + \
+                    vm_name = vn_agent.name + ':' + self._hostname + ':' + \
                         self._VM_PREFIX + str(vn) + '-' + str(nvm)
                     vm_agent.name = vm_name
                     vm_agent.interface_list = []
