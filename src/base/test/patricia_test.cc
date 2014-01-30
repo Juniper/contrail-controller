@@ -85,12 +85,12 @@ public:
 
     class RtKey {
     public:
-        static std::size_t Length(Route *route_key) {
+        static std::size_t Length(const Route *route_key) {
             return route_key->len_;
         }
 
-        static char ByteValue(Route *route_key, std::size_t i) {
-            char *ch = (char *)&route_key->ip_;
+        static char ByteValue(const Route *route_key, std::size_t i) {
+            const char *ch = (const char *)&route_key->ip_;
             return ch[sizeof(route_key->ip_) - i - 1];
         }
     };

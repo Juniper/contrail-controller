@@ -205,6 +205,15 @@ Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Ip4Address &addr) const {
     return table->FindLPM(addr);
 }
 
+Inet4UnicastRouteEntry *VrfEntry::GetUcRoute(const Inet4UnicastRouteEntry &rt_key) const {
+    Inet4UnicastAgentRouteTable *table = static_cast<Inet4UnicastAgentRouteTable *>
+        (GetInet4UnicastRouteTable());
+    if (table == NULL)
+        return NULL;
+
+    return table->FindLPM(rt_key);
+}
+
 bool VrfEntry::DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, 
                              Peer *peer) {
     VrfEntry *vrf = static_cast<VrfEntry *>(entry);
