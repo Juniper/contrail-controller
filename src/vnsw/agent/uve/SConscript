@@ -14,6 +14,7 @@ virtual_machine_pkg = env.SandeshGenPy('virtual_machine.sandesh', 'vrouter/sande
 virtual_network_pkg = env.SandeshGenPy('virtual_network.sandesh', 'vrouter/sandesh/', False)
 cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'vrouter/vrouter/', False)
 port_bmap_pkg = env.SandeshGenPy('port_bmap.sandesh', 'vrouter/sandesh/virtual_machine/', False)
+flow_pkg = env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh', 'vrouter/sandesh/', False)
 env.Depends(cpuinfo_pkg, vrouter_pkg)
 env.Depends(port_bmap_pkg, virtual_machine_pkg)
 
@@ -55,6 +56,7 @@ sdist_depends.extend(virtual_network_pkg)
 sdist_depends.extend(port_bmap_pkg)
 sdist_depends.extend(sandesh_init_rules)
 sdist_depends.extend(build_info_rules)
+sdist_depends.extend(flow_pkg)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
