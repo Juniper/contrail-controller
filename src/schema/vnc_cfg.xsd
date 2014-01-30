@@ -998,6 +998,11 @@ targetNamespace="http://www.contrailsystems.com/2012/VNC-CONFIG/0">
 <!--#IFMAP-SEMANTICS-IDL 
      Link('project-logical-router',
           'project', 'logical-router', ['has']) -->
+<xsd:element name="logical-router-interface" type="ifmap:IdentityType"/>
+<xsd:element name="logical-router-logical-router-interface"/>
+<!--#IFMAP-SEMANTICS-IDL
+     Link('logical-router-logical-router-interface',
+          'logical-router', 'logical-router-interface', ['has']) -->
 <xsd:element name="virtual-network-logical-router"/>
 <!--#IFMAP-SEMANTICS-IDL 
      Link('virtual-network-logical-router',
