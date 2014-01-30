@@ -409,7 +409,13 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
 void FlowEntry::UpdateKSync(FlowTableKSyncEntry *entry, bool create) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
-    FlowStatsCollector::FlowExport(this, 0, 0);
+    if (stats_.last_modified_time != stats_.setup_time) {
+        /*
+         * Do not export stats on flow creation, it will be exported
+         * while updating stats
+         */
+        FlowStatsCollector::FlowExport(this, 0, 0);
+    }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
@@ -769,9 +775,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
             MakeShortFlow();
             return false;
         }
+        stats_.last_modified_time = UTCTimestampUsec();
+    } else {
+        /* For Flow Entry Create take last modified time same as setup time */
+        stats_.last_modified_time = stats_.setup_time;
     }
 
-    stats_.last_modified_time = UTCTimestampUsec();
     if (info->linklocal_flow) {
         set_flags(FlowEntry::LinkLocalFlow);
     } else {
@@ -1987,6 +1996,12 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
 
 DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
+}
+
+Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
+        const Ip4Address &addr) {
+        route_key_.SetAddr(addr);
+        return entry->GetUcRoute(route_key_);
 }
 
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)
