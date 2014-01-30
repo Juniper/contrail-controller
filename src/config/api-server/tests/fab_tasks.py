@@ -12,25 +12,25 @@ def setup_venv(build_top = "../../../../../build"):
 
     venv_dir = "%s/ut-venv" %(venv_base)
     with lcd(venv_dir):
-        with prefix("source bin/activate"):
+        with prefix(". bin/activate"):
             local(
                 "pip install --upgrade "
-                "../../common/dist/cfgm_common-0.1dev.tar.gz")
+                "%s/debug/config/common/dist/cfgm_common-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "../dist/vnc_cfg_api_server-0.1dev.tar.gz")
+                "%s/debug/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "../../../api-lib/dist/vnc_api-0.1dev.tar.gz")
+                "%s/debug/api-lib/dist/vnc_api-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "../../../tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz")
+                "%s/debug/tools/sandesh/library/python/dist/sandesh-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "../../../sandesh/common/dist/sandesh-common-0.1dev.tar.gz")
+                "%s/debug/sandesh/common/dist/sandesh-common-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "../../../discovery/dist/discovery-0.1dev.tar.gz")
+                "%s/debug/discovery/dist/discovery-0.1dev.tar.gz" % build_top)
             local("pip install redis==2.7.1")
             local("pip install stevedore==0.11")
             local("pip install netifaces==0.8")
@@ -42,6 +42,7 @@ def setup_venv(build_top = "../../../../../build"):
             local("pip install stevedore")
             local("pip install netifaces")
             local("pip install requests==2.0.0")
+            local("pip install kazoo")
             pyver = "%s.%s" % (sys.version_info[0], sys.version_info[1])
             # 2.6 requirements
             local("pip install ordereddict")
@@ -83,7 +84,7 @@ def run_api_srv(build_top = "../../../../../build", listen_ip = None, listen_por
     venv_base = "%s/debug/config/api-server" % (build_top)
     venv_dir = "%s/ut-venv" % (venv_base)
     with lcd(venv_dir):
-        with prefix("source bin/activate"):
+        with prefix(". bin/activate"):
             pyver = "%s.%s" %(sys.version_info[0], sys.version_info[1])
             local(
                 "cp ../../../../../controller/src/config/api-server/tests/"
