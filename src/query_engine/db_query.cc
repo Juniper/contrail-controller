@@ -30,20 +30,14 @@ query_status_t DbQueryUnit::process_query()
         GenDb::ColList result;
         GenDb::DbDataValueVec rowkey;
 
-        if (t_only_row)
-        {
-            rowkey.push_back(t2);
-            if (m_query->is_flow_query()) {
-                uint8_t partition_no = 0;
-                rowkey.push_back(partition_no);
-            }
-        } else {
-            rowkey.push_back(t2);
-            if (m_query->is_flow_query()) {
-                uint8_t partition_no = 0;
-                rowkey.push_back(partition_no);
-            }
+        rowkey.push_back(t2);
+        if (m_query->is_flow_query()) {
+            uint8_t partition_no = 0;
+            rowkey.push_back(partition_no);
+        }
 
+        if (!t_only_row)
+        {
             for (GenDb::DbDataValueVec::iterator it = row_key_suffix.begin();
                     it!=row_key_suffix.end(); it++) {
                 rowkey.push_back(*it);

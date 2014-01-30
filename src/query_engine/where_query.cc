@@ -233,24 +233,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
 
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
- 
-            if (name == g_viz_constants.LEVEL)
-            {
-                uint32_t level = 0;
-                DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
-                db_query->cfname = 
-                    g_viz_constants.MESSAGE_TABLE_LEVEL;
-                db_query->t_only_col = true;
-
-                // only EQUAL op supported currently 
-                QE_INVALIDARG_ERROR(op == EQUAL);
-
-                // int encoding
-                std::istringstream(value) >> level;
-                db_query->row_key_suffix.push_back(level);
-
-                QE_TRACE(DEBUG, "where match term for msg-type " << level);
-            }
 
             if (name == OBJECTID)
             {
@@ -685,74 +667,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         }
         
     }
-}
-
-
-// Create UUID to 8-tuple map by querying special flow table for the given 
-// time range
-void WhereQuery::create_uuid_tuple_map(
-        std::map<boost::uuids::uuid, GenDb::DbDataValueVec>& uuid_map)
-{
-    AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
-    uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
-
-    QE_TRACE(DEBUG, "WhereQuery: Creating UUID tuple map");
-
-    GenDb::DbDataValue row_key_suffix = (uint8_t)direction_ing; 
-
-    QE_TRACE(DEBUG, "Querying " << (t2_end - t2_start + 1) << " rows");
-
-    std::vector<GenDb::DbDataValueVec> keys;    // vector of keys for multi-row get
-    std::vector<GenDb::ColList> mget_res;   // vector of result for each row
-    for (uint32_t t2 = t2_start; t2 <= t2_end; t2++)
-    {
-        GenDb::DbDataValueVec rowkey;
-
-        rowkey.push_back(t2);
-        rowkey.push_back(row_key_suffix);
-        keys.push_back(rowkey);
-    }
-
-    GenDb::ColumnNameRange cr; cr.count = MAX_DB_QUERY_ENTRIES;
-    if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.FLOW_TABLE_ALL_FIELDS, keys, &cr)) {
-        QE_IO_ERROR(0);
-    } else {
-        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
-                it != mget_res.end(); it++) {
-            uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
-            QE_TRACE(DEBUG, "For T2: " << t2 << " # of rows: " << 
-                    it->columns_.size());
-
-            std::vector<GenDb::NewCol>::iterator i;
-            for (i = it->columns_.begin(); i != it->columns_.end(); i++)
-            {
-                {
-                    query_result_unit_t result_unit;
-                    
-                    assert(i->name.size() > 0);
-                    result_unit.info = i->value;
-
-                    boost::uuids::uuid u; flow_stats stats;
-                    result_unit.get_uuid_stats(u, stats);
-
-                    GenDb::DbDataValueVec tuple_encoded_vec = i->name;
-                    tuple_encoded_vec.erase(tuple_encoded_vec.begin());
-                    tuple_encoded_vec.push_back(row_key_suffix);
-                    uuid_map.insert( 
-                        std::pair<boost::uuids::uuid, GenDb::DbDataValueVec>(
-                            u, tuple_encoded_vec));
-                }
-            }
-        }
-    }
-
-    if (IS_TRACE_ENABLED(WHERE_RESULT_TRACE)) {
-        for (std::map<boost::uuids::uuid, GenDb::DbDataValueVec>::iterator it = uuid_map.begin(); it != uuid_map.end(); it++)
-            QE_TRACE(DEBUG, "Added to uuid map:" << it->first);
-    }
-
-    QE_TRACE(DEBUG, "WhereQuery:finished");
 }
 
 query_status_t WhereQuery::process_query()
