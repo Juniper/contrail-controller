@@ -890,7 +890,7 @@ void VmAddReq(int id) {
     VmKey *key = new VmKey(MakeUuid(id));
     VmData::SGUuidList sg_list(0);
     sprintf(vm_name, "vm%d", id);
-    VmData *data = new VmData(string(vm_name), sg_list);
+    VmData *data = new VmData(string(vm_name), sg_list, nil_uuid());
     DBRequest req;
 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

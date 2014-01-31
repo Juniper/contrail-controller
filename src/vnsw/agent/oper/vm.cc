@@ -7,7 +7,9 @@
 #include <cmn/agent_cmn.h>
 
 #include <ifmap/ifmap_node.h>
+#include <cfg/cfg_init.h>
 #include <oper/interface_common.h>
+#include <oper/operdb_init.h>
 #include <oper/vm.h>
 #include <oper/mirror_table.h>
 #include <oper/agent_sandesh.h>
@@ -43,6 +45,7 @@ bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     if (str_uuid.find(name) != std::string::npos) {
         VmSandeshData data;
         data.set_uuid(UuidToString(GetUuid()));
+        data.set_project_uuid(UuidToString(project_uuid()));
         std::vector<VmSandeshData> &list =
                 const_cast<std::vector<VmSandeshData>&>(resp->get_vm_list());
         list.push_back(data);
@@ -81,6 +84,10 @@ void VmEntry::SendObjectLog(AgentLogEvent::type event) const {
     VM_OBJECT_LOG_LOG("AgentVm", SandeshLevel::SYS_INFO, info);
 }
 
+void VmTable::Init(OperDB *oper) {
+    operdb_ = oper;
+}
+
 std::auto_ptr<DBEntry> VmTable::AllocEntry(const DBRequestKey *k) const {
     const VmKey *key = static_cast<const VmKey *>(k);
     VmEntry *vm = new VmEntry(key->uuid_);
@@ -93,11 +100,19 @@ DBEntry *VmTable::Add(const DBRequest *req) {
     VmEntry *vm = new VmEntry(key->uuid_);
     vm->set_table(this);
     vm->SetCfgName(data->name_);
+    vm->set_project_uuid(data->project_uuid_);
     return vm;
 }
 
 // Do DIFF walk for Interface and SG List.
 bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    VmData *data = static_cast<VmData *>(req->data.get());
+    VmEntry *vm = static_cast<VmEntry *>(entry);
+    if (vm->project_uuid_ != data->project_uuid_) {
+        vm->set_project_uuid(data->project_uuid_);
+        return true;
+    }
+
     return false;
 }
 
@@ -107,7 +122,7 @@ void VmTable::Delete(DBEntry *entry, const DBRequest *req) {
 
 DBTableBase *VmTable::CreateTable(DB *db, const std::string &name) {
     vm_table_ = new VmTable(db, name);
-    vm_table_->Init();
+    (static_cast<DBTable *>(vm_table_))->Init();
     return vm_table_;
 };
 
@@ -125,7 +140,28 @@ bool VmTable::IFNodeToReq(IFMapNode *node, DBRequest &req){
     } else {
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         VmData::SGUuidList sg_list(0);
-        data = new VmData(node->name(), sg_list);
+
+        uuid project_uuid = nil_uuid();
+        IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
+        for (DBGraphVertex::adjacency_iterator iter =
+             node->begin(table->GetGraph());
+             iter != node->end(table->GetGraph()); ++iter) {
+            IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
+            if (operdb_->agent()->cfg_listener()->SkipNode(adj_node)) {
+                continue;
+            }
+            if (adj_node->table() ==
+                operdb_->agent()->cfg()->cfg_project_table()) {
+                Project *project_cfg =
+                    static_cast<Project *>(adj_node->GetObject());
+                assert(project_cfg);
+                autogen::IdPermsType id_perms = project_cfg->id_perms();
+                CfgUuidSet(id_perms.uuid.uuid_mslong, id_perms.uuid.uuid_lslong,
+                           project_uuid);
+            }
+        }
+
+        data = new VmData(node->name(), sg_list, project_uuid);
     }
     req.key.reset(key);
     req.data.reset(data);

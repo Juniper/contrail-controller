@@ -209,6 +209,7 @@ void IFMapGraphWalker::WorkBatchEnd(bool done) {
 // IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually 
 // exclusive
 void IFMapGraphWalker::AddNodesToWhitelist() {
+    traversal_white_list_->include_vertex.push_back("project");
     traversal_white_list_->include_vertex.push_back("virtual-router");
     traversal_white_list_->include_vertex.push_back("virtual-machine");
     traversal_white_list_->include_vertex.push_back("bgp-router");
@@ -313,5 +314,7 @@ void IFMapGraphWalker::AddLinksToWhitelist() {
     // getting the pool from. EG: public-network (might not have any VMs)
     traversal_white_list_->include_edge.push_back(
         "source=floating-ip-pool,target=virtual-network");
+    traversal_white_list_->include_edge.push_back(
+        "source=virtual-machine,target=project");
 }
 

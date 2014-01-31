@@ -72,7 +72,9 @@ TEST_F(CfgTest, VmBasic_1) {
     AddNodeString(buff, len, "virtual-network", "vn1", 1); 
     AddNodeString(buff, len, "virtual-machine", "vm1", 1);
     AddNodeString(buff, len, "virtual-machine-interface", "vnet2", 1);
+    AddNodeString(buff, len, "project", "demo", 100);
     AddLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    AddLinkString(buff, len, "virtual-machine", "vm1", "project", "demo");
     AddXmlTail(buff, len);
     ApplyXmlString(buff);
     CheckVmAdd(1, 1);
@@ -92,6 +94,11 @@ TEST_F(CfgTest, VmBasic_1) {
     vm->SetKey(static_cast<DBRequestKey*>(oldKey));
     s2 = vm->ToString();
     EXPECT_TRUE(s1.compare(s2) == 0);
+    
+    // check the project uuid
+    string s3 = UuidToString(vm->project_uuid());
+    string s4 = UuidToString(MakeUuid(100));
+    EXPECT_TRUE(s3 == s4);
 
     //Mock the sandesh request, no expecatation just catch crashes.
     VmListReq *vm_list_req = new VmListReq();
@@ -107,9 +114,11 @@ TEST_F(CfgTest, VmBasic_1) {
 
     DelXmlHdr(buff, len);
     DelLinkString(buff, len, "virtual-machine", "vm1", "virtual-machine-interface", "vnet2");
+    DelLinkString(buff, len, "virtual-machine", "vm1", "project", "demo");
     DelNodeString(buff, len, "virtual-machine-interface", "vnet2");
     DelNodeString(buff, len, "virtual-machine", "vm1");
     DelNodeString(buff, len, "virtual-network", "vn1");
+    DelNodeString(buff, len, "project", "demo");
     DelXmlTail(buff, len);
     ApplyXmlString(buff);
     CheckVmDel(1, 1);

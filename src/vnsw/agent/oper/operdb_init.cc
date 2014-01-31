@@ -64,6 +64,7 @@ void OperDB::CreateDBTables(DB *db) {
     vm_table = static_cast<VmTable *>(db->CreateTable("db.vm.0"));
     assert(vm_table);
     agent_->SetVmTable(vm_table);
+    vm_table->Init(this);
 
     SgTable *sg_table;
     sg_table = static_cast<SgTable *>(db->CreateTable("db.sg.0"));

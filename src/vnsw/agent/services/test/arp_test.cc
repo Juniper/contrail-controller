@@ -135,8 +135,8 @@ public:
         memcpy(arp->arp_sha, dest_mac, ETH_ALEN);
 
         sip = htonl(sip);
-        memcpy(arp->arp_spa, &tip, sizeof(in_addr_t));
         tip = htonl(tip);
+        memcpy(arp->arp_spa, &tip, sizeof(in_addr_t));
         memcpy(arp->arp_tpa, &sip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)

@@ -153,13 +153,15 @@ Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
 
 bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
                                               std::string *vm_ip,
-                                              std::string *vm_uuid) {
+                                              std::string *vm_uuid,
+                                              std::string *vm_project_uuid) {
     Interface *intf = FindInterfaceFromMetadataIp(ip);
     if (intf && intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vintf = static_cast<const VmInterface *>(intf);
         *vm_ip = vintf->ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
+            *vm_project_uuid = UuidToString(vintf->vm()->project_uuid());
             return true;
         }
     }
