@@ -85,6 +85,7 @@ const string &AgentRouteTable::GetSuffix(Agent::RouteTableType type) {
 
 // Set VRF and delete life-time actor reference to VRF
 void AgentRouteTable::SetVrf(VrfEntry *vrf) {
+    agent_ = (static_cast<VrfTable *>(vrf->get_table()))->agent();
     vrf_entry_ = vrf;
     vrf_delete_ref_.Reset(vrf->deleter());
 }
@@ -94,8 +95,7 @@ auto_ptr<DBEntry> AgentRouteTable::AllocEntry(const DBRequestKey *k) const {
     const AgentRouteKey *key = static_cast<const AgentRouteKey*>(k);
     VrfKey vrf_key(key->GetVrfName());
     VrfEntry *vrf = 
-        static_cast<VrfEntry *>(Agent::GetInstance()->
-                                GetVrfTable()->Find(&vrf_key, true));
+        static_cast<VrfEntry *>(agent_->GetVrfTable()->Find(&vrf_key, true));
     AgentRoute *route = 
         static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, false));
     return auto_ptr<DBEntry>(static_cast<DBEntry *>(route));
@@ -158,7 +158,7 @@ void AgentRouteTable::EvaluateUnresolvedNH(void) {
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key = (*it)->GetDBRequestKey();
         (static_cast<NextHopKey *>(req.key.get()))->sub_op_ = AgentKey::RESYNC;
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        agent_->GetNextHopTable()->Enqueue(&req);
     }
 
     unresolved_nh_tree_.clear();
@@ -398,7 +398,7 @@ LifetimeActor *AgentRouteTable::deleter() {
 
 //Delete all the routes
 void AgentRouteTable::ManagedDelete() {
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->GetDB()->GetWalker();
     RouteTableWalkerState *state = new RouteTableWalkerState(deleter());
     walker->WalkTable(this, NULL, 
          boost::bind(&AgentRouteTable::DelExplicitRouteWalkerCb, this, _1, _2),
@@ -416,7 +416,7 @@ void AgentRouteTable::MayResumeDelete(bool is_empty) {
         return;
     }
 
-    Agent::GetInstance()->GetLifetimeManager()->Enqueue(deleter());
+    agent_->GetLifetimeManager()->Enqueue(deleter());
 }
 
 // Find entry not in deleted state
@@ -486,7 +486,7 @@ void AgentRouteTable::RouteTableWalkerNotify(VrfEntry *vrf,
                                             bool associate, bool unicast_walk,
                                             bool multicast_walk) {
     boost::system::error_code ec;
-    DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
+    DBTableWalker *walker = agent_->GetDB()->GetWalker();
     VrfExport::State *vrf_state = static_cast<VrfExport::State *>(state);
 
     if (multicast_walk) {
@@ -651,7 +651,8 @@ void AgentRoute::ResyncTunnelNextHop(void) {
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key = key;
         req.data.reset(NULL);
-        Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
+        Agent *agent = (static_cast<AgentRouteTable *>(get_table()))->agent();
+        agent->GetNextHopTable()->Enqueue(&req);
     }
 }
 
