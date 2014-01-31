@@ -109,7 +109,11 @@ void VizCollector::Shutdown() {
     TimerManager::DeleteTimer(dbif_timer_);
     dbif_timer_ = NULL;
 
+    syslog_listener_->Shutdown ();
+    TcpServerManager::DeleteServer(syslog_listener_); //delete syslog_listener_;
+
     db_handler_->UnInit(true);
+    LOG(DEBUG, __func__ << " viz_collector done");
 }
 
 bool VizCollector::DbifReinitTimerExpired() {
