@@ -288,6 +288,25 @@ void Collector::DisconnectSession(SandeshSession *session) {
     gen->DisconnectSession(vsession);
 }
 
+void Collector::GetSandeshStats(vector<SandeshMessageStat> &smslist) {
+    smslist.clear();
+    for (GeneratorMap::iterator gm_it = gen_map_.begin();
+            gm_it != gen_map_.end(); gm_it++) {
+        SandeshGenerator *gen = gm_it->second;
+        // Only send if generator is connected
+        VizSession *session = gen->session();
+        if (!session) {
+            continue;
+        }
+        vector<SandeshMessageInfo> smi;       
+        gen->GetSandeshStats(smi);
+        SandeshMessageStat sms;
+        sms.set_name(gen->ToString());
+        sms.set_msg_info(smi);
+        smslist.push_back(sms);
+    }
+}
+
 void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist) {
     genlist.clear();
     tbb::mutex::scoped_lock lock(gen_map_mutex_);

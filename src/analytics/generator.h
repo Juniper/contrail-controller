@@ -49,6 +49,7 @@ public:
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
     virtual bool ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
             bool rsc) = 0;
+    void GetSandeshStats(std::vector<SandeshMessageInfo> &sms);
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
 
@@ -56,8 +57,17 @@ protected:
     boost::shared_ptr<DbHandler> db_handler_;
 
 private:
+    void UpdateMessageStats(VizMsg *vmsg);
     void UpdateMessageTypeStats(VizMsg *vmsg);
     void UpdateLogLevelStats(VizMsg *vmsg);
+    struct MessageStats {
+        MessageStats() : messages_(0), bytes_(0) {}
+        uint64_t messages_;
+        uint64_t bytes_;
+    };
+    typedef boost::ptr_map<std::pair<std::string,std::string> /*Messagetype and log level*/, MessageStats> MessageStatsMap;
+    MessageStatsMap sandesh_stats_map_;
+    MessageStatsMap sandesh_stats_map_old_;
 
     struct Stats {
         Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
