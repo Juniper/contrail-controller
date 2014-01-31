@@ -126,13 +126,13 @@ private:
 class AgentDBTable : public DBTable {
 public:
     AgentDBTable(DB *db, const std::string &name) : 
-        DBTable(db, name), ref_listener_id_(-1) {
+        DBTable(db, name), ref_listener_id_(-1), agent_(NULL) {
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
 
     AgentDBTable(DB *db, const std::string &name, bool del_on_zero_refcount) : 
-        DBTable(db, name), ref_listener_id_(-1) {
+        DBTable(db, name), ref_listener_id_(-1) , agent_(NULL){
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
