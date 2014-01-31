@@ -40,7 +40,8 @@ static void Layer2TableProcess(Agent *agent, const string &vrf_name,
 DBTableBase *Layer2AgentRouteTable::CreateTable(DB *db, 
                                                 const std::string &name) {
     AgentRouteTable *table = new Layer2AgentRouteTable(db, name);
-    table->InitRouteTable(db, table, name, Agent::LAYER2);
+    table->Init();
+    //table->InitRouteTable(db, table, name, Agent::LAYER2);
     return table;
 }
 
@@ -206,7 +207,7 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
-void Layer2AgentRouteTable::RouteResyncReq(const string &vrf_name,
+void Layer2AgentRouteTable::ReEvaluatePaths(const string &vrf_name,
                                            const struct ether_addr &mac) {
     DBRequest  rt_req;
     rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -218,10 +219,6 @@ void Layer2AgentRouteTable::RouteResyncReq(const string &vrf_name,
     rt_req.key.reset(rt_key);
     rt_req.data.reset(NULL);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
-}
-
-void Layer2RouteEntry::RouteResyncReq() const {
-    Layer2AgentRouteTable::RouteResyncReq(GetVrfEntry()->GetName(), mac_); 
 }
 
 string Layer2RouteEntry::ToString() const {

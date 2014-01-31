@@ -19,7 +19,7 @@ public:
         return Agent::LAYER2;
     }
 
-    static void RouteResyncReq(const string &vrf_name, 
+    static void ReEvaluatePaths(const string &vrf_name, 
                                const struct ether_addr &mac);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static Layer2RouteEntry *FindRoute(const string &vrf_name, 
@@ -83,7 +83,6 @@ public:
     virtual void UpdateNH() { };
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual void RouteResyncReq() const;
     virtual const string GetAddressString() const {
         //For multicast use the same tree as of 255.255.255.255
         if (IsMulticast()) 
@@ -106,29 +105,23 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteEntry);
 };
 
-class Layer2RouteKey : public RouteKey {
+class Layer2RouteKey : public AgentRouteKey {
 public:
     Layer2RouteKey(const Peer *peer, const string &vrf_name, 
                    const struct ether_addr &mac) :
-        RouteKey(peer, vrf_name), dmac_(mac) { };
+        AgentRouteKey(peer, vrf_name), dmac_(mac) { };
     Layer2RouteKey(const Peer *peer, const string &vrf_name, 
                    const struct ether_addr &mac, const Ip4Address &vm_ip,
                    uint32_t plen) :
-        RouteKey(peer, vrf_name), dmac_(mac), vm_ip_(vm_ip), plen_(plen) { };
+        AgentRouteKey(peer, vrf_name), dmac_(mac), vm_ip_(vm_ip), plen_(plen) { };
     Layer2RouteKey(const Peer *peer, const string &vrf_name) : 
-        RouteKey(peer, vrf_name) { 
+        AgentRouteKey(peer, vrf_name) { 
             dmac_ = *ether_aton("FF:FF:FF:FF:FF:FF");
         };
     virtual ~Layer2RouteKey() { };
 
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
-    //Enqueue add/chg/delete for route
-    virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
-        return (static_cast<AgentRouteTable *>(vrf->GetLayer2RouteTable()));
-    };
-    virtual Agent::RouteTableType GetRouteTableType() {
-        return Agent::LAYER2;
-    }; 
+    virtual Agent::RouteTableType GetRouteTableType() { return Agent::LAYER2; }
     virtual string ToString() const { return ("Layer2RouteKey"); };
     const struct ether_addr &GetMac() const { return dmac_;};
 
@@ -139,14 +132,14 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteKey);
 };
 
-class Layer2EcmpRoute : public RouteData {
+class Layer2EcmpRoute : public AgentRouteData {
 public:
     Layer2EcmpRoute(const struct ether_addr &dest_addr, 
                     const string &vn_name, 
                     const string &vrf_name, uint32_t label, 
                     bool local_ecmp_nh,
-                    Op op  = RouteData::CHANGE) : 
-        RouteData(op , false), dest_addr_(dest_addr),
+                    Op op  = AgentRouteData::CHANGE) : 
+        AgentRouteData(op , false), dest_addr_(dest_addr),
         vn_name_(vn_name), vrf_name_(vrf_name),
         label_(label), local_ecmp_nh_(local_ecmp_nh) {
         };
