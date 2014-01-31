@@ -14,6 +14,7 @@ class AgentDBTable;
 class AgentDBEntry;
 class IFMapNode;
 class Sandesh;
+class Agent;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
@@ -160,12 +161,15 @@ public:
     virtual bool CanNotify(IFMapNode *dbe) {
         return true;
     }
+    void set_agent(Agent *agent) { agent_ = agent; }
+    Agent *agent() const { return agent_; }
 
 private:
     AgentDBEntry *Find(const DBEntry *key);
     AgentDBEntry *Find(const DBRequestKey *key);
 
     DBTableBase::ListenerId ref_listener_id_;
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(AgentDBTable);
 };
 

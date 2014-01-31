@@ -141,6 +141,7 @@ public:
         return unresolved_nh_tree_.end();
     }
 
+    Agent *agent() const { return agent_; }
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
     const std::string &GetVrfName() const { return vrf_entry_->GetName();};
 
