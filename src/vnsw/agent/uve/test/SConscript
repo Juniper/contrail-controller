@@ -19,7 +19,7 @@ if sys.platform != 'darwin':
     env.Prepend(LIBS=['agent_test'])
     env.Append(LIBS=['agent_test_buildinfo'])
 
-    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc'])
+    test_vn_uve = env.Program(target = 'test_vn_uve', source = ['test_vn_uve.cc', '../../pkt/test/test_pkt_util.o'])
     env.Alias('src/vnsw/agent/uve/test:test_vn_uve', test_vn_uve)
 
     test_vrouter_uve = env.Program(target = 'test_vrouter_uve', source = ['test_vrouter_uve.cc'])
