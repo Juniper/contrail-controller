@@ -17,6 +17,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/community.h"
 #include "bgp/inet/inet_table.h"
 #include "bgp/l3vpn/inetvpn_route.h"
@@ -40,9 +41,6 @@ using namespace std;
 using boost::assign::list_of;
 using boost::assign::map_list_of;
 using namespace pugi;
-
-#define VERIFY_EQ(expected, actual) \
-    TASK_UTIL_EXPECT_EQ(expected, actual)
 
 class BgpPeerMock : public IPeer {
 public:
@@ -530,6 +528,66 @@ protected:
         return "unresolved";
     }
 
+    static void ValidateShowServiceChainResponse(Sandesh *sandesh, 
+                                                 vector<std::string> &result) {
+        ShowServiceChainResp *resp = 
+            dynamic_cast<ShowServiceChainResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowServiceChainResp *)NULL, resp);
+        validate_done_ = 1;
+
+        TASK_UTIL_EXPECT_EQ(result.size(), 
+                              resp->get_service_chain_list().size());
+        int i = 0;
+        cout << "*******************************************************"<<endl;
+        BOOST_FOREACH(const ShowServicechainInfo &info, 
+                      resp->get_service_chain_list()) {
+            TASK_UTIL_EXPECT_EQ(info.get_src_rt_instance(), result[i]);
+            cout << info.log() << endl;
+            i++;
+        }
+        cout << "*******************************************************"<<endl;
+    }
+
+    static void ValidateShowPendingServiceChainResponse(Sandesh *sandesh, 
+                                                 vector<std::string> &result) {
+        ShowPendingServiceChainResp *resp = 
+            dynamic_cast<ShowPendingServiceChainResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowPendingServiceChainResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_TRUE((result == resp->get_pending_chains()));
+
+        validate_done_ = 1;
+    }
+
+
+    void VerifyServiceChainSandesh(std::vector<std::string> result) {
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = bgp_server_.get();
+        sandesh_context.xmpp_peer_manager = NULL;
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(boost::bind(ValidateShowServiceChainResponse,
+                                                   _1, result));
+        ShowServiceChainReq *req = new ShowServiceChainReq;
+        validate_done_ = 0;
+        req->HandleRequest();
+        req->Release();
+        TASK_UTIL_EXPECT_EQ(1, validate_done_);
+    }
+
+    void VerifyPendingServiceChainSandesh(std::vector<std::string> pending) {
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = bgp_server_.get();
+        sandesh_context.xmpp_peer_manager = NULL;
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(boost::bind(ValidateShowPendingServiceChainResponse,
+                                                   _1, pending));
+        ShowPendingServiceChainReq *req = new ShowPendingServiceChainReq;
+        validate_done_ = 0;
+        req->HandleRequest();
+        req->Release();
+        TASK_UTIL_EXPECT_EQ(1, validate_done_);
+    }
+
     EventManager evm_;
     DB config_db_;
     DBGraph config_graph_;
@@ -538,8 +596,10 @@ protected:
     vector<BgpPeerMock *> peers_;
     const char *connected_table_;
     bool connected_rt_is_inetvpn_;
+    static int validate_done_;
 };
 
+int ServiceChainTest::validate_done_;
 // Parameterize the service type (transparent vs. in-network).
 
 typedef std::tr1::tuple<bool, bool> TestParams;
@@ -1102,6 +1162,8 @@ TEST_P(ServiceChainParamTest, PendingChain) {
                              NULL, 1000, 10000, 
                              "Wait for Aggregate route in blue..");
 
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"));
+
     // Add "red" routing instance and create connection with "red-i2"
     instance_names = list_of("blue")("blue-i1")("red-i2")("red");
     connections = map_list_of("blue", "blue-i1") ("red-i2", "red");
@@ -1143,6 +1205,8 @@ TEST_P(ServiceChainParamTest, UnresolvedPendingChain) {
     // Add Connected
     AddConnectedRoute(NULL, "1.1.2.3/32", 100, "2.3.4.5");
     task_util::WaitForIdle();
+
+    VerifyPendingServiceChainSandesh(list_of("blue-i1"));
 
     ifmap_test_util::IFMapMsgPropertyDelete(&config_db_, "routing-instance", 
                                             "blue-i1", 
@@ -1190,6 +1254,8 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
                              NULL, 1000, 10000, 
                              "Wait for Aggregate route in blue..");
 
+    VerifyServiceChainSandesh(list_of("blue-i1"));
+
     params = GetChainConfig("controller/src/bgp/testdata/service_chain_2.xml");
 
     // Service Chain Info
@@ -1207,6 +1273,8 @@ TEST_P(ServiceChainParamTest, UpdateChain) {
     TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup("blue", "192.169.2.0/24"),
                              NULL, 1000, 10000, 
                              "Wait for Aggregate route in blue..");
+
+    VerifyServiceChainSandesh(list_of("blue-i1"));
 
     // Delete More specific & connected
     DeleteInetRoute(NULL, "red", "192.168.1.1/32");
