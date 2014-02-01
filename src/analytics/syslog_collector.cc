@@ -556,8 +556,7 @@ void SyslogListeners::Shutdown ()
 void
 TCPSyslogQueueEntry::free () {
     session_->ReleaseBuffer(buf_);
-    session_->Close();
-    delete session_.get();
+    session_->server(DeleteSession (session_));
 }
 void
 UDPSyslogQueueEntry::free () {
