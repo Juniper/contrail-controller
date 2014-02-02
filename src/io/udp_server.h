@@ -29,6 +29,7 @@ public:
     virtual void Initialize(std::string ipaddress, short port);
     virtual void Initialize(udp::endpoint local_endpoint);
     virtual void Reset ();
+    virtual void Shutdown ();
 
     virtual udp::endpoint GetLocalEndPoint ();
     //tx-rx

@@ -14,13 +14,18 @@ import random
 import uuid
 import time
 import datetime
+from datetime import timedelta
 import socket
+import os
+import sys
 
 import pycassa
 from pycassa.columnfamily import ColumnFamily
 from pycassa.types import *
 from pycassa import *
 import argparse
+import subprocess
+from subprocess import Popen, PIPE
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group()
@@ -31,6 +36,10 @@ parser.add_argument("--cassandra_server_port", "-p",
                     type = int,
                     default = 9160,
                     help = "cassandra server port")
+parser.add_argument("--cassandra_db_ttl", "-t",
+                    type = int,
+                    default = 48,
+                    help = "cassandra database ttl in hours")
 group.add_argument("--utc", "-u",
                     default = None,
                     help = "print current utctimestamp")
@@ -38,9 +47,14 @@ group.add_argument("--show_cf", help = "Show records of a column family",
                     metavar='COLUMNFAMILY', default = None)
 group.add_argument("--list_cf", help = "List all the column families",
                     action="store_true")
+group.add_argument("--purge_db_threshold", type = int,
+                    help = 'Purge all records to bring the database disk usage to the specified threshold',
+                    default = None)
 group.add_argument("--purge_db", metavar='BEFORE_DATETIME',
                     help = 'Purge all records created before a certain data/time. Date/Time can be specified in format "YYYY-MM-DD HH:MM:SS TZ"  or "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD" ',
                     default = None)
+group.add_argument("--dbusage", "-d", help = "Contrail database usage as percentage of disk space",
+                    action="store_true")
 group.add_argument("--interactive", "-i", help = "Launch the interactive mode",
                     action="store_true")
 args = parser.parse_args()
@@ -104,6 +118,13 @@ def parse_time(s):
                 ret = datetime.utcfromtimestamp(float(s))
     return ret
 
+# returns disk usage of the database as percentage
+def database_usage():
+    (database_usage, error_value) = Popen("set `df -P  --direct \`grep -A 1 'data_file_directories:'  /etc/cassandra/conf/cassandra.yaml | grep '-' | cut -d'-' -f2 \` | grep %` && echo $4  | cut -d'%' -f1", shell=True, stdout=PIPE).communicate()
+    #sys.stderr.write("Database usage:"+ database_usage)
+    database_usage = database_usage.strip()
+    return int(database_usage)
+    
 # purge all data defore particular datatime given in format 
 # %YYYY-%MM-%DD %HH:%MM:%SS %TZ
 # or %YYYY-%MM-%DD %HH:%MM:%SS
@@ -196,6 +217,30 @@ if args.list_cf:
 
 if args.purge_db != None:
     purge_old_data(args.purge_db)
+    quit()
+
+if (args.dbusage):
+    print database_usage()
+    quit()
+
+if (args.purge_db_threshold != None):
+    purge_rate = 0.5
+    # minimum time worth of data which you leave in the database (in hrs)
+    min_hrs_data = 0.5
+    current_db_usage = database_usage()
+    if (args.purge_db_threshold < current_db_usage):
+        print "need to purge database"
+    print "threshold:" + str(args.purge_db_threshold)
+    print "ttl:" + str(args.cassandra_db_ttl)
+    current_time_cutoff = args.cassandra_db_ttl * purge_rate
+    while ((current_time_cutoff > min_hrs_data) and (args.purge_db_threshold < current_db_usage)):
+        #print "cutoff:" + str(current_time_cutoff)
+        current_time_cutoff = current_time_cutoff * purge_rate
+        purge_time = str(datetime.utcnow() - timedelta(hours=current_time_cutoff)).split('.')[0]
+        print "purging database stored before UTC time:" + purge_time
+        purge_old_data(purge_time)
+        current_db_usage = database_usage()
+
     quit()
 
 if not(args.interactive): #done processing all the other options
