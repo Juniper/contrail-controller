@@ -61,9 +61,12 @@ private:
     void UpdateMessageTypeStats(VizMsg *vmsg);
     void UpdateLogLevelStats(VizMsg *vmsg);
     struct MessageStats {
-        MessageStats() : messages_(0), bytes_(0) {}
-        uint64_t messages_;
-        uint64_t bytes_;
+	/*Initializing atomics in initialization list does not work
+         * Please refer http://software.intel.com/en-us/forums/topic/287865
+         */
+        MessageStats(){messages_ = 0;bytes_ = 0;}
+        tbb::atomic<uint64_t> messages_;
+        tbb::atomic<uint64_t> bytes_;
     };
     typedef boost::ptr_map<std::pair<std::string,std::string> /*Messagetype and log level*/, MessageStats> MessageStatsMap;
     MessageStatsMap sandesh_stats_map_;

@@ -341,11 +341,13 @@ void Generator::GetSandeshStats(std::vector<SandeshMessageInfo> &smv) {
              msg_stats_it = (sandesh_stats_map_old_.insert(key,new MessageStats)).first;
          }
          //else subtract the old val from new val 
-         msg_stats.messages = (ss_it->second)->messages_ - (msg_stats_it->second)->messages_;
-         msg_stats.bytes = (ss_it->second)->bytes_ - (msg_stats_it->second)->bytes_;
+         uint64_t current_messages = ss_it->second->messages_;
+         uint64_t current_bytes = ss_it->second->bytes_;
+         msg_stats.messages = current_messages - (msg_stats_it->second)->messages_;
+         msg_stats.bytes = current_bytes - (msg_stats_it->second)->bytes_;
          //update the oldmap values
-         (msg_stats_it->second)->messages_ = (ss_it->second)->messages_;
-         (msg_stats_it->second)->bytes_ = (ss_it->second)->bytes_;
+         (msg_stats_it->second)->messages_ = current_messages;
+         (msg_stats_it->second)->bytes_ = current_bytes;
          smv.push_back(msg_stats);
     }
 
