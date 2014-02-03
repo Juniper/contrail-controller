@@ -144,7 +144,7 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     VrfEntry *FindVrfFromName(const string &name);
-    VrfEntry *FindVrfFromId(size_t index) {return index_table_.At(index);};
+    VrfEntry *FindVrfFromId(size_t index);
     void FreeVrfId(size_t index) {index_table_.Remove(index);};
 
     void DelPeerRoutes(Peer *peer, Peer::DelPeerDone cb);
