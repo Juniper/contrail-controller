@@ -232,6 +232,8 @@ public:
     }
 
     void VerifyMulticastRoutes(TunnelType::Type type) {
+        Inet4MulticastRouteEntry *mc_rt = MCRouteGet("vrf1", "255.255.255.255");
+        ASSERT_TRUE(mc_rt != NULL);
         CompositeNHKey flood_fabric_key(vrf_name_, 
                            IpAddress::from_string("255.255.255.255").to_v4(), 
                            IpAddress::from_string("0.0.0.0").to_v4(), false,
@@ -243,6 +245,7 @@ public:
         const ComponentNH *component_nh = 
             static_cast<const ComponentNH *>(flood_fabric_cnh->
                                           GetComponentNHList()->Get(0));
+        ASSERT_TRUE(flood_fabric_cnh->ComponentNHCount() == 1);
         const TunnelNH *tnh = 
             static_cast<const TunnelNH *>(component_nh->GetNH());
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
@@ -256,6 +259,7 @@ public:
                                              GetNextHopTable()->
                                        FindActiveEntry(&subnet_fabric_key));
         ASSERT_TRUE(subnet_fabric_cnh != NULL);
+        ASSERT_TRUE(subnet_fabric_cnh->ComponentNHCount() == 1);
         component_nh = 
             static_cast<const ComponentNH *>(subnet_fabric_cnh->
                                              GetComponentNHList()->Get(0));

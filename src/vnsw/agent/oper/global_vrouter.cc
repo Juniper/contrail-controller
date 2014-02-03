@@ -16,6 +16,7 @@
 #include <oper/route_common.h>
 #include <oper/operdb_init.h>
 #include <oper/global_vrouter.h>
+#include <oper/agent_route_encap.h>
 #include <base/util.h>
 
 const std::string GlobalVrouter::kMetadataService = "metadata";
@@ -346,7 +347,8 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
     : oper_(oper), linklocal_services_map_(),
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
-                           *(oper->agent()->GetEventManager()->io_service()))) {
+                           *(oper->agent()->GetEventManager()->io_service()))),
+      agent_route_encap_update_walker_(new AgentRouteEncap()) {
 }
 
 GlobalVrouter::~GlobalVrouter() {
@@ -385,7 +387,8 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
     }
 
     if (encap_changed) {
-        oper_->agent()->GetVrfTable()->UpdateRouteEncapsulation();
+        AGENT_LOG(GlobalVrouterLog, "Rebake all routes for changed encap");
+        agent_route_encap_update_walker_.get()->Update();
     }
 }
 

@@ -1065,9 +1065,10 @@ public:
     enum operation {
         ADD,
         DELETE,
-        REPLACE
+        REPLACE,
+        REBAKE
     };
-    CompositeNHData() : NextHopData(), op_(REPLACE) { };
+    CompositeNHData(operation op) : NextHopData(), op_(op) { };
     CompositeNHData(const std::vector<ComponentNHData> &data, operation op) : 
         NextHopData(), data_(data), op_(op) {};
 private:

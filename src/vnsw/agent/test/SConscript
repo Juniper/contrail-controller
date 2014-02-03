@@ -132,6 +132,9 @@ if sys.platform != 'darwin':
     test_tunnel_encap = env.Program(target = 'test_tunnel_encap', source = ['test_tunnel_encap.cc'])
     env.Alias('src/vnsw/agent/test:test_tunnel_encap', test_tunnel_encap)
 
+    test_agent_route_walker = env.Program(target = 'test_agent_route_walker', source = ['test_agent_route_walker.cc'])
+    env.Alias('src/vnsw/agent/test:test_agent_route_walker', test_agent_route_walker)
+
 #    test_sg = env.Program(target = 'test_sg', source = ['test_sg.cc'])
 #    env.Alias('src/vnsw/agent/test:test_sg', test_sg)
 
@@ -161,6 +164,7 @@ test_suite = [test_dummy,
               test_cfg_listener,
               test_global_vrouter_config,
               test_tunnel_encap,
+              test_agent_route_walker,
 #              test_sg
                  ]
 

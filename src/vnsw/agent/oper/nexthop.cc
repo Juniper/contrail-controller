@@ -1285,6 +1285,10 @@ bool CompositeNH::Change(const DBRequest* req) {
     std::vector<ComponentNH> component_nh_list;
     NextHop *nh;
 
+    if (data->op_ == CompositeNHData::REBAKE) {
+        return true;
+    }
+
     if (comp_type_ == Composite::ECMP) {
         ComponentNH component_nh(0, NULL);
         if (GetOldNH(data, component_nh)) {

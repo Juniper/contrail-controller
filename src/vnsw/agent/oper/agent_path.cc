@@ -210,7 +210,8 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
         cnh_key->sub_op_ = AgentKey::RESYNC;
         cnh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         cnh_req.key.reset(cnh_key);
-        CompositeNHData *cnh_data = new CompositeNHData();
+        CompositeNHData *cnh_data = 
+            new CompositeNHData(CompositeNHData::REBAKE);
         cnh_req.data.reset(cnh_data);
         Agent::GetInstance()->GetNextHopTable()->Process(cnh_req);
     }
@@ -632,7 +633,7 @@ bool MulticastRoute::AddChangePath(AgentPath *path) {
                                 GetNextHopTable()->FindActiveEntry(&key));
     path->SetDestVnName(vn_name_);
     path->SetUnresolved(false);
-    path->SetLabel(vxlan_id_);
+    path->set_vxlan_id(vxlan_id_);
     ret = true;
 
     if (path->ChangeNH(nh) == true)
