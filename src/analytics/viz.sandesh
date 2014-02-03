@@ -343,6 +343,18 @@ const list<stat_table> _STAT_TABLES  = [
         ]
     },
     {
+      'display_name' : 'Sandesh Information',
+      'stat_type' : 'SandeshMessageStat',
+      'stat_attr' : 'msg_info',
+      'obj_table' : GENERATOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'msg_info.type', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'msg_info.level', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'msg_info.messages', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'msg_info.bytes', 'datatype' : 'int', 'index' : false},
+      ]
+    },
+    {
       'display_name' : 'Values Table - string',
       'stat_type' : 'FieldNames'
       'stat_attr' : 'fields'
