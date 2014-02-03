@@ -53,9 +53,6 @@ using boost::assign::map_list_of;
 using namespace pugi;
 using namespace test;
 
-#define VERIFY_EQ(expected, actual) \
-    TASK_UTIL_EXPECT_EQ(expected, actual)
-
 class BgpXmppChannelMock : public BgpXmppChannel {
 public:
     BgpXmppChannelMock(XmppChannel *channel, BgpServer *server, 

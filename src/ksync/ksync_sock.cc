@@ -19,8 +19,6 @@
 
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include <common/vns_constants.h>
-#include <common/vns_types.h>
 
 #include "ksync_index.h"
 #include "ksync_entry.h"
@@ -36,12 +34,9 @@
 
 using namespace boost::asio;
 
-#define KSYNC_ERROR(obj, ...)\
-do {\
-    if (LoggingDisabled()) break;\
-    obj::Send(g_vns_constants.CategoryNames.find(Category::VROUTER)->second,\
-              SandeshLevel::SYS_ERR, __FILE__, __LINE__, ##__VA_ARGS__);\
-} while (false);\
+/* Note SO_RCVBUFFORCE is supported only for linux version 2.6.14 and above */
+typedef boost::asio::detail::socket_option::integer<SOL_SOCKET,
+        SO_RCVBUFFORCE> ReceiveBuffForceSize;
 
 int KSyncSock::vnsw_netlink_family_id_;
 AgentSandeshContext *KSyncSock::agent_sandesh_ctx_;
@@ -54,6 +49,19 @@ const char* IoContext::io_wq_names[IoContext::MAX_WORK_QUEUES] =
 
 KSyncSockNetlink::KSyncSockNetlink(boost::asio::io_service &ios, int protocol) 
     : sock_(ios, protocol) {
+    ReceiveBuffForceSize set_rcv_buf;
+    set_rcv_buf = KSYNC_SOCK_RECV_BUFF_SIZE;
+    boost::system::error_code ec;
+    sock_.set_option(set_rcv_buf, ec);
+    if (ec.value() != 0) {
+        LOG(ERROR, "Error Changing netlink receive sock buffer size to " <<
+                set_rcv_buf.value() << " error = " <<
+                boost::system::system_error(ec).what());
+    }
+    boost::asio::socket_base::receive_buffer_size rcv_buf_size;
+    boost::system::error_code ec1;
+    sock_.get_option(rcv_buf_size, ec);
+    LOG(INFO, "Current receive sock buffer size is " << rcv_buf_size.value());
 }
 
 uint32_t KSyncSockNetlink::GetSeqno(char *data) {
@@ -516,4 +524,8 @@ void KSyncIoContext::ErrorHandler(int err) {
                 ":", strerror(err), ">. Object <", entry_->ToString(), 
                 ">. State <", entry_->StateString(), ">. Message number :", 
                 GetSeqno());
+    LOG(ERROR, "VRouter operation failed. Error <" << err << ":" <<
+                strerror(err) << ">. Object <" << entry_->ToString() <<
+                ">. State <" << entry_->StateString() << ">. Message number :"
+                << GetSeqno());
 }

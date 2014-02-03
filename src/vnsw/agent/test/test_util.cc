@@ -5,6 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test/test_init.h"
 #include "oper/mirror_table.h"
+#include "uve/vn_uve_table_test.h"
 
 #define MAX_TESTNAME_LEN 80
 
@@ -500,7 +501,7 @@ bool VmPortGetStats(PortInfo *input, int id, uint32_t & bytes, uint32_t & pkts) 
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -517,7 +518,7 @@ bool VrfStatsMatch(int vrf_id, std::string vrf_name, bool stats_match,
                    uint64_t l3_mcast_composites, uint64_t multi_proto_composites,
                    uint64_t encaps, uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
-                        AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
+                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -563,7 +564,7 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
                    uint64_t multi_proto_composites, uint64_t encaps, 
                    uint64_t l2_encaps) {
     const AgentStatsCollector::VrfStats *st = 
-                        AgentUve::GetInstance()->GetStatsCollector()->GetVrfStats(vrf_id);
+                        Agent::GetInstance()->uve()->agent_stats_collector()->GetVrfStats(vrf_id);
     if (st == NULL) {
         return false;
     }
@@ -593,20 +594,25 @@ bool VrfStatsMatchPrev(int vrf_id, uint64_t discards, uint64_t resolves,
     return false;
 }
 
-bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts, 
+bool VnStatsMatch(char *vn, uint64_t in_bytes, uint64_t in_pkts,
                   uint64_t out_bytes, uint64_t out_pkts) {
-    UveVnEntry entry;
-    bool found = UveClient::GetInstance()->GetUveVnEntry(string(vn), entry);
-    if (!found) {
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    const VnUveEntry* entry = vnut->GetVnUveEntry(string(vn));
+    if (!entry) {
         LOG(DEBUG, "Vn " << string(vn) << " NOT FOUND");
         return false;
     }
-    if (entry.uve_info.get_in_bytes() == in_bytes && entry.uve_info.get_in_tpkts() == in_pkts &&
-        entry.uve_info.get_out_bytes() == out_bytes && entry.uve_info.get_out_tpkts() == out_pkts) {
+    uint64_t match_in_bytes, match_out_bytes, match_in_pkts, match_out_pkts;
+    entry->GetInStats(&match_in_bytes, &match_in_pkts);
+    entry->GetOutStats(&match_out_bytes, &match_out_pkts);
+
+    if (match_in_bytes == in_bytes && match_in_pkts == in_pkts &&
+        match_out_bytes == out_bytes && match_out_pkts == out_pkts) {
         return true;
     }
-    LOG(DEBUG, "in_bytes " << entry.uve_info.get_in_bytes() << " in_tpkts " << entry.uve_info.get_in_tpkts() <<
-               "out bytes " << entry.uve_info.get_out_bytes()  << " out_tpkts " << entry.uve_info.get_out_tpkts());
+    LOG(DEBUG, "in_bytes " << match_in_bytes << " in_tpkts " << match_in_pkts <<
+               "out bytes " << match_out_bytes  << " out_tpkts " << match_out_pkts);
     return false;
 }
 
@@ -618,7 +624,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
     if (intf == NULL)
         return false;
 
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     if (st == NULL)
         return false;
 
@@ -629,7 +635,7 @@ bool VmPortStats(PortInfo *input, int id, uint32_t bytes, uint32_t pkts) {
 
 bool VmPortStatsMatch(Interface *intf, uint32_t ibytes, uint32_t ipkts,
                       uint32_t obytes, uint32_t opkts) {
-    const AgentStatsCollector::IfStats *st = AgentUve::GetInstance()->GetStatsCollector()->GetIfStats(intf);
+    const AgentStatsCollector::InterfaceStats *st = AgentUve::GetInstance()->agent_stats_collector()->GetInterfaceStats(intf);
     EXPECT_TRUE(st != NULL);
     if (st == NULL)
         return false;
@@ -977,8 +983,7 @@ bool RouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-         FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -996,8 +1001,7 @@ bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
-                       FindActiveEntry(&key));
+             GetLayer2RouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1011,8 +1015,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr,
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1031,8 +1034,7 @@ bool MCRouteFind(const string &vrf_name, const Ip4Address &grp_addr) {
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return (route != NULL);
 }
 
@@ -1051,8 +1053,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name,
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::LAYER2))->
-                       FindActiveEntry(&key));
+             GetLayer2RouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1065,8 +1066,7 @@ Inet4UnicastRouteEntry* RouteGet(const string &vrf_name, const Ip4Address &addr,
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1079,8 +1079,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const Ip4Address &g
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -1093,8 +1092,7 @@ Inet4MulticastRouteEntry *MCRouteGet(const string &vrf_name, const string &grp_a
     Inet4MulticastRouteEntry *route = 
         static_cast<Inet4MulticastRouteEntry *>
         (static_cast<Inet4MulticastAgentRouteTable *>(vrf->
-             GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST))->
-                       FindActiveEntry(&key));
+             GetInet4MulticastRouteTable())->FindActiveEntry(&key));
     return route;
 }
 
@@ -2400,8 +2398,7 @@ bool ResolvRouteFind(const string &vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry *route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Resolve route not found");
         return false;
@@ -2433,8 +2430,7 @@ bool VhostRecvRouteFind(const string &vrf_name, const Ip4Address &addr,
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         LOG(DEBUG, "Vhost Receive route not found");
         return false;
@@ -2463,8 +2459,7 @@ uint32_t PathCount(const string vrf_name, const Ip4Address &addr, int plen) {
     Inet4UnicastRouteEntry* route = 
         static_cast<Inet4UnicastRouteEntry *>
         (static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST))->
-                       FindActiveEntry(&key));
+            GetInet4UnicastRouteTable())->FindActiveEntry(&key));
     if (route == NULL) {
         return 0;
     }

@@ -6,7 +6,6 @@
 #define vnsw_agent_route_walker_hpp
 
 #include "cmn/agent_cmn.h"
-#include "oper/route_types.h"
 
 class AgentRouteWalker {
 public:
@@ -16,7 +15,7 @@ public:
         ALL,
     };
 
-    typedef DBTableWalker::WalkId RouteWalkerIdList[AgentRouteTableAPIS::MAX];
+    typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
 
     AgentRouteWalker(WalkType type);
     ~AgentRouteWalker() { };
@@ -41,7 +40,7 @@ public:
 private:
    AgentRouteWalker::WalkType walk_type_;    
    DBTableWalker::WalkId vrf_walkid_;
-   DBTableWalker::WalkId route_walkid_[AgentRouteTableAPIS::MAX];
+   DBTableWalker::WalkId route_walkid_[Agent::ROUTE_TABLE_MAX];
 };
 
 #endif

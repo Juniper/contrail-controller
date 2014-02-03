@@ -155,7 +155,7 @@ public:
     virtual bool IsXmppPeer() const;
 
     void Close();
-    void Clear();
+    void Clear(int subcode);
 
     virtual IPeerClose *peer_close();
     virtual IPeerDebugStats *peer_stats();

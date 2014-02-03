@@ -77,8 +77,7 @@ void AgentXmppChannel::ReceiveEvpnUpdate(XmlPugi *pugi) {
     const std::string vrf(vrf_name);
     Layer2AgentRouteTable *rt_table = 
         static_cast<Layer2AgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
-                              AgentRouteTableAPIS::LAYER2));
+        (Agent::GetInstance()->GetVrfTable()->GetLayer2RouteTable(vrf_name));
 
     pugi::xml_node node_check = pugi->FindNode("retract");
     if (!pugi->IsNull(node_check)) {
@@ -318,8 +317,8 @@ void AgentXmppChannel::AddEcmpRoute(string vrf_name, Ip4Address prefix_addr,
                                     uint32_t prefix_len, ItemType *item) {
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
-                              AgentRouteTableAPIS::INET4_UNICAST));
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable
+         (vrf_name));
 
     std::vector<ComponentNHData> comp_nh_list;
     for (uint32_t i = 0; i < item->entry.next_hops.next_hop.size(); i++) {
@@ -372,8 +371,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     IpAddress addr = IpAddress::from_string(nexthop_addr, ec);
     Layer2AgentRouteTable *rt_table = 
         static_cast<Layer2AgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
-                              AgentRouteTableAPIS::LAYER2));
+        (Agent::GetInstance()->GetVrfTable()->GetLayer2RouteTable(vrf_name));
 
     if (ec.value() != 0) {
         CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name,
@@ -413,9 +411,8 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
         if (vrf != NULL) {
             Layer2RouteEntry *route = 
                 static_cast<Layer2RouteEntry *>
-                (static_cast<Layer2AgentRouteTable *>(vrf->
-                GetRouteTable(AgentRouteTableAPIS::LAYER2))->
-                FindActiveEntry(&key));
+                (static_cast<Layer2AgentRouteTable *>
+                 (vrf->GetLayer2RouteTable())->FindActiveEntry(&key));
             if (route) {
                 nh = route->GetActiveNextHop();
             } else {
@@ -456,8 +453,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                                       uint32_t prefix_len, ItemType *item) {
     Inet4UnicastAgentRouteTable *rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (Agent::GetInstance()->GetVrfTable()->GetRouteTable(vrf_name,
-                              AgentRouteTableAPIS::INET4_UNICAST));
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable
+         (vrf_name));
 
     boost::system::error_code ec; 
     string nexthop_addr = item->entry.next_hops.next_hop[0].address;
@@ -599,7 +596,7 @@ void AgentXmppChannel::ReceiveUpdate(const XmppStanza::XmppMessage *msg) {
 
         Inet4UnicastAgentRouteTable *rt_table = 
             static_cast<Inet4UnicastAgentRouteTable *>
-            (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+            (vrf->GetInet4UnicastRouteTable());
         if (!rt_table) {
             CONTROLLER_TRACE(Trace, bgp_peer_id_->GetName(), vrf_name, 
                              "VRF not found");
@@ -722,7 +719,7 @@ void AgentXmppChannel::HandleXmppClientChannelEvent(AgentXmppChannel *peer,
         // Walk route-tables and notify unicast routes
         // and notify subnet and broadcast if TreeBuilder  
         peer->GetBgpPeer()->PeerNotifyRoutes();
-        AgentStats::GetInstance()->incr_incr_xmpp_reconnects(peer->GetXmppServerIdx());
+        AgentStats::GetInstance()->incr_xmpp_reconnects(peer->GetXmppServerIdx());
 
         CONTROLLER_TRACE(Session, peer->GetXmppServer(), "READY",
                          Agent::GetInstance()->GetControlNodeMulticastBuilder()->GetBgpPeer()->GetName(),
@@ -1132,14 +1129,14 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
                                            TunnelType::TypeBmap bmap,
                                            const SecurityGroupList *sg_list,
                                            bool add_route,
-                                           AgentRouteTableAPIS::TableType type) 
+                                           Agent::RouteTableType type)
 {
     bool ret = false;
-    if (type == AgentRouteTableAPIS::INET4_UNICAST) {
+    if (type == Agent::INET4_UNICAST) {
         ret = AgentXmppChannel::ControllerSendV4UnicastRoute(peer, route, vn,
                                           sg_list, label, add_route);
     } 
-    if (type == AgentRouteTableAPIS::LAYER2) {
+    if (type == Agent::LAYER2) {
         ret = AgentXmppChannel::ControllerSendEvpnRoute(peer, route, vn, 
                                          label, bmap, add_route);
     } 

@@ -25,7 +25,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -552,7 +551,6 @@ bool VmInterface::Resync(VmInterfaceData *data) {
     VrfEntryRef old_vrf = vrf_;
     Ip4Address old_addr = ip_addr_;
     int old_vxlan_id = vxlan_id_;
-    bool old_fabric_port = fabric_port_;
     bool old_need_linklocal_ip = need_linklocal_ip_;
     bool sg_changed = false;
 
@@ -591,8 +589,7 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 
     // Apply config based on old and new values
     ApplyConfig(old_ipv4_active, old_l2_active, old_policy, old_vrf.get(), 
-                old_addr, old_vxlan_id, old_fabric_port,
-                old_need_linklocal_ip, sg_changed);
+                old_addr, old_vxlan_id, old_need_linklocal_ip, sg_changed);
 
     return ret;
 }
@@ -603,8 +600,7 @@ void VmInterface::Delete() {
     ipv4_active_ = false;
     l2_active_ = false;
     ApplyConfig(old_ipv4_active, old_l2_active, policy_enabled_, 
-                vrf_.get(), ip_addr_, vxlan_id_, fabric_port_,
-                need_linklocal_ip_, false);
+                vrf_.get(), ip_addr_, vxlan_id_, need_linklocal_ip_, false);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 
@@ -805,9 +801,8 @@ void VmInterface::DeleteL2(bool old_l2_active, VrfEntry *old_vrf) {
 // Apply the latest configuration
 void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old_policy, 
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 
-                              int old_vxlan_id, bool old_fabric_port,
-                              bool old_need_linklocal_ip, bool sg_changed) {
-
+                              int old_vxlan_id, bool old_need_linklocal_ip,
+                              bool sg_changed) {
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
@@ -899,7 +894,7 @@ bool VmInterface::ResyncIpAddress(const VmInterfaceIpAddressData *data) {
 
     ipv4_active_ = IsL3Active();
     ApplyConfig(old_ipv4_active, l2_active_, policy_enabled_, vrf_.get(), old_addr,
-                vxlan_id_, fabric_port_, need_linklocal_ip_, false);
+                vxlan_id_, need_linklocal_ip_, false);
     return ret;
 }
 
@@ -1015,6 +1010,9 @@ bool VmInterface::IsVxlanMode() const {
 
 // Allocate MPLS Label for Layer3 routes
 void VmInterface::AllocL3MplsLabel(bool force_update, bool policy_change) {
+    if (fabric_port_)
+        return;
+
     bool new_entry = false;
     if (label_ == MplsTable::kInvalidLabel) {
         Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
@@ -1118,7 +1116,7 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_->GetName(),
+            Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
                                                         ip_addr_, 32);
         }
     }
@@ -1186,7 +1184,9 @@ void VmInterface::DeleteFloatingIp() {
     while (it != floating_ip_list_.list_.end()) {
         FloatingIpSet::iterator prev = it++;
         prev->DeActivate(this);
-        floating_ip_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            floating_ip_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -1208,7 +1208,9 @@ void VmInterface::DeleteServiceVlan() {
     while (it != service_vlan_list_.list_.end()) {
         ServiceVlanSet::iterator prev = it++;
         prev->DeActivate(this);
-        service_vlan_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            service_vlan_list_.list_.erase(prev);
+        }
     }
 } 
 
@@ -1230,7 +1232,9 @@ void VmInterface::DeleteStaticRoute() {
     while (it != static_route_list_.list_.end()) {
         StaticRouteSet::iterator prev = it++;
         prev->DeActivate(this);
-        static_route_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            static_route_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -1250,7 +1254,9 @@ void VmInterface::DeleteSecurityGroup() {
     SecurityGroupEntrySet::iterator it = sg_list_.list_.begin();
     while (it != sg_list_.list_.end()) {
         SecurityGroupEntrySet::iterator prev = it++;
-        sg_list_.list_.erase(prev);
+        if (prev->del_pending_) {
+            sg_list_.list_.erase(prev);
+        }
     }
 }
 
@@ -1588,7 +1594,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_, addr_, plen_);
+        Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled());
     }

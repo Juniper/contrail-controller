@@ -9,7 +9,14 @@ Import('AgentEnv')
 env = AgentEnv.Clone()
 
 # Generate the sandesh UVE source files
-SandeshGenPyFiles  = env.SandeshGenPy('vrouter.sandesh')
+vrouter_pkg = env.SandeshGenPy('vrouter.sandesh', 'vrouter/', False)
+virtual_machine_pkg = env.SandeshGenPy('virtual_machine.sandesh', 'vrouter/sandesh/', False)
+virtual_network_pkg = env.SandeshGenPy('virtual_network.sandesh', 'vrouter/sandesh/', False)
+cpuinfo_pkg = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh', 'vrouter/vrouter/', False)
+port_bmap_pkg = env.SandeshGenPy('port_bmap.sandesh', 'vrouter/sandesh/virtual_machine/', False)
+flow_pkg = env.SandeshGenPy('#controller/src/sandesh/common/flow.sandesh', 'vrouter/sandesh/', False)
+env.Depends(cpuinfo_pkg, vrouter_pkg)
+env.Depends(port_bmap_pkg, virtual_machine_pkg)
 
 setup_sources = [
            'setup.py',
@@ -20,31 +27,18 @@ setup_sources_rules = []
 for file in setup_sources:
     setup_sources_rules.append(env.Install("", "#controller/src/vnsw/agent/uve/" + file))
 
-sandesh_dirs = ['vrouter']
-for file in sandesh_dirs:
-    Dir(env['TOP'] + '/vnsw/agent/uve/gen_py/' + file)
-sandesh_files = sandesh_dirs
-sandesh_sources = ['gen_py/' + ssrc for ssrc in sandesh_files]
-sandesh_sources_rules = []
-for file in sandesh_sources:
-    sandesh_sources_rules.append(env.Install("vrouter", env['TOP'] + "/vnsw/agent/uve/" + file))
-env.Depends(sandesh_sources_rules, env['TOP'] + '/vnsw/agent/uve/gen_py/')
+vrouter_sources = [
+        'cpuinfo.py',
+       ]
 
-sandesh_init_rules = [env.Install("vrouter", env['TOP'] + "/vnsw/agent/uve/gen_py/__init__.py")]
-env.Requires(sandesh_init_rules, sandesh_sources_rules)
+vrouter_sources_rules = []
+for file in vrouter_sources:
+    vrouter_sources_rules.append(env.Install('vrouter', '#controller/src/vnsw/agent/uve/' + file))
 
-# Generate the sandesh cpuinfo from base
-sandesh_base_gen_py_files = env.SandeshGenPy('#controller/src/base/sandesh/cpuinfo.sandesh')
-sandesh_base_dirs = [ 'cpuinfo' ]
-for file in sandesh_base_dirs:
-    Dir(env['TOP'] + '/vnsw/agent/uve/gen_py/' + file)
-sandesh_base_files = sandesh_base_dirs
-sandesh_base_sources = ['gen_py/' + ssrc for ssrc in sandesh_base_files]
-sandesh_base_sources_rules = []
-for file in sandesh_base_sources:
-    sandesh_base_sources_rules.append(env.Install("vrouter/vrouter", env['TOP'] + "/vnsw/agent/uve/" + file))
-env.Requires(sandesh_base_sources_rules, sandesh_base_gen_py_files)
-env.Requires(sandesh_base_sources_rules, Dir(env['TOP'] + '/base/sandesh/gen_py/'))
+sandesh_init_rules = []
+sandesh_init_rules.append(env.Install('vrouter', env['TOP'] + '/vnsw/agent/uve/vrouter/vrouter/__init__.py'))
+sandesh_init_rules.append(env.Install('vrouter/sandesh', env['TOP'] + '/vnsw/agent/uve/vrouter/vrouter/__init__.py'))
+env.Depends(sandesh_init_rules, vrouter_pkg)
 
 rel_path = Dir('vrouter').path
 def BuildInfoAction(target, source, env):
@@ -54,14 +48,20 @@ build_info_rules = [env.Command(target='buildinfo.py', source = None, action=Bui
 
 sdist_depends = []
 sdist_depends.extend(setup_sources_rules)
-sdist_depends.extend(sandesh_sources_rules)
+sdist_depends.extend(vrouter_sources_rules)
+sdist_depends.extend(vrouter_pkg)
+sdist_depends.extend(cpuinfo_pkg)
+sdist_depends.extend(virtual_machine_pkg)
+sdist_depends.extend(virtual_network_pkg)
+sdist_depends.extend(port_bmap_pkg)
 sdist_depends.extend(sandesh_init_rules)
-sdist_depends.extend(sandesh_base_sources_rules)
 sdist_depends.extend(build_info_rules)
+sdist_depends.extend(flow_pkg)
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
+env.Alias("vrouter:node_mgr", sdist_gen)
 
 # Generate the C++ source files
 SandeshGenFiles  = env.SandeshGenCpp('port_bmap.sandesh')
@@ -69,20 +69,32 @@ SandeshGenFiles += env.SandeshGenCpp('vrouter.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_machine.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('virtual_network.sandesh')
 SandeshGenFiles += env.SandeshGenCpp('acl.sandesh')
-SandeshGenFiles += env.SandeshGenCpp('agent_uve.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('stats_interval.sandesh')
 
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 SandeshGenObjs = env.Object(SandeshGenSrcs)
 
 libagentuve = env.Library('agentuve',
                          SandeshGenObjs +
-                         ['agent_stats.cc',
-                          'inter_vn_stats.cc',
-                          'flow_stats.cc',
-                          'flow_uve.cc',
-                          'uve_client.cc',
-                          'uve_init.cc',
-                          'vrouter_stats.cc'
+                         ['agent_stats_collector.cc',
+                          'agent_stats_sandesh_context.cc',
+                          'drop_stats_io_context.cc',
+                          'flow_stats_collector.cc',
+                          'l4_port_bitmap.cc',
+                          'interface_stats_io_context.cc',
+                          'agent_uve.cc',
+                          'vm_uve_entry.cc',
+                          'vm_uve_table.cc',
+                          'vm_stat.cc',
+                          'vn_uve_entry.cc',
+                          'vn_uve_table.cc',
+                          'vrf_stats_io_context.cc',
+                          'vrouter_stats_collector.cc',
+                          'vrouter_uve_entry.cc',
+                          'agent_uve_test.cc',
+                          'vm_uve_table_test.cc',
+                          'vn_uve_table_test.cc',
+                          'vrouter_uve_entry_test.cc',
                           ])
 
 env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

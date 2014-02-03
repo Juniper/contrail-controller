@@ -19,10 +19,30 @@
 using namespace std;
 using namespace boost::asio;
 
+static void MulticastTableEnqueue(Agent *agent, const string &vrf_name,
+                                  DBRequest *req) {
+    AgentRouteTable *table = 
+        agent->vrf_table()->GetInet4MulticastRouteTable(vrf_name);
+    if (table) {
+        table->Enqueue(req);
+    }
+}
+
+static void MulticastTableProcess(Agent *agent, const string &vrf_name,
+                                  DBRequest &req) {
+    AgentRouteTable *table = 
+        agent->vrf_table()->GetInet4MulticastRouteTable(vrf_name);
+    if (table) {
+        table->Process(req);
+    }
+}
+
 DBTableBase *Inet4MulticastAgentRouteTable::CreateTable(DB *db, 
                                                       const std::string &name) {
-    return AgentRouteTableAPIS::GetInstance()->CreateInet4MulticastTable(db, 
-                                                                         name); 
+    AgentRouteTable *table = new Inet4MulticastAgentRouteTable(db, name);
+    table->Init();
+    //table->InitRouteTable(db, table, name, Agent::INET4_MULTICAST);
+    return table;
 }
 
 Inet4MulticastRouteEntry *Inet4MulticastAgentRouteTable::FindRoute(
@@ -30,10 +50,10 @@ Inet4MulticastRouteEntry *Inet4MulticastAgentRouteTable::FindRoute(
                                                         const Ip4Address &src,
                                                         const Ip4Address &grp) {
     VrfEntry *vrf = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
+        Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
     Inet4MulticastAgentRouteTable *rt_table = 
         static_cast<Inet4MulticastAgentRouteTable *>
-        (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST));
+        (vrf->GetInet4MulticastRouteTable());
     Inet4MulticastRouteKey *rt_key = 
         new Inet4MulticastRouteKey(vrf_name, grp, src);
     return static_cast<Inet4MulticastRouteEntry *>(rt_table->Find(rt_key));
@@ -54,8 +74,7 @@ Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name,
                                               Composite::L3COMP);
     req.key.reset(rt_key);
     req.data.reset(data);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Enqueue(&req);
+    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 } 
 
 void 
@@ -77,8 +96,7 @@ Inet4MulticastAgentRouteTable::AddVHostRecvRoute(const string &vm_vrf,
                          Agent::GetInstance()->GetFabricVnName());
     //data->SetMulticast(true);
     req.data.reset(data);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Enqueue(&req);
+    MulticastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
 }
 
 void 
@@ -95,8 +113,7 @@ Inet4MulticastAgentRouteTable::DeleteMulticastRoute(const string &vrf_name,
 
     req.key.reset(rt_key);
     req.data.reset(NULL);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Enqueue(&req);
+    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
 void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,
@@ -105,11 +122,10 @@ void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,
     DBRequest req(DBRequest::DB_ENTRY_DELETE);
     req.key.reset(new Inet4MulticastRouteKey(vrf_name, grp_addr, src_addr));
     req.data.reset(NULL);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Process(req);
+    MulticastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void Inet4MulticastAgentRouteTable::RouteResyncReq(const string &vrf_name,
+void Inet4MulticastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
                                                    const Ip4Address &src_addr,
                                                    const Ip4Address &dst_addr) {
     DBRequest  rt_req;
@@ -121,14 +137,7 @@ void Inet4MulticastAgentRouteTable::RouteResyncReq(const string &vrf_name,
     rt_key->sub_op_ = AgentKey::RESYNC;
     rt_req.key.reset(rt_key);
     rt_req.data.reset(NULL);
-    AgentRouteTableAPIS::GetInstance()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->Enqueue(&rt_req);
-}
-
-void Inet4MulticastRouteEntry::RouteResyncReq() const {
-    Inet4MulticastAgentRouteTable::RouteResyncReq(GetVrfEntry()->GetName(), 
-                                                  src_addr_, 
-                                                  dst_addr_); 
+    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
 }
 
 AgentRoute *
@@ -177,9 +186,7 @@ DBEntryBase::KeyPtr Inet4MulticastRouteEntry::GetDBRequestKey() const {
 void Inet4MulticastRouteEntry::SetKey(const DBRequestKey *key) {
     const Inet4MulticastRouteKey *k = 
         static_cast<const Inet4MulticastRouteKey *>(key);
-    SetVrf(AgentRouteTableAPIS::GetInstance()->
-           GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)->
-           FindVrfEntry(k->GetVrfName()));
+    SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->GetVrfName()));
     Ip4Address grp(k->GetDstIpAddress());
     Ip4Address src(k->GetSrcIpAddress());
     SetDstIpAddress(grp);
@@ -202,7 +209,7 @@ bool Inet4MulticastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
 
 void Inet4McRouteReq::HandleRequest() const {
     VrfEntry *vrf = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromId(get_vrf_index());
+        Agent::GetInstance()->vrf_table()->FindVrfFromId(get_vrf_index());
     if (!vrf) {
         ErrorResp *resp = new ErrorResp();
         resp->set_context(context());

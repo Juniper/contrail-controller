@@ -9,8 +9,7 @@
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
 #include <pkt/flow_table.h>
-#include <uve/flow_stats.h>
-#include <uve/inter_vn_stats.h>
+#include <uve/flow_stats_collector.h>
 #include <ksync/flowtable_ksync.h>
 #include <ksync/ksync_init.h>
 
@@ -47,8 +46,7 @@
 #include "pkt/pkt_handler.h"
 #include "pkt/flow_proto.h"
 #include "pkt/pkt_types.h"
-#include "uve/flow_uve.h"
-#include "uve/uve_init.h"
+#include "uve/agent_uve.h"
 #include "pkt/pkt_sandesh_flow.h"
 
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
@@ -411,7 +409,13 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
 void FlowEntry::UpdateKSync(FlowTableKSyncEntry *entry, bool create) {
     FlowInfo flow_info;
     FillFlowInfo(flow_info);
-    FlowStatsCollector::FlowExport(this, 0, 0);
+    if (stats_.last_modified_time != stats_.setup_time) {
+        /*
+         * Do not export stats on flow creation, it will be exported
+         * while updating stats
+         */
+        FlowStatsCollector::FlowExport(this, 0, 0);
+    }
     FlowTableKSyncObject *ksync_obj = 
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
@@ -771,9 +775,12 @@ bool FlowEntry::InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
             MakeShortFlow();
             return false;
         }
+        stats_.last_modified_time = UTCTimestampUsec();
+    } else {
+        /* For Flow Entry Create take last modified time same as setup time */
+        stats_.last_modified_time = stats_.setup_time;
     }
 
-    stats_.last_modified_time = UTCTimestampUsec();
     if (info->linklocal_flow) {
         set_flags(FlowEntry::LinkLocalFlow);
     } else {
@@ -952,7 +959,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         Agent::GetInstance()->ksync()->flowtable_ksync_obj();
 
     FlowStatsCollector *fec = Agent::GetInstance()->uve()->
-                                  GetFlowStatsCollector();
+                                  flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -1372,7 +1379,7 @@ void FlowTable::VrfNotify(DBTablePartBase *part, DBEntryBase *e)
         state->inet4_unicast_update_ = 
             Inet4RouteUpdate::UnicastInit(
             static_cast<Inet4UnicastAgentRouteTable *>(vrf->
-            GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST)));
+            GetInet4UnicastRouteTable()));
         vrf->SetState(part->parent(), vrf_listener_id_, state);
     }
     return;
@@ -1531,7 +1538,7 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
-    FlowUve::GetInstance()->DeleteFlow(fe);
+    Agent::GetInstance()->uve()->DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -1681,7 +1688,7 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::AddFlowInfo(FlowEntry *fe)
 {
-    FlowUve::GetInstance()->NewFlow(fe);
+    Agent::GetInstance()->uve()->NewFlow(fe);
     // Add AclFlowTree
     AddAclFlowInfo(fe);
     // Add IntfFlowTree
@@ -1989,6 +1996,12 @@ void FlowTable::DeleteVmIntfFlows(const Interface *intf)
 
 DBTableBase::ListenerId FlowTable::nh_listener_id() {
     return nh_listener_->id();
+}
+
+Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
+        const Ip4Address &addr) {
+        route_key_.SetAddr(addr);
+        return entry->GetUcRoute(route_key_);
 }
 
 void SetActionStr(const FlowAction &action_info, std::vector<ActionStr> &action_str_l)

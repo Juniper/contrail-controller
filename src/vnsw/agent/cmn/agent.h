@@ -65,7 +65,6 @@ class SgTable;
 class VrfTable;
 class MplsTable;
 class RouteTable;
-class AgentRouteTableAPIS;
 class AgentRouteTable;
 class Inet4UnicastAgentRouteTable;
 class Inet4MulticastAgentRouteTable;
@@ -99,6 +98,7 @@ class FlowProto;
 
 class Peer;
 class LifetimeManager;
+class DiagTable;
 
 extern void RouterIdDepInit();
 
@@ -118,6 +118,14 @@ public:
         AUTOMATIC,
         CONFIGURED
     };
+
+    enum RouteTableType {
+        INET4_UNICAST = 0,
+        INET4_MULTICAST,
+        LAYER2,
+        ROUTE_TABLE_MAX
+    };
+
     Agent();
     virtual ~Agent();
     const std::string &GetHostName();
@@ -136,6 +144,7 @@ public:
         return mc_rt_table_;
     };
     Layer2AgentRouteTable *GetLayer2AgentRouteTable() {return l2_rt_table_;};
+    VrfTable *vrf_table() const { return vrf_table_;}
     VrfTable *GetVrfTable() { return vrf_table_;};
     VmTable *GetVmTable() { return vm_table_;};
     VnTable *GetVnTable() { return vn_table_;};
@@ -501,6 +510,9 @@ public:
     void Shutdown() {
     }
 
+    DiagTable *diag_table() const {
+        return diag_table_.get();
+    }
     void CreateLifetimeManager();
     void ShutdownLifetimeManager();
     void SetAgentTaskPolicy();
@@ -540,6 +552,7 @@ private:
     std::auto_ptr<ServicesModule> services_;
     std::auto_ptr<VirtualGateway> vgw_;
     std::auto_ptr<OperDB> oper_db_;
+    std::auto_ptr<DiagTable> diag_table_;
 
     EventManager *event_mgr_;
     AgentXmppChannel *agent_xmpp_channel_[MAX_XMPP_SERVERS];

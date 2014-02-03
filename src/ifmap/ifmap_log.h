@@ -26,7 +26,9 @@ do { \
 
 #define IFMAP_TRACE(obj, ...) \
 do { \
-    obj::TraceMsg(IFMapTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    if (!LoggingDisabled()) { \
+        obj::TraceMsg(IFMapTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    } \
 } while(0)
 
 #define IFMAP_DEBUG(obj, ...) \
@@ -70,7 +72,9 @@ do { \
 
 #define IFMAP_TRACE_BIG_MSG(obj, ...) \
 do { \
-    obj::TraceMsg(IFMapBigMsgTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    if (!LoggingDisabled()) { \
+        obj::TraceMsg(IFMapBigMsgTraceBuf, __FILE__, __LINE__, __VA_ARGS__); \
+    } \
 } while(0)
 
 #define IFMAP_PEER_LOG_POLL_RESP(obj, ...) \

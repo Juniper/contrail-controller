@@ -14,6 +14,7 @@ class AgentDBTable;
 class AgentDBEntry;
 class IFMapNode;
 class Sandesh;
+class Agent;
 
 /////////////////////////////////////////////////////////////////////////////
 // Refcount class for AgentDBEntry
@@ -125,13 +126,13 @@ private:
 class AgentDBTable : public DBTable {
 public:
     AgentDBTable(DB *db, const std::string &name) : 
-        DBTable(db, name), ref_listener_id_(-1) {
+        DBTable(db, name), ref_listener_id_(-1), agent_(NULL) {
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
 
     AgentDBTable(DB *db, const std::string &name, bool del_on_zero_refcount) : 
-        DBTable(db, name), ref_listener_id_(-1) {
+        DBTable(db, name), ref_listener_id_(-1) , agent_(NULL){
         ref_listener_id_ = Register(boost::bind(&AgentDBTable::Notify,
                                                 this, _1, _2));
     };
@@ -160,12 +161,15 @@ public:
     virtual bool CanNotify(IFMapNode *dbe) {
         return true;
     }
+    void set_agent(Agent *agent) { agent_ = agent; }
+    Agent *agent() const { return agent_; }
 
 private:
     AgentDBEntry *Find(const DBEntry *key);
     AgentDBEntry *Find(const DBRequestKey *key);
 
     DBTableBase::ListenerId ref_listener_id_;
+    Agent *agent_;
     DISALLOW_COPY_AND_ASSIGN(AgentDBTable);
 };
 

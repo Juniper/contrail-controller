@@ -169,7 +169,7 @@ bool DbHandler::Initialize(int instance) {
         return false;
     }
 
-    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
+    if (!dbif_->Db_AddSetTablespace(g_viz_constants.COLLECTOR_KEYSPACE,"2")) {
         LOG(ERROR, __func__ << ": Create/Set KEYSPACE: " <<
             g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
         return false;
@@ -1051,94 +1051,6 @@ bool DbHandler::FlowTableInsert(const RuleMsg& rmsg) {
                 VIZD_ASSERT(0);
             }
           }
-          {
-            GenDb::ColList *col_list(new GenDb::ColList);
-
-            /* Table */
-            col_list->cfname_ = g_viz_constants.FLOW_TABLE_ALL_FIELDS;
-
-            GenDb::DbDataValueVec& rowkey = col_list->rowkey_;
-
-            pugi::xml_node runnode;
-            int32_t runint32;
-
-            /* setup the rowkey */
-            rowkey.push_back(t2);
-            rowkey.push_back(dir_val);
-
-            std::vector<GenDb::NewCol>& columns = col_list->columns_;
-
-            GenDb::DbDataValueVec col_name;
-            /* setup the column-name */
-            col_name.push_back((uint32_t)0);
-
-            col_name.push_back(rmsg.hdr.get_Source());
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            runstring = runnode.child_value();
-            col_name.push_back(runstring);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            runstring = runnode.child_value();
-            col_name.push_back(runstring);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            stringToInteger(runnode.child_value(), runint32);
-            col_name.push_back((uint32_t)runint32);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            stringToInteger(runnode.child_value(), runint32);
-            col_name.push_back((uint32_t)runint32);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            stringToInteger(runnode.child_value(), runint32);
-            col_name.push_back((uint8_t)runint32);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            stringToInteger(runnode.child_value(), runint32);
-            col_name.push_back((uint16_t)runint32);
-
-            pugi_p = std::string(g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second);
-            runnode = parent.find_node(pugi_p);
-            if (!runnode) {
-                VIZD_ASSERT(0);
-            }
-            stringToInteger(runnode.child_value(), runint32);
-            col_name.push_back((uint16_t)runint32);
-
-            columns.push_back(GenDb::NewCol(col_name, col_value));
-
-            std::auto_ptr<GenDb::ColList> col_list_ptr(col_list);
-
-            if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
-                VIZD_ASSERT(0);
-            }
-          }
-    }
-
+    }          
     return true;
 }

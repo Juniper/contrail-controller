@@ -14,13 +14,12 @@ public:
         Inet4AgentRouteTable(Inet4AgentRouteTable::MULTICAST, db, name),
         walkid_(DBTableWalker::kInvalidWalkerId) { };
     virtual ~Inet4MulticastAgentRouteTable() { };
-    virtual bool DelExplicitRoute(DBTablePartBase *part, DBEntryBase *entry) { 
-        return true; };
     //Nexthop will be stored in path as lcoalvmpeer peer so that it falls in line
     //Override virtual routines for no action w.r.t. multicast
     virtual string GetTableName() const {return "Inet4MulticastAgentRouteTable";};
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_MULTICAST;};
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_MULTICAST;
+    }
 
     void McRtRouteNotifyDone(DBTableBase *base, DBState *);
     void AddVHostRecvRoute(const string &vm_vrf,
@@ -31,7 +30,7 @@ public:
     static Inet4MulticastRouteEntry *FindRoute(const string &vrf_name, 
                                                const Ip4Address &ip, 
                                                const Ip4Address &dip);
-    static void RouteResyncReq(const string &vrf_name, 
+    static void ReEvaluatePaths(const string &vrf_name, 
                                const Ip4Address &sip, 
                                const Ip4Address &dip);
     static void AddMulticastRoute(const string &vrf_name, 
@@ -59,12 +58,12 @@ public:
     virtual string ToString() const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual void RouteResyncReq() const;
     virtual const string GetAddressString() const {
         return dst_addr_.to_string();};
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
-    virtual AgentRouteTableAPIS::TableType GetTableType() const {
-        return AgentRouteTableAPIS::INET4_MULTICAST;};;
+    virtual Agent::RouteTableType GetTableType() const {
+        return Agent::INET4_MULTICAST;
+    }
 
     void SetDstIpAddress(const Ip4Address &dst) {dst_addr_ = dst;};
     void SetSrcIpAddress(const Ip4Address &src) {src_addr_ = src;};
@@ -77,32 +76,27 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4MulticastRouteEntry);
 };
 
-class Inet4MulticastRouteKey : public RouteKey {
+class Inet4MulticastRouteKey : public AgentRouteKey {
 public:
     Inet4MulticastRouteKey(const string &vrf_name,const Ip4Address &dip, 
                            const Ip4Address &sip) :
-                         RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
+                         AgentRouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
                                   vrf_name), dip_(dip), sip_(sip) { };
     Inet4MulticastRouteKey(const string &vrf_name, const Ip4Address &dip) : 
-        RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name), dip_(dip) { 
+        AgentRouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name), dip_(dip) { 
             boost::system::error_code ec;
             sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
     };
     Inet4MulticastRouteKey(const string &vrf_name) : 
-        RouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name) { 
+        AgentRouteKey(Agent::GetInstance()->GetLocalVmPeer(), vrf_name) { 
             boost::system::error_code ec;
             dip_ =  IpAddress::from_string("255.255.255.255", ec).to_v4();
             sip_ =  IpAddress::from_string("0.0.0.0", ec).to_v4();
     };
     virtual ~Inet4MulticastRouteKey() { };
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
-    //Enqueue add/chg/delete for route
-    virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
-        return (static_cast<Inet4MulticastAgentRouteTable *>
-                (vrf->GetRouteTable(AgentRouteTableAPIS::INET4_MULTICAST)));
-    };
-    virtual AgentRouteTableAPIS::TableType GetRouteTableType() {
-       return AgentRouteTableAPIS::INET4_MULTICAST;
+    virtual Agent::RouteTableType GetRouteTableType() {
+       return Agent::INET4_MULTICAST;
     }; 
     virtual string ToString() const { return ("Inet4MulticastRouteKey"); };
 

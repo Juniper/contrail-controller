@@ -53,9 +53,6 @@ if sys.platform != 'darwin':
     test_stats =  env.Program(target = 'test_stats', source = ['test_stats.cc'])
     env.Alias('src/vnsw/agent/test:test_stats', test_stats)
 
-    test_stats_mock =  env.Program(target = 'test_stats_mock', source = ['test_stats_mock.cc'])
-    env.Alias('src/vnsw/agent/test:test_stats_mock', test_stats_mock)
-
     test_acl = env.Program(target = 'test_acl', source = ['../filter/test/acl_test.cc'])
     env.Alias('src/vnsw/agent/test:test_acl', test_acl)
 
@@ -86,9 +83,6 @@ if sys.platform != 'darwin':
 
     test_bgp = env.Program(target = 'test_bgp', source = ['test_bgp.cc'])
     env.Alias('src/vnsw/agent/test:test_bgp', test_bgp)
-
-    test_uve = env.Program(target = 'test_uve', source = ['test_uve.cc'])
-    env.Alias('src/vnsw/agent/test:test_uve', test_uve)
 
     test_vrf = env.Program(target = 'test_vrf', source = ['test_vrf.cc'])
     env.Alias('src/vnsw/agent/test:test_vrf', test_vrf)
@@ -145,7 +139,6 @@ test_suite = [test_dummy,
               test_peer_del,
               test_vmport_cfg,
               test_fip_cfg,
-              test_stats_mock,
               test_acl,
               test_acl_entry,
               test_route,
@@ -153,7 +146,6 @@ test_suite = [test_dummy,
               test_cfg,
               test_xmpp,
               test_xmppcs,
-              test_uve,
               test_vrf,
               test_mirror,
               test_nh,

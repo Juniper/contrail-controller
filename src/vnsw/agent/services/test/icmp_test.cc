@@ -26,7 +26,6 @@
 #include <pugixml/pugixml.hpp>
 #include <services/icmp_proto.h>
 #include <vr_interface.h>
-#include "uve/uve_init.h"
 #include <test/test_cmn_util.h>
 #include <test/pkt_gen.h>
 #include <services/services_sandesh.h>

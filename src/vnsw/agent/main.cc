@@ -35,8 +35,7 @@
 #include <services/services_init.h>
 #include <ksync/ksync_init.h>
 #include <openstack/instance_service_server.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/agent_uve.h>
 #include <kstate/kstate.h>
 #include <pkt/proto.h>
 #include <diag/diag.h>

@@ -6,12 +6,11 @@
 #define vnsw_agent_route_encap_hpp
 
 #include "cmn/agent_cmn.h"
-#include "oper/route_types.h"
 #include "oper/agent_route_walker.h"
 
 class AgentRouteEncap : public AgentRouteWalker {
 public:    
-    typedef DBTableWalker::WalkId RouteWalkerIdList[AgentRouteTableAPIS::MAX];
+    typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
     AgentRouteEncap();
     ~AgentRouteEncap() { };
 

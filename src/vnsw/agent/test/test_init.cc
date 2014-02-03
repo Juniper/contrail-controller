@@ -230,8 +230,7 @@ static bool WaitForDbFree(const string &name, int msec) {
 
 void TestClient::Shutdown() {
     Agent::GetInstance()->init()->Shutdown();
-    AgentUve::GetInstance()->Shutdown();
-    UveClient::GetInstance()->Shutdown();
+    Agent::GetInstance()->uve()->Shutdown();
     Agent::GetInstance()->ksync()->NetlinkShutdownTest();
     Agent::GetInstance()->ksync()->Shutdown();
     Agent::GetInstance()->pkt()->Shutdown();  

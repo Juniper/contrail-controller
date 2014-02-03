@@ -118,11 +118,11 @@ public:
 
     class Key {
     public:
-        static size_t Length(NodeEntry *node) {
+        static size_t Length(const NodeEntry *node) {
             return ((node->type_len_ + node->name_len_) << 3);
         }
 
-        static char ByteValue(NodeEntry *node, size_t i) {
+        static char ByteValue(const NodeEntry *node, size_t i) {
             if (i < node->type_len_) {
                 return node->type_.at(i);
             }

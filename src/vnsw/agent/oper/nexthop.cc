@@ -684,8 +684,8 @@ bool TunnelNH::Change(const DBRequest *req) {
     bool valid = false;
 
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
@@ -714,8 +714,8 @@ bool TunnelNH::Change(const DBRequest *req) {
 
 void TunnelNH::Delete(const DBRequest *req) {
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }
 
@@ -791,8 +791,8 @@ bool MirrorNH::Change(const DBRequest *req) {
         return true;
     }
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     Inet4UnicastRouteEntry *rt = rt_table->FindLPM(dip_);
     if (!rt) {
         //No route to reach destination, add to unresolved list
@@ -825,8 +825,8 @@ void MirrorNH::Delete(const DBRequest *req) {
         return;
     }
     Inet4UnicastAgentRouteTable *rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>(GetVrf()->
-        GetRouteTable(AgentRouteTableAPIS::INET4_UNICAST));
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (GetVrf()->GetInet4UnicastRouteTable());
     rt_table->RemoveUnresolvedNH(this);
 }
 

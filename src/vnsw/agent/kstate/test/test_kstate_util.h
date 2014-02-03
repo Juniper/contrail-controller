@@ -24,11 +24,11 @@ public:
 
     class Key {
     public:
-        static std::size_t Length (TestIntfEntry *node) {
+        static std::size_t Length (const TestIntfEntry *node) {
             return (node->get_name().length() << 3);
         }
 
-        static char ByteValue(TestIntfEntry *node, std::size_t i) {
+        static char ByteValue(const TestIntfEntry *node, std::size_t i) {
             return node->get_name().at(i);
         }
     };
@@ -123,11 +123,11 @@ public:
 
     class Key {
     public:
-        static std::size_t Length (TestRouteEntry *node) {
+        static std::size_t Length (const TestRouteEntry *node) {
             return node->get_prefix_len();
         }
 
-        static char ByteValue(TestRouteEntry *node, std::size_t i) {
+        static char ByteValue(const TestRouteEntry *node, std::size_t i) {
             Ip4Address addr = Ip4Address::from_string(node->get_prefix());
             return addr.to_bytes()[i];
         }

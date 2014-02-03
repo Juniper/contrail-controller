@@ -17,8 +17,8 @@
 
 using namespace boost::posix_time;
 
-Ping::Ping(const PingReq *ping_req):
-    DiagEntry(ping_req->get_interval() * 100, ping_req->get_count()),
+Ping::Ping(const PingReq *ping_req,DiagTable *diag_table):
+    DiagEntry(ping_req->get_interval() * 100, ping_req->get_count(),diag_table),
     sip_(Ip4Address::from_string(ping_req->get_source_ip(), ec_)),
     dip_(Ip4Address::from_string(ping_req->get_dest_ip(), ec_)),
     proto_(ping_req->get_protocol()), sport_(ping_req->get_source_port()),
@@ -49,9 +49,9 @@ Ping::CreateTcpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingTcpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
-                                   *(Agent::GetInstance()->GetEventManager())->io_service());
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
+    DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
+                                   *(diag_table_->agent()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -75,9 +75,9 @@ Ping::CreateUdpPkt() {
     AgentDiagPktData *ad = (AgentDiagPktData *)(msg + KPingUdpHdr);
     FillAgentHeader(ad);
 
-    PktInfo *pkt_info = new PktInfo(msg, len_);
-    DiagPktHandler *pkt_handler = new DiagPktHandler(Agent::GetInstance(), pkt_info,
-                                    *(Agent::GetInstance()->GetEventManager())->io_service());
+    boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg, len_));
+    DiagPktHandler *pkt_handler = new DiagPktHandler(diag_table_->agent(), pkt_info,
+                                    *(diag_table_->agent()->GetEventManager())->io_service());
 
     //Update pointers to ethernet header, ip header and l4 header
     pkt_info->UpdateHeaderPtr();
@@ -123,7 +123,7 @@ void Ping::SendRequest() {
     intf_nh = static_cast<const InterfaceNH *>(nh);
 
     uint32_t intf_id = intf_nh->GetInterface()->id();
-    uint32_t vrf_id = Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
+    uint32_t vrf_id = diag_table_->agent()->GetVrfTable()->FindVrfFromName(vrf_name_)->GetVrfId();
     //Send request out
     pkt_handler->SetDiagChkSum();
     pkt_handler->Send(len_ - IPC_HDR_LEN, intf_id, vrf_id, 
@@ -238,7 +238,7 @@ void PingReq::HandleRequest() const {
         goto error;
     }
     }
-    ping = new Ping(this);
+    ping = new Ping(this, Agent::GetInstance()->diag_table());
     ping->Init();
     return;
 

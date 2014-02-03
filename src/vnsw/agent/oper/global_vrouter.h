@@ -32,7 +32,7 @@ public:
         Ip4Address linklocal_service_ip;
         uint16_t   linklocal_service_port;
 
-        LinkLocalServiceKey(const Ip4Address addr, uint16_t port)
+        LinkLocalServiceKey(const Ip4Address &addr, uint16_t port)
             : linklocal_service_ip(addr), linklocal_service_port(port) {}
         bool operator<(const LinkLocalServiceKey &rhs) const;
     };

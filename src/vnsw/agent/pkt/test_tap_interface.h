@@ -82,9 +82,9 @@ public:
                      test_pkt_handler_(NULL) {
     }
 
-    virtual ~TestTapInterface() { delete test_pkt_handler_; }
+    virtual ~TestTapInterface() {}
 
-    TestPktHandler *GetTestPktHandler() const { return test_pkt_handler_; }
+    TestPktHandler *GetTestPktHandler() const { return test_pkt_handler_.get(); }
 
     void SetupTap() {
         // Use a socket to receive packets in the test mode
@@ -113,7 +113,7 @@ public:
         }
         agent_rcv_port_ = ntohs(sin.sin_port);
 
-        test_pkt_handler_ = new TestPktHandler(agent_, agent_rcv_port_);
+        test_pkt_handler_.reset(new TestPktHandler(agent_, agent_rcv_port_));
         test_rcv_ep_.address(
                 boost::asio::ip::address::from_string("127.0.0.1", ec_));
         test_rcv_ep_.port(test_pkt_handler_->GetTestPktHandlerPort());
@@ -144,7 +144,7 @@ private:
     boost::system::error_code ec_;
     boost::asio::ip::udp::socket test_write_;
     boost::asio::ip::udp::endpoint test_rcv_ep_;
-    TestPktHandler *test_pkt_handler_;
+    boost::scoped_ptr<TestPktHandler> test_pkt_handler_;
     DISALLOW_COPY_AND_ASSIGN(TestTapInterface);
 };
 

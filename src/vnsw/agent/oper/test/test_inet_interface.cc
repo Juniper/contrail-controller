@@ -33,7 +33,6 @@
 #include "oper/mpls.h"
 #include "oper/vm.h"
 #include "oper/vn.h"
-#include "uve/uve_init.h"
 #include "filter/acl.h"
 #include "openstack/instance_service_server.h"
 #include "test_cmn_util.h"
@@ -66,14 +65,11 @@ public:
         client->WaitForIdle();
 
         vhost_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
-            (vrf_table_->GetRouteTable(VRF_VHOST,
-                                       AgentRouteTableAPIS::INET4_UNICAST));
+            (vrf_table_->GetInet4UnicastRouteTable(VRF_VHOST));
         ll_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
-            (vrf_table_->GetRouteTable(VRF_LL,
-                                       AgentRouteTableAPIS::INET4_UNICAST));
+            (vrf_table_->GetInet4UnicastRouteTable(VRF_LL));
         gw_rt_table_ = static_cast<Inet4UnicastAgentRouteTable *> 
-            (vrf_table_->GetRouteTable(VRF_GW,
-                                       AgentRouteTableAPIS::INET4_UNICAST));
+            (vrf_table_->GetInet4UnicastRouteTable(VRF_GW));
     }
 
     virtual void TearDown() {

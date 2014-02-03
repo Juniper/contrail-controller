@@ -12,9 +12,9 @@ public:
 
     MOCK_METHOD0(Db_Init, bool());
     MOCK_METHOD0(Db_Uninit, void());
-    MOCK_METHOD1(Db_AddTablespace, bool(const std::string&));
+    MOCK_METHOD1(Db_AddTablespace, bool(const std::string&,const std::string&));
     MOCK_METHOD1(Db_SetTablespace, bool(const std::string&));
-    MOCK_METHOD1(Db_AddSetTablespace, bool(const std::string&));
+    MOCK_METHOD1(Db_AddSetTablespace, bool(const std::string&,const std::string& = "1"));
     MOCK_METHOD1(Db_FindTablespace, bool(const std::string&));
 
     MOCK_METHOD2(Db_GetColumnFamilies, void(const std::string, std::vector<std::string>&));

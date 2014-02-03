@@ -213,13 +213,13 @@ void IFMapServerParser::ParseResults(
 }
 
 // Called in the context of the ifmap client thread.
-void IFMapServerParser::Receive(DB *db, const char *data, size_t length,
+bool IFMapServerParser::Receive(DB *db, const char *data, size_t length,
                                 uint64_t sequence_number) {
     xml_document xdoc;
     pugi::xml_parse_result result = xdoc.load_buffer(data, length);
     if (!result) {
         IFMAP_WARN(IFMapXmlLoadError, "Unable to load XML document", length);
-        return;
+        return false;
     }
 
     IFMapServerParser::RequestList requests;
@@ -240,4 +240,5 @@ void IFMapServerParser::Receive(DB *db, const char *data, size_t length,
             IFMAP_TRACE(IFMapTblNotFoundTrace, "Cant find table", key->id_type);
         }
     }
+    return true;
 }

@@ -13,7 +13,7 @@ using namespace std;
 AgentRouteWalker::AgentRouteWalker(WalkType type) : walk_type_(type), 
     vrf_walkid_(DBTableWalker::kInvalidWalkerId) {
         for (uint32_t rt_table_type = 0; 
-             rt_table_type < AgentRouteTableAPIS::MAX; rt_table_type++) {
+             rt_table_type < Agent::ROUTE_TABLE_MAX; rt_table_type++) {
             route_walkid_[rt_table_type] = DBTableWalker::kInvalidWalkerId;
         }
 }
@@ -32,7 +32,7 @@ void AgentRouteWalker::CancelRouteWalk() {
     DBTableWalker *walker = Agent::GetInstance()->GetDB()->GetWalker();
 
     //Cancel Route table walks
-    for (uint8_t table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
          table_type++) {
         if (route_walkid_[table_type] != DBTableWalker::kInvalidWalkerId) {
             AGENT_LOG(AgentRouteWalkerLog, 
@@ -66,7 +66,7 @@ void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
 
     AgentRouteTable *table = NULL;
 
-    for (uint8_t table_type = 0; table_type < AgentRouteTableAPIS::MAX; 
+    for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
          table_type++) {
         table = static_cast<AgentRouteTable *>
             (vrf->GetRouteTable(table_type));

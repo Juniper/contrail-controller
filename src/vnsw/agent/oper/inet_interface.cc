@@ -25,7 +25,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -93,7 +92,7 @@ void InetInterface::ActivateSimpleGateway() {
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
 
-    if (label_ != MplsTable::kInvalidLabel) {
+    if (label_ == MplsTable::kInvalidLabel) {
         // Allocate MPLS Label 
         label_ = agent->GetMplsTable()->AllocLabel();
         // Create MPLS entry pointing to virtual host interface-nh
@@ -101,33 +100,12 @@ void InetInterface::ActivateSimpleGateway() {
                                             InterfaceNHFlags::INET4);
 
     }
-
-    Inet4UnicastAgentRouteTable *uc_rt_table = 
-        static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
-
-    // Packets received on fabric vrf and destined to IP address in "public" 
-    // network reach kernel. Linux kernel will put back the packets on vgw
-    // interface. Add route to trap the public addresses to linux kernel
-    Ip4Address addr = GetIp4SubnetAddress(ip_addr_, plen_);
-    uc_rt_table->AddVHostRecvRoute(agent->GetLocalVmPeer(),
-                                   agent->GetDefaultVrf(),
-                                   agent->vhost_interface_name(),
-                                   addr, plen_, vrf()->GetName(), false);
-
-    // Add default route in public network. BGP will export this route to
-    // other compute nodes
-    uc_rt_table->AddInetInterfaceRoute(agent->GetLocalVmPeer(), vrf()->GetName(),
-                                       Ip4Address(0), 0, name(), label_,
-                                       vrf()->GetName());
 }
 
 void InetInterface::DeActivateSimpleGateway() {
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (VrfTable::GetInstance()->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (VrfTable::GetInstance()->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
@@ -211,8 +189,7 @@ void InetInterface::ActivateHostInterface() {
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         AddHostRoutes(agent, uc_rt_table, vrf(), name(), ip_addr_, plen_,
                       vn_name_);
@@ -225,21 +202,19 @@ void InetInterface::ActivateHostInterface() {
     // Add receive-route for broadcast address
     Inet4MulticastAgentRouteTable *mc_rt_table = 
         static_cast<Inet4MulticastAgentRouteTable *> 
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_MULTICAST));
+        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     mc_rt_table->AddVHostRecvRoute(vrf()->GetName(), name_,
                                    Ip4Address(0xFFFFFFFF), false);
 }
 
 void InetInterface::DeActivateHostInterface() {
-    active_ = false;
+    ipv4_active_ = false;
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
     if (ip_addr_.to_ulong()) {
         DeleteHostRoutes(agent, uc_rt_table, vrf(), ip_addr_, plen_);
     }
@@ -250,8 +225,7 @@ void InetInterface::DeActivateHostInterface() {
 
     Inet4MulticastAgentRouteTable *mc_rt_table = 
         static_cast<Inet4MulticastAgentRouteTable *> 
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_MULTICAST));
+        (VrfTable::GetInstance()->GetInet4MulticastRouteTable(vrf()->GetName()));
     // Add receive-route for broadcast address
     mc_rt_table->Delete(vrf()->GetName(), Ip4Address(0), 
                         Ip4Address(0xFFFFFFFF));
@@ -265,14 +239,17 @@ void InetInterface::DeActivateHostInterface() {
 /////////////////////////////////////////////////////////////////////////////
 InetInterface::InetInterface(const std::string &name) :
     Interface(Interface::INET, nil_uuid(), name, NULL) {
+    ipv4_active_ = false;
+    l2_active_ = false;
 }
 
 InetInterface::InetInterface(const std::string &name, SubType sub_type,
                              VrfEntry *vrf, const Ip4Address &ip_addr, int plen,
                              const Ip4Address &gw, const std::string &vn_name) :
     Interface(Interface::INET, nil_uuid(), name, vrf), sub_type_(sub_type),
-    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name),
-    label_(MplsTable::kInvalidLabel), active_(false) {
+    ip_addr_(ip_addr), plen_(plen), gw_(gw), vn_name_(vn_name) {
+    ipv4_active_ = false;
+    l2_active_ = false;
 }
 
 bool InetInterface::CmpInterface(const DBEntry &rhs) const {
@@ -286,7 +263,7 @@ DBEntryBase::KeyPtr InetInterface::GetDBRequestKey() const {
 }
 
 void InetInterface::Activate() {
-    active_ = true;
+    ipv4_active_ = true;
     if (sub_type_ == SIMPLE_GATEWAY) {
         InetInterface::ActivateSimpleGateway();
     } else {
@@ -296,9 +273,8 @@ void InetInterface::Activate() {
     return;
 }
 
-
 void InetInterface::DeActivate() {
-    active_ = false;
+    ipv4_active_ = false;
 
     if (sub_type_ == SIMPLE_GATEWAY) {
         InetInterface::DeActivateSimpleGateway();
@@ -324,7 +300,7 @@ bool InetInterface::OnChange(InetInterfaceData *data) {
 
     // A Delete followed by Add will result in OnChange callback. Interface is
     // Deactivated on delete. Activate it again to create Interface NH etc...
-    if (active_ != true) {
+    if (ipv4_active_ != true) {
         Activate();
         ret = true;
     }
@@ -339,8 +315,7 @@ bool InetInterface::OnChange(InetInterfaceData *data) {
     VrfTable *vrf_table = static_cast<VrfTable *>(vrf()->get_table());
     Inet4UnicastAgentRouteTable *uc_rt_table = 
         static_cast<Inet4UnicastAgentRouteTable *>
-        (vrf_table->GetRouteTable(vrf()->GetName(),
-                                  AgentRouteTableAPIS::INET4_UNICAST));
+        (vrf_table->GetInet4UnicastRouteTable(vrf()->GetName()));
 
     if (ip_addr_ != data->ip_addr_ || plen_ != data->plen_) {
         // Delete routes based on old ip-addr and prefix

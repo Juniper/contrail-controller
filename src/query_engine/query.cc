@@ -12,7 +12,6 @@
 #include "rapidjson/document.h"
 #include "base/logging.h"
 #include "query.h"
-#include "viz_constants.cpp"
 #include <boost/assign/list_of.hpp>
 #include <cerrno>
 #include "analytics/vizd_table_desc.h"
@@ -280,22 +279,6 @@ void AnalyticsQuery::get_query_details(bool& is_merge_needed, bool& is_map_outpu
     }
     time_period = (end_time - from_time) / 1000000;
     is_map_output = is_stat_table_query();
-}
-
-AnalyticsQuery::AnalyticsQuery(GenDb::GenDbIf *db_if, std::string qid,
-    std::map<std::string, std::string>& json_api_data, 
-    uint64_t analytics_start_time) : QueryUnit(NULL, this),
-    filter_qe_logs(true),
-    json_api_data_(json_api_data),
-    where_start_(0),
-    select_start_(0),
-    postproc_start_(0),
-    merge_needed(false),
-    parallel_batch_num(0),
-    total_parallel_batches(1),
-    processing_needed(true)
-{
-    Init(db_if, qid, json_api_data, analytics_start_time);
 }
 
 bool AnalyticsQuery::can_parallelize_query() {
@@ -892,81 +875,6 @@ AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string,
     dbif->Db_SetInitDone(true);
     Init(dbif, qid, json_api_data, analytics_start_time);
 }
-
-
-AnalyticsQuery::AnalyticsQuery(std::string qid, std::map<std::string, 
-        std::string>& json_api_data, uint64_t analytics_start_time,
-        EventManager *evm, const std::string & cassandra_ip, 
-            unsigned short cassandra_port):
-        QueryUnit(NULL, this),
-        dbif_(GenDb::GenDbIf::GenDbIfImpl(evm->io_service(),
-            boost::bind(&AnalyticsQuery::db_err_handler, this),
-            cassandra_ip, cassandra_port, 0, "QueryEngine")),
-        filter_qe_logs(true),
-        json_api_data_(json_api_data),
-        where_start_(0),
-        select_start_(0),
-        postproc_start_(0),  
-        merge_needed(false),
-        parallel_batch_num(0),
-        total_parallel_batches(1),
-        processing_needed(true)
-{
-    // Need to do this for logging/tracing with query ids
-    query_id = qid;
-
-    QE_TRACE(DEBUG, __func__);
-
-    // Initialize database connection
-    QE_TRACE(DEBUG, "Initializing database");
-    dbif = dbif_.get();
-
-    if (!dbif->Db_Init("qe::DbHandler", -1)) {
-        QE_LOG(ERROR, "Database initialization failed");
-        this->status_details = EIO;
-    }
-
-    if (!dbif->Db_SetTablespace(g_viz_constants.COLLECTOR_KEYSPACE)) {
-            QE_LOG(ERROR,  ": Create/Set KEYSPACE: " <<
-               g_viz_constants.COLLECTOR_KEYSPACE << " FAILED");
-            QE_LOG(ERROR, "Database initialization:Db_SetTablespace failed");
-            this->status_details = EIO;
-    }   
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_tables.begin();
-            it != vizd_tables.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(*it)) {
-            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            this->status_details = EIO;
-        }
-    }
-    /* setup ObjectTables */
-    for (std::map<std::string, objtable_info>::const_iterator it =
-            g_viz_constants._OBJECT_TABLES.begin();
-            it != g_viz_constants._OBJECT_TABLES.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(
-                    (GenDb::NewCf(it->first,
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type)
-                                  (GenDb::DbDataType::AsciiType),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::Unsigned32Type),
-                                  boost::assign::list_of
-                                  (GenDb::DbDataType::LexicalUUIDType))))) {
-            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            this->status_details = EIO;
-        }
-    }
-    for (std::vector<GenDb::NewCf>::const_iterator it = vizd_flow_tables.begin();
-            it != vizd_flow_tables.end(); it++) {
-        if (!dbif_->Db_UseColumnfamily(*it)) {
-            QE_LOG(ERROR, "Database initialization:Db_UseColumnfamily failed");
-            this->status_details = EIO;
-        }
-    }
-    dbif->Db_SetInitDone(true);
-    Init(dbif, qid, json_api_data, analytics_start_time);
-}
-
 
 QueryEngine::QueryEngine(EventManager *evm,
             const std::string & redis_ip, unsigned short redis_port,

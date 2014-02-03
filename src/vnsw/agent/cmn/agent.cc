@@ -33,9 +33,9 @@
 #include <pkt/pkt_types.h>
 #include <pkt/proto.h>
 #include <pkt/proto_handler.h>
-#include <uve/flow_stats.h>
-#include <uve/uve_init.h>
-#include <uve/uve_client.h>
+#include <uve/flow_stats_collector.h>
+#include <uve/agent_uve.h>
+#include <uve/agent_uve_test.h>
 #include <vgw/vgw.h>
 
 #include <diag/diag.h>
@@ -49,7 +49,7 @@ const std::string Agent::link_local_vn_name_ =
     "default-domain:default-project:__link_local__";
 const std::string Agent::link_local_vrf_name_ = 
     "default-domain:default-project:__link_local__:__link_local__";
-const std::string Agent::vrrp_mac_ = "00:01:00:5E:00:00";
+const std::string Agent::vrrp_mac_ = "00:00:5E:00:01:00";
 const std::string Agent::bcast_mac_ = "FF:FF:FF:FF:FF:FF";
 
 Agent *Agent::singleton_;
@@ -232,7 +232,13 @@ void Agent::CreateModules() {
     cfg_ = std::auto_ptr<AgentConfig>(new AgentConfig(this));
     stats_ = std::auto_ptr<AgentStats>(new AgentStats(this));
     oper_db_ = std::auto_ptr<OperDB>(new OperDB(this));
-    uve_ = std::auto_ptr<AgentUve>(new AgentUve(this));
+    if (IsTestMode()) {
+        uve_ = std::auto_ptr<AgentUve>(new AgentUveTest(
+                    this, AgentUve::kBandwidthInterval));
+    } else {
+        uve_ = std::auto_ptr<AgentUve>(new AgentUve(
+                    this, AgentUve::kBandwidthInterval));
+    }
     ksync_ = std::auto_ptr<KSync>(new KSync(this));
 
     if (init_->packet_enable()) {
@@ -257,6 +263,7 @@ void Agent::CreateDBTables() {
 void Agent::CreateDBClients() {
     cfg_.get()->RegisterDBClients(db_);
     oper_db_.get()->CreateDBClients();
+    uve_.get()->RegisterDBClients();
     if (!test_mode_) {
         ksync_.get()->RegisterDBClients(db_);
     } else {
@@ -278,6 +285,7 @@ void Agent::InitModules() {
         if (init_->create_vhost()) {
             ksync_.get()->CreateVhostIntf();
         }
+        ksync_.get()->Init();
     } else {
         ksync_.get()->InitTest();
         ksync_.get()->NetlinkInitTest();
@@ -331,7 +339,7 @@ void Agent::InitDone() {
 
     // Diag module needs PktModule
     if (pkt_.get()) {
-        DiagTable::Init(this);
+        diag_table_ = std::auto_ptr<DiagTable>(new DiagTable(this));
     }
 
     if (init_->create_vhost()) {

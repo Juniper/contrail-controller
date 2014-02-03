@@ -23,7 +23,7 @@ using boost::system::error_code;
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
             std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
-            int gen_timeout, bool dup, int analytics_ttl) :
+            int syslog_port, int gen_timeout, bool dup, int analytics_ttl) :
     evm_(evm),
     osp_(new OpServerProxy(evm, this, redis_sentinel_ip, 
                            redis_sentinel_port, gen_timeout)),
@@ -32,6 +32,8 @@ VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
     collector_(new Collector(evm, listen_port, db_handler_.get(), ruleeng_.get(),
             cassandra_ip, cassandra_port, analytics_ttl)),
+    syslog_listener_(new SyslogListeners (evm, ruleeng_.get(),
+            db_handler_.get(), syslog_port)),
     dbif_timer_(TimerManager::CreateTimer(
             *evm_->io_service(), "Collector DbIf Timer",
             TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
@@ -49,6 +51,7 @@ VizCollector::VizCollector(EventManager *evm, DbHandler *db_handler,
     db_handler_(db_handler),
     ruleeng_(ruleeng),
     collector_(collector),
+    syslog_listener_(new SyslogListeners (evm, ruleeng, db_handler)),
     dbif_timer_(TimerManager::CreateTimer(
             *evm_->io_service(), "Collector DbIf Timer",
             TaskScheduler::GetInstance()->GetTaskId("collector::DbIf"))) {
@@ -106,7 +109,11 @@ void VizCollector::Shutdown() {
     TimerManager::DeleteTimer(dbif_timer_);
     dbif_timer_ = NULL;
 
+    syslog_listener_->Shutdown ();
+    TcpServerManager::DeleteServer(syslog_listener_); //delete syslog_listener_;
+
     db_handler_->UnInit(true);
+    LOG(DEBUG, __func__ << " viz_collector done");
 }
 
 bool VizCollector::DbifReinitTimerExpired() {
@@ -140,6 +147,10 @@ bool VizCollector::Init() {
     }
     ruleeng_->Init();
     LOG(DEBUG, __func__ << " Initialization complete");
+    if (!syslog_listener_->IsRunning ()) {
+        syslog_listener_->Start ();
+        LOG(DEBUG, __func__ << " Initialization of syslog listener done!");
+    }
     return true;
 }
 

@@ -31,7 +31,7 @@ struct PktControlInfo {
 
 class PktFlowInfo {
 public:
-    PktFlowInfo(PktInfo *info): 
+    PktFlowInfo(boost::shared_ptr<PktInfo> info): 
         pkt(info), source_vn(NULL), dest_vn(NULL), flow_source_vrf(-1),
         flow_dest_vrf(-1), source_sg_id_l(NULL), dest_sg_id_l(NULL),
         nat_done(false), nat_ip_saddr(0),
@@ -67,7 +67,7 @@ public:
                                           MatchPolicy *m_policy);
     void RewritePktInfo(uint32_t index);
 public:
-    PktInfo             *pkt;
+    boost::shared_ptr<PktInfo> pkt;
 
     const std::string   *source_vn;
     const std::string   *dest_vn;

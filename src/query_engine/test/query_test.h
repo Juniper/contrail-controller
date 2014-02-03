@@ -28,7 +28,7 @@ public:
     ~CdbIfMock() { MessageTable.clear();}
 
     bool Db_Init();
-    bool Db_AddSetTablespace(const std::string& tablespace);
+    bool Db_AddSetTablespace(const std::string& tablespace,const std::string& replication_factor = "1");
     bool Db_GetRangeSlices(std::vector<GenDb::Column>&,const GenDb::Cf&, const GenDb::ColumnRange&, const GenDb::RowKeyRange&);
     bool Db_GetMultiRow(std::map<std::string, std::vector<GenDb::ColElement> >& ret,
                 const std::string& cfname, const std::vector<std::string>& key);

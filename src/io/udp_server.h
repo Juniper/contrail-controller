@@ -1,4 +1,6 @@
-
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
 #include <boost/asio.hpp>
 #include <io/event_manager.h>
 #include <boost/intrusive_ptr.hpp>
@@ -27,6 +29,7 @@ public:
     virtual void Initialize(std::string ipaddress, short port);
     virtual void Initialize(udp::endpoint local_endpoint);
     virtual void Reset ();
+    virtual void Shutdown ();
 
     virtual udp::endpoint GetLocalEndPoint ();
     //tx-rx
@@ -43,7 +46,6 @@ public:
     // state
     ServerState GetServerState () { return state_; }
 
-protected:
     //buffers
     mutable_buffer *AllocateBuffer();
     mutable_buffer *AllocateBuffer(std::size_t s);
@@ -52,6 +54,7 @@ protected:
     udp::endpoint *AllocateEndPoint (std::string ipaddress, short port);
     void DeallocateEndPoint (udp::endpoint *ep);
 
+protected:
     EventManager *event_manager() { return evm_; }
     virtual bool DisableSandeshLogMessages() { return false; }
     virtual std::string ToString() { return name_; }

@@ -29,7 +29,7 @@
 #define IP_PROTOCOL        0x800  
 #define VLAN_PROTOCOL      0x8100       
 
-static const unsigned char agent_vrrp_mac[] = {0x00, 0x01, 0x00, 0x5E, 0x00, 0x00};
+static const unsigned char agent_vrrp_mac[] = {0x00, 0x00, 0x5E, 0x00, 0x01, 0x00};
 
 struct agent_hdr;
 class TapInterface;
@@ -136,7 +136,7 @@ struct PktInfo {
 // or to other tasks.
 class PktHandler {
 public:
-    typedef boost::function<bool(PktInfo *)> RcvQueueFunc;
+    typedef boost::function<bool(boost::shared_ptr<PktInfo>)> RcvQueueFunc;
     typedef boost::function<void(PktTrace::Pkt &)> PktTraceCallback;
 
     enum PktModuleName {

@@ -10,12 +10,28 @@
 
 using namespace log4cplus;
 
+static bool disabled_;
+
+bool LoggingDisabled() {
+    return disabled_;
+}
+
+void SetLoggingDisabled(bool flag) {
+    disabled_ = flag;
+}
+
+void CheckEnvironmentAndUpdate() {
+    if (getenv("LOG_DISABLE") != NULL) {
+        SetLoggingDisabled(true);
+    }
+}
 void LoggingInit() {
     BasicConfigurator config;
     config.configure();
     Logger logger = Logger::getRoot();
     std::auto_ptr<Layout> layout_ptr(new PatternLayout("%D{%Y-%m-%d %a %H:%M:%S:%Q %Z} %h [Thread %t, Pid %i]: %m%n"));
     logger.getAllAppenders().at(0)->setLayout(layout_ptr);
+    CheckEnvironmentAndUpdate();
 }
 
 void LoggingInit(std::string filename, long maxFileSize, int maxBackupIndex) {
@@ -31,15 +47,5 @@ void LoggingInit(std::string filename, long maxFileSize, int maxBackupIndex) {
 
     Logger logger = Logger::getRoot();
     logger.addAppender(fileappender);
+    CheckEnvironmentAndUpdate();
 }
-
-static bool disabled_;
-
-bool LoggingDisabled() {
-    return disabled_;
-}
-
-void SetLoggingDisabled(bool flag) {
-    disabled_ = flag;
-}
-

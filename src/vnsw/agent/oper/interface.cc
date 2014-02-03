@@ -24,7 +24,6 @@
 #include <oper/interface_common.h>
 #include <oper/vrf_assign.h>
 #include <oper/vxlan.h>
-#include <oper/route_types.h>
 
 #include <vnc_cfg_types.h>
 #include <oper/agent_sandesh.h>
@@ -150,6 +149,14 @@ Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
     if ((addr & 0xFFFF0000) != (METADATA_IP_ADDR & 0xFFFF0000))
         return NULL;
     return index_table_.At(addr & 0xFF);
+}
+
+Interface *InterfaceTable::FindInterface(size_t index) {
+    Interface *intf = index_table_.At(index);
+    if (intf && intf->IsDeleted() != true) {
+        return intf;
+    }
+    return NULL;
 }
 
 bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
