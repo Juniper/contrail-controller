@@ -151,6 +151,14 @@ Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
     return index_table_.At(addr & 0xFF);
 }
 
+Interface *InterfaceTable::FindInterface(size_t index) {
+    Interface *intf = index_table_.At(index);
+    if (intf && intf->IsDeleted() != true) {
+        return intf;
+    }
+    return NULL;
+}
+
 bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
                                               std::string *vm_ip,
                                               std::string *vm_uuid) {
