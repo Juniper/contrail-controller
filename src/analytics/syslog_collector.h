@@ -33,6 +33,7 @@ class SyslogTcpListener : public TcpServer
       explicit SyslogTcpListener (EventManager *evm);
       virtual TcpSession *AllocSession(Socket *socket);
       virtual void Start (std::string ipaddress, int port);
+      virtual void Shutdown ();
 
       virtual void Parse (SyslogQueueEntry &sqe) = 0;
     private:
@@ -44,6 +45,7 @@ class SyslogUDPListener: public UDPServer
     public:
       SyslogUDPListener (EventManager *evm);
       virtual void Start (std::string ipaddress, int port);
+      virtual void Shutdown ();
     protected:
       virtual void Parse (SyslogQueueEntry &sqe) = 0;
     private:
@@ -66,6 +68,7 @@ class SyslogListeners : public SyslogUDPListener,
       SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
         DbHandler *db_handler, int port=kDefaultSyslogPort);
       virtual void Start ();
+      virtual void Shutdown ();
       bool IsRunning ();
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
       DbHandler *GetDbHandler () { return db_handler_; }

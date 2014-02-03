@@ -632,6 +632,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
 
     in->intf_ = InterfaceTable::GetInstance()->FindInterface(pkt->agent_hdr.ifindex);
     if (in->intf_ == NULL || in->intf_->ipv4_active() == false) {
+        in->intf_ = NULL;
         LogError(pkt, "Invalid or Inactive ifindex");
         return false;
     }
@@ -647,6 +648,7 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
 
     in->vrf_ = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(pkt->agent_hdr.vrf);
     if (in->vrf_ == NULL || !in->vrf_->IsActive()) {
+        in->vrf_ = NULL;
         LogError(pkt, "Invalid or Inactive VRF");
         return false;
     }
