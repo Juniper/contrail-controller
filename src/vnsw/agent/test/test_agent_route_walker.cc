@@ -154,7 +154,7 @@ public:
     uint32_t vrf_notifications_;
     uint32_t vrf_notifications_count_;
     uint32_t total_rt_vrf_walk_done_;
-    RouteTableTypeWalkid route_table_type_walkid_;
+    RouteWalkerIdList route_table_type_walkid_;
 };
 
 TEST_F(AgentRouteWalkerTest, walk_all_routes) {
