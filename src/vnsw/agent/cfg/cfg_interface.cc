@@ -91,34 +91,24 @@ DBEntry *CfgIntTable::Add(const DBRequest *req) {
     CfgVnPortKey vn_port_key(cfg_int->GetVnUuid(), cfg_int->GetUuid());
     uuid_tree_[vn_port_key] = cfg_int;
 
-    std::ostringstream vn;
-    vn << cfg_int->GetVnUuid();
-    std::ostringstream vm;
-    vm << cfg_int->GetVmUuid();
-    std::ostringstream vm_project;
-    vm_project << cfg_int->vm_project_uuid();
-
     CFG_TRACE(IntfTrace, cfg_int->GetIfname(), 
-              cfg_int->vm_name(), vm.str(), vn.str(),
+              cfg_int->vm_name(), UuidToString(cfg_int->GetVmUuid()),
+              UuidToString(cfg_int->GetVnUuid()),
               cfg_int->ip_addr().to_string(), "ADD", 
-              cfg_int->GetVersion(), cfg_int->vlan_id(), vm_project.str());
+              cfg_int->GetVersion(), cfg_int->vlan_id(),
+              UuidToString(cfg_int->vm_project_uuid()));
     return cfg_int;
 }
 
 void CfgIntTable::Delete(DBEntry *entry, const DBRequest *req) {
     CfgIntEntry *cfg = static_cast<CfgIntEntry *>(entry);
 
-    std::ostringstream vn;
-    vn << cfg->GetVnUuid();
-    std::ostringstream vm;
-    vm << cfg->GetVmUuid();
-    std::ostringstream vm_project;
-    vm_project << cfg->vm_project_uuid();
-
     CFG_TRACE(IntfTrace, cfg->GetIfname(), 
-              cfg->vm_name(), vm.str(), vn.str(),
+              cfg->vm_name(), UuidToString(cfg->GetVmUuid()),
+              UuidToString(cfg->GetVnUuid()),
               cfg->ip_addr().to_string(), "DELETE",
-              cfg->GetVersion(), cfg->vlan_id(), vm_project.str());
+              cfg->GetVersion(), cfg->vlan_id(),
+              UuidToString(cfg->vm_project_uuid()));
 
     CfgVnPortKey vn_port_key(cfg->GetVnUuid(), cfg->GetUuid());
     CfgVnPortTree::iterator it = uuid_tree_.find(vn_port_key);
