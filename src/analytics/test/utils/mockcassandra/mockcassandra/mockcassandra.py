@@ -61,11 +61,16 @@ def start_cassandra(cport, sport_arg=None):
     js.bind(("",0))
     jport = js.getsockname()[1]
 
+    cqls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    cqls.bind(("",0))
+    cqlport = cqls.getsockname()[1]
+
     logging.info('Cassandra Client Port %d' % cport)
 
     replace_string_(confdir + "cassandra.yaml", \
         [("rpc_port: 9160","rpc_port: " + str(cport)), \
-        ("storage_port: 7000","storage_port: " + str(sport))])
+        ("storage_port: 7000","storage_port: " + str(sport)),
+        ("native_transport_port: 9042","native_transport_port: " + str(cqlport))])
 
     replace_string_(confdir + "cassandra.yaml", \
         [("/var/lib/cassandra/data",  cassbase + "data"), \
@@ -87,6 +92,8 @@ def start_cassandra(cport, sport_arg=None):
         ss.close()
 
     js.close()
+    cqls.close()
+
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
 
     return cassbase, basefile

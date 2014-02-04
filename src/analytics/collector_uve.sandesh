@@ -175,3 +175,21 @@ response sandesh DbQueueParamsError {
 response sandesh DbQueueParamsResponse {
     1: list<DbQueueParams> info;
 }
+
+struct SandeshMessageInfo {
+     1: string type
+     2: string level
+     3: u64    messages
+     4: u64    bytes
+}
+
+struct SandeshMessageStat {
+    1: string                            name (key="ObjectGeneratorInfo")
+    2: optional bool                     deleted
+    3: optional list<SandeshMessageInfo> msg_info (tags=".type,.level")
+}
+
+uve sandesh SandeshMessageTrace {
+    1: SandeshMessageStat data
+}
+
