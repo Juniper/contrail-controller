@@ -29,7 +29,7 @@ void UDPServer::SetName (udp::endpoint ep)
 {
     std::ostringstream s;
     boost::system::error_code ec;
-    s << "UDPsocket@" << ep;;
+    s << "UDPsocket@" << ep;
     name_ = s.str();
 }
 
@@ -41,18 +41,25 @@ UDPServer::~UDPServer ()
 void UDPServer::Reset ()
 {
     //*event_manager()->io_service ().stop (); ??
-    boost::system::error_code ec;
-    socket_.shutdown (udp::socket::shutdown_both, ec);
-    if (ec) {
-        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, 
-            "Error shutdown udp socket " << ec);
+    if (state_ == OK && socket_.is_open ()) {
+        boost::system::error_code ec;
+        socket_.shutdown (udp::socket::shutdown_both, ec);
+        if (ec) {
+            TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                "Error shutdown udp socket " << ec);
+        }
+        socket_.close (ec);
+        if (ec) {
+            TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
+                "Error closing udp socket " << ec);
+        }
+        state_ = Uninitialized;
     }
-    socket_.close (ec);
-    if (ec) {
-        TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA, 
-            "Error closing udp socket " << ec);
-    }
-    state_ = Uninitialized;
+}
+
+void UDPServer::Shutdown ()
+{
+    Reset ();
 }
 
 void UDPServer::Initialize (std::string ipaddress, short port)

@@ -1507,6 +1507,55 @@ TEST_F(FlowTest, AclDelete) {
     EXPECT_TRUE(FlowTableWait(0));
 }
 
+TEST_F(FlowTest, FlowOnDeletedInterface) {
+    struct PortInfo input[] = {
+        {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
+    //Delete the interface with reference help
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1,
+               VrfGet("vrf5")->GetVrfId());
+    client->WaitForIdle();
+
+    //Flow find should fail as interface is delete marked, and packet get dropped
+    // in packet parsing
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->GetVrfId(), "11.1.1.3", vm1_ip,
+                            IPPROTO_TCP, 30, 40);
+    EXPECT_TRUE(fe == NULL);
+}
+
+TEST_F(FlowTest, FlowOnDeletedVrf) {
+    struct PortInfo input[] = {
+        {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->GetVrfId();
+    InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
+    //Delete the VRF
+    DelVrf("vrf5");
+    client->WaitForIdle();
+
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1, vrf_id);
+    client->WaitForIdle();
+
+    //Flow find should fail as interface is delete marked
+    FlowEntry *fe = FlowGet(vrf_id, "11.1.1.3", vm1_ip,
+                            IPPROTO_TCP, 30, 40);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 

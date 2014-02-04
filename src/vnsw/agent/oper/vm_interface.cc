@@ -1111,7 +1111,7 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_->GetName(),
+            Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
                                                         ip_addr_, 32);
         }
     }
@@ -1589,7 +1589,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_, addr_, plen_);
+        Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled());
     }

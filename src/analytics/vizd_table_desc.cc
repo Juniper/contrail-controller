@@ -435,29 +435,5 @@ void init_vizd_tables() {
                       boost::assign::list_of
                       (GenDb::DbDataType::AsciiType)
                      ))
-/* Allfields Index table 
- * row key - (t2, dir)
- * column name - (t1, vrouter, svn, dvn, sip, dip, prot, sp, dp) 
- * column value - (pkts, bytes, shortflow, uuid) */
-        (GenDb::NewCf(g_viz_constants.FLOW_TABLE_ALL_FIELDS,
-                boost::assign::list_of
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::Unsigned8Type),
-                boost::assign::list_of
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::AsciiType)
-                (GenDb::DbDataType::AsciiType)
-                (GenDb::DbDataType::AsciiType)
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::Unsigned32Type)
-                (GenDb::DbDataType::Unsigned8Type)
-                (GenDb::DbDataType::Unsigned16Type)
-                (GenDb::DbDataType::Unsigned16Type),
-                boost::assign::list_of
-                (GenDb::DbDataType::Unsigned64Type)
-                (GenDb::DbDataType::Unsigned64Type)
-                (GenDb::DbDataType::Unsigned8Type)
-                (GenDb::DbDataType::LexicalUUIDType)
-                ))
         ;
 }
