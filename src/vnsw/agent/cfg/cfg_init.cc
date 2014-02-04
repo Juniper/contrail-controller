@@ -205,10 +205,6 @@ void AgentConfig::RegisterDBClients(DB *db) {
                                "interface-route-table")));
     assert(cfg_route_table_);
 
-    cfg_project_table_ = (static_cast<IFMapAgentTable *>
-         (IFMapTable::FindTable(agent_->GetDB(), "project")));
-    assert(cfg_project_table_);
-
     cfg_interface_client_.get()->Init();
 }
 

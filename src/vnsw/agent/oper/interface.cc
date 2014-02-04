@@ -169,7 +169,7 @@ bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
         *vm_ip = vintf->ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
-            *vm_project_uuid = UuidToString(vintf->vm()->project_uuid());
+            *vm_project_uuid = UuidToString(vintf->vm_project_uuid());
             return true;
         }
     }
@@ -514,6 +514,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);
         data.set_vm_name(vintf->vm_name());
+        data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
         break;
     }
     case Interface::INET:

@@ -15,30 +15,27 @@ using namespace std;
 
 struct VmKey : public AgentKey {
     VmKey(uuid id) : AgentKey(), uuid_(id) {} ;
-    virtual ~VmKey() { };
+    virtual ~VmKey() { }
 
     uuid uuid_;
 };
 
 struct VmData : public AgentData {
     typedef vector<uuid> SGUuidList;
-    VmData(const std::string &name, const SGUuidList &sg_list,
-           const uuid &project_uuid) : 
-        AgentData(), name_(name), sg_list_(sg_list),
-        project_uuid_(project_uuid) { };
-    virtual ~VmData() { };
+    VmData(const std::string &name, const SGUuidList &sg_list) :
+        AgentData(), name_(name), sg_list_(sg_list) { }
+    virtual ~VmData() { }
 
     std::string name_;
     SGUuidList sg_list_;
-    uuid project_uuid_;
 };
 
 class VmEntry : AgentRefCount<VmEntry>, public AgentDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
     VmEntry(uuid id) : 
-        uuid_(id), name_(""), project_uuid_(nil_uuid()) { }
-    virtual ~VmEntry() { };
+        uuid_(id), name_("") { }
+    virtual ~VmEntry() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const;
@@ -46,10 +43,8 @@ public:
     virtual string ToString() const;
     const string &GetCfgName() const { return name_; }
     void SetCfgName(std::string name) { name_ = name; }
-    void set_project_uuid(uuid &project_uuid) { project_uuid_ = project_uuid; }
 
     const uuid &GetUuid() const { return uuid_; }
-    const uuid &project_uuid() const { return project_uuid_; }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VmEntry>::GetRefCount();
@@ -61,21 +56,17 @@ private:
     friend class VmTable;
     uuid uuid_;
     std::string name_;
-    uuid project_uuid_;
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 
 class VmTable : public AgentDBTable {
 public:
-    VmTable(DB *db, const std::string &name)
-        : AgentDBTable(db, name), operdb_() { }
-    virtual ~VmTable() { };
-
-    void Init(OperDB *oper);
+    VmTable(DB *db, const std::string &name) : AgentDBTable(db, name) { }
+    virtual ~VmTable() { }
 
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
-    virtual size_t Hash(const DBEntry *entry) const {return 0;};
-    virtual size_t Hash(const DBRequestKey *key) const {return 0;};
+    virtual size_t Hash(const DBEntry *entry) const {return 0;}
+    virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
     virtual DBEntry *Add(const DBRequest *req);
     virtual bool OnChange(DBEntry *entry, const DBRequest *req);
@@ -83,10 +74,9 @@ public:
     virtual bool IFNodeToReq(IFMapNode *node, DBRequest &req);
 
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static VmTable *GetInstance() {return vm_table_;};
+    static VmTable *GetInstance() {return vm_table_;}
 
 private:
-    OperDB *operdb_;
     static VmTable *vm_table_;
     DISALLOW_COPY_AND_ASSIGN(VmTable);
 };

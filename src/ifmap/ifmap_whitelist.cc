@@ -101,6 +101,7 @@ IFMapGraphTraversalFilterCalculator::IFMapGraphTraversalFilterCalculator(
 // Hardcoded
 void IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() {
     node_blacklist_map_.insert(std::make_pair("config-root", "config-root"));
+    node_blacklist_map_.insert(std::make_pair("project", "project"));
     node_blacklist_map_.insert(std::make_pair("network-policy",
                                               "network-policy"));
 }
