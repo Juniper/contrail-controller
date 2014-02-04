@@ -29,6 +29,7 @@
 #include "ksync/ksync_sock_user.h"
 #include "vr_types.h"
 #include <uve/vn_uve_table_test.h>
+#include "uve/test/test_uve_util.h"
 
 using namespace std;
 
@@ -51,6 +52,9 @@ void RouterIdDepInit() {
 
 class UveVnUveTest : public ::testing::Test {
 public:
+    UveVnUveTest() : util_(), peer_(NULL) {
+    }
+
     static void TestSetup() {
         client->SetFlowFlushExclusionPolicy();
         client->SetFlowAgeExclusionPolicy();
@@ -87,30 +91,6 @@ public:
         delete static_cast<Peer *>(peer_);
     }
 
-    void VnAdd(int id) {
-        char vn_name[80];
-
-        sprintf(vn_name, "vn%d", id);
-        uint32_t vn_count = Agent::GetInstance()->GetVnTable()->Size();
-        client->Reset();
-        AddVn(vn_name, id);
-        EXPECT_TRUE(client->VnNotifyWait(1));
-        EXPECT_TRUE(VnFind(id));
-        EXPECT_EQ((vn_count + 1), Agent::GetInstance()->GetVnTable()->Size());
-    }
-
-    void VnDelete(int id) {
-        char vn_name[80];
-
-        sprintf(vn_name, "vn%d", id);
-        uint32_t vn_count = Agent::GetInstance()->GetVnTable()->Size();
-        client->Reset();
-        DelNode("virtual-network", vn_name);
-        EXPECT_TRUE(client->VnNotifyWait(1));
-        EXPECT_EQ((vn_count - 1), Agent::GetInstance()->GetVnTable()->Size());
-        EXPECT_FALSE(VnFind(id));
-    }
-
     void AclAdd(int id) {
         char acl_name[80];
 
@@ -120,40 +100,6 @@ public:
         AddAcl(acl_name, id);
         EXPECT_TRUE(client->AclNotifyWait(1));
         EXPECT_EQ((count + 1), Agent::GetInstance()->GetAclTable()->Size());
-    }
-
-    void VmAdd(int id) {
-        char vm_name[80];
-
-        sprintf(vm_name, "vm%d", id);
-        uint32_t vm_count = Agent::GetInstance()->GetVmTable()->Size();
-        client->Reset();
-        AddVm(vm_name, id);
-        EXPECT_TRUE(client->VmNotifyWait(1));
-        EXPECT_TRUE(VmFind(id));
-        EXPECT_EQ((vm_count + 1), Agent::GetInstance()->GetVmTable()->Size());
-    }
-
-    void VrfAdd(int id) {
-        char vrf_name[80];
-
-        sprintf(vrf_name, "vrf%d", id);
-        AddVrf(vrf_name);
-        client->WaitForIdle();
-        EXPECT_TRUE(client->VrfNotifyWait(1));
-        EXPECT_TRUE(VrfFind(vrf_name));
-    }
-
-    void NovaPortAdd(struct PortInfo *input) {
-        client->Reset();
-        IntfCfgAdd(input, 0);
-        EXPECT_TRUE(client->PortNotifyWait(1));
-    }
-
-    void ConfigPortAdd(struct PortInfo *input) {
-        client->Reset();
-        AddPort(input[0].name, input[0].intf_id);
-        client->WaitForIdle();
     }
 
     void CreateRemoteRoute(const char *vrf, const char *remote_vm, 
@@ -176,6 +122,7 @@ public:
         client->WaitForIdle();
         WAIT_FOR(1000, 1, (RouteFind(vrf, addr, 32) == false));
     }
+    TestUveUtil util_;
 private:
     BgpPeer *peer_;
 };
@@ -184,7 +131,7 @@ TEST_F(UveVnUveTest, VnAddDel_1) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
-    VnAdd(1);
+    util_.VnAdd(1);
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -192,7 +139,7 @@ TEST_F(UveVnUveTest, VnAddDel_1) {
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     //Delete VN
-    VnDelete(1);
+    util_.VnDelete(1);
     EXPECT_EQ(1U, vnut->delete_count());
 
     //clear counters at the end of test case
@@ -208,7 +155,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
-    VnAdd(input[0].vn_id);
+    util_.VnAdd(input[0].vn_id);
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -216,10 +163,10 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     // Nova Port add message
-    NovaPortAdd(input);
+    util_.NovaPortAdd(input);
 
     // Config Port add
-    ConfigPortAdd(input);
+    util_.ConfigPortAdd(input);
 
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
@@ -229,8 +176,8 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_EQ(1U, vnut->send_count());
 
     //Add necessary objects and links to make vm-intf active
-    VmAdd(input[0].vm_id);
-    VrfAdd(input[0].vn_id);
+    util_.VmAdd(input[0].vm_id);
+    util_.VrfAdd(input[0].vn_id);
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -272,7 +219,7 @@ TEST_F(UveVnUveTest, VnIntfAddDel_1) {
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
     //Delete VN
-    VnDelete(input[0].vn_id);
+    util_.VnDelete(input[0].vn_id);
 
     //Verify UVE 
     EXPECT_EQ(1U, vnut->delete_count());
@@ -303,7 +250,7 @@ TEST_F(UveVnUveTest, VnChange_1) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
-    VnAdd(1);
+    util_.VnAdd(1);
     EXPECT_EQ(1U, vnut->send_count());
 
     UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn1");
@@ -338,7 +285,7 @@ TEST_F(UveVnUveTest, VnChange_1) {
     EXPECT_TRUE((uve1->get_acl().compare(string("acl2")) == 0));
 
     //Delete VN
-    VnDelete(1);
+    util_.VnDelete(1);
     EXPECT_EQ(1U, vnut->delete_count());
 
     //clear counters at the end of test case
@@ -641,20 +588,20 @@ TEST_F(UveVnUveTest, FipCount) {
     VnUveTableTest *vnut = static_cast<VnUveTableTest *>
         (Agent::GetInstance()->uve()->vn_uve_table());
     //Add VN
-    VnAdd(input[0].vn_id);
+    util_.VnAdd(input[0].vn_id);
     // Nova Port add message
-    NovaPortAdd(&input[0]);
-    NovaPortAdd(&input[1]);
+    util_.NovaPortAdd(&input[0]);
+    util_.NovaPortAdd(&input[1]);
     // Config Port add
-    ConfigPortAdd(&input[0]);
-    ConfigPortAdd(&input[1]);
+    util_.ConfigPortAdd(&input[0]);
+    util_.ConfigPortAdd(&input[1]);
     //Verify that the port is inactive
     EXPECT_TRUE(VmPortInactive(input, 0));
 
     //Add necessary objects and links to make vm-intf active
-    VmAdd(input[0].vm_id);
-    VmAdd(input[1].vm_id);
-    VrfAdd(input[0].vn_id);
+    util_.VmAdd(input[0].vm_id);
+    util_.VmAdd(input[1].vm_id);
+    util_.VrfAdd(input[0].vn_id);
     AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
     client->WaitForIdle();
     AddLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
@@ -766,7 +713,7 @@ TEST_F(UveVnUveTest, FipCount) {
             "routing-instance", "vrf1");
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
-    VnDelete(input[0].vn_id);
+    util_.VnDelete(input[0].vn_id);
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
     client->WaitForIdle();

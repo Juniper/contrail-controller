@@ -48,3 +48,26 @@ VmUveTable::VmUveEntryPtr VmUveTableTest::Allocate(const VmEntry *vm) {
     VmUveEntryPtr uve(new VmUveEntryTest(agent_));
     return uve;
 }
+
+void VmUveTableTest::DispatchVmMsg(const UveVirtualMachineAgent &uve) { 
+    send_count_++; 
+    if (uve.get_deleted()) {
+        delete_count_++;
+    }
+}
+
+void VmUveTableTest::ClearCount() {
+    send_count_ = 0;
+    delete_count_ = 0;
+}
+
+UveVirtualMachineAgent* VmUveTableTest::VmUveObject(const VmEntry *vm) {
+    UveVmMap::iterator it = uve_vm_map_.find(vm);
+    if (it == uve_vm_map_.end()) {
+        return NULL;
+    }
+
+    VmUveEntryTest *uve = static_cast<VmUveEntryTest *>(it->second.get());
+    return uve->uve_info();
+}
+
