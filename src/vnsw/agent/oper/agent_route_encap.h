@@ -11,13 +11,14 @@
 class AgentRouteEncap : public AgentRouteWalker {
 public:    
     typedef DBTableWalker::WalkId RouteWalkerIdList[Agent::ROUTE_TABLE_MAX];
-    AgentRouteEncap();
-    ~AgentRouteEncap() { };
+    AgentRouteEncap(Agent *agent);
+    ~AgentRouteEncap() { }
 
     void Update();
+    virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e);
 
-    virtual bool RouteWalkNotify(DBTablePartBase *partition,
-                                 DBEntryBase *e);
+private:
+    DISALLOW_COPY_AND_ASSIGN(AgentRouteEncap);
 };
 
 #endif

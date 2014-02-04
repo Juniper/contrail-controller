@@ -348,7 +348,7 @@ GlobalVrouter::GlobalVrouter(OperDB *oper)
       linklocal_route_mgr_(new LinkLocalRouteManager(this)),
       fabric_dns_resolver_(new FabricDnsResolver(this,
                            *(oper->agent()->GetEventManager()->io_service()))),
-      agent_route_encap_update_walker_(new AgentRouteEncap()) {
+      agent_route_encap_update_walker_(new AgentRouteEncap(oper->agent())) {
 }
 
 GlobalVrouter::~GlobalVrouter() {

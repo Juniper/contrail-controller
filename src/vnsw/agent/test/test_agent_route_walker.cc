@@ -40,12 +40,18 @@ struct PortInfo input_2[] = {
     {"vnet2", 2, "2.2.2.20", "00:00:02:02:02:20", 2, 2},
 };
 
+struct PortInfo input_3[] = {
+    {"vnet3", 3, "3.3.3.30", "00:00:03:03:03:30", 3, 3},
+};
+
 class AgentRouteWalkerTest : public AgentRouteWalker, public ::testing::Test {
 public:    
-    AgentRouteWalkerTest() : AgentRouteWalker(AgentRouteWalker::ALL),
+    AgentRouteWalkerTest() : AgentRouteWalker(Agent::GetInstance(),
+                                              AgentRouteWalker::ALL),
     default_tunnel_type_(TunnelType::MPLS_GRE) {
         vrf_name_1_ = "vrf1";
         vrf_name_2_ = "vrf2";
+        vrf_name_3_ = "vrf3";
         server_ip_ = Ip4Address::from_string("10.1.1.11");
         local_vm_ip_1_ = Ip4Address::from_string("1.1.1.10");
         local_vm_ip_2_ = Ip4Address::from_string("2.2.2.20");
@@ -65,39 +71,82 @@ public:
     };
     ~AgentRouteWalkerTest() { };
 
+    void SetupEnvironment(int num_vrfs) {
+        client->Reset();
+        if (num_vrfs == 0)
+            return;
+
+        if (num_vrfs > 0) {
+            VrfAddReq(vrf_name_1_.c_str());
+        }
+        if (num_vrfs > 1) {
+            VrfAddReq(vrf_name_2_.c_str());
+        }
+        if (num_vrfs > 2) {
+            VrfAddReq(vrf_name_3_.c_str());
+        }
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
+                Agent::GetInstance()->GetDefaultVrf(), server_ip_, 24);
+        client->WaitForIdle();
+        client->WaitForIdle();
+        if (num_vrfs > 0) {
+            CreateVmportEnv(input_1, 1);
+        }
+        if (num_vrfs > 1) {
+            CreateVmportEnv(input_2, 1);
+        }
+        if (num_vrfs > 2) {
+            CreateVmportEnv(input_3, 1);
+        }
+        client->WaitForIdle();
+        client->Reset();
+    }
+
+    void DeleteEnvironment(int num_vrfs) {
+        client->Reset();
+        if (num_vrfs == 0)
+            return;
+
+        if (num_vrfs > 0) {
+            DeleteVmportEnv(input_1, 1, true);
+        }
+        if (num_vrfs > 1) {
+            DeleteVmportEnv(input_2, 1, true);
+        }
+        if (num_vrfs > 2) {
+            DeleteVmportEnv(input_3, 1, true);
+        }
+        client->WaitForIdle();
+        if (num_vrfs > 0) {
+            VrfDelReq(vrf_name_1_.c_str());
+            client->WaitForIdle();
+            WAIT_FOR(100, 100, (VrfFind(vrf_name_1_.c_str()) != true));
+        }
+        if (num_vrfs > 1) {
+            VrfDelReq(vrf_name_2_.c_str());
+            client->WaitForIdle();
+            WAIT_FOR(100, 100, (VrfFind(vrf_name_2_.c_str()) != true));
+        }
+        if (num_vrfs > 2) {
+            VrfDelReq(vrf_name_3_.c_str());
+            client->WaitForIdle();
+            WAIT_FOR(100, 100, (VrfFind(vrf_name_3_.c_str()) != true));
+        }
+        client->WaitForIdle();
+    }
+
     virtual void SetUp() {
         client->Reset();
         VxLanNetworkIdentifierMode(false);
         client->WaitForIdle();
         AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
         client->WaitForIdle();
-
-        //Create a VRF
-        VrfAddReq(vrf_name_1_.c_str());
-        VrfAddReq(vrf_name_2_.c_str());
-        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                Agent::GetInstance()->GetDefaultVrf(), server_ip_, 24);
-        client->WaitForIdle();
-        client->WaitForIdle();
-        CreateVmportEnv(input_1, 1);
-        CreateVmportEnv(input_2, 1);
-        client->WaitForIdle();
-        client->Reset();
     }
 
     virtual void TearDown() {
         client->Reset();
-        DeleteVmportEnv(input_1, 1, true);
-        DeleteVmportEnv(input_2, 1, true);
-        client->WaitForIdle();
         DelEncapList();
         client->WaitForIdle();
-
-        VrfDelReq(vrf_name_1_.c_str());
-        VrfDelReq(vrf_name_2_.c_str());
-        client->WaitForIdle();
-        WAIT_FOR(100, 100, (VrfFind(vrf_name_1_.c_str()) != true));
-        WAIT_FOR(100, 100, (VrfFind(vrf_name_2_.c_str()) != true));
     }
 
     virtual bool RouteWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -114,6 +163,7 @@ public:
 
     virtual void RouteWalkDone(DBTableBase *part) {
         total_rt_vrf_walk_done_++;
+        AgentRouteWalker::RouteWalkDone(part);
     }
 
     virtual bool VrfWalkNotify(DBTablePartBase *partition, DBEntryBase *e) {
@@ -125,6 +175,7 @@ public:
 
     virtual void VrfWalkDone(DBTableBase *part) {
         vrf_notifications_count_++;
+        AgentRouteWalker::VrfWalkDone(part);
     }
 
     void VerifyNotifications(uint32_t route_notifications,
@@ -142,6 +193,7 @@ public:
     TunnelType::Type default_tunnel_type_;
     std::string vrf_name_1_;
     std::string vrf_name_2_;
+    std::string vrf_name_3_;
     Ip4Address  local_vm_ip_1_;
     Ip4Address  local_vm_ip_2_;
     Ip4Address  remote_vm_ip_;
@@ -154,15 +206,68 @@ public:
     uint32_t vrf_notifications_;
     uint32_t vrf_notifications_count_;
     uint32_t total_rt_vrf_walk_done_;
-    RouteWalkerIdList route_table_type_walkid_;
 };
 
-TEST_F(AgentRouteWalkerTest, walk_all_routes) {
+TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_no_vrf) {
     client->Reset();
+    SetupEnvironment(0);
     StartVrfWalk();
-    VerifyNotifications(16, 3, 1, 9);
+    VerifyNotifications(6, 1, 1, 3);
+    DeleteEnvironment(0);
 }
 
+TEST_F(AgentRouteWalkerTest, walk_all_routes_wih_1_vrf) {
+    client->Reset();
+    SetupEnvironment(1);
+    StartVrfWalk();
+    VerifyNotifications(11, 2, 1, 6);
+    DeleteEnvironment(1);
+}
+
+TEST_F(AgentRouteWalkerTest, walk_all_routes_with_2_vrf) {
+    client->Reset();
+    SetupEnvironment(2);
+    StartVrfWalk();
+    VerifyNotifications(16, 3, 1, 9);
+    DeleteEnvironment(2);
+}
+
+TEST_F(AgentRouteWalkerTest, walk_all_routes_with_3_vrf) {
+    client->Reset();
+    SetupEnvironment(3);
+    StartVrfWalk();
+    VerifyNotifications(21, 4, 1, 12);
+    DeleteEnvironment(3);
+}
+
+TEST_F(AgentRouteWalkerTest, restart_walk_with_2_vrf) {
+    client->Reset();
+    SetupEnvironment(2);
+    StartVrfWalk();
+    StartVrfWalk();
+    //TODO validate
+    WAIT_FOR(100, 1000, IsWalkCompleted() == true);
+    DeleteEnvironment(2);
+}
+
+TEST_F(AgentRouteWalkerTest, cancel_vrf_walk_with_2_vrf) {
+    client->Reset();
+    SetupEnvironment(2);
+    StartVrfWalk();
+    CancelVrfWalk();
+    WAIT_FOR(100, 1000, IsWalkCompleted() == true);
+    //TODO validate
+    client->WaitForIdle(10);
+    DeleteEnvironment(2);
+}
+
+TEST_F(AgentRouteWalkerTest, cancel_route_walk_with_2_vrf) {
+    //TODO
+}
+
+//TODO REMAINING TESTS
+// - based on walktype - unicast/multicast/all
+//
 int main(int argc, char **argv) {
     GETUSERARGS();
 

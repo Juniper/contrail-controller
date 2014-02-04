@@ -28,6 +28,8 @@ vnswoperdb = env.Library('vnswoperdb',
                          ['agent_sandesh.cc',
                           'agent_path.cc',
                           'agent_route.cc',
+                          'agent_route_encap.cc',
+                          'agent_route_walker.cc',
                           'global_vrouter.cc',
                           'inet_interface.cc',
                           'inet4_multicast_route.cc',
@@ -46,9 +48,7 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vn.cc',
                           'vrf.cc',
                           'vrf_assign.cc',
-                          'vxlan.cc',
-                          'agent_route_encap.cc',
-                          'agent_route_walker.cc'
+                          'vxlan.cc'
                          ])
 subdirs = ['test']
 for dir in subdirs:

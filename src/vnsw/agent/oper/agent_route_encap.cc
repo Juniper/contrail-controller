@@ -10,7 +10,8 @@
 #include "oper/mirror_table.h"
 #include "oper/agent_sandesh.h"
 
-AgentRouteEncap::AgentRouteEncap() : AgentRouteWalker(AgentRouteWalker::ALL) {
+AgentRouteEncap::AgentRouteEncap(Agent *agent) : 
+    AgentRouteWalker(agent, AgentRouteWalker::ALL) {
 }
 
 bool AgentRouteEncap::RouteWalkNotify(DBTablePartBase *partition,
@@ -21,5 +22,5 @@ bool AgentRouteEncap::RouteWalkNotify(DBTablePartBase *partition,
 }
 
 void AgentRouteEncap::Update() {
-    RestartAgentRouteWalk(); 
+    StartVrfWalk(); 
 }
