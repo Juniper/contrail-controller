@@ -7,6 +7,8 @@
 
 #include "test/test_init.h"
 
+static const int kProjectUuid = 101;
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
@@ -35,7 +37,8 @@ void AddNode(const char *node_name, const char *name, int id, const char *attr);
 void DelNode(const char *node_name, const char *name);
 void IntfSyncMsg(PortInfo *input, int id);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac, uint16_t vlan);
+                int vm_id, int vn_id, const string &mac, uint16_t vlan,
+                int project_id = kProjectUuid);
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
                 int vm_id, int vn_id, const string &mac);
 void IntfCfgAdd(PortInfo *input, int id);

@@ -59,6 +59,7 @@ struct ItfSandeshData {
    26: i32 vxlan_id;
    27: list<StaticRouteSandesh> static_route_list; //Static route list
    28: string l2_active;
+   30: string vm_project_uuid; // project uuid of the vm to which the interface belongs
 }
 
 struct VnIpamData {
@@ -733,6 +734,7 @@ struct InterfaceInfo {
     8: optional string mac;
     9: optional list<FloatingIPInfo> fip;
    10: optional i32 vxlan_id;
+   11: string vm_project;
 }
 
 struct RouteInfo {

@@ -513,7 +513,8 @@ Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
     }
 
     return new VmInterface(uuid_, name_, add_data->ip_addr_, add_data->vm_mac_,
-                           add_data->vm_name_, add_data->vlan_id_, parent);
+                           add_data->vm_name_, add_data->vm_project_uuid_,
+                           add_data->vlan_id_, parent);
 }
 
 InterfaceKey *VmInterfaceKey::Clone() const {
@@ -2135,6 +2136,7 @@ void VmInterface::SendTrace(Trace event) {
     if (vrf_) {
         intf_info.set_vrf(vrf_->GetName());
     }
+    intf_info.set_vm_project(UuidToString(vm_project_uuid_));
     OPER_TRACE(Interface, intf_info);
 }
 
@@ -2145,11 +2147,13 @@ void VmInterface::SendTrace(Trace event) {
 void VmInterface::Add(InterfaceTable *table, const uuid &intf_uuid,
                       const string &os_name, const Ip4Address &addr,
                       const string &mac, const string &vm_name,
-                      uint16_t vlan_id, const std::string &parent) {
+                      const uuid &vm_project_uuid, uint16_t vlan_id,
+                      const std::string &parent) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
-    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vlan_id, parent));
+    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vm_project_uuid,
+                                          vlan_id, parent));
     table->Enqueue(&req);
 }
 
