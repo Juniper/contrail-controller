@@ -55,7 +55,7 @@ private:
         checker.CheckIfMainThr();                          \
     } while (0)
 #else
-#define CHECK_CONCURRENCY(...)
+#define CHECK_CONCURRENCY_MAIN_THR(...)
 #endif
 
 #endif
