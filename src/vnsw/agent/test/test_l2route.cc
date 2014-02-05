@@ -292,11 +292,12 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
-    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetLabel() == 1);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetActiveLabel() == 1);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
     Inet4UnicastRouteEntry *inet_rt = RouteGet(vrf_name_, local_vm_ip_, 32);
-    EXPECT_TRUE(inet_rt->GetActivePath()->GetLabel() != MplsTable::kInvalidLabel);
+    EXPECT_TRUE(inet_rt->GetActivePath()->GetActiveLabel() != 
+                MplsTable::kInvalidLabel);
 
     vxlan_vm_mac = ether_aton("00:00:02:02:02:22");
     TunnelType::TypeBmap bmap;
@@ -309,7 +310,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     const TunnelNH *tnh = ((const TunnelNH *)nh); 
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::VXLAN);
-    EXPECT_TRUE(rt->GetActivePath()->GetLabel() == 1);
+    EXPECT_TRUE(rt->GetActivePath()->GetActiveLabel() == 1);
     EXPECT_TRUE(rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
@@ -344,7 +345,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
     const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
     EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
-    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetLabel() == 101);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetActiveLabel() == 101);
     EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
 
@@ -359,7 +360,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
     const TunnelNH *tnh = ((const TunnelNH *)nh); 
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::VXLAN);
-    EXPECT_TRUE(rt->GetActivePath()->GetLabel() == 1);
+    EXPECT_TRUE(rt->GetActivePath()->GetActiveLabel() == 1);
     EXPECT_TRUE(rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());

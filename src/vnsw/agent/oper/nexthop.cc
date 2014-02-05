@@ -39,7 +39,7 @@ TunnelType::Type TunnelType::ComputeType(TunnelType::TypeBmap bmap) {
 }
 
 // Confg triggers for change in encapsulation priority
-void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
+bool TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
     PriorityList l;
 
     for (std::vector<std::string>::const_iterator it = cfg_list.begin();
@@ -52,9 +52,10 @@ void TunnelType::EncapPrioritySync(const std::vector<std::string> &cfg_list) {
             l.push_back(VXLAN);
     }
 
+    bool encap_changed = (priority_list_ != l);
     priority_list_ = l;
 
-    return;
+    return encap_changed;
 }
 
 void TunnelType::DeletePriorityList() {
@@ -1283,6 +1284,10 @@ bool CompositeNH::Change(const DBRequest* req) {
     const std::vector<ComponentNHData> &key_list = data->data_;
     std::vector<ComponentNH> component_nh_list;
     NextHop *nh;
+
+    if (data->op_ == CompositeNHData::REBAKE) {
+        return true;
+    }
 
     if (comp_type_ == Composite::ECMP) {
         ComponentNH component_nh(0, NULL);

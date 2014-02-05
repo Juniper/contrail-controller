@@ -1049,7 +1049,12 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
     nh.af = Address::INET;
     nh.address = rtr;
     nh.label = label;
-    if (tunnel_bmap != (1 << TunnelType::VXLAN)) {
+
+    TunnelType::Type tunnel_type = TunnelType::ComputeType(tunnel_bmap);
+    if (l2_route->GetActivePath()) {
+        tunnel_type = l2_route->GetActivePath()->tunnel_type();
+    }
+    if (tunnel_type != TunnelType::VXLAN) {
         nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
         nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
     } else {
