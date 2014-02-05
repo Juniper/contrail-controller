@@ -265,8 +265,9 @@ static void ParseTunnelType(const ptree &node, const string &config_file,
             << config_file << ">. Error <" << e.what() << ">");
     }
 
-    if ((*str != "MPLSoUDP") && (*str != "VXLAN"))
-        *str = "MPLSoGRE";
+    if ((*str != "MPLSoGRE") && (*str != "VXLAN") && (*str != "MPLSoUDP")) {
+        *str = "MPLSoUDP";
+    }
 }
 
 static void ParseMetadataProxy(const ptree &node, const string &config_file, 

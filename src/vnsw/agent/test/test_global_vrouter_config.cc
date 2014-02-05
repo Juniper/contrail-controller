@@ -38,7 +38,7 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 
 class CfgTest : public ::testing::Test {
 public:    
-    CfgTest() : default_tunnel_type_(TunnelType::MPLS_GRE) { };
+    CfgTest() : default_tunnel_type_(TunnelType::MPLS_UDP) { };
     ~CfgTest() { };
 
     TunnelType::Type default_tunnel_type_;
