@@ -22,7 +22,6 @@
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
-#define KSYNC_ACK_WAIT_THRESHOLD  200
 #define KSYNC_SOCK_RECV_BUFF_SIZE (256 * 1024)
 
 #define KSYNC_ERROR(obj, ...)\
@@ -198,15 +197,10 @@ private:
     bool ValidateAndEnqueue(char *data);
     bool SendAsyncImpl(IoContext *ioc);
 
-    bool SendAsyncStart() {
-        tbb::mutex::scoped_lock lock(mutex_);
-        return (wait_tree_.size() <= KSYNC_ACK_WAIT_THRESHOLD);
-    }
-
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb) = 0;
-    virtual std::size_t SendTo(boost::asio::const_buffers_1) = 0;
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t) = 0;
     virtual void Receive(boost::asio::mutable_buffers_1) = 0;
 
     virtual uint32_t GetSeqno(char *data) = 0;
@@ -245,7 +239,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 private:
     boost::asio::netlink::raw::socket sock_;
@@ -265,7 +259,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 private:
     boost::asio::ip::udp::socket sock_;

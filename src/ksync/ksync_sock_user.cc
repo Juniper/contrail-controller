@@ -328,14 +328,14 @@ void KSyncSockTypeMap::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
 }
 
 //send or store in map
-size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
-    KSyncUserSockContext ctx(true, 0);
+size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+    KSyncUserSockContext ctx(true, seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(0, 0, 0); 
+        SimulateResponse(seq_no, 0, 0); 
     }
     return 0;
 }

@@ -125,7 +125,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
     static void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);

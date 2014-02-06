@@ -342,9 +342,14 @@ bool FlowTableKSyncEntry::Sync() {
     if (flow_entry_->data().nh_state_.get() && 
         flow_entry_->data().nh_state_->nh()) {
         NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-        NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
-        NHKSyncEntry *nh = 
-            static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        DBTableBase *table = nh_object->GetDBTable();
+        NHKSyncEntry *nh;
+        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh_state_->nh()->
+                GetState(table, nh_object->GetListenerId(table)));
+        if (nh == NULL) {
+            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
+            nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        }
         if (nh_ != nh) {
             nh_ = nh;
             changed = true;
@@ -362,9 +367,14 @@ KSyncEntry* FlowTableKSyncEntry::UnresolvedReference() {
     if (flow_entry_->data().nh_state_.get() && 
         flow_entry_->data().nh_state_->nh()) {
         NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-        NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
-        NHKSyncEntry *nh =
-            static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        DBTableBase *table = nh_object->GetDBTable();
+        NHKSyncEntry *nh;
+        nh = static_cast<NHKSyncEntry *>(flow_entry_->data().nh_state_->nh()->
+                GetState(table, nh_object->GetListenerId(table)));
+        if (nh == NULL) {
+            NHKSyncEntry tmp_nh(nh_object, flow_entry_->data().nh_state_->nh());
+            nh = static_cast<NHKSyncEntry *>(nh_object->GetReference(&tmp_nh));
+        }
         if (nh && !nh->IsResolved()) {
             return nh;
         }

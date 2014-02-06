@@ -13,6 +13,7 @@ Proto::Proto(Agent *agent, const char *task_name, PktHandler::PktModuleName mod,
     : agent_(agent),
       work_queue_(TaskScheduler::GetInstance()->GetTaskId(task_name), mod,
                   boost::bind(&Proto::ProcessProto, this, _1)), io_(io) {
+    work_queue_.SetStartRunnerFunc(boost::bind(&Proto::StartProcessProto, this));
     agent->pkt()->pkt_handler()->Register(mod,
            boost::bind(&Proto::ValidateAndEnqueueMessage, this, _1) );
 }

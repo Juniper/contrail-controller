@@ -18,6 +18,7 @@ public:
     FlowProto(Agent *agent, boost::asio::io_service &io) :
         Proto(agent, "Agent::FlowHandler", PktHandler::FLOW, io) {
         agent->SetFlowProto(this);
+        current_time_stamp_ = UTCTimestampUsec();
     }
     virtual ~FlowProto() {}
     void Init() {}
@@ -42,6 +43,16 @@ public:
     bool RemovePktBuff() {
         return true;
     }
+
+    bool StartProcessProto() {
+        current_time_stamp_ = UTCTimestampUsec();
+        return true;
+    }
+    const uint64_t &GetCurrentTime() {
+        return current_time_stamp_;
+    }
+private:
+    uint64_t current_time_stamp_;
 };
 
 extern SandeshTraceBufferPtr PktFlowTraceBuf;
