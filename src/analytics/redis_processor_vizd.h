@@ -37,28 +37,12 @@ public:
     SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
             const std::string &source, const std::string &node_type,
             const std::string &module, const std::string &instance_id,
-            const std::string & coll,  int timeout,
             std::map<std::string,int32_t> & seqReply);
 
     static bool 
     SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
             const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id,
-            const std::string & coll,  int timeout);
-
-    static void
-    RefreshGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id,
-            const std::string &coll, int timeout);
-
-  
-    static void
-    WithdrawGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id,
-            const std::string &coll);
-           
+            const std::string &module, const std::string &instance_id);
 };
 
 class RedisProcessorIf {
@@ -95,21 +79,5 @@ protected:
     std::map<std::string,void *> childMap_;
 };
 
-
-struct GenCleanupReq : public RedisProcessorIf {
-    typedef boost::function<void(const std::string &, int)> finFn;
-    // callback function to parent
-    GenCleanupReq(RedisAsyncConnection * rac, finFn fn);
-    bool RedisSend();
-    void ProcessCallback(redisReply *reply);
-    std::string Key();
-    void FinalResult();
-private:
-    RedisAsyncConnection * rac_;
-    finFn fin_;
-    int res_;
-
-    void CallbackFromChild(const std::string & key, bool res);
-};
 #endif
 

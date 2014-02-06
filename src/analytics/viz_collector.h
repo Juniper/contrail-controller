@@ -30,8 +30,8 @@ public:
 
     VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
-            std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
-            int syslog_port, int gen_timeout = 0, bool dup=false,
+            const std::string redis_uve_ip, unsigned short redis_uve_port,
+            int syslog_port, bool dup=false,
             int analytics_ttl=g_viz_constants.AnalyticsTTL);
     VizCollector(EventManager *evm, DbHandler *db_handler, Ruleeng *ruleeng,
                  Collector *collector, OpServerProxy *osp);

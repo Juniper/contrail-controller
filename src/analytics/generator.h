@@ -142,7 +142,6 @@ private:
     void HandleSeqRedisReply(const std::map<std::string,int32_t> &typeMap);
     void HandleDelRedisReply(bool res);
     void TimerErrorHandler(std::string name, std::string error);
-    bool DelWaitTimerExpired();
 
     bool DbConnectTimerExpired();
     void Start_Db_Connect_Timer();
@@ -165,7 +164,6 @@ private:
     const std::string name_;
 
     Timer *db_connect_timer_;
-    Timer *del_wait_timer_;
     tbb::atomic<bool> disconnected_;
 };
 
