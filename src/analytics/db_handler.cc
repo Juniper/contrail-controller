@@ -7,6 +7,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/asio/ip/host_name.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -24,6 +25,7 @@
 #include "rapidjson/writer.h"
 
 using std::string;
+using boost::system::error_code;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
@@ -33,6 +35,8 @@ DbHandler::DbHandler(EventManager *evm,
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     msg_dropped_(0) {
+        error_code error;
+        col_name_ = boost::asio::ip::host_name(error);
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
@@ -386,6 +390,14 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     pv = string(message_type);
     tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
     attribs.insert(make_pair(sattrname,pv));
+
+    //pv = string(header.get_Source());
+    // Put the name of the collector, not the message source.
+    // Using the message source will make queries slower
+    pv = string(col_name_);
+    tmap.insert(make_pair("Source",make_pair(pv,amap))); 
+    attribs.insert(make_pair(string("Source"),pv));
+
     StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
 
 }
