@@ -16,6 +16,7 @@
 #include "base/test/task_test_util.h"
 #include "bgp/bgp_config.h"
 #include "bgp/bgp_log.h"
+#include "bgp/bgp_sandesh.h"
 #include "bgp/bgp_session_manager.h"
 #include "bgp/bgp_xmpp_channel.h"
 #include "bgp/community.h"
@@ -23,6 +24,7 @@
 #include "bgp/l3vpn/inetvpn_route.h"
 #include "bgp/l3vpn/inetvpn_table.h"
 #include "bgp/origin-vn/origin_vn.h"
+#include "bgp/routing-instance/rtarget_group_types.h"
 #include "bgp/security_group/security_group.h"
 #include "bgp/tunnel_encap/tunnel_encap.h"
 #include "bgp/test/bgp_server_test_util.h"
@@ -498,6 +500,40 @@ protected:
 
         table->Enqueue(&request);
     }
+
+    static void ValidateRTGroupResponse(Sandesh *sandesh, 
+                                        std::vector<string> &result) {
+        ShowRtGroupResp *resp =
+                dynamic_cast<ShowRtGroupResp *>(sandesh);
+        TASK_UTIL_EXPECT_NE((ShowRtGroupResp *)NULL, resp);
+
+        TASK_UTIL_EXPECT_EQ(result.size(), resp->get_rtgroup_list().size());
+        cout << "*******************************************************"<<endl;
+        int i = 0;
+        BOOST_FOREACH(const ShowRtGroupInfo &info, resp->get_rtgroup_list()) {
+            TASK_UTIL_EXPECT_EQ(info.get_rtarget(), result[i]);
+            cout << info.log() << endl;
+            i++;
+        }
+        cout << "*******************************************************"<<endl;
+
+        validate_done_ = 1;
+    }
+
+    void VerifyRtGroupSandesh(BgpServerTest *server, std::vector<string> result) {
+        BgpSandeshContext sandesh_context;
+        sandesh_context.bgp_server = server;
+        sandesh_context.xmpp_peer_manager = NULL;
+        Sandesh::set_client_context(&sandesh_context);
+        Sandesh::set_response_callback(boost::bind(ValidateRTGroupResponse, _1, 
+                                                   result));
+        ShowRtGroupReq *req = new ShowRtGroupReq;
+        validate_done_ = 0;
+        req->HandleRequest();
+        req->Release();
+        TASK_UTIL_EXPECT_EQ(1, validate_done_);
+    }
+
     EventManager evm_;
     ServerThread thread_;
     auto_ptr<BgpServerTest> cn1_;
@@ -511,7 +547,9 @@ protected:
     boost::scoped_ptr<test::NetworkAgentMock> agent_b_2_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn1_;
     boost::scoped_ptr<BgpXmppChannelManagerMock> bgp_channel_manager_cn2_;
+    static int validate_done_;
 };
+int RTargetPeerTest::validate_done_;
 
 class TestEnvironment : public ::testing::Environment {
     virtual ~TestEnvironment() { }
@@ -753,6 +791,39 @@ TEST_F(RTargetPeerTest, AddRTargetToInstance) {
     agent_b_2_->Unsubscribe("blue", -1, false); 
 
     DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+}
+
+
+TEST_F(RTargetPeerTest, HTTPIntro) {
+    AddInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32", 100);
+    AddRouteTarget(mx_.get(), "blue", "target:64496:1");
+    agent_a_1_->Subscribe("blue", 2); 
+    agent_b_1_->Subscribe("blue", 2); 
+    agent_a_2_->Subscribe("blue", 2); 
+    agent_b_2_->Subscribe("blue", 2); 
+
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(mx_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn1_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+    TASK_UTIL_WAIT_NE_NO_MSG(InetRouteLookup(cn2_.get(), "blue", "1.1.2.3/32"),
+                             NULL, 1000, 10000, 
+                             "Wait for route in blue..");
+
+    std::vector<string> result = list_of("target:1:4")("target:64496:1")
+     ("target:64496:2")("target:64496:3")("target:64496:4")("target:64496:5");
+    VerifyRtGroupSandesh(mx_.get(), result);
+    VerifyRtGroupSandesh(cn1_.get(), result);
+    VerifyRtGroupSandesh(cn2_.get(), result);
+
+    DeleteInetRoute(mx_.get(), NULL, "blue", "1.1.2.3/32");
+    agent_a_1_->Unsubscribe("blue", -1, false); 
+    agent_b_1_->Unsubscribe("blue", -1, false); 
+    agent_a_2_->Unsubscribe("blue", -1, false); 
+    agent_b_2_->Unsubscribe("blue", -1, false); 
+
 }
 
 int main(int argc, char **argv) {
