@@ -1022,11 +1022,10 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_fieldname_objecttype(self):
         self.logger.info('Verify stats table for stats name field');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
-        query = Query(table="ObjectGeneratorInfo",
+        query = Query(table="ObjectCollectorInfo",
                             start_time="now-600s",
                             end_time="now",
-                            select_fields=["ObjectId"],
-                            where=[[{"name":"ObjectId","value":"a6s9","op":1}]])
+                            select_fields=["ObjectId"]);
         json_qstr = json.dumps(query.__dict__)
         res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
