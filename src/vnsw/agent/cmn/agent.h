@@ -313,9 +313,10 @@ public:
     IcmpProto *GetIcmpProto() { return icmp_proto_; }
     FlowProto *GetFlowProto() { return flow_proto_; }
 
-    const Peer *GetLocalPeer() {return local_peer_;};
-    const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    const Peer *GetLinkLocalPeer() {return linklocal_peer_;};
+    const Peer *GetLocalPeer() {return local_peer_;}
+    const Peer *GetLocalVmPeer() {return local_vm_peer_;}
+    const Peer *GetLinkLocalPeer() {return linklocal_peer_;}
+    const Peer *GetHostOsPeer() const {return host_os_peer_;}
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -466,15 +467,19 @@ public:
 
     void SetLocalPeer(Peer *peer) {
         local_peer_ = peer;
-    };
+    }
 
     void SetLocalVmPeer(Peer *peer) {
         local_vm_peer_ = peer;
-    };
+    }
 
     void SetLinkLocalPeer(Peer *peer) {
         linklocal_peer_ = peer;
-    };
+    }
+
+    void SetHostOsPeer(const Peer *peer) {
+        host_os_peer_ = peer;
+    }
 
     void SetRouterIdConfigured(bool value) {
         router_id_configured_ = value;
@@ -628,6 +633,7 @@ private:
     Peer *local_peer_;
     Peer *local_vm_peer_;
     Peer *linklocal_peer_;
+    const Peer *host_os_peer_;
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;
 

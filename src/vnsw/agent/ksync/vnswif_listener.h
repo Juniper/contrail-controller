@@ -9,6 +9,7 @@
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
 #include <boost/asio.hpp>
+#include <boost/shared_ptr.hpp>
 
 #define XAPI_INTF_PREFIX "xapi"
 
@@ -37,6 +38,30 @@ public:
     static const int kVnswRtmProto = 109;
     enum { max_buf_size = 4096 };
 
+    struct VnswInterface {
+        string name_;
+        Ip4Address address_;
+        uint8_t prefix_len_;
+        Ip4Address gw_address_;
+        VnswInterface(const std::string &name) : name_(name) {
+        }
+        VnswInterface(const std::string &name, const Ip4Address &ip, 
+                      uint8_t plen) : name_(name), address_(ip), 
+                                      prefix_len_(plen), gw_address_(0) {
+        }
+    };
+    typedef boost::shared_ptr<VnswInterface> VnswInterfacePtr;
+
+    class VnswInterfaceCmp {
+        public:
+            bool operator()(const VnswInterfacePtr &lhs, 
+                            const VnswInterfacePtr &rhs) const {
+                return lhs.get()->name_.compare(rhs.get()->name_);
+            }
+    };
+    typedef std::set<VnswInterfacePtr, VnswInterfaceCmp> InterfaceSet;
+
+
     VnswInterfaceListener(Agent *agent);
     virtual ~VnswInterfaceListener();
     
@@ -56,8 +81,10 @@ private:
     void IntfNotify(DBTablePartBase *part, DBEntryBase *e);
     void InitRouterId();
     void ReadHandler(const boost::system::error_code &, std::size_t length);
-    void CreateVhostRoutes(Ip4Address &host_ip, uint8_t plen);
-    void DeleteVhostRoutes(Ip4Address &host_ip, uint8_t plen);
+    void CreateVhostRoutes(const std::string &name, Ip4Address &host_ip, 
+                           uint8_t plen);
+    void DeleteVhostRoutes(const std::string &name, Ip4Address &host_ip, 
+                           uint8_t plen);
     void SetupSocket();
     void RegisterAsyncHandler();
     void CreateSocket();
@@ -72,6 +99,7 @@ private:
     void IfaddrHandler(struct nlmsghdr *nlh);
     int AddAttr(int type, void *data, int alen);
     int NlMsgDecode(struct nlmsghdr *nl, std::size_t len, uint32_t seq_no);
+    VnswInterface *GetVnswInterface(const std::string& name);
 
     Agent *agent_;
     uint8_t *read_buf_;
@@ -85,6 +113,7 @@ private:
     WorkQueue<VnswRouteEvent *> *revent_queue_;
     int seqno_;
     bool vhost_intf_up_;
+    InterfaceSet interface_table_;
 };
 
 #endif

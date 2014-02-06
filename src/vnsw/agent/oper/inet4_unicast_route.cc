@@ -790,13 +790,13 @@ void Inet4UnicastAgentRouteTable::DelVHostSubnetRecvRoute(
     DeleteReq(Agent::GetInstance()->GetLocalPeer(), vm_vrf, subnet_addr, 32);
 }
 
-static void AddGatewayRouteInternal(DBRequest *req, const string &vrf_name,
+static void AddGatewayRouteInternal(DBRequest *req, const Peer *peer, 
+                                    const string &vrf_name,
                                     const Ip4Address &dst_addr, uint8_t plen,
                                     const Ip4Address &gw_ip,
                                     const string &vn_name) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req->key.reset(new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
-                                            vrf_name, dst_addr, plen));
+    req->key.reset(new Inet4UnicastRouteKey(peer, vrf_name, dst_addr, plen));
     req->data.reset(new Inet4UnicastGatewayRoute(gw_ip, vrf_name));
 }
 
@@ -806,18 +806,21 @@ void Inet4UnicastAgentRouteTable::AddGatewayRoute(const string &vrf_name,
                                                   const Ip4Address &gw_ip,
                                                   const string &vn_name) {
     DBRequest req;
-    AddGatewayRouteInternal(&req, vrf_name, dst_addr, plen, gw_ip, vn_name);
+    AddGatewayRouteInternal(&req, Agent::GetInstance()->GetLocalPeer(), 
+                            vrf_name, dst_addr, plen, gw_ip, vn_name);
     UnicastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
 void
-Inet4UnicastAgentRouteTable::AddGatewayRouteReq(const string &vrf_name,
+Inet4UnicastAgentRouteTable::AddGatewayRouteReq(const Peer *peer,
+                                                const string &vrf_name,
                                                 const Ip4Address &dst_addr,
                                                 uint8_t plen,
                                                 const Ip4Address &gw_ip,
                                                 const string &vn_name) {
     DBRequest req;
-    AddGatewayRouteInternal(&req, vrf_name, dst_addr, plen, gw_ip, vn_name);
+    AddGatewayRouteInternal(&req, peer, vrf_name, dst_addr, plen, gw_ip, 
+                            vn_name);
     UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 

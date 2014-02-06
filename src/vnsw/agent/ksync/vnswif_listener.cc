@@ -90,6 +90,30 @@ int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
 void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
     const VmInterface *vmport = dynamic_cast<VmInterface *>(e);
     if (vmport == NULL) {
+        /*const InetInterface *inet_if = dynamic_cast<InetInterface *>(e);
+        if (inet_if == NULL) {
+            return;
+        }
+        DBState *state = e->GetState(part->parent(), intf_listener_id_);
+        if (inet_if->IsDeleted() || 
+            (inet_if->sub_type() != InetInterface::VHOST)) {
+            if (state) {
+                VnswInterfacePtr itf(new VnswInterface(inet_if->name()));
+                InterfaceSet::iterator it = interface_table_.find(itf);
+                if (it != interface_table_.end()) {
+                    interface_table_.erase(it);
+                }
+                e->ClearState(part->parent(), intf_listener_id_);
+                delete state;
+            }
+            return;
+        }
+        if (!state && (inet_if->sub_type() == InetInterface::VHOST)) {
+            state = new DBState();
+            e->SetState(part->parent(), intf_listener_id_, state);
+            VnswInterfacePtr itf(new VnswInterface(inet_if->name()));
+            interface_table_.insert(itf);
+        }*/
         return;
     }
 
@@ -221,7 +245,8 @@ void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr,
     assert(ec.value() == 0);
 }
 
-void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip, 
+void VnswInterfaceListener::CreateVhostRoutes(const string& name, 
+                                              Ip4Address &host_ip, 
                                               uint8_t plen) {
     Inet4UnicastAgentRouteTable *rt_table;
 
@@ -233,11 +258,12 @@ void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip,
         assert(0);
     }
 
-    if (agent_->GetPrefixLen() != 0) {
+    VnswInterface *vif = GetVnswInterface(name);
+    if (vif != NULL) {
         Ip4Address old = agent_->GetRouterId();
-        LOG(ERROR, "Host IP update not supported!");
-        LOG(ERROR, "Old IP is " << old.to_string() << " prefix len "
-                   << (unsigned short)agent_->GetPrefixLen());
+        LOG(ERROR, "Host IP update not supported for " << name);
+        LOG(ERROR, "Old IP is " << vif->address_.to_string() << " prefix len "
+                   << (unsigned short) vif->prefix_len_);
         LOG(ERROR, "New IP is " << host_ip.to_string() << " prefix len "
                    << (unsigned short)plen);
         return;
@@ -246,6 +272,8 @@ void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip,
                << (unsigned short)plen);
     agent_->SetRouterId(host_ip);
     agent_->SetPrefixLen(plen);
+    VnswInterfacePtr itf(new VnswInterface(name, host_ip, plen));
+    interface_table_.insert(itf);
 
     InetInterface::CreateReq(agent_->GetInterfaceTable(),
                              agent_->vhost_interface_name(),
@@ -254,10 +282,16 @@ void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip,
                              agent_->GetDefaultVrf());
 }
 
-void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip, 
+void VnswInterfaceListener::DeleteVhostRoutes(const string &name,
+                                              Ip4Address &host_ip, 
                                               uint8_t plen) {
     Inet4UnicastAgentRouteTable *rt_table;
 
+    VnswInterface *vif = GetVnswInterface(name);
+    if (vif == NULL) {
+        LOG(DEBUG, "Ignoring vhost route delete req for " << name);
+        return;
+    }
     std::string vrf_name = agent_->GetDefaultVrf();
 
     rt_table = static_cast<Inet4UnicastAgentRouteTable *>
@@ -274,6 +308,8 @@ void VnswInterfaceListener::DeleteVhostRoutes(Ip4Address &host_ip,
     rt_table->DelVHostSubnetRecvRoute(vrf_name, host_ip, plen);
     rt_table->DeleteReq(agent_->GetLocalPeer(), vrf_name, host_ip, plen);
     agent_->SetPrefixLen(0);
+    vif->prefix_len_ = 0;
+
 }
 
 uint32_t VnswInterfaceListener::NetmaskToPrefix(uint32_t netmask) {
@@ -340,7 +376,7 @@ void VnswInterfaceListener::InitRouterId() {
     prefix = NetmaskToPrefix(netmask);
 
     /* Create Vhost0 routes */
-    CreateVhostRoutes(addr, prefix);
+    CreateVhostRoutes(agent_->vhost_interface_name(), addr, prefix);
     LOG(DEBUG, "IP Address of vhost if is " << addr.to_string() << 
                " prefix " << prefix);
     LOG(DEBUG, "Netmask " << std::hex << netmask); 
@@ -445,6 +481,14 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
         return;
     }
 
+    /* All routes added via command line using route command will have proto as 
+     * RTPROT_BOOT. Link local routes added by agent will have proto as 
+     * kVnswRtmProto */
+    if (rtm->rtm_protocol != RTPROT_BOOT && 
+        rtm->rtm_protocol != kVnswRtmProto) {
+        return;
+    }
+
     uint16_t prefix_len, proto;
     int oif = -1;
     proto = rtm->rtm_protocol;
@@ -472,11 +516,7 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
         return;
     } 
     dst_ip = ntohl((unsigned long)dst_ip);
-    bool link_local_route = 
-        ((dst_ip & 0xFFFF0000) == (METADATA_IP_ADDR & 0xFFFF0000));
-    if (link_local_route && proto != kVnswRtmProto) {
-        return;
-    }
+    bool link_local_route = ((proto == kVnswRtmProto)? true: false);
 
     char name[IFNAMSIZ];
     if_indextoname(oif, name);
@@ -506,12 +546,22 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
 
     Ip4Address gw_addr((unsigned long)ntohl(dst_gw));
     /* Add route for default gateway */
-    if (dst_gw != 0) {
+    if (!agent_->params()->IsVHostGatewayConfigured() && (dst_gw != 0) &&
+        (itf->sub_type() == InetInterface::VHOST)) {
         if (dst_ip == 0) {
+            VnswInterface *vif = GetVnswInterface(itf->name());
+            if (vif == NULL || (vif->prefix_len_ == 0)) {
+                return;
+            }
+            uint32_t vif_gw_ip = vif->gw_address_.to_ulong();
+            if (vif_gw_ip == dst_gw) {
+                return;
+            }
             agent_->SetGatewayId(gw_addr);
+            vif->gw_address_ = gw_addr;
             InetInterface::CreateReq(agent_->GetInterfaceTable(), itf->name(),
                 InetInterface::VHOST, agent_->GetDefaultVrf(),
-                agent_->GetRouterId(), agent_->GetPrefixLen(), 
+                vif->address_, vif->prefix_len_, 
                 gw_addr, agent_->GetDefaultVrf());
             return;
         }
@@ -527,45 +577,47 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
             if (itf->sub_type() == InetInterface::VHOST) {
                 if (IsIp4SubnetMember(dst_addr, agent_->GetRouterId(), 
                             agent_->GetPrefixLen())) {
-                    if (prefix_len == 32) {
+                    /*if (prefix_len == 32) {
                         Inet4UnicastAgentRouteTable::AddArpReq
                             (agent_->GetDefaultVrf(), dst_addr);
-                    }
+                    } */
                 } else {
-                    agent_->GetDefaultInet4UnicastRouteTable()->AddGatewayRouteReq(
-                            agent_->GetDefaultVrf(), dst_addr, prefix_len, gw_addr, 
-                            agent_->GetFabricVnName());
+                    agent_->GetDefaultInet4UnicastRouteTable()->
+                        AddGatewayRouteReq(agent_->GetHostOsPeer(), 
+                                           agent_->GetDefaultVrf(), 
+                                           dst_addr, prefix_len, gw_addr, 
+                                           agent_->GetFabricVnName());
                 }
             } else {
-                agent_->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRouteReq(
-                                            agent_->GetLocalVmPeer(),
-                                            agent_->GetDefaultVrf(),
-                                            agent_->vhost_interface_name(),
-                                            dst_addr, prefix_len,
-                                            itf->vrf()->GetName(), false);
+                agent_->GetDefaultInet4UnicastRouteTable()->
+                    AddVHostRecvRouteReq(agent_->GetHostOsPeer(),
+                                         agent_->GetDefaultVrf(),
+                                         agent_->vhost_interface_name(),
+                                         dst_addr, prefix_len,
+                                         itf->vrf()->GetName(), false);
             }
         }
         break;
     case RTM_DELROUTE:
-        if ((dst_ip & 0xFFFF0000) == (METADATA_IP_ADDR & 0xFFFF0000)) {
+        if (link_local_route) {
             re = new VnswRouteEvent(dst_addr, VnswRouteEvent::DEL_RESP);
         } else {
             if (itf->sub_type() == InetInterface::VHOST) {
                 if (IsIp4SubnetMember(dst_addr, agent_->GetRouterId(), 
                                       agent_->GetPrefixLen())) {
-                    if (prefix_len == 32) {
+                    /*if (prefix_len == 32) {
                         agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
                                 agent_->GetLocalPeer(), agent_->GetDefaultVrf(), 
                                 dst_addr, 32);
-                    }
+                    }*/
                 } else {
                     agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                            agent_->GetLocalPeer(), agent_->GetDefaultVrf(), 
+                            agent_->GetHostOsPeer(), agent_->GetDefaultVrf(), 
                             dst_addr, prefix_len);
                 }
             } else {
                 agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                                    agent_->GetLocalVmPeer(),
+                                    agent_->GetHostOsPeer(),
                                     agent_->GetDefaultVrf(),
                                     dst_addr, prefix_len);
             }
@@ -614,12 +666,18 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
             Ip4Address dst_addr((unsigned long)0);
             VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
                                                     VnswRouteEvent::INTF_UP);
+            /*if (agent_->GetPrefixLen() != 0) {
+                Ip4Address rid = agent_->GetRouterId();
+                CreateVhostRoutes(rid, (uint8_t)agent_->GetPrefixLen());
+            } */
             revent_queue_->Enqueue(re);
         } else {
             Ip4Address dst_addr((unsigned long)0);
             VnswRouteEvent *re = new VnswRouteEvent(dst_addr, 
                                                     VnswRouteEvent::INTF_DOWN);
             revent_queue_->Enqueue(re);
+            /*Ip4Address rid = agent_->GetRouterId();
+            DeleteVhostRoutes(rid, (uint8_t)agent_->GetPrefixLen());*/
         }
     }
 
@@ -676,12 +734,12 @@ void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
              * TODO: need to have an un-init of router-id dependencies
              * and reset the router-id at Delete of vhost ip
              */
-            DeleteVhostRoutes(addr, ifa->ifa_prefixlen);
+            //DeleteVhostRoutes(name, addr, ifa->ifa_prefixlen);
         } else {
             if (!agent_->GetRouterIdConfigured()) {
                 dep_init_reqd = true; 
             }
-            CreateVhostRoutes(addr, ifa->ifa_prefixlen);
+            CreateVhostRoutes(name, addr, ifa->ifa_prefixlen);
             /* Initialize things that are dependent on router-id */
             if (dep_init_reqd) {
                 RouterIdDepInit();
@@ -743,6 +801,16 @@ void VnswInterfaceListener::ReadHandler(const boost::system::error_code &error,
         read_buf_ = NULL;
     }
     RegisterAsyncHandler();
+}
+
+VnswInterfaceListener::VnswInterface* VnswInterfaceListener::GetVnswInterface
+    (const string& name) {
+    VnswInterfacePtr itf(new VnswInterface(name));
+    InterfaceSet::iterator it = interface_table_.find(itf);
+    if (it != interface_table_.end()) {
+        return (*it).get();
+    }
+    return NULL;
 }
 
 void VnswInterfaceListener::Shutdown() { 
