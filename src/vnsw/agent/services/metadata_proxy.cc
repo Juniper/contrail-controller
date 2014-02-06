@@ -156,6 +156,12 @@ void
 MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session,
                                       std::string &msg, boost::system::error_code &ec) {
     tbb::mutex::scoped_lock lock(mutex_);
+
+    // Ignore if session is closed in the meantime
+    SessionMap::iterator it = metadata_sessions_.find(session);
+    if (it == metadata_sessions_.end())
+        return;
+
     std::string vm_ip, vm_uuid, vm_project_uuid;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
     services_->agent()->GetInterfaceTable()->
@@ -173,8 +179,7 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session
         return;
     }
 
-    SessionMap::iterator it = metadata_sessions_.find(session);
-    if (!ec && it != metadata_sessions_.end() && it->second.close_req) {
+    if (!ec && it->second.close_req) {
         std::stringstream str(msg);
         std::string option;
         str >> option;
