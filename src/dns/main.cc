@@ -3,6 +3,7 @@
  */
 
 #include <fstream>
+#include <iostream>
 
 #include <pthread.h>
 #include <boost/program_options.hpp>
@@ -34,6 +35,7 @@
 
 namespace opt = boost::program_options;
 using namespace boost::asio::ip;
+using boost::system::error_code;
 using namespace std;
 
 uint64_t start_time;
@@ -77,48 +79,114 @@ void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
     }
 }
 
-int main(int argc, char *argv[]) {
-    bool enable_local_logging = false;
-    const string default_log_file = "<stdout>";
-    opt::options_description desc("Command line options");
-    desc.add_options()
-            ("help", "help message")
-            ("config-file", 
-                opt::value<string>()->default_value("dns_config.xml"),
-                "Configuration file") 
-            ("discovery-server", opt::value<string>(),
-             "IP address of Discovery Server")
-            ("discovery-port",
-             opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
-             "Port of Discovery Server")
-            ("map-server-url", opt::value<string>(), "MAP server URL")
-            ("map-user", opt::value<string>(), "MAP server username")
-            ("map-password", opt::value<string>(), "MAP server password")
-            ("log-local", opt::bool_switch(&enable_local_logging),
-                "Enable local logging of sandesh messages")
-            ("log-level", opt::value<string>()->default_value("SYS_NOTICE"),
-                "Severity level for local logging of sandesh messages")
-            ("log-category", opt::value<string>()->default_value(""),
-                "Category filter for local logging of sandesh messages")
-            ("collector", opt::value<string>(), "IP address of sandesh collector")
-            ("collector-port", opt::value<int>(), "Port of sandesh collector")
-            ("http-server-port",
-                opt::value<int>()->default_value(
-                ContrailPorts::HttpPortDns), "Sandesh HTTP listener port")
-            ("host-ip", opt::value<string>(),
-             "IP address of DNServer")
-            ("use-certs", opt::value<string>(),
-                "Use certificates to communicate with MAP server; Specify certificate store")
-            ("log-file", opt::value<string>()->default_value(default_log_file),
-                "Filename for the logs to be written to")
-            ("version", "Display version information")
-            ;
+static int dns_main(int argc, char *argv[]) {
+    Dns::Init();
+
+    error_code error;
+
+    // Specify defaults for all options possible.
+    string collector_server;
+    unsigned short collector_port = ContrailPorts::CollectorPort;
+    string dns_config_file = "dns_config.xml";
+    string discovery_server;
+    uint16_t discovery_port = ContrailPorts::DiscoveryServerPort;
+    string hostname(boost::asio::ip::host_name(error));
+    string hostip = GetHostIp(Dns::GetEventManager()->io_service(), hostname);
+    uint16_t http_server_port = ContrailPorts::HttpPortDns;
+    string log_category = "";
+    bool disable_logging = false;
+    string log_file = "<stdout>";
+    string log_level = "SYS_NOTICE";
+    bool log_local = false;
+
+    string ifmap_server_url;
+    string ifmap_password = "control-user-passwd";
+    string ifmap_user = "control-user";
+    string certs_store = "";
+    string config_file = "/etc/contrail/dns.conf";
+
+    // Command line only options.
+    opt::options_description generic("Generic options");
+    generic.add_options()
+        ("conf-file", opt::value<string>()->default_value(config_file),
+             "Configuration file")
+        ("version", "Display version information")
+        ("help", "help message")
+    ;
+
+    // Command line and config file options.
+    opt::options_description config("Configuration options");
+    config.add_options()
+        ("COLLECTOR.port",
+             opt::value<uint16_t>()->default_value(collector_port),
+             "Port of sandesh collector")
+        ("COLLECTOR.server",
+             opt::value<string>()->default_value(collector_server),
+             "IP address of sandesh collector")
+
+        ("DEFAULTS.dns-config-file",
+             opt::value<string>()->default_value(dns_config_file),
+             "DNS Configuration file")
+        ("DEFAULTS.hostip", opt::value<string>()->default_value(hostip),
+             "IP address of control-node")
+        ("DEFAULTS.http-server-port",
+             opt::value<uint16_t>()->default_value(http_server_port),
+             "Sandesh HTTP listener port")
+
+        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(discovery_port),
+            "Port of Discovery Server")
+        ("DISCOVERY.server",
+             opt::value<string>()->default_value(discovery_server),
+              "IP address of Discovery Server")
+
+        ("IFMAP.password", opt::value<string>()->default_value(ifmap_password),
+             "IFMAP server password")
+        ("IFMAP.server-url",
+             opt::value<string>()->default_value(ifmap_server_url),
+             "IFMAP server URL")
+        ("IFMAP.user", opt::value<string>()->default_value(ifmap_user),
+             "IFMAP server username")
+        ("IFMAP.certs-store", opt::value<string>()->default_value(certs_store),
+             "Certificates store to use for communication with IFMAP server")
+
+        ("LOG.category", opt::value<string>()->default_value(log_category),
+            "Category filter for local logging of sandesh messages")
+        ("LOG.disable", opt::bool_switch(&disable_logging),
+             "Disable sandesh logging")
+        ("LOG.file", opt::value<string>()->default_value(log_file),
+             "Filename for the logs to be written to")
+        ("LOG.level", opt::value<string>()->default_value(log_level),
+            "Severity level for local logging of sandesh messages")
+        ("LOG.local", opt::bool_switch(&log_local),
+             "Enable local logging of sandesh messages")
+        ;
+
+    opt::options_description config_file_options;
+    config_file_options.add(config);
+
+    opt::options_description cmdline_options("Allowed options");
+    cmdline_options.add(generic).add(config);
+
+    vector<string> tokens;
+    string line;
     opt::variables_map var_map;
-    opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+
+    // Process options off command line first.
+    opt::store(opt::parse_command_line(argc, argv, cmdline_options), var_map);
+
+    GetOptValue<string>(var_map, config_file, "conf-file", "");
+    ifstream config_file_in;
+    config_file_in.open(config_file.c_str());
+    if (config_file_in.good()) {
+        opt::store(opt::parse_config_file(config_file_in, config_file_options),
+                   var_map);
+    }
+    config_file_in.close();
+
     opt::notify(var_map);
 
     if (var_map.count("help")) {
-        cout << desc << endl;
+        cout << cmdline_options << endl;
         exit(0);
     }
 
@@ -129,10 +197,24 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
-    if (var_map["log-file"].as<string>() == default_log_file) {
+    GetOptValue<uint16_t>(var_map, collector_port, "COLLECTOR.port", 0);
+    GetOptValue<string>(var_map, collector_server, "COLLECTOR.server", "");
+    GetOptValue<string>(var_map, dns_config_file, "DEFAULTS.dns-config-file", "");
+    GetOptValue<string>(var_map, hostip, "DEFAULTS.hostip", "");
+    GetOptValue<uint16_t>(var_map, http_server_port, "DEFAULTS.http-server-port", 0);
+    GetOptValue<uint16_t>(var_map, discovery_port, "DISCOVERY.port", 0);
+    GetOptValue<string>(var_map, discovery_server, "DISCOVERY.server", "");
+    GetOptValue<string>(var_map, log_category, "LOG.category", "");
+    GetOptValue<string>(var_map, log_file, "LOG.file", "");
+    GetOptValue<string>(var_map, log_level, "LOG.level", "");
+    GetOptValue<string>(var_map, ifmap_password, "IFMAP.password", "");
+    GetOptValue<string>(var_map, ifmap_server_url, "IFMAP.server-url", "");
+    GetOptValue<string>(var_map, ifmap_user, "IFMAP.user", "");
+    GetOptValue<string>(var_map, certs_store, "IFMAP.certs-store", ""); 
+    if (log_file == "<stdout>") {
         LoggingInit();
     } else {
-        LoggingInit(var_map["log-file"].as<string>());
+        LoggingInit(log_file);
     }
     string build_info_str;
     Dns::GetVersion(build_info_str);
@@ -140,23 +222,14 @@ int main(int argc, char *argv[]) {
     // Create DB table and event manager
     Dns::Init();
 
-    int collector_server_port = 0;
-    if (var_map.count("collector-port")) {
-        collector_server_port = var_map["collector-port"].as<int>();
-    }
-    std::string collector_server;
-    if (var_map.count("collector")) {
-        collector_server = var_map["collector"].as<string>();
+    if (!collector_server.empty()) {
         Dns::SetCollector(collector_server);
     }
-    int sandesh_http_port = var_map["http-server-port"].as<int>();
-    Dns::SetHttpPort(sandesh_http_port);
+    Dns::SetHttpPort(http_server_port);
 
     BgpSandeshContext sandesh_context;
-    boost::system::error_code ec;
-    string hostname = host_name(ec);
     Dns::SetHostName(hostname);
-    if (!var_map.count("discovery-server")) {
+    if (discovery_server.empty()) {
         Module::type module = Module::DNS;
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second;
@@ -166,14 +239,12 @@ int main(int argc, char *argv[]) {
                     g_vns_constants.NodeTypeNames.find(node_type)->second,
                     g_vns_constants.INSTANCE_ID_DEFAULT,
                     Dns::GetEventManager(),
-                    sandesh_http_port, &sandesh_context);
+                    http_server_port, &sandesh_context);
     }
-    if ((collector_server_port != 0) && (!collector_server.empty())) {
-        Sandesh::ConnectToCollector(collector_server, collector_server_port);
+    if ((collector_port != 0) && (!collector_server.empty())) {
+        Sandesh::ConnectToCollector(collector_server, collector_port);
     }
-    Sandesh::SetLoggingParams(enable_local_logging,
-                              var_map["log-category"].as<string>(),
-                              var_map["log-level"].as<string>());
+    Sandesh::SetLoggingParams(log_local, log_category, log_level);
 
     DB config_db;
     DBGraph config_graph;
@@ -186,7 +257,7 @@ int main(int argc, char *argv[]) {
     Dns::SetDnsManager(&dns_manager);
     dns_manager.Initialize(&config_db, &config_graph);
     DnsConfigParser parser(&config_db);
-    parser.Parse(FileRead(var_map["config-file"].as<string>()));
+    parser.Parse(FileRead(dns_config_file));
 
     Dns::SetProgramName(argv[0]);
     DnsAgentXmppManager::Init();
@@ -202,30 +273,21 @@ int main(int argc, char *argv[]) {
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL;
-    if (var_map.count("discovery-server")) {
+    if (!discovery_server.empty()) {
+        error_code ec;
         tcp::endpoint dss_ep;
-        dss_ep.address(
-            address::from_string(var_map["discovery-server"].as<string>(), ec));
-        dss_ep.port(var_map["discovery-port"].as<int>());
+        dss_ep.address(address::from_string(discovery_server, ec));
+        dss_ep.port(discovery_port);
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
             g_vns_constants.ModuleNames.find(Module::DNS)->second);
         ds_client->Init();
 
         // Publish DNServer Service
-        string self_ip; 
-        if (var_map.count("host-ip")) {
-            self_ip = var_map["host-ip"].as<string>();
-        } else {
-            tcp::resolver resolver(*(Dns::GetEventManager()->io_service()));
-            tcp::resolver::query query(host_name(ec), "");
-            tcp::resolver::iterator iter = resolver.resolve(query);
-            self_ip = iter->endpoint().address().to_string();
-        }
-        Dns::SetSelfIp(self_ip);
+        Dns::SetSelfIp(hostip);
 
-        if (!self_ip.empty()) {
+        if (!hostip.empty()) {
             stringstream pub_ss;
-            pub_ss << "<dns-server><ip-address>" << self_ip <<
+            pub_ss << "<dns-server><ip-address>" << hostip <<
                       "</ip-address><port>" << ContrailPorts::DnsXmpp <<
                       "</port></dns-server>";
             std::string pub_msg;
@@ -234,7 +296,7 @@ int main(int argc, char *argv[]) {
         }
 
         //subscribe to collector service if not configured
-        if (!var_map.count("collector")) {
+        if (collector_server.empty()) {
             Module::type module = Module::DNS;
             NodeType::type node_type = 
                 g_vns_constants.Module2NodeType.find(module)->second;
@@ -251,32 +313,41 @@ int main(int argc, char *argv[]) {
                                    hostname, node_type_name,
                                    g_vns_constants.INSTANCE_ID_DEFAULT,
                                    Dns::GetEventManager(),
-                                   sandesh_http_port,
+                                   http_server_port,
                                    csf,
                                    list,
                                    &sandesh_context);
         }
     }
 
-    std::string certstore = var_map.count("use-certs") ? 
-                            var_map["use-certs"].as<string>() : string("");
-    std::string map_server_url;
-    if (var_map.count("map-server-url")) {
-        map_server_url = var_map["map-server-url"].as<string>();
-    }
-    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    if (!ifmap_server_url.empty()) {
+        IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
 
-    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, map_server_url,
-                        var_map["map-user"].as<string>(),
-                        var_map["map-password"].as<string>(), certstore,
-                        boost::bind(&IFMapServerParser::Receive, ifmap_parser,
-                                &config_db, _1, _2, _3),
-                        Dns::GetEventManager()->io_service(), ds_client);
-    ifmap_server.set_ifmap_manager(ifmapmgr);
+        IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, ifmap_server_url,
+                                                ifmap_user, ifmap_password, certs_store,
+                                        boost::bind(&IFMapServerParser::Receive, ifmap_parser,
+                                                    &config_db, _1, _2, _3),
+                                        Dns::GetEventManager()->io_service(), ds_client);
+        ifmap_server.set_ifmap_manager(ifmapmgr);
+    }
 
     Dns::GetEventManager()->Run();
  
     Dns::ShutdownDiscoveryClient(ds_client);
 
     return 0;
+}
+
+int main(int argc, char *argv[]) {
+    try {
+        return dns_main(argc, argv);
+    } catch (boost::program_options::error &e) {
+        LOG(ERROR, "Error " << e.what());
+        cout << "Error " << e.what();
+    } catch (...) {
+        LOG(ERROR, "Options Parser: Caught fatal unknown exception");
+        cout << "Options Parser: Caught fatal unknown exception";
+    }
+
+    return(-1);
 }
