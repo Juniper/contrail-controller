@@ -72,6 +72,8 @@ void RedisAsyncConnection::RAC_Reconnect(const boost::system::error_code &error)
         } else {
             return;
         }
+    } else {
+        LOG(INFO, "RedisAsyncConnection::RAC_Reconnect initiated " << this);
     }
 
     if (!RAC_Connect()) {
@@ -80,7 +82,7 @@ void RedisAsyncConnection::RAC_Reconnect(const boost::system::error_code &error)
 }
 
 void RedisAsyncConnection::RAC_ConnectCallbackProcess(const struct redisAsyncContext *c, int status) {
-    LOG(DEBUG, "RAC_Connect status: " << status);
+    LOG(DEBUG, "RAC_Connect status: " << status << " " << this);
     if (status != REDIS_OK) {
         if (context_) {
             tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
@@ -92,6 +94,7 @@ void RedisAsyncConnection::RAC_ConnectCallbackProcess(const struct redisAsyncCon
                 fns_map.erase(it);
             } 
             context_ = NULL;
+            client_.reset();
         }
 
         boost::system::error_code ec;
@@ -140,6 +143,7 @@ void RedisAsyncConnection::RAC_ConnectCallback(const struct redisAsyncContext *c
 }
 
 void RedisAsyncConnection::RAC_DisconnectCallbackProcess(const struct redisAsyncContext *c, int status) {
+      LOG(DEBUG, "RAC_Disconnect status: " << status << " " << this);
       {
         tbb::mutex::scoped_lock lock(rac_cb_fns_map_mutex_);
         RedisAsyncConnection::RAC_CbFnsMap& fns_map = RedisAsyncConnection::rac_cb_fns_map();
@@ -148,6 +152,7 @@ void RedisAsyncConnection::RAC_DisconnectCallbackProcess(const struct redisAsync
             fns_map.erase(it);
         state_ = REDIS_ASYNC_CONNECTION_DISCONNECTED;
         context_ = NULL;
+        client_.reset();
       }
 
     if (client_disconnect_cb_)
@@ -190,7 +195,6 @@ bool RedisAsyncConnection::RAC_Connect(void) {
         context_ = NULL;
         return true;
     }
-
     client_.reset(new redisBoostClient(*evm_->io_service(), context_, mutex_));
 
     tbb::mutex::scoped_lock fns_lock(rac_cb_fns_map_mutex_);
