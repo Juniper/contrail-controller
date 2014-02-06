@@ -134,6 +134,10 @@ void OperDB::Init() {
     Peer *linklocal_peer;
     linklocal_peer = new Peer(Peer::LINKLOCAL_PEER, LINKLOCAL_PEER_NAME);
     agent_->SetLinkLocalPeer(linklocal_peer);
+
+    Peer *host_os_peer;
+    host_os_peer = new Peer(Peer::HOST_OS_PEER, HOST_OS_PEER_NAME);
+    agent_->SetHostOsPeer(host_os_peer);
 }
 
 void OperDB::CreateDBClients() {
@@ -200,6 +204,9 @@ void OperDB::Shutdown() {
 
     delete agent_->GetLinkLocalPeer();
     agent_->SetLinkLocalPeer(NULL);
+
+    delete agent_->GetHostOsPeer();
+    agent_->SetHostOsPeer(NULL);
 
     delete agent_->GetDomainConfigTable();
     agent_->SetDomainConfigTable(NULL);

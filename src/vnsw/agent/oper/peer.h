@@ -14,6 +14,7 @@
 #define LOCAL_VM_PEER_NAME "Local_Vm"
 #define NOVA_PEER_NAME "Nova"
 #define LINKLOCAL_PEER_NAME "LinkLocal"
+#define HOST_OS_PEER_NAME "HostOs"
 
 class AgentXmppChannel;
 
@@ -27,6 +28,7 @@ public:
         LOCAL_PEER,  // higher priority for local peer
         LOCAL_VM_PEER,
         LINKLOCAL_PEER,
+        HOST_OS_PEER,
         NOVA_PEER
     };
 

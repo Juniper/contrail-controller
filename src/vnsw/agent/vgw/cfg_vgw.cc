@@ -130,7 +130,7 @@ void VirtualGatewayConfigTable::Init(const char *init_file) {
             }
         }
 
-        if (vrf == "" || interface == "" || subnets.size() == 0) {
+        if (vrf == "" || interface == "" ) {
             return;
         }
 

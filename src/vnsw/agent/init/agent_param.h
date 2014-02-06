@@ -40,6 +40,9 @@ public:
         return vhost_.addr_.to_ulong() != 0? true : false;
     }
 
+    bool IsVHostGatewayConfigured() {
+        return vhost_.gw_.to_ulong() != 0? true : false;
+    }
     const std::string &vhost_name() const { return vhost_.name_; }
     const Ip4Address &vhost_addr() const { return vhost_.addr_; }
     const Ip4Address &vhost_prefix() const { return vhost_.prefix_; }

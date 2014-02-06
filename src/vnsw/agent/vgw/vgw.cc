@@ -185,3 +185,12 @@ void VirtualGateway::Shutdown() {
         agent_->GetVrfTable()->DeleteVrf(it->vrf());
     }
 }
+
+int VirtualGateway::SubnetCount(std::string interface) const {
+    VirtualGatewayConfig cfg(interface);
+    VirtualGatewayConfigTable::Table::iterator it = 
+        vgw_config_table_->table().find(cfg);
+    if (it == vgw_config_table_->table().end())
+        return 0;
+    return it->subnets().size();
+}
