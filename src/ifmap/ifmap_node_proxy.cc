@@ -44,5 +44,6 @@ void IFMapNodeProxy::Clear() {
     if (node_ != NULL) {
         node_->ClearState(node_->table(), id_);
         node_ = NULL;
+        id_ = DBTable::kInvalidId;
     }
 }
