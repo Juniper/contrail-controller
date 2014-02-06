@@ -6,12 +6,10 @@
 //  redis.sandesh
 //
 
-struct RedisUveMasterInfo {
+struct RedisUveInfo {
     1:  string             ip
     2:  u16                port
     3:  string             status 
-    4:  u64                master_last_updated
-    5:  u64                num_of_mastership_changes
     6:  u64                update_no_conn;
     7:  u64                update_failed;
     8:  u64                update_succeeded;
@@ -26,9 +24,9 @@ struct RedisUveMasterInfo {
     17: optional u64       conn_cb_succeeded;
 }
 
-request sandesh RedisUVEMasterRequest {
+request sandesh RedisUVERequest {
 }
 
-response sandesh RedisUVEMasterResponse {
-    1: RedisUveMasterInfo     redis_uve_master
+response sandesh RedisUVEResponse {
+    1: RedisUveInfo     redis_uve_info;
 }

@@ -165,6 +165,8 @@ MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr sessi
     bool delete_session = false;
     {
         tbb::mutex::scoped_lock lock(mutex_);
+
+        // Ignore if session is closed in the meantime
         SessionMap::iterator it = metadata_sessions_.find(session.get());
         if (it == metadata_sessions_.end())
             return;

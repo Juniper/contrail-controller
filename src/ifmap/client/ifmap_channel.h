@@ -8,6 +8,7 @@
 #include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/strand.hpp>
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -201,9 +202,22 @@ private:
     std::string timeout_to_string(uint64_t timeout);
     void set_connection_status(ConnectionStatus status);
 
+    void ReconnectPreparationInMainThr();
+    void DoResolveInMainThr();
+    void DoConnectInMainThr(bool is_ssrc);
+    void DoSslHandshakeInMainThr(bool is_ssrc);
+    void SendNewSessionRequestInMainThr(std::string ns_str);
+    void NewSessionResponseWaitInMainThr();
+    void SendSubscribeInMainThr(std::string sub_msg);
+    void SubscribeResponseWaitInMainThr();
+    void SendPollRequestInMainThr(std::string poll_msg);
+    void PollResponseWaitInMainThr();
+    void ProcResponseInMainThr(size_t bytes_to_read);
+
     IFMapManager *manager_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::ssl::context ctx_;
+    boost::asio::strand io_strand_;
     std::auto_ptr<SslStream> ssrc_socket_;
     std::auto_ptr<SslStream> arc_socket_;
     std::string username_;
