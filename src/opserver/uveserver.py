@@ -21,77 +21,31 @@ from pysandesh.util import UTCTimestampUsec
 
 class UVEServer(object):
 
-    def __init__(self, local_ip, local_port, redis_sentinel_client, service):
-        self._redis_sentinel_client = redis_sentinel_client
-        self._local_ip = local_ip
-        self._local_port = int(local_port)
-        self._service = service
-        self._uve_server_task = None
-        self._redis = None
-        self._redis_master_info = None
-        self._master_last_updated = None
-        self._num_mastership_changes = 0
+    def __init__(self, redis_uve_server, logger):
+        self._local_redis_uve = redis_uve_server
+        self._redis_uve_list = []
+        self._logger = logger
         self._sem = BoundedSemaphore(1)
-        if redis_sentinel_client is not None:
-            self._redis_master_info = \
-                redis_sentinel_client.get_redis_master(service)
-            if self._redis_master_info is not None:
-                self._num_mastership_changes += 1
-                self._master_last_updated = UTCTimestampUsec()
-                self._redis = redis.StrictRedis(self._redis_master_info[0],
-                                                self._redis_master_info[1],
-                                                db=0)
-                self._uve_server_task = gevent.spawn(self.run)
+        self._redis = None
+        if self._local_redis_uve:
+            self._redis = redis.StrictRedis(self._local_redis_uve[0],
+                                            self._local_redis_uve[1], db=0)
     #end __init__
 
-    def set_redis_master(self, redis_master):
-        if self._redis_master_info != redis_master:
-            try:
-                self._sem.acquire()
-                if self._redis_master_info is not None:
-                    gevent.kill(self._uve_server_task)
-                self._redis_master_info = redis_master
-                self._num_mastership_changes += 1
-                self._master_last_updated = UTCTimestampUsec()
-                self._redis = redis.StrictRedis(self._redis_master_info[0],
-                                                self._redis_master_info[1],
-                                                db=0)
-                self._uve_server_task = gevent.spawn(self.run)
-            except Exception as e:
-                print "Failed to set_redis_master: %s" % e
-                raise
-            finally:
-                self._sem.release()
+    def update_redis_uve_list(self, redis_uve_list):
+        self._redis_uve_list = redis_uve_list
+    # end update_redis_uve_list 
 
-    #end set_redis_master
-
-    def reset_redis_master(self):
-        if self._redis_master_info is not None:
-            try:
-                self._sem.acquire()
-                self._redis_master_info = None
-                gevent.kill(self._uve_server_task)
-                self._redis = None
-            except Exception as e:
-                print "Failed to reset_redis_master: %s" % e
-                raise
-            finally:
-                self._sem.release()
-    #end reset_redis_master
-
-    def fill_redis_uve_master_info(self, uve_master_info):
-        if self._redis_master_info is not None:
-            uve_master_info.ip = self._redis_master_info[0]
-            uve_master_info.port = int(self._redis_master_info[1])
-            try:
-                self._redis.ping()
-            except redis.exceptions.ConnectionError:
-                uve_master_info.status = 'DisConnected'
-            else:
-                uve_master_info.status = 'Connected'
-        uve_master_info.master_last_updated = self._master_last_updated
-        uve_master_info.num_of_mastership_changes = self._num_mastership_changes
-    #end fill_redis_uve_master_info
+    def fill_redis_uve_info(self, redis_uve_info):
+        redis_uve_info.ip = self._local_redis_uve[0]
+        redis_uve_info.port = self._local_redis_uve[1]
+        try:
+            self._redis.ping()
+        except redis.exceptions.ConnectionError:
+            redis_uve_info.status = 'DisConnected'
+        else:
+            redis_uve_info.status = 'Connected'
+    #end fill_redis_uve_info
 
     @staticmethod
     def merge_previous(state, key, typ, attr, prevdict):
@@ -130,10 +84,12 @@ class UVEServer(object):
                 k, value = self._redis.brpop("DELETED")
                 self._sem.acquire()
                 lck = True
-                print "%s del received for " % value
-                info = value.rsplit(":", 4)
+                self._logger.debug("%s del received for " % value)
+                # value is of the format: 
+                # DEL:<key>:<src>:<node-type>:<module>:<instance-id>:<message-type>:<seqno>
+                info = value.rsplit(":", 6)
                 key = info[0].split(":", 1)[1]
-                typ = info[3]
+                typ = info[5]
 
                 existing = self._redis.hgetall("PREVIOUS:" + key + ":" + typ)
                 tstate = {}
@@ -180,8 +136,8 @@ class UVEServer(object):
                 if lck:
                     self._sem.release()
                     lck = False
-                print "Deleted %s" % value
-                print "UVE %s Type %s" % (key, typ)
+                self._logger.debug("Deleted %s" % value)
+                self._logger.debug("UVE %s Type %s" % (key, typ))
 
     @staticmethod
     def _is_agg_item(attr):
@@ -236,124 +192,125 @@ class UVEServer(object):
         return state
 
     def get_uve(self, key, flat, sfilter=None, mfilter=None, tfilter=None):
-        try:
-            state = {}
-            state[key] = {}
-
-            redish = redis.StrictRedis(host=self._local_ip,
-                                       port=self._local_port, db=0)
-            statdict = {}
-            for origs in redish.smembers("ORIGINS:" + key):
-                info = origs.rsplit(":", 2)
-                source = info[0]
-                if sfilter is not None:
-                    if sfilter != source:
-                        continue
-                mdule = info[1]
-                if mfilter is not None:
-                    if mfilter != mdule:
-                        continue
-                dsource = source + ":" + mdule
-
-                typ = info[2]
-                if tfilter is not None:
-                    if typ not in tfilter:
-                        continue
-
-                odict = redish.hgetall("VALUES:" + key + ":" + origs)
-
-                empty = True
-                afilter_list = set()
-                if tfilter is not None:
-                    afilter_list = tfilter[typ]
-                for attr, value in odict.iteritems():
-                    if len(afilter_list):
-                        if attr not in afilter_list:
+        state = {}
+        state[key] = {}
+        statdict = {}
+        for redis_uve in self._redis_uve_list:
+            redish = redis.StrictRedis(host=redis_uve[0],
+                                       port=redis_uve[1], db=0)
+            try:
+                for origs in redish.smembers("ORIGINS:" + key):
+                    info = origs.rsplit(":", 1)
+                    sm = info[0].split(":", 1)
+                    source = sm[0]
+                    if sfilter is not None:
+                        if sfilter != source:
                             continue
-
-                    if empty:
-                        empty = False
-                        # print "Src %s, Mod %s, Typ %s" % (source, mdule, typ)
-                        if typ not in state[key]:
-                            state[key][typ] = {}
-
-                    if value[0] == '<':
-                        snhdict = xmltodict.parse(value)
-                        if snhdict[attr]['@type'] == 'list':
-                            if snhdict[attr]['list']['@size'] == '0':
-                                continue
-                            elif snhdict[attr]['list']['@size'] == '1':
-                                sname = ParallelAggregator.get_list_name(
-                                    snhdict[attr])
-                                if not isinstance(
-                                        snhdict[attr]['list'][sname], list):
-                                    snhdict[attr]['list'][sname] = [
-                                        snhdict[attr]['list'][sname]]
-                    else:
-                        if not flat:
+                    mdule = sm[1]
+                    if mfilter is not None:
+                        if mfilter != mdule:
                             continue
+                    dsource = source + ":" + mdule
 
-                        if typ not in statdict:
-                            statdict[typ] = {}
-                        statdict[typ][attr] = []
-                        statsattr = json.loads(value)
-                        for elem in statsattr:
-                            #import pdb; pdb.set_trace()
-                            edict = {}
-                            if elem["rtype"] == "list":
-                                elist = redish.lrange(elem["href"], 0, -1)
-                                for eelem in elist:
-                                    jj = json.loads(eelem).items()
-                                    edict[jj[0][0]] = jj[0][1]
-                            elif elem["rtype"] == "zset":
-                                elist = redish.zrange(
-                                    elem["href"], 0, -1, withscores=True)
-                                for eelem in elist:
-                                    tdict = json.loads(eelem[0])
-                                    tval = long(tdict["ts"])
-                                    dt = datetime.datetime.utcfromtimestamp(
-                                        float(tval) / 1000000)
-                                    tms = (tval % 1000000) / 1000
-                                    tstr = dt.strftime('%Y %b %d %H:%M:%S')
-                                    edict[tstr + "." + str(tms)] = eelem[1]
-                            elif elem["rtype"] == "hash":
-                                elist = redish.hgetall(elem["href"])
-                                edict = elist
-                            statdict[typ][attr].append(
-                                {elem["aggtype"]: edict})
-                        continue
-
-                    # print "Attr %s Value %s" % (attr, snhdict)
-                    if attr not in state[key][typ]:
-                        state[key][typ][attr] = {}
-                    if dsource in state[key][typ][attr]:
-                        print "Found Dup %s:%s:%s:%s:%s = %s" % \
-                            (key, typ, attr, source, mdule, state[
-                             key][typ][attr][dsource])
-                    state[key][typ][attr][dsource] = snhdict[attr]
-
-            if sfilter is None and mfilter is None:
-                for ptyp in redish.smembers("PTYPES:" + key):
-                    afilter = None
+                    typ = info[1]
                     if tfilter is not None:
-                        if ptyp not in tfilter:
+                        if typ not in tfilter:
                             continue
-                        afilter = tfilter[ptyp]
-                    existing = redish.hgetall("PREVIOUS:" + key + ":" + ptyp)
-                    nstate = UVEServer.convert_previous(
-                        existing, state, key, ptyp, afilter)
-                    state = copy.deepcopy(nstate)
 
-            # print
-            # print "Result is as follows"
-            # print json.dumps(state, indent = 4, sort_keys = True)
-            pa = ParallelAggregator(state)
-            rsp = pa.aggregate(key, flat)
-        except Exception as e:
-            print e
-            return {}
-        else:
-            print "Computed %s" % key
+                    odict = redish.hgetall("VALUES:" + key + ":" + origs)
+
+                    empty = True
+                    afilter_list = set()
+                    if tfilter is not None:
+                        afilter_list = tfilter[typ]
+                    for attr, value in odict.iteritems():
+                        if len(afilter_list):
+                            if attr not in afilter_list:
+                                continue
+
+                        if empty:
+                            empty = False
+                            # print "Src %s, Mod %s, Typ %s" % (source, mdule, typ)
+                            if typ not in state[key]:
+                                state[key][typ] = {}
+
+                        if value[0] == '<':
+                            snhdict = xmltodict.parse(value)
+                            if snhdict[attr]['@type'] == 'list':
+                                if snhdict[attr]['list']['@size'] == '0':
+                                    continue
+                                elif snhdict[attr]['list']['@size'] == '1':
+                                    sname = ParallelAggregator.get_list_name(
+                                        snhdict[attr])
+                                    if not isinstance(
+                                        snhdict[attr]['list'][sname], list):
+                                        snhdict[attr]['list'][sname] = [
+                                            snhdict[attr]['list'][sname]]
+                        else:
+                            if not flat:
+                                continue
+
+                            if typ not in statdict:
+                                statdict[typ] = {}
+                            statdict[typ][attr] = []
+                            statsattr = json.loads(value)
+                            for elem in statsattr:
+                                #import pdb; pdb.set_trace()
+                                edict = {}
+                                if elem["rtype"] == "list":
+                                    elist = redish.lrange(elem["href"], 0, -1)
+                                    for eelem in elist:
+                                        jj = json.loads(eelem).items()
+                                        edict[jj[0][0]] = jj[0][1]
+                                elif elem["rtype"] == "zset":
+                                    elist = redish.zrange(
+                                        elem["href"], 0, -1, withscores=True)
+                                    for eelem in elist:
+                                        tdict = json.loads(eelem[0])
+                                        tval = long(tdict["ts"])
+                                        dt = datetime.datetime.utcfromtimestamp(
+                                            float(tval) / 1000000)
+                                        tms = (tval % 1000000) / 1000
+                                        tstr = dt.strftime('%Y %b %d %H:%M:%S')
+                                        edict[tstr + "." + str(tms)] = eelem[1]
+                                elif elem["rtype"] == "hash":
+                                    elist = redish.hgetall(elem["href"])
+                                    edict = elist
+                                statdict[typ][attr].append(
+                                    {elem["aggtype"]: edict})
+                            continue
+
+                        # print "Attr %s Value %s" % (attr, snhdict)
+                        if attr not in state[key][typ]:
+                            state[key][typ][attr] = {}
+                        if dsource in state[key][typ][attr]:
+                            print "Found Dup %s:%s:%s:%s:%s = %s" % \
+                                (key, typ, attr, source, mdule, state[
+                                key][typ][attr][dsource])
+                        state[key][typ][attr][dsource] = snhdict[attr]
+
+                if sfilter is None and mfilter is None:
+                    for ptyp in redish.smembers("PTYPES:" + key):
+                        afilter = None
+                        if tfilter is not None:
+                            if ptyp not in tfilter:
+                                continue
+                            afilter = tfilter[ptyp]
+                        existing = redish.hgetall("PREVIOUS:" + key + ":" + ptyp)
+                        nstate = UVEServer.convert_previous(
+                            existing, state, key, ptyp, afilter)
+                        state = copy.deepcopy(nstate)
+
+                pa = ParallelAggregator(state)
+                rsp = pa.aggregate(key, flat)
+            except redis.exceptions.ConnectionError:
+                self._logger.error("Failed to connect to redis-uve: %s:%d" \
+                                   % (redis_uve[0], redis_uve[1]))
+            except Exception as e:
+                self._logger.error("Exception: %s" % e)
+                return {}
+            else:
+                self._logger.debug("Computed %s" % key)
 
         for k, v in statdict.iteritems():
             if k in rsp:
@@ -412,52 +369,54 @@ class UVEServer(object):
             patterns = set()
             for filt in kfilter:
                 patterns.add(self.get_uve_regex(filt))
-        try:
-            redish = redis.StrictRedis(host=self._local_ip,
-                                       port=self._local_port, db=0)
-            for entry in redish.smembers("TABLE:" + key):
-                info = (entry.split(':', 1)[1]).rsplit(':', 5)
-                uve_key = info[0]
-                if kfilter is not None:
-                    kfilter_match = False
-                    for pattern in patterns:
-                        if pattern.match(uve_key):
-                            kfilter_match = True
-                            break
-                    if not kfilter_match:
-                        continue
-                src = info[1]
-                if sfilter is not None:
-                    if sfilter != src:
-                        continue
-                node_type = info[2]
-                mdule = info[3]
-                if mfilter is not None:
-                    if mfilter != mdule:
-                        continue
-                inst = info[4] 
-                typ = info[5]
-                if tfilter is not None:
-                    if typ not in tfilter:
-                        continue
-                if parse_afilter:
-                    if tfilter is not None and len(tfilter[typ]):
-                        valkey = "VALUES:" + key + ":" + uve_key + ":" + \
+        for redis_uve in self._redis_uve_list:
+            redish = redis.StrictRedis(host=redis_uve[0],
+                                       port=redis_uve[1], db=0)
+            try:
+                for entry in redish.smembers("TABLE:" + key):
+                    info = (entry.split(':', 1)[1]).rsplit(':', 5)
+                    uve_key = info[0]
+                    if kfilter is not None:
+                        kfilter_match = False
+                        for pattern in patterns:
+                            if pattern.match(uve_key):
+                                kfilter_match = True
+                                break
+                        if not kfilter_match:
+                            continue
+                    src = info[1]
+                    if sfilter is not None:
+                        if sfilter != src:
+                            continue
+                    node_type = info[2]
+                    mdule = info[3]
+                    if mfilter is not None:
+                        if mfilter != mdule:
+                            continue
+                    inst = info[4] 
+                    typ = info[5]
+                    if tfilter is not None:
+                        if typ not in tfilter:
+                            continue
+                    if parse_afilter:
+                        if tfilter is not None and len(tfilter[typ]):
+                            valkey = "VALUES:" + key + ":" + uve_key + ":" + \
                                  src + ":" + node_type + ":" + mdule + \
                                  ":" + inst + ":" + typ
-                        for afilter in tfilter[typ]:
-                            attrval = redish.hget(valkey, afilter)
-                            if attrval is not None:
-                                break
-                        if attrval is None:
-                            continue
-
-                uve_list.add(uve_key)
-        except Exception as e:
-            print e
-            return set()
-        else:
-            return uve_list
+                            for afilter in tfilter[typ]:
+                                attrval = redish.hget(valkey, afilter)
+                                if attrval is not None:
+                                    break
+                            if attrval is None:
+                                continue
+                    uve_list.add(uve_key)
+            except redis.exceptions.ConnectionError:
+                self._logger.error('Failed to connect to redis-uve: %s:%d' \
+                                   % (redis_uve[0], redis_uve[1]))
+            except Exception as e:
+                self._logger.error('Exception: ' % e)
+                return set()
+        return uve_list
     # end get_uve_list
 
 # end UVEServer

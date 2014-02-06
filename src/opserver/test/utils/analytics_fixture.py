@@ -45,12 +45,14 @@ class Query(object):
             self.filter = filter
 
 class Collector(object):
-    def __init__(self, analytics_fixture, logger, is_dup=False):
+    def __init__(self, analytics_fixture, redis_uve, 
+                 logger, is_dup=False):
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
         self.hostname = socket.gethostname()
         self._instance = None
+        self._redis_uve = redis_uve
         self._logger = logger
         self._is_dup = is_dup
         if self._is_dup is True:
@@ -67,8 +69,8 @@ class Collector(object):
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
             '--cassandra-server-list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--redis-sentinel-port', 
-            str(self.analytics_fixture.redis_sentinel_port),
+            '--redis-uve-port', 
+            str(self._redis_uve.port),
             '--listen-port', str(self.listen_port),
             '--http-server-port', str(self.http_port),
             '--log-file', self._log_file]
@@ -130,12 +132,14 @@ class OpServer(object):
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_query.port),
-                '--redis_sentinel_port', 
-                str(self.analytics_fixture.redis_sentinel_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
-                '--rest_api_port', str(self.listen_port),
-                '--collectors', self.primary_collector]
+                '--rest_api_port', str(self.listen_port)]
+        args.append('--redis_uve_list') 
+        for redis_uve in self.analytics_fixture.redis_uves:
+            args.append('127.0.0.1:'+str(redis_uve.port))
+        args.append('--collectors')
+        args.append(self.primary_collector)
         if self.secondary_collector is not None:
             args.append(self.secondary_collector)
         if self._is_dup:
@@ -224,16 +228,15 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self, master_port=None):
+    def __init__(self):
         self.port = AnalyticsFixture.get_free_port()
-        self.master_port = master_port
         self.running = False
     # end __init__
 
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port, self.master_port) 
+        mockredis.start_redis(self.port) 
     # end start
 
     def stop(self):
@@ -247,30 +250,22 @@ class Redis(object):
 class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, cassandra_port, 
-                 noqed=False, collector_ha_test=False, 
-                 redis_ha_test=False): 
+                 noqed=False, collector_ha_test=False): 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
         self.logger = logger
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
-        self.redis_ha_test = redis_ha_test
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uve_master = Redis()
-        self.redis_uve_master.start()
-        if self.redis_ha_test:
-            self.redis_uve_slave = Redis(self.redis_uve_master.port)
-            self.redis_uve_slave.start()
+        self.redis_uves = [Redis()]
+        self.redis_uves[0].start()
         self.redis_query = Redis()
         self.redis_query.start()
-        self.redis_sentinel_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis_sentinel(self.redis_sentinel_port,
-                                       self.redis_uve_master.port)
 
-        self.collectors = [Collector(self, self.logger)] 
+        self.collectors = [Collector(self, self.redis_uves[0], self.logger)] 
         self.collectors[0].start()
 
         self.opserver_port = None
@@ -278,20 +273,17 @@ class AnalyticsFixture(fixtures.Fixture):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
             if self.collector_ha_test:
-                self.collectors.append(Collector(self, self.logger, True))
+                self.redis_uves.append(Redis())
+                self.redis_uves[1].start()
+                self.collectors.append(Collector(self, self.redis_uves[1],
+                                                 self.logger, True))
                 self.collectors[1].start()
                 secondary_collector = self.collectors[1].get_addr()
             self.opserver = OpServer(primary_collector, secondary_collector, 
-                                     self.redis_uve_master.port, 
+                                     self.redis_uves[0].port, 
                                      self, self.logger)
             self.opserver.start()
             self.opserver_port = self.opserver.listen_port
-            if self.redis_ha_test:
-                self.opserver_dup = OpServer(primary_collector, 
-                                             secondary_collector,
-                                             self.redis_uve_slave.port, 
-                                             self, self.logger)
-                self.opserver_dup.start()
             self.query_engine = QueryEngine(primary_collector, 
                                             secondary_collector, 
                                             self, self.logger)
@@ -400,42 +392,6 @@ class AnalyticsFixture(fixtures.Fixture):
                         break
                 if gen_found is not True:
                     return False
-        except Exception as err:
-            self.logger.error('Exception: %s' % err)
-            return False
-        return True
-
-    @retry(delay=3, tries=10)
-    def verify_collector_redis_uve_master(self, collector, 
-                                          exp_redis_uve_master):
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
-        try:
-            redis_uve_master = vcl.get_redis_uve_master()['RedisUveMasterInfo']
-            self.logger.info('redis uve master: ' + str(redis_uve_master))
-            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
-                             (exp_redis_uve_master.port))
-            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
-                return False
-            if redis_uve_master['status'] != 'Connected':
-                return False
-        except Exception as err:
-            self.logger.error('Exception: %s' % err)
-            return False
-        return True
-
-    @retry(delay=3, tries=10)
-    def verify_opserver_redis_uve_master(self, opserver,
-                                         exp_redis_uve_master):
-        vop = VerificationOpsSrv('127.0.0.1', opserver.http_port) 
-        try:
-            redis_uve_master = vop.get_redis_uve_master()['RedisUveMasterInfo']
-            self.logger.info('redis uve master: ' + str(redis_uve_master))
-            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
-                             (exp_redis_uve_master.port))
-            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
-                return False
-            if redis_uve_master['status'] != 'Connected':
-                return False
         except Exception as err:
             self.logger.error('Exception: %s' % err)
             return False
@@ -1040,12 +996,9 @@ class AnalyticsFixture(fixtures.Fixture):
         self.query_engine.stop()
         for collector in self.collectors:
             collector.stop()
-        self.redis_uve_master.stop()
-        if self.redis_ha_test:
-            self.redis_uve_slave.stop()
-            self.opserver_dup.stop()
+        for redis_uve in self.redis_uves:
+            redis_uve.stop()
         self.redis_query.stop()
-        mockredis.stop_redis_sentinel(self.redis_sentinel_port)
 
     @staticmethod
     def get_free_port():

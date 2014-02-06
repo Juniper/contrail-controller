@@ -231,40 +231,25 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     vsession->gen_ = gen;
 
     std::vector<UVETypeInfo> vu;
-    if (snh->get_sucessful_connections() > 1) {
-        std::map<std::string, int32_t> seqReply;
-        bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
-                        snh->get_module_name(), snh->get_instance_id_name(),
-                        seqReply);
-        if (retc) {
-            for (map<string,int32_t>::const_iterator it = seqReply.begin();
-                    it != seqReply.end(); it++) {
-                UVETypeInfo uti;
-                uti.set_type_name(it->first);
-                uti.set_seq_num(it->second);
-                vu.push_back(uti);
-            }
-            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        } else {
-            increment_redis_error();
-            LOG(ERROR, "OSP GetSeq FAILED: " << gen->ToString() <<
-                " Session:" << vsession->ToString());
-            gen->DisconnectSession(vsession);
-            return false;
+    std::map<std::string, int32_t> seqReply;
+    bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
+                             snh->get_module_name(), snh->get_instance_id_name(),
+                             seqReply);
+    if (retc) {
+        for (map<string,int32_t>::const_iterator it = seqReply.begin();
+             it != seqReply.end(); it++) {
+            UVETypeInfo uti;
+            uti.set_type_name(it->first);
+            uti.set_seq_num(it->second);
+            vu.push_back(uti);
         }
-
+        SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
     } else {
-        bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_node_type_name(),
-                        snh->get_module_name(), snh->get_instance_id_name());
-        if (retc) {
-            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        } else {
-            increment_redis_error();
-            LOG(ERROR, "OSP DeleteUVEs FAILED: " << gen->ToString() <<
-                " Session:" << vsession->ToString());
-            gen->DisconnectSession(vsession);
-            return false;
-        }
+        increment_redis_error();
+        LOG(ERROR, "OSP GetSeq FAILED: " << gen->ToString() <<
+            " Session:" << vsession->ToString());
+        gen->DisconnectSession(vsession);
+        return false;
     }
 
     LOG(DEBUG, "Sent good Ctrl Msg: Size " << vu.size() << " " <<
