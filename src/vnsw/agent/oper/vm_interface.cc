@@ -1283,13 +1283,6 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     struct ether_addr *addrp = ether_aton(vm_mac().c_str());
     const string &vrf_name = vrf_.get()->GetName();
 
-    int label = l2_label_;
-    int bmap = TunnelType::ComputeType(TunnelType::MplsType()); 
-    if ((l2_label_ == MplsTable::kInvalidLabel) && (vxlan_id_ != 0)) {
-        label = vxlan_id_;
-        bmap = 1 << TunnelType::VXLAN;
-    }
-
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     Layer2AgentRouteTable::AddLocalVmRoute(agent->GetLocalVmPeer(), GetUuid(),
                                            vn_->GetName(), vrf_name, l2_label_,
