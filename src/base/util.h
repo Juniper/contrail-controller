@@ -211,7 +211,7 @@ static inline std::string GetHostIp(boost::asio::io_service *io_service,
 }
 
 template <typename ValueType>
-static inline void GetOptValue(boost::program_options::variables_map &var_map,
+static inline void GetOptValue(const boost::program_options::variables_map &var_map,
                                ValueType &var, std::string val,
                                ValueType emptyValue) {
 

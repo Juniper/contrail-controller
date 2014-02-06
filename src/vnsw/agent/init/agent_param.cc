@@ -23,6 +23,7 @@
 
 #include <base/logging.h>
 #include <base/misc_utils.h>
+#include <base/util.h>
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
 #include <sandesh/sandesh_trace.h>
@@ -344,60 +345,43 @@ void AgentParam::InitFromConfig() {
 }
 
 void AgentParam::InitFromArguments
-    (const boost::program_options::variables_map &var_map) {
+    (const boost::program_options::variables_map &var_map, bool log_local) {
+    string collector_server;
+    string xen_ll_ip_address;
+    string mode = "kvm";
 
-    if (var_map.count("log-local")) {
-        log_local_ = true;
-    }
+    log_local_ = log_local;
+    GetOptValue<string>(var_map, log_category_, "LOG.category", "");
+    GetOptValue<string>(var_map, log_file_, "LOG.file", "");
+    GetOptValue<string>(var_map, log_level_, "LOG.level", "");
+    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port", 0);
+    GetOptValue<string>(var_map, collector_server, "COLLECTOR.server", "");
+    GetOptValue<uint16_t>(var_map, http_server_port_, "DEFAULTS.http-server-port", 0);
+    GetOptValue<string>(var_map, host_name_, "DEFAULTS.hostname", "");
+    GetOptValue<string>(var_map, mode, "HYPERVISOR.type", "");
+    GetOptValue<string>(var_map, xen_ll_.name_, "HYPERVISOR.xen-ll-port", "");
+    GetOptValue<string>(var_map, xen_ll_ip_address, "HYPERVISOR.xen-ll-ip-address", "");
+    GetOptValue<int>(var_map, xen_ll_.plen_, "HYPERVISOR.xen-ll-prefix-len", 0);
+    GetOptValue<string>(var_map, vmware_physical_port_, "HYPERVISOR.vmware-physical-port", "");
 
-    if (var_map.count("log-level")) {
-        log_level_ = var_map["log-level"].as<string>();
-    }
-
-    if (var_map.count("log-category")) {
-        log_category_ = var_map["log-category"].as<string>();
-    }
-
-    if (var_map.count("collector")) {
+    if (!collector_server.empty()) {
         Ip4Address addr;
         if (GetIpAddress(var_map["collector"].as<string>(), &addr)) {
             collector_ = addr;
         }
     }
 
-    if (var_map.count("collector-port")) {
-        collector_port_ = var_map["collector-port"].as<int>();
+    if (mode == "xen") {
+        mode_ = AgentParam::MODE_XEN;
+    } else if (mode == "vmware") {
+        mode_ = AgentParam::MODE_VMWARE;
+    } else {
+        mode_ = AgentParam::MODE_KVM;
     }
 
-    if (var_map.count("http-server-port")) {
-        http_server_port_ = var_map["http-server-port"].as<int>();
-    }
-
-    if (var_map.count("host-name")) {
-        host_name_ = var_map["host-name"].as<string>().c_str();
-    }
-
-    if (var_map.count("log-file")) {
-        log_file_ = var_map["log-file"].as<string>();
-    }
-
-    if (var_map.count("hypervisor")) {
-        if (var_map["hypervisor"].as<string>() == "xen") {
-            mode_ = AgentParam::MODE_XEN;
-        } else if (var_map["hypervisor"].as<string>() == "vmware") {
-            mode_ = AgentParam::MODE_VMWARE;
-        } else {
-            mode_ = AgentParam::MODE_KVM;
-        }
-    }
-
-    if (var_map.count("xen-ll-port")) {
-        xen_ll_.name_ = var_map["xen-ll-port"].as<string>();
-    }
-
-    if (var_map.count("xen-ll-ip-address")) {
+    if (!xen_ll_ip_address.empty()) {
         Ip4Address addr;
-        if (!GetIpAddress(var_map["xen-ll-ip-address"].as<string>(), &addr)) {
+        if (!GetIpAddress(xen_ll_ip_address, &addr)) {
             LOG(ERROR, "Error parsing xen-ll-ip-address");
             exit(EINVAL);
         }
@@ -405,15 +389,10 @@ void AgentParam::InitFromArguments
     }
 
     if (var_map.count("xen-ll-prefix-len")) {
-        xen_ll_.plen_ = var_map["xen-ll-prefix-len"].as<int>();
         if (xen_ll_.plen_ <= 0 || xen_ll_.plen_ >= 32) {
             LOG(ERROR, "Error parsing argument for xen-ll-prefix-len");
             exit(EINVAL);
         }
-    }
-
-    if (var_map.count("vmware-physical-port")) {
-        vmware_physical_port_ = var_map["vmware-physical-port"].as<string>();
     }
 
     return;
@@ -441,13 +420,14 @@ void AgentParam::Validate() {
 }
 
 void AgentParam::Init(const string &config_file, const string &program_name,
-                      const boost::program_options::variables_map &var_map) {
+                      const boost::program_options::variables_map &var_map,
+                      bool log_local) {
     config_file_ = config_file;
     program_name_ = program_name;
 
     InitFromSystem();
     InitFromConfig();
-    InitFromArguments(var_map);
+    InitFromArguments(var_map, log_local);
     Validate();
     vgw_config_table_->Init(config_file.c_str());
     LogConfig();
