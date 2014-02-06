@@ -38,13 +38,14 @@ public:
     typedef std::pair<HttpSession *, SessionData> SessionPair;
     typedef std::map<HttpConnection *, HttpSession *> ConnectionSessionMap;
     typedef std::pair<HttpConnection *, HttpSession *> ConnectionSessionPair;
+    typedef boost::intrusive_ptr<HttpSession> HttpSessionPtr;
 
     MetadataProxy(ServicesModule *module, const std::string &secret);
     virtual ~MetadataProxy();
     void Shutdown();
 
     void HandleMetadataRequest(HttpSession *session, const HttpRequest *request);
-    void HandleMetadataResponse(HttpConnection *conn, HttpSession *session,
+    void HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr session,
                                 std::string &msg, boost::system::error_code &ec);
 
     void OnServerSessionEvent(HttpSession *session, TcpSession::Event event);

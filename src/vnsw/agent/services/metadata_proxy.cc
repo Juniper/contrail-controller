@@ -98,6 +98,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     if (!services_->agent()->GetInterfaceTable()->
          FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid)) {
         ErrorClose(session);
+        http_server_->DeleteSession(session);
         delete request;
         METADATA_TRACE(Trace, "Metadata GET for VM : " << ip <<
                        " Error : Interface Config not available");
@@ -124,19 +125,21 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                       "X-Tenant-ID: " + vm_project_uuid + "\r\n" +
                       "X-Instance-ID-Signature: " + signature;
 
+    bool delete_session = false;
     uri = request->UrlPath().substr(1); // ignore the first "/"
-    tbb::mutex::scoped_lock lock(mutex_);
     switch(request->GetMethod()) {
         case HTTP_GET: {
+            tbb::mutex::scoped_lock lock(mutex_);
             HttpConnection *conn = GetProxyConnection(session, conn_close);
             if (conn) {
                 conn->HttpGet(uri, true, false, header_options,
                 boost::bind(&MetadataProxy::HandleMetadataResponse,
-                            this, conn, session, _1, _2));
+                            this, conn, HttpSessionPtr(session), _1, _2));
                 METADATA_TRACE(Trace, "Metadata GET for VM : " << vm_ip <<
                                " URL : " << uri);
             } else {
                 ErrorClose(session);
+                delete_session = true;
                 METADATA_TRACE(Trace, "Metadata GET for VM : " << vm_ip <<
                                " Error : Metadata Config not available");
             }
@@ -148,53 +151,71 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
                            request->GetMethod());
             break;
     }
+
+    if (delete_session)
+        http_server_->DeleteSession(session);
+
     delete request;
 }
 
 // Metadata Response from Nova API service
 void
-MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session,
+MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSessionPtr session,
                                       std::string &msg, boost::system::error_code &ec) {
-    tbb::mutex::scoped_lock lock(mutex_);
-    std::string vm_ip, vm_uuid, vm_project_uuid;
-    boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
-    services_->agent()->GetInterfaceTable()->
-        FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid);
+    bool delete_session = false;
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
+        SessionMap::iterator it = metadata_sessions_.find(session.get());
+        if (it == metadata_sessions_.end())
+            return;
 
-    if (!ec && session) {
-        METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Response : " << msg);
-        session->Send(reinterpret_cast<const u_int8_t *>(msg.c_str()),
-                      msg.length(), NULL);
-    } else {
-        METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " << 
-                              boost::system::system_error(ec).what());
-        CloseClientSession(conn);
-        ErrorClose(session);
-        return;
-    }
+        std::string vm_ip, vm_uuid, vm_project_uuid;
+        boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
+        services_->agent()->GetInterfaceTable()->
+            FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid);
 
-    SessionMap::iterator it = metadata_sessions_.find(session);
-    if (!ec && it != metadata_sessions_.end() && it->second.close_req) {
-        std::stringstream str(msg);
-        std::string option;
-        str >> option;
-        if (option == "Content-Length:") {
-            str >> it->second.content_len;
-        } else if (msg == "\r\n") {
-            it->second.header_end = true;
-            if (it->second.header_end && !it->second.content_len) {
-                CloseClientSession(it->second.conn);
-                CloseServerSession(session);
-                metadata_stats_.responses++;
-            }
-        } else if (it->second.header_end) {
-            it->second.data_sent += msg.length();
-            if (it->second.data_sent >= it->second.content_len) {
-                CloseClientSession(it->second.conn);
-                CloseServerSession(session);
-                metadata_stats_.responses++;
+        if (!ec) {
+            METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Response : " << msg);
+            session->Send(reinterpret_cast<const u_int8_t *>(msg.c_str()),
+                          msg.length(), NULL);
+        } else {
+            METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Error : " << 
+                                  boost::system::system_error(ec).what());
+            CloseClientSession(conn);
+            ErrorClose(session.get());
+            delete_session = true;
+            goto done;
+        }
+
+        if (!ec && it->second.close_req) {
+            std::stringstream str(msg);
+            std::string option;
+            str >> option;
+            if (option == "Content-Length:") {
+                str >> it->second.content_len;
+            } else if (msg == "\r\n") {
+                it->second.header_end = true;
+                if (it->second.header_end && !it->second.content_len) {
+                    CloseClientSession(it->second.conn);
+                    CloseServerSession(session.get());
+                    delete_session = true;
+                    metadata_stats_.responses++;
+                }
+            } else if (it->second.header_end) {
+                it->second.data_sent += msg.length();
+                if (it->second.data_sent >= it->second.content_len) {
+                    CloseClientSession(it->second.conn);
+                    CloseServerSession(session.get());
+                    delete_session = true;
+                    metadata_stats_.responses++;
+                }
             }
         }
+    }
+
+done:
+    if (delete_session) {
+        http_server_->DeleteSession(session.get());
     }
 }
 
@@ -220,13 +241,16 @@ void
 MetadataProxy::OnClientSessionEvent(HttpClientSession *session, TcpSession::Event event) {
     switch (event) {
         case TcpSession::CLOSE: {
-            tbb::mutex::scoped_lock lock(mutex_);
-            ConnectionSessionMap::iterator it = 
-                metadata_proxy_sessions_.find(session->Connection());
-            if (it == metadata_proxy_sessions_.end())
-                break;
-            CloseServerSession(it->second);
-            CloseClientSession(session->Connection());
+            {
+                tbb::mutex::scoped_lock lock(mutex_);
+                ConnectionSessionMap::iterator it = 
+                    metadata_proxy_sessions_.find(session->Connection());
+                if (it == metadata_proxy_sessions_.end())
+                    break;
+                CloseServerSession(it->second);
+                CloseClientSession(session->Connection());
+            }
+            http_server_->DeleteSession(session);
             break;
         }
 
