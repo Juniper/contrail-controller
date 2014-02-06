@@ -91,11 +91,12 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     std::string msg;
     std::string uri;
     std::string header_options;
-    std::string vm_ip, vm_uuid;
+    std::string vm_ip, vm_uuid, vm_project_uuid;
     metadata_stats_.requests++;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
+
     if (!services_->agent()->GetInterfaceTable()->
-         FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid)) {
+         FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid)) {
         ErrorClose(session);
         delete request;
         METADATA_TRACE(Trace, "Metadata GET for VM : " << ip <<
@@ -120,6 +121,7 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
     }
     header_options += "X-Forwarded-For: " + vm_ip + "\r\n" +
                       "X-Instance-ID: " + vm_uuid + "\r\n" +
+                      "X-Tenant-ID: " + vm_project_uuid + "\r\n" +
                       "X-Instance-ID-Signature: " + signature;
 
     uri = request->UrlPath().substr(1); // ignore the first "/"
@@ -154,9 +156,10 @@ void
 MetadataProxy::HandleMetadataResponse(HttpConnection *conn, HttpSession *session,
                                       std::string &msg, boost::system::error_code &ec) {
     tbb::mutex::scoped_lock lock(mutex_);
-    std::string vm_ip, vm_uuid;
+    std::string vm_ip, vm_uuid, vm_project_uuid;
     boost::asio::ip::address_v4 ip = session->remote_endpoint().address().to_v4();
-    services_->agent()->GetInterfaceTable()->FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid);
+    services_->agent()->GetInterfaceTable()->
+        FindVmUuidFromMetadataIp(ip, &vm_ip, &vm_uuid, &vm_project_uuid);
 
     if (!ec && session) {
         METADATA_TRACE(Trace, "Metadata for VM : " << vm_ip << " Response : " << msg);

@@ -156,6 +156,13 @@ bool CollectorInfoLogger(VizSandeshContext &ctx) {
         SandeshModuleServerTrace::Send(sinfos[i]);
     }
 
+    vector<SandeshMessageStat> sminfos;
+    analytics->GetCollector()->GetSandeshStats(sminfos);
+
+    for (uint i =0 ; i< sminfos.size(); i++) {
+        SandeshMessageTrace::Send(sminfos[i]);
+    }
+
     collector_info_log_timer->Cancel();
     collector_info_log_timer->Start(60*1000, boost::bind(&CollectorInfoLogTimer),
                                NULL);

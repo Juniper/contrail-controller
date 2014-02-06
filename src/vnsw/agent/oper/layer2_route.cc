@@ -71,8 +71,8 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                                const uuid &intf_uuid,
                                                const string &vn_name, 
                                                const string &vrf_name,
-                                               uint32_t label,
-                                               int tunnel_bmap,
+                                               uint32_t mpls_label,
+                                               uint32_t vxlan_id,
                                                struct ether_addr &mac,
                                                const Ip4Address &vm_ip,
                                                uint32_t plen) { 
@@ -84,10 +84,11 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label, tunnel_bmap,
+    LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
                                           sg_list);
+    data->tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
@@ -96,8 +97,8 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                             const uuid &intf_uuid,
                                             const string &vn_name, 
                                             const string &vrf_name,
-                                            uint32_t label,
-                                            int tunnel_bmap,
+                                            uint32_t mpls_label,
+                                            uint32_t vxlan_id,
                                             struct ether_addr &mac,
                                             const Ip4Address &vm_ip,
                                             uint32_t plen) { 
@@ -109,10 +110,11 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    LocalVmRoute *data = new LocalVmRoute(intf_key, label, tunnel_bmap,
+    LocalVmRoute *data = new LocalVmRoute(intf_key, mpls_label, vxlan_id,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
                                           sg_list);
+    data->tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
 }
@@ -146,6 +148,11 @@ void Layer2AgentRouteTable::AddRemoteVmRouteReq(const Peer *peer,
                                                 uint32_t plen) { 
     DBRequest nh_req;
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+
+    if (bmap != (1 << TunnelType::VXLAN) || 
+        (TunnelType::ComputeType(TunnelType::AllType()) != 
+                                 (1 << TunnelType::VXLAN))) {
+    }
 
     NextHopKey *nh_key = 
         new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
@@ -263,9 +270,9 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         if (path) {
             PathSandeshData pdata;
             path->GetNextHop()->SetNHSandeshData(pdata.nh);
-            if ((path->GetTunnelBmap() == (1 << TunnelType::VXLAN)) ||
+            if ((path->tunnel_type() == TunnelType::VXLAN) ||
                 IsMulticast()) {
-                pdata.set_vxlan_id(path->GetLabel());
+                pdata.set_vxlan_id(path->vxlan_id());
             } else {
                 pdata.set_label(path->GetLabel());
             }

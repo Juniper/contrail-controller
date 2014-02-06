@@ -478,6 +478,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     uuid    port_id;
     uuid    vn_id;
     uuid    vm_id;
+    uuid    project_id = MakeUuid(kProjectUuid);
     const char   *ipaddr = NULL;
     const char   *mac = NULL;
     const char   *tap_intf = NULL;
@@ -511,7 +512,7 @@ void NovaMsgProcess (xml_document &xdoc, pair<xml_node, GroupEntry *> node, bool
     if (create) {
         boost::system::error_code ec;
         IpAddress ip = Ip4Address::from_string(ipaddr, ec);
-        data->Init(vm_id, vn_id, tap_intf, ip, mac, "",
+        data->Init(vm_id, vn_id, project_id, tap_intf, ip, mac, "",
                    VmInterface::kInvalidVlanId, 0);
 
         req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

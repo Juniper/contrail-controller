@@ -183,9 +183,9 @@ public:
         vm_mac_(""), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(),
-        vxlan_id_(0), layer2_forwarding_(true), ipv4_forwarding_(true),
-        mac_set_(false), vlan_id_(kInvalidVlanId), parent_(NULL),
-        sg_list_(), floating_ip_list_(), service_vlan_list_(),
+        vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
+        ipv4_forwarding_(true), mac_set_(false), vlan_id_(kInvalidVlanId),
+        parent_(NULL), sg_list_(), floating_ip_list_(), service_vlan_list_(),
         static_route_list_() { 
         ipv4_active_ = false;
         l2_active_ = false;
@@ -193,16 +193,18 @@ public:
 
     VmInterface(const boost::uuids::uuid &uuid, const std::string &name,
                 const Ip4Address &addr, const std::string &mac,
-                const std::string &vm_name, uint16_t vlan_id,
+                const std::string &vm_name,
+                const boost::uuids::uuid &vm_project_uuid, uint16_t vlan_id,
                 Interface *parent) : 
         Interface(Interface::VM_INTERFACE, uuid, name, NULL), vm_(NULL),
         vn_(NULL), ip_addr_(addr), mdata_addr_(0), subnet_bcast_addr_(0),
         vm_mac_(mac), policy_enabled_(false), mirror_entry_(NULL),
         mirror_direction_(MIRROR_RX_TX), cfg_name_(""), fabric_port_(true),
         need_linklocal_ip_(false), dhcp_snoop_ip_(false), vm_name_(vm_name),
-        vxlan_id_(0), layer2_forwarding_(true), ipv4_forwarding_(true), 
-        mac_set_(false), vlan_id_(vlan_id), parent_(parent), sg_list_(),
-        floating_ip_list_(), service_vlan_list_(), static_route_list_() {
+        vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
+        layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
+        vlan_id_(vlan_id), parent_(parent), sg_list_(), floating_ip_list_(),
+        service_vlan_list_(), static_route_list_() {
         ipv4_active_ = false;
         l2_active_ = false;
     }
@@ -238,6 +240,7 @@ public:
     bool layer2_forwarding() const { return layer2_forwarding_; }
     bool ipv4_forwarding() const { return ipv4_forwarding_; }
     const std::string &vm_name() const { return vm_name_; }
+    const boost::uuids::uuid &vm_project_uuid() const { return vm_project_uuid_; }
     const std::string &cfg_name() const { return cfg_name_; }
     uint16_t vlan_id() const { return vlan_id_; }
     const Interface *parent() const { return parent_.get(); }
@@ -297,6 +300,7 @@ public:
                     const boost::uuids::uuid &intf_uuid,
                     const std::string &os_name, const Ip4Address &addr,
                     const std::string &mac, const std::string &vn_name,
+                    const boost::uuids::uuid &vm_project_uuid,
                     uint16_t vlan_id_, const std::string &parent);
     // Del a vm-interface
     static void Delete(InterfaceTable *table,
@@ -400,6 +404,8 @@ private:
     bool dhcp_snoop_ip_; 
     // VM-Name. Used by DNS
     std::string vm_name_;
+    // project uuid of the vm to which the interface belongs
+    boost::uuids::uuid vm_project_uuid_;
     int vxlan_id_;
     bool layer2_forwarding_;
     bool ipv4_forwarding_;
@@ -468,9 +474,11 @@ struct VmInterfaceAddData : public VmInterfaceData {
     VmInterfaceAddData(const Ip4Address &ip_addr,
                        const std::string &vm_mac,
                        const std::string &vm_name,
+                       const boost::uuids::uuid &vm_project_uuid,
                        const uint16_t vlan_id, const std::string &parent) :
         VmInterfaceData(ADD_DEL_CHANGE), ip_addr_(ip_addr), vm_mac_(vm_mac),
-        vm_name_(vm_name), vlan_id_(vlan_id), parent_(parent) {
+        vm_name_(vm_name), vm_project_uuid_(vm_project_uuid), vlan_id_(vlan_id),
+        parent_(parent) {
     }
 
     virtual ~VmInterfaceAddData() { }
@@ -478,6 +486,7 @@ struct VmInterfaceAddData : public VmInterfaceData {
     Ip4Address ip_addr_;
     std::string vm_mac_;
     std::string vm_name_;
+    boost::uuids::uuid vm_project_uuid_;
     uint16_t vlan_id_;
     std::string parent_;
 };

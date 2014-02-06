@@ -46,34 +46,6 @@ class cd:
     def __exit__(self, etype, value, traceback):
         os.chdir(self.savedPath)
 
-class Query(object):
-    table = None
-    start_time = None
-    end_time = None
-    select_fields = None
-    where = None
-    sort = None
-    sort_fields = None
-    limit = None
-    filter = None
-
-    def __init__(self, table, start_time, end_time, select_fields, where = None,
-            sort_fields = None, sort = None, limit = None, filter = None):
-        self.table = table
-        self.start_time = start_time
-        self.end_time = end_time
-        self.select_fields = select_fields
-        if where is not None:
-            self.where = where
-        if sort_fields is not None:
-            self.sort_fields = sort_fields
-        if sort is not None:
-            self.sort = sort
-        if limit is not None:
-            self.limit = limit
-        if filter is not None:
-            self.filter = filter
-
 class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
     @classmethod
     def setUpClass(cls):

@@ -759,6 +759,22 @@ bool FlowEntry::SetRpfNH(const Inet4UnicastRouteEntry *rt) {
                 nh->GetState(Agent::GetInstance()->GetNextHopTable(),
                     Agent::GetInstance()->pkt()->flow_table()->
                     nh_listener_id()));
+        // With encap change nexthop can change for route. Route change
+        // can come before nh change and it may skip using NH if nhstate is
+        // not set. This may result in inconsistent flow-NH map.
+        // So add new state if active nexthop in route does not have it.
+        if (!nh->IsDeleted() && !nh_state) {
+            DBEntryBase::KeyPtr key = nh->GetDBRequestKey();
+            NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+            NextHop * new_nh = static_cast<NextHop *>(Agent::GetInstance()->
+                               GetNextHopTable()->FindActiveEntry(nh_key));
+            DBTablePartBase *part = Agent::GetInstance()->GetNextHopTable()->
+                GetTablePartition(new_nh);
+            NhState *new_nh_state = new NhState(new_nh);
+            new_nh->SetState(part->parent(), Agent::GetInstance()->pkt()->
+                         flow_table()->nh_listener_id(), new_nh_state);
+            nh_state = new_nh_state;
+        }
     }
 
     if (data_.nh_state_ != nh_state) {

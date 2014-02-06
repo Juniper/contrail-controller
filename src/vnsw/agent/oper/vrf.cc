@@ -545,6 +545,14 @@ VrfEntry *VrfTable::FindVrfFromName(const string &name) {
     return static_cast<VrfEntry *>(it->second);
 }
 
+VrfEntry *VrfTable::FindVrfFromId(size_t index) {
+    VrfEntry *vrf = index_table_.At(index);
+    if (vrf && vrf->IsDeleted() == false) {
+        return vrf;
+    }
+    return NULL;
+}
+
 AgentRouteTable *VrfTable::GetInet4UnicastRouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::INET4_UNICAST);
 }

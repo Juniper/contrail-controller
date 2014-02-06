@@ -17,11 +17,14 @@
 #include <boost/statechart/transition.hpp>
 #include <boost/mpl/list.hpp>
 
+#include "base/logging.h"
+#include "base/task.h"
+#include "base/task_annotations.h"
+
 #include "ifmap_channel.h"
 #include "ifmap/ifmap_log.h"
 #include "ifmap_manager.h"
 #include "ifmap/ifmap_log_types.h"
-#include "base/logging.h"
 
 using boost::system::error_code;
 
@@ -761,6 +764,7 @@ void IFMapStateMachine::ProcConnectionCleaned() {
 // current state: ServerResolve
 void IFMapStateMachine::ProcResolveResponse(
         const boost::system::error_code& error) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -774,6 +778,7 @@ void IFMapStateMachine::ProcResolveResponse(
 // current state: SsrcConnect or ArcConnect
 void IFMapStateMachine::ProcConnectResponse(
         const boost::system::error_code& error) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -787,6 +792,7 @@ void IFMapStateMachine::ProcConnectResponse(
 // current state: SsrcSslHandshake or ArcSslHandshake
 void IFMapStateMachine::ProcHandshakeResponse(
         const boost::system::error_code& error) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -800,6 +806,7 @@ void IFMapStateMachine::ProcHandshakeResponse(
 // current state: SendNewSession
 void IFMapStateMachine::ProcNewSessionWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -811,6 +818,7 @@ void IFMapStateMachine::ProcNewSessionWrite(
 }
 
 // current state: NewSessionResponseWait
+// Can run in the context of both, "ifmap::StateMachine" or main-thread
 void IFMapStateMachine::ProcNewSessionResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
@@ -826,6 +834,7 @@ void IFMapStateMachine::ProcNewSessionResponse(
 // current state: SendSubscribe
 void IFMapStateMachine::ProcSubscribeWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -837,6 +846,7 @@ void IFMapStateMachine::ProcSubscribeWrite(
 }
 
 // current state: SubscribeResponseWait
+// Can run in the context of both, "ifmap::StateMachine" or main-thread
 void IFMapStateMachine::ProcSubscribeResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
@@ -852,6 +862,7 @@ void IFMapStateMachine::ProcSubscribeResponse(
 // current state: SendPoll
 void IFMapStateMachine::ProcPollWrite(
         const boost::system::error_code& error, size_t bytes_transferred) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
@@ -864,6 +875,7 @@ void IFMapStateMachine::ProcPollWrite(
 }
 
 // current state: PollResponseWait
+// Can run in the context of both, "ifmap::StateMachine" or main-thread
 void IFMapStateMachine::ProcPollResponseRead(
         const boost::system::error_code& error, size_t bytes_transferred) {
     if (error) {
@@ -880,6 +892,7 @@ void IFMapStateMachine::ProcPollResponseRead(
 // NewSessionResponseWait, SubscribeResponseWait, PollResponseWait
 void IFMapStateMachine::ProcResponse(
         const boost::system::error_code& error, size_t bytes_transferred) {
+    CHECK_CONCURRENCY_MAIN_THR();
     if (error) {
         if (ProcErrorAndIgnore(error)) {
             return;
