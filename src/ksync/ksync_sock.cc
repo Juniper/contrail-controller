@@ -492,9 +492,13 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
     }
     SendTo(boost::asio::buffer((const char *)ioc->GetMsg(), ioc->GetMsgLen()),
             ioc->GetSeqno());
-    char *rxbuf = new char[kBufLen];
-    Receive(boost::asio::buffer(rxbuf, kBufLen));
-    ValidateAndEnqueue(rxbuf);
+    bool more_data = false;
+    do {
+        char *rxbuf = new char[kBufLen];
+        Receive(boost::asio::buffer(rxbuf, kBufLen));
+        more_data = IsMoreData(rxbuf);
+        ValidateAndEnqueue(rxbuf);
+    } while(more_data);
     return true;
 }
 
