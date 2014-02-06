@@ -289,6 +289,11 @@ xmpp_sess_toggle_test = env.UnitTest('xmpp_sess_toggle_test',
                              ['xmpp_sess_toggle_test.cc'])
 env.Alias('src/bgp:xmpp_sess_toggle_test', xmpp_sess_toggle_test)
 
+rtarget_peer_test = env.UnitTest('rtarget_peer_test', 
+                                 ['rtarget_peer_test.cc'])
+env.Alias('src/bgp:rtarget_peer_test', rtarget_peer_test)
+
+
 # All Tests
 test_suite = [
     bgp_attr_test,
@@ -326,6 +331,7 @@ test_suite = [
     routepath_replicator_test,
     routing_instance_mgr_test,
     routing_instance_test,
+    rtarget_peer_test,
     rt_network_attr_test,
     scheduling_group_test,
     service_chain_test,
@@ -358,6 +364,7 @@ sc_test_suite = [
     bgp_condition_listener_test,
     routepath_replicator_random_test,
     routepath_replicator_test,
+    rtarget_peer_test,
     service_chain_test,
     static_route_test,
     svc_static_route_intergration_test,
