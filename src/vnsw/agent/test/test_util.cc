@@ -394,6 +394,13 @@ bool VmPortFind(int id) {
     return (intf != NULL ? !intf->IsDeleted() : false);
 }
 
+bool VmPortFindRetDel(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true));
+    return (intf != NULL);
+}
+
 uint32_t VmPortGetId(int id) {
     Interface *intf;
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
