@@ -619,17 +619,17 @@ TEST_F(UveVnUveTest, FipCount) {
             "instance-ip", "instance0");
     AddLink("virtual-machine-interface", input[1].name,
             "instance-ip", "instance1");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
             "routing-instance", "vrf1");
     AddLink("virtual-machine-interface-routing-instance", "vnet2",
             "routing-instance", "vrf1");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     AddLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
     AddLink("virtual-machine-interface-routing-instance", "vnet2",
             "virtual-machine-interface", "vnet2");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     EXPECT_TRUE(VmPortActive(input, 0));
 
     //Trigger VN UVE send
@@ -673,7 +673,7 @@ TEST_F(UveVnUveTest, FipCount) {
     AddFloatingIp("fip2", 2, "71.1.1.101");
     AddLink("floating-ip", "fip2", "floating-ip-pool", "fip-pool1");
     AddLink("virtual-machine-interface", "vnet2", "floating-ip", "fip2");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
 
     //Trigger VN UVE send
     Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
@@ -707,27 +707,88 @@ TEST_F(UveVnUveTest, FipCount) {
     EXPECT_EQ(0U, uve1->get_associated_fip_count());
 
     //cleanup
-    AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
+    DelLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn1");
     DelFloatingIpPool("fip-pool1");
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "routing-instance", "vrf1");
     DelLink("virtual-machine-interface-routing-instance", "vnet1",
             "virtual-machine-interface", "vnet1");
-    util_.VnDelete(input[0].vn_id);
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
     DelLink("virtual-network", "vn1", "virtual-machine-interface", "vnet1");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
 
     DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle(3);
     DelNode("virtual-machine-interface-routing-instance", "vnet1");
+    client->WaitForIdle(3);
     DelNode("virtual-machine", "vm1");
     DelNode("routing-instance", "vrf1");
-    DelNode("virtual-network", "vn1");
+    client->WaitForIdle(3);
     DelNode("virtual-machine-interface", "vnet1");
     DelInstanceIp("instance0");
-    client->WaitForIdle();
+    client->WaitForIdle(3);
     IntfCfgDel(input, 0);
+    util_.VnDelete(input[0].vn_id);
+    client->WaitForIdle(3);
+
+    //clear counters at the end of test case
+    client->Reset();
+    vnut->ClearCount();
+}
+
+TEST_F(UveVnUveTest, VnVrfAssoDisassoc_1) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.1", "00:00:00:01:01:01", 3, 1},
+    };
+
+    VnUveTableTest *vnut = static_cast<VnUveTableTest *>
+        (Agent::GetInstance()->uve()->vn_uve_table());
+    //Add VN
+    util_.VnAdd(input[0].vn_id);
+    EXPECT_EQ(1U, vnut->send_count());
+
+    //Trigger send of VN stats
+    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
+
+    //Verify vrf stats list in UVE
+    UveVirtualNetworkAgent *uve1 =  vnut->VnUveObject("vn3");
+    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
+
+    //Add VRF and associate it with VN
+    util_.VrfAdd(input[0].vn_id);
+    AddLink("virtual-network", "vn3", "routing-instance", "vrf3");
     client->WaitForIdle();
+
+    //Trigger send of VN stats
+    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
+
+    //Verify vrf stats list in UVE
+    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
+
+    //Disassociate VN from VRF
+    DelLink("virtual-network", "vn3", "routing-instance", "vrf3");
+    client->WaitForIdle();
+
+    //Trigger send of VN stats
+    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
+
+    //Verify vrf stats list in UVE
+    EXPECT_EQ(0U, uve1->get_vrf_stats_list().size()); 
+
+    //Reassociate VN with VRF
+    AddLink("virtual-network", "vn3", "routing-instance", "vrf3");
+    client->WaitForIdle();
+
+    //Trigger send of VN stats
+    Agent::GetInstance()->uve()->vn_uve_table()->SendVnStats();
+
+    //Verify vrf stats list in UVE
+    EXPECT_EQ(1U, uve1->get_vrf_stats_list().size()); 
+
+    //cleanup
+    DelLink("virtual-network", "vn3", "routing-instance", "vrf3");
+    DelNode("routing-instance", "vrf3");
+    util_.VnDelete(input[0].vn_id);
 
     //clear counters at the end of test case
     client->Reset();
