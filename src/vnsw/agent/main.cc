@@ -2,8 +2,12 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include <boost/uuid/string_generator.hpp>
+#include <fstream>
+#include <iostream>
+
+#include <boost/asio/ip/host_name.hpp>
 #include <boost/program_options.hpp>
+#include <boost/uuid/string_generator.hpp>
 #include <base/logging.h>
 #include <base/contrail_ports.h>
 
@@ -59,7 +63,7 @@ static int agent_main(int argc, char *argv[]) {
     boost::system::error_code error;
 
     string config_file = "/etc/contrail/vrouter.conf";
-    string hostname(host_name(error));
+    string hostname(boost::asio::ip::host_name(error));
     bool log_local = false;
     bool disable_vhost = false;
     bool disable_ksync = false;
@@ -97,16 +101,16 @@ static int agent_main(int argc, char *argv[]) {
        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"),
             "Type of hypervisor <kvm|xen>")
        ("HYPERVISOR.xen-ll-port",
-           opt::value<string>()->default_value(xen_port_name), 
+           opt::value<string>()->default_value(""), 
            "Port name on host for link-local network")
        ("HYPERVISOR.xen-ll-ip-address",
-            opt::value<string>()->default_value(xen_ip_address),
+            opt::value<string>()->default_value(""),
             "IP Address for the link local port")
        ("HYPERVISOR.xen-ll-prefix-len",
-            opt::value<int>()->default_value(xen_ip_prefix_len),
+            opt::value<int>()->default_value(0),
             "IP Prefix Length for the link local address")
        ("HYPERVISOR.vmware-physical-port",
-            opt::value<string>()->default_value(vmware_port_name), 
+            opt::value<string>()->default_value(""), 
             "Physical port used to connect to VMs in VMWare environement")
 
        ("KERNEL.disable-vhost", opt::bool_switch(&disable_vhost),
@@ -118,7 +122,7 @@ static int agent_main(int argc, char *argv[]) {
        ("KERNEL.disable-packet", opt::bool_switch(&disable_packet_services),
             "Disable packet services")
 
-       ("LOG.category", opt::value<string>()->default_value(log_category),
+       ("LOG.category", opt::value<string>()->default_value(""),
            "Category filter for local logging of sandesh messages")
        ("LOG.file", opt::value<string>()->default_value("<stdout>"),
         "Filename for the logs to be written to")

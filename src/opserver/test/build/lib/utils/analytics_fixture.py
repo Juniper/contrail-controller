@@ -11,9 +11,38 @@ import redis
 import urllib2
 import copy
 import os
+import json
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
+
+class Query(object):
+    table = None
+    start_time = None
+    end_time = None
+    select_fields = None
+    where = None
+    sort = None
+    sort_fields = None
+    limit = None
+    filter = None
+
+    def __init__(self, table, start_time, end_time, select_fields, where = None,
+            sort_fields = None, sort = None, limit = None, filter = None):
+        self.table = table
+        self.start_time = start_time
+        self.end_time = end_time
+        self.select_fields = select_fields
+        if where is not None:
+            self.where = where
+        if sort_fields is not None:
+            self.sort_fields = sort_fields
+        if sort is not None:
+            self.sort = sort
+        if limit is not None:
+            self.limit = limit
+        if filter is not None:
+            self.filter = filter
 
 class Collector(object):
     def __init__(self, analytics_fixture, logger, is_dup=False):
@@ -975,6 +1004,34 @@ class AnalyticsFixture(fixtures.Fixture):
 
         return True
     # end verify_flow_series_aggregation_binning
+
+    def verify_fieldname_messagetype(self):
+        self.logger.info('Verify stats table for stats name field');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table="StatTable.FieldNames.fields",
+		            start_time="now-10m",
+                            end_time="now",
+                            select_fields=["fields.value"],
+                            where=[[{"name": "name", "value": "Message", "op": 7}]])
+	json_qstr = json.dumps(query.__dict__)
+	res = vns.post_query_json(json_qstr)
+        self.logger.info(str(res))
+        assert(len(res)>1)
+        return True
+
+    def verify_fieldname_objecttype(self):
+        self.logger.info('Verify stats table for stats name field');
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
+        query = Query(table="ObjectGeneratorInfo",
+                            start_time="now-600s",
+                            end_time="now",
+                            select_fields=["ObjectId"],
+                            where=[[{"name":"ObjectId","value":"a6s9","op":1}]])
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
+        self.logger.info(str(res))
+        assert(len(res) > 1)
+        return True
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()

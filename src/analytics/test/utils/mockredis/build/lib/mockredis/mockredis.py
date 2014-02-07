@@ -27,14 +27,18 @@ def redis_version():
     '''
     Determine redis-server version
     '''
+    return 2.6
+'''
     command = "redis-server --version"
+    logging.info('redis_version call 1')
     process = subprocess.Popen(command.split(' '), stdout=subprocess.PIPE)
-    output = process.communicate()
-    exit_code = process.wait()
+    logging.info('redis_version call 2')
+    output, _ = process.communicate()
     if "v=2.6" in output[0]:
         return 2.6
     else:
         return 2.4
+'''
 
 
 def start_redis(port, master_port=None):
@@ -68,7 +72,10 @@ def start_redis(port, master_port=None):
         replace_string_(redisbase + redis_conf,
                         [("# slaveof <masterip> <masterport>", 
                           "slaveof 127.0.0.1 " + str(master_port))])
-    output, _ = call_command_("redis-server " + redisbase + redis_conf)
+    command = "redis-server " + redisbase + redis_conf
+    subprocess.Popen(command.split(' '),
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
     r = redis.StrictRedis(host='localhost', port=port, db=0)
     done = False
     while not done:
@@ -127,7 +134,10 @@ def start_redis_sentinel(port, redis_port):
                      ("sentinel monitor mymaster 127.0.0.1 6381 1",
                       "sentinel monitor mymaster 127.0.0.1 " + str(redis_port) +
                       " 1")])
-    output, _ = call_command_("redis-server " + sentinel_conf + " --sentinel")
+    command = "redis-server " + sentinel_conf + " --sentinel"
+    subprocess.Popen(command.split(' '),
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
     sentinel = redis.StrictRedis(host='localhost', port=port, db=0)
     done = False
     while not done:
