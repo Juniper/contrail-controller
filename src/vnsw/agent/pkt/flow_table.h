@@ -379,7 +379,6 @@ public:
     void Init();
     void Shutdown();
 
-    FlowEntry *Allocate(const FlowKey &key, const uint64_t &time_stamp);
     FlowEntry *Allocate(const FlowKey &key);
     void Add(FlowEntry *flow, FlowEntry *rflow);
     FlowEntry *Find(const FlowKey &key);

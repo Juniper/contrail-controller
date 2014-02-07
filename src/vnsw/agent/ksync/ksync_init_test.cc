@@ -69,7 +69,7 @@ void KSync::NetlinkInitTest() {
                                                 (flowtable_ksync_obj_.get()));
 
     GenericNetlinkInitTest();
-    KSyncSock::Start();
+    KSyncSock::Start(true);
 }
 
 void KSync::NetlinkShutdownTest() {

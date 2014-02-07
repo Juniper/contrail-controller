@@ -932,7 +932,7 @@ void FlowEntry::InitAuditFlow(uint32_t flow_idx) {
     data_.dest_sg_id_l = empty_sg_id_l;
 }
 
-FlowEntry *FlowTable::Allocate(const FlowKey &key, const uint64_t &time_stamp) {
+FlowEntry *FlowTable::Allocate(const FlowKey &key) {
     FlowEntry *flow = new FlowEntry(key);
     std::pair<FlowEntryMap::iterator, bool> ret;
     ret = flow_entry_map_.insert(std::pair<FlowKey, FlowEntry*>(key, flow));
@@ -942,16 +942,13 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key, const uint64_t &time_stamp) {
         flow->set_deleted(false);
         DeleteFlowInfo(flow);
     } else {
-        flow->stats_.setup_time = time_stamp;
+        flow->stats_.setup_time = UTCTimestampUsec();
         AgentStats::GetInstance()->incr_flow_created();
     }
 
     return flow;
 }
 
-FlowEntry *FlowTable::Allocate(const FlowKey &key) {
-    return Allocate(key, UTCTimestampUsec());
-}
 FlowEntry *FlowTable::Find(const FlowKey &key) {
     FlowEntryMap::iterator it;
 

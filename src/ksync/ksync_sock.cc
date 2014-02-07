@@ -287,7 +287,7 @@ void KSyncSockUdp::Receive(mutable_buffers_1 buf) {
     sock_.receive_from(buf, ep);
 }
 
-KSyncSock::KSyncSock() : tx_count_(0), err_count_(0) {
+KSyncSock::KSyncSock() : tx_count_(0), err_count_(0), run_sync_mode_(true) {
     for(int i = 0; i < IoContext::MAX_WORK_QUEUES; i++) {
         receive_work_queue[i] = new WorkQueue<char *>(TaskScheduler::GetInstance()->
                              GetTaskId(IoContext::io_wq_names[i]), 0,
@@ -320,7 +320,21 @@ KSyncSock::~KSyncSock() {
     }
 }
 
-void KSyncSock::Start() {
+void KSyncSock::Start(bool run_sync_mode) {
+    for (std::vector<KSyncSock *>::iterator it = sock_table_.begin();
+         it != sock_table_.end(); ++it) {
+        (*it)->run_sync_mode_ = run_sync_mode;
+        if ((*it)->run_sync_mode_) {
+            continue;
+        }
+        (*it)->async_send_queue_->SetStartRunnerFunc(
+                boost::bind(&KSyncSock::SendAsyncStart, *it));
+        (*it)->rx_buff_ = new char[kBufLen];
+        (*it)->AsyncReceive(boost::asio::buffer((*it)->rx_buff_, kBufLen),
+                            boost::bind(&KSyncSock::ReadHandler, *it,
+                                        placeholders::error,
+                                        placeholders::bytes_transferred));
+    }
 }
 
 void KSyncSock::SetSockTableEntry(int i, KSyncSock *sock) {
@@ -490,15 +504,22 @@ bool KSyncSock::SendAsyncImpl(IoContext *ioc) {
         tbb::mutex::scoped_lock lock(mutex_);
         wait_tree_.insert(*ioc);
     }
-    SendTo(boost::asio::buffer((const char *)ioc->GetMsg(), ioc->GetMsgLen()),
-            ioc->GetSeqno());
-    bool more_data = false;
-    do {
-        char *rxbuf = new char[kBufLen];
-        Receive(boost::asio::buffer(rxbuf, kBufLen));
-        more_data = IsMoreData(rxbuf);
-        ValidateAndEnqueue(rxbuf);
-    } while(more_data);
+    if (!run_sync_mode_) {
+        AsyncSendTo(ioc, boost::asio::buffer(ioc->GetMsg(), ioc->GetMsgLen()),
+                    boost::bind(&KSyncSock::WriteHandler, this,
+                                placeholders::error,
+                                placeholders::bytes_transferred));
+    } else {
+        SendTo(boost::asio::buffer((const char *)ioc->GetMsg(),
+                    ioc->GetMsgLen()), ioc->GetSeqno());
+        bool more_data = false;
+        do {
+            char *rxbuf = new char[kBufLen];
+            Receive(boost::asio::buffer(rxbuf, kBufLen));
+            more_data = IsMoreData(rxbuf);
+            ValidateAndEnqueue(rxbuf);
+        } while(more_data);
+    }
     return true;
 }
 

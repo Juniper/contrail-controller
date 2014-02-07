@@ -22,6 +22,7 @@
 
 #define KSYNC_DEFAULT_MSG_SIZE    4096
 #define KSYNC_DEFAULT_Q_ID_SEQ    0x00000001
+#define KSYNC_ACK_WAIT_THRESHOLD  200
 #define KSYNC_SOCK_RECV_BUFF_SIZE (256 * 1024)
 
 #define KSYNC_ERROR(obj, ...)\
@@ -142,7 +143,7 @@ public:
     virtual ~KSyncSock();
 
     // Start Ksync Asio operations
-    static void Start();
+    static void Start(bool run_sync_mode);
     static void Shutdown();
 
     // Partition to KSyncSock mapping
@@ -197,6 +198,11 @@ private:
     bool ValidateAndEnqueue(char *data);
     bool SendAsyncImpl(IoContext *ioc);
 
+    bool SendAsyncStart() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        return (wait_tree_.size() <= KSYNC_ACK_WAIT_THRESHOLD);
+    }
+
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb) = 0;
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb) = 0;
@@ -221,6 +227,7 @@ private:
     int tx_count_;
     int ack_count_;
     int err_count_;
+    bool run_sync_mode_;
 
     DISALLOW_COPY_AND_ASSIGN(KSyncSock);
 };

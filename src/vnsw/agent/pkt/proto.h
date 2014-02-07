@@ -30,7 +30,6 @@ public:
     virtual ProtoHandler *AllocProtoHandler(boost::shared_ptr<PktInfo> info,
                                             boost::asio::io_service &io) = 0;
     virtual bool ValidateAndEnqueueMessage(boost::shared_ptr<PktInfo> msg);
-    virtual bool StartProcessProto() { return true; }
     bool ProcessProto(boost::shared_ptr<PktInfo> msg_info);
 
 protected:
