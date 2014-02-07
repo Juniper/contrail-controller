@@ -73,10 +73,11 @@ libifmap_agent = env.Library('ifmap_agent',
                         'ifmap_agent_sandesh.cc',
                         ] + AgentSandeshGenSrcs)
 
-env.SConscript('client/SConscript', exports='BuildEnv', duplicate = 0)
+test_suite = env.SConscript('client/SConscript', exports='BuildEnv',
+                            duplicate = 0)
 
-test_suite = env.SConscript('test/SConscript',
-                            exports='BuildEnv', duplicate = 0)
+test_suite += env.SConscript('test/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 
 def code_coverage(target, source, env):
     import shutil

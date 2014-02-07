@@ -313,14 +313,23 @@ void DiscoveryServiceClient::PublishResponseHandler(std::string &xmls,
         //Start periodic heartbeat, timer per service 
         resp->StartHeartBeatTimer(5); // TODO hardcoded to 5secs
     } else {
-        // Backward compatibility support, newer client and older
-        // discovery server, fallback to older publish api
-        DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, "PublishResponseHandler",
-            serviceName, "404 Not Found, fallback to older publish api");
-        pugi::xml_node node = pugi->FindNode("title");
+        pugi::xml_node node = pugi->FindNode("h1");
         if (!pugi->IsNull(node)) {
             std::string response = node.child_value(); 
-            if (response.compare("Error: 404 Not Found") == 0) {
+            if (response.compare("503 Service Unavailable") == 0) {
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
+                    "PublishResponseHandler", serviceName,
+                    "503, response from HA proxy, discovery-server is not UP");
+                // exponential back-off and retry
+               resp->attempts_++; 
+               resp->StartPublishConnectTimer(resp->GetConnectTime());
+            } else if (response.compare("Error: 404 Not Found") == 0) {
+
+                // Backward compatibility support, newer client and older
+                // discovery server, fallback to older publish api
+                DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
+                    "PublishResponseHandler", serviceName,
+                    "404 Not Found, fallback to older publish api");
                 resp->publish_hdr_.clear();
                 resp->publish_hdr_ = "publish";
                 Publish(serviceName); 

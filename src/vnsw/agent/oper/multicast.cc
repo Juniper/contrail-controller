@@ -135,7 +135,7 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
                              false, Composite::L3COMP); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     req.key.reset(key);
-    cnh_data = new CompositeNHData();
+    cnh_data = new CompositeNHData(CompositeNHData::REPLACE);
     req.data.reset(cnh_data);
     Agent::GetInstance()->GetNextHopTable()->Enqueue(&req);
 

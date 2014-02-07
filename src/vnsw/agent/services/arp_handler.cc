@@ -155,8 +155,15 @@ bool ArpHandler::HandlePacket() {
             arp_proto->StatsArpReplies();
             if (entry) {
                 entry->HandleArpReply(arp_->arp_sha);
+                return true;
+            } else {
+                entry = new ArpEntry(io_, this, arp_tpa_, vrf);
+                arp_proto->AddArpEntry(entry->key(), entry);
+                delete[] pkt_info_->pkt;
+                pkt_info_->pkt = NULL;
+                entry->HandleArpReply(arp_->arp_sha);
+                return false;
             }
-            return true;
         }
 
         case GRATUITOUS_ARP: {
@@ -309,5 +316,5 @@ void ArpHandler::SendArp(uint16_t op, const unsigned char *smac, in_addr_t sip,
     ArpHdr(smac, sip, tmac, tip, op);
     EthHdr(smac, bcast_mac, 0x806);
 
-    Send(MIN_ETH_PKT_LEN, itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
+    Send(sizeof(ethhdr) + sizeof(ether_arp), itf, vrf, AGENT_CMD_SWITCH, PktHandler::ARP);
 }

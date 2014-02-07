@@ -26,9 +26,7 @@ public:
 
     // To construct this interface, pass in the hostname and port for Redis
     OpServerProxy(EventManager *evm, VizCollector *collector,
-            const std::string & redis_sentinel_ip,
-            unsigned short redis_sentinel_port,
-            int gen_timeout = 0);
+            const std::string& redis_uve_ip, unsigned short redis_uve_port);
     OpServerProxy() : impl_(NULL) { }
     virtual ~OpServerProxy();
 
@@ -53,17 +51,10 @@ public:
     virtual bool DeleteUVEs(const std::string &source, const std::string &node_type,
                             const std::string &module, 
                             const std::string &instance_id);
-
-    bool RefreshGenerator(const std::string &source, const std::string &node_type,
-        const std::string &module, const std::string &instance_id);
-    bool WithdrawGenerator(const std::string &source, const std::string &node_type,
-        const std::string &module, const std::string &instance_id);
-    typedef boost::function<void(int)> GenCleanupReply;
-    bool GeneratorCleanup(GenCleanupReply gcr);
-    void FillRedisUVEMasterInfo(RedisUveMasterInfo& redis_uve_info);
+    
+    void FillRedisUVEInfo(RedisUveInfo& redis_uve_info);
 private:
     class OpServerImpl;
     OpServerImpl *impl_;
-    int gen_timeout_;    
 };
 #endif

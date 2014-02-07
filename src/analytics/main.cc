@@ -87,11 +87,6 @@ bool CollectorCPULogger(const string & hostname) {
     return true;
 }
 
-void HandleGenCleanup(int count) {
-    if (count)
-        LOG(INFO, "Cleaned up " << count << " abandoned generators");
-}
-
 bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         OpServerProxy * osp) {
     CollectorState state;
@@ -117,16 +112,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
 
     std::vector<GeneratorSummaryInfo> infos;
     collector->GetGeneratorSummaryInfo(infos);
-
-    // The generator keys must be refreshed to prove that this Vizd
-    // instance owns its generators
-    for (vector<GeneratorSummaryInfo>::const_iterator it = infos.begin(); 
-            it != infos.end(); it++) {
-        osp->RefreshGenerator(it->get_source(), it->get_node_type(),
-            it->get_module_id(), it->get_instance_id());
-    }
-
-    osp->GeneratorCleanup(HandleGenCleanup);
 
     state.set_generator_infos(infos);
 
@@ -229,13 +214,12 @@ static int analytics_main(int argc, char *argv[]) {
     string discovery_server;
     uint16_t discovery_port = ContrailPorts::DiscoveryServerPort;
     string redis_ip = "127.0.0.1";
-    uint16_t redis_sentinel_port = ContrailPorts::AnalyticsRedisSentinelPort;
+    uint16_t redis_port = ContrailPorts::RedisUvePort;
     uint16_t listen_port = ContrailPorts::CollectorPort;
     uint16_t syslog_port = ContrailPorts::SyslogPort;
     string hostname(host_name(error));
     string hostip = GetHostIp(evm.io_service(), hostname);
     uint16_t http_server_port = ContrailPorts::HttpPortCollector;
-    int gen_timeout = 80;
     bool dup = false;
     bool log_local = true;
     string log_level = "SYS_DEBUG";
@@ -267,12 +251,10 @@ static int analytics_main(int argc, char *argv[]) {
                "127.0.0.1:9160"),
            "cassandra server list")
         ("DEFAULTS.dup", opt::bool_switch(&dup), "Internal use")
-        ("DEFAULTS.gen-timeout", opt::value<int>()->default_value(gen_timeout),
-             "Expiration timeout for generators")
         ("DEFAULTS.hostip", opt::value<string>()->default_value(hostip),
            "IP address of Analytics Node")
         ("DEFAULTS.listen-port", opt::value<uint16_t>()->default_value(listen_port),
-           "vizd listener port")
+           "Collector listener port")
         ("DEFAULTS.http-server-port",
             opt::value<uint16_t>()->default_value(http_server_port),
             "Sandesh HTTP listener port")
@@ -285,8 +267,8 @@ static int analytics_main(int argc, char *argv[]) {
 
         ("REDIS.ip", opt::value<string>()->default_value(redis_ip),
            "redis server ip")
-        ("REDIS.sentinel-port", opt::value<uint16_t>()->default_value(redis_sentinel_port),
-           "redis server sentinel-port")
+        ("REDIS.port", opt::value<uint16_t>()->default_value(redis_port),
+           "redis server port")
 
         ("LOG.category", opt::value<string>()->default_value(log_category),
              "Category filter for local logging of sandesh messages")
@@ -344,9 +326,8 @@ static int analytics_main(int argc, char *argv[]) {
     GetOptValue<uint16_t>(var_map, syslog_port, "LOG.listen-port", 0);
     GetOptValue<int>(var_map, analytics_data_ttl, "DEFAULTS.analytics-data-ttl", 0);
     GetOptValue<string>(var_map, redis_ip, "REDIS.ip", "");
-    GetOptValue<uint16_t>(var_map, redis_sentinel_port, "REDIS.sentinel-port", 0);
+    GetOptValue<uint16_t>(var_map, redis_port, "REDIS.port", 0);
     GetOptValue<uint16_t>(var_map, listen_port, "DEFAULTS.listen-port", 0);
-    GetOptValue<int>(var_map, gen_timeout, "DEFAULTS.gen-timeout", 0);
 
     // Retrieve cassandra server list. Remove empty strings from it.
     if (var_map.count("DEFAULTS.cassandra-server")) {
@@ -383,7 +364,7 @@ static int analytics_main(int argc, char *argv[]) {
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << listen_port);
     LOG(INFO, "COLLECTOR REDIS SERVER: " << redis_ip);
-    LOG(INFO, "COLLECTOR REDIS SENTINEL PORT: " << redis_sentinel_port);
+    LOG(INFO, "COLLECTOR REDIS PORT: " << redis_port);
     LOG(INFO, "COLLECTOR LOG LISTEN PORT: " << syslog_port);
     LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
     LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
@@ -392,10 +373,9 @@ static int analytics_main(int argc, char *argv[]) {
             listen_port,
             cassandra_ip,
             cassandra_port,
-            string("127.0.0.1"),
-            redis_sentinel_port,
+            redis_ip,
+            redis_port,
             syslog_port,
-            gen_timeout,
             dup,
             analytics_data_ttl);
 

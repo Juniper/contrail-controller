@@ -10,18 +10,25 @@ class AgentPath : public Path {
 public:
     AgentPath(const Peer *peer, AgentRoute *rt) : 
         Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
-        dest_vn_name_(""), unresolved_(true), sync_(false), vrf_name_(""), 
-        dependant_rt_(rt), proxy_arp_(false), force_policy_(false),
-        tunnel_bmap_(0), interfacenh_flags_(0) { };
+        vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
+        unresolved_(true), sync_(false), vrf_name_(""), dependant_rt_(rt),
+        proxy_arp_(false), force_policy_(false), 
+        tunnel_bmap_(TunnelType::AllType()),
+        tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())), 
+        interfacenh_flags_(0), server_ip_(Agent::GetInstance()->GetRouterId()) {
+        };
     virtual ~AgentPath() { }; 
 
     const Peer *GetPeer() const {return peer_;};
     const NextHop *GetNextHop() const; 
+    uint32_t GetActiveLabel() const;
     uint32_t GetLabel() const {return label_;};
-    int GetTunnelBmap() const {return tunnel_bmap_;};
+    uint32_t vxlan_id() const {return vxlan_id_;};
     TunnelType::Type GetTunnelType() const {
         return TunnelType::ComputeType(tunnel_bmap_);
     };
+    TunnelType::Type tunnel_type() const {return tunnel_type_;};
+    uint32_t tunnel_bmap() const {return tunnel_bmap_;};
     const string &GetDestVnName() const {return dest_vn_name_;};
     const Ip4Address& GetGatewayIp() const {return gw_ip_;};
     const string &GetVrfName() const {return vrf_name_;};
@@ -30,7 +37,9 @@ public:
     const bool IsUnresolved() const {return unresolved_;};
     uint8_t GetInterfaceNHFlags() const {return interfacenh_flags_;};
     const SecurityGroupList &GetSecurityGroupList() const {return sg_list_;};  
+    const Ip4Address& server_ip() const {return server_ip_;};
 
+    void set_vxlan_id(uint32_t vxlan_id) {vxlan_id_ = vxlan_id;};
     void SetLabel(uint32_t label) {label_ = label;};
     void SetDestVnName(const string &dest_vn) {dest_vn_name_ = dest_vn;};
     void SetUnresolved(bool unresolved) {unresolved_ = unresolved;};
@@ -39,8 +48,10 @@ public:
     void SetForcePolicy(bool force_policy) {force_policy_ = force_policy;};
     void SetVrfName(const string &vrf_name) {vrf_name_ = vrf_name;};
     void SetTunnelBmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;};
+    void set_tunnel_type(TunnelType::Type type) {tunnel_type_ = type;};
     void SetInterfaceNHFlags(uint8_t flags) {interfacenh_flags_ = flags;};
     void SetSecurityGroupList(SecurityGroupList &sg) {sg_list_ = sg;};
+    void set_server_ip(const Ip4Address &server_ip) {server_ip_ = server_ip;};
 
     void ClearSecurityGroupList() { sg_list_.clear(); }
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);};
@@ -49,12 +60,15 @@ public:
     bool Sync(AgentRoute *sync_route); //vm_path sync
     void SyncRoute(bool sync) {sync_ = sync;};
     bool RouteNeedsSync() {return sync_;};
+    uint32_t GetTunnelBmap() const;
+    bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route, const NextHop *nh);
     virtual std::string ToString() const { return "AgentPath"; };
 
 private:
     const Peer *peer_;
     NextHopRef nh_;
     uint32_t label_;
+    uint32_t vxlan_id_;
     string dest_vn_name_;
     // Points to gateway route, if this path is part of
     // indirect route
@@ -65,9 +79,14 @@ private:
     DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
     bool proxy_arp_;
     bool force_policy_;
+    //tunnel_bmap_ is used to store the bmap sent in remote route
+    // by control node
     TunnelType::TypeBmap tunnel_bmap_;
+    //Tunnel type stores the encap type used for route
+    TunnelType::Type tunnel_type_;
     uint8_t interfacenh_flags_;
     SecurityGroupList sg_list_;
+    Ip4Address server_ip_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 
@@ -83,31 +102,33 @@ private:
 
 class LocalVmRoute : public AgentRouteData {
 public:
-    LocalVmRoute(const VmInterfaceKey &intf, uint32_t label,
-                 int tunnel_bmap, bool force_policy, const string &vn_name,
+    LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label, 
+                 uint32_t vxlan_id, bool force_policy, const string &vn_name,
                  uint8_t flags, const SecurityGroupList &sg_list,
                  Op op = AgentRouteData::CHANGE) :
         AgentRouteData(op, false), intf_(intf), 
-        label_(label), tunnel_bmap_(tunnel_bmap),
+        mpls_label_(mpls_label), vxlan_id_(vxlan_id), 
         force_policy_(force_policy), dest_vn_name_(vn_name),
         proxy_arp_(true), sync_route_(false), 
-        flags_(flags), sg_list_(sg_list) { };
+        flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()) { };
     virtual ~LocalVmRoute() { };
     void DisableProxyArp() {proxy_arp_ = false;};
     virtual string ToString() const {return "local VM";};;
     virtual bool AddChangePath(AgentPath *path);
     const SecurityGroupList &GetSecurityGroupList() const {return sg_list_;}; 
+    void tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;};
 
 private:
     VmInterfaceKey intf_;
-    uint32_t label_;
-    int tunnel_bmap_;
+    uint32_t mpls_label_;
+    uint32_t vxlan_id_;
     bool force_policy_;
     string dest_vn_name_;
     bool proxy_arp_;
     bool sync_route_;
     uint8_t flags_;
     SecurityGroupList sg_list_;
+    TunnelType::TypeBmap tunnel_bmap_;
     DISALLOW_COPY_AND_ASSIGN(LocalVmRoute);
 };
 
@@ -129,7 +150,7 @@ public:
 private:
     string server_vrf_;
     Ip4Address server_ip_;
-    int tunnel_bmap_;
+    TunnelType::TypeBmap tunnel_bmap_;
     uint32_t label_;
     string dest_vn_name_;
     SecurityGroupList sg_list_;

@@ -135,8 +135,8 @@ public:
         memcpy(arp->arp_sha, dest_mac, ETH_ALEN);
 
         sip = htonl(sip);
-        memcpy(arp->arp_spa, &tip, sizeof(in_addr_t));
         tip = htonl(tip);
+        memcpy(arp->arp_spa, &tip, sizeof(in_addr_t));
         memcpy(arp->arp_tpa, &sip, sizeof(in_addr_t));
 
         TestTapInterface *tap = (TestTapInterface *)
@@ -171,12 +171,17 @@ public:
         Agent::GetInstance()->pkt()->pkt_handler()->SendMessage(PktHandler::ARP, ipc);
     }
 
-    bool FindArpNHEntry(uint32_t addr, const string &vrf_name) {
+    bool FindArpNHEntry(uint32_t addr, const string &vrf_name, bool validate = false) {
         Ip4Address ip(addr);
         ArpNHKey key(vrf_name, ip);
-        if (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key))
+        ArpNH *arp_nh = static_cast<ArpNH *>(Agent::GetInstance()->
+                                             GetNextHopTable()->
+                                             FindActiveEntry(&key));
+        if (arp_nh) {
+            if (validate)
+                return arp_nh->IsValid();
             return true;
-        else
+        } else
             return false;
     }
 
@@ -196,7 +201,7 @@ public:
             return false;
     }
 
-    void ArpNH(DBRequest::DBOperation op, in_addr_t addr) {
+    void ArpNHUpdate(DBRequest::DBOperation op, in_addr_t addr) {
         Ip4Address ip(addr);
         ether_addr mac;
         Inet4UnicastAgentRouteTable::ArpRoute(op, ip, mac, 
@@ -326,6 +331,7 @@ TEST_F(ArpTest, ArpGraciousTest) {
 TEST_F(ArpTest, ArpTunnelGwTest) {
     TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip,
                        ntohl(inet_addr(DIFF_NET_IP)));
+    SendArpReq(req_ifindex, 0, src_ip, gw_ip);
     WaitForCompletion(1);
     SendArpReply(reply_ifindex, 0, src_ip, gw_ip);
     WaitForCompletion(1);
@@ -341,7 +347,7 @@ TEST_F(ArpTest, ArpDelTest) {
     WaitForCompletion(2);
     EXPECT_TRUE(FindArpNHEntry(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
     EXPECT_TRUE(FindArpRoute(ntohl(inet_addr(GRAT_IP)), Agent::GetInstance()->GetDefaultVrf()));
-    ArpNH(DBRequest::DB_ENTRY_DELETE, ntohl(inet_addr(GRAT_IP)));
+    ArpNHUpdate(DBRequest::DB_ENTRY_DELETE, ntohl(inet_addr(GRAT_IP)));
     client->WaitForIdle();
     usleep(175000);
     EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
@@ -351,12 +357,30 @@ TEST_F(ArpTest, ArpDelTest) {
 
 TEST_F(ArpTest, ArpTunnelTest) {
     TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
+    SendArpReq(req_ifindex, 0, src_ip, dest_ip);
     WaitForCompletion(2);
     SendArpReply(reply_ifindex, 0, src_ip, dest_ip);
     WaitForCompletion(2);
     EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
     EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
     TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
+    client->WaitForIdle();
+    SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, dest_ip);
+    usleep(175000);
+    EXPECT_EQ(1U, Agent::GetInstance()->GetArpProto()->GetArpCacheSize());
+    EXPECT_FALSE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    EXPECT_FALSE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+}
+
+TEST_F(ArpTest, ArpTunnelNoRequestTest) {
+    // Send Arp reply first to check that entry is created
+    SendArpReply(reply_ifindex, 0, src_ip, dest_ip);
+    WaitForCompletion(2);
+    EXPECT_TRUE(FindArpNHEntry(dest_ip, Agent::GetInstance()->GetDefaultVrf(), true));
+    EXPECT_TRUE(FindArpRoute(dest_ip, Agent::GetInstance()->GetDefaultVrf()));
+    // TunnelNH(DBRequest::DB_ENTRY_ADD_CHANGE, src_ip, dest_ip);
+    // WaitForCompletion(2);
+    // TunnelNH(DBRequest::DB_ENTRY_DELETE, src_ip, dest_ip);
     client->WaitForIdle();
     SendArpMessage(ArpHandler::AGING_TIMER_EXPIRED, dest_ip);
     usleep(175000);

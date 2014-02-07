@@ -26,4 +26,6 @@ libifmapio = env.Library('ifmapio',
 
 env.Install(env['TOP_LIB'], libifmapio)
 
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+client_unit_tests = env.SConscript('test/SConscript', exports='BuildEnv',
+                                   duplicate = 0)
+Return('client_unit_tests')
