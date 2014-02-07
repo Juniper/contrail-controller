@@ -137,6 +137,10 @@ public:
     // Create a VRF entry with given name
     void CreateVrf(const string &name);
     void DeleteVrf(const string &name);
+    //Add and delete routine for VRF not deleted on VRF config delete
+    void CreateStaticVrf(const string &name);
+    void DeleteStaticVrf(const string &name);
+ 
     // Create VRF Table with given name
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static VrfTable *GetInstance() {return vrf_table_;};
@@ -156,12 +160,6 @@ public:
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
-    void add_static_vrf(const std::string &vrf_name) {
-        static_vrf_set_.insert(vrf_name);
-    }
-    void delete_static_vrf(const std::string vrf_name) {
-        static_vrf_set_.erase(vrf_name);
-    }
     bool IsStaticVrf(const std::string &vrf_name) const {
         if (static_vrf_set_.find(vrf_name) != static_vrf_set_.end()) {
             return true;

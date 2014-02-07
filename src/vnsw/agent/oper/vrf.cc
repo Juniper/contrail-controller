@@ -596,6 +596,17 @@ void VrfTable::DeleteVrf(const string &name) {
     Enqueue(&req);
 }
 
+void VrfTable::CreateStaticVrf(const string &name) {
+    static_vrf_set_.insert(name);
+    CreateVrf(name);
+}
+
+void VrfTable::DeleteStaticVrf(const string &name) {
+    static_vrf_set_.erase(name);
+    DeleteVrf(name);
+}
+
+
 void VrfTable::DelPeerRoutes(Peer *peer, Peer::DelPeerDone cb) {
     DBTableWalker *walker = db_->GetWalker();
 
