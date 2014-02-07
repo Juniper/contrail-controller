@@ -96,11 +96,11 @@ inetvpn_table_test = env.Program('inetvpn_table_test',
                                  ['inetvpn_table_test.cc'])
 env.Alias('src/bgp/l3vpn:inetvpn_table_test', inetvpn_table_test)
 
-inetvpn_peer_test = env.Program('inetvpn_peer_test',
+inetvpn_peer_test = env.UnitTest('inetvpn_peer_test',
                                  ['inetvpn_peer_test.cc'])
 env.Alias('src/bgp/l3vpn:inetvpn_peer_test', inetvpn_peer_test)
 
-inetvpn_ext_peer_test = env.Program('inetvpn_ext_peer_test',
+inetvpn_ext_peer_test = env.UnitTest('inetvpn_ext_peer_test',
                                  ['inetvpn_ext_peer_test.cc'])
 env.Alias('src/bgp/l3vpn:inetvpn_ext_peer_test', inetvpn_ext_peer_test)
 

@@ -68,18 +68,24 @@ libbgp = env.Library('bgp',
                       'xmpp_message_builder.cc'
                       ])
 
-env.SConscript('enet/SConscript', exports='BuildEnv', duplicate = 0)
-env.SConscript('evpn/SConscript', exports='BuildEnv', duplicate = 0)
+test_suite = env.SConscript('enet/SConscript', exports='BuildEnv',
+                            duplicate = 0)
+test_suite += env.SConscript('evpn/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 env.SConscript('inet/SConscript', exports='BuildEnv', duplicate = 0)
-env.SConscript('inetmcast/SConscript', exports='BuildEnv', duplicate = 0)
-env.SConscript('l3vpn/SConscript', exports='BuildEnv', duplicate = 0)
-env.SConscript('origin-vn/SConscript', exports='BuildEnv', duplicate = 0)
+test_suite += env.SConscript('inetmcast/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('l3vpn/SConscript', exports='BuildEnv',
+                             duplicate = 0)
+test_suite += env.SConscript('origin-vn/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 env.SConscript('routing-instance/SConscript', exports='BuildEnv', duplicate = 0)
-env.SConscript('rtarget/SConscript', exports='BuildEnv', duplicate = 0)
+test_suite += env.SConscript('rtarget/SConscript', exports='BuildEnv',
+                             duplicate = 0)
 env.SConscript('security_group/SConscript', exports='BuildEnv', duplicate = 0)
 env.SConscript('tunnel_encap/SConscript', exports='BuildEnv', duplicate = 0)
 
-test_suite = env.SConscript('test/SConscript',
+test_suite += env.SConscript('test/SConscript',
                             exports='BuildEnv', duplicate = 0)
 
 def code_coverage(target, source, env):
