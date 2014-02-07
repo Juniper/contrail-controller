@@ -156,6 +156,31 @@ TEST_F(UveVmUveTest, VmIntfAddDel_1) {
     EXPECT_EQ(3U, vmut->send_count());
     EXPECT_EQ(0U, uve1->get_interface_list().size()); 
 
+    //Activate the interface again
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    AddLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    //Verify UVE 
+    EXPECT_EQ(4U, vmut->send_count());
+    EXPECT_EQ(1U, uve1->get_interface_list().size()); 
+
+    // Delete virtual-machine-interface to vrf link attribute
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "routing-instance", "vrf1");
+    DelLink("virtual-machine-interface-routing-instance", "vnet1",
+            "virtual-machine-interface", "vnet1");
+    client->WaitForIdle();
+
+    //Verify that the port is inactive
+    EXPECT_TRUE(VmPortInactive(input, 0));
+
+    //Verify UVE 
+    EXPECT_EQ(5U, vmut->send_count());
+    EXPECT_EQ(0U, uve1->get_interface_list().size()); 
+
     //other cleanup
     util_.VnDelete(input[0].vn_id);
     DelLink("virtual-machine", "vm1", "virtual-machine-interface", "vnet1");
