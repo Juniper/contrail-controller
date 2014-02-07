@@ -147,10 +147,9 @@ void VirtualGateway::CreateVrf() {
     VirtualGatewayConfigTable::Table::iterator it;
     const VirtualGatewayConfigTable::Table &table = vgw_config_table_->table();
     for (it = table.begin(); it != table.end(); it++) {
+        agent_->GetVrfTable()->add_static_vrf(it->vrf());
         agent_->GetVrfTable()->CreateVrf(it->vrf());
-        agent_->add_gateway_vrf(it->vrf());
     }
-
 }
 
 // Create virtual-gateway interface
@@ -183,7 +182,7 @@ void VirtualGateway::Shutdown() {
                                  it->interface());
 
         // Delete VRF for "public" virtual-network
-        agent_->delete_gateway_vrf(it->vrf());
+        agent_->GetVrfTable()->delete_static_vrf(it->vrf());
         agent_->GetVrfTable()->DeleteVrf(it->vrf());
     }
 }

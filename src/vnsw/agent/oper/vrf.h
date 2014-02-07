@@ -156,6 +156,19 @@ public:
     AgentRouteTable *GetInet4MulticastRouteTable(const std::string &vrf_name);
     AgentRouteTable *GetLayer2RouteTable(const std::string &vrf_name);
     AgentRouteTable *GetRouteTable(const string &vrf_name, uint8_t table_type);
+    void add_static_vrf(const std::string &vrf_name) {
+        static_vrf_set_.insert(vrf_name);
+    }
+    void delete_static_vrf(const std::string vrf_name) {
+        static_vrf_set_.erase(vrf_name);
+    }
+    bool IsStaticVrf(const std::string &vrf_name) const {
+        if (static_vrf_set_.find(vrf_name) != static_vrf_set_.end()) {
+            return true;
+        }
+        return false;
+    }
+
 private:
     void DelPeerDone(DBTableBase *base, Peer *,Peer::DelPeerDone cb);
     void VrfNotifyDone(DBTableBase *base, Peer *);
@@ -166,6 +179,7 @@ private:
     VrfNameTree name_tree_;
     VrfDbTree dbtree_[Agent::ROUTE_TABLE_MAX];
     DBTableWalker::WalkId walkid_;
+    std::set<std::string> static_vrf_set_;
     DISALLOW_COPY_AND_ASSIGN(VrfTable);
 };
 

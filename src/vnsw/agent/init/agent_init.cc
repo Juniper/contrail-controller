@@ -96,6 +96,7 @@ void AgentInit::DeleteNextHops() {
 }
 
 void AgentInit::DeleteVrfs() {
+    agent_->GetVrfTable()->delete_static_vrf(agent_->GetDefaultVrf());
     agent_->GetVrfTable()->DeleteVrf(agent_->GetDefaultVrf());
 }
 
@@ -205,8 +206,10 @@ void AgentInit::CreateDefaultVrf() {
         vrf_table->Register(boost::bind(&AgentInit::OnVrfCreate, this, _2));
 
     if (agent_->isXenMode()) {
+        vrf_table->add_static_vrf(agent_->GetLinkLocalVrfName());
         vrf_table->CreateVrf(agent_->GetLinkLocalVrfName());
     }
+    vrf_table->add_static_vrf(agent_->GetDefaultVrf());
     vrf_table->CreateVrf(agent_->GetDefaultVrf());
 
 }

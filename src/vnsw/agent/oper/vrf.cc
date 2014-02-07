@@ -738,17 +738,13 @@ bool VrfTable::CanNotify(IFMapNode *node) {
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    if (node->name() == agent()->GetDefaultVrf() ||
-        node->name() == agent()->GetLinkLocalVrfName()) {
-        return false;
-    }
-
     VrfKey *key = new VrfKey(node->name());
 
     //Trigger add or delete only for non fabric VRF
     if (node->IsDeleted()) {
-        if (agent()->IsGatewayVrf(node->name())) {
-            //VGW VRF will not be deleted, upon config delete
+        if (IsStaticVrf(node->name())) {
+            //Fabric, link-local and VGW VRF will not be deleted,
+            //upon config delete
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         } else {
             req.oper = DBRequest::DB_ENTRY_DELETE;
@@ -777,6 +773,8 @@ bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         }
     }
 
+    //When VRF config delete comes, first enqueue VRF delete
+    //so that when link evaluation happens, all point to deleted VRF
     VrfData *data = new VrfData();
     req.key.reset(key);
     req.data.reset(data);
