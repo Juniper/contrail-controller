@@ -81,7 +81,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
                   port.display_name, port.hostname, port.host, version_,
                   vlan_id, UuidToString(vm_project_id));
     }
-    return true;
+    return ret;
 }
 
 InstanceServiceAsyncIf::KeepAliveCheck_shared_future_t 
@@ -389,9 +389,6 @@ void AddPortReq::HandleRequest() const {
 
     boost::system::error_code ec;
     IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
-    if (ec.value() !=0) {
-        err = true;
-    }
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {
