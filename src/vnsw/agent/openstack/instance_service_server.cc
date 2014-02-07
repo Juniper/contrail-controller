@@ -32,18 +32,30 @@
 InstanceServiceAsyncIf::AddPort_shared_future_t 
 InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
 {
+    InstanceService_AddPort_result ret;
     PortList::const_iterator it;
     for (it = port_list.begin(); it != port_list.end(); ++it) {
         Port port = *it;
-        if (port.port_id.size() > (uint32_t)kUuidSize || 
-            port.instance_id.size() > (uint32_t)kUuidSize) {
-            return false;
+        if (port.port_id.size() != (uint32_t)kUuidSize || 
+            port.instance_id.size() != (uint32_t)kUuidSize ||
+            port.vn_id.size() != (uint32_t)kUuidSize) {
+            CFG_TRACE(IntfInfo, 
+                      "Port/instance/vn id not valid uuids, size check failed");
+            ret.__set_success(false);
+            return ret;
         }
         uuid port_id = ConvertToUuid(port.port_id);
         uuid instance_id = ConvertToUuid(port.instance_id);
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
-        IpAddress ip = IpAddress::from_string(port.ip_address);
+        boost::system::error_code ec;
+        IpAddress ip = IpAddress::from_string(port.ip_address, ec);
+        if (ec.value() != 0) {
+            CFG_TRACE(IntfInfo,
+                      "IP address is not correct, " + port.ip_address);
+            ret.__set_success(false);
+            return ret;
+        }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>(db_->FindTable("db.cfg_int.0"));
         assert(ctable);
@@ -69,7 +81,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
                   port.display_name, port.hostname, port.host, version_,
                   vlan_id, UuidToString(vm_project_id));
     }
-    return true;
+    return ret;
 }
 
 InstanceServiceAsyncIf::KeepAliveCheck_shared_future_t 
@@ -291,7 +303,7 @@ InstanceServiceAsyncHandler::CreateVrf(const std::string& vrf)
 InstanceServiceAsyncHandler::uuid 
 InstanceServiceAsyncHandler::ConvertToUuid(const tuuid &id)
 {
-    boost::uuids::uuid u;
+    boost::uuids::uuid u = nil_uuid();
     std::vector<int16_t>::const_iterator it;
     int i;
     
@@ -374,8 +386,9 @@ void AddPortReq::HandleRequest() const {
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+
     boost::system::error_code ec;
-    IpAddress ip(boost::asio::ip::address::from_string(get_ip_address(), ec));
+    IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {

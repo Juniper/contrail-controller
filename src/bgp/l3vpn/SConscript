@@ -15,4 +15,6 @@ libbgp_l3vpn = env.Library('bgp_l3vpn',
                             'inetvpn_route.cc'
                             ])
 
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+l3vpn_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
+                                  duplicate = 0)
+Return('l3vpn_test_cases')

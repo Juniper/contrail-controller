@@ -176,10 +176,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
             *collector->event_manager()->io_service(),
             "SandeshGenerator db connect timer" + source + module,
             TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
-            session->GetSessionInstance())),
-        del_wait_timer_(
-                TimerManager::CreateTimer(*collector->event_manager()->io_service(),
-                    "Delete wait timer" + name_)) {
+            session->GetSessionInstance())) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
@@ -190,7 +187,6 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 SandeshGenerator::~SandeshGenerator() {
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
-    TimerManager::DeleteTimer(del_wait_timer_);
     db_handler_->UnInit(true);
 }
 
@@ -242,24 +238,7 @@ void SandeshGenerator::TimerErrorHandler(string name, string error) {
     GENERATOR_LOG(ERROR, name + " error: " + error);
 }
 
-bool SandeshGenerator::DelWaitTimerExpired() {
-
-    // We are connected to this generator
-    // Do not withdraw ownership
-    if (gen_attr_.get_connects() > gen_attr_.get_resets())
-        return false;
-
-    collector_->GetOSP()->WithdrawGenerator(source(), node_type_,
-         module(), instance_id_);
-    GENERATOR_LOG(INFO, "DelWaitTimer is Withdrawing SandeshGenerator " <<
-            name_);
-    return false;
-}
-
 void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
-
-    del_wait_timer_->Cancel();
-
     // This is a control message during SandeshGenerator-Collector negotiation
     ModuleServerState ginfo;
     GetGeneratorInfo(ginfo);
@@ -275,16 +254,14 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     disconnected_ = true;
     if (vsession == viz_session_) {
         // This SandeshGenerator's session is now gone.
-        // Start a timer to delete all its UVEs
+        // Delete all its UVEs
         uint32_t tmp = gen_attr_.get_resets();
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
         viz_session_ = NULL;
         state_machine_ = NULL;
-        del_wait_timer_->Start(kWaitTimerSec * 1000,
-            boost::bind(&SandeshGenerator::DelWaitTimerExpired, this),
-            boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
-
+        collector_->GetOSP()->DeleteUVEs(source_, module_, 
+                                         node_type_, instance_id_);
         ModuleServerState ginfo;
         GetGeneratorInfo(ginfo);
         SandeshModuleServerTrace::Send(ginfo);

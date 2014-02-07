@@ -49,7 +49,7 @@ public:
     typedef std::map<uint32_t, DBTableWalker::WalkId>::iterator VrfRouteWalkerIdMapIterator;
 
     AgentRouteWalker(Agent *agent, WalkType type);
-    ~AgentRouteWalker() { }
+    virtual ~AgentRouteWalker() { }
 
     void StartVrfWalk();
     void CancelVrfWalk();

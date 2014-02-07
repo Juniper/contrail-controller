@@ -87,11 +87,6 @@ bool CollectorCPULogger(const string & hostname) {
     return true;
 }
 
-void HandleGenCleanup(int count) {
-    if (count)
-        LOG(INFO, "Cleaned up " << count << " abandoned generators");
-}
-
 bool CollectorSummaryLogger(Collector *collector, const string & hostname,
         OpServerProxy * osp) {
     CollectorState state;
@@ -117,16 +112,6 @@ bool CollectorSummaryLogger(Collector *collector, const string & hostname,
 
     std::vector<GeneratorSummaryInfo> infos;
     collector->GetGeneratorSummaryInfo(infos);
-
-    // The generator keys must be refreshed to prove that this Vizd
-    // instance owns its generators
-    for (vector<GeneratorSummaryInfo>::const_iterator it = infos.begin(); 
-            it != infos.end(); it++) {
-        osp->RefreshGenerator(it->get_source(), it->get_node_type(),
-            it->get_module_id(), it->get_instance_id());
-    }
-
-    osp->GeneratorCleanup(HandleGenCleanup);
 
     state.set_generator_infos(infos);
 
@@ -235,9 +220,9 @@ int main(int argc, char *argv[])
         ("discovery-port",
          opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
          "Port of Discovery Server")
-        ("redis-sentinel-port",
-         opt::value<int>()->default_value(ContrailPorts::AnalyticsRedisSentinelPort),
-         "Redis Sentinel port")
+        ("redis-uve-port",
+         opt::value<int>()->default_value(ContrailPorts::RedisUvePort),
+         "redis-uve server port")
         ("listen-port",
          opt::value<int>()->default_value(ContrailPorts::CollectorPort),
          "vizd listener port")
@@ -250,8 +235,6 @@ int main(int argc, char *argv[])
             opt::value<int>()->default_value(ContrailPorts::HttpPortCollector),
             "Sandesh HTTP listener port")
         ("dup", "Internal use")
-        ("gen-timeout", opt::value<int>()->default_value(80),
-            "Expiration timeout for generators")
         ("log-local", "Enable local logging of sandesh messages")
         ("log-level", opt::value<string>()->default_value("SYS_DEBUG"),
             "Severity level for local logging of sandesh messages")
@@ -308,7 +291,7 @@ int main(int argc, char *argv[])
     }
 
     LOG(INFO, "COLLECTOR LISTEN PORT: " << var_map["listen-port"].as<int>());
-    LOG(INFO, "COLLECTOR REDIS SENTINEL PORT: " << var_map["redis-sentinel-port"].as<int>());
+    LOG(INFO, "COLLECTOR REDIS UVE PORT: " << var_map["redis-uve-port"].as<int>());
     LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
     LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
 
@@ -317,9 +300,8 @@ int main(int argc, char *argv[])
             cassandra_ip,
             cassandra_port,
             string("127.0.0.1"),
-            var_map["redis-sentinel-port"].as<int>(),
+            var_map["redis-uve-port"].as<int>(),
             var_map["syslog-port"].as<int>(),
-            var_map["gen-timeout"].as<int>(),
             dup,
             var_map["analytics-data-ttl"].as<int>());
 

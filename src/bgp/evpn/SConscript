@@ -14,4 +14,6 @@ libbgp_evpn = env.Library('bgp_evpn',
                    'evpn_table.cc'
                   ])
 
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+evpn_unit_tests = env.SConscript('test/SConscript', exports='BuildEnv',
+                                 duplicate = 0)
+Return('evpn_unit_tests')
