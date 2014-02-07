@@ -538,6 +538,18 @@ public:
     DiscoveryAgentClient *discovery_client() const;
     VirtualGateway *vgw() const {return vgw_.get(); }
     OperDB *oper_db() const {return oper_db_.get(); }
+    void add_gateway_vrf(const std::string &vrf_name) {
+        gateway_vrf_set_.insert(vrf_name);
+    }
+    void delete_gateway_vrf(const std::string vrf_name) {
+        gateway_vrf_set_.erase(vrf_name);
+    }
+    bool IsGatewayVrf(const std::string &vrf_name) const {
+        if (gateway_vrf_set_.find(vrf_name) != gateway_vrf_set_.end()) {
+            return true;
+        }
+        return false;
+    }
 
 private:
     void GetConfig();
@@ -636,7 +648,9 @@ private:
     bool test_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
-    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_; 
+    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
+    std::set<std::string> gateway_vrf_set_;
+
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
