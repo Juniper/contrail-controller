@@ -86,7 +86,7 @@ static int agent_main(int argc, char *argv[]) {
        ("config-file", opt::value<string>(), "Configuration file")
        ("version", "Display version information")
 
-       ("COLLECTOR.port", opt::value<int>()->default_value(ContrailPorts::CollectorPort),
+       ("COLLECTOR.port", opt::value<uint16_t>()->default_value(ContrailPorts::CollectorPort),
             "Port of sandesh collector")
        ("COLLECTOR.server", opt::value<string>()->default_value(""),
             "IP address of sandesh collector")
@@ -95,7 +95,7 @@ static int agent_main(int argc, char *argv[]) {
        ("DEFAULTS.hostname", opt::value<string>()->default_value(hostname),
             "Specific Host Name")
        ("DEFAULTS.http-server-port",
-            opt::value<int>()->default_value(ContrailPorts::HttpPortAgent),
+            opt::value<uint16_t>()->default_value(ContrailPorts::HttpPortAgent),
             "Sandesh HTTP listener port")
 
        ("HYPERVISOR.type", opt::value<string>()->default_value("kvm"),
