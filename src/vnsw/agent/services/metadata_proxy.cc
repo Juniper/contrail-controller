@@ -119,6 +119,11 @@ MetadataProxy::HandleMetadataRequest(HttpSession *session, const HttpRequest *re
         }
         header_options += it->first + ": " + it->second + "\r\n";
     }
+
+    // keystone uses uuids without dashes and that is what ends up in
+    // the nova database entry for the instance. Remove dashes from the
+    // uuid string representation.
+    boost::replace_all(vm_project_uuid, "-", "");
     header_options += "X-Forwarded-For: " + vm_ip + "\r\n" +
                       "X-Instance-ID: " + vm_uuid + "\r\n" +
                       "X-Tenant-ID: " + vm_project_uuid + "\r\n" +
