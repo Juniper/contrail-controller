@@ -22,8 +22,10 @@ if sys.platform != 'darwin':
     env.Prepend(LIBS = ['cfg'])
     env.Prepend(LIBS = ['nova_ins'])
     env.Append(LIBS = ['gunit'])
-    env.Append(LIBPATH=['../../test'])
+    env.Append(LIBPATH = env['TOP'] + '/vnsw/agent/test')
+    env.Prepend(LIBS=['agent_test'])
     env.Append(LIBS=['agent_test_buildinfo'])
+    env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
 
 
     nova_info_server_test = env.Program(target = 'nova_info_server_test',
@@ -33,6 +35,7 @@ if sys.platform != 'darwin':
     nova_inc = env.Program(target = 'nova_inc',
                            source = ['instance_service_client.cc'])
 
-#test = env.TestSuite('agent-test', test_suite)
-#env.Alias('src/vnsw/agent:test', test)
-#Return('test_suite')
+nova_cfg_test_suite = [nova_info_server_test]
+test = env.TestSuite('agent-test', nova_cfg_test_suite)
+env.Alias('src/vnsw/agent:test', test)
+Return('nova_cfg_test_suite')
