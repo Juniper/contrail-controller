@@ -166,6 +166,13 @@ class OpServer(object):
             self._instance = None
     # end stop
 
+    def send_tracebuffer_request(self, src, mod, instance, tracebuf):
+        vops = VerificationOpsSrv('127.0.0.1', self.listen_port)
+        res = vops.send_tracebuffer_req(src, mod, instance, tracebuf)
+        self._logger.info('send_tracebuffer_request: %s' % (str(res)))
+        assert(res['status'] == 'pass')
+    # end send_tracebuffer_request
+
 # end class OpServer
 
 class QueryEngine(object):
@@ -988,6 +995,37 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) > 1)
         return True
+
+    @retry(delay=2, tries=5)
+    def verify_collector_redis_uve_connection(self, collector): 
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] != 'Connected':
+                return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
+    # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
+        self.logger.info('verify trace buffer data in analytics db')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        where_clause = []
+        where_clause.append('Source = ' + src)
+        where_clause.append('ModuleId = ' + mod)
+        where_clause.append('Category = ' + tracebuf)
+        where_clause = ' AND '.join(where_clause)
+        res = vns.post_query('MessageTable', start_time='-3m', end_time='now',
+                             select_fields=['MessageTS', 'Messagetype'],
+                             where_clause=where_clause, filter='Type=4')
+        if not res:
+            return False
+        self.logger.info(str(res))
+        return True
+    # end verify_tracebuffer_in_analytics_db
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()

@@ -53,7 +53,11 @@ class VerificationOpsSrv (VerificationUtilBase):
         xpath = '/RedisUVEMasterResponse/redis_uve_master'
         p = self.dict_get(path, XmlDrv)
         return EtreeToDict(xpath).get_all_entry(p)
-    
+   
+    def send_tracebuffer_req(self, src, mod, instance, buf_name):
+        return self.dict_get('analytics/send-tracebuffer/%s/%s/%s/%s' \
+                             % (src, mod, instance, buf_name))
+
     def post_query_json(self, json_str, sync=True):
         '''
         this module is to support raw query given in json format
