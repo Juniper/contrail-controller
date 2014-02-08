@@ -15,6 +15,7 @@ import json
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
+from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 
 class Query(object):
     table = None
@@ -1026,6 +1027,29 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         return True
     # end verify_tracebuffer_in_analytics_db
+
+    @retry(delay=1, tries=5)
+    def verify_table_source_module_list(self, exp_src_list, exp_mod_list):
+        self.logger.info('verify source/module list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        try:
+            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+                                                   SOURCE)
+            self.logger.info('src_list: %s' % str(src_list))
+            if len(set(src_list).intersection(exp_src_list)) != \
+                    len(exp_src_list):
+                return False
+            mod_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
+                                                   MODULE)
+            self.logger.info('mod_list: %s' % str(mod_list))
+            if len(set(mod_list).intersection(exp_mod_list)) != \
+                    len(exp_mod_list):
+                return False
+        except Exception as e:
+            self.logger.error('Exception: %s in getting source/module list' % e)
+        else:
+            return True
+    # end verify_table_source_module_list
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()

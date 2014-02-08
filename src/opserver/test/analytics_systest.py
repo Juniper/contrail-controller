@@ -231,7 +231,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         # OpServer and QueryEngine are started with collectors[0] as 
         # primary and collectors[1] as secondary
-        host = socket.gethostname()
         exp_genlist = ['Collector', 'OpServer', 'QueryEngine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
                                               exp_genlist)
@@ -415,6 +414,40 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                     vizd_obj.collectors[1].hostname,
                     ModuleNames[Module.COLLECTOR], 'UveTrace')
     #end test_08_send_tracebuffer 
+
+    #@unittest.skip('verify source/module list')
+    def test_09_table_source_module_list(self):
+        '''
+        This test verifies /analytics/table/<table>/column-values/Source
+        and /analytics/table/<table>/column-values/ModuleId
+        '''
+        logging.info('*** test_09_source_module_list ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port, 
+                             collector_ha_test=True))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        exp_genlist1 = ['Collector', 'OpServer', 'QueryEngine']
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
+                                              exp_genlist1)
+        exp_genlist2 = ['Collector'] 
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
+                                              exp_genlist2)
+        exp_src_list = [col.hostname for col in vizd_obj.collectors]
+        exp_mod_list = exp_genlist1 
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+        # stop the second redis_uve instance and verify the src/module list
+        vizd_obj.redis_uves[1].stop()
+        exp_src_list = [vizd_obj.collectors[0].hostname]
+        exp_mod_list = exp_genlist1
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+    #end test_09_table_source_module_list 
 
     @staticmethod
     def get_free_port():

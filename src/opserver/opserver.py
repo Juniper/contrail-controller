@@ -448,19 +448,19 @@ class OpServer(object):
         if self._args.disc_server_ip:
             self.disc_publish()
         else:
-            redis_uve_list = []
+            self.redis_uve_list = []
             try:
                 if type(self._args.redis_uve_list) is str:
                     self._args.redis_uve_list = self._args.redis_uve_list.split()
                 for redis_uve in self._args.redis_uve_list:
                     redis_ip_port = redis_uve.split(':')
                     redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
-                    redis_uve_list.append(redis_ip_port)
+                    self.redis_uve_list.append(redis_ip_port)
             except Exception as e:
                 self._logger.error('Failed to parse redis_uve_list: %s' % e)
             else:
-                self._state_server.update_redis_list(redis_uve_list)
-                self._uve_server.update_redis_uve_list(redis_uve_list)
+                self._state_server.update_redis_list(self.redis_uve_list)
+                self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
         self._analytics_links = ['uves', 'tables', 'queries']
 
@@ -1324,26 +1324,27 @@ class OpServer(object):
 
     def generator_info(self, table, column):
         if ((column == MODULE) or (column == SOURCE)):
-            try:
+            sources = []
+            moduleids = []
+            for redis_uve in self.redis_uve_list:
                 redish = redis.StrictRedis(
                     db=0,
-                    host='127.0.0.1',
-                    port=int(self._args.redis_server_port))
-                sources = []
-                moduleids = []
-                for key in redish.smembers("NGENERATORS"):
-                    source = key.split(':')[0]
-                    module = key.split(':')[2]
-                    if (sources.count(source) == 0):
-                        sources.append(source)
-                    if (moduleids.count(module) == 0):
-                        moduleids.append(module)
-                if (column == MODULE):
-                    return moduleids
-                elif (column == SOURCE):
-                    return sources
-            except Exception as e:
-                print e
+                    host=redis_uve[0],
+                    port=redis_uve[1])
+                try:
+                    for key in redish.smembers("NGENERATORS"):
+                        source = key.split(':')[0]
+                        module = key.split(':')[2]
+                        if (sources.count(source) == 0):
+                            sources.append(source)
+                        if (moduleids.count(module) == 0):
+                            moduleids.append(module)
+                except Exception as e:
+                    self._logger.error('Exception: %s' % e)
+            if column == MODULE:
+                return moduleids
+            elif column == SOURCE:
+                return sources
         elif (column == 'Category'):
             return self._CATEGORY_MAP
         elif (column == 'Level'):
@@ -1437,7 +1438,7 @@ class OpServer(object):
         '''
         if self.disc:
             while True:
-                redis_uve_list = []
+                self.redis_uve_list = []
                 try:
                     sub_obj = \
                         self.disc.subscribe(ModuleNames[Module.COLLECTOR], 0)
@@ -1450,11 +1451,11 @@ class OpServer(object):
                         self._logger.debug('Collector-list from discovery: %s' \
                                            % str(collectors))
                         for collector in collectors:
-                            redis_uve_list.append((collector['ip-address'], 
-                                                   6381))
-                        self._uve_server.update_redis_uve_list(redis_uve_list)
-                        self._state_server.update_redis_list(redis_uve_list)
-                if redis_uve_list:
+                            self.redis_uve_list.append((collector['ip-address'], 
+                                                       6381))
+                        self._uve_server.update_redis_uve_list(self.redis_uve_list)
+                        self._state_server.update_redis_list(self.redis_uve_list)
+                if self.redis_uve_list:
                     gevent.sleep(60)
                 else:
                     gevent.sleep(5)
