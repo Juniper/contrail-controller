@@ -78,6 +78,14 @@ void KSyncSandeshContext::FlowMsgHandler(vr_flow_req *r) {
                        << " proto = " << (int)key.protocol);
             if (entry && (int)entry->flow_handle() == r->get_fr_index()) {
                 entry->set_flow_handle(FlowEntry::kInvalidFlowHandle);
+                entry->MakeShortFlow();
+            }
+            return;
+        }
+
+        if (GetErrno() == ENOSPC) {
+            if (entry) {
+                entry->MakeShortFlow();
             }
             return;
         }
