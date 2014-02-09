@@ -141,6 +141,7 @@ void IFMapVmUuidMapper::VmNodeProcess(DBTablePartBase *partition,
                 ifmap_server_->ProcessVmSubscribe(vr_name, vm_node->name(),
                                                 subscribe);
                 pending_vmreg_map_.erase(vm_uuid);
+                ErasePendingVrVmRegMapEntry(vr_name, vm_uuid);
             }
         }
     }
@@ -162,8 +163,46 @@ void IFMapVmUuidMapper::ProcessVmRegAsPending(std::string vm_uuid,
         std::string vr_name, bool subscribe) {
     if (subscribe) {
         pending_vmreg_map_.insert(make_pair(vm_uuid, vr_name));
+        pending_vrvm_reg_map_.insert(make_pair(vr_name, vm_uuid));
     } else {
         pending_vmreg_map_.erase(vm_uuid);
+        ErasePendingVrVmRegMapEntry(vr_name, vm_uuid);
+    }
+}
+
+// Remove one entry corresponding to [vr_name, vm_uuid] from
+// pending_vrvm_reg_map_.
+void IFMapVmUuidMapper::ErasePendingVrVmRegMapEntry(const std::string &vr_name,
+                                                   const std::string &vm_uuid) {
+    size_t count = pending_vrvm_reg_map_.count(vr_name);
+    assert(count);
+    std::pair<PendingVrVmRegMap::iterator, PendingVrVmRegMap::iterator> range;
+    range = pending_vrvm_reg_map_.equal_range(vr_name);
+    for (PendingVrVmRegMap::iterator iter = range.first; iter != range.second;
+         ++iter) {
+        if (iter->second == vm_uuid) {
+            pending_vrvm_reg_map_.erase(iter);
+            break;
+        }
+    }
+}
+
+// Called when the client is going away i.e. xmpp-not-ready was received
+void IFMapVmUuidMapper::CleanupPendingVmRegMaps(const std::string &vr_name) {
+    size_t count = pending_vrvm_reg_map_.count(vr_name);
+    if (count) {
+        std::pair<PendingVrVmRegMap::iterator,
+                  PendingVrVmRegMap::iterator> range;
+        range = pending_vrvm_reg_map_.equal_range(vr_name);
+        // Find all the vm's who have been registered but are still pending
+        // creation and clean them up one by one.
+        for (PendingVrVmRegMap::iterator iter = range.first;
+             iter != range.second; ++iter) {
+            // iter->second is the vm_uuid
+            pending_vmreg_map_.erase(iter->second);
+        }
+        // In one shot, cleanup all the entries with key 'vr-name'
+        pending_vrvm_reg_map_.erase(vr_name);
     }
 }
 
