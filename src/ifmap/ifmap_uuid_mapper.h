@@ -45,12 +45,8 @@ private:
 class IFMapVmUuidMapper {
 public:
     // Store [vm-uuid, vr-name] from the vm-reg request
-    // ADD: vm-reg-request, DELETE: vm-node add/xmpp-not-ready
+    // ADD: vm-reg-request, DELETE: vm-node add
     typedef std::map<std::string, std::string> PendingVmRegMap;
-    // Store [vr-name, vm-uuid] from the vm-reg request
-    // Note, each vr-name can have multiple vm's and hence multimap
-    // ADD: vm-reg-request, DELETE: vm-node add/xmpp-not-ready
-    typedef std::multimap<std::string, std::string> PendingVrVmRegMap;
     // Store [vm-node, vm-uuid]. Used to clean-up uuid_mapper_'s 'vm-uuid'
     // entry when the vm-node becomes InFeasible. The objects would be gone by
     // then and the uuid would not be available from the node.
@@ -82,9 +78,6 @@ public:
     PendingVmRegMap::size_type PendingVmRegCount() {
         return pending_vmreg_map_.size();
     }
-    PendingVrVmRegMap::size_type PendingVrVmRegCount() {
-        return pending_vrvm_reg_map_.size();
-    }
     void PrintAllPendingVmRegEntries();
 
     bool NodeToUuid(IFMapNode *vm_node, std::string *vm_uuid);
@@ -93,7 +86,6 @@ public:
         return node_uuid_map_.size();
     }
     void PrintAllNodeUuidMappedEntries();
-    void CleanupPendingVmRegMaps(const std::string &vr_name);
 
 private:
     friend class IFMapVmUuidMapperTest;
@@ -110,12 +102,9 @@ private:
     IFMapUuidMapper uuid_mapper_;
     NodeUuidMap node_uuid_map_;
     PendingVmRegMap pending_vmreg_map_;
-    PendingVrVmRegMap pending_vrvm_reg_map_;
 
     // TODO: consider moving the common parts inside IFMapNode
     bool IsFeasible(IFMapNode *node);
-    void ErasePendingVrVmRegMapEntry(const std::string &vr_name,
-                                     const std::string &vm_uuid);
 };
 
 #endif /* __IFMAP_UUID_MAPPER_H__ */

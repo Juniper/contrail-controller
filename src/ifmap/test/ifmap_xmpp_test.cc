@@ -58,7 +58,6 @@ using namespace std;
 #define DEFAULT_OUTPUT_FILE     "/tmp/output.txt"
 #define HOST_VMI_NAME           "aad4c946-9390-4a53-8bbd-09d346f5ba6c:323b7882-9bcf-4dc9-9460-48ea68b60ea2"
 #define HOST_VM_NAME            "aad4c946-9390-4a53-8bbd-09d346f5ba6c"
-#define HOST_VM_NAME1           "aad4c946-9390-4a53-8bbd-09d346f5ba6d"
 
 class XmppVnswMockPeer : public XmppClient {
 public:
@@ -1408,20 +1407,10 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 
     vnsw_client->OutputRecvBufferToFile();
 
-    // HOST_VM_NAME1 does not exist in config.
-    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME1);
-    usleep(1000);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 1);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVrVmRegCount(),
-                        1);
-
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
     // Client close generates a TcpClose event on server
     ConfigUpdate(vnsw_client, new XmppConfigData());
     TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 0);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVrVmRegCount(),
-                        0);
 
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));

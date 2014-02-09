@@ -239,7 +239,6 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     } else {
         ClientGraphCleanup(client);
         RemoveSelfAddedLinks(client);
-        vm_uuid_mapper_->CleanupPendingVmRegMaps(client->identifier());
         ClientUnregister(client);
     }
     return true;
