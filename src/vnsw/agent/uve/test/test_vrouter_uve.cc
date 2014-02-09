@@ -28,6 +28,7 @@
 #include "vr_types.h"
 #include <uve/vrouter_stats_collector.h>
 #include <uve/vrouter_uve_entry_test.h>
+#include "uve/test/test_uve_util.h"
 
 using namespace std;
 
@@ -56,8 +57,69 @@ public:
         VRouterStatsCollectorTask *task = new VRouterStatsCollectorTask(count);
         scheduler->Enqueue(task);
     }
+    TestUveUtil util_;
 };
 
+
+TEST_F(UveVrouterUveTest, VmAddDel) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    const VrouterAgent &uve = vr->last_sent_vrouter();
+    EXPECT_EQ(0U, vr->vrouter_msg_count());
+    EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
+
+    util_.VmAdd(1);
+
+    EXPECT_EQ(1U, vr->vrouter_msg_count());
+    EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
+
+    util_.VmAdd(2);
+
+    EXPECT_EQ(2U, vr->vrouter_msg_count());
+    EXPECT_EQ(2U, uve.get_virtual_machine_list().size());
+
+    util_.VmDelete(2);
+
+    EXPECT_EQ(3U, vr->vrouter_msg_count());
+    EXPECT_EQ(1U, uve.get_virtual_machine_list().size());
+
+    util_.VmDelete(1);
+
+    EXPECT_EQ(4U, vr->vrouter_msg_count());
+    EXPECT_EQ(0U, uve.get_virtual_machine_list().size());
+}
+
+TEST_F(UveVrouterUveTest, VnAddDel) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    const VrouterAgent &uve = vr->last_sent_vrouter();
+    EXPECT_EQ(0U, vr->vrouter_msg_count());
+    EXPECT_EQ(0U, uve.get_connected_networks().size());
+
+    util_.VnAdd(1);
+
+    EXPECT_EQ(1U, vr->vrouter_msg_count());
+    EXPECT_EQ(1U, uve.get_connected_networks().size());
+
+    util_.VnAdd(2);
+
+    EXPECT_EQ(2U, vr->vrouter_msg_count());
+    EXPECT_EQ(2U, uve.get_connected_networks().size());
+
+    util_.VnDelete(2);
+
+    EXPECT_EQ(3U, vr->vrouter_msg_count());
+    EXPECT_EQ(1U, uve.get_connected_networks().size());
+
+    util_.VnDelete(1);
+
+    EXPECT_EQ(4U, vr->vrouter_msg_count());
+    EXPECT_EQ(0U, uve.get_connected_networks().size());
+}
 
 TEST_F(UveVrouterUveTest, ComputeCpuState_1) {
 
