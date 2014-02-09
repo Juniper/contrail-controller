@@ -94,6 +94,10 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
     }        
     for (CompositeNH::ComponentNHList::const_iterator it =
          comp_nh_list->begin(); it != comp_nh_list->end(); it++) {
+        if ((*it) == NULL) {
+            continue;
+        }
+
         const NextHop *nh = (*it)->GetNH();
         switch (nh->GetType()) {
         case NextHop::TUNNEL: {

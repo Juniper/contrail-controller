@@ -636,7 +636,8 @@ private:
     bool test_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
-    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_; 
+    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
+
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;
