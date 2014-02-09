@@ -179,6 +179,11 @@ bool FlowEntry::ActionRecompute() {
         data_.match_p.out_policy_action | data_.match_p.out_sg_action |
         data_.match_p.mirror_action | data_.match_p.out_mirror_action;
 
+    // Force short flows to DROP
+    if (is_flags_set(FlowEntry::ShortFlow)) {
+        action |= (1 << TrafficAction::DROP);
+    }
+
     // check for conflicting actions and remove allowed action
     if (ShouldDrop(action)) {
         action = (action & ~TrafficAction::DROP_FLAGS & ~TrafficAction::PASS_FLAGS);
@@ -448,8 +453,10 @@ void FlowEntry::GetPolicyInfo(const VnEntry *vn) {
     data_.match_p.nw_policy = false;
     ResetPolicy();
 
+    // Short flows means there is some information missing for the flow. Skip 
+    // getting policy information for short flow. When the information is
+    // complete, GetPolicyInfo is called again
     if (is_flags_set(FlowEntry::ShortFlow)) {
-        data_.match_p.action_info.action = (1 << TrafficAction::DROP);
         return;
     }
 
