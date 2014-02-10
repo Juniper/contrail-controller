@@ -104,15 +104,6 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
     }
 }
 
-FlowEntry::FlowEntry() :
-    key_(), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
-    deleted_(false), flags_(0) {
-    flow_uuid_ = nil_uuid(); 
-    egress_uuid_ = nil_uuid(); 
-    refcount_ = 0;
-    alloc_count_.fetch_and_increment();
-}
-
 FlowEntry::FlowEntry(const FlowKey &k) : 
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
     deleted_(false), flags_(0) {
