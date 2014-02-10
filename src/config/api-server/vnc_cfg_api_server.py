@@ -179,7 +179,7 @@ class VncApiServer(VncApiServerGen):
             'floating-ip-pool'].generate_default_instance = False
         self._resource_classes['instance-ip'].generate_default_instance = False
         self._resource_classes[
-            'virtual-machine'].generate_default_instance = False
+            'virtual-machine'].generate_default_instance = True
         self._resource_classes[
             'virtual-machine-interface'].generate_default_instance = False
         self._resource_classes[
