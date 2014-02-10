@@ -387,10 +387,11 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         SandeshGenerator::GeneratorId id(gm_it->first);
+        // GeneratorId is of the format source..module..instance_id..node_type
         if (((dest[0] != "*") && (id.get<0>() != dest[0])) ||
-            ((dest[1] != "*") && (id.get<1>() != dest[1])) ||
-            ((dest[2] != "*") && (id.get<2>() != dest[2])) ||
-            ((dest[3] != "*") && (id.get<3>() != dest[3]))) {
+            ((dest[1] != "*") && (id.get<3>() != dest[1])) ||
+            ((dest[2] != "*") && (id.get<1>() != dest[2])) ||
+            ((dest[3] != "*") && (id.get<2>() != dest[3]))) {
             continue;
         }
         const SandeshGenerator *gen = gm_it->second;

@@ -15,6 +15,7 @@ import json
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
+from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
 
 class Query(object):
     table = None
@@ -165,6 +166,13 @@ class OpServer(object):
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
+
+    def send_tracebuffer_request(self, src, mod, instance, tracebuf):
+        vops = VerificationOpsSrv('127.0.0.1', self.listen_port)
+        res = vops.send_tracebuffer_req(src, mod, instance, tracebuf)
+        self._logger.info('send_tracebuffer_request: %s' % (str(res)))
+        assert(res['status'] == 'pass')
+    # end send_tracebuffer_request
 
 # end class OpServer
 
@@ -987,6 +995,60 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info(str(res))
         assert(len(res) > 1)
         return True
+
+    @retry(delay=2, tries=5)
+    def verify_collector_redis_uve_connection(self, collector): 
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] != 'Connected':
+                return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
+    # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
+        self.logger.info('verify trace buffer data in analytics db')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        where_clause = []
+        where_clause.append('Source = ' + src)
+        where_clause.append('ModuleId = ' + mod)
+        where_clause.append('Category = ' + tracebuf)
+        where_clause = ' AND '.join(where_clause)
+        res = vns.post_query('MessageTable', start_time='-3m', end_time='now',
+                             select_fields=['MessageTS', 'Messagetype'],
+                             where_clause=where_clause, filter='Type=4')
+        if not res:
+            return False
+        self.logger.info(str(res))
+        return True
+    # end verify_tracebuffer_in_analytics_db
+
+    @retry(delay=1, tries=5)
+    def verify_table_source_module_list(self, exp_src_list, exp_mod_list):
+        self.logger.info('verify source/module list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        try:
+            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+                                                   SOURCE)
+            self.logger.info('src_list: %s' % str(src_list))
+            if len(set(src_list).intersection(exp_src_list)) != \
+                    len(exp_src_list):
+                return False
+            mod_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
+                                                   MODULE)
+            self.logger.info('mod_list: %s' % str(mod_list))
+            if len(set(mod_list).intersection(exp_mod_list)) != \
+                    len(exp_mod_list):
+                return False
+        except Exception as e:
+            self.logger.error('Exception: %s in getting source/module list' % e)
+        else:
+            return True
+    # end verify_table_source_module_list
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
