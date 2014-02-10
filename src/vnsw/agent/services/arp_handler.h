@@ -27,7 +27,6 @@ public:
 
     ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                boost::asio::io_service &io);
-    ArpHandler(Agent *agent, boost::asio::io_service &io);
     virtual ~ArpHandler();
 
     bool Run();

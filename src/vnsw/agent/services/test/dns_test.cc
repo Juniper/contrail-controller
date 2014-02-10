@@ -406,6 +406,14 @@ TEST_F(DnsTesting, VirtualDnsReqTest) {
     CHECK_CONDITION(stats.fail < 1);
     CHECK_STATS(stats, 8, 4, 2, 1, 1, 0);
 
+    // Retrieve DNS entries via Introspect
+    ShowDnsEntries *sand = new ShowDnsEntries();
+    Sandesh::set_response_callback(
+        boost::bind(&DnsTesting::CheckSandeshResponse, this, _1));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
     Agent::GetInstance()->GetDnsProto()->set_timeout(30);
     Agent::GetInstance()->GetDnsProto()->set_max_retries(1);
     SendDnsReq(DNS_OPCODE_QUERY, GetItfId(0), 1, a_items);

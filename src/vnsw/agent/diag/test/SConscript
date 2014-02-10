@@ -1,0 +1,38 @@
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+
+# -*- mode: python; -*-
+
+Import('AgentEnv')
+env = AgentEnv.Clone()
+
+def MapBuildDir(list):
+    return map(lambda x: '#/' + Dir('..').path + '/../../' + x, list)
+
+# test specific modifications
+env.Append(LIBPATH = MapBuildDir(['agent/test']))
+env.Prepend(CPPPATH = env['TOP'] + '/vnsw/agent/test')
+env.Prepend(LIBS=['gunit'])
+
+cflags = env['CCFLAGS']
+cflags.append(['-Wno-return-type', '-Wno-unused-function'])
+if '-fno-exceptions' in cflags:
+    cflags.remove('-fno-exceptions')
+    env.Replace(CCFLAGS = cflags)
+
+import sys
+if sys.platform != 'darwin':
+    env.Prepend(LIBS=['agent_test'])
+    env.Append(LIBS=['agent_test_buildinfo'])
+
+    test_ping = env.Program(target = 'test_ping', source = ['test_ping.cc'])
+    env.Alias('src/vnsw/agent/diag/test:test_ping', test_ping)
+
+    diag_test_suite = [
+                        test_ping,
+                      ]
+    test = env.TestSuite('agent-test', diag_test_suite)
+    env.Alias('src/vnsw/agent:test', test)
+    Return('diag_test_suite')
+
