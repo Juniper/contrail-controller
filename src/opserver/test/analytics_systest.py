@@ -29,6 +29,8 @@ import pycassa
 from pycassa.pool import ConnectionPool
 from pycassa.columnfamily import ColumnFamily
 from opserver.sandesh.viz.constants import *
+from sandesh_common.vns.ttypes import Module
+from sandesh_common.vns.constants import ModuleNames
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(levelname)s %(message)s')
@@ -229,7 +231,6 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_collector_obj_count()
         # OpServer and QueryEngine are started with collectors[0] as 
         # primary and collectors[1] as secondary
-        host = socket.gethostname()
         exp_genlist = ['Collector', 'OpServer', 'QueryEngine']
         assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
                                               exp_genlist)
@@ -363,6 +364,90 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         assert vizd_obj.verify_fieldname_objecttype();
         return True;
     #end test_07_fieldname_query
+
+    #@unittest.skip('verify send-tracebuffer')
+    def test_08_send_tracebuffer(self):
+        '''
+        This test verifies /analytics/send-tracebuffer/ REST API.
+        Opserver publishes the request to send trace buffer to all
+        the redis-uve instances. Collector forwards the request to
+        the appropriate generator(s). Generator sends the tracebuffer
+        to the Collector which then dumps the trace messages in the
+        analytics db. Verify that the trace messages are written in
+        the analytics db.
+        '''
+        logging.info('*** test_08_send_tracebuffer ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+        
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port, 
+                             collector_ha_test=True))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        # Make sure the Collector is connected to the redis-uve before 
+        # sending the trace buffer request
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                                    vizd_obj.collectors[0])
+        # Send trace buffer request for only the first collector
+        vizd_obj.opserver.send_tracebuffer_request(
+                    vizd_obj.collectors[0].hostname,
+                    ModuleNames[Module.COLLECTOR], '0',
+                    'UveTrace')
+        assert vizd_obj.verify_tracebuffer_in_analytics_db(
+                    vizd_obj.collectors[0].hostname,
+                    ModuleNames[Module.COLLECTOR], 'UveTrace')
+        # There should be no trace buffer from the second collector
+        assert not vizd_obj.verify_tracebuffer_in_analytics_db(
+                        vizd_obj.collectors[1].hostname,
+                        ModuleNames[Module.COLLECTOR], 'UveTrace')
+        # Make sure the Collector is connected to the redis-uve before 
+        # sending the trace buffer request
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                                    vizd_obj.collectors[1])
+        # Send trace buffer request for all collectors
+        vizd_obj.opserver.send_tracebuffer_request(
+                    '*', ModuleNames[Module.COLLECTOR], '0',
+                    'UveTrace')
+        assert vizd_obj.verify_tracebuffer_in_analytics_db(
+                    vizd_obj.collectors[1].hostname,
+                    ModuleNames[Module.COLLECTOR], 'UveTrace')
+    #end test_08_send_tracebuffer 
+
+    #@unittest.skip('verify source/module list')
+    def test_09_table_source_module_list(self):
+        '''
+        This test verifies /analytics/table/<table>/column-values/Source
+        and /analytics/table/<table>/column-values/ModuleId
+        '''
+        logging.info('*** test_09_source_module_list ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging, builddir,
+                             self.__class__.cassandra_port, 
+                             collector_ha_test=True))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_obj_count()
+        exp_genlist1 = ['Collector', 'OpServer', 'QueryEngine']
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[0], 
+                                              exp_genlist1)
+        exp_genlist2 = ['Collector'] 
+        assert vizd_obj.verify_generator_list(vizd_obj.collectors[1], 
+                                              exp_genlist2)
+        exp_src_list = [col.hostname for col in vizd_obj.collectors]
+        exp_mod_list = exp_genlist1 
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+        # stop the second redis_uve instance and verify the src/module list
+        vizd_obj.redis_uves[1].stop()
+        exp_src_list = [vizd_obj.collectors[0].hostname]
+        exp_mod_list = exp_genlist1
+        assert vizd_obj.verify_table_source_module_list(exp_src_list, 
+                                                        exp_mod_list)
+    #end test_09_table_source_module_list 
 
     @staticmethod
     def get_free_port():

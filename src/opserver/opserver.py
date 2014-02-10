@@ -33,7 +33,7 @@ from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
-     ModuleCategoryMap, Module2NodeType, NodeTypeNames,\
+     ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
@@ -349,7 +349,7 @@ class OpServer(object):
                              'GET', obj.column_values_process)
                 bottle.route('/analytics/table/<table>/column-values/<column>',
                              'GET', obj.column_process)
-        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
+        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', obj.send_trace_buffer)
         bottle.route('/documentation/<filename:path>', 'GET',
                      obj.documentation_http_get)
@@ -429,8 +429,7 @@ class OpServer(object):
         self._post_common = self._http_post_common
 
         self._collector_pool = None
-        self._state_server = None
-        self._redis_master = None
+        self._state_server = OpStateServer(self._logger)
         self._uve_server = UVEServer(('127.0.0.1',
                                       self._args.redis_server_port),
                                      self._logger)
@@ -449,18 +448,19 @@ class OpServer(object):
         if self._args.disc_server_ip:
             self.disc_publish()
         else:
-            redis_uve_list = []
+            self.redis_uve_list = []
             try:
                 if type(self._args.redis_uve_list) is str:
                     self._args.redis_uve_list = self._args.redis_uve_list.split()
                 for redis_uve in self._args.redis_uve_list:
                     redis_ip_port = redis_uve.split(':')
                     redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
-                    redis_uve_list.append(redis_ip_port)
+                    self.redis_uve_list.append(redis_ip_port)
             except Exception as e:
                 self._logger.error('Failed to parse redis_uve_list: %s' % e)
             else:
-                self._uve_server.update_redis_uve_list(redis_uve_list)
+                self._state_server.update_redis_list(self.redis_uve_list)
+                self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
         self._analytics_links = ['uves', 'tables', 'queries']
 
@@ -1228,7 +1228,7 @@ class OpServer(object):
             response['error'] = 'Invalid module'
             return json.dumps(response)
         module_id = ModuleIds[module]
-        node_type = Module2NodeTye[module_id]
+        node_type = Module2NodeType[module_id]
         node_type_name = NodeTypeNames[node_type]
         if self._state_server.redis_publish(msg_type='send-tracebuffer',
                                             destination=source + ':' + 
@@ -1324,26 +1324,27 @@ class OpServer(object):
 
     def generator_info(self, table, column):
         if ((column == MODULE) or (column == SOURCE)):
-            try:
+            sources = []
+            moduleids = []
+            for redis_uve in self.redis_uve_list:
                 redish = redis.StrictRedis(
                     db=0,
-                    host='127.0.0.1',
-                    port=int(self._args.redis_server_port))
-                sources = []
-                moduleids = []
-                for key in redish.smembers("NGENERATORS"):
-                    source = key.split(':')[0]
-                    module = key.split(':')[2]
-                    if (sources.count(source) == 0):
-                        sources.append(source)
-                    if (moduleids.count(module) == 0):
-                        moduleids.append(module)
-                if (column == MODULE):
-                    return moduleids
-                elif (column == SOURCE):
-                    return sources
-            except Exception as e:
-                print e
+                    host=redis_uve[0],
+                    port=redis_uve[1])
+                try:
+                    for key in redish.smembers("NGENERATORS"):
+                        source = key.split(':')[0]
+                        module = key.split(':')[2]
+                        if (sources.count(source) == 0):
+                            sources.append(source)
+                        if (moduleids.count(module) == 0):
+                            moduleids.append(module)
+                except Exception as e:
+                    self._logger.error('Exception: %s' % e)
+            if column == MODULE:
+                return moduleids
+            elif column == SOURCE:
+                return sources
         elif (column == 'Category'):
             return self._CATEGORY_MAP
         elif (column == 'Level'):
@@ -1377,10 +1378,6 @@ class OpServer(object):
 
         return (json.dumps([]))
     # end column_process
-
-    def start_state_server(self):
-        self._state_server = OpStateServer(self._logger)
-    #end start_state_server
 
     def start_uve_server(self):
         self._uve_server.run()
@@ -1441,7 +1438,7 @@ class OpServer(object):
         '''
         if self.disc:
             while True:
-                redis_uve_list = []
+                self.redis_uve_list = []
                 try:
                     sub_obj = \
                         self.disc.subscribe(ModuleNames[Module.COLLECTOR], 0)
@@ -1454,11 +1451,11 @@ class OpServer(object):
                         self._logger.debug('Collector-list from discovery: %s' \
                                            % str(collectors))
                         for collector in collectors:
-                            redis_uve_list.append((collector['ip-address'], 
-                                                   6381))
-                        self._uve_server.update_redis_uve_list(redis_uve_list)
-                        self._state_server.update_redis_list(redis_uve_list)
-                if redis_uve_list:
+                            self.redis_uve_list.append((collector['ip-address'], 
+                                                       6381))
+                        self._uve_server.update_redis_uve_list(self.redis_uve_list)
+                        self._state_server.update_redis_list(self.redis_uve_list)
+                if self.redis_uve_list:
                     gevent.sleep(60)
                 else:
                     gevent.sleep(5)
@@ -1466,7 +1463,6 @@ class OpServer(object):
 
 def main():
     opserver = OpServer()
-    opserver.start_state_server()
     gevent.joinall([
         gevent.spawn(opserver.start_webserver),
         gevent.spawn(opserver.cpu_info_logger),
