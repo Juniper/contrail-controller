@@ -39,6 +39,9 @@ void RouterIdDepInit() {
 }
 
 class PktTest : public ::testing::Test {
+public:
+    void CheckSandeshResponse(Sandesh *sandesh) {
+    }
 };
 
 static void MakeIpPacket(PktGen *pkt, int ifindex, const char *sip,
@@ -116,6 +119,14 @@ TEST_F(PktTest, FlowAdd_1) {
     TxMplsPacket(2, "1.1.1.4", "10.1.1.1", 0, "2.2.2.4", "3.3.3.5", 1);
     TxMplsPacket(2, "1.1.1.5", "10.1.1.1", 0, "2.2.2.5", "3.3.3.6", 1);
     client->WaitForIdle();
+
+    // Fetch introspect data
+    AgentStatsReq *sand = new AgentStatsReq();
+    Sandesh::set_response_callback(boost::bind(&PktTest::CheckSandeshResponse,
+                                               this, _1));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
 }
 
 

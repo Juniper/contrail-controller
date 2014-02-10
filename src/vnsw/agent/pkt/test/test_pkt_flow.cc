@@ -277,6 +277,9 @@ public:
         client->SetFlowAgeExclusionPolicy();
     }
 
+    void CheckSandeshResponse(Sandesh *sandesh) {
+    }
+
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
@@ -431,6 +434,13 @@ TEST_F(FlowTest, FlowAdd_1) {
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(4U, in_count);
     EXPECT_EQ(4U, out_count);
+
+    FetchAllFlowRecords *sand = new FetchAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
 }
 
 //Egress flow test (IP fabric to VMPort - Same VN)

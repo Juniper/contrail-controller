@@ -83,6 +83,9 @@ public:
         }
     }
 
+    void CheckSandeshResponse(Sandesh *sandesh) {
+    }
+
     void SetupLinkLocalConfig() {
         std::stringstream global_config;
         global_config << "<linklocal-services>\n" 
@@ -240,6 +243,14 @@ TEST_F(MetadataTest, MetadataReqTest) {
     EXPECT_EQ(0U, stats.proxy_sessions);
     CloseClientSession(conn);
     client->WaitForIdle();
+
+    // Introspect request
+    MetadataInfo *sand = new MetadataInfo();
+    Sandesh::set_response_callback(
+             boost::bind(&MetadataTest::CheckSandeshResponse, this, _1));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
 
 #if 0
     // TODO: need a way for agent to identify the vm
