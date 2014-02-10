@@ -45,20 +45,6 @@ DBTableBase *Inet4MulticastAgentRouteTable::CreateTable(DB *db,
     return table;
 }
 
-Inet4MulticastRouteEntry *Inet4MulticastAgentRouteTable::FindRoute(
-                                                        const string &vrf_name, 
-                                                        const Ip4Address &src,
-                                                        const Ip4Address &grp) {
-    VrfEntry *vrf = 
-        Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
-    Inet4MulticastAgentRouteTable *rt_table = 
-        static_cast<Inet4MulticastAgentRouteTable *>
-        (vrf->GetInet4MulticastRouteTable());
-    Inet4MulticastRouteKey *rt_key = 
-        new Inet4MulticastRouteKey(vrf_name, grp, src);
-    return static_cast<Inet4MulticastRouteEntry *>(rt_table->Find(rt_key));
-}
-
 void 
 Inet4MulticastAgentRouteTable::AddMulticastRoute(const string &vrf_name, 
                                                  const string &vn_name,
