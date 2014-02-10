@@ -1412,16 +1412,12 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME1);
     usleep(1000);
     TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 1);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVrVmRegCount(),
-                        1);
-
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
+
     // Client close generates a TcpClose event on server
     ConfigUpdate(vnsw_client, new XmppConfigData());
     TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
     TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 0);
-    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVrVmRegCount(),
-                        0);
 
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));

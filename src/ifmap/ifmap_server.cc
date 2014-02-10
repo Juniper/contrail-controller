@@ -239,7 +239,7 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     } else {
         ClientGraphCleanup(client);
         RemoveSelfAddedLinks(client);
-        vm_uuid_mapper_->CleanupPendingVmRegMaps(client->identifier());
+        CleanupUuidMapper(client);
         ClientUnregister(client);
     }
     return true;
@@ -295,6 +295,15 @@ void IFMapServer::LinkResetClient(DBGraphEdge *edge, const BitSet &bset) {
     if (state) {
         state->InterestReset(bset);
         state->AdvertisedReset(bset);
+    }
+}
+
+// Get the list of subscribed VMs. For each item in the list, if it exist in the
+// list of pending vm registration requests, remove it.
+void IFMapServer::CleanupUuidMapper(IFMapClient *client) {
+    std::vector<std::string> vmlist = client->vm_list();
+    for (size_t count = 0; count < vmlist.size(); ++count) {
+        vm_uuid_mapper_->CleanupPendingVmRegEntry(vmlist.at(count));
     }
 }
 
