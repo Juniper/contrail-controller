@@ -307,8 +307,10 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
+    char vm_name[MAX_TESTNAME_LEN];
+    sprintf(vm_name, "vm%d", vm_id);
     data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, mac, "", vlan, 0);
+               name, ip, mac, vm_name, vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;

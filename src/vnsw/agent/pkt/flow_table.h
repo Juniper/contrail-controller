@@ -222,7 +222,6 @@ class FlowEntry {
         IngressDir      = 1 << 6,
         Trap            = 1 << 7
     };
-    FlowEntry();
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
         alloc_count_.fetch_and_decrement();

@@ -10,9 +10,6 @@
 #include "ifmap/ifmap_table.h"
 #include "pkt/pkt_init.h"
 
-void DnsProto::Init() {
-}
-
 void DnsProto::Shutdown() {
     BindResolver::Shutdown();
 }

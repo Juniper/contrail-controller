@@ -12,10 +12,6 @@ ProtoHandler::ProtoHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
                            boost::asio::io_service &io)
     : agent_(agent), pkt_info_(info), io_(io) {}
 
-ProtoHandler::ProtoHandler(Agent *agent, boost::asio::io_service &io) 
-    : agent_(agent), pkt_info_(new PktInfo()), io_(io) {
-}
-
 ProtoHandler::~ProtoHandler() { 
 }
 
