@@ -37,8 +37,7 @@ response sandesh SandeshTaskSchedulerResp {
     1: bool running;
     2: u32 seqno;
     3: u32 thread_count;
-    4: string stop_task;
-    5: list <SandeshTaskGroupNameSummary> task_group_list
+    4: list <SandeshTaskGroupNameSummary> task_group_list;
 }
 
 request sandesh SandeshTaskGroupReq {
