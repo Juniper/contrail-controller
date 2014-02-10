@@ -9,6 +9,7 @@ Import('BuildEnv')
 env = BuildEnv.Clone()
 
 except_env = BuildEnv.Clone()
+except_env.Append(CPPPATH = env['TOP'])
 cflags = except_env['CCFLAGS']
 if '-fno-exceptions' in cflags:
     cflags.remove('-fno-exceptions')
@@ -16,6 +17,14 @@ except_env.Replace(CCFLAGS = cflags)
 
 timer_env = BuildEnv.Clone()
 timer_env.AppendUnique(CCFLAGS='-DBOOST_CHRONO_HEADER_ONLY')
+
+TaskInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/task.sandesh')
+TaskInfoSandeshGenSrcs = env.ExtractCpp(TaskInfoSandeshGenFiles)
+taskinfo_sandesh_files_ = []
+for src in TaskInfoSandeshGenSrcs:
+    objname = src.replace('.cpp', '.o')
+    obj = env.Object(objname, src)
+    taskinfo_sandesh_files_.append(obj)
 
 CpuInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/cpuinfo.sandesh')
 CpuInfoSandeshGenSrcs = env.ExtractCpp(CpuInfoSandeshGenFiles)
@@ -26,9 +35,7 @@ for src in CpuInfoSandeshGenSrcs:
     obj = env.Object(objname, src)
     cpuinfo_sandesh_files_.append(obj)
 
-env.Append(CPPPATH = env['TOP'])
-
-libcpuinfo = env.Library('cpuinfo', ['cpuinfo.cc'] + cpuinfo_sandesh_files_)
+libcpuinfo = env.Library('cpuinfo', ['cpuinfo.cc'] + cpuinfo_sandesh_files_ + taskinfo_sandesh_files_)
 
 task = except_env.Object('task.o', 'task.cc')
 timer = timer_env.Object('timer.o', 'timer.cc')
@@ -36,7 +43,7 @@ timer = timer_env.Object('timer.o', 'timer.cc')
 VersionInfoSandeshGenFiles = env.SandeshGenCpp('sandesh/version.sandesh')
 VersionInfoSandeshGenSrcs = env.ExtractCpp(VersionInfoSandeshGenFiles)
 
-
+env.Append(CPPPATH = env['TOP'])
 libbase = env.Library('base',
                       [VersionInfoSandeshGenSrcs +
                       ['backtrace.cc',
@@ -48,6 +55,7 @@ libbase = env.Library('base',
                        'proto.cc',
                        task,
                        'task_annotations.cc',
+                       'task_sandesh.cc',
                        'task_trigger.cc',
                        timer,
                        ]])

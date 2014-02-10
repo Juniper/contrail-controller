@@ -1,0 +1,87 @@
+/*
+ * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+ */
+
+struct SandeshTaskGroupSummary {
+    1: u32 task_id (link="SandeshTaskGroupReq");
+    2: u32 run_count;
+}
+
+struct SandeshTaskGroupNameSummary {
+    1: string name
+    2: u32 task_id (link="SandeshTaskGroupReq");
+    3: u32 run_count;
+}
+
+struct SandeshTaskEntrySummary {
+    1: string task_entry_key (link="SandeshTaskEntryReq");
+    2: u32 waitq_size;
+    3: u32 run_count;
+}
+
+struct SandeshTaskSummary {
+    1: string task_key (link="SandeshTaskReq");      // Task in "task-id:instance:seqno" format
+    2: string state;
+}
+
+struct SandeshTaskStats {
+    1: u32 wait_count;
+    2: u32 run_count;
+    3: u32 defer_count;
+}
+
+request sandesh SandeshTaskSchedulerReq {
+}
+
+response sandesh SandeshTaskSchedulerResp {
+    1: bool running;
+    2: u32 seqno;
+    3: u32 thread_count;
+    4: string stop_task;
+    5: list <SandeshTaskGroupNameSummary> task_group_list
+}
+
+request sandesh SandeshTaskGroupReq {
+    1: u32 task_id;
+}
+
+response sandesh SandeshTaskGroupResp {
+    1: u32 task_id;
+    2: u32 run_count;
+    3: SandeshTaskEntrySummary task_with_no_instance;
+    4: list <SandeshTaskGroupSummary> policy_list;
+    5: list <SandeshTaskEntrySummary> defer_list;
+    6: list <SandeshTaskEntrySummary> task_entry_list;
+    7: SandeshTaskStats summary_stats;
+}
+
+request sandesh SandeshTaskEntryReq {
+    1: string key;      // Key in "task-id:instance" format
+}
+
+response sandesh SandeshTaskEntryResp {
+    1: u32 task_id;
+    2: u32 instance_id;
+    3: u32 run_count;
+    4: list <SandeshTaskEntrySummary> policy_list;
+    5: SandeshTaskSummary run_task;
+    6: list <SandeshTaskSummary> wait_queue;
+    7: list <SandeshTaskEntrySummary> defer_list;
+    8: SandeshTaskStats summary_stats;
+    9: SandeshTaskEntrySummary wait_task_entry;
+    10: SandeshTaskGroupSummary wait_task_group;
+}
+
+request sandesh SandeshTaskReq {
+    1: string key;      // Task in "task-id:instance:seqno" format
+}
+
+response sandesh SandeshTaskResp {
+    1: u32 task_id;
+    2: u32 instance_id;
+    3: u32 seqno;
+    4: string state;
+    5: bool recycle;
+    6: bool cancel;
+    7: bool task_spawned;
+}
