@@ -40,22 +40,9 @@ static void MulticastTableProcess(Agent *agent, const string &vrf_name,
 DBTableBase *Inet4MulticastAgentRouteTable::CreateTable(DB *db, 
                                                       const std::string &name) {
     AgentRouteTable *table = new Inet4MulticastAgentRouteTable(db, name);
-    table->InitRouteTable(db, table, name, Agent::INET4_MULTICAST);
+    table->Init();
+    //table->InitRouteTable(db, table, name, Agent::INET4_MULTICAST);
     return table;
-}
-
-Inet4MulticastRouteEntry *Inet4MulticastAgentRouteTable::FindRoute(
-                                                        const string &vrf_name, 
-                                                        const Ip4Address &src,
-                                                        const Ip4Address &grp) {
-    VrfEntry *vrf = 
-        Agent::GetInstance()->vrf_table()->FindVrfFromName(vrf_name);
-    Inet4MulticastAgentRouteTable *rt_table = 
-        static_cast<Inet4MulticastAgentRouteTable *>
-        (vrf->GetInet4MulticastRouteTable());
-    Inet4MulticastRouteKey *rt_key = 
-        new Inet4MulticastRouteKey(vrf_name, grp, src);
-    return static_cast<Inet4MulticastRouteEntry *>(rt_table->Find(rt_key));
 }
 
 void 
@@ -124,7 +111,7 @@ void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,
     MulticastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void Inet4MulticastAgentRouteTable::RouteResyncReq(const string &vrf_name,
+void Inet4MulticastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
                                                    const Ip4Address &src_addr,
                                                    const Ip4Address &dst_addr) {
     DBRequest  rt_req;
@@ -137,12 +124,6 @@ void Inet4MulticastAgentRouteTable::RouteResyncReq(const string &vrf_name,
     rt_req.key.reset(rt_key);
     rt_req.data.reset(NULL);
     MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
-}
-
-void Inet4MulticastRouteEntry::RouteResyncReq() const {
-    Inet4MulticastAgentRouteTable::RouteResyncReq(GetVrfEntry()->GetName(), 
-                                                  src_addr_, 
-                                                  dst_addr_); 
 }
 
 AgentRoute *

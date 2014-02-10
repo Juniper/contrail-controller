@@ -102,6 +102,7 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
 
 class SyslogParser
 {
+    // http://www.ietf.org/rfc/rfc3164.txt
     public:
         SyslogParser (SyslogListeners *syslog):
              work_queue_(TaskScheduler::GetInstance()->GetTaskId(
@@ -123,8 +124,27 @@ class SyslogParser
         void Parse (SyslogQueueEntry &sqe) {
             work_queue_.Enqueue (sqe);
         }
+
+        void Shutdown ()
+        {
+            WaitForIdle (15); // wait for 15 sec..
+            work_queue_.Shutdown ();
+            LOG(DEBUG, __func__ << " Syslog parser shutdown done");
+        }
     private:
-        // http://www.ietf.org/rfc/rfc3164.txt
+
+        void WaitForIdle (int max_wait)
+        {
+            int i;
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            for (i = 0; !scheduler->IsEmpty() && i < max_wait; i++) {
+                usleep (1000);
+                LOG(DEBUG, __func__ << " Syslog queue empty? " <<
+                        scheduler->IsEmpty() << ":" << i << "/" << max_wait);
+            }
+            LOG(DEBUG, __func__ << " Syslog queue empty? " <<
+                    scheduler->IsEmpty() << ":" << i << "/" << max_wait);
+        }
 
         enum dtype {
             int_type = 42,
@@ -450,6 +470,11 @@ TcpSession *SyslogTcpListener::AllocSession(Socket *socket)
     session_ = new SyslogTcpSession (this, socket);
     return session_;
 }
+void SyslogTcpListener::Shutdown ()
+{
+    // server shutdown
+    TcpServer::Shutdown();
+}
 void SyslogTcpListener::Start (std::string ipaddress, int port)
 {
     Initialize (port);
@@ -458,6 +483,10 @@ void SyslogTcpListener::Start (std::string ipaddress, int port)
 
 SyslogUDPListener::SyslogUDPListener (EventManager *evm): UDPServer (evm)
 {
+}
+void SyslogUDPListener::Shutdown ()
+{
+    UDPServer::Shutdown ();
 }
 void SyslogUDPListener::Start (std::string ipaddress, int port)
 {
@@ -516,10 +545,18 @@ bool SyslogListeners::IsRunning ()
 {
     return inited_;
 }
+void SyslogListeners::Shutdown ()
+{
+    SyslogTcpListener::Shutdown ();
+    SyslogUDPListener::Shutdown ();
+    parser_->Shutdown ();
+    inited_ = false;
+}
 
 void
 TCPSyslogQueueEntry::free () {
     session_->ReleaseBuffer(buf_);
+    session_->server()->DeleteSession (session_.get());
 }
 void
 UDPSyslogQueueEntry::free () {

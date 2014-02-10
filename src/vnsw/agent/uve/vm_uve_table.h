@@ -48,7 +48,7 @@ public:
     void SendVmStats(void);
     void UpdateBitmap(const VmEntry* vm, uint8_t proto, uint16_t sport, 
                       uint16_t dport);
-    virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve) const;
+    virtual void DispatchVmMsg(const UveVirtualMachineAgent &uve);
 
 protected:
     UveVmMap uve_vm_map_;

@@ -86,7 +86,7 @@ test_suite = [
     subset_test,
     #task_test,
     timer_test,
-    #patricia_test,
+    patricia_test,
     task_annotations_test,
     factory_test,
     trace_test,

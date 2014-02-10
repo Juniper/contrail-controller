@@ -53,7 +53,6 @@ const string ROUTING_INSTANCE_TABLE = "ObjectRoutingInstance"
 const string XMPP_CONNECTION_TABLE  = "ObjectXmppConnection"
 const string COLLECTOR_INFO_TABLE   = "ObjectCollectorInfo"
 const string GENERATOR_INFO_TABLE   = "ObjectGeneratorInfo"
-const string MODULE_INFO_TABLE      = "ObjectModuleInfo"
 const string CONFIG_NODE_TABLE      = "ObjectConfigNode"
 const string SERVICE_CHAIN          = "ServiceChain"
 const string DNS_TABLE              = "ObjectDns"
@@ -87,12 +86,11 @@ const string FLOW_TABLE             = "FlowRecordTable"
 const string FLOW_TABLE_VN2VN       = "FlowTableVNtoVN"
 const string FLOW_TABLE_VN          = "FlowTableVN"
 const string FLOW_TABLE_VN_AND_IP   = "FlowTableVNandIP"
-const string FLOW_TABLE_SVN_SIP     = "FlowTableSvnSip"
-const string FLOW_TABLE_DVN_DIP     = "FlowTableDvnDip"
-const string FLOW_TABLE_PROT_SP     = "FlowTableProtSp"
-const string FLOW_TABLE_PROT_DP     = "FlowTableProtDp"
-const string FLOW_TABLE_ALL_FIELDS  = "FlowTableAllFields"
-const string FLOW_TABLE_VROUTER     = "FlowTableVRouter"
+const string FLOW_TABLE_SVN_SIP     = "FlowTableSvnSipVer2"
+const string FLOW_TABLE_DVN_DIP     = "FlowTableDvnDipVer2"
+const string FLOW_TABLE_PROT_SP     = "FlowTableProtSpVer2"
+const string FLOW_TABLE_PROT_DP     = "FlowTableProtDpVer2"
+const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
 
 const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
@@ -187,7 +185,6 @@ const map<string, string> UVE_MAP = {
     "xmpp-peer" : XMPP_PEER_INFO_TABLE,
     "collector" : COLLECTOR_INFO_TABLE,
     "generator" : GENERATOR_INFO_TABLE
-    "module" : MODULE_INFO_TABLE,
     "config-node" : CONFIG_NODE_TABLE,
     "service-chain" : SERVICE_CHAIN,
     "dns-node" : DNS_TABLE
@@ -233,9 +230,6 @@ const map<string, objtable_info> _OBJECT_TABLES = {
     }
     GENERATOR_INFO_TABLE   : {
         'objtable_display_name' : GENERATOR_INFO_DISPLAY_NAME
-    }
-    MODULE_INFO_TABLE      : {
-        'objtable_display_name' : MODULE_INFO_DISPLAY_NAME
     }
     CONFIG_NODE_TABLE      : {
         'objtable_display_name' : CONFIG_NODE_DISPLAY_NAME
@@ -342,6 +336,18 @@ const list<stat_table> _STAT_TABLES  = [
           { 'name' : 'cpu_info.used_sys_mem', 'datatype' : 'int',    'index' : false},
           { 'name' : 'cpu_info.one_min_cpuload', 'datatype' : 'double', 'index' : false},
         ]
+    },
+    {
+      'display_name' : 'Sandesh Information',
+      'stat_type' : 'SandeshMessageStat',
+      'stat_attr' : 'msg_info',
+      'obj_table' : GENERATOR_INFO_TABLE,
+      'attributes': [
+          { 'name' : 'msg_info.type', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'msg_info.level', 'datatype' : 'string', 'index' : true},
+          { 'name' : 'msg_info.messages', 'datatype' : 'int', 'index' : false},
+          { 'name' : 'msg_info.bytes', 'datatype' : 'int', 'index' : false},
+      ]
     },
     {
       'display_name' : 'Values Table - string',

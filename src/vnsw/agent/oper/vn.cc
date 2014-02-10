@@ -240,11 +240,14 @@ DBEntry *VnTable::Add(const DBRequest *req) {
     vn->name_ = data->name_;
 
     ChangeHandler(vn, req);
+    vn->SendObjectLog(AgentLogEvent::ADD);
     return vn;
 }
 
 bool VnTable::OnChange(DBEntry *entry, const DBRequest *req) {
     bool ret = ChangeHandler(entry, req);
+    VnEntry *vn = static_cast<VnEntry *>(entry);
+    vn->SendObjectLog(AgentLogEvent::CHANGE);
     return ret;
 }
 
@@ -319,6 +322,7 @@ bool VnTable::ChangeHandler(DBEntry *entry, const DBRequest *req) {
 void VnTable::Delete(DBEntry *entry, const DBRequest *req) {
     VnEntry *vn = static_cast<VnEntry *>(entry);
     DeleteAllIpamRoutes(vn);
+    vn->SendObjectLog(AgentLogEvent::DELETE);
 }
 
 DBTableBase *VnTable::CreateTable(DB *db, const std::string &name) {

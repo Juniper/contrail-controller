@@ -42,30 +42,6 @@ std::map<uint32_t, std::string> g_dhcp_msg_types =
                             (DHCP_LEASE_UNKNOWN, "Lease Unknown")
                             (DHCP_LEASE_ACTIVE, "Lease Active");
 
-bool ServicesSandesh::ValidateIP(std::string ip) {
-    struct sockaddr_in sa;
-    int result = inet_pton(AF_INET, ip.c_str(), &(sa.sin_addr));
-    return result != 0;
-}
-
-bool ServicesSandesh::ValidateMac(std::string mac, unsigned char *mac_addr) {
-    unsigned int pos = 0;
-    int colon = 0;
-    std::string mac_copy = mac;
-    while (!(mac.empty()) && (pos = mac.find(':', pos)) != std::string::npos) {
-        colon++;
-        pos += 1;
-    }
-    if (colon != 5) 
-        return false;
-    unsigned int val[ETH_ALEN] = {0, 0, 0, 0, 0, 0};
-    sscanf(mac_copy.data(), "%x:%x:%x:%x:%x:%x", &val[0], &val[1], 
-           &val[2], &val[3], &val[4], &val[5]);
-    for (int i = 0; i < ETH_ALEN; i++)
-        mac_addr[i] = val[i];
-    return true;
-}
-
 void ServicesSandesh::MacToString(const unsigned char *mac, std::string &mac_str) {
     char mstr[32];
     snprintf(mstr, 32, "%02x:%02x:%02x:%02x:%02x:%02x", 

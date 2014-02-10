@@ -5,6 +5,7 @@
 #include "test/test_cmn_util.h"
 #include "test_flow_util.h"
 #include "ksync/ksync_sock_user.h"
+#include "oper/tunnel_nh.h"
 #include <algorithm>
 
 #define MAX_VNET 4
@@ -94,7 +95,7 @@ public:
         Ip4Address addr = Ip4Address::from_string(remote_vm);
         Ip4Address gw = Ip4Address::from_string(serv);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddRemoteVmRouteReq
-            (peer_, vrf, addr, 32, gw, TunnelType::AllType(), label, vn);
+            (peer_, vrf, addr, 32, gw, TunnelType::MplsType(), label, vn);
         client->WaitForIdle(2);
         WAIT_FOR(1000, 500, (RouteFind(vrf, addr, 32) == true));
     }
@@ -276,6 +277,22 @@ public:
         client->SetFlowAgeExclusionPolicy();
     }
 
+    void CheckSandeshResponse(Sandesh *sandesh, int flows) {
+        if (memcmp(sandesh->Name(), "FlowRecordsResp",
+                   strlen("FlowRecordsResp")) == 0) {
+            FlowRecordsResp *resp = static_cast<FlowRecordsResp *>(sandesh);
+            EXPECT_TRUE(resp->get_flow_list().size() == flows);
+        } else if (memcmp(sandesh->Name(), "FlowRecordResp",
+                   strlen("FlowRecordResp")) == 0) {
+            FlowRecordResp *resp = static_cast<FlowRecordResp *>(sandesh);
+            EXPECT_TRUE(resp->get_record().sip == vm1_ip);
+            EXPECT_TRUE(resp->get_record().dip == vm2_ip);
+            EXPECT_TRUE(resp->get_record().src_port == 1000);
+            EXPECT_TRUE(resp->get_record().dst_port == 200);
+            EXPECT_TRUE(resp->get_record().protocol == IPPROTO_TCP);
+        }
+    }
+
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
@@ -422,6 +439,24 @@ TEST_F(FlowTest, FlowAdd_1) {
 
     CreateFlow(flow, 4);
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 4));
+    all_flow_records_sandesh->HandleRequest();
+    client->WaitForIdle();
+    all_flow_records_sandesh->Release();
+
+    FetchFlowRecord *flow_record_sandesh = new FetchFlowRecord();
+    flow_record_sandesh->set_vrf(1);
+    flow_record_sandesh->set_sip(vm1_ip);
+    flow_record_sandesh->set_dip(vm2_ip);
+    flow_record_sandesh->set_src_port(1000);
+    flow_record_sandesh->set_dst_port(200);
+    flow_record_sandesh->set_protocol(IPPROTO_TCP);
+    flow_record_sandesh->HandleRequest();
+    client->WaitForIdle();
+    flow_record_sandesh->Release();
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
@@ -725,6 +760,22 @@ TEST_F(FlowTest, FlowAdd_6) {
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
+}
+
+// Validate short flows
+TEST_F(FlowTest, ShortFlow_1) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {
+                new ShortFlow()
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
 }
 
 TEST_F(FlowTest, FlowAge_1) {
@@ -1505,6 +1556,138 @@ TEST_F(FlowTest, AclDelete) {
     DelOperDBAcl(1);
     client->WaitForIdle();
     EXPECT_TRUE(FlowTableWait(0));
+}
+
+TEST_F(FlowTest, FlowOnDeletedInterface) {
+    struct PortInfo input[] = {
+        {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
+    //Delete the interface with reference help
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1,
+               VrfGet("vrf5")->GetVrfId());
+    client->WaitForIdle();
+
+    //Flow find should fail as interface is delete marked, and packet get dropped
+    // in packet parsing
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->GetVrfId(), "11.1.1.3", vm1_ip,
+                            IPPROTO_TCP, 30, 40);
+    EXPECT_TRUE(fe == NULL);
+}
+
+TEST_F(FlowTest, FlowOnDeletedVrf) {
+    struct PortInfo input[] = {
+        {"flow5", 11, "11.1.1.3", "00:00:00:01:01:01", 5, 6},
+    };
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    uint32_t vrf_id = VrfGet("vrf5")->GetVrfId();
+    InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
+    //Delete the VRF
+    DelVrf("vrf5");
+    client->WaitForIdle();
+
+    TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1, vrf_id);
+    client->WaitForIdle();
+
+    //Flow find should fail as interface is delete marked
+    FlowEntry *fe = FlowGet(vrf_id, "11.1.1.3", vm1_ip,
+                            IPPROTO_TCP, 30, 40);
+    EXPECT_TRUE(fe != NULL);
+    EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+
+    DeleteVmportEnv(input, 1, false);
+    client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Flow_with_encap_change) {
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {}
+        },
+        {
+            TestFlowPkt(remote_vm1_ip, vm1_ip, 1, 0, 0, "vrf5", 
+                    remote_router_ip, 16),
+            {}
+        }   
+    };
+
+    CreateFlow(flow, 1);
+    // Add reverse flow
+    CreateFlow(flow + 1, 1);
+
+    FlowEntry *fe = 
+        FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    const NextHop *nh = (fe->data().nh_state_.get())->nh();
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
+    nh = (fe->data().nh_state_.get())->nh();
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    tnh = static_cast<const TunnelNH *>(nh);
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_UDP);
+
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
+    nh = (fe->data().nh_state_.get())->nh();
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    tnh = static_cast<const TunnelNH *>(nh);
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+
+    AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
+    client->WaitForIdle();
+    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
+    nh = (fe->data().nh_state_.get())->nh();
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    tnh = static_cast<const TunnelNH *>(nh);
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_UDP);
+
+    DelEncapList();
+    client->WaitForIdle();
+    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
+    nh = (fe->data().nh_state_.get())->nh();
+    EXPECT_TRUE(nh != NULL);
+    EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
+    tnh = static_cast<const TunnelNH *>(nh);
+    EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
+
+    DeleteFlow(flow, 1);
+    EXPECT_TRUE(FlowFail(1, "1.1.1.1", "2.2.2.2", 1, 0, 0));
+    EXPECT_TRUE(FlowFail(1, "2.2.2.2", "1.1.1.1", 1, 0, 0));
+    EXPECT_TRUE(FlowTableWait(0));
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {

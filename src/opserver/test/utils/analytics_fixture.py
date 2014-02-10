@@ -11,17 +11,49 @@ import redis
 import urllib2
 import copy
 import os
+import json
 from operator import itemgetter
 from opserver_introspect_utils import VerificationOpsSrv
 from collector_introspect_utils import VerificationCollector
+from opserver.sandesh.viz.constants import COLLECTOR_GLOBAL_TABLE, SOURCE, MODULE
+
+class Query(object):
+    table = None
+    start_time = None
+    end_time = None
+    select_fields = None
+    where = None
+    sort = None
+    sort_fields = None
+    limit = None
+    filter = None
+
+    def __init__(self, table, start_time, end_time, select_fields, where = None,
+            sort_fields = None, sort = None, limit = None, filter = None):
+        self.table = table
+        self.start_time = start_time
+        self.end_time = end_time
+        self.select_fields = select_fields
+        if where is not None:
+            self.where = where
+        if sort_fields is not None:
+            self.sort_fields = sort_fields
+        if sort is not None:
+            self.sort = sort
+        if limit is not None:
+            self.limit = limit
+        if filter is not None:
+            self.filter = filter
 
 class Collector(object):
-    def __init__(self, analytics_fixture, logger, is_dup=False):
+    def __init__(self, analytics_fixture, redis_uve, 
+                 logger, is_dup=False):
         self.analytics_fixture = analytics_fixture
         self.listen_port = AnalyticsFixture.get_free_port()
         self.http_port = AnalyticsFixture.get_free_port()
         self.hostname = socket.gethostname()
         self._instance = None
+        self._redis_uve = redis_uve
         self._logger = logger
         self._is_dup = is_dup
         if self._is_dup is True:
@@ -38,8 +70,8 @@ class Collector(object):
         args = [self.analytics_fixture.builddir + '/analytics/vizd',
             '--cassandra-server-list', '127.0.0.1:' +
             str(self.analytics_fixture.cassandra_port),
-            '--redis-sentinel-port', 
-            str(self.analytics_fixture.redis_sentinel_port),
+            '--redis-uve-port', 
+            str(self._redis_uve.port),
             '--listen-port', str(self.listen_port),
             '--http-server-port', str(self.http_port),
             '--log-file', self._log_file]
@@ -101,12 +133,14 @@ class OpServer(object):
                 '--redis_server_port', str(self._redis_port),
                 '--redis_query_port', 
                 str(self.analytics_fixture.redis_query.port),
-                '--redis_sentinel_port', 
-                str(self.analytics_fixture.redis_sentinel_port),
                 '--http_server_port', str(self.http_port),
                 '--log_file', self._log_file,
-                '--rest_api_port', str(self.listen_port),
-                '--collectors', self.primary_collector]
+                '--rest_api_port', str(self.listen_port)]
+        args.append('--redis_uve_list') 
+        for redis_uve in self.analytics_fixture.redis_uves:
+            args.append('127.0.0.1:'+str(redis_uve.port))
+        args.append('--collectors')
+        args.append(self.primary_collector)
         if self.secondary_collector is not None:
             args.append(self.secondary_collector)
         if self._is_dup:
@@ -132,6 +166,13 @@ class OpServer(object):
             subprocess.call(['rm', self._log_file])
             self._instance = None
     # end stop
+
+    def send_tracebuffer_request(self, src, mod, instance, tracebuf):
+        vops = VerificationOpsSrv('127.0.0.1', self.listen_port)
+        res = vops.send_tracebuffer_req(src, mod, instance, tracebuf)
+        self._logger.info('send_tracebuffer_request: %s' % (str(res)))
+        assert(res['status'] == 'pass')
+    # end send_tracebuffer_request
 
 # end class OpServer
 
@@ -195,16 +236,15 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self, master_port=None):
+    def __init__(self):
         self.port = AnalyticsFixture.get_free_port()
-        self.master_port = master_port
         self.running = False
     # end __init__
 
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port, self.master_port) 
+        mockredis.start_redis(self.port) 
     # end start
 
     def stop(self):
@@ -218,30 +258,22 @@ class Redis(object):
 class AnalyticsFixture(fixtures.Fixture):
 
     def __init__(self, logger, builddir, cassandra_port, 
-                 noqed=False, collector_ha_test=False, 
-                 redis_ha_test=False): 
+                 noqed=False, collector_ha_test=False): 
         self.builddir = builddir
         self.cassandra_port = cassandra_port
         self.logger = logger
         self.noqed = noqed
         self.collector_ha_test = collector_ha_test
-        self.redis_ha_test = redis_ha_test
 
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uve_master = Redis()
-        self.redis_uve_master.start()
-        if self.redis_ha_test:
-            self.redis_uve_slave = Redis(self.redis_uve_master.port)
-            self.redis_uve_slave.start()
+        self.redis_uves = [Redis()]
+        self.redis_uves[0].start()
         self.redis_query = Redis()
         self.redis_query.start()
-        self.redis_sentinel_port = AnalyticsFixture.get_free_port()
-        mockredis.start_redis_sentinel(self.redis_sentinel_port,
-                                       self.redis_uve_master.port)
 
-        self.collectors = [Collector(self, self.logger)] 
+        self.collectors = [Collector(self, self.redis_uves[0], self.logger)] 
         self.collectors[0].start()
 
         self.opserver_port = None
@@ -249,20 +281,17 @@ class AnalyticsFixture(fixtures.Fixture):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
             if self.collector_ha_test:
-                self.collectors.append(Collector(self, self.logger, True))
+                self.redis_uves.append(Redis())
+                self.redis_uves[1].start()
+                self.collectors.append(Collector(self, self.redis_uves[1],
+                                                 self.logger, True))
                 self.collectors[1].start()
                 secondary_collector = self.collectors[1].get_addr()
             self.opserver = OpServer(primary_collector, secondary_collector, 
-                                     self.redis_uve_master.port, 
+                                     self.redis_uves[0].port, 
                                      self, self.logger)
             self.opserver.start()
             self.opserver_port = self.opserver.listen_port
-            if self.redis_ha_test:
-                self.opserver_dup = OpServer(primary_collector, 
-                                             secondary_collector,
-                                             self.redis_uve_slave.port, 
-                                             self, self.logger)
-                self.opserver_dup.start()
             self.query_engine = QueryEngine(primary_collector, 
                                             secondary_collector, 
                                             self, self.logger)
@@ -371,42 +400,6 @@ class AnalyticsFixture(fixtures.Fixture):
                         break
                 if gen_found is not True:
                     return False
-        except Exception as err:
-            self.logger.error('Exception: %s' % err)
-            return False
-        return True
-
-    @retry(delay=3, tries=10)
-    def verify_collector_redis_uve_master(self, collector, 
-                                          exp_redis_uve_master):
-        vcl = VerificationCollector('127.0.0.1', collector.http_port)
-        try:
-            redis_uve_master = vcl.get_redis_uve_master()['RedisUveMasterInfo']
-            self.logger.info('redis uve master: ' + str(redis_uve_master))
-            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
-                             (exp_redis_uve_master.port))
-            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
-                return False
-            if redis_uve_master['status'] != 'Connected':
-                return False
-        except Exception as err:
-            self.logger.error('Exception: %s' % err)
-            return False
-        return True
-
-    @retry(delay=3, tries=10)
-    def verify_opserver_redis_uve_master(self, opserver,
-                                         exp_redis_uve_master):
-        vop = VerificationOpsSrv('127.0.0.1', opserver.http_port) 
-        try:
-            redis_uve_master = vop.get_redis_uve_master()['RedisUveMasterInfo']
-            self.logger.info('redis uve master: ' + str(redis_uve_master))
-            self.logger.info('exp redis uve master: 127.0.0.1:%d' % 
-                             (exp_redis_uve_master.port))
-            if int(redis_uve_master['port']) != exp_redis_uve_master.port:
-                return False
-            if redis_uve_master['status'] != 'Connected':
-                return False
         except Exception as err:
             self.logger.error('Exception: %s' % err)
             return False
@@ -979,11 +972,13 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_fieldname_messagetype(self):
         self.logger.info('Verify stats table for stats name field');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
-        res = vns.post_query('StatTable.FieldNames.fields',
-                             start_time='-10m',
-                             end_time='now',
-                             select_fields=['fields.value'],
-                             where_clause='name=MessageTable*')
+        query = Query(table="StatTable.FieldNames.fields",
+		            start_time="now-10m",
+                            end_time="now",
+                            select_fields=["fields.value"],
+                            where=[[{"name": "name", "value": "Message", "op": 7}]])
+	json_qstr = json.dumps(query.__dict__)
+	res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
         assert(len(res)>1)
         return True
@@ -991,14 +986,69 @@ class AnalyticsFixture(fixtures.Fixture):
     def verify_fieldname_objecttype(self):
         self.logger.info('Verify stats table for stats name field');
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port);
-        res = vns.post_query('StatTable.FieldNames.fields',
-                             start_time='-10m',
-                             end_time='now',
-                             select_fields=['fields.value'],
-                             where_clause='name=Object*')
+        query = Query(table="ObjectCollectorInfo",
+                            start_time="now-600s",
+                            end_time="now",
+                            select_fields=["ObjectId"]);
+        json_qstr = json.dumps(query.__dict__)
+        res = vns.post_query_json(json_qstr)
         self.logger.info(str(res))
         assert(len(res) > 1)
         return True
+
+    @retry(delay=2, tries=5)
+    def verify_collector_redis_uve_connection(self, collector): 
+        vcl = VerificationCollector('127.0.0.1', collector.http_port)
+        try:
+            redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] != 'Connected':
+                return False
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+            return False
+        return True
+    # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
+        self.logger.info('verify trace buffer data in analytics db')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        where_clause = []
+        where_clause.append('Source = ' + src)
+        where_clause.append('ModuleId = ' + mod)
+        where_clause.append('Category = ' + tracebuf)
+        where_clause = ' AND '.join(where_clause)
+        res = vns.post_query('MessageTable', start_time='-3m', end_time='now',
+                             select_fields=['MessageTS', 'Messagetype'],
+                             where_clause=where_clause, filter='Type=4')
+        if not res:
+            return False
+        self.logger.info(str(res))
+        return True
+    # end verify_tracebuffer_in_analytics_db
+
+    @retry(delay=1, tries=5)
+    def verify_table_source_module_list(self, exp_src_list, exp_mod_list):
+        self.logger.info('verify source/module list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        try:
+            src_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE, 
+                                                   SOURCE)
+            self.logger.info('src_list: %s' % str(src_list))
+            if len(set(src_list).intersection(exp_src_list)) != \
+                    len(exp_src_list):
+                return False
+            mod_list = vns.get_table_column_values(COLLECTOR_GLOBAL_TABLE,
+                                                   MODULE)
+            self.logger.info('mod_list: %s' % str(mod_list))
+            if len(set(mod_list).intersection(exp_mod_list)) != \
+                    len(exp_mod_list):
+                return False
+        except Exception as e:
+            self.logger.error('Exception: %s in getting source/module list' % e)
+        else:
+            return True
+    # end verify_table_source_module_list
 
     def cleanUp(self):
         super(AnalyticsFixture, self).cleanUp()
@@ -1007,12 +1057,9 @@ class AnalyticsFixture(fixtures.Fixture):
         self.query_engine.stop()
         for collector in self.collectors:
             collector.stop()
-        self.redis_uve_master.stop()
-        if self.redis_ha_test:
-            self.redis_uve_slave.stop()
-            self.opserver_dup.stop()
+        for redis_uve in self.redis_uves:
+            redis_uve.stop()
         self.redis_query.stop()
-        mockredis.stop_redis_sentinel(self.redis_sentinel_port)
 
     @staticmethod
     def get_free_port():

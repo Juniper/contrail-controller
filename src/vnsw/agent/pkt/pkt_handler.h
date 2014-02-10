@@ -173,7 +173,6 @@ public:
     void CreateInterfaces(const std::string &if_name);
 
     void Register(PktModuleName type, RcvQueueFunc cb);
-    void Unregister(PktModuleName type);
 
     const unsigned char *mac_address();
     const TapInterface *tap_interface() { return tap_interface_.get(); }

@@ -29,46 +29,42 @@
 class AgentRoute;
 class AgentPath;
 
-struct RouteKey : public AgentKey {
-    RouteKey(const Peer *peer, const string &vrf_name) : AgentKey(),
-    peer_(peer), vrf_name_(vrf_name) { };
-    virtual ~RouteKey() { };
+struct AgentRouteKey : public AgentKey {
+    AgentRouteKey(const Peer *peer, const std::string &vrf_name) : 
+        AgentKey(), peer_(peer), vrf_name_(vrf_name) { }
+    virtual ~AgentRouteKey() { }
 
-    virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) = 0;
     virtual Agent::RouteTableType GetRouteTableType() = 0;
+    virtual std::string ToString() const = 0;
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf,
                                         bool is_multicast) const = 0;
-    virtual string ToString() const = 0;
 
-    const string &GetVrfName() const { return vrf_name_; };
-    const Peer *GetPeer() const { return peer_; };
+    const std::string &GetVrfName() const { return vrf_name_; }
+    const Peer *GetPeer() const { return peer_; }
 
     const Peer *peer_;
-    string vrf_name_;
-    DISALLOW_COPY_AND_ASSIGN(RouteKey);
+    std::string vrf_name_;
+    DISALLOW_COPY_AND_ASSIGN(AgentRouteKey);
 };
 
-//Route data related classes
-
-struct RouteData : public AgentData {
-public:
+struct AgentRouteData : public AgentData {
     enum Op {
         CHANGE,
         RESYNC,
     };
-    RouteData(Op op, bool is_multicast) : op_(op),
-        is_multicast_(is_multicast) { };
-    virtual ~RouteData() { };
-    virtual string ToString() const = 0;
+    AgentRouteData(Op op, bool is_multicast) :
+        op_(op), is_multicast_(is_multicast) { }
+    virtual ~AgentRouteData() { }
+
+    virtual std::string ToString() const = 0;
     virtual bool AddChangePath(AgentPath *path) = 0;
-    bool IsMulticast() {return is_multicast_;};
 
-    Op GetOp() const { return op_; };
+    bool IsMulticast() const {return is_multicast_;}
+    Op GetOp() const { return op_; }
 
-private:
     Op op_;
     bool is_multicast_;
-    DISALLOW_COPY_AND_ASSIGN(RouteData);
+    DISALLOW_COPY_AND_ASSIGN(AgentRouteData);
 };
 
 struct RouteComparator {
@@ -80,39 +76,40 @@ struct NHComparator {
 };
 
 struct RouteTableWalkerState {
-    RouteTableWalkerState(LifetimeActor *actor): rt_delete_ref_(this, actor) {
+    RouteTableWalkerState(LifetimeActor *actor) : rt_delete_ref_(this, actor) {
     }
+
     ~RouteTableWalkerState() {
         rt_delete_ref_.Reset(NULL);
     }
-    void ManagedDelete() { };
+    void ManagedDelete() { }
+
     LifetimeRef<RouteTableWalkerState> rt_delete_ref_;
 };
 
+// Agent implements multiple route tables - inet4-unicast, inet4-multicast, 
+// layer2. This base class contains common code for all route tables
 class AgentRouteTable : public RouteTable {
 public:
-    typedef set<const AgentRoute *, RouteComparator> UnresolvedRouteTree;
-    typedef set<const NextHop *, NHComparator> UnresolvedNHTree;
-    typedef set<const AgentRoute *, RouteComparator>::const_iterator 
-        const_rt_iterator;
-    typedef set<const NextHop *, NHComparator>::const_iterator const_nh_iterator;
+    typedef std::set<const AgentRoute *, RouteComparator> UnresolvedRouteTree;
+    typedef std::set<const NextHop *, NHComparator> UnresolvedNHTree;
 
     AgentRouteTable(DB *db, const std::string &name);
     virtual ~AgentRouteTable();
 
-    //TODO reorganize the functions below
     virtual std::auto_ptr<DBEntry> AllocEntry(const DBRequestKey *k) const;
-    virtual size_t Hash(const DBEntry *entry) const {return 0;};
-    virtual size_t Hash(const DBRequestKey *key) const {return 0;};
+    virtual size_t Hash(const DBEntry *entry) const {return 0;}
+    virtual size_t Hash(const DBRequestKey *key) const {return 0;}
 
-    virtual void ProcessDelete(AgentRoute *rt) { };
-    virtual void ProcessAdd(AgentRoute *rt) { };
-    virtual void RouteTableWalkerNotify(VrfEntry *vrf, AgentXmppChannel *, 
-                                        DBState *, bool associate,
-                                        bool unicast_walk, bool multicast_walk);
     virtual Agent::RouteTableType GetTableType() const = 0;
-    virtual string GetTableName() const = 0;
+    virtual std::string GetTableName() const = 0;
 
+    virtual void ProcessDelete(AgentRoute *rt) { }
+    virtual void ProcessAdd(AgentRoute *rt) { }
+
+    void RouteTableWalkerNotify(VrfEntry *vrf, AgentXmppChannel *, DBState *,
+                                bool associate, bool unicast_walk,
+                                bool multicast_walk);
     //TODO Evaluate pushing walks to controller
     bool NotifyRouteEntryWalk(AgentXmppChannel *, 
                               DBState *state, 
@@ -124,68 +121,71 @@ public:
     void UnicastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
     void MulticastRouteNotifyDone(DBTableBase *base, DBState *, Peer *);
 
-    void AddUnresolvedRoute(const AgentRoute *rt);
-    void RemoveUnresolvedRoute(const AgentRoute *rt);
-    void EvaluateUnresolvedRoutes(void);
+    // Unresolved route tree accessors
+    UnresolvedRouteTree::const_iterator unresolved_route_begin() const {
+        return unresolved_rt_tree_.begin();
+    }
+    UnresolvedRouteTree::const_iterator unresolved_route_end() const {
+        return unresolved_rt_tree_.end();
+    }
+    int unresolved_route_size() const { return unresolved_rt_tree_.size(); }
+
+    // Unresolved NH tree accessors
     void AddUnresolvedNH(const NextHop *);
     void RemoveUnresolvedNH(const NextHop *);
     void EvaluateUnresolvedNH(void);
-    AgentRoute *FindActiveEntry(const RouteKey *key);
-    NextHop *FindNextHop(NextHopKey *key) const;
-    bool DelExplicitRoute(DBTablePartBase *part, DBEntryBase *entry);
+    UnresolvedNHTree::const_iterator unresolved_nh_begin() const {
+        return unresolved_nh_tree_.begin();
+    }
+    UnresolvedNHTree::const_iterator unresolved_nh_end() const {
+        return unresolved_nh_tree_.end();
+    }
 
-    const_rt_iterator unresolved_route_begin() { 
-        return unresolved_rt_tree_.begin(); };
-    const_rt_iterator unresolved_route_end() { 
-        return unresolved_rt_tree_.end(); };
-    int unresolved_route_size() { return unresolved_rt_tree_.size(); }
+    Agent *agent() const { return agent_; }
+    AgentRoute *FindActiveEntry(const AgentRouteKey *key);
+    const std::string &GetVrfName() const { return vrf_entry_->GetName();};
+    uint32_t GetVrfId() const {return vrf_entry_->GetVrfId();}
 
-    const_nh_iterator unresolved_nh_begin() { 
-        return unresolved_nh_tree_.begin(); };
-    const_nh_iterator unresolved_nh_end() { 
-        return unresolved_nh_tree_.end(); };
+    // Set VRF for the route-table
+    void SetVrf(VrfEntry * vrf);
+
+    // Helper functions to delete routes
+    bool DeleteAllBgpPath(DBTablePartBase *part, DBEntryBase *entry);
+    bool DelExplicitRouteWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
     bool DelPeerRoutes(DBTablePartBase *part, DBEntryBase *entry, Peer *peer);
 
-    VrfEntry *FindVrfEntry(const string &vrf_name) const;
-    void SetVrfEntry(VrfEntryRef vrf);
-    void SetVrfDeleteRef(LifetimeActor *delete_ref);
-    string GetVrfName() { return vrf_entry_->GetName();};
-
+    // Lifetime actor routines
     LifetimeActor *deleter();
     void ManagedDelete();
-    bool DelExplicitRouteWalkerCb(DBTablePartBase *part, DBEntryBase *entry);
-    void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
-    void DeleteAllLocalVmRoutes();
-    void DeleteAllPeerRoutes();
     void MayResumeDelete(bool is_empty);
 
-    static bool PathSelection(const Path &path1, const Path &path2);
-    void Process(DBRequest &req) {
-        CHECK_CONCURRENCY("db::DBTable");
-        DBTablePartition *tpart =
-            static_cast<DBTablePartition *>(GetTablePartition(req.key.get()));
-        tpart->Process(NULL, &req);
-    };
+    // Process DBRequest inline
+    void Process(DBRequest &req);
 
-    static const std::string &GetSuffix(TunnelType type);
-    static std::string GetSuffix(Agent::RouteTableType type);
-    void InitRouteTable(DB *db, AgentRouteTable *table,
-                        const std::string &name, Agent::RouteTableType type);
+    // Path comparator
+    static bool PathSelection(const Path &path1, const Path &path2);
+    static const std::string &GetSuffix(Agent::RouteTableType type);
 private:
     class DeleteActor;
+    void AddUnresolvedRoute(const AgentRoute *rt);
+    void RemoveUnresolvedRoute(const AgentRoute *rt);
+    void EvaluateUnresolvedRoutes(void);
+    void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
+
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
     void DeleteRoute(DBTablePartBase *part, AgentRoute *rt, 
                      const Peer *peer);
+
+    Agent *agent_;
     UnresolvedRouteTree unresolved_rt_tree_;
     UnresolvedNHTree unresolved_nh_tree_;
-    DBTableWalker::WalkId walkid_;
-    DB *db_;
     VrfEntryRef vrf_entry_;
     boost::scoped_ptr<DeleteActor> deleter_;
     LifetimeRef<AgentRouteTable> vrf_delete_ref_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteTable);
 };
 
+// Base class for all Route entries in agent
 class AgentRoute : public Route {
 public:
     enum Trace {
@@ -196,64 +196,60 @@ public:
         CHANGE_PATH,
     };
 
-    AgentRoute(VrfEntry *vrf, bool is_multicast) : Route(), vrf_(vrf), 
-        is_multicast_(is_multicast) { };
-    virtual ~AgentRoute() { };
+    typedef DependencyList<AgentRoute, AgentRoute> RouteDependencyList;
+    typedef DependencyList<NextHop, AgentRoute> TunnelNhDependencyList;
 
-    //TODO Rename iterator as gw_route-ITERATOR
-    typedef DependencyList<AgentRoute, AgentRoute>::iterator iterator;
-    typedef DependencyList<AgentRoute, AgentRoute>::const_iterator
-        const_iterator;
-    typedef DependencyList<NextHop, AgentRoute>::iterator tunnel_nh_iterator;
-    typedef DependencyList<NextHop, AgentRoute>::const_iterator
-        const_tunnel_nh_iterator;
+    AgentRoute(VrfEntry *vrf, bool is_multicast) :
+        Route(), vrf_(vrf), is_multicast_(is_multicast) { }
+    virtual ~AgentRoute() { }
 
-    virtual int CompareTo(const Route &rhs) const = 0;
+    // Virtual functions from base DBEntry
     virtual bool IsLess(const DBEntry &rhs) const;
     virtual KeyPtr GetDBRequestKey() const = 0;
     virtual void SetKey(const DBRequestKey *key) = 0;
-    virtual string ToString() const = 0;
-    virtual bool DBEntrySandesh(Sandesh *sresp) const = 0;
-    //TODO coment why routeresyncreq - rename to reevaluatepath
-    virtual void RouteResyncReq() const = 0;
-    virtual const string GetAddressString() const = 0;
-    virtual Agent::RouteTableType GetTableType() const = 0;
 
-    void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
+    // Virtual functions defined by AgentRoute
+    virtual int CompareTo(const Route &rhs) const = 0;
+    virtual Agent::RouteTableType GetTableType() const = 0;
+    virtual bool DBEntrySandesh(Sandesh *sresp) const = 0;
+    virtual std::string ToString() const = 0;
+    virtual const std::string GetAddressString() const = 0;
+
+    bool IsMulticast() const {return is_multicast_;}
+    VrfEntry *GetVrfEntry() const {return vrf_.get();}
+    AgentPath *FindPath(const Peer *peer) const;
+
+    // Accessor functions
+    uint32_t GetVrfId() const;
+    const AgentPath *GetActivePath() const;
+    const NextHop *GetActiveNextHop() const; 
+    uint32_t GetMplsLabel() const; 
+    const std::string &GetDestVnName() const;
+
+    void ResyncRoute() const;
+    void ResyncTunnelNextHop();
+    bool HasUnresolvedPath();
+    bool CanDissociate() const;
+    bool Sync(void);
 
     //TODO Move dependantroutes and nh  to inet4
     void UpdateDependantRoutes();// analogous to updategatewayroutes
-    void UpdateNH();
-    bool IsMulticast() const {return is_multicast_;};
-    //TODO remove setvrf
-    void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; };
-    uint32_t GetVrfId() const;
-    VrfEntry *GetVrfEntry() const {return vrf_.get();};
-    bool Sync(void);
-    const AgentPath *GetActivePath() const;
-    const NextHop *GetActiveNextHop() const; 
-    const Peer *GetActivePeer() const;
-    AgentPath *FindPath(const Peer *peer) const;
-    bool HasUnresolvedPath();
-    uint32_t GetMplsLabel() const; 
-    const string &GetDestVnName() const;
-    bool CanDissociate() const;
+    bool IsDependantRouteEmpty() { return dependant_routes_.empty(); }
+    bool IsTunnelNHListEmpty() { return tunnel_nh_list_.empty(); }
 
-    iterator begin() { return dependant_routes_.begin(); };
-    iterator end() { return dependant_routes_.end(); };
-    const_iterator begin() const { return dependant_routes_.begin(); };
-    const_iterator end() const { return dependant_routes_.end(); };
-    bool IsDependantRouteEmpty() { return dependant_routes_.empty(); };
-    bool IsTunnelNHListEmpty() { return tunnel_nh_list_.empty(); };
+    void FillTrace(RouteInfo &route, Trace event, const AgentPath *path);
+protected:
+    void SetVrf(VrfEntryRef vrf) { vrf_ = vrf; }
 
 private:
     friend class AgentRouteTable;
-
     void RemovePath(const Peer *peer);
     void InsertPath(const AgentPath *path);
     bool SyncPath(AgentPath *path);
 
     VrfEntryRef vrf_;
+    // Unicast table can contain routes for few multicast address 
+    // (ex. subnet multicast). Flag to specify if this is multicast route
     bool is_multicast_;
     DEPENDENCY_LIST(AgentRoute, AgentRoute, dependant_routes_);
     DEPENDENCY_LIST(NextHop, AgentRoute, tunnel_nh_list_);

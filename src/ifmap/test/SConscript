@@ -39,72 +39,59 @@ env.Prepend(LIBS = ['task_test'])
 
 env.Append(CPPPATH = [env['TOP']])
 
-vnc_cfg_env = env.Clone()
-vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/schema')
-vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/xmpp')
-vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/io')
-vnc_cfg_env.Append(LIBPATH = env['TOP'] + '/xml')
-
-vnc_cfg_env.Prepend(LIBS = ['ifmap_vnc', 'xmpp',
-                            'xml', 'boost_regex'])
-
 test_suite = []
 
-def AddLibraries(env, libs):
+def PrependLibraries(env, libs):
+    for lib in libs:
+        (path, libname) = lib.rsplit('/', 1)
+        env.Append(LIBPATH = env['TOP'] + '/' + path)
+        env.Prepend(LIBS = libname)
+
+def AppendLibraries(env, libs):
     for lib in libs:
         (path, libname) = lib.rsplit('/', 1)
         env.Append(LIBPATH = env['TOP'] + '/' + path)
         env.Append(LIBS = libname)
 
-def BuildTest(env, testname, sources, libs):
+def BuildTest(env, testname, sources, prepend_libs, append_libs):
     build_env = env.Clone()
-    AddLibraries(build_env, libs)
+    PrependLibraries(build_env, prepend_libs)
+    AppendLibraries(build_env, append_libs)
     target = build_env.UnitTest(testname, sources)
     test_suite.append(target)
     env.Alias('src/ifmap:' + testname, target)
     return target
 
-BuildTest(env, 'ifmap_exporter_test', ['ifmap_exporter_test.cc'],
+BuildTest(env, 'ifmap_exporter_test', ['ifmap_exporter_test.cc'], [],
           ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
-BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'],
+BuildTest(env, 'ifmap_graph_walker_test', ['ifmap_graph_walker_test.cc'], [],
           ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
-ifmap_restart_test = vnc_cfg_env.UnitTest(
-    'ifmap_restart_test', ['ifmap_restart_test.cc'])
-env.Alias('src/ifmap:ifmap_restart_test', ifmap_restart_test)
+BuildTest(env, 'ifmap_restart_test', ['ifmap_restart_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_server_test', ['ifmap_server_test.cc'],
-          ['schema/ifmap_vnc'])
+          [], ['schema/ifmap_vnc'])
 
 BuildTest(env, 'ifmap_server_parser_test', ['ifmap_server_parser_test.cc'],
-          ['schema/ifmap_vnc'])
+          [], ['schema/ifmap_vnc'])
 
-ifmap_server_table_test = vnc_cfg_env.UnitTest(
-    'ifmap_server_table_test', ['ifmap_server_table_test.cc'])
-env.Alias('src/ifmap:ifmap_server_table_test', ifmap_server_table_test)
+BuildTest(env, 'ifmap_server_table_test', ['ifmap_server_table_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
 BuildTest(env, 'ifmap_uuid_mapper_test', ['ifmap_uuid_mapper_test.cc'],
-          ['schema/ifmap_vnc', 'schema/bgp_schema'])
+          [], ['schema/ifmap_vnc', 'schema/bgp_schema'])
 
-ifmap_update_queue_test = vnc_cfg_env.UnitTest(
-    'ifmap_update_queue_test', ['ifmap_update_queue_test.cc'])
-env.Alias('src/ifmap:ifmap_update_queue_test', ifmap_update_queue_test)
+BuildTest(env, 'ifmap_update_queue_test', ['ifmap_update_queue_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
-ifmap_update_sender_test = vnc_cfg_env.UnitTest(
-    'ifmap_update_sender_test', ['ifmap_update_sender_test.cc'])
-env.Alias('src/ifmap:ifmap_update_sender_test', ifmap_update_sender_test)
+BuildTest(env, 'ifmap_update_sender_test', ['ifmap_update_sender_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
-ifmap_xmpp_test = vnc_cfg_env.UnitTest(
-    'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'])
-env.Alias('src/ifmap:ifmap_xmpp_test', ifmap_xmpp_test)
+BuildTest(env, 'ifmap_xmpp_test', ['ifmap_xmpp_test.cc'],
+          ['schema/ifmap_vnc', 'schema/bgp_schema', 'xml/xml'], [])
 
-test = env.TestSuite('ifmap-test',
-                     test_suite +
-                     [ifmap_server_table_test,
-                      ifmap_update_queue_test,
-                      ifmap_update_sender_test,
-                      ifmap_xmpp_test,
-                      ifmap_restart_test,
-                      ])
+test = env.TestSuite('ifmap-test', test_suite)
 env.Alias('src/ifmap:test', test)
+Return('test_suite')

@@ -39,11 +39,19 @@
 #include "vr_types.h"
 #include <controller/controller_export.h> 
 #include <ksync/ksync_sock_user.h> 
+#include <boost/assign/list_of.hpp>
+
+using namespace boost::assign;
 
 #define NULL_VRF ""
 #define ZERO_IP "0.0.0.0"
 
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 class IntfTest : public ::testing::Test {
@@ -69,6 +77,7 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
     IpAddress ip = Ip4Address::from_string(addr);
     VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
+                     MakeUuid(kProjectUuid),
                      VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
@@ -201,6 +210,14 @@ TEST_F(IntfTest, basic_1) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
+
+    ItfReq *itf_list_req = new ItfReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    itf_list_req->HandleRequest();
+    client->WaitForIdle();
+    itf_list_req->Release();
+    client->WaitForIdle();
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();
@@ -1177,6 +1194,56 @@ TEST_F(IntfTest, VmPortServiceVlanAdd_1) {
     EXPECT_FALSE(VrfFind("vrf2"));
 }
 
+//Add a interface with service Vlan
+//Delete interface with nova msg
+//Make sure all service vlan routes are deleted and interface is free
+TEST_F(IntfTest, VmPortServiceVlanAdd_2) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:00:01:01:01", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    AddVn("vn2", 2);
+    AddVrf("vrf2", 2);
+    AddLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    //Add service vlan for vnet1
+    client->WaitForIdle();
+    AddVmPortVrf("vmvrf1", "2.2.2.100", 10);
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    AddLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+
+    client->WaitForIdle();
+    Ip4Address service_ip = Ip4Address::from_string("2.2.2.100");
+    EXPECT_TRUE(RouteFind("vrf2", service_ip, 32));
+
+    //Delete the interface, all service vlan routes should be deleted
+    //and interface should be released
+    NovaDel(1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortFindRetDel(1) == false);
+
+    //Cleanup
+    DelNode("virtual-machine-interface", input[0].name);
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "routing-instance", "vrf2");
+    DelLink("virtual-machine-interface-routing-instance", "vmvrf1",
+            "virtual-machine-interface", "vnet1");
+    DelVmPortVrf("vmvrf1");
+    client->WaitForIdle();
+    DelLink("virtual-network", "vn2", "routing-instance", "vrf2");
+    DelVrf("vrf2");
+    DelVn("vn2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VrfFind("vrf1"));
+    EXPECT_FALSE(VrfFind("vrf2"));
+}
 //A
 //Add and delete static route 
 TEST_F(IntfTest, IntfStaticRoute) {

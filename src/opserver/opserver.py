@@ -28,13 +28,12 @@ import struct
 import errno
 import copy
 
-from redis_sentinel_client import RedisSentinelClient
 from pysandesh.sandesh_base import *
 from pysandesh.sandesh_session import SandeshWriter
 from pysandesh.gen_py.sandesh_trace.ttypes import SandeshTraceRequest
 from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, CategoryNames,\
-     ModuleCategoryMap, Module2NodeType, NodeTypeNames,\
+     ModuleCategoryMap, Module2NodeType, NodeTypeNames, ModuleIds,\
      INSTANCE_ID_DEFAULT
 from sandesh.viz.constants import _TABLES, _OBJECT_TABLES,\
     _OBJECT_TABLE_SCHEMA, _OBJECT_TABLE_COLUMN_VALUES, \
@@ -244,23 +243,14 @@ def redis_query_info(redish, qid):
 
 class OpStateServer(object):
 
-    def __init__(self, redis_sentinel_client, service):
-        self._redis_sentinel_client = redis_sentinel_client
-        self._service = service
+    def __init__(self, logger):
+        self._logger = logger
+        self._redis_list = []
+    # end __init__
 
-    def redis_publisher_init(self):
-        print 'Initialize Redis Publisher'
-        self._redis_master =\
-            self._redis_sentinel_client.get_redis_master(self._service)
-
-    def set_redis_master(self, redis_master):
-        self._redis_master = redis.StrictRedis(redis_master[0],
-                                               redis_master[1])
-    #end set_redis_master
-
-    def reset_redis_master(self):
-        self._redis_master = None
-    #end reset_redis_master
+    def update_redis_list(self, redis_list):
+        self._redis_list = redis_list
+    # end update_redis_list
 
     def redis_publish(self, msg_type, destination, msg):
         # Get the sandesh encoded in XML format
@@ -269,17 +259,19 @@ class OpStateServer(object):
         redis_msg = '{"type":"%s","destination":"%s","message":"%s"}' \
             % (msg_type, destination, msg_encode)
         # Publish message in the Redis bus
-        if self._redis_master is not None:
+        for redis_server in self._redis_list:
+            redis_inst = redis.StrictRedis(redis_server[0], 
+                                           redis_server[1], db=0)
             try:
-                self._redis_master.publish('analytics', redis_msg)
+                redis_inst.publish('analytics', redis_msg)
             except redis.exceptions.ConnectionError:
-                print 'No Connection to Redis. Failed to publish message.'
-                return False
-        else:
-            print 'No Connection to Redis. Failed to publish message.'
-            return False
+                self._logger.error('No Connection to Redis [%s:%d].'
+                                   'Failed to publish message.' \
+                                   % (redis_server[0], redis_server[1]))
         return True
+    # end redis_publish
 
+# end class OpStateServer
 
 class OpServer(object):
 
@@ -357,7 +349,7 @@ class OpServer(object):
                              'GET', obj.column_values_process)
                 bottle.route('/analytics/table/<table>/column-values/<column>',
                              'GET', obj.column_process)
-        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<name>',
+        bottle.route('/analytics/send-tracebuffer/<source>/<module>/<instance_id>/<name>',
                      'GET', obj.send_trace_buffer)
         bottle.route('/documentation/<filename:path>', 'GET',
                      obj.documentation_http_get)
@@ -387,14 +379,14 @@ class OpServer(object):
             'ip-address': self._args.host_ip,
             'port': self._args.rest_api_port,
         }
-        disc = client.DiscoveryClient(
+        self.disc = client.DiscoveryClient(
             self._args.disc_server_ip,
             self._args.disc_server_port,
             ModuleNames[Module.OPSERVER])
         self._logger.info("Disc Publish to %s : %d - %s"
                           % (self._args.disc_server_ip,
                              self._args.disc_server_port, str(data)))
-        disc.publish(self._moduleid, data)
+        self.disc.publish(self._moduleid, data)
     # end
 
     def __init__(self):
@@ -437,8 +429,10 @@ class OpServer(object):
         self._post_common = self._http_post_common
 
         self._collector_pool = None
-        self._state_server = None
-        self._redis_master = None
+        self._state_server = OpStateServer(self._logger)
+        self._uve_server = UVEServer(('127.0.0.1',
+                                      self._args.redis_server_port),
+                                     self._logger)
 
         self._LEVEL_LIST = []
         for k in SandeshLevel._VALUES_TO_NAMES:
@@ -450,8 +444,23 @@ class OpServer(object):
             dict((ModuleNames[k], [CategoryNames[ce] for ce in v])
                  for k, v in ModuleCategoryMap.iteritems())
 
+        self.disc = None
         if self._args.disc_server_ip:
             self.disc_publish()
+        else:
+            self.redis_uve_list = []
+            try:
+                if type(self._args.redis_uve_list) is str:
+                    self._args.redis_uve_list = self._args.redis_uve_list.split()
+                for redis_uve in self._args.redis_uve_list:
+                    redis_ip_port = redis_uve.split(':')
+                    redis_ip_port = (redis_ip_port[0], int(redis_ip_port[1]))
+                    self.redis_uve_list.append(redis_ip_port)
+            except Exception as e:
+                self._logger.error('Failed to parse redis_uve_list: %s' % e)
+            else:
+                self._state_server.update_redis_list(self.redis_uve_list)
+                self._uve_server.update_redis_uve_list(self.redis_uve_list)
 
         self._analytics_links = ['uves', 'tables', 'queries']
 
@@ -566,7 +575,6 @@ class OpServer(object):
         '''
         Eg. python opserver.py --host_ip 127.0.0.1
                                --redis_server_port 6381
-                               --redis_sentinel_port 6381
                                --redis_query_port 6380
                                --collectors 127.0.0.1:8086
                                --http_server_port 8090
@@ -577,6 +585,7 @@ class OpServer(object):
                                --log_category test
                                --log_file <stdout>
                                --worker_id 0
+                               --redis_uve_list 127.0.0.1:6381
         '''
 
         parser = argparse.ArgumentParser(
@@ -592,10 +601,6 @@ class OpServer(object):
             type=int,
             default=6380,
             help="Redis query port")
-        parser.add_argument("--redis_sentinel_port",
-            type=int,
-            default=26379,
-            help="Redis Sentinel port")
         parser.add_argument("--collectors",
             default='127.0.0.1:8086',
             help="List of Collector IP addresses in ip:port format",
@@ -633,6 +638,10 @@ class OpServer(object):
         parser.add_argument("--dup", action="store_true",
             default=False,
             help="Internal use")
+        parser.add_argument("--redis_uve_list",
+            default="127.0.0.1:6381",
+            help="List of redis-uve in ip:port format. For internal use only",
+            nargs="+")
         parser.add_argument(
             "--worker_id",
             help="Worker Id")
@@ -1219,7 +1228,7 @@ class OpServer(object):
             response['error'] = 'Invalid module'
             return json.dumps(response)
         module_id = ModuleIds[module]
-        node_type = Module2NodeTye[module_id]
+        node_type = Module2NodeType[module_id]
         node_type_name = NodeTypeNames[node_type]
         if self._state_server.redis_publish(msg_type='send-tracebuffer',
                                             destination=source + ':' + 
@@ -1315,26 +1324,27 @@ class OpServer(object):
 
     def generator_info(self, table, column):
         if ((column == MODULE) or (column == SOURCE)):
-            try:
+            sources = []
+            moduleids = []
+            for redis_uve in self.redis_uve_list:
                 redish = redis.StrictRedis(
                     db=0,
-                    host='127.0.0.1',
-                    port=int(self._args.redis_server_port))
-                sources = []
-                moduleids = []
-                for key in redish.smembers("NGENERATORS"):
-                    source = key.split(':')[0]
-                    module = key.split(':')[2]
-                    if (sources.count(source) == 0):
-                        sources.append(source)
-                    if (moduleids.count(module) == 0):
-                        moduleids.append(module)
-                if (column == MODULE):
-                    return moduleids
-                elif (column == SOURCE):
-                    return sources
-            except Exception as e:
-                print e
+                    host=redis_uve[0],
+                    port=redis_uve[1])
+                try:
+                    for key in redish.smembers("NGENERATORS"):
+                        source = key.split(':')[0]
+                        module = key.split(':')[2]
+                        if (sources.count(source) == 0):
+                            sources.append(source)
+                        if (moduleids.count(module) == 0):
+                            moduleids.append(module)
+                except Exception as e:
+                    self._logger.error('Exception: %s' % e)
+            if column == MODULE:
+                return moduleids
+            elif column == SOURCE:
+                return sources
         elif (column == 'Category'):
             return self._CATEGORY_MAP
         elif (column == 'Level'):
@@ -1369,15 +1379,8 @@ class OpServer(object):
         return (json.dumps([]))
     # end column_process
 
-    def start_state_server(self, redis_sentinel_client):
-        self._state_server = OpStateServer(redis_sentinel_client, 'mymaster')
-        self._state_server.redis_publisher_init()
-    #end start_state_server
-
-    def start_uve_server(self, redis_sentinel_client):
-        self._uve_server = UVEServer('127.0.0.1',
-                                     self._args.redis_server_port,
-                                     redis_sentinel_client, 'mymaster')
+    def start_uve_server(self):
+        self._uve_server.run()
     #end start_uve_server
 
     def start_webserver(self):
@@ -1422,30 +1425,49 @@ class OpServer(object):
             gevent.sleep(60)
     #end cpu_info_logger
 
-    def handle_redis_master_change(self, service, redis_master):
-        self._redis_master = redis_master
-        if self._redis_master:
-            self._state_server.set_redis_master(self._redis_master)
-            self._uve_server.set_redis_master(self._redis_master)
-        else:
-            self._state_server.reset_redis_master()
-            self._uve_server.reset_redis_master()
-    #end handle_redis_master_change
-
+    def poll_collector_list(self):
+        '''
+        Analytics node may be brought up/down any time. For UVE aggregation,
+        Opserver needs to know the list of all Analytics nodes (redis-uves).
+        Presently, Discovery server supports only pull mechanism to get the
+        Publisher list. Periodically poll the Collector list [in lieu of 
+        redi-uve nodes] from the discovery. 
+        ** Remove this code when the push mechanism to update the discovery clients
+        on the addition/deletion of Publisher nodes for a given service is 
+        supported by the Discovery server.
+        '''
+        if self.disc:
+            while True:
+                self.redis_uve_list = []
+                try:
+                    sub_obj = \
+                        self.disc.subscribe(ModuleNames[Module.COLLECTOR], 0)
+                    collectors = sub_obj.info 
+                except Exception as e:
+                    self._logger.error('Failed to get collector-list from ' \
+                                       'discovery server')
+                else:
+                    if collectors:
+                        self._logger.debug('Collector-list from discovery: %s' \
+                                           % str(collectors))
+                        for collector in collectors:
+                            self.redis_uve_list.append((collector['ip-address'], 
+                                                       6381))
+                        self._uve_server.update_redis_uve_list(self.redis_uve_list)
+                        self._state_server.update_redis_list(self.redis_uve_list)
+                if self.redis_uve_list:
+                    gevent.sleep(60)
+                else:
+                    gevent.sleep(5)
+    # end poll_collector_list
 
 def main():
     opserver = OpServer()
-    redis_sentinel_client = RedisSentinelClient(
-        ('127.0.0.1',
-         opserver._args.redis_sentinel_port),
-        ['mymaster'],
-        opserver.handle_redis_master_change,
-        opserver._logger)
-    opserver.start_state_server(redis_sentinel_client)
-    opserver.start_uve_server(redis_sentinel_client)
     gevent.joinall([
         gevent.spawn(opserver.start_webserver),
-        gevent.spawn(opserver.cpu_info_logger)
+        gevent.spawn(opserver.cpu_info_logger),
+        gevent.spawn(opserver.start_uve_server),
+        gevent.spawn(opserver.poll_collector_list)
     ])
 
 if __name__ == '__main__':

@@ -14,8 +14,10 @@
 class ConcurrencyChecker {
 public:
     static bool disable_;
+    ConcurrencyChecker();
     ConcurrencyChecker(const char *task_ids[], size_t count);
     void Check();
+    void CheckIfMainThr();
 private:
     typedef std::set<int> TaskIdSet;
     TaskIdSet id_set_;
@@ -43,6 +45,17 @@ private:
     } while (0)
 #else
 #define CHECK_CONCURRENCY(...)
+#endif
+
+#if defined(DEBUG)
+#define CHECK_CONCURRENCY_MAIN_THR()                     \
+    do {                                                \
+        if (ConcurrencyChecker::disable_) break;        \
+        ConcurrencyChecker checker;                     \
+        checker.CheckIfMainThr();                          \
+    } while (0)
+#else
+#define CHECK_CONCURRENCY_MAIN_THR(...)
 #endif
 
 #endif

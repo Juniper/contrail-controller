@@ -47,6 +47,11 @@ Inet4UnicastAgentRouteTable::FindLPM(const Ip4Address &ip) {
 }
 
 Inet4UnicastRouteEntry *
+Inet4UnicastAgentRouteTable::FindLPM(const Inet4UnicastRouteEntry &rt_key) {
+    return tree_.LPMFind(&rt_key);
+}
+
+Inet4UnicastRouteEntry *
 Inet4UnicastAgentRouteTable::FindResolveRoute(const Ip4Address &ip) {
     uint8_t plen = 32;
     Inet4UnicastRouteEntry *rt = NULL;
@@ -125,7 +130,8 @@ void Inet4UnicastRouteEntry::SetKey(const DBRequestKey *key) {
 DBTableBase *
 Inet4UnicastAgentRouteTable::CreateTable(DB *db, const std::string &name) {
     AgentRouteTable *table = new Inet4UnicastAgentRouteTable(db, name);
-    table->InitRouteTable(db, table, name, Agent::INET4_UNICAST);
+    table->Init();
+    //table->InitRouteTable(db, table, name, Agent::INET4_UNICAST);
     return table;
 }
 
@@ -183,6 +189,14 @@ bool Inet4UnicastEcmpRoute::AddChangePath(AgentPath *path) {
     assert(nh);
     if (path->GetLabel() != label_) {
         path->SetLabel(label_);
+        ret = true;
+    }
+
+    path->SetTunnelBmap(TunnelType::MplsType());
+    TunnelType::Type new_tunnel_type = 
+        TunnelType::ComputeType(path->tunnel_bmap());
+    if (path->tunnel_type() != new_tunnel_type) {
+        path->set_tunnel_type(new_tunnel_type);
         ret = true;
     }
 
@@ -325,7 +339,7 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list));
 
@@ -347,7 +361,7 @@ void Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
     SecurityGroupList sg_list;
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     force_policy, vn_name,
                                     InterfaceNHFlags::INET4, sg_list));
 
@@ -807,7 +821,7 @@ Inet4UnicastAgentRouteTable::AddGatewayRouteReq(const string &vrf_name,
     UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
-void Inet4UnicastAgentRouteTable::RouteResyncReq(const string &vrf_name, 
+void Inet4UnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name, 
                                                  const Ip4Address &addr, 
                                                  uint8_t plen) {
     DBRequest  rt_req;
@@ -821,11 +835,6 @@ void Inet4UnicastAgentRouteTable::RouteResyncReq(const string &vrf_name,
     UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
 }
 
-void Inet4UnicastRouteEntry::RouteResyncReq() const {
-    Inet4UnicastAgentRouteTable::RouteResyncReq(GetVrfEntry()->GetName(), 
-                                                addr_, plen_); 
-}
-
 void UnresolvedRoute::HandleRequest() const {
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
     if (!vrf) {
@@ -836,12 +845,12 @@ void UnresolvedRoute::HandleRequest() const {
     }
 
     int count = 0;
-    Inet4UnicastAgentRouteTable::const_rt_iterator it;
     Inet4UcRouteResp *resp = new Inet4UcRouteResp();
 
     //TODO - Convert inet4ucroutetable to agentroutetable
     AgentRouteTable *rt_table = static_cast<AgentRouteTable *>
         (vrf->GetInet4UnicastRouteTable());
+    Inet4UnicastAgentRouteTable::UnresolvedRouteTree::const_iterator it;
     it = rt_table->unresolved_route_begin();
     for (;it != rt_table->unresolved_route_end(); it++) {
         count++;

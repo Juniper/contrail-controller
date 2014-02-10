@@ -513,7 +513,8 @@ Interface *VmInterfaceKey::AllocEntry(const InterfaceTable *table,
     }
 
     return new VmInterface(uuid_, name_, add_data->ip_addr_, add_data->vm_mac_,
-                           add_data->vm_name_, add_data->vlan_id_, parent);
+                           add_data->vm_name_, add_data->vm_project_uuid_,
+                           add_data->vlan_id_, parent);
 }
 
 InterfaceKey *VmInterfaceKey::Clone() const {
@@ -595,12 +596,8 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 }
 
 void VmInterface::Delete() {
-    bool old_ipv4_active = ipv4_active_;
-    bool old_l2_active = l2_active_;
-    ipv4_active_ = false;
-    l2_active_ = false;
-    ApplyConfig(old_ipv4_active, old_l2_active, policy_enabled_, 
-                vrf_.get(), ip_addr_, vxlan_id_, need_linklocal_ip_, false);
+    VmInterfaceConfigData data;
+    Resync(&data);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 
@@ -803,13 +800,18 @@ void VmInterface::ApplyConfig(bool old_ipv4_active, bool old_l2_active, bool old
                               VrfEntry *old_vrf, const Ip4Address &old_addr, 
                               int old_vxlan_id, bool old_need_linklocal_ip,
                               bool sg_changed) {
-    // Update services flag based on l3 active state
-    UpdateL3Services(ipv4_forwarding_);
-
     bool force_update = sg_changed;
     bool policy_change = (policy_enabled_ != old_policy);
 
     UpdateMulticastNextHop(old_ipv4_active || old_l2_active);
+
+    //Irrespective of interface state, if ipv4 forwarding mode is enabled
+    //enable L3 services on this interface
+    if (ipv4_forwarding_) {
+        UpdateL3Services(true);
+    } else {
+        UpdateL3Services(false);
+    }
 
     // Add/Del/Update L3 
     if (ipv4_active_ && ipv4_forwarding_) {
@@ -1111,7 +1113,7 @@ void VmInterface::UpdateL3InterfaceRoute(bool old_ipv4_active, bool force_update
         } else if (policy_change == true) {
             // If old-l3-active and there is change in policy, invoke RESYNC of
             // route to account for change in NH policy
-            Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_->GetName(),
+            Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_->GetName(),
                                                         ip_addr_, 32);
         }
     }
@@ -1278,17 +1280,10 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     struct ether_addr *addrp = ether_aton(vm_mac().c_str());
     const string &vrf_name = vrf_.get()->GetName();
 
-    int label = l2_label_;
-    int bmap = TunnelType::ComputeType(TunnelType::MplsType()); 
-    if ((l2_label_ == MplsTable::kInvalidLabel) && (vxlan_id_ != 0)) {
-        label = vxlan_id_;
-        bmap = 1 << TunnelType::VXLAN;
-    }
-
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
     Layer2AgentRouteTable::AddLocalVmRoute(agent->GetLocalVmPeer(), GetUuid(),
-                                           vn_->GetName(), vrf_name, label,
-                                           bmap, *addrp, ip_addr(), 32);
+                                           vn_->GetName(), vrf_name, l2_label_,
+                                           vxlan_id_, *addrp, ip_addr(), 32);
 }
 
 void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) {
@@ -1589,7 +1584,7 @@ void VmInterface::StaticRoute::Activate(VmInterface *interface,
     }
 
     if (installed_ == true && policy_change) {
-        Inet4UnicastAgentRouteTable::RouteResyncReq(vrf_, addr_, plen_);
+        Inet4UnicastAgentRouteTable::ReEvaluatePaths(vrf_, addr_, plen_);
     } else if (installed_ == false || force_update) {
         interface->AddRoute(vrf_, addr_, plen_, interface->policy_enabled());
     }
@@ -2130,6 +2125,7 @@ void VmInterface::SendTrace(Trace event) {
     if (vrf_) {
         intf_info.set_vrf(vrf_->GetName());
     }
+    intf_info.set_vm_project(UuidToString(vm_project_uuid_));
     OPER_TRACE(Interface, intf_info);
 }
 
@@ -2140,11 +2136,13 @@ void VmInterface::SendTrace(Trace event) {
 void VmInterface::Add(InterfaceTable *table, const uuid &intf_uuid,
                       const string &os_name, const Ip4Address &addr,
                       const string &mac, const string &vm_name,
-                      uint16_t vlan_id, const std::string &parent) {
+                      const uuid &vm_project_uuid, uint16_t vlan_id,
+                      const std::string &parent) {
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, intf_uuid,
                                      os_name));
-    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vlan_id, parent));
+    req.data.reset(new VmInterfaceAddData(addr, mac, vm_name, vm_project_uuid,
+                                          vlan_id, parent));
     table->Enqueue(&req);
 }
 

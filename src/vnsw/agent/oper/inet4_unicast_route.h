@@ -49,7 +49,6 @@ public:
     virtual string ToString() const;
     virtual KeyPtr GetDBRequestKey() const;
     virtual void SetKey(const DBRequestKey *key);
-    virtual void RouteResyncReq() const;
     virtual bool DBEntrySandesh(Sandesh *sresp) const;
     virtual const string GetAddressString() const {return addr_.to_string();};
     virtual Agent::RouteTableType GetTableType() const {
@@ -67,14 +66,14 @@ public:
     //Key for patricia node lookup 
     class Rtkey {
       public:
-          static std::size_t Length(AgentRoute *key) {
-              Inet4UnicastRouteEntry *uckey =
-                  static_cast<Inet4UnicastRouteEntry *>(key);
+          static std::size_t Length(const AgentRoute *key) {
+              const Inet4UnicastRouteEntry *uckey =
+                  static_cast<const Inet4UnicastRouteEntry *>(key);
               return uckey->GetPlen();
           }
-          static char ByteValue(AgentRoute *key, std::size_t i) {
-              Inet4UnicastRouteEntry *uckey =
-                  static_cast<Inet4UnicastRouteEntry *>(key);
+          static char ByteValue(const AgentRoute *key, std::size_t i) {
+              const Inet4UnicastRouteEntry *uckey =
+                  static_cast<const Inet4UnicastRouteEntry *>(key);
               const Ip4Address::bytes_type &addr_bytes = 
                   uckey->GetIpAddress().to_bytes();
               return static_cast<char>(addr_bytes[i]);
@@ -101,6 +100,7 @@ public:
     virtual ~Inet4UnicastAgentRouteTable() { };
 
     Inet4UnicastRouteEntry *FindLPM(const Ip4Address &ip);
+    Inet4UnicastRouteEntry *FindLPM(const Inet4UnicastRouteEntry &rt_key);
     virtual string GetTableName() const {return "Inet4UnicastAgentRouteTable";};
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::INET4_UNICAST;
@@ -120,7 +120,7 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static Inet4UnicastRouteEntry *FindRoute(const string &vrf_name, 
                                              const Ip4Address &ip);
-    static void RouteResyncReq(const string &vrf_name, 
+    static void ReEvaluatePaths(const string &vrf_name, 
                                const Ip4Address &ip, uint8_t plen);
     static void DeleteReq(const Peer *peer, const string &vrf_name,
                           const Ip4Address &addr, uint8_t plen);
@@ -240,19 +240,14 @@ private:
     DISALLOW_COPY_AND_ASSIGN(Inet4UnicastAgentRouteTable);
 };
 
-class Inet4UnicastRouteKey : public RouteKey {
+class Inet4UnicastRouteKey : public AgentRouteKey {
 public:
     Inet4UnicastRouteKey(const Peer *peer, const string &vrf_name, 
                          const Ip4Address &dip, uint8_t plen) : 
-        RouteKey(peer, vrf_name), dip_(dip), plen_(plen) { };
+        AgentRouteKey(peer, vrf_name), dip_(dip), plen_(plen) { };
     virtual ~Inet4UnicastRouteKey() { };
     //Called from oute creation in input of route table
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const;
-    //Enqueue add/chg/delete for route
-    virtual AgentRouteTable *GetRouteTableFromVrf(VrfEntry *vrf) { 
-        return (static_cast<AgentRouteTable *>
-                (vrf->GetInet4UnicastRouteTable()));
-    };
     virtual Agent::RouteTableType GetRouteTableType() {
        return Agent::INET4_UNICAST;
     }; 

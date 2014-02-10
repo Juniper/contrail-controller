@@ -198,7 +198,7 @@ public:
                     handler = boost::bind(&RequestHandler::NotFound,
                                           this, _1, _2);
                 }
-                handler(session_, request);
+                handler(session_.get(), request);
             }
 
             // If the queue was empty, do not proceed further. If new request
@@ -208,14 +208,14 @@ public:
         }
         if (del_session) {
             session_->set_observer(NULL);
-            server->DeleteSession(session_);
+            server->DeleteSession(session_.get());
             HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO, "DeleteSession");
         }
         HttpSession::task_count_--;
         return true;
     }
 private:
-    HttpSession *session_;
+    HttpSessionPtr session_;
 };
 
 HttpSession::HttpSession(HttpServer *server, Socket *socket)
@@ -252,10 +252,11 @@ void HttpSession::OnSessionEvent(TcpSession *session,
     HttpSession *h_session = dynamic_cast<HttpSession *>(session);
     assert(h_session);
 
-    tbb::mutex::scoped_lock lock(mutex_);
+    bool was_empty = false;
     switch (event) {
     case TcpSession::CLOSE:
         {
+            tbb::mutex::scoped_lock lock(mutex_);
             if (GetMap()->erase(h_session->context_str_)) {
                 HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_INFO,
                     "Removed Session " + h_session->context_str_);
@@ -267,18 +268,19 @@ void HttpSession::OnSessionEvent(TcpSession *session,
             HttpRequest *request = new HttpRequest();
             string nourl = "";
             request->SetUrl(&nourl);
-            bool was_empty = request_queue_.empty();
+            was_empty = request_queue_.empty();
             request_queue_.push(request);
-            if (was_empty) {
-                TaskScheduler *scheduler = TaskScheduler::GetInstance();
-                RequestHandler *task = new RequestHandler(this);
-                HttpSession::task_count_++;
-                scheduler->Enqueue(task);
-            }
         }
         break;
     default:
         break;
+    }
+
+    if (was_empty) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        RequestHandler *task = new RequestHandler(this);
+        HttpSession::task_count_++;
+        scheduler->Enqueue(task);
     }
 
     if (event_cb_ && !event_cb_.empty()) {
@@ -290,31 +292,34 @@ void HttpSession::OnRead(Buffer buffer) {
     const u_int8_t *data = BufferData(buffer);
     size_t size = BufferSize(buffer);
     std::stringstream msg;
-    tbb::mutex::scoped_lock lock(mutex_);
+    bool was_empty = false;
+    {
+        tbb::mutex::scoped_lock lock(mutex_);
 
-    msg << "HttpSession::Read " << size << " bytes";
-    HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, msg.str());
+        msg << "HttpSession::Read " << size << " bytes";
+        HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, msg.str());
 
-    if (context_str_.size() == 0) {
-        ReleaseBuffer(buffer);
-        return;
-    }
-    if (request_builder_.get() == NULL) {
-        request_builder_.reset(new RequestBuilder());
-    }
-    request_builder_->Parse(data, size);
-    if (request_builder_->complete()) {
-        bool was_empty = request_queue_.empty();
-        HttpRequest *request = request_builder_->GetRequest();
-        HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, request->ToString());
-        request_queue_.push(request);
-        if (was_empty) {
-            TaskScheduler *scheduler = TaskScheduler::GetInstance();
-            RequestHandler *task = new RequestHandler(this);
-            HttpSession::task_count_++;
-            scheduler->Enqueue(task);
+        if (context_str_.size() == 0) {
+            ReleaseBuffer(buffer);
+            return;
         }
-        request_builder_->Clear();
+        if (request_builder_.get() == NULL) {
+            request_builder_.reset(new RequestBuilder());
+        }
+        request_builder_->Parse(data, size);
+        if (request_builder_->complete()) {
+            was_empty = request_queue_.empty();
+            HttpRequest *request = request_builder_->GetRequest();
+            HTTP_SYS_LOG("HttpSession", SandeshLevel::UT_DEBUG, request->ToString());
+            request_queue_.push(request);
+            request_builder_->Clear();
+        }
+    }
+    if (was_empty) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        RequestHandler *task = new RequestHandler(this);
+        HttpSession::task_count_++;
+        scheduler->Enqueue(task);
     }
     // TODO: error handling
     ReleaseBuffer(buffer);

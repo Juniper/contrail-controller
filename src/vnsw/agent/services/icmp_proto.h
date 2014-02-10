@@ -19,7 +19,6 @@ public:
         void Reset() { icmp_gw_ping = icmp_gw_ping_err = icmp_drop = 0; }
     };
 
-    void Init() {}
     void Shutdown() {}
     IcmpProto(Agent *agent, boost::asio::io_service &io);
     virtual ~IcmpProto();

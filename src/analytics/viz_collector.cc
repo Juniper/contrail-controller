@@ -22,11 +22,10 @@ using boost::system::error_code;
 
 VizCollector::VizCollector(EventManager *evm, unsigned short listen_port,
             std::string cassandra_ip, unsigned short cassandra_port,
-            std::string redis_sentinel_ip, unsigned short redis_sentinel_port,
-            int syslog_port, int gen_timeout, bool dup, int analytics_ttl) :
+            const std::string redis_uve_ip, unsigned short redis_uve_port,
+            int syslog_port, bool dup, int analytics_ttl) :
     evm_(evm),
-    osp_(new OpServerProxy(evm, this, redis_sentinel_ip, 
-                           redis_sentinel_port, gen_timeout)),
+    osp_(new OpServerProxy(evm, this, redis_uve_ip, redis_uve_port)),
     db_handler_(new DbHandler(evm, boost::bind(&VizCollector::StartDbifReinit, this),
                 cassandra_ip, cassandra_port, analytics_ttl, DbifGlobalName(dup))),
     ruleeng_(new Ruleeng(db_handler_.get(), osp_.get())),
@@ -109,7 +108,11 @@ void VizCollector::Shutdown() {
     TimerManager::DeleteTimer(dbif_timer_);
     dbif_timer_ = NULL;
 
+    syslog_listener_->Shutdown ();
+    TcpServerManager::DeleteServer(syslog_listener_); //delete syslog_listener_;
+
     db_handler_->UnInit(true);
+    LOG(DEBUG, __func__ << " viz_collector done");
 }
 
 bool VizCollector::DbifReinitTimerExpired() {

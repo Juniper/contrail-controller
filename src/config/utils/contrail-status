@@ -147,7 +147,7 @@ if test "$capi"; then
   (supervisorctl -s http://localhost:9004 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9004 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'
 fi
 
-if test "$contrail-webui"; then
+if test "$cwebui"; then
   printf "== Contrail Web UI ==\n"
   check_svc supervisor-webui
   (supervisorctl -s http://localhost:9008 status | grep "refused connection" > /dev/null) ||  supervisorctl -s http://localhost:9008 status| cut  -c1-40 | sed -e 's/   RUNNING/active/g' | sed -e 's/   STOPPED/inactive/g' | sed -e 's/   FATAL/failed/g'

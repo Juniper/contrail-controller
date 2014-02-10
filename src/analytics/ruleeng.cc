@@ -246,7 +246,8 @@ bool Ruleeng::handle_uve_publish(const RuleMsg& rmsg, DbHandler *db) {
 
                 for (pugi::xml_node elem = subs.first_child(); elem;
                         elem = elem.next_sibling()) {
-
+                    if (tstr.empty()) continue;
+         
                     DbHandler::TagMap tmap;
                     size_t pos;
                     size_t npos = 0;

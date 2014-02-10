@@ -19,6 +19,7 @@ public:
         }
         return NULL;
     }
+    UveVirtualMachineAgent* uve_info() { return &uve_info_; }
 private:
     DISALLOW_COPY_AND_ASSIGN(VmUveEntryTest);
 };

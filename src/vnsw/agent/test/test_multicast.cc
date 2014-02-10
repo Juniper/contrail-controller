@@ -108,6 +108,16 @@ TEST_F(CfgTest, McastSubnet_1) {
     AddArp("8.8.8.8", "00:00:08:08:08:08", Agent::GetInstance()->GetIpFabricItfName().c_str());
     client->WaitForIdle();
 
+    //Verify sandesh
+    Inet4McRouteReq *mc_list_req = new Inet4McRouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    mc_list_req->set_vrf_index(1);
+    mc_list_req->HandleRequest();
+    client->WaitForIdle();
+    mc_list_req->Release();
+    client->WaitForIdle();
+
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
