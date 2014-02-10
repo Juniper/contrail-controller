@@ -596,12 +596,8 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 }
 
 void VmInterface::Delete() {
-    bool old_ipv4_active = ipv4_active_;
-    bool old_l2_active = l2_active_;
-    ipv4_active_ = false;
-    l2_active_ = false;
-    ApplyConfig(old_ipv4_active, old_l2_active, policy_enabled_, 
-                vrf_.get(), ip_addr_, vxlan_id_, need_linklocal_ip_, false);
+    VmInterfaceConfigData data;
+    Resync(&data);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 

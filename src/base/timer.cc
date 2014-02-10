@@ -71,7 +71,7 @@ private:
 
 Timer::Timer(boost::asio::io_service &service, const std::string &name,
           int task_id, int task_instance)
-    : boost::asio::deadline_timer(service), name_(name), handler_(NULL),
+    : boost::asio::monotonic_deadline_timer(service), name_(name), handler_(NULL),
     error_handler_(NULL), state_(Init), timer_task_(NULL), time_(0),
     task_id_(task_id), task_instance_(task_instance), seq_no_(0) {
     refcount_ = 0;
@@ -136,7 +136,7 @@ bool Timer::Cancel() {
 }
 
 // ASIO callback on timer expiry. Start a task to serve the timer
-void Timer::StartTimerTask(boost::asio::deadline_timer* t, TimerPtr timer,
+void Timer::StartTimerTask(boost::asio::monotonic_deadline_timer* t, TimerPtr timer,
                            int time, uint32_t seq_no, 
                            const boost::system::error_code &ec) {
     tbb::mutex::scoped_lock lock(timer->mutex_);

@@ -887,7 +887,9 @@ void BgpConfigManager::ProcessRoutingInstance(const BgpConfigDelta &delta) {
     } else {
         IFMapNode *node = rti->node();
         if (node == NULL) {
-            rti->SetNodeProxy(delta.node.get());
+            IFMapNodeProxy *proxy = delta.node.get();
+            if (proxy == NULL) return;
+            rti->SetNodeProxy(proxy);
         } else if (node->IsDeleted() || !node->HasAdjacencies(db_graph_)) {
             rti->ResetConfig();
             if (rti->DeleteIfEmpty(this)) {

@@ -328,8 +328,11 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
 
     autogen::Domain *domain = dynamic_cast<autogen::Domain *>(obj);
     ASSERT_TRUE(domain != NULL);
+    TASK_UTIL_EXPECT_TRUE(domain->IsPropertySet(autogen::Domain::LIMITS));
     bool bret = domain->IsPropertySet(autogen::Domain::LIMITS);
     ASSERT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_TRUE(
+        domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST));
     bret = domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST);
     ASSERT_TRUE(bret == true);
 
@@ -353,8 +356,11 @@ TEST_F(IFMapRestartTest, PropertiesTest) {
     // LIMITS should be set but API_ACCESS_LIST should not be
     domain = dynamic_cast<autogen::Domain *>(obj);
     ASSERT_TRUE(domain != NULL);
+    TASK_UTIL_EXPECT_TRUE(domain->IsPropertySet(autogen::Domain::LIMITS));
     bret = domain->IsPropertySet(autogen::Domain::LIMITS);
     ASSERT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_FALSE(
+        domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST));
     bret = domain->IsPropertySet(autogen::Domain::API_ACCESS_LIST);
     ASSERT_TRUE(bret == false);
 
@@ -452,8 +458,11 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     // Check if the properties are set
     autogen::VirtualNetwork *vn = dynamic_cast<autogen::VirtualNetwork *>(obj);
     EXPECT_TRUE(vn != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES));
     bool bret = vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES);
     EXPECT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_TRUE(vn->IsPropertySet(autogen::VirtualNetwork::ID_PERMS));
     bret = vn->IsPropertySet(autogen::VirtualNetwork::ID_PERMS);
     EXPECT_TRUE(bret == true);
 
@@ -476,8 +485,11 @@ TEST_F(IFMapRestartTest, LinkAttrWithProperties) {
     // Check if the properties are set
     autogen::NetworkIpam *nwipam = dynamic_cast<autogen::NetworkIpam *>(obj);
     EXPECT_TRUE(nwipam != NULL);
+    TASK_UTIL_EXPECT_TRUE(nwipam->IsPropertySet(autogen::NetworkIpam::MGMT));
     bret = nwipam->IsPropertySet(autogen::NetworkIpam::MGMT);
     EXPECT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_TRUE(
+        nwipam->IsPropertySet(autogen::NetworkIpam::ID_PERMS));
     bret = nwipam->IsPropertySet(autogen::NetworkIpam::ID_PERMS);
     EXPECT_TRUE(bret == true);
 
@@ -579,8 +591,11 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
     // Check if the properties are set
     autogen::VirtualNetwork *vn = dynamic_cast<autogen::VirtualNetwork *>(obj);
     EXPECT_TRUE(vn != NULL);
+    TASK_UTIL_EXPECT_TRUE(
+        vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES));
     bool bret = vn->IsPropertySet(autogen::VirtualNetwork::PROPERTIES);
     EXPECT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_TRUE(vn->IsPropertySet(autogen::VirtualNetwork::ID_PERMS));
     bret = vn->IsPropertySet(autogen::VirtualNetwork::ID_PERMS);
     EXPECT_TRUE(bret == true);
 
@@ -603,8 +618,11 @@ TEST_F(IFMapRestartTest, MultipleAttrChangesWithSeqNumChange) {
     // Check if the properties are set
     autogen::NetworkIpam *nwipam = dynamic_cast<autogen::NetworkIpam *>(obj);
     EXPECT_TRUE(nwipam != NULL);
+    TASK_UTIL_EXPECT_TRUE(nwipam->IsPropertySet(autogen::NetworkIpam::MGMT));
     bret = nwipam->IsPropertySet(autogen::NetworkIpam::MGMT);
     EXPECT_TRUE(bret == true);
+    TASK_UTIL_EXPECT_TRUE(
+        nwipam->IsPropertySet(autogen::NetworkIpam::ID_PERMS));
     bret = nwipam->IsPropertySet(autogen::NetworkIpam::ID_PERMS);
     EXPECT_TRUE(bret == true);
 

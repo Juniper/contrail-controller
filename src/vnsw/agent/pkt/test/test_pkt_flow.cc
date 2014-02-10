@@ -738,6 +738,22 @@ TEST_F(FlowTest, FlowAdd_6) {
     EXPECT_EQ(2U, out_count);
 }
 
+// Validate short flows
+TEST_F(FlowTest, ShortFlow_1) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {
+                new ShortFlow()
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+}
+
 TEST_F(FlowTest, FlowAge_1) {
     int tmp_age_time = 10 * 1000;
     int bkp_age_time = 
