@@ -45,20 +45,6 @@ DBTableBase *Layer2AgentRouteTable::CreateTable(DB *db,
     return table;
 }
 
-Layer2RouteEntry *
-Layer2AgentRouteTable::FindRoute(const string &vrf_name, 
-                                 const struct ether_addr &mac) {
-    VrfEntry *vrf = 
-        Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-    Layer2AgentRouteTable *rt_table = 
-        static_cast<Layer2AgentRouteTable *>
-        (vrf->GetLayer2RouteTable());
-    Layer2RouteKey *rt_key = 
-        new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
-                           vrf_name, mac);
-    return static_cast<Layer2RouteEntry *>(rt_table->Find(rt_key));
-}
-
 AgentRoute *
 Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {

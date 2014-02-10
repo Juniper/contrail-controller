@@ -39,11 +39,19 @@
 #include "vr_types.h"
 #include <controller/controller_export.h> 
 #include <ksync/ksync_sock_user.h> 
+#include <boost/assign/list_of.hpp>
+
+using namespace boost::assign;
 
 #define NULL_VRF ""
 #define ZERO_IP "0.0.0.0"
 
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 class IntfTest : public ::testing::Test {
@@ -202,6 +210,14 @@ TEST_F(IntfTest, basic_1) {
     EXPECT_TRUE(VmPortActive(input1, 0));
     EXPECT_TRUE(VmPortFind(8));
     client->Reset();
+
+    ItfReq *itf_list_req = new ItfReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    itf_list_req->HandleRequest();
+    client->WaitForIdle();
+    itf_list_req->Release();
+    client->WaitForIdle();
 
     DeleteVmportEnv(input1, 1, true);
     client->WaitForIdle();

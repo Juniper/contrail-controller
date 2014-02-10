@@ -34,10 +34,16 @@
 #include "vr_types.h"
 
 #include <controller/controller_export.h> 
-
+#include <boost/assign/list_of.hpp> 
+using namespace boost::assign;
 std::string eth_itf;
 
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 class RouteTest : public ::testing::Test {
@@ -243,6 +249,46 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, Mpls_sandesh_check_with_l2route) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    client->Reset();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortL2Active(input, 0));
+    MulticastGroupObject *obj = 
+        MulticastHandler::GetInstance()->FindFloodGroupObject("vrf1");
+    EXPECT_TRUE(obj != NULL);
+    EXPECT_TRUE(obj->Ipv4Forwarding() == false);
+    EXPECT_TRUE(obj->layer2_forwarding() == true);
+    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+
+    MplsReq *mpls_list_req = new MplsReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    mpls_list_req->HandleRequest();
+    client->WaitForIdle();
+    mpls_list_req->Release();
+    client->WaitForIdle();
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    int i = 0;
+    while(L2RouteFind(vrf_name_, *local_vm_mac_) == true && ++i < 25) {
+        client->WaitForIdle();
+    }
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+}
+
 TEST_F(RouteTest, RemoteVmRoute_1) {
     client->Reset();
     VxLanNetworkIdentifierMode(false);
@@ -257,6 +303,15 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
 
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *remote_vm_mac_);
     EXPECT_TRUE(rt->GetMplsLabel() == MplsTable::kStartLabel);
+
+    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    l2_req->set_vrf_index(1);
+    l2_req->HandleRequest();
+    client->WaitForIdle();
+    l2_req->Release();
+    client->WaitForIdle();
 
     const NextHop *nh = rt->GetActiveNextHop();
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -314,6 +369,14 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     EXPECT_TRUE(rt->GetActivePath()->GetTunnelType() == 
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
+    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    l2_req->set_vrf_index(1);
+    l2_req->HandleRequest();
+    client->WaitForIdle();
+    l2_req->Release();
+    client->WaitForIdle();
 
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
     client->WaitForIdle();
@@ -354,6 +417,14 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     bmap = 1 << TunnelType::VXLAN;
     AddRemoteVmRoute(vxlan_vm_mac, server1_ip_, 1, bmap);
     EXPECT_TRUE(L2RouteFind(vrf_name_, *vxlan_vm_mac));
+    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    l2_req->set_vrf_index(1);
+    l2_req->HandleRequest();
+    client->WaitForIdle();
+    l2_req->Release();
+    client->WaitForIdle();
 
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
     const NextHop *nh = rt->GetActiveNextHop();
