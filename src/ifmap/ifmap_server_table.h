@@ -56,6 +56,8 @@ public:
         const std::string &vm_name, bool subscribe, bool has_vms);
     void IFMapAddVrVmLink(IFMapNode *vr_node, IFMapNode *vm_node);
     void IFMapRemoveVrVmLink(IFMapNode *vr_node, IFMapNode *vm_node);
+    static void RemoveObjectAndDeleteNode(IFMapNode *node,
+                                          const IFMapOrigin &origin);
 
 private:
     IFMapNode *EntryLocate(RequestKey *key, bool *changep);
