@@ -381,7 +381,7 @@ Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     false, vn_name,
                                     InterfaceNHFlags::INET4, sg_list));
 
@@ -401,7 +401,7 @@ Inet4UnicastAgentRouteTable::AddLocalVmRoute(const Peer *peer,
     req.key.reset(new Inet4UnicastRouteKey(peer, vm_vrf, addr, plen));
 
     VmInterfaceKey intf_key(AgentKey::ADD_DEL_CHANGE, intf_uuid, "");
-    req.data.reset(new LocalVmRoute(intf_key, label, TunnelType::AllType(),
+    req.data.reset(new LocalVmRoute(intf_key, label, VxLanTable::kInvalidvxlan_id,
                                     false, vn_name, InterfaceNHFlags::INET4,
                                     sg_list));
 
