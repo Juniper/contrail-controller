@@ -430,7 +430,7 @@ protected:
             return;
         }
         bool is_expired = false;
-        boost::asio::deadline_timer timer(*evm_.io_service());
+        boost::asio::monotonic_deadline_timer timer(*evm_.io_service());
         timer.expires_from_now(boost::posix_time::seconds(timeout));
         timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout, 
                          boost::asio::placeholders::error, &is_expired));

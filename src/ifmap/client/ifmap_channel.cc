@@ -147,7 +147,7 @@ void IFMapChannel::set_connection_status(ConnectionStatus status) {
 
 // Will run in the context of the main task
 void IFMapChannel::CloseSockets(const boost::system::error_code& error,
-        boost::asio::deadline_timer *socket_close_timer) {
+        boost::asio::monotonic_deadline_timer *socket_close_timer) {
     // operation_aborted is the only possible error. Since we are not going to
     // cancel this timer, we should never really get an error.
     if (error) {
@@ -215,8 +215,8 @@ void IFMapChannel::ReconnectPreparationInMainThr() {
     // in the main task context.
     // Create the timer on the heap so that we release all resources correctly
     // even when we are called multiple times.
-    boost::asio::deadline_timer *socket_close_timer = 
-        new boost::asio::deadline_timer(*manager_->io_service());
+    boost::asio::monotonic_deadline_timer *socket_close_timer = 
+        new boost::asio::monotonic_deadline_timer(*manager_->io_service());
     socket_close_timer->expires_from_now(
         boost::posix_time::seconds(kSocketCloseTimeout), ec);
     socket_close_timer->async_wait(
