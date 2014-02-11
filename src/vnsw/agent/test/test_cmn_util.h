@@ -9,6 +9,15 @@
 
 static const int kProjectUuid = 101;
 
+struct TestLinkLocalService {
+    std::string linklocal_name;
+    std::string linklocal_ip;
+    uint16_t    linklocal_port;
+    std::string fabric_dns_name;
+    std::vector<std::string> fabric_ip;
+    uint16_t    fabric_port;
+};
+
 uuid MakeUuid(int id);
 void DelXmlHdr(char *buff, int &len);
 void DelXmlTail(char *buff, int &len);
@@ -148,6 +157,8 @@ void AddIPAM(const char *name, IpamInfo *ipam, int size, const char *ipam_attr =
 void DelIPAM(const char *name, const char *vdns_name = NULL);
 void AddVDNS(const char *vdns_name, const char *vdns_attr);
 void DelVDNS(const char *vdns_name);
+void AddLinkLocalConfig(const TestLinkLocalService *services, int count);
+void DelLinkLocalConfig();
 TestClient *StatsTestInit();
 void send_icmp(int fd, uint8_t smac, uint8_t dmac, uint32_t sip, uint32_t dip);
 bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts);

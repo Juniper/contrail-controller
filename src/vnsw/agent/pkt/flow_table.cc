@@ -106,7 +106,8 @@ static void SetAclListAceId(const AclDBEntry *acl, const std::list<MatchAclParam
 
 FlowEntry::FlowEntry(const FlowKey &k) : 
     key_(k), data_(), stats_(), flow_handle_(kInvalidFlowHandle),
-    deleted_(false), flags_(0) {
+    deleted_(false), flags_(0), linklocal_src_port_(),
+    linklocal_src_port_fd_(PktFlowInfo::kLinkLocalInvalidFd) {
     flow_uuid_ = FlowTable::rand_gen_(); 
     egress_uuid_ = FlowTable::rand_gen_(); 
     refcount_ = 0;
@@ -836,6 +837,13 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
 
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
         return;
+    }
+    if (info->linklocal_src_port) {
+        linklocal_src_port_ = info->nat_sport;
+        linklocal_src_port_fd_ = info->linklocal_src_port_fd;
+        set_flags(FlowEntry::LinkLocalSrcPort);
+    } else {
+        reset_flags(FlowEntry::LinkLocalSrcPort);
     }
     reset_flags(FlowEntry::ReverseFlow);
     stats_.intf_in = pkt->GetAgentHdr().ifindex;

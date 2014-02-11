@@ -220,10 +220,17 @@ class FlowEntry {
         ReverseFlow     = 1 << 4,
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
-        Trap            = 1 << 7
+        Trap            = 1 << 7,
+        LinkLocalSrcPort = 1 << 8 // a local port bind is done
+                                  // (used as src port for linklocal nat)
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
+        if (is_flags_set(FlowEntry::LinkLocalSrcPort) &&
+            linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
+            close(linklocal_src_port_fd_);
+            linklocal_src_port_fd_ = PktFlowInfo::kLinkLocalInvalidFd;
+        }
         alloc_count_.fetch_and_decrement();
     };
 
@@ -283,6 +290,8 @@ class FlowEntry {
     void InitAuditFlow(uint32_t flow_idx);
     void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; }
     void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
+    int linklocal_src_port() const { return linklocal_src_port_; }
+    int linklocal_src_port_fd() const { return linklocal_src_port_fd_; }
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;
@@ -302,6 +311,10 @@ private:
     static tbb::atomic<int> alloc_count_;
     bool deleted_;
     uint32_t flags_;
+    // linklocal port - used as nat src port, agent locally binds to this port
+    uint16_t linklocal_src_port_;
+    // fd of the socket used to locally bind in case of linklocal
+    int linklocal_src_port_fd_;
     // atomic refcount
     tbb::atomic<int> refcount_;
 };

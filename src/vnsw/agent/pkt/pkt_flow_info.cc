@@ -304,6 +304,34 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_dest_vrf = pkt->vrf;
 }
 
+// For link local services, we bind to a local port & use it as NAT source port.
+// The socket is closed when the flow entry is deleted.
+uint32_t PktFlowInfo::LinkLocalBindPort(uint8_t proto) {
+    struct sockaddr_in address;
+    socklen_t len = sizeof(address);
+    memset(&address, '0', sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr =
+        htonl(Agent::GetInstance()->GetRouterId().to_ulong());
+    address.sin_port = 0;
+
+    if (proto == IPPROTO_TCP) {
+        linklocal_src_port_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    } else if (proto == IPPROTO_UDP) {
+        linklocal_src_port_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    }
+
+    struct sockaddr_in bound_to;
+    if ((linklocal_src_port_fd == -1) ||
+        (bind(linklocal_src_port_fd, (struct sockaddr*) &address,
+              sizeof(address)) == -1) ||
+        (getsockname(linklocal_src_port_fd, (struct sockaddr*) &bound_to,
+                     &len) == -1)) {
+        return 0;
+    }
+    return ntohs(bound_to.sin_port);
+}
+
 void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
                                          PktControlInfo *out) {
     const VmInterface *vm_port = 
@@ -335,11 +363,15 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
         // the packet not coming to vrouter for reverse NAT.
         // Destination would be local host (FindLinkLocalService returns this)
         nat_ip_saddr = vm_port->mdata_ip_addr().to_ulong();
+        nat_sport = pkt->sport;
     } else {
         nat_ip_saddr = Agent::GetInstance()->GetRouterId().to_ulong();
+        // we bind to a local port & use it as NAT source port (cannot use
+        // incoming src port)
+        nat_sport = LinkLocalBindPort(pkt->ip_proto);
+        linklocal_src_port = true;
     }
     nat_ip_daddr = nat_server.to_ulong();
-    nat_sport = pkt->sport;
     nat_dport = nat_port;
 
     nat_vrf = dest_vrf;

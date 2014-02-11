@@ -1472,6 +1472,58 @@ void DelVDNS(const char *vdns_name) {
     ApplyXmlString(buff);
 }
 
+void AddLinkLocalConfig(const TestLinkLocalService *services, int count) {
+    std::stringstream global_config;
+    global_config << "<linklocal-services>\n";
+    for (int i = 0; i < count; ++i) {
+        global_config << "<linklocal-service-entry>\n";
+        global_config << "<linklocal-service-name>";
+        global_config << services[i].linklocal_name;
+        global_config << "</linklocal-service-name>\n";
+        global_config << "<linklocal-service-ip>";
+        global_config << services[i].linklocal_ip;
+        global_config << "</linklocal-service-ip>\n";
+        global_config << "<linklocal-service-port>";
+        global_config << services[i].linklocal_port;
+        global_config << "</linklocal-service-port>\n";
+        global_config << "<ip-fabric-DNS-service-name>";
+        global_config << services[i].fabric_dns_name;
+        global_config << "</ip-fabric-DNS-service-name>\n";
+        for (uint32_t j = 0; j < services[i].fabric_ip.size(); ++j) {
+            global_config << "<ip-fabric-service-ip>";
+            global_config << services[i].fabric_ip[j];
+            global_config << "</ip-fabric-service-ip>\n";
+        }
+        global_config << "<ip-fabric-service-port>";
+        global_config << services[i].fabric_port;
+        global_config << "</ip-fabric-service-port>\n";
+        global_config << "</linklocal-service-entry>\n";
+    }
+    global_config << "</linklocal-services>";
+
+    char buf[8192];
+    int len = 0;
+    memset(buf, 0, 8192);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, global_config.str().c_str());
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
+void DelLinkLocalConfig() {
+    char buf[4096];
+    int len = 0;
+    memset(buf, 0, 4096);
+    AddXmlHdr(buf, len);
+    AddNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config",
+                  1024, "");
+    AddXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
 void VxLanNetworkIdentifierMode(bool config) {
     std::stringstream str;
     if (config) {
