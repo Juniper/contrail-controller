@@ -589,6 +589,9 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             break;
 
         case NextHop::RECEIVE:
+            if (!policy_) {
+                flags |= NH_FLAG_RELAXED_POLICY;
+            }
             intf_id = if_ksync->interface_id();
             encoder.set_nhr_encap_oif_id(intf_id);
             encoder.set_nhr_type(NH_RCV);
