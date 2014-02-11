@@ -135,6 +135,8 @@ public:
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
     static void IfStatsSet(int, int, int, int, int, int, int);
+    static void VrfAssignAdd(vr_vrf_assign_req &req);
+    static void VrfAssignDelete(vr_vrf_assign_req &req);
     static void VrfStatsAdd(int vrf_id);
     static void VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
                                uint64_t receives, uint64_t udp_tunnels, 
@@ -146,6 +148,11 @@ public:
                                int64_t l3_mcast_composites,
                                int64_t multi_proto_composites,
                                uint64_t encaps, uint64_t l2_encaps);
+    static void VrfStatsDelete(int vrf_id);
+    static void VxlanAdd(int id);
+    static void VxlanDelete(int id);
+
+    static void SetDropStats(const vr_drop_stats_req &req);
     static int IfCount();
     static int NHCount();
     static int MplsCount();
