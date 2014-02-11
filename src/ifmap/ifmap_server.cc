@@ -238,7 +238,7 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
         ClientRegister(client);
     } else {
         ClientGraphCleanup(client);
-        RemoveSelfAddedLinks(client);
+        RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
         ClientUnregister(client);
     }
@@ -307,7 +307,7 @@ void IFMapServer::CleanupUuidMapper(IFMapClient *client) {
     }
 }
 
-void IFMapServer::RemoveSelfAddedLinks(IFMapClient *client) {
+void IFMapServer::RemoveSelfAddedLinksAndObjects(IFMapClient *client) {
     IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
         db_->FindTable("__ifmap__.virtual_router.0"));
     assert(vr_table != NULL);
