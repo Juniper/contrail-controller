@@ -238,7 +238,7 @@ bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
         ClientRegister(client);
     } else {
         ClientGraphCleanup(client);
-        RemoveSelfAddedLinks(client);
+        RemoveSelfAddedLinksAndObjects(client);
         CleanupUuidMapper(client);
         ClientUnregister(client);
     }
@@ -307,21 +307,24 @@ void IFMapServer::CleanupUuidMapper(IFMapClient *client) {
     }
 }
 
-void IFMapServer::RemoveSelfAddedLinks(IFMapClient *client) {
+void IFMapServer::RemoveSelfAddedLinksAndObjects(IFMapClient *client) {
     IFMapServerTable *vr_table = static_cast<IFMapServerTable *>(
         db_->FindTable("__ifmap__.virtual_router.0"));
     assert(vr_table != NULL);
 
     IFMapNode *node = vr_table->FindNode(client->identifier());
     if ((node != NULL) && node->IsVertexValid()) {
+        IFMapOrigin origin(IFMapOrigin::XMPP);
         for (DBGraphVertex::adjacency_iterator iter = node->begin(graph_), next;
             iter != node->end(graph_); iter = next) {
             IFMapNode *adj = static_cast<IFMapNode *>(iter.operator->());
             next = ++iter;
             if (adj->table()->name() == "__ifmap__.virtual_machine.0") {
                 vr_table->IFMapRemoveVrVmLink(node, adj);
+                IFMapServerTable::RemoveObjectAndDeleteNode(adj, origin);
             }
         }
+        IFMapServerTable::RemoveObjectAndDeleteNode(node, origin);
     }
 }
 
