@@ -390,6 +390,8 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(RouteFind(vrf_name_, local_vm_ip_, 32));
     Inet4UnicastRouteEntry *rt = RouteGet(vrf_name_, local_vm_ip_, 32);
     EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->vxlan_id() == VxLanTable::kInvalidvxlan_id);
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 
