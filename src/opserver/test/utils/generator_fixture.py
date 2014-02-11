@@ -91,8 +91,8 @@ class GeneratorFixture(fixtures.Fixture):
         if ts:
             flow_object._timestamp = ts
         flow_object.send(sandesh=self._sandesh_instance)
+        flow.samples.append(flow_object)
     # end send_flow_stat
-
 
     def generate_flow_samples(self):
         self.flows = []
@@ -109,6 +109,7 @@ class GeneratorFixture(fixtures.Fixture):
                                            destip=0x0A0A0A02,
                                            sport=i + 10, dport=i + 100,
                                            protocol=i / 2))
+            self.flows[i].samples = []
             self._logger.info(str(self.flows[i]))
 
         # 'duration' - lifetime of the flow in seconds
@@ -156,7 +157,6 @@ class GeneratorFixture(fixtures.Fixture):
                 self.send_flow_stat(self.flows[cnt], bytes, pkts, ts)
             cnt += 1
     # end generate_flow_samples
-
 
     def send_vn_uve(self, vrouter, vn_id, num_vns):
         intervn_list = []
