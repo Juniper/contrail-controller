@@ -42,7 +42,6 @@ struct RedisReplyMsg : public ssm::Message {
 
 class Generator {
 public:
-    Generator(boost::shared_ptr<DbHandler> db_handler);
     virtual ~Generator() {}
 
     virtual const std::string ToString() const = 0;
@@ -51,9 +50,8 @@ public:
             bool rsc) = 0;
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
+    virtual DbHandler *GetDbHandler () = 0; // db_handler_;
 
-protected:
-    boost::shared_ptr<DbHandler> db_handler_;
 
 private:
     void UpdateMessageTypeStats(VizMsg *vmsg);
@@ -116,6 +114,7 @@ public:
     void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
     void StartDbifReinit();
+    virtual DbHandler *GetDbHandler () { return db_handler_.get (); }
 
 private:
     virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
@@ -154,15 +153,17 @@ private:
     Timer *db_connect_timer_;
     Timer *del_wait_timer_;
     tbb::atomic<bool> disconnected_;
+    boost::scoped_ptr<DbHandler> db_handler_;
 };
 
 class SyslogGenerator : public Generator {
   public:
     SyslogGenerator (SyslogListeners *const listeners,
-        const std::string &source, const std::string &module);
+        const std::string source, const std::string module);
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
+    virtual DbHandler *GetDbHandler () { return db_handler_; }
   private:
     virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
 
@@ -170,6 +171,7 @@ class SyslogGenerator : public Generator {
     const std::string source_;
     const std::string module_;
     const std::string name_;
+    DbHandler *db_handler_;
 };
 
 #endif
