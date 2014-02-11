@@ -266,7 +266,7 @@ public:
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
-    static void EncapPrioritySync(const std::vector<std::string> &cfg_list);
+    static bool EncapPrioritySync(const std::vector<std::string> &cfg_list);
     static void DeletePriorityList();
 
 private:
@@ -976,6 +976,10 @@ struct ComponentNH {
         return nh_->ToString();
     }
 
+    void SetNH(NextHop *nh) {
+        nh_ = nh;
+    }
+
     const NextHop* GetNH() const {
         return nh_.get();
     }
@@ -1061,9 +1065,10 @@ public:
     enum operation {
         ADD,
         DELETE,
-        REPLACE
+        REPLACE,
+        REBAKE
     };
-    CompositeNHData() : NextHopData(), op_(REPLACE) { };
+    CompositeNHData(operation op) : NextHopData(), op_(op) { };
     CompositeNHData(const std::vector<ComponentNHData> &data, operation op) : 
         NextHopData(), data_(data), op_(op) {};
 private:

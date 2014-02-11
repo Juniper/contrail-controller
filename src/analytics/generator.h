@@ -48,14 +48,27 @@ public:
     bool ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc);
     virtual bool ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
             bool rsc) = 0;
+    void GetSandeshStats(std::vector<SandeshMessageInfo> &sms);
     void GetMessageTypeStats(std::vector<SandeshStats> &ssv) const;
     void GetLogLevelStats(std::vector<SandeshLogLevelStats> &lsv) const;
     virtual DbHandler *GetDbHandler () = 0; // db_handler_;
 
 
 private:
+    void UpdateMessageStats(VizMsg *vmsg);
     void UpdateMessageTypeStats(VizMsg *vmsg);
     void UpdateLogLevelStats(VizMsg *vmsg);
+    struct MessageStats {
+	/*Initializing atomics in initialization list does not work
+         * Please refer http://software.intel.com/en-us/forums/topic/287865
+         */
+        MessageStats(){messages_ = 0;bytes_ = 0;}
+        tbb::atomic<uint64_t> messages_;
+        tbb::atomic<uint64_t> bytes_;
+    };
+    typedef boost::ptr_map<std::pair<std::string,std::string> /*Messagetype and log level*/, MessageStats> MessageStatsMap;
+    MessageStatsMap sandesh_stats_map_;
+    MessageStatsMap sandesh_stats_map_old_;
 
     struct Stats {
         Stats() : messages_(0), bytes_(0), last_msg_timestamp_(0) {}
@@ -128,7 +141,6 @@ private:
     void HandleSeqRedisReply(const std::map<std::string,int32_t> &typeMap);
     void HandleDelRedisReply(bool res);
     void TimerErrorHandler(std::string name, std::string error);
-    bool DelWaitTimerExpired();
 
     bool DbConnectTimerExpired();
     void Start_Db_Connect_Timer();
@@ -151,7 +163,6 @@ private:
     const std::string name_;
 
     Timer *db_connect_timer_;
-    Timer *del_wait_timer_;
     tbb::atomic<bool> disconnected_;
     boost::scoped_ptr<DbHandler> db_handler_;
 };

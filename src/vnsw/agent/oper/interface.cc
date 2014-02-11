@@ -151,15 +151,25 @@ Interface *InterfaceTable::FindInterfaceFromMetadataIp(const Ip4Address &ip) {
     return index_table_.At(addr & 0xFF);
 }
 
+Interface *InterfaceTable::FindInterface(size_t index) {
+    Interface *intf = index_table_.At(index);
+    if (intf && intf->IsDeleted() != true) {
+        return intf;
+    }
+    return NULL;
+}
+
 bool InterfaceTable::FindVmUuidFromMetadataIp(const Ip4Address &ip,
                                               std::string *vm_ip,
-                                              std::string *vm_uuid) {
+                                              std::string *vm_uuid,
+                                              std::string *vm_project_uuid) {
     Interface *intf = FindInterfaceFromMetadataIp(ip);
     if (intf && intf->type() == Interface::VM_INTERFACE) {
         const VmInterface *vintf = static_cast<const VmInterface *>(intf);
         *vm_ip = vintf->ip_addr().to_string();
         if (vintf->vm()) {
             *vm_uuid = UuidToString(vintf->vm()->GetUuid());
+            *vm_project_uuid = UuidToString(vintf->vm_project_uuid());
             return true;
         }
     }
@@ -504,6 +514,7 @@ void Interface::SetItfSandeshData(ItfSandeshData &data) const {
         }
         data.set_sg_uuid_list(intf_sg_uuid_l);
         data.set_vm_name(vintf->vm_name());
+        data.set_vm_project_uuid(UuidToString(vintf->vm_project_uuid()));
         break;
     }
     case Interface::INET:

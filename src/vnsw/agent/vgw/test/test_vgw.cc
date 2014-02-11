@@ -192,6 +192,24 @@ TEST_F(VgwTest, vn_route_1) {
     ValidateVgwInterface(route, "vgw1");
 }
 
+//Gateway vrf should not be deleted
+TEST_F(VgwTest, vrf_delete) {
+    //Add IF Nodes
+    AddVrf("default-domain:admin:public:public");
+    AddVrf("default-domain:admin:public1:public1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VrfFind("default-domain:admin:public:public"));
+    EXPECT_TRUE(VrfFind("default-domain:admin:public1:public1"));
+
+    DelVrf("default-domain:admin:public:public");
+    DelVrf("default-domain:admin:public1:public1");
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VrfFind("default-domain:admin:public:public"));
+    EXPECT_TRUE(VrfFind("default-domain:admin:public1:public1"));
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 

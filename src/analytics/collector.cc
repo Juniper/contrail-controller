@@ -231,40 +231,25 @@ bool Collector::ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
     vsession->gen_ = gen;
 
     std::vector<UVETypeInfo> vu;
-    if (snh->get_sucessful_connections() > 1) {
-        std::map<std::string, int32_t> seqReply;
-        bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
-                        snh->get_module_name(), snh->get_instance_id_name(),
-                        seqReply);
-        if (retc) {
-            for (map<string,int32_t>::const_iterator it = seqReply.begin();
-                    it != seqReply.end(); it++) {
-                UVETypeInfo uti;
-                uti.set_type_name(it->first);
-                uti.set_seq_num(it->second);
-                vu.push_back(uti);
-            }
-            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        } else {
-            increment_redis_error();
-            LOG(ERROR, "OSP GetSeq FAILED: " << gen->ToString() <<
-                " Session:" << vsession->ToString());
-            gen->DisconnectSession(vsession);
-            return false;
+    std::map<std::string, int32_t> seqReply;
+    bool retc = osp_->GetSeq(snh->get_source(), snh->get_node_type_name(),
+                             snh->get_module_name(), snh->get_instance_id_name(),
+                             seqReply);
+    if (retc) {
+        for (map<string,int32_t>::const_iterator it = seqReply.begin();
+             it != seqReply.end(); it++) {
+            UVETypeInfo uti;
+            uti.set_type_name(it->first);
+            uti.set_seq_num(it->second);
+            vu.push_back(uti);
         }
-
+        SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
     } else {
-        bool retc = osp_->DeleteUVEs(snh->get_source(), snh->get_node_type_name(),
-                        snh->get_module_name(), snh->get_instance_id_name());
-        if (retc) {
-            SandeshCtrlServerToClient::Request(vu, retc, "ctrl", vsession->connection());
-        } else {
-            increment_redis_error();
-            LOG(ERROR, "OSP DeleteUVEs FAILED: " << gen->ToString() <<
-                " Session:" << vsession->ToString());
-            gen->DisconnectSession(vsession);
-            return false;
-        }
+        increment_redis_error();
+        LOG(ERROR, "OSP GetSeq FAILED: " << gen->ToString() <<
+            " Session:" << vsession->ToString());
+        gen->DisconnectSession(vsession);
+        return false;
     }
 
     LOG(DEBUG, "Sent good Ctrl Msg: Size " << vu.size() << " " <<
@@ -286,6 +271,25 @@ void Collector::DisconnectSession(SandeshSession *session) {
     LOG(INFO, "Received Disconnect: " << gen->ToString() << " Session:"
             << vsession->ToString());
     gen->DisconnectSession(vsession);
+}
+
+void Collector::GetSandeshStats(vector<SandeshMessageStat> &smslist) {
+    smslist.clear();
+    for (GeneratorMap::iterator gm_it = gen_map_.begin();
+            gm_it != gen_map_.end(); gm_it++) {
+        SandeshGenerator *gen = gm_it->second;
+        // Only send if generator is connected
+        VizSession *session = gen->session();
+        if (!session) {
+            continue;
+        }
+        vector<SandeshMessageInfo> smi;       
+        gen->GetSandeshStats(smi);
+        SandeshMessageStat sms;
+        sms.set_name(gen->ToString());
+        sms.set_msg_info(smi);
+        smslist.push_back(sms);
+    }
 }
 
 void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist) {
@@ -383,10 +387,11 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         SandeshGenerator::GeneratorId id(gm_it->first);
+        // GeneratorId is of the format source..module..instance_id..node_type
         if (((dest[0] != "*") && (id.get<0>() != dest[0])) ||
-            ((dest[1] != "*") && (id.get<1>() != dest[1])) ||
-            ((dest[2] != "*") && (id.get<2>() != dest[2])) ||
-            ((dest[3] != "*") && (id.get<3>() != dest[3]))) {
+            ((dest[1] != "*") && (id.get<3>() != dest[1])) ||
+            ((dest[2] != "*") && (id.get<1>() != dest[2])) ||
+            ((dest[3] != "*") && (id.get<2>() != dest[3]))) {
             continue;
         }
         const SandeshGenerator *gen = gm_it->second;

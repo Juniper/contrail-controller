@@ -176,6 +176,22 @@ private:
     std::string dest_vn_;
 };
 
+class ShortFlow : public FlowVerify {
+public:
+    ShortFlow() {}
+    virtual ~ShortFlow() {};
+
+    virtual void Verify(FlowEntry *fe) {
+        EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow) == true);
+        EXPECT_TRUE((fe->data().match_p.action_info.action & (1 << TrafficAction::DROP)) != 0);
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev->is_flags_set(FlowEntry::ShortFlow) == true);
+        EXPECT_TRUE((rev->data().match_p.action_info.action & (1 << TrafficAction::DROP)) != 0);
+    }
+private:
+};
+
+
 class VerifyVrf : public FlowVerify {
 public:
     VerifyVrf(std::string src_vrf, std::string dest_vrf):

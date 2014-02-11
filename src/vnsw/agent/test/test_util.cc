@@ -301,12 +301,16 @@ void IntfSyncMsg(PortInfo *input, int id) {
 }
 
 void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
-                int vm_id, int vn_id, const string &mac, uint16_t vlan) {
+                int vm_id, int vn_id, const string &mac, uint16_t vlan,
+                int project_id) {
     CfgIntKey *key = new CfgIntKey(MakeUuid(intf_id));
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
-    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), name, ip, mac, "", vlan, 0);
+    char vm_name[MAX_TESTNAME_LEN];
+    sprintf(vm_name, "vm%d", vm_id);
+    data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
+               name, ip, mac, vm_name, vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -390,6 +394,13 @@ bool VmPortFind(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return (intf != NULL ? !intf->IsDeleted() : false);
+}
+
+bool VmPortFindRetDel(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true));
+    return (intf != NULL);
 }
 
 uint32_t VmPortGetId(int id) {

@@ -16,13 +16,18 @@
 #include "oper/mirror_table.h"
 #include "test_cmn_util.h"
 #include "vr_types.h"
+#include <boost/assign/list_of.hpp> 
 
+using namespace boost::assign;
 std::string eth_itf;
 int entry_count;
 
 std::string analyzer = "TestAnalyzer";
 
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
 }
 
 class MirrorTableTest : public ::testing::Test {
@@ -138,6 +143,13 @@ TEST_F(MirrorTableTest, MirrorEntryAddDel_1) {
             EXPECT_TRUE(nh->IsValid() == true);
         }
     }
+    MirrorEntryReq *mirror_list_req = new MirrorEntryReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    mirror_list_req->HandleRequest();
+    client->WaitForIdle();
+    mirror_list_req->Release();
+    client->WaitForIdle();
 
     DelAllMirrorEntry();
     //make sure all Mirror entry are deleted

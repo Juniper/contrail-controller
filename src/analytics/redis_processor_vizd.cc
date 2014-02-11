@@ -14,8 +14,6 @@
 #include "uveupdate_lua.cpp"
 #include "uveupdate_st_lua.cpp"
 #include "uvedelete_lua.cpp"
-#include "expiredgens_lua.cpp"
-#include "withdrawgen_lua.cpp"
 
 using std::string;
 using std::vector;
@@ -23,34 +21,6 @@ using std::pair;
 using std::map;
 using std::make_pair;
 using boost::assign::list_of;
-
-void 
-RedisProcessorExec::RefreshGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id,
-            const std::string &coll, int timeout) {
-    string gkey = string("NGENERATOR:") + source + ":" + node_type + ":" +
-                  module + ":" + instance_id;
-    std::ostringstream tstr;
-    tstr << timeout;
-
-    assert(timeout);
-    rac->RedisAsyncArgCmd(NULL,
-            list_of(string("SET"))(gkey)(coll)(string("EX"))(tstr.str()));
-
-}
-
-void 
-RedisProcessorExec::WithdrawGenerator(RedisAsyncConnection * rac,
-            const std::string &source, const std::string &node_type,
-            const std::string &module, const std::string &instance_id,
-            const std::string &coll) {
-
-    string lua_scr(reinterpret_cast<char *>(withdrawgen_lua), withdrawgen_lua_len);
-    rac->RedisAsyncArgCmd(NULL,
-        list_of(string("EVAL"))(lua_scr)("0")(source)(node_type)(module)
-                (instance_id)(coll));
-}
 
 bool
 RedisProcessorExec::UVEUpdate(RedisAsyncConnection * rac, RedisProcessorIf *rpi,
@@ -154,7 +124,6 @@ bool
 RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redis_port,  
         const std::string &source, const std::string &node_type,
         const std::string &module, const std::string &instance_id,
-        const std::string & coll,  int timeout,
         std::map<std::string,int32_t> & seqReply) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
@@ -169,10 +138,9 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
     string lua_scr(reinterpret_cast<char *>(seqnum_lua), seqnum_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s %s %d",
+            "EVAL %s 0 %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str(),
-            coll.c_str(), timeout);
+            module.c_str(), instance_id.c_str());
 
     if (!reply) {
         LOG(INFO, "SeqQuery Error : " << c->errstr);
@@ -205,8 +173,7 @@ RedisProcessorExec::SyncGetSeq(const std::string & redis_ip, unsigned short redi
 bool 
 RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short redis_port,  
         const std::string &source, const std::string &node_type,
-        const std::string &module, const std::string &instance_id,
-        const std::string & coll,  int timeout) {
+        const std::string &module, const std::string &instance_id) {
 
     redisContext *c = redisConnect(redis_ip.c_str(), redis_port);
 
@@ -220,10 +187,9 @@ RedisProcessorExec::SyncDeleteUVEs(const std::string & redis_ip, unsigned short 
     string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
 
     redisReply * reply = (redisReply *) redisCommand(c, 
-            "EVAL %s 0 %s %s %s %s %s %d",
+            "EVAL %s 0 %s %s %s %s",
             lua_scr.c_str(), source.c_str(), node_type.c_str(),
-            module.c_str(), instance_id.c_str(),
-            coll.c_str(), timeout);
+            module.c_str(), instance_id.c_str());
 
     if (!reply) {
         LOG(INFO, "SyncDeleteUVEs Error : " << c->errstr);
@@ -264,114 +230,4 @@ void RedisProcessorIf::ChildResult(const string& key, void * childRes) {
     if ((size_t)(++replyCount_) == childMap_.size()) {
         FinalResult(); 
     }
-}
-
-
-struct GenClear : public RedisProcessorIf {
-    typedef boost::function<void(const std::string &, bool)> finFn;
-    // callback function to parent
-    GenClear(RedisAsyncConnection * rac, finFn fn,
-            const std::string& source, const std::string& node_type,
-            const std::string& module, const std::string& instance_id) : 
-            rac_(rac), fin_(fn), source_(source), node_type_(node_type),
-            module_(module), instance_id_(instance_id) {}
-
-    string Key() {
-        string vkey = "NGENERATOR:" + source_ + ":" + node_type_ + ":" +
-                      module_ + ":" + instance_id_;
-        return vkey;
-    }
-
-    bool RedisSend() {
-
-        if (!rac_->IsConnUp())
-            return false;
-        string lua_scr(reinterpret_cast<char *>(delrequest_lua), delrequest_lua_len);
-
-        return rac_->RedisAsyncArgCmd(this,
-            list_of(string("EVAL"))(lua_scr)("0")(source_)(node_type_)
-                    (module_)(instance_id_)("")("-1"));
-    }
-
-    void ProcessCallback(redisReply *reply) {
-        res_ = false;
-
-        if (reply->type == REDIS_REPLY_INTEGER) {
-            LOG(INFO,"GenClear successfulyy for " << Key());
-            res_ = true;
-        }
-        FinalResult();
-    }
-
-    void FinalResult() {
-        (fin_)(Key(), res_);
-        delete this;
-    }
-
-private:
-    RedisAsyncConnection * rac_;
-    finFn fin_;
-    std::string source_;
-    std::string node_type_;
-    std::string module_;
-    std::string instance_id_;
-    bool res_;    
-};
-
-
-GenCleanupReq::GenCleanupReq (RedisAsyncConnection * rac,
-        finFn fn) : rac_(rac), fin_(fn), res_(0) {}
-
-string GenCleanupReq::Key() {
-    string vkey = "NGENERATOR_CLEANUP";
-    return vkey;
-}
-
-bool GenCleanupReq::RedisSend() {
-    if (!rac_->IsConnUp())
-        return false;
-
-    string lua_scr(reinterpret_cast<char *>(expiredgens_lua), expiredgens_lua_len);
-    rac_->RedisAsyncArgCmd(this,
-        list_of(string("EVAL"))(lua_scr)("0"));
-    return true;
-}
-
-void GenCleanupReq::ProcessCallback(redisReply *reply) {
-
-    vector<RedisProcessorIf *> vch;
-
-    if (reply->type == REDIS_REPLY_ARRAY) {
-        assert((reply->elements % 4) == 0);
-        for (uint iter=0; iter < reply->elements; iter+=4) {
-            GenClear * gc = new GenClear(rac_,
-                boost::bind(&GenCleanupReq::CallbackFromChild, this, _1, _2),
-                reply->element[iter]->str, reply->element[iter+1]->str,
-                reply->element[iter+2]->str, reply->element[iter+3]->str);
-            vch.push_back(gc);
-            LOG(INFO, "Creating GenClear for " << gc->Key());
-        }
-    }
-    rac_->GetEVM()->io_service()->post(boost::bind(&RedisProcessorIf::ChildSpawn, this, vch));
-}
-
-void GenCleanupReq::CallbackFromChild(const std::string & key, bool res) {
-    bool  *p = new bool(res);
-    ChildResult(key, (void *)p);
-}
-
-void GenCleanupReq::FinalResult() {
-
-    for (map<string,void *>::iterator it = childMap_.begin();
-            it != childMap_.end(); it++) {
-        bool *p = (bool *)it->second;
-        if  (*p) res_++;
-        delete p;
-    }
-    if (res_) {
-        LOG(INFO, "GenCleanupReq attempted " << childMap_.size() << 
-                " succeeded " << res_);
-    }
-    (fin_)(Key(), res_);
-    delete this;
 }

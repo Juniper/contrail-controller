@@ -545,6 +545,14 @@ VrfEntry *VrfTable::FindVrfFromName(const string &name) {
     return static_cast<VrfEntry *>(it->second);
 }
 
+VrfEntry *VrfTable::FindVrfFromId(size_t index) {
+    VrfEntry *vrf = index_table_.At(index);
+    if (vrf && vrf->IsDeleted() == false) {
+        return vrf;
+    }
+    return NULL;
+}
+
 AgentRouteTable *VrfTable::GetInet4UnicastRouteTable(const string &vrf_name) {
     return GetRouteTable(vrf_name, Agent::INET4_UNICAST);
 }
@@ -587,6 +595,17 @@ void VrfTable::DeleteVrf(const string &name) {
     req.data.reset(NULL);
     Enqueue(&req);
 }
+
+void VrfTable::CreateStaticVrf(const string &name) {
+    static_vrf_set_.insert(name);
+    CreateVrf(name);
+}
+
+void VrfTable::DeleteStaticVrf(const string &name) {
+    static_vrf_set_.erase(name);
+    DeleteVrf(name);
+}
+
 
 void VrfTable::DelPeerRoutes(Peer *peer, Peer::DelPeerDone cb) {
     DBTableWalker *walker = db_->GetWalker();
@@ -730,55 +749,60 @@ bool VrfTable::CanNotify(IFMapNode *node) {
 }
 
 bool VrfTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
-    if (node->name() != agent()->GetDefaultVrf() && 
-        node->name() != agent()->GetLinkLocalVrfName()) {
-        VrfKey *key = new VrfKey(node->name());
+    VrfKey *key = new VrfKey(node->name());
 
-        //Trigger add or delete only for non fabric VRF
-        if (node->IsDeleted()) {
-            req.oper = DBRequest::DB_ENTRY_DELETE;
-        } else {
+    //Trigger add or delete only for non fabric VRF
+    if (node->IsDeleted()) {
+        if (IsStaticVrf(node->name())) {
+            //Fabric, link-local and VGW VRF will not be deleted,
+            //upon config delete
             req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            IFMapAgentTable *table = 
-                static_cast<IFMapAgentTable *>(node->table());
-            for (DBGraphVertex::adjacency_iterator iter =
-                 node->begin(table->GetGraph()); 
-                 iter != node->end(table->GetGraph()); ++iter) {
-                IFMapNode *adj_node = 
-                    static_cast<IFMapNode *>(iter.operator->());
-
-                if (iter->IsDeleted() || 
-                    (adj_node->table() != agent()->cfg()->cfg_vn_table())) {
-                    continue;
-                }
-
-                VirtualNetwork *cfg = 
-                    static_cast <VirtualNetwork *> (adj_node->GetObject());
-                if (cfg == NULL) {
-                    continue;
-                }
-                autogen::VirtualNetworkType properties = cfg->properties(); 
-            }
+        } else {
+            req.oper = DBRequest::DB_ENTRY_DELETE;
         }
+    } else {
+        req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        IFMapAgentTable *table =
+            static_cast<IFMapAgentTable *>(node->table());
+        for (DBGraphVertex::adjacency_iterator iter =
+                node->begin(table->GetGraph());
+                iter != node->end(table->GetGraph()); ++iter) {
+            IFMapNode *adj_node =
+                static_cast<IFMapNode *>(iter.operator->());
 
-        VrfData *data = new VrfData();
-        req.key.reset(key);
-        req.data.reset(data);
-        Enqueue(&req);
+            if (iter->IsDeleted() ||
+                    (adj_node->table() != agent()->cfg()->cfg_vn_table())) {
+                continue;
+            }
+
+            VirtualNetwork *cfg =
+                static_cast <VirtualNetwork *> (adj_node->GetObject());
+            if (cfg == NULL) {
+                continue;
+            }
+            autogen::VirtualNetworkType properties = cfg->properties();
+        }
     }
+
+    //When VRF config delete comes, first enqueue VRF delete
+    //so that when link evaluation happens, all point to deleted VRF
+    VrfData *data = new VrfData();
+    req.key.reset(key);
+    req.data.reset(data);
+    Enqueue(&req);
 
     if (node->IsDeleted()) {
         return false;
     }
 
     // Resync any vmport dependent on this VRF
-    // While traversing the path 
-    // virtual-machine-interface <-> virtual-machine-interface-routing-instance 
+    // While traversing the path
+    // virtual-machine-interface <-> virtual-machine-interface-routing-instance
     // <-> routing-instance path, we may have skipped a routing-instance that
-    // failed SkipNode() 
+    // failed SkipNode()
     IFMapAgentTable *table = static_cast<IFMapAgentTable *>(node->table());
     for (DBGraphVertex::adjacency_iterator iter =
-         node->begin(table->GetGraph()); 
+         node->begin(table->GetGraph());
          iter != node->end(table->GetGraph()); ++iter) {
         IFMapNode *adj_node = static_cast<IFMapNode *>(iter.operator->());
         if (agent()->cfg_listener()->SkipNode

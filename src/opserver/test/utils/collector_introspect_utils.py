@@ -26,11 +26,11 @@ class VerificationCollector(VerificationUtilBase):
         return EtreeToDict(xpath).get_all_entry(p)
     #end get_collector_connection_status
 
-    def get_redis_uve_master(self):
-        path = 'Snh_RedisUVEMasterRequest'
-        xpath = '/RedisUVEMasterResponse/redis_uve_master'
+    def get_redis_uve_info(self):
+        path = 'Snh_RedisUVERequest'
+        xpath = '/RedisUVEResponse/redis_uve_info'
         p = self.dict_get(path)
         return EtreeToDict(xpath).get_all_entry(p)
-    # end get_redis_uve_master
+    # end get_redis_uve_info
 
 #end class VerificationCollector

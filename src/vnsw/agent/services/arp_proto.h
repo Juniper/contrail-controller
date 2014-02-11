@@ -58,7 +58,6 @@ public:
         ArpStats() { Reset(); }
     };
 
-    void Init();
     void Shutdown();
     ArpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~ArpProto();

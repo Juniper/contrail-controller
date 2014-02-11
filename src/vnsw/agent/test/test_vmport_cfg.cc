@@ -20,6 +20,7 @@
 #include <oper/vm.h>
 #include <oper/agent_sandesh.h>
 #include <oper/interface_common.h>
+#include <oper/vxlan.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
@@ -78,7 +79,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string("1.1.1.1", ec);
-    data->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+    data->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
+               "vnet1", ip, "00:00:00:01:01:01", "",
                VmInterface::kInvalidVlanId, 0);
 
     DBRequest req;
@@ -90,7 +92,8 @@ TEST_F(CfgTest, AddDelExport) {
     CfgIntKey *key1 = new CfgIntKey(MakeUuid(1)); 
     CfgIntData *data1 = new CfgIntData();
     ip = Ip4Address::from_string("1.1.1.1", ec);
-    data1->Init(MakeUuid(1), MakeUuid(1), "vnet1", ip, "00:00:00:01:01:01", "",
+    data1->Init(MakeUuid(1), MakeUuid(1), MakeUuid(kProjectUuid),
+                "vnet1", ip, "00:00:00:01:01:01", "",
                 VmInterface::kInvalidVlanId, 0);
     req.key.reset(key1);
     req.data.reset(data1);
@@ -1403,6 +1406,8 @@ TEST_F(CfgTest, SecurityGroup_1) {
 
     const AgentPath *path = rt->GetActivePath();
     EXPECT_EQ(path->GetSecurityGroupList().size(), 1);
+    EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
+    EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");

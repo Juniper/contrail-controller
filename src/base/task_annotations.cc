@@ -15,12 +15,19 @@ ConcurrencyChecker::ConcurrencyChecker(const char *task_ids[], size_t count) {
     }
 }
 
+ConcurrencyChecker::ConcurrencyChecker() {
+}
+
 void ConcurrencyChecker::Check() {
     Task *current = Task::Running();
     assert(current != NULL);
     assert(id_set_.count(current->GetTaskId()) > 0);
 }
 
+void ConcurrencyChecker::CheckIfMainThr() {
+    Task *current = Task::Running();
+    assert(current == NULL);
+}
 
 class ConcurrencyScope::ScopeTask : public Task {
 public:

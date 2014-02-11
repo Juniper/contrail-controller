@@ -191,8 +191,11 @@ bool RouteKSyncEntry::Sync(DBEntry *e) {
         uint32_t old_label = label_;
         const AgentPath *path = 
             (static_cast <Inet4UnicastRouteEntry *>(e))->GetActivePath();
-        label_ = path->GetLabel();
-
+        if (route->IsMulticast()) {
+            label_ = path->vxlan_id();
+        } else {
+            label_ = path->GetActiveLabel();
+        }
         if (label_ != old_label) {
             ret = true;
         }

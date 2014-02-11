@@ -35,14 +35,24 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
     PortList::const_iterator it;
     for (it = port_list.begin(); it != port_list.end(); ++it) {
         Port port = *it;
-        if (port.port_id.size() > (uint32_t)kUuidSize || 
-            port.instance_id.size() > (uint32_t)kUuidSize) {
+        if (port.port_id.size() != (uint32_t)kUuidSize || 
+            port.instance_id.size() != (uint32_t)kUuidSize ||
+            port.vn_id.size() != (uint32_t)kUuidSize) {
+            CFG_TRACE(IntfInfo, 
+                      "Port/instance/vn id not valid uuids, size check failed");
             return false;
         }
         uuid port_id = ConvertToUuid(port.port_id);
         uuid instance_id = ConvertToUuid(port.instance_id);
         uuid vn_id = ConvertToUuid(port.vn_id);
-        IpAddress ip = IpAddress::from_string(port.ip_address);
+        uuid vm_project_id = ConvertToUuid(port.vm_project_id);
+        boost::system::error_code ec;
+        IpAddress ip = IpAddress::from_string(port.ip_address, ec);
+        if (ec.value() != 0) {
+            CFG_TRACE(IntfInfo,
+                      "IP address is not correct, " + port.ip_address);
+            return false;
+        }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>(db_->FindTable("db.cfg_int.0"));
         assert(ctable);
@@ -56,7 +66,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
             vlan_id = port.vlan_id;
         }
 
-        cfg_int_data->Init(instance_id, vn_id, 
+        cfg_int_data->Init(instance_id, vn_id, vm_project_id,
                            port.tap_name, ip,
                            port.mac_address,
                            port.display_name, vlan_id, version_);
@@ -66,7 +76,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
                   UuidToString(instance_id), UuidToString(vn_id),
                   port.ip_address, port.tap_name, port.mac_address,
                   port.display_name, port.hostname, port.host, version_,
-                  vlan_id);
+                  vlan_id, UuidToString(vm_project_id));
     }
     return true;
 }
@@ -290,7 +300,7 @@ InstanceServiceAsyncHandler::CreateVrf(const std::string& vrf)
 InstanceServiceAsyncHandler::uuid 
 InstanceServiceAsyncHandler::ConvertToUuid(const tuuid &id)
 {
-    boost::uuids::uuid u;
+    boost::uuids::uuid u = nil_uuid();
     std::vector<int16_t>::const_iterator it;
     int i;
     
@@ -369,11 +379,13 @@ void AddPortReq::HandleRequest() const {
     uuid port_uuid = StringToUuid(get_port_uuid());
     uuid instance_uuid = StringToUuid(get_instance_uuid());
     uuid vn_uuid = StringToUuid(get_vn_uuid());
+    uuid vm_project_uuid = StringToUuid(get_vm_project_uuid());
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+
     boost::system::error_code ec;
-    IpAddress ip(boost::asio::ip::address::from_string(get_ip_address(), ec));
+    IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {
@@ -409,7 +421,7 @@ void AddPortReq::HandleRequest() const {
     DBRequest req;
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
-    cfg_int_data->Init(instance_uuid, vn_uuid,
+    cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
                        tap_name, ip,
                        mac_address,
                        vm_name, vlan_id, 0);

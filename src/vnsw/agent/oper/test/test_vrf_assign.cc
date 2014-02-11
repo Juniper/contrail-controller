@@ -7,8 +7,16 @@
 
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
+#include <boost/assign/list_of.hpp>
+
+using namespace boost::assign;
 
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 static void NovaIntfAdd(int id, const char *name, const char *addr,
@@ -16,6 +24,7 @@ static void NovaIntfAdd(int id, const char *name, const char *addr,
     IpAddress ip = Ip4Address::from_string(addr);
     VmInterface::Add(Agent::GetInstance()->GetInterfaceTable(),
                      MakeUuid(id), name, ip.to_v4(), mac, "",
+                     MakeUuid(kProjectUuid),
                      VmInterface::kInvalidVlanId, Agent::NullString());
 }
 
@@ -76,6 +85,15 @@ TEST_F(VrfAssignTest, basic_1) {
     VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf2", 1);
     client->WaitForIdle();
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+
+    //Check for sandesh request
+    VrfAssignReq *vrf_assign_list_req = new VrfAssignReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    vrf_assign_list_req->HandleRequest();
+    client->WaitForIdle();
+    vrf_assign_list_req->Release();
+    client->WaitForIdle();
 
     VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
     client->WaitForIdle();

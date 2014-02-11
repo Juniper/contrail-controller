@@ -144,6 +144,7 @@ public:
     Agent *agent() const { return agent_; }
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
     const std::string &GetVrfName() const { return vrf_entry_->GetName();};
+    uint32_t GetVrfId() const {return vrf_entry_->GetVrfId();}
 
     // Set VRF for the route-table
     void SetVrf(VrfEntry * vrf);

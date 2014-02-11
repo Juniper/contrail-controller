@@ -121,8 +121,33 @@ bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
 
     UpdateMessageTypeStats(vmsg.get());
     UpdateLogLevelStats(vmsg.get());
+    UpdateMessageStats(vmsg.get());
     return ProcessRules (vmsg, rsc);
 }
+
+void Generator::UpdateMessageStats(VizMsg *vmsg) {
+    //update the MessageStatsMap
+    //Get the loglevel string from the message
+    SandeshLevel::type level =
+                            static_cast<SandeshLevel::type>(vmsg->hdr.get_Level());
+    LogLevelStatsMap::iterator level_stats_it;
+    if (level <= SandeshLevel::INVALID) {
+        std::string level_str(
+        Sandesh::LevelToString(level));
+        //Lookup based on the pair(Messagetype,loglevel)
+        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(make_pair(vmsg->messagetype,level_str));
+        if (stats_it == sandesh_stats_map_.end()) {
+            //New messagetype,loglevel combination
+            std::pair<std::string,std::string> key(vmsg->messagetype,level_str);
+            tbb::mutex::scoped_lock lock(smutex_);
+            stats_it = (sandesh_stats_map_.insert(key,new MessageStats)).first;
+         }
+    MessageStats *message_stats = stats_it->second;
+    message_stats->messages_++;
+    message_stats->bytes_ += vmsg->xmlmessage.size();
+    } 
+} 
+    
 
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
@@ -142,9 +167,6 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
             "SandeshGenerator db connect timer" + source + module,
             TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
             session->GetSessionInstance())),
-        del_wait_timer_(
-                TimerManager::CreateTimer(*collector->event_manager()->io_service(),
-                    "Delete wait timer" + name_)),
         db_handler_ (new DbHandler (
             collector->event_manager(), boost::bind(
                 &SandeshGenerator::StartDbifReinit, this),
@@ -161,7 +183,6 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 SandeshGenerator::~SandeshGenerator() {
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
-    TimerManager::DeleteTimer(del_wait_timer_);
     GetDbHandler ()->UnInit(true);
 }
 
@@ -213,24 +234,7 @@ void SandeshGenerator::TimerErrorHandler(string name, string error) {
     GENERATOR_LOG(ERROR, name + " error: " + error);
 }
 
-bool SandeshGenerator::DelWaitTimerExpired() {
-
-    // We are connected to this generator
-    // Do not withdraw ownership
-    if (gen_attr_.get_connects() > gen_attr_.get_resets())
-        return false;
-
-    collector_->GetOSP()->WithdrawGenerator(source(), node_type_,
-         module(), instance_id_);
-    GENERATOR_LOG(INFO, "DelWaitTimer is Withdrawing SandeshGenerator " <<
-            name_);
-    return false;
-}
-
 void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
-
-    del_wait_timer_->Cancel();
-
     // This is a control message during SandeshGenerator-Collector negotiation
     ModuleServerState ginfo;
     GetGeneratorInfo(ginfo);
@@ -246,16 +250,14 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     disconnected_ = true;
     if (vsession == viz_session_) {
         // This SandeshGenerator's session is now gone.
-        // Start a timer to delete all its UVEs
+        // Delete all its UVEs
         uint32_t tmp = gen_attr_.get_resets();
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
         viz_session_ = NULL;
         state_machine_ = NULL;
-        del_wait_timer_->Start(kWaitTimerSec * 1000,
-            boost::bind(&SandeshGenerator::DelWaitTimerExpired, this),
-            boost::bind(&SandeshGenerator::TimerErrorHandler, this, _1, _2));
-
+        collector_->GetOSP()->DeleteUVEs(source_, module_, 
+                                         node_type_, instance_id_);
         ModuleServerState ginfo;
         GetGeneratorInfo(ginfo);
         SandeshModuleServerTrace::Send(ginfo);
@@ -292,6 +294,36 @@ bool SandeshGenerator::GetDbStats(uint64_t &queue_count, uint64_t &enqueues,
     std::string &drop_level, uint64_t &msg_dropped) const {
     return db_handler_->GetStats(queue_count, enqueues, drop_level,
                msg_dropped);
+}
+
+void Generator::GetSandeshStats(std::vector<SandeshMessageInfo> &smv) {
+    //Acquire lock b4 reading map, because an update to map happen in parallel
+    tbb::mutex::scoped_lock lock(smutex_);
+    for (MessageStatsMap::const_iterator ss_it = sandesh_stats_map_.begin();
+         ss_it != sandesh_stats_map_.end(); ss_it++) {
+         SandeshMessageInfo msg_stats;
+         //Lookup the old stats for the messagetype,loglevel and subtract it
+         //from the new message
+         msg_stats.type = (ss_it->first).first;
+         msg_stats.level = (ss_it->first).second;
+         std::pair <std::string,std::string> key = std::make_pair(msg_stats.type,msg_stats.level);
+         MessageStatsMap::iterator msg_stats_it;
+         msg_stats_it = sandesh_stats_map_old_.find(key);
+         //If entry does not exist in old map, insert it
+         if (msg_stats_it == sandesh_stats_map_old_.end()) {
+             msg_stats_it = (sandesh_stats_map_old_.insert(key,new MessageStats)).first;
+         }
+         //else subtract the old val from new val 
+         uint64_t current_messages = ss_it->second->messages_;
+         uint64_t current_bytes = ss_it->second->bytes_;
+         msg_stats.messages = current_messages - (msg_stats_it->second)->messages_;
+         msg_stats.bytes = current_bytes - (msg_stats_it->second)->bytes_;
+         //update the oldmap values
+         (msg_stats_it->second)->messages_ = current_messages;
+         (msg_stats_it->second)->bytes_ = current_bytes;
+         smv.push_back(msg_stats);
+    }
+
 }
 
 void SandeshGenerator::GetGeneratorInfo(ModuleServerState &genlist) const {

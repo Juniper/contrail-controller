@@ -27,8 +27,12 @@ bool RouteExport::State::Changed(const AgentPath *path) const {
     if (force_chg_ == true)
         return true;
 
-    if (label_ != path->GetLabel())
+    if (label_ != path->GetActiveLabel())
         return true;
+
+    if (tunnel_type_ != path->tunnel_type()) {
+        return true;
+    };
 
     if (vn_ != path->GetDestVnName())
         return true;
@@ -41,9 +45,10 @@ bool RouteExport::State::Changed(const AgentPath *path) const {
 
 void RouteExport::State::Update(const AgentPath *path) {
     force_chg_ = false;
-    label_ = path->GetLabel();
+    label_ = path->GetActiveLabel();
     vn_ = path->GetDestVnName();
     sg_list_ = path->GetSecurityGroupList();
+    tunnel_type_ = path->tunnel_type();
 }
 
 RouteExport::RouteExport(AgentRouteTable *rt_table):
@@ -104,7 +109,7 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
                              bgp_xmpp_peer->GetBgpPeer()->GetName(),
                              route->GetVrfEntry()->GetName(),
                              route->ToString(),
-                             false, path->GetLabel());
+                             false, path->GetActiveLabel());
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route), state->vn_, 

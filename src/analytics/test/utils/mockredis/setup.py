@@ -9,5 +9,5 @@ setup(name='mockredis',
       author_email='contrail-sw@juniper.net',
       url='http://opencontrail.org/',
       packages=['mockredis', ],
-      data_files=[('lib/python2.7/site-packages/mockredis', ['redis.24.conf', 'redis.26.conf', 'sentinel.conf']),],
+      data_files=[('lib/python2.7/site-packages/mockredis', ['redis.24.conf', 'redis.26.conf']),],
      )
