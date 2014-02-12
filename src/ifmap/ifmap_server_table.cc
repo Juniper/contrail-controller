@@ -475,19 +475,23 @@ void IFMapServerTable::IFMapProcVmUnsubscribe(const std::string &vr_name,
 
     IFMapRemoveVrVmLink(vr_node, vm_node);
 
-    IFMapObject *vm_object = vm_node->Find(IFMapOrigin(IFMapOrigin::XMPP));
-    if (vm_object) {
-        vm_node->Remove(vm_object);
-    }
-    vm_table->DeleteIfEmpty(vm_node);
+    IFMapOrigin origin(IFMapOrigin::XMPP);
+    RemoveObjectAndDeleteNode(vm_node, origin);
 
     // Remove XMPP as origin from the VR only if all the VMs are gone
     if (!has_vms) {
-        IFMapObject *vr_object = vr_node->Find(IFMapOrigin(IFMapOrigin::XMPP));
-        if (vr_object) {
-            vr_node->Remove(vr_object);
-        }
-        DeleteIfEmpty(vr_node);
+        RemoveObjectAndDeleteNode(vr_node, origin);
     }
+}
+
+void IFMapServerTable::RemoveObjectAndDeleteNode(IFMapNode *node,
+                                                 const IFMapOrigin &origin) {
+    IFMapServerTable *table = static_cast<IFMapServerTable *>(node->table());
+    assert(table);
+    IFMapObject *object = node->Find(origin);
+    if (object) {
+        node->Remove(object);
+    }
+    table->DeleteIfEmpty(node);
 }
 

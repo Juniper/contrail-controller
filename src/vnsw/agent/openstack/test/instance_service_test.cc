@@ -35,6 +35,7 @@
 #include <db/db.h>
 #include <cmn/agent_cmn.h>
 #include <cfg/cfg_interface.h>
+#include <cfg/cfg_types.h>
 #include <base/test/task_test_util.h>
 
 using namespace std;
@@ -47,8 +48,8 @@ extern void InstanceInfoServiceServerInit(EventManager &evm, DB *db);
 void RouterIdDepInit() {
 }
 
-namespace {
-class NovaInfoClientServerTest : public ::testing::Test {
+//namespace {
+class NovaInfoServerTest : public ::testing::Test {
 protected:
 };
 
@@ -66,6 +67,8 @@ string host_name("vm");
 string host("vm");
 
 bool connection_complete = false;
+bool port_resp_done  = false;
+
 boost::shared_ptr<InstanceServiceAsyncClient> client_service;
 
 void AddPortCallback(tuuid port_id, std::string tap_name, bool ret) 
@@ -85,7 +88,7 @@ void DeletePortCallback(tuuid port_id, bool ret)
 
 void DeletePortErrback(const InstanceService_DeletePort_result& result) 
 {
-    std::cout << "Exception caugght " << __FUNCTION__ << std::endl;
+    std::cout << "Exception caught " << __FUNCTION__ << std::endl;
 }
 
 static inline const std::string integerToHexString(const int8_t &num)
@@ -137,7 +140,7 @@ void DelVmPort(boost::shared_ptr<InstanceServiceAsyncClient> inst_client, int8_t
     port_tuuid.insert(port_tuuid.begin(), t_port_id, 
                       t_port_id + (sizeof(t_port_id)/sizeof(int8_t)));
     inst_client->DeletePort(port_tuuid).setCallback(
-        boost::bind(&DeletePortCallback, port_tuuid, -1)).setErrback(DeletePortErrback);
+        boost::bind(&DeletePortCallback, port_tuuid, _1)).setErrback(DeletePortErrback);
 }
 
 void AddVmPort(boost::shared_ptr<InstanceServiceAsyncClient> inst_client, int8_t portid,
@@ -148,7 +151,7 @@ void AddVmPort(boost::shared_ptr<InstanceServiceAsyncClient> inst_client, int8_t
     pl.push_back(port);
     inst_client->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback, 
-                    port.port_id, port.tap_name, -1)).setErrback(AddPortErrback);
+                    port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
 }
 
 void connected(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
@@ -157,23 +160,76 @@ void connected(boost::shared_ptr<InstanceServiceAsyncClient> inst_client) {
     connection_complete = true;
 }
 
-TEST_F(NovaInfoClientServerTest, Basic) {
-    EventManager *evm = new EventManager();
-    ServerThread *thread = new ServerThread(evm);
+static void PortReqResponse(Sandesh *sandesh, string &resp_str) {
+    PortResp *resp = dynamic_cast<PortResp *>(sandesh);
+    std::string s_resp_str = resp->get_resp();
+    EXPECT_EQ(resp_str, s_resp_str);
+    port_resp_done = true;
+}
+
+TEST_F(NovaInfoServerTest, IntrospecPortAdd) {
+    AddPortReq *req = new AddPortReq();
+    req->set_port_uuid(std::string("00000000-0000-0000-0000-000000000001"));
+    req->set_instance_uuid(std::string("00000000-0000-0000-0000-000000000001"));
+    req->set_tap_name(std::string("tap1"));
+    req->set_ip_address(std::string("1.1.1.1"));
+    req->set_vn_uuid(std::string("00000000-0000-0000-0000-000000000001"));
+    req->set_mac_address(std::string("00:00:00:00:00:1"));
+    req->set_vm_name(std::string("vm1"));
+    req->set_vlan_id(100);
+    req->set_vm_project_uuid("00000000-0000-0000-0000-000000000001");
+    port_resp_done = false;
+    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
+    req->HandleRequest();
+    client->WaitForIdle();
+    EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    req->Release();
+}
+
+TEST_F(NovaInfoServerTest, IntrospecPortDelete) {
+    DeletePortReq *req = new DeletePortReq();
+    req->set_port_uuid(std::string("00000000-0000-0000-0000-000000000001"));
+    port_resp_done = false;
+    Sandesh::set_response_callback(boost::bind(PortReqResponse, _1, std::string("Success")));
+    req->HandleRequest();
+    client->WaitForIdle();
+    EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    req->Release();
+}
+
+EventManager *client_evm;
+ServerThread *client_thread;
+
+class NovaInfoClientServerTest : public ::testing::Test {
+protected:
+};
+
+TEST_F(NovaInfoClientServerTest, ConnectionStart) {
+    client_evm = new EventManager();
+    client_thread = new ServerThread(client_evm);
     boost::shared_ptr<protocol::TProtocolFactory> 
             protocolFactory(new protocol::TBinaryProtocolFactory());
-    boost::shared_ptr<async::TAsioClient> client (
+    boost::shared_ptr<async::TAsioClient> nova_client (
         new async::TAsioClient(
-            *(evm->io_service()),
+            *(client_evm->io_service()),
             protocolFactory,
             protocolFactory));
-    thread->Start();
-    client->connect("localhost", 9090, connected);
+    client_thread->Start();
+    nova_client->connect("localhost", 9090, connected);
     TASK_UTIL_EXPECT_EQ(true, connection_complete);
+}
 
+TEST_F(NovaInfoClientServerTest, PortAdd) {
     // Add and delete port check the status of the cfg intf db
-
     AddVmPort(client_service, 1, 1, 1);
+    CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
+    CfgIntKey key(MakeUuid(1));
+    TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    TASK_UTIL_EXPECT_NE((CfgIntEntry *)NULL, 
+                       static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key)));
+}
+
+TEST_F(NovaInfoClientServerTest, PortDelete) {
     CfgIntTable *cfgtable = Agent::GetInstance()->GetIntfCfgTable();
     CfgIntKey key(MakeUuid(1));
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
@@ -181,7 +237,42 @@ TEST_F(NovaInfoClientServerTest, Basic) {
                        static_cast<CfgIntEntry *>(Agent::GetInstance()->GetIntfCfgTable()->Find(&key)));
     DelVmPort(client_service, 1);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
 
+TEST_F(NovaInfoClientServerTest, MultiPortAddDelete) {
+    // Add Multiple ports
+    Port port1;
+    Port port2;
+    Port port3;
+    CreatePort(port1, 3, 3, 1);
+    CreatePort(port2, 4, 4, 1);
+    CreatePort(port3, 5, 5, 1);
+    std::vector<Port> pl;
+    pl.clear();
+    pl.push_back(port1);
+    pl.push_back(port2);
+    pl.push_back(port3);
+    client_service->AddPort(pl).setCallback(
+        boost::bind(&AddPortCallback,
+                    port3.port_id, port3.tap_name, _1)).setErrback(AddPortErrback);
+    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    // Add again same muliple ports
+    pl.clear();
+    pl.push_back(port1);
+    pl.push_back(port2);
+    pl.push_back(port3);
+    client_service->AddPort(pl).setCallback(
+        boost::bind(&AddPortCallback,
+                    port3.port_id, port3.tap_name, _1)).setErrback(AddPortErrback);
+    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
+    // Delete Multiple ports
+    DelVmPort(client_service, 3);
+    DelVmPort(client_service, 4);
+    DelVmPort(client_service, 5);
+    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
+
+TEST_F(NovaInfoClientServerTest, AddPortWrongIP) {
     // Test negitive inputs
     // Wrong IP address
     Port port;
@@ -191,9 +282,12 @@ TEST_F(NovaInfoClientServerTest, Basic) {
     pl.push_back(port);
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
-                    port.port_id, port.tap_name, -1)).setErrback(AddPortErrback);
+                    port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
 
+TEST_F(NovaInfoClientServerTest, NullUUIDTest) {
+    Port port;
     // Null uuids, we are allowing them
     CreatePort(port, 3, 3, 3);
     tuuid null_tuuid;
@@ -204,17 +298,21 @@ TEST_F(NovaInfoClientServerTest, Basic) {
     port.port_id = null_tuuid;
     port.instance_id = null_tuuid;
     port.vn_id = null_tuuid;
+    std::vector<Port> pl;
     pl.clear();
     pl.push_back(port);
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
-                    port.port_id, port.tap_name, -1)).setErrback(AddPortErrback);
+                    port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(1, Agent::GetInstance()->GetIntfCfgTable()->Size());
     client_service->DeletePort(null_tuuid).setCallback(
-        boost::bind(&DeletePortCallback, null_tuuid, -1)).setErrback(DeletePortErrback);
+        boost::bind(&DeletePortCallback, null_tuuid, _1)).setErrback(DeletePortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
 
+TEST_F(NovaInfoClientServerTest, WrongUUIDTest1) {
     // Send extra bytes in the uuid, and it shouldn't get added
+    Port port;
     CreatePort(port, 4, 4, 4);
     tuuid extra_tuuid;
     int8_t t_extraport_id[sizeof(port_id) + 1];
@@ -224,14 +322,18 @@ TEST_F(NovaInfoClientServerTest, Basic) {
     port.port_id = extra_tuuid;
     port.instance_id = extra_tuuid;
     port.vn_id = extra_tuuid;
+    std::vector<Port> pl;
     pl.clear();
     pl.push_back(port);
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
-                    port.port_id, port.tap_name, -1)).setErrback(AddPortErrback);
+                    port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
+}
 
+TEST_F(NovaInfoClientServerTest, WrongUUIDTest2) {
     // Send less number of bytes in uuids, and it shouldn't get added
+    Port port;
     CreatePort(port, 5, 5, 5);
     tuuid small_tuuid;
     int8_t s_port_id[sizeof(port_id)];
@@ -246,49 +348,21 @@ TEST_F(NovaInfoClientServerTest, Basic) {
     vn_tuuid.insert(vn_tuuid.begin(), t_vn_id, 
                     t_vn_id + (sizeof(t_vn_id)/sizeof(int8_t)));
     port.vn_id = vn_tuuid;
+    std::vector<Port> pl;
     pl.clear();
     pl.push_back(port);
     client_service->AddPort(pl).setCallback(
         boost::bind(&AddPortCallback,
-                    port.port_id, port.tap_name, -1)).setErrback(AddPortErrback);
+                    port.port_id, port.tap_name, _1)).setErrback(AddPortErrback);
     TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    
-    // Again positive test cases
-    // Send couple of ports
-    Port port1;
-    Port port2;
-    Port port3;
-    CreatePort(port1, 3, 3, 1);
-    CreatePort(port2, 4, 4, 1);
-    CreatePort(port3, 5, 5, 1);
-    pl.clear();
-    pl.push_back(port1);
-    pl.push_back(port2);
-    pl.push_back(port3);
-    client_service->AddPort(pl).setCallback(
-        boost::bind(&AddPortCallback,
-                    port3.port_id, port3.tap_name, -1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    pl.clear();
-    pl.push_back(port1);
-    pl.push_back(port2);
-    pl.push_back(port3);
-    client_service->AddPort(pl).setCallback(
-        boost::bind(&AddPortCallback,
-                    port3.port_id, port3.tap_name, -1)).setErrback(AddPortErrback);
-    TASK_UTIL_EXPECT_EQ(3, Agent::GetInstance()->GetIntfCfgTable()->Size());
-    DelVmPort(client_service, 3);
-    DelVmPort(client_service, 4);
-    DelVmPort(client_service, 5);
-    TASK_UTIL_EXPECT_EQ(0, Agent::GetInstance()->GetIntfCfgTable()->Size());
-
-    evm->Shutdown();
-    thread->Join();
-    delete evm;
-    delete thread;
 }
 
-} //namespace
+TEST_F(NovaInfoClientServerTest, ConnectionDelete) {
+    client_evm->Shutdown();
+    client_thread->Join();
+    delete client_evm;
+    delete client_thread;
+}
 
 int main (int argc, char **argv) {
     GETUSERARGS();
@@ -297,6 +371,7 @@ int main (int argc, char **argv) {
     DB *db = Agent::GetInstance()->GetDB();
     InstanceInfoServiceServerInit(*evm, db);
     int ret = RUN_ALL_TESTS();
+    client->WaitForIdle();
     TestShutdown();
     delete client;
     return ret;

@@ -6,6 +6,7 @@
 #include <string>
 
 #include "base/logging.h"
+#include "base/task_annotations.h"
 #include "base/test/task_test_util.h"
 #include "db/db.h"
 #include "db/db_graph.h"
@@ -103,7 +104,7 @@ protected:
 
     void EventWait(int timeout) {
         bool is_expired = false;
-        boost::asio::deadline_timer timer(*(evm_.io_service()));
+        boost::asio::monotonic_deadline_timer timer(*(evm_.io_service()));
         timer.expires_from_now(boost::posix_time::seconds(timeout));
         timer.async_wait(boost::bind(&IFMapStateMachineTest::on_timeout,
                          boost::asio::placeholders::error, &is_expired));
@@ -1208,6 +1209,7 @@ INSTANTIATE_TEST_CASE_P(ConnReset2, IFMapStateMachineConnResetTest2,
                       IFMapStateMachineTest::CONNECT_TIMER_WAIT));
 
 int main(int argc, char **argv) {
+    ConcurrencyChecker::disable_ = true;
     LoggingInit();
     ::testing::InitGoogleMock(&argc, argv);
     bool success = RUN_ALL_TESTS();

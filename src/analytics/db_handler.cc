@@ -625,9 +625,9 @@ bool FlowDataIpv4ObjectWalker::for_each(pugi::xml_node& node) {
         switch (it->second) {
             case GenDb::DbDataType::Unsigned8Type:
                   {
-                    uint8_t val;
+                    int8_t val;
                     stringToInteger(node.child_value(), val);
-                    col_value = val;
+                    col_value = (uint8_t)val;
                     break;
                   }
             case GenDb::DbDataType::Unsigned16Type:
