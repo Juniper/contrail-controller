@@ -418,7 +418,7 @@ void AddPortReq::HandleRequest() const {
     CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
     assert(ctable);
 
-    DBRequest req;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
@@ -427,6 +427,7 @@ void AddPortReq::HandleRequest() const {
                        vm_name, vlan_id, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    ctable->Enqueue(&req);
     resp->set_resp(std::string("Success"));
     resp->Response();
     return;

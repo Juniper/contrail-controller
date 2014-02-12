@@ -383,8 +383,13 @@ class VirtualNetworkST(DictST):
         try:
             sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
         except pycassa.NotFoundException:
-            sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
-                self.obj, count=1)[0]
+            try:
+                sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
+                    self.obj, count=1)[0]
+            except NoIdError:
+                _sandesh._logger.debug(
+                    "NoIdError while allocating ip in network %s", self.name)
+                return None
             self._sc_ip_cf.insert(sc_name, {'ip_address': sc_ip_address})
         return sc_ip_address
     # end allocate_service_chain_ip
@@ -1349,6 +1354,8 @@ class ServiceChain(DictST):
             if transparent:
                 sc_ip_address = vn1_obj.allocate_service_chain_ip(
                     service_name1)
+                if sc_ip_address is None:
+                    return None
                 service_ri1.add_service_info(vn2_obj, service, sc_ip_address)
                 if self.direction == "<>":
                     service_ri2.add_service_info(vn1_obj, service,
