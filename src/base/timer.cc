@@ -17,7 +17,12 @@ public:
     // Timer could have been cancelled or delete when task was enqueued
     virtual bool Run() {
         // cancelled task .. ignore
-        if (task_cancelled()) return true;
+        if (task_cancelled()) {
+            // Cancelled timer's task releases the ownership of the timer
+            timer_ = NULL;
+            return true;
+        }
+
         {
             tbb::mutex::scoped_lock lock(timer_->mutex_);
 
@@ -53,6 +58,9 @@ public:
 
     // Task Cancelled/Destroyed when it was Fired.
     void OnTaskCancel() {
+        if (!timer_) {
+            return;
+        }
         tbb::mutex::scoped_lock lock(timer_->mutex_);
 
         if (timer_->timer_task_ != this) {
