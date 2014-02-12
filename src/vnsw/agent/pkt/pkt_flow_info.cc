@@ -153,11 +153,12 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
 // Decode route and get Interface / ECMP information
 static bool RouteToOutInfo(const Inet4UnicastRouteEntry *rt, const PktInfo *pkt,
                            PktFlowInfo *info, PktControlInfo *out) {
+    Agent *agent = static_cast<AgentRouteTable *>(rt->get_table())->agent();
     const AgentPath *path = rt->GetActivePath();
     if (path == NULL)
         return false;
 
-    const NextHop *nh = static_cast<const NextHop *>(path->GetNextHop());
+    const NextHop *nh = static_cast<const NextHop *>(path->GetNextHop(agent));
     if (nh == NULL)
         return false;
 
@@ -264,7 +265,9 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
         if (in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
-            nh = in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())->GetNextHop();
+            Agent *agent = static_cast<AgentRouteTable *>
+                (in->rt_->get_table())->agent();
+            nh = in->rt_->FindPath(agent->GetLocalVmPeer())->GetNextHop(agent);
         } else {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>
                 (in->rt_->GetActiveNextHop());

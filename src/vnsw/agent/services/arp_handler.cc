@@ -119,7 +119,7 @@ bool ArpHandler::HandlePacket() {
 
         Inet4UnicastRouteEntry *uc_rt = 
             static_cast<Inet4UnicastRouteEntry *>(route);
-        uint8_t plen = uc_rt->GetPlen();
+        uint8_t plen = uc_rt->plen();
         uint32_t mask = (plen == 32) ? 0xFFFFFFFF : (0xFFFFFFFF >> plen);
         if (!(arp_tpa_ & mask) || !(arp_tpa_)) {
             arp_proto->StatsErrors();

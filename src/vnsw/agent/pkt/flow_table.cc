@@ -1313,8 +1313,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     }
     FLOW_TRACE(RouteUpdate, 
                route->GetVrfEntry()->GetName(), 
-               route->GetIpAddress().to_string(), 
-               route->GetPlen(), 
+               route->addr().to_string(), 
+               route->plen(), 
                (route->GetActivePath()) ? route->GetDestVnName() : "",
                route->IsDeleted(),
                marked_delete_,
@@ -1324,7 +1324,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     // Handle delete cases
     if (marked_delete_ || route->IsDeleted()) {
         RouteFlowKey rkey(route->GetVrfEntry()->GetVrfId(),
-                          route->GetIpAddress().to_ulong(), route->GetPlen());
+                          route->addr().to_ulong(), route->plen());
         Agent::GetInstance()->pkt()->flow_table()->DeleteRouteFlows(rkey);
         if (state) {
             route->ClearState(partition->parent(), id_);
@@ -1339,7 +1339,7 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     }
 
     RouteFlowKey skey(route->GetVrfEntry()->GetVrfId(), 
-                      route->GetIpAddress().to_ulong(), route->GetPlen());
+                      route->addr().to_ulong(), route->plen());
     sort (new_sg_l.begin(), new_sg_l.end());
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
@@ -2014,7 +2014,7 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
 
 Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
         const Ip4Address &addr) {
-        route_key_.SetAddr(addr);
+        route_key_.set_addr(addr);
         return entry->GetUcRoute(route_key_);
 }
 

@@ -89,7 +89,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(ip);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
-                               intf->vn()->GetName(), label); 
+                               intf->vn()->GetName(), label,
+                               SecurityGroupList(), false); 
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }

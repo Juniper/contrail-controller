@@ -57,7 +57,7 @@ struct AgentRouteData : public AgentData {
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
-    virtual bool AddChangePath(AgentPath *path) = 0;
+    virtual bool AddChangePath(Agent *agent, AgentPath *path) = 0;
 
     bool IsMulticast() const {return is_multicast_;}
     Op GetOp() const { return op_; }

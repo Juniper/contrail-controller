@@ -63,6 +63,7 @@ public:
     ~TunnelEncapTest() { };
 
     virtual void SetUp() {
+        agent = Agent::GetInstance();
         IpamInfo ipam_info[] = {
             {"1.1.1.0", 24, "1.1.1.200"}
         };
@@ -160,7 +161,7 @@ public:
     }
 
     void VerifyLabel(AgentPath *path) {
-        const NextHop *nh = path->GetNextHop();
+        const NextHop *nh = path->GetNextHop(agent);
         const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
         TunnelType::Type type = tnh->GetTunnelType().GetType();
         switch (type) {
@@ -185,7 +186,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -197,7 +198,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -211,7 +212,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -223,7 +224,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop();
+            const NextHop *nh = path->GetNextHop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -267,6 +268,7 @@ public:
         ASSERT_TRUE(tnh->GetTunnelType().GetType() == type);
     }
 
+    Agent *agent;
     TunnelType::Type default_tunnel_type_;
     std::string vrf_name_;
     Ip4Address  local_vm_ip_;

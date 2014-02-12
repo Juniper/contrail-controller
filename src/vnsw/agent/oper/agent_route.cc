@@ -26,7 +26,7 @@ SandeshTraceBufferPtr AgentDBwalkTraceBuf(SandeshTraceBufferCreate(
 class AgentRouteTable::DeleteActor : public LifetimeActor {
   public:
     DeleteActor(AgentRouteTable *rt_table) : 
-        LifetimeActor(Agent::GetInstance()->GetLifetimeManager()), 
+        LifetimeActor(rt_table->agent()->GetLifetimeManager()), 
         table_(rt_table) { 
     }
     virtual ~DeleteActor() { 
@@ -58,9 +58,9 @@ bool NHComparator::operator() (const NextHop *nh1, const NextHop *nh2) {
     return nh1->IsLess(*nh2);
 }
 
-AgentRouteTable::AgentRouteTable(DB *db, const std::string &name) :
-    RouteTable(db, name), agent_(NULL),
-    deleter_(new DeleteActor(this)), vrf_delete_ref_(this, NULL) { 
+AgentRouteTable::AgentRouteTable(DB *db, const std::string &name):
+    RouteTable(db, name), agent_(NULL), deleter_(NULL),
+    vrf_delete_ref_(this, NULL) {
 }
 
 AgentRouteTable::~AgentRouteTable() {
@@ -88,6 +88,7 @@ void AgentRouteTable::SetVrf(VrfEntry *vrf) {
     agent_ = (static_cast<VrfTable *>(vrf->get_table()))->agent();
     vrf_entry_ = vrf;
     vrf_delete_ref_.Reset(vrf->deleter());
+    deleter_.reset(new DeleteActor(this));
 }
 
 // Allocate a route entry
@@ -158,7 +159,7 @@ void AgentRouteTable::EvaluateUnresolvedNH(void) {
         DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
         req.key = (*it)->GetDBRequestKey();
         (static_cast<NextHopKey *>(req.key.get()))->sub_op_ = AgentKey::RESYNC;
-        agent_->GetNextHopTable()->Enqueue(&req);
+        agent_->nexthop_table()->Enqueue(&req);
     }
 
     unresolved_nh_tree_.clear();
@@ -342,7 +343,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             if (path == NULL) {
                 path = new AgentPath(key->GetPeer(), rt);
                 rt->InsertPath(path);
-                data->AddChangePath(path);
+                data->AddChangePath(agent_, path);
                 notify = true;
 
                 RouteInfo rt_info;
@@ -350,7 +351,7 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 OPER_TRACE(Route, rt_info);
             } else {
                 // Let path know of route change and update itself
-                notify = data->AddChangePath(path);
+                notify = data->AddChangePath(agent_, path);
                 RouteInfo rt_info;
 
                 rt->FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
@@ -602,7 +603,7 @@ const NextHop *AgentRoute::GetActiveNextHop() const {
     if (path == NULL)
         return NULL;
 
-    return path->GetNextHop();
+    return path->GetNextHop(static_cast<AgentRouteTable *>(get_table())->agent());
 }
 
 // This is for handling shared tree across different multicast routes,
@@ -652,7 +653,7 @@ void AgentRoute::ResyncTunnelNextHop(void) {
         req.key = key;
         req.data.reset(NULL);
         Agent *agent = (static_cast<AgentRouteTable *>(get_table()))->agent();
-        agent->GetNextHopTable()->Enqueue(&req);
+        agent->nexthop_table()->Enqueue(&req);
     }
 }
 
