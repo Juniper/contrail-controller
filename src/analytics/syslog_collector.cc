@@ -59,13 +59,6 @@ class SyslogTcpSession : public TcpSession
     SyslogTcpListener *listner_;
 };
 
-/*
-void Dealloc (boost::asio::const_buffer *b) {
-    session_->ReleaseBuffer(*b);
-    session_->server()->DeleteSession (session_.get());
-}
-*/
-
 class TCPSyslogQueueEntry : public SyslogQueueEntry
 {
     private:
@@ -167,13 +160,13 @@ class SyslogParser
 
             void print ()
             {
-                std::cout << "{ \"" << key << "\": ";
+                LOG(DEBUG, "{ \"" << key << "\": ");
                 if (type == int_type)
-                    std::cout << i_val << "}";
+                    LOG(DEBUG, i_val << "}");
                 else if (type == str_type)
-                    std::cout << "\"" << s_val << "\"}";
+                    LOG(DEBUG, "\"" << s_val << "\"}");
                 else
-                    std::cout << "**bad type**}";
+                    LOG(DEBUG, "**bad type**}");
             }
         };
 
@@ -411,18 +404,19 @@ class SyslogParser
           const uint8_t *p = buffer_cast<const uint8_t *>(sqe->data);
 //#define SYSLOG_DEBUG 0
 #ifdef SYSLOG_DEBUG
-          std::cout << "cnt parser " << sqe->length << " bytes from (" <<
-              ip << ":" << sqe->port << ")[";
+          LOG(DEBUG, "cnt parser " << sqe->length << " bytes from (" <<
+              ip << ":" << sqe->port << ")[");
 
-          for (const uint8_t *q = p; q != p + sqe->length; q++)
-              std::cout << *q;
-          std::cout << "]\n";
+          {
+              std::string str (p, p + sqe->length);
+              LOG(DEBUG, str << "]\n");
+          }
 #endif
 
           syslog_m_t v;
           bool r = parse_syslog (p, p + sqe->length, v);
 #ifdef SYSLOG_DEBUG
-          std::cout << "parsed " << r << "." << std::endl;
+          LOG(DEBUG, "parsed " << r << "." << std::endl;
 #endif
 
           v.insert(std::pair<std::string, Holder>("ip",
@@ -437,10 +431,10 @@ class SyslogParser
 
           int i = 0;
           while (!v.empty()) {
-              std::cout << i++ << ": ";
+              LOG(DEBUG, i++ << ": ";
               Holder d = v.begin()->second;
               d.print ();
-              std::cout << std::endl;
+              LOG(DEBUG, std::endl;
               v.erase(v.begin());
           }
 #else

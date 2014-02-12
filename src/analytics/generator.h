@@ -170,7 +170,7 @@ private:
 class SyslogGenerator : public Generator {
   public:
     SyslogGenerator (SyslogListeners *const listeners,
-        const std::string source, const std::string module);
+        const std::string &source, const std::string &module);
     const std::string &module() const { return module_; }
     const std::string &source() const { return source_; }
     virtual const std::string ToString() const { return name_; }
