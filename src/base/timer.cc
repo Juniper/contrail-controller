@@ -16,19 +16,13 @@ public:
     // Invokes user callback.
     // Timer could have been cancelled or delete when task was enqueued
     virtual bool Run() {
-        // cancelled task .. ignore
-        if (task_cancelled()) {
-            // Cancelled timer's task releases the ownership of the timer
-            timer_ = NULL;
-            return true;
-        }
-
         {
             tbb::mutex::scoped_lock lock(timer_->mutex_);
 
-            // Handle timer Cancelled when it was enqueued to TBB
-            // Removes Task reference
-            if (timer_->state_ == Timer::Cancelled) {
+            // cancelled task .. ignore
+            if (task_cancelled()) {
+                // Cancelled timer's task releases the ownership of the timer
+                timer_ = NULL;
                 return true;
             }
 
