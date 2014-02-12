@@ -18,7 +18,7 @@ test_suite = [
     rtarget_address_test,
 ]
 
-test = env.TestSuite('rtarget-test', test_suite)
-env.Alias('src/bgp/rtarget:test', test)
+test = env.TestSuite('bgp-test', test_suite)
+env.Alias('src/bgp:test', test)
 
 Return('test_suite')
