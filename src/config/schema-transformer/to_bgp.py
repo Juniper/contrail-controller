@@ -21,6 +21,7 @@ import cgitb
 import copy
 import argparse
 import socket
+import uuid
 
 from lxml import etree
 import re
@@ -352,23 +353,20 @@ class VirtualNetworkST(DictST):
         if service_chain_list is None:
             service_chain_list = []
             self.service_chains[remote_vn] = service_chain_list
-        sc_name = "sc:" + left_vn + ":" + right_vn
-        new_service_chain = ServiceChain(sc_name, left_vn, right_vn,
+        service_chain = ServiceChain.find_or_create(left_vn, right_vn,
                                          direction, sp_list, dp_list, proto,
                                          service_list)
-        service_chain = ServiceChain.locate(sc_name, left_vn, right_vn,
-                                            direction, sp_list, dp_list, proto,
-                                            service_list)
-        if not(service_chain == new_service_chain):
+        if service_chain.service_list != service_list:
             if service_chain.created:
                 service_chain.destroy()
-                service_chain.copy(new_service_chain)
+                service_chain.service_list = service_list
                 service_chain.create()
             else:
-                service_chain.copy(new_service_chain)
+                service_chain.service_list = service_list
 
         if service_chain not in service_chain_list:
             service_chain_list.append(service_chain)
+        return service_chain.name
     # end add_service_chain
 
     def get_vns_in_project(self):
@@ -664,8 +662,9 @@ class VirtualNetworkST(DictST):
             _sandesh._logger.debug("Virtual network %s not present",
                                    left_vn_str)
             return (None, None)
-        left_ri_name = left_vn.get_service_name(
-            si_props.right_virtual_network, next_hop)
+        sc = ServiceChain.find(left_vn_str, right_vn_str, '<>',
+                               [PortType(0, -1)], [PortType(0, -1)], 'any')
+        left_ri_name = left_vn.get_service_name(sc.name, next_hop)
         return (left_vn.get_primary_routing_instance(),
                 left_vn.rinst.get(left_ri_name))
     # end _get_routing_instances_from_route
@@ -784,8 +783,8 @@ class VirtualNetworkST(DictST):
         vn_msg.send(sandesh=_sandesh)
     # end uve_send
 
-    def get_service_name(self, remote_vn_name, si_name):
-        name = "service-" + self.name + "-" + remote_vn_name + "-" + si_name
+    def get_service_name(self, sc_name, si_name):
+        name = "service-" + sc_name + "-" + si_name
         return name.replace(':', '_')
     # end get_service_name
 
@@ -901,14 +900,19 @@ class VirtualNetworkST(DictST):
                         continue
                     service_list = copy.deepcopy(
                         prule.action_list.apply_service)
-                    self.add_service_chain(remote_network_name, svn, dvn,
-                                           prule.direction, sp_list, dp_list,
-                                           arule_proto, service_list)
+                    sc_name = self.add_service_chain(remote_network_name, svn,
+                        dvn, prule.direction, sp_list, dp_list, arule_proto,
+                        service_list)
 
                 for sp in sp_list:
                     for dp in dp_list:
                         if prule.action_list:
                             action = copy.deepcopy(prule.action_list)
+                            if (service_list and svn in [self.name, 'any']):
+                                    service_ri = self.get_service_name(sc_name,
+                                        service_list[0])
+                                    action.assign_routing_instance = \
+                                        self.name + ':' + service_ri
                             if (service_list and svn in [self.name, 'any']):
                                     service_ri = self.get_service_name(dvn,
                                         service_list[0])
@@ -922,6 +926,14 @@ class VirtualNetworkST(DictST):
                             if ((svn in [self.name, 'any']) or
                                     (dvn in [self.name, 'any'])):
                                 self.process_analyzer(action)
+                            if (service_list and dvn in [self.name, 'any']):
+                                    service_ri = self.get_service_name(sc_name,
+                                        service_list[-1])
+                                    raction.assign_routing_instance = \
+                                        self.name +':' + service_ri
+                            else:
+                                raction.assign_routing_instance = None
+
 
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
@@ -1239,20 +1251,35 @@ class ServiceChain(DictST):
         return True
     # end __eq__
 
-    def copy(self, other):
-        self.name = other.name
-        self.left_vn = other.left_vn
-        self.right_vn = other.right_vn
-        self.direction = other.direction
-        self.sp_list = other.sp_list
-        self.dp_list = other.dp_list
-        self.service_list = other.service_list
-        self.nat_service = other.nat_service
-
-        self.protocol = other.protocol
-        self.created = other.created
-    # end copy
-
+    @classmethod
+    def find(cls, left_vn, right_vn, direction, sp_list, dp_list, protocol):
+        for sc in ServiceChain.values():
+            if (left_vn == sc.left_vn and
+                right_vn == sc.right_vn and
+                sp_list == sc.sp_list and
+                dp_list == sc.dp_list and
+                direction == sc.direction and
+                protocol == sc.protocol):
+                    return sc
+        # end for sc
+        return None
+    # end find
+    
+    @classmethod
+    def find_or_create(cls, left_vn, right_vn, direction, sp_list, dp_list,
+                       protocol, service_list):
+        sc = cls.find(left_vn, right_vn, direction, sp_list, dp_list, protocol)
+        if sc is not None:
+            return sc
+        
+        name = str(uuid.uuid4())
+        sc = ServiceChain(name, left_vn, right_vn, direction, sp_list,
+                          dp_list, protocol, service_list)
+        ServiceChain._dict[name] = sc
+        return sc
+    # end find_or_create
+    
+            
     def update_ipams(self, vn2_name):
         if not self.created:
             return
@@ -1266,7 +1293,7 @@ class ServiceChain(DictST):
             return
 
         for service in self.service_list:
-            service_name = vn1.get_service_name(vn2_name, service)
+            service_name = vn1.get_service_name(self.name, service)
             service_ri = vn1.locate_routing_instance(service_name, self.name)
             if service_ri is None:
                 continue
@@ -1291,8 +1318,8 @@ class ServiceChain(DictST):
         service_ri2 = vn1_obj.get_primary_routing_instance()
         first_node = True
         for service in self.service_list:
-            service_name1 = vn1_obj.get_service_name(self.right_vn, service)
-            service_name2 = vn2_obj.get_service_name(self.left_vn, service)
+            service_name1 = vn1_obj.get_service_name(self.name, service)
+            service_name2 = vn2_obj.get_service_name(self.name, service)
             service_ri1 = vn1_obj.locate_routing_instance(
                 service_name1, self.name)
             if service_ri1 is None or service_ri2 is None:
@@ -1498,14 +1525,13 @@ class ServiceChain(DictST):
 
         for service in self.service_list:
             if vn1_obj:
-                service_name1 = vn1_obj.get_service_name(
-                    self.right_vn, service)
+                service_name1 = vn1_obj.get_service_name(self.name, service)
                 service_ri1 = vn1_obj.rinst.get(service_name1)
                 if service_ri1 is not None:
                     vn1_obj.delete_routing_instance(service_ri1)
                     del vn1_obj.rinst[service_name1]
             if vn2_obj:
-                service_name2 = vn2_obj.get_service_name(self.left_vn, service)
+                service_name2 = vn2_obj.get_service_name(self.name, service)
                 service_ri2 = vn2_obj.rinst.get(service_name2)
                 if service_ri2 is not None:
                     vn2_obj.delete_routing_instance(service_ri2)
@@ -1516,6 +1542,27 @@ class ServiceChain(DictST):
     def delete(self):
         del self._dict[self.name]
     # end delete
+    
+    def build_introspect(self):
+        sc = sandesh.ServiceChain(sc_name=self.name)
+        sc.left_virtual_network = self.left_vn
+        sc.right_virtual_network = self.right_vn
+        sc.protocol = self.protocol
+        port_list = []
+        for sp in self.sp_list:
+            port_list.append("%s-%s"%(sp.start_port, sp.end_port))
+        sc.src_ports = ','.join(port_list)
+        port_list = []
+        for dp in self.dp_list:
+            port_list.append("%s-%s"%(dp.start_port, dp.end_port))
+        sc.dst_ports = ','.join(port_list)
+        sc.direction = self.direction
+        sc.service_list = self.service_list
+        sc.nat_service = self.nat_service
+        sc.created = self.created
+        return sc
+    # end build_introspect
+    
 # end ServiceChain
 
 
@@ -2114,6 +2161,7 @@ class LogicalRouterST(DictST):
     def add_virtual_network(self, vn_name):
         self.virtual_networks.add(vn_name)
 
+        sandesh.ServiceChainList.handle_request = self.sandesh_sc_handle_request
     def delete_virtual_network(self, vn_name):
         self.virtual_networks.discard(vn_name)
 # end LogicaliRouterST
@@ -2895,6 +2943,18 @@ class SchemaTransformer(object):
             vn_resp.vn_names.append(sandesh_vn)
         vn_resp.response(req.context())
     # end sandesh_vn_handle_request
+    
+    def sandesh_sc_handle_request(self, req):
+        sc_resp = sandesh.ServiceChainListResp(service_chains=[])
+        if req.sc_name is None:
+            for sc in ServiceChain.values():
+                sandesh_sc = sc.build_introspect()
+                sc_resp.service_chains.append(sandesh_sc)
+        elif req.sc_name in ServiceChain:
+            sandesh_sc = ServiceChain[req.sc_name].build_introspect()
+            sc_resp.service_chains.append(sandesh_sc)
+        sc_resp.response(req.context())
+    # end sandesh_sc_handle_request
 # end class SchemaTransformer
 
 
