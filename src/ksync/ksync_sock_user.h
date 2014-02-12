@@ -135,6 +135,14 @@ public:
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
     static void IfStatsSet(int, int, int, int, int, int, int);
+    static void InterfaceAdd(int id);
+    static void InterfaceDelete(int id);
+    static void NHAdd(int id);
+    static void NHDelete(int id);
+    static void MplsAdd(int id);
+    static void MplsDelete(int id);
+    static void MirrorAdd(int id);
+    static void MirrorDelete(int id);
     static void VrfAssignAdd(vr_vrf_assign_req &req);
     static void VrfAssignDelete(vr_vrf_assign_req &req);
     static void VrfStatsAdd(int vrf_id);
