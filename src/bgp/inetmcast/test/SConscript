@@ -93,11 +93,11 @@ else:
     lib_inetmcast = Dir('..').path + '/libbgp_inetmcast.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_inetmcast])
 
-inetmcast_table_test = env.Program('inetmcast_table_test',
+inetmcast_table_test = env.UnitTest('inetmcast_table_test',
                                    ['inetmcast_table_test.cc'])
 env.Alias('src/bgp/inetmcast:inetmcast_table_test', inetmcast_table_test)
 
-inetmcast_prefix_test = env.Program('inetmcast_prefix_test',
+inetmcast_prefix_test = env.UnitTest('inetmcast_prefix_test',
                                     ['inetmcast_prefix_test.cc'])
 env.Alias('src/bgp/inetmcast:inetmcast_prefix_test', inetmcast_prefix_test)
 
@@ -107,6 +107,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
-env.Alias('src/bgp:test', test)
+env.Alias('src/bgp/inetmcast:test', test)
 
 Return('test_suite')

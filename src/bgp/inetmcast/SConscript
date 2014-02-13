@@ -14,4 +14,6 @@ libbgp_inetmcast = env.Library('bgp_inetmcast',
                         'inetmcast_table.cc'
                         ])
 
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+inetmcast_unit_tests = env.SConscript('test/SConscript', exports='BuildEnv',
+                                      duplicate = 0)
+Return('inetmcast_unit_tests')

@@ -109,6 +109,10 @@ class PatriciaBaseTest : public ::testing::Test {
         itbl_ = new RouteTable;
     }
 
+    ~PatriciaBaseTest() {
+        delete itbl_;
+    }
+
     virtual void SetUp() {
     }
 
@@ -242,6 +246,10 @@ class PatriciaTest : public ::testing::Test {
     public:
     PatriciaTest() {
         itbl_ = new RouteTable;
+    }
+
+    ~PatriciaTest() {
+        delete itbl_;
     }
 
     virtual void SetUp() {

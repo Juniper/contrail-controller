@@ -32,7 +32,6 @@ public:
         DhcpStats() { Reset(); }
     };
 
-    void Init();
     void Shutdown();
     DhcpProto(Agent *agent, boost::asio::io_service &io, bool run_with_vrouter);
     virtual ~DhcpProto();

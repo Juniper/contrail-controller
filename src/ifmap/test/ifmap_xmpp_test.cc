@@ -58,6 +58,7 @@ using namespace std;
 #define DEFAULT_OUTPUT_FILE     "/tmp/output.txt"
 #define HOST_VMI_NAME           "aad4c946-9390-4a53-8bbd-09d346f5ba6c:323b7882-9bcf-4dc9-9460-48ea68b60ea2"
 #define HOST_VM_NAME            "aad4c946-9390-4a53-8bbd-09d346f5ba6c"
+#define HOST_VM_NAME1           "aad4c946-9390-4a53-8bbd-09d346f5ba6d"
 
 class XmppVnswMockPeer : public XmppClient {
 public:
@@ -429,7 +430,7 @@ protected:
             return;
         }
         bool is_expired = false;
-        boost::asio::deadline_timer timer(*evm_.io_service());
+        boost::asio::monotonic_deadline_timer timer(*evm_.io_service());
         timer.expires_from_now(boost::posix_time::seconds(timeout));
         timer.async_wait(boost::bind(&XmppIfmapTest::on_timeout, 
                          boost::asio::placeholders::error, &is_expired));
@@ -892,6 +893,11 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
+
 
     size_t cli_index = static_cast<size_t>(client->index());
     CheckLinkBits(link, cli_index, true, true);
@@ -911,6 +917,10 @@ TEST_F(XmppIfmapTest, VrVmSubUnsub) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     vnsw_client->OutputRecvBufferToFile();
 
@@ -996,6 +1006,10 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     size_t cli_index = static_cast<size_t>(client->index());
     CheckLinkBits(link, cli_index, true, true);
@@ -1015,6 +1029,10 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     // Send a subscribe-unsubscribe again.
     num_msgs = vnsw_client->Count();
@@ -1031,6 +1049,10 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     EXPECT_TRUE(link != NULL);
     link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     CheckLinkBits(link, cli_index, true, true);
     CheckNodeBits(vr, cli_index, true, true);
@@ -1048,6 +1070,10 @@ TEST_F(XmppIfmapTest, VrVmSubUnsubTwice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     vnsw_client->OutputRecvBufferToFile();
 
@@ -1136,6 +1162,11 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
 
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
+
     size_t cli_index = static_cast<size_t>(client->index());
     CheckLinkBits(link, cli_index, true, true);
     CheckNodeBits(vr, cli_index, true, true);
@@ -1187,6 +1218,10 @@ TEST_F(XmppIfmapTest, VrVmSubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     vnsw_client->OutputRecvBufferToFile();
 
@@ -1273,6 +1308,10 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     size_t cli_index = static_cast<size_t>(client->index());
     CheckLinkBits(link, cli_index, true, true);
@@ -1292,6 +1331,10 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
     EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 0);
 
     // 2nd spurious unsubscribe
@@ -1302,6 +1345,10 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 1);
 
     // 3rd spurious unsubscribe
@@ -1312,6 +1359,10 @@ TEST_F(XmppIfmapTest, VrVmUnsubThrice) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
     TASK_UTIL_EXPECT_EQ(ifmap_channel_mgr_->get_vmunsub_novmsub_messages(), 2);
 
     vnsw_client->OutputRecvBufferToFile();
@@ -1399,6 +1450,10 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
     EXPECT_TRUE(link != NULL);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     size_t cli_index = static_cast<size_t>(client->index());
     CheckLinkBits(link, cli_index, true, true);
@@ -1407,10 +1462,21 @@ TEST_F(XmppIfmapTest, VrVmSubConnClose) {
 
     vnsw_client->OutputRecvBufferToFile();
 
+    // HOST_VM_NAME1 does not exist in config.
+    vnsw_client->SendVmConfigSubscribe(HOST_VM_NAME1);
+    usleep(1000);
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 1);
     EXPECT_EQ(ifmap_server_.GetClientMapSize(), 1);
+
     // Client close generates a TcpClose event on server
     ConfigUpdate(vnsw_client, new XmppConfigData());
     TASK_UTIL_EXPECT_EQ(ifmap_server_.GetClientMapSize(), 0);
+    TASK_UTIL_EXPECT_EQ(ifmap_server_.vm_uuid_mapper()->PendingVmRegCount(), 0);
+
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     // Verify ifmap_server client cleanup
     EXPECT_EQ(true, IsIFMapClientUnregistered(&ifmap_server_, client_name));
@@ -1494,6 +1560,10 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     IFMapLink *link = LinkLookup(vr, vm);
     bool link_origin = LinkOriginLookup(link, IFMapOrigin::XMPP);
     EXPECT_TRUE(link_origin);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     cout << "Rx msgs " << vnsw_client->Count() << endl;
     cout << "Sent msgs " << GetSentMsgs(xmpp_server_, client_name) << endl;
@@ -1513,6 +1583,10 @@ TEST_F(XmppIfmapTest, RegBeforeConfig) {
     EXPECT_TRUE(link == NULL);
     CheckNodeBits(vr, cli_index, true, true);
     CheckNodeBits(vm, cli_index, false, false);
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vr, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vr, IFMapOrigin::XMPP));
+    TASK_UTIL_EXPECT_TRUE(NodeOriginLookup(vm, IFMapOrigin::MAP_SERVER));
+    TASK_UTIL_EXPECT_FALSE(NodeOriginLookup(vm, IFMapOrigin::XMPP));
 
     vnsw_client->OutputRecvBufferToFile();
 

@@ -14,10 +14,6 @@ ArpHandler::ArpHandler(Agent *agent, boost::shared_ptr<PktInfo> info,
     : ProtoHandler(agent, info, io), arp_(NULL), arp_tpa_(0) {
 }
 
-ArpHandler::ArpHandler(Agent *agent, boost::asio::io_service &io) 
-    : ProtoHandler(agent, io), arp_(NULL), arp_tpa_(0) {
-}
-
 ArpHandler::~ArpHandler() {
 }
 

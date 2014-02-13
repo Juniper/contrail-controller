@@ -20,6 +20,7 @@
 #include <oper/vm.h>
 #include <oper/agent_sandesh.h>
 #include <oper/interface_common.h>
+#include <oper/vxlan.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
@@ -1405,6 +1406,8 @@ TEST_F(CfgTest, SecurityGroup_1) {
 
     const AgentPath *path = rt->GetActivePath();
     EXPECT_EQ(path->GetSecurityGroupList().size(), 1);
+    EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
+    EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");

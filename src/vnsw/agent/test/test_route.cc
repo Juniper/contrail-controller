@@ -2,6 +2,7 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/assign/list_of.hpp>
 #include <base/logging.h>
 #include <io/event_manager.h>
 #include <tbb/task.h>
@@ -32,9 +33,15 @@
 
 #include <controller/controller_export.h> 
 
-std::string eth_itf;
+using namespace boost::assign;
 
+std::string eth_itf;
 void RouterIdDepInit() {
+}
+
+static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
+    //TBD
+    //Validate the response by the expectation
 }
 
 class RouteTest : public ::testing::Test {
@@ -260,6 +267,16 @@ TEST_F(RouteTest, SubnetRoute_1) {
     EXPECT_TRUE(rt2->GetActiveNextHop()->GetType() == NextHop::DISCARD);
     EXPECT_TRUE(rt3->GetActiveNextHop()->GetType() == NextHop::DISCARD);
 
+    //Call for sandesh
+    Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    uc_list_req->set_vrf_index(1);
+    uc_list_req->HandleRequest();
+    client->WaitForIdle();
+    uc_list_req->Release();
+    client->WaitForIdle();
+
     client->Reset();
     DelIPAM("vn1");
     client->WaitForIdle();
@@ -318,6 +335,16 @@ TEST_F(RouteTest, SubnetRoute_2) {
     AddIPAM("vn1", ipam_info_3, 1);
     client->WaitForIdle();
 
+    //Just check for sandesh message handling
+    Inet4UcRouteReq *uc_list_req = new Inet4UcRouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    uc_list_req->set_vrf_index(1);
+    uc_list_req->HandleRequest();
+    client->WaitForIdle();
+    uc_list_req->Release();
+    client->WaitForIdle();
+
     rt1 = RouteGet(vrf_name_, subnet_vm_ip_1_, 24);
     rt2 = RouteGet(vrf_name_, subnet_vm_ip_2_, 28);
     rt3 = RouteGet(vrf_name_, subnet_vm_ip_3_, 16);
@@ -363,6 +390,8 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     EXPECT_TRUE(RouteFind(vrf_name_, local_vm_ip_, 32));
     Inet4UnicastRouteEntry *rt = RouteGet(vrf_name_, local_vm_ip_, 32);
     EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->GetActivePath()->vxlan_id() == VxLanTable::kInvalidvxlan_id);
+    EXPECT_TRUE(rt->GetActivePath()->tunnel_bmap() == TunnelType::MplsType());
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();
 

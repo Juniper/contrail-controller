@@ -52,12 +52,11 @@ void VrouterUveEntry::Shutdown(void) {
     agent_->GetVnTable()->Unregister(vn_listener_id_);
 }
 
-void VrouterUveEntry::DispatchVrouterMsg(const VrouterAgent &uve) const {
+void VrouterUveEntry::DispatchVrouterMsg(const VrouterAgent &uve) {
     UveVrouterAgent::Send(uve);
 }
 
-void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) 
-    const {
+void VrouterUveEntry::DispatchVrouterStatsMsg(const VrouterStatsAgent &uve) {
     VrouterStats::Send(uve);
 }
 

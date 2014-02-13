@@ -16,14 +16,13 @@ public:
     // Invokes user callback.
     // Timer could have been cancelled or delete when task was enqueued
     virtual bool Run() {
-        // cancelled task .. ignore
-        if (task_cancelled()) return true;
         {
             tbb::mutex::scoped_lock lock(timer_->mutex_);
 
-            // Handle timer Cancelled when it was enqueued to TBB
-            // Removes Task reference
-            if (timer_->state_ == Timer::Cancelled) {
+            // cancelled task .. ignore
+            if (task_cancelled()) {
+                // Cancelled timer's task releases the ownership of the timer
+                timer_ = NULL;
                 return true;
             }
 
@@ -53,6 +52,9 @@ public:
 
     // Task Cancelled/Destroyed when it was Fired.
     void OnTaskCancel() {
+        if (!timer_) {
+            return;
+        }
         tbb::mutex::scoped_lock lock(timer_->mutex_);
 
         if (timer_->timer_task_ != this) {
@@ -71,7 +73,7 @@ private:
 
 Timer::Timer(boost::asio::io_service &service, const std::string &name,
           int task_id, int task_instance)
-    : boost::asio::deadline_timer(service), name_(name), handler_(NULL),
+    : boost::asio::monotonic_deadline_timer(service), name_(name), handler_(NULL),
     error_handler_(NULL), state_(Init), timer_task_(NULL), time_(0),
     task_id_(task_id), task_instance_(task_instance), seq_no_(0) {
     refcount_ = 0;
@@ -136,7 +138,7 @@ bool Timer::Cancel() {
 }
 
 // ASIO callback on timer expiry. Start a task to serve the timer
-void Timer::StartTimerTask(boost::asio::deadline_timer* t, TimerPtr timer,
+void Timer::StartTimerTask(boost::asio::monotonic_deadline_timer* t, TimerPtr timer,
                            int time, uint32_t seq_no, 
                            const boost::system::error_code &ec) {
     tbb::mutex::scoped_lock lock(timer->mutex_);

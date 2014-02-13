@@ -56,6 +56,7 @@ AclDBEntry *AclGet(int id);
 VmEntry *VmGet(int id);
 bool VmFind(int id);
 bool VmPortFind(int id);
+bool VmPortFindRetDel(int id);
 uint32_t VmPortGetId(int id);
 bool VmPortFind(PortInfo *input, int id);
 bool VmPortL2Active(int id);

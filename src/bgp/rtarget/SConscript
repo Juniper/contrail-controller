@@ -10,4 +10,6 @@ env = BuildEnv.Clone()
 
 librtarget = env.Library('rtarget', ['rtarget_address.cc'])
                      
-env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+rtarget_test_cases = env.SConscript('test/SConscript', exports='BuildEnv',
+                                    duplicate = 0)
+Return('rtarget_test_cases')

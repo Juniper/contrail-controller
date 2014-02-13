@@ -15,9 +15,6 @@
 #include "services/services_sandesh.h"
 #include "services_init.h"
 
-void ArpProto::Init() {
-}
-
 void ArpProto::Shutdown() {
 }
 

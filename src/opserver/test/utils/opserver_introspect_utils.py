@@ -48,12 +48,14 @@ class VerificationOpsSrv (VerificationUtilBase):
         finally:
             return res
 
-    def get_redis_uve_master(self):
-        path = 'Snh_RedisUVEMasterRequest'
-        xpath = '/RedisUVEMasterResponse/redis_uve_master'
-        p = self.dict_get(path, XmlDrv)
-        return EtreeToDict(xpath).get_all_entry(p)
-    
+    def send_tracebuffer_req(self, src, mod, instance, buf_name):
+        return self.dict_get('analytics/send-tracebuffer/%s/%s/%s/%s' \
+                             % (src, mod, instance, buf_name))
+
+    def get_table_column_values(self, table, col_name):
+        return self.dict_get('analytics/table/%s/column-values/%s' \
+                             % (table, col_name)) 
+
     def post_query_json(self, json_str, sync=True):
         '''
         this module is to support raw query given in json format

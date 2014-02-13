@@ -22,8 +22,6 @@ public:
     static void ReEvaluatePaths(const string &vrf_name, 
                                const struct ether_addr &mac);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static Layer2RouteEntry *FindRoute(const string &vrf_name, 
-                                       const struct ether_addr &mac);
     static void AddRemoteVmRouteReq(const Peer *peer,
                                     const string &vrf_name,
                                     TunnelType::TypeBmap bmap,

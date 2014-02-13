@@ -120,7 +120,6 @@ public:
     typedef std::map<const VmInterface *, IpVdnsMap> VmDataMap;
     typedef std::pair<const VmInterface *, IpVdnsMap> VmDataPair;
 
-    void Init();
     void ConfigInit();
     void Shutdown();
     DnsProto(Agent *agent, boost::asio::io_service &io);

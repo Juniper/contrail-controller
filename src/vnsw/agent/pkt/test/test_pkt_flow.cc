@@ -277,6 +277,22 @@ public:
         client->SetFlowAgeExclusionPolicy();
     }
 
+    void CheckSandeshResponse(Sandesh *sandesh, int flows) {
+        if (memcmp(sandesh->Name(), "FlowRecordsResp",
+                   strlen("FlowRecordsResp")) == 0) {
+            FlowRecordsResp *resp = static_cast<FlowRecordsResp *>(sandesh);
+            EXPECT_TRUE(resp->get_flow_list().size() == flows);
+        } else if (memcmp(sandesh->Name(), "FlowRecordResp",
+                   strlen("FlowRecordResp")) == 0) {
+            FlowRecordResp *resp = static_cast<FlowRecordResp *>(sandesh);
+            EXPECT_TRUE(resp->get_record().sip == vm1_ip);
+            EXPECT_TRUE(resp->get_record().dip == vm2_ip);
+            EXPECT_TRUE(resp->get_record().src_port == 1000);
+            EXPECT_TRUE(resp->get_record().dst_port == 200);
+            EXPECT_TRUE(resp->get_record().protocol == IPPROTO_TCP);
+        }
+    }
+
 protected:
     virtual void SetUp() {
         unsigned int vn_count = 0;
@@ -423,6 +439,24 @@ TEST_F(FlowTest, FlowAdd_1) {
 
     CreateFlow(flow, 4);
     EXPECT_EQ(4U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 4));
+    all_flow_records_sandesh->HandleRequest();
+    client->WaitForIdle();
+    all_flow_records_sandesh->Release();
+
+    FetchFlowRecord *flow_record_sandesh = new FetchFlowRecord();
+    flow_record_sandesh->set_vrf(1);
+    flow_record_sandesh->set_sip(vm1_ip);
+    flow_record_sandesh->set_dip(vm2_ip);
+    flow_record_sandesh->set_src_port(1000);
+    flow_record_sandesh->set_dst_port(200);
+    flow_record_sandesh->set_protocol(IPPROTO_TCP);
+    flow_record_sandesh->HandleRequest();
+    client->WaitForIdle();
+    flow_record_sandesh->Release();
 
     //Verify the ingress and egress flow counts
     uint32_t in_count, out_count;
@@ -726,6 +760,22 @@ TEST_F(FlowTest, FlowAdd_6) {
     Agent::GetInstance()->pkt()->flow_table()->VnFlowCounters(vn, &in_count, &out_count);
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
+}
+
+// Validate short flows
+TEST_F(FlowTest, ShortFlow_1) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, "115.115.115.115", 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {
+                new ShortFlow()
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
 }
 
 TEST_F(FlowTest, FlowAge_1) {

@@ -99,10 +99,10 @@ else:
     lib_l3vpn = Dir('../../l3vpn').path + '/libbgp_l3vpn.a'
     env.Prepend(LINKFLAGS = ['-Wl,-force_load,' + lib_l3vpn])
 
-enet_table_test = env.Program('enet_table_test', ['enet_table_test.cc'])
+enet_table_test = env.UnitTest('enet_table_test', ['enet_table_test.cc'])
 env.Alias('src/bgp/enet:enet_table_test', enet_table_test)
 
-enet_prefix_test = env.Program('enet_prefix_test', ['enet_prefix_test.cc'])
+enet_prefix_test = env.UnitTest('enet_prefix_test', ['enet_prefix_test.cc'])
 env.Alias('src/bgp/enet:enet_prefix_test', enet_prefix_test)
 
 test_suite = [
@@ -111,6 +111,6 @@ test_suite = [
 ]
 
 test = env.TestSuite('bgp-test', test_suite)
-env.Alias('src/bgp:test', test)
+env.Alias('src/bgp/enet:test', test)
 
 Return('test_suite')

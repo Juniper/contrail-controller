@@ -45,10 +45,11 @@
 #include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 #include <set>
+#include <boost/asio/monotonic_deadline_timer.hpp>
 
 #include <base/task.h>
 
-class Timer : public boost::asio::deadline_timer {
+class Timer : public boost::asio::monotonic_deadline_timer {
 private:
 	// Task used to fire the timer
     class TimerTask;
@@ -119,7 +120,7 @@ private:
     };
 
     // ASIO callback on timer expiry. Start a task to serve the timer
-    static void StartTimerTask(boost::asio::deadline_timer* t, TimerPtr t_ptr,
+    static void StartTimerTask(boost::asio::monotonic_deadline_timer* t, TimerPtr t_ptr,
                                int time, uint32_t seq_no,
                                const boost::system::error_code &ec);
 
