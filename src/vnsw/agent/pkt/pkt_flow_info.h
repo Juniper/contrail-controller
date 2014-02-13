@@ -66,6 +66,8 @@ public:
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
     void RewritePktInfo(uint32_t index);
+    void VrfTranslate(const PktInfo *pkt, PktControlInfo *ctrl,
+                      PktControlInfo *rev_flow);
 public:
     boost::shared_ptr<PktInfo> pkt;
 

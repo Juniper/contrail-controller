@@ -278,6 +278,22 @@ private:
     bool rev_flow_is_ecmp_;
 };
 
+class VerifyAction : public FlowVerify {
+public:
+    VerifyAction(uint32_t action, uint32_t rev_action):
+        action_(action), rev_action_(rev_action) { };
+    virtual ~VerifyAction() { };
+    void Verify(FlowEntry *fe) {
+        FlowEntry *rev = fe->reverse_flow_entry();
+        EXPECT_TRUE(rev != NULL);
+        EXPECT_TRUE(fe->match_p().action_info.action == action_);
+        EXPECT_TRUE(rev->match_p().action_info.action == rev_action_);
+    };
+
+private:
+    uint32_t action_;
+    uint32_t rev_action_;
+};
 struct TestFlow {
     ~TestFlow() {
         for (int i = 0; i < 10; i++) {

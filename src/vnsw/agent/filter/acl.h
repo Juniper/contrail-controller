@@ -5,8 +5,10 @@
 #ifndef __AGENT_ACL_N_H__
 #define __AGENT_ACL_N_H__
 
-#include "vnsw/agent/filter/acl_entry.h"
-#include "vnsw/agent/filter/acl_entry_spec.h"
+#include "filter/traffic_action.h"
+#include <filter/acl_entry_match.h>
+#include "filter/acl_entry_spec.h"
+#include "filter/acl_entry.h"
 
 #include <boost/intrusive/list.hpp>
 #include <boost/uuid/uuid.hpp>
@@ -33,6 +35,7 @@ struct FlowAction {
 
     uint32_t action;
     std::vector<MirrorActionSpec> mirror_l;
+    VrfTranslateActionSpec vrf_translate_action_;
 };
 
 struct MatchAclParams {
@@ -60,6 +63,7 @@ struct MatchPolicy {
     std::list<MatchAclParams> m_out_acl_l;
     std::list<MatchAclParams> m_out_sg_acl_l;
     std::list<MatchAclParams> m_out_mirror_acl_l;
+    std::list<MatchAclParams> m_vrf_assign_acl_l;
     FlowAction action_info;
     bool nw_policy;
     uint32_t policy_action;
@@ -68,6 +72,7 @@ struct MatchPolicy {
     uint32_t out_sg_action;
     uint32_t mirror_action;
     uint32_t out_mirror_action;
+    uint32_t vrf_assign_acl_action;
 };
 
 struct AclKey : public AgentKey {

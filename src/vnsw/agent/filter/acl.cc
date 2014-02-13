@@ -324,101 +324,10 @@ bool AclTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
         // ACE clean up
         AclEntrySpec ace_spec;
         ace_spec.id = id++;
-        RangeSpec rs;
 
-        // Protocol
-        if (ir->match_condition.protocol.compare("any") == 0) {
-            rs.min = 0x0;
-            rs.max = 0xff;
-        } else {
-            std::stringstream ss;
-            ss<<ir->match_condition.protocol;
-            ss>>rs.min;
-            ss.clear();
-            rs.max = rs.min;
+        if (ace_spec.Populate(&(ir->match_condition)) == false) {
+            continue;
         }
-        ace_spec.protocol.push_back(rs);
-
-        // src port, check for not icmp
-        if (ir->match_condition.protocol.compare("1") != 0) {
-            PortType sp;
-            sp = ir->match_condition.src_port;
-            rs.min = sp.start_port;
-            rs.max = sp.end_port;
-            if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
-                rs.min = 0;
-            }
-            ace_spec.src_port.push_back(rs);
-        }
-
-        // dst port, check for not icmp
-        if (ir->match_condition.protocol.compare("1") != 0) {
-            PortType dp;
-            dp = ir->match_condition.dst_port;
-            rs.min = dp.start_port;
-            rs.max = dp.end_port;
-            if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
-                rs.min = 0;
-            }
-            ace_spec.dst_port.push_back(rs);
-        }
-
-        if (ir->match_condition.src_address.subnet.ip_prefix.size()) {
-            SubnetType st;
-            st = ir->match_condition.src_address.subnet;
-            boost::system::error_code ec;
-            ace_spec.src_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
-            if (ec.value() != 0) {
-                ACL_TRACE(Err, "Invalid source ip prefix");
-                continue;
-            }
-            if (!ace_spec.src_ip_addr.is_v4()) {
-                ACL_TRACE(Err, "Only ipv4 supported");
-                continue;
-            }
-            ace_spec.src_ip_plen = st.ip_prefix_len;
-            ace_spec.src_ip_mask = MaskToPrefix(st.ip_prefix_len);
-            ace_spec.src_addr_type = AddressMatch::IP_ADDR;
-        } else if (ir->match_condition.src_address.virtual_network.size()) {
-            std::string nt;
-            nt = ir->match_condition.src_address.virtual_network;
-            ace_spec.src_addr_type = AddressMatch::NETWORK_ID;
-            ace_spec.src_policy_id_str = nt;
-        } else if (ir->match_condition.src_address.security_group.size()) {
-            std::stringstream ss;
-            ss<<ir->match_condition.src_address.security_group;
-            ss>>ace_spec.src_sg_id;
-            ace_spec.src_addr_type = AddressMatch::SG;
-        }
-
-        if (ir->match_condition.dst_address.subnet.ip_prefix.size()) {
-            SubnetType st;
-            st = ir->match_condition.dst_address.subnet;
-            boost::system::error_code ec;
-            ace_spec.dst_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
-            if (ec.value() != 0) {
-                ACL_TRACE(Err, "Invalid destination ip prefix");
-                continue;
-            }
-            if (!ace_spec.dst_ip_addr.is_v4()) {
-                ACL_TRACE(Err, "Only ipv4 supported");
-                continue;
-            }
-            ace_spec.dst_ip_plen = st.ip_prefix_len;
-            ace_spec.dst_ip_mask = MaskToPrefix(st.ip_prefix_len);
-            ace_spec.dst_addr_type = AddressMatch::IP_ADDR;
-        } else if (ir->match_condition.dst_address.virtual_network.size()) {
-            std::string nt;
-            nt = ir->match_condition.dst_address.virtual_network;
-            ace_spec.dst_addr_type = AddressMatch::NETWORK_ID;
-            ace_spec.dst_policy_id_str = nt;
-        } else if (ir->match_condition.dst_address.security_group.size()) {
-            std::stringstream ss;
-            ss<<ir->match_condition.dst_address.security_group;
-            ss>>ace_spec.dst_sg_id;
-            ace_spec.dst_addr_type = AddressMatch::SG;
-        }
-        
         // Make default as terminal rule, 
         // all the dynamic acl have non-terminal rules
         if (cfg_acl->entries().dynamic) {
@@ -640,6 +549,13 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  as.encap = a->GetEncap();
                  m_acl.action_info.mirror_l.push_back(as);
 	     }
+         if (ta->GetActionType() == TrafficAction::VRF_TRANSLATE_ACTION) {
+             const VrfTranslateAction *a =
+                 static_cast<VrfTranslateAction *>(*al_it.operator->());
+             VrfTranslateActionSpec vrf_translate_action(a->vrf_name(),
+                                                         a->ignore_acl());
+             m_acl.action_info.vrf_translate_action_ = vrf_translate_action;
+         }
 	}
         if (!(al.empty())) {
             ret_val = true;
@@ -750,4 +666,100 @@ void NextAclFlowCountReq::HandleRequest() const {
     }
 
     AclTable::AclFlowCountResponse(uuid_str, context(), ace_id);
+}
+
+bool AclEntrySpec::Populate(const MatchConditionType *match_condition) {
+    RangeSpec rs;
+    if (match_condition->protocol.compare("any") == 0) {
+        rs.min = 0x0;
+        rs.max = 0xff;
+    } else {
+        std::stringstream ss;
+        ss<<match_condition->protocol;
+        ss>>rs.min;
+        ss.clear();
+        rs.max = rs.min;
+    }
+    protocol.push_back(rs);
+
+    // src port, check for not icmp
+    if (match_condition->protocol.compare("1") != 0) {
+        PortType sp;
+        sp = match_condition->src_port;
+        rs.min = sp.start_port;
+        rs.max = sp.end_port;
+        if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+            rs.min = 0;
+        }
+        src_port.push_back(rs);
+    }
+
+    // dst port, check for not icmp
+    if (match_condition->protocol.compare("1") != 0) {
+        PortType dp;
+        dp = match_condition->dst_port;
+        rs.min = dp.start_port;
+        rs.max = dp.end_port;
+        if ((rs.min == (uint16_t)-1) && (rs.max == (uint16_t)-1)) {
+            rs.min = 0;
+        }
+        dst_port.push_back(rs);
+    }
+
+    if (match_condition->src_address.subnet.ip_prefix.size()) {
+        SubnetType st;
+        st = match_condition->src_address.subnet;
+        boost::system::error_code ec;
+        src_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
+        if (ec.value() != 0) {
+            ACL_TRACE(Err, "Invalid source ip prefix");
+            return false;
+        }
+        if (!src_ip_addr.is_v4()) {
+            ACL_TRACE(Err, "Only ipv4 supported");
+            return false;
+        }
+        src_ip_plen = st.ip_prefix_len;
+        src_ip_mask = MaskToPrefix(st.ip_prefix_len);
+        src_addr_type = AddressMatch::IP_ADDR;
+    } else if (match_condition->src_address.virtual_network.size()) {
+        std::string nt;
+        nt = match_condition->src_address.virtual_network;
+        src_addr_type = AddressMatch::NETWORK_ID;
+        src_policy_id_str = nt;
+    } else if (match_condition->src_address.security_group.size()) {
+        std::stringstream ss;
+        ss<<match_condition->src_address.security_group;
+        ss>>src_sg_id;
+        src_addr_type = AddressMatch::SG;
+    }
+
+    if (match_condition->dst_address.subnet.ip_prefix.size()) {
+        SubnetType st;
+        st = match_condition->dst_address.subnet;
+        boost::system::error_code ec;
+        dst_ip_addr = IpAddress::from_string(st.ip_prefix.c_str(), ec);
+        if (ec.value() != 0) {
+            ACL_TRACE(Err, "Invalid destination ip prefix");
+            return false;
+        }
+        if (!dst_ip_addr.is_v4()) {
+            ACL_TRACE(Err, "Only ipv4 supported");
+            return false;
+        }
+        dst_ip_plen = st.ip_prefix_len;
+        dst_ip_mask = MaskToPrefix(st.ip_prefix_len);
+        dst_addr_type = AddressMatch::IP_ADDR;
+    } else if (match_condition->dst_address.virtual_network.size()) {
+        std::string nt;
+        nt = match_condition->dst_address.virtual_network;
+        dst_addr_type = AddressMatch::NETWORK_ID;
+        dst_policy_id_str = nt;
+    } else if (match_condition->dst_address.security_group.size()) {
+        std::stringstream ss;
+        ss<<match_condition->dst_address.security_group;
+        ss>>dst_sg_id;
+        dst_addr_type = AddressMatch::SG;
+    }
+    return true;
 }

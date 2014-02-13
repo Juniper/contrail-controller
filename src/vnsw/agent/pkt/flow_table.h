@@ -258,6 +258,7 @@ class FlowEntry {
 
     void GetPolicy(const VnEntry *vn);
     void GetSgList(const Interface *intf);
+    void GetVrfAssignAcl();
     bool DoPolicy(const PacketHeader &hdr, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
@@ -283,6 +284,8 @@ class FlowEntry {
     void InitAuditFlow(uint32_t flow_idx);
     void set_source_sg_id_l(SecurityGroupList &sg_l) { data_.source_sg_id_l = sg_l; }
     void set_dest_sg_id_l(SecurityGroupList &sg_l) { data_.dest_sg_id_l = sg_l; }
+    const std::string& acl_assigned_vrf() const;
+    uint32_t acl_assigned_vrf_index() const;
 private:
     friend class FlowTable;
     friend class FlowStatsCollector;

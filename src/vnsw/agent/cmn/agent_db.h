@@ -161,6 +161,7 @@ public:
     virtual bool CanNotify(IFMapNode *dbe) {
         return true;
     }
+    virtual void Process(DBRequest &req);
     void set_agent(Agent *agent) { agent_ = agent; }
     Agent *agent() const { return agent_; }
 

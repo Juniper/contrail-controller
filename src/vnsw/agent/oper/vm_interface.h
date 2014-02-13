@@ -5,6 +5,7 @@
 #ifndef vnsw_agent_vm_interface_hpp
 #define vnsw_agent_vm_interface_hpp
 
+#include <vnc_cfg_types.h>
 /////////////////////////////////////////////////////////////////////////////
 // Implementation of VM Port interfaces
 /////////////////////////////////////////////////////////////////////////////
@@ -166,6 +167,34 @@ public:
         SecurityGroupEntrySet list_;
     };
 
+    struct VrfAssignRule : ListEntry {
+        VrfAssignRule();
+        VrfAssignRule(const VrfAssignRule &rhs);
+        VrfAssignRule(const std::string &vrf_name, bool ignore_policy);
+        ~VrfAssignRule();
+        bool operator == (const VrfAssignRule &rhs) const;
+        bool operator() (const VrfAssignRule &lhs,
+                         const VrfAssignRule &rhs) const;
+        bool IsLess(const VrfAssignRule *rhs) const;
+        void Insert(const autogen::MatchConditionType &match_condition) const;
+
+        const std::string vrf_name_;
+        const VrfEntryRef vrf_;
+        bool ignore_acl_;
+        mutable std::vector<autogen::MatchConditionType> match_condition_;
+    };
+    typedef std::set<VrfAssignRule, VrfAssignRule> VrfAssignRuleSet;
+
+    struct VrfAssignRuleList {
+        VrfAssignRuleList() : list_() { }
+        ~VrfAssignRuleList() { };
+        void Insert(const VrfAssignRule *rhs);
+        void Update(const VrfAssignRule *lhs, const VrfAssignRule *rhs);
+        void Remove(VrfAssignRuleSet::iterator &it);
+
+        VrfAssignRuleSet list_;
+    };
+
     enum Trace {
         ADD,
         DELETE,
@@ -186,7 +215,7 @@ public:
         vm_project_uuid_(nil_uuid()), vxlan_id_(0), layer2_forwarding_(true),
         ipv4_forwarding_(true), mac_set_(false), vlan_id_(kInvalidVlanId),
         parent_(NULL), sg_list_(), floating_ip_list_(), service_vlan_list_(),
-        static_route_list_() { 
+        static_route_list_(), vrf_assign_rule_list_(), vrf_assign_acl_(NULL) {
         ipv4_active_ = false;
         l2_active_ = false;
     }
@@ -204,7 +233,8 @@ public:
         vm_project_uuid_(vm_project_uuid), vxlan_id_(0),
         layer2_forwarding_(true), ipv4_forwarding_(true), mac_set_(false),
         vlan_id_(vlan_id), parent_(parent), sg_list_(), floating_ip_list_(),
-        service_vlan_list_(), static_route_list_() {
+        service_vlan_list_(), static_route_list_(), vrf_assign_rule_list_(),
+        vrf_assign_acl_(NULL) {
         ipv4_active_ = false;
         l2_active_ = false;
     }
@@ -262,6 +292,11 @@ public:
     const SecurityGroupEntryList &sg_list() const {
         return sg_list_;
     }
+
+    const VrfAssignRuleList &vrf_assign_rule_list() const {
+        return vrf_assign_rule_list_;
+    }
+
     void set_vxlan_id(int vxlan_id) { vxlan_id_ = vxlan_id; }
     void set_subnet_bcast_addr(const Ip4Address &addr) {
         subnet_bcast_addr_ = addr;
@@ -318,6 +353,7 @@ public:
     void DeleteL2MplsLabel();
     void AddL2Route();
     void UpdateL2();
+    const AclDBEntry* vrf_assign_acl() const { return vrf_assign_acl_.get();}
 private:
     bool IsActive();
     bool IsL3Active();
@@ -387,6 +423,8 @@ private:
 
     void DeleteL2Route(const std::string &vrf_name,
                        const struct ether_addr &mac);
+    void UpdateVrfAssignRule();
+    void DeleteVrfAssignRule();
 
     VmEntryRef vm_;
     VnEntryRef vn_;
@@ -419,6 +457,8 @@ private:
     FloatingIpList floating_ip_list_;
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
+    VrfAssignRuleList vrf_assign_rule_list_;
+    AclDBEntryRef vrf_assign_acl_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
@@ -556,6 +596,7 @@ struct VmInterfaceConfigData : public VmInterfaceData {
     VmInterface::FloatingIpList floating_ip_list_;
     VmInterface::ServiceVlanList service_vlan_list_;
     VmInterface::StaticRouteList static_route_list_;
+    VmInterface::VrfAssignRuleList vrf_assign_rule_list_;
 };
 
 #endif // vnsw_agent_vm_interface_hpp
