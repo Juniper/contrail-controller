@@ -66,8 +66,9 @@ public:
     void TriggerInit();
     void CreateDefaultVrf();
     void CreateInterfaces(DB *db);
-    void Init(AgentParam *param, Agent *agent,
-              const boost::program_options::variables_map &var_map);
+    void Init(AgentParam *param, Agent *agent, bool disable_vhost = false,
+              bool disable_ksync = false, bool disable_services = false,
+              bool disable_packet_services = false);
     void Start();
     void InitXenLinkLocalIntf();
     void InitVmwareInterface();

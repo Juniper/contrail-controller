@@ -81,6 +81,9 @@ public:
     void CleanupPendingVmRegEntry(const std::string &vm_uuid) {
         pending_vmreg_map_.erase(vm_uuid);
     }
+    PendingVrVmRegMap::size_type PendingVrVmRegCount() {
+        return pending_vrvm_reg_map_.size();
+    }
     void PrintAllPendingVmRegEntries();
 
     bool NodeToUuid(IFMapNode *vm_node, std::string *vm_uuid);
@@ -89,6 +92,7 @@ public:
         return node_uuid_map_.size();
     }
     void PrintAllNodeUuidMappedEntries();
+    void CleanupPendingVmRegMaps(const std::string &vr_name);
 
 private:
     friend class IFMapVmUuidMapperTest;
@@ -105,9 +109,12 @@ private:
     IFMapUuidMapper uuid_mapper_;
     NodeUuidMap node_uuid_map_;
     PendingVmRegMap pending_vmreg_map_;
+    PendingVrVmRegMap pending_vrvm_reg_map_;
 
     // TODO: consider moving the common parts inside IFMapNode
     bool IsFeasible(IFMapNode *node);
+    void ErasePendingVrVmRegMapEntry(const std::string &vr_name,
+                                     const std::string &vm_uuid);
 };
 
 #endif /* __IFMAP_UUID_MAPPER_H__ */

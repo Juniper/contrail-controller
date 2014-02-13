@@ -94,14 +94,15 @@ public:
 
     void Init(const std::string &config_file,
               const std::string &program_name,
-              const boost::program_options::variables_map &var_map);
+              const boost::program_options::variables_map &var_map,
+              bool log_local = false);
 
 private:
     void Validate();
     void InitFromSystem();
     void InitFromConfig();
-    void InitFromArguments
-        (const boost::program_options::variables_map &var_map);
+    void InitFromArguments(const boost::program_options::variables_map &var_map,
+                           bool log_local = false);
     void LogConfig() const;
 
     PortInfo vhost_;
