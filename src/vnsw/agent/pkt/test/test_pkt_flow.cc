@@ -1690,6 +1690,48 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     client->WaitForIdle();
 }
 
+TEST_F(FlowTest, Flow_return_error) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {}
+        }
+    };
+
+    /* Failure to allocate reverse flow index, convert to short flow and age */
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
+    CreateFlow(flow, 1);
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
+
+    /* EBADF failure to write an entry, covert to short flow and age */
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EBADF);
+    CreateFlow(flow, 1);
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
+
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
+}
+
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
