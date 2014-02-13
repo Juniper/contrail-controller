@@ -1702,42 +1702,42 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
     fabric_ip_list.push_back("1.2.3.4");
     TestLinkLocalService service = { "test_service", linklocal_ip, linklocal_port,
                                      "", fabric_ip_list, fabric_port };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
 
     TestFlow nat_flow[] = {
         {
             TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
                         flow0->id(), 1),
             {
-                new VerifyNat(vhost_ip_addr, fabric_ip, IPPROTO_TCP, 3000, fabric_port) 
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
             }
         }
     };
 
     CreateFlow(nat_flow, 1);
-    EXPECT_EQ(1U, Agent::GetInstance()->pkt()->flow_table()->Size());
-    const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
-    uint16_t linklocal_src_port = fe->linklocal_src_port();
+    EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    // const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
+    // uint16_t linklocal_src_port = fe->linklocal_src_port();
+
+    FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
+    Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
+                                               this, _1, 2));
+    all_flow_records_sandesh->HandleRequest();
+    client->WaitForIdle();
+    all_flow_records_sandesh->Release();
+
+    EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, 0));
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port));
     
-    //Send a reverse nat flow packet
-    TestFlow nat_rev_flow[] = {
-        {
-            TestFlowPkt(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port,
-                        linklocal_src_port, "vn4:vn4", flow4->id(), 2),
-            {
-                new VerifyNat(fabric_ip, vm1_ip, IPPROTO_TCP, fabric_port, 3000)
-            }
-        }
-    };
-    CreateFlow(nat_rev_flow, 1);
-
-    //Delete a forward flow and expect both flows to be deleted
+    //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vhost_ip_addr, fabric_ip.c_str(), IPPROTO_TCP, linklocal_src_port, fabric_port));
-
-    CreateFlow(nat_flow, 1); 
-    DeleteFlow(nat_rev_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), fabric_ip.c_str(), vm1_ip, IPPROTO_TCP, fabric_port, 3000));
+    EXPECT_TRUE(FlowFail(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port));
     EXPECT_TRUE(FlowTableWait(0));
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
 }
 
 int main(int argc, char *argv[]) {
