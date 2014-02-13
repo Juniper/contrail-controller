@@ -2145,7 +2145,7 @@ class VirtualMachineInterfaceST(DictST):
     def recreate_vrf_assign_table(self):
         if self.service_interface_type not in ['left', 'right']:
             return
-        vn = VirtualnetworkST.get(self.virtual_network)
+        vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
             return
         vm_name = self.name.split(':')[0]
@@ -2188,7 +2188,7 @@ class VirtualMachineInterfaceST(DictST):
             for prule in policy_rule_entries.policy_rule:
                 if si_name not in prule.action_list.apply_service or []:
                     continue
-                proto = VirtualNetwork.protocol_policy_to_acl(prule.protocol)
+                proto = VirtualNetworkST.protocol_policy_to_acl(prule.protocol)
                 if proto is None:
                     continue
                 for saddr in prule.src_addresses:
@@ -2210,17 +2210,17 @@ class VirtualMachineInterfaceST(DictST):
                                                       si_name)
                         for sp in prule.src_ports:
                             for dp in prule.dst_ports:
-                                mc = MatchCondition(src_port=sp, dst_port=dp,
+                                mc = MatchConditionType(src_port=sp, dst_port=dp,
                                                     protocol=proto)
                                 
-                                vrf_rule = VrfAssignRule(match_condition=mc,
+                                vrf_rule = VrfAssignRuleType(match_condition=mc,
                                      routing_instance=ri_name)
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
             # end for prule
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
                 fq_name_str=self.name)
             vmi_obj.set_vrf_assign_table(vrf_table)
-            _vnc_lib.virtual_maching_update(vmi_obj)
+            _vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end recreate_vrf_assign_table
 # end VirtualMachineInterfaceST 
     
@@ -2241,7 +2241,6 @@ class LogicalRouterST(DictST):
     def add_virtual_network(self, vn_name):
         self.virtual_networks.add(vn_name)
 
-        sandesh.ServiceChainList.handle_request = self.sandesh_sc_handle_request
     def delete_virtual_network(self, vn_name):
         self.virtual_networks.discard(vn_name)
 # end LogicaliRouterST
@@ -2284,6 +2283,7 @@ class SchemaTransformer(object):
         sandesh.VnList.handle_request = self.sandesh_vn_handle_request
         sandesh.RoutintInstanceList.handle_request =\
             self.sandesh_ri_handle_request
+        sandesh.ServiceChainList.handle_request = self.sandesh_sc_handle_request
         module = Module.SCHEMA_TRANSFORMER
         module_name = ModuleNames[module]
         node_type = Module2NodeType[module]
@@ -2945,6 +2945,9 @@ class SchemaTransformer(object):
             virtual_network.update_route_table()
             virtual_network.uve_send()
         # end for self.current_network_set
+        
+        for vmi in VirtualMachineInterfaceST.values():
+            vmi.recreate_vrf_assign_table()
     # end process_poll_result
 
     def _cassandra_init(self):
