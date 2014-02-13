@@ -288,23 +288,30 @@ void AddressMatch::SetAclEntryMatchSandeshData(AclEntrySandeshData &data)
 {
 
     std::string *str;
+    std::string *addr_type_str;
 
     if (src_) {
         str = &data.src;
+        addr_type_str = &data.src_type;
     } else {
         str = &data.dst;
+        addr_type_str = &data.dst_type;
     }
 
     if (addr_type_ == IP_ADDR) {
         *str = (ip_addr_.to_string() + " " + ip_mask_.to_string());
+        *addr_type_str = "ip";
     } else if (addr_type_ == NETWORK_ID) {
         *str = policy_id_s_;
+        *addr_type_str = "network";
     } else if (addr_type_ == SG) {
         std::ostringstream ss;
         ss << sg_id_;
         *str = ss.str();
+        *addr_type_str = "sg";
     } else {
         *str = "Unknown Address Type";
+        *addr_type_str = "unknown";
     }
     return;
 

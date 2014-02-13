@@ -19,6 +19,7 @@
 #include <ifmap_agent_table.h>
 #include <oper/vn.h>
 #include <oper/vm.h>
+#include <oper/vxlan.h>
 #include <oper/interface_common.h>
 
 #include "testing/gunit.h"
@@ -278,6 +279,55 @@ TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config) {
     DelNode("global-vrouter-config", "vrouter-config");
     client->WaitForIdle();
     EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
+TEST_F(CfgTest, Global_vxlan_network_identifier_mode_config_sandesh) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VmPortActive(input, 0));
+
+    VnEntry *vn = VnGet(1);
+    //Auto vxlan id as mode is automatic
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+
+    std::stringstream str;
+
+    //Set to configured
+    str << "<vxlan-network-identifier-mode>configured</vxlan-network-identifier-mode>" << endl;
+    AddNode("global-vrouter-config", "vrouter-config", 1, str.str().c_str());
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 101);
+    VxLanReq *vxlan_req = new VxLanReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    vxlan_req->HandleRequest();
+    client->WaitForIdle();
+    vxlan_req->Release();
+    client->WaitForIdle();
+
+    client->WaitForIdle();
+    DelNode("global-vrouter-config", "vrouter-config");
+    client->WaitForIdle();
+    EXPECT_TRUE(vn->GetVxLanId() == 1);
+    vxlan_req = new VxLanReq();
+    std::vector<int> result_after_delete = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, 
+                                               result_after_delete));
+    vxlan_req->HandleRequest();
+    client->WaitForIdle();
+    vxlan_req->Release();
+    client->WaitForIdle();
 
     DeleteVmportEnv(input, 1, true);
     client->WaitForIdle();

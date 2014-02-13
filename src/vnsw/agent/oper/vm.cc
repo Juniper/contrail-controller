@@ -93,15 +93,20 @@ DBEntry *VmTable::Add(const DBRequest *req) {
     VmEntry *vm = new VmEntry(key->uuid_);
     vm->set_table(this);
     vm->SetCfgName(data->name_);
+    vm->SendObjectLog(AgentLogEvent::ADD);
     return vm;
 }
 
 // Do DIFF walk for Interface and SG List.
 bool VmTable::OnChange(DBEntry *entry, const DBRequest *req) {
+    VmEntry *vm = static_cast<VmEntry *>(entry);
+    vm->SendObjectLog(AgentLogEvent::CHANGE);
     return false;
 }
 
 void VmTable::Delete(DBEntry *entry, const DBRequest *req) {
+    VmEntry *vm = static_cast<VmEntry *>(entry);
+    vm->SendObjectLog(AgentLogEvent::DELETE);
     return;
 }
 

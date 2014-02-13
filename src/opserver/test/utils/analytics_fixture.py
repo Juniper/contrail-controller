@@ -820,6 +820,26 @@ class AnalyticsFixture(fixtures.Fixture):
         self.logger.info('verify_flow_series_aggregation_binning')
         vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
 
+        # Helper function for stats aggregation 
+        def _aggregate_stats(flow, start_time, end_time):
+            stats = {'sum_bytes':0, 'sum_pkts':0}
+            for f in flow.samples:
+                if f._timestamp < start_time:
+                    continue
+                elif f._timestamp > end_time:
+                    break
+                stats['sum_bytes'] += f.flowdata.diff_bytes
+                stats['sum_pkts'] += f.flowdata.diff_packets
+            return stats 
+        
+        def _aggregate_flows_stats(flows, start_time, end_time):
+            stats = {'sum_bytes':0, 'sum_pkts':0}
+            for f in flows:
+                s = _aggregate_stats(f, start_time, end_time)
+                stats['sum_bytes'] += s['sum_bytes']
+                stats['sum_pkts'] += s['sum_pkts']
+            return stats
+
         # 1. stats
         self.logger.info('Flowseries: [sum(bytes), sum(packets), flow_count]')
         res = vns.post_query(
@@ -905,23 +925,29 @@ class AnalyticsFixture(fixtures.Fixture):
         st = str(generator_obj.flow_start_time)
         et = str(generator_obj.flow_start_time + (30 * 1000 * 1000))
         granularity = 10
+        gms = granularity * 1000 * 1000 # in micro seconds
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
             'AND destvn=domain1:admin:vn2')
-        self.logger.info(str(res))
-        num_records = (int(et) - int(st)) / (granularity * 1000 * 1000)
+        diff_t = int(et) - int(st)
+        num_records = (diff_t/gms) + bool(diff_t%gms)
         assert(len(res) == num_records)
-        ts = [generator_obj.flow_start_time +
-              ((x + 1) * granularity * 1000 * 1000)
+        ts = [generator_obj.flow_start_time + (x * gms) \
               for x in range(num_records)]
-        exp_result = {
-            ts[0]: {'sum(bytes)': 5500, 'sum(packets)': 65},
-            ts[1]: {'sum(bytes)': 725,  'sum(packets)': 15},
-            ts[2]: {'sum(bytes)': 700,  'sum(packets)': 8}
-        }
+        exp_result = {}
+        for t in ts:
+            end_time = t + gms
+            if end_time > int(et):
+                end_time = int(et)
+            ts_stats = _aggregate_flows_stats(generator_obj.flows, 
+                                              t, end_time)
+            exp_result[t] = {'sum(bytes)':ts_stats['sum_bytes'],
+                             'sum(packets)':ts_stats['sum_pkts']}
+        self.logger.info('exp_result: %s' % str(exp_result))
+        self.logger.info('res: %s' % str(res))
         assert(len(exp_result) == num_records)
         for r in res:
             try:
@@ -937,30 +963,67 @@ class AnalyticsFixture(fixtures.Fixture):
         st = str(generator_obj.flow_start_time)
         et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
         granularity = 5
+        gms = 5 * 1000 * 1000
         res = vns.post_query(
             'FlowSeriesTable', start_time=st, end_time=et,
             select_fields=['T=%s' % (granularity), 'protocol', 'sum(bytes)',
                            'sum(packets)'],
             where_clause='sourcevn=domain1:admin:vn1 ' +
             'AND destvn=domain1:admin:vn2')
-        self.logger.info(str(res))
-        num_ts = (int(et) - int(st)) / (granularity * 1000 * 1000)
-        ts = [generator_obj.flow_start_time +
-              ((x + 1) * granularity * 1000 * 1000) for x in range(num_ts)]
-        exp_result = {
-            0: {ts[0]: {'sum(bytes)': 450, 'sum(packets)': 5},
-                ts[1]: {'sum(bytes)': 250, 'sum(packets)': 3}
-                },
-            1: {ts[0]: {'sum(bytes)': 1050, 'sum(packets)': 18},
-                ts[1]: {'sum(bytes)': 750,  'sum(packets)': 14}
-                },
-            2: {ts[0]: {'sum(bytes)': 3000, 'sum(packets)': 25}
-                }
-        }
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        ts = [generator_obj.flow_start_time + (x * gms) \
+              for x in range(num_ts)]
+        proto_flows = [
+                        [generator_obj.flows[0], generator_obj.flows[1]],
+                        [generator_obj.flows[2], generator_obj.flows[3]],
+                        [generator_obj.flows[4]]
+                      ]
+        proto_ts = [ts, ts, [ts[0]]]
+        exp_result = {}
+        for i in range(0, len(proto_flows)):
+            ts_stats = {}
+            for ts in proto_ts[i]:
+                end_time = ts + gms
+                if end_time > int(et): end_time = int(et)
+                stats = _aggregate_flows_stats(proto_flows[i], ts, end_time)
+                ts_stats[ts] = {'sum(bytes)':stats['sum_bytes'],
+                                'sum(packets)':stats['sum_pkts']}
+            exp_result[i] = ts_stats
+        self.logger.info('exp_result: %s' % str(exp_result))
+        self.logger.info('res: %s' % str(res))
         assert(len(res) == 5)
         for r in res:
             try:
                 stats = exp_result[r['protocol']][r['T']]
+            except KeyError:
+                assert(False)
+            assert(r['sum(bytes)'] == stats['sum(bytes)'])
+            assert(r['sum(packets)'] == stats['sum(packets)'])
+
+        # 5. T=<granularity> + stats, granularity > (end_time - start_time)
+        self.logger.info('Flowseries: [T=<x>, sum(bytes), sum(packets)], '
+                         'x > (end_time - start_time)')
+        st = str(generator_obj.flow_start_time)
+        et = str(generator_obj.flow_end_time)
+        granularity = 70
+        gms = granularity * 1000 * 1000 # in micro seconds
+        assert(gms > (int(et) - int(st)))
+        res = vns.post_query(
+            'FlowSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'sum(bytes)',
+                           'sum(packets)'],
+            where_clause='')
+        ts_stats = _aggregate_flows_stats(generator_obj.flows, 
+                                          int(st), int(et))
+        exp_result = {int(st):{'sum(bytes)':ts_stats['sum_bytes'],
+                               'sum(packets)':ts_stats['sum_pkts']}}
+        self.logger.info('exp_result: %s' % str(exp_result))
+        self.logger.info('res: %s' % str(res))
+        assert(len(res) == 1)
+        for r in res:
+            try:
+                stats = exp_result[r['T']]
             except KeyError:
                 assert(False)
             assert(r['sum(bytes)'] == stats['sum(bytes)'])

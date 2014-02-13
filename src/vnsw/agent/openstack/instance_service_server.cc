@@ -32,7 +32,6 @@
 InstanceServiceAsyncIf::AddPort_shared_future_t 
 InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
 {
-    InstanceService_AddPort_result ret;
     PortList::const_iterator it;
     for (it = port_list.begin(); it != port_list.end(); ++it) {
         Port port = *it;
@@ -41,8 +40,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
             port.vn_id.size() != (uint32_t)kUuidSize) {
             CFG_TRACE(IntfInfo, 
                       "Port/instance/vn id not valid uuids, size check failed");
-            ret.__set_success(false);
-            return ret;
+            return false;
         }
         uuid port_id = ConvertToUuid(port.port_id);
         uuid instance_id = ConvertToUuid(port.instance_id);
@@ -53,8 +51,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
         if (ec.value() != 0) {
             CFG_TRACE(IntfInfo,
                       "IP address is not correct, " + port.ip_address);
-            ret.__set_success(false);
-            return ret;
+            return false;
         }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>(db_->FindTable("db.cfg_int.0"));
@@ -81,7 +78,7 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
                   port.display_name, port.hostname, port.host, version_,
                   vlan_id, UuidToString(vm_project_id));
     }
-    return ret;
+    return true;
 }
 
 InstanceServiceAsyncIf::KeepAliveCheck_shared_future_t 
@@ -421,7 +418,7 @@ void AddPortReq::HandleRequest() const {
     CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
     assert(ctable);
 
-    DBRequest req;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
@@ -430,6 +427,7 @@ void AddPortReq::HandleRequest() const {
                        vm_name, vlan_id, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    ctable->Enqueue(&req);
     resp->set_resp(std::string("Success"));
     resp->Response();
     return;

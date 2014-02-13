@@ -139,7 +139,7 @@ void IFMapVmUuidMapper::VmNodeProcess(DBTablePartBase *partition,
             if (exists) {
                 bool subscribe = true;
                 ifmap_server_->ProcessVmSubscribe(vr_name, vm_node->name(),
-                                                subscribe);
+                                                  subscribe);
                 pending_vmreg_map_.erase(vm_uuid);
             }
         }
