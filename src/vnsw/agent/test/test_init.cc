@@ -56,7 +56,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
-    init->Init(param, agent);
+    init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
     init->set_services_enable(services_init);
@@ -116,7 +116,7 @@ TestClient *StatsTestInit() {
                                Agent::GetInstance()->GetEventManager(),
                                sandesh_port, NULL);
 
-    init->Init(param, agent);
+    init->Init(param, agent, var_map);
     init->set_ksync_enable(true);
     init->set_packet_enable(true);
     init->set_services_enable(true);
@@ -163,7 +163,7 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
                                Agent::GetInstance()->GetEventManager(),
                                0, NULL);
 
-    init->Init(param, agent);
+    init->Init(param, agent, var_map);
     init->set_ksync_enable(ksync_init);
     init->set_packet_enable(true);
     init->set_services_enable(true);
