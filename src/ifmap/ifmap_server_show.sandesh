@@ -213,6 +213,10 @@ struct IFMapPeerServerInfoUI {
     3: u64 connection_status_change_at;
 }
 
+struct IFMapServerInfoUI {
+    1: u64 num_peer_clients;
+}
+
 struct IFMapPeerServerInfo {
     1: string url;
     3: bool init_done;
