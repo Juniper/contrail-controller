@@ -262,8 +262,10 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         state_machine_ = NULL;
         collector_->GetOSP()->DeleteUVEs(source_, module_, 
                                          node_type_, instance_id_);
+        // Delete the ModuleServerState UVE on generator disconnect
         ModuleServerState ginfo;
-        GetGeneratorInfo(ginfo);
+        ginfo.set_name(name_);
+        ginfo.set_deleted(true);
         SandeshModuleServerTrace::Send(ginfo);
     } else {
         GENERATOR_LOG(ERROR, "Disconnect for session:" << vsession->ToString() <<
