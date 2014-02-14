@@ -45,6 +45,7 @@ from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
 import discovery.client as client
 from collections import OrderedDict
+import jsonpickle
 
 _BGP_RTGT_MAX_ID = 1 << 20
 _BGP_RTGT_ALLOC_PATH = "/id/bgp/route-targets/"
@@ -1223,7 +1224,17 @@ class RoutingInstanceST(object):
 
 class ServiceChain(DictST):
     _dict = {}
-
+    
+    @classmethod
+    def init(cls):
+        try:
+            for (name,columns) in cls._service_chain_uuid_cf.get_range():
+                chain = jsonpickle.decode(columns['value'])
+                cls._dict[name] = chain
+        except pycassa.NotFoundException:
+            pass
+    # end init
+    
     def __init__(self, name, left_vn, right_vn, direction, sp_list, dp_list,
                  protocol, service_list):
         self.name = name
@@ -1280,6 +1291,8 @@ class ServiceChain(DictST):
         sc = ServiceChain(name, left_vn, right_vn, direction, sp_list,
                           dp_list, protocol, service_list)
         ServiceChain._dict[name] = sc
+        cls._service_chain_uuid_cf.insert(name,
+                                          {'value': jsonpickle.encode(sc)})
         return sc
     # end find_or_create
     
@@ -1531,6 +1544,10 @@ class ServiceChain(DictST):
 
     def delete(self):
         del self._dict[self.name]
+        try:
+            self._sevice_chain_uuid_cf.remove(self.name)
+        except pycassa.NotFoundException:
+            pass
     # end delete
     
     def build_introspect(self):
@@ -2148,6 +2165,26 @@ class VirtualMachineInterfaceST(DictST):
         vn = VirtualNetworkST.get(self.virtual_network)
         if vn is None:
             return
+        
+        vrf_table = VrfAssignTableType()
+        for ip in self.instance_ip_set:
+            try:
+                ip_obj = _vnc_lib.instance_ip_read(fq_name_str=ip)
+            except NoIdError as e:
+                _sandesh._logger.debug(
+                    "NoIdError while reading ip address for interface "
+                    "%s: %s", if_obj.get_fq_name_str(), str(e))
+                continue
+
+            address = AddressType(subnet=SubnetType(
+                ip_obj.get_instance_ip_address(), 32))
+            mc = MatchConditionType(src_address=address)
+            
+            vrf_rule = VrfAssignRuleType(match_condition=mc,
+                 routing_instance=vn._default_ri_name,
+                 ignore_acl=False)
+            vrf_table.add_vrf_assign_rule(vrf_rule)
+
         vm_name = self.name.split(':')[0]
         vm_obj = _vnc_lib.virtual_machine_read(fq_name=[vm_name])
         vm_si_refs = vm_obj.get_service_instance_refs()
@@ -2177,7 +2214,6 @@ class VirtualMachineInterfaceST(DictST):
         
         
         si_name = si_obj.get_fq_name_str()
-        vrf_table = VrfAssignTableType()
         for policy_name in vn.policies:
             policy = NetworkPolicyST.get(policy_name)
             if policy is None:
@@ -2214,7 +2250,8 @@ class VirtualMachineInterfaceST(DictST):
                                                     protocol=proto)
                                 
                                 vrf_rule = VrfAssignRuleType(match_condition=mc,
-                                     routing_instance=ri_name)
+                                     routing_instance=ri_name,
+                                     ignore_acl=True)
                                 vrf_table.add_vrf_assign_rule(vrf_rule)
             # end for prule
             vmi_obj = _vnc_lib.virtual_machine_interface_read(
@@ -2256,13 +2293,15 @@ class SchemaTransformer(object):
     _RT_CF = 'route_target_table'
     _SC_IP_CF = 'service_chain_ip_address_table'
     _SERVICE_CHAIN_CF = 'service_chain_table'
-
+    _SERVICE_CHAIN_UUID_CF = 'service_chain_uuid_table'
+    
     def __init__(self, args=None):
         global _sandesh
         self._args = args
 
         self._fabric_rt_inst_obj = None
         self._cassandra_init()
+        ServiceChain.init()
         VirtualNetworkST._vn_id_allocator = IndexAllocator(_disc_service,
                                                     _VN_ID_ALLOC_PATH,
                                                     _VN_MAX_ID)
@@ -2969,7 +3008,8 @@ class SchemaTransformer(object):
             # TODO verify only EEXISTS
             print "Warning! " + str(e)
 
-        column_families = [self._RT_CF, self._SC_IP_CF, self._SERVICE_CHAIN_CF]
+        column_families = [self._RT_CF, self._SC_IP_CF, self._SERVICE_CHAIN_CF,
+                           self._SERVICE_CHAIN_UUID_CF]
         conn_pool = pycassa.ConnectionPool(
             SchemaTransformer._KEYSPACE,
             server_list=self._args.cassandra_server_list)
@@ -2984,6 +3024,8 @@ class SchemaTransformer(object):
         VirtualNetworkST._sc_ip_cf = result_dict[self._SC_IP_CF]
         VirtualNetworkST._service_chain_cf = result_dict[
             self._SERVICE_CHAIN_CF]
+        ServiceChain._service_chain_uuid_cf = result_dict[
+            self._SERVICE_CHAIN_UUID_CF]
     # end _cassandra_init
 
     def sandesh_ri_build(self, vn_name, ri_name):

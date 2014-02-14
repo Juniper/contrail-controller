@@ -14,6 +14,6 @@ setup(
     zip_safe=False,
     long_description="VNC Configuration Schema Transformer",
     install_requires=[
-        'zc_zookeeper_static',
+        'zc_zookeeper_static', 'jsonpickle'
     ]
 )
