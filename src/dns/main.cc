@@ -80,6 +80,7 @@ void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
 }
 
 static int dns_main(int argc, char *argv[]) {
+    // Create DB table and event manager
     Dns::Init();
 
     error_code error;
@@ -219,8 +220,6 @@ static int dns_main(int argc, char *argv[]) {
     string build_info_str;
     Dns::GetVersion(build_info_str);
     MiscUtils::LogVersionInfo(build_info_str, Category::DNSAGENT);
-    // Create DB table and event manager
-    Dns::Init();
 
     if (!collector_server.empty()) {
         Dns::SetCollector(collector_server);
