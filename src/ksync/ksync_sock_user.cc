@@ -142,7 +142,7 @@ void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
     sock->drop_stats = req;
 }
 
-void KSyncSockTypeMap::InterfaceAdd(int id) {
+void KSyncSockTypeMap::InterfaceAdd(int id, int flags, int mac_size) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_map_if::const_iterator it;
     static int os_index = 10;
@@ -154,8 +154,9 @@ void KSyncSockTypeMap::InterfaceAdd(int id) {
     req.set_vifr_rid(0);
     req.set_vifr_os_idx(os_index);
     req.set_vifr_name(name);
-    const std::vector<signed char> list(6);
+    const std::vector<signed char> list(mac_size);
     req.set_vifr_mac(list);
+    req.set_vifr_flags(flags);
 
     it = sock->if_map.find(id);
     if (it == sock->if_map.end()) {
@@ -173,11 +174,12 @@ void KSyncSockTypeMap::InterfaceDelete(int id) {
     }
 }
 
-void KSyncSockTypeMap::NHAdd(int id) {
+void KSyncSockTypeMap::NHAdd(int id, int flags) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_map_nh::const_iterator it;
     vr_nexthop_req req;
     req.set_nhr_id(id);
+    req.set_nhr_flags(flags);
     it = sock->nh_map.find(id);
     if (it == sock->nh_map.end()) {
         sock->nh_map[id] = req;
@@ -230,6 +232,24 @@ void KSyncSockTypeMap::MirrorDelete(int id) {
     it = sock->mirror_map.find(id);
     if (it != sock->mirror_map.end()) {
         sock->mirror_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::RouteAdd(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::const_iterator it;
+    it = sock->rt_tree.find(req);
+    if (it == sock->rt_tree.end()) {
+        sock->rt_tree.insert(req);
+    }
+}
+
+void KSyncSockTypeMap::RouteDelete(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::iterator it;
+    it = sock->rt_tree.find(req);
+    if (it != sock->rt_tree.end()) {
+        sock->rt_tree.erase(it);
     }
 }
 
