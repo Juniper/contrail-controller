@@ -82,8 +82,11 @@ struct IFMapXmppClientInfo {
     2: i32 client_index;
     3: u64 msgs_sent;
     4: u64 msgs_blocked;
-    5: bool is_blocked;
-    6: VmRegInfo vm_reg_info;
+    5: u64 nodes_sent;
+    6: u64 links_sent;
+    7: u64 bytes_sent;
+    8: bool is_blocked;
+    9: VmRegInfo vm_reg_info;
 }
 
 request sandesh IFMapXmppClientInfoShowReq {
