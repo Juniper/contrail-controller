@@ -71,6 +71,7 @@ class TCPSyslogQueueEntry : public SyslogQueueEntry
       buf_ (b), ep_ (e), session_(ses)  {
     }
     virtual void free ();
+    virtual ~TCPSyslogQueueEntry() {}
     private:
     boost::asio::const_buffer   buf_;
     ip::tcp::endpoint           ep_;
@@ -89,6 +90,7 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
     {
     }
     virtual void free ();
+    virtual ~UDPSyslogQueueEntry() {}
     private:
     udp::endpoint             ep_;
     boost::asio::const_buffer b_;
