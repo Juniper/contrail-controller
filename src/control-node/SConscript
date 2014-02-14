@@ -244,3 +244,5 @@ env.Depends(ctrlnode, lib_ifmap_server)
 env.Alias('control-node', ctrlnode)
 
 env.SConscript('test/SConscript', exports='BuildEnv', duplicate = 0)
+
+env.Alias('install', env.Install(env['INSTALL_BIN'], ctrlnode))
