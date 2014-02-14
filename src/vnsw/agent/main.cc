@@ -148,13 +148,13 @@ static int agent_main(int argc, char *argv[]) {
 
     // Process options off configuration file.
     GetOptValue<string>(var_map, conf_file, "conf-file", "");
-    ifstream config_file_in;
-    config_file_in.open(conf_file.c_str());
-    if (config_file_in.good()) {
-        opt::store(opt::parse_config_file(config_file_in, config_file_options),
+    ifstream conf_file_in;
+    conf_file_in.open(conf_file.c_str());
+    if (conf_file_in.good()) {
+        opt::store(opt::parse_config_file(conf_file_in, config_file_options),
                    var_map);
     }
-    config_file_in.close();
+    conf_file_in.close();
 
     opt::notify(var_map);
   
