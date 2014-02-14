@@ -163,86 +163,90 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
     return ret;
 }
 
+bool AgentPath::UpdateNHPolicy() {
+    bool ret = false;
+    if (nh_.get() == NULL || nh_->GetType() != NextHop::INTERFACE) {
+        return ret;
+    }
+
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
+    if (intf_nh->GetInterface()->type() != Interface::VM_INTERFACE) {
+        return ret;
+    }
+
+    const VmInterface *vm_port =
+            static_cast<const VmInterface *>(intf_nh->GetInterface());
+
+    bool policy = vm_port->policy_enabled();
+    if (force_policy_) {
+        policy = true;
+    }
+
+    if (intf_nh->PolicyEnabled() != policy) {
+        //Make path point to policy enabled interface
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                           vm_port->GetUuid(), ""), policy, intf_nh->GetFlags());
+
+        NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->
+                          GetNextHopTable()->FindActiveEntry(&key));
+        if (ChangeNH(nh) == true) {
+            ret = true;
+        }
+    }
+    return ret;
+}
+
+bool AgentPath::UpdateTunnelType(const AgentRoute *sync_route) {
+    if (tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) {
+        return false;
+    }
+
+    tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
+    if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
+        TunnelNHKey *tnh_key =
+            new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(),
+                    Agent::GetInstance()->GetRouterId(),
+                    server_ip_, false, tunnel_type_);
+        DBRequest nh_req;
+        nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+        nh_req.key.reset(tnh_key);
+        TunnelNHData *nh_data = new TunnelNHData();
+        nh_req.data.reset(nh_data);
+        Agent::GetInstance()->GetNextHopTable()->Process(nh_req);
+
+        TunnelNHKey nh_key(Agent::GetInstance()->GetDefaultVrf(),
+                           Agent::GetInstance()->GetRouterId(),
+                           server_ip_, false, tunnel_type_);
+        NextHop *nh = static_cast<NextHop *>(Agent::GetInstance()->
+                GetNextHopTable()->FindActiveEntry(&nh_key));
+        ChangeNH(nh);
+    }
+
+    if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
+        RebakeAllTunnelNHinCompositeNH(sync_route, nh_.get());
+    }
+    return true;
+}
+
 bool AgentPath::Sync(AgentRoute *sync_route) {
     bool ret = false;
     bool unresolved = false;
 
     //Check if there is change in policy on the interface
     //If yes update the path to point to policy enabled NH
-    if (nh_.get() && nh_->GetType() == NextHop::INTERFACE) {
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
-        const VmInterface *vm_port = 
-            static_cast<const VmInterface *>(intf_nh->GetInterface());
+   if (UpdateNHPolicy()) {
+       ret = true;
+   }
 
-        bool policy = vm_port->policy_enabled();
-        if (force_policy_) {
-            policy = true;
-        }
+   //Handle tunnel type change
+   if (UpdateTunnelType(sync_route)) {
+       ret = true;
+   }
 
-        if (intf_nh->PolicyEnabled() != policy) {
-            //Make path point to policy enabled interface
-            InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                                  vm_port->GetUuid(), ""),
-                                policy, intf_nh->GetFlags());
-            nh_ = static_cast<NextHop *>
-                (Agent::GetInstance()->
-                 GetNextHopTable()->FindActiveEntry(&key));
-            // If NH is not found, point route to discard NH
-            if (nh_ == NULL) {
-                LOG(DEBUG, "Interface NH for <" 
-                    << boost::lexical_cast<std::string>(vm_port->GetUuid())
-                    << " : policy = " << policy);
-                DiscardNHKey key;
-                nh_ = static_cast<NextHop *>
-                    (Agent::GetInstance()->
-                     GetNextHopTable()->FindActiveEntry(&key));
-            }
-        }
+   if (vrf_name_ == Agent::GetInstance()->NullString()) {
+       return ret;
+   }
 
-        if (tunnel_type_ != TunnelType::ComputeType(tunnel_bmap_)) {
-            tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
-            ret = true;
-        }
-    }
-
-    bool remote_vm_nh_reevaluate = false;
-    //Remote vm nh add was skipped because of encap mismatch
-    if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
-        remote_vm_nh_reevaluate = true;
-    }
-
-    if (remote_vm_nh_reevaluate) {
-        if (tunnel_type_ != TunnelType::ComputeType(tunnel_bmap_)) {
-            tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
-            ret = true;
-
-            TunnelNHKey *tnh_key = 
-                new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
-                                Agent::GetInstance()->GetRouterId(),
-                                server_ip_, false, tunnel_type_);
-            DBRequest nh_req;
-            nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-            nh_req.key.reset(tnh_key);
-            TunnelNHData *nh_data = new TunnelNHData();
-            nh_req.data.reset(nh_data);
-            Agent::GetInstance()->GetNextHopTable()->Process(nh_req);
-            tnh_key = new TunnelNHKey(Agent::GetInstance()->GetDefaultVrf(), 
-                                      Agent::GetInstance()->GetRouterId(),
-                                      server_ip_, false, tunnel_type_);
-            nh_ = static_cast<NextHop *>
-                (Agent::GetInstance()->
-                 GetNextHopTable()->FindActiveEntry(tnh_key));
-        }
-    }
-
-    if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
-        ret = RebakeAllTunnelNHinCompositeNH(sync_route, nh_.get());
-    }
-
-    if (vrf_name_ == Agent::GetInstance()->NullString()) {
-        return ret;
-    }
- 
     Inet4UnicastRouteEntry *rt = 
         Inet4UnicastAgentRouteTable::FindRoute(vrf_name_, gw_ip_);
     if (rt == sync_route) {

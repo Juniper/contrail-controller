@@ -61,6 +61,8 @@ public:
     void SyncRoute(bool sync) {sync_ = sync;};
     bool RouteNeedsSync() {return sync_;};
     uint32_t GetTunnelBmap() const;
+    bool UpdateNHPolicy();
+    bool UpdateTunnelType(const AgentRoute *sync_route);
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route, const NextHop *nh);
     virtual std::string ToString() const { return "AgentPath"; };
 

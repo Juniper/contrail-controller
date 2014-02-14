@@ -445,7 +445,6 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
     int encode_len, error;
     uint32_t intf_id = kInvalidIndex;
     std::vector<int8_t> encap;
-    const uint8_t *smac = nil_mac;
     InterfaceKSyncEntry *if_ksync = NULL;
 
     encoder.set_h_op(op);
@@ -475,36 +474,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             encoder.set_nhr_encap_oif_id(intf_id);
             encoder.set_nhr_encap_family(ETH_P_ARP);
 
-            /* DMAC encode */
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(dmac_.ether_addr_octet[i]);
-            }
-            /* SMAC encode */
-            if (type_ == NextHop::VLAN) {
-                smac = smac_.ether_addr_octet;
-            } else {
-                smac = (const uint8_t *)
-                    ksync_obj_->ksync()->interface_ksync_obj()
-                    ->physical_interface_mac();
-            }
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(smac[i]);
-            }
-
-            // Add 802.1q header if
-            //  - Nexthop is of type VLAN
-            //  - Nexthop is of type INTERFACE and VLAN configured for it
-            if (type_ == NextHop::VLAN ||
-                (type_ == NextHop::INTERFACE &&
-                 vlan_tag_ != VmInterface::kInvalidVlanId)) {
-                encap.push_back(0x81);
-                encap.push_back(0x00);
-                encap.push_back((vlan_tag_ & 0xFF00) >> 8);
-                encap.push_back(vlan_tag_ & 0xFF);
-            }
-            /* Proto encode in Network byte order */
-            encap.push_back(0x08);
-            encap.push_back(0x00);
+            SetEncap(encap);
             encoder.set_nhr_encap(encap);
             encoder.set_nhr_tun_sip(0);
             encoder.set_nhr_tun_dip(0);
@@ -529,20 +499,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
             }
             encoder.set_nhr_encap_oif_id(intf_id);
 
-            /* DMAC encode */
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(dmac_.ether_addr_octet[i]);
-            }
-            /* SMAC encode */
-            smac = (const uint8_t *)
-                    ksync_obj_->ksync()->interface_ksync_obj()
-                    ->physical_interface_mac();
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(smac[i]);
-            }
-            /* Proto encode in Network byte order */
-            encap.push_back(0x08);
-            encap.push_back(0x00);
+            SetEncap(encap);
             encoder.set_nhr_encap(encap);
             if (tunnel_type_.GetType() == TunnelType::MPLS_UDP) {
                 flags |= NH_FLAG_TUNNEL_UDP_MPLS;
@@ -565,21 +522,7 @@ int NHKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
                 intf_id = if_ksync->interface_id();
             }
             encoder.set_nhr_encap_oif_id(intf_id);
-
-            /* DMAC encode */
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(dmac_.ether_addr_octet[i]);
-            }
-            /* SMAC encode */
-            smac = (const uint8_t *)
-                    ksync_obj_->ksync()->interface_ksync_obj()
-                    ->physical_interface_mac();
-            for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
-                encap.push_back(smac[i]);
-            }
-            /* Proto encode in Network byte order */
-            encap.push_back(0x08);
-            encap.push_back(0x00);
+            SetEncap(encap);
             encoder.set_nhr_encap(encap);
             flags |= NH_FLAG_TUNNEL_UDP;
             break;
@@ -862,6 +805,43 @@ KSyncEntry *NHKSyncEntry::UnresolvedReference() {
     return entry;
 }
 
+void NHKSyncEntry::SetEncap(std::vector<int8_t> &encap) {
+    if (is_layer2_ == true) {
+        return;
+    }
+
+    const uint8_t *smac = nil_mac;
+    /* DMAC encode */
+    for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
+        encap.push_back(dmac_.ether_addr_octet[i]);
+    }
+    /* SMAC encode */
+    if (type_ == NextHop::VLAN) {
+        smac = smac_.ether_addr_octet;
+    } else {
+        smac = (const uint8_t *)
+            ksync_obj_->ksync()->interface_ksync_obj()
+            ->physical_interface_mac();
+    }
+    for (int i = 0 ; i < ETHER_ADDR_LEN; i++) {
+        encap.push_back(smac[i]);
+    }
+
+    // Add 802.1q header if
+    //  - Nexthop is of type VLAN
+    //  - Nexthop is of type INTERFACE and VLAN configured for it
+    if (type_ == NextHop::VLAN ||
+            (type_ == NextHop::INTERFACE &&
+             vlan_tag_ != VmInterface::kInvalidVlanId)) {
+        encap.push_back(0x81);
+        encap.push_back(0x00);
+        encap.push_back((vlan_tag_ & 0xFF00) >> 8);
+        encap.push_back(vlan_tag_ & 0xFF);
+    }
+    /* Proto encode in Network byte order */
+    encap.push_back(0x08);
+    encap.push_back(0x00);
+}
 
 NHKSyncObject::NHKSyncObject(KSync *ksync) : 
     KSyncDBObject(kNHIndexCount), ksync_(ksync) {

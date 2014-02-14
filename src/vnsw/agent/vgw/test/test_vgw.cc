@@ -210,6 +210,26 @@ TEST_F(VgwTest, vrf_delete) {
     EXPECT_TRUE(VrfFind("default-domain:admin:public1:public1"));
 }
 
+TEST_F(VgwTest, RouteResync) {
+    Inet4UnicastRouteEntry *route;
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_TRUE(route != NULL);
+    if (route == NULL)
+        return;
+    ValidateVgwInterface(route, "vgw");
+
+    AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
+    client->WaitForIdle();
+    AddEncapList("MPLSoGRE", "MPLSoUDP", "VXLAN");
+    client->WaitForIdle();
+
+    route = RouteGet("default-domain:admin:public:public",
+                     Ip4Address::from_string("0.0.0.0"), 0);
+    EXPECT_TRUE(route != NULL);
+    ValidateVgwInterface(route, "vgw");
+}
+
 int main(int argc, char **argv) {
     GETUSERARGS();
 
