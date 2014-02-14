@@ -62,7 +62,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 static int agent_main(int argc, char *argv[]) {
     boost::system::error_code error;
 
-    string config_file = "/etc/contrail/vrouter.conf";
+    string conf_file = "/etc/contrail/vrouter.conf";
     string hostname(boost::asio::ip::host_name(error));
     bool log_local = false;
     bool disable_vhost = false;
@@ -73,7 +73,7 @@ static int agent_main(int argc, char *argv[]) {
     // Command line only options.
     opt::options_description generic("Generic options");
     generic.add_options()
-        ("conf-file", opt::value<string>()->default_value(config_file),
+        ("conf-file", opt::value<string>()->default_value(conf_file),
              "Configuration file")
         ("help", "help message")
         ("version", "Display version information")
@@ -147,9 +147,9 @@ static int agent_main(int argc, char *argv[]) {
     opt::store(opt::parse_command_line(argc, argv, cmdline_options), var_map);
 
     // Process options off configuration file.
-    GetOptValue<string>(var_map, config_file, "conf-file", "");
+    GetOptValue<string>(var_map, conf_file, "conf-file", "");
     ifstream config_file_in;
-    config_file_in.open(config_file.c_str());
+    config_file_in.open(conf_file.c_str());
     if (config_file_in.good()) {
         opt::store(opt::parse_config_file(config_file_in, config_file_options),
                    var_map);
