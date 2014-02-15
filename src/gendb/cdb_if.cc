@@ -81,9 +81,39 @@ CdbIf::CdbIfTypeMapDef CdbIf::CdbIfTypeMap =
                                                      CdbIf::Db_decode_Double_non_composite))
         ;
 
+class CdbIf::CleanupTask : public Task {
+public:
+    CleanupTask(std::string task_id, int task_instance, CdbIf *cdbif)
+        : Task(TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance), cdbif_(cdbif) {
+    }
+
+    virtual bool Run() {
+        tbb::mutex::scoped_lock lock(cdbif_->cdbq_mutex_);
+
+        if (cdbif_->cdbq_.get() != NULL) {
+            cdbif_->cdbq_->Shutdown();
+            cdbif_->cdbq_.reset();
+        }
+        cdbif_->cleanup_ = NULL;
+
+        return true;
+    }
+
+private:
+    CdbIf *cdbif_;
+};
+
 CdbIf::~CdbIf() { 
+    tbb::mutex::scoped_lock lock(cdbq_mutex_);
+
     if (transport_)
         transport_->close();
+
+    if (cleanup_) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Cancel(cleanup_);
+        cleanup_ = NULL;
+    }
 }
 
 CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
@@ -96,6 +126,7 @@ CdbIf::CdbIf(boost::asio::io_service *ioservice, DbErrorHandler errhandler,
     errhandler_(errhandler),
     db_init_done_(false),
     name_(name),
+    cleanup_(NULL),
     cassandra_ttl_(ttl) {
 }
 
@@ -121,12 +152,23 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
      * we can leave the queue contents as is so they can be replayed after the
      * connection to db is established
      */
-    if (!cdbq_.get()) {
+    {
+        tbb::mutex::scoped_lock lock(cdbq_mutex_);
+
+        if (cdbq_.get() != NULL) {
+            cdbq_->Shutdown();
+        }
         cdbq_.reset(new CdbIfQueue(
             TaskScheduler::GetInstance()->GetTaskId(task_id), task_instance,
             boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1)));
         cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, this));
+
+        if (cleanup_) {
+            TaskScheduler *scheduler = TaskScheduler::GetInstance();
+            scheduler->Cancel(cleanup_);
+            cleanup_ = NULL;
+        }
     }
 
     try {
@@ -157,7 +199,7 @@ void CdbIf::Db_ResetQueueWaterMarks() {
     }
 }
 
-void CdbIf::Db_Uninit(bool shutdown) {
+void CdbIf::Db_Uninit(std::string task_id, int task_instance) {
     try {
         transport_->close();
     } catch (TTransportException &tx) {
@@ -165,9 +207,10 @@ void CdbIf::Db_Uninit(bool shutdown) {
     } catch (TException &tx) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
     }
-    if (shutdown) {
-        cdbq_->Shutdown();
-        cdbq_.reset();
+    if (!cleanup_) {
+        cleanup_ = new CleanupTask(task_id, task_instance, this);
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        scheduler->Enqueue(cleanup_);
     }
 }
 
@@ -1023,11 +1066,13 @@ bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
 }
 
 bool CdbIf::Db_GetQueueStats(uint64_t &queue_count, uint64_t &enqueues) const {
-    if (!Db_IsInitDone()) {
-        return false;
+    if (cdbq_.get() != NULL) {
+        queue_count = cdbq_->Length();
+        enqueues = cdbq_->NumEnqueues();
+    } else {
+        queue_count = 0;
+        enqueues = 0;
     }
-    queue_count = cdbq_->Length();
-    enqueues = cdbq_->NumEnqueues();
     return true;
 }
 
@@ -1469,7 +1514,7 @@ std::string CdbIf::Db_encode_Double_composite(const DbDataValue& value) {
 
 DbDataValue CdbIf::Db_decode_Double_composite(const char *input, int& used) {
     used = 0;
-    uint16_t len = get_value((const uint8_t *)input, 2);
+    // skip len
     used += 2;
 
     double output = get_double((const uint8_t *)&input[used]);

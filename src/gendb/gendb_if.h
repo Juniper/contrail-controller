@@ -116,7 +116,7 @@ class GenDbIf {
 
         /* Init function */
         virtual bool Db_Init(std::string task_id, int task_instance) = 0;
-        virtual void Db_Uninit(bool shutdown) = 0;
+        virtual void Db_Uninit(std::string task_id, int task_instance) = 0;
         virtual void Db_SetInitDone(bool init_done) = 0;
         /* api to create a table space */
         virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor) = 0;

@@ -134,7 +134,7 @@ void VizCollector::StartDbifReinitTimer() {
 }
 
 void VizCollector::StartDbifReinit() {
-    db_handler_->UnInit(false);
+    db_handler_->UnInit(-1);
     StartDbifReinitTimer();
 }
 
