@@ -89,10 +89,12 @@ private:
     DBTableBase::ListenerId vn_listener_id_;
     DBTableBase::ListenerId vm_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
-    VrouterStatsAgent prev_stats_;
     VrouterAgent prev_vrouter_;
     L4PortBitmap port_bitmap_;
     uint64_t start_time_;
+protected:
+    VrouterStatsAgent prev_stats_;
+    uint8_t bandwidth_count_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };
 
