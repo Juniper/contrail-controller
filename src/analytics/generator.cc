@@ -172,6 +172,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         source_ (source),
         module_ (module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
+        instance_(session->GetSessionInstance()),
         db_connect_timer_(TimerManager::CreateTimer(
             *collector->event_manager()->io_service(),
             "SandeshGenerator db connect timer" + source + module,
@@ -187,11 +188,16 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 SandeshGenerator::~SandeshGenerator() {
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
-    db_handler_->UnInit(true);
+    db_handler_->UnInit(instance_);
+}
+
+void SandeshGenerator::set_session(VizSession *session) {
+    viz_session_ = session;
+    instance_ = session->GetSessionInstance();
 }
 
 void SandeshGenerator::StartDbifReinit() {
-    db_handler_->UnInit(false);
+    db_handler_->UnInit(instance_);
     Start_Db_Connect_Timer();
 }
 
@@ -217,12 +223,12 @@ void SandeshGenerator::Stop_Db_Connect_Timer() {
 
 void SandeshGenerator::Db_Connection_Uninit() {
     db_handler_->ResetDbQueueWaterMarkInfo();
-    db_handler_->UnInit(false);
+    db_handler_->UnInit(instance_);
     Stop_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
-    if (!db_handler_->Init(false, viz_session_->GetSessionInstance())) {
+    if (!db_handler_->Init(false, instance_)) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }

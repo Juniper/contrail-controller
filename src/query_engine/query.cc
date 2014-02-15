@@ -957,7 +957,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            db_if->Db_Uninit(false);
+            db_if->Db_Uninit("qe::DbHandler", -1);
             sleep(5);
         }
     }

@@ -145,8 +145,8 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit(bool shutdown) {
-    dbif_->Db_Uninit(shutdown);
+void DbHandler::UnInit(int instance) {
+    dbif_->Db_Uninit(Collector::kDbTask, instance);
     dbif_->Db_SetInitDone(false);
 }
 
