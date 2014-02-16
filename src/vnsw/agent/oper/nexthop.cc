@@ -1240,8 +1240,10 @@ bool CompositeNH::GetOldNH(const CompositeNHData *data,
     //In case of ECMP give preference to already existing nexthop
     //and make it first entry in composite NH, so that existing flow
     //can just migrate to same index
-    Inet4UnicastRouteEntry *rt = 
-        Inet4UnicastAgentRouteTable::FindRoute(vrf_->GetName(), grp_addr_);
+    Inet4UnicastAgentRouteTable *table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (vrf_->GetInet4UnicastRouteTable());
+    Inet4UnicastRouteEntry *rt = table->FindRoute(grp_addr_);
     if (!rt || rt->IsDeleted()) {
         return false;
     }
@@ -1258,7 +1260,7 @@ bool CompositeNH::GetOldNH(const CompositeNHData *data,
     std::vector<ComponentNHData>::const_iterator it = key_list.begin();
     for (;it != key_list.end(); it++) {
         list_nh = static_cast<NextHop *>
-            (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(it->nh_key_));
+            (table->agent()->GetNextHopTable()->FindActiveEntry(it->nh_key_));
         if (!list_nh) {
             continue;
         }

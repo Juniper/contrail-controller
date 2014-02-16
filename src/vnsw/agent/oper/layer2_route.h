@@ -144,7 +144,7 @@ public:
         label_(label), local_ecmp_nh_(local_ecmp_nh) {
         };
     virtual ~Layer2EcmpRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "layer2ecmp";};;
 
 private:

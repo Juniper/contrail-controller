@@ -137,6 +137,7 @@ public:
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
     IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
     NextHopTable *GetNextHopTable() {return nh_table_;};
+    NextHopTable *nexthop_table() {return nh_table_;};
     Inet4UnicastAgentRouteTable *GetDefaultInet4UnicastRouteTable() {
         return uc_rt_table_;
     };

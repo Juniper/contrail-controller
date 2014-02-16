@@ -20,7 +20,7 @@ public:
     virtual ~AgentPath() { }; 
 
     const Peer *GetPeer() const {return peer_;};
-    const NextHop *GetNextHop() const; 
+    const NextHop *GetNextHop(Agent *agent) const; 
     uint32_t GetActiveLabel() const;
     uint32_t GetLabel() const {return label_;};
     uint32_t vxlan_id() const {return vxlan_id_;};
@@ -56,14 +56,15 @@ public:
     void ClearSecurityGroupList() { sg_list_.clear(); }
     void ResetDependantRoute(AgentRoute *rt) {dependant_rt_.reset(rt);};
 
-    bool ChangeNH(NextHop *nh);
+    bool ChangeNH(Agent *agent, NextHop *nh);
     bool Sync(AgentRoute *sync_route); //vm_path sync
     void SyncRoute(bool sync) {sync_ = sync;};
     bool RouteNeedsSync() {return sync_;};
     uint32_t GetTunnelBmap() const;
-    bool UpdateNHPolicy();
-    bool UpdateTunnelType(const AgentRoute *sync_route);
-    bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route, const NextHop *nh);
+    bool UpdateNHPolicy(Agent *agent);
+    bool UpdateTunnelType(Agent *agent, const AgentRoute *sync_route);
+    bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
+                                        const NextHop *nh);
     virtual std::string ToString() const { return "AgentPath"; };
 
 private:
@@ -96,7 +97,7 @@ class ResolveRoute : public AgentRouteData {
 public:
     ResolveRoute(Op op  = AgentRouteData::CHANGE) : AgentRouteData(op, false) { };
     virtual ~ResolveRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "Resolve";};;
 private:
     DISALLOW_COPY_AND_ASSIGN(ResolveRoute);
@@ -116,7 +117,7 @@ public:
     virtual ~LocalVmRoute() { };
     void DisableProxyArp() {proxy_arp_ = false;};
     virtual string ToString() const {return "local VM";};;
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     const SecurityGroupList &GetSecurityGroupList() const {return sg_list_;}; 
     void tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;};
 
@@ -145,7 +146,7 @@ public:
         label_(label), dest_vn_name_(dest_vn_name), sg_list_(sg_list)
         {nh_req_.Swap(&req);}
     virtual ~RemoteVmRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "remote VM";};;
     const SecurityGroupList &GetSecurityGroupList() const {return sg_list_;}; 
 
@@ -168,7 +169,7 @@ public:
         AgentRouteData(op,false), intf_(intf), label_(label), 
         tunnel_bmap_(tunnel_bmap), dest_vn_name_(dest_vn_name) { };
     virtual ~InetInterfaceRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "host";};;
 
 private:
@@ -187,7 +188,7 @@ public:
         dest_vn_name_(dest_vn_name), proxy_arp_(false) { };
     virtual ~HostRoute() { };
     void EnableProxyArp() {proxy_arp_ = true;};
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "host";};;
 
 private:
@@ -206,7 +207,7 @@ public:
         tag_(tag), label_(label), dest_vn_name_(dest_vn_name), 
         sg_list_(sg_list) { };
     virtual ~VlanNhRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "vlannh";};;
 
 private:
@@ -231,7 +232,7 @@ public:
         vn_name_(vn_name), vrf_name_(vrf_name), vxlan_id_(vxlan_id),
         comp_type_(type) { };
     virtual ~MulticastRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "multicast";};;
 
 private:
@@ -254,7 +255,7 @@ public:
         policy_(policy), proxy_arp_(false), vn_(vn), sg_list_() {};
     virtual ~ReceiveRoute() { };
     void EnableProxyArp() {proxy_arp_ = true;};
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "receive";};;
 
 private:
@@ -281,7 +282,7 @@ public:
             nh_req_.Swap(&nh_req);
         };
     virtual ~Inet4UnicastEcmpRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "inet4 ecmp";};;
 
 private:
@@ -305,7 +306,7 @@ public:
         AgentRouteData(op, false), vrf_name_(vrf_name), addr_(addr) { };
     virtual ~Inet4UnicastArpRoute() { };
 
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "arp";};;
 private:
     string vrf_name_;
@@ -321,7 +322,7 @@ public:
         AgentRouteData(op, false), gw_ip_(gw_ip), 
         vrf_name_(vrf_name) { };
     virtual ~Inet4UnicastGatewayRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "gateway";};;
 
 private:
@@ -335,7 +336,7 @@ public:
     DropRoute(Op op  = AgentRouteData::CHANGE) :
         AgentRouteData(op, false) { };
     virtual ~DropRoute() { };
-    virtual bool AddChangePath(AgentPath *path);
+    virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "drop";};;
 private:
     DISALLOW_COPY_AND_ASSIGN(DropRoute);
