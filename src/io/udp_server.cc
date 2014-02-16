@@ -35,6 +35,8 @@ void UDPServer::SetName (udp::endpoint ep)
 
 UDPServer::~UDPServer ()
 {
+    if (pbuf_)
+        delete[] pbuf_;
     Reset ();
 }
 
@@ -111,20 +113,20 @@ udp::endpoint UDPServer::GetLocalEndPoint ()
     return socket_.local_endpoint (ec);
 }
 
-mutable_buffer *UDPServer::AllocateBuffer (std::size_t s)
+mutable_buffer UDPServer::AllocateBuffer (std::size_t s)
 {
-    return new mutable_buffer (new u_int8_t[s], s);
+    pbuf_ = new u_int8_t[s];
+    return mutable_buffer (pbuf_, s);
 }
 
-mutable_buffer *UDPServer::AllocateBuffer ()
+mutable_buffer UDPServer::AllocateBuffer ()
 {
-    return new mutable_buffer (new u_int8_t[buffer_size_], buffer_size_);
+    return AllocateBuffer (buffer_size_);
 }
 
-void UDPServer::DeallocateBuffer (mutable_buffer *buffer)
+void UDPServer::DeallocateBuffer (boost::asio::const_buffer &buffer)
 {
-    delete[] buffer_cast<uint8_t *>(*buffer);
-    delete buffer;
+    delete[] buffer_cast<const uint8_t *>(buffer);
 }
 
 udp::endpoint *UDPServer::AllocateEndPoint (std::string ipaddress, short port)
@@ -147,11 +149,11 @@ void UDPServer::DeallocateEndPoint (udp::endpoint *ep)
     delete ep;
 }
 
-void UDPServer::StartSend(udp::endpoint *ep, std::size_t bytes_to_send,
-    mutable_buffer *buffer)
+void UDPServer::StartSend(udp::endpoint &ep, std::size_t bytes_to_send,
+    mutable_buffer buffer)
 {
     if (state_ == OK) {
-        socket_.async_send_to (mutable_buffers_1 (*buffer), *ep,
+        socket_.async_send_to (mutable_buffers_1 (buffer), ep,
             boost::bind(&UDPServer::HandleSend, this, buffer, ep,
               boost::asio::placeholders::bytes_transferred,
               boost::asio::placeholders::error));
@@ -164,12 +166,13 @@ void UDPServer::StartSend(udp::endpoint *ep, std::size_t bytes_to_send,
 void UDPServer::StartReceive()
 {
     if (state_ == OK) {
-        mutable_buffer  *buffer = AllocateBuffer ();
-        udp::endpoint  *remote_endpoint = AllocateEndPoint ();
+        mutable_buffer             b = AllocateBuffer ();
+        boost::asio::const_buffer  buffer (buffer_cast<const uint8_t*>(b),
+                                        buffer_size(b));
         
-        socket_.async_receive_from(mutable_buffers_1 (*buffer),
-            *remote_endpoint, boost::bind(&UDPServer::HandleReceive, this,
-            buffer, remote_endpoint,
+        socket_.async_receive_from(mutable_buffers_1 (b),
+            remote_endpoint_, boost::bind(&UDPServer::HandleReceiveInternal,
+            this, buffer, remote_endpoint_,
             boost::asio::placeholders::bytes_transferred,
             boost::asio::placeholders::error));
     } else {
@@ -178,10 +181,20 @@ void UDPServer::StartReceive()
     }
 }
 
-void UDPServer::HandleReceive (mutable_buffer *recv_buffer,
-    udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+void UDPServer::HandleReceiveInternal (boost::asio::const_buffer recv_buffer,
+    udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error)
 {
+    BufferRelease ();
+    HandleReceive (recv_buffer, remote_endpoint, bytes_transferred, error);
+    StartReceive();
+}
+
+void UDPServer::HandleReceive (boost::asio::const_buffer recv_buffer,
+    udp::endpoint remote_endpoint, std::size_t bytes_transferred,
+    const boost::system::error_code& error)
+{
+    BufferRelease ();
     if (!error || error == boost::asio::error::message_size)
     {
         // handle error == boost::asio::error::message_size
@@ -191,12 +204,11 @@ void UDPServer::HandleReceive (mutable_buffer *recv_buffer,
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
             "error reading udp socket " << error);
     }
-    // DeallocateBuffer (recv_buffer);
-    // DeallocateEndPoint (remote_endpoint);
+    DeallocateBuffer (recv_buffer);
 }
 
-void UDPServer::HandleSend (mutable_buffer *send_buffer,
-    udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+void UDPServer::HandleSend (mutable_buffer send_buffer,
+    udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error)
 {
     // check error

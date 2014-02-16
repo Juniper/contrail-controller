@@ -153,87 +153,107 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
     return ret;
 }
 
-bool AgentPath::Sync(AgentRoute *sync_route) {
+bool AgentPath::UpdateNHPolicy(Agent *agent) {
     bool ret = false;
-    bool unresolved = false;
-    Agent *agent = static_cast<AgentRouteTable *>
-        (sync_route->get_table())->agent();
+    if (nh_.get() == NULL || nh_->GetType() != NextHop::INTERFACE) {
+        return ret;
+    }
 
-    //Check if there is change in policy on the interface
-    //If yes update the path to point to policy enabled NH
-    if (nh_.get() && nh_->GetType() == NextHop::INTERFACE) {
-        const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
-        const VmInterface *vm_port = 
-            static_cast<const VmInterface *>(intf_nh->GetInterface());
+    const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh_.get());
+    if (intf_nh->GetInterface()->type() != Interface::VM_INTERFACE) {
+        return ret;
+    }
 
-        bool policy = vm_port->policy_enabled();
-        if (force_policy_) {
-            policy = true;
-        }
+    const VmInterface *vm_port =
+        static_cast<const VmInterface *>(intf_nh->GetInterface());
 
-        if (intf_nh->PolicyEnabled() != policy) {
-            //Make path point to policy enabled interface
-            InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
-                                                  vm_port->GetUuid(), ""),
-                                policy, intf_nh->GetFlags());
-            nh_ = static_cast<NextHop *>
+    bool policy = vm_port->policy_enabled();
+    if (force_policy_) {
+        policy = true;
+    }
+
+    NextHop *nh = NULL;
+    if (intf_nh->PolicyEnabled() != policy) {
+        //Make path point to policy enabled interface
+        InterfaceNHKey key(new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                              vm_port->GetUuid(), ""),
+                           policy, intf_nh->GetFlags());
+        nh = static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&key));
+        // If NH is not found, point route to discard NH
+        if (nh == NULL) {
+            LOG(DEBUG, "Interface NH for <" 
+                << boost::lexical_cast<std::string>(vm_port->GetUuid())
+                << " : policy = " << policy);
+            DiscardNHKey key;
+            nh = static_cast<NextHop *>
                 (agent->nexthop_table()->FindActiveEntry(&key));
-            // If NH is not found, point route to discard NH
-            if (nh_ == NULL) {
-                LOG(DEBUG, "Interface NH for <" 
-                    << boost::lexical_cast<std::string>(vm_port->GetUuid())
-                    << " : policy = " << policy);
-                DiscardNHKey key;
-                nh_ = static_cast<NextHop *>
-                    (agent->nexthop_table()->FindActiveEntry(&key));
-            }
         }
-
-        if (tunnel_type_ != TunnelType::ComputeType(tunnel_bmap_)) {
-            tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
+        if (ChangeNH(agent, nh) == true) {
             ret = true;
         }
     }
 
-    bool remote_vm_nh_reevaluate = false;
-    //Remote vm nh add was skipped because of encap mismatch
+    return ret;
+}
+
+bool AgentPath::UpdateTunnelType(Agent *agent, const AgentRoute *sync_route) {
+    if (tunnel_type_ == TunnelType::ComputeType(tunnel_bmap_)) {
+        return false;
+    }
+
+    tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
     if (nh_.get() && nh_->GetType() == NextHop::TUNNEL) {
-        remote_vm_nh_reevaluate = true;
-    }
-
-    if (remote_vm_nh_reevaluate) {
-        if (tunnel_type_ != TunnelType::ComputeType(tunnel_bmap_)) {
-            tunnel_type_ = TunnelType::ComputeType(tunnel_bmap_);
-            ret = true;
-
-            DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-            nh_req.key.reset(new TunnelNHKey(agent->GetDefaultVrf(),
-                                             agent->GetRouterId(), server_ip_,
-                                             false, tunnel_type_));
-            nh_req.data.reset(new TunnelNHData());
-            agent->nexthop_table()->Process(nh_req);
-
-            TunnelNHKey key(agent->GetDefaultVrf(), agent->GetRouterId(),
+        DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+        TunnelNHKey *tnh_key =
+            new TunnelNHKey(agent->GetDefaultVrf(), agent->GetRouterId(),
                             server_ip_, false, tunnel_type_);
-            nh_ = static_cast<NextHop *>
-                  (agent->nexthop_table()->FindActiveEntry(&key));
-        }
+        nh_req.key.reset(tnh_key);
+        nh_req.data.reset(new TunnelNHData());
+        agent->nexthop_table()->Process(nh_req);
+
+        TunnelNHKey nh_key(agent->GetDefaultVrf(), agent->GetRouterId(),
+                           server_ip_, false, tunnel_type_);
+        NextHop *nh = static_cast<NextHop *>
+            (agent->nexthop_table()->FindActiveEntry(&nh_key));
+        ChangeNH(agent, nh);
     }
 
     if (nh_.get() && nh_->GetType() == NextHop::COMPOSITE) {
-        ret = RebakeAllTunnelNHinCompositeNH(sync_route, nh_.get());
+        RebakeAllTunnelNHinCompositeNH(sync_route, nh_.get());
+    }
+    return true;
+}
+
+bool AgentPath::Sync(AgentRoute *sync_route) {
+    bool ret = false;
+    bool unresolved = false;
+
+    Agent *agent = static_cast<AgentRouteTable *>
+        (sync_route->get_table())->agent();
+
+    // Check if there is change in policy on the interface
+    // If yes update the path to point to policy enabled NH
+    if (UpdateNHPolicy(agent)) {
+        ret = true;
+    }
+
+    //Handle tunnel type change
+    if (UpdateTunnelType(agent, sync_route)) {
+        ret = true;
     }
 
     if (vrf_name_ == Agent::NullString()) {
         return ret;
     }
- 
+
     Inet4UnicastAgentRouteTable *table = NULL;
     Inet4UnicastRouteEntry *rt = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
         (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
     if (table)
         rt = table->FindRoute(gw_ip_);
+
     if (rt == sync_route) {
         rt = NULL;
     }
@@ -251,7 +271,8 @@ bool AgentPath::Sync(AgentRoute *sync_route) {
         unresolved_ = unresolved;
         ret = true;
     }
-    //Reset to new gateway route, no nexthop for indirect route
+
+    // Reset to new gateway route, no nexthop for indirect route
     if (dependant_rt_.get() != rt) {
         dependant_rt_.reset(rt);
         ret = true;
