@@ -1715,7 +1715,7 @@ TEST_F(FlowTest, Flow_return_error) {
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
     CreateFlow(flow, 1);
 
-    uint32_t vrf_id = VrfGet("vrf5")->GetVrfId();
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
     FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
 
