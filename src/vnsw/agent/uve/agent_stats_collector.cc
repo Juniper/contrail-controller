@@ -143,11 +143,11 @@ void AgentStatsCollector::AddNamelessVrfStatsEntry() {
 
 void AgentStatsCollector::AddUpdateVrfStatsEntry(const VrfEntry *vrf) {
     VrfIdToVrfStatsTree::iterator it;
-    it = vrf_stats_tree_.find(vrf->GetVrfId());
+    it = vrf_stats_tree_.find(vrf->vrf_id());
     if (it == vrf_stats_tree_.end()) {
         AgentStatsCollector::VrfStats stats;
         stats.name = vrf->GetName();
-        vrf_stats_tree_.insert(VrfStatsPair(vrf->GetVrfId(), stats));
+        vrf_stats_tree_.insert(VrfStatsPair(vrf->vrf_id(), stats));
     } else {
         /* Vrf could be deleted in agent oper DB but not in Kernel. To handle 
          * this case we maintain vrfstats object in AgentStatsCollector even
@@ -161,7 +161,7 @@ void AgentStatsCollector::AddUpdateVrfStatsEntry(const VrfEntry *vrf) {
 
 void AgentStatsCollector::DelVrfStatsEntry(const VrfEntry *vrf) {
     VrfIdToVrfStatsTree::iterator it;
-    it = vrf_stats_tree_.find(vrf->GetVrfId());
+    it = vrf_stats_tree_.find(vrf->vrf_id());
     if (it != vrf_stats_tree_.end()) {
         AgentStatsCollector::VrfStats *stats = &it->second;
         stats->prev_discards = stats->k_discards;

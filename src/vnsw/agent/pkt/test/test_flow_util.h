@@ -12,7 +12,7 @@ public:
                 dip_(dip), proto_(proto), sport_(sport), dport_(dport), 
                 ifindex_(ifindex), mpls_(0), hash_(0) {
         vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
 
     //Ingress flow
@@ -21,7 +21,7 @@ public:
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
                 ifindex_(ifindex), mpls_(0), hash_(hash) {
          vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
 
 
@@ -31,7 +31,7 @@ public:
                 sip_(sip), dip_(dip), proto_(proto), sport_(sport), dport_(dport),
                 ifindex_(0), mpls_(mpls), outer_sip_(osip), hash_(0) {
         vrf_ = 
-         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+         Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
     };
 
     //Egress flow
@@ -40,7 +40,7 @@ public:
                 uint32_t hash) : sip_(sip), dip_(dip), proto_(proto), sport_(sport),
                 dport_(dport), ifindex_(0), mpls_(mpls), hash_(hash) {
          vrf_ = 
-          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->GetVrfId();
+          Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf)->vrf_id();
      };
 
     void SendIngressFlow() {
@@ -207,14 +207,14 @@ public:
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(dest_vrf_);
         EXPECT_TRUE(dest_vrf != NULL);
 
-        EXPECT_TRUE(fe->data().flow_source_vrf == src_vrf->GetVrfId());
-        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->GetVrfId());
+        EXPECT_TRUE(fe->data().flow_source_vrf == src_vrf->vrf_id());
+        EXPECT_TRUE(fe->data().flow_dest_vrf == dest_vrf->vrf_id());
 
         if (true) {
             FlowEntry *rev = fe->reverse_flow_entry();
             EXPECT_TRUE(rev != NULL);
-            EXPECT_TRUE(rev->data().flow_source_vrf == dest_vrf->GetVrfId());
-            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->GetVrfId());
+            EXPECT_TRUE(rev->data().flow_source_vrf == dest_vrf->vrf_id());
+            EXPECT_TRUE(rev->data().flow_dest_vrf == src_vrf->vrf_id());
         }
     };
 

@@ -109,7 +109,7 @@ DBEntryBase::KeyPtr Inet4UnicastRouteEntry::GetDBRequestKey() const {
         (static_cast<Inet4UnicastAgentRouteTable *>(get_table()))->agent();
     Inet4UnicastRouteKey *key = 
         new Inet4UnicastRouteKey(agent->GetLocalPeer(),
-                                 GetVrfEntry()->GetName(), addr_, plen_);
+                                 vrf()->GetName(), addr_, plen_);
     return DBEntryBase::KeyPtr(key);
 }
 
@@ -118,7 +118,7 @@ void Inet4UnicastRouteEntry::SetKey(const DBRequestKey *key) {
         (static_cast<Inet4UnicastAgentRouteTable *>(get_table()))->agent();
     const Inet4UnicastRouteKey *k = 
         static_cast<const Inet4UnicastRouteKey*>(key);
-    SetVrf(agent->vrf_table()->FindVrfFromName(k->GetVrfName()));
+    SetVrf(agent->vrf_table()->FindVrfFromName(k->vrf_name()));
     Ip4Address tmp(k->addr());
     set_addr(tmp);
     set_plen(k->plen());
@@ -137,9 +137,9 @@ bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     ArpNHKey key(vrf_name_, addr_);
     NextHop *nh = 
         static_cast<NextHop *>(agent->GetNextHopTable()->FindActiveEntry(&key));
-    path->SetUnresolved(false);
-    path->SetDestVnName(agent->GetFabricVnName());
-    if (path->GetDestVnName() != agent->GetFabricVnName()) {
+    path->set_unresolved(false);
+    path->set_dest_vn_name(agent->GetFabricVnName());
+    if (path->dest_vn_name() != agent->GetFabricVnName()) {
         ret = true;
     }
     ret = true;
@@ -150,26 +150,26 @@ bool Inet4UnicastArpRoute::AddChangePath(Agent *agent, AgentPath *path) {
 } 
 
 bool Inet4UnicastGatewayRoute::AddChangePath(Agent *agent, AgentPath *path) {
-    path->SetVrfName(vrf_name_);
+    path->set_vrf_name(vrf_name_);
 
     Inet4UnicastAgentRouteTable *table = NULL;
     table = static_cast<Inet4UnicastAgentRouteTable *>
         (agent->GetVrfTable()->GetInet4UnicastRouteTable(vrf_name_));
     Inet4UnicastRouteEntry *rt = table->FindRoute(gw_ip_); 
     if (rt == NULL || rt->plen() == 0) {
-        path->SetUnresolved(true);
+        path->set_unresolved(true);
     } else if (rt->GetActiveNextHop()->GetType() == NextHop::RESOLVE) {
-        path->SetUnresolved(true);
+        path->set_unresolved(true);
         Inet4UnicastAgentRouteTable::AddArpReq(vrf_name_, gw_ip_);
     } else {
-        path->SetUnresolved(false);
+        path->set_unresolved(false);
     }
 
     //Reset to new gateway route, no nexthop for indirect route
-    path->SetGatewayIp(gw_ip_);
+    path->set_gw_ip(gw_ip_);
     path->ResetDependantRoute(rt);
-    if (path->GetDestVnName() != agent->GetFabricVnName()) {
-        path->SetDestVnName(agent->GetFabricVnName());
+    if (path->dest_vn_name() != agent->GetFabricVnName()) {
+        path->set_dest_vn_name(agent->GetFabricVnName());
     }
 
     return true;
@@ -185,12 +185,12 @@ bool Inet4UnicastEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
         static_cast<NextHop *>(agent->GetNextHopTable()->FindActiveEntry(&key));
 
     assert(nh);
-    if (path->GetLabel() != label_) {
-        path->SetLabel(label_);
+    if (path->label() != label_) {
+        path->set_label(label_);
         ret = true;
     }
 
-    path->SetTunnelBmap(TunnelType::MplsType());
+    path->set_tunnel_bmap(TunnelType::MplsType());
     TunnelType::Type new_tunnel_type = 
         TunnelType::ComputeType(path->tunnel_bmap());
     if (path->tunnel_type() != new_tunnel_type) {
@@ -199,15 +199,15 @@ bool Inet4UnicastEcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     }
 
     SecurityGroupList path_sg_list;
-    path_sg_list = path->GetSecurityGroupList();
+    path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
-        path->SetSecurityGroupList(sg_list_);
+        path->set_sg_list(sg_list_);
         ret = true;
     }
 
-    path->SetDestVnName(vn_name_);
+    path->set_dest_vn_name(vn_name_);
     ret = true;
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -260,6 +260,57 @@ void Inet4UnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
     UnicastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
 }
 
+bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
+    Inet4UcRouteResp *resp = static_cast<Inet4UcRouteResp *>(sresp);
+    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
+
+    RouteUcSandeshData data;
+    data.set_src_ip(addr_.to_string());
+    data.set_src_plen(plen_);
+    data.set_src_vrf(vrf()->GetName());
+    for (Route::PathList::const_iterator it = GetPathList().begin();
+         it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path) {
+            PathSandeshData pdata;
+            path->nexthop(agent)->SetNHSandeshData(pdata.nh);
+            pdata.set_label(path->label());
+            pdata.set_peer(const_cast<Peer *>(path->peer())->GetName());
+            pdata.set_dest_vn(path->dest_vn_name());
+            pdata.set_unresolved(path->unresolved() ? "true" : "false");
+            if (!path->gw_ip().is_unspecified()) {
+                pdata.set_gw_ip(path->gw_ip().to_string());
+                pdata.set_vrf(path->vrf_name());
+            }
+            if (path->proxy_arp()) {
+                pdata.set_proxy_arp("ProxyArp");
+            } else {
+                pdata.set_proxy_arp("NoProxyArp");
+            }
+            pdata.set_sg_list(path->sg_list());
+            data.path_list.push_back(pdata);
+        }
+    }
+
+    std::vector<RouteUcSandeshData> &list = 
+        const_cast<std::vector<RouteUcSandeshData>&>(resp->get_route_list());
+    list.push_back(data);
+    return true;
+}
+
+bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, Ip4Address addr,
+                                            uint8_t plen) const {
+    if (addr_ == addr && plen_ == plen) {
+        return DBEntrySandesh(sresp);
+    }
+
+    return false;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Sandesh functions
+/////////////////////////////////////////////////////////////////////////////
+
 void UnresolvedRoute::HandleRequest() const {
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromId(0);
     if (!vrf) {
@@ -292,53 +343,6 @@ void UnresolvedRoute::HandleRequest() const {
     resp->set_context(context());
     resp->Response();
     return;
-}
-
-bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
-    Inet4UcRouteResp *resp = static_cast<Inet4UcRouteResp *>(sresp);
-    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
-
-    RouteUcSandeshData data;
-    data.set_src_ip(addr_.to_string());
-    data.set_src_plen(plen_);
-    data.set_src_vrf(GetVrfEntry()->GetName());
-    for (Route::PathList::const_iterator it = GetPathList().begin();
-         it != GetPathList().end(); it++) {
-        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
-        if (path) {
-            PathSandeshData pdata;
-            path->GetNextHop(agent)->SetNHSandeshData(pdata.nh);
-            pdata.set_label(path->GetLabel());
-            pdata.set_peer(const_cast<Peer *>(path->GetPeer())->GetName());
-            pdata.set_dest_vn(path->GetDestVnName());
-            pdata.set_unresolved(path->IsUnresolved() ? "true" : "false");
-            if (!path->GetGatewayIp().is_unspecified()) {
-                pdata.set_gw_ip(path->GetGatewayIp().to_string());
-                pdata.set_vrf(path->GetVrfName());
-            }
-            if (path->GetProxyArp()) {
-                pdata.set_proxy_arp("ProxyArp");
-            } else {
-                pdata.set_proxy_arp("NoProxyArp");
-            }
-            pdata.set_sg_list(path->GetSecurityGroupList());
-            data.path_list.push_back(pdata);
-        }
-    }
-
-    std::vector<RouteUcSandeshData> &list = 
-        const_cast<std::vector<RouteUcSandeshData>&>(resp->get_route_list());
-    list.push_back(data);
-    return true;
-}
-
-bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp, Ip4Address addr,
-                                            uint8_t plen) const {
-    if (addr_ == addr && plen_ == plen) {
-        return DBEntrySandesh(sresp);
-    }
-
-    return false;
 }
 
 void Inet4UcRouteReq::HandleRequest() const {

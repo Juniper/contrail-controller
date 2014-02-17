@@ -101,7 +101,7 @@ void ArpProto::RouteUpdate(DBTablePartBase *part, DBEntryBase *entry) {
         del_gracious_arp_entry();
         //Send Grat ARP
         SendArpIpc(ArpHandler::ARP_SEND_GRACIOUS, 
-                   route->addr().to_ulong(), route->GetVrfEntry());
+                   route->addr().to_ulong(), route->vrf());
     }
 }
 

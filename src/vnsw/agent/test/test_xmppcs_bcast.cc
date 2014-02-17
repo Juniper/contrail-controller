@@ -461,7 +461,7 @@ protected:
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer_s.get(), "vrf1", "1.1.1.1/32", 
@@ -476,8 +476,8 @@ protected:
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	rt = RouteGet("vrf1", addr, 32);
         WAIT_FOR(100, 10000, (rt->GetActivePath() != NULL));
-        WAIT_FOR(100, 10000, rt->GetDestVnName().size() > 0);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+        WAIT_FOR(100, 10000, rt->dest_vn_name().size() > 0);
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer_s.get(), "vrf1", "1.1.1.2/32", 
@@ -507,7 +507,7 @@ protected:
         MulticastGroupObject *obj;
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
     WAIT_FOR(100, 10000, (cnh->ComponentNHCount() == 3));
@@ -535,7 +535,7 @@ protected:
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	cnh = static_cast<CompositeNH *>(nh);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);

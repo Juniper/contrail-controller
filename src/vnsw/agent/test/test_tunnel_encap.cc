@@ -161,7 +161,7 @@ public:
     }
 
     void VerifyLabel(AgentPath *path) {
-        const NextHop *nh = path->GetNextHop(agent);
+        const NextHop *nh = path->nexthop(agent);
         const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
         TunnelType::Type type = tnh->GetTunnelType().GetType();
         switch (type) {
@@ -171,7 +171,7 @@ public:
         }    
         case TunnelType::MPLS_GRE: 
         case TunnelType::MPLS_UDP: {
-            ASSERT_TRUE(path->GetActiveLabel() == path->GetLabel());
+            ASSERT_TRUE(path->GetActiveLabel() == path->label());
             break;
         }    
         default: {
@@ -186,7 +186,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop(agent);
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -198,7 +198,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop(agent);
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -212,7 +212,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop(agent);
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());
@@ -224,7 +224,7 @@ public:
             it != route->GetPathList().end(); it++) {
             const AgentPath *path =
                 static_cast<const AgentPath *>(it.operator->());
-            const NextHop *nh = path->GetNextHop(agent);
+            const NextHop *nh = path->nexthop(agent);
             if (nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tnh = static_cast<const TunnelNH *>(nh);
                 ASSERT_TRUE(type == tnh->GetTunnelType().GetType());

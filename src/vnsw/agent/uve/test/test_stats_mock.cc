@@ -453,7 +453,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
-    int vrf41_id = vrf->GetVrfId();
+    int vrf41_id = vrf->vrf_id();
 
     VrfAddReq("vrf42");
     client->WaitForIdle();
@@ -462,7 +462,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
-    int vrf42_id = vrf->GetVrfId();
+    int vrf42_id = vrf->vrf_id();
 
     //Create 2 vrfs in mock Kernel and update its stats
     KSyncSockTypeMap::VrfStatsAdd(vrf41_id);

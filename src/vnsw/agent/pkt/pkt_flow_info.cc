@@ -71,7 +71,7 @@ static uint32_t NhToVrf(const NextHop *nh) {
     if (!vrf->IsActive())
         return VrfEntry::kInvalidIndex;
 
-    return vrf->GetVrfId();
+    return vrf->vrf_id();
 }
 
 // Get interface from a NH. Also, decode ECMP information from NH
@@ -158,7 +158,7 @@ static bool RouteToOutInfo(const Inet4UnicastRouteEntry *rt, const PktInfo *pkt,
     if (path == NULL)
         return false;
 
-    const NextHop *nh = static_cast<const NextHop *>(path->GetNextHop(agent));
+    const NextHop *nh = static_cast<const NextHop *>(path->nexthop(agent));
     if (nh == NULL)
         return false;
 
@@ -187,7 +187,7 @@ static bool IntfHasFloatingIp(const Interface *intf) {
 
 static bool IsLinkLocalRoute(const Inet4UnicastRouteEntry *rt) {
     const AgentPath *path = rt->GetActivePath();
-    if (path && path->GetPeer() == Agent::GetInstance()->GetLinkLocalPeer())
+    if (path && path->peer() == Agent::GetInstance()->GetLinkLocalPeer())
         return true;
 
     return false;
@@ -202,7 +202,7 @@ static const string *RouteToVn(const Inet4UnicastRouteEntry *rt) {
         return NULL;
     }
 
-    return &path->GetDestVnName();
+    return &path->dest_vn_name();
 }
 
 static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
@@ -267,7 +267,7 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
         if (in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
             Agent *agent = static_cast<AgentRouteTable *>
                 (in->rt_->get_table())->agent();
-            nh = in->rt_->FindPath(agent->GetLocalVmPeer())->GetNextHop(agent);
+            nh = in->rt_->FindPath(agent->GetLocalVmPeer())->nexthop(agent);
         } else {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>
                 (in->rt_->GetActiveNextHop());
@@ -299,7 +299,7 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
     nat_dport = pkt->dport;
     nat_sport = pkt->sport;
     if (out->intf_ && out->intf_->type() == Interface::VM_INTERFACE) {
-        dest_vrf = out->vrf_->GetVrfId();
+        dest_vrf = out->vrf_->vrf_id();
     } else {
         dest_vrf = pkt->vrf;
     }
@@ -326,7 +326,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
 
     out->vrf_ = Agent::GetInstance()->GetVrfTable()->
                 FindVrfFromName(Agent::GetInstance()->GetDefaultVrf());
-    dest_vrf = out->vrf_->GetVrfId();
+    dest_vrf = out->vrf_->vrf_id();
 
     // Set NAT flow fields
     linklocal_flow = true;
@@ -346,7 +346,7 @@ void PktFlowInfo::LinkLocalServiceFromVm(const PktInfo *pkt, PktControlInfo *in,
     nat_dport = nat_port;
 
     nat_vrf = dest_vrf;
-    nat_dest_vrf = vm_port->GetVrfId();
+    nat_dest_vrf = vm_port->vrf_id();
 
     out->rt_ = Agent::GetInstance()->pkt()->flow_table()->GetUcRoute(out->vrf_,
             nat_server);
@@ -376,7 +376,7 @@ void PktFlowInfo::LinkLocalServiceFromHost(const PktInfo *pkt, PktControlInfo *i
         return;
     }
 
-    dest_vrf = vm_port->GetVrfId();
+    dest_vrf = vm_port->vrf_id();
     out->vrf_ = vm_port->vrf();
 
     linklocal_flow = true;
@@ -441,12 +441,12 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     in->vn_ = NULL;
     if (nat_done == false) {
         in->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_saddr));
-        nat_dest_vrf = it->vrf_.get()->GetVrfId();
+        nat_dest_vrf = it->vrf_.get()->vrf_id();
     }
     out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
     out->vn_ = it->vn_.get();
     dest_vn = &(it->vn_.get()->GetName());
-    dest_vrf = out->intf_->vrf()->GetVrfId();
+    dest_vrf = out->intf_->vrf()->vrf_id();
 
     // Translate the Dest-IP
     nat_done = true;
@@ -457,11 +457,11 @@ void PktFlowInfo::FloatingIpDNat(const PktInfo *pkt, PktControlInfo *in,
     nat_vrf = dest_vrf;
 
     if (in->rt_) {
-        flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->GetVrfId();
+        flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
     } else {
         flow_source_vrf = VrfEntry::kInvalidIndex;
     }
-    flow_dest_vrf = it->vrf_.get()->GetVrfId();
+    flow_dest_vrf = it->vrf_.get()->vrf_id();
 
     return;
 }
@@ -502,7 +502,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
         return;
     }
 
-    dest_vrf = it->vrf_.get()->GetVrfId();
+    dest_vrf = it->vrf_.get()->vrf_id();
     in->vn_ = it->vn_.get();
     // Source-VN for policy processing is based on floating-ip VN
     // Dest-VN will be based on out->rt_ and computed below
@@ -518,7 +518,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     // Compute VRF for reverse flow
     if (out->intf_) {
         // Egress-vm present on same compute node, take VRF from vm-port
-        nat_vrf = out->vrf_->GetVrfId();
+        nat_vrf = out->vrf_->vrf_id();
         out->vn_ = InterfaceToVn(out->intf_);
     } else {
         // Egress-vm is remote. Find VRF from the NH for source-ip
@@ -526,7 +526,7 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Dest VRF for reverse flow is In-Port VRF
-    nat_dest_vrf = intf->GetVrfId();
+    nat_dest_vrf = intf->vrf_id();
 
     flow_source_vrf = pkt->vrf;
     if (out->rt_) {
@@ -561,7 +561,7 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
             if (out->intf_) {
                 out->vn_ = InterfaceToVn(out->intf_);
                 if (out->vrf_) {
-                    dest_vrf = out->vrf_->GetVrfId();
+                    dest_vrf = out->vrf_->vrf_id();
                 }
             }
         }
@@ -606,7 +606,7 @@ void PktFlowInfo::EgressProcess(const PktInfo *pkt, PktControlInfo *in,
     }
 
     // Get VMPort Interface from NH
-    if (NhDecode(mpls->GetNextHop(), pkt, this, out, true) == false) {
+    if (NhDecode(mpls->nexthop(), pkt, this, out, true) == false) {
         return;
     }
 
@@ -684,8 +684,8 @@ bool PktFlowInfo::Process(const PktInfo *pkt, PktControlInfo *in,
         dest_vn = RouteToVn(out->rt_);
     }
 
-    flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->GetVrfId();
-    flow_dest_vrf = out->rt_->GetVrfId();
+    flow_source_vrf = static_cast<const AgentRoute *>(in->rt_)->vrf_id();
+    flow_dest_vrf = out->rt_->vrf_id();
 
     //If source is ECMP, establish a reverse flow pointing
     //to the component index

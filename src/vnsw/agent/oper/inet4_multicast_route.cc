@@ -164,7 +164,7 @@ int Inet4MulticastRouteEntry::CompareTo(const Route &rhs) const {
 
 DBEntryBase::KeyPtr Inet4MulticastRouteEntry::GetDBRequestKey() const {
     Inet4MulticastRouteKey *key = 
-        new Inet4MulticastRouteKey(GetVrfEntry()->GetName(), dst_addr_, 
+        new Inet4MulticastRouteKey(vrf()->GetName(), dst_addr_, 
                                    src_addr_);
     return DBEntryBase::KeyPtr(key);
 }
@@ -172,19 +172,19 @@ DBEntryBase::KeyPtr Inet4MulticastRouteEntry::GetDBRequestKey() const {
 void Inet4MulticastRouteEntry::SetKey(const DBRequestKey *key) {
     const Inet4MulticastRouteKey *k = 
         static_cast<const Inet4MulticastRouteKey *>(key);
-    SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->GetVrfName()));
-    Ip4Address grp(k->GetDstIpAddress());
-    Ip4Address src(k->GetSrcIpAddress());
-    SetDstIpAddress(grp);
-    SetSrcIpAddress(src);
+    SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->vrf_name()));
+    Ip4Address grp(k->dest_ip_addr());
+    Ip4Address src(k->src_ip_addr());
+    set_dest_ip_addr(grp);
+    set_src_ip_addr(src);
 }
 
 bool Inet4MulticastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
     Inet4McRouteResp *resp = static_cast<Inet4McRouteResp *>(sresp);
 
     RouteMcSandeshData data;
-    data.set_src(GetSrcIpAddress().to_string());
-    data.set_grp(GetDstIpAddress().to_string());
+    data.set_src(src_ip_addr().to_string());
+    data.set_grp(dest_ip_addr().to_string());
     GetActiveNextHop()->SetNHSandeshData(data.nh);
 
     std::vector<RouteMcSandeshData> &list = 

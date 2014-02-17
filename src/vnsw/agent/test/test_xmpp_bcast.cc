@@ -496,7 +496,7 @@ protected:
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 
@@ -510,8 +510,8 @@ protected:
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	rt = RouteGet("vrf1", addr, 32);
         WAIT_FOR(100, 10000, (rt->GetActivePath() != NULL));
-        WAIT_FOR(100, 10000, rt->GetDestVnName().size() > 0);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+        WAIT_FOR(100, 10000, rt->dest_vn_name().size() > 0);
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32", 
@@ -543,7 +543,7 @@ protected:
     MulticastGroupObject *obj;
     ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -555,7 +555,7 @@ protected:
     CompositeNH::ComponentNHList::const_iterator fabric_component_nh_it =
         fabric_cnh->begin();
     ComponentNH *fabric_component = *fabric_component_nh_it;
-    ASSERT_TRUE(fabric_component->GetLabel() == (uint32_t) alloc_label+10);
+    ASSERT_TRUE(fabric_component->label() == (uint32_t) alloc_label+10);
 
 	//Verify mpls table
 	MplsLabel *mpls = 
@@ -584,7 +584,7 @@ protected:
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	cnh = static_cast<CompositeNH *>(nh);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -669,7 +669,7 @@ protected:
         ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
         CompositeNH *cnh = static_cast<CompositeNH *>(nh);
         MulticastGroupObject *obj = 
-            MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+            MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                                                cnh->GetGrpAddr());
         ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1014,7 +1014,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1090,7 +1090,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == 0);
 
@@ -1102,7 +1102,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == 0);
 
@@ -1137,7 +1137,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1177,7 +1177,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
     //Verify mpls table
@@ -1235,7 +1235,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1297,7 +1297,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
 
@@ -1378,7 +1378,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1440,7 +1440,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
 

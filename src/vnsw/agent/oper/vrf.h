@@ -50,7 +50,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uint32_t GetVrfId() const {return id_;};
+    const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
 
     uint32_t GetRefCount() const {
