@@ -386,6 +386,8 @@ struct AclEntrySandeshData {
     6: list <SandeshRange> dst_port_l;
     7: list <SandeshRange> proto_l;
     8: list <ActionStr> action_l;
+    9: string src_type;
+    10: string dst_type;
 }
 
 // ACL to Flow mapping Sandesh

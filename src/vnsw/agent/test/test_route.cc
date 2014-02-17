@@ -718,8 +718,8 @@ TEST_F(RouteTest, ResyncUnresolvedRoute_1) {
     Inet4UnicastRouteEntry *rt =
         RouteGet(Agent::GetInstance()->GetDefaultVrf(), server1_ip_, 32);
     Inet4UnicastAgentRouteTable::ReEvaluatePaths(rt->GetVrfEntry()->GetName(),
-                                                 rt->GetIpAddress(),
-                                                 rt->GetPlen());
+                                                 rt->addr(),
+                                                 rt->plen());
     client->WaitForIdle();
     EXPECT_EQ(table->unresolved_route_size(), 1);
 
@@ -755,19 +755,19 @@ TEST_F(RouteTest, FindLPM) {
     client->WaitForIdle();
 
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm4_ip_, rt->addr());
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm4_ip_, 32);
     client->WaitForIdle();
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm3_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm3_ip_, rt->addr());
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm3_ip_, 24);
     client->WaitForIdle();
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm2_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm2_ip_, rt->addr());
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm2_ip_, 16);
     client->WaitForIdle();
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm1_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm1_ip_, rt->addr());
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm1_ip_, 8);
     client->WaitForIdle();
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm5_ip_, 32);
@@ -898,7 +898,8 @@ TEST_F(RouteTest, RouteToDeletedNH_1) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 
-                                                    10, false);
+                                                    10, SecurityGroupList(),
+                                                    false);
     client->WaitForIdle();
 
     Inet4UnicastAgentRouteTable::DeleteReq(peer, "vrf1", addr, 32);
@@ -938,9 +939,11 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer1, "vrf1", addr, 32, 
                                                     MakeUuid(1),
-                                                    "Test", 10, false);
+                                                    "Test", 10, SecurityGroupList(),
+                                                    false);
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer2, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10,
+                                                    SecurityGroupList(),
                                                     false);
     client->WaitForIdle();
 
@@ -950,6 +953,7 @@ TEST_F(RouteTest, RouteToDeletedNH_2) {
 
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer1, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
+                                                    SecurityGroupList(),
                                                     false);
     client->WaitForIdle();
 
@@ -984,6 +988,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
     Ip4Address addr = Ip4Address::from_string("1.1.1.10");
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
+                                                    SecurityGroupList(),
                                                     false);
     client->WaitForIdle();
     DelVn("vn1");
@@ -993,6 +998,7 @@ TEST_F(RouteTest, RouteToInactiveInterface) {
 
     Inet4UnicastAgentRouteTable::AddLocalVmRouteReq(peer, "vrf1", addr, 32, 
                                                     MakeUuid(1), "Test", 10, 
+                                                    SecurityGroupList(),
                                                     false);
     client->WaitForIdle();
 
@@ -1025,7 +1031,7 @@ TEST_F(RouteTest, RtEntryReuse) {
     client->WaitForIdle();
 
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm4_ip_, rt->addr());
 
     boost::scoped_ptr<TestRtState> state(new TestRtState());
     rt->SetState(Agent::GetInstance()->GetDefaultInet4UnicastRouteTable(), id, state.get());
@@ -1033,12 +1039,12 @@ TEST_F(RouteTest, RtEntryReuse) {
     DeleteRoute(Agent::GetInstance()->GetLocalPeer(), Agent::GetInstance()->GetDefaultVrf(), lpm4_ip_, 32);
     client->WaitForIdle();
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm3_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm3_ip_, rt->addr());
 
     AddArp(lpm4_ip_.to_string().c_str(), "0d:0b:0c:0d:0e:0f", eth_name_.c_str());
     client->WaitForIdle();
     rt = Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->FindLPM(lpm4_ip_);
-    EXPECT_EQ(lpm4_ip_, rt->GetIpAddress());
+    EXPECT_EQ(lpm4_ip_, rt->addr());
     EXPECT_EQ(rt, rt_hold);
     rt->ClearState(Agent::GetInstance()->GetDefaultInet4UnicastRouteTable(), id);
 

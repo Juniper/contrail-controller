@@ -47,9 +47,9 @@ RouteKSyncEntry::RouteKSyncEntry(RouteKSyncObject* obj, const AgentRoute *rt) :
     case Agent::INET4_UNICAST: {
           const Inet4UnicastRouteEntry *uc_rt = 
               static_cast<const Inet4UnicastRouteEntry *>(rt);
-          addr_ = uc_rt->GetIpAddress();
+          addr_ = uc_rt->addr();
           src_addr_ = IpAddress::from_string("0.0.0.0", ec).to_v4();
-          prefix_len_ = uc_rt->GetPlen();
+          prefix_len_ = uc_rt->plen();
           rt_type_ = RT_UCAST;
           break;
     }

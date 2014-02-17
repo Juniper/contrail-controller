@@ -1365,7 +1365,11 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_TRUE(nh->PolicyEnabled());
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
-    rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+
+    table = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+    rt = table->FindRoute(addr); 
+
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;
@@ -1411,8 +1415,10 @@ TEST_F(CfgTest, SecurityGroup_1) {
     DoInterfaceSandesh("vnet1");
 
     Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
-    Inet4UnicastRouteEntry *rt =
-        Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+    Inet4UnicastAgentRouteTable *table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+    Inet4UnicastRouteEntry *rt = table->FindRoute(addr); 
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;

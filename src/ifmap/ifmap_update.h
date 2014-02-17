@@ -33,6 +33,8 @@ struct IFMapObjectPtr {
         type = LINK;
         u.link = link;
     }
+    bool IsNode() const { return ((type == NODE) ? true : false); }
+    bool IsLink() const { return ((type == LINK) ? true : false); }
     ObjectType type;
     union {
         void *ptr;
@@ -79,6 +81,8 @@ public:
     const IFMapObjectPtr &data() const { return data_; }
     std::string ConfigName();
     std::string ToString();
+    bool IsNode() const { return data_.IsNode(); }
+    bool IsLink() const { return data_.IsLink(); }
 
 private:
     friend class IFMapState;

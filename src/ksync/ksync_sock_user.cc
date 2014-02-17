@@ -31,6 +31,8 @@
 #include "vr_message.h"
 #include "vr_types.h"
 #include "vr_defs.h"
+#include "vr_interface.h"
+#include <vector>
 
 KSyncSockTypeMap *KSyncSockTypeMap::singleton_; 
 vr_flow_entry *KSyncSockTypeMap::flow_table_;
@@ -135,6 +137,140 @@ void KSyncSockTypeMap::SimulateResponse(uint32_t seq_num, int code, int flags) {
     nl_free(&cl);
 }
 
+void KSyncSockTypeMap::SetDropStats(const vr_drop_stats_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    sock->drop_stats = req;
+}
+
+void KSyncSockTypeMap::InterfaceAdd(int id, int flags, int mac_size) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_if::const_iterator it;
+    static int os_index = 10;
+    char name[50];
+    sprintf(name, "intf%d", id);
+    vr_interface_req req;
+    req.set_vifr_idx(id);
+    req.set_vifr_type(VIF_TYPE_VIRTUAL);
+    req.set_vifr_rid(0);
+    req.set_vifr_os_idx(os_index);
+    req.set_vifr_name(name);
+    const std::vector<signed char> list(mac_size);
+    req.set_vifr_mac(list);
+    req.set_vifr_flags(flags);
+
+    it = sock->if_map.find(id);
+    if (it == sock->if_map.end()) {
+        sock->if_map[id] = req;
+        ++os_index;
+    }
+}
+
+void KSyncSockTypeMap::InterfaceDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_if::iterator it;
+    it = sock->if_map.find(id);
+    if (it != sock->if_map.end()) {
+        sock->if_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::NHAdd(int id, int flags) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_nh::const_iterator it;
+    vr_nexthop_req req;
+    req.set_nhr_id(id);
+    req.set_nhr_flags(flags);
+    it = sock->nh_map.find(id);
+    if (it == sock->nh_map.end()) {
+        sock->nh_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::NHDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_nh::iterator it;
+    it = sock->nh_map.find(id);
+    if (it != sock->nh_map.end()) {
+        sock->nh_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::MplsAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mpls::const_iterator it;
+    vr_mpls_req req;
+    req.set_mr_label(id);
+    it = sock->mpls_map.find(id);
+    if (it == sock->mpls_map.end()) {
+        sock->mpls_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::MplsDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mpls::iterator it;
+    it = sock->mpls_map.find(id);
+    if (it != sock->mpls_map.end()) {
+        sock->mpls_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::MirrorAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mirror::const_iterator it;
+    vr_mirror_req req;
+    req.set_mirr_index(id);
+    it = sock->mirror_map.find(id);
+    if (it == sock->mirror_map.end()) {
+        sock->mirror_map[id] = req;
+    }
+}
+
+void KSyncSockTypeMap::MirrorDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_mirror::iterator it;
+    it = sock->mirror_map.find(id);
+    if (it != sock->mirror_map.end()) {
+        sock->mirror_map.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::RouteAdd(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::const_iterator it;
+    it = sock->rt_tree.find(req);
+    if (it == sock->rt_tree.end()) {
+        sock->rt_tree.insert(req);
+    }
+}
+
+void KSyncSockTypeMap::RouteDelete(vr_route_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_rt_tree::iterator it;
+    it = sock->rt_tree.find(req);
+    if (it != sock->rt_tree.end()) {
+        sock->rt_tree.erase(it);
+    }
+}
+
+void KSyncSockTypeMap::VrfAssignAdd(vr_vrf_assign_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_vrf_assign_tree::const_iterator it;
+    it = sock->vrf_assign_tree.find(req);
+    if (it == sock->vrf_assign_tree.end()) {
+        sock->vrf_assign_tree.insert(req);
+    }
+}
+
+void KSyncSockTypeMap::VrfAssignDelete(vr_vrf_assign_req &req) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_vrf_assign_tree::iterator it;
+    it = sock->vrf_assign_tree.find(req);
+    if (it != sock->vrf_assign_tree.end()) {
+        sock->vrf_assign_tree.erase(it);
+    }
+}
+
 void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     KSyncSockTypeMap::ksync_map_vrf_stats::const_iterator it;
@@ -163,6 +299,15 @@ void KSyncSockTypeMap::VrfStatsAdd(int vrf_id) {
     }
 }
 
+void KSyncSockTypeMap::VrfStatsDelete(int vrf_id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vrf_stats::iterator it;
+    it = sock->vrf_stats_map.find(vrf_id);
+    if (it != sock->vrf_stats_map.end()) {
+        sock->vrf_stats_map.erase(it);
+    }
+}
+
 void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t resolves, 
                     uint64_t receives, uint64_t udp_tunnels, 
                     uint64_t udp_mpls_tunnels, 
@@ -188,6 +333,29 @@ void KSyncSockTypeMap::VrfStatsUpdate(int vrf_id, uint64_t discards, uint64_t re
     vrf_stats.set_vsr_multi_proto_composites(multi_proto_composites);
     vrf_stats.set_vsr_encaps(encaps);
     vrf_stats.set_vsr_l2_encaps(l2_encaps);
+}
+
+void KSyncSockTypeMap::VxlanAdd(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vxlan::const_iterator it;
+
+    it = sock->vxlan_map.find(id);
+    if (it == sock->vxlan_map.end()) {
+        vr_vxlan_req vxlan;
+        vxlan.set_vxlanr_vnid(id);
+        vxlan.set_vxlanr_rid(0);
+        sock->vxlan_map[id] = vxlan;
+    }
+}
+
+void KSyncSockTypeMap::VxlanDelete(int id) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    KSyncSockTypeMap::ksync_map_vxlan::iterator it;
+
+    it = sock->vxlan_map.find(id);
+    if (it != sock->vxlan_map.end()) {
+        sock->vxlan_map.erase(it);
+    }
 }
 
 void KSyncSockTypeMap::IfStatsUpdate(int idx, int ibytes, int ipkts, int ierrors, 

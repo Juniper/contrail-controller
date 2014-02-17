@@ -19,6 +19,7 @@ VrouterStatsCollector::~VrouterStatsCollector() {
 }
 
 bool VrouterStatsCollector::Run() {
+    run_counter_++;
     agent_uve_->vrouter_uve_entry()->SendVrouterMsg();
     return true;
 }

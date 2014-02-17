@@ -497,7 +497,8 @@ void AgentXmppChannel::AddRemoteRoute(string vrf_name, Ip4Address prefix_addr,
                 rt_table->AddLocalVmRouteReq(bgp_peer_id_, vrf_name, prefix_addr,
                                              prefix_len, intf_nh->GetIfUuid(),
                                              item->entry.virtual_network, label,
-                                             item->entry.security_group_list.security_group);
+                                             item->entry.security_group_list.security_group,
+                                             false);
             } else if (interface->type() == Interface::INET) {
                 rt_table->AddInetInterfaceRoute(bgp_peer_id_, vrf_name,
                                                  prefix_addr, prefix_len,
@@ -932,7 +933,6 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
     item.entry.nlri.af = BgpAf::IPv4; 
     item.entry.nlri.safi = BgpAf::Unicast; 
     stringstream rstr;
-    //rstr << route->GetAddressString() << "/" << route->GetPlen();
     rstr << route->ToString();
     item.entry.nlri.address = rstr.str();
 
@@ -1033,7 +1033,6 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
     item.entry.nlri.af = 25; 
     item.entry.nlri.safi = 242; 
     stringstream rstr;
-    //rstr << route->GetAddressString() << "/" << route->GetPlen();
     rstr << route->ToString();
     item.entry.nlri.mac = rstr.str();
     Layer2RouteEntry *l2_route = static_cast<Layer2RouteEntry *>(route);

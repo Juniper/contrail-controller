@@ -45,7 +45,7 @@ private:
 class IFMapVmUuidMapper {
 public:
     // Store [vm-uuid, vr-name] from the vm-reg request
-    // ADD: vm-reg-request, DELETE: vm-node add
+    // ADD: vm-reg-request, DELETE: vm-node add/xmpp-not-ready
     typedef std::map<std::string, std::string> PendingVmRegMap;
     // Store [vm-node, vm-uuid]. Used to clean-up uuid_mapper_'s 'vm-uuid'
     // entry when the vm-node becomes InFeasible. The objects would be gone by
@@ -77,6 +77,9 @@ public:
     bool PendingVmRegExists(const std::string &vm_uuid, std::string *vr_name);
     PendingVmRegMap::size_type PendingVmRegCount() {
         return pending_vmreg_map_.size();
+    }
+    void CleanupPendingVmRegEntry(const std::string &vm_uuid) {
+        pending_vmreg_map_.erase(vm_uuid);
     }
     void PrintAllPendingVmRegEntries();
 

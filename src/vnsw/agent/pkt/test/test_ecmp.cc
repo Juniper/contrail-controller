@@ -176,7 +176,7 @@ public:
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddLocalVmRouteReq(bgp_peer, vrf_name, vm_ip, plen,
                                vm_intf->GetUuid(), vn, vm_intf->label(),
-                               false);
+                               SecurityGroupList(), false);
     }
 
     void AddRemoteVmRoute(const string vrf_name, const string ip, uint32_t plen,

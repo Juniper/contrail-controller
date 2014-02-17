@@ -18,7 +18,7 @@ test_suite = [
     origin_vn_test,
 ]
 
-test = env.TestSuite('origin-vn-test', test_suite)
+test = env.TestSuite('bgp-test', test_suite)
 env.Alias('src/bgp/origin-vn:test', test)
 
 Return('test_suite')

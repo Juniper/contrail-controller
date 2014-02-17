@@ -227,6 +227,7 @@ void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
 
 bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
     Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
+    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
 
     RouteL2SandeshData data;
     data.set_mac(ToString());
@@ -236,7 +237,7 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
             PathSandeshData pdata;
-            path->GetNextHop()->SetNHSandeshData(pdata.nh);
+            path->GetNextHop(agent)->SetNHSandeshData(pdata.nh);
             if ((path->tunnel_type() == TunnelType::VXLAN) ||
                 IsMulticast()) {
                 pdata.set_vxlan_id(path->vxlan_id());

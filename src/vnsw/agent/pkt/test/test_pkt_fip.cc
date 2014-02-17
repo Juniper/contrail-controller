@@ -283,7 +283,7 @@ static void Setup() {
                                       vnet[3]->GetUuid(),
                                       vnet[3]->vn()->GetName(),
                                       vnet[3]->label(),
-                                      0);
+                                      SecurityGroupList(), 0);
     client->WaitForIdle();
     EXPECT_TRUE(RouteFind("vn2:vn2", addr, 32));
 
@@ -960,7 +960,7 @@ TEST_F(FlowTest, FIP_traffic_to_leaked_routes) {
     vnet_table[2]->AddLocalVmRouteReq(NULL, "vn2:vn2", vnet[5]->ip_addr(), 32,
                                       vnet[5]->GetUuid(), 
                                       vnet[5]->vn()->GetName(),
-                                      vnet[5]->label(), 0);
+                                      vnet[5]->label(), SecurityGroupList(), 0);
     client->WaitForIdle();
 
   // HTTP packet from VM to Server

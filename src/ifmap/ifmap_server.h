@@ -32,6 +32,7 @@ class IFMapServerShowClientMap;
 class IFMapServerShowIndexMap;
 class IFMapTableListEntry;
 class IFMapNodeTableListShowEntry;
+class IFMapServerInfoUI;
 
 class IFMapServer {
 public:
@@ -95,6 +96,7 @@ public:
     void FillClientMap(IFMapServerShowClientMap *out_map);
     void FillIndexMap(IFMapServerShowIndexMap *out_map);
     const CmSz_t GetClientMapSize() const { return client_map_.size(); }
+    void GetUIInfo(IFMapServerInfoUI *server_info);
 
 private:
     static const int kStaleCleanupTimeout = 5000; // milliseconds
@@ -114,7 +116,8 @@ private:
     bool ClientWorker(QueueEntry work_entry);
     void ClientGraphDownload(IFMapClient *client);
     void ClientGraphCleanup(IFMapClient *client);
-    void RemoveSelfAddedLinks(IFMapClient *client);
+    void RemoveSelfAddedLinksAndObjects(IFMapClient *client);
+    void CleanupUuidMapper(IFMapClient *client);
     void LinkResetClient(DBGraphEdge *edge, const BitSet &bset);
     void NodeResetClient(DBGraphVertex *vertex, const BitSet &bset);
     bool StaleNodesProcTimeout();

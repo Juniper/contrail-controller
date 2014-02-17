@@ -5,9 +5,9 @@
 #ifndef __IFMAP_CHANNEL_H__
 #define __IFMAP_CHANNEL_H__
 
-#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/monotonic_deadline_timer.hpp>
 #include <boost/asio/strand.hpp>
 
 #ifdef __clang__
@@ -197,7 +197,7 @@ private:
     SslStream *GetSocket(ResponseState response_state);
     ProcCompleteMsgCb GetCallback(ResponseState response_state);
     void CloseSockets(const boost::system::error_code& error,
-                      boost::asio::deadline_timer *socket_close_timer);
+                     boost::asio::monotonic_deadline_timer *socket_close_timer);
     void SetArcSocketOptions();
     std::string timeout_to_string(uint64_t timeout);
     void set_connection_status(ConnectionStatus status);

@@ -35,13 +35,13 @@ bool FlowHandler::Run() {
     if (in.rt_) {
         const AgentPath *path = in.rt_->GetActivePath();
         info.source_sg_id_l = &(path->GetSecurityGroupList());
-        info.source_plen = in.rt_->GetPlen();
+        info.source_plen = in.rt_->plen();
     }
 
     if (out.rt_) {
         const AgentPath *path = out.rt_->GetActivePath();
         info.dest_sg_id_l = &(path->GetSecurityGroupList());
-        info.dest_plen = out.rt_->GetPlen();
+        info.dest_plen = out.rt_->plen();
     }
 
     if (info.source_vn == NULL)

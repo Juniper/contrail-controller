@@ -521,6 +521,7 @@ void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
         for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
             database()->RemoveTable(vrf->GetRouteTable(table_type));
             dbtree_[table_type].erase(vrf->GetName());
+            delete vrf->GetRouteTable(table_type);
         }
 
         name_tree_.erase(vrf->GetName());

@@ -104,7 +104,7 @@ public:
         } else {
             assert(0);
         }
-        client->WaitForIdle(2);
+        client->WaitForIdle(3);
         //Get flow 
         FlowEntry *fe = FlowGet(vrf_, sip_, dip_, proto_, sport_, dport_);
         EXPECT_TRUE(fe != NULL);

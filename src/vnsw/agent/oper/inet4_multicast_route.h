@@ -8,10 +8,10 @@
 //////////////////////////////////////////////////////////////////
 //  MULTICAST INET4
 /////////////////////////////////////////////////////////////////
-class Inet4MulticastAgentRouteTable : public Inet4AgentRouteTable {
+class Inet4MulticastAgentRouteTable : public AgentRouteTable {
 public:
     Inet4MulticastAgentRouteTable(DB *db, const std::string &name) :
-        Inet4AgentRouteTable(Inet4AgentRouteTable::MULTICAST, db, name),
+        AgentRouteTable(db, name),
         walkid_(DBTableWalker::kInvalidWalkerId) { };
     virtual ~Inet4MulticastAgentRouteTable() { };
     //Nexthop will be stored in path as lcoalvmpeer peer so that it falls in line
