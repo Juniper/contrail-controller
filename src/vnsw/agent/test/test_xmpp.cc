@@ -486,7 +486,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
     Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-    EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:01");
     EXPECT_TRUE(L2RouteFind("vrf1", *mac));
@@ -509,8 +509,8 @@ TEST_F(AgentXmppUnitTest, Connection) {
     WAIT_FOR(100, 10000, (RouteFind("vrf2", addr, 32) == true));
     Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(100, 10000, (rt2->GetActivePath() != NULL));
-    WAIT_FOR(100, 10000, rt2->GetDestVnName().size() > 0);
-    EXPECT_STREQ(rt2->GetDestVnName().c_str(), "vn1");
+    WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
+    EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
 
     // Verify service chan routes
     // Add service interface-1
@@ -531,7 +531,7 @@ TEST_F(AgentXmppUnitTest, Connection) {
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 4));
     rt = RouteGet("vrf1", Ip4Address::from_string("2.2.2.0"), 24);
     EXPECT_TRUE(rt != NULL);
-    EXPECT_STREQ(rt->GetDestVnName().c_str(),"TestVn");
+    EXPECT_STREQ(rt->dest_vn_name().c_str(),"TestVn");
 
     DelLink("virtual-machine-interface-routing-instance", "ser1",
             "routing-instance", "vrf2");
@@ -673,15 +673,15 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
     Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-    EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac = ether_aton("00:00:00:01:01:02");
     EXPECT_TRUE(L2RouteFind("vrf1", *mac));
     Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *mac);
 
     //ensure active path is local-vm
-    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() == Peer::LOCAL_VM_PEER);
-    EXPECT_TRUE(l2_rt->GetActivePath()->GetPeer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
 
     // Send route, back to vrf1
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32",
@@ -692,9 +692,9 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     WAIT_FOR(100, 10000, (bgp_peer.get()->Count() == 2));
 
     //ensure active path is BGP
-    EXPECT_TRUE(rt->GetActivePath()->GetPeer()->GetType() == Peer::BGP_PEER);
-    WAIT_FOR(100, 10000, (l2_rt->GetActivePath()->GetPeer()->GetType() == Peer::BGP_PEER));
-    EXPECT_TRUE(l2_rt->GetActivePath()->GetPeer()->GetType() == Peer::BGP_PEER);
+    EXPECT_TRUE(rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
+    WAIT_FOR(100, 10000, (l2_rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER));
+    EXPECT_TRUE(l2_rt->GetActivePath()->peer()->GetType() == Peer::BGP_PEER);
 
     AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer.get());
     EXPECT_TRUE(rt->FindPath(ch->GetBgpPeer()) != NULL);
@@ -738,15 +738,15 @@ TEST_F(AgentXmppUnitTest, ConnectionUpDown) {
     EXPECT_TRUE(VmPortActive(input2, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr2, 32));
     Inet4UnicastRouteEntry *rt2 = RouteGet("vrf1", addr2, 32);
-    EXPECT_STREQ(rt2->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
 
     const struct ether_addr *mac2 = ether_aton("00:00:00:02:01:03");
     EXPECT_TRUE(L2RouteFind("vrf1", *mac2));
     Layer2RouteEntry *l2_rt2 = L2RouteGet("vrf1", *mac2);
 
     //ensure active path is local-vm
-    EXPECT_TRUE(rt2->GetActivePath()->GetPeer()->GetType() == Peer::LOCAL_VM_PEER);
-    EXPECT_TRUE(l2_rt2->GetActivePath()->GetPeer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
+    EXPECT_TRUE(l2_rt2->GetActivePath()->peer()->GetType() == Peer::LOCAL_VM_PEER);
 
     xc->ConfigUpdate(new XmppConfigData());
     client->WaitForIdle(5);
@@ -805,7 +805,7 @@ TEST_F(AgentXmppUnitTest, DISABLED_SgList) {
     EXPECT_TRUE(VmPortActive(input, 0));
     EXPECT_TRUE(RouteFind("vrf1", addr, 32));
     Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-    EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+    EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
     // Send route, back to vrf1
     SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 
@@ -823,9 +823,9 @@ TEST_F(AgentXmppUnitTest, DISABLED_SgList) {
     WAIT_FOR(100, 10000, (RouteFind("vrf2", addr, 32) == true));
     Inet4UnicastRouteEntry *rt2 = RouteGet("vrf2", addr, 32);
     WAIT_FOR(100, 10000, (rt2->GetActivePath() != NULL));
-    WAIT_FOR(100, 10000, rt2->GetDestVnName().size() > 0);
-    EXPECT_STREQ(rt2->GetDestVnName().c_str(), "vn1");
-    const SecurityGroupList sglist = rt2->GetActivePath()->GetSecurityGroupList();
+    WAIT_FOR(100, 10000, rt2->dest_vn_name().size() > 0);
+    EXPECT_STREQ(rt2->dest_vn_name().c_str(), "vn1");
+    const SecurityGroupList sglist = rt2->GetActivePath()->sg_list();
     EXPECT_TRUE(sglist.size() == 2);
     
 

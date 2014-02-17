@@ -794,13 +794,13 @@ TEST_F(FlowTest, NonNat2Nat) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[3], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                         vnet_addr[3], 1, 0, 0, true, -1, -1));
 
-    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->GetVrfId(), vnet_addr[3],
+    EXPECT_TRUE(FlowGet(vnet[1]->vrf()->vrf_id(), vnet_addr[3],
                         vnet_addr[1], 1, 0, 0, true, -1, -1));
 
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->GetVrfId(), vnet_addr[3],
+    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
                         "2.1.1.100", 1, 0, 0, true, -1, -1));
 
     client->EnqueueFlowAge();
@@ -861,7 +861,7 @@ TEST_F(FlowTest, TwoFloatingIp) {
     }
 
     //Verfiy that flow creation for second floating IP as short-flow
-    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->GetVrfId(), vnet_addr[3],
+    EXPECT_TRUE(FlowGet(vnet[3]->vrf()->vrf_id(), vnet_addr[3],
                         "2.1.1.100", 1, 0, 0, true, -1, -1));
 
     //cleanup

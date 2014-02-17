@@ -1143,7 +1143,7 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    table->VmPortToMetaDataIp(id(), vrf_->GetVrfId(), &mdata_addr_);
+    table->VmPortToMetaDataIp(id(), vrf_->vrf_id(), &mdata_addr_);
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
         (agent->GetLinkLocalPeer(), agent->GetDefaultVrf(), mdata_addr_,
          32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(), true);

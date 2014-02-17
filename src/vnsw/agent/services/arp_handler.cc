@@ -111,7 +111,7 @@ bool ArpHandler::HandlePacket() {
         static_cast<Inet4UnicastAgentRouteTable *>(vrf->
             GetInet4UnicastRouteTable())->FindLPM(arp_addr);
     if (route) {
-        if (route->IsMulticast()) {
+        if (route->is_multicast()) {
             arp_proto->StatsErrors();
             ARP_TRACE(Error, "ARP : ignoring broadcast address");
             return true;

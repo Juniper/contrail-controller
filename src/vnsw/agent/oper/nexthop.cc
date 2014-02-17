@@ -328,8 +328,8 @@ bool ArpNH::Change(const DBRequest *req) {
     return ret;
 }
 
-const uint32_t ArpNH::GetVrfId() const {
-    return vrf_->GetVrfId();
+const uint32_t ArpNH::vrf_id() const {
+    return vrf_->vrf_id();
 }
 
 ArpNH::KeyPtr ArpNH::GetDBRequestKey() const {
@@ -431,7 +431,7 @@ bool InterfaceNH::Change(const DBRequest *req) {
         dmac_ = data->dmac_;
         ret = true;
     }
-    if (IsMulticastNH()) {
+    if (is_multicastNH()) {
         dmac_.ether_addr_octet[0] = 0xFF;
         dmac_.ether_addr_octet[1] = 0xFF;
         dmac_.ether_addr_octet[2] = 0xFF;
@@ -675,8 +675,8 @@ TunnelNH::KeyPtr TunnelNH::GetDBRequestKey() const {
     return DBEntryBase::KeyPtr(key);
 }
 
-const uint32_t TunnelNH::GetVrfId() const {
-    return vrf_->GetVrfId();
+const uint32_t TunnelNH::vrf_id() const {
+    return vrf_->vrf_id();
 }
 
 bool TunnelNH::Change(const DBRequest *req) {
@@ -762,8 +762,8 @@ bool MirrorNH::NextHopIsLess(const DBEntry &rhs) const {
     return (dport_ < a.dport_);
 }
 
-const uint32_t MirrorNH::GetVrfId() const {
-    return (vrf_ ? vrf_->GetVrfId() : (uint32_t)-1);
+const uint32_t MirrorNH::vrf_id() const {
+    return (vrf_ ? vrf_->vrf_id() : (uint32_t)-1);
 }
 
 void MirrorNH::SetKey(const DBRequestKey *k) {
@@ -1116,7 +1116,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
         case TUNNEL: {
             const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
             component_nh_info.set_type("Tunnel");
-            component_nh_info.set_label(comp_nh->GetLabel());
+            component_nh_info.set_label(comp_nh->label());
             component_nh_info.set_server_ip(tun_nh->GetDip()->to_string());
             break;
         }    
@@ -1124,7 +1124,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
         case INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
             component_nh_info.set_type("Interface");
-            component_nh_info.set_label(comp_nh->GetLabel());
+            component_nh_info.set_label(comp_nh->label());
             const Interface *intf = 
                 static_cast<const Interface *>(intf_nh->GetInterface());
             component_nh_info.set_intf_name(intf->name());
@@ -1134,7 +1134,7 @@ void CompositeNH::SendObjectLog(AgentLogEvent::type event) const {
         case VLAN: {
            const VlanNH *vlan_nh = static_cast<const VlanNH *>(nh);
             component_nh_info.set_type("Vlan");
-            component_nh_info.set_label(comp_nh->GetLabel());
+            component_nh_info.set_label(comp_nh->label());
             const Interface *intf = 
                 static_cast<const Interface *>(vlan_nh->GetInterface());
             component_nh_info.set_intf_name(intf->name());
@@ -1403,7 +1403,7 @@ uint32_t CompositeNH::GetRemoteLabel(Ip4Address ip) const {
             if (nh && nh->GetType() == NextHop::TUNNEL) {
                 const TunnelNH *tun_nh = static_cast<const TunnelNH *>(nh);
                 if (*(tun_nh->GetDip()) == ip) {
-                    return (*component_nh_it)->GetLabel();
+                    return (*component_nh_it)->label();
                 }
             }
         }
@@ -1520,7 +1520,7 @@ static void FillComponentNextHop(const CompositeNH *comp_nh,
             const InterfaceNH *sub_nh = 
                 static_cast<const InterfaceNH *>(component_nh->GetNH());
             if (sub_nh && sub_nh->GetInterface())
-                sdata.set_label(component_nh->GetLabel());
+                sdata.set_label(component_nh->label());
             sdata.set_itf(sub_nh->GetInterface()->name());
             break;
         }
@@ -1530,7 +1530,7 @@ static void FillComponentNextHop(const CompositeNH *comp_nh,
                 static_cast<const TunnelNH *>(component_nh->GetNH());
             sdata.set_dip(tnh->GetDip()->to_string());
             sdata.set_sip(tnh->GetSip()->to_string());
-            sdata.set_label(component_nh->GetLabel());
+            sdata.set_label(component_nh->label());
             break;
         }
         case NextHop::VLAN: {
@@ -1782,7 +1782,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
                      m[0], m[1], m[2], m[3], m[4], m[5]);
             std::string mac(mstr);
             data.set_mac(mac);
-            if (itf->IsMulticastNH())
+            if (itf->is_multicastNH())
                 data.set_mcast("enabled");
             else 
                 data.set_mcast("disabled");
@@ -1840,7 +1840,7 @@ void NextHop::SetNHSandeshData(NhSandeshData &data) const {
         case COMPOSITE: {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>(this);
             const MulticastGroupObject *obj = MulticastHandler::GetInstance()->
-                FindGroupObject(comp_nh->GetVrfName(),
+                FindGroupObject(comp_nh->vrf_name(),
                                 comp_nh->GetGrpAddr());
             if (obj != NULL) {
                 data.set_label(obj->GetSourceMPLSLabel());

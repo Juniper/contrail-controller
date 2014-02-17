@@ -370,47 +370,47 @@ TEST_F(CfgTest, EcmpNH_2) {
                                      ((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     MplsLabel *mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                                   (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                                   (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     //Verify that mpls label allocated for ECMP route, points 
     //to the same composite NH
     uint32_t composite_nh_mpls_label = rt->GetMplsLabel();
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, composite_nh_mpls_label);
-    EXPECT_TRUE(mpls->GetNextHop() == comp_nh);
+    EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
 
     //Delete couple of interface and verify composite NH also get 
@@ -424,8 +424,8 @@ TEST_F(CfgTest, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     //Interface 2 and 4 have been deleted, expected the component NH to
@@ -437,8 +437,8 @@ TEST_F(CfgTest, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     //Interface vnet4 has been deleted, expect the component NH to be NULL
@@ -449,8 +449,8 @@ TEST_F(CfgTest, EcmpNH_2) {
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     DeleteVmportEnv(input3, 1, false);
@@ -540,47 +540,47 @@ TEST_F(CfgTest, EcmpNH_3) {
                                      ((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
     MplsLabel *mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                                   (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                                   (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet1");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet2");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet3");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     //Verify that mpls label allocated for ECMP route, points 
     //to the same composite NH
     uint32_t composite_mpls_label = rt->GetMplsLabel();
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, composite_mpls_label);
-    EXPECT_TRUE(mpls->GetNextHop() == comp_nh);
+    EXPECT_TRUE(mpls->nexthop() == comp_nh);
 
     //Delete couple of interface and verify composite NH also get 
     //deleted
@@ -610,16 +610,16 @@ TEST_F(CfgTest, EcmpNH_3) {
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet4");
 
     component_nh_it++;
     intf_nh = static_cast<const InterfaceNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
     mpls = GetMplsLabel(MplsLabel::VPORT_NH, 
-                        (*component_nh_it)->GetLabel());
-    intf_nh = static_cast<const InterfaceNH *>(mpls->GetNextHop());
+                        (*component_nh_it)->label());
+    intf_nh = static_cast<const InterfaceNH *>(mpls->nexthop());
     EXPECT_TRUE(intf_nh->GetInterface()->name() == "vnet5");
 
     //Delete the vnet4 floating ip. Since only vent5 has floating IP
@@ -723,12 +723,12 @@ TEST_F(CfgTest, EcmpNH_5) {
     const TunnelNH *tun_nh1 = static_cast<const TunnelNH *>
         ((*component_nh_it)->GetNH());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip1);
-    EXPECT_TRUE((*component_nh_it)->GetLabel() == 30);
+    EXPECT_TRUE((*component_nh_it)->label() == 30);
 
     component_nh_it++;
     tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
-    EXPECT_TRUE((*component_nh_it)->GetLabel() == 20);
+    EXPECT_TRUE((*component_nh_it)->label() == 20);
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);
@@ -794,12 +794,12 @@ TEST_F(CfgTest, EcmpNH_6) {
     const TunnelNH *tun_nh1 = static_cast<const TunnelNH *>
         ((*component_nh_it)->GetNH());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip2);
-    EXPECT_TRUE((*component_nh_it)->GetLabel() == 30);
+    EXPECT_TRUE((*component_nh_it)->label() == 30);
 
     component_nh_it++;
     tun_nh1 = static_cast<const TunnelNH *>((*component_nh_it)->GetNH());
     EXPECT_TRUE(*tun_nh1->GetDip() == remote_server_ip3);
-    EXPECT_TRUE((*component_nh_it)->GetLabel() == 20);
+    EXPECT_TRUE((*component_nh_it)->label() == 20);
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);

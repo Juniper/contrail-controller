@@ -340,9 +340,9 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     if (GetName().find(name) != std::string::npos) {
         VrfSandeshData data;
         data.set_name(GetName());
-        data.set_ucindex(GetVrfId());
-        data.set_mcindex(GetVrfId());
-        data.set_l2index(GetVrfId());
+        data.set_ucindex(vrf_id());
+        data.set_mcindex(vrf_id());
+        data.set_l2index(vrf_id());
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());

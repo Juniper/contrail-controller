@@ -359,7 +359,7 @@ TEST_F(SgTest, Flow_Allow_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
@@ -372,7 +372,7 @@ TEST_F(SgTest, Flow_Deny_1) {
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
@@ -383,11 +383,11 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
     AddAclEntry("sg_acl1", 10, 1, "deny");
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
@@ -400,13 +400,13 @@ TEST_F(SgTest, Sg_Delete_1) {
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
@@ -440,7 +440,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], remote_ip, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0, TrafficAction::PASS));
     client->WaitForIdle();
 
@@ -454,7 +454,7 @@ TEST_F(SgTest, Sg_Policy_1) {
                                     17, "vn1", sg_id_list);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0,
                                TrafficAction::DROP));
 
@@ -497,7 +497,7 @@ TEST_F(SgTest, Sg_Policy_2) {
                    remote_ip, vnet_addr[1], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0, TrafficAction::PASS));
     client->WaitForIdle();
 
@@ -511,7 +511,7 @@ TEST_F(SgTest, Sg_Policy_2) {
                                     17, "vn1", sg_id_list);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0,
                                TrafficAction::DROP));
 
