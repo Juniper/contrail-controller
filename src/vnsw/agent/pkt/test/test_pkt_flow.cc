@@ -1720,9 +1720,9 @@ TEST_F(FlowTest, Flow_return_error) {
 
     sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
-    usleep(2000);
-    client->WaitForIdle();
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -1738,9 +1738,9 @@ TEST_F(FlowTest, Flow_return_error) {
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
     sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
-    usleep(2000);
-    client->WaitForIdle();
-    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
