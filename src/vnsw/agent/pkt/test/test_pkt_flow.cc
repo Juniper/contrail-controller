@@ -1709,18 +1709,38 @@ TEST_F(FlowTest, Flow_return_error) {
         }
     };
 
+    sock->SetBlockMsgProcessing(true);
     /* Failure to allocate reverse flow index, convert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
     CreateFlow(flow, 1);
+
+    uint32_t vrf_id = VrfGet("vrf5")->GetVrfId();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
+
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    usleep(2000);
+    client->WaitForIdle();
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
 
     EXPECT_TRUE(FlowTableWait(0));
 
+    sock->SetBlockMsgProcessing(true);
     /* EBADF failure to write an entry, covert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EBADF);
     CreateFlow(flow, 1);
+
+    fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    usleep(2000);
+    client->WaitForIdle();
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) == true);
 
     client->EnqueueFlowAge();
     client->WaitForIdle();
