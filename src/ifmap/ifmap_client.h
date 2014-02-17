@@ -29,10 +29,16 @@ public:
     int index() const { return index_; }
     uint64_t msgs_sent() const { return msgs_sent_; }
     uint64_t msgs_blocked() const { return msgs_blocked_; }
+    uint64_t bytes_sent() const { return bytes_sent_; }
+    uint64_t nodes_sent() const { return nodes_sent_; }
+    uint64_t links_sent() const { return links_sent_; }
     bool send_is_blocked() const { return send_is_blocked_; }
 
     void incr_msgs_sent() { ++msgs_sent_; }
     void incr_msgs_blocked() { ++msgs_blocked_; }
+    void incr_bytes_sent(uint64_t bytes) { bytes_sent_ += bytes; }
+    void incr_nodes_sent() { ++nodes_sent_; }
+    void incr_links_sent() { ++links_sent_; }
     void set_send_is_blocked(bool is_blocked) { send_is_blocked_ = is_blocked; }
 
     void Initialize(IFMapExporter *exporter, int index);
@@ -63,6 +69,9 @@ private:
     IFMapExporter *exporter_;
     uint64_t msgs_sent_;
     uint64_t msgs_blocked_;
+    uint64_t bytes_sent_;
+    uint64_t nodes_sent_;
+    uint64_t links_sent_;
     bool send_is_blocked_;
     VmMap vm_map_;
     std::string name_;

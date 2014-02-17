@@ -33,8 +33,8 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     
     Type GetType() const {return type_;};
-    uint32_t GetLabel() const {return label_;};
-    const NextHop *GetNextHop() const {return nh_.get();};
+    uint32_t label() const {return label_;};
+    const NextHop *nexthop() const {return nh_.get();};
 
     static void CreateVlanNh(uint32_t label, const uuid &intf_uuid,
                              uint16_t tag);

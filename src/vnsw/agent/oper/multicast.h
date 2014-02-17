@@ -113,7 +113,7 @@ public:
     /* Ctrl node went down, flush source label and tunnel sent by it */
     void HandlePeerDown();
     //Gets
-    const std::string &GetVrfName() { return vrf_name_; };
+    const std::string &vrf_name() { return vrf_name_; };
     const Ip4Address &GetGroupAddress() { return grp_address_; };
     const Ip4Address &GetSourceAddress() { return src_address_; };
     const std::list<uuid> &GetLocalOlist() { return local_olist_; };
@@ -269,7 +269,7 @@ private:
     const string &GetAssociatedVrfForVn(const uuid &vn_uuid) {
         return vn_vrf_mapping_[vn_uuid];
     };
-    void SetVrfNameForVn(const uuid &vn_uuid, const std::string &vrf_name) {
+    void set_vrf_nameForVn(const uuid &vn_uuid, const std::string &vrf_name) {
         vn_vrf_mapping_[vn_uuid] = vrf_name;
     };
     void RemoveVrfVnAssociation(const uuid &vn_uuid) {

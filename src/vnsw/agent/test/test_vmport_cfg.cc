@@ -1352,7 +1352,11 @@ TEST_F(CfgTest, Basic_2) {
     EXPECT_TRUE(nh->PolicyEnabled());
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.1");
-    rt = Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+
+    table = static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+    rt = table->FindRoute(addr); 
+
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;
@@ -1397,15 +1401,17 @@ TEST_F(CfgTest, SecurityGroup_1) {
     EXPECT_TRUE(intf->sg_list().list_.size() == 1);
 
     Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
-    Inet4UnicastRouteEntry *rt =
-        Inet4UnicastAgentRouteTable::FindRoute("vrf1", addr);
+    Inet4UnicastAgentRouteTable *table = 
+        static_cast<Inet4UnicastAgentRouteTable *>
+        (Agent::GetInstance()->GetVrfTable()->GetInet4UnicastRouteTable("vrf1"));
+    Inet4UnicastRouteEntry *rt = table->FindRoute(addr); 
     EXPECT_TRUE(rt != NULL);
     if (rt == NULL) {
         return;
     }
 
     const AgentPath *path = rt->GetActivePath();
-    EXPECT_EQ(path->GetSecurityGroupList().size(), 1);
+    EXPECT_EQ(path->sg_list().size(), 1);
     EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
 

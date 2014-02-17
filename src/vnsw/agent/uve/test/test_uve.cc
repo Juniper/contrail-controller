@@ -220,7 +220,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
  
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf11");
     EXPECT_TRUE(vrf != NULL);
-    int vrf11_id = vrf->GetVrfId();
+    int vrf11_id = vrf->vrf_id();
 
     //Verify that vrf_stats entry is added vrf_stats_tree of 
     //agent_stats_collector
@@ -245,7 +245,7 @@ TEST_F(UveTest, VrfAddDelTest_1) {
  
     vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf21");
     EXPECT_TRUE(vrf != NULL);
-    int vrf21_id = vrf->GetVrfId();
+    int vrf21_id = vrf->vrf_id();
     LOG(DEBUG, "vrf 11 " << vrf11_id << " vrf 21 " << vrf21_id);
     if (vrf11_id == vrf21_id) {
         //When vrf-id is re-used for different vrf verify that vrf-name

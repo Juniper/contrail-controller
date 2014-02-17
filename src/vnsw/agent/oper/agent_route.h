@@ -39,8 +39,8 @@ struct AgentRouteKey : public AgentKey {
     virtual AgentRoute *AllocRouteEntry(VrfEntry *vrf,
                                         bool is_multicast) const = 0;
 
-    const std::string &GetVrfName() const { return vrf_name_; }
-    const Peer *GetPeer() const { return peer_; }
+    const std::string &vrf_name() const { return vrf_name_; }
+    const Peer *peer() const { return peer_; }
 
     const Peer *peer_;
     std::string vrf_name_;
@@ -57,10 +57,10 @@ struct AgentRouteData : public AgentData {
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
-    virtual bool AddChangePath(AgentPath *path) = 0;
+    virtual bool AddChangePath(Agent *agent, AgentPath *path) = 0;
 
-    bool IsMulticast() const {return is_multicast_;}
-    Op GetOp() const { return op_; }
+    bool is_multicast() const {return is_multicast_;}
+    Op op() const { return op_; }
 
     Op op_;
     bool is_multicast_;
@@ -142,9 +142,9 @@ public:
     }
 
     Agent *agent() const { return agent_; }
+    const std::string &vrf_name() const { return vrf_entry_->GetName();};
+    uint32_t vrf_id() const {return vrf_entry_->vrf_id();}
     AgentRoute *FindActiveEntry(const AgentRouteKey *key);
-    const std::string &GetVrfName() const { return vrf_entry_->GetName();};
-    uint32_t GetVrfId() const {return vrf_entry_->GetVrfId();}
 
     // Set VRF for the route-table
     void SetVrf(VrfEntry * vrf);
@@ -215,16 +215,16 @@ public:
     virtual std::string ToString() const = 0;
     virtual const std::string GetAddressString() const = 0;
 
-    bool IsMulticast() const {return is_multicast_;}
-    VrfEntry *GetVrfEntry() const {return vrf_.get();}
-    AgentPath *FindPath(const Peer *peer) const;
-
     // Accessor functions
-    uint32_t GetVrfId() const;
+    bool is_multicast() const {return is_multicast_;}
+    VrfEntry *vrf() const {return vrf_.get();}
+    uint32_t vrf_id() const;
+
+    AgentPath *FindPath(const Peer *peer) const;
     const AgentPath *GetActivePath() const;
     const NextHop *GetActiveNextHop() const; 
     uint32_t GetMplsLabel() const; 
-    const std::string &GetDestVnName() const;
+    const std::string &dest_vn_name() const;
 
     void ResyncRoute() const;
     void ResyncTunnelNextHop();

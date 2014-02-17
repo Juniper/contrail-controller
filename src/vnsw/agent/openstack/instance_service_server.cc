@@ -250,7 +250,8 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddLocalVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32, intf_uuid, 
-                           "instance-service", mpls_label);
+                           "instance-service", mpls_label, SecurityGroupList(),
+                           false);
     return true;
 }
 

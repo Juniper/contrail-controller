@@ -270,12 +270,12 @@ void Interface::SetKey(const DBRequestKey *key) {
     name_ = k->name_;
 }
 
-uint32_t Interface::GetVrfId() const {
+uint32_t Interface::vrf_id() const {
     if (vrf_ == NULL) {
         return VrfEntry::kInvalidIndex;
     }
 
-    return vrf_->GetVrfId();
+    return vrf_->vrf_id();
 }
 
 /////////////////////////////////////////////////////////////////////////////

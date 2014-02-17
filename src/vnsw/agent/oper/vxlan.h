@@ -24,7 +24,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     
     uint32_t vxlan_id() const {return vxlan_id_;};
-    const NextHop *GetNextHop() const {return nh_.get();};
+    const NextHop *nexthop() const {return nh_.get();};
 
     static void Create(uint32_t vxlan_id, const std::string &vrf_name);
     // Delete vxlan_id vxlan_id entry

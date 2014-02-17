@@ -47,11 +47,6 @@ using std::map;
         }                                                                      \
     } while (false)
 
-Generator::Generator (boost::shared_ptr<DbHandler> db_handler) :
-        db_handler_(db_handler)
-{
-}
-
 void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
     tbb::mutex::scoped_lock lock(smutex_);
     MessageTypeStatsMap::iterator stats_it =
@@ -122,12 +117,12 @@ bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
     // This is a message from the application on the generator side.
     // It will be processed by the rule engine callback after we
     // update statistics
-    db_handler_->MessageTableInsert(vmsg);
+    GetDbHandler()->MessageTableInsert(vmsg);
 
     UpdateMessageTypeStats(vmsg.get());
     UpdateLogLevelStats(vmsg.get());
     UpdateMessageStats(vmsg.get());
-    return ProcessRules (vmsg, rsc);
+    return ProcessRules(vmsg, rsc);
 }
 
 void Generator::UpdateMessageStats(VizMsg *vmsg) {
@@ -158,25 +153,27 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
         const string &node_type) :
-        Generator (boost::shared_ptr<DbHandler> (new DbHandler (
-            collector->event_manager(), boost::bind(
-                &SandeshGenerator::StartDbifReinit, this),
-            collector->cassandra_ip(), collector->cassandra_port(),
-            collector->analytics_ttl(), source + ":" + node_type + ":" +
-                module + ":" + instance_id))),
+        Generator(),
         collector_(collector),
         state_machine_(state_machine),
         viz_session_(session),
         instance_id_(instance_id),
         node_type_(node_type),
-        source_ (source),
-        module_ (module),
+        source_(source),
+        module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
+        instance_(session->GetSessionInstance()),
         db_connect_timer_(TimerManager::CreateTimer(
             *collector->event_manager()->io_service(),
             "SandeshGenerator db connect timer" + source + module,
             TaskScheduler::GetInstance()->GetTaskId(Collector::kDbTask),
-            session->GetSessionInstance())) {
+            session->GetSessionInstance())),
+        db_handler_(new DbHandler(
+            collector->event_manager(), boost::bind(
+                &SandeshGenerator::StartDbifReinit, this),
+            collector->cassandra_ip(), collector->cassandra_port(),
+            collector->analytics_ttl(), source + ":" + node_type + ":" +
+                module + ":" + instance_id)) {
     disconnected_ = false;
     gen_attr_.set_connects(1);
     gen_attr_.set_connect_time(UTCTimestampUsec());
@@ -187,11 +184,16 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 SandeshGenerator::~SandeshGenerator() {
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
-    db_handler_->UnInit(true);
+    GetDbHandler()->UnInit(instance_);
+}
+
+void SandeshGenerator::set_session(VizSession *session) {
+    viz_session_ = session;
+    instance_ = session->GetSessionInstance();
 }
 
 void SandeshGenerator::StartDbifReinit() {
-    db_handler_->UnInit(false);
+    GetDbHandler()->UnInit(instance_);
     Start_Db_Connect_Timer();
 }
 
@@ -216,20 +218,20 @@ void SandeshGenerator::Stop_Db_Connect_Timer() {
 }
 
 void SandeshGenerator::Db_Connection_Uninit() {
-    db_handler_->ResetDbQueueWaterMarkInfo();
-    db_handler_->UnInit(false);
+    GetDbHandler()->ResetDbQueueWaterMarkInfo();
+    GetDbHandler()->UnInit(instance_);
     Stop_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
-    if (!db_handler_->Init(false, viz_session_->GetSessionInstance())) {
+    if (!GetDbHandler()->Init(false, instance_)) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
     std::vector<DbHandler::DbQueueWaterMarkInfo> wm_info;
     collector_->GetDbQueueWaterMarkInfo(wm_info);
     for (size_t i = 0; i < wm_info.size(); i++) {
-        db_handler_->SetDbQueueWaterMarkInfo(wm_info[i]);
+        GetDbHandler()->SetDbQueueWaterMarkInfo(wm_info[i]);
     }
     return true;
 }
@@ -272,10 +274,10 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     Db_Connection_Uninit();
 }
 
-bool SandeshGenerator::ProcessRules (boost::shared_ptr<VizMsg> &vmsg,
+bool SandeshGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
         bool rsc)
 {
-    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc, db_handler_.get());
+    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
 }
 
 bool SandeshGenerator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
@@ -358,26 +360,27 @@ void SandeshGenerator::ConnectSession(VizSession *session, SandeshStateMachine *
 }
 
 void SandeshGenerator::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
-    db_handler_->SetDbQueueWaterMarkInfo(wm);
+    GetDbHandler()->SetDbQueueWaterMarkInfo(wm);
 }
 
 void SandeshGenerator::ResetDbQueueWaterMarkInfo() {
-    db_handler_->ResetDbQueueWaterMarkInfo();
+    GetDbHandler()->ResetDbQueueWaterMarkInfo();
 }
 
-SyslogGenerator::SyslogGenerator (SyslogListeners *const listeners,
+SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
         const string &source, const string &module) :
-          Generator (boost::shared_ptr<DbHandler> (listeners->GetDbHandler ())),
+          Generator(),
           syslog_(listeners),
-          source_ (source),
-          module_ (module),
-          name_(source + ":" + module)
+          source_(source),
+          module_(module),
+          name_(source + ":" + module),
+          db_handler_(listeners->GetDbHandler())
 {
 }
 
-bool SyslogGenerator::ProcessRules (boost::shared_ptr<VizMsg> &vmsg,
+bool SyslogGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
         bool rsc)
 {
-    return (syslog_->ProcessSandeshMsgCb())(vmsg, rsc, db_handler_.get());
+    return (syslog_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
 }
 

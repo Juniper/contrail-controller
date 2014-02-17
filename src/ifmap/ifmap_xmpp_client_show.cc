@@ -58,6 +58,9 @@ void ShowIFMapXmppClientInfo::CopyNode(IFMapXmppClientInfo *dest,
     dest->set_client_index(src->index());
     dest->set_msgs_sent(src->msgs_sent());
     dest->set_msgs_blocked(src->msgs_blocked());
+    dest->set_nodes_sent(src->nodes_sent());
+    dest->set_links_sent(src->links_sent());
+    dest->set_bytes_sent(src->bytes_sent());
     dest->set_is_blocked(src->send_is_blocked());
 
     VmRegInfo vm_reg_info;

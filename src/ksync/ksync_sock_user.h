@@ -80,6 +80,11 @@ struct TestVrfAssignCmp {
 //used for unit testing or userspace datapath integration
 class KSyncSockTypeMap : public KSyncSock {
 public:
+    enum KSyncSockEntryType {
+        KSYNC_FLOW_ENTRY_TYPE = 0,
+        KSYNC_MAX_ENTRY_TYPE
+    };
+
     KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
         block_msg_processing_ = false;
     }
@@ -135,14 +140,16 @@ public:
     static void IfNetlinkMsgSend(uint32_t seq_num, ksync_map_if::const_iterator it);
     static void IfStatsUpdate(int, int, int, int, int, int, int);
     static void IfStatsSet(int, int, int, int, int, int, int);
-    static void InterfaceAdd(int id);
+    static void InterfaceAdd(int id, int flags = 0, int mac_size = 6);
     static void InterfaceDelete(int id);
-    static void NHAdd(int id);
+    static void NHAdd(int id, int flags = 0);
     static void NHDelete(int id);
     static void MplsAdd(int id);
     static void MplsDelete(int id);
     static void MirrorAdd(int id);
     static void MirrorDelete(int id);
+    static void RouteAdd(vr_route_req &req);
+    static void RouteDelete(vr_route_req &req);
     static void VrfAssignAdd(vr_vrf_assign_req &req);
     static void VrfAssignDelete(vr_vrf_assign_req &req);
     static void VrfStatsAdd(int vrf_id);
@@ -185,10 +192,19 @@ public:
         return block_msg_processing_;
     }
 
+    void SetKSyncError(KSyncSockEntryType type, int ksync_error) {
+        ksync_error_[type] = ksync_error;
+    }
+
+    int GetKSyncError(KSyncSockEntryType type) {
+        return ksync_error_[type];
+    }
+
 private:
     void PurgeBlockedMsg();
     udp::socket sock_;
     udp::endpoint local_ep_;
+    int ksync_error_[KSYNC_MAX_ENTRY_TYPE];
     bool block_msg_processing_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;

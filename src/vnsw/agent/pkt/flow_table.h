@@ -386,8 +386,8 @@ public:
     FlowTable(Agent *agent) : 
         agent_(agent), flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(),
         intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
-        vrf_listener_id_(), nh_listener_(NULL), route_key_(NULL, Ip4Address()) {
-        }
+        vrf_listener_id_(), nh_listener_(NULL),
+        route_key_(NULL, Ip4Address(), 32, false) {}
     virtual ~FlowTable();
     
     void Init();

@@ -210,7 +210,7 @@ void IFMapUpdateSender::Send(IFMapMarker *imarker) {
 
 void IFMapUpdateSender::ProcessUpdate(IFMapUpdate *update,
                                       const BitSet &base_send_set) {
-    LogSentUpdate(update, base_send_set);
+    LogAndCountSentUpdate(update, base_send_set);
 
     // Append the contents of the update-node to the message.
     message_->EncodeUpdate(update);
@@ -300,8 +300,8 @@ IFMapMarker* IFMapUpdateSender::ProcessMarker(IFMapMarker *marker,
     return next_marker;
 }
 
-void IFMapUpdateSender::LogSentUpdate(IFMapUpdate *update,
-                                      const BitSet &base_send_set) {
+void IFMapUpdateSender::LogAndCountSentUpdate(IFMapUpdate *update,
+                                              const BitSet &base_send_set) {
     size_t total = base_send_set.count();
     // Avoid dealing with return value of BitSet::npos
     if (total) {
@@ -313,6 +313,11 @@ void IFMapUpdateSender::LogSentUpdate(IFMapUpdate *update,
             if (client) {
                 IFMAP_DEBUG_ONLY(IFMapClientSendInfo, operation, name,
                                  client->name());
+                if (update->IsNode()) {
+                    client->incr_nodes_sent();
+                } else if (update->IsLink()) {
+                    client->incr_links_sent();
+                }
             }
             client_id = base_send_set.find_next(client_id);
         }
