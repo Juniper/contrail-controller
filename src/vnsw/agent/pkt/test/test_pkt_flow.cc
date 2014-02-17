@@ -1716,9 +1716,10 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
     };
 
     CreateFlow(nat_flow, 1);
+    client->WaitForIdle();
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
-    // const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
-    // uint16_t linklocal_src_port = fe->linklocal_src_port();
+    const FlowEntry *fe = nat_flow[0].pkt_.FlowFetch();
+    uint16_t linklocal_src_port = fe->linklocal_src_port();
 
     FetchAllFlowRecords *all_flow_records_sandesh = new FetchAllFlowRecords();
     Sandesh::set_response_callback(boost::bind(&FlowTest::CheckSandeshResponse,
@@ -1727,13 +1728,106 @@ TEST_F(FlowTest, LinkLocalFlow_1) {
     client->WaitForIdle();
     all_flow_records_sandesh->Release();
 
-    EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, 0));
+    EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port));
     EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port));
     
     //Delete forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
-    EXPECT_TRUE(FlowFail(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, 0));
+    client->WaitForIdle();
+    EXPECT_TRUE(FlowFail(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port));
     EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port));
+    EXPECT_TRUE(FlowTableWait(0));
+
+    DelLinkLocalConfig();
+    client->WaitForIdle();
+}
+
+TEST_F(FlowTest, LinkLocalFlow_Fail1) {
+    Agent::GetInstance()->SetRouterId(Ip4Address::from_string(vhost_ip_addr));
+    std::string fabric_ip("1.2.3.4");
+    std::vector<std::string> fabric_ip_list;
+    fabric_ip_list.push_back("1.2.3.4");
+    TestLinkLocalService service = { "test_service", linklocal_ip, linklocal_port,
+                                     "", fabric_ip_list, fabric_port };
+    AddLinkLocalConfig(&service, 1);
+    client->WaitForIdle();
+
+    // Only five link local flows are allowed simultaneously from a VM;
+    // try creating 6 and check that 5 flows are created along with reverse flows,
+    // while one flow along with its reverse is a short flow
+    TestFlow nat_flow[] = {
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3000, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        },
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3001, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        },
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3002, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        },
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3003, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        },
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3004, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        },
+        {
+            TestFlowPkt(vm1_ip, linklocal_ip, IPPROTO_TCP, 3005, linklocal_port, "vrf5",
+                        flow0->id(), 1),
+            {
+                new VerifyNat(fabric_ip, vhost_ip_addr, IPPROTO_TCP, fabric_port, 0) 
+            }
+        }
+    };
+
+    CreateFlow(nat_flow, 6);
+    client->WaitForIdle();
+    EXPECT_EQ(12U, Agent::GetInstance()->pkt()->flow_table()->Size());
+    uint16_t linklocal_src_port[6];
+    for (uint32_t i = 0; i < 6; i++) {
+        const FlowEntry *fe = nat_flow[i].pkt_.FlowFetch();
+        linklocal_src_port[i] = fe->linklocal_src_port();
+
+        EXPECT_TRUE(FlowGet(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port[i]));
+        EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000 + i, linklocal_port));
+        if (i == 5) {
+            EXPECT_TRUE(fe->is_flags_set(FlowEntry::ShortFlow));
+            EXPECT_EQ(linklocal_src_port[i], 0);
+        }
+    }
+    
+    //Delete forward flow and expect both flows to be deleted
+    DeleteFlow(nat_flow, 1);
+    DeleteFlow(nat_flow + 1, 1);
+    DeleteFlow(nat_flow + 2, 1);
+    DeleteFlow(nat_flow + 3, 1);
+    DeleteFlow(nat_flow + 4, 1);
+    DeleteFlow(nat_flow + 5, 1);
+    client->WaitForIdle();
+    for (uint32_t i = 0; i < 6; i++) {
+        EXPECT_TRUE(FlowFail(0, fabric_ip.c_str(), vhost_ip_addr, IPPROTO_TCP, fabric_port, linklocal_src_port[i]));
+        EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, linklocal_ip, IPPROTO_TCP, 3000 + i, linklocal_port));
+    }
     EXPECT_TRUE(FlowTableWait(0));
 
     DelLinkLocalConfig();

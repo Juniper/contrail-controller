@@ -838,12 +838,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     if (InitFlowCmn(info, ctrl, rev_ctrl) == false) {
         return;
     }
-    if (info->linklocal_src_port) {
+    if (info->linklocal_bind_local_port) {
         linklocal_src_port_ = info->nat_sport;
         linklocal_src_port_fd_ = info->linklocal_src_port_fd;
-        set_flags(FlowEntry::LinkLocalSrcPort);
+        set_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     } else {
-        reset_flags(FlowEntry::LinkLocalSrcPort);
+        reset_flags(FlowEntry::LinkLocalBindLocalSrcPort);
     }
     reset_flags(FlowEntry::ReverseFlow);
     stats_.intf_in = pkt->GetAgentHdr().ifindex;
@@ -949,7 +949,7 @@ FlowEntry *FlowTable::Allocate(const FlowKey &key) {
         DeleteFlowInfo(flow);
     } else {
         flow->stats_.setup_time = UTCTimestampUsec();
-        AgentStats::GetInstance()->incr_flow_created();
+        agent_->stats()->incr_flow_created();
     }
 
     return flow;
@@ -978,10 +978,9 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
     fe->FillFlowInfo(flow_info);
     FLOW_TRACE(Trace, "Delete", flow_info);
     FlowTableKSyncObject *ksync_obj = 
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj();
+        agent_->ksync()->flowtable_ksync_obj();
 
-    FlowStatsCollector *fec = Agent::GetInstance()->uve()->
-                                  flow_stats_collector();
+    FlowStatsCollector *fec = agent_->uve()->flow_stats_collector();
     uint64_t diff_bytes, diff_packets;
     fec->UpdateFlowStats(fe, diff_bytes, diff_packets);
 
@@ -1008,7 +1007,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
         }
     }
 
-    AgentStats::GetInstance()->incr_flow_aged();
+    agent_->stats()->incr_flow_aged();
 }
 
 bool FlowTable::Delete(FlowEntryMap::iterator &it, bool rev_flow)
@@ -1114,16 +1113,16 @@ void FlowTable::Init() {
 
     FlowEntry::alloc_count_ = 0;
 
-    acl_listener_id_ = Agent::GetInstance()->GetAclTable()->Register
+    acl_listener_id_ = agent_->GetAclTable()->Register
         (boost::bind(&FlowTable::AclNotify, this, _1, _2));
 
-    intf_listener_id_ = Agent::GetInstance()->GetInterfaceTable()->Register
+    intf_listener_id_ = agent_->GetInterfaceTable()->Register
         (boost::bind(&FlowTable::IntfNotify, this, _1, _2));
 
-    vn_listener_id_ = Agent::GetInstance()->GetVnTable()->Register
+    vn_listener_id_ = agent_->GetVnTable()->Register
         (boost::bind(&FlowTable::VnNotify, this, _1, _2));
 
-    vrf_listener_id_ = Agent::GetInstance()->GetVrfTable()->Register
+    vrf_listener_id_ = agent_->GetVrfTable()->Register
             (boost::bind(&FlowTable::VrfNotify, this, _1, _2));
 
     nh_listener_ = new NhListener();
@@ -1473,7 +1472,7 @@ void FlowTable::ResyncRpfNH(const RouteFlowKey &key,
 
         if (flow->SetRpfNH(rt) == true) {
             FlowTableKSyncEntry *ksync_entry =
-                Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(flow);
+                agent_->ksync()->flowtable_ksync_obj()->Find(flow);
             flow->UpdateKSync(ksync_entry, false);
             FlowInfo flow_info;
             flow->FillFlowInfo(flow_info);
@@ -1560,7 +1559,7 @@ void FlowTable::DeleteRouteFlows(const RouteFlowKey &key)
 
 void FlowTable::DeleteFlowInfo(FlowEntry *fe) 
 {
-    Agent::GetInstance()->uve()->DeleteFlow(fe);
+    agent_->uve()->DeleteFlow(fe);
     // Remove from AclFlowTree
     // Go to all matched ACL list and remove from all acls
     std::list<MatchAclParams>::const_iterator acl_it;
@@ -1710,7 +1709,7 @@ void FlowTable::DeleteRouteFlowInfo (FlowEntry *fe)
 
 void FlowTable::AddFlowInfo(FlowEntry *fe)
 {
-    Agent::GetInstance()->uve()->NewFlow(fe);
+    agent_->uve()->NewFlow(fe);
     // Add AclFlowTree
     AddAclFlowInfo(fe);
     // Add IntfFlowTree
@@ -1965,7 +1964,7 @@ void FlowTable::ResyncAFlow(FlowEntry *fe, bool create) {
     rflow->ActionRecompute();
 
     FlowTableKSyncEntry *entry = 
-        Agent::GetInstance()->ksync()->flowtable_ksync_obj()->Find(rflow);
+        agent_->ksync()->flowtable_ksync_obj()->Find(rflow);
     if (entry) {
         rflow->UpdateKSync(entry, false);
     }
@@ -2191,11 +2190,11 @@ void FlowTable::SetAclFlowSandeshData(const AclDBEntry *acl, AclFlowResp &data,
 }
 
 FlowTable::~FlowTable() {
-    Agent::GetInstance()->GetAclTable()->Unregister(acl_listener_id_);
-    Agent::GetInstance()->GetInterfaceTable()->Unregister(intf_listener_id_);
-    Agent::GetInstance()->GetVnTable()->Unregister(vn_listener_id_);
-    Agent::GetInstance()->GetVmTable()->Unregister(vm_listener_id_);
-    Agent::GetInstance()->GetVrfTable()->Unregister(vrf_listener_id_);
+    agent_->GetAclTable()->Unregister(acl_listener_id_);
+    agent_->GetInterfaceTable()->Unregister(intf_listener_id_);
+    agent_->GetVnTable()->Unregister(vn_listener_id_);
+    agent_->GetVmTable()->Unregister(vm_listener_id_);
+    agent_->GetVrfTable()->Unregister(vrf_listener_id_);
     delete nh_listener_;
 }
 

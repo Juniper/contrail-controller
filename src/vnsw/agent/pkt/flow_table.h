@@ -204,6 +204,7 @@ class FlowEntry {
   public:
     static const uint32_t kInvalidFlowHandle=0xFFFFFFFF;
     static const uint8_t kMaxMirrorsPerFlow=0x2;
+
     // Don't go beyond PCAP_END, pcap type is one byte
     enum PcapType {
         PCAP_CAPTURE_HOST = 1,
@@ -221,15 +222,15 @@ class FlowEntry {
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
         Trap            = 1 << 7,
-        LinkLocalSrcPort = 1 << 8 // a local port bind is done
-                                  // (used as src port for linklocal nat)
+        LinkLocalBindLocalSrcPort = 1 << 8 // a local port bind is done (used as
+                                           // src port for linklocal nat)
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
-        if (is_flags_set(FlowEntry::LinkLocalSrcPort) &&
+        if (is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) &&
             linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
+            vm_entry()->linklocal_flow_count_decrement();
             close(linklocal_src_port_fd_);
-            linklocal_src_port_fd_ = PktFlowInfo::kLinkLocalInvalidFd;
         }
         alloc_count_.fetch_and_decrement();
     };
@@ -300,6 +301,7 @@ private:
     bool SetRpfNH(const Inet4UnicastRouteEntry *rt);
     bool InitFlowCmn(const PktFlowInfo *info, const PktControlInfo *ctrl,
                      const PktControlInfo *rev_ctrl);
+
     FlowKey key_;
     FlowData data_;
     FlowStats stats_;
@@ -381,10 +383,11 @@ public:
         SecurityGroupList sg_l_;
     };
 
-    FlowTable() : 
-        flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(), intf_listener_id_(),
-        vn_listener_id_(), vm_listener_id_(), vrf_listener_id_(), 
-        nh_listener_(NULL), route_key_(NULL, Ip4Address()) {};
+    FlowTable(Agent *agent) : 
+        agent_(agent), flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(),
+        intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
+        vrf_listener_id_(), nh_listener_(NULL), route_key_(NULL, Ip4Address()) {
+        }
     virtual ~FlowTable();
     
     void Init();
@@ -427,6 +430,7 @@ public:
     friend class NhState;
     friend void intrusive_ptr_release(FlowEntry *fe);
 private:
+    Agent *agent_;
     FlowEntryMap flow_entry_map_;
 
     AclFlowTree acl_flow_tree_;

@@ -43,6 +43,7 @@ bool VmEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     if (str_uuid.find(name) != std::string::npos) {
         VmSandeshData data;
         data.set_uuid(UuidToString(GetUuid()));
+        data.set_linklocal_flow_count(linklocal_flow_count());
         std::vector<VmSandeshData> &list =
                 const_cast<std::vector<VmSandeshData>&>(resp->get_vm_list());
         list.push_back(data);

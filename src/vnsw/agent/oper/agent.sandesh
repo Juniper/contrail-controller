@@ -101,6 +101,7 @@ struct VmSgUuid {
 struct VmSandeshData {
     1: string uuid;                   // VM uuid
     2: optional list<VmSgUuid> sg_uuid_list;
+    3: i32 linklocal_flow_count;      // number of linklocal flows from the VM
 }
 
 struct McastData {
