@@ -72,11 +72,11 @@ bool VxLanIdKSyncEntry::Sync(DBEntry *e) {
     const VxLanId *vxlan_id = static_cast<VxLanId *>(e);
 
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-    if (vxlan_id->GetNextHop() == NULL) {
+    if (vxlan_id->nexthop() == NULL) {
         LOG(DEBUG, "nexthop in network-id label is null");
         assert(0);
     }
-    NHKSyncEntry nexthop(nh_object, vxlan_id->GetNextHop());
+    NHKSyncEntry nexthop(nh_object, vxlan_id->nexthop());
     NHKSyncEntry *old_nh = nh();
 
     nh_ = nh_object->GetReference(&nexthop);

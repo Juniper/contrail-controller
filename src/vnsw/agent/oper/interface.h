@@ -75,7 +75,7 @@ public:
         return CmpInterface(rhs);
     }
 
-    uint32_t GetVrfId() const;
+    uint32_t vrf_id() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<Interface>::GetRefCount();
     }

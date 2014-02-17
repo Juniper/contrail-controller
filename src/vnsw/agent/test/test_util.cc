@@ -1527,13 +1527,13 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     VrfEntry *vrf;
     VrfKey vrf_key(input[id].vrf);
     vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
-    LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->GetVrfId());
+    LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->vrf_id());
 
     FlowKey key;
 
     key.src_port = 0;
     key.dst_port = 0;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = input[id].sip;
     key.dst.ipv4 = input[id].dip;
     key.protocol = IPPROTO_ICMP; 
@@ -1849,7 +1849,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -1893,7 +1893,7 @@ bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
     if (vrf == NULL)
         return false;
 
-    return FlowFail(vrf->GetVrfId(), sip, dip, proto, sport, dport);
+    return FlowFail(vrf->vrf_id(), sip, dip, proto, sport, dport);
 }
 
 bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
@@ -1909,7 +1909,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -1949,7 +1949,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
     if (vrf == NULL)
         return false;
 
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(nat_dip));
     key.dst.ipv4 = ntohl(inet_addr(nat_sip));
     key.src_port = nat_dport;
@@ -2074,7 +2074,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2169,7 +2169,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2209,7 +2209,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2241,7 +2241,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2267,7 +2267,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
     if (nat_vrf == NULL)
         return false;
 
-    key.vrf = nat_vrf->GetVrfId();
+    key.vrf = nat_vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(nat_dip));
     key.dst.ipv4 = ntohl(inet_addr(nat_sip));
     key.src_port = nat_dport;
@@ -2328,23 +2328,23 @@ int MplsToVrfId(int label) {
     int vrf = 0;
     MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
     if (mpls) {
-        const NextHop *nh = mpls->GetNextHop();
+        const NextHop *nh = mpls->nexthop();
         if (nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *nh1 = static_cast<const InterfaceNH *>(nh);
             const VmInterface *intf = 
                 static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->vrf()) {
-                vrf = intf->vrf()->GetVrfId();
+                vrf = intf->vrf()->vrf_id();
             }
         } else if (nh->GetType() == NextHop::COMPOSITE) {
             const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
-            vrf = nh1->GetVrf()->GetVrfId();
+            vrf = nh1->GetVrf()->vrf_id();
         } else if (nh->GetType() == NextHop::VLAN) {
             const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
             const VmInterface *intf =
                 static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->GetServiceVlanVrf(nh1->GetVlanTag())) {
-                vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->GetVrfId();
+                vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->vrf_id();
             }
         } else {
             assert(0);

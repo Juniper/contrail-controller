@@ -20,7 +20,7 @@ MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsKSyncEntry *me,
 
 MplsKSyncEntry::MplsKSyncEntry(MplsKSyncObject* obj, const MplsLabel *mpls) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    label_(mpls->GetLabel()), nh_(NULL) {
+    label_(mpls->label()), nh_(NULL) {
 }
 
 MplsKSyncEntry::~MplsKSyncEntry() {
@@ -53,11 +53,11 @@ bool MplsKSyncEntry::Sync(DBEntry *e) {
     const MplsLabel *mpls = static_cast<MplsLabel *>(e);
 
     NHKSyncObject *nh_object = ksync_obj_->ksync()->nh_ksync_obj();
-    if (mpls->GetNextHop() == NULL) {
+    if (mpls->nexthop() == NULL) {
         LOG(DEBUG, "nexthop in mpls label is null");
         assert(0);
     }
-    NHKSyncEntry next_hop(nh_object, mpls->GetNextHop());
+    NHKSyncEntry next_hop(nh_object, mpls->nexthop());
     NHKSyncEntry *old_nh = nh(); 
 
     nh_ = nh_object->GetReference(&next_hop);

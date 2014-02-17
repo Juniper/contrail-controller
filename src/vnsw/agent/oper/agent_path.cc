@@ -38,7 +38,7 @@ uint32_t AgentPath::GetActiveLabel() const {
     }
 }
 
-const NextHop* AgentPath::GetNextHop(Agent *agent) const {
+const NextHop* AgentPath::nexthop(Agent *agent) const {
     if (nh_) {
         return nh_.get();
     }
@@ -87,7 +87,7 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
 
     TunnelType::Type new_tunnel_type;
     //Only MPLS types are supported for multicast
-    if (sync_route->IsMulticast()) {
+    if (sync_route->is_multicast()) {
         new_tunnel_type = TunnelType::ComputeType(TunnelType::MplsType());
         if (new_tunnel_type == TunnelType::VXLAN)
             new_tunnel_type = TunnelType::MPLS_GRE;
@@ -137,12 +137,12 @@ bool AgentPath::RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
         //Resync the parent composite NH
         DBRequest cnh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
         NextHopKey *cnh_key = NULL;
-        if (sync_route->IsMulticast()) {
-            cnh_key = new CompositeNHKey(cnh->GetVrfName(), cnh->GetGrpAddr(),
+        if (sync_route->is_multicast()) {
+            cnh_key = new CompositeNHKey(cnh->vrf_name(), cnh->GetGrpAddr(),
                                          cnh->GetSrcAddr(), cnh->IsLocal(),
                                          cnh->CompositeType());
         } else {
-            cnh_key = new CompositeNHKey(cnh->GetVrfName(), cnh->GetGrpAddr(),
+            cnh_key = new CompositeNHKey(cnh->vrf_name(), cnh->GetGrpAddr(),
                                          cnh->prefix_len(), cnh->IsLocal());
         }
         cnh_key->sub_op_ = AgentKey::RESYNC;
@@ -285,16 +285,16 @@ bool HostRoute::AddChangePath(Agent *agent, AgentPath *path) {
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    if (path->GetDestVnName() != dest_vn_name_) {
-        path->SetDestVnName(dest_vn_name_);
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
-    if (path->GetProxyArp() != proxy_arp_) {
-        path->SetProxyArp(proxy_arp_);
+    if (path->proxy_arp() != proxy_arp_) {
+        path->set_proxy_arp(proxy_arp_);
         ret = true;
     }
 
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -306,17 +306,17 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
     NextHop *nh = NULL;
     InterfaceNHKey key(intf_.Clone(), false, InterfaceNHFlags::INET4);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    if (path->GetDestVnName() != dest_vn_name_) {
-        path->SetDestVnName(dest_vn_name_);
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
 
-    if (path->GetLabel() != label_) {
-        path->SetLabel(label_);
+    if (path->label() != label_) {
+        path->set_label(label_);
         ret = true;
     }
 
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -327,7 +327,7 @@ bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
     NextHop *nh = NULL;
     DiscardNHKey key;
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         return true;
 
@@ -350,7 +350,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         policy = true;
     }
 
-    path->SetTunnelBmap(tunnel_bmap_);
+    path->set_tunnel_bmap(tunnel_bmap_);
     TunnelType::Type new_tunnel_type = TunnelType::ComputeType(tunnel_bmap_);
     if (new_tunnel_type == TunnelType::VXLAN &&
         vxlan_id_ == VxLanTable::kInvalidvxlan_id) {
@@ -363,15 +363,15 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     }
 
     // If policy force-enabled in request, enable policy
-    path->SetForcePolicy(force_policy_);
+    path->set_force_policy(force_policy_);
     if (force_policy_) {
         policy = true;
     }
     InterfaceNHKey key(intf_.Clone(), policy, flags_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
 
-    if (path->GetLabel() != mpls_label_) {
-        path->SetLabel(mpls_label_);
+    if (path->label() != mpls_label_) {
+        path->set_label(mpls_label_);
         ret = true;
     }
 
@@ -380,19 +380,19 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
-    if (path->GetDestVnName() != dest_vn_name_) {
-        path->SetDestVnName(dest_vn_name_);
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
 
-    if (path->GetProxyArp() != proxy_arp_) {
-        path->SetProxyArp(proxy_arp_);
+    if (path->proxy_arp() != proxy_arp_) {
+        path->set_proxy_arp(proxy_arp_);
         ret = true;
     }
 
-    path_sg_list = path->GetSecurityGroupList();
+    path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
-        path->SetSecurityGroupList(sg_list_);
+        path->set_sg_list(sg_list_);
         ret = true;
     }
 
@@ -405,7 +405,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     // paths does not have any problem
     bool old_policy = false;
     bool new_policy = false;
-    if (path->GetNextHop(agent) && path->GetNextHop(agent)->PolicyEnabled())
+    if (path->nexthop(agent) && path->nexthop(agent)->PolicyEnabled())
         old_policy = true;
     if (nh && nh->PolicyEnabled())
         new_policy = true;
@@ -413,7 +413,7 @@ bool LocalVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
         sync_route_ = true;
     }
 
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     path->SyncRoute(sync_route_);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
@@ -434,23 +434,23 @@ bool VlanNhRoute::AddChangePath(Agent *agent, AgentPath *path) {
         assert(nh->GetType() == NextHop::VLAN);
     }
 
-    if (path->GetLabel() != label_) {
-        path->SetLabel(label_);
+    if (path->label() != label_) {
+        path->set_label(label_);
         ret = true;
     }
 
-    if (path->GetDestVnName() != dest_vn_name_) {
-        path->SetDestVnName(dest_vn_name_);
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
 
-    path_sg_list = path->GetSecurityGroupList();
+    path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
-        path->SetSecurityGroupList(sg_list_);
+        path->set_sg_list(sg_list_);
         ret = true;
     }
 
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
@@ -463,7 +463,7 @@ bool RemoteVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     SecurityGroupList path_sg_list;
 
     if (path->tunnel_bmap() != tunnel_bmap_) {
-        path->SetTunnelBmap(tunnel_bmap_);
+        path->set_tunnel_bmap(tunnel_bmap_);
         ret = true;
     }
 
@@ -491,29 +491,29 @@ bool RemoteVmRoute::AddChangePath(Agent *agent, AgentPath *path) {
     if (new_tunnel_type == TunnelType::VXLAN) {
         if (path->vxlan_id() != label_) {
             path->set_vxlan_id(label_);
-            path->SetLabel(MplsTable::kInvalidLabel);
+            path->set_label(MplsTable::kInvalidLabel);
             ret = true;
         }
     } else {
-        if (path->GetLabel() != label_) {
-            path->SetLabel(label_);
+        if (path->label() != label_) {
+            path->set_label(label_);
             path->set_vxlan_id(VxLanTable::kInvalidvxlan_id);
             ret = true;
         }
     }
 
-    if (path->GetDestVnName() != dest_vn_name_) {
-        path->SetDestVnName(dest_vn_name_);
+    if (path->dest_vn_name() != dest_vn_name_) {
+        path->set_dest_vn_name(dest_vn_name_);
         ret = true;
     }
 
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
 
-    path_sg_list = path->GetSecurityGroupList();
+    path_sg_list = path->sg_list();
     if (path_sg_list != sg_list_) {
-        path->SetSecurityGroupList(sg_list_);
+        path->set_sg_list(sg_list_);
         ret = true;
     }
 
@@ -526,9 +526,9 @@ bool ResolveRoute::AddChangePath(Agent *agent, AgentPath *path) {
     ResolveNHKey key;
 
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->SetUnresolved(false);
-    if (path->GetDestVnName() != agent->GetFabricVnName()) {
-        path->SetDestVnName(agent->GetFabricVnName());
+    path->set_unresolved(false);
+    if (path->dest_vn_name() != agent->GetFabricVnName()) {
+        path->set_dest_vn_name(agent->GetFabricVnName());
         ret = true;
     }
     if (path->ChangeNH(agent, nh) == true)
@@ -544,20 +544,20 @@ bool ReceiveRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //TODO check if it needs to know table type
     ReceiveNHKey key(intf_.Clone(), policy_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->SetUnresolved(false);
+    path->set_unresolved(false);
 
-    if (path->GetDestVnName() != vn_) {
-        path->SetDestVnName(vn_);
+    if (path->dest_vn_name() != vn_) {
+        path->set_dest_vn_name(vn_);
         ret = true;
     }
 
-    if (path->GetProxyArp() != proxy_arp_) {
-        path->SetProxyArp(proxy_arp_);
+    if (path->proxy_arp() != proxy_arp_) {
+        path->set_proxy_arp(proxy_arp_);
         ret = true;
     }
 
-    if (path->GetLabel() != label_) {
-        path->SetLabel(label_);
+    if (path->label() != label_) {
+        path->set_label(label_);
         ret = true;
     }
 
@@ -574,8 +574,8 @@ bool MulticastRoute::AddChangePath(Agent *agent, AgentPath *path) {
     CompositeNHKey key(vrf_name_, grp_addr_,
                        src_addr_, false, comp_type_);
     nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
-    path->SetDestVnName(vn_name_);
-    path->SetUnresolved(false);
+    path->set_dest_vn_name(vn_name_);
+    path->set_unresolved(false);
     path->set_vxlan_id(vxlan_id_);
     ret = true;
 
@@ -630,7 +630,7 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
                            const AgentPath *path) {
     Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
     rt_info.set_ip(ToString());
-    rt_info.set_vrf(GetVrfEntry()->GetName());
+    rt_info.set_vrf(vrf()->GetName());
 
     switch(event) {
     case ADD:{
@@ -653,10 +653,10 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         } else if (event == DELETE_PATH) {
             rt_info.set_op("PATH DELETE");
         }
-        if (path->GetPeer()) {
-            rt_info.set_peer(path->GetPeer()->GetName());
+        if (path->peer()) {
+            rt_info.set_peer(path->peer()->GetName());
         }
-        const NextHop *nh = path->GetNextHop(agent);
+        const NextHop *nh = path->nexthop(agent);
         if (nh == NULL) {
             rt_info.set_nh_type("<NULL>");
             break;

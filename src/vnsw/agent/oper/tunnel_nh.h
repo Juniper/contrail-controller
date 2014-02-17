@@ -27,7 +27,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
 
-    const uint32_t GetVrfId() const;
+    const uint32_t vrf_id() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
     const Ip4Address *GetSip() const {return &sip_;};
     const Ip4Address *GetDip() const {return &dip_;};
@@ -94,7 +94,7 @@ public:
     virtual KeyPtr GetDBRequestKey() const;
     virtual bool CanAdd() const;
 
-    const uint32_t GetVrfId() const;
+    const uint32_t vrf_id() const;
     const VrfEntry *GetVrf() const {return vrf_.get();};
     const Ip4Address *GetSip() const {return &sip_;};
     const uint16_t GetSPort() const {return sport_;}; 

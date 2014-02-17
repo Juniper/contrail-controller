@@ -395,3 +395,12 @@ define dump_ksync_vassign_entries
     pksync_entries VrfAssignKSyncObject::singleton_ kvassign_entry_format
 end
 
+define kvxlan_entry_format
+    set $__kvxlan = (VxLanIdKSyncEntry *)((size_t)$Xnode - (size_t)&(KSyncEntry
+    printf"%p   nh=%p  state=", $__kvxlan, $__kvxlan.nh_.px
+    print $__kvxlan.state_
+end
+
+define dump_ksync_vxlan_entries
+    pksync_entries VxLanKSyncObject::singleton_ kvxlan_entry_format
+end

@@ -72,7 +72,7 @@ public:
                                     // {};
     IpAddress GetIp() {return m_ip_;};
     uint32_t  GetPort() {return port_;};
-    std::string GetVrfName() {return vrf_name_;};
+    std::string vrf_name() {return vrf_name_;};
     std::string GetAnalyzerName() {return analyzer_name_;};
     std::string GetEncap() {return encap_;};
     virtual void SetActionSandeshData(std::vector<ActionStr> &actions); 

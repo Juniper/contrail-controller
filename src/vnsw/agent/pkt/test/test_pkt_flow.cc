@@ -1007,9 +1007,9 @@ TEST_F(FlowTest, Nat_FlowAge_1) {
     client->WaitForIdle();
 
     EXPECT_EQ(2U, Agent::GetInstance()->pkt()->flow_table()->Size());
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0, 
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 0, 0, 
                         false, -1, -1));
-    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0, 
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 0, 0, 
                         false, -1, -1));
 
     // Sleep for age-time
@@ -1122,11 +1122,11 @@ TEST_F(FlowTest, NonNatAddOldNat_1) {
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
     //Make sure NAT reverse flow is also deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 
                           0, 0));
 
     DeleteFlow(non_nat_flow, 1); 
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm5_ip, vm1_ip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm5_ip, vm1_ip, 1, 
                          0, 0));
 
     client->EnqueueFlowAge();
@@ -1164,15 +1164,15 @@ TEST_F(FlowTest, NonNatAddOldNat_2) {
     DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
     client->WaitForIdle();
     //Make sure NAT reverse flow is deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 
                          0, 0));
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 
                          0, 0));
 
     // Add Non-NAT reverse flow
     CreateFlow(non_nat_flow, 1);
     DeleteFlow(non_nat_flow, 1); 
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 
                          0, 0));
 
     client->EnqueueFlowAge();
@@ -1209,16 +1209,16 @@ TEST_F(FlowTest, NonNatAddOldNat_3) {
     DelLink("virtual-machine-interface", "flow0", "floating-ip", "fip1"); 
     client->WaitForIdle();
     //Make sure NAT reverse flow is also deleted
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 
                 0, 0));
 
     // Add Non-NAT forward flow
     CreateFlow(non_nat_flow, 1);
     DeleteFlow(non_nat_flow, 1); 
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm5_ip, vm1_ip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm5_ip, vm1_ip, 1, 
                 0, 0));
     //Make sure NAT reverse flow is not present
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 
                 0, 0));
 
     client->EnqueueFlowAge();
@@ -1255,11 +1255,11 @@ TEST_F(FlowTest, NatFlowAdd_1) {
 
     //Delete a forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, vm1_fip, 1, 0, 0));
 
     CreateFlow(nat_flow, 1); 
     DeleteFlow(nat_rev_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->GetVrfId(), vm1_ip, vm5_ip, 1, 0, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vrf5")->vrf_id(), vm1_ip, vm5_ip, 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
@@ -1291,7 +1291,7 @@ TEST_F(FlowTest, NatFlowAdd_2) {
 
     //Delete a forward flow and expect both flows to be deleted
     DeleteFlow(nat_flow, 1);
-    EXPECT_TRUE(FlowFail(VrfGet("vrf3")->GetVrfId(), vm5_ip, vm1_fip, 1, 0, 0));
+    EXPECT_TRUE(FlowFail(VrfGet("vrf3")->vrf_id(), vm5_ip, vm1_fip, 1, 0, 0));
     EXPECT_TRUE(FlowTableWait(0));
 }
 
@@ -1326,7 +1326,7 @@ TEST_F(FlowTest, NatAddOldNonNat_1) {
     CreateFlow(nat_flow, 1);
     DeleteFlow(nat_flow, 1);
 
-    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->GetVrfId(), vm5_ip, 
+    EXPECT_TRUE(FlowGet(VrfGet("vn4:vn4")->vrf_id(), vm5_ip, 
                        vm1_fip, 1, 0, 0) == NULL);
     client->EnqueueFlowAge();
     client->WaitForIdle();
@@ -1364,7 +1364,7 @@ TEST_F(FlowTest, NatAddOldNonNat_2) {
     CreateFlow(nat_flow, 1);
     DeleteFlow(nat_flow, 1);
 
-    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->GetVrfId(), vm1_ip, 
+    EXPECT_TRUE(FlowGet(VrfGet("vrf5")->vrf_id(), vm1_ip, 
                 vm5_ip, 1, 0, 0) == NULL);
 
     client->EnqueueFlowAge();
@@ -1572,12 +1572,12 @@ TEST_F(FlowTest, FlowOnDeletedInterface) {
     client->WaitForIdle();
 
     TxTcpPacket(intf->id(), "11.1.1.3", vm1_ip, 30, 40, 1,
-               VrfGet("vrf5")->GetVrfId());
+               VrfGet("vrf5")->vrf_id());
     client->WaitForIdle();
 
     //Flow find should fail as interface is delete marked, and packet get dropped
     // in packet parsing
-    FlowEntry *fe = FlowGet(VrfGet("vrf5")->GetVrfId(), "11.1.1.3", vm1_ip,
+    FlowEntry *fe = FlowGet(VrfGet("vrf5")->vrf_id(), "11.1.1.3", vm1_ip,
                             IPPROTO_TCP, 30, 40);
     EXPECT_TRUE(fe == NULL);
 }
@@ -1589,7 +1589,7 @@ TEST_F(FlowTest, FlowOnDeletedVrf) {
     CreateVmportEnv(input, 1);
     client->WaitForIdle();
 
-    uint32_t vrf_id = VrfGet("vrf5")->GetVrfId();
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
     InterfaceRef intf(VmInterfaceGet(input[0].intf_id));
     //Delete the VRF
     DelVrf("vrf5");
@@ -1636,7 +1636,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     CreateFlow(flow + 1, 1);
 
     FlowEntry *fe = 
-        FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+        FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
     const NextHop *nh = (fe->data().nh_state_.get())->nh();
     EXPECT_TRUE(nh != NULL);
     EXPECT_TRUE(nh->GetType() == NextHop::TUNNEL);
@@ -1645,7 +1645,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
 
     AddEncapList("MPLSoUDP", "MPLSoGRE", "VXLAN");
     client->WaitForIdle();
-    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
     nh = (fe->data().nh_state_.get())->nh();
     EXPECT_TRUE(nh != NULL);
@@ -1655,7 +1655,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
 
     AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
     client->WaitForIdle();
-    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
     nh = (fe->data().nh_state_.get())->nh();
     EXPECT_TRUE(nh != NULL);
@@ -1665,7 +1665,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
 
     AddEncapList("VXLAN", "MPLSoUDP", "MPLSoGRE");
     client->WaitForIdle();
-    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
     nh = (fe->data().nh_state_.get())->nh();
     EXPECT_TRUE(nh != NULL);
@@ -1675,7 +1675,7 @@ TEST_F(FlowTest, Flow_with_encap_change) {
 
     DelEncapList();
     client->WaitForIdle();
-    fe = FlowGet(VrfGet("vrf5")->GetVrfId(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+    fe = FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe->data().nh_state_.get() != NULL);
     nh = (fe->data().nh_state_.get())->nh();
     EXPECT_TRUE(nh != NULL);
@@ -1689,6 +1689,68 @@ TEST_F(FlowTest, Flow_with_encap_change) {
     EXPECT_TRUE(FlowTableWait(0));
     DeleteRemoteRoute("vrf5", remote_vm1_ip);
     client->WaitForIdle();
+}
+
+TEST_F(FlowTest, Flow_return_error) {
+    KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id()),
+            {}
+        }
+    };
+
+    sock->SetBlockMsgProcessing(true);
+    /* Failure to allocate reverse flow index, convert to short flow and age */
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
+    CreateFlow(flow, 1);
+
+    uint32_t vrf_id = VrfGet("vrf5")->vrf_id();
+    FlowEntry *fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
+
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
+
+    sock->SetBlockMsgProcessing(true);
+    /* EBADF failure to write an entry, covert to short flow and age */
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EBADF);
+    CreateFlow(flow, 1);
+
+    fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
+    EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
+    sock->SetBlockMsgProcessing(false);
+    client->WaitForIdle();
+    if (fe != NULL) {
+        WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
+    }
+
+    client->EnqueueFlowAge();
+    client->WaitForIdle();
+
+    EXPECT_TRUE(FlowTableWait(0));
+
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
+    sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
 }
 
 int main(int argc, char *argv[]) {

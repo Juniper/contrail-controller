@@ -87,14 +87,14 @@ TEST_F(CfgTest, Mcast_basic) {
                                IpAddress::from_string("255.255.255.255").to_v4(),
                                IpAddress::from_string("1.1.1.1").to_v4());
     mc_rt->SetKey(&key);
-    EXPECT_TRUE(mc_rt->GetSrcIpAddress() == IpAddress::from_string("1.1.1.1").to_v4());
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("1.1.1.1").to_v4());
 
     //Restore old src ip
     Inet4MulticastRouteKey old_key("vrf1",
                                IpAddress::from_string("255.255.255.255").to_v4(),
                                IpAddress::from_string("0.0.0.0").to_v4());
     mc_rt->SetKey(&old_key);
-    EXPECT_TRUE(mc_rt->GetSrcIpAddress() == IpAddress::from_string("0.0.0.0").to_v4());
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("0.0.0.0").to_v4());
 
     client->Reset();
     DeleteVmportEnv(input, 1, 1, 0);
@@ -179,7 +179,7 @@ TEST_F(CfgTest, McastSubnet_1) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
@@ -343,7 +343,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = NULL; 
@@ -382,10 +382,10 @@ TEST_F(CfgTest, L2Broadcast_1) {
     const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
     EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
-    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->GetLabel() == 2000);
+    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->label() == 2000);
 
     const CompositeNH *mpls_cnh = 
-        static_cast<const CompositeNH *>(mpls->GetNextHop());
+        static_cast<const CompositeNH *>(mpls->nexthop());
     EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
@@ -469,7 +469,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 

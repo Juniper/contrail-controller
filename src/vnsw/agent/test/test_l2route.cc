@@ -190,13 +190,13 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
-    EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
 
-    EXPECT_TRUE(mpls->GetNextHop() == nh);
+    EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
     EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
 
@@ -227,13 +227,13 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
-    EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
 
-    EXPECT_TRUE(mpls->GetNextHop() == nh);
+    EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
     EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
 
@@ -461,12 +461,12 @@ TEST_F(RouteTest, Layer2_route_key) {
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *local_vm_mac_);
     Layer2RouteKey new_key(agent_->GetLocalVmPeer(), "vrf2", *local_vm_mac_);
     vnet1_rt->SetKey(&new_key);
-    EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf2");
+    EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(new_key.ToString() == "Layer2RouteKey");
     Layer2RouteKey restore_key(agent_->GetLocalVmPeer(), "vrf1", 
                                *local_vm_mac_);
     vnet1_rt->SetKey(&restore_key);
-    EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf1");
+    EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");
     EXPECT_TRUE(restore_key.ToString() == "Layer2RouteKey");
 
     DelVrf("vrf2");
