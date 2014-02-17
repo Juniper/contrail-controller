@@ -84,6 +84,23 @@ define dump_l2_route_entries
    end 
 end
 
+define dump_route_paths
+   if $argc != 1
+       help dump_route_paths
+   else
+       set $__rt = (Route *) $arg0
+       set $__path_list = &$__rt->path_
+       set $__count = $__path_list->data_.root_plus_size_.size_
+       printf "Number of paths : %d\n", $__count
+       set $__path = (AgentPath *)((size_t)$__path_list->data_.root_plus_size_.root_ - 8)
+       while $__count >= 1
+           printf "Path : %p  Peer : %p  NH : %p Label : %d\n", $__path, $__path->peer_, $__path->nh_.px, $__path->label_
+           set $__path = (AgentPath *)((size_t)$__path->node_->next_ - 8)
+           set $__count--
+       end
+   end
+end
+
 document dump_uc_v4_route_entries
      Prints all route entries in given table 
      Syntax: dump_uc_v4_route_entries <table>: Prints all route entries in UC v4 route table
@@ -97,6 +114,11 @@ end
 document dump_l2_route_entries
      Prints all L2 route entries in given table 
      Syntax: dump_l2_route_entries <table>: Prints all route entries in L2 route table
+end
+
+document dump_route_paths
+     Prints all paths in a route entry
+     Syntax: dump_route_paths <route>
 end
 
 define vrf_entry_format
