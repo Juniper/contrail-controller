@@ -200,20 +200,6 @@ void Layer2AgentRouteTable::DeleteBroadcastReq(const string &vrf_name) {
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
 
-void Layer2AgentRouteTable::ReEvaluatePaths(const string &vrf_name,
-                                           const struct ether_addr &mac) {
-    DBRequest  rt_req;
-    rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    Layer2RouteKey *rt_key = 
-        new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
-                           vrf_name, mac);
-
-    rt_key->sub_op_ = AgentKey::RESYNC;
-    rt_req.key.reset(rt_key);
-    rt_req.data.reset(NULL);
-    Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
-}
-
 string Layer2RouteEntry::ToString() const {
     ostringstream str;
     str << (ether_ntoa ((struct ether_addr *)&mac_));
@@ -237,11 +223,6 @@ void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
     const Layer2RouteKey *k = static_cast<const Layer2RouteKey *>(key);
     SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->GetVrfName()));
     memcpy(&mac_, &(k->GetMac()), sizeof(struct ether_addr));
-}
-
-bool Layer2EcmpRoute::AddChangePath(AgentPath *path) {
-    //Not Supported
-    return false;
 }
 
 bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {

@@ -27,9 +27,6 @@ public:
                            const Ip4Address &addr,
                            bool policy);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
-    static void ReEvaluatePaths(const string &vrf_name, 
-                               const Ip4Address &sip, 
-                               const Ip4Address &dip);
     static void AddMulticastRoute(const string &vrf_name, 
                                   const string &vn_name,
                                   const Ip4Address &src_addr,
