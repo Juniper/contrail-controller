@@ -59,9 +59,10 @@ public:
 protected:
     RouteTest() : vrf_name_("vrf1"), eth_name_(eth_itf) {
         default_dest_ip_ = Ip4Address::from_string("0.0.0.0");
+        agent_ =Agent::GetInstance();
 
-        if (Agent::GetInstance()->GetRouterIdConfigured()) {
-            vhost_ip_ = Agent::GetInstance()->GetRouterId();
+        if (agent_->GetRouterIdConfigured()) {
+            vhost_ip_ = agent_->GetRouterId();
         } else {
             vhost_ip_ = Ip4Address::from_string("10.1.1.10");
         }
@@ -80,9 +81,9 @@ protected:
         client->Reset();
         //Create a VRF
         VrfAddReq(vrf_name_.c_str());
-        PhysicalInterface::CreateReq(Agent::GetInstance()->GetInterfaceTable(),
+        PhysicalInterface::CreateReq(agent_->GetInterfaceTable(),
                                 eth_name_, 
-                                Agent::GetInstance()->GetDefaultVrf());
+                                agent_->GetDefaultVrf());
         AddResolveRoute(server1_ip_, 24);
         client->WaitForIdle();
     }
@@ -111,15 +112,14 @@ protected:
         //Use any toher peer than localvmpeer
 
         Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            Agent::GetInstance()->GetLocalPeer(), vrf_name_,
+            agent_->GetLocalPeer(), vrf_name_,
             bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
         client->WaitForIdle();
     }
 
     void AddResolveRoute(const Ip4Address &server_ip, uint32_t plen) {
-        Agent::GetInstance()->
-            GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
-                Agent::GetInstance()->GetDefaultVrf(), server_ip, plen);
+        agent_->GetDefaultInet4UnicastRouteTable()->AddResolveRoute(
+                agent_->GetDefaultVrf(), server_ip, plen);
         client->WaitForIdle();
     }
 
@@ -144,6 +144,7 @@ protected:
     struct ether_addr *local_vm_mac_;
     struct ether_addr *remote_vm_mac_;
     static TunnelType::Type type_;
+    Agent *agent_;
 };
 TunnelType::Type RouteTest::type_;
 
@@ -193,8 +194,7 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
-        static_cast<MplsLabel *>(Agent::GetInstance()->
-                                 GetMplsTable()->Find(&key, true));
+        static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
 
     EXPECT_TRUE(mpls->GetNextHop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
@@ -231,8 +231,7 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
-        static_cast<MplsLabel *>(Agent::GetInstance()->
-                                 GetMplsTable()->Find(&key, true));
+        static_cast<MplsLabel *>(agent_->GetMplsTable()->Find(&key, true));
 
     EXPECT_TRUE(mpls->GetNextHop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
@@ -319,8 +318,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), 
-                vrf_name_, remote_vm_mac_);
+    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, remote_vm_mac_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -378,7 +376,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     l2_req->Release();
     client->WaitForIdle();
 
-    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
+    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
@@ -436,7 +434,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(Agent::GetInstance()->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
+    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
@@ -461,13 +459,12 @@ TEST_F(RouteTest, Layer2_route_key) {
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *local_vm_mac_);
-    Layer2RouteKey new_key(Agent::GetInstance()->GetLocalVmPeer(),
-                           "vrf2", *local_vm_mac_);
+    Layer2RouteKey new_key(agent_->GetLocalVmPeer(), "vrf2", *local_vm_mac_);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf2");
     EXPECT_TRUE(new_key.ToString() == "Layer2RouteKey");
-    Layer2RouteKey restore_key(Agent::GetInstance()->GetLocalVmPeer(),
-                           "vrf1", *local_vm_mac_);
+    Layer2RouteKey restore_key(agent_->GetLocalVmPeer(), "vrf1", 
+                               *local_vm_mac_);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf1");
     EXPECT_TRUE(restore_key.ToString() == "Layer2RouteKey");
@@ -515,7 +512,7 @@ TEST_F(RouteTest, Vxlan_basic) {
                 TunnelType::VXLAN);
     VxLanIdKey vxlan_id_key(101);
     VxLanId *vxlan_id = 
-        static_cast<VxLanId *>(Agent::GetInstance()->GetVxLanTable()->FindActiveEntry(&vxlan_id_key));
+        static_cast<VxLanId *>(agent_->GetVxLanTable()->FindActiveEntry(&vxlan_id_key));
     VxLanIdKey new_vxlan_id_key(102);
     vxlan_id->SetKey(&new_vxlan_id_key);
     EXPECT_TRUE(vxlan_id->vxlan_id() == 102);

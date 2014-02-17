@@ -1552,7 +1552,7 @@ TEST_F(IntfTest, vm_interface_change_req) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetInterfaceTable()->Find(&key, true)
+    WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Find(&key, true)
                 == NULL));
     client->Reset();
 }
@@ -1578,7 +1578,7 @@ TEST_F(IntfTest, vm_interface_key_verification) {
     client->WaitForIdle();
     EXPECT_FALSE(VmPortFind(8));
     VmInterfaceKey key2(AgentKey::ADD_DEL_CHANGE, MakeUuid(8), "");
-    WAIT_FOR(100, 1000, (Agent::GetInstance()->GetInterfaceTable()->Find(&key2, true)
+    WAIT_FOR(100, 1000, (agent->GetInterfaceTable()->Find(&key2, true)
                 == NULL));
     client->Reset();
 }
@@ -1586,7 +1586,7 @@ TEST_F(IntfTest, vm_interface_key_verification) {
 TEST_F(IntfTest, packet_interface_get_key_verification) {
     PacketInterfaceKey key(nil_uuid(), "pkt0");
     Interface *intf = 
-        static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+        static_cast<Interface *>(agent->GetInterfaceTable()->FindActiveEntry(&key));
     PacketInterfaceKey *entry_key = static_cast<PacketInterfaceKey *>(intf->GetDBRequestKey().release());
     EXPECT_TRUE(entry_key != NULL);
     client->Reset();
