@@ -37,11 +37,24 @@ void RouterIdDepInit() {
 }
 
 class CfgTest : public ::testing::Test {
+    void TearDown() {
+    }
 };
 
 static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //TBD
     //Validate the response by the expectation
+}
+
+static void DoNextHopSandesh() {
+    NhListReq *nh_list_req = new NhListReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    nh_list_req->HandleRequest();
+    client->WaitForIdle();
+    nh_list_req->Release();
+    client->WaitForIdle();
+
 }
 
 static void WaitForIdle(uint32_t size, uint32_t max_retries) {
@@ -186,7 +199,11 @@ TEST_F(CfgTest, MirrorNh_1) {
             Ip4Address::from_string("20.20.20.20"), 20);
     WaitForIdle(table_size, 5);
 
-    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&key) != NULL);
+    //Do key operations
+    MirrorNH *mirror_nh = static_cast<MirrorNH *>(Agent::GetInstance()->GetNextHopTable()->
+                                                  FindActiveEntry(&key));
+    EXPECT_TRUE(mirror_nh != NULL);
+    mirror_nh->SetKey(mirror_nh->GetDBRequestKey().release());
 
     /* Test dport */
     table_size = Agent::GetInstance()->GetNextHopTable()->Size();
@@ -297,6 +314,7 @@ TEST_F(CfgTest, EcmpNH_1) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
 
     DeleteVmportEnv(input1, 5, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
     
@@ -465,6 +483,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     //Make sure composite NH is also deleted
     CompositeNHKey key("vrf1", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
 }
 
 //Create multiple VM with same floating IP and verify
@@ -641,6 +660,8 @@ TEST_F(CfgTest, EcmpNH_3) {
 
     DeleteVmportEnv(input2, 1, true);
     DeleteVmportEnv(input1, 5, true);
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
     client->WaitForIdle();
 }
 
@@ -654,6 +675,7 @@ TEST_F(CfgTest, EcmpNH_4) {
     client->WaitForIdle();
 
     DelVrf("vrf2");
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
     client->WaitForIdle();
 
     //Enqueue a request to add composite NH
@@ -733,6 +755,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);
     DelVrf("vrf2");
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
 }
@@ -804,6 +827,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);
     DelVrf("vrf2");
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
 }
@@ -1021,6 +1045,306 @@ TEST_F(CfgTest, TunnelType_5) {
 
     DelEncapList();
     client->WaitForIdle();
+}
+
+TEST_F(CfgTest, Nexthop_keys) {
+    client->WaitForIdle();
+    struct PortInfo input1[] = {
+        {"vnet10", 10, "1.1.1.1", "00:00:00:01:01:01", 10, 10}
+    };
+
+    client->Reset();
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    client->WaitForIdle();
+    CreateVmportEnv(input1, 1);
+    Ip4Address ip = Ip4Address::from_string("1.1.1.1");
+    WAIT_FOR(1000, 1000, (VrfGet("vrf10") != NULL));
+    WAIT_FOR(1000, 1000, (RouteGet("vrf10", ip, 32) != NULL));
+
+    //First VM added
+    Inet4UnicastRouteEntry *rt = RouteGet("vrf10", ip, 32);
+    EXPECT_TRUE(rt != NULL);
+    const NextHop *nh = rt->GetActivePath()->GetNextHop();
+    EXPECT_TRUE(nh != NULL);
+    WAIT_FOR(100, 1000, (rt->GetActiveNextHop()->GetType() ==
+                         NextHop::INTERFACE));
+
+    //Sandesh request
+    DoNextHopSandesh();
+
+    //Issue set for nexthop key
+    NextHopKey *nh_key = static_cast<NextHopKey *>(nh->GetDBRequestKey().release()); 
+    EXPECT_TRUE(nh_key->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(nh_key->GetPolicy() == false);
+    NextHop *base_nh = static_cast<NextHop *>(Agent::GetInstance()->
+                                              GetNextHopTable()->FindActiveEntry(nh_key));
+    base_nh->SetKey(base_nh->GetDBRequestKey().release());
+
+    //Issue set for interface nexthop key
+    InterfaceNHKey *interface_key = static_cast<InterfaceNHKey *>(nh_key);
+    InterfaceNH *interface_nh = static_cast<InterfaceNH *>(base_nh);
+    interface_nh->SetKey(interface_key);
+
+    //Issue set for VRF nexthop key
+    VxLanIdKey vxlan_key(10);
+    VxLanId *vxlan_id_entry = static_cast<VxLanId *>(Agent::GetInstance()->
+                                         GetVxLanTable()->FindActiveEntry(&vxlan_key));
+    VrfNHKey *vrf_nh_key = static_cast<VrfNHKey *>(vxlan_id_entry->GetNextHop()->
+                                                   GetDBRequestKey().release());
+    VrfNH *vrf_nh = static_cast<VrfNH*>(Agent::GetInstance()->
+                                        GetNextHopTable()->FindActiveEntry(vrf_nh_key));
+    vrf_nh->SetKey(vrf_nh_key);
+    DoNextHopSandesh();
+
+    //Tunnel NH key
+    Agent::GetInstance()->
+        GetDefaultInet4UnicastRouteTable()->
+        AddResolveRoute(Agent::GetInstance()->GetDefaultVrf(),
+                        Ip4Address::from_string("10.1.1.100"), 32);
+    client->WaitForIdle();
+
+    struct ether_addr *remote_vm_mac = (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy (remote_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    Layer2AgentRouteTable::AddRemoteVmRouteReq(Agent::GetInstance()->GetLocalPeer(),
+                                               "vrf10", TunnelType::MplsType(), 
+                                               Ip4Address::from_string("10.1.1.100"),
+                                               1000, *remote_vm_mac, 
+                                               Ip4Address::from_string("1.1.1.10"), 32);
+    client->WaitForIdle();
+    Layer2RouteEntry *l2_rt = L2RouteGet("vrf10", *remote_vm_mac);
+    EXPECT_TRUE(l2_rt != NULL);
+    TunnelNHKey *tnh_key = static_cast<TunnelNHKey *>(l2_rt->GetActivePath()->
+                                                      GetNextHop()->
+                                                      GetDBRequestKey().release());
+    TunnelNH *tnh = static_cast<TunnelNH*>(Agent::GetInstance()->
+                                        GetNextHopTable()->FindActiveEntry(tnh_key));
+    EXPECT_TRUE(tnh->ToString() == "Tunnel to 10.1.1.100");
+    tnh->SetKey(tnh->GetDBRequestKey().release());
+    DoNextHopSandesh();
+    Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                                     "vrf10", *remote_vm_mac);
+    client->WaitForIdle();
+
+    //CompositeNHKey
+    CompositeNHKey key("vrf10", IpAddress::from_string("255.255.255.255").to_v4(),     
+                       IpAddress::from_string("0.0.0.0").to_v4(), false,Composite::L3COMP);
+    CompositeNH *cnh = static_cast<CompositeNH *>(Agent::GetInstance()->GetNextHopTable()->
+                                                  FindActiveEntry(&key));
+    cnh->SetKey(cnh->GetDBRequestKey().release());
+
+    //Composite NH key ECMP local
+    DBRequest comp_nh_req;
+    comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    comp_nh_req.key.reset(new CompositeNHKey("vrf10", 
+                                             Ip4Address::from_string("1.1.1.1"),
+                                             32, true));
+    comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    Agent::GetInstance()->GetNextHopTable()->Process(comp_nh_req);
+    CompositeNHKey find_cnh_key("vrf10",
+                                Ip4Address::from_string("1.1.1.1"),
+                                32, true);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_cnh_key) != NULL);
+    DoNextHopSandesh();
+    DBRequest del_comp_nh_req;
+    del_comp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
+    del_comp_nh_req.key.reset(new CompositeNHKey("vrf10", 
+                                             Ip4Address::from_string("1.1.1.1"),
+                                             32, true));
+    del_comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    Agent::GetInstance()->GetNextHopTable()->Process(del_comp_nh_req);
+
+    //VLAN nh
+    struct ether_addr *dst_vlan_mac = 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy (dst_vlan_mac, ether_aton("00:00:01:01:01:12"), sizeof(struct ether_addr));
+    struct ether_addr *src_vlan_mac = 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy (src_vlan_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    VlanNHKey *vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
+    VlanNHData *vlan_nhdata = new VlanNHData("vrf10", *src_vlan_mac, *dst_vlan_mac);
+    DBRequest nh_req;
+    nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    nh_req.key.reset(vlan_nhkey);
+    nh_req.data.reset(vlan_nhdata);
+    Agent::GetInstance()->GetNextHopTable()->Process(nh_req);
+    SecurityGroupList sg_l;
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->AddVlanNHRouteReq(NULL, "vrf10",
+                          Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100, 
+                          "vn10", sg_l);                          
+    client->WaitForIdle();
+    Inet4UnicastRouteEntry *vlan_rt = 
+        RouteGet("vrf10", Ip4Address::from_string("2.2.2.0"), 24);
+    EXPECT_TRUE(vlan_rt != NULL);
+    VlanNH *vlan_nh = static_cast<VlanNH *>(Agent::GetInstance()->
+                   GetNextHopTable()->FindActiveEntry(vlan_rt->
+                   GetActivePath()->GetNextHop()->GetDBRequestKey().release()));
+    EXPECT_TRUE(vlan_nh == VlanNH::Find(MakeUuid(10), 100));
+    vlan_nh->SetKey(vlan_nh->GetDBRequestKey().release());
+
+    //Sandesh request
+    DoNextHopSandesh();
+
+    Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, 
+                          "vrf10", Ip4Address::from_string("2.2.2.0"), 24);
+    VlanNHKey *del_vlan_nhkey = new VlanNHKey(MakeUuid(10), 100);
+    DBRequest del_nh_req;
+    del_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
+    del_nh_req.key.reset(del_vlan_nhkey);
+    del_nh_req.data.reset();
+    Agent::GetInstance()->GetNextHopTable()->Process(del_nh_req);
+    client->WaitForIdle();
+
+    //ARP NH with vm interface
+    DBRequest arp_nh_req;
+    arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11")));
+    struct ether_addr *intf_vm_mac= 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
+                                              MakeUuid(10), "vrf10");
+    arp_nh_req.data.reset(new ArpNHData(*intf_vm_mac, intf_key, true));
+    Agent::GetInstance()->GetNextHopTable()->Process(arp_nh_req);
+    client->WaitForIdle();
+    ArpNHKey find_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11")); 
+    ArpNH *arp_nh = static_cast<ArpNH *>
+        (Agent::GetInstance()->GetNextHopTable()->FindActiveEntry(&find_arp_nh_key));
+    EXPECT_TRUE(arp_nh != NULL);
+    EXPECT_TRUE(arp_nh->GetIfUuid() == MakeUuid(10));
+    arp_nh->SetKey(arp_nh->GetDBRequestKey().release());
+    DoNextHopSandesh();
+
+    DBRequest del_arp_nh_req;
+    del_arp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
+    del_arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11")));
+    del_arp_nh_req.data.reset(new ArpNHData());
+    Agent::GetInstance()->GetNextHopTable()->Process(del_arp_nh_req);
+    client->WaitForIdle();
+    ArpNHKey find_del_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11")); 
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_del_arp_nh_key) == NULL);
+
+    //Delete 
+    Agent::GetInstance()->
+        GetDefaultInet4UnicastRouteTable()->
+        DeleteReq(Agent::GetInstance()->GetLocalPeer(),
+                  Agent::GetInstance()->GetDefaultVrf(),
+                  Ip4Address::from_string("10.1.1.100"), 32);
+    client->WaitForIdle();
+    DeleteVmportEnv(input1, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+    EXPECT_FALSE(RouteFind("vrf10", ip, 32));
+    WAIT_FOR(1000, 1000, (VrfGet("vrf10") == NULL));
+}
+
+TEST_F(CfgTest, Nexthop_invalid_vrf) {
+    client->WaitForIdle();
+    client->Reset();
+
+    //ARP NH
+    DBRequest arp_nh_req;
+    arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    arp_nh_req.key.reset(new ArpNHKey("vrf11", Ip4Address::from_string("11.11.11.11")));
+    arp_nh_req.data.reset(new ArpNHData());
+    Agent::GetInstance()->GetNextHopTable()->Process(arp_nh_req);
+    ArpNHKey find_arp_nh_key("vrf11", Ip4Address::from_string("11.11.11.11")); 
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_arp_nh_key) == NULL);
+
+    //Interface NH
+    struct ether_addr *intf_vm_mac= 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(intf_vm_mac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
+                                              MakeUuid(11), "vrf11");
+    DBRequest intf_nh_req;
+    intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5));
+    intf_nh_req.data.reset(new InterfaceNHData("vrf11", *intf_vm_mac));
+    Agent::GetInstance()->GetNextHopTable()->Process(intf_nh_req);
+    VmInterfaceKey *find_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                       MakeUuid(11), "vrf11");
+    InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5); 
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_intf_nh_key) == NULL);
+
+    //VRF NH
+    DBRequest vrf_nh_req;
+    vrf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    vrf_nh_req.key.reset(new VrfNHKey("vrf11", true));
+    vrf_nh_req.data.reset(new VrfNHData());
+    Agent::GetInstance()->GetNextHopTable()->Process(vrf_nh_req);
+    VrfNHKey find_vrf_nh_key("vrf11", true);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_vrf_nh_key) == NULL);
+
+    //Tunnel NH
+    DBRequest tnh_req;
+    tnh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    tnh_req.key.reset(new TunnelNHKey("vrf11", Ip4Address::from_string("11.11.11.11"),
+                                      Ip4Address::from_string("12.12.12.12"), true, 
+                                      TunnelType::DefaultType()));
+    tnh_req.data.reset(new TunnelNHData());
+    Agent::GetInstance()->GetNextHopTable()->Process(tnh_req);
+    TunnelNHKey find_tnh_key("vrf11", Ip4Address::from_string("11.11.11.11"),
+                             Ip4Address::from_string("12.12.12.12"), true,
+                             TunnelType::DefaultType());
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_tnh_key) == NULL);
+
+    //Receive NH
+    VmInterfaceKey *recv_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                                                       MakeUuid(11), "vrf11");
+    DBRequest recv_nh_req;
+    recv_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    recv_nh_req.key.reset(new ReceiveNHKey(recv_intf_key, true));
+    recv_nh_req.data.reset(new ReceiveNHData());
+    Agent::GetInstance()->GetNextHopTable()->Process(recv_nh_req);
+    VmInterfaceKey *find_recv_intf_key = 
+        new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
+                           MakeUuid(11), "vrf11");
+    ReceiveNHKey find_recv_nh_key(find_recv_intf_key, true);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_recv_nh_key) == NULL);
+
+    //Vlan NH
+    struct ether_addr *vlan_dmac = 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vlan_dmac, ether_aton("00:00:01:01:01:11"), sizeof(struct ether_addr));
+    struct ether_addr *vlan_smac = 
+        (struct ether_addr *)malloc(sizeof(struct ether_addr));
+    memcpy(vlan_smac, ether_aton("00:00:01:01:01:10"), sizeof(struct ether_addr));
+    DBRequest vlan_nh_req;
+    vlan_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    vlan_nh_req.key.reset(new VlanNHKey(MakeUuid(11), 11));
+    vlan_nh_req.data.reset(new VlanNHData("vrf11", *vlan_smac, *vlan_dmac));
+    Agent::GetInstance()->GetNextHopTable()->Process(vlan_nh_req);
+    VlanNHKey find_vlan_nh_key(MakeUuid(11), 11);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_vlan_nh_key) == NULL);
+
+    //Composite NH
+    DBRequest comp_nh_req;
+    comp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    comp_nh_req.key.reset(new CompositeNHKey("vrf11", 
+                                             Ip4Address::from_string("255.255.255.255"), 
+                                             Ip4Address::from_string("0.0.0.0"), 
+                                             false, Composite::L3COMP));
+    comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
+    Agent::GetInstance()->GetNextHopTable()->Process(comp_nh_req);
+    CompositeNHKey find_cnh_key("vrf11",
+                                Ip4Address::from_string("255.255.255.255"),
+                                Ip4Address::from_string("0.0.0.0"),
+                                false, Composite::L3COMP);
+    EXPECT_TRUE(Agent::GetInstance()->GetNextHopTable()->
+                FindActiveEntry(&find_cnh_key) == NULL);
+
+    //First VM added
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (VrfGet("vrf11") == NULL));
 }
 
 int main(int argc, char **argv) {

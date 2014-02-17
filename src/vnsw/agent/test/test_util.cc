@@ -1759,7 +1759,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
 }
 
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
-                     const char *vn, const char *vrf, bool l2_vn) {
+                     const char *vn, const char *vrf, bool l2_vn, bool with_ip) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -1793,7 +1793,9 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
-        AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        if (with_ip) {
+            AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
         }
@@ -1805,8 +1807,10 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
                 "routing-instance", vrf_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
                 "virtual-machine-interface", input[i].name);
-        AddLink("virtual-machine-interface", input[i].name,
-                "instance-ip", instance_ip);
+        if (with_ip) {
+            AddLink("virtual-machine-interface", input[i].name,
+                    "instance-ip", instance_ip);
+        }
 
         if (acl_id) {
             AddLink("virtual-network", vn_name, "access-control-list", acl_name);
@@ -1814,14 +1818,19 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
     }
 }
 
+void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id, 
+                              const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, false);
+}
+
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, true);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true, true);
 }
 
 void FlushFlowTable() {

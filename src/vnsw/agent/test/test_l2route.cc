@@ -445,6 +445,117 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
     client->WaitForIdle();
 }
 
+TEST_F(RouteTest, Layer2_route_key) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    AddL2Vn("vn1", 1);
+    AddVrf("vrf1");
+    AddVrf("vrf2");
+    AddLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    client->WaitForIdle();
+    client->Reset();
+    CreateL2VmportEnv(input, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortL2Active(input, 0));
+    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *local_vm_mac_);
+    Layer2RouteKey new_key(Agent::GetInstance()->GetLocalVmPeer(),
+                           "vrf2", *local_vm_mac_);
+    vnet1_rt->SetKey(&new_key);
+    EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf2");
+    EXPECT_TRUE(new_key.ToString() == "Layer2RouteKey");
+    Layer2RouteKey restore_key(Agent::GetInstance()->GetLocalVmPeer(),
+                           "vrf1", *local_vm_mac_);
+    vnet1_rt->SetKey(&restore_key);
+    EXPECT_TRUE(vnet1_rt->GetVrfEntry()->GetName() == "vrf1");
+    EXPECT_TRUE(restore_key.ToString() == "Layer2RouteKey");
+
+    DelVrf("vrf2");
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Sandesh_chaeck_with_invalid_vrf) {
+    Layer2RouteReq *l2_req = new Layer2RouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    l2_req->set_vrf_index(100);
+    l2_req->HandleRequest();
+    client->WaitForIdle();
+    l2_req->Release();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, Vxlan_basic) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    RouteTest::SetTunnelType(TunnelType::VXLAN);
+    AddEncapList("VXLAN", "MPLSoGRE", "MPLSoUDP");
+    VxLanNetworkIdentifierMode(true);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    EXPECT_TRUE(L2RouteFind(vrf_name_, *local_vm_mac_));
+
+    struct ether_addr *vxlan_vm_mac = ether_aton("00:00:01:01:01:10");
+    Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *vxlan_vm_mac);
+    const NextHop *vnet1_nh = vnet1_rt->GetActiveNextHop();
+    EXPECT_TRUE(vnet1_nh->GetType() == NextHop::INTERFACE);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetActiveLabel() == 101);
+    EXPECT_TRUE(vnet1_rt->GetActivePath()->GetTunnelType() == 
+                TunnelType::VXLAN);
+    VxLanIdKey vxlan_id_key(101);
+    VxLanId *vxlan_id = 
+        static_cast<VxLanId *>(Agent::GetInstance()->GetVxLanTable()->FindActiveEntry(&vxlan_id_key));
+    VxLanIdKey new_vxlan_id_key(102);
+    vxlan_id->SetKey(&new_vxlan_id_key);
+    EXPECT_TRUE(vxlan_id->vxlan_id() == 102);
+    vxlan_id->SetKey(&vxlan_id_key);
+    EXPECT_TRUE(vxlan_id->vxlan_id() == 101);
+    VxLanIdKey *db_key = static_cast<VxLanIdKey *>(vxlan_id->GetDBRequestKey().release());
+    EXPECT_TRUE(vxlan_id->vxlan_id() == db_key->vxlan_id());
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+    DelEncapList();
+    client->WaitForIdle();
+}
+
+TEST_F(RouteTest, vxlan_network_id_change_for_non_l2_interface) {
+    struct PortInfo input[] = {
+        {"vnet1", 1, "1.1.1.10", "00:00:01:01:01:10", 1, 1},
+    };
+
+    client->Reset();
+    CreateVmportEnv(input, 1);
+    client->WaitForIdle();
+    //TODO stop the walk before cancel
+    VxLanNetworkIdentifierMode(true);
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(VmPortActive(input, 0));
+    Inet4UnicastRouteEntry *rt1 = RouteGet(vrf_name_, local_vm_ip_, 32);
+    WAIT_FOR(100, 1000, (RouteGet(vrf_name_, local_vm_ip_, 32) != NULL));
+    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, *local_vm_mac_) != NULL));
+
+    DeleteVmportEnv(input, 1, true);
+    client->WaitForIdle();
+
+    WAIT_FOR(100, 1000, (L2RouteGet(vrf_name_, *local_vm_mac_) == NULL));
+    EXPECT_FALSE(VmPortFind(input, 0));
+    client->WaitForIdle();
+}
+
 int main(int argc, char *argv[]) {
     ::testing::InitGoogleTest(&argc, argv);
     GETUSERARGS();
