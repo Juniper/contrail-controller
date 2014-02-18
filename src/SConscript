@@ -50,7 +50,8 @@ common = DefaultEnvironment().Clone()
 
 common.Append(LIBPATH = libpath)
 common.Prepend(LIBS = libs)
-common.Append(CCFLAGS = '-Wall -Werror -Wsign-compare')
+# TODO(md): Reenable -Werror flag
+common.Append(CCFLAGS = '-Wall -Wsign-compare')
 if not sys.platform.startswith('darwin') or not sys.plaform.startswith('freebsd'):
     common.Append(CCFLAGS = ['-Wno-unused-local-typedefs'])
 common.Append(CPPPATH = include)
