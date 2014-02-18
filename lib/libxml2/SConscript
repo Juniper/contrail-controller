@@ -8,7 +8,7 @@ env = DefaultEnvironment().Clone()
 
 # use 'configure' first to set things up
 cfg_opts = '--prefix=' + str(Dir('#/build')) + ' ' + \
-           '--disable-dependency-tracking '
+           '--disable-dependency-tracking --with-html=no'
 cfg_cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
            '/configure' + ' ' + cfg_opts + ' )')
 
