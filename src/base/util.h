@@ -178,6 +178,10 @@ static inline boost::uuids::uuid StringToUuid(const std::string &str)
 
 static inline boost::asio::ip::address_v4 GetIp4SubnetAddress(
               const boost::asio::ip::address_v4 &ip_prefix, uint16_t plen) {
+    if (plen == 0) {
+        return boost::asio::ip::address_v4(0);
+    }
+
     boost::asio::ip::address_v4 subnet(ip_prefix.to_ulong() & 
                                        (0xFFFFFFFF << (32 - plen)));
     return subnet;

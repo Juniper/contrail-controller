@@ -132,7 +132,8 @@ public:
 private:
     virtual bool ProcessRules (boost::shared_ptr<VizMsg> &vmsg, bool rsc);
 
-    void set_session(VizSession *session) { viz_session_ = session; }
+    void set_session(VizSession *session);
+
     void set_state_machine(SandeshStateMachine *state_machine) {
         state_machine_ = state_machine;
         // Update state machine
@@ -161,6 +162,8 @@ private:
     const std::string source_;
     const std::string module_;
     const std::string name_;
+    int instance_;
+
 
     Timer *db_connect_timer_;
     tbb::atomic<bool> disconnected_;

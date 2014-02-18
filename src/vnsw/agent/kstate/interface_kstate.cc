@@ -97,6 +97,12 @@ const string InterfaceKState::FlagsToString(int flags) const {
 
 const string InterfaceKState::MacToString(const vector<signed char> &mac) 
     const {
+    /* We need the below check because if mac size is less than 6, we will
+     * hit out_of_range exception because of mac.at code below
+     */
+    if (mac.size() != 6) {
+        return "00:00:00:00:00:00";
+    }
     ostringstream strm;
     strm << hex << setfill('0') << setw(2) << (int)((uint8_t) mac.at(0)) << ":" 
          << setw(2) << (int)((uint8_t) mac.at(1)) << ":" << setw(2) 

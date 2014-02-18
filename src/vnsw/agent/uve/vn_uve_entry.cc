@@ -459,7 +459,7 @@ bool VnUveEntry::UpdateVrfStats(const VnEntry *vn,
     bool changed = false;
     VrfEntry *vrf = vn->GetVrf();
     if (vrf) {
-        changed = FillVrfStats(vrf->GetVrfId(), s_vn);
+        changed = FillVrfStats(vrf->vrf_id(), s_vn);
     } else {
         vector<UveVrfStats> vlist;
         if (UveVnVrfStatsChanged(vlist)) {

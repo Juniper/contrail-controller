@@ -115,6 +115,7 @@ void AgentInit::DeleteInterfaces() {
 
 void AgentInit::Shutdown() {
     agent_->cfg()->Shutdown();
+    agent_->diag_table()->Shutdown();
 }
 
 void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {

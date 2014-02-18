@@ -26,6 +26,25 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //Validate the response by the expectation
 }
 
+void DoMulticastSandesh(int vrf_id) {
+    Inet4McRouteReq *mc_list_req = new Inet4McRouteReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    mc_list_req->set_vrf_index(vrf_id);
+    mc_list_req->HandleRequest();
+    client->WaitForIdle();
+    mc_list_req->Release();
+    client->WaitForIdle();
+
+    NhListReq *nh_req = new NhListReq();
+    std::vector<int> nh_result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, nh_result));
+    nh_req->HandleRequest();
+    client->WaitForIdle();
+    nh_req->Release();
+    client->WaitForIdle();
+}
+
 void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
 {
     CompositeNHKey key(vrf_name, grp,
@@ -37,6 +56,51 @@ void WaitForCompositeNHDelete(Ip4Address grp, std::string vrf_name)
         usleep(1000);
         client->WaitForIdle();
     } while ((nh != NULL) && (nh->IsDeleted() != true));
+}
+
+TEST_F(CfgTest, Mcast_basic) {
+    client->Reset();
+    struct PortInfo input[] = {
+        {"vnet1", 1, "11.1.1.1", "00:00:00:01:01:01", 1, 1},
+    };
+
+    //Sandesh request for unknown vrf
+    DoMulticastSandesh(2);
+    client->WaitForIdle();
+
+    client->Reset();
+    VxLanNetworkIdentifierMode(false);
+    client->WaitForIdle();
+    CreateVmportEnv(input, 1, 0);
+    client->WaitForIdle();
+	WAIT_FOR(1000, 1000, (VmPortActive(input, 0) == true));
+    WAIT_FOR(1000, 1000, (MCRouteFind("vrf1", "255.255.255.255") == true));
+    client->Reset();
+
+    //Sandesh request
+    DoMulticastSandesh(1);
+    //key manipulation
+    Inet4MulticastRouteEntry *mc_rt = 
+        MCRouteGet("vrf1", IpAddress::from_string("255.255.255.255").to_v4());
+    EXPECT_TRUE(mc_rt != NULL);
+    Inet4MulticastRouteKey key("vrf1",
+                               IpAddress::from_string("255.255.255.255").to_v4(),
+                               IpAddress::from_string("1.1.1.1").to_v4());
+    mc_rt->SetKey(&key);
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("1.1.1.1").to_v4());
+
+    //Restore old src ip
+    Inet4MulticastRouteKey old_key("vrf1",
+                               IpAddress::from_string("255.255.255.255").to_v4(),
+                               IpAddress::from_string("0.0.0.0").to_v4());
+    mc_rt->SetKey(&old_key);
+    EXPECT_TRUE(mc_rt->src_ip_addr() == IpAddress::from_string("0.0.0.0").to_v4());
+
+    client->Reset();
+    DeleteVmportEnv(input, 1, 1, 0);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (MCRouteFind("vrf1", "255.255.255.255") != true));
+    WAIT_FOR(1000, 1000, (VrfFind("vrf1") == false));
 }
 
 TEST_F(CfgTest, McastSubnet_1) {
@@ -109,20 +173,13 @@ TEST_F(CfgTest, McastSubnet_1) {
     client->WaitForIdle();
 
     //Verify sandesh
-    Inet4McRouteReq *mc_list_req = new Inet4McRouteReq();
-    std::vector<int> result = list_of(1);
-    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
-    mc_list_req->set_vrf_index(1);
-    mc_list_req->HandleRequest();
-    client->WaitForIdle();
-    mc_list_req->Release();
-    client->WaitForIdle();
+    DoMulticastSandesh(1);
 
     Ip4Address addr = Ip4Address::from_string("1.1.1.255");
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
@@ -171,6 +228,7 @@ TEST_F(CfgTest, McastSubnet_1) {
                                           IpAddress::from_string("0.0.0.0").to_v4(),
                                           2222, olist_map2);
     client->WaitForIdle();
+    DoMulticastSandesh(1);
 
     addr = Ip4Address::from_string("3.3.255.255");
     rt = RouteGet("vrf1", addr, 32);
@@ -285,7 +343,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = NULL; 
@@ -300,6 +358,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
     EXPECT_TRUE(cnh->ComponentNHCount() == 4);
     EXPECT_TRUE(cnh->IsMcastNH() == true);
     EXPECT_TRUE(cnh->CompositeType() == Composite::L3COMP);
+    DoMulticastSandesh(1);
 
     Layer2RouteEntry *l2_rt = L2RouteGet("vrf1", *ether_aton("FF:FF:FF:FF:FF:FF"));
     NextHop *l2_nh = const_cast<NextHop *>(l2_rt->GetActiveNextHop());
@@ -323,14 +382,17 @@ TEST_F(CfgTest, L2Broadcast_1) {
     const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
     EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
-    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->GetLabel() == 2000);
+    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->label() == 2000);
 
     const CompositeNH *mpls_cnh = 
-        static_cast<const CompositeNH *>(mpls->GetNextHop());
+        static_cast<const CompositeNH *>(mpls->nexthop());
     EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
     EXPECT_TRUE(mpls_cnh->GetNH(1) == l2_cnh);
+    DoMulticastSandesh(1);
+    DoMulticastSandesh(2);
+    DoMulticastSandesh(3);
 
     IntfCfgDel(input, 0);
     client->WaitForIdle();
@@ -407,7 +469,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
