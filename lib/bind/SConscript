@@ -5,7 +5,11 @@ vpath = '#/third_party/bind-9.9.2-P1/'
 env = DefaultEnvironment()
 
 config_opts = '--prefix=' + str(Dir('#/build')) + ' --enable-threads' + ' --enable-fixed-rrset'
+
+#.de.byte.breaker Fix this on BSD, there is problem with linkage
+# of GSS KRB5, that is why I have turned GSS off
 if sys.platform.startswith('freebsd'):
+    config_opts += ' --without-gssapi'
     cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
           '/configure' + ' ' + config_opts + '; gmake clean; gmake; gmake install)')
 else:
