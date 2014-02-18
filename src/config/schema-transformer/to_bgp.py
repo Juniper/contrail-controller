@@ -2179,10 +2179,10 @@ class VirtualMachineInterfaceST(DictST):
             address = AddressType(subnet=SubnetType(
                 ip_obj.get_instance_ip_address(), 32))
             mc = MatchConditionType(src_address=address)
-            
+
+            ri_name = vn.obj.get_fq_name_str() + ':' + vn._default_ri_name
             vrf_rule = VrfAssignRuleType(match_condition=mc,
-                 routing_instance=vn._default_ri_name,
-                 ignore_acl=False)
+                 routing_instance=ri_name, ignore_acl=False)
             vrf_table.add_vrf_assign_rule(vrf_rule)
 
         vm_name = self.name.split(':')[0]
@@ -2242,8 +2242,8 @@ class VirtualMachineInterfaceST(DictST):
                                                           proto)
                         if service_chain is None:
                             continue
-                        ri_name = vn.get_service_name(service_chain.name,
-                                                      si_name)
+                        ri_name = vn.obj.get_fq_name_str() + ':' + \
+                            vn.get_service_name(service_chain.name, si_name)
                         for sp in prule.src_ports:
                             for dp in prule.dst_ports:
                                 mc = MatchConditionType(src_port=sp, dst_port=dp,
