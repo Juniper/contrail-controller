@@ -31,3 +31,5 @@ if sys.platform != 'darwin':
                     'ping.cc',
                     'diag_pkt_handler.cc'
                    ])
+
+env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

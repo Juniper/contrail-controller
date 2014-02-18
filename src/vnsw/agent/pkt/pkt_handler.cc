@@ -65,10 +65,6 @@ void PktHandler::Register(PktModuleName type, RcvQueueFunc cb) {
     enqueue_cb_.at(type) = cb;
 }
 
-void PktHandler::Unregister(PktModuleName type) {
-    enqueue_cb_.at(type) = NULL;
-}
-
 const unsigned char *PktHandler::mac_address() {
     return tap_interface_->mac_address();
 }
@@ -397,8 +393,6 @@ void PktHandler::SendMessage(PktModuleName mod, InterTaskMsg *msg) {
     if (mod < MAX_MODULES) {
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo(msg));
         if (!(enqueue_cb_.at(mod))(pkt_info)) {
-            std::stringstream str;
-            str << mod;
             PKT_TRACE(Err, "Threshold exceeded while enqueuing IPC Message <" <<
                       mod << ">");
         }

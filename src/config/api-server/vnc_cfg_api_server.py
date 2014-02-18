@@ -1007,8 +1007,12 @@ class VncApiServer(VncApiServerGen):
         req_dict = bottle.request.json
         count = req_dict['count'] if 'count' in req_dict else 1
         subnet = req_dict['subnet'] if 'subnet' in req_dict else None
-        result = vnc_cfg_types.VirtualNetworkServer.ip_alloc(
-            vn_fq_name, subnet, count)
+        try:
+            result = vnc_cfg_types.VirtualNetworkServer.ip_alloc(
+                vn_fq_name, subnet, count)
+        except vnc_addr_mgmt.AddrMgmtSubnetUndefined as e:
+            bottle.abort(404, str(e))
+
         return result
     # end vn_ip_alloc_http_post
 

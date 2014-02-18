@@ -230,7 +230,7 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
 inline uint64_t SelectQuery::fs_get_time_slice(const uint64_t& t) {
     AnalyticsQuery *mquery = (AnalyticsQuery*)main_query;
     uint64_t time_sample = (t - mquery->req_from_time)/granularity;
-    return mquery->req_from_time + ((time_sample+1) * granularity);
+    return mquery->req_from_time + (time_sample * granularity);
 }
 
 query_status_t SelectQuery::process_fs_query(

@@ -589,7 +589,7 @@ public:
     const struct ether_addr *GetMac() const {return &mac_;};
     const Interface *GetInterface() const {return interface_.get();};
     const uuid &GetIfUuid() const;
-    const uint32_t GetVrfId() const;
+    const uint32_t vrf_id() const;
     const Ip4Address *GetIp() const {return &ip_;};
     const VrfEntry *GetVrf() const {return vrf_.get();};
     bool GetResolveState() const {return valid_;}
@@ -734,7 +734,7 @@ public:
 
     const Interface *GetInterface() const {return interface_.get();};
     const struct ether_addr &GetDMac() const {return dmac_;};
-    bool IsMulticastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
+    bool is_multicastNH() const { return flags_ & InterfaceNHFlags::MULTICAST; };
     bool IsLayer2() const { return flags_ & InterfaceNHFlags::LAYER2; };
     uint8_t GetFlags() const {return flags_;};
     const uuid &GetIfUuid() const;
@@ -984,7 +984,7 @@ struct ComponentNH {
         return nh_.get();
     }
 
-    uint32_t GetLabel() const {
+    uint32_t label() const {
         return label_;
     }
 
@@ -1112,7 +1112,7 @@ public:
     const Ip4Address &GetGrpAddr() const { return grp_addr_; };
     const Ip4Address &GetSrcAddr() const { return src_addr_; };
     const VrfEntry *GetVrf() const {return vrf_.get();};
-    const std::string &GetVrfName() const {return GetVrf()->GetName();};
+    const std::string &vrf_name() const {return GetVrf()->GetName();};
     //const uint32_t GetSubNHListCount() const { return olist_->size(); };
     //const std::list<NextHopRef> *GetSubNHList() const { return olist_; };
     virtual void SendObjectLog(AgentLogEvent::type event) const;

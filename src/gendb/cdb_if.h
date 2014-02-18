@@ -67,7 +67,7 @@ class CdbIf : public GenDbIf {
         ~CdbIf();
 
         virtual bool Db_Init(std::string task_id, int task_instance);
-        virtual void Db_Uninit(bool shutdown);
+        virtual void Db_Uninit(std::string task_id, int task_instance);
         virtual void Db_SetInitDone(bool);
         virtual bool Db_AddTablespace(const std::string& tablespace,const std::string& replication_factor);
         virtual bool Db_SetTablespace(const std::string& tablespace);
@@ -98,6 +98,7 @@ class CdbIf : public GenDbIf {
 
     private:
         friend class CdbIfTest;
+        class CleanupTask;
 
         /* api to get range of column data for a range of rows 
          * Number of columns returned is less than or equal to count field
@@ -234,6 +235,8 @@ class CdbIf : public GenDbIf {
         boost::scoped_ptr<CdbIfQueue> cdbq_;
         Timer *periodic_timer_;
         std::string name_;
+        mutable tbb::mutex cdbq_mutex_;
+        CleanupTask *cleanup_;
 
         int cassandra_ttl_;
 };

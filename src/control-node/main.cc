@@ -256,10 +256,12 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
 
     if (cpu_load_info != prev_state.get_cpu_info() || first) {
         state.set_cpu_info(cpu_load_info);
-        if (cpu_load_info.get_cpu_share() != prev_state.get_cpu_info().get_cpu_share()) {
+        if (cpu_load_info.get_cpu_share() != 
+                prev_state.get_cpu_info().get_cpu_share()) {
             state.set_cpu_share(cpu_load_info.get_cpu_share());
         }
-        if (prev_state.get_cpu_info().get_meminfo() != cpu_load_info.get_meminfo()) {
+        if (prev_state.get_cpu_info().get_meminfo() != 
+                cpu_load_info.get_meminfo()) {
             state.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
         }
         prev_state.set_cpu_info(cpu_load_info);
@@ -314,11 +316,19 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
-    IFMapPeerServerInfoUI server_info;
-    ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(server_info);
-    if (server_info != prev_state.get_ifmap_info() || first) {
-        state.set_ifmap_info(server_info);
-        prev_state.set_ifmap_info(server_info);
+    IFMapPeerServerInfoUI peer_server_info;
+    ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
+    if (peer_server_info != prev_state.get_ifmap_info() || first) {
+        state.set_ifmap_info(peer_server_info);
+        prev_state.set_ifmap_info(peer_server_info);
+        change = true;
+    }
+
+    IFMapServerInfoUI server_info;
+    ctx.ifmap_server->GetUIInfo(&server_info);
+    if (server_info != prev_state.get_ifmap_server_info() || first) {
+        state.set_ifmap_server_info(server_info);
+        prev_state.set_ifmap_server_info(server_info);
         change = true;
     }
 

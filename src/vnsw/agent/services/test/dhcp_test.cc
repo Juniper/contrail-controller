@@ -38,6 +38,7 @@
 char src_mac[MAC_LEN] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05 };
 char dest_mac[MAC_LEN] = { 0x00, 0x11, 0x12, 0x13, 0x14, 0x15 };
 #define HOST_ROUTE_STRING "Host Routes : 10.1.1.0/24 -> 1.1.1.200;10.1.2.0/24 -> 1.1.1.200;150.25.75.0/24 -> 1.1.1.200;192.168.1.128/28 -> 1.1.1.200;"
+#define CHANGED_HOST_ROUTE_STRING "Host Routes : 150.2.2.0/24 -> 1.1.1.200;192.1.1.1/28 -> 1.1.1.200;"
 
 #define DHCP_CHECK(condition)                                                  \
                     do {                                                       \
@@ -100,17 +101,27 @@ public:
         return itf_id_[index]; 
     }
 
-    void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes) {
-        if (memcmp(sandesh->Name(), "DhcpPktSandesh", strlen("DhcpPktSandesh")) == 0) {
+    void CheckSandeshResponse(Sandesh *sandesh, bool check_host_routes,
+                              const char *option_string) {
+        if (memcmp(sandesh->Name(), "DhcpPktSandesh",
+                   strlen("DhcpPktSandesh")) == 0) {
             DhcpPktSandesh *dhcp_pkt = (DhcpPktSandesh *)sandesh;
             if (check_host_routes) {
                 DhcpPkt pkt = (dhcp_pkt->get_pkt_list())[3];
-                if (pkt.dhcp_hdr.dhcp_options.find(HOST_ROUTE_STRING) ==
+                if (pkt.dhcp_hdr.dhcp_options.find(option_string) ==
                     std::string::npos) {
                     assert(0);
                 }
             }
         }
+    }
+
+    void ClearPktTrace() {
+        // clear existing ptk trace entries
+        ClearAllInfo *clear_info = new ClearAllInfo();
+        clear_info->HandleRequest();
+        client->WaitForIdle();
+        clear_info->Release();
     }
 
     void SendDhcp(short ifindex, uint16_t flags, uint8_t msg_type,
@@ -345,7 +356,7 @@ TEST_F(DhcpTest, DhcpReqTest) {
 
     DhcpInfo *sand = new DhcpInfo();
     Sandesh::set_response_callback(
-        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false));
+        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, false, ""));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
@@ -455,6 +466,13 @@ TEST_F(DhcpTest, DhcpOptionTest) {
     EXPECT_EQ(1U, stats.offers);
     EXPECT_EQ(1U, stats.acks);
 
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, false, ""));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
+
     client->Reset();
     DelIPAM("vn1", "vdns1"); 
     client->WaitForIdle();
@@ -495,6 +513,13 @@ TEST_F(DhcpTest, DhcpNakTest) {
     DHCP_CHECK (stats.nacks < 1);
     EXPECT_EQ(1U, stats.request);
     EXPECT_EQ(1U, stats.nacks);
+
+    DhcpInfo *sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, false, ""));
+    sand->HandleRequest();
+    client->WaitForIdle();
+    sand->Release();
 
     client->Reset();
     DelIPAM("vn1"); 
@@ -747,11 +772,7 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
     client->WaitForIdle();
 
-    ClearAllInfo *clear_info = new ClearAllInfo();
-    clear_info->HandleRequest();
-    client->WaitForIdle();
-    clear_info->Release();
-
+    ClearPktTrace();
     SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
     SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
     int count = 0;
@@ -762,11 +783,37 @@ TEST_F(DhcpTest, DhcpHostRoutesTest) {
     EXPECT_EQ(1U, stats.acks);
 
     DhcpInfo *sand = new DhcpInfo();
-    Sandesh::set_response_callback(
-        boost::bind(&DhcpTest::CheckSandeshResponse, this, _1, true));
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, true,
+                                               HOST_ROUTE_STRING));
     sand->HandleRequest();
     client->WaitForIdle();
     sand->Release();
+
+    // change host routes
+    ClearPktTrace();
+    vm_host_routes.clear();
+    vm_host_routes.push_back("192.1.1.1/28");
+    vm_host_routes.push_back("150.2.2.0/24");
+    AddIPAM("vn1", ipam_info, 3, ipam_attr, "vdns1", &vm_host_routes);
+    client->WaitForIdle();
+
+    SendDhcp(GetItfId(0), 0x8000, DHCP_DISCOVER, options, 4);
+    SendDhcp(GetItfId(0), 0x8000, DHCP_REQUEST, options, 4);
+    count = 0;
+    DHCP_CHECK (stats.acks < 1);
+    EXPECT_EQ(1U, stats.discover);
+    EXPECT_EQ(1U, stats.request);
+    EXPECT_EQ(1U, stats.offers);
+    EXPECT_EQ(1U, stats.acks);
+
+    DhcpInfo *new_sand = new DhcpInfo();
+    Sandesh::set_response_callback(boost::bind(&DhcpTest::CheckSandeshResponse,
+                                               this, _1, true,
+                                               CHANGED_HOST_ROUTE_STRING));
+    new_sand->HandleRequest();
+    client->WaitForIdle();
+    new_sand->Release();
 
     client->Reset();
     DelIPAM("vn1", "vdns1"); 

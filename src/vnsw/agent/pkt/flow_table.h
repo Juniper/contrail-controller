@@ -222,7 +222,6 @@ class FlowEntry {
         IngressDir      = 1 << 6,
         Trap            = 1 << 7
     };
-    FlowEntry();
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
         alloc_count_.fetch_and_decrement();
@@ -373,7 +372,7 @@ public:
     FlowTable() : 
         flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(), intf_listener_id_(),
         vn_listener_id_(), vm_listener_id_(), vrf_listener_id_(), 
-        nh_listener_(NULL), route_key_(NULL, Ip4Address()) {};
+        nh_listener_(NULL), route_key_(NULL, Ip4Address(), 32, false) {};
     virtual ~FlowTable();
     
     void Init();

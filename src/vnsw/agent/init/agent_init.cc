@@ -96,7 +96,7 @@ void AgentInit::DeleteNextHops() {
 }
 
 void AgentInit::DeleteVrfs() {
-    agent_->GetVrfTable()->DeleteVrf(agent_->GetDefaultVrf());
+    agent_->GetVrfTable()->DeleteStaticVrf(agent_->GetDefaultVrf());
 }
 
 void AgentInit::DeleteInterfaces() {
@@ -115,6 +115,7 @@ void AgentInit::DeleteInterfaces() {
 
 void AgentInit::Shutdown() {
     agent_->cfg()->Shutdown();
+    agent_->diag_table()->Shutdown();
 }
 
 void AgentInit::OnInterfaceCreate(DBEntryBase *entry) {
@@ -205,9 +206,9 @@ void AgentInit::CreateDefaultVrf() {
         vrf_table->Register(boost::bind(&AgentInit::OnVrfCreate, this, _2));
 
     if (agent_->isXenMode()) {
-        vrf_table->CreateVrf(agent_->GetLinkLocalVrfName());
+        vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
     }
-    vrf_table->CreateVrf(agent_->GetDefaultVrf());
+    vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
 
 }
 

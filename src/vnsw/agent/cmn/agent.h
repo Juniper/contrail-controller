@@ -137,6 +137,7 @@ public:
     MirrorCfgTable *GetMirrorCfgTable() {return mirror_cfg_table_;};
     IntfMirrorCfgTable *GetIntfMirrorCfgTable() {return intf_mirror_cfg_table_;};
     NextHopTable *GetNextHopTable() {return nh_table_;};
+    NextHopTable *nexthop_table() {return nh_table_;};
     Inet4UnicastAgentRouteTable *GetDefaultInet4UnicastRouteTable() {
         return uc_rt_table_;
     };
@@ -636,7 +637,8 @@ private:
     bool test_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
-    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_; 
+    VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;
+
     static const std::string null_str_;
     static const std::string fabric_vrf_name_;
     static const std::string fabric_vn_name_;

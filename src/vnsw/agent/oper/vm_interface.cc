@@ -596,12 +596,8 @@ bool VmInterface::Resync(VmInterfaceData *data) {
 }
 
 void VmInterface::Delete() {
-    bool old_ipv4_active = ipv4_active_;
-    bool old_l2_active = l2_active_;
-    ipv4_active_ = false;
-    l2_active_ = false;
-    ApplyConfig(old_ipv4_active, old_l2_active, policy_enabled_, 
-                vrf_.get(), ip_addr_, vxlan_id_, need_linklocal_ip_, false);
+    VmInterfaceConfigData data;
+    Resync(&data);
     InterfaceNH::DeleteVmInterfaceNHReq(GetUuid());
 }
 
@@ -1147,10 +1143,10 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    table->VmPortToMetaDataIp(id(), vrf_->GetVrfId(), &mdata_addr_);
+    table->VmPortToMetaDataIp(id(), vrf_->vrf_id(), &mdata_addr_);
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
         (agent->GetLinkLocalPeer(), agent->GetDefaultVrf(), mdata_addr_,
-         32, GetUuid(), vn_->GetName(), label_, true);
+         32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(), true);
 }
 
 // Delete meta-data route
@@ -1339,7 +1335,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
         //Default add VM receive route
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
             (agent->GetLocalVmPeer(), vrf_name, addr, plen, GetUuid(),
-             vn_->GetName(), label_, sg_id_list);
+             vn_->GetName(), label_, sg_id_list, false);
     } else if (nh_count > 1) {
         //Update composite NH pointed by MPLS label
         CompositeNH::AppendComponentNH(vrf_name, addr, plen, true,
@@ -1423,7 +1419,7 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
         CopySgIdList(&sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
             (agent->GetLocalVmPeer(), vrf_name, addr, plen, vm_port->GetUuid(),
-             vm_port->vn()->GetName(), vm_port->label(), sg_id_list);
+             vm_port->vn()->GetName(), vm_port->label(), sg_id_list, false);
 
         //Enqueue MPLS label delete request
         MplsLabel::Delete(label);

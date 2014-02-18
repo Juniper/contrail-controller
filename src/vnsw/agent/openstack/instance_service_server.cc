@@ -35,15 +35,24 @@ InstanceServiceAsyncHandler::AddPort(const PortList& port_list)
     PortList::const_iterator it;
     for (it = port_list.begin(); it != port_list.end(); ++it) {
         Port port = *it;
-        if (port.port_id.size() > (uint32_t)kUuidSize || 
-            port.instance_id.size() > (uint32_t)kUuidSize) {
+        if (port.port_id.size() != (uint32_t)kUuidSize || 
+            port.instance_id.size() != (uint32_t)kUuidSize ||
+            port.vn_id.size() != (uint32_t)kUuidSize) {
+            CFG_TRACE(IntfInfo, 
+                      "Port/instance/vn id not valid uuids, size check failed");
             return false;
         }
         uuid port_id = ConvertToUuid(port.port_id);
         uuid instance_id = ConvertToUuid(port.instance_id);
         uuid vn_id = ConvertToUuid(port.vn_id);
         uuid vm_project_id = ConvertToUuid(port.vm_project_id);
-        IpAddress ip = IpAddress::from_string(port.ip_address);
+        boost::system::error_code ec;
+        IpAddress ip = IpAddress::from_string(port.ip_address, ec);
+        if (ec.value() != 0) {
+            CFG_TRACE(IntfInfo,
+                      "IP address is not correct, " + port.ip_address);
+            return false;
+        }
         
         CfgIntTable *ctable = static_cast<CfgIntTable *>(db_->FindTable("db.cfg_int.0"));
         assert(ctable);
@@ -241,7 +250,8 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddLocalVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32, intf_uuid, 
-                           "instance-service", mpls_label);
+                           "instance-service", mpls_label, SecurityGroupList(),
+                           false);
     return true;
 }
 
@@ -291,7 +301,7 @@ InstanceServiceAsyncHandler::CreateVrf(const std::string& vrf)
 InstanceServiceAsyncHandler::uuid 
 InstanceServiceAsyncHandler::ConvertToUuid(const tuuid &id)
 {
-    boost::uuids::uuid u;
+    boost::uuids::uuid u = nil_uuid();
     std::vector<int16_t>::const_iterator it;
     int i;
     
@@ -374,8 +384,9 @@ void AddPortReq::HandleRequest() const {
     string vm_name = get_vm_name();
     string tap_name = get_tap_name();
     uint16_t vlan_id = get_vlan_id();
+
     boost::system::error_code ec;
-    IpAddress ip(boost::asio::ip::address::from_string(get_ip_address(), ec));
+    IpAddress ip(IpAddress::from_string(get_ip_address(), ec));
     string mac_address = get_mac_address();
 
     if (port_uuid == nil_uuid()) {
@@ -408,7 +419,7 @@ void AddPortReq::HandleRequest() const {
     CfgIntTable *ctable = Agent::GetInstance()->GetIntfCfgTable();
     assert(ctable);
 
-    DBRequest req;
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key.reset(new CfgIntKey(port_uuid));
     CfgIntData *cfg_int_data = new CfgIntData();
     cfg_int_data->Init(instance_uuid, vn_uuid, vm_project_uuid,
@@ -417,6 +428,7 @@ void AddPortReq::HandleRequest() const {
                        vm_name, vlan_id, 0);
     req.data.reset(cfg_int_data);
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
+    ctable->Enqueue(&req);
     resp->set_resp(std::string("Success"));
     resp->Response();
     return;

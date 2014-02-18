@@ -298,11 +298,7 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         const SandeshGenerator * const gen = gm_it->second;
-        // Only send if generator is connected
-        VizSession *session = gen->session();
-        if (!session) {
-            continue;
-        }
+
         vector<SandeshStats> ssv;
         gen->GetMessageTypeStats(ssv);
         vector<SandeshLogLevelStats> lsv;
@@ -336,13 +332,17 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
             ginfo.set_db_drop_level(db_drop_level);
             ginfo.set_db_msg_dropped(db_msg_dropped);
         }
-        ginfo.set_session_stats(session->GetStats());
-        TcpServerSocketStats rx_stats;
-        session->GetRxSocketStats(rx_stats);
-        ginfo.set_session_rx_socket_stats(rx_stats);
-        TcpServerSocketStats tx_stats;
-        session->GetTxSocketStats(tx_stats);
-        ginfo.set_session_tx_socket_stats(tx_stats);
+        // Only send if generator is connected
+        VizSession *session = gen->session();
+        if (session) {
+            ginfo.set_session_stats(session->GetStats());
+            TcpServerSocketStats rx_stats;
+            session->GetRxSocketStats(rx_stats);
+            ginfo.set_session_rx_socket_stats(rx_stats);
+            TcpServerSocketStats tx_stats;
+            session->GetTxSocketStats(tx_stats);
+            ginfo.set_session_tx_socket_stats(tx_stats);
+        }
 
         ginfo.set_msg_stats(ssiv);
         ginfo.set_name(gen->ToString());
@@ -387,10 +387,11 @@ bool Collector::SendRemote(const string& destination, const string& dec_sandesh)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         SandeshGenerator::GeneratorId id(gm_it->first);
+        // GeneratorId is of the format source..module..instance_id..node_type
         if (((dest[0] != "*") && (id.get<0>() != dest[0])) ||
-            ((dest[1] != "*") && (id.get<1>() != dest[1])) ||
-            ((dest[2] != "*") && (id.get<2>() != dest[2])) ||
-            ((dest[3] != "*") && (id.get<3>() != dest[3]))) {
+            ((dest[1] != "*") && (id.get<3>() != dest[1])) ||
+            ((dest[2] != "*") && (id.get<1>() != dest[2])) ||
+            ((dest[3] != "*") && (id.get<2>() != dest[3]))) {
             continue;
         }
         const SandeshGenerator *gen = gm_it->second;

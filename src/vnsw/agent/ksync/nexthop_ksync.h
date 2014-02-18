@@ -42,6 +42,7 @@ public:
     virtual int ChangeMsg(char *buf, int buf_len);
     virtual int DeleteMsg(char *buf, int buf_len);
     void FillObjectLog(sandesh_op::type op, KSyncNhInfo &info) const;
+    void SetEncap(std::vector<int8_t> &encap);
 private:
     class KSyncComponentNH {
     public:

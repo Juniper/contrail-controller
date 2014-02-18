@@ -56,7 +56,7 @@ public:
 
     bool DropMessage(SandeshHeader &header);
     bool Init(bool initial, int instance);
-    void UnInit(bool shutdown);
+    void UnInit(int instance);
 
     inline bool AllowMessageTableInsert(SandeshHeader &header);
     inline bool MessageIndexTableInsert(const std::string& cfname,

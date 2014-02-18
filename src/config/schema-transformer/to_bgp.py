@@ -383,8 +383,13 @@ class VirtualNetworkST(DictST):
         try:
             sc_ip_address = self._sc_ip_cf.get(sc_name)['ip_address']
         except pycassa.NotFoundException:
-            sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
-                self.obj, count=1)[0]
+            try:
+                sc_ip_address = _vnc_lib.virtual_network_ip_alloc(
+                    self.obj, count=1)[0]
+            except NoIdError:
+                _sandesh._logger.debug(
+                    "NoIdError while allocating ip in network %s", self.name)
+                return None
             self._sc_ip_cf.insert(sc_name, {'ip_address': sc_ip_address})
         return sc_ip_address
     # end allocate_service_chain_ip
@@ -1349,6 +1354,8 @@ class ServiceChain(DictST):
             if transparent:
                 sc_ip_address = vn1_obj.allocate_service_chain_ip(
                     service_name1)
+                if sc_ip_address is None:
+                    return None
                 service_ri1.add_service_info(vn2_obj, service, sc_ip_address)
                 if self.direction == "<>":
                     service_ri2.add_service_info(vn1_obj, service,
@@ -2097,6 +2104,28 @@ class VirtualMachineInterfaceST(DictST):
     # end rebake 
 # end VirtualMachineInterfaceST 
     
+class LogicalRouterST(DictST):
+    _dict = {}
+
+    def __init__(self, name):
+        self.name = name
+        self.virtual_networks = set()
+    # end __init__
+
+    @classmethod
+    def delete(cls, name):
+        if name in cls._dict:
+            del cls._dict[name]
+    # end delete
+
+    def add_virtual_network(self, vn_name):
+        self.virtual_networks.add(vn_name)
+
+    def delete_virtual_network(self, vn_name):
+        self.virtual_networks.discard(vn_name)
+# end LogicaliRouterST
+
+
 class SchemaTransformer(object):
 
     """
@@ -2534,6 +2563,35 @@ class SchemaTransformer(object):
             self.current_network_set |= route_table.network_back_refs
     # end delete_routes
 
+    def add_virtual_network_logical_router(self, idents, meta):
+        vn_name = idents['virtual-network']
+        lr_name = idents['logical-router']
+
+        lr_obj = LogicalRouterST.locate(lr_name)
+        lr_obj.add_virtual_network(vn_name)
+        self.current_network_set |= lr_obj.virtual_networks
+    # end add_virtual_network_logical_router
+
+    def delete_virtual_network_logical_router(self, idents, meta):
+        vn_name = idents['virtual-network']
+        lr_name = idents['logical-router']
+
+        lr_obj = LogicalRouterST.get(lr_name)
+        if lr_obj is None:
+            return
+        self.current_network_set |= lr_obj.virtual_networks
+        lr_obj.delete_virtual_network(vn_name)
+    # end add_virtual_network_logical_router
+
+    def delete_project_logical_router(self, idents, meta):
+        lr_name = idents['logical-router']
+        lr_obj = LogicalRouterST.get(lr_name)
+        if lr_obj is None:
+            return
+        self.current_network_set |= lr_obj.virtual_networks
+        LogicalRouterST.delete(lr_name)
+    # end delete_project_logical_router
+
     def process_poll_result(self, poll_result_str):
         result_list = parse_poll_result(poll_result_str)
         self.current_network_set = set()
@@ -2695,6 +2753,12 @@ class SchemaTransformer(object):
                         net = VirtualNetworkST.get(net_name)
                         if net is not None:
                             virtual_network.add_connection(net_name)
+
+            for lr in LogicalRouterST.values():
+                 if network_name in lr.virtual_networks:
+                     for vn_name in (lr.virtual_networks - {network_name}):
+                         virtual_network.add_connection(vn_name)
+            # end for lr
 
             # Derive connectivity changes between VNs
             new_connections = virtual_network.expand_connections()

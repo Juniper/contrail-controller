@@ -43,6 +43,11 @@
 class TaskGroup;
 class TaskEntry;
 
+class SandeshTaskGroupResp;
+class SandeshTaskEntryResp;
+class SandeshTaskEntrySummary;
+class SandeshTaskResp;
+
 struct TaskStats {
     int     wait_count_;
     int     run_count_;
@@ -175,6 +180,18 @@ public:
     // Get number of tbb worker threads.
     static int GetThreadCount();
 
+private:
+    friend class SandeshTaskSchedulerReq;
+    friend class SandeshTaskGroupReq;
+    friend class SandeshTaskEntryReq;
+    friend class SandeshTaskReq;
+    void GetTaskGroupSandeshData(int task_id, SandeshTaskGroupResp *resp);
+    void GetTaskEntrySandeshData(int task_id, int instance_id,
+                                 SandeshTaskEntryResp *resp);
+    void GetTaskSandeshData(int task_id, int instance_id, uint32_t seqno,
+                            SandeshTaskResp *resp);
+    void GetTaskEntrySummary(TaskEntry *entry,
+                             SandeshTaskEntrySummary *summary);
 private:
     friend class ConcurrencyScope;
     typedef std::vector<TaskGroup *> TaskGroupDb;

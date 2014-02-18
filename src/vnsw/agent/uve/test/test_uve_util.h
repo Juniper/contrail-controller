@@ -59,10 +59,11 @@ public:
         char vrf_name[80];
 
         sprintf(vrf_name, "vrf%d", id);
+        client->Reset();
+        EXPECT_FALSE(VrfFind(vrf_name));
         AddVrf(vrf_name);
-        client->WaitForIdle();
-        EXPECT_TRUE(client->VrfNotifyWait(1));
-        EXPECT_TRUE(VrfFind(vrf_name));
+        client->WaitForIdle(3);
+        WAIT_FOR(1000, 5000, (VrfFind(vrf_name) == true));
     }
 
     void NovaPortAdd(struct PortInfo *input) {

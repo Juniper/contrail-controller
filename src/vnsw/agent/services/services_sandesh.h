@@ -23,8 +23,6 @@ public:
     void PktStatsSandesh(std::string ctxt, bool more);
 
     static void MacToString(const unsigned char *mac, std::string &mac_str);
-    static bool ValidateIP(std::string ip);
-    static bool ValidateMac(std::string mac, unsigned char *mac_addr);
     static std::string & DhcpMsgType(uint32_t msg_type);
 
 private:

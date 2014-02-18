@@ -307,8 +307,10 @@ void IntfCfgAdd(int intf_id, const string &name, const string ipaddr,
     CfgIntData *data = new CfgIntData();
     boost::system::error_code ec;
     IpAddress ip = Ip4Address::from_string(ipaddr, ec);
+    char vm_name[MAX_TESTNAME_LEN];
+    sprintf(vm_name, "vm%d", vm_id);
     data->Init(MakeUuid(vm_id), MakeUuid(vn_id), MakeUuid(project_id),
-               name, ip, mac, "", vlan, 0);
+               name, ip, mac, vm_name, vlan, 0);
 
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -392,6 +394,13 @@ bool VmPortFind(int id) {
     VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
     intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
     return (intf != NULL ? !intf->IsDeleted() : false);
+}
+
+bool VmPortFindRetDel(int id) {
+    Interface *intf;
+    VmInterfaceKey key(AgentKey::ADD_DEL_CHANGE, MakeUuid(id), "");
+    intf = static_cast<Interface *>(Agent::GetInstance()->GetInterfaceTable()->Find(&key, true));
+    return (intf != NULL);
 }
 
 uint32_t VmPortGetId(int id) {
@@ -1518,13 +1527,13 @@ bool FlowStats(FlowIp *input, int id, uint32_t bytes, uint32_t pkts) {
     VrfEntry *vrf;
     VrfKey vrf_key(input[id].vrf);
     vrf = static_cast<VrfEntry *>(Agent::GetInstance()->GetVrfTable()->FindActiveEntry(&vrf_key));
-    LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->GetVrfId());
+    LOG(DEBUG, "Vrf id for " << input[id].vrf << " is " << vrf->vrf_id());
 
     FlowKey key;
 
     key.src_port = 0;
     key.dst_port = 0;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = input[id].sip;
     key.dst.ipv4 = input[id].dip;
     key.protocol = IPPROTO_ICMP; 
@@ -1750,7 +1759,7 @@ void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id,
 }
 
 void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id, 
-                     const char *vn, const char *vrf, bool l2_vn) {
+                     const char *vn, const char *vrf, bool l2_vn, bool with_ip) {
     char vn_name[MAX_TESTNAME_LEN];
     char vm_name[MAX_TESTNAME_LEN];
     char vrf_name[MAX_TESTNAME_LEN];
@@ -1784,7 +1793,9 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
         //        input[i].intf_id);
         IntfCfgAdd(input, i);
         AddPort(input[i].name, input[i].intf_id);
-        AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        if (with_ip) {
+            AddInstanceIp(instance_ip, input[i].vm_id, input[i].addr);
+        }
         if (!l2_vn) {
             AddLink("virtual-network", vn_name, "routing-instance", vrf_name);
         }
@@ -1796,8 +1807,10 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
                 "routing-instance", vrf_name);
         AddLink("virtual-machine-interface-routing-instance", input[i].name,
                 "virtual-machine-interface", input[i].name);
-        AddLink("virtual-machine-interface", input[i].name,
-                "instance-ip", instance_ip);
+        if (with_ip) {
+            AddLink("virtual-machine-interface", input[i].name,
+                    "instance-ip", instance_ip);
+        }
 
         if (acl_id) {
             AddLink("virtual-network", vn_name, "access-control-list", acl_name);
@@ -1805,14 +1818,19 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id,
     }
 }
 
+void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id, 
+                              const char *vn, const char *vrf) {
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, false);
+}
+
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, false, true);
 }
 
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id, 
                      const char *vn, const char *vrf) {
-    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true);
+    CreateVmportEnvInternal(input, count, acl_id, vn, vrf, true, true);
 }
 
 void FlushFlowTable() {
@@ -1831,7 +1849,7 @@ bool FlowDelete(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -1875,7 +1893,7 @@ bool FlowFail(const string &vrf_name, const char *sip, const char *dip,
     if (vrf == NULL)
         return false;
 
-    return FlowFail(vrf->GetVrfId(), sip, dip, proto, sport, dport);
+    return FlowFail(vrf->vrf_id(), sip, dip, proto, sport, dport);
 }
 
 bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
@@ -1891,7 +1909,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -1931,7 +1949,7 @@ bool FlowGetNat(const string &vrf_name, const char *sip, const char *dip,
     if (vrf == NULL)
         return false;
 
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(nat_dip));
     key.dst.ipv4 = ntohl(inet_addr(nat_sip));
     key.src_port = nat_dport;
@@ -2056,7 +2074,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2151,7 +2169,7 @@ bool FlowGet(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2191,7 +2209,7 @@ bool FlowStatsMatch(const string &vrf_name, const char *sip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2223,7 +2241,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
         return false;
 
     FlowKey key;
-    key.vrf = vrf->GetVrfId();
+    key.vrf = vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(sip));
     key.dst.ipv4 = ntohl(inet_addr(dip));
     key.src_port = sport;
@@ -2249,7 +2267,7 @@ bool FindFlow(const string &vrf_name, const char *sip, const char *dip,
     if (nat_vrf == NULL)
         return false;
 
-    key.vrf = nat_vrf->GetVrfId();
+    key.vrf = nat_vrf->vrf_id();
     key.src.ipv4 = ntohl(inet_addr(nat_dip));
     key.dst.ipv4 = ntohl(inet_addr(nat_sip));
     key.src_port = nat_dport;
@@ -2310,23 +2328,23 @@ int MplsToVrfId(int label) {
     int vrf = 0;
     MplsLabel *mpls = Agent::GetInstance()->GetMplsTable()->FindMplsLabel(label);
     if (mpls) {
-        const NextHop *nh = mpls->GetNextHop();
+        const NextHop *nh = mpls->nexthop();
         if (nh->GetType() == NextHop::INTERFACE) {
             const InterfaceNH *nh1 = static_cast<const InterfaceNH *>(nh);
             const VmInterface *intf = 
                 static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->vrf()) {
-                vrf = intf->vrf()->GetVrfId();
+                vrf = intf->vrf()->vrf_id();
             }
         } else if (nh->GetType() == NextHop::COMPOSITE) {
             const CompositeNH *nh1 = static_cast<const CompositeNH *>(nh);
-            vrf = nh1->GetVrf()->GetVrfId();
+            vrf = nh1->GetVrf()->vrf_id();
         } else if (nh->GetType() == NextHop::VLAN) {
             const VlanNH *nh1 = static_cast<const VlanNH *>(nh);
             const VmInterface *intf =
                 static_cast<const VmInterface *>(nh1->GetInterface());
             if (intf && intf->GetServiceVlanVrf(nh1->GetVlanTag())) {
-                vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->GetVrfId();
+                vrf = intf->GetServiceVlanVrf(nh1->GetVlanTag())->vrf_id();
             }
         } else {
             assert(0);
