@@ -25,4 +25,5 @@ libvgw = env.Library('libvgw',
                       except_objs +
                          [ 'vgw.cc'])
 
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+# TODO(md): temporarily disabled
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

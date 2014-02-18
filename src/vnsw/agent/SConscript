@@ -209,6 +209,7 @@ cflags.remove('-Wno-return-type')
 AgentEnv.Replace(CCFLAGS = cflags)
 Export('AgentEnv')
 
+# TODO(md): temporarily removed test subdirectory.
 subdirs = ['cmn',
            'cfg',
            'controller',
@@ -221,7 +222,6 @@ subdirs = ['cmn',
            'oper',
            'pkt',
            'services',
-           'test',
            'uve',
            'vgw'
            ]

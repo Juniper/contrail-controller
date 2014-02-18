@@ -50,6 +50,7 @@ vnswoperdb = env.Library('vnswoperdb',
                           'vrf_assign.cc',
                           'vxlan.cc'
                          ])
-subdirs = ['test']
-for dir in subdirs:
-    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)
+# TODO(md): temporarily disabled
+#subdirs = ['test']
+#for dir in subdirs:
+#    env.SConscript(dir + '/SConscript', exports='AgentEnv', duplicate=0)

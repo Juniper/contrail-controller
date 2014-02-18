@@ -128,4 +128,5 @@ mockgen = mockEnv.Program('mock_generator',
                           ['mock_generator.cc'])
 mockEnv.Alias("vrouter:mock_gen", mockgen)
 
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)
+# TODO(md): temporarily disabled
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate=0)

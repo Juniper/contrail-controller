@@ -26,4 +26,5 @@ for except_src in except_files:
 
 libvnswinit = env.Library('vnswinit', except_objs)
 
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+# TODO(md): temporarily disabled
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)

@@ -53,4 +53,5 @@ if sys.platform != 'darwin':
                      exceptions_objs +
                      pkt_srcs)
 
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+# TODO(md): temporarily disabled
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
