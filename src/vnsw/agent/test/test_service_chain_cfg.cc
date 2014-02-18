@@ -59,7 +59,7 @@ static bool ValidateServiceVlan(int ifid, const string &vrf, const string &addr,
         return false;
     }
 
-    const NextHop *nh = mpls->GetNextHop();
+    const NextHop *nh = mpls->nexthop();
     EXPECT_TRUE(nh != NULL);
     if (nh == NULL) {
         return false;

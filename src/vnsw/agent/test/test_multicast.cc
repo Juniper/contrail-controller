@@ -122,7 +122,7 @@ TEST_F(CfgTest, McastSubnet_1) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 
@@ -285,7 +285,7 @@ TEST_F(CfgTest, L2Broadcast_1) {
         MCRouteGet("vrf1", "255.255.255.255");
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = NULL; 
@@ -323,10 +323,10 @@ TEST_F(CfgTest, L2Broadcast_1) {
     const CompositeNH *fabric_cnh = static_cast<const CompositeNH *>(cnh->GetNH(0));
     EXPECT_TRUE(fabric_cnh->CompositeType() == Composite::FABRIC);
     EXPECT_TRUE(fabric_cnh->ComponentNHCount() == 1);
-    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->GetLabel() == 2000);
+    EXPECT_TRUE(fabric_cnh->GetComponentNHList()->Get(0)->label() == 2000);
 
     const CompositeNH *mpls_cnh = 
-        static_cast<const CompositeNH *>(mpls->GetNextHop());
+        static_cast<const CompositeNH *>(mpls->nexthop());
     EXPECT_TRUE(mpls_cnh->CompositeType() == Composite::MULTIPROTO);
     EXPECT_TRUE(mpls_cnh->ComponentNHCount() == 2);
     EXPECT_TRUE(mpls_cnh->GetNH(0) == cnh);
@@ -407,7 +407,7 @@ TEST_F(CfgTest, McastSubnet_DeleteRouteOnVRFDeleteofVN) {
     rt = RouteGet("vrf1", addr, 32);
     nh = const_cast<NextHop *>(rt->GetActiveNextHop());
     cnh = static_cast<CompositeNH *>(nh);
-    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    mcobj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                               cnh->GetGrpAddr());
     ASSERT_TRUE(mcobj->GetSourceMPLSLabel() == 1111);
 	MplsLabel *mpls = 

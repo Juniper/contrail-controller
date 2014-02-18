@@ -80,6 +80,11 @@ struct TestVrfAssignCmp {
 //used for unit testing or userspace datapath integration
 class KSyncSockTypeMap : public KSyncSock {
 public:
+    enum KSyncSockEntryType {
+        KSYNC_FLOW_ENTRY_TYPE = 0,
+        KSYNC_MAX_ENTRY_TYPE
+    };
+
     KSyncSockTypeMap(boost::asio::io_service &ios) : KSyncSock(), sock_(ios) {
         block_msg_processing_ = false;
     }
@@ -187,10 +192,19 @@ public:
         return block_msg_processing_;
     }
 
+    void SetKSyncError(KSyncSockEntryType type, int ksync_error) {
+        ksync_error_[type] = ksync_error;
+    }
+
+    int GetKSyncError(KSyncSockEntryType type) {
+        return ksync_error_[type];
+    }
+
 private:
     void PurgeBlockedMsg();
     udp::socket sock_;
     udp::endpoint local_ep_;
+    int ksync_error_[KSYNC_MAX_ENTRY_TYPE];
     bool block_msg_processing_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;

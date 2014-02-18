@@ -92,6 +92,8 @@ DiagTable::DiagTable(Agent *agent):agent_(agent) {
 }
 
 void DiagTable::Shutdown() {
+    entry_op_queue_->Shutdown();
+    delete entry_op_queue_;
     diag_proto_.reset(NULL);
 }
 

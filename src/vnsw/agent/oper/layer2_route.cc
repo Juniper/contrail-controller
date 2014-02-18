@@ -49,7 +49,7 @@ AgentRoute *
 Layer2RouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {
     Layer2RouteEntry * entry = new Layer2RouteEntry(vrf, dmac_, vm_ip_, plen_, 
-                                                    GetPeer()->GetType(), is_multicast); 
+                                                    peer()->GetType(), is_multicast); 
     return static_cast<AgentRoute *>(entry);
 }
 
@@ -229,23 +229,24 @@ int Layer2RouteEntry::CompareTo(const Route &rhs) const {
 DBEntryBase::KeyPtr Layer2RouteEntry::GetDBRequestKey() const {
     Layer2RouteKey *key =
         new Layer2RouteKey(Agent::GetInstance()->GetLocalVmPeer(), 
-                           GetVrfEntry()->GetName(), mac_);
+                           vrf()->GetName(), mac_);
     return DBEntryBase::KeyPtr(key);
 }
 
 void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
     const Layer2RouteKey *k = static_cast<const Layer2RouteKey *>(key);
-    SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->GetVrfName()));
+    SetVrf(Agent::GetInstance()->vrf_table()->FindVrfFromName(k->vrf_name()));
     memcpy(&mac_, &(k->GetMac()), sizeof(struct ether_addr));
 }
 
-bool Layer2EcmpRoute::AddChangePath(AgentPath *path) {
+bool Layer2EcmpRoute::AddChangePath(Agent *agent, AgentPath *path) {
     //Not Supported
     return false;
 }
 
 bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
     Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
+    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
 
     RouteL2SandeshData data;
     data.set_mac(ToString());
@@ -255,16 +256,16 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
             PathSandeshData pdata;
-            path->GetNextHop()->SetNHSandeshData(pdata.nh);
+            path->nexthop(agent)->SetNHSandeshData(pdata.nh);
             if ((path->tunnel_type() == TunnelType::VXLAN) ||
-                IsMulticast()) {
+                is_multicast()) {
                 pdata.set_vxlan_id(path->vxlan_id());
             } else {
-                pdata.set_label(path->GetLabel());
+                pdata.set_label(path->label());
             }
-            pdata.set_peer(const_cast<Peer *>(path->GetPeer())->GetName());
-            pdata.set_dest_vn(path->GetDestVnName());
-            pdata.set_unresolved(path->IsUnresolved() ? "true" : "false");
+            pdata.set_peer(const_cast<Peer *>(path->peer())->GetName());
+            pdata.set_dest_vn(path->dest_vn_name());
+            pdata.set_unresolved(path->unresolved() ? "true" : "false");
             data.path_list.push_back(pdata);
         }
     }

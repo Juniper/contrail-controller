@@ -189,14 +189,14 @@ TEST_F(RouteTest, LocalVmRoute_1) {
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
-    EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(Agent::GetInstance()->
                                  GetMplsTable()->Find(&key, true));
 
-    EXPECT_TRUE(mpls->GetNextHop() == nh);
+    EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
     EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
 
@@ -227,14 +227,14 @@ TEST_F(RouteTest, LocalVmRoute_2) {
     Layer2RouteEntry *rt = L2RouteGet(vrf_name_, *local_vm_mac_);
     EXPECT_TRUE(rt->GetActiveNextHop() != NULL);
     const NextHop *nh = rt->GetActiveNextHop();
-    EXPECT_TRUE(rt->GetDestVnName() == "vn1");
+    EXPECT_TRUE(rt->dest_vn_name() == "vn1");
     uint32_t label = rt->GetMplsLabel();
     MplsLabelKey key(MplsLabel::MCAST_NH, label);
     MplsLabel *mpls = 
         static_cast<MplsLabel *>(Agent::GetInstance()->
                                  GetMplsTable()->Find(&key, true));
 
-    EXPECT_TRUE(mpls->GetNextHop() == nh);
+    EXPECT_TRUE(mpls->nexthop() == nh);
     const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
     EXPECT_TRUE(intf_nh->GetFlags() == InterfaceNHFlags::LAYER2);
 

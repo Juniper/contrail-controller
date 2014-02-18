@@ -59,7 +59,7 @@ InterfaceKSyncEntry::InterfaceKSyncEntry(InterfaceKSyncObject *obj,
                                          const Interface *intf) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
     interface_name_(intf->name()),
-    type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->GetVrfId()),
+    type_(intf->type()), interface_id_(intf->id()), vrf_id_(intf->vrf_id()),
     fd_(-1), has_service_vlan_(false), mac_(intf->mac()), ip_(0),
     policy_enabled_(false), analyzer_name_(),
     mirror_direction_(Interface::UNKNOWN), ipv4_active_(false), l2_active_(false),
@@ -152,7 +152,7 @@ bool InterfaceKSyncEntry::Sync(DBEntry *e) {
     Interface::MirrorDirection mirror_direction = Interface::UNKNOWN;
     bool has_service_vlan = false;
     if (l2_active_ || ipv4_active_) {
-        vrf_id = intf->GetVrfId();
+        vrf_id = intf->vrf_id();
         if (vrf_id == VrfEntry::kInvalidIndex) {
             vrf_id = VIF_VRF_INVALID;
         }

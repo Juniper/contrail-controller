@@ -67,10 +67,11 @@ void KSyncSockTypeMap::ProcessSandesh(const uint8_t *parse_buf, size_t buf_len,
 
 void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+    int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
     struct nl_client cl;
     int error = 0, ret;
     uint8_t *buf = NULL;
-    uint32_t buf_len = 0, encode_len;
+    uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
     nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -83,8 +84,30 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     nlh = (struct nlmsghdr *)cl.cl_buf;
     nlh->nlmsg_seq = seq_num;
 
+    uint32_t fwd_flow_idx = req->get_fr_index();
+    bool add_error = false;
+    if (fwd_flow_idx == 0xFFFFFFFF) {
+        add_error = true;
+    } else {
+        if (flow_error != -ENOSPC && flow_error != 0) {
+            add_error = true;
+        }
+    }
+    if (add_error) {
+        vr_response encoder;
+        encoder.set_h_op(sandesh_op::RESPONSE);
+        encoder.set_resp_code(flow_error);
+        encode_len = encoder.WriteBinary(buf, buf_len, &error);
+        if (error != 0) {
+            SimulateResponse(seq_num, -ENOENT, 0); 
+            nl_free(&cl);
+            return;
+        }
+        buf += encode_len;
+        buf_len -= encode_len;
+    }
     req->set_fr_op(flow_op::FLOW_SET);
-    encode_len = req->WriteBinary(buf, buf_len, &error);
+    encode_len += req->WriteBinary(buf, buf_len, &error);
     if (error != 0) {
         SimulateResponse(seq_num, -ENOENT, 0); 
         nl_free(&cl);
@@ -95,8 +118,10 @@ void KSyncSockTypeMap::FlowNatResponse(uint32_t seq_num, vr_flow_req *req) {
     sock->sock_.send_to(buffer(cl.cl_buf, cl.cl_msg_len), sock->local_ep_);
     nl_free(&cl);
 
-    //Activate the reverse flow-entry in flow mmap
-    KSyncSockTypeMap::SetFlowEntry(req, true);
+    if (fwd_flow_idx != 0xFFFFFFFF) {
+        //Activate the reverse flow-entry in flow mmap
+        KSyncSockTypeMap::SetFlowEntry(req, true);
+    }
 }
 
 void KSyncSockTypeMap::SendNetlinkDoneMsg(int seq_num) {
@@ -655,6 +680,7 @@ void KSyncUserSockContext::IfMsgHandler(vr_interface_req *req) {
 void KSyncUserSockFlowContext::Process() {
     KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
     uint16_t flags = 0;
+    int flow_error = sock->GetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE);
 
     flags = req_->get_fr_flags();
     //delete from map if command is delete
@@ -666,16 +692,22 @@ void KSyncUserSockFlowContext::Process() {
         /* Send reverse-flow index as one more than fwd-flow index */
         uint32_t fwd_flow_idx = req_->get_fr_index();
         if (fwd_flow_idx == 0xFFFFFFFF) {
-            fwd_flow_idx = rand() % 50000;
-            req_->set_fr_index(fwd_flow_idx);
+            if (flow_error == 0) {
+                /* Allocate entry only of no error case */
+                fwd_flow_idx = rand() % 50000;
+                req_->set_fr_index(fwd_flow_idx);
+            }
         }          
-        //store info from binary sandesh message
-        vr_flow_req flow_info(*req_);
 
-        sock->flow_map[req_->get_fr_index()] = flow_info;
+        if (fwd_flow_idx != 0xFFFFFFFF) {
+            //store info from binary sandesh message
+            vr_flow_req flow_info(*req_);
 
-        //Activate the flow-entry in flow mmap
-        KSyncSockTypeMap::SetFlowEntry(req_, true);
+            sock->flow_map[req_->get_fr_index()] = flow_info;
+
+            //Activate the flow-entry in flow mmap
+            KSyncSockTypeMap::SetFlowEntry(req_, true);
+        }
 
         // For NAT flow, don't send vr_response, instead send
         // vr_flow_req with index of reverse_flow

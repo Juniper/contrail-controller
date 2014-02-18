@@ -34,10 +34,10 @@ bool RouteExport::State::Changed(const AgentPath *path) const {
         return true;
     };
 
-    if (vn_ != path->GetDestVnName())
+    if (vn_ != path->dest_vn_name())
         return true;
 
-    if (sg_list_ != path->GetSecurityGroupList())
+    if (sg_list_ != path->sg_list())
         return true;
 
     return false;
@@ -46,8 +46,8 @@ bool RouteExport::State::Changed(const AgentPath *path) const {
 void RouteExport::State::Update(const AgentPath *path) {
     force_chg_ = false;
     label_ = path->GetActiveLabel();
-    vn_ = path->GetDestVnName();
-    sg_list_ = path->GetSecurityGroupList();
+    vn_ = path->dest_vn_name();
+    sg_list_ = path->sg_list();
     tunnel_type_ = path->tunnel_type();
 }
 
@@ -73,7 +73,7 @@ void RouteExport::Notify(AgentXmppChannel *bgp_xmpp_peer,
     AgentRoute *route = static_cast<AgentRoute *>(e);
 
     //If multicast or subnetbroadcast digress to multicast
-    if (route->IsMulticast()) {
+    if (route->is_multicast()) {
     	return MulticastNotify(bgp_xmpp_peer, associate, partition, e);
     }
     return UnicastNotify(bgp_xmpp_peer, partition, e, type);
@@ -107,20 +107,20 @@ void RouteExport::UnicastNotify(AgentXmppChannel *bgp_xmpp_peer,
             state->Update(path);
             CONTROLLER_TRACE(RouteExport,
                              bgp_xmpp_peer->GetBgpPeer()->GetName(),
-                             route->GetVrfEntry()->GetName(),
+                             route->vrf()->GetName(),
                              route->ToString(),
                              false, path->GetActiveLabel());
             state->exported_ = 
                 AgentXmppChannel::ControllerSendRoute(bgp_xmpp_peer, 
                         static_cast<AgentRoute * >(route), state->vn_, 
                         state->label_, path->GetTunnelBmap(),
-                        &path->GetSecurityGroupList(), true, type);
+                        &path->sg_list(), true, type);
         }
     } else {
         if (state->exported_ == true) {
             CONTROLLER_TRACE(RouteExport, 
                     bgp_xmpp_peer->GetBgpPeer()->GetName(), 
-                    route->GetVrfEntry()->GetName(), 
+                    route->vrf()->GetName(), 
                     route->ToString(), 
                     true, 0);
 
@@ -149,7 +149,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
 
     if (route_can_be_dissociated && (state != NULL) && (state->exported_ == true)) {
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
-                route->GetVrfEntry()->GetName(), 
+                route->vrf()->GetName(), 
                 route->ToString(), true, 0);
 
         AgentXmppChannel::ControllerSendMcastRoute(bgp_xmpp_peer, 
@@ -183,7 +183,7 @@ void RouteExport::MulticastNotify(AgentXmppChannel *bgp_xmpp_peer,
                                   (state->force_chg_ == true))) {
 
         CONTROLLER_TRACE(RouteExport, bgp_xmpp_peer->GetBgpPeer()->GetName(),
-                route->GetVrfEntry()->GetName(), 
+                route->vrf()->GetName(), 
                 route->ToString(), associate, 0);
 
         state->exported_ = 
