@@ -320,7 +320,7 @@ TEST_F(CfgTest, EcmpNH_1) {
     EXPECT_TRUE(comp_nh->ComponentNHCount() == 5);
 
     DeleteVmportEnv(input1, 5, true);
-    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
     client->WaitForIdle();
     EXPECT_FALSE(RouteFind("vrf1", ip, 32));
     
@@ -489,7 +489,7 @@ TEST_F(CfgTest, EcmpNH_2) {
     //Make sure composite NH is also deleted
     CompositeNHKey key("vrf1", ip, 32, true);
     EXPECT_FALSE(FindNH(&key));
-    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
 }
 
 //Create multiple VM with same floating IP and verify
@@ -666,8 +666,8 @@ TEST_F(CfgTest, EcmpNH_3) {
 
     DeleteVmportEnv(input2, 1, true);
     DeleteVmportEnv(input1, 5, true);
-    WAIT_FOR(100, 1000, (VrfFind("vrf1") == NULL));
-    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf1") == false));
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
     client->WaitForIdle();
 }
 
@@ -681,7 +681,7 @@ TEST_F(CfgTest, EcmpNH_4) {
     client->WaitForIdle();
 
     DelVrf("vrf2");
-    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
     client->WaitForIdle();
 
     //Enqueue a request to add composite NH
@@ -761,7 +761,7 @@ TEST_F(CfgTest, EcmpNH_5) {
     agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);
     DelVrf("vrf2");
-    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
 }
@@ -833,7 +833,7 @@ TEST_F(CfgTest, EcmpNH_6) {
     agent_->GetDefaultInet4UnicastRouteTable()->DeleteReq(NULL, "vrf2", 
                                                                         remote_vm_ip, 32);
     DelVrf("vrf2");
-    WAIT_FOR(100, 1000, (VrfFind("vrf2") == NULL));
+    WAIT_FOR(100, 1000, (VrfFind("vrf2") == false));
     client->WaitForIdle();
     EXPECT_FALSE(VrfFind("vrf2"));
 }
