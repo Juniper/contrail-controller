@@ -56,6 +56,9 @@ class VerificationOpsSrv (VerificationUtilBase):
         return self.dict_get('analytics/table/%s/column-values/%s' \
                              % (table, col_name)) 
 
+    def uve_query(self, query):
+        return self.dict_get('analytics/uves/%s' % query)
+
     def post_query_json(self, json_str, sync=True):
         '''
         this module is to support raw query given in json format

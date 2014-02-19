@@ -449,6 +449,30 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                                         exp_mod_list)
     #end test_09_table_source_module_list 
 
+    #@unittest.skip('verify generator addition and deletion')
+    def test_10_add_delete_generator(self):
+        '''
+        This test verifies the existence of the generator UVE
+        upon generator add/delete.
+        '''
+        logging.info('*** test_10_add_delete_generator ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir, 0))
+        assert vizd_obj.verify_on_setup()
+        # verify that QueryEngine is present in the generator UVE list
+        generator_id = socket.gethostname()+':'+'Analytics'+':'+ \
+            'QueryEngine'+':'+'0' 
+        assert vizd_obj.verify_generator_uve(generator_id)
+        # stop the QueryEngine and verify that it is not present in the
+        # generator UVE list
+        vizd_obj.query_engine.stop()
+        assert vizd_obj.verify_generator_uve(generator_id, False)
+    # end test_10_add_delete_generator
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

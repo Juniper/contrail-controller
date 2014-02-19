@@ -405,6 +405,22 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=5)
+    def verify_generator_uve(self, generator_id, exist=True):
+        self.logger.info('verify_generator_uve')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # get generator list
+        gen_list = vns.uve_query('generators')
+        try:
+            self.logger.info('generators: %s' % str(gen_list))
+            for gen in gen_list:
+                if gen['name'] == generator_id:
+                    return exist
+        except Exception as e:
+            self.logger.error('Exception: %s' % e)
+        return not exist
+    # end verify_generator_uve
+
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
         self.logger.info("verify_message_table_messagetype")
