@@ -365,7 +365,6 @@ void ControlNodeShutdown() {
 }
 
 static int control_node_main(int argc, char *argv[]) {
-    LoggingInit();
     boost::system::error_code error;
 
     // Specify defaults for all options possible.
