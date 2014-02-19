@@ -86,6 +86,7 @@ class CpuInfo(object):
 
                 if (self._new_ip != self._curr_ip):
                     self._new_ip = self.get_config_node_ip()
+                    self._ip_change = 1
 
                 # Retrieve build_info from package/rpm and cache it
                 if self._curr_build_info is None:
