@@ -44,7 +44,7 @@ if sys.platform != 'darwin':
                        test_linklocal,
                        ]
 
-    test = env.TestSuite('agent`-test', oper_test_suite)
+    test = env.TestSuite('agent-test', oper_test_suite)
     env.Alias('src/vnsw/agent:test', test)
     Return('oper_test_suite')
 
