@@ -1,5 +1,7 @@
 #include <boost/bind.hpp>
 #include <boost/asio.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
+#include <boost/lexical_cast.hpp>
 #include <pthread.h>
 
 #include "testing/gunit.h"
@@ -13,7 +15,6 @@
 namespace {
     
 using boost::asio::buffer_cast;
-bool client_rx_done = false;
 
 class EchoServer: public UDPServer
 {
@@ -23,9 +24,11 @@ class EchoServer: public UDPServer
     {
     }
     ~EchoServer () { }
-    void HandleReceive (mutable_buffer *recv_buffer, 
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+    void HandleReceive (boost::asio::const_buffer recv_buffer, 
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error) {
+        UDP_UT_LOG_DEBUG( "EchoServer rx " << bytes_transferred << "(" <<
+            error << ") from " << remote_endpoint);
         if (!error || error == boost::asio::error::message_size) {
             if (error == boost::asio::error::message_size) {
                 UDP_SERVER_LOG_ERROR(this, UDP_DIR_NA, "message_size "<<error);
@@ -36,34 +39,36 @@ class EchoServer: public UDPServer
             std::ostringstream s;
             boost::system::error_code e;
             s << "Got [" << bytes_transferred << "]<" << GetLocalEndPoint()
-              << "<-" << *remote_endpoint << ">\"";
-            char *p = buffer_cast<char *> (*recv_buffer);
+              << "<-" << remote_endpoint << ">\"";
+            {
+            const char *p = buffer_cast<const char *> (recv_buffer);
             for (size_t i=0; i < bytes_transferred; i++, p++)
                 s << *p;
             s << "\"\n";
+            }
             DeallocateBuffer (recv_buffer);
             std::string snd = s.str();
-            mutable_buffer *send = AllocateBuffer (snd.length());
-            p = buffer_cast<char *> (*send);
+            mutable_buffer send = AllocateBuffer (snd.length());
+            {
+            char *p = buffer_cast<char *> (send);
             std::copy (snd.begin (), snd.end(), p);
+            }
 
             StartSend (remote_endpoint, snd.length(), send);
             StartReceive();
         } else {
             DeallocateBuffer (recv_buffer);
-            DeallocateEndPoint (remote_endpoint);
         }
     }
 
-    void HandleSend (mutable_buffer *send_buffer,
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
-            const boost::system::error_code& error) 
+    void HandleSend (boost::asio::const_buffer send_buffer,
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
+            const boost::system::error_code& error)
     {
         tx_count_ += bytes_transferred;
-        UDP_UT_LOG_DEBUG( "sent " << bytes_transferred << "(" <<
+        UDP_UT_LOG_DEBUG( "EchoServer sent " << bytes_transferred << "(" <<
             error << ")\n");
         DeallocateBuffer (send_buffer);
-        DeallocateEndPoint (remote_endpoint);
     }
 
     int GetTxBytes () { return tx_count_; }
@@ -81,79 +86,73 @@ class EchoClient : public UDPServer
     explicit EchoClient (boost::asio::io_service& io_service,
             int buffer_size=kDefaultBufferSize): 
         UDPServer (io_service, buffer_size),
-        tx_count_(0), rx_count_(0)
-    {
+        tx_count_(0), rx_count_(0), client_rx_done_(false) {
     }
-    ~EchoClient () { }
     
     void Send (std::string snd, udp::endpoint to)
     {
-        mutable_buffer *send = AllocateBuffer (snd.length());
-        char *p = buffer_cast<char *> (*send);
-        std::copy (snd.begin (), snd.end(), p);
-        udp::endpoint *ep = new udp::endpoint(to);
-        StartSend (ep, snd.length(), send);
-        StartReceive ();
+        mutable_buffer send = AllocateBuffer (snd.length());
+        char *p = buffer_cast<char *> (send);
+        std::copy(snd.begin (), snd.end(), p);
+        UDP_UT_LOG_DEBUG( "EchoClient sending '" << snd << "' to " << to);
+        StartSend(to, snd.length(), send);
+        StartReceive();
         snd_buf_ = snd;
     }
     void Send (std::string snd, std::string ipaddress, short port)
     {
-        udp::endpoint *ep = AllocateEndPoint (ipaddress, port);
-        mutable_buffer *send = AllocateBuffer (snd.length());
-        char *p = buffer_cast<char *> (*send);
-        std::copy (snd.begin (), snd.end(), p);
-        StartSend (ep, snd.length(), send);
-        StartReceive ();
-        snd_buf_ = snd;
+        boost::system::error_code ec;
+        Send (snd, udp::endpoint(boost::asio::ip::address::from_string(
+                        ipaddress, ec), port));
     }
-    void HandleSend (mutable_buffer *send_buffer,
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
-            const boost::system::error_code& error) 
+    void HandleSend (boost::asio::const_buffer send_buffer,
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
+            const boost::system::error_code& error)
     {
         tx_count_ += bytes_transferred;
-        UDP_UT_LOG_DEBUG( "sent " << bytes_transferred << "(" <<
+        UDP_UT_LOG_DEBUG( "EchoClient sent " << bytes_transferred << "(" <<
             error << ")\n");
-        DeallocateBuffer (send_buffer);
-        DeallocateEndPoint (remote_endpoint);
     }
-    void HandleReceive (mutable_buffer *recv_buffer, 
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+    void HandleReceive (boost::asio::const_buffer recv_buffer, 
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error)
     {
         rx_count_ += bytes_transferred;
         std::string b;
-        uint8_t *p = buffer_cast<uint8_t *>(*recv_buffer);
+        const uint8_t *p = buffer_cast<const uint8_t *>(recv_buffer);
         std::copy(p, p+bytes_transferred, std::back_inserter(b));
-        UDP_UT_LOG_DEBUG( "rx (" << *remote_endpoint << ")[" << error << "](" <<
+        UDP_UT_LOG_DEBUG( "rx (" << remote_endpoint << ")[" << error << "](" <<
             bytes_transferred << ")\"" << b << "\"\n");
-        client_rx_done = true;
+        client_rx_done_ = true;
     }
     
 
-    int GetTxBytes () { return tx_count_; }
-    int GetRxBytes () { return rx_count_; }
+    int GetTxBytes() { return tx_count_; }
+    int GetRxBytes() { return rx_count_; }
+    bool client_rx_done() { return client_rx_done_; }
 
     private:
         int tx_count_;
         int rx_count_;
         std::string snd_buf_;
+        bool client_rx_done_;
 };
 
-class EchoServerTest : public ::testing::Test {
+class EchoServerTest : public ::testing::Test
+{
     protected:
     EchoServerTest () { }
 
     virtual void SetUp() {
         evm_.reset(new EventManager());
-        server_ = new EchoServer(evm_.get());
-        client_ = new EchoClient (*evm_->io_service ());
+        server_.reset(new EchoServer(evm_.get()));
+        client_.reset(new EchoClient (*evm_.get()->io_service ()));
         thread_.reset(new ServerThread(evm_.get()));
     }
 
     virtual void TearDown() {
         server_->Reset ();
-        if (client_)
-            client_->Reset ();
+        client_->Reset ();
         evm_->Shutdown();
         if (thread_.get() != NULL) {
             thread_->Join();
@@ -162,12 +161,134 @@ class EchoServerTest : public ::testing::Test {
     }
 
     std::auto_ptr<ServerThread> thread_;
-    EchoServer *server_;
-    EchoClient *client_;
+    std::auto_ptr<EchoServer> server_;
+    std::auto_ptr<EchoClient> client_;
     std::auto_ptr<EventManager> evm_;
 };
 
-TEST_F(EchoServerTest, Basic) {
+class ClientThread
+{
+    public:
+        explicit ClientThread(EventManager *evm) :
+          thread_id_(pthread_self()),tbb_(NULL) {
+            client_.reset(new EchoClient (*evm->io_service()));
+        }
+        void Run() {
+            tbb_.reset(new tbb::task_scheduler_init(
+                        TaskScheduler::GetThreadCount() + 1));
+            client_->Initialize(0);
+            client_->Send (str_, rep_);
+            TASK_UTIL_EXPECT_TRUE(client_->client_rx_done()); // wait till client get resp
+            tbb_->terminate();
+        }
+        static void *ThreadRun(void *objp) {
+            ClientThread *obj = reinterpret_cast<ClientThread *>(objp);
+            obj->Run();
+            return NULL;
+        }
+        void Start() {
+            int res = pthread_create(&thread_id_, NULL, &ThreadRun, this);
+            TASK_UTIL_ASSERT_EQ(res, 0);
+        }
+        void Join() {
+            int res = pthread_join(thread_id_, NULL);
+            TASK_UTIL_ASSERT_EQ(res, 0);
+        }
+        void Send(std::string s, udp::endpoint to)
+        {
+            str_ = s;
+            rep_ = to;
+        }
+    private:
+        pthread_t thread_id_;
+        boost::scoped_ptr<tbb::task_scheduler_init> tbb_;
+        std::auto_ptr<EchoClient> client_;
+        std::string str_;
+        udp::endpoint rep_;
+};
+
+class EchoServerBranchTest : public ::testing::Test
+{
+    protected:
+      EchoServerBranchTest() : _test_run(false) {}
+      virtual void SetUp() {
+          UDP_UT_LOG_DEBUG("UDP branch test setup: " << _test_run);
+      }
+      virtual void TearDown() {
+          UDP_UT_LOG_DEBUG("UDP branch test teardown: " << _test_run);
+      }
+      void TestCreation() {
+          boost::asio::io_service io_service;
+          UDPServer s(io_service);
+          mutable_buffer b = s.AllocateBuffer ();
+          boost::system::error_code ec;
+          udp::endpoint ep(boost::asio::ip::address::from_string(
+                          "127.0.0.1", ec), 5555);
+          s.StartSend(ep, (size_t)10, b); // fail
+          s.StartReceive();
+          s.Initialize("127.0.0.1", 0);
+          s.Initialize(0);// hit error path.. shd ret
+          s.Shutdown();
+          UDP_UT_LOG_DEBUG("UDP branch test Shutdown: " << _test_run);
+      }
+    private:
+      bool _test_run;
+};
+
+class EchoServerMultiClientTest : public ::testing::Test
+{
+    protected:
+        static const int kNThreads = 4;
+    EchoServerMultiClientTest () { }
+
+    virtual void SetUp() {
+        evm_.reset(new EventManager());
+        server_.reset(new EchoServer(evm_.get()));
+        thread_.reset(new ServerThread(evm_.get()));
+        for (int i = 0; i < kNThreads; ++i) {
+            ClientThread *ct = new ClientThread(evm_.get());
+            clients_.push_back(ct);
+        }
+    }
+
+    void Start()
+    {
+        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
+                i < clients_.end(); ++i) {
+            i->Start();
+        }
+    }
+
+    void Send(std::string s, udp::endpoint to)
+    {
+        int j=0;
+        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
+                i < clients_.end(); ++i, ++j) {
+            i->Send(s + ":" + boost::lexical_cast<std::string>(j), to);
+        }
+    }
+
+    virtual void TearDown() {
+        server_->Reset ();
+        evm_->Shutdown();
+        if (thread_.get() != NULL) {
+            thread_->Join();
+        }
+        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
+                i < clients_.end(); ++i) {
+            i->Join();
+        }
+        task_util::WaitForIdle();
+    }
+
+    std::auto_ptr<ServerThread> thread_;
+    std::auto_ptr<EchoServer> server_;
+    std::auto_ptr<EventManager> evm_;
+    boost::ptr_vector<ClientThread> clients_;
+};
+
+TEST_F(EchoServerTest, Basic)
+{
     server_->Initialize(0);
     task_util::WaitForIdle();
     thread_->Start();
@@ -179,12 +300,40 @@ TEST_F(EchoServerTest, Basic) {
     UDP_UT_LOG_DEBUG("UDP Server port: " << port);
 
     client_->Initialize(0);
-    client_->Send ("Test udp", server_endpoint);
-    TASK_UTIL_EXPECT_TRUE(client_rx_done); // wait till client get resp
+    
+    boost::system::error_code ec;
+    client_->Send ("Test udp", udp::endpoint(
+                boost::asio::ip::address::from_string ("127.0.0.1", ec), port));
+    TASK_UTIL_EXPECT_TRUE(client_->client_rx_done()); // wait till client get resp
 
     TASK_UTIL_ASSERT_EQ (client_->GetTxBytes(), server_->GetRxBytes());
     TASK_UTIL_ASSERT_EQ (client_->GetRxBytes(), server_->GetTxBytes());
 }
+
+TEST_F(EchoServerBranchTest, Basic)
+{
+    TestCreation();
+}
+
+/*
+TEST_F(EchoServerMultiClientTest, Basic)
+{
+    server_->Initialize(0);
+    task_util::WaitForIdle();
+    thread_->Start();
+    server_->StartReceive();
+    udp::endpoint server_endpoint = server_->GetLocalEndPoint();
+    UDP_UT_LOG_DEBUG("UDP Server: " << server_endpoint);
+    int port = server_endpoint.port();
+    ASSERT_LT(0, port);
+    UDP_UT_LOG_DEBUG("UDP Server port: " << port);
+
+    boost::system::error_code ec;
+    Send("Test mc udp", udp::endpoint(
+                boost::asio::ip::address::from_string ("127.0.0.1", ec), port));
+    Start();
+}
+*/
 
 }  // namespace
 
