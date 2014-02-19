@@ -66,6 +66,7 @@ public:
     bool RebakeAllTunnelNHinCompositeNH(const AgentRoute *sync_route,
                                         const NextHop *nh);
     virtual std::string ToString() const { return "AgentPath"; }
+    void SetSandeshData(PathSandeshData &data) const;
 
 private:
     const Peer *peer_;
@@ -118,7 +119,7 @@ public:
     virtual string ToString() const {return "local VM";}
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     const SecurityGroupList &sg_list() const {return sg_list_;}
-    void tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
+    void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
 
 private:
     VmInterfaceKey intf_;
