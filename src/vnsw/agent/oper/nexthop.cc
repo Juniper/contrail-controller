@@ -921,16 +921,11 @@ bool ResolveNH::CanAdd() const {
     return true;
 }
 
-void ResolveNH::CreateReq( ) {
-    DBRequest req;
-
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *key = new ResolveNHKey();
-    req.key.reset(key);
-
-    ResolveNHData *data =new ResolveNHData();
-    req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+void ResolveNH::Create( ) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new ResolveNHKey());
+    req.data.reset(new ResolveNHData());
+    NextHopTable::GetInstance()->Process(req);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -944,16 +939,11 @@ bool DiscardNH::CanAdd() const {
     return true;
 }
 
-void DiscardNH::CreateReq( ) {
-    DBRequest req;
-
-    req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    NextHopKey *key = new DiscardNHKey();
-    req.key.reset(key);
-
-    DiscardNHData *data =new DiscardNHData();
-    req.data.reset(data);
-    NextHopTable::GetInstance()->Enqueue(&req);
+void DiscardNH::Create( ) {
+    DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    req.key.reset(new DiscardNHKey());
+    req.data.reset(new DiscardNHData());
+    NextHopTable::GetInstance()->Process(req);
 }
 
 /////////////////////////////////////////////////////////////////////////////

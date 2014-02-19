@@ -5,17 +5,16 @@
 #ifndef vnsw_agent_path_hpp
 #define vnsw_agent_path_hpp
 
-// Path info for every route entry
+// A common class for all different type of paths
 class AgentPath : public Path {
 public:
     AgentPath(const Peer *peer, AgentRoute *rt) : 
         Path(), peer_(peer), nh_(NULL), label_(MplsTable::kInvalidLabel),
         vxlan_id_(VxLanTable::kInvalidvxlan_id), dest_vn_name_(""),
-        unresolved_(true), sync_(false), vrf_name_(""), dependant_rt_(rt),
-        proxy_arp_(false), force_policy_(false), 
-        tunnel_bmap_(TunnelType::AllType()),
-        tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())), 
-        interfacenh_flags_(0), server_ip_(Agent::GetInstance()->GetRouterId()) {
+        sync_(false), proxy_arp_(false), force_policy_(false), sg_list_(),
+        server_ip_(0), tunnel_bmap_(TunnelType::AllType()),
+        tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
+        vrf_name_(""), gw_ip_(0), unresolved_(true), dependant_rt_(rt) {
     }
     virtual ~AgentPath() { }
 
@@ -32,7 +31,6 @@ public:
     const bool unresolved() const {return unresolved_;}
     const Ip4Address& server_ip() const {return server_ip_;}
     const string &dest_vn_name() const {return dest_vn_name_;}
-    uint8_t interface_nh_flags() const {return interfacenh_flags_;}
     const SecurityGroupList &sg_list() const {return sg_list_;}
 
     uint32_t GetActiveLabel() const;
@@ -50,7 +48,6 @@ public:
     void set_vrf_name(const string &vrf_name) {vrf_name_ = vrf_name;}
     void set_tunnel_bmap(TunnelType::TypeBmap bmap) {tunnel_bmap_ = bmap;}
     void set_tunnel_type(TunnelType::Type type) {tunnel_type_ = type;}
-    void set_interface_nh_flags(uint8_t flags) {interfacenh_flags_ = flags;}
     void set_sg_list(SecurityGroupList &sg) {sg_list_ = sg;}
     void clear_sg_list() { sg_list_.clear(); }
     void set_server_ip(const Ip4Address &server_ip) {server_ip_ = server_ip;}
@@ -70,27 +67,43 @@ public:
 
 private:
     const Peer *peer_;
+    // Nexthop for route. Not used for gateway routes
     NextHopRef nh_;
+    // MPLS Label sent by control-node
     uint32_t label_;
+    // VXLAN-ID sent by control-node
     uint32_t vxlan_id_;
+    // destination vn-name used in policy lookups
     string dest_vn_name_;
-    // Points to gateway route, if this path is part of
-    // indirect route
-    bool unresolved_;
     bool sync_;
-    string vrf_name_;
-    Ip4Address gw_ip_;
-    DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
+
+    // Proxy-Arp enabled for the route?
     bool proxy_arp_;
+    // When force_policy_ is not set,
+    //     Use nexthop with policy if policy enabled on interface
+    //     Use nexthop without policy if policy is disabled on interface
+    // When force_policy_ is set
+    //     Use nexthop with policy irrespective of interface configuration
     bool force_policy_;
-    //tunnel_bmap_ is used to store the bmap sent in remote route
-    // by control node
-    TunnelType::TypeBmap tunnel_bmap_;
-    //Tunnel type stores the encap type used for route
-    TunnelType::Type tunnel_type_;
-    uint8_t interfacenh_flags_;
     SecurityGroupList sg_list_;
+
+    // tunnel destination address
     Ip4Address server_ip_;
+    // tunnel_bmap_ sent by control-node
+    TunnelType::TypeBmap tunnel_bmap_;
+    // tunnel-type computed for the path
+    TunnelType::Type tunnel_type_;
+
+    // VRF for gw_ip_ in gateway route
+    string vrf_name_;
+    // gateway for the route
+    Ip4Address gw_ip_;
+    // gateway route is unresolved if,
+    //    - no route present for gw_ip_
+    //    - ARP not resolved for gw_ip_
+    bool unresolved_;
+    // route for the gateway
+    DependencyRef<AgentRoute, AgentRoute> dependant_rt_;
     DISALLOW_COPY_AND_ASSIGN(AgentPath);
 };
 

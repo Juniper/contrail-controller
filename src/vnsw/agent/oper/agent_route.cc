@@ -179,7 +179,7 @@ void AgentRouteTable::EvaluateUnresolvedRoutes(void) {
     for (UnresolvedRouteTree::iterator it = unresolved_rt_tree_.begin();
          it !=  unresolved_rt_tree_.end(); ++it) {
        const AgentRoute *rt = *it;
-       rt->ResyncRoute(); 
+       rt->EnqueueRouteResync(); 
     }
 
     unresolved_rt_tree_.clear();
@@ -651,7 +651,7 @@ void AgentRoute::ResyncTunnelNextHop(void) {
 }
 
 // Enqueue request to RESYNC a route
-void AgentRoute::ResyncRoute(void) const {
+void AgentRoute::EnqueueRouteResync(void) const {
     DBRequest  req(DBRequest::DB_ENTRY_ADD_CHANGE);
     req.key = GetDBRequestKey();
     (static_cast<AgentKey *>(req.key.get()))->sub_op_ = AgentKey::RESYNC;
@@ -666,7 +666,7 @@ void AgentRoute::UpdateDependantRoutes(void) {
     for (AgentRoute::RouteDependencyList::iterator iter = 
          dependant_routes_.begin(); iter != dependant_routes_.end(); iter++) {
         AgentRoute *rt = iter.operator->();
-        rt->ResyncRoute();
+        rt->EnqueueRouteResync();
     }
 }
 

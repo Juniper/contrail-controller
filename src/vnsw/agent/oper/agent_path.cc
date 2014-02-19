@@ -21,9 +21,8 @@ using namespace std;
 using namespace boost::asio;
 
 uint32_t AgentPath::GetTunnelBmap() const {
-    if ((TunnelType::ComputeType(TunnelType::AllType()) == 
-         (1 << TunnelType::VXLAN)) &&
-        (vxlan_id_ != 0)) {
+    TunnelType::Type type = TunnelType::ComputeType(TunnelType::AllType());
+    if ((type == (1 << TunnelType::VXLAN)) && (vxlan_id_ != 0)) {
         return (1 << TunnelType::VXLAN);
     } else {
         return tunnel_bmap_;
@@ -60,12 +59,7 @@ const NextHop* AgentPath::nexthop(Agent *agent) const {
 bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
     // If NH is not found, point route to discard NH
     if (nh == NULL) {
-        //TODO convert to oper_trace
-        //LOG(DEBUG, "NH not found for route <" << path->vrf_name_ << 
-        //    ":"  << rt_key->addr_.to_string() << "/" << rt_key->plen_
-        //    << ">. Setting NH to Discard NH ");
-        DiscardNHKey key;
-        nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+        nh = agent->nexthop_table()->discard_nh();
     }
 
     if (nh_ != nh) {
@@ -185,9 +179,7 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
             LOG(DEBUG, "Interface NH for <" 
                 << boost::lexical_cast<std::string>(vm_port->GetUuid())
                 << " : policy = " << policy);
-            DiscardNHKey key;
-            nh = static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntry(&key));
+            nh = agent->nexthop_table()->discard_nh();
         }
         if (ChangeNH(agent, nh) == true) {
             ret = true;
@@ -325,9 +317,7 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
 }
 
 bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
-    NextHop *nh = NULL;
-    DiscardNHKey key;
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+    NextHop *nh = agent->nexthop_table()->discard_nh();
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         return true;

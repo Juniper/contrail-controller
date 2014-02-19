@@ -219,7 +219,7 @@ public:
     uint32_t GetMplsLabel() const; 
     const std::string &dest_vn_name() const;
 
-    void ResyncRoute() const;
+    void EnqueueRouteResync() const;
     void ResyncTunnelNextHop();
     bool HasUnresolvedPath();
     bool CanDissociate() const;
