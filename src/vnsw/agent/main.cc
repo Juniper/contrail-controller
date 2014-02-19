@@ -62,6 +62,7 @@ bool GetBuildInfo(std::string &build_info_str) {
 static int agent_main(int argc, char *argv[]) {
     boost::system::error_code error;
 
+    string init_file = "/etc/contrail/agent.conf";
     string conf_file = "/etc/contrail/vrouter.conf";
     string hostname(boost::asio::ip::host_name(error));
     bool log_local = false;
@@ -82,16 +83,13 @@ static int agent_main(int argc, char *argv[]) {
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
-       ("help", "help message")
-       ("config-file", opt::value<string>(), "Configuration file")
-       ("version", "Display version information")
-
        ("COLLECTOR.port", opt::value<uint16_t>()->default_value(ContrailPorts::CollectorPort),
             "Port of sandesh collector")
        ("COLLECTOR.server", opt::value<string>()->default_value(""),
             "IP address of sandesh collector")
 
-       ("DEFAULTS.config-file", opt::value<string>(), "Agent Configuration file")
+       ("DEFAULTS.config-file", opt::value<string>()->default_value(init_file),
+            "Agent Configuration file")
        ("DEFAULTS.hostname", opt::value<string>()->default_value(hostname),
             "Specific Host Name")
        ("DEFAULTS.http-server-port",
@@ -170,7 +168,6 @@ static int agent_main(int argc, char *argv[]) {
         exit(0);
     }
 
-    string init_file = "";
     if (var_map.count("DEFAULTS.config-file")) {
         GetOptValue<string>(var_map, init_file, "DEFAULTS.config-file", "");
         struct stat s;
