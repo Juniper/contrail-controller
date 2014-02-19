@@ -95,8 +95,8 @@ class CpuInfo(object):
                         command + " awk '{print $2}'").read()
                     build_num = os.popen(command + " awk '{print $3}'").read()
                     self._new_build_info = build_info + '"build-id" : "' + \
-                        rpm_version + '", "build-number" : "' + \
-                        build_num + '"}]}'
+                        rpm_version.rstrip('\n') + '", "build-number" : "' + \
+                        build_num.rstrip('\n') + '"}]}'
                 if (self._new_build_info != self._curr_build_info):
                     self._curr_build_info = self._new_build_info
                     self._build_change = 1
