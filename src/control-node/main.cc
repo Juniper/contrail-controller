@@ -365,6 +365,7 @@ void ControlNodeShutdown() {
 }
 
 static int control_node_main(int argc, char *argv[]) {
+    LoggingInit();
     boost::system::error_code error;
 
     // Specify defaults for all options possible.
@@ -670,10 +671,10 @@ int main(int argc, char *argv[]) {
         return control_node_main(argc, argv);
     } catch (boost::program_options::error &e) {
         LOG(ERROR, "Error " << e.what());
-        cout << "Error " << e.what();
+        cout << "Error " << e.what() << endl;
     } catch (...) {
         LOG(ERROR, "Options Parser: Caught fatal unknown exception");
-        cout << "Options Parser: Caught fatal unknown exception";
+        cout << "Options Parser: Caught fatal unknown exception" << endl;
     }
 
     return(-1);

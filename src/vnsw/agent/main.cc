@@ -207,10 +207,10 @@ int main(int argc, char *argv[]) {
         return agent_main(argc, argv);
     } catch (boost::program_options::error &e) {
         LOG(ERROR, "Error " << e.what());
-        cout << "Error " << e.what();
+        cout << "Error " << e.what() << endl;
     } catch (...) {
         LOG(ERROR, "Options Parser: Caught fatal unknown exception");
-        cout << "Options Parser: Caught fatal unknown exception";
+        cout << "Options Parser: Caught fatal unknown exception" << endl;
     }
 
     return(-1);

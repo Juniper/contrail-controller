@@ -418,10 +418,10 @@ int main(int argc, char *argv[]) {
         return qed_main(argc, argv);
     } catch (boost::program_options::error &e) {
         LOG(ERROR, "Error " << e.what());
-        std::cout << "Error " << e.what();
+        std::cout << "Error " << e.what() << std::endl;
     } catch (...) {
         LOG(ERROR, "Options Parser: Caught fatal unknown exception");
-        std::cout << "Options Parser: Caught fatal unknown exception";
+        std::cout << "Options Parser: Caught fatal unknown exception" << std::endl;
     }
 
     return(-1);
