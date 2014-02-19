@@ -95,8 +95,7 @@ private:
 
 class ResolveRoute : public AgentRouteData {
 public:
-    ResolveRoute(Op op  = AgentRouteData::CHANGE) : AgentRouteData(op, false) {
-    }
+    ResolveRoute() : AgentRouteData(false) { }
     virtual ~ResolveRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "Resolve";}
@@ -108,12 +107,10 @@ class LocalVmRoute : public AgentRouteData {
 public:
     LocalVmRoute(const VmInterfaceKey &intf, uint32_t mpls_label, 
                  uint32_t vxlan_id, bool force_policy, const string &vn_name,
-                 uint8_t flags, const SecurityGroupList &sg_list,
-                 Op op = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false), intf_(intf),
-        mpls_label_(mpls_label), vxlan_id_(vxlan_id),
-        force_policy_(force_policy), dest_vn_name_(vn_name),
-        proxy_arp_(true), sync_route_(false),
+                 uint8_t flags, const SecurityGroupList &sg_list) :
+        AgentRouteData(false), intf_(intf), mpls_label_(mpls_label),
+        vxlan_id_(vxlan_id), force_policy_(force_policy),
+        dest_vn_name_(vn_name), proxy_arp_(true), sync_route_(false),
         flags_(flags), sg_list_(sg_list), tunnel_bmap_(TunnelType::MplsType()) {
     }
     virtual ~LocalVmRoute() { }
@@ -142,11 +139,10 @@ public:
     RemoteVmRoute(const string &vrf_name, const Ip4Address &addr,
                   uint32_t label, const string &dest_vn_name,
                   int bmap, const SecurityGroupList &sg_list,
-                  DBRequest &req, Op op = AgentRouteData::CHANGE):
-        AgentRouteData(op, false), server_vrf_(vrf_name),
-        server_ip_(addr), tunnel_bmap_(bmap), 
-        label_(label), dest_vn_name_(dest_vn_name), sg_list_(sg_list) {
-        nh_req_.Swap(&req);
+                  DBRequest &req):
+        AgentRouteData(false), server_vrf_(vrf_name), server_ip_(addr),
+        tunnel_bmap_(bmap), label_(label), dest_vn_name_(dest_vn_name),
+        sg_list_(sg_list) { nh_req_.Swap(&req);
     }
     virtual ~RemoteVmRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -167,9 +163,8 @@ private:
 class InetInterfaceRoute : public AgentRouteData {
 public:
     InetInterfaceRoute(const InetInterfaceKey &intf, uint32_t label,
-                       int tunnel_bmap, const string &dest_vn_name,
-                       Op op = AgentRouteData::CHANGE) : 
-        AgentRouteData(op,false), intf_(intf), label_(label), 
+                       int tunnel_bmap, const string &dest_vn_name) : 
+        AgentRouteData(false), intf_(intf), label_(label), 
         tunnel_bmap_(tunnel_bmap), dest_vn_name_(dest_vn_name) {
     }
     virtual ~InetInterfaceRoute() { }
@@ -186,10 +181,9 @@ private:
 
 class HostRoute : public AgentRouteData {
 public:
-    HostRoute(const PacketInterfaceKey &intf, const string &dest_vn_name,
-              Op op  = AgentRouteData::CHANGE) : 
-        AgentRouteData(op, false), intf_(intf),
-        dest_vn_name_(dest_vn_name), proxy_arp_(false) {
+    HostRoute(const PacketInterfaceKey &intf, const string &dest_vn_name) : 
+        AgentRouteData(false), intf_(intf), dest_vn_name_(dest_vn_name),
+        proxy_arp_(false) {
     }
     virtual ~HostRoute() { }
     void EnableProxyArp() {proxy_arp_ = true;}
@@ -206,11 +200,9 @@ private:
 class VlanNhRoute : public AgentRouteData {
 public:
     VlanNhRoute(const VmInterfaceKey &intf, uint16_t tag, uint32_t label,
-                const string &dest_vn_name, const SecurityGroupList &sg_list,
-                Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false), intf_(intf),
-        tag_(tag), label_(label), dest_vn_name_(dest_vn_name), 
-        sg_list_(sg_list) {
+                const string &dest_vn_name, const SecurityGroupList &sg_list) :
+        AgentRouteData(false), intf_(intf), tag_(tag), label_(label),
+        dest_vn_name_(dest_vn_name), sg_list_(sg_list) {
     }
     virtual ~VlanNhRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -232,9 +224,8 @@ public:
                    const string &vn_name, 
                    const string &vrf_name,
                    int vxlan_id,
-                   COMPOSITETYPE type, Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, true), 
-        src_addr_(src_addr), grp_addr_(grp_addr),
+                   COMPOSITETYPE type) :
+        AgentRouteData(true), src_addr_(src_addr), grp_addr_(grp_addr),
         vn_name_(vn_name), vrf_name_(vrf_name), vxlan_id_(vxlan_id),
         comp_type_(type) {
     }
@@ -255,11 +246,10 @@ private:
 class ReceiveRoute : public AgentRouteData {
 public:
     ReceiveRoute(const InetInterfaceKey &intf, uint32_t label,
-                 uint32_t tunnel_bmap, bool policy, const string &vn,
-                 Op op  = AgentRouteData::CHANGE) : 
-        AgentRouteData(op, false), intf_(intf), 
-        label_(label), tunnel_bmap_(tunnel_bmap),
-        policy_(policy), proxy_arp_(false), vn_(vn), sg_list_() {
+                 uint32_t tunnel_bmap, bool policy, const string &vn) : 
+        AgentRouteData(false), intf_(intf), label_(label),
+        tunnel_bmap_(tunnel_bmap), policy_(policy), proxy_arp_(false),
+        vn_(vn), sg_list_() {
     }
     virtual ~ReceiveRoute() { }
     void EnableProxyArp() {proxy_arp_ = true;}
@@ -283,8 +273,8 @@ public:
                           const string &vn_name, 
                           uint32_t label, bool local_ecmp_nh, 
                           const string &vrf_name, SecurityGroupList sg_list,
-                          DBRequest &nh_req, Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false), dest_addr_(dest_addr), plen_(plen),
+                          DBRequest &nh_req) :
+        AgentRouteData(false), dest_addr_(dest_addr), plen_(plen),
         vn_name_(vn_name), label_(label), local_ecmp_nh_(local_ecmp_nh),
         vrf_name_(vrf_name), sg_list_(sg_list) {
             nh_req_.Swap(&nh_req);
@@ -309,9 +299,8 @@ private:
 class Inet4UnicastArpRoute : public AgentRouteData {
 public:
     Inet4UnicastArpRoute(const string &vrf_name, 
-                         const Ip4Address &addr,
-                         Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false), vrf_name_(vrf_name), addr_(addr) {
+                         const Ip4Address &addr) :
+        AgentRouteData(false), vrf_name_(vrf_name), addr_(addr) {
     }
     virtual ~Inet4UnicastArpRoute() { }
 
@@ -326,10 +315,8 @@ private:
 class Inet4UnicastGatewayRoute : public AgentRouteData {
 public:
     Inet4UnicastGatewayRoute(const Ip4Address &gw_ip, 
-                             const string &vrf_name,
-                             Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false), gw_ip_(gw_ip), 
-        vrf_name_(vrf_name) {
+                             const string &vrf_name) :
+        AgentRouteData(false), gw_ip_(gw_ip), vrf_name_(vrf_name) {
     }
     virtual ~Inet4UnicastGatewayRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
@@ -343,9 +330,7 @@ private:
 
 class DropRoute : public AgentRouteData {
 public:
-    DropRoute(Op op  = AgentRouteData::CHANGE) :
-        AgentRouteData(op, false) {
-    }
+    DropRoute() : AgentRouteData(false) { }
     virtual ~DropRoute() { }
     virtual bool AddChangePath(Agent *agent, AgentPath *path);
     virtual string ToString() const {return "drop";}

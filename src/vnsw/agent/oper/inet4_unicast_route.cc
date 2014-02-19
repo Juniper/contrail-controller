@@ -675,6 +675,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
             data = new Inet4UnicastArpRoute(vrf_name, ip);
         } else {
             rt_key->sub_op_ = AgentKey::RESYNC;
+            rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
         }
         break;
     }

@@ -653,6 +653,12 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         } else if (event == DELETE_PATH) {
             rt_info.set_op("PATH DELETE");
         }
+
+        if (path == NULL) {
+            rt_info.set_nh_type("<NULL>");
+            break;
+        }
+
         if (path->peer()) {
             rt_info.set_peer(path->peer()->GetName());
         }

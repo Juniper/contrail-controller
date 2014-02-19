@@ -48,21 +48,14 @@ struct AgentRouteKey : public AgentKey {
 };
 
 struct AgentRouteData : public AgentData {
-    enum Op {
-        CHANGE,
-        RESYNC,
-    };
-    AgentRouteData(Op op, bool is_multicast) :
-        op_(op), is_multicast_(is_multicast) { }
+    AgentRouteData(bool is_multicast) : is_multicast_(is_multicast) { }
     virtual ~AgentRouteData() { }
 
     virtual std::string ToString() const = 0;
     virtual bool AddChangePath(Agent *agent, AgentPath *path) = 0;
 
     bool is_multicast() const {return is_multicast_;}
-    Op op() const { return op_; }
 
-    Op op_;
     bool is_multicast_;
     DISALLOW_COPY_AND_ASSIGN(AgentRouteData);
 };
@@ -173,8 +166,8 @@ private:
     void DeleteRouteDone(DBTableBase *base, RouteTableWalkerState *state);
 
     void Input(DBTablePartition *part, DBClient *client, DBRequest *req);
-    void DeleteRoute(DBTablePartBase *part, AgentRoute *rt, 
-                     const Peer *peer);
+    void DeletePathFromPeer(DBTablePartBase *part, AgentRoute *rt,
+                            const Peer *peer);
 
     Agent *agent_;
     UnresolvedRouteTree unresolved_rt_tree_;
@@ -243,7 +236,7 @@ protected:
 
 private:
     friend class AgentRouteTable;
-    void RemovePath(const Peer *peer);
+    void RemovePath(AgentPath *path);
     void InsertPath(const AgentPath *path);
     bool SyncPath(AgentPath *path);
 

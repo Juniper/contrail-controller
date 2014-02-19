@@ -107,7 +107,7 @@ bool AgentRouteTable::DelPeerRoutes(DBTablePartBase *part,
                                     DBEntryBase *entry, Peer *peer) {
     AgentRoute *route = static_cast<AgentRoute *>(entry);
     if (route) {
-        DeleteRoute(part, route, peer);
+        DeletePathFromPeer(part, route, peer);
     }
     return true;
 }
@@ -124,7 +124,7 @@ bool AgentRouteTable::DeleteAllBgpPath(DBTablePartBase *part,
             const Peer *peer = path->peer();
             it++;
             if (peer && peer->GetType() == Peer::BGP_PEER) {
-                DeleteRoute(part, route, path->peer());
+                DeletePathFromPeer(part, route, path->peer());
             }
         }
     }
@@ -205,28 +205,25 @@ void AgentRouteTable::RemoveUnresolvedRoute(const AgentRoute *rt) {
 // For VM spawned locally, we path BGP_PEER path with higher priority than 
 // LOCAL_VM peer path. But, controller-peer needs to know deletion of 
 // LOCAL_VM path to retract the route.  So, force notify deletion of any path.
-void AgentRouteTable::DeleteRoute(DBTablePartBase *part,
-                                  AgentRoute *rt, const Peer *peer) {
+void AgentRouteTable::DeletePathFromPeer(DBTablePartBase *part,
+                                         AgentRoute *rt, const Peer *peer) {
     if (rt == NULL) {
         return;
     }
 
-    // Remember to notify if path being deleted is active one
-    const AgentPath *active_path = 
-        static_cast<const AgentPath *>(rt->GetActivePath());
-    if (active_path == NULL) {
-        // no active_path means - route has no paths left
+    // Find path for the peer
+    AgentPath *path = rt->FindPath(peer);
+
+    RouteInfo rt_info;
+    rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, path);
+    OPER_TRACE(Route, rt_info);
+
+    if (path == NULL) {
         return;
     }
 
-    if (rt->FindPath(peer)) {
-        RouteInfo rt_info;
-        rt->FillTrace(rt_info, AgentRoute::DELETE_PATH, rt->FindPath(peer));
-        OPER_TRACE(Route, rt_info);
-    }
-
     // Remove path from the route
-    rt->RemovePath(peer);
+    rt->RemovePath(path);
 
     // Delete route if no more paths 
     if (rt->GetActivePath() == NULL) {
@@ -238,7 +235,6 @@ void AgentRouteTable::DeleteRoute(DBTablePartBase *part,
         rt->ResyncTunnelNextHop();
         ProcessDelete(rt);
         part->Delete(rt);
-        return;
     } else {
         // Notify deletion of path. 
         part->Notify(rt);
@@ -292,39 +288,40 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
 
     AgentPath *path = NULL;
     AgentRoute *rt = static_cast<AgentRoute *>(part->Find(key));
-    if (key->sub_op_ == AgentKey::RESYNC) {
-        if(vrf->IsDeleted()) {
-            //Route change, received on deleted VRF
-            return;
-        }
 
-        // For RESYNC operation, invoke Sync only if route is already present
-        if (rt) {
-            rt->Sync();
-            notify = true;
-        }
-    } else if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
-        if(vrf->IsDeleted()) {
-            //Route change, received on deleted VRF
-            return;
-        }
+    if (req->oper == DBRequest::DB_ENTRY_ADD_CHANGE) {
+        if (key->sub_op_ == AgentKey::RESYNC) {
+            // Ignore RESYNC if received on deleted VRF
+            if(vrf->IsDeleted()) {
+                return;
+            }
 
-        // Renew the route if its in deleted state
-        if (rt && rt->IsDeleted()) {
-            rt->ClearDelete();
-            ProcessAdd(rt);
-            notify = true;
-        }
+            // Ignore RESYNC if received on non-existing or deleted route entry
+            if (rt && (rt->IsDeleted() == false)) {
+                rt->Sync();
+                notify = true;
+            }
+        } else if (key->sub_op_ == AgentKey::ADD_DEL_CHANGE) {
+            // Ignore ADD_CHANGE if received on deleted VRF
+            if(vrf->IsDeleted()) {
+                return;
+            }
 
-        if (data->op() == AgentRouteData::CHANGE) {
+            // Renew the route if its in deleted state
+            if (rt && rt->IsDeleted()) {
+                rt->ClearDelete();
+                ProcessAdd(rt);
+                notify = true;
+            }
+
             // Add route if not present already
             if (rt == NULL) {
                 //If route is a gateway route first check
                 //if its corresponding direct route is present
                 //or not, if not present dont add the route
                 //just maintain it in unresolved list
-                rt = static_cast<AgentRoute *>(key->AllocRouteEntry(vrf, 
-                                               data->is_multicast()));
+                rt = static_cast<AgentRoute *>(key->AllocRouteEntry
+                                               (vrf, data->is_multicast()));
                 assert(rt->vrf() != NULL);
                 part->Add(rt);
                 // Mark path as NULL so that its allocated below
@@ -334,6 +331,8 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 rt->FillTrace(rt_info, AgentRoute::ADD, NULL);
                 OPER_TRACE(Route, rt_info);
                 route_added = true;
+                AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
+                                key->peer());
             } else {
                 // RT present. Check if path is also present by peer
                 path = rt->FindPath(key->peer());
@@ -363,18 +362,18 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
             if (path->RouteNeedsSync()) 
                 rt->Sync();
 
-            if (route_added == true) {
-                AGENT_ROUTE_LOG("Added route", rt->ToString(), vrf_name(),
-                                key->peer());
+            if (route_added) {
+                EvaluateUnresolvedRoutes();
+                EvaluateUnresolvedNH();
             }
+        } else {
+            assert(0);
         }
-
-        if (route_added) {
-            EvaluateUnresolvedRoutes();
-            EvaluateUnresolvedNH();
-        }
+    } else if (req->oper == DBRequest::DB_ENTRY_DELETE) {
+        assert (key->sub_op_ == AgentKey::ADD_DEL_CHANGE);
+        DeletePathFromPeer(part, rt, key->peer());
     } else {
-        DeleteRoute(part, rt, key->peer());
+        assert(0);
     }
 
     //If this route has a unresolved path, insert to unresolved list
@@ -430,8 +429,8 @@ AgentRoute *AgentRouteTable::FindActiveEntry(const AgentRouteKey *key) {
 }
 
 bool AgentRouteTable::NotifyRouteEntryWalk(AgentXmppChannel *bgp_xmpp_peer,
-                                  DBState *vrf_entry_state,
-                                  bool associate, bool unicast_walk, bool multicast_walk,
+                                  DBState *vrf_entry_state, bool associate,
+                                  bool unicast_walk, bool multicast_walk,
                                   DBTablePartBase *part, DBEntryBase *entry) {
     AgentRoute *route = static_cast<AgentRoute *>(entry);
     VrfExport::State *vs = static_cast<VrfExport::State *>(vrf_entry_state);
@@ -567,19 +566,13 @@ void AgentRoute::InsertPath(const AgentPath *path) {
     Sort(&AgentRouteTable::PathSelection, prev_front);
 }
 
-void AgentRoute::RemovePath(const Peer *peer) {
-    for(Route::PathList::iterator it = GetPathList().begin(); 
-        it != GetPathList().end(); it++) {
-        AgentPath *path = static_cast<AgentPath *>(it.operator->());
-        if (path->peer() == peer) {
-            const Path *prev_front = front();
-            remove(path);
-            path->clear_sg_list();
-            Sort(&AgentRouteTable::PathSelection, prev_front);
-            delete path;
-            return;
-        }
-    }
+void AgentRoute::RemovePath(AgentPath *path) {
+    const Path *prev_front = front();
+    remove(path);
+    path->clear_sg_list();
+    Sort(&AgentRouteTable::PathSelection, prev_front);
+    delete path;
+    return;
 }
 
 AgentPath *AgentRoute::FindPath(const Peer *peer) const {
