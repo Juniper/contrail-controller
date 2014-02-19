@@ -279,22 +279,17 @@ size_t BitSet::find_next(size_t pos) const {
 // Return the position of the last set bit.  Needs to compensate for the
 // return value convention used by find_last_set64.
 //
-// Note that the for loop does not handle idx 0 since the loop  variable
-// is unsigned.
+// Note that we only need to look at the last block since that must have
+// at least one bit set.
 //
 size_t BitSet::find_last() const {
     if (blocks_.size() == 0)
         return BitSet::npos;
 
-    for (size_t idx = blocks_.size() -1; idx > 0; idx++) {
-        int bit = find_last_set64(blocks_[idx]);
-        if (bit > 0)
-            return bit_position(idx, bit - 1);
-    }
-
-    int bit = find_last_set64(blocks_[0]);
+    size_t idx = blocks_.size() - 1;
+    int bit = find_last_set64(blocks_[idx]);
     if (bit > 0)
-        return bit_position(0, bit - 1);
+        return bit_position(idx, bit - 1);
 
     return BitSet::npos;
 }
