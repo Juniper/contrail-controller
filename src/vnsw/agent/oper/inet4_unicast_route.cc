@@ -262,7 +262,6 @@ void Inet4UnicastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
 
 bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
     Inet4UcRouteResp *resp = static_cast<Inet4UcRouteResp *>(sresp);
-    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
 
     RouteUcSandeshData data;
     data.set_src_ip(addr_.to_string());
@@ -273,21 +272,7 @@ bool Inet4UnicastRouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
             PathSandeshData pdata;
-            path->nexthop(agent)->SetNHSandeshData(pdata.nh);
-            pdata.set_label(path->label());
-            pdata.set_peer(const_cast<Peer *>(path->peer())->GetName());
-            pdata.set_dest_vn(path->dest_vn_name());
-            pdata.set_unresolved(path->unresolved() ? "true" : "false");
-            if (!path->gw_ip().is_unspecified()) {
-                pdata.set_gw_ip(path->gw_ip().to_string());
-                pdata.set_vrf(path->vrf_name());
-            }
-            if (path->proxy_arp()) {
-                pdata.set_proxy_arp("ProxyArp");
-            } else {
-                pdata.set_proxy_arp("NoProxyArp");
-            }
-            pdata.set_sg_list(path->sg_list());
+            path->SetSandeshData(pdata);
             data.path_list.push_back(pdata);
         }
     }
@@ -713,7 +698,7 @@ void Inet4UnicastAgentRouteTable::AddInetInterfaceRoute(const Peer *peer,
 
     InetInterfaceKey intf_key(interface);
     InetInterfaceRoute *data = new InetInterfaceRoute
-        (intf_key, label, TunnelType::AllType(), vn_name);
+        (intf_key, label, TunnelType::GREType(), vn_name);
     req.data.reset(data);
 
     UnicastTableEnqueue(Agent::GetInstance(), vm_vrf, &req);
