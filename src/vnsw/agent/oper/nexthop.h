@@ -435,7 +435,7 @@ public:
         return DBEntryBase::KeyPtr(new DiscardNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 
 private:
     DISALLOW_COPY_AND_ASSIGN(DiscardNH);
@@ -547,7 +547,7 @@ public:
         return DBEntryBase::KeyPtr(new ResolveNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 private:
     DISALLOW_COPY_AND_ASSIGN(ResolveNH);
 };
@@ -1279,10 +1279,15 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static NextHopTable *GetInstance() {return nexthop_table_;};
 
+    void set_discard_nh(NextHop *nh) { discard_nh_ = nh; }
+    NextHop *discard_nh() const {return discard_nh_;}
+
 private:
-    static NextHopTable *nexthop_table_;
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
+
+    NextHop *discard_nh_;
+    static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);
 };
 #endif // vnsw_agent_nexthop_hpp
