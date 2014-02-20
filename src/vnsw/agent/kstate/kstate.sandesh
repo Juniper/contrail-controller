@@ -164,6 +164,10 @@ response sandesh ErrResp {
     1: string resp = "   Invalid Input !!!   ";
 }
 
+response sandesh InternalErrResp {
+    1: string resp = "   Internal Error !!!   ";
+}
+
 struct KVrfAssignInfo {
     1: i16          vif_index;
     2: i16          vlan_id;

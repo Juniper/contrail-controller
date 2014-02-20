@@ -14,8 +14,8 @@ public:
                       IoContext::IoContextWorkQId id) 
         : IoContext(msg, msg_len, seqno, ctx, id) {}
     virtual ~VrfStatsIoContext() {}
-    void Handler();
-    void ErrorHandler(int err);
+    virtual void Handler();
+    virtual void ErrorHandler(int err);
 private:
     DISALLOW_COPY_AND_ASSIGN(VrfStatsIoContext);
 };
