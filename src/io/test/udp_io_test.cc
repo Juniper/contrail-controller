@@ -166,46 +166,6 @@ class EchoServerTest : public ::testing::Test
     std::auto_ptr<EventManager> evm_;
 };
 
-class ClientThread
-{
-    public:
-        explicit ClientThread(EventManager *evm) :
-          thread_id_(pthread_self()),tbb_(NULL) {
-            client_.reset(new EchoClient (*evm->io_service()));
-        }
-        void Run() {
-            tbb_.reset(new tbb::task_scheduler_init(
-                        TaskScheduler::GetThreadCount() + 1));
-            client_->Initialize(0);
-            client_->Send (str_, rep_);
-            TASK_UTIL_EXPECT_TRUE(client_->client_rx_done()); // wait till client get resp
-            tbb_->terminate();
-        }
-        static void *ThreadRun(void *objp) {
-            ClientThread *obj = reinterpret_cast<ClientThread *>(objp);
-            obj->Run();
-            return NULL;
-        }
-        void Start() {
-            int res = pthread_create(&thread_id_, NULL, &ThreadRun, this);
-            TASK_UTIL_ASSERT_EQ(res, 0);
-        }
-        void Join() {
-            int res = pthread_join(thread_id_, NULL);
-            TASK_UTIL_ASSERT_EQ(res, 0);
-        }
-        void Send(std::string s, udp::endpoint to)
-        {
-            str_ = s;
-            rep_ = to;
-        }
-    private:
-        pthread_t thread_id_;
-        boost::scoped_ptr<tbb::task_scheduler_init> tbb_;
-        std::auto_ptr<EchoClient> client_;
-        std::string str_;
-        udp::endpoint rep_;
-};
 
 class EchoServerBranchTest : public ::testing::Test
 {
@@ -235,58 +195,6 @@ class EchoServerBranchTest : public ::testing::Test
       bool _test_run;
 };
 
-class EchoServerMultiClientTest : public ::testing::Test
-{
-    protected:
-        static const int kNThreads = 4;
-    EchoServerMultiClientTest () { }
-
-    virtual void SetUp() {
-        evm_.reset(new EventManager());
-        server_.reset(new EchoServer(evm_.get()));
-        thread_.reset(new ServerThread(evm_.get()));
-        for (int i = 0; i < kNThreads; ++i) {
-            ClientThread *ct = new ClientThread(evm_.get());
-            clients_.push_back(ct);
-        }
-    }
-
-    void Start()
-    {
-        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
-                i < clients_.end(); ++i) {
-            i->Start();
-        }
-    }
-
-    void Send(std::string s, udp::endpoint to)
-    {
-        int j=0;
-        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
-                i < clients_.end(); ++i, ++j) {
-            i->Send(s + ":" + boost::lexical_cast<std::string>(j), to);
-        }
-    }
-
-    virtual void TearDown() {
-        server_->Reset ();
-        evm_->Shutdown();
-        if (thread_.get() != NULL) {
-            thread_->Join();
-        }
-        for (boost::ptr_vector<ClientThread>::iterator i = clients_.begin();
-                i < clients_.end(); ++i) {
-            i->Join();
-        }
-        task_util::WaitForIdle();
-    }
-
-    std::auto_ptr<ServerThread> thread_;
-    std::auto_ptr<EchoServer> server_;
-    std::auto_ptr<EventManager> evm_;
-    boost::ptr_vector<ClientThread> clients_;
-};
-
 TEST_F(EchoServerTest, Basic)
 {
     server_->Initialize(0);
@@ -314,26 +222,6 @@ TEST_F(EchoServerBranchTest, Basic)
 {
     TestCreation();
 }
-
-/*
-TEST_F(EchoServerMultiClientTest, Basic)
-{
-    server_->Initialize(0);
-    task_util::WaitForIdle();
-    thread_->Start();
-    server_->StartReceive();
-    udp::endpoint server_endpoint = server_->GetLocalEndPoint();
-    UDP_UT_LOG_DEBUG("UDP Server: " << server_endpoint);
-    int port = server_endpoint.port();
-    ASSERT_LT(0, port);
-    UDP_UT_LOG_DEBUG("UDP Server port: " << port);
-
-    boost::system::error_code ec;
-    Send("Test mc udp", udp::endpoint(
-                boost::asio::ip::address::from_string ("127.0.0.1", ec), port));
-    Start();
-}
-*/
 
 }  // namespace
 
