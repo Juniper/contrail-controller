@@ -7,7 +7,10 @@
 #include <cmn/agent_cmn.h>
 #include <oper/interface_common.h>
 #include <oper/interface.h>
+//.de.byte.breakr
+#if defined(__linux__)
 #include <asm/types.h>
+#endif
 
 #include "vr_genetlink.h"
 #include "nl_util.h"

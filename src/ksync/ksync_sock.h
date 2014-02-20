@@ -6,7 +6,10 @@
 #define ctrlplane_ksync_sock_h 
 
 #include <vector>
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/rtnetlink.h>
+#endif
 #include <boost/asio.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/netlink_protocol.hpp>

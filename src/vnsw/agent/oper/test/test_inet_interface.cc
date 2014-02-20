@@ -3,10 +3,13 @@
  */
 
 #include <sys/socket.h>
-#include <linux/netlink.h>
 #include <net/if.h>
+//.de.byte.breaker
+#if defined(__linux__)
+#include <linux/netlink.h>
 #include <linux/if_tun.h>
 #include <linux/if_packet.h>
+#endif
 
 #include "testing/gunit.h"
 

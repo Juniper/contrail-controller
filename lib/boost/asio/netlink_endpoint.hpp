@@ -43,7 +43,14 @@ public:
   /// Default constructor.
   basic_endpoint() {
       memset(&impl_, 0, sizeof(impl_));
+//.de.byte.breaker
+#if defined(__linux__)
       sa.nl_family = AF_NETLINK;
+#elif defined(__FreeBSD__)
+      //sa.nl_family = AF_VENDOR00;
+#else
+#error "Unsupported plaftorm"
+#endif
   }
 
   data_type *data() {
@@ -55,7 +62,12 @@ public:
   }
 
   std::size_t size() const {
+//.de.byte.breaker
+#if defined(__linux__)
       return sizeof(struct sockaddr_nl);
+#else
+      return 0;
+#endif
   }
 
   /// The protocol associated with the endpoint.
@@ -67,7 +79,10 @@ private:
   // The underlying NETLINK domain endpoint.
   union {
       data_type impl_;
+//.de.byte.breaker
+#if defined(__linux__)
       struct sockaddr_nl sa;
+#endif
   };
 };
 

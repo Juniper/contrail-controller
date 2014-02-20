@@ -5,6 +5,8 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
@@ -14,6 +16,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include "vr_os.h"
+#endif
 
 #include <net/if.h>
 
@@ -38,7 +41,6 @@
 #include "vhost.h"
 #include "vr_message.h"
 #include "vnswif_listener.h"
-
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
@@ -143,6 +145,8 @@ void KSync::VnswInterfaceListenerInit() {
 }
 
 void KSync::CreateVhostIntf() {
+//.de.byte.breaker
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -175,9 +179,12 @@ void KSync::CreateVhostIntf() {
 
     assert(ioctl(s, SIOCIFCREATE, &ifr) != -1);
     close(s);
+#endif
 }
 
 void KSync::UpdateVhostMac() {
+//.de.byte.breaker
+#if defined(__linux__)
     struct  nl_client *cl;
 
     assert((cl = nl_register_client()) != NULL);
@@ -213,6 +220,7 @@ void KSync::UpdateVhostMac() {
     assert(ioctl(s, SIOCSIFLLADDR, &ifr) != -1);
 
     close(s);
+#endif
 }
 
 void KSync::Shutdown() {

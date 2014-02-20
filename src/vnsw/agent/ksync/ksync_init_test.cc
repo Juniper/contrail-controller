@@ -5,10 +5,13 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/if_ether.h>
+#endif
 
 #include <net/if.h>
 #include <netinet/ether.h>

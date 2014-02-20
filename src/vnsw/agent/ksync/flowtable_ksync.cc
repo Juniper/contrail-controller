@@ -3,6 +3,8 @@
  */
 
 #include <sys/socket.h>
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #include <asm/types.h>
@@ -10,6 +12,7 @@
 #include "vr_os.h"
 #include <fcntl.h>
 #include <sys/mman.h>
+#endif
 
 #include <boost/asio.hpp>
 

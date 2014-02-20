@@ -5,8 +5,11 @@
 #include <assert.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+//.de.byte.breaker
+#if defined(__linux__)
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
+#endif
 #include <net/if.h>
 #include <sys/ioctl.h>
 #include <net/address.h>
@@ -72,6 +75,8 @@ void VnswInterfaceListener::Init() {
 }
 
 int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
+//.de.byte.breaker
+#if defined(__linux__)
     struct nlmsghdr *n = (struct nlmsghdr *)tx_buf_;
     int len = RTA_LENGTH(alen);
     struct rtattr *rta;
@@ -83,6 +88,7 @@ int VnswInterfaceListener::AddAttr(int type, void *data, int alen) {
     rta->rta_len = len;
     memcpy(RTA_DATA(rta), data, alen);
     n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + len;
+#endif
     return 0;
 }
 
@@ -116,6 +122,8 @@ void VnswInterfaceListener::IntfNotify(DBTablePartBase *part, DBEntryBase *e) {
 }
 
 void VnswInterfaceListener::InitFetchLinks() {
+//.de.byte.breaker
+#if defined(__linux__)
     struct nlmsghdr *nlh;
     uint32_t seq_no;
 
@@ -155,9 +163,12 @@ void VnswInterfaceListener::InitFetchLinks() {
         struct nlmsghdr *nl = (struct nlmsghdr *)read_buf;
         end = NlMsgDecode(nl, len, seq_no);
     }
+#endif
 }
  
 void VnswInterfaceListener::InitFetchRoutes() {
+//.de.byte.breaker
+#if defined(__linux__)
     struct nlmsghdr *nlh;
 
     memset(tx_buf_, 0, max_buf_size);
@@ -178,10 +189,13 @@ void VnswInterfaceListener::InitFetchRoutes() {
     boost::system::error_code ec;
     sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
     assert(ec.value() == 0);
+#endif
 }
  
 void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr, 
                                            bool del_rt) {
+//.de.byte.breaker
+#if defined(__linux__)
     struct nlmsghdr *nlh;
     struct rtmsg *rtm;
     uint32_t ipaddr;
@@ -218,6 +232,7 @@ void VnswInterfaceListener::KUpdateLinkLocalRoute(const Ip4Address &addr,
     boost::system::error_code ec;
     sock_.send(boost::asio::buffer(nlh,nlh->nlmsg_len), 0, ec);
     assert(ec.value() == 0);
+#endif
 }
 
 void VnswInterfaceListener::CreateVhostRoutes(Ip4Address &host_ip, 
@@ -347,6 +362,8 @@ void VnswInterfaceListener::InitRouterId() {
 
 void VnswInterfaceListener::CreateSocket() {
 
+//.de.byte.breaker
+#if defined(__linux__)
     sock_fd_ = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
     if (sock_fd_ < 0) {
         LOG(ERROR, "Error <" << errno << ": " << strerror(errno) << 
@@ -367,6 +384,7 @@ void VnswInterfaceListener::CreateSocket() {
                        "> binding to netlink address family");
         assert(0);
     }
+#endif
 
     /* Assign native socket to boost asio */
     boost::asio::local::datagram_protocol protocol;
@@ -427,6 +445,8 @@ bool VnswInterfaceListener::RouteEventProcess(VnswRouteEvent *re) {
 }
 
 void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
+//.de.byte.breaker
+#if defined(__linux__)
     struct rtmsg *rtm;
     struct rtattr *rth;
     int rtl;
@@ -475,11 +495,14 @@ void VnswInterfaceListener::RouteHandler(struct nlmsghdr *nlh) {
     if (re) {
         revent_queue_->Enqueue(re);
     }
+#endif
 }
 
 /* XEN host specific interface event handler */
 void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
 {
+//.de.byte.breaker
+#if defined(__linux__)
     struct ifinfomsg *rtm;
     struct rtattr *rth;
     int rtl;
@@ -533,9 +556,12 @@ void VnswInterfaceListener::InterfaceHandler(struct nlmsghdr *nlh)
             break;
         }
     }
+#endif
 }
 
 void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
+//.de.byte.breaker
+#if defined(__linux__)
     char name[IFNAMSIZ];
     uint32_t ipaddr;
     bool dep_init_reqd = false;
@@ -587,11 +613,13 @@ void VnswInterfaceListener::IfaddrHandler(struct nlmsghdr *nlh) {
             }
         }
     }
-
+#endif
 }
 
 int VnswInterfaceListener::NlMsgDecode(struct nlmsghdr *nl, std::size_t len, 
                                        uint32_t seq_no) {
+//.de.byte.breaker
+#if defined(__linux__)
     struct nlmsghdr *nlh = nl;
     for (; (NLMSG_OK(nlh, len)); nlh = NLMSG_NEXT(nlh, len)) {
 
@@ -618,6 +646,7 @@ int VnswInterfaceListener::NlMsgDecode(struct nlmsghdr *nl, std::size_t len,
         }
     }
 
+#endif
     return 0;
 }
 
