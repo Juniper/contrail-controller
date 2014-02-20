@@ -16,10 +16,6 @@ DropStatsIoContext::~DropStatsIoContext() {
 }
 
 void DropStatsIoContext::Handler() {
-    AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
-                                                                      (ctx_);
-    AgentStatsCollector *collector = ctx->collector();
-    collector->drop_stats_responses_++;
 }
 
 void DropStatsIoContext::ErrorHandler(int err) {

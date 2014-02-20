@@ -31,7 +31,6 @@ AgentStatsCollector::AgentStatsCollector
                      StatsCollector::AgentStatsCollector, 
                      io, agent->params()->agent_stats_interval(), 
                      "Agent Stats collector"), 
-    vrf_stats_responses_(0), drop_stats_responses_(0), 
     vrf_listener_id_(DBTableBase::kInvalidId), 
     intf_listener_id_(DBTableBase::kInvalidId), agent_(agent) {
     AddNamelessVrfStatsEntry();
@@ -82,31 +81,35 @@ bool AgentStatsCollector::SendRequest(Sandesh &encoder, StatsType type) {
     return true;
 }
 
+IoContext *AgentStatsCollector::AllocateIoContext(char* buf, uint32_t buf_len,
+                                                  StatsType type, uint32_t seq) {
+    switch (type) {
+        case InterfaceStatsType:
+            return (new InterfaceStatsIoContext(buf_len, buf, seq, 
+                                         intf_stats_sandesh_ctx_.get(), 
+                                         IoContext::UVE_Q_ID));
+            break;
+       case VrfStatsType:
+            return (new VrfStatsIoContext(buf_len, buf, seq, 
+                                        vrf_stats_sandesh_ctx_.get(), 
+                                        IoContext::UVE_Q_ID));
+            break;
+       case DropStatsType:
+            return (new DropStatsIoContext(buf_len, buf, seq, 
+                                         drop_stats_sandesh_ctx_.get(), 
+                                         IoContext::UVE_Q_ID));
+            break;
+       default:
+            return NULL;
+    }
+}
+
 void AgentStatsCollector::SendAsync(char* buf, uint32_t buf_len, 
                                     StatsType type) {
     KSyncSock   *sock = KSyncSock::Get(0);
     uint32_t seq = sock->AllocSeqNo(true);
 
-    IoContext *ioc = NULL;
-    switch (type) {
-        case InterfaceStatsType:
-            ioc = new InterfaceStatsIoContext(buf_len, buf, seq, 
-                                         intf_stats_sandesh_ctx_.get(), 
-                                         IoContext::UVE_Q_ID);
-            break;
-       case VrfStatsType:
-            ioc = new VrfStatsIoContext(buf_len, buf, seq, 
-                                        vrf_stats_sandesh_ctx_.get(), 
-                                        IoContext::UVE_Q_ID);
-            break;
-       case DropStatsType:
-            ioc = new DropStatsIoContext(buf_len, buf, seq, 
-                                         drop_stats_sandesh_ctx_.get(), 
-                                         IoContext::UVE_Q_ID);
-            break;
-       default:
-            break;
-    }
+    IoContext *ioc = AllocateIoContext(buf, buf_len, type, seq);
     if (ioc) {
         sock->GenericSend(ioc); 
     }

@@ -22,5 +22,6 @@ void KStateIoContext::ErrorHandler(int err) {
                 ">. Message number :", GetSeqno());
     LOG(ERROR, "Error reading kstate. Error <" << err << ": " 
         << strerror(err) << ": Sequence No : " << GetSeqno());
+
 }
 

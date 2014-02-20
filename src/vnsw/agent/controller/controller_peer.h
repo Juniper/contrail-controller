@@ -53,7 +53,9 @@ public:
                                              AgentRoute *route, 
                                              std::string vn,
                                              const SecurityGroupList *sg_list,
-                                             uint32_t mpls_label, bool add_route);
+                                             uint32_t mpls_label,
+                                             uint32_t tunnel_bmap,
+                                             bool add_route);
     static bool ControllerSendEvpnRoute(AgentXmppChannel *peer,
                                         AgentRoute *route, 
                                         std::string vn,

@@ -51,12 +51,12 @@ protected:
     boost::scoped_ptr<VnUveTable> vn_uve_table_;
     boost::scoped_ptr<VmUveTable> vm_uve_table_;
     boost::scoped_ptr<VrouterUveEntry> vrouter_uve_entry_;
+    boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
 
 private:
     static AgentUve *singleton_;
     Agent *agent_;
     uint64_t bandwidth_intvl_; //in microseconds
-    boost::scoped_ptr<AgentStatsCollector> agent_stats_collector_;
     boost::scoped_ptr<VrouterStatsCollector> vrouter_stats_collector_;
     boost::scoped_ptr<FlowStatsCollector> flow_stats_collector_;
     DISALLOW_COPY_AND_ASSIGN(AgentUve);

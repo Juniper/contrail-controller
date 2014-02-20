@@ -33,15 +33,20 @@ int KState::VrResponseMsgHandler(vr_response *r) {
     KState *st = static_cast<KState *>(this);
     st->set_vr_response_code(code);
     if (code == -ENOENT) {
-       ErrResp *resp = new ErrResp();
-       resp->set_context(st->response_context());
-       resp->Response();
+        ErrResp *resp = new ErrResp();
+        resp->set_context(st->response_context());
+        resp->Response();
 
-       st->Release();
-       return 0;
+        st->Release();
+        return 0;
     }
     
     if (code < 0) {
+        InternalErrResp *resp = new InternalErrResp();
+        resp->set_context(st->response_context());
+        resp->Response();
+
+        st->Release();
         LOG(ERROR, "Error: " << strerror(-code) << " :code: " << -code);
         return -code;
     }
