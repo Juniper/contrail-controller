@@ -231,9 +231,6 @@ class ConfigFixture(fixtures.Fixture):
         self.ifmap = Ifmap()
         self.ifmap.start()
 
-        # TODO: need a way to ensure that IP-MAP is up
-	time.sleep(2)
-
         self.apiserver = ApiServer(self,self.logger)
         self.apiserver.start()
         self.schema = Schema(self,self.logger)
