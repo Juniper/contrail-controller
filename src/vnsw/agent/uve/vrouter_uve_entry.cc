@@ -21,11 +21,11 @@
 using namespace std;
 
 VrouterUveEntry::VrouterUveEntry(Agent *agent)
-    : agent_(agent), phy_intf_set_(), 
+    : prev_stats_(), bandwidth_count_(0), agent_(agent), phy_intf_set_(), 
       vn_listener_id_(DBTableBase::kInvalidId),
       vm_listener_id_(DBTableBase::kInvalidId), 
       intf_listener_id_(DBTableBase::kInvalidId), 
-      prev_vrouter_(), port_bitmap_(), prev_stats_() {
+      prev_vrouter_(), port_bitmap_() {
     start_time_ = UTCTimestampUsec();
 }
 

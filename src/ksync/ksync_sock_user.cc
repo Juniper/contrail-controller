@@ -1081,16 +1081,16 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
+    /* To simulate error code return the test code has to call 
+     * KSyncSockTypeMap::set_error_code() with required error code and 
+     * invoke get request */
+    if (KSyncSockTypeMap::error_code()) {
+        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0); 
+        return;
+    }
     Sandesh *req = Get(idx);
     if (req == NULL) {
-        /* To simulate error code return of anything other than ENOENT, the 
-         * test code has to call KSyncSockTypeMap::set_error_code() with 
-         * required error code and invoke get request with invalid id as key */
-        if (KSyncSockTypeMap::error_code()) {
-            KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0); 
-        } else {
-            KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
-        }
+        KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 
         return;
     }
     nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());

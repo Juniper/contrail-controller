@@ -301,15 +301,8 @@ public:
     virtual Sandesh* GetFirst(Sandesh *) { return NULL; }
     virtual Sandesh* GetNext(Sandesh *) { return NULL; }
     virtual Sandesh* Get(int idx) {
-        /* To simulate error code return for drop_stats DUMP request 
-         * test code has to call KSyncSockTypeMap::set_error_code() with 
-         * required error code */
-        if (KSyncSockTypeMap::error_code()) { 
-            return NULL;
-        } else {
-            KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
-            return &sock->drop_stats;
-        }
+        KSyncSockTypeMap *sock = KSyncSockTypeMap::GetKSyncSockTypeMap();
+        return &sock->drop_stats;
     }
 };
 

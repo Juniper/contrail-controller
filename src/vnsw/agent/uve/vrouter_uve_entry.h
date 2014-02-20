@@ -57,6 +57,9 @@ public:
     void InterfaceWalkDone(DBTableBase *base, StringVectorPtr if_l,
                            StringVectorPtr err_if_l, 
                            StringVectorPtr nova_if_l);
+protected:
+    VrouterStatsAgent prev_stats_;
+    uint8_t bandwidth_count_;
 private:
     //The following Dispatch functions are not made const function because
     //in derived class they need to be non-const
@@ -92,9 +95,6 @@ private:
     VrouterAgent prev_vrouter_;
     L4PortBitmap port_bitmap_;
     uint64_t start_time_;
-protected:
-    VrouterStatsAgent prev_stats_;
-    uint8_t bandwidth_count_;
     DISALLOW_COPY_AND_ASSIGN(VrouterUveEntry);
 };
 
