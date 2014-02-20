@@ -1190,6 +1190,7 @@ int AnalyticsQuery::stat_table_index() {
         if (nm == this->table) 
             return i;
     }
+    assert(!is_stat_table_query());
     return -1;
 }
 

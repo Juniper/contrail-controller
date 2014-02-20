@@ -314,6 +314,10 @@ void Agent::CreateVrf() {
     }
 }
 
+void Agent::CreateNextHops() {
+    init_->CreateDefaultNextHops();
+}
+
 void Agent::CreateInterfaces() {
     if (pkt_.get()) {
         pkt_.get()->CreateInterfaces();

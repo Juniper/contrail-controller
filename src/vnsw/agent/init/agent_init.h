@@ -19,6 +19,7 @@ public:
         CREATE_DB_CLIENTS,
         INIT_MODULES,
         CREATE_VRF,
+        CREATE_NEXTHOP,
         CREATE_INTERFACE,
         INIT_DONE
     };
@@ -56,6 +57,7 @@ public:
             "create_db_clients",
             "init_modules",
             "create_vrf",
+            "create_nexthop",
             "create_interface",
             "init_done"
         };
@@ -65,6 +67,7 @@ public:
     bool Run();
     void TriggerInit();
     void CreateDefaultVrf();
+    void CreateDefaultNextHops();
     void CreateInterfaces(DB *db);
     void Init(AgentParam *param, Agent *agent, bool disable_vhost = false,
               bool disable_ksync = false, bool disable_services = false,

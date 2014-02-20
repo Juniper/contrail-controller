@@ -516,12 +516,14 @@ TEST_F(RouteTest, RemoteVmRoute_5) {
     AddArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f", 
            eth_name_.c_str());
     client->WaitForIdle();
+    addr_nh = addr_rt->GetActiveNextHop();
     EXPECT_TRUE(addr_nh->IsValid() == true);
 
     //Delete ARP for gw
     DelArp(fabric_gw_ip_.to_string().c_str(), "0a:0b:0c:0d:0e:0f",
            eth_name_.c_str());
     client->WaitForIdle();
+    addr_nh = addr_rt->GetActiveNextHop();
     EXPECT_TRUE(addr_nh->IsValid() == false);
 
     //Delete remote server route

@@ -166,7 +166,8 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 }
             }
 
-            if (name == g_viz_constants.SOURCE)
+            int idx = m_query->stat_table_index();
+            if ((name == g_viz_constants.SOURCE) && (idx == -1))
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
 
@@ -182,7 +183,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for source " << value);
             }
            
-            if (name == g_viz_constants.MODULE)
+            if ((name == g_viz_constants.MODULE) && (idx == -1))
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 db_query->cfname = g_viz_constants.MESSAGE_TABLE_MODULE_ID;
@@ -202,7 +203,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for module " << value);
             }
  
-            if (name == g_viz_constants.MESSAGE_TYPE)
+            if ((name == g_viz_constants.MESSAGE_TYPE) && (idx == -1))
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 db_query->cfname = 
@@ -218,7 +219,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for msg-type " << value);
             }
   
-            if (name == g_viz_constants.CATEGORY)
+            if ((name == g_viz_constants.CATEGORY) && (idx == -1))
             {
                 DbQueryUnit *db_query = new DbQueryUnit(and_node, main_query);
                 db_query->cfname = 
@@ -395,7 +396,6 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
             }
 
 
-            int idx = m_query->stat_table_index();
             if (idx != -1)
             {
                 bool isStr = false;
