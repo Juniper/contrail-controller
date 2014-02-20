@@ -22,6 +22,8 @@
 class ServiceType;
 class DiscoveryServiceClient;
 class DiscoveryServiceClientMock;
+struct DiscoveryClientPublisherStats;
+struct DiscoveryClientSubscriberStats;
 
 struct DSResponse {
    boost::asio::ip::tcp::endpoint  ep;
@@ -138,6 +140,13 @@ public:
 
     DSPublishResponse *GetPublishResponse(std::string serviceName);
 
+    // sandesh introspect fill stats 
+    void FillDiscoveryServicePublisherStats(
+         std::vector<DiscoveryClientPublisherStats> &ds_stats); 
+
+    void FillDiscoveryServiceSubscriberStats(
+         std::vector<DiscoveryClientSubscriberStats> &ds_stats); 
+
     // Map of <ServiceName, SubscribeResponseHeader> for subscribe
     typedef std::map<std::string, DSResponseHeader *> ServiceResponseMap;
 
@@ -161,9 +170,6 @@ private:
     void RegisterSubscribeResponseHandler(std::string serviceName, ServiceHandler);
     void UnRegisterSubscribeResponseHandler(std::string serviceName);
     SubscribeResponseHandlerMap subscribe_map_;
-
-    //ServiceResponseMap service_response_map_;
-    //PublishResponseMap publish_response_map_;
 
     HttpClient *http_client_;
     EventManager *evm_;

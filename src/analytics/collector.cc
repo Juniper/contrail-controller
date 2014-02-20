@@ -22,6 +22,8 @@
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
 #include <sandesh/request_pipeline.h>
+#include <discovery/client/discovery_client.h>
+#include <discovery_client_stats_types.h>
 
 #include "collector.h"
 #include "viz_collector.h"
@@ -36,6 +38,7 @@ using namespace boost::assign;
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
+DiscoveryServiceClient *Collector::ds_client_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
@@ -550,4 +553,31 @@ void DbQueueParamsStatus::HandleRequest() const {
         return;
     }
     SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}
+
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const { 
+
+    DiscoveryClientSubscriberStatsResponse *resp = 
+        new DiscoveryClientSubscriberStatsResponse(); 
+    resp->set_context(context());
+
+    resp->set_more(false); 
+    resp->Response(); 
+}
+
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {  
+
+    DiscoveryClientPublisherStatsResponse *resp = 
+        new DiscoveryClientPublisherStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientPublisherStats> stats_list;
+    DiscoveryServiceClient *ds = Collector::GetCollectorDiscoveryServiceClient();
+    if (ds) {   
+        ds->FillDiscoveryServicePublisherStats(stats_list);  
+    }
+
+    resp->set_publisher(stats_list);
+    resp->set_more(false);
+    resp->Response();
 }

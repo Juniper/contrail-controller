@@ -13,6 +13,7 @@
 #include <boost/bind.hpp>
 #include <boost/functional/hash.hpp>
 #include <discovery/client/discovery_client_types.h>
+#include <discovery/client/discovery_client_stats_types.h>
 
 #include "discovery_client_priv.h"
 #include "discovery_client.h"
@@ -593,7 +594,7 @@ void DiscoveryServiceClient::SubscribeResponseHandler(std::string &xmls,
             // 503, Service Unavailable
             // 504, Gateway Timeout, and other errors
             DISCOVERY_CLIENT_TRACE(DiscoveryClientMsg, 
-                "SubscribeResponseHandler: Error, resend publish",
+                "SubscribeResponseHandler: Error, resend subscribe",
                 serviceName, xmls);
 
             // exponential back-off and retry
@@ -722,4 +723,55 @@ DSPublishResponse *DiscoveryServiceClient::GetPublishResponse(
     }
 
     return resp;
+}
+
+void DiscoveryServiceClient::FillDiscoveryServiceSubscriberStats(
+         std::vector<DiscoveryClientSubscriberStats> &ds_stats) {
+
+    for (DiscoveryServiceClient::ServiceResponseMap::const_iterator iter =
+         service_response_map_.begin(),
+         next = iter;
+         iter != service_response_map_.end(); iter = next)  {  
+
+         DSResponseHeader *sub_resp = iter->second; 
+
+         DiscoveryClientSubscriberStats stats; 
+         stats.set_serviceName(sub_resp->serviceName_); 
+         stats.set_subscribe_sent(sub_resp->sub_sent_); 
+         stats.set_subscribe_rcvd(sub_resp->sub_rcvd_);
+         stats.set_subscribe_fail(sub_resp->sub_fail_);
+         stats.set_subscribe_retries(sub_resp->attempts_); 
+
+         ds_stats.push_back(stats);
+
+         next++;
+     }
+}
+
+
+void DiscoveryServiceClient::FillDiscoveryServicePublisherStats(
+         std::vector<DiscoveryClientPublisherStats> &ds_stats) {
+
+    for (DiscoveryServiceClient::PublishResponseMap::const_iterator iter =  
+         publish_response_map_.begin(), 
+         next = iter;
+         iter != publish_response_map_.end(); iter = next)  { 
+
+         DSPublishResponse *pub_resp = iter->second;
+
+         DiscoveryClientPublisherStats stats;
+         stats.set_serviceName(pub_resp->serviceName_); 
+         stats.set_heartbeat_sent(pub_resp->pub_hb_sent_);
+         stats.set_heartbeat_fail(pub_resp->pub_hb_fail_);   
+         stats.set_heartbeat_rcvd(pub_resp->pub_hb_rcvd_);
+         stats.set_publish_sent(pub_resp->pub_sent_);
+         stats.set_publish_rcvd(pub_resp->pub_rcvd_); 
+         stats.set_publish_fail(pub_resp->pub_fail_); 
+         stats.set_publish_retries(pub_resp->attempts_);
+         stats.set_publish_fallback(pub_resp->pub_fallback_); 
+
+         ds_stats.push_back(stats);
+
+         next++;
+    } 
 }

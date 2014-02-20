@@ -78,6 +78,13 @@ public:
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
 
+    static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
+        ds_client_ = ds;
+    }
+
+    static DiscoveryServiceClient *GetCollectorDiscoveryServiceClient() {
+        return ds_client_;
+    }
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -124,6 +131,8 @@ private:
     static bool task_policy_set_;
     static const std::vector<DbHandler::DbQueueWaterMarkInfo> kDbQueueWaterMarkInfo;
     static const int kDefaultSessionBufferSize = 16 * 1024;
+
+    static DiscoveryServiceClient *ds_client_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };
