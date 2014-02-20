@@ -70,8 +70,9 @@ def stop_zoo(cport):
         cport : The Client Port for the instance of zookeper be stopped
     '''
     cassbase = "/tmp/zoo." + str(cport) + "/"
+    basefile = "zookeeper-"+zookeeper_version
     logging.info('Killing zookeeper %d' % cport)
-    output,_ = call_command_(cassbase + 'bin/zkServer.sh stop')
+    output,_ = call_command_(cassbase + basefile + '/bin/zkServer.sh stop')
     output,_ = call_command_("rm -rf " + cassbase)
     
 def replace_string_(filePath, findreplace):
