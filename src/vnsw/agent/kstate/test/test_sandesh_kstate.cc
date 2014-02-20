@@ -30,7 +30,8 @@ void RouterIdDepInit() {
 class KStateSandeshTest : public ::testing::Test {
 public:
     KStateSandeshTest() : response_count_(0), type_specific_response_count_(0), 
-    num_entries_(0), error_response_count_(0), peer_(NULL), next_flow_handle_() {
+    num_entries_(0), error_response_count_(0), internal_error_response_count_(0), 
+    peer_(NULL), next_flow_handle_() {
     }
 
     static void TestSetup() {
@@ -94,6 +95,12 @@ public:
         if (response != NULL) {
             type_specific_response_count_++;
             num_entries_ += response->get_if_list().size();
+        }
+        if (memcmp(sandesh->Name(), "ErrResp", strlen("ErrResp")) == 0) {
+            error_response_count_++;
+        }
+        if (memcmp(sandesh->Name(), "InternalErrResp", strlen("InternalErrResp")) == 0) {
+            internal_error_response_count_++;
         }
     }
 
@@ -277,12 +284,13 @@ public:
 
     void ClearCount() {
         response_count_ = type_specific_response_count_ = num_entries_ = 0;
-        error_response_count_ = 0;
+        error_response_count_ = internal_error_response_count_ = 0;
     }
     uint32_t response_count_;
     uint32_t type_specific_response_count_;
     uint32_t num_entries_;
     uint32_t error_response_count_;
+    uint32_t internal_error_response_count_;
 private:
     BgpPeer *peer_;
     std::string next_flow_handle_;
@@ -429,6 +437,33 @@ TEST_F(KStateSandeshTest, InterfaceTest_3) {
     KSyncSockTypeMap::InterfaceDelete(102);
     KSyncSockTypeMap::InterfaceDelete(103);
     KSyncSockTypeMap::InterfaceDelete(104);
+}
+
+TEST_F(KStateSandeshTest, InterfaceTest_4) {
+    //Send Interface GET request for non-existent interface
+    ClearCount();
+    InterfaceGet(501);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
+
+    //Verify the response count
+    EXPECT_EQ(1U, error_response_count_);
+}
+
+TEST_F(KStateSandeshTest, InterfaceTest_5) {
+    //Verify how we behave when we get EBUSY as error for kstate GET request
+    KSyncSockTypeMap::set_error_code(EBUSY);
+    //Send Interface GET request for non-existent interface
+    ClearCount();
+    InterfaceGet(501);
+    client->WaitForIdle();
+    WAIT_FOR(1000, 1000, (response_count_ == 1));
+
+    //Verify the response count
+    EXPECT_EQ(0U, error_response_count_);
+    EXPECT_EQ(1U, internal_error_response_count_);
+
+    KSyncSockTypeMap::set_error_code(0);
 }
 
 TEST_F(KStateSandeshTest, InterfaceTest_MultiResponse) {

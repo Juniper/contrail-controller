@@ -361,10 +361,12 @@ TEST_F(UveVrouterUveTest, BandwidthTest_1) {
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
     Agent::GetInstance()->uve()->agent_stats_collector()->Run();
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
 
     //Fetch the stats object from agent_stats_collector
     AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
@@ -406,10 +408,12 @@ TEST_F(UveVrouterUveTest, BandwidthTest_2) {
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
     Agent::GetInstance()->uve()->agent_stats_collector()->Run();
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
 
     //Fetch the stats object from agent_stats_collector
     AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
@@ -478,10 +482,12 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
     EXPECT_TRUE((intf != NULL));
 
     //Fetch interface stats
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
     Agent::GetInstance()->uve()->agent_stats_collector()->Run();
     client->WaitForIdle();
-    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ >= 1));
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
 
     //Fetch the stats object from agent_stats_collector
     AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
@@ -537,6 +543,41 @@ TEST_F(UveVrouterUveTest, BandwidthTest_3) {
 
     //Verify the 10-min bandwidth usage
     EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
+}
+
+TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    const VrouterStatsAgent &uve = vr->prev_stats();
+    //Verify exception stats in UVE
+    EXPECT_EQ(0U, uve.get_exception_packets());
+    EXPECT_EQ(0U, uve.get_exception_packets_dropped());
+    EXPECT_EQ(0U, uve.get_exception_packets_allowed());
+
+    //Update exception stats 
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+
+    Agent::GetInstance()->stats()->incr_pkt_dropped();
+
+    //Run vrouter_stats_collector to update the UVE with updated exception stats
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify exception stats in UVE
+    EXPECT_EQ(3U, uve.get_exception_packets());
+    EXPECT_EQ(1U, uve.get_exception_packets_dropped());
+    EXPECT_EQ(2U, uve.get_exception_packets_allowed());
 }
 
 int main(int argc, char **argv) {

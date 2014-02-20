@@ -134,9 +134,9 @@ public:
     std::string GetNamelessVrf() { return "__untitled__"; }
     int GetNamelessVrfId() { return -1; }
     void Shutdown(void);
+    virtual IoContext *AllocateIoContext(char* buf, uint32_t buf_len,
+                                         StatsType type, uint32_t seq);
 
-    int vrf_stats_responses_; //used only in UT code
-    int drop_stats_responses_; //used only in UT code
 private:
     void VrfNotify(DBTablePartBase *partition, DBEntryBase *e);
     void InterfaceNotify(DBTablePartBase *part, DBEntryBase *e);
@@ -154,6 +154,8 @@ private:
     DBTableBase::ListenerId vrf_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
     Agent *agent_;
+
+protected:
     boost::scoped_ptr<AgentStatsSandeshContext> intf_stats_sandesh_ctx_;
     boost::scoped_ptr<AgentStatsSandeshContext> vrf_stats_sandesh_ctx_;
     boost::scoped_ptr<AgentStatsSandeshContext> drop_stats_sandesh_ctx_;
