@@ -42,7 +42,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
-import discovery.client as client
+import discoveryclient.client as client
 from collections import OrderedDict
 
 _BGP_RTGT_MAX_ID = 1 << 20
