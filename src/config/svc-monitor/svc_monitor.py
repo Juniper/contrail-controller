@@ -43,7 +43,7 @@ from sandesh.svc_mon_introspect import ttypes as sandesh
 from novaclient import client as nc
 from novaclient import exceptions as nc_exc
 
-import discovery.client as client
+import discoveryclient.client as client
 
 _SVC_VN_MGMT = "svc-vn-mgmt"
 _SVC_VN_LEFT = "svc-vn-left"

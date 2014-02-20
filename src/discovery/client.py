@@ -1,6 +1,9 @@
 #
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
+# note that any print to stdout will break node manager because its uses
+# stdout as communication channel and gratitious text there will break it.
+# stderr should be fine
 
 from gevent import monkey
 monkey.patch_all()
@@ -16,6 +19,9 @@ from disc_consts import *
 import services
 import hashlib
 import socket
+
+# sandesh
+from sandesh.discovery_client import ttypes as sandesh
 
 def CamelCase(input):
     words = input.replace('_', '-').split('-')
@@ -93,16 +99,17 @@ class Subscribe(object):
                 r = requests.post(
                     self.url, data=self.post_body, headers=self._headers)
                 if r.status_code != 200:
-                    # print 'Discovery Server returned error (code %d)' % (r.status_code)
+                    self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
                     gevent.sleep(2)
                 else:
                     connected = True
             except requests.exceptions.ConnectionError:
                 # discovery server down or restarting?
+                self.syslog('discovery server down or restarting?')
                 gevent.sleep(2)
         # end while
 
-        #print 'query resp => ', r.text
+        self.syslog('query resp => %s ' % r.text)
         response = r.json()
 
         # avoid signature on ttl which can change between iterations
@@ -132,19 +139,22 @@ class Subscribe(object):
     def read(self):
         return self.info
 
+    def syslog(self, log_msg):
+	self.dc.syslog(log_msg)
 
 class DiscoveryClient(object):
 
     def __init__(self, server_ip, server_port, client_type):
         self._server_ip = server_ip
         self._server_port = server_port
-        self._myid = socket.getfqdn() + ':' + client_type
+        self._myid = socket.gethostname() + ':' + client_type
         self._client_type = client_type
         self._headers = {
             'Content-type': 'application/json',
         }
         self.sig = None
         self.task = None
+	self._sandesh = None
 
         # queue to publish information (sig => service data)
         self.pub_q = {}
@@ -153,7 +163,9 @@ class DiscoveryClient(object):
         self.pubdata = {}
 
         # publish URL
-        self.puburl = "http://%s:%s/publish" % (
+        self.puburl = "http://%s:%s/publish/%s" % (
+            self._server_ip, self._server_port, socket.gethostname())
+        self.hburl = "http://%s:%s/heartbeat" % (
             self._server_ip, self._server_port)
 
         # single task per publisher for heartbeats
@@ -163,67 +175,71 @@ class DiscoveryClient(object):
         self.pub_task = None
     # end __init__
 
+    def set_sandesh(self, sandesh):
+        self._sandesh = sandesh
+    # end set_sandesh
+
+    def syslog(self, log_msg):
+        if self._sandesh is None:
+            return
+        log = sandesh.discClientLog(
+            log_msg=log_msg, sandesh=self._sandesh)
+        log.send(sandesh=self._sandesh)
+    
     def exportJson(self, o):
         obj_json = json.dumps(lambda obj: dict((k, v)
                               for k, v in obj.__dict__.iteritems()))
         return obj_json
 
     def _publish_int(self, service, data):
-        #print 'Publish service "%s", data "%s"' % (service, data)
+        self.syslog('Publish service "%s", data "%s"' % (service, data))
         payload = {service: data}
         try:
             r = requests.post(
                 self.puburl, data=json.dumps(payload), headers=self._headers)
+            if r.status_code == 503:
+                self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
+                gevent.sleep(2)
+                return self._publish_int(service, data)
         except requests.exceptions.ConnectionError:
-            # save request to retry later
-            sig = pub_sig(service, data)
-            if sig not in self.pub_q:
-                #print 'ConnectionError: Saving %s for later' % (sig)
-                self.pub_q[sig] = (service, data)
-
-            # start publish task if needed
-            if self.pub_task is None:
-                #print 'Starting task to publish ...'
-                self.pub_task = gevent.spawn(self.def_pub)
-            return None
+            self.syslog('Got connection error')
+            gevent.sleep(2)
+            return self._publish_int(service, data)
 
         # save cookie and published object in case we are forced to republish
         if r.status_code != 200:
-            #print 'Discovery Server returned error (code %d)' % (r.status_code)
-            #print 'Failed to publish service "%s" !!!' % (service)
+            self.syslog('Discovery Server returned error (code %d)' % (r.status_code))
+            self.syslog('Failed to publish service "%s" !!!' % (service))
             return None
 
         response = r.json()
         cookie = response['cookie']
         self.pubdata[cookie] = (service, data)
-        #print 'Saving token %s' % (cookie)
+        self.syslog('Saving token %s' % (cookie))
 
         return cookie
 
     # publisher - send periodic heartbeat
     def heartbeat(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        delay = 1
-        sock.settimeout(delay)
         while True:
             # send heartbeat for each published object seperately
             # dictionary can change size during iteration
             pub_list = self.pubdata.copy()
             for cookie in pub_list:
-                data = '<cookie>%s</cookie>' % (cookie)
-                sock.sendto(data, (self._server_ip, int(self._server_port)))
+                payload = {'cookie': cookie}
+                self.syslog('Sending cookie %s in heartbeat' % cookie)
                 try:
-                    data = sock.recv(1024)
-                except socket.timeout:
-                    # discovery server down or restarting?
-                    data = ''
+                    r = requests.post(
+                        self.hburl, data=json.dumps(payload), headers=self._headers)
+                except requests.exceptions.ConnectionError:
+                    self.syslog('Connection Error')
+                    continue
 
                 # if DS lost track of our data, republish
-                if data == '404 Not Found':
+                if r.status_code == 404:
                     # forget cached cookie and object; will re-learn
-                    #print 'Server lost track of token %s' % (cookie)
-                    service, data = self.pubdata[
-                        cookie]
+                    self.syslog('Server lost track of token %s' % (cookie))
+                    service, data = self.pubdata[cookie]
                     del self.pubdata[cookie]
                     self._publish_int(service, data)
             gevent.sleep(HC_INTERVAL)
@@ -240,11 +256,11 @@ class DiscoveryClient(object):
                 service, data = s_d
                 token = self._publish_int(service, data)
                 if token:
-                    #print 'Succeeded in publishing %s:%s' % (service, data)
+                    self.syslog('Succeeded in publishing %s:%s' % (service, data))
                     del self.pub_q[sig]
 
             if not self.pub_q:
-                #print 'Deferred list is empty. Done'
+                self.syslog('Deferred list is empty. Done')
                 self.pub_task = None
                 return
     # end def_pub
