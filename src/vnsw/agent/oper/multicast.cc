@@ -901,10 +901,6 @@ void MulticastHandler::HandlePeerDown() {
          MulticastHandler::GetInstance()->GetMulticastObjList().begin(); 
          it != MulticastHandler::GetInstance()->GetMulticastObjList().end(); it++) {
 
-        if ((*it)->IsDeleted() == false) {
-            return;
-        }
-
         //Delete the label
         (*it)->SetSourceMPLSLabel(0);
         //Empty the tunnel OLIST
