@@ -146,7 +146,7 @@ bool DbHandler::CreateTables() {
 }
 
 void DbHandler::UnInit(int instance) {
-    dbif_->Db_Uninit(Collector::kDbTask, instance);
+    dbif_->Db_Uninit("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);
 }
 
@@ -164,7 +164,7 @@ bool DbHandler::Initialize(int instance) {
     init_vizd_tables();
 
     LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
-    if (!dbif_->Db_Init(Collector::kDbTask, instance)) {
+    if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
         LOG(ERROR, __func__ << ": Connection to DB FAILED");
         return false;
     }
@@ -188,7 +188,7 @@ bool DbHandler::Initialize(int instance) {
 
 bool DbHandler::Setup(int instance) {
 
-    if (!dbif_->Db_Init(Collector::kDbTask, 
+    if (!dbif_->Db_Init("analytics::DbHandler", 
                        instance)) {
         LOG(ERROR, __func__ << ": Database initialization failed");
         return false;
@@ -301,12 +301,9 @@ inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     return true;
 }
 
-void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
+void DbHandler::MessageTableOnlyInsert(boost::shared_ptr<VizMsg> vmsgp) {
     SandeshHeader &header(vmsgp->hdr);
     std::string &message_type(vmsgp->messagetype);
-
-    if (!AllowMessageTableInsert(header))
-        return;
 
     uint64_t temp_u64;
     uint32_t temp_u32;
@@ -361,6 +358,16 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
     }
+}
+
+void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
+    SandeshHeader &header(vmsgp->hdr);
+    std::string &message_type(vmsgp->messagetype);
+
+    if (!AllowMessageTableInsert(header))
+        return;
+
+    MessageTableOnlyInsert(vmsgp);
 
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header, message_type, vmsgp->unm);
@@ -372,6 +379,7 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
      * Construct the atttributes,attrib_tags beofore inserting
      * to the StatTableInsert
      */
+    uint64_t temp_u64;
     DbHandler::TagMap tmap;
     DbHandler::AttribMap amap;
     string sname;
@@ -386,6 +394,7 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     pv = string(message_type);
     tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
     attribs.insert(make_pair(sattrname,pv));
+    temp_u64 = header.get_Timestamp();
     StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
 
 }
