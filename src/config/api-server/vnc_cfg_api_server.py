@@ -72,7 +72,7 @@ from cfgm_common import vnc_cpu_info
 
 from pysandesh.sandesh_base import *
 from pysandesh.gen_py.sandesh.ttypes import SandeshLevel
-import discovery.client as client
+import discoveryclient.client as client
 #from gen_py.vnc_api.ttypes import *
 import netifaces
 
