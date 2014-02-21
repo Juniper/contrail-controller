@@ -506,7 +506,7 @@ static int control_node_main(int argc, char *argv[]) {
     GetOptValue<uint16_t>(var_map, xmpp_port, "DEFAULTS.xmpp-server-port", 0);
 
     GetOptValue<uint16_t>(var_map, discovery_port, "DISCOVERY.port", 0);
-    GetOptValue<string>(var_map, discovery_server, "DEFAULTS.server", "");
+    GetOptValue<string>(var_map, discovery_server, "DISCOVERY.server", "");
 
 
     GetOptValue<string>(var_map, log_category, "LOG.category", "");
