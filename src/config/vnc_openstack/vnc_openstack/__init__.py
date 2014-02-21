@@ -146,6 +146,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 old_project_ids = new_project_ids
 
             except Exception as e:
+                self._kc = None
                 cgitb.Hook(
                     format="text",
                     file=open(self._tmp_file_name,
