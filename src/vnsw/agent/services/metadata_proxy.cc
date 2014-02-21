@@ -321,7 +321,7 @@ MetadataProxy::ErrorClose(HttpSession *session) {
     snprintf(response, sizeof(response),
              "HTTP/1.1 404 Not Found\n"
              "Content-Type: text/html; charset=UTF-8\n"
-             "Content-Length: %lu\n"
+             "Content-Length: %u\n"
              "\n%s", strlen(body), body);
     session->Send(reinterpret_cast<const u_int8_t *>(response),
                   strlen(response), NULL);

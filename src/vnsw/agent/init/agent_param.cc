@@ -499,3 +499,6 @@ AgentParam::AgentParam() :
     vgw_config_table_ = std::auto_ptr<VirtualGatewayConfigTable>
         (new VirtualGatewayConfigTable());
 }
+
+AgentParam::~AgentParam() {
+}

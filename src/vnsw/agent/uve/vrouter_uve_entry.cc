@@ -747,7 +747,7 @@ uint8_t VrouterUveEntry::CalculateBandwitdh(uint64_t bytes, int speed_mbps,
     }
     uint64_t speed_bps = speed_mbps * 1024 * 1024;
     uint64_t bps = bits/diff_seconds;
-    return (double)bps/speed_bps * 100;
+    return bps/speed_bps * 100;
 }
 
 uint8_t VrouterUveEntry::GetBandwidthUsage
