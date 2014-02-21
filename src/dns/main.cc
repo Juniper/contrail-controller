@@ -320,16 +320,14 @@ static int dns_main(int argc, char *argv[]) {
         }
     }
 
-    if (!ifmap_server_url.empty()) {
-        IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
+    IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
 
-        IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, ifmap_server_url,
-                                                ifmap_user, ifmap_password, certs_store,
-                                        boost::bind(&IFMapServerParser::Receive, ifmap_parser,
-                                                    &config_db, _1, _2, _3),
-                                        Dns::GetEventManager()->io_service(), ds_client);
-        ifmap_server.set_ifmap_manager(ifmapmgr);
-    }
+    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, ifmap_server_url,
+                                            ifmap_user, ifmap_password, certs_store,
+                                    boost::bind(&IFMapServerParser::Receive, ifmap_parser,
+                                                &config_db, _1, _2, _3),
+                                    Dns::GetEventManager()->io_service(), ds_client);
+    ifmap_server.set_ifmap_manager(ifmapmgr);
 
     Dns::GetEventManager()->Run();
  
