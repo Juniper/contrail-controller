@@ -137,6 +137,8 @@ class DiscoveryZkClient(object):
                 kazoo.exceptions.ConnectionLoss):
             self.connect(restart = True)
             self.delete_node(path, recursive=recursive)
+        except kazoo.exceptions.NoNodeException:
+            self.syslog('exc delete: node %s does not exist' % path)
     # end delete_node
 
     def exists_node(self, path):
