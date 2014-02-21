@@ -1,0 +1,79 @@
+# -*- mode: python; -*-
+
+#
+# Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
+#
+import sys
+Import('CfgmEnv')
+
+env = CfgmEnv.Clone()
+
+local_sources = [
+                 'config_systest.py',
+                 ]
+local_sources_rules = []
+for file in local_sources:
+    local_sources_rules.append(env.Install('', '#/controller/src/config/test/' + file))
+local_sources_rules.append(env.Install('', '#/controller/src/config/test/setup.py'))
+
+local_dirs = ['utils']
+local_dirs_rules = []
+for dir in local_dirs:
+    files = Glob('#/controller/src/config/test/' + dir + '/*.py')  
+    local_dirs_rules.append(env.Install(dir, files))    
+
+env.Depends(local_sources_rules, [local_dirs_rules])
+
+venv = env.setup_venv ('config_test', 'config_test')
+
+#maintain the order
+pip_pkgs = ['greenlet==0.4.1', 'gevent==0.13.8', 'eventlet==0.9.17',
+        'testtools==0.9.21', 'fixtures==0.3.12', 'requests==1.1.0','paramiko==1.11.0',
+        'lxml==2.3.3', 'geventhttpclient==1.0a', 'prettytable==0.7.2','ncclient==0.3.2',
+        'kazoo==1.3.1','stevedore==0.12','netifaces==0.8', 'python_keystoneclient==0.6.0',
+        'psutil==0.4.1', 'redis==2.7.1', 'xmltodict==0.2', 'thrift==0.8.0',
+        Dir(env['TOP']).abspath + '/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/config/common/dist/cfgm_common-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz',
+        #Dir(env['TOP']).abspath + '/config/vnc_openstack/dist/vnc_openstack-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/api-lib/dist/vnc_api-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/discovery/client/dist/discoveryclient-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/discovery/dist/discovery-0.1dev.tar.gz',
+        Dir(env['TOP']).abspath + '/sandesh/common/dist/sandesh-common-0.1dev.tar.gz']
+
+build_pkgs = [
+        '#controller/src/analytics/test/utils/mockcassandra',
+        '#controller/src/analytics/test/utils/mockredis',
+        '#controller/src/config/test/utils/mockzoo',
+        '#controller/src/config/test/utils/mockifmap',
+        env['TOP'] + '/tools/sandesh/library/python',
+        '#controller/src/config/test']
+
+#venv that we are building is in env['config_test']
+env.Depends (env['config_test'], env['TOP']+'/api-lib/dist/vnc_api-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/config/api-server/dist/vnc_cfg_api_server-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/config/common/dist/cfgm_common-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/config/schema-transformer/dist/schema_transformer-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/config/svc-monitor/dist/svc_monitor-0.1dev.tar.gz')
+#env.Depends (env['config_test'], env['TOP']+'/config/vnc_openstack/dist/vnc_openstack-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/discovery/client/dist/discoveryclient-0.1dev.tar.gz')
+env.Depends (env['config_test'], env['TOP']+'/discovery/dist/discovery-0.1dev.tar.gz')
+env.Requires (env['config_test'], env['TOP']+'/sandesh/common/dist/sandesh-common-0.1dev.tar.gz')
+env.Requires (env['config_test'], env['TOP']+'/tools/sandesh/library/python/dist')
+for local_sources_rule in local_sources_rules:
+    env.Depends (env['config_test'], local_sources_rule)
+
+
+_deps = []
+_deps += env.venv_add_pip_pkg(venv, pip_pkgs)
+_deps += env.venv_add_pip_pkg(venv, ['pycassa==1.7.1'])
+_deps += env.venv_add_build_pkg(venv,
+                                map(lambda x: Dir(x).abspath, build_pkgs))
+
+ 
+env['env_venv'] = venv
+test = env.PyTestSuiteCov('config-test', local_sources)
+for d in _deps:
+    env.Depends (test, d.name)
+env.Alias('controller/src/config:test', test)

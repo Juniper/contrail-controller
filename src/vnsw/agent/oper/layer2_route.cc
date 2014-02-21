@@ -74,7 +74,7 @@ void Layer2AgentRouteTable::AddLocalVmRouteReq(const Peer *peer,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
                                           sg_list);
-    data->tunnel_bmap(TunnelType::AllType());
+    data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableEnqueue(Agent::GetInstance(), vrf_name, &req);
 }
@@ -100,7 +100,7 @@ void Layer2AgentRouteTable::AddLocalVmRoute(const Peer *peer,
                                           false, vn_name,
                                           InterfaceNHFlags::LAYER2,
                                           sg_list);
-    data->tunnel_bmap(TunnelType::AllType());
+    data->set_tunnel_bmap(TunnelType::AllType());
     req.data.reset(data);
     Layer2TableProcess(Agent::GetInstance(), vrf_name, req);
 }
@@ -227,8 +227,6 @@ void Layer2RouteEntry::SetKey(const DBRequestKey *key) {
 
 bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
     Layer2RouteResp *resp = static_cast<Layer2RouteResp *>(sresp);
-    Agent *agent = static_cast<AgentRouteTable *>(get_table())->agent();
-
     RouteL2SandeshData data;
     data.set_mac(ToString());
 
@@ -237,16 +235,10 @@ bool Layer2RouteEntry::DBEntrySandesh(Sandesh *sresp) const {
         const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
         if (path) {
             PathSandeshData pdata;
-            path->nexthop(agent)->SetNHSandeshData(pdata.nh);
-            if ((path->tunnel_type() == TunnelType::VXLAN) ||
-                is_multicast()) {
+            path->SetSandeshData(pdata);
+            if (is_multicast()) {
                 pdata.set_vxlan_id(path->vxlan_id());
-            } else {
-                pdata.set_label(path->label());
             }
-            pdata.set_peer(const_cast<Peer *>(path->peer())->GetName());
-            pdata.set_dest_vn(path->dest_vn_name());
-            pdata.set_unresolved(path->unresolved() ? "true" : "false");
             data.path_list.push_back(pdata);
         }
     }

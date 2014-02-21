@@ -133,6 +133,8 @@ public:
     virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
+    static void set_error_code(int code) { error_code_ = code; }
+    static int error_code() { return error_code_; }
     static void ProcessSandesh(const uint8_t *, std::size_t, KSyncUserSockContext *);
     static void SimulateResponse(uint32_t, int, int);
     static void SendNetlinkDoneMsg(int seq_num);
@@ -208,6 +210,7 @@ private:
     bool block_msg_processing_;
     static KSyncSockTypeMap *singleton_;
     static vr_flow_entry *flow_table_;
+    static int error_code_;
     DISALLOW_COPY_AND_ASSIGN(KSyncSockTypeMap);
 };
 

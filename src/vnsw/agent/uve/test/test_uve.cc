@@ -26,6 +26,7 @@
 #include "xmpp/test/xmpp_test_util.h"
 #include <uve/vn_uve_table_test.h>
 #include <uve/vm_uve_table_test.h>
+#include "ksync/ksync_sock_user.h"
 
 int vrf_array[] = {1, 2};
 
@@ -33,6 +34,22 @@ using namespace std;
 
 void RouterIdDepInit() {
 }
+
+class AgentStatsCollectorTask : public Task {
+public:
+    AgentStatsCollectorTask(int count) : 
+        Task((TaskScheduler::GetInstance()->GetTaskId
+            ("Agent::StatsCollector")), StatsCollector::AgentStatsCollector),
+        count_(count) {
+    }
+    virtual bool Run() {
+        for (int i = 0; i < count_; i++)
+            Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+        return true;
+    }
+private:
+    int count_;
+};
 
 class UveTest : public ::testing::Test {
 public:
@@ -42,6 +59,11 @@ public:
             sprintf(vrf_name, "vrf%d", vrf[i]);
             AddVrf(vrf_name);
         }
+    }
+    void EnqueueAgentStatsCollectorTask(int count) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        AgentStatsCollectorTask *task = new AgentStatsCollectorTask(count);
+        scheduler->Enqueue(task);
     }
 
     static void TestTearDown() {
@@ -261,6 +283,70 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     EXPECT_FALSE(DBTableFind("vrf21.uc.route.0"));
     EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), true, 0, 0, 0, 0, 0, 
                               0, 0, 0, 0, 0, 0, 0, 0));
+}
+
+TEST_F(UveTest, StatsCollectorTest) {
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    EXPECT_EQ(0U, collector->interface_stats_errors_);
+    EXPECT_EQ(0U, collector->vrf_stats_errors_);
+    EXPECT_EQ(0U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //Set error_code in mock code so that all dump requests will return this code.
+    KSyncSockTypeMap::set_error_code(EBUSY);
+    collector->interface_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
+
+    //Enqueue stats-collector-task
+    EnqueueAgentStatsCollectorTask(1);
+
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    //Verify that Error handlers for agent_stats_collector is invoked.
+    EXPECT_EQ(1U, collector->interface_stats_errors_);
+    EXPECT_EQ(1U, collector->vrf_stats_errors_);
+    EXPECT_EQ(1U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //Reset the error code in mock code
+    KSyncSockTypeMap::set_error_code(0);
+    collector->interface_stats_responses_ = 0;
+    collector->interface_stats_errors_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->vrf_stats_errors_ = 0;
+    collector->drop_stats_responses_ = 0;
+    collector->drop_stats_errors_ = 0;
+
+    //Enqueue stats-collector-task
+    EnqueueAgentStatsCollectorTask(1);
+
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    //Verify that Error handlers for agent_stats_collector is NOT invoked.
+    EXPECT_EQ(0U, collector->interface_stats_errors_);
+    EXPECT_EQ(0U, collector->vrf_stats_errors_);
+    EXPECT_EQ(0U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //cleanup
+    collector->interface_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
 }
 
 int main(int argc, char **argv) {

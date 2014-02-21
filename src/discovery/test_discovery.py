@@ -7,7 +7,7 @@ import argparse
 import os
 import sys
 import discovery.services as services
-import discovery.client as client
+import discoveryclient.client as client
 import uuid
 
 

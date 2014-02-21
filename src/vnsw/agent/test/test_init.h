@@ -53,6 +53,7 @@
 #include <uve/agent_uve.h>
 #include <uve/flow_stats_collector.h>
 #include <uve/agent_stats_collector.h>
+#include <uve/agent_stats_collector_test.h>
 #include "pkt_gen.h"
 #include "pkt/flow_table.h"
 #include "testing/gunit.h"
@@ -265,42 +266,48 @@ public:
     void IfStatsTimerWait(int count) {
         int i = 0;
 
-        while (Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ <= count) {
+        AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+            (Agent::GetInstance()->uve()->agent_stats_collector());
+        while (collector->interface_stats_responses_ < count) {
             if (i++ < 1000) {
                 usleep(1000);
             } else {
                 break;
             }
         }
-        EXPECT_TRUE(Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ > count);
+        EXPECT_TRUE(collector->interface_stats_responses_ >= count);
         WaitForIdle(2);
     }
 
     void VrfStatsTimerWait(int count) {
         int i = 0;
 
-        while (Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ <= count) {
+        AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+            (Agent::GetInstance()->uve()->agent_stats_collector());
+        while (collector->vrf_stats_responses_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);
             } else {
                 break;
             }
         }
-        EXPECT_TRUE(Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ >= count);
+        EXPECT_TRUE(collector->vrf_stats_responses_ >= count);
         WaitForIdle(2);
     }
 
     void DropStatsTimerWait(int count) {
         int i = 0;
 
-        while (Agent::GetInstance()->uve()->agent_stats_collector()->drop_stats_responses_ <= count) {
+        AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+            (Agent::GetInstance()->uve()->agent_stats_collector());
+        while(collector->drop_stats_responses_ <= count) {
             if (i++ < 1000) {
                 usleep(1000);
             } else {
                 break;
             }
         }
-        EXPECT_TRUE(Agent::GetInstance()->uve()->agent_stats_collector()->drop_stats_responses_ >= count);
+        EXPECT_TRUE(collector->drop_stats_responses_ >= count);
         WaitForIdle(2);
     }
 

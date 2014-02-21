@@ -17,7 +17,7 @@ AgentRouteEncap::AgentRouteEncap(Agent *agent) :
 bool AgentRouteEncap::RouteWalkNotify(DBTablePartBase *partition,
                                       DBEntryBase *e) {
     AgentRoute *route = static_cast<AgentRoute *>(e);
-    route->ResyncRoute();
+    route->EnqueueRouteResync();
     return true;
 }
 

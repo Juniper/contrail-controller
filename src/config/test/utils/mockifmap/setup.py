@@ -9,5 +9,5 @@ setup(name='mockifmap',
       author_email='contrail-sw@juniper.net',
       url='http://opencontrail.org/',
       packages=['mockifmap', ],
-      data_files=[('lib/python2.7/site-packages/mockifmap', ['ifmap.properties']),],
+      data_files=[('lib/python2.7/site-packages/mockifmap', ['ifmap.properties','basicauthusers.properties','publisher.properties']),],
      )

@@ -59,6 +59,8 @@ from cfgm_common.exceptions import *
 from gen.vnc_ifmap_client_gen import *
 from gen.vnc_cassandra_client_gen import *
 
+import logging
+logger = logging.getLogger(__name__)
 
 class VncIfmapClient(VncIfmapClientGen):
 
@@ -1009,15 +1011,24 @@ class VncDbClient(object):
 
         self._db_resync_done = gevent.event.Event()
 
+        logger.info("connecting to ifmap on %s:%s as %s" % (ifmap_srv_ip, ifmap_srv_port, uname))
+
         self._ifmap_db = VncIfmapClient(
             self, ifmap_srv_ip, ifmap_srv_port,
             uname, passwd, ssl_options, ifmap_srv_loc)
 
+        logger.info("connecting to cassandra on %s" % (cass_srv_list,))
+
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
+        logger.info("connecting to redis on %s:%s" % (redis_srv_ip, redis_srv_port))
+
         self._redis_db = VncRedisClient(self, redis_srv_ip, redis_srv_port,
                                         self._ifmap_db)
+
+        logger.info("connecting to zookeeper on %s" % (zk_server_ip,))
+
         self._zk_db = VncZkClient(zk_server_ip)
     # end __init__
 

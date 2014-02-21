@@ -21,12 +21,11 @@ using namespace std;
 using namespace boost::asio;
 
 uint32_t AgentPath::GetTunnelBmap() const {
-    if ((TunnelType::ComputeType(TunnelType::AllType()) == 
-         (1 << TunnelType::VXLAN)) &&
-        (vxlan_id_ != 0)) {
+    TunnelType::Type type = TunnelType::ComputeType(TunnelType::AllType());
+    if ((type == (1 << TunnelType::VXLAN)) && (vxlan_id_ != 0)) {
         return (1 << TunnelType::VXLAN);
     } else {
-        return (TunnelType::MplsType());
+        return tunnel_bmap_;
     }
 }
 
@@ -60,12 +59,7 @@ const NextHop* AgentPath::nexthop(Agent *agent) const {
 bool AgentPath::ChangeNH(Agent *agent, NextHop *nh) {
     // If NH is not found, point route to discard NH
     if (nh == NULL) {
-        //TODO convert to oper_trace
-        //LOG(DEBUG, "NH not found for route <" << path->vrf_name_ << 
-        //    ":"  << rt_key->addr_.to_string() << "/" << rt_key->plen_
-        //    << ">. Setting NH to Discard NH ");
-        DiscardNHKey key;
-        nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+        nh = agent->nexthop_table()->discard_nh();
     }
 
     if (nh_ != nh) {
@@ -185,9 +179,7 @@ bool AgentPath::UpdateNHPolicy(Agent *agent) {
             LOG(DEBUG, "Interface NH for <" 
                 << boost::lexical_cast<std::string>(vm_port->GetUuid())
                 << " : policy = " << policy);
-            DiscardNHKey key;
-            nh = static_cast<NextHop *>
-                (agent->nexthop_table()->FindActiveEntry(&key));
+            nh = agent->nexthop_table()->discard_nh();
         }
         if (ChangeNH(agent, nh) == true) {
             ret = true;
@@ -316,6 +308,7 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
         ret = true;
     }
 
+    path->set_tunnel_bmap(tunnel_bmap_);
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         ret = true;
@@ -324,9 +317,7 @@ bool InetInterfaceRoute::AddChangePath(Agent *agent, AgentPath *path) {
 }
 
 bool DropRoute::AddChangePath(Agent *agent, AgentPath *path) {
-    NextHop *nh = NULL;
-    DiscardNHKey key;
-    nh = static_cast<NextHop *>(agent->nexthop_table()->FindActiveEntry(&key));
+    NextHop *nh = agent->nexthop_table()->discard_nh();
     path->set_unresolved(false);
     if (path->ChangeNH(agent, nh) == true)
         return true;
@@ -653,6 +644,12 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
         } else if (event == DELETE_PATH) {
             rt_info.set_op("PATH DELETE");
         }
+
+        if (path == NULL) {
+            rt_info.set_nh_type("<NULL>");
+            break;
+        }
+
         if (path->peer()) {
             rt_info.set_peer(path->peer()->GetName());
         }
@@ -717,4 +714,32 @@ void AgentRoute::FillTrace(RouteInfo &rt_info, Trace event,
        break;
     }
     }
+}
+
+void AgentPath::SetSandeshData(PathSandeshData &pdata) const {
+    if (nh_.get() != NULL) {
+        nh_->SetNHSandeshData(pdata.nh);
+    }
+    pdata.set_peer(const_cast<Peer *>(peer())->GetName());
+    pdata.set_dest_vn(dest_vn_name());
+    pdata.set_unresolved(unresolved() ? "true" : "false");
+
+    if (!gw_ip().is_unspecified()) {
+        pdata.set_gw_ip(gw_ip().to_string());
+        pdata.set_vrf(vrf_name());
+    }
+    if (proxy_arp()) {
+        pdata.set_proxy_arp("ProxyArp");
+    }
+
+    pdata.set_sg_list(sg_list());
+    if ((tunnel_type() == TunnelType::VXLAN)) {
+        pdata.set_vxlan_id(vxlan_id());
+    } else {
+        pdata.set_label(label());
+    }
+    pdata.set_active_tunnel_type(
+            TunnelType(tunnel_type()).ToString());
+    pdata.set_supported_tunnel_type(
+            TunnelType::GetString(tunnel_bmap()));
 }
