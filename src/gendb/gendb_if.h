@@ -75,6 +75,11 @@ struct NewCol {
 
     NewCol(const std::string& n, const DbDataValue& v, int ttl=-1);
 
+    bool operator==(NewCol rhs) {
+        return (rhs.name == name &&
+                rhs.value == value);
+    }
+
     NewCf::ColumnFamilyType cftype_;
     DbDataValueVec name;
     DbDataValueVec value;

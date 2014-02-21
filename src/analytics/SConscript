@@ -160,7 +160,8 @@ def code_coverage(target, source, env):
 
     # lcov --base-directory $ROOT -- directory . --zerocounters -q
     import os
-    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+    rundir = os.path.dirname(target[0].path)
+    os.system('lcov --base-directory . --directory ' + rundir +
               ' --zerocounters -q')
     # execute tests
     import subprocess
@@ -169,10 +170,11 @@ def code_coverage(target, source, env):
     for test in test_suite:
         cmd = test[0].path
         logfile = open(cmd + '.log', 'w')
+        print "Executing for coverage... " + cmd
         subprocess.call([cmd], stdout=logfile, env=ShEnv)
 
     # lcov --base-directory $ROOT -- directory . -c -o analytics_test.info
-    os.system('lcov --base-directory . --directory ' + Dir('.').path +
+    os.system('lcov --base-directory . --directory ' + rundir +
               ' -c -o analytics_test.info')
 
     # genhtml -o analytics/test_coverage analytics_test.info
@@ -184,4 +186,6 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     test_coverage = AnalyticsEnv.Command(Dir('test_coverage'), '', code_coverage)
     AnalyticsEnv.AlwaysBuild(test_coverage)
     AnalyticsEnv.Alias('src/analytics:test_coverage', test_coverage)
+    for test in test_suite:
+        AnalyticsEnv.Depends(test_coverage, test)
 
