@@ -399,7 +399,8 @@ TEST_F(FlowTableTest, FlowAdd_non_local_1) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10));
+    client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10),
+            FlowStatsCollector::FlowStatsInterval, true, false);
     if (vm.count("config")) {
         FlowTableTest::eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {
