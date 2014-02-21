@@ -346,6 +346,7 @@ int main(int argc, char *argv[])
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
         ds_client->Init();
+        Collector::SetDiscoveryServiceClient(ds_client);
 
         // Get local ip address
         string self_ip; 

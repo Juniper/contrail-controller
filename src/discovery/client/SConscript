@@ -47,6 +47,7 @@ for file in local_sources:
 
 import sys
 SandeshGenFiles = env.SandeshGenCpp('discovery_client.sandesh')
+SandeshGenFiles += env.SandeshGenCpp('discovery_client_stats.sandesh')
 SandeshGenSrcs = env.ExtractCpp(SandeshGenFiles)
 sandesh_objs = []
 for src in SandeshGenSrcs:
