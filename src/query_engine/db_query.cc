@@ -52,7 +52,7 @@ query_status_t DbQueryUnit::process_query()
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
             uint32_t t2 = boost::get<uint32_t>(it->rowkey_.at(0));
-            std::vector<GenDb::NewCol>::iterator i;
+            GenDb::NewColVec::iterator i;
 
             QE_TRACE(DEBUG, "For T2:" << t2 <<
                 " Database returned " << it->columns_.size() << " cols");

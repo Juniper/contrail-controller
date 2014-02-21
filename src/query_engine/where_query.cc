@@ -252,7 +252,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for objectid " << value);
                 object_id_specified = true;
             }
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_VROUTER)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER])
             {
                 vr_match = true; vr_op = op; 
                 vr = value;
@@ -265,7 +265,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for vrouter " << value);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN])
             {
                 svn_match = true; svn_op = op; 
                 svn = value;
@@ -278,7 +278,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for sourcevn " << value);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP])
             {
                 sip_match = true; sip_op = op;
 
@@ -301,7 +301,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         "where match term for sourceip " << value << ":" << addr.s_addr);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN])
             {
                 dvn_match = true; dvn_op = op; 
                 dvn = value;
@@ -315,7 +315,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for destvn " << value);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP])
             {
                 dip_match = true; dip_op = op; dip = value;
 
@@ -337,7 +337,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
         "where match term for destip " << value << ":" << addr.s_addr);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL])
             {
                 proto_match = true; proto_op = op;
 
@@ -356,7 +356,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for proto_value " << value);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT])
             {
                 sport_match = true; sport_op = op;
 
@@ -376,7 +376,7 @@ WhereQuery::WhereQuery(const std::string& where_json_string, int direction,
                 QE_TRACE(DEBUG, "where match term for sport " << value);
             }
 
-            if (name == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second)
+            if (name == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT])
             {
                 dport_match = true; dport_op = op; 
 

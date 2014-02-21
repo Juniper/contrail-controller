@@ -28,7 +28,7 @@ env.Prepend(LIBS=['nova_ins', 'nova_ins_thrift',
                   'sandeshflow', 'sandesh', 'httpc', 'http', 'http_parser', 'curl',
                   'db', 'base', 'task_test', 'io', 'sandeshvns', 'net', 
                   'gunit', 'boost_regex', 'boost_filesystem',
-                  'bind_interface', 'cpuinfo'])
+                  'bind_interface', 'cpuinfo', 'pugixml'])
 
 if sys.platform != 'darwin':
     env.Prepend(LIBS=['agent_services'])

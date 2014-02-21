@@ -18,7 +18,7 @@ env.Append(LIBPATH = env['TOP'] + '/base/test')
 
 env.Prepend(LIBS = ['gunit', 'task_test', 'io', 'sandesh', 'http',
                     'sandeshvns', 'io', 'base', 'http_parser', 'curl',
-                    'boost_program_options'])
+                    'boost_program_options', 'pugixml'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS = ['rt'])
@@ -62,7 +62,7 @@ test_suite = [
     tcp_server_test,
     tcp_io_test,
     tcp_stress_test,
-    udp_io_test,
+#    udp_io_test,
     ]
 
 def clean_coverage(env, target, source):

@@ -411,62 +411,77 @@ bool CdbIf::DbDataValueFromString(GenDb::DbDataValue& res, const std::string& cf
     return true;
 }
 
-bool CdbIf::DbDataValueToString(std::string& res,
-        const GenDb::DbDataType::type& type,
+bool CdbIf::DbDataValueToStringNonComposite(std::string& res,
         const GenDb::DbDataValue& value) {
-    CdbIfTypeMapDef::iterator it = CdbIfTypeMap.find(type);
-    assert(it != CdbIfTypeMap.end());
-    res = it->second.encode_non_composite_fn_(value);
-
+    switch (value.which()) {
+    case DB_VALUE_STRING:
+        res = Db_encode_string_non_composite(value);
+        break;
+    case DB_VALUE_UINT64:
+        res = Db_encode_Unsigned64_non_composite(value);
+        break;
+    case DB_VALUE_UINT32:
+        res = Db_encode_Unsigned32_non_composite(value);
+        break;
+    case DB_VALUE_UUID:
+        res = Db_encode_UUID_non_composite(value);
+        break;
+    case DB_VALUE_UINT8:
+        res = Db_encode_Unsigned8_non_composite(value);
+        break;
+    case DB_VALUE_UINT16:
+        res = Db_encode_Unsigned16_non_composite(value);
+        break;
+    case DB_VALUE_DOUBLE:
+        res = Db_encode_Double_non_composite(value);
+        break;
+    case DB_VALUE_BLANK:
+    default:
+        assert(0);
+        break;
+    }
     return true;
-}
+};    
 
-bool CdbIf::DbDataValueToStringFromCf(std::string& res, const std::string& cfname,
-        const std::string& col_name, const GenDb::DbDataValue& value) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !((cf = info->cf_.get()))) {
-        return false;
-    }
-    NewCf::SqlColumnMap::iterator it;
-    if ((it = cf->cfcolumns_.find(col_name)) == cf->cfcolumns_.end()) {
-        return false;
-    }
-    GenDb::DbDataType::type type = it->second;
-
-    return(DbDataValueToString(res, type, value));
-}
-
-bool CdbIf::DbDataValueVecToString(std::string& res,
-        const GenDb::DbDataTypeVec& typevec,
+bool CdbIf::DbDataValueVecToString(std::string& res, bool composite,
         const GenDb::DbDataValueVec& input) {
-    CDBIF_CONDCHECK_LOG_RETF(typevec.size() != 0);
-    if (typevec.size() == 1) {
-        CDBIF_CONDCHECK_LOG_RETF(input.size() <= 1);
+    if (!composite) {
         if (input.size() == 1) {
-            CdbIfTypeMapDef::iterator it = CdbIfTypeMap.find(typevec[0]);
-            CDBIF_CONDCHECK_LOG_RETF(it != CdbIfTypeMap.end());
-            res = CdbIfTypeMap.find(typevec[0])->second.encode_non_composite_fn_(input[0]);
-        }
-    } else {
-        CdbIfTypeMapDef::iterator kt;
-        GenDb::DbDataTypeVec::const_iterator it = typevec.begin();
-        GenDb::DbDataValueVec::const_iterator jt = input.begin();
-        for (;
-                it != typevec.end() &&
-                jt != input.end(); it++, jt++) {
-            kt = CdbIfTypeMap.find(*it);
-            CDBIF_CONDCHECK_LOG_RETF(kt != CdbIfTypeMap.end());
-            res.append(kt->second.encode_composite_fn_(*jt));
-        }
-
-        if (it == typevec.end() && jt != input.end()) {
-            CDBIF_CONDCHECK_LOG_RETF(0);
+            return DbDataValueToStringNonComposite(res, input[0]);
         }
     }
-
+    // Composite encoding
+    for (GenDb::DbDataValueVec::const_iterator it = input.begin();
+         it != input.end(); it++) {
+        const GenDb::DbDataValue &value(*it);
+        switch (value.which()) {
+        case DB_VALUE_STRING:
+            res += Db_encode_string_composite(value);
+            break;
+        case DB_VALUE_UINT64:
+            res += Db_encode_Unsigned64_composite(value);
+            break;
+        case DB_VALUE_UINT32:
+            res += Db_encode_Unsigned32_composite(value);
+            break;
+        case DB_VALUE_UUID:
+            res += Db_encode_UUID_composite(value);
+            break;
+        case DB_VALUE_UINT8:
+            res += Db_encode_Unsigned8_composite(value);
+            break;
+        case DB_VALUE_UINT16:
+            res += Db_encode_Unsigned16_composite(value);
+            break;
+        case DB_VALUE_DOUBLE:
+            res += Db_encode_Double_composite(value);
+            break;
+        case DB_VALUE_BLANK:
+        default:
+            assert(0);
+            break;
+        }
+    }    
     return true;
 }
 
@@ -501,38 +516,22 @@ bool CdbIf::DbDataValueVecFromString(GenDb::DbDataValueVec& res,
     return true;
 }
 
-bool CdbIf::ConstructDbDataValueKey(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& rowkey) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-
-    return (DbDataValueVecToString(res, cf->key_validation_class, rowkey));
+bool CdbIf::ConstructDbDataValueKey(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& rowkey) {
+    bool composite = cf->key_validation_class.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, rowkey);
 }
 
-bool CdbIf::ConstructDbDataValueColumnName(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& name) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-    return (DbDataValueVecToString(res, cf->comparator_type, name));
+bool CdbIf::ConstructDbDataValueColumnName(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& name) {
+    bool composite = cf->comparator_type.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, name);
 }
 
-bool CdbIf::ConstructDbDataValueColumnValue(std::string& res, const std::string& cfname, const GenDb::DbDataValueVec& value) {
-    CdbIfCfInfo *info;
-    GenDb::NewCf *cf;
-    if (!Db_GetColumnfamily(&info, cfname) ||
-            !(cf = info->cf_.get())) {
-        LOG(ERROR,  __func__ << ": cf not found cf= " << cfname);
-        return false;
-    }
-    return (DbDataValueVecToString(res, cf->default_validation_class, value));
+bool CdbIf::ConstructDbDataValueColumnValue(std::string& res, const GenDb::NewCf *cf,
+    const GenDb::DbDataValueVec& value) {
+    bool composite = cf->default_validation_class.size() == 1 ? false : true;
+    return DbDataValueVecToString(res, composite, value);
 }
 
 bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
@@ -688,18 +687,19 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
 /*
  * called by the WorkQueue mechanism
  */
-bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
+bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
     bool ret_value = true;
     uint64_t ts(UTCTimestampUsec());
-    GenDb::ColList *new_colp;
+    GenDb::ColList *new_colp(cl.gendb_cl);
 
-    if ((new_colp = cl->new_cl.get())) {
+    if (new_colp) {
         std::map<std::string, std::map<std::string, std::vector<cassandra::Mutation> > > mutation_map;
         std::vector<cassandra::Mutation> mutations;
+        mutations.reserve(new_colp->columns_.size());
         GenDb::NewCf::ColumnFamilyType cftype = GenDb::NewCf::COLUMN_FAMILY_INVALID;
 
-        for (std::vector<GenDb::NewCol>::iterator it = new_colp->columns_.begin();
-                    it != new_colp->columns_.end(); it++) {
+        for (GenDb::NewColVec::iterator it = new_colp->columns_.begin();
+             it != new_colp->columns_.end(); it++) {
                 cassandra::Mutation mutation;
                 cassandra::ColumnOrSuperColumn c_or_sc;
                 cassandra::Column c;
@@ -708,7 +708,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
                     CDBIF_CONDCHECK_LOG_RETF((it->name.size() == 1) && (it->value.size() == 1));
                     CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
                     cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
-
+                    
                     std::string col_name;
                     try {
                         col_name = boost::get<std::string>(it->name.at(0));
@@ -717,7 +717,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
                     }
                     c.__set_name(col_name);
                     std::string col_value;
-                    DbDataValueToStringFromCf(col_value, new_colp->cfname_, col_name, it->value.at(0));
+                    DbDataValueToStringNonComposite(col_value, it->value.at(0));
                     c.__set_value(col_value);
                     c.__set_timestamp(ts);
                     if (it->ttl == -1) {
@@ -735,11 +735,13 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
                     cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
 
                     std::string col_name;
-                    ConstructDbDataValueColumnName(col_name, new_colp->cfname_, it->name);
+                    DbDataValueVecToString(col_name, it->name.size() != 1,
+                                           it->name);
                     c.__set_name(col_name);
 
                     std::string col_value;
-                    ConstructDbDataValueColumnValue(col_value, new_colp->cfname_, it->value);
+                    DbDataValueVecToString(col_value, it->value.size() != 1,
+                                           it->value);
                     c.__set_value(col_value);
 
                     c.__set_timestamp(ts);
@@ -760,7 +762,7 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
         std::map<std::string, std::vector<cassandra::Mutation> > cf_map;
         cf_map.insert(std::make_pair(new_colp->cfname_, mutations));
         std::string key_value;
-        ConstructDbDataValueKey(key_value, new_colp->cfname_, new_colp->rowkey_);
+        DbDataValueVecToString(key_value, new_colp->rowkey_.size() != 1, new_colp->rowkey_);
         mutation_map.insert(std::make_pair(key_value, cf_map));
         try {
             client_->batch_mutate(mutation_map, org::apache::cassandra::ConsistencyLevel::ONE);
@@ -782,21 +784,24 @@ bool CdbIf::Db_AsyncAddColumn(CdbIfColList *cl) {
     }
 
     /* allocated when enqueued, free it after processing */
-    delete cl;
+    if (new_colp) {
+        delete new_colp;
+        cl.gendb_cl = NULL;
+    }
     return ret_value;
 }
 
 bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
     if (!cdbq_.get()) return false;
-
-    CdbIfColList *qentry(new CdbIfColList(cl));
+    CdbIfColList qentry;
+    qentry.gendb_cl = cl.release();
     cdbq_->Enqueue(qentry);
     return true;
 }
 
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
-    CdbIfColList *qentry(new CdbIfColList(cl));
-
+    CdbIfColList qentry;
+    qentry.gendb_cl = cl.release();
     return (Db_AsyncAddColumn(qentry));
 }
 
@@ -811,7 +816,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
     }
 
     if (cf->cftype_ == NewCf::COLUMN_FAMILY_SQL) {
-        std::vector<NewCol>& columns = ret.columns_;
+        NewColVec& columns = ret.columns_;
         std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             GenDb::DbDataValue res;
@@ -823,7 +828,7 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
             columns.push_back(col);
         }
     } else if (cf->cftype_ == NewCf::COLUMN_FAMILY_NOSQL) {
-        std::vector<NewCol>& columns = ret.columns_;
+        NewColVec& columns = ret.columns_;
         std::vector<cassandra::ColumnOrSuperColumn>::iterator citer;
         for (citer = result.begin(); citer != result.end(); citer++) {
             GenDb::DbDataValueVec name;
@@ -847,8 +852,15 @@ bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
 
 bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
         const DbDataValueVec& rowkey) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
+
     std::string key;
-    if (!ConstructDbDataValueKey(key, cfname, rowkey)) {
+    if (!ConstructDbDataValueKey(key, cf, rowkey)) {
         return false;
     }
 
@@ -884,6 +896,12 @@ bool CdbIf::Db_GetRow(GenDb::ColList& ret, const std::string& cfname,
 bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
         const std::string& cfname, const std::vector<DbDataValueVec>& rowkeys,
         GenDb::ColumnNameRange *crange_ptr) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
 
     std::vector<DbDataValueVec>::const_iterator it = rowkeys.begin();
 
@@ -894,7 +912,7 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
         for (int i = 0; (it != rowkeys.end()) && (i <= max_query_rows); 
                 it++, i++) {
             std::string key;
-            if (!ConstructDbDataValueKey(key, cfname, *it)) {
+            if (!ConstructDbDataValueKey(key, cf, *it)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
             keys.push_back(key);
@@ -909,10 +927,10 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
             // column range specified, set appropriate variables
             std::string start_string;
             std::string finish_string;
-            if (!ConstructDbDataValueColumnName(start_string, cfname, crange_ptr->start_)) {
+            if (!ConstructDbDataValueColumnName(start_string, cf, crange_ptr->start_)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
-            if (!ConstructDbDataValueColumnName(finish_string, cfname, crange_ptr->finish_)) {
+            if (!ConstructDbDataValueColumnName(finish_string, cf, crange_ptr->finish_)) {
                 CDBIF_CONDCHECK_LOG_RETF(0);
             }
 
@@ -969,8 +987,14 @@ bool CdbIf::Db_GetMultiRow(std::vector<GenDb::ColList>& ret,
 bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
                 const std::string& cfname, const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& rowkey) {
+    CdbIfCfInfo *info;
+    GenDb::NewCf *cf;
+    if (!Db_GetColumnfamily(&info, cfname) || !(cf = info->cf_.get())) {
+        LOG(ERROR,  __func__ << ": Column family " << cfname << " NOT FOUND");
+        return false;
+    }
     bool result = 
-        Db_GetRangeSlices_Internal(col_list, cfname, crange, rowkey);
+        Db_GetRangeSlices_Internal(col_list, cf, crange, rowkey);
 
     bool col_limit_reached = (col_list.columns_.size() == crange.count);
 
@@ -987,7 +1011,7 @@ bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
         GenDb::ColList next_col_list;
 
         result = 
-    Db_GetRangeSlices_Internal(next_col_list, cfname, crange_new, rowkey);
+    Db_GetRangeSlices_Internal(next_col_list, cf, crange_new, rowkey);
         col_limit_reached = 
             (next_col_list.columns_.size() == crange.count);
 
@@ -998,7 +1022,7 @@ bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
         }
 
         // copy result after the first entry
-        std::vector<NewCol>::iterator it = next_col_list.columns_.begin();
+        NewColVec::iterator it = next_col_list.columns_.begin();
         if (it != next_col_list.columns_.end()) it++;
         col_list.columns_.insert(
                 col_list.columns_.end(), it, next_col_list.columns_.end());
@@ -1008,19 +1032,20 @@ bool CdbIf::Db_GetRangeSlices(GenDb::ColList& col_list,
 }
 
 bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
-                const std::string& cfname, const GenDb::ColumnNameRange& crange,
+                const GenDb::NewCf *cf, const GenDb::ColumnNameRange& crange,
                 const GenDb::DbDataValueVec& rowkey) {
     std::vector<cassandra::KeySlice> result;
     cassandra::SlicePredicate slicep;
     cassandra::SliceRange slicer;
     cassandra::KeyRange krange;
+    const std::string &cfname(cf->cfname_);
 
     cassandra::ColumnParent cparent;
     cparent.column_family.assign(cfname);
     cparent.super_column.assign("");
 
     std::string key_string;
-    if (!ConstructDbDataValueKey(key_string, cfname, rowkey)) {
+    if (!ConstructDbDataValueKey(key_string, cf, rowkey)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
     krange.__set_start_key(key_string);
@@ -1029,10 +1054,10 @@ bool CdbIf::Db_GetRangeSlices_Internal(GenDb::ColList& col_list,
 
     std::string start_string;
     std::string finish_string;
-    if (!ConstructDbDataValueColumnName(start_string, cfname, crange.start_)) {
+    if (!ConstructDbDataValueColumnName(start_string, cf, crange.start_)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
-    if (!ConstructDbDataValueColumnName(finish_string, cfname, crange.finish_)) {
+    if (!ConstructDbDataValueColumnName(finish_string, cf, crange.finish_)) {
         CDBIF_CONDCHECK_LOG_RETF(0);
     }
 

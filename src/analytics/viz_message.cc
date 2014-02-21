@@ -2,16 +2,15 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
-#include "base/logging.h"
+#include <base/logging.h>
+#include <sandesh/sandesh_message_builder.h>
 #include "viz_message.h"
 
-RuleMsg::RuleMsg(const boost::shared_ptr<VizMsg> vmsgp) : hdr(vmsgp->hdr),
-    messagetype(vmsgp->messagetype) {
-    pugi::xml_parse_result result = doc_.load(vmsgp->xmlmessage.c_str());
-    if (!result) {
-        LOG(ERROR, __func__ << ": ERROR parsing XML: " << result.description()
-            << " Message: " << vmsgp->xmlmessage);
-    }
+RuleMsg::RuleMsg(const VizMsg* vmsgp) : 
+    hdr(vmsgp->msg->GetHeader()),
+    messagetype(vmsgp->msg->GetMessageType()),
+    message_node_(static_cast<const SandeshXMLMessage *>(
+        vmsgp->msg)->GetMessageNode()) {
 }
 
 RuleMsg::~RuleMsg() {
@@ -50,5 +49,5 @@ int RuleMsg::field_value_recur(const std::string& field_id, std::string& type, s
 }
 
 int RuleMsg::field_value(const std::string& field_id, std::string& type, std::string& value) const {
-    return field_value_recur(field_id, type, value, doc_);
+    return field_value_recur(field_id, type, value, message_node_);
 }
