@@ -22,6 +22,8 @@
 class ServiceType;
 class DiscoveryServiceClient;
 class DiscoveryServiceClientMock;
+struct DiscoveryClientPublisherStats;
+struct DiscoveryClientSubscriberStats;
 
 struct DSResponse {
    boost::asio::ip::tcp::endpoint  ep;
@@ -52,12 +54,11 @@ struct DSResponseHeader {
     // Stats
     int sub_sent_;
     int sub_rcvd_;
-    int sub_ttl_sent_;
+    int sub_fail_;
 
     bool subscribe_cb_called_;
 };
 
-#define MAX_HB_SIZE 16
 struct DSPublishResponse {
     DSPublishResponse(std::string serviceName, EventManager *evm,
                       DiscoveryServiceClient *); 
@@ -85,21 +86,22 @@ struct DSPublishResponse {
     /* Connect Timer */
     Timer *publish_conn_timer_;
     boost::asio::ip::udp::endpoint dss_ep_;
-    boost::asio::ip::udp::socket socket_;
     DiscoveryServiceClient *ds_client_;
     std::string publish_msg_;
     std::string publish_hdr_;
     int attempts_;
-    uint8_t recv_buf[MAX_HB_SIZE];
 
     // Stats
     int pub_sent_;
     int pub_rcvd_;
+    int pub_fail_;
+    int pub_fallback_;
     int pub_hb_sent_;
     int pub_hb_fail_;
     int pub_hb_rcvd_;
 
     bool publish_cb_called_;
+    bool heartbeat_cb_called_;
 };
 
 typedef boost::function<void()> EnqueuedCb;
@@ -132,6 +134,19 @@ public:
 
     void Unsubscribe(std::string serviceName);
 
+    void SendHeartBeat(std::string serviceName, std::string msg);
+    void HeartBeatResponseHandler(std::string &msg, boost::system::error_code, 
+                                  std::string serviceName, HttpConnection *);
+
+    DSPublishResponse *GetPublishResponse(std::string serviceName);
+
+    // sandesh introspect fill stats 
+    void FillDiscoveryServicePublisherStats(
+         std::vector<DiscoveryClientPublisherStats> &ds_stats); 
+
+    void FillDiscoveryServiceSubscriberStats(
+         std::vector<DiscoveryClientSubscriberStats> &ds_stats); 
+
     // Map of <ServiceName, SubscribeResponseHeader> for subscribe
     typedef std::map<std::string, DSResponseHeader *> ServiceResponseMap;
 
@@ -141,6 +156,9 @@ public:
     boost::asio::ip::tcp::endpoint GetDSServerEndPoint() {
         return ds_endpoint_;
     }
+
+    ServiceResponseMap service_response_map_;
+    PublishResponseMap publish_response_map_;
 
 private:
 
@@ -152,9 +170,6 @@ private:
     void RegisterSubscribeResponseHandler(std::string serviceName, ServiceHandler);
     void UnRegisterSubscribeResponseHandler(std::string serviceName);
     SubscribeResponseHandlerMap subscribe_map_;
-
-    ServiceResponseMap service_response_map_;
-    PublishResponseMap publish_response_map_;
 
     HttpClient *http_client_;
     EventManager *evm_;

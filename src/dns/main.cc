@@ -280,6 +280,7 @@ static int dns_main(int argc, char *argv[]) {
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,
             g_vns_constants.ModuleNames.find(Module::DNS)->second);
         ds_client->Init();
+        Dns::SetDiscoveryServiceClient(ds_client);
 
         // Publish DNServer Service
         Dns::SetSelfIp(hostip);

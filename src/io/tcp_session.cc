@@ -213,7 +213,6 @@ void TcpSession::CloseInternal(bool callObserver) {
         return;
     }
     established_ = false;
-    name_ = "-";
 
     // Take a reference through intrusive pointer to protect session from
     // possibly getting deleted from another thread.

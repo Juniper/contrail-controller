@@ -44,7 +44,6 @@
 #include "base/misc_utils.h"
 #include "control-node/sandesh/control_node_types.h"
 #include <control-node/buildinfo.h>
-#include "discovery_client.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -600,6 +599,7 @@ static int control_node_main(int argc, char *argv[]) {
             g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name); 
         ds_client->Init();
+        ControlNode::SetDiscoveryServiceClient(ds_client); 
   
         // publish xmpp-server service
         ControlNode::SetSelfIp(host_ip);
