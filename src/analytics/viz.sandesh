@@ -92,6 +92,7 @@ const string FLOW_TABLE_PROT_SP     = "FlowTableProtSpVer2"
 const string FLOW_TABLE_PROT_DP     = "FlowTableProtDpVer2"
 const string FLOW_TABLE_VROUTER     = "FlowTableVRouterVer2"
 const string FLOW_SERIES_TABLE      = "FlowSeriesTable"
+const string FLOW_TABLE_INVALID     = "Invalid Flow Table"
 
 const string STATS_TABLE_BY_STR_STR_TAG     = "StatsTableByStrStrTag"
 const string STATS_TABLE_BY_STR_U64_TAG     = "StatsTableByStrU64Tag"
@@ -100,7 +101,7 @@ const string STATS_TABLE_BY_U64_STR_TAG     = "StatsTableByU64StrTag"
 const string STATS_TABLE_BY_U64_U64_TAG     = "StatsTableByU64U64Tag"
 const string STATS_TABLE_BY_DBL_STR_TAG     = "StatsTableByDblStrTag"
 
-
+// Please keep FlowRecordFields and FlowRecordNames in sync
 enum FlowRecordFields {
    FLOWREC_FLOWUUID,
    FLOWREC_DIRECTION_ING,
@@ -130,38 +131,44 @@ enum FlowRecordFields {
    FLOWREC_VROUTER,
    FLOWREC_DIFF_BYTES,
    FLOWREC_DIFF_PACKETS,
+   FLOWREC_SHORT_FLOW,
+   FLOWREC_JSON,
+   FLOWREC_MAX,
 }
 
-const map<FlowRecordFields, string> FlowRecordNames = {
-    FlowRecordFields.FLOWREC_FLOWUUID              : "flowuuid",
-    FlowRecordFields.FLOWREC_DIRECTION_ING         : "direction_ing",
-    FlowRecordFields.FLOWREC_SOURCEVN              : "sourcevn",
-    FlowRecordFields.FLOWREC_SOURCEIP              : "sourceip",
-    FlowRecordFields.FLOWREC_DESTVN                : "destvn",
-    FlowRecordFields.FLOWREC_DESTIP                : "destip",
-    FlowRecordFields.FLOWREC_PROTOCOL              : "protocol",
-    FlowRecordFields.FLOWREC_SPORT                 : "sport",
-    FlowRecordFields.FLOWREC_DPORT                 : "dport",
-    FlowRecordFields.FLOWREC_TOS                   : "tos",
-    FlowRecordFields.FLOWREC_TCP_FLAGS             : "tcp_flags",
-    FlowRecordFields.FLOWREC_VM                    : "vm",
-    FlowRecordFields.FLOWREC_INPUT_INTERFACE       : "input_interface",
-    FlowRecordFields.FLOWREC_OUTPUT_INTERFACE      : "output_interface",
-    FlowRecordFields.FLOWREC_MPLS_LABEL            : "mpls_label",
-    FlowRecordFields.FLOWREC_REVERSE_UUID          : "reverse_uuid",
-    FlowRecordFields.FLOWREC_SETUP_TIME            : "setup_time",
-    FlowRecordFields.FLOWREC_TEARDOWN_TIME         : "teardown_time",
-    FlowRecordFields.FLOWREC_MIN_INTERARRIVAL      : "min_interarrival",
-    FlowRecordFields.FLOWREC_MAX_INTERARRIVAL      : "max_interarrival",
-    FlowRecordFields.FLOWREC_MEAN_INTERARRIVAL     : "mean_interarrival",
-    FlowRecordFields.FLOWREC_STDDEV_INTERARRIVAL   : "stddev_interarrival",
-    FlowRecordFields.FLOWREC_BYTES                 : "bytes",
-    FlowRecordFields.FLOWREC_PACKETS               : "packets",
-    FlowRecordFields.FLOWREC_DATA_SAMPLE           : "data_sample",
-    FlowRecordFields.FLOWREC_VROUTER               : "vrouter",
-    FlowRecordFields.FLOWREC_DIFF_BYTES            : "diff_bytes",
-    FlowRecordFields.FLOWREC_DIFF_PACKETS          : "diff_packets",
-}
+const list<string> FlowRecordNames = [
+    "flowuuid",
+    "direction_ing",
+    "sourcevn",
+    "sourceip",
+    "destvn",
+    "destip",
+    "protocol",
+    "sport",
+    "dport",
+    "tos",
+    "tcp_flags",
+    "vm",
+    "input_interface",
+    "output_interface",
+    "mpls_label",
+    "reverse_uuid",
+    "setup_time",
+    "teardown_time",
+    "min_interarrival",
+    "max_interarrival",
+    "mean_interarrival",
+    "stddev_interarrival",
+    "bytes",
+    "packets",
+    "data_sample",
+    "vrouter",
+    "diff_bytes",
+    "diff_packets",
+    "short_flow",
+    "json",
+    "invalid",
+]
 
 /* REDIS RELATED NAMES/CONSTANTS */
 

@@ -79,7 +79,7 @@ class Collector(object):
             args.append('--dup')
         self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE)
-        self._logger.info('Setting up Vizd: 127.0.0.1:%d' % (self.listen_port)) 
+        self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
     # end start
 
     def stop(self):

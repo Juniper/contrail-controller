@@ -973,7 +973,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
             if (dbif_->Db_GetRow(col_list, cfname, key)) {
-                for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
+                for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;
                     try {

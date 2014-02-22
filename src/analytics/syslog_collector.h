@@ -12,7 +12,7 @@
 #include "db_handler.h"
 #include "ruleeng.h"
 
-typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool,
+typedef boost::function<bool(const VizMsg*, bool,
     DbHandler *)> VizCallback;
 
 class SyslogQueueEntry
@@ -78,6 +78,7 @@ class SyslogListeners : public SyslogUDPListener,
       bool IsRunning ();
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
       DbHandler *GetDbHandler () { return db_handler_; }
+      SandeshMessageBuilder *GetBuilder () const { return builder_; }
     protected:
       virtual void Parse (SyslogQueueEntry *sqe);
     private:
@@ -87,6 +88,7 @@ class SyslogListeners : public SyslogUDPListener,
       bool          inited_;
       VizCallback   cb_;
       DbHandler    *db_handler_;
+      SandeshMessageBuilder *builder_;
 };
 
 
