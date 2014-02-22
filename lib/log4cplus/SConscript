@@ -20,3 +20,7 @@ log4cplus_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 env.SideEffect(products, log4cplus_cfg)
 
 env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
+
+env.Alias('install',
+          env.Symlink(env['INSTALL_LIB'] + '/liblog4cplus-1.1.so' + '.7',
+                      env['INSTALL_LIB'] + '/liblog4cplus-1.1.so' + version))
