@@ -29,6 +29,9 @@ env.SideEffect(products, thrift_cfg)
 env.Requires(thrift_cfg, '#/build/include/boost')
 
 env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
+env.Alias('install',
+          env.Symlink(env['INSTALL_LIB'] + '/libthriftasio.so' + '.0',
+                      env['INSTALL_LIB'] + '/libthriftasio.so' + '.0.0.0'))
 
 async_files = ['TAsioAsync.h', 'TAsync.h', 'TFuture.h']
 for file in async_files:
