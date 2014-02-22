@@ -52,20 +52,6 @@
 boost::uuids::random_generator FlowTable::rand_gen_ = boost::uuids::random_generator();
 tbb::atomic<int> FlowEntry::alloc_count_;
 
-inline void intrusive_ptr_add_ref(FlowEntry *fe) {
-    fe->refcount_.fetch_and_increment();
-}
-inline void intrusive_ptr_release(FlowEntry *fe) {
-    int prev = fe->refcount_.fetch_and_decrement();
-    if (prev == 1) {
-        FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
-        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key());
-        assert(it != table->flow_entry_map_.end());
-        table->flow_entry_map_.erase(it);
-        delete fe;
-    }
-}
-
 static bool ShouldDrop(uint32_t action) {
     if ((action & TrafficAction::DROP_FLAGS) || (action & TrafficAction::IMPLICIT_DENY_FLAGS))
         return true;

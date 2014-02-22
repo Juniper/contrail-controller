@@ -70,9 +70,18 @@ sdist_gen = OpEnv.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 # install everything before building distribution
 OpEnv.Depends(sdist_gen, sdist_depends)
 
+install_cmd = OpEnv.Command(None,
+                            'setup.py',
+                            'python setup.py install %s' %
+                            OpEnv['PYTHON_INSTALL_OPT'],
+                            chdir = 1)
+OpEnv.Depends(install_cmd, sdist_depends)
+OpEnv.Alias('install', install_cmd)
+
 OpEnv['OPSERVER_PKG'] = sdist_gen
 OpEnv.SConscript('test/SConscript', exports='OpEnv', duplicate = 0)
 
 OpEnv.Default(sdist_gen)
 OpEnv.Alias("src/opserver:opserver", sdist_gen)
+
 OpEnv.SConscript('node_mgr/SConscript', exports='BuildEnv', duplicate = 0)
