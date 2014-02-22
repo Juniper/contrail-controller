@@ -58,10 +58,11 @@ public:
     bool Init(bool initial, int instance);
     void UnInit(int instance);
 
-    inline bool AllowMessageTableInsert(SandeshHeader &header);
-    inline bool MessageIndexTableInsert(const std::string& cfname,
+    bool AllowMessageTableInsert(SandeshHeader &header);
+    bool MessageIndexTableInsert(const std::string& cfname,
             const SandeshHeader& header, const std::string& message_type, const boost::uuids::uuid& unm);
     void MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp);
+    void MessageTableOnlyInsert(boost::shared_ptr<VizMsg> vmsgp);
 
     void GetRuleMap(RuleMap& rulemap);
 
