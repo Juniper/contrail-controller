@@ -99,9 +99,12 @@ def start_ifmap(cport1):
     mapclient = client(("%s" % (ifmap_srv_ip), "%s" % (ifmap_srv_port)),
         uname, passwd, ns, None)
     connected = False
+    result = None
     while not connected:
         try:
             result = mapclient.call('newSession', NewSessionRequest())
+        except:
+            pass
         finally:
             if result != None:
                 connected = True
