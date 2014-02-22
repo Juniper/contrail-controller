@@ -148,7 +148,7 @@ static int qed_main(int argc, char *argv[]) {
     string discovery_server;
     uint16_t discovery_port = ContrailPorts::DiscoveryServerPort;
     string redis_ip = "127.0.0.1";
-    uint16_t redis_port = ContrailPorts::RedisUvePort;
+    uint16_t redis_port = ContrailPorts::RedisQueryPort;
     string hostname(boost::asio::ip::host_name(error));
     uint16_t http_server_port = ContrailPorts::HttpPortQueryEngine;
     bool log_local = false;
