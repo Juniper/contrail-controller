@@ -459,3 +459,6 @@ void IFMapServer::FillIndexMap(IFMapServerShowIndexMap *out_map) {
     }
 }
 
+void IFMapServer::GetUIInfo(IFMapServerInfoUI *server_info) {
+    server_info->set_num_peer_clients(GetClientMapSize());
+}

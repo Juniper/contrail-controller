@@ -43,7 +43,6 @@ struct PortInfo input[] = {
         {"flow1", 7, vm2_ip, "00:00:00:01:01:02", 5, 2},
 };
 
-int hash_id;
 VmInterface *flow0;
 VmInterface *flow1;
 
@@ -62,7 +61,6 @@ public:
     void FlowSetUp() {
         unsigned int vn_count = 0;
         EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
-        hash_id = 1;
         client->Reset();
         CreateVmportEnv(input, 2, 1);
         client->WaitForIdle(5);
@@ -500,8 +498,6 @@ TEST_F(UveVnUveTest, FlowCount_2) {
 
     /* Add remote VN route to vrf5 */
     CreateRemoteRoute("vrf5", remote_vm4_ip, remote_router_ip, 8, "vn3");
-    Ip4Address rid1 = Agent::GetInstance()->GetRouterId();
-    std::string router_ip_str = rid1.to_string();
 
     TestFlow flow[] = {
         //Send an ICMP flow from remote VM in vn3 to local VM in vn5

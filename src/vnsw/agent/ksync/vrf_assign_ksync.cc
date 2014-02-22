@@ -45,7 +45,7 @@ VrfAssignKSyncEntry::VrfAssignKSyncEntry(VrfAssignKSyncObject* obj,
     vlan_tag_ = vlan->GetVlanTag();
 
     if (vassign->GetVrf()) {
-        vrf_id_ = vassign->GetVrf()->GetVrfId();
+        vrf_id_ = vassign->GetVrf()->vrf_id();
     } else {
         vrf_id_ = VIF_VRF_INVALID;
     }
@@ -92,7 +92,7 @@ bool VrfAssignKSyncEntry::Sync(DBEntry *e) {
     uint16_t vrf_id = 0;
 
     if (vassign->GetVrf()) {
-        vrf_id = vassign->GetVrf()->GetVrfId();
+        vrf_id = vassign->GetVrf()->vrf_id();
     } else {
         vrf_id = VIF_VRF_INVALID;
     }

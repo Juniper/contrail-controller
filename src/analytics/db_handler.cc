@@ -7,6 +7,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 #include <boost/assign/list_of.hpp>
+#include <boost/asio/ip/host_name.hpp>
 
 #include "base/logging.h"
 #include "base/task.h"
@@ -24,6 +25,7 @@
 #include "rapidjson/writer.h"
 
 using std::string;
+using boost::system::error_code;
 
 DbHandler::DbHandler(EventManager *evm,
         GenDb::GenDbIf::DbErrorHandler err_handler,
@@ -33,6 +35,8 @@ DbHandler::DbHandler(EventManager *evm,
     name_(name),
     drop_level_(SandeshLevel::INVALID),
     msg_dropped_(0) {
+        error_code error;
+        col_name_ = boost::asio::ip::host_name(error);
 }
 
 DbHandler::DbHandler(GenDb::GenDbIf *dbif) :
@@ -145,8 +149,8 @@ bool DbHandler::CreateTables() {
     return true;
 }
 
-void DbHandler::UnInit(bool shutdown) {
-    dbif_->Db_Uninit(shutdown);
+void DbHandler::UnInit(int instance) {
+    dbif_->Db_Uninit("analytics::DbHandler", instance);
     dbif_->Db_SetInitDone(false);
 }
 
@@ -164,7 +168,7 @@ bool DbHandler::Initialize(int instance) {
     init_vizd_tables();
 
     LOG(DEBUG, "DbHandler::" << __func__ << " Begin");
-    if (!dbif_->Db_Init(Collector::kDbTask, instance)) {
+    if (!dbif_->Db_Init("analytics::DbHandler", instance)) {
         LOG(ERROR, __func__ << ": Connection to DB FAILED");
         return false;
     }
@@ -188,7 +192,7 @@ bool DbHandler::Initialize(int instance) {
 
 bool DbHandler::Setup(int instance) {
 
-    if (!dbif_->Db_Init(Collector::kDbTask, 
+    if (!dbif_->Db_Init("analytics::DbHandler", 
                        instance)) {
         LOG(ERROR, __func__ << ": Database initialization failed");
         return false;
@@ -252,11 +256,11 @@ bool DbHandler::GetStats(uint64_t &queue_count, uint64_t &enqueues,
     return dbif_->Db_GetQueueStats(queue_count, enqueues);
 }
 
-inline bool DbHandler::AllowMessageTableInsert(SandeshHeader &header) {
+bool DbHandler::AllowMessageTableInsert(SandeshHeader &header) {
     return header.get_Type() != SandeshType::FLOW;
 }
 
-inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
+bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header,
         const std::string& message_type,
         const boost::uuids::uuid& unm) {
@@ -301,12 +305,9 @@ inline bool DbHandler::MessageIndexTableInsert(const std::string& cfname,
     return true;
 }
 
-void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
+void DbHandler::MessageTableOnlyInsert(boost::shared_ptr<VizMsg> vmsgp) {
     SandeshHeader &header(vmsgp->hdr);
     std::string &message_type(vmsgp->messagetype);
-
-    if (!AllowMessageTableInsert(header))
-        return;
 
     uint64_t temp_u64;
     uint32_t temp_u32;
@@ -361,6 +362,16 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
                 ", message UUID: " << vmsgp->unm << " COLUMN FAILED");
         return;
     }
+}
+
+void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
+    SandeshHeader &header(vmsgp->hdr);
+    std::string &message_type(vmsgp->messagetype);
+
+    if (!AllowMessageTableInsert(header))
+        return;
+
+    MessageTableOnlyInsert(vmsgp);
 
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_SOURCE, header, message_type, vmsgp->unm);
     MessageIndexTableInsert(g_viz_constants.MESSAGE_TABLE_MODULE_ID, header, message_type, vmsgp->unm);
@@ -372,6 +383,7 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
      * Construct the atttributes,attrib_tags beofore inserting
      * to the StatTableInsert
      */
+    uint64_t temp_u64;
     DbHandler::TagMap tmap;
     DbHandler::AttribMap amap;
     string sname;
@@ -386,6 +398,15 @@ void DbHandler::MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp) {
     pv = string(message_type);
     tmap.insert(make_pair(sattrname,make_pair(pv,amap)));
     attribs.insert(make_pair(sattrname,pv));
+
+    //pv = string(header.get_Source());
+    // Put the name of the collector, not the message source.
+    // Using the message source will make queries slower
+    pv = string(col_name_);
+    tmap.insert(make_pair("Source",make_pair(pv,amap))); 
+    attribs.insert(make_pair(string("Source"),pv));
+
+    temp_u64 = header.get_Timestamp();
     StatTableInsert(temp_u64, "FieldNames","fields",tmap,attribs);
 
 }
@@ -625,9 +646,9 @@ bool FlowDataIpv4ObjectWalker::for_each(pugi::xml_node& node) {
         switch (it->second) {
             case GenDb::DbDataType::Unsigned8Type:
                   {
-                    uint8_t val;
+                    int8_t val;
                     stringToInteger(node.child_value(), val);
-                    col_value = val;
+                    col_value = (uint8_t)val;
                     break;
                   }
             case GenDb::DbDataType::Unsigned16Type:

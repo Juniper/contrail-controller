@@ -33,26 +33,25 @@ public:
 
     virtual udp::endpoint GetLocalEndPoint ();
     //tx-rx
-    void StartSend(udp::endpoint *ep, std::size_t bytes_to_send,
-            mutable_buffer *buffer);
-    virtual void HandleReceive (mutable_buffer *recv_buffer, 
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+    void StartSend(udp::endpoint &ep, std::size_t bytes_to_send,
+            mutable_buffer buffer);
+    virtual void HandleReceive (
+            boost::asio::const_buffer recv_buffer, 
+            udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
             const boost::system::error_code& error);
     void StartReceive();
-    virtual void HandleSend (mutable_buffer *send_buffer,
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+    virtual void HandleSend (boost::asio::const_buffer send_buffer,
+            udp::endpoint remote_endpoint, std::size_t bytes_transferred,
             const boost::system::error_code& error);
 
     // state
     ServerState GetServerState () { return state_; }
 
     //buffers
-    mutable_buffer *AllocateBuffer();
-    mutable_buffer *AllocateBuffer(std::size_t s);
-    void DeallocateBuffer (mutable_buffer *buffer);
-    udp::endpoint *AllocateEndPoint ();
-    udp::endpoint *AllocateEndPoint (std::string ipaddress, short port);
-    void DeallocateEndPoint (udp::endpoint *ep);
+    mutable_buffer AllocateBuffer();
+    mutable_buffer AllocateBuffer(std::size_t s);
+    void DeallocateBuffer (boost::asio::const_buffer &buffer);
 
 protected:
     EventManager *event_manager() { return evm_; }
@@ -60,10 +59,16 @@ protected:
     virtual std::string ToString() { return name_; }
 private:
     virtual void SetName (udp::endpoint ep);
+    void HandleReceiveInternal (
+            boost::asio::const_buffer recv_buffer, 
+            std::size_t bytes_transferred,
+            const boost::system::error_code& error);
     DISALLOW_COPY_AND_ASSIGN(UDPServer);
     boost::asio::ip::udp::socket socket_;
     int buffer_size_;
     ServerState state_;
     EventManager *evm_;
     std::string name_;
+    udp::endpoint remote_endpoint_;
+    std::vector<u_int8_t *> pbuf_;
 };

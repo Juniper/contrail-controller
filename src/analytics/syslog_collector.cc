@@ -23,6 +23,7 @@
 #include <boost/assign/list_of.hpp>
 
 #include <boost/fusion/adapted/std_pair.hpp>
+#include <boost/ptr_container/ptr_map.hpp>
 #include "syslog_collector.h"
 #include "base/logging.h"
 #include "generator.h"
@@ -53,11 +54,10 @@ class SyslogTcpSession : public TcpSession
 
     SyslogTcpSession (SyslogTcpListener *server, Socket *socket);
     virtual void OnRead (boost::asio::const_buffer buf);
-    void Parse (SyslogQueueEntry &sqe);
+    void Parse (SyslogQueueEntry *sqe);
   private:
     SyslogTcpListener *listner_;
 };
-
 
 class TCPSyslogQueueEntry : public SyslogQueueEntry
 {
@@ -65,14 +65,13 @@ class TCPSyslogQueueEntry : public SyslogQueueEntry
         typedef boost::intrusive_ptr<SyslogTcpSession> SyslogTcpSessionPtr;
     public:
     TCPSyslogQueueEntry (SyslogTcpSessionPtr ses, boost::asio::const_buffer b,
-            ip::tcp::endpoint e) :
+            ip::tcp::endpoint e):
+      SyslogQueueEntry (b, buffer_size (b), e.address ().to_string (),
+        e.port ()),
       buf_ (b), ep_ (e), session_(ses)  {
-        data = buffer_cast<const uint8_t *>(b);
-        length = buffer_size (b);
-        ip = e.address ().to_string ();
-        port = e.port ();
     }
     virtual void free ();
+    virtual ~TCPSyslogQueueEntry() {}
     private:
     boost::asio::const_buffer   buf_;
     ip::tcp::endpoint           ep_;
@@ -84,19 +83,18 @@ class UDPSyslogQueueEntry : public SyslogQueueEntry
 {
     public:
 
-    UDPSyslogQueueEntry (SyslogUDPListener* svr, udp::endpoint *ep,
-            mutable_buffer *d, size_t l):
-        ep_ (ep), mb_ (d), server_ (svr) {
-        data = buffer_cast<uint8_t *>(*d);
-        length = l;
-        ip = ep->address ().to_string ();
-        port = ep->port ();
+    UDPSyslogQueueEntry (SyslogUDPListener* svr, udp::endpoint ep,
+            boost::asio::const_buffer d, size_t l):
+        SyslogQueueEntry (d, l, ep.address ().to_string (), ep.port ()),
+        ep_ (ep), b_(d), server_ (svr)
+    {
     }
     virtual void free ();
+    virtual ~UDPSyslogQueueEntry() {}
     private:
-    udp::endpoint          *ep_;
-    mutable_buffer         *mb_;
-    SyslogUDPListener      *server_;
+    udp::endpoint             ep_;
+    boost::asio::const_buffer b_;
+    SyslogUDPListener        *server_;
 };
 
 
@@ -116,12 +114,11 @@ class SyslogParser
                 ("local1") ("local2") ("local3") ("local4") ("local5")
                 ("local6") ("local7");
         }
-        SyslogParser (const SyslogParser &sp):
-             work_queue_(TaskScheduler::GetInstance()->GetTaskId(
-                         "vizd::syslog"), 0, boost::bind(
-                             &SyslogParser::ClientParse, this, _1)) {
+        ~SyslogParser ()
+        {
+            genarators_.erase (genarators_.begin (), genarators_.end ());
         }
-        void Parse (SyslogQueueEntry &sqe) {
+        void Parse (SyslogQueueEntry *sqe) {
             work_queue_.Enqueue (sqe);
         }
 
@@ -165,38 +162,18 @@ class SyslogParser
 
             void print ()
             {
-                std::cout << "{ \"" << key << "\": ";
+                LOG(DEBUG, "{ \"" << key << "\": ");
                 if (type == int_type)
-                    std::cout << i_val << "}";
+                    LOG(DEBUG, i_val << "}");
                 else if (type == str_type)
-                    std::cout << "\"" << s_val << "\"}";
+                    LOG(DEBUG, "\"" << s_val << "\"}");
                 else
-                    std::cout << "**bad type**}";
+                    LOG(DEBUG, "**bad type**}");
             }
         };
 
         typedef std::map<std::string, Holder>  syslog_m_t;
 
-        struct months_: qi::symbols<char, int>
-        {
-            months_()
-            {
-                add
-                    ("Jan", 1)
-                    ("Feb", 2)
-                    ("Mar", 3)
-                    ("Apr", 4)
-                    ("May", 5)
-                    ("Jun", 6)
-                    ("Jul", 7)
-                    ("Aug", 8)
-                    ("Sep", 9)
-                    ("Oct", 10)
-                    ("Nov", 11)
-                    ("Dec", 12)
-                ;
-            }
-        } months;
 
         template <typename Iterator>
         bool parse_syslog (Iterator start, Iterator end, syslog_m_t &v)
@@ -217,6 +194,26 @@ class SyslogParser
             qi::int_parser<int, 10, 1, 3> int3_p;
             qi::int_parser<int, 10, 1, 2> int2_p;
             qi::int_parser<int, 10, 1, 1> int1_p;
+            struct months_: qi::symbols<char, int>
+            {
+                months_()
+                {
+                    add
+                        ("Jan", 1)
+                        ("Feb", 2)
+                        ("Mar", 3)
+                        ("Apr", 4)
+                        ("May", 5)
+                        ("Jun", 6)
+                        ("Jul", 7)
+                        ("Aug", 8)
+                        ("Sep", 9)
+                        ("Oct", 10)
+                        ("Nov", 11)
+                        ("Dec", 12)
+                    ;
+                }
+            } months;
 
             bool r = qi::phrase_parse(start, end,
                     // Begin grammer
@@ -343,14 +340,14 @@ class SyslogParser
                 Holder("severity", s)));
         }
 
-        SyslogGenerator GetGenerator (std::string ip)
+        SyslogGenerator *GetGenerator (std::string ip)
         {
-            std::map<std::string, SyslogGenerator>::iterator i =
+            boost::ptr_map<std::string, SyslogGenerator>::iterator i =
                                                 genarators_.find (ip);
             if (i == genarators_.end()) {
 
-                genarators_.insert (std::pair<std::string, SyslogGenerator>(
-                        ip, SyslogGenerator(syslog_, ip, "syslog")));
+                genarators_.insert (ip, new SyslogGenerator(syslog_, ip,
+                                        "syslog"));
                 i = genarators_.find (ip);
             }
             return i->second;
@@ -401,59 +398,62 @@ class SyslogParser
             boost::shared_ptr<VizMsg> msg(new VizMsg(hdr, "SYSLOG",
                     "<Syslog>" + GetMsgBody (v) + "</Syslog>",
                     umn_gen_ ()));
-            GetGenerator (ip).ReceiveSandeshMsg (msg, false);
+            GetGenerator (ip)->ReceiveSandeshMsg (msg, false);
         }
 
-        bool ClientParse (SyslogQueueEntry sqe) {
-          const uint8_t *p = sqe.data;
+        bool ClientParse (SyslogQueueEntry *sqe) {
+          std::string ip = sqe->ip;
+          const uint8_t *p = buffer_cast<const uint8_t *>(sqe->data);
 //#define SYSLOG_DEBUG 0
 #ifdef SYSLOG_DEBUG
-          std::cout << "cnt parser " << sqe.length << " bytes from (" <<
-              sqe.ip << ":" << sqe.port << ")[";
+          LOG(DEBUG, "cnt parser " << sqe->length << " bytes from (" <<
+              ip << ":" << sqe->port << ")[");
 
-          for (const uint8_t *q = p; q != p + sqe.length; q++)
-              std::cout << *q;
-          std::cout << "]\n";
+          {
+              std::string str (p, p + sqe->length);
+              LOG(DEBUG, str << "]\n");
+          }
 #endif
 
           syslog_m_t v;
-          bool r = parse_syslog (p, p + sqe.length, v);
+          bool r = parse_syslog (p, p + sqe->length, v);
 #ifdef SYSLOG_DEBUG
-          std::cout << "parsed " << r << "." << std::endl;
+          LOG(DEBUG, "parsed " << r << "." << std::endl;
 #endif
 
           v.insert(std::pair<std::string, Holder>("ip",
-                Holder("ip", sqe.ip)));
+                Holder("ip", ip)));
           PostParsing (v);
 
           MakeSandesh (v);
 
-          LOG(DEBUG, __func__ << " syslog msg from " << sqe.ip << ":" <<
+#ifdef SYSLOG_DEBUG
+          LOG(DEBUG, __func__ << " syslog msg from " << ip << ":" <<
                 GetMapVals (v, "body", "**EMPTY**"));
 
-#ifdef SYSLOG_DEBUG
           int i = 0;
           while (!v.empty()) {
-              std::cout << i++ << ": ";
+              LOG(DEBUG, i++ << ": ";
               Holder d = v.begin()->second;
               d.print ();
-              std::cout << std::endl;
+              LOG(DEBUG, std::endl;
               v.erase(v.begin());
           }
 #else
-          v.erase(v.begin(), v.end());
+          v.clear ();
 #endif
-          sqe.free ();
+          sqe->free ();
+          delete sqe;
 /*** test for burst
           boost::this_thread::sleep(boost::posix_time::milliseconds(20000UL));
 **/
           return r;
         }
-        WorkQueue<SyslogQueueEntry>               work_queue_;
-        boost::uuids::random_generator            umn_gen_;
-        std::map<std::string, SyslogGenerator>    genarators_;
-        SyslogListeners                          *syslog_;
-        std::vector<std::string>                  facilitynames_;
+        WorkQueue<SyslogQueueEntry*>                 work_queue_;
+        boost::uuids::random_generator               umn_gen_;
+        boost::ptr_map<std::string, SyslogGenerator> genarators_;
+        SyslogListeners                             *syslog_;
+        std::vector<std::string>                     facilitynames_;
 };
 
 void SyslogQueueEntry::free ()
@@ -498,15 +498,16 @@ void SyslogUDPListener::Start (std::string ipaddress, int port)
     LOG(DEBUG, __func__ << " Initialization of UDP syslog listener done!");
 }
 
-void SyslogUDPListener::HandleReceive (mutable_buffer *recv_buffer,
-            udp::endpoint *remote_endpoint, std::size_t bytes_transferred,
+void SyslogUDPListener::HandleReceive (
+            boost::asio::const_buffer recv_buffer,
+            udp::endpoint remote_endpoint,
+            std::size_t bytes_transferred,
             const boost::system::error_code& error)
 {
     // TODO: handle error
-    UDPSyslogQueueEntry sqe (this, remote_endpoint,
+    UDPSyslogQueueEntry *sqe = new UDPSyslogQueueEntry (this, remote_endpoint,
             recv_buffer, bytes_transferred);
     Parse (sqe);
-    StartReceive();
 }
 
 
@@ -536,7 +537,7 @@ void SyslogListeners::Start ()
         inited_ = true;
     }
 }
-void SyslogListeners::Parse (SyslogQueueEntry &sqe)
+void SyslogListeners::Parse (SyslogQueueEntry *sqe)
 {
     //LOG(DEBUG, __func__ << " syslog Parsing msg");
     parser_->Parse (sqe);
@@ -555,20 +556,20 @@ void SyslogListeners::Shutdown ()
 
 void
 TCPSyslogQueueEntry::free () {
-    session_->ReleaseBuffer(buf_);
     session_->server()->DeleteSession (session_.get());
+    session_->ReleaseBuffer(buf_);
 }
 void
 UDPSyslogQueueEntry::free () {
-    server_->DeallocateBuffer (mb_);
-    server_->DeallocateEndPoint (ep_);
+    //server_->DeallocateEndPoint (ep_);
+    server_->DeallocateBuffer (b_);
 }
 SyslogTcpSession::SyslogTcpSession (SyslogTcpListener *server, Socket *socket) :
       TcpSession(server, socket), listner_ (server) {
           //set_observer(boost::bind(&SyslogTcpSession::OnEvent, this, _1, _2));
 }
 void
-SyslogTcpSession::Parse (SyslogQueueEntry &sqe)
+SyslogTcpSession::Parse (SyslogQueueEntry *sqe)
 {
   listner_->Parse (sqe);
 }
@@ -577,8 +578,8 @@ SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
 {
     boost::system::error_code ec;
     // TODO: handle error
-    TCPSyslogQueueEntry    sqe(SyslogTcpSessionPtr (this), buf,
-            socket ()->remote_endpoint(ec));
+    TCPSyslogQueueEntry *sqe = new TCPSyslogQueueEntry (SyslogTcpSessionPtr (
+        this), buf, socket ()->remote_endpoint(ec));
     Parse (sqe);
 }
 

@@ -46,7 +46,7 @@ bool CallPktParse(PktInfo *pkt_info, uint8_t *ptr, int len) {
         LOG(ERROR, "Invalid interface index <" << pkt_info->agent_hdr.ifindex << ">");
         return true;
     }
-    pkt_info->vrf = intf->GetVrfId();
+    pkt_info->vrf = intf->vrf_id();
     pkt_info->type = PktType::INVALID;
     Agent::GetInstance()->pkt()->pkt_handler()->ParseUserPkt(pkt_info, intf, pkt_info->type, 
                                               pkt);

@@ -842,7 +842,7 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
     if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
+        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
     }
 
     if (info->ecmp) {
@@ -889,7 +889,7 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
     if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->GetVrfId();
+        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
     }
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -1289,19 +1289,19 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
     Inet4UnicastRouteEntry *route = static_cast<Inet4UnicastRouteEntry *>(e);
     State *state = static_cast<State *>(e->GetState(partition->parent(), id_));
 
-    if (route->IsMulticast()) {
+    if (route->is_multicast()) {
         return;
     }
     
     SecurityGroupList new_sg_l;
     if (route->GetActivePath()) {
-        new_sg_l = route->GetActivePath()->GetSecurityGroupList();
+        new_sg_l = route->GetActivePath()->sg_list();
     }
     FLOW_TRACE(RouteUpdate, 
-               route->GetVrfEntry()->GetName(), 
-               route->GetIpAddress().to_string(), 
-               route->GetPlen(), 
-               (route->GetActivePath()) ? route->GetDestVnName() : "",
+               route->vrf()->GetName(), 
+               route->addr().to_string(), 
+               route->plen(), 
+               (route->GetActivePath()) ? route->dest_vn_name() : "",
                route->IsDeleted(),
                marked_delete_,
                new_sg_l.size(),
@@ -1309,8 +1309,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
 
     // Handle delete cases
     if (marked_delete_ || route->IsDeleted()) {
-        RouteFlowKey rkey(route->GetVrfEntry()->GetVrfId(),
-                          route->GetIpAddress().to_ulong(), route->GetPlen());
+        RouteFlowKey rkey(route->vrf()->vrf_id(),
+                          route->addr().to_ulong(), route->plen());
         Agent::GetInstance()->pkt()->flow_table()->DeleteRouteFlows(rkey);
         if (state) {
             route->ClearState(partition->parent(), id_);
@@ -1324,8 +1324,8 @@ void Inet4RouteUpdate::UnicastNotify(DBTablePartBase *partition, DBEntryBase *e)
         route->SetState(partition->parent(), id_, state);
     }
 
-    RouteFlowKey skey(route->GetVrfEntry()->GetVrfId(), 
-                      route->GetIpAddress().to_ulong(), route->GetPlen());
+    RouteFlowKey skey(route->vrf()->vrf_id(), 
+                      route->addr().to_ulong(), route->plen());
     sort (new_sg_l.begin(), new_sg_l.end());
     if (state->sg_l_ != new_sg_l) {
         state->sg_l_ = new_sg_l;
@@ -2000,7 +2000,7 @@ DBTableBase::ListenerId FlowTable::nh_listener_id() {
 
 Inet4UnicastRouteEntry * FlowTable::GetUcRoute(const VrfEntry *entry,
         const Ip4Address &addr) {
-        route_key_.SetAddr(addr);
+        route_key_.set_addr(addr);
         return entry->GetUcRoute(route_key_);
 }
 

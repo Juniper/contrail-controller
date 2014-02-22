@@ -5,6 +5,8 @@
 #include "test/test_cmn_util.h"
 #include "test_pkt_util.h"
 #include "pkt/flow_proto.h"
+#include <base/task.h>
+#include <base/test/task_test_util.h>
 
 VmInterface *vnet[16];
 InetInterface *vhost;
@@ -354,12 +356,26 @@ bool ValidateAction(uint32_t vrfid, char *sip, char *dip, int proto, int sport,
     return ret;
 }
 
+// Introspec checking
+// Checks for the SG UUID and sg id, if sg_id is -1, then checks num entries 
+bool sg_introspec_test = false;
+static void SgListResponse(Sandesh *sandesh, int id, int sg_id, int num_entries)
+{
+    SgListResp *resp = dynamic_cast<SgListResp *>(sandesh);
+    EXPECT_EQ(resp->get_sg_list().size(), num_entries);
+    if (!sg_id) {
+        EXPECT_EQ(resp->get_sg_list()[0].sg_uuid, UuidToString(MakeUuid(id)));
+        EXPECT_EQ(resp->get_sg_list()[0].sg_id, sg_id);
+    }
+    sg_introspec_test = true;
+}
+
 // Allow in both forward and reverse directions
 TEST_F(SgTest, Flow_Allow_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 1, 0, 0));
@@ -372,7 +388,7 @@ TEST_F(SgTest, Flow_Deny_1) {
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
@@ -383,11 +399,11 @@ TEST_F(SgTest, Fwd_Sg_Change_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], vnet_addr[2], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::PASS));
 
     AddAclEntry("sg_acl1", 10, 1, "deny");
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 1, 0, 0, TrafficAction::DENY));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
@@ -400,17 +416,65 @@ TEST_F(SgTest, Sg_Delete_1) {
                 10, 20);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::DENY));
 
     DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                vnet_addr[2], 6, 10, 20, TrafficAction::PASS));
 
     EXPECT_TRUE(FlowDelete(vnet[1]->vrf()->GetName(), vnet_addr[1],
                            vnet_addr[2], 6, 10, 20));
+}
+
+TEST_F(SgTest, Sg_Introspec) {
+    // Delete sg added for setup()
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg1");
+
+    // Add a SG id acl to pass traffic between sg-id 1 and sg-id 2 
+    // to vnet1
+    AddSgEntry("sg2", "ag2", 20, 1, "pass", 1, 2);
+    AddLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+
+    // Introspec based on the uuid
+    client->WaitForIdle();
+    SgListReq *req = new SgListReq();
+    req->set_name(UuidToString(MakeUuid(20)));
+    sg_introspec_test = false;
+    Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 1));
+    req->HandleRequest();
+    TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+    req->Release();
+
+    // Introspec based on empty string to return entire list
+    req = new SgListReq();
+    req->set_name("");
+    sg_introspec_test = false;
+    Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, -1, 2));
+    req->HandleRequest();
+    TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+    req->Release();
+
+    // Introspec based on the sg id
+    req = new SgListReq();
+    req->set_name("1");
+    sg_introspec_test = false;
+    Sandesh::set_response_callback(boost::bind(SgListResponse, _1, 20, 1, 1));
+    req->HandleRequest();
+    TASK_UTIL_EXPECT_EQ(true, sg_introspec_test);
+    req->Release();
+
+    // Remove the added link and nodes
+    DelLink("virtual-machine-interface", "vnet1", "security-group", "sg2");
+    DelNode("security-group", "sg2");
+    DelNode("access-control-list", "ag2");
+    boost::system::error_code ec;
+    Inet4UnicastAgentRouteTable::DeleteReq(NULL, "vrf1",
+        Ip4Address::from_string("10.10.10.0", ec), 24);
+    client->WaitForIdle();
+
 }
 
 //Add a aggregarate route for destination
@@ -440,7 +504,7 @@ TEST_F(SgTest, Sg_Policy_1) {
     TxIpPacket(vnet[1]->id(), vnet_addr[1], remote_ip, 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0, TrafficAction::PASS));
     client->WaitForIdle();
 
@@ -454,7 +518,7 @@ TEST_F(SgTest, Sg_Policy_1) {
                                     17, "vn1", sg_id_list);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), vnet_addr[1],
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), vnet_addr[1],
                                remote_ip, 1, 0, 0,
                                TrafficAction::DROP));
 
@@ -497,7 +561,7 @@ TEST_F(SgTest, Sg_Policy_2) {
                    remote_ip, vnet_addr[1], 1);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0, TrafficAction::PASS));
     client->WaitForIdle();
 
@@ -511,7 +575,7 @@ TEST_F(SgTest, Sg_Policy_2) {
                                     17, "vn1", sg_id_list);
     client->WaitForIdle();
 
-    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->GetVrfId(), remote_ip,
+    EXPECT_TRUE(ValidateAction(vnet[1]->vrf()->vrf_id(), remote_ip,
                                vnet_addr[1], 1, 0, 0,
                                TrafficAction::DROP));
 

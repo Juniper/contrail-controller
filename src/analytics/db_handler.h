@@ -56,12 +56,13 @@ public:
 
     bool DropMessage(SandeshHeader &header);
     bool Init(bool initial, int instance);
-    void UnInit(bool shutdown);
+    void UnInit(int instance);
 
-    inline bool AllowMessageTableInsert(SandeshHeader &header);
-    inline bool MessageIndexTableInsert(const std::string& cfname,
+    bool AllowMessageTableInsert(SandeshHeader &header);
+    bool MessageIndexTableInsert(const std::string& cfname,
             const SandeshHeader& header, const std::string& message_type, const boost::uuids::uuid& unm);
     void MessageTableInsert(boost::shared_ptr<VizMsg> vmsgp);
+    void MessageTableOnlyInsert(boost::shared_ptr<VizMsg> vmsgp);
 
     void GetRuleMap(RuleMap& rulemap);
 
@@ -94,6 +95,7 @@ private:
     tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
     std::string name_;
+    std::string col_name_;
     SandeshLevel::type drop_level_;
     uint64_t msg_dropped_;
 

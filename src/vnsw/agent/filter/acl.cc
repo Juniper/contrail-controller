@@ -635,7 +635,7 @@ bool AclDBEntry::PacketMatch(const PacketHeader &packet_header,
                  MirrorActionSpec as;
 		 as.ip = a->GetIp();
 		 as.port = a->GetPort();
-                 as.vrf_name = a->GetVrfName();
+                 as.vrf_name = a->vrf_name();
                  as.analyzer_name = a->GetAnalyzerName();
                  as.encap = a->GetEncap();
                  m_acl.action_info.mirror_l.push_back(as);

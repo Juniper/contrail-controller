@@ -22,6 +22,8 @@
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
 #include <sandesh/request_pipeline.h>
+#include <discovery/client/discovery_client.h>
+#include <discovery_client_stats_types.h>
 
 #include "collector.h"
 #include "viz_collector.h"
@@ -36,6 +38,7 @@ using namespace boost::assign;
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
+DiscoveryServiceClient *Collector::ds_client_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
@@ -298,11 +301,7 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
     for (GeneratorMap::const_iterator gm_it = gen_map_.begin();
             gm_it != gen_map_.end(); gm_it++) {
         const SandeshGenerator * const gen = gm_it->second;
-        // Only send if generator is connected
-        VizSession *session = gen->session();
-        if (!session) {
-            continue;
-        }
+
         vector<SandeshStats> ssv;
         gen->GetMessageTypeStats(ssv);
         vector<SandeshLogLevelStats> lsv;
@@ -336,13 +335,17 @@ void Collector::GetGeneratorSandeshStatsInfo(vector<ModuleServerState> &genlist)
             ginfo.set_db_drop_level(db_drop_level);
             ginfo.set_db_msg_dropped(db_msg_dropped);
         }
-        ginfo.set_session_stats(session->GetStats());
-        TcpServerSocketStats rx_stats;
-        session->GetRxSocketStats(rx_stats);
-        ginfo.set_session_rx_socket_stats(rx_stats);
-        TcpServerSocketStats tx_stats;
-        session->GetTxSocketStats(tx_stats);
-        ginfo.set_session_tx_socket_stats(tx_stats);
+        // Only send if generator is connected
+        VizSession *session = gen->session();
+        if (session) {
+            ginfo.set_session_stats(session->GetStats());
+            TcpServerSocketStats rx_stats;
+            session->GetRxSocketStats(rx_stats);
+            ginfo.set_session_rx_socket_stats(rx_stats);
+            TcpServerSocketStats tx_stats;
+            session->GetTxSocketStats(tx_stats);
+            ginfo.set_session_tx_socket_stats(tx_stats);
+        }
 
         ginfo.set_msg_stats(ssiv);
         ginfo.set_name(gen->ToString());
@@ -550,4 +553,31 @@ void DbQueueParamsStatus::HandleRequest() const {
         return;
     }
     SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}
+
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const { 
+
+    DiscoveryClientSubscriberStatsResponse *resp = 
+        new DiscoveryClientSubscriberStatsResponse(); 
+    resp->set_context(context());
+
+    resp->set_more(false); 
+    resp->Response(); 
+}
+
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {  
+
+    DiscoveryClientPublisherStatsResponse *resp = 
+        new DiscoveryClientPublisherStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientPublisherStats> stats_list;
+    DiscoveryServiceClient *ds = Collector::GetCollectorDiscoveryServiceClient();
+    if (ds) {   
+        ds->FillDiscoveryServicePublisherStats(stats_list);  
+    }
+
+    resp->set_publisher(stats_list);
+    resp->set_more(false);
+    resp->Response();
 }

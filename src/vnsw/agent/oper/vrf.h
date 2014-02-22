@@ -41,7 +41,7 @@ class VrfEntry : AgentRefCount<VrfEntry>, public AgentDBEntry {
 public:
     class VrfNHMap;
     static const uint32_t kInvalidIndex = 0xFFFFFFFF;
-    static const uint32_t kDeleteTimeout = 300 * 1000;
+    static const uint32_t kDeleteTimeout = 900 * 1000;
     VrfEntry(const string &name);
     virtual ~VrfEntry();
 
@@ -50,7 +50,7 @@ public:
     virtual void SetKey(const DBRequestKey *key);
     virtual string ToString() const;
 
-    const uint32_t GetVrfId() const {return id_;};
+    const uint32_t vrf_id() const {return id_;};
     const string &GetName() const {return name_;};
 
     uint32_t GetRefCount() const {

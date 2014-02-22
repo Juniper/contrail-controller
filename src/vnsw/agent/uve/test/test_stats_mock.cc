@@ -9,6 +9,7 @@
 #include <uve/agent_uve.h>
 #include <uve/vn_uve_table_test.h>
 #include "ksync/ksync_sock_user.h"
+#include <uve/agent_stats_collector_test.h>
 
  
 #define MAX_VNET 2
@@ -344,8 +345,10 @@ TEST_F(StatsTestMock, FlowStatsOverflow_AgeTest) {
 }
 
 TEST_F(StatsTestMock, IntfStatsTest) {
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
-    client->IfStatsTimerWait(2);
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    client->IfStatsTimerWait(1);
 
     EXPECT_TRUE(VmPortStatsMatch(test0, 0,0,0,0)); 
     EXPECT_TRUE(VmPortStatsMatch(test1, 0,0,0,0)); 
@@ -355,8 +358,8 @@ TEST_F(StatsTestMock, IntfStatsTest) {
     KSyncSockTypeMap::IfStatsUpdate(test1->id(), 1, 50, 0, 1, 20, 0);
 
     //Wait for stats to be updated
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
-    client->IfStatsTimerWait(2);
+    collector->interface_stats_responses_ = 0;
+    client->IfStatsTimerWait(1);
 
     //Verify the updated flow stats
     EXPECT_TRUE(VmPortStatsMatch(test0, 1, 50, 1, 20)); 
@@ -453,7 +456,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     VrfEntry *vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf41");
     EXPECT_TRUE(vrf != NULL);
-    int vrf41_id = vrf->GetVrfId();
+    int vrf41_id = vrf->vrf_id();
 
     VrfAddReq("vrf42");
     client->WaitForIdle();
@@ -462,7 +465,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 
     vrf = Agent::GetInstance()->GetVrfTable()->FindVrfFromName("vrf42");
     EXPECT_TRUE(vrf != NULL);
-    int vrf42_id = vrf->GetVrfId();
+    int vrf42_id = vrf->vrf_id();
 
     //Create 2 vrfs in mock Kernel and update its stats
     KSyncSockTypeMap::VrfStatsAdd(vrf41_id);
@@ -472,8 +475,10 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     KSyncSockTypeMap::VrfStatsUpdate(vrf42_id, 23, 24, 25, 26, 27, 28, 29, 30,
                                      31, 32, 33, 34, 35);
 
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
     //Wait for stats to be updated in agent
-    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verfify the stats read from kernel
@@ -520,7 +525,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      57, 58, 59, 60, 61);
 
     //Wait for stats to be updated in agent
-    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that prev_* fields of vrf_stats are updated when vrf is absent from agent
@@ -547,7 +552,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
     EXPECT_TRUE(vrf != NULL);
 
     //Wait for stats to be updated in agent
-    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats's entry stats are set to 0
@@ -565,7 +570,7 @@ TEST_F(StatsTestMock, VrfStatsTest) {
                                      83, 84, 85, 86, 87);
 
     //Wait for stats to be updated in agent
-    Agent::GetInstance()->uve()->agent_stats_collector()->vrf_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
     client->VrfStatsTimerWait(1);
 
     //Verify that vrf_stats_entry's stats are set to values after the vrf was added
@@ -587,8 +592,10 @@ TEST_F(StatsTestMock, VrfStatsTest) {
 }
 
 TEST_F(StatsTestMock, VnStatsTest) {
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
-    client->IfStatsTimerWait(2);
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    client->IfStatsTimerWait(1);
 
     //Verify vn stats at the start of test case
     char vn_name[20];
@@ -603,8 +610,8 @@ TEST_F(StatsTestMock, VnStatsTest) {
     KSyncSockTypeMap::IfStatsUpdate(test0->id(), 50, 1, 0, 20, 1, 0);
 
     //Wait for stats to be updated
-    Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
-    client->IfStatsTimerWait(2);
+    collector->interface_stats_responses_ = 0;
+    client->IfStatsTimerWait(1);
 
     //Verify the updated vn stats
     EXPECT_TRUE(VnStatsMatch(vn_name, 50, 1, 20, 1)); 
@@ -614,8 +621,8 @@ TEST_F(StatsTestMock, VnStatsTest) {
         KSyncSockTypeMap::IfStatsUpdate(test1->id(), 50, 1, 0, 20, 1, 0);
 
         //Wait for stats to be updated
-        Agent::GetInstance()->uve()->agent_stats_collector()->run_counter_ = 0;
-        client->IfStatsTimerWait(2);
+        collector->interface_stats_responses_ = 0;
+        client->IfStatsTimerWait(1);
 
         //Verify the updated vn stats
         EXPECT_TRUE(VnStatsMatch(vn_name, 100, 2, 40, 2)); 

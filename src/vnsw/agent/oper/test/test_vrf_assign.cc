@@ -8,6 +8,7 @@
 #include "testing/gunit.h"
 #include "test/test_cmn_util.h"
 #include <boost/assign/list_of.hpp>
+#include "base/util.h"
 
 using namespace boost::assign;
 
@@ -82,6 +83,26 @@ public:
 };
 
 TEST_F(VrfAssignTest, basic_1) {
+    VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf1", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+
+    //Check for sandesh request
+    VrfAssignReq *vrf_assign_list_req = new VrfAssignReq();
+    std::vector<int> result = list_of(1);
+    vrf_assign_list_req->set_uuid(UuidToString(MakeUuid(1)));
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    vrf_assign_list_req->HandleRequest();
+    client->WaitForIdle();
+    vrf_assign_list_req->Release();
+    client->WaitForIdle();
+
+    VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+}
+
+TEST_F(VrfAssignTest, basic_1_invalid_vrf) {
     VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf2", 1);
     client->WaitForIdle();
     EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
@@ -89,11 +110,40 @@ TEST_F(VrfAssignTest, basic_1) {
     //Check for sandesh request
     VrfAssignReq *vrf_assign_list_req = new VrfAssignReq();
     std::vector<int> result = list_of(1);
+    vrf_assign_list_req->set_uuid(UuidToString(MakeUuid(1)));
     Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
     vrf_assign_list_req->HandleRequest();
     client->WaitForIdle();
     vrf_assign_list_req->Release();
     client->WaitForIdle();
+
+    VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) == NULL);
+}
+
+TEST_F(VrfAssignTest, Check_key_manipulations) {
+    VrfAssignTable::CreateVlanReq(MakeUuid(1), "vrf2", 1);
+    client->WaitForIdle();
+    EXPECT_TRUE(VrfAssignTable::FindVlanReq(MakeUuid(1), 1) != NULL);
+
+    Interface *interface = VrfAssignTable::FindInterface(MakeUuid(1));
+    EXPECT_TRUE(interface != NULL);
+    //Verify key
+    VrfAssign *vrf_assign = VrfAssignTable::FindVlanReq(MakeUuid(1), 1);
+    VrfAssign::VrfAssignKey *key = 
+        static_cast<VrfAssign::VrfAssignKey *>(vrf_assign->GetDBRequestKey().release());
+    VlanVrfAssign *vlan_vrf_assign = static_cast<VlanVrfAssign *>(vrf_assign);
+    EXPECT_TRUE(key != NULL);
+    EXPECT_TRUE(key->vlan_tag_ == 1);
+    EXPECT_TRUE(key->intf_uuid_ == MakeUuid(1));
+    EXPECT_TRUE(key->type_ == VrfAssign::VLAN);
+    VrfAssign::VrfAssignKey *new_key = new VrfAssign::VrfAssignKey();
+    new_key->VlanInit(MakeUuid(1), 2); 
+    vlan_vrf_assign->SetKey(new_key);
+    EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 2);
+    vrf_assign->SetKey(key);
+    EXPECT_TRUE(vlan_vrf_assign->GetVlanTag() == 1);
 
     VrfAssignTable::DeleteVlanReq(MakeUuid(1), 1);
     client->WaitForIdle();

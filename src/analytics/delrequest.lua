@@ -34,7 +34,7 @@ for k,v in pairs(typ) do
         local delseq = lres[iter+1]
         local st,en
         st,en = string.find(deluve,":")
-        local deltbl = string.sub(deluve, st-1)
+        local deltbl = string.sub(deluve, 1, st-1)
 
         local dkey = "DEL:"..deluve..":"..sm..":"..deltyp..":"..delseq
         redis.log(redis.LOG_NOTICE,"DEL for "..dkey)

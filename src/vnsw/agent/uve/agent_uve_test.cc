@@ -10,12 +10,16 @@
 #include <uve/vn_uve_table_test.h>
 #include <uve/vm_uve_table_test.h>
 #include <uve/vrouter_uve_entry_test.h>
+#include <uve/agent_stats_collector_test.h>
 
 AgentUveTest::AgentUveTest(Agent *agent, uint64_t intvl) 
     : AgentUve(agent, intvl) {
     vn_uve_table_.reset(new VnUveTableTest(agent)); 
     vm_uve_table_.reset(new VmUveTableTest(agent));
     vrouter_uve_entry_.reset(new VrouterUveEntryTest(agent));
+    agent_stats_collector_.reset(new AgentStatsCollectorTest(
+                                 *(agent->GetEventManager()->io_service()),
+                                 agent));
 }
 
 AgentUveTest::~AgentUveTest() {

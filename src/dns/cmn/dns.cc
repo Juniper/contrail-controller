@@ -9,6 +9,13 @@
 #include <cmn/dns.h>
 #include <cmn/buildinfo.h>
 
+#include <sandesh/sandesh_types.h>
+#include <sandesh/sandesh.h>
+#include <sandesh/request_pipeline.h>
+
+#include <discovery/client/discovery_client.h>
+#include <discovery_client_stats_types.h>
+
 using namespace std;
 EventManager *Dns::event_mgr_;
 DnsManager *Dns::dns_mgr_;
@@ -21,6 +28,7 @@ std::string Dns::prog_name_;
 std::string Dns::collector_;
 std::string Dns::self_ip_;
 uint32_t Dns::http_port_;
+DiscoveryServiceClient *Dns::ds_client_;
 
 bool Dns::GetVersion(string &build_info_str) {
     return MiscUtils::GetBuildInfo(MiscUtils::Dns, BuildInfo, build_info_str);
@@ -83,3 +91,38 @@ void Dns::SetTaskSchedulingPolicy() {
     }
     scheduler->SetPolicy(scheduler->GetTaskId("dns::GarbageCleaner"), garbage_exclude);
 }
+
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
+
+    DiscoveryClientSubscriberStatsResponse *resp =
+        new DiscoveryClientSubscriberStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientSubscriberStats> stats_list;
+    DiscoveryServiceClient *ds = Dns::GetDnsDiscoveryServiceClient();  
+    if (ds) {
+        ds->FillDiscoveryServiceSubscriberStats(stats_list);
+    }
+
+    resp->set_subscriber(stats_list);
+    resp->set_more(false);
+    resp->Response();
+} 
+
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {
+
+    DiscoveryClientPublisherStatsResponse *resp =
+        new DiscoveryClientPublisherStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientPublisherStats> stats_list;
+    DiscoveryServiceClient *ds = Dns::GetDnsDiscoveryServiceClient();  
+    if (ds) {
+        ds->FillDiscoveryServicePublisherStats(stats_list);
+    }
+
+    resp->set_publisher(stats_list);
+    resp->set_more(false);
+    resp->Response();
+}
+

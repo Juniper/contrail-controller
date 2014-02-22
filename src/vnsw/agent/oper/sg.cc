@@ -162,7 +162,9 @@ bool SgTable::IFNodeToReq(IFMapNode *node, DBRequest &req) {
 bool SgEntry::DBEntrySandesh(Sandesh *sresp, std::string &name)  const {
     SgListResp *resp = static_cast<SgListResp *>(sresp);
     std::string str_uuid = UuidToString(GetSgUuid());
-    if (str_uuid.find(name) != std::string::npos) {
+    if (name.empty() ||
+        (str_uuid == name) ||
+        (integerToString(GetSgId()) == name)) {
         SgSandeshData data;
         data.set_ref_count(GetRefCount());
         data.set_sg_uuid(str_uuid);

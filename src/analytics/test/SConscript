@@ -59,18 +59,16 @@ env.Alias('src/analytics:viz_message_test', viz_message_test)
 #                              )
 #env.Alias('src/analytics:ruleeng_test', ruleeng_test)
 
-#db_handler_test_obj = env_noWerror_excep.Object('db_handler_test.o', 'db_handler_test.cc')
-#db_handler_test = env.UnitTest('db_handler_test',
-#                              AnalyticsEnv['ANALYTICS_SANDESH_GEN_OBJS'] + 
-#                              [db_handler_test_obj,
-#                              '../db_handler.o',
-#                              '../vizd_table_desc.o',
-#                              '../viz_message.o',
-#                              '../generator.o',
-#                              env['TOP'] + '/analytics/viz_request_skeleton.o'
-#                              ]
-#                              )
-#env.Alias('src/analytics:db_handler_test', db_handler_test)
+db_handler_test_obj = env_noWerror_excep.Object('db_handler_test.o', 'db_handler_test.cc')
+db_handler_test = env.UnitTest('db_handler_test',
+                              AnalyticsEnv['ANALYTICS_VIZ_SANDESH_GEN_OBJS'] + 
+                              [db_handler_test_obj,
+                              '../db_handler.o',
+                              '../vizd_table_desc.o',
+                              '../viz_message.o',
+                              ]
+                              )
+env.Alias('src/analytics:db_handler_test', db_handler_test)
 
 #vizd_test_obj = env_noWerror_excep.Object('vizd_test.o', 'vizd_test.cc')
 #vizd_test = env.UnitTest('vizd_test',
@@ -91,8 +89,9 @@ env.Alias('src/analytics:viz_message_test', viz_message_test)
 #       )
 #env.Alias('src/analytics:vizd_test', vizd_test)
 
-test_suite = []
-test_suite = [ viz_message_test,
+test_suite = [ 
+               viz_message_test,
+               db_handler_test,
              ]
 test = env.TestSuite('analytics-test', test_suite)
 

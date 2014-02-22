@@ -272,7 +272,7 @@ public:
         if (vrf == -1) {
             Interface *intf = InterfaceTable::GetInstance()->FindInterface(if_id);
             if (intf && intf->vrf()) {
-                vrf = intf->vrf()->GetVrfId();
+                vrf = intf->vrf()->vrf_id();
             }
         }
 

@@ -42,7 +42,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
-import discovery.client as client
+import discoveryclient.client as client
 from collections import OrderedDict
 
 _BGP_RTGT_MAX_ID = 1 << 20
@@ -983,6 +983,8 @@ class NetworkPolicyST(DictST):
         self.obj = NetworkPolicy(name)
         self.networks_back_ref = set()
         self.internal = False
+        self.rules = []
+        self.analyzer_vn_set = set()
     # end __init__
 
     @classmethod
@@ -990,6 +992,26 @@ class NetworkPolicyST(DictST):
         if name in cls._dict:
             del cls._dict[name]
     # end delete
+    
+    def add_rules(self, entries):
+        network_set = self.networks_back_ref | self.analyzer_vn_set
+        if entries is None:
+            self.rules = []
+        self.rules = entries.policy_rule
+        
+        self.analyzer_vn_set = set()
+        for prule in self.rules:
+            if (prule.action_list and prule.action_list.mirror_to and
+                    prule.action_list.mirror_to.analyzer_name):
+                (vn, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
+                    prule.action_list.mirror_to.analyzer_name)
+                if vn:
+                    self.analyzer_vn_set.add(vn)
+        # end for prule
+        
+        network_set |= self.analyzer_vn_set
+        return network_set
+    #end add_rules
 # end class NetworkPolicyST
 
 
@@ -2090,13 +2112,16 @@ class VirtualMachineInterfaceST(DictST):
             return network_set
         si_name = si_obj.get_fq_name_str()
         for policy in NetworkPolicyST.values():
-            policy_rule_entries = policy.obj.get_network_policy_entries()
-            if policy_rule_entries is None: continue
-            for prule in policy_rule_entries.policy_rule:
-                if (prule.action_list is not None and
-                    (si_name in prule.action_list.apply_service or
-                     (prule.action_list.mirror_to and 
-                      si_name == prule.action_list.mirror_to.analyzer_name))):
+            for prule in policy.rules:
+                if prule.action_list is not None:
+                    if si_name in prule.action_list.apply_service:
+                        network_set |= policy.networks_back_ref
+                    elif (prule.action_list.mirror_to and 
+                          si_name == prule.action_list.mirror_to.analyzer_name):
+                        (vn, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
+                            si_name)
+                        if vn:
+                            policy.analyzer_vn_set.add(vn)
                         network_set |= policy.networks_back_ref
             #end for prule
         #end for policy
@@ -2202,6 +2227,7 @@ class SchemaTransformer(object):
         if virtual_network:
             del virtual_network.policies[policy_name]
             self.current_network_set.add(network_name)
+        self.current_network_set |= policy.analyzer_vn_set
     # end delete_virtual_network_network_policy
 
     def delete_project_virtual_network(self, idents, meta):
@@ -2279,7 +2305,7 @@ class SchemaTransformer(object):
         entries = PolicyEntriesType()
         entries.build(meta)
         policy.obj.set_network_policy_entries(entries)
-        self.current_network_set |= policy.networks_back_ref
+        self.current_network_set |= policy.add_rules(entries)
     # end add_network_policy_entries
 
     def add_virtual_network_network_policy(self, idents, meta):
@@ -2640,10 +2666,7 @@ class SchemaTransformer(object):
                 policy = NetworkPolicyST.get(policy_name)
                 if policy is None:
                     continue
-                policy_rule_entries = policy.obj.get_network_policy_entries()
-                if policy_rule_entries is None:
-                    continue
-                for prule in policy_rule_entries.policy_rule:
+                for prule in policy.rules:
                     acl_rule_list = virtual_network.policy_to_acl_rule(
                         prule, dynamic)
                     acl_rule_list.update_acl_entries(acl_entries)
