@@ -70,7 +70,7 @@ env.Depends(bjam, stage0)
 
 boost_libs = [
     'system', 'thread', 'date_time', 'regex', 'python', 'program_options',
-    'filesystem'
+    'filesystem', 'chrono'
 ]
 
 jam_libs = ''

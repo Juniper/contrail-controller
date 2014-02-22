@@ -3,7 +3,10 @@
  */
 
 #include <net/address.h>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
 #include <boost/uuid/random_generator.hpp>
+#pragma GCC diagnostic pop
 
 #include <ifmap/ifmap_table.h>
 #include <ifmap/ifmap_link.h>
