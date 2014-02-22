@@ -9,11 +9,14 @@ config_opts = '--prefix=' + str(Dir('#/build'))
 cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
        '/configure' + ' ' + config_opts + '; make clean; make; make install)')
 
-products = [ str(File('#/build/lib/liblog4cplus' + env['LIBSUFFIX'])),
-             str(File('#/build/lib/liblog4cplus' + env['SHLIBSUFFIX'])),
-             str(File('#/build/include/log4cplus/logger.h')) ]
+version = '.7.0.0'
+libs = [ str(File('#/build/lib/liblog4cplus' + env['LIBSUFFIX'])) ]
+shlibs = [ str(File('#/build/lib/liblog4cplus-1.1' + env['SHLIBSUFFIX'] +
+                    version)) ]
+products = libs + shlibs + [ str(File('#/build/include/log4cplus/logger.h')) ]
 
 log4cplus_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 
 env.SideEffect(products, log4cplus_cfg)
 
+env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
