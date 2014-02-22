@@ -142,6 +142,7 @@ env.Prepend(LIBS=['bgp',
                   'pugixml',
                   'libxml2',
                   'boost_regex',
+		  'boost_chrono',
                   'boost_program_options',
                   'boost_filesystem',
                   'crypto', 'ssl'])
