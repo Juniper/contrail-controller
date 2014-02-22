@@ -54,8 +54,8 @@ class ConfigTest(testtools.TestCase, fixtures.TestWithFixtures):
         vizd_obj = self.useFixture(
             ConfigFixture(logging,
                              builddir, self.cassandra_port))
-        assert(vizd_obj.verify_default_project())
         #import pdb; pdb.set_trace()
+        assert(vizd_obj.verify_default_project())
         return True
     # end test_00_nocassandra
 

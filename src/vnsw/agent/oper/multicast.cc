@@ -905,7 +905,11 @@ void MulticastHandler::HandlePeerDown() {
         //Empty the tunnel OLIST
         (*it)->FlushAllFabricOlist();
         //Update comp NH
-        MulticastHandler::GetInstance()->TriggerCompositeNHChange(*it);
+        //Ignore modification of comp NH if route is not present i.e. multicast
+        //object is marked for deletion.
+        if ((*it)->IsDeleted() == false) {
+            MulticastHandler::GetInstance()->TriggerCompositeNHChange(*it);
+        }
     }
 }
 

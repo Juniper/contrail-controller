@@ -121,8 +121,12 @@ class ApiServer(object):
     def start(self, analytics_start_time=None):
         assert(self._instance == None)
         self._log_file = '/tmp/api.messages.' + str(self.port)
-        args = ['python', self._config_fixture.builddir + \
-                '/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py',
+        bdir = self._config_fixture.builddir
+        args = ['coverage', 'run', '-a', '-p',
+                '--source=%s,%s' % \
+                (bdir + '/config/api-server/vnc_cfg_api_server/',
+                 bdir + '/config_test/lib/python2.7/site-packages/cfgm_common/'),
+                bdir + '/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py',
                 '--redis_server_port', str(self._config_fixture.redis_cfg.port),
                 '--http_server_port', str(self._http_port),
                 '--ifmap_username', 'api-server',
@@ -136,11 +140,8 @@ class ApiServer(object):
                 str(self._config_fixture.zoo.port),
                 '--cassandra_server_list', '127.0.0.1:' +
                 str(self._config_fixture.cassandra_port)]
-
-        self._instance = subprocess.Popen(args)
-        #self._instance = subprocess.Popen(args, #env=openv,
-        #                                  stdout=subprocess.PIPE,
-        #                                  stderr=subprocess.PIPE)
+        ShEnv = { 'COVERAGE_FILE' : '%s/config/.coverage' % bdir , 'PATH': os.environ['PATH']}
+        self._instance = subprocess.Popen(args,env=ShEnv)
         self._logger.info('Setting up ApiServer: %s' % ' '.join(args))
     # end start
 
@@ -236,7 +237,7 @@ class ConfigFixture(fixtures.Fixture):
         self.schema = Schema(self,self.logger)
         self.schema.start()
 
-    @retry(delay=3, tries=4)  
+    @retry(delay=4, tries=5)  
     def verify_default_project(self):
         result = True
         try:

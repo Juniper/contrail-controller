@@ -644,6 +644,10 @@ class VncApiServer(VncApiServerGen):
         self._db_init_entries()
     # end sigchld_handler
 
+    def sigterm_handler(self):
+        cleanup()
+        exit()
+
     def _load_extensions(self):
         try:
             conf_sections = self._args.config_sections
@@ -1134,6 +1138,7 @@ def main(args_str=None):
     token sends SIG_CHLD signal to API server.
     """
     #hub.signal(signal.SIGCHLD, vnc_api_server.sigchld_handler)
+    hub.signal(signal.SIGTERM, vnc_api_server.sigterm_handler)
 
     try:
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
