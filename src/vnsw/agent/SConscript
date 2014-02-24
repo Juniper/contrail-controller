@@ -290,7 +290,9 @@ def code_coverage(target, source, env):
               ' -t "test coverage" --num-spaces 4 agent_test.info')
 
 
-if env['OPT'] == 'coverage':
+#.de.byte.breaker disable tests
+if False:
+#if env['OPT'] == 'coverage':
     #import pdb; pdb.set_trace()
     test_coverage = env.Command(Dir('test_coverage'), '', code_coverage)
     env.AlwaysBuild(test_coverage)

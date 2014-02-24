@@ -32,4 +32,5 @@ if sys.platform != 'darwin':
                     'diag_pkt_handler.cc'
                    ])
 
-env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
+#de.byte.breaker disabling tests
+#env.SConscript('test/SConscript', exports='AgentEnv', duplicate = 0)
