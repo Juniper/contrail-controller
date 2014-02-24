@@ -520,13 +520,13 @@ TEST_F(IFMapGraphWalkerTest, PopulateWhiteList) {
 
     // Print the list of nodes and links in the whitelist
     std::cout << "List of nodes to allow: " << std::endl;
-    for (std::vector<std::string>::iterator it = 
+    for (std::set<std::string>::iterator it = 
          white_list->include_vertex.begin();
          it != white_list->include_vertex.end(); ++it) {
         std::cout << "\t" << *it << std::endl;
     }
     std::cout << "List of links to allow: " << std::endl;
-    for (std::vector<std::string>::iterator it = 
+    for (std::set<std::string>::iterator it = 
          white_list->include_edge.begin();
          it != white_list->include_edge.end(); ++it) {
         std::cout << "\t" << *it << std::endl;
