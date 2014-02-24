@@ -112,6 +112,11 @@ public:
                     std::string::npos) {
                     assert(0);
                 }
+                // Also check that when host routes are specified, GW option is not sent
+                if (pkt.dhcp_hdr.dhcp_options.find("Gateway : ") !=
+                    std::string::npos) {
+                    assert(0);
+                }
             }
         }
     }
