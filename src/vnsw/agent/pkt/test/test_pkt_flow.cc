@@ -63,6 +63,9 @@ VmInterface *flow3;
 VmInterface *flow4;
 std::string eth_itf;
 
+static void NHNotify(DBTablePartBase *partition, DBEntryBase *entry) {
+}
+
 class FlowTest : public ::testing::Test {
 public:
     bool FlowTableWait(size_t count) {
@@ -1743,6 +1746,7 @@ TEST_F(FlowTest, Flow_return_error) {
         }
     };
 
+    flow[0].pkt_.set_allow_wait_for_idle(false);
     sock->SetBlockMsgProcessing(true);
     /* Failure to allocate reverse flow index, convert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -ENOSPC);
@@ -1753,6 +1757,7 @@ TEST_F(FlowTest, Flow_return_error) {
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
 
     sock->SetBlockMsgProcessing(false);
+    flow[0].pkt_.set_allow_wait_for_idle(true);
     client->WaitForIdle();
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
@@ -1763,6 +1768,7 @@ TEST_F(FlowTest, Flow_return_error) {
 
     EXPECT_TRUE(FlowTableWait(0));
 
+    flow[0].pkt_.set_allow_wait_for_idle(false);
     sock->SetBlockMsgProcessing(true);
     /* EBADF failure to write an entry, covert to short flow and age */
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, -EBADF);
@@ -1771,6 +1777,7 @@ TEST_F(FlowTest, Flow_return_error) {
     fe = FlowGet(vrf_id, vm1_ip, remote_vm1_ip, 1, 0, 0);
     EXPECT_TRUE(fe != NULL && fe->is_flags_set(FlowEntry::ShortFlow) != true);
     sock->SetBlockMsgProcessing(false);
+    flow[0].pkt_.set_allow_wait_for_idle(true);
     client->WaitForIdle();
     if (fe != NULL) {
         WAIT_FOR(1000, 500, (fe->is_flags_set(FlowEntry::ShortFlow) == true));
@@ -1784,6 +1791,48 @@ TEST_F(FlowTest, Flow_return_error) {
     DeleteRemoteRoute("vrf5", remote_vm1_ip);
     client->WaitForIdle();
     sock->SetKSyncError(KSyncSockTypeMap::KSYNC_FLOW_ENTRY_TYPE, 0);
+}
+
+TEST_F(FlowTest, Flow_ksync_nh_state_find_failure) {
+    EXPECT_EQ(0U, Agent::GetInstance()->pkt()->flow_table()->Size());
+
+    //Create PHYSICAL interface to receive GRE packets on it.
+    PhysicalInterfaceKey key(eth_itf);
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE(intf != NULL);
+    CreateRemoteRoute("vrf5", remote_vm1_ip, remote_router_ip, 30, "vn5");
+    client->WaitForIdle();
+    TestFlow flow[] = {
+        {
+            TestFlowPkt(vm1_ip, remote_vm1_ip, 1, 0, 0, "vrf5", 
+                    flow0->id(), 1001),
+            {}
+        }
+    };
+
+    DBTableBase *table = Agent::GetInstance()->GetNextHopTable();
+    NHKSyncObject *nh_object = Agent::GetInstance()->ksync()->nh_ksync_obj();
+    DBTableBase::ListenerId nh_listener =
+        table->Register(boost::bind(&NHNotify, _1, _2));
+
+    vr_flow_entry *vr_flow = KSyncSockTypeMap::GetFlowEntry(1001);
+    EXPECT_TRUE((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) == 0);
+
+    nh_object->set_test_id(nh_listener);
+    CreateFlow(flow, 1);
+
+    FlowEntry *fe = 
+        FlowGet(VrfGet("vrf5")->vrf_id(), remote_vm1_ip, vm1_ip, 1, 0, 0);
+
+
+    EXPECT_TRUE((vr_flow->fe_flags & VR_FLOW_FLAG_ACTIVE) != 0);
+    DeleteFlow(flow, 1);
+    EXPECT_TRUE(FlowTableWait(0));
+    nh_object->set_test_id(-1);
+    table->Unregister(nh_listener);
+    DeleteRemoteRoute("vrf5", remote_vm1_ip);
+    client->WaitForIdle();
 }
 
 // Linklocal flow add & delete

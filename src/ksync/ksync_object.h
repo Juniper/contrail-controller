@@ -177,17 +177,19 @@ public:
     void Notify(DBTablePartBase *partition, DBEntryBase *entry);
 
     DBTableBase *GetDBTable() { return table_; }
+    DBTableBase::ListenerId GetListenerId(DBTableBase *table);
 
     // Populate Key in KSyncEntry from DB Entry.
     // Used for lookup of KSyncEntry from DBEntry
     virtual KSyncEntry *DBToKSyncEntry(const DBEntry *entry) = 0;
+    void set_test_id(DBTableBase::ListenerId id);
 private:
     //Callback to do cleanup when DEL ACK is received.
     virtual void CleanupOnDel(KSyncEntry *kentry);
 
-    DBTableBase::ListenerId GetListenerId(DBTableBase *table);
     DBTableBase *table_;
     DBTableBase::ListenerId id_;
+    DBTableBase::ListenerId test_id_;
 
     KSyncIndexTable index_table_;
     DISALLOW_COPY_AND_ASSIGN(KSyncDBObject);

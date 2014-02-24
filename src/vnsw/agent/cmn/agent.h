@@ -508,6 +508,10 @@ public:
         test_mode_ = true;
     }
 
+    void set_ksync_sync_mode(bool sync_mode) {
+        ksync_sync_mode_ = sync_mode;
+    }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
@@ -640,6 +644,7 @@ private:
     uint16_t mirror_src_udp_port_;
     LifetimeManager *lifetime_manager_;
     bool test_mode_;
+    bool ksync_sync_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;

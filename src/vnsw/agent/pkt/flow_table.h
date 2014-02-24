@@ -240,6 +240,7 @@ class FlowEntry {
     void MakeShortFlow();
     const FlowStats &stats() const { return stats_;}
     const FlowKey &key() const { return key_;}
+    FlowData &data() { return data_;}
     const FlowData &data() const { return data_;}
     const uuid &flow_uuid() const { return flow_uuid_; }
     const uuid &egress_uuid() const { return egress_uuid_; }
@@ -524,7 +525,7 @@ class NhState : public DBState {
 public:
     NhState(NextHop *nh):refcount_(), nh_(nh){ };
     ~NhState() {};
-    const NextHop* nh() const { return nh_; }
+    NextHop* nh() const { return nh_; }
     uint32_t refcount() const { return refcount_; }
 private:
     friend void intrusive_ptr_add_ref(const NhState *nh);

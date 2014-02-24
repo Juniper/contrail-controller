@@ -632,7 +632,7 @@ TestClient *TestInit(const char *init_file = NULL, bool ksync_init = false,
                      bool uve_init = true,
                      int agent_stats_interval = AgentStatsCollector::AgentStatsInterval,
                      int flow_stats_interval = FlowStatsCollector::FlowStatsInterval,
-                     bool asio = true);
+                     bool asio = true, bool ksync_sync_mode = true);
 
 TestClient *VGwInit(const string &init_file, bool ksync_init);
 void TestShutdown();
