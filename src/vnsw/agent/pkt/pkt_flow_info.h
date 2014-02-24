@@ -10,6 +10,7 @@ class Interface;
 class Inet4UnicastRouteEntry;
 class VnEntry;
 class VmEntry;
+class FlowTable;
 class FlowEntry;
 struct PktInfo;
 struct MatchPolicy;
@@ -33,10 +34,10 @@ class PktFlowInfo {
 public:
     static const int kLinkLocalInvalidFd = -1;
 
-    PktFlowInfo(boost::shared_ptr<PktInfo> info): 
-        pkt(info), source_vn(NULL), dest_vn(NULL), flow_source_vrf(-1),
-        flow_dest_vrf(-1), source_sg_id_l(NULL), dest_sg_id_l(NULL),
-        nat_done(false), nat_ip_saddr(0),
+    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable): 
+        pkt(info), flow_table(ftable), source_vn(NULL), dest_vn(NULL),
+        flow_source_vrf(-1), flow_dest_vrf(-1), source_sg_id_l(NULL),
+        dest_sg_id_l(NULL), nat_done(false), nat_ip_saddr(0),
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
         short_flow(false), local_flow(false), linklocal_flow(false),
@@ -74,6 +75,7 @@ public:
 
 public:
     boost::shared_ptr<PktInfo> pkt;
+    FlowTable *flow_table;
 
     const std::string   *source_vn;
     const std::string   *dest_vn;

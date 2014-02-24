@@ -310,8 +310,14 @@ void PktFlowInfo::SetEcmpFlowInfo(const PktInfo *pkt, const PktControlInfo *in,
 // For link local services, we bind to a local port & use it as NAT source port.
 // The socket is closed when the flow entry is deleted.
 uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
-    // Do not allow more than max link local flows per VM
-    if (vm->linklocal_flow_count() == VmEntry::kMaxLinkLocalFlows)
+    if (vm == NULL)
+        return 0;
+    // Do not allow more than max link local flows
+    if (flow_table->linklocal_flow_count() >=
+        flow_table->agent()->params()->linklocal_system_flows())
+        return 0;
+    if (flow_table->VmLinkLocalFlowCount(vm) >=
+        flow_table->agent()->params()->linklocal_vm_flows())
         return 0;
 
     if (proto == IPPROTO_TCP) {
@@ -323,6 +329,11 @@ uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
     if (linklocal_src_port_fd == -1) {
         return 0;
     }
+
+    // allow the socket to be reused upon close
+    int optval = 1;
+    setsockopt(linklocal_src_port_fd, SOL_SOCKET, SO_REUSEADDR,
+               &optval, sizeof(optval));
 
     struct sockaddr_in address;
     memset(&address, '0', sizeof(address));
@@ -341,7 +352,6 @@ uint32_t PktFlowInfo::LinkLocalBindPort(const VmEntry *vm, uint8_t proto) {
         goto error;
     }
 
-    vm->linklocal_flow_count_increment();
     return ntohs(bound_to.sin_port);
 
 error:
@@ -756,17 +766,23 @@ void PktFlowInfo::Add(const PktInfo *pkt, PktControlInfo *in,
                 pkt->ip_proto, pkt->sport, pkt->dport);
     FlowEntryPtr flow(Agent::GetInstance()->pkt()->flow_table()->Allocate(key));
 
-    if (linklocal_bind_local_port) {
+    if (linklocal_bind_local_port &&
+        flow->linklocal_src_port_fd() == PktFlowInfo::kLinkLocalInvalidFd) {
         nat_sport = LinkLocalBindPort(in->vm_, pkt->ip_proto);
         if (!nat_sport) {
             short_flow = true;
         }
     }
     
-    FlowEntryPtr rflow(NULL);
+    // In case the packet is for a reverse flow of a linklocal flow,
+    // link to that flow (avoid creating a new reverse flow entry for the case)
+    FlowEntryPtr rflow = flow->reverse_flow_entry();
+    if (rflow && rflow->is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort)) {
+        return;
+    }
+
     uint16_t r_sport;
     uint16_t r_dport;
-
     if (pkt->ip_proto == IPPROTO_ICMP) {
         r_sport = pkt->sport;
         r_dport = pkt->dport;

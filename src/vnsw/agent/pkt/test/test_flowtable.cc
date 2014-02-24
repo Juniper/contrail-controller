@@ -232,7 +232,7 @@ public:
         FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
-        PktFlowInfo info(pkt_info);
+        PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
         info.source_vn = t->svn_;
         info.dest_vn = t->dvn_;

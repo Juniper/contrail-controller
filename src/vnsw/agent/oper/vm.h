@@ -33,10 +33,8 @@ struct VmData : public AgentData {
 class VmEntry : AgentRefCount<VmEntry>, public AgentDBEntry {
 public:
     static const int kVectorIncreaseSize = 16;
-    static const uint32_t kMaxLinkLocalFlows = 5;
-
     VmEntry(uuid id) : 
-        uuid_(id), name_(""), linklocal_flow_count_(0) { }
+        uuid_(id), name_("") { }
     virtual ~VmEntry() { }
 
     virtual bool IsLess(const DBEntry &rhs) const;
@@ -47,9 +45,6 @@ public:
     void SetCfgName(std::string name) { name_ = name; }
 
     const uuid &GetUuid() const { return uuid_; }
-    uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
-    void linklocal_flow_count_increment() const { linklocal_flow_count_++; }
-    void linklocal_flow_count_decrement() const { linklocal_flow_count_--; }
 
     uint32_t GetRefCount() const {
         return AgentRefCount<VmEntry>::GetRefCount();
@@ -61,7 +56,6 @@ private:
     friend class VmTable;
     uuid uuid_;
     std::string name_;
-    mutable uint32_t linklocal_flow_count_; // count of number of link local flows from the VM
     DISALLOW_COPY_AND_ASSIGN(VmEntry);
 };
 

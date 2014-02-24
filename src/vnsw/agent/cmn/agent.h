@@ -114,6 +114,10 @@ extern void RouterIdDepInit();
 
 class Agent {
 public:
+    // max open files in the agent, excluding the linklocal bind ports
+    static const uint32_t kMaxOpenFiles = 64;
+    static const uint32_t kDefaultMaxLinkLocalOpenFiles = 2048;
+
     enum VxLanNetworkIdentifierMode {
         AUTOMATIC,
         CONFIGURED

@@ -1600,7 +1600,7 @@ void FlowTable::DeleteFlowInfo(FlowEntry *fe)
     // Remove from VnFlowTree
     DeleteVnFlowInfo(fe);
     // Remove from VmFlowTree
-    // DeleteVmFlowInfo(fe);
+    DeleteVmFlowInfo(fe);
     // Remove from RouteFlowTree
     DeleteRouteFlowInfo(fe);
 }
@@ -1666,9 +1666,14 @@ void FlowTable::DeleteVmFlowInfo(FlowEntry *fe)
 {
     VmFlowTree::iterator vm_it;
     if (fe->vm_entry()) {
+        if (!fe->linklocal_src_port()) {
+            return;
+        }
         vm_it = vm_flow_tree_.find(fe->vm_entry());
         if (vm_it != vm_flow_tree_.end()) {
             VmFlowInfo *vm_flow_info = vm_it->second;
+            vm_flow_info->linklocal_flow_count--;
+            linklocal_flow_count_--;
             vm_flow_info->fet.erase(fe);
             if (vm_flow_info->fet.empty()) {
                 delete vm_flow_info;
@@ -1717,7 +1722,7 @@ void FlowTable::AddFlowInfo(FlowEntry *fe)
     // Add VnFlowTree
     AddVnFlowInfo(fe);
     // Add VmFlowTree
-    // AddVmFlowInfo(fe);
+    AddVmFlowInfo(fe);
     // Add RouteFlowTree;
     AddRouteFlowInfo(fe);
 }
@@ -1789,7 +1794,7 @@ void FlowTable::UpdateAclFlow(const AclDBEntry *acl, FlowEntry* flow,
     }
 }
 
-void FlowTable::AddIntfFlowInfo (FlowEntry *fe)
+void FlowTable::AddIntfFlowInfo(FlowEntry *fe)
 {
     if (!fe->intf_entry()) {
         return;
@@ -1809,9 +1814,12 @@ void FlowTable::AddIntfFlowInfo (FlowEntry *fe)
     }
 }
 
-void FlowTable::AddVmFlowInfo (FlowEntry *fe)
+void FlowTable::AddVmFlowInfo(FlowEntry *fe)
 {
     if (!fe->vm_entry()) {
+        return;
+    }
+    if (!fe->linklocal_src_port()) {
         return;
     }
     VmFlowTree::iterator it;
@@ -1820,12 +1828,17 @@ void FlowTable::AddVmFlowInfo (FlowEntry *fe)
     if (it == vm_flow_tree_.end()) {
         vm_flow_info = new VmFlowInfo();
         vm_flow_info->vm_entry = fe->vm_entry();
+        vm_flow_info->linklocal_flow_count = 1;
+        linklocal_flow_count_++;
         vm_flow_info->fet.insert(fe);
         vm_flow_tree_.insert(VmFlowPair(fe->vm_entry(), vm_flow_info));
     } else {
         vm_flow_info = it->second;
         /* fe can already exist. In that case it won't be inserted */
-        vm_flow_info->fet.insert(fe);
+        if (vm_flow_info->fet.insert(fe).second) {
+            vm_flow_info->linklocal_flow_count++;
+            linklocal_flow_count_++;
+        }
     }
 }
 
@@ -1894,6 +1907,16 @@ void FlowTable::VnFlowCounters(const VnEntry *vn, uint32_t *in_count,
     VnFlowInfo *vn_flow_info = it->second;
     *in_count = vn_flow_info->ingress_flow_count;
     *out_count = vn_flow_info->egress_flow_count;
+}
+
+uint32_t FlowTable::VmLinkLocalFlowCount(const VmEntry *vm) {
+    VmFlowTree::iterator it = vm_flow_tree_.find(vm);
+    if (it != vm_flow_tree_.end()) {
+        VmFlowInfo *vm_flow_info = it->second;
+        return vm_flow_info->linklocal_flow_count;
+    }
+
+    return 0;
 }
 
 void FlowTable::AddRouteFlowInfo (FlowEntry *fe)

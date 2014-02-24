@@ -227,9 +227,7 @@ class FlowEntry {
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
-        if (is_flags_set(FlowEntry::LinkLocalBindLocalSrcPort) &&
-            linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
-            vm_entry()->linklocal_flow_count_decrement();
+        if (linklocal_src_port_fd_ != PktFlowInfo::kLinkLocalInvalidFd) {
             close(linklocal_src_port_fd_);
         }
         alloc_count_.fetch_and_decrement();
@@ -384,7 +382,8 @@ public:
     };
 
     FlowTable(Agent *agent) : 
-        agent_(agent), flow_entry_map_(), acl_flow_tree_(), acl_listener_id_(),
+        agent_(agent), flow_entry_map_(), acl_flow_tree_(),
+        linklocal_flow_count_(), acl_listener_id_(),
         intf_listener_id_(), vn_listener_id_(), vm_listener_id_(),
         vrf_listener_id_(), nh_listener_(NULL),
         route_key_(NULL, Ip4Address(), 32, false) {}
@@ -401,6 +400,9 @@ public:
     size_t Size() {return flow_entry_map_.size();};
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
                         uint32_t *out_count);
+    uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
+    uint32_t linklocal_flow_count() { return linklocal_flow_count_; }
+    Agent *agent() { return agent_; }
 
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key, AclEntryIDList &id_list);
@@ -438,6 +440,8 @@ private:
     IntfFlowTree intf_flow_tree_;
     VmFlowTree vm_flow_tree_;
     RouteFlowTree route_flow_tree_;
+
+    uint32_t linklocal_flow_count_;  // total linklocal flows in the agent
 
     DBTableBase::ListenerId acl_listener_id_;
     DBTableBase::ListenerId intf_listener_id_;
@@ -596,6 +600,7 @@ struct VmFlowInfo {
 
     VmEntryConstRef vm_entry;
     FlowTable::FlowEntryTree fet;
+    uint32_t linklocal_flow_count;
 };
 
 struct RouteFlowInfo {
