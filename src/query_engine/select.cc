@@ -143,24 +143,24 @@ bool SelectQuery::is_flow_tuple_specified() {
     for (std::vector<std::string>::const_iterator it = 
          select_column_fields.begin(); it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_VROUTER)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SOURCEVN)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SOURCEIP)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DESTVN)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DESTIP)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_PROTOCOL)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SPORT)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DPORT)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_VROUTER] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SOURCEVN] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SOURCEIP] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DESTVN] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DESTIP] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_PROTOCOL] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SPORT] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DPORT] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             return true;
         }
     }
@@ -297,7 +297,7 @@ query_status_t SelectQuery::process_query() {
                 QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
             }
 
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
                 QE_ASSERT(jt->name.size() == 1 &&
                         jt->value.size() == 1);
@@ -321,8 +321,8 @@ query_status_t SelectQuery::process_query() {
                     jt != select_column_fields.end(); jt++) {
 
                 if (*jt == "agg-packets") {
-                    std::string pkts(g_viz_constants.FlowRecordNames.find(
-                                    FlowRecordFields::FLOWREC_PACKETS)->second);
+                    std::string pkts(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_PACKETS]);
                     std::map<std::string, GenDb::DbDataValue>::const_iterator pt = 
                         col_res_map.find(pkts);
                     QE_ASSERT(pt != col_res_map.end());
@@ -331,8 +331,8 @@ query_status_t SelectQuery::process_query() {
                     continue;
                 }
                 if (*jt == "agg-bytes") {
-                    std::string bytes(g_viz_constants.FlowRecordNames.find(
-                                    FlowRecordFields::FLOWREC_BYTES)->second);
+                    std::string bytes(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_BYTES]);
                     std::map<std::string, GenDb::DbDataValue>::const_iterator bt = 
                         col_res_map.find(bytes);
                     QE_ASSERT(bt != col_res_map.end());
@@ -530,7 +530,7 @@ query_status_t SelectQuery::process_query() {
             std::advance(last_it, mget_res.size()-1);
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
                 if (it == first_it) {
                     uint32_t t1;
@@ -598,7 +598,7 @@ query_status_t SelectQuery::process_query() {
         for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
             std::map<std::string, GenDb::DbDataValue> col_res_map;
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
                 std::string col_name;
                 try {

@@ -36,7 +36,7 @@ void AsioStop() {
 TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
-                     bool asio) {
+                     bool asio, bool ksync_sync_mode) {
     TestClient *client = new TestClient();
     agent_init = new AgentTestInit(client);
 
@@ -65,6 +65,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
     agent->SetTestMode();
+    agent->set_ksync_sync_mode(ksync_sync_mode);
 
     // Initialize agent and kick start initialization
     agent->Init(param, init);

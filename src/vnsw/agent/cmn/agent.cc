@@ -288,7 +288,7 @@ void Agent::InitModules() {
         ksync_.get()->Init();
     } else {
         ksync_.get()->InitTest();
-        ksync_.get()->NetlinkInitTest();
+        ksync_.get()->NetlinkInitTest(ksync_sync_mode_);
     }
 
     if (pkt_.get()) {
@@ -395,7 +395,8 @@ Agent::Agent() :
     local_peer_(NULL), local_vm_peer_(NULL), linklocal_peer_(NULL),
     ifmap_parser_(NULL), router_id_configured_(false),
     mirror_src_udp_port_(0), lifetime_manager_(NULL), test_mode_(false),
-    mgmt_ip_(""), vxlan_network_identifier_mode_(AUTOMATIC) {
+    ksync_sync_mode_(true), mgmt_ip_(""),
+    vxlan_network_identifier_mode_(AUTOMATIC) {
 
     assert(singleton_ == NULL);
     singleton_ = this;

@@ -160,6 +160,10 @@ struct FlowInfo {
    21: optional string short_flow;
    22: optional u16 ecmp_index;
    23: optional string trap; 
+   24: optional string source_vn;
+   25: optional string dest_vn;
+   26: optional list<u32> source_sg_id_l;
+   27: optional list<u32> dest_sg_id_l;
 }
 
 traceobject sandesh FlowTrace {

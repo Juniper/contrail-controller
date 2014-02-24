@@ -130,7 +130,7 @@ public:
     virtual void AsyncReceive(boost::asio::mutable_buffers_1, HandlerCb);
     virtual void AsyncSendTo(IoContext *, boost::asio::mutable_buffers_1,
                              HandlerCb);
-    virtual std::size_t SendTo(boost::asio::const_buffers_1);
+    virtual std::size_t SendTo(boost::asio::const_buffers_1, uint32_t);
     virtual void Receive(boost::asio::mutable_buffers_1);
 
     static void set_error_code(int code) { error_code_ = code; }

@@ -9,6 +9,7 @@
 #include "base/logging.h"
 #include "sandesh/sandesh_types.h"
 #include "sandesh/sandesh.h"
+#include "sandesh/sandesh_message_builder.h"
 #include "../viz_types.h"
 #include "../viz_constants.h"
 #include "../db_handler.h"
@@ -26,10 +27,12 @@ using ::testing::ElementsAre;
 using ::testing::Pointee;
 using ::testing::ElementsAreArray;
 using ::testing::Matcher;
+using namespace pugi;
 
 class DbHandlerTest : public ::testing::Test {
 public:
     DbHandlerTest() :
+        builder_(SandeshXMLMessageTestBuilder::GetInstance()),
         dbif_mock_(new CdbIfMock()),
         db_handler_(new DbHandler(dbif_mock_)) {
     }
@@ -52,6 +55,52 @@ public:
         return db_handler_;
     }
 
+protected:
+    class SandeshXMLMessageTest : public SandeshXMLMessage {
+    public:
+        SandeshXMLMessageTest() {}
+        virtual ~SandeshXMLMessageTest() {}
+
+        virtual bool Parse(const uint8_t *xml_msg, size_t size) {
+            xml_parse_result result = xdoc_.load_buffer(xml_msg, size,
+                parse_default & ~parse_escapes);
+            if (!result) {
+                LOG(ERROR, __func__ << ": Unable to load Sandesh XML Test." <<
+                    "(status=" << result.status << ", offset=" <<
+                    result.offset << "): " << xml_msg);
+                return false;
+            }
+            message_node_ = xdoc_.first_child();
+            message_type_ = message_node_.name();
+            size_ = size;
+            return true;
+        }
+
+        void SetHeader(const SandeshHeader &header) { header_ = header; }
+    };
+
+    class SandeshXMLMessageTestBuilder : public SandeshMessageBuilder {
+    public:
+        SandeshXMLMessageTestBuilder() {}
+
+        virtual SandeshMessage *Create(const uint8_t *xml_msg,
+            size_t size) const {
+            SandeshXMLMessageTest *msg = new SandeshXMLMessageTest;
+            msg->Parse(xml_msg, size);
+            return msg;
+        }
+
+        static SandeshXMLMessageTestBuilder *GetInstance() {
+            return &instance_;
+        }
+
+    private:
+        static SandeshXMLMessageTestBuilder instance_;
+    };
+
+    SandeshMessageBuilder *builder_;
+    boost::uuids::random_generator rgen_;
+
 private:
     void DbErrorHandlerFn() {
         assert(0);
@@ -62,16 +111,25 @@ private:
     DbHandler *db_handler_;
 };
 
+
+DbHandlerTest::SandeshXMLMessageTestBuilder
+    DbHandlerTest::SandeshXMLMessageTestBuilder::instance_;
+
 TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
     SandeshHeader hdr;
 
-    hdr.Source = "127.0.0.1";
-    hdr.Module = "VizdTest";
+    hdr.set_Source("127.0.0.1");
+    hdr.set_Module("VizdTest");
     std::string messagetype("SandeshAsyncTest2");
     std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
 
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+            xmlmessage.size()));
+    msg->SetHeader(hdr);
+    boost::uuids::uuid unm(rgen_());
+    VizMsg vmsgp(msg, unm); 
 
     GenDb::DbDataValueVec rowkey;
     rowkey.push_back(unm);
@@ -99,14 +157,17 @@ TEST_F(DbHandlerTest, MessageTableOnlyInsertTest) {
         .Times(1)
         .WillOnce(Return(true));
 
-    db_handler()->MessageTableOnlyInsert(vmsgp);
+    db_handler()->MessageTableOnlyInsert(&vmsgp);
+    vmsgp.msg = NULL;
+    delete msg;
 }
 
 TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
     SandeshHeader hdr;
 
-    hdr.Source = "127.0.0.1";
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
+    hdr.set_Source("127.0.0.1");
+    hdr.set_Timestamp(UTCTimestampUsec());
+    boost::uuids::uuid unm(rgen_());
 
     DbDataValueVec colname;
     colname.push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
@@ -135,14 +196,19 @@ TEST_F(DbHandlerTest, MessageIndexTableInsertTest) {
 TEST_F(DbHandlerTest, MessageTableInsertTest) {
     SandeshHeader hdr;
 
-    hdr.Source = "127.0.0.1";
-    hdr.Module = "VizdTest";
+    hdr.set_Source("127.0.0.1");
+    hdr.set_Module("VizdTest");
     std::string messagetype("SandeshAsyncTest2");
     std::string xmlmessage = "<SandeshAsyncTest2 type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></SandeshAsyncTest2>";
 
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+            xmlmessage.size()));
+    msg->SetHeader(hdr);
+    boost::uuids::uuid unm(rgen_());
+    VizMsg vmsgp(msg, unm); 
+    
     GenDb::DbDataValueVec rowkey;
     rowkey.push_back(unm);
 
@@ -250,18 +316,18 @@ TEST_F(DbHandlerTest, MessageTableInsertTest) {
         .Times(3)
         .WillRepeatedly(Return(true));
 
-    db_handler()->MessageTableInsert(vmsgp);
+    db_handler()->MessageTableInsert(&vmsgp);
+    vmsgp.msg = NULL;
+    delete msg;
 }
 
 TEST_F(DbHandlerTest, ObjectTableInsertTest) {
     SandeshHeader hdr;
-    hdr.Module = "VizdTest";
-    hdr.Source = "127.0.0.1";
-    std::string messagetype("ObjectTableInsertTest");
-    std::string xmlmessage = "<ObjectTableInsertTest type=\"sandesh\"><file type=\"string\" identifier=\"-32768\">src/analytics/test/viz_collector_test.cc</file><line type=\"i32\" identifier=\"-32767\">80</line><f1 type=\"struct\" identifier=\"1\"><SAT2_struct><f1 type=\"string\" identifier=\"1\">sat2string101</f1><f2 type=\"i32\" identifier=\"2\">101</f2></SAT2_struct></f1><f2 type=\"i32\" identifier=\"2\">101</f2></ObjectTableInsertTest>";
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg(vmsgp);
+    hdr.set_Timestamp(UTCTimestampUsec());
+    uint64_t timestamp(hdr.get_Timestamp()); 
+    boost::uuids::uuid unm(rgen_());
+    std::string table("ObjectTableInsertTest");
+    std::string rowkey_str("ObjectTableInsertTestRowkey");
 
       {
         DbDataValueVec colname;
@@ -369,22 +435,24 @@ TEST_F(DbHandlerTest, ObjectTableInsertTest) {
             .WillOnce(Return(true));
       }
 
-    db_handler()->ObjectTableInsert("ObjectTableInsertTest",
-            "ObjectTableInsertTestRowkey", rmsg, unm);
+    
+    db_handler()->ObjectTableInsert(table, rowkey_str, timestamp, unm);
 }
 
 TEST_F(DbHandlerTest, FlowTableInsertTest) {
     init_vizd_tables();
 
     SandeshHeader hdr;
-    hdr.Module = "VizdTest";
-    hdr.Source = "127.0.0.1";
+    hdr.set_Module("VizdTest");
+    hdr.set_Source("127.0.0.1");
     std::string messagetype("");
     std::string xmlmessage = "<FlowDataIpv4Object type=\"sandesh\"><flowdata type=\"struct\" identifier=\"1\"><FlowDataIpv4><flowuuid type=\"string\" identifier=\"1\">555788e0-513c-4351-8711-3fc481cf2eb4</flowuuid><direction_ing type=\"byte\" identifier=\"2\">0</direction_ing><sourcevn type=\"string\" identifier=\"3\">default-domain:demo:vn1</sourcevn><sourceip type=\"i32\" identifier=\"4\">-1062731011</sourceip><destvn type=\"string\" identifier=\"5\">default-domain:demo:vn0</destvn><destip type=\"i32\" identifier=\"6\">-1062731267</destip><protocol type=\"byte\" identifier=\"7\">6</protocol><sport type=\"i16\" identifier=\"8\">5201</sport><dport type=\"i16\" identifier=\"9\">-24590</dport><vm type=\"string\" identifier=\"12\">04430130-664a-4b89-9287-39d71f351207</vm><reverse_uuid type=\"string\" identifier=\"16\">58745ee7-d616-4e59-b8f7-96f896487c9f</reverse_uuid><bytes type=\"i64\" identifier=\"23\">0</bytes><packets type=\"i64\" identifier=\"24\">0</packets><diff_bytes type=\"i64\" identifier=\"26\">0</diff_bytes><diff_packets type=\"i64\" identifier=\"27\">0</diff_packets></FlowDataIpv4></flowdata></FlowDataIpv4Object>";
 
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg(vmsgp);
+    SandeshXMLMessageTest *msg = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+            reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+            xmlmessage.size()));
+    msg->SetHeader(hdr);
 
     std::string flowu_str = "555788e0-513c-4351-8711-3fc481cf2eb4";
     boost::uuids::uuid flowu = boost::uuids::string_generator()(flowu_str);
@@ -410,7 +478,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
     colvalue.push_back((uint64_t)0); //pkts
     colvalue.push_back((uint8_t)0); //dir
     colvalue.push_back(flowu); //flowuuid
-    colvalue.push_back(rmsg.hdr.get_Source()); //vrouter
+    colvalue.push_back(hdr.get_Source()); //vrouter
     colvalue.push_back("default-domain:demo:vn1"); //svn
     colvalue.push_back("default-domain:demo:vn0"); //dvn
     colvalue.push_back((uint32_t)-1062731011); //sip
@@ -528,7 +596,7 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
 
       {
         GenDb::DbDataValueVec colname;
-        colname.push_back(rmsg.hdr.get_Source()); //vrouter
+        colname.push_back(hdr.get_Source()); //vrouter
         colname.push_back((uint32_t)(hdr.get_Timestamp() & g_viz_constants.RowTimeInMask));
         colname.push_back(flowu);
         Matcher<GenDb::NewCol> expected_vector[] = {
@@ -552,7 +620,9 @@ TEST_F(DbHandlerTest, FlowTableInsertTest) {
             .WillOnce(Return(true));
       }
 
-    db_handler()->FlowTableInsert(rmsg);
+    db_handler()->FlowTableInsert(msg->GetMessageNode(),
+        msg->GetHeader());
+    delete msg;
 }
 
 int main(int argc, char **argv) {

@@ -35,7 +35,7 @@ class Collector : public SandeshServer {
 public:
     const static std::string kDbTask;
 
-    typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool, DbHandler *)> VizCallback;
+    typedef boost::function<bool(const VizMsg*, bool, DbHandler *)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng,
@@ -47,8 +47,7 @@ public:
     virtual bool ReceiveResourceUpdate(SandeshSession *session,
             bool rsc);
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
-                           const std::string &cmsg, const std::string &message_type,
-                           const SandeshHeader& header, uint32_t xml_offset, bool rsc);
+            const SandeshMessage *msg, bool rsc);
     virtual bool ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             SandeshSession *session, const Sandesh *sandesh);
 
