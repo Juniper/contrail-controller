@@ -86,7 +86,7 @@ class VerificationOpsSrv (VerificationUtilBase):
     def post_query(self, table, start_time=None, end_time=None,
                    select_fields=None, where_clause=None,
                    sort_fields=None, sort=None, limit=None,
-                   filter=None, sync=True):
+                   filter=None, sync=True,dir=None):
         res = None
         try:
             flows_url = OpServerUtils.opserver_query_url(
@@ -96,7 +96,7 @@ class VerificationOpsSrv (VerificationUtilBase):
                 table, start_time, end_time,
                 select_fields,
                 where_clause,
-                sort_fields, sort, limit, filter)
+                sort_fields, sort, limit, filter, dir)
 
             print json.dumps(query_dict)
             res = []
