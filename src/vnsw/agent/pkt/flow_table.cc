@@ -1819,6 +1819,7 @@ void FlowTable::AddVmFlowInfo(FlowEntry *fe)
     if (!fe->vm_entry()) {
         return;
     }
+    // Currently adding VmFlowInfo for linklocal flows only
     if (!fe->linklocal_src_port()) {
         return;
     }

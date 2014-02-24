@@ -294,13 +294,13 @@ static void ParseLinklocalFlows(const ptree &node,
                       ("config.agent.linklocal-flows.max-system-flows")) {
             *max_system_flows = opt_str.get();
         } else {
-            *max_system_flows = Agent::kDefaultMaxLinkLocalOpenFiles;
+            *max_system_flows = Agent::kDefaultMaxLinkLocalOpenFds;
         }
         if (opt_str = node.get_optional<unsigned int>
                       ("config.agent.linklocal-flows.max-vm-flows")) {
             *max_vm_flows = opt_str.get();
         } else {
-            *max_vm_flows = Agent::kDefaultMaxLinkLocalOpenFiles;
+            *max_vm_flows = Agent::kDefaultMaxLinkLocalOpenFds;
         }
     } catch (exception &e) {
         LOG(ERROR, "Error reading \"linklocal-flows\" node in config file <"
@@ -448,31 +448,31 @@ void AgentParam::InitFromArguments
 
 // Update linklocal max flows if they are greater than the max allowed for the
 // process. Also, ensure that the process is allowed to open upto
-// linklocal_system_flows + kMaxOpenFiles files
+// linklocal_system_flows + kMaxOtherOpenFds files
 void AgentParam::ValidateLinkLocalFlows() {
     struct rlimit rl;
     int result = getrlimit(RLIMIT_NOFILE, &rl);
     if (result == 0) {
-        if (rl.rlim_max <= Agent::kMaxOpenFiles + 1) {
+        if (rl.rlim_max <= Agent::kMaxOtherOpenFds + 1) {
             LOG(DEBUG, "Updating linklocal flows configuration to 0");
             linklocal_system_flows_ = linklocal_vm_flows_ = 0;
             return;
         }
-        if (linklocal_system_flows_ > rl.rlim_max - Agent::kMaxOpenFiles - 1) {
-            linklocal_system_flows_ = rl.rlim_max - Agent::kMaxOpenFiles - 1;
+        if (linklocal_system_flows_ > rl.rlim_max - Agent::kMaxOtherOpenFds - 1) {
+            linklocal_system_flows_ = rl.rlim_max - Agent::kMaxOtherOpenFds - 1;
             LOG(DEBUG, "Updating linklocal-system-flows configuration to : " <<
                 linklocal_system_flows_);
         }
-        if (rl.rlim_cur < linklocal_system_flows_ + Agent::kMaxOpenFiles + 1) {
+        if (rl.rlim_cur < linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1) {
             struct rlimit new_rl;
             new_rl.rlim_max = rl.rlim_max;
-            new_rl.rlim_cur = linklocal_system_flows_ + Agent::kMaxOpenFiles + 1;
+            new_rl.rlim_cur = linklocal_system_flows_ + Agent::kMaxOtherOpenFds + 1;
             result = setrlimit(RLIMIT_NOFILE, &new_rl);
             if (result != 0) {
-                if (rl.rlim_cur <= Agent::kMaxOpenFiles + 1) {
+                if (rl.rlim_cur <= Agent::kMaxOtherOpenFds + 1) {
                     linklocal_system_flows_ = 0;
                 } else {
-                    linklocal_system_flows_ = rl.rlim_cur - Agent::kMaxOpenFiles - 1;
+                    linklocal_system_flows_ = rl.rlim_cur - Agent::kMaxOtherOpenFds - 1;
                 }
                 LOG(DEBUG, "Unable to set Max open files limit to : " <<
                     new_rl.rlim_cur <<

@@ -401,8 +401,8 @@ public:
     void VnFlowCounters(const VnEntry *vn, uint32_t *in_count, 
                         uint32_t *out_count);
     uint32_t VmLinkLocalFlowCount(const VmEntry *vm);
-    uint32_t linklocal_flow_count() { return linklocal_flow_count_; }
-    Agent *agent() { return agent_; }
+    uint32_t linklocal_flow_count() const { return linklocal_flow_count_; }
+    Agent *agent() const { return agent_; }
 
     // Test code only used method
     void DeleteFlow(const AclDBEntry *acl, const FlowKey &key, AclEntryIDList &id_list);
