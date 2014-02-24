@@ -111,7 +111,7 @@ public:
     void Clear();
 private:
     bool StaleTimeout();
-    static const int timeout_ = (120 * 1000); // In milli seconds
+    static const int timeout_ = (15 * 60 * 1000); // In milli seconds
     DB *db_;
     DBGraph *graph_;
     Timer *timer_;

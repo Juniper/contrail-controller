@@ -126,6 +126,8 @@ else:
     testcov = env.PyTestSuiteCov('opserver-test', local_sources)
     for d in _deps:
         env.Depends (testcov, d.name)
+    env.Requires(testcov, env['TOP'] + '/analytics/vizd')
+    env.Requires(testcov, env['TOP'] + '/query_engine/qedt')
 
     clean_coverage_cmd = env.Command('clean_coverage', '', clean_coverage)
     env.Depends(testcov, clean_coverage_cmd[0].name)
@@ -134,5 +136,3 @@ else:
     env.Depends(run_coverage_cmd, testcov[0].name)
     env.AlwaysBuild(run_coverage_cmd)
     env.Alias('controller/src/opserver:test', run_coverage_cmd)
-    env.Requires(run_coverage_cmd, env['TOP'] + '/analytics/vizd')
-    env.Requires(run_coverage_cmd, env['TOP'] + '/query_engine/qedt')

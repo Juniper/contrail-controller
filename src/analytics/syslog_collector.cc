@@ -1,17 +1,17 @@
 /*
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
+
 #include <iostream>
 #include <cstdlib>
 #include <string>
 #include <map>
+
 #include <boost/array.hpp>
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/asio.hpp>
-#include "base/misc_utils.h"
 #include <boost/spirit/include/qi.hpp>
-//#include <boost/phoenix/bind/bind_function_object.hpp>
 #include <boost/spirit/include/phoenix.hpp>
 #include <boost/spirit/include/phoenix_core.hpp>
 #include <boost/spirit/include/phoenix_operator.hpp>
@@ -21,15 +21,18 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/assign/list_of.hpp>
-
 #include <boost/fusion/adapted/std_pair.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
-#include "syslog_collector.h"
-#include "base/logging.h"
-#include "generator.h"
+
+#include <base/util.h>
+#include <base/logging.h>
+
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h>
-#include <base/util.h>
+#include <sandesh/sandesh_message_builder.h>
+
+#include "generator.h"
+#include "syslog_collector.h"
 
 /*** test for burst (compile <string> with  -lboost_date_time -lboost_thread and
  * no -fno-exceptions
@@ -395,10 +398,16 @@ class SyslogParser
             hdr.set_IPAddress (ip);
             hdr.set_Pid (GetMapVal (v, "pid", -1));
 
-            boost::shared_ptr<VizMsg> msg(new VizMsg(hdr, "SYSLOG",
-                    "<Syslog>" + GetMsgBody (v) + "</Syslog>",
-                    umn_gen_ ()));
-            GetGenerator (ip)->ReceiveSandeshMsg (msg, false);
+            std::string xmsg("<Syslog>" + GetMsgBody (v) + "</Syslog>");
+            SandeshMessage *xmessage = syslog_->GetBuilder()->Create(
+                reinterpret_cast<const uint8_t *>(xmsg.c_str()), xmsg.size());
+            SandeshSyslogMessage *smessage =
+                static_cast<SandeshSyslogMessage *>(xmessage);
+            smessage->SetHeader(hdr);
+            VizMsg vmsg(smessage, umn_gen_());
+            GetGenerator (ip)->ReceiveSandeshMsg (&vmsg, false);
+            vmsg.msg = NULL;
+            delete smessage; 
         }
 
         bool ClientParse (SyslogQueueEntry *sqe) {
@@ -517,18 +526,24 @@ SyslogListeners::SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
               parser_(new SyslogParser (this)), port_(port),
               ipaddress_(ipaddress), inited_(false),
               cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
-              db_handler_ (db_handler)
+              db_handler_ (db_handler),
+              builder_ (SandeshMessageBuilder::GetInstance(
+                  SandeshMessageBuilder::SYSLOG))
 {
 }
+
 SyslogListeners::SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
         DbHandler *db_handler, int port):
           SyslogUDPListener(evm), SyslogTcpListener(evm),
           parser_(new SyslogParser (this)), port_(port), ipaddress_(),
           inited_(false),
           cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
-          db_handler_ (db_handler)
+          db_handler_ (db_handler),
+          builder_ (SandeshMessageBuilder::GetInstance(
+              SandeshMessageBuilder::SYSLOG))
 {
 }
+
 void SyslogListeners::Start ()
 {
     if (port_ != -1) {

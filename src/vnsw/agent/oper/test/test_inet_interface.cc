@@ -155,6 +155,20 @@ TEST_F(InetInterfaceTest, vhost_basic_1) {
     client->WaitForIdle();
 }
 
+TEST_F(InetInterfaceTest, vhost_key_manipulations) {
+    AddInterface(this, "vhost1", InetInterface::VHOST, VRF_VHOST,
+                 "1.1.1.1", 24, "1.1.1.254");
+    client->WaitForIdle();
+
+    ReceiveNH *nh = static_cast<ReceiveNH *>(ReceiveNHGet(nh_table_, "vhost1", 
+                                                          false));
+    EXPECT_TRUE(nh != NULL);
+    nh->SetKey(nh->GetDBRequestKey().release());
+
+    DelInterface(this, "vhost1", VRF_VHOST, "1.1.1.254");
+    client->WaitForIdle();
+}
+
 TEST_F(InetInterfaceTest, vhost_no_ip_1) {
     AddInterface(this, "vhost1", InetInterface::VHOST, VRF_VHOST,
                  "0.0.0.0", 0, "1.1.1.254");

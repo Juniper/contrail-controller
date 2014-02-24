@@ -7,7 +7,7 @@ import redis
 from cfgm_common.test_utils import *
 import cfgm_common.ifmap.client as ifmap_client
 import cfgm_common.ifmap.response as ifmap_response
-import discovery.client as disc_client
+import discoveryclient.client as disc_client
 from cfgm_common.discovery import DiscoveryService
 
 import vnc_cfg_api_server

@@ -108,7 +108,9 @@ static bool NhDecode(const NextHop *nh, const PktInfo *pkt, PktFlowInfo *info,
     switch (nh->GetType()) {
     case NextHop::INTERFACE:
         out->intf_ = static_cast<const InterfaceNH*>(nh)->GetInterface();
-        out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
+        if (out->intf_->type() != Interface::PACKET) {
+            out->vrf_ = static_cast<const InterfaceNH*>(nh)->GetVrf();
+        }
         break;
 
     case NextHop::RECEIVE:

@@ -434,9 +434,18 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
         switch(nh->GetType()) {
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
-                                          "", vrf_name, label, encap, 
-                                          mac, prefix_addr, prefix_len);
+            if (encap == TunnelType::VxlanType()) {
+                rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
+                                             "", vrf_name,
+                                             MplsTable::kInvalidLabel,
+                                             label, mac, prefix_addr,
+                                             prefix_len);
+            } else {
+                rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
+                                             "", vrf_name, label,
+                                             VxLanTable::kInvalidvxlan_id,
+                                             mac, prefix_addr, prefix_len);
+            }
             break;
             }
         default:
@@ -917,6 +926,7 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
                                                std::string vn, 
                                                const SecurityGroupList *sg_list,
                                                uint32_t mpls_label,
+                                               TunnelType::TypeBmap bmap,
                                                bool add_route) {
 
     static int id = 0;
@@ -942,8 +952,12 @@ bool AgentXmppChannel::ControllerSendV4UnicastRoute(AgentXmppChannel *peer,
     nh.af = BgpAf::IPv4;
     nh.address = rtr;
     nh.label = mpls_label;
-    nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
-    nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+    if (bmap & TunnelType::GREType()) {
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+    }
+    if (bmap & TunnelType::UDPType()) {
+        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+    }
     item.entry.next_hops.next_hop.push_back(nh);
 
     if (sg_list && sg_list->size()) {
@@ -1054,8 +1068,12 @@ bool AgentXmppChannel::ControllerSendEvpnRoute(AgentXmppChannel *peer,
         tunnel_type = l2_route->GetActivePath()->tunnel_type();
     }
     if (tunnel_type != TunnelType::VXLAN) {
-        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
-        nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        if (tunnel_bmap & TunnelType::GREType()) {
+            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
+        }
+        if (tunnel_bmap & TunnelType::UDPType()) {
+            nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
+        }
     } else {
         nh.tunnel_encapsulation_list.tunnel_encapsulation.push_back("vxlan");
     }
@@ -1133,7 +1151,7 @@ bool AgentXmppChannel::ControllerSendRoute(AgentXmppChannel *peer,
     bool ret = false;
     if (type == Agent::INET4_UNICAST) {
         ret = AgentXmppChannel::ControllerSendV4UnicastRoute(peer, route, vn,
-                                          sg_list, label, add_route);
+                                          sg_list, label, bmap, add_route);
     } 
     if (type == Agent::LAYER2) {
         ret = AgentXmppChannel::ControllerSendEvpnRoute(peer, route, vn, 
@@ -1179,7 +1197,6 @@ bool AgentXmppChannel::ControllerSendMcastRoute(AgentXmppChannel *peer,
     item_nexthop.label = peer->GetMcastLabelRange();
     item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("gre");
     item_nexthop.tunnel_encapsulation_list.tunnel_encapsulation.push_back("udp");
-
     item.entry.next_hops.next_hop.push_back(item_nexthop);
 
     //Build the pugi tree

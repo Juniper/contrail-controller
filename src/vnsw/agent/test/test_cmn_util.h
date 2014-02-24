@@ -171,6 +171,8 @@ void CreateVmportEnvInternal(struct PortInfo *input, int count, int acl_id = 0,
                      bool l2_vn = false);
 void CreateL2VmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
+void CreateVmportEnvWithoutIp(struct PortInfo *input, int count, int acl_id = 0,
+                     const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportEnv(struct PortInfo *input, int count, int acl_id = 0,
                      const char *vn = NULL, const char *vrf = NULL);
 void CreateVmportFIpEnv(struct PortInfo *input, int count, int acl_id = 0,

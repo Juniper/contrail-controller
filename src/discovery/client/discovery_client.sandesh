@@ -13,6 +13,10 @@ systemlog sandesh DiscoveryClientLog {
     2: string msg;
 }
 
+systemlog sandesh discClientLog {
+    1: string log_msg;
+}
+
 trace sandesh DiscoveryClientErrorMsg {
     1: string type;
     2: string serviceName;

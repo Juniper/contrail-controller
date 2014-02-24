@@ -364,11 +364,23 @@ protected:
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
         peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
+        Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
+        //Add a gateway route pointing to pkt0
+        VrfEntry *vrf = VrfGet("vrf5");
+        static_cast<Inet4UnicastAgentRouteTable *>(
+                vrf->GetInet4UnicastRouteTable())->AddHostRoute("vrf5",
+                gw_ip, 32, "vn5");
+        client->WaitForIdle();
     }
 
     virtual void TearDown() {
         FlushFlowTable();
         client->Reset();
+        VrfEntry *vrf = VrfGet("vrf5");
+        Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
+        Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
+            Agent::GetInstance()->GetLocalPeer(), "vrf5", gw_ip, 32);
+        client->WaitForIdle();
         DeleteVmportEnv(input, 3, true, 1);
         client->WaitForIdle(3);
         client->PortDelNotifyWait(3);
@@ -766,6 +778,23 @@ TEST_F(FlowTest, FlowAdd_6) {
     EXPECT_EQ(2U, in_count);
     EXPECT_EQ(2U, out_count);
 }
+
+// Validate flows to pkt 0 interface
+TEST_F(FlowTest, Flow_On_PktIntf) {
+    TestFlow flow[] = {
+        //Send an ICMP flow from remote VM in vn3 to local VM in vn5
+        {
+            TestFlowPkt(vm1_ip, "11.1.1.254", 1, 0, 0, "vrf5",
+                    flow0->id()),
+            {
+                new VerifyVrf("vrf5", "vrf5")
+            }
+        }
+    };
+
+    CreateFlow(flow, 1);
+}
+
 
 // Validate short flows
 TEST_F(FlowTest, ShortFlow_1) {

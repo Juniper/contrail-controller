@@ -38,6 +38,19 @@ static void ValidateSandeshResponse(Sandesh *sandesh, vector<int> &result) {
     //Validate the response by the expectation
 }
 
+void DoInterfaceSandesh(std::string name) {
+    ItfReq *itf_req = new ItfReq();
+    std::vector<int> result = list_of(1);
+    Sandesh::set_response_callback(boost::bind(ValidateSandeshResponse, _1, result));
+    if (name != "") {
+        itf_req->set_name(name);
+    }
+    itf_req->HandleRequest();
+    client->WaitForIdle();
+    itf_req->Release();
+    client->WaitForIdle();
+}
+
 class CfgTest : public ::testing::Test {
     virtual void SetUp() {
     }
@@ -1399,6 +1412,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
         return;
     }
     EXPECT_TRUE(intf->sg_list().list_.size() == 1);
+    DoInterfaceSandesh("vnet1");
 
     Ip4Address addr(Ip4Address::from_string("1.1.1.1"));
     Inet4UnicastAgentRouteTable *table = 
@@ -1414,6 +1428,7 @@ TEST_F(CfgTest, SecurityGroup_1) {
     EXPECT_EQ(path->sg_list().size(), 1);
     EXPECT_TRUE(path->vxlan_id() == VxLanTable::kInvalidvxlan_id);
     EXPECT_TRUE(path->tunnel_bmap() == TunnelType::MplsType());
+    DoInterfaceSandesh("vnet1");
 
     DelLink("virtual-network", "vn1", "access-control-list", "acl1");
     DelLink("virtual-machine-interface", "vnet1", "access-control-list", "acl1");

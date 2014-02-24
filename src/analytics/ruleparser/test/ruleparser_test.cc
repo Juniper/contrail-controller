@@ -26,7 +26,8 @@
 #include "base/logging.h"
 #include <sandesh/sandesh_types.h>
 #include <sandesh/sandesh.h> 
-#include <sandesh/sandesh_trace.h> 
+#include <sandesh/sandesh_trace.h>
+#include <sandesh/sandesh_message_builder.h>
 #include "../../viz_message.h"
 #include <boost/python.hpp>
 
@@ -93,9 +94,56 @@ const char *rules =
 
 std::string filename;
 bool out2coutg;
+using namespace pugi;
 
 class RuleParserTest : public ::testing::Test {
 public:
+    RuleParserTest() :
+        builder_(SandeshXMLMessageTestBuilder::GetInstance()) {
+    }
+
+    class SandeshXMLMessageTest : public SandeshXMLMessage {
+    public:
+        SandeshXMLMessageTest() {}
+        virtual ~SandeshXMLMessageTest() {}
+
+        virtual bool Parse(const uint8_t *xml_msg, size_t size) {
+            xml_parse_result result = xdoc_.load_buffer(xml_msg, size,
+                parse_default & ~parse_escapes);
+            if (!result) {
+                LOG(ERROR, __func__ << ": Unable to load Sandesh XML Test." <<
+                    "(status=" << result.status << ", offset=" << 
+                    result.offset << "): " << xml_msg);
+                return false;
+            }
+            message_node_ = xdoc_.first_child();
+            message_type_ = message_node_.name();
+            size_ = size;
+            return true;
+        }
+
+        void SetHeader(const SandeshHeader &header) { header_ = header; }
+    };
+
+    class SandeshXMLMessageTestBuilder : public SandeshMessageBuilder {
+    public:
+        SandeshXMLMessageTestBuilder() {}
+        
+        virtual SandeshMessage *Create(const uint8_t *xml_msg,
+            size_t size) const {
+            SandeshXMLMessageTest *msg = new SandeshXMLMessageTest;
+            msg->Parse(xml_msg, size);
+            return msg;
+        }
+
+        static SandeshXMLMessageTestBuilder *GetInstance() {
+            return &instance_;
+        }
+
+    private:
+        static SandeshXMLMessageTestBuilder instance_;
+    };
+
     virtual void SetUp() {
         if (!filename.empty()) {
             std::ifstream is;
@@ -133,7 +181,14 @@ public:
     boost::scoped_array<char> buffer;
     int length;
     bool out2cout;
+
+protected:
+    SandeshMessageBuilder *builder_;
+    boost::uuids::random_generator rgen_;
 };
+
+RuleParserTest::SandeshXMLMessageTestBuilder
+    RuleParserTest::SandeshXMLMessageTestBuilder::instance_;
 
 TEST_F(RuleParserTest, Test1) {
     boost::scoped_array<char> localbuf(new char [length+2]);
@@ -180,45 +235,65 @@ TEST_F(RuleParserTest, RuleActionTest) {
     parse(rulelist, (const char *)buffer.get(), length);
 
     SandeshHeader hdr;
-    std::string messagetype("SYSLOG_MSG");
     hdr.Context = "123456";
     hdr.__isset.Context = true;
-    std::string xmlmessage("<Sandesh><VNSwitchErrorMsg type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">2121</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></VNSwitchErrorMsg></Sandesh>");
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp1(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg1(vmsgp1);
+    std::string xmlmessage("<SYSLOG_MSG type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">2121</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></SYSLOG_MSG>");
+    boost::uuids::uuid unm(rgen_());
+    SandeshXMLMessageTest *msg1 = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+        reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+        xmlmessage.size()));
+    msg1->SetHeader(hdr); 
+    VizMsg vmsgp1(msg1, unm); 
+    RuleMsg rmsg1(&vmsgp1);
 
     rulelist->rule_execute(rmsg1);
 
     EXPECT_EQ(" echoaction Rule1 matched",
             t_ruleaction::RuleActionEchoResult);
 
-    messagetype = "STATS_MSG";
+    vmsgp1.msg = NULL;
+    delete msg1;
+
     hdr.Context.clear();
     hdr.__isset.Context = false;;
-    xmlmessage = "<Sandesh><VNSwitchErrorMsg type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21></field2><field3 type=\"i32\">30</field3></VNSwitchErrorMsg></Sandesh>";
-    unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp2(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg2(vmsgp2);
+    xmlmessage = "<STATS_MSG type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21></field2><field3 type=\"i32\">30</field3></STATS_MSG>";
+    unm = rgen_();
+    SandeshXMLMessageTest *msg2 = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+        reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+        xmlmessage.size()));
+    msg2->SetHeader(hdr);
+    VizMsg vmsgp2(msg2, unm); 
+    RuleMsg rmsg2(&vmsgp2);
 
     rulelist->rule_execute(rmsg2);
 
     EXPECT_EQ(" echoaction Rule2 STATS_MSG matched",
             t_ruleaction::RuleActionEchoResult);
 
-    messagetype = "STATS_MSG";
+    vmsgp2.msg = NULL;
+    delete msg2;
+
     hdr.Context.clear();
     hdr.__isset.Context = false;;
-    xmlmessage = "<Sandesh><VNSwitchErrorMsg type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></VNSwitchErrorMsg></Sandesh>";
-    unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp3(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg3(vmsgp3);
+    xmlmessage = "<STATS_MSG type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">21</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></STATS_MSG>";
+    unm = rgen_();
+    SandeshXMLMessageTest *msg3 = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+        reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+        xmlmessage.size()));
+    msg3->SetHeader(hdr);
+    VizMsg vmsgp3(msg3, unm); 
+    RuleMsg rmsg3(&vmsgp3);
 
     rulelist->rule_execute(rmsg3);
 
     EXPECT_EQ(" echoaction Rule2 STATS_MSG matched echoaction Rule3 STATS_MSG matched",
             t_ruleaction::RuleActionEchoResult);
 
+    vmsgp3.msg = NULL;
+    delete msg3;
     delete rulelist;
 }
 
@@ -228,19 +303,25 @@ TEST_F(RuleParserTest, RuleActionTestPy) {
     parse(rulelist, (const char *)buffer.get(), length);
 
     SandeshHeader hdr;
-    std::string messagetype("SYSLOG_MSG1");
     hdr.Context.clear();
     hdr.__isset.Context = false;
-    std::string xmlmessage("<Sandesh><VNSwitchErrorMsg type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">2121</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></VNSwitchErrorMsg></Sandesh>");
-    boost::uuids::uuid unm = boost::uuids::random_generator()();
-    boost::shared_ptr<VizMsg> vmsgp1(new VizMsg(hdr, messagetype, xmlmessage, unm)); 
-    RuleMsg rmsg1(vmsgp1);
+    std::string xmlmessage("<SYSLOG_MSG1 type=\"sandesh\"><length type=\"i32\">0000000020</length><field1 type=\"string\">field1_value</field1><field2 type=\"struct\"><field21 type=\"i16\">2121</field21><field22 type=\"string\">string22</field22></field2><field3 type=\"i32\">30</field3></SYSLOG_MSG1>");
+    boost::uuids::uuid unm(rgen_());
+    SandeshXMLMessageTest *msg1 = dynamic_cast<SandeshXMLMessageTest *>(
+        builder_->Create(
+        reinterpret_cast<const uint8_t *>(xmlmessage.c_str()),
+        xmlmessage.size()));
+    msg1->SetHeader(hdr);
+    VizMsg vmsgp1(msg1, unm); 
+    RuleMsg rmsg1(&vmsgp1);
 
     rulelist->rule_execute(rmsg1);
 
     EXPECT_EQ(" echoaction.py Rule4 matched",
             t_ruleaction::RuleActionEchoResult);
 
+    vmsgp1.msg = NULL;
+    delete msg1;
     delete rulelist;
 }
 

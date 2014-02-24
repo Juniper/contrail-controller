@@ -19,6 +19,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/sandesh_uve_types.h>
+#include <sandesh/sandesh_message_builder.h>
 
 #include "viz_types.h"
 #include "generator.h"
@@ -47,26 +48,29 @@ using std::map;
         }                                                                      \
     } while (false)
 
-void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
+void Generator::UpdateMessageTypeStats(const VizMsg *vmsg) {
+    std::string messagetype(vmsg->msg->GetMessageType());
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     tbb::mutex::scoped_lock lock(smutex_);
     MessageTypeStatsMap::iterator stats_it =
-            stats_map_.find(vmsg->messagetype);
+            stats_map_.find(messagetype);
     if (stats_it == stats_map_.end()) {
-        stats_it = (stats_map_.insert(vmsg->messagetype,
+        stats_it = (stats_map_.insert(messagetype,
                 new Stats)).first;
     }
     Stats *sandesh_stats = stats_it->second;
     sandesh_stats->messages_++;
-    sandesh_stats->bytes_ += vmsg->xmlmessage.size();
-    sandesh_stats->last_msg_timestamp_ = vmsg->hdr.get_Timestamp();
+    sandesh_stats->bytes_ += vmsg->msg->GetSize();
+    sandesh_stats->last_msg_timestamp_ = header.get_Timestamp();
 }
 
-void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
+void Generator::UpdateLogLevelStats(const VizMsg *vmsg) {
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     tbb::mutex::scoped_lock lock(smutex_);
     // For system log, update the log level stats
-    if (vmsg->hdr.get_Type() == SandeshType::SYSTEM) {
+    if (header.get_Type() == SandeshType::SYSTEM) {
         SandeshLevel::type level =
-                static_cast<SandeshLevel::type>(vmsg->hdr.get_Level());
+                static_cast<SandeshLevel::type>(header.get_Level());
         LogLevelStatsMap::iterator level_stats_it;
         if (level < SandeshLevel::INVALID) {
             std::string level_str(
@@ -78,9 +82,9 @@ void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
             }
             LogLevelStats *level_stats = level_stats_it->second;
             level_stats->messages_++;
-            level_stats->bytes_ += vmsg->xmlmessage.size();
+            level_stats->bytes_ += vmsg->msg->GetSize();
             level_stats->last_msg_timestamp_ =
-                    vmsg->hdr.get_Timestamp();
+                    header.get_Timestamp();
         }
     }
 }
@@ -113,41 +117,38 @@ void Generator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
     }
 }
 
-bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
-    // This is a message from the application on the generator side.
-    // It will be processed by the rule engine callback after we
-    // update statistics
-    GetDbHandler()->MessageTableInsert(vmsg);
-
-    UpdateMessageTypeStats(vmsg.get());
-    UpdateLogLevelStats(vmsg.get());
-    UpdateMessageStats(vmsg.get());
-    return ProcessRules(vmsg, rsc);
-}
-
-void Generator::UpdateMessageStats(VizMsg *vmsg) {
+void Generator::UpdateMessageStats(const VizMsg *vmsg) {
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     //update the MessageStatsMap
     //Get the loglevel string from the message
-    SandeshLevel::type level =
-                            static_cast<SandeshLevel::type>(vmsg->hdr.get_Level());
+    SandeshLevel::type level(static_cast<SandeshLevel::type>(
+        header.get_Level()));
     LogLevelStatsMap::iterator level_stats_it;
     if (level <= SandeshLevel::INVALID) {
-        std::string level_str(
-        Sandesh::LevelToString(level));
+        std::string level_str(Sandesh::LevelToString(level));
+        std::string messagetype(vmsg->msg->GetMessageType());
         //Lookup based on the pair(Messagetype,loglevel)
-        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(make_pair(vmsg->messagetype,level_str));
+        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(
+            make_pair(messagetype, level_str));
         if (stats_it == sandesh_stats_map_.end()) {
             //New messagetype,loglevel combination
-            std::pair<std::string,std::string> key(vmsg->messagetype,level_str);
+            std::pair<std::string,std::string> key(messagetype, level_str);
             tbb::mutex::scoped_lock lock(smutex_);
-            stats_it = (sandesh_stats_map_.insert(key,new MessageStats)).first;
-         }
-    MessageStats *message_stats = stats_it->second;
-    message_stats->messages_++;
-    message_stats->bytes_ += vmsg->xmlmessage.size();
+            stats_it = (sandesh_stats_map_.insert(key, new MessageStats)).first;
+        }
+        MessageStats *message_stats = stats_it->second;
+        message_stats->messages_++;
+        message_stats->bytes_ += vmsg->msg->GetSize();
     } 
 } 
     
+bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
+    GetDbHandler()->MessageTableInsert(vmsg);
+    UpdateMessageTypeStats(vmsg);
+    UpdateLogLevelStats(vmsg);
+    UpdateMessageStats(vmsg);
+    return ProcessRules(vmsg, rsc);
+}
 
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
@@ -274,10 +275,8 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     Db_Connection_Uninit();
 }
 
-bool SandeshGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
-        bool rsc)
-{
-    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
+bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
+    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
 }
 
 bool SandeshGenerator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
@@ -374,13 +373,9 @@ SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
           source_(source),
           module_(module),
           name_(source + ":" + module),
-          db_handler_(listeners->GetDbHandler())
-{
+          db_handler_(listeners->GetDbHandler()) {
 }
 
-bool SyslogGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
-        bool rsc)
-{
-    return (syslog_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
+bool SyslogGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
+    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
 }
-

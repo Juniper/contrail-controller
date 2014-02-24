@@ -20,8 +20,6 @@ public:
         return Agent::LAYER2;
     }
 
-    static void ReEvaluatePaths(const string &vrf_name, 
-                               const struct ether_addr &mac);
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static void AddRemoteVmRouteReq(const Peer *peer,
                                     const string &vrf_name,
@@ -134,30 +132,5 @@ private:
     uint32_t plen_;
     DISALLOW_COPY_AND_ASSIGN(Layer2RouteKey);
 };
-
-class Layer2EcmpRoute : public AgentRouteData {
-public:
-    Layer2EcmpRoute(const struct ether_addr &dest_addr, 
-                    const string &vn_name, 
-                    const string &vrf_name, uint32_t label, 
-                    bool local_ecmp_nh,
-                    Op op  = AgentRouteData::CHANGE) : 
-        AgentRouteData(op , false), dest_addr_(dest_addr),
-        vn_name_(vn_name), vrf_name_(vrf_name),
-        label_(label), local_ecmp_nh_(local_ecmp_nh) {
-    }
-    virtual ~Layer2EcmpRoute() { }
-    virtual bool AddChangePath(Agent *agent, AgentPath *path);
-    virtual string ToString() const {return "layer2ecmp";}
-
-private:
-    const struct ether_addr dest_addr_;
-    string vn_name_;
-    string vrf_name_;
-    uint32_t label_;
-    bool local_ecmp_nh_;
-    DISALLOW_COPY_AND_ASSIGN(Layer2EcmpRoute);
-};
-
 
 #endif // vnsw_layer2_route_hpp

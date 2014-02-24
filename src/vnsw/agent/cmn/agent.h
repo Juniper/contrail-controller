@@ -526,6 +526,7 @@ public:
     void CreateDBTables();
     void CreateDBClients();
     void CreateVrf();
+    void CreateNextHops();
     void CreateInterfaces();
     void InitModules();
     void InitDone();

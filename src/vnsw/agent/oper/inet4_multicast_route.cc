@@ -111,21 +111,6 @@ void Inet4MulticastAgentRouteTable::Delete(const string &vrf_name,
     MulticastTableProcess(Agent::GetInstance(), vrf_name, req);
 }
 
-void Inet4MulticastAgentRouteTable::ReEvaluatePaths(const string &vrf_name,
-                                                   const Ip4Address &src_addr,
-                                                   const Ip4Address &dst_addr) {
-    DBRequest  rt_req;
-    rt_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    Inet4MulticastRouteKey *rt_key = new Inet4MulticastRouteKey(vrf_name, 
-                                                                dst_addr, 
-                                                                src_addr);
-
-    rt_key->sub_op_ = AgentKey::RESYNC;
-    rt_req.key.reset(rt_key);
-    rt_req.data.reset(NULL);
-    MulticastTableEnqueue(Agent::GetInstance(), vrf_name, &rt_req);
-}
-
 AgentRoute *
 Inet4MulticastRouteKey::AllocRouteEntry(VrfEntry *vrf, bool is_multicast) const 
 {

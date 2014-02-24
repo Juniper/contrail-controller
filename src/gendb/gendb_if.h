@@ -20,15 +20,16 @@
 namespace GenDb {
 
 /* New stuff */
-typedef boost::variant<std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
+typedef boost::variant<boost::blank, std::string, uint64_t, uint32_t, boost::uuids::uuid, uint8_t, uint16_t, double> DbDataValue;
 enum DbDataValueType {
-    DB_VALUE_STRING = 0,
-    DB_VALUE_UINT64 = 1,
-    DB_VALUE_UINT32 = 2,
-    DB_VALUE_UUID = 3,
-    DB_VALUE_UINT8 = 4,
-    DB_VALUE_UINT16 = 5,
-    DB_VALUE_DOUBLE = 6,
+    DB_VALUE_BLANK = 0,
+    DB_VALUE_STRING = 1,
+    DB_VALUE_UINT64 = 2,
+    DB_VALUE_UINT32 = 3,
+    DB_VALUE_UUID = 4,
+    DB_VALUE_UINT8 = 5,
+    DB_VALUE_UINT16 = 6,
+    DB_VALUE_DOUBLE = 7,
 };    
 typedef std::vector<DbDataValue> DbDataValueVec;
 typedef std::vector<GenDb::DbDataType::type> DbDataTypeVec;
@@ -75,12 +76,21 @@ struct NewCol {
 
     NewCol(const std::string& n, const DbDataValue& v, int ttl=-1);
 
+    explicit NewCol(int ttl=-1) :
+        cftype_(NewCf::COLUMN_FAMILY_NOSQL), ttl(ttl) {} 
+
+    bool operator==(NewCol rhs) {
+        return (rhs.name == name &&
+                rhs.value == value);
+    }
+
     NewCf::ColumnFamilyType cftype_;
     DbDataValueVec name;
     DbDataValueVec value;
     int ttl;
 };
 
+typedef std::vector<NewCol> NewColVec;
 struct ColList {
     ColList() {
     }
@@ -90,7 +100,7 @@ struct ColList {
 
     std::string cfname_; /* column family name */
     DbDataValueVec rowkey_; /* rowkey-value */
-    std::vector<NewCol> columns_; // only one of these is expected to be filled
+    NewColVec columns_; // only one of these is expected to be filled
 };
 
 struct ColumnNameRange {

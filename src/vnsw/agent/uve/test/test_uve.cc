@@ -19,6 +19,7 @@
 #include <oper/vm.h>
 #include <oper/interface_common.h>
 #include <uve/agent_uve.h>
+#include <uve/stats_interval_types.h>
 #include "vr_types.h"
 
 #include "testing/gunit.h"
@@ -26,6 +27,7 @@
 #include "xmpp/test/xmpp_test_util.h"
 #include <uve/vn_uve_table_test.h>
 #include <uve/vm_uve_table_test.h>
+#include "ksync/ksync_sock_user.h"
 
 int vrf_array[] = {1, 2};
 
@@ -33,6 +35,22 @@ using namespace std;
 
 void RouterIdDepInit() {
 }
+
+class AgentStatsCollectorTask : public Task {
+public:
+    AgentStatsCollectorTask(int count) : 
+        Task((TaskScheduler::GetInstance()->GetTaskId
+            ("Agent::StatsCollector")), StatsCollector::AgentStatsCollector),
+        count_(count) {
+    }
+    virtual bool Run() {
+        for (int i = 0; i < count_; i++)
+            Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+        return true;
+    }
+private:
+    int count_;
+};
 
 class UveTest : public ::testing::Test {
 public:
@@ -43,6 +61,58 @@ public:
             AddVrf(vrf_name);
         }
     }
+    void EnqueueAgentStatsCollectorTask(int count) {
+        TaskScheduler *scheduler = TaskScheduler::GetInstance();
+        AgentStatsCollectorTask *task = new AgentStatsCollectorTask(count);
+        scheduler->Enqueue(task);
+    }
+
+    void SetAgentStatsIntervalReq(int interval) {
+        SetAgentStatsInterval_InSeconds *req = new SetAgentStatsInterval_InSeconds();
+        req->set_interval(interval);
+        Sandesh::set_response_callback(
+            boost::bind(&UveTest::SetStatsResponse, this, _1));
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+    }
+
+    void SetFlowStatsIntervalReq(int interval) {
+        SetFlowStatsInterval_InSeconds *req = new SetFlowStatsInterval_InSeconds();
+        req->set_interval(interval);
+        Sandesh::set_response_callback(
+            boost::bind(&UveTest::SetStatsResponse, this, _1));
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+    }
+
+    void SetStatsResponse(Sandesh *sandesh) {
+        if (memcmp(sandesh->Name(), "StatsCfgResp", strlen("StatsCfgResp")) == 0) {
+            success_responses_++;
+        } else if (memcmp(sandesh->Name(), "StatsCfgErrResp", strlen("StatsCfgErrResp")) == 0) {
+            error_responses_++;
+        }
+    }
+
+    void GetStatsIntervalReq() {
+        GetStatsInterval *req = new GetStatsInterval();
+        Sandesh::set_response_callback(
+            boost::bind(&UveTest::GetStatsResponse, this, _1));
+        req->HandleRequest();
+        client->WaitForIdle();
+        req->Release();
+    }
+
+    void GetStatsResponse(Sandesh *sandesh) {
+        if (memcmp(sandesh->Name(), "StatsIntervalResp_InSeconds", 
+                   strlen("StatsIntervalResp_InSeconds")) == 0) {
+            success_responses_++;
+            StatsIntervalResp_InSeconds *resp = static_cast<StatsIntervalResp_InSeconds *>(sandesh);
+            agent_stats_interval_ = resp->get_agent_stats_interval();
+            flow_stats_interval_ = resp->get_flow_stats_interval();
+        }
+    }
 
     static void TestTearDown() {
     }
@@ -50,6 +120,15 @@ public:
     static void CreateVmPorts(struct PortInfo *input, int count) {
         CreateVmportEnv(input, count);
     }
+
+    void ClearCounters() {
+        success_responses_ = error_responses_ = 0;
+    }
+
+    int success_responses_;
+    int error_responses_;
+    int agent_stats_interval_;
+    int flow_stats_interval_;
 };
 
 TEST_F(UveTest, VmAddDelTest1) {
@@ -261,6 +340,124 @@ TEST_F(UveTest, VrfAddDelTest_1) {
     EXPECT_FALSE(DBTableFind("vrf21.uc.route.0"));
     EXPECT_TRUE(VrfStatsMatch(vrf21_id, string("vrf21"), true, 0, 0, 0, 0, 0, 
                               0, 0, 0, 0, 0, 0, 0, 0));
+}
+
+TEST_F(UveTest, StatsCollectorTest) {
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    EnqueueAgentStatsCollectorTask(1);
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    EXPECT_EQ(0U, collector->interface_stats_errors_);
+    EXPECT_EQ(0U, collector->vrf_stats_errors_);
+    EXPECT_EQ(0U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //Set error_code in mock code so that all dump requests will return this code.
+    KSyncSockTypeMap::set_error_code(EBUSY);
+    collector->interface_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
+
+    //Enqueue stats-collector-task
+    EnqueueAgentStatsCollectorTask(1);
+
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    //Verify that Error handlers for agent_stats_collector is invoked.
+    EXPECT_EQ(1U, collector->interface_stats_errors_);
+    EXPECT_EQ(1U, collector->vrf_stats_errors_);
+    EXPECT_EQ(1U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //Reset the error code in mock code
+    KSyncSockTypeMap::set_error_code(0);
+    collector->interface_stats_responses_ = 0;
+    collector->interface_stats_errors_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->vrf_stats_errors_ = 0;
+    collector->drop_stats_responses_ = 0;
+    collector->drop_stats_errors_ = 0;
+
+    //Enqueue stats-collector-task
+    EnqueueAgentStatsCollectorTask(1);
+
+    //Wait until agent_stats_collector() is run
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1U));
+
+    //Verify that Error handlers for agent_stats_collector is NOT invoked.
+    EXPECT_EQ(0U, collector->interface_stats_errors_);
+    EXPECT_EQ(0U, collector->vrf_stats_errors_);
+    EXPECT_EQ(0U, collector->drop_stats_errors_);
+    EXPECT_EQ(1U, collector->interface_stats_responses_);
+    EXPECT_EQ(1U, collector->vrf_stats_responses_);
+    EXPECT_EQ(1U, collector->drop_stats_responses_);
+
+    //cleanup
+    collector->interface_stats_responses_ = 0;
+    collector->vrf_stats_responses_ = 0;
+    collector->drop_stats_responses_ = 0;
+}
+
+TEST_F(UveTest, SandeshTest) {
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+
+    int flow_stats_interval = Agent::GetInstance()->uve()->flow_stats_collector()->expiry_time();
+    int agent_stats_interval = collector->expiry_time();
+
+    //Set Flow stats interval to invalid value
+    ClearCounters();
+    SetFlowStatsIntervalReq(-1);
+
+    //Verify that flow stats interval has not changed
+    EXPECT_EQ(1U, error_responses_);
+    EXPECT_EQ(0U, success_responses_);
+    EXPECT_EQ(flow_stats_interval, Agent::GetInstance()->uve()->flow_stats_collector()->expiry_time());
+
+    //Set Agent stats interval to invalid value
+    ClearCounters();
+    SetAgentStatsIntervalReq(0);
+
+    //Verify that agent stats interval has not changed
+    EXPECT_EQ(1U, error_responses_);
+    EXPECT_EQ(0U, success_responses_);
+    EXPECT_EQ(agent_stats_interval, collector->expiry_time());
+
+    //Set Flow stats interval to a valid value
+    ClearCounters();
+    SetFlowStatsIntervalReq(3);
+
+    //Verify that flow stats interval has been updated
+    EXPECT_EQ(0U, error_responses_);
+    EXPECT_EQ(1U, success_responses_);
+    EXPECT_EQ((3 * 1000), Agent::GetInstance()->uve()->flow_stats_collector()->expiry_time());
+
+    //Set Agent stats interval to a valid value
+    ClearCounters();
+    SetAgentStatsIntervalReq(40);
+
+    //Verify that agent stats interval has been updated
+    EXPECT_EQ(0U, error_responses_);
+    EXPECT_EQ(1U, success_responses_);
+    EXPECT_EQ((40 * 1000), collector->expiry_time());
+
+    //Fetch agent and flow stats interval via Sandesh
+    ClearCounters();
+    GetStatsIntervalReq();
+
+    //Verify the fetched agent/flow stats interval
+    EXPECT_EQ(0U, error_responses_);
+    EXPECT_EQ(1U, success_responses_);
+    EXPECT_EQ(40U, agent_stats_interval_);
+    EXPECT_EQ(3U, flow_stats_interval_);
 }
 
 int main(int argc, char **argv) {

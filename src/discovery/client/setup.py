@@ -9,6 +9,8 @@ setup(
     version='0.1dev',
     packages=[
         'discoveryclient',
+        'discoveryclient.sandesh',
+        'discoveryclient.sandesh.discovery_client',
     ],
     package_data={'': ['*.html', '*.css', '*.xml']},
     zip_safe=False,
