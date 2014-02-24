@@ -10,6 +10,7 @@ class Interface;
 class Inet4UnicastRouteEntry;
 class VnEntry;
 class VmEntry;
+class FlowTable;
 class FlowEntry;
 struct PktInfo;
 struct MatchPolicy;
@@ -31,15 +32,19 @@ struct PktControlInfo {
 
 class PktFlowInfo {
 public:
-    PktFlowInfo(boost::shared_ptr<PktInfo> info): 
-        pkt(info), source_vn(NULL), dest_vn(NULL), flow_source_vrf(-1),
-        flow_dest_vrf(-1), source_sg_id_l(NULL), dest_sg_id_l(NULL),
-        nat_done(false), nat_ip_saddr(0),
+    static const int kLinkLocalInvalidFd = -1;
+
+    PktFlowInfo(boost::shared_ptr<PktInfo> info, FlowTable *ftable): 
+        pkt(info), flow_table(ftable), source_vn(NULL), dest_vn(NULL),
+        flow_source_vrf(-1), flow_dest_vrf(-1), source_sg_id_l(NULL),
+        dest_sg_id_l(NULL), nat_done(false), nat_ip_saddr(0),
         nat_ip_daddr(0), nat_sport(0), nat_dport(0), nat_vrf(0),
         nat_dest_vrf(0), dest_vrf(0), acl(NULL), ingress(false),
-        short_flow(false), local_flow(false), linklocal_flow(false), ecmp(false),
-        in_component_nh_idx(-1), out_component_nh_idx(-1), trap_rev_flow(false),
-        source_plen(0), dest_plen(0) {
+        short_flow(false), local_flow(false), linklocal_flow(false),
+        linklocal_bind_local_port(false),
+        linklocal_src_port_fd(kLinkLocalInvalidFd),
+        ecmp(false), in_component_nh_idx(-1), out_component_nh_idx(-1),
+        trap_rev_flow(false), source_plen(0), dest_plen(0) {
     }
 
     static bool ComputeDirection(const Interface *intf);
@@ -66,8 +71,11 @@ public:
                                           const VnEntry *vn,
                                           MatchPolicy *m_policy);
     void RewritePktInfo(uint32_t index);
+    uint32_t LinkLocalBindPort(const VmEntry *vm, uint8_t proto);
+
 public:
     boost::shared_ptr<PktInfo> pkt;
+    FlowTable *flow_table;
 
     const std::string   *source_vn;
     const std::string   *dest_vn;
@@ -100,6 +108,8 @@ public:
     bool                short_flow;
     bool                local_flow;
     bool                linklocal_flow;
+    bool                linklocal_bind_local_port;
+    int                 linklocal_src_port_fd;
 
     bool                ecmp;
     uint32_t            in_component_nh_idx;
