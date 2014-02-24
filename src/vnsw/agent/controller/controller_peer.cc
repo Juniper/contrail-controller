@@ -434,9 +434,18 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
         switch(nh->GetType()) {
         case NextHop::INTERFACE: {
             const InterfaceNH *intf_nh = static_cast<const InterfaceNH *>(nh);
-            rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
-                                          "", vrf_name, label, encap, 
-                                          mac, prefix_addr, prefix_len);
+            if (encap == TunnelType::VxlanType()) {
+                rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
+                                             "", vrf_name,
+                                             MplsTable::kInvalidLabel,
+                                             label, mac, prefix_addr,
+                                             prefix_len);
+            } else {
+                rt_table->AddLocalVmRouteReq(bgp_peer_id_, intf_nh->GetIfUuid(),
+                                             "", vrf_name, label,
+                                             VxLanTable::kInvalidvxlan_id,
+                                             mac, prefix_addr, prefix_len);
+            }
             break;
             }
         default:

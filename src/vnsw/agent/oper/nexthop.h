@@ -281,6 +281,7 @@ public:
     static Type ComputeType(TypeBmap bmap);
     static Type DefaultType() {return default_type_;}
     static TypeBmap DefaultTypeBmap() {return (1 << DefaultType());}
+    static TypeBmap VxlanType() {return (1 << VXLAN);};
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}

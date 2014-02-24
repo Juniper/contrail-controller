@@ -935,7 +935,10 @@ void KSyncObject::NotifyEvent(KSyncEntry *entry, KSyncEntry::KSyncEvent event) {
     KSyncEntry::KSyncState state;
     bool dep_reval = false;
 
-    KSYNC_TRACE(Event, entry->ToString(), entry->StateString(), entry->EventString(event));
+    if (DoEventTrace()) {
+        KSYNC_TRACE(Event, entry->ToString(), entry->StateString(),
+                entry->EventString(event));
+    }
     switch (entry->GetState()) {
         case KSyncEntry::INIT:
             state = KSyncSM_Init(this, entry, event);

@@ -19,7 +19,7 @@ env.Alias('src/db:libdbtest', libdbtest)
 
 env.Prepend(LIBS = ['db', 'dbtest', 'gunit', 'task_test', 'io', 'sandesh',
                     'sandeshvns', 'io', 'base', 'http', 'http_parser', 'curl',
-                    'boost_program_options'])
+                    'pugixml', 'boost_program_options'])
 
 if sys.platform != 'darwin':
     env.Append(LIBS=['rt'])

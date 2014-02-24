@@ -119,9 +119,51 @@ TEST_F(FlowTest, Agent_Conf_file_1) {
     EXPECT_EQ(param.xmpp_instance_count(), 2);
     EXPECT_STREQ(param.tunnel_type().c_str(), "MPLSoGRE");
     EXPECT_STREQ(param.metadata_shared_secret().c_str(), "contrail");
+    EXPECT_EQ(param.linklocal_system_flows(), 1024);
+    EXPECT_EQ(param.linklocal_vm_flows(), 512);
     EXPECT_STREQ(param.config_file().c_str(), 
                  "controller/src/vnsw/agent/init/test/cfg.xml");
     EXPECT_STREQ(param.program_name().c_str(), "test-param");
+}
+
+TEST_F(FlowTest, Agent_Conf_file_2) {
+    AgentParam param;
+    param.Init("controller/src/vnsw/agent/init/test/cfg1.xml", "test-param",
+               var_map);
+
+    EXPECT_EQ(param.linklocal_system_flows(), 2048);
+    EXPECT_EQ(param.linklocal_vm_flows(), 2048);
+}
+
+// Check that linklocal flows are updated when the system limits are lowered
+TEST_F(FlowTest, Agent_Conf_file_3) {
+    struct rlimit rl;
+    rl.rlim_max = 128;
+    rl.rlim_cur = 64;
+    int result = setrlimit(RLIMIT_NOFILE, &rl);
+    if (result == 0) {
+        AgentParam param;
+        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+                   var_map);
+
+        EXPECT_EQ(param.linklocal_system_flows(), 63);
+        EXPECT_EQ(param.linklocal_vm_flows(), 63);
+    }
+}
+
+TEST_F(FlowTest, Agent_Conf_file_4) {
+    struct rlimit rl;
+    rl.rlim_max = 32;
+    rl.rlim_cur = 32;
+    int result = setrlimit(RLIMIT_NOFILE, &rl);
+    if (result == 0) {
+        AgentParam param;
+        param.Init("controller/src/vnsw/agent/init/test/cfg.xml", "test-param",
+                   var_map);
+
+        EXPECT_EQ(param.linklocal_system_flows(), 0);
+        EXPECT_EQ(param.linklocal_vm_flows(), 0);
+    }
 }
 
 TEST_F(FlowTest, Agent_Conf_Xen_1) {

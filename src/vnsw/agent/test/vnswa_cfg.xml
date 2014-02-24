@@ -20,6 +20,10 @@
         <metadata-proxy>
             <shared-secret>contrail</shared-secret>
         </metadata-proxy>
+        <linklocal-flows>
+            <max-system-flows>3</max-system-flows>
+            <max-vm-flows>2</max-vm-flows>
+        </linklocal-flows>
 <!--
         <discovery-server>
              <ip-address>10.3.1.1</ip-address>

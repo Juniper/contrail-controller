@@ -33,9 +33,6 @@ public:
     int Encode(sandesh_op::type op, char *buf, int buf_len);
     KSyncObject *GetObject();
 
-    void FillFlowInfo(sandesh_op::type op, uint16_t action, 
-                      uint16_t flag) const;
-    const std::string GetActionString(uint16_t action, uint16_t flag) const;
     std::string ToString() const;
     bool IsLess(const KSyncEntry &rhs) const;
     int AddMsg(char *buf, int buf_len);
@@ -72,6 +69,7 @@ public:
     vr_flow_req &flow_req() { return flow_req_; }
     KSync *ksync() const { return ksync_; }
     KSyncEntry *Alloc(const KSyncEntry *key, uint32_t index);
+    bool DoEventTrace(void) { return false; }
     FlowTableKSyncEntry *Find(FlowEntry *key);
     const vr_flow_entry *GetKernelFlowEntry(uint32_t idx, 
                                             bool ignore_active_status);

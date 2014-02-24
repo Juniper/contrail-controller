@@ -119,6 +119,7 @@ public:
     virtual void EmptyTable(void) { };
     bool IsEmpty(void) { return tree_.empty(); }; 
 
+    virtual bool DoEventTrace(void) { return true; }
     static void Shutdown();
 protected:
     // Create an entry with default state. Used internally

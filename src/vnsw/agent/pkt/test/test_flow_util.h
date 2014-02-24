@@ -251,7 +251,8 @@ public:
         EXPECT_TRUE(rev->key().src.ipv4 == ntohl(inet_addr(nat_sip_.c_str())));
         EXPECT_TRUE(rev->key().dst.ipv4 == ntohl(inet_addr(nat_dip_.c_str())));
         EXPECT_TRUE(rev->key().src_port == nat_sport_);
-        EXPECT_TRUE(rev->key().dst_port == nat_dport_);
+        EXPECT_TRUE(rev->key().dst_port == nat_dport_ ||
+                    rev->key().dst_port == fe->linklocal_src_port());
     };
 
 private:

@@ -564,6 +564,10 @@ class DiscoveryServer():
             for service_id, result in subs:
                 entry = self._db_conn.lookup_service(
                     service_type, service_id=service_id)
+                # previously published service is gone
+                if entry is None:
+                    continue
+                # or just not reachable
                 if self.service_expired(entry):
                     continue
                 self._db_conn.insert_client(
