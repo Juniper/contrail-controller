@@ -1145,7 +1145,8 @@ TEST_F(CfgTest, Nexthop_keys) {
                                              Ip4Address::from_string("1.1.1.1"),
                                              32, true));
     comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
-    agent_->GetNextHopTable()->Process(comp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&comp_nh_req);
+    client->WaitForIdle();
     CompositeNHKey find_cnh_key("vrf10",
                                 Ip4Address::from_string("1.1.1.1"),
                                 32, true);
@@ -1158,7 +1159,8 @@ TEST_F(CfgTest, Nexthop_keys) {
                                              Ip4Address::from_string("1.1.1.1"),
                                              32, true));
     del_comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
-    agent_->GetNextHopTable()->Process(del_comp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&del_comp_nh_req);
+    client->WaitForIdle();
 
     //VLAN nh
     struct ether_addr *dst_vlan_mac = 
@@ -1173,7 +1175,8 @@ TEST_F(CfgTest, Nexthop_keys) {
     nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     nh_req.key.reset(vlan_nhkey);
     nh_req.data.reset(vlan_nhdata);
-    agent_->GetNextHopTable()->Process(nh_req);
+    agent_->GetNextHopTable()->Enqueue(&nh_req);
+    client->WaitForIdle();
     SecurityGroupList sg_l;
     agent_->GetDefaultInet4UnicastRouteTable()->AddVlanNHRouteReq(NULL, "vrf10",
                           Ip4Address::from_string("2.2.2.0"), 24, MakeUuid(10), 100, 100, 
@@ -1198,7 +1201,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     del_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
     del_nh_req.key.reset(del_vlan_nhkey);
     del_nh_req.data.reset();
-    agent_->GetNextHopTable()->Process(del_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&del_nh_req);
     client->WaitForIdle();
 
     //ARP NH with vm interface
@@ -1211,7 +1214,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     VmInterfaceKey *intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE, 
                                               MakeUuid(10), "vrf10");
     arp_nh_req.data.reset(new ArpNHData(*intf_vm_mac, intf_key, true));
-    agent_->GetNextHopTable()->Process(arp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&arp_nh_req);
     client->WaitForIdle();
     ArpNHKey find_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11")); 
     ArpNH *arp_nh = static_cast<ArpNH *>
@@ -1225,7 +1228,7 @@ TEST_F(CfgTest, Nexthop_keys) {
     del_arp_nh_req.oper = DBRequest::DB_ENTRY_DELETE;
     del_arp_nh_req.key.reset(new ArpNHKey("vrf10", Ip4Address::from_string("11.11.11.11")));
     del_arp_nh_req.data.reset(new ArpNHData());
-    agent_->GetNextHopTable()->Process(del_arp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&del_arp_nh_req);
     client->WaitForIdle();
     ArpNHKey find_del_arp_nh_key("vrf10", Ip4Address::from_string("11.11.11.11")); 
     EXPECT_TRUE(agent_->GetNextHopTable()->
@@ -1255,7 +1258,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     arp_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     arp_nh_req.key.reset(new ArpNHKey("vrf11", Ip4Address::from_string("11.11.11.11")));
     arp_nh_req.data.reset(new ArpNHData());
-    agent_->GetNextHopTable()->Process(arp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&arp_nh_req);
+    client->WaitForIdle();
     ArpNHKey find_arp_nh_key("vrf11", Ip4Address::from_string("11.11.11.11")); 
     EXPECT_TRUE(agent_->GetNextHopTable()->
                 FindActiveEntry(&find_arp_nh_key) == NULL);
@@ -1270,7 +1274,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     intf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     intf_nh_req.key.reset(new InterfaceNHKey(intf_key, true, 5));
     intf_nh_req.data.reset(new InterfaceNHData("vrf11", *intf_vm_mac));
-    agent_->GetNextHopTable()->Process(intf_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&intf_nh_req);
+    client->WaitForIdle();
     VmInterfaceKey *find_intf_key = new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                                                        MakeUuid(11), "vrf11");
     InterfaceNHKey find_intf_nh_key(find_intf_key, true, 5); 
@@ -1282,7 +1287,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     vrf_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     vrf_nh_req.key.reset(new VrfNHKey("vrf11", true));
     vrf_nh_req.data.reset(new VrfNHData());
-    agent_->GetNextHopTable()->Process(vrf_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&vrf_nh_req);
+    client->WaitForIdle();
     VrfNHKey find_vrf_nh_key("vrf11", true);
     EXPECT_TRUE(agent_->GetNextHopTable()->
                 FindActiveEntry(&find_vrf_nh_key) == NULL);
@@ -1294,7 +1300,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                                       Ip4Address::from_string("12.12.12.12"), true, 
                                       TunnelType::DefaultType()));
     tnh_req.data.reset(new TunnelNHData());
-    agent_->GetNextHopTable()->Process(tnh_req);
+    agent_->GetNextHopTable()->Enqueue(&tnh_req);
+    client->WaitForIdle();
     TunnelNHKey find_tnh_key("vrf11", Ip4Address::from_string("11.11.11.11"),
                              Ip4Address::from_string("12.12.12.12"), true,
                              TunnelType::DefaultType());
@@ -1308,7 +1315,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     recv_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     recv_nh_req.key.reset(new ReceiveNHKey(recv_intf_key, true));
     recv_nh_req.data.reset(new ReceiveNHData());
-    agent_->GetNextHopTable()->Process(recv_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&recv_nh_req);
+    client->WaitForIdle();
     VmInterfaceKey *find_recv_intf_key = 
         new VmInterfaceKey(AgentKey::ADD_DEL_CHANGE,
                            MakeUuid(11), "vrf11");
@@ -1327,7 +1335,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
     vlan_nh_req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
     vlan_nh_req.key.reset(new VlanNHKey(MakeUuid(11), 11));
     vlan_nh_req.data.reset(new VlanNHData("vrf11", *vlan_smac, *vlan_dmac));
-    agent_->GetNextHopTable()->Process(vlan_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&vlan_nh_req);
+    client->WaitForIdle();
     VlanNHKey find_vlan_nh_key(MakeUuid(11), 11);
     EXPECT_TRUE(agent_->GetNextHopTable()->
                 FindActiveEntry(&find_vlan_nh_key) == NULL);
@@ -1340,7 +1349,8 @@ TEST_F(CfgTest, Nexthop_invalid_vrf) {
                                              Ip4Address::from_string("0.0.0.0"), 
                                              false, Composite::L3COMP));
     comp_nh_req.data.reset(new CompositeNHData(CompositeNHData::ADD));
-    agent_->GetNextHopTable()->Process(comp_nh_req);
+    agent_->GetNextHopTable()->Enqueue(&comp_nh_req);
+    client->WaitForIdle();
     CompositeNHKey find_cnh_key("vrf11",
                                 Ip4Address::from_string("255.255.255.255"),
                                 Ip4Address::from_string("0.0.0.0"),
