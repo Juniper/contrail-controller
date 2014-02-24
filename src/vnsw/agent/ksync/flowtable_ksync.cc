@@ -233,58 +233,8 @@ int FlowTableKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         req.set_fr_action(action);
     }
 
-    FillFlowInfo(op, action, flags);
-
     encode_len = req.WriteBinary((uint8_t *)buf, buf_len, &error);
     return encode_len;
-}
-
-const std::string FlowTableKSyncEntry::GetActionString(uint16_t action, 
-                                                       uint16_t flags) const {
-    ostringstream action_str;
-    if (action == VR_FLOW_ACTION_DROP) {
-        action_str << "Drop: ";
-    } 
-
-    if (action & VR_FLOW_ACTION_FORWARD) {
-        action_str << "Pass: ";
-    } 
-
-    if (flags & VR_FLOW_FLAG_SNAT) {
-        action_str << "Source NAT ";
-    }
-
-    if (flags & VR_FLOW_FLAG_DNAT) {
-        action_str << "Destination NAT ";
-    }
-
-    if (flags & VR_FLOW_FLAG_SPAT) {
-        action_str << "Source Port NAT ";
-    }
-
-    if (flags & VR_FLOW_FLAG_DPAT) {
-        action_str << "Destination Port NAT ";
-    }
-
-    if (flags & VR_FLOW_FLAG_VRFT) {
-        action_str << "VRF translate ";
-    }
-
-    return action_str.str();
-}
-
-void FlowTableKSyncEntry::FillFlowInfo(sandesh_op::type op, 
-                                       uint16_t action, uint16_t flag) const {
-    KSyncFlowInfo info;
-    info.set_flow_index(flow_entry_->flow_handle());
-    info.set_action(GetActionString(action, flag));
-
-    if (op == sandesh_op::ADD) {
-        info.set_op("add");
-    } else {
-        info.set_op("delete");
-    }
-    KSYNC_TRACE(Flow, info);
 }
 
 bool FlowTableKSyncEntry::Sync() {

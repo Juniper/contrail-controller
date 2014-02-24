@@ -554,6 +554,20 @@ void FlowEntry::FillFlowInfo(FlowInfo &info) {
     info.set_destination_port(key_.dst_port);
     info.set_protocol(key_.protocol);
     info.set_vrf(key_.vrf);
+    info.set_source_vn(data_.source_vn);
+    info.set_dest_vn(data_.dest_vn);
+    std::vector<uint32_t> v;
+    SecurityGroupList::const_iterator it;
+    for (it = data_.source_sg_id_l.begin();
+            it != data_.source_sg_id_l.end(); it++) {
+        v.push_back(*it);
+    }
+    info.set_source_sg_id_l(v);
+    v.clear();
+    for (it = data_.dest_sg_id_l.begin(); it != data_.dest_sg_id_l.end(); it++) {
+        v.push_back(*it);
+    }
+    info.set_dest_sg_id_l(v);
 
     std::ostringstream str;
     uint32_t fe_action = data_.match_p.action_info.action;
