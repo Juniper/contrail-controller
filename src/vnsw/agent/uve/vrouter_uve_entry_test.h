@@ -25,7 +25,7 @@ public:
     const VrouterAgent &last_sent_vrouter() const {
         return last_sent_vrouter_;
     }
-    const VrouterStatsAgent &prev_stats() const {
+    VrouterStatsAgent &prev_stats() {
         return prev_stats_;
     }
     void set_bandwidth_count(uint8_t ctr) { bandwidth_count_ = ctr; }
