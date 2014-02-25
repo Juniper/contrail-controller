@@ -449,6 +449,44 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
                                                         exp_mod_list)
     #end test_09_table_source_module_list 
 
+    #@unittest.skip('verify redis-uve restart')
+    def test_10_redis_uve_restart(self):
+        logging.info('*** test_10_redis_uve_restart ***')
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0])
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver)
+        # verify redis-uve list
+        host = socket.gethostname()
+        gen_list = [host+':Analytics:Collector:0',
+                    host+':Analytics:QueryEngine:0',
+                    host+':Analytics:OpServer:0']
+        assert vizd_obj.verify_generator_uve_list(gen_list)
+        # stop redis-uve
+        vizd_obj.redis_uves[0].stop()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0], False)
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver, False)
+        # start redis-uve and verify that Collector and Opserver are 
+        # connected to the redis-uve
+        vizd_obj.redis_uves[0].start()
+        assert vizd_obj.verify_collector_redis_uve_connection(
+                            vizd_obj.collectors[0])
+        assert vizd_obj.verify_opserver_redis_uve_connection(
+                            vizd_obj.opserver)
+        # verify that UVEs are resynced with redis-uve
+        assert vizd_obj.verify_generator_uve_list(gen_list)
+    # end test_10_redis_uve_restart
+
     @staticmethod
     def get_free_port():
         cs = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
