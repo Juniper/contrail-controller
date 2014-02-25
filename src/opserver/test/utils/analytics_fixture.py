@@ -405,6 +405,23 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=10)
+    def verify_generator_uve_list(self, exp_gen_list):
+        self.logger.info('verify_generator_uve_list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # get generator list
+        gen_list = vns.uve_query('generators?cfilt=ModuleClientState:client_info')
+        try:
+            actual_gen_list = [gen['name'] for gen in gen_list]
+            self.logger.info('generators: %s' % str(actual_gen_list))
+            for gen in exp_gen_list:
+                if gen not in actual_gen_list:
+                    return False
+        except Exception as e:
+            self.logger.error('Exception: %s' % e)
+        return True
+    # end verify_generator_uve_list
+
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
         self.logger.info("verify_message_table_messagetype")
@@ -1176,17 +1193,30 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
 
     @retry(delay=2, tries=5)
-    def verify_collector_redis_uve_connection(self, collector): 
+    def verify_collector_redis_uve_connection(self, collector, connected=True):
+        self.logger.info('verify_collector_redis_uve_connection')
         vcl = VerificationCollector('127.0.0.1', collector.http_port)
         try:
             redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
-            if redis_uve['status'] != 'Connected':
-                return False
+            if redis_uve['status'] == 'Connected':
+                return connected
         except Exception as err:
             self.logger.error('Exception: %s' % err)
-            return False
-        return True
+        return not connected
     # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_opserver_redis_uve_connection(self, opserver, connected=True):
+        self.logger.info('verify_opserver_redis_uve_connection')
+        vops = VerificationOpsSrv('127.0.0.1', opserver.http_port)
+        try:
+            redis_uve = vops.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] == 'Connected':
+                return connected
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return not connected
+    # end verify_opserver_redis_uve_connection
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):
