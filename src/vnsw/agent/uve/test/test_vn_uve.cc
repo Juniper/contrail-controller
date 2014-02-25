@@ -75,7 +75,7 @@ public:
         assert(flow0);
         flow1 = VmInterfaceGet(input[1].intf_id);
         assert(flow1);
-        peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
+        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
     }
 
     void FlowTearDown() {

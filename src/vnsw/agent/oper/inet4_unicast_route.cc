@@ -608,7 +608,7 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     agent->GetNextHopTable()->Enqueue(&nh_req);
 
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    rt_req.key.reset(new Inet4UnicastRouteKey(Peer::GetPeer(LOCAL_PEER_NAME),
+    rt_req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(),
                                               vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(vrf_name, ip));
     UnicastTableEnqueue(agent, vrf_name, &rt_req);
@@ -632,7 +632,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     DBRequest  rt_req(op);
     Inet4UnicastRouteKey *rt_key = 
-        new Inet4UnicastRouteKey(Peer::GetPeer(LOCAL_PEER_NAME),
+        new Inet4UnicastRouteKey(agent->GetLocalPeer(),
                                  vrf_name, ip, plen);
     Inet4UnicastArpRoute *data = NULL;
 
