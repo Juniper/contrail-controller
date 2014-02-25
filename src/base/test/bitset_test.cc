@@ -1864,20 +1864,48 @@ TEST_F(BitSetTest, String2) {
     }
 }
 
-TEST_F(BitSetTest, NumberedString) {
-    BitSet even_bitset;
-    for (int num = 0; num <=10 ; num+=2) {
-        even_bitset.set(num);
-    }
-    BitSet odd_bitset;
-    for (int num = 1; num <=11 ; num+=2) {
-        odd_bitset.set(num);
+TEST_F(BitSetTest, NumberedString1) {
+    BitSet even_bitset, odd_bitset;
+    for (int num = 0; num <= 11 ; num++) {
+        if (num % 2 == 0) {
+            even_bitset.set(num);
+        } else {
+            odd_bitset.set(num);
+        }
     }
 
-    string even_string = even_bitset.ToNumberedString();
-    string odd_string = odd_bitset.ToNumberedString();
-    EXPECT_EQ(even_string, "0,2,4,6,8,10");
-    EXPECT_EQ(odd_string, "1,3,5,7,9,11");
+    EXPECT_EQ("0,2,4,6,8,10", even_bitset.ToNumberedString());
+    EXPECT_EQ("1,3,5,7,9,11", odd_bitset.ToNumberedString());
+}
+
+TEST_F(BitSetTest, NumberedString2) {
+    BitSet bitset;
+    EXPECT_EQ("", bitset.ToNumberedString());
+    bitset.set(1);
+    EXPECT_EQ("1", bitset.ToNumberedString());
+    bitset.set(3);
+    EXPECT_EQ("1,3", bitset.ToNumberedString());
+    bitset.set(2);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
+    bitset.reset(3);
+    EXPECT_EQ("1-2", bitset.ToNumberedString());
+    bitset.set(3);
+    bitset.set(5);
+    EXPECT_EQ("1-3,5", bitset.ToNumberedString());
+    bitset.set(7);
+    EXPECT_EQ("1-3,5,7", bitset.ToNumberedString());
+    bitset.set(9);
+    EXPECT_EQ("1-3,5,7,9", bitset.ToNumberedString());
+    bitset.set(8);
+    EXPECT_EQ("1-3,5,7-9", bitset.ToNumberedString());
+    bitset.set(11);
+    EXPECT_EQ("1-3,5,7-9,11", bitset.ToNumberedString());
+    bitset.reset(2);
+    EXPECT_EQ("1,3,5,7-9,11", bitset.ToNumberedString());
+    bitset.set(4);
+    EXPECT_EQ("1,3-5,7-9,11", bitset.ToNumberedString());
+    bitset.reset(11);
+    EXPECT_EQ("1,3-5,7-9", bitset.ToNumberedString());
 }
 
 int main(int argc, char **argv) {
