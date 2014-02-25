@@ -189,7 +189,7 @@ static bool IntfHasFloatingIp(const Interface *intf) {
 
 static bool IsLinkLocalRoute(const Inet4UnicastRouteEntry *rt) {
     const AgentPath *path = rt->GetActivePath();
-    if (path && path->peer() == Agent::GetInstance()->GetLinkLocalPeer())
+    if (path && path->peer() == Agent::GetInstance()->link_local_peer())
         return true;
 
     return false;
@@ -266,10 +266,10 @@ static void SetInEcmpIndex(const PktInfo *pkt, PktFlowInfo *flow_info,
     } else {
         //Destination on remote server
         //Choose local path, which will also pointed by MPLS label
-        if (in->rt_->FindPath(Agent::GetInstance()->GetLocalVmPeer())) {
+        if (in->rt_->FindPath(Agent::GetInstance()->local_vm_peer())) {
             Agent *agent = static_cast<AgentRouteTable *>
                 (in->rt_->get_table())->agent();
-            nh = in->rt_->FindPath(agent->GetLocalVmPeer())->nexthop(agent);
+            nh = in->rt_->FindPath(agent->local_vm_peer())->nexthop(agent);
         } else {
             const CompositeNH *comp_nh = static_cast<const CompositeNH *>
                 (in->rt_->GetActiveNextHop());

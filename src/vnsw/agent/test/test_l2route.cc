@@ -112,7 +112,7 @@ protected:
         //Use any toher peer than localvmpeer
 
         Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            agent_->GetLocalPeer(), vrf_name_,
+            agent_->local_peer(), vrf_name_,
             bmap, server_ip, label, *remote_vm_mac, local_vm_ip_, 32);
         client->WaitForIdle();
     }
@@ -318,7 +318,7 @@ TEST_F(RouteTest, RemoteVmRoute_1) {
     EXPECT_TRUE(tnh->GetTunnelType().GetType() == TunnelType::MPLS_GRE);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, remote_vm_mac_);
+    DeleteRoute(agent_->local_peer(), vrf_name_, remote_vm_mac_);
     client->WaitForIdle();
     DelEncapList();
     client->WaitForIdle();
@@ -376,7 +376,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_auto) {
     l2_req->Release();
     client->WaitForIdle();
 
-    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
+    DeleteRoute(agent_->local_peer(), vrf_name_, vxlan_vm_mac);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
@@ -434,7 +434,7 @@ TEST_F(RouteTest, RemoteVmRoute_VxLan_config) {
                 TunnelType::VXLAN);
     EXPECT_TRUE(tnh->GetDip()->to_string() == server1_ip_.to_string());
 
-    DeleteRoute(agent_->GetLocalPeer(), vrf_name_, vxlan_vm_mac);
+    DeleteRoute(agent_->local_peer(), vrf_name_, vxlan_vm_mac);
     client->WaitForIdle();
 
     DeleteVmportEnv(input, 2, true);
@@ -459,11 +459,11 @@ TEST_F(RouteTest, Layer2_route_key) {
 
     EXPECT_TRUE(VmPortL2Active(input, 0));
     Layer2RouteEntry *vnet1_rt = L2RouteGet(vrf_name_, *local_vm_mac_);
-    Layer2RouteKey new_key(agent_->GetLocalVmPeer(), "vrf2", *local_vm_mac_);
+    Layer2RouteKey new_key(agent_->local_vm_peer(), "vrf2", *local_vm_mac_);
     vnet1_rt->SetKey(&new_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf2");
     EXPECT_TRUE(new_key.ToString() == "Layer2RouteKey");
-    Layer2RouteKey restore_key(agent_->GetLocalVmPeer(), "vrf1", 
+    Layer2RouteKey restore_key(agent_->local_vm_peer(), "vrf1", 
                                *local_vm_mac_);
     vnet1_rt->SetKey(&restore_key);
     EXPECT_TRUE(vnet1_rt->vrf()->GetName() == "vrf1");

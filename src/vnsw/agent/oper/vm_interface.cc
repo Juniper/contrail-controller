@@ -1145,7 +1145,7 @@ void VmInterface::UpdateMetadataRoute(bool old_ipv4_active, VrfEntry *old_vrf) {
     Agent *agent = table->agent();
     table->VmPortToMetaDataIp(id(), vrf_->vrf_id(), &mdata_addr_);
     Inet4UnicastAgentRouteTable::AddLocalVmRoute
-        (agent->GetLinkLocalPeer(), agent->GetDefaultVrf(), mdata_addr_,
+        (agent->link_local_peer(), agent->GetDefaultVrf(), mdata_addr_,
          32, GetUuid(), vn_->GetName(), label_, SecurityGroupList(), true);
 }
 
@@ -1158,7 +1158,7 @@ void VmInterface::DeleteMetadataRoute(bool old_active, VrfEntry *old_vrf,
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();
-    Inet4UnicastAgentRouteTable::Delete(agent->GetLinkLocalPeer(),
+    Inet4UnicastAgentRouteTable::Delete(agent->link_local_peer(),
                                         agent->GetDefaultVrf(),
                                         mdata_addr_, 32);
 }
@@ -1281,7 +1281,7 @@ void VmInterface::UpdateL2InterfaceRoute(bool old_l2_active, bool force_update) 
     const string &vrf_name = vrf_.get()->GetName();
 
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable::AddLocalVmRoute(agent->GetLocalVmPeer(), GetUuid(),
+    Layer2AgentRouteTable::AddLocalVmRoute(agent->local_vm_peer(), GetUuid(),
                                            vn_->GetName(), vrf_name, l2_label_,
                                            vxlan_id_, *addrp, ip_addr(), 32);
 }
@@ -1297,7 +1297,7 @@ void VmInterface::DeleteL2InterfaceRoute(bool old_l2_active, VrfEntry *old_vrf) 
     }
     struct ether_addr *addrp = ether_aton(vm_mac_.c_str());
     Agent *agent = static_cast<InterfaceTable *>(get_table())->agent();
-    Layer2AgentRouteTable::Delete(agent->GetLocalVmPeer(), old_vrf->GetName(),
+    Layer2AgentRouteTable::Delete(agent->local_vm_peer(), old_vrf->GetName(),
                                   *addrp);
 }
 
@@ -1334,7 +1334,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
     if (nh_count == 0) {
         //Default add VM receive route
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
-            (agent->GetLocalVmPeer(), vrf_name, addr, plen, GetUuid(),
+            (agent->local_vm_peer(), vrf_name, addr, plen, GetUuid(),
              vn_->GetName(), label_, sg_id_list, false);
     } else if (nh_count > 1) {
         //Update composite NH pointed by MPLS label
@@ -1367,7 +1367,7 @@ void VmInterface::AddRoute(const std::string &vrf_name, const Ip4Address &addr,
 
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
-            (agent->GetLocalVmPeer(), vrf_name, addr, plen, component_nh_list,
+            (agent->local_vm_peer(), vrf_name, addr, plen, component_nh_list,
              new_label, vn_->GetName(), sg_id_list);
 
         //Make MPLS label point to composite NH
@@ -1398,7 +1398,7 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
         *(vrf_entry->GetNHList(addr, plen));
 
     if (vrf_entry->GetNHCount(addr, plen) == 1) {
-        Inet4UnicastAgentRouteTable::Delete(agent->GetLocalVmPeer(), vrf_name,
+        Inet4UnicastAgentRouteTable::Delete(agent->local_vm_peer(), vrf_name,
                                             addr, plen);
     } else if (vrf_entry->GetNHCount(addr, plen) == 2) {
         uint32_t label = vrf_entry->GetLabel(addr, plen);
@@ -1418,7 +1418,7 @@ void VmInterface::DeleteRoute(const std::string &vrf_name,
         SecurityGroupList sg_id_list;
         CopySgIdList(&sg_id_list);
         Inet4UnicastAgentRouteTable::AddLocalVmRoute
-            (agent->GetLocalVmPeer(), vrf_name, addr, plen, vm_port->GetUuid(),
+            (agent->local_vm_peer(), vrf_name, addr, plen, vm_port->GetUuid(),
              vm_port->vn()->GetName(), vm_port->label(), sg_id_list, false);
 
         //Enqueue MPLS label delete request
@@ -1817,7 +1817,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
     CopySgIdList(&sg_id_list);
     if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 0) {
         Inet4UnicastAgentRouteTable::AddVlanNHRoute
-            (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32,
+            (agent->local_vm_peer(), entry.vrf_->GetName(), entry.addr_, 32,
              GetUuid(), entry.tag_, entry.label_, vn()->GetName(), sg_id_list);
     } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) > 1) {
         //Update both local composite NH and BGP injected composite NH
@@ -1849,7 +1849,7 @@ void VmInterface::ServiceVlanRouteAdd(const ServiceVlan &entry) {
 
         //Make route point to composite NH
         Inet4UnicastAgentRouteTable::AddLocalEcmpRoute
-            (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 
+            (agent->local_vm_peer(), entry.vrf_->GetName(), entry.addr_, 
              entry.plen_, component_nh_list, new_label, vn()->GetName(),
              sg_id_list);
         //Make MPLS label point to composite NH
@@ -1888,7 +1888,7 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
 
     if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 1) {
         Inet4UnicastAgentRouteTable::Delete
-            (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32);
+            (agent->local_vm_peer(), entry.vrf_->GetName(), entry.addr_, 32);
     } else if (vrf_entry->GetNHCount(entry.addr_, entry.plen_) == 2) {
         uint32_t label = vrf_entry->GetLabel(entry.addr_, entry.plen_);
         uint32_t index = 0;
@@ -1907,7 +1907,7 @@ void VmInterface::ServiceVlanRouteDel(const ServiceVlan &entry) {
         SecurityGroupList sg_id_list;
         CopySgIdList(&sg_id_list);
         Inet4UnicastAgentRouteTable::AddVlanNHRoute
-            (agent->GetLocalVmPeer(), entry.vrf_->GetName(), entry.addr_, 32,
+            (agent->local_vm_peer(), entry.vrf_->GetName(), entry.addr_, 32,
              vm_port->GetUuid(), vlan_nh->GetVlanTag(),
              comp_nh_list[index].label_, vm_port->vn()->GetName(), sg_id_list);
 
