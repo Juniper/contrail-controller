@@ -41,7 +41,11 @@ AgentXmppChannel::AgentXmppChannel(XmppChannel *channel, std::string xmpp_server
     DBTableBase::ListenerId id = 
         Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&VrfExport::Notify,
                                        this, _1, _2)); 
-    bgp_peer_id_ = new BgpPeer(Agent::GetInstance()->GetXmppServer(xs_idx_), this, id);
+    boost::system::error_code ec;
+    const string &addr = Agent::GetInstance()->GetXmppServer(xs_idx_);
+    Ip4Address ip = Ip4Address::from_string(addr.c_str(), ec);
+    assert(ec.value() == 0);
+    bgp_peer_id_ = new BgpPeer(ip, addr, this, id);
 }
 
 AgentXmppChannel::~AgentXmppChannel() {

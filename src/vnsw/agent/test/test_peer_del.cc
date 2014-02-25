@@ -75,8 +75,8 @@ TEST_F(AgentPeerDelete, peer_test_1) {
     ip6 = IpAddress::from_string("67.25.2.1");
 
     BgpPeer *peer1, *peer2; 
-    peer1 = new BgpPeer("BGP Peer 1", NULL, -1);
-    peer2 = new BgpPeer("BGP Peer 2", NULL, -1);
+    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
+    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", NULL, -1);
 
     //Vrf-Table Listeners
     int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 
@@ -152,8 +152,8 @@ TEST_F(AgentPeerDelete, DeletePeerOnDeletedVrf) {
     client->WaitForIdle();
 
     BgpPeer *peer1, *peer2; 
-    peer1 = new BgpPeer("BGP Peer 1", NULL, -1);
-    peer2 = new BgpPeer("BGP Peer 2", NULL, -1);
+    peer1 = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
+    peer2 = new BgpPeer(Ip4Address(2), "BGP Peer 2", NULL, -1);
 
     //Vrf-Table Listeners
     int id_peer1 = Agent::GetInstance()->GetVrfTable()->Register(boost::bind(&AgentPeerDelete::VrfCreated, 

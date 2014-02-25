@@ -147,7 +147,7 @@ bool AgentRouteTable::DelExplicitRouteWalkerCb(DBTablePartBase *part,
 bool AgentRouteTable::PathSelection(const Path &path1, const Path &path2) {
     const AgentPath &l_path = dynamic_cast<const AgentPath &> (path1);
     const AgentPath &r_path = dynamic_cast<const AgentPath &> (path2);
-    return l_path.peer()->ComparePath(r_path.peer());
+    return l_path.peer()->IsLess(r_path.peer());
 }
 
 // Re-evaluate all unresolved NH. Flush and enqueue RESYNC for all NH in the 

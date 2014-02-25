@@ -366,7 +366,7 @@ protected:
         AddLink("floating-ip-pool", "fip-pool1", "virtual-network", "vn4");
         AddLink("virtual-machine-interface", "flow0", "floating-ip", "fip1");
         client->WaitForIdle();
-        peer_ = new BgpPeer("BGP Peer 1", NULL, -1);
+        peer_ = new BgpPeer(Ip4Address(1), "BGP Peer 1", NULL, -1);
         Ip4Address gw_ip = Ip4Address::from_string("11.1.1.254");
         //Add a gateway route pointing to pkt0
         VrfEntry *vrf = VrfGet("vrf5");
