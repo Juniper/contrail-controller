@@ -394,7 +394,7 @@ class OpServerUtils(object):
     def get_query_dict(table, start_time=None, end_time=None,
                        select_fields=None,
                        where_clause="",
-                       sort_fields=None, sort=None, limit=None, filter=None):
+                       sort_fields=None, sort=None, limit=None, filter=None, dir=None):
         """
         This function takes in the query parameters,
         format appropriately and calls
@@ -497,18 +497,21 @@ class OpServerUtils(object):
 
         if len(filter_terms) == 0:
             filter_terms = None
+        if table == "FlowSeriesTable" or table == "FlowRecordTable":
+            if dir is None:
+                 dir = 1
+        qe_query = OpServerUtils.Query(table,
+                        start_time=lstart_time,
+                        end_time=lend_time,
+                        select_fields=sf,
+                        where=where,
+                        sort_fields=sort_fields,
+                        sort=sort,
+                        limit=limit,
+                        filter=filter_terms,
+                        dir=dir)
 
-        flowtable_query = OpServerUtils.Query(table,
-                                              start_time=lstart_time,
-                                              end_time=lend_time,
-                                              select_fields=sf,
-                                              where=where,
-                                              sort_fields=sort_fields,
-                                              sort=sort,
-                                              limit=limit,
-                                              filter=filter_terms)
-
-        return flowtable_query.__dict__
+        return qe_query.__dict__
 
     class Query(object):
         table = None
@@ -520,14 +523,17 @@ class OpServerUtils(object):
         sort_fields = None
         limit = None
         filter = None
+        dir = None
 
         def __init__(self, table, start_time, end_time, select_fields,
                      where=None, sort_fields=None, sort=None, limit=None,
-                     filter=None):
+                     filter=None, dir=None):
             self.table = table
             self.start_time = start_time
             self.end_time = end_time
             self.select_fields = select_fields
+            if dir is not None:
+                self.dir = dir
             if where is not None:
                 self.where = where
             if sort_fields is not None:
