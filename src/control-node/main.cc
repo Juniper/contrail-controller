@@ -389,6 +389,7 @@ static int control_node_main(int argc, char *argv[]) {
     string certs_store = "";
     uint16_t xmpp_port = ContrailPorts::ControlXmpp;
     string config_file = "/etc/contrail/control-node.conf";
+    bool test_mode = false;
 
     // Command line only options.
     opt::options_description generic("Generic options");
@@ -421,6 +422,8 @@ static int control_node_main(int argc, char *argv[]) {
         ("DEFAULTS.http-server-port",
              opt::value<uint16_t>()->default_value(http_server_port),
              "Sandesh HTTP listener port")
+        ("DEFAULTS.test-mode", opt::bool_switch(&test_mode),
+             "Enable running of daemon in test-mode")
         ("DEFAULTS.xmpp-server-port",
             opt::value<uint16_t>()->default_value(xmpp_port), "XMPP listener port")
 
@@ -553,6 +556,8 @@ static int control_node_main(int argc, char *argv[]) {
     if (disable_logging) {
         SetLoggingDisabled(true);
     }
+
+    ControlNode::SetTestMode(test_mode);
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
     sandesh_context.bgp_server = bgp_server.get();

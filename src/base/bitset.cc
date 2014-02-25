@@ -35,6 +35,59 @@ static int find_first_clear64(uint64_t value) {
 }
 
 //
+// Provides the same functionality as fls.  Needed as fls is not supported
+// on all platforms. Note that the positions are numbered 1 through 32, with
+// a return value of 0 indicating that there are no set bits.
+//
+static int find_last_set32(uint32_t value) {
+    if (value == 0)
+        return 0;
+
+    int bit = 32;
+    if ((value & 0xFFFF0000U) == 0) {
+        value <<= 16;
+        bit -= 16;
+    }
+    if ((value & 0xFF000000U) == 0) {
+        value <<= 8;
+        bit -= 8;
+    }
+    if ((value & 0xF0000000U) == 0) {
+        value <<= 4;
+        bit -= 4;
+    }
+    if ((value & 0xC0000000U) == 0) {
+        value <<= 2;
+        bit -= 2;
+    }
+    if ((value & 0x80000000U) == 0) {
+        value <<= 1;
+        bit -= 1;
+    }
+
+    return bit;
+}
+
+//
+// Provides the same functionality as flsl.  Needed as flsl is not supported
+// on all platforms. Note that the positions are numbered 1 through 64, with
+// a return value of 0 indicating that there are no set bits.
+//
+static int find_last_set64(uint64_t value) {
+    int bit;
+
+    int upper = value >> 32;
+    if ((bit = find_last_set32(upper)) > 0)
+        return 32 + bit;
+
+    int lower = value;
+    if ((bit = find_last_set32(lower)) > 0)
+        return bit;
+
+    return 0;
+}
+
+//
 // Return the number of set bits. K&R method.
 //
 static int num_bits_set(uint64_t value) {
@@ -219,6 +272,25 @@ size_t BitSet::find_next(size_t pos) const {
         if (bit > 0)
             return bit_position(idx, bit - 1);
     }
+    return BitSet::npos;
+}
+
+//
+// Return the position of the last set bit.  Needs to compensate for the
+// return value convention used by find_last_set64.
+//
+// Note that we only need to look at the last block since that must have
+// at least one bit set.
+//
+size_t BitSet::find_last() const {
+    if (blocks_.size() == 0)
+        return BitSet::npos;
+
+    size_t idx = blocks_.size() - 1;
+    int bit = find_last_set64(blocks_[idx]);
+    if (bit > 0)
+        return bit_position(idx, bit - 1);
+
     return BitSet::npos;
 }
 
@@ -471,22 +543,22 @@ bool BitSet::Contains(const BitSet &rhs) const {
 //
 // Returns string representation of the bitset. A character in the string is
 // '1' if the corresponding bit is set, and '0' if it is not.  The character
-// position i in the string corresponds to bit position size() - 1 - i in the
-// bitset.  This is consistent with the boost::dynamic_bitset free function
-// to_string().
+// position i in the string corresponds to bit position i in the bitset.
 //
 string BitSet::ToString() const {
-    string str;
-    for (size_t last_pos = -1, pos = find_first(); pos != BitSet::npos;
-         last_pos = pos, pos = find_next(pos)) {
-        str = str.append(pos - last_pos - 1, '0');
-        str += '1';
+    size_t last_pos = find_last();
+    if (last_pos == BitSet::npos)
+        return string();
+
+    string str(last_pos + 1, '0');
+    for (size_t pos = find_first(); pos != BitSet::npos; pos = find_next(pos)) {
+        str[pos] = '1';
     }
     return str;
 }
 
 //
-// Intialize the bitset from the provided string representation. The string
+// Initialize the bitset from the provided string representation. The string
 // must use the same format as described in ToString above. We traverse the
 // string in reverse order to ensure that we do not have to resize multiple
 // times.
