@@ -10,6 +10,7 @@ std::string ControlNode::hostname_;
 std::string ControlNode::prog_name_;
 std::string ControlNode::self_ip_;
 DiscoveryServiceClient* ControlNode::ds_client_;
+bool ControlNode::test_mode_;
 
 //
 // Default scheduler policy for control-node daemon and test processes

@@ -20,11 +20,11 @@ public:
     XmppSession(TcpServer *server, Socket *sock, bool async_ready = true);
     virtual ~XmppSession();
 
-    void SetChannel(XmppConnection *connection) { 
+    void SetConnection(XmppConnection *connection) {
         this->connection_ = connection; 
     }
-    XmppConnection *Channel() { return connection_; }
-    
+    XmppConnection *Connection() { return connection_; }
+     
     XmppStream *SessionStream() { return stream_; }
     void SessionStreamSet(XmppStream *strm) { this->stream_ = strm;}
     virtual void WriteReady(const boost::system::error_code &error);

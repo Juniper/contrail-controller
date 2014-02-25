@@ -55,6 +55,7 @@ public:
     ~XmppStateMachine();
 
     void Initialize();
+    void Clear();
 
     // State transitions
     void OnStart(const xmsm::EvStart &event);
