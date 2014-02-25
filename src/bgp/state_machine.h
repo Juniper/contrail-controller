@@ -148,6 +148,7 @@ public:
     void connect_attempts_clear() { attempts_ = 0; }
 
     int hold_time() const { return hold_time_; }
+    virtual int hold_time_msecs() const { return hold_time() * 1000; }
     void reset_hold_time();
     void set_hold_time(int hold_time);
     int idle_hold_time() const { return idle_hold_time_; }
