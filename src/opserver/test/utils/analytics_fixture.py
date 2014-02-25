@@ -1141,6 +1141,27 @@ class AnalyticsFixture(fixtures.Fixture):
              assert(r['protocol'] == exp_result[count]['protocol'])
              count +=1
 
+        # 8. Timestamp + stats
+        self.logger.info('Flowseries: [T, bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'bytes', 'packets'],
+            where_clause='')
+        self.logger.info(str(res))
+
+        for flow in generator_obj.flows:
+            for f in flow.samples:
+                found = 0
+                for r in res:
+                    if r['T'] == f._timestamp:
+                         assert(r['packets'] == f.flowdata.diff_packets)
+                         assert(r['bytes'] == f.flowdata.diff_bytes)
+                         found = 1
+                         break
+                assert(found)
+
         return True
     # end verify_flow_series_aggregation_binning
 
