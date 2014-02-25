@@ -407,6 +407,7 @@ int ReadCommandLineOptionsFromFile(int argc, char **argv,
 int main(int argc, char *argv[]) {
     bool enable_local_logging = false;
     bool disable_logging = false;
+    bool test_mode = false;
     boost::system::error_code error;
     string hostname(host_name(error));
     const string default_log_file = "<stdout>";
@@ -463,6 +464,8 @@ int main(int argc, char *argv[]) {
         ("version", "Display version information")
         ("use-certs", opt::value<string>(),
             "Use certificates to communicate with MAP server; Specify certificate store")
+        ("test-mode", opt::bool_switch(&test_mode),
+             "Enable running of daemon in test-mode")
         ;
 
     std::vector<string> tokens;
@@ -539,6 +542,8 @@ int main(int argc, char *argv[]) {
     if (disable_logging) {
         SetLoggingDisabled(true);
     }
+
+    ControlNode::SetTestMode(test_mode);
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
     sandesh_context.bgp_server = bgp_server.get();

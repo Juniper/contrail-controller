@@ -25,12 +25,15 @@ public:
     static DiscoveryServiceClient *GetControlNodeDiscoveryServiceClient() { 
         return ds_client_;
     }
+    static void SetTestMode(const bool flag) { test_mode_ = flag; }
+    static bool GetTestMode() { return test_mode_; }
 
 private:
     static std::string hostname_;
     static std::string prog_name_;
     static std::string self_ip_;
     static DiscoveryServiceClient *ds_client_;
+    static bool test_mode_;
 
 };
 

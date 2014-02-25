@@ -109,9 +109,15 @@ public:
         state_machine_->Initialize();
     }
 
+    void Clear() {
+        state_machine_->Clear();
+    }
+
     void Shutdown();
     bool ShutdownPending() const;
     bool MayDelete() const;
+
+    std::string &GetComputeHostName() { return to_; }
 
     void increment_flap_count();
     void set_close_reason(const std::string &reason);
