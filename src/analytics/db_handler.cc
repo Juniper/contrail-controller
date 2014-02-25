@@ -559,15 +559,16 @@ void DbHandler::StatTableInsert(uint64_t ts,
             GenDb::ColList *col_list(new GenDb::ColList);
 
             GenDb::DbDataValue pv;
+            std::string cfname;
 
             if (it->second.first.type == UINT64) {
-                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
+                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_U64_STR_TAG;
                 pv = it->second.first.num;
             } else if (it->second.first.type == DOUBLE) {
-                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
+                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_DBL_STR_TAG;
                 pv = it->second.first.dbl;
             } else {
-                col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
+                cfname = col_list->cfname_ = g_viz_constants.STATS_TABLE_BY_STR_STR_TAG;
                 pv = it->second.first.str;
             }
 
@@ -600,7 +601,7 @@ void DbHandler::StatTableInsert(uint64_t ts,
             if (!dbif_->NewDb_AddColumn(col_list_ptr)) {
                 LOG(ERROR, __func__ << ": Addition of " << statName <<
                         ", " << statAttr << " attrib " << it->first << " into table "
-                        << col_list->cfname_ << " FAILED");
+                        << cfname << " FAILED");
             }
 
         } else {
