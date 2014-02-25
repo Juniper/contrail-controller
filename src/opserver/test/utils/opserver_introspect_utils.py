@@ -56,6 +56,15 @@ class VerificationOpsSrv (VerificationUtilBase):
         return self.dict_get('analytics/table/%s/column-values/%s' \
                              % (table, col_name)) 
 
+    def uve_query(self, query):
+        return self.dict_get('analytics/uves/%s' % query)
+
+    def get_redis_uve_info(self):
+        path = 'Snh_RedisUVERequest'
+        xpath = '/RedisUVEResponse/redis_uve_info'
+        p = self.dict_get(path, XmlDrv)
+        return EtreeToDict(xpath).get_all_entry(p)
+
     def post_query_json(self, json_str, sync=True):
         '''
         this module is to support raw query given in json format
