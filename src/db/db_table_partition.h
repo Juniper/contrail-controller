@@ -16,6 +16,7 @@ class DBTable;
 // Table shard contained within a DBPartition.
 class DBTablePartBase {
 public:
+    static const int kMaxIterations = 256;
     typedef boost::intrusive::member_hook<DBEntryBase, 
             boost::intrusive::list_member_hook<>, 
             &DBEntryBase::chg_list_> ChangeListMember; 
@@ -34,7 +35,7 @@ public:
     void Notify(DBEntryBase *entry);
 
     // Run the notification queue.
-    void RunNotify();
+    bool RunNotify();
 
     DBTableBase *parent() { return parent_; }
     int index() const { return index_; }
