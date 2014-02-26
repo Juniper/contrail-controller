@@ -6,7 +6,10 @@
 #define __AGENT_FLOW_TABLE_H__
 
 #include <map>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
 #include <boost/uuid/random_generator.hpp>
+#pragma GCC diagnostic pop
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/intrusive_ptr.hpp>
 #include <tbb/atomic.h>
@@ -496,6 +499,20 @@ private:
 
     DISALLOW_COPY_AND_ASSIGN(FlowTable);
 };
+
+inline void intrusive_ptr_add_ref(FlowEntry *fe) {
+    fe->refcount_.fetch_and_increment();
+}
+inline void intrusive_ptr_release(FlowEntry *fe) {
+    int prev = fe->refcount_.fetch_and_decrement();
+    if (prev == 1) {
+        FlowTable *table = Agent::GetInstance()->pkt()->flow_table();
+        FlowTable::FlowEntryMap::iterator it = table->flow_entry_map_.find(fe->key());
+        assert(it != table->flow_entry_map_.end());
+        table->flow_entry_map_.erase(it);
+        delete fe;
+    }
+}
 
 class Inet4RouteUpdate {
 public:

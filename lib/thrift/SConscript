@@ -12,15 +12,26 @@ config_opts = '--prefix=' + str(Dir('#/build')) + ' ' + '--disable-dependency-tr
 cmd = ('(cd ' + Dir('.').abspath + '; ' + str(Dir(vpath)) +
        '/configure' + ' ' + config_opts + '; make clean; make; make install)')
 
+version = '0.8.0'
+libs = [ str(File('#build/lib/libthrift.a')),
+         str(File('#build/lib/libthriftasio.a')) ]
+shlibs = [ str(File('#build/lib/libthrift-' + version + '.so')),
+           str(File('#build/lib/libthriftasio.so.0.0.0')) ]
+
+
 products = [ str(File('#build/bin/thrift')),
-             str(File('#build/lib/libthrift.a')),
-             str(File('#build/lib/libthriftasio.a')),
              str(File('#build/include/thrift/Thrift.h')) ]
+products += libs + shlibs
 
 thrift_cfg = env.Command('config.status', str(Dir(vpath)), cmd)
 
 env.SideEffect(products, thrift_cfg)
 env.Requires(thrift_cfg, '#/build/include/boost')
+
+env.Alias('install', env.Install(env['INSTALL_LIB'], shlibs))
+env.Alias('install',
+          env.Symlink(env['INSTALL_LIB'] + '/libthriftasio.so' + '.0',
+                      env['INSTALL_LIB'] + '/libthriftasio.so' + '.0.0.0'))
 
 async_files = ['TAsioAsync.h', 'TAsync.h', 'TFuture.h']
 for file in async_files:
