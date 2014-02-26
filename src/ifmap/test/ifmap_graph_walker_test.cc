@@ -504,6 +504,158 @@ TEST_F(IFMapGraphWalkerTest, Cli2Vn3Vm6Np2Add) {
     c2.PrintLinks();
 }
 
+// Receive config and then VR-subscribe
+TEST_F(IFMapGraphWalkerTest, ConfigVrsub) {
+    // Config
+    string content(FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    usleep(5000);
+
+    // VR-reg 
+    IFMapClientMock c1("vr1");
+    server_.AddClient(&c1);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, c1.count());
+    TASK_UTIL_EXPECT_EQ(2, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router",
+        "global-system-config", "vr1", "gsc1"));
+    c1.PrintLinks();
+    c1.PrintNodes();
+}
+
+// Receive VR-subscribe and then config
+TEST_F(IFMapGraphWalkerTest, VrsubConfig) {
+    // VR-reg 
+    IFMapClientMock c1("vr1");
+    server_.AddClient(&c1);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, c1.count());
+    TASK_UTIL_EXPECT_EQ(0, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(0, c1.link_count());
+
+    // Config
+    string content(FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    usleep(5000);
+
+    TASK_UTIL_EXPECT_EQ(3, c1.count());
+    TASK_UTIL_EXPECT_EQ(2, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router",
+        "global-system-config", "vr1", "gsc1"));
+    c1.PrintLinks();
+    c1.PrintNodes();
+}
+
+// Receive config where nodes have no properties and then VR-subscribe
+// Then receive config where the nodes have properties
+TEST_F(IFMapGraphWalkerTest, ConfignopropVrsub) {
+    // Config
+    string content(FileRead(
+        "controller/src/ifmap/testdata/vr_gsc_config_no_prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    usleep(5000);
+
+    // VR-reg 
+    IFMapClientMock c1("vr1");
+    server_.AddClient(&c1);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(3, c1.count());
+    TASK_UTIL_EXPECT_EQ(2, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router",
+        "global-system-config", "vr1", "gsc1"));
+
+    // Now read the properties and another link update with no real change.
+    // Client should receive 2 node updates but no link updates
+    content = FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    usleep(5000);
+    TASK_UTIL_EXPECT_EQ(5, c1.count());
+    TASK_UTIL_EXPECT_EQ(4, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 2);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 2);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+
+    c1.PrintLinks();
+    c1.PrintNodes();
+}
+
+// Receive VR-subscribe and then config where nodes have no properties
+// Then receive config where the nodes have properties
+TEST_F(IFMapGraphWalkerTest, VrsubConfignoprop) {
+    // VR-reg 
+    IFMapClientMock c1("vr1");
+    server_.AddClient(&c1);
+    task_util::WaitForIdle();
+
+    TASK_UTIL_EXPECT_EQ(0, c1.count());
+    TASK_UTIL_EXPECT_EQ(0, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(0, c1.link_count());
+
+    // Config
+    string content(FileRead(
+        "controller/src/ifmap/testdata/vr_gsc_config_no_prop.xml"));
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.c_str(), content.size(), 0);
+    usleep(5000);
+
+    TASK_UTIL_EXPECT_EQ(3, c1.count());
+    TASK_UTIL_EXPECT_EQ(2, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 1);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+    TASK_UTIL_EXPECT_TRUE(c1.LinkExists("virtual-router",
+        "global-system-config", "vr1", "gsc1"));
+
+    // Now read the properties and another link update with no real change.
+    // Client should receive 2 node updates but no link updates
+    content = FileRead("controller/src/ifmap/testdata/vr_gsc_config.xml");
+    assert(content.size() != 0);
+    parser_->Receive(&db_, content.data(), content.size(), 0);
+    usleep(5000);
+    TASK_UTIL_EXPECT_EQ(5, c1.count());
+    TASK_UTIL_EXPECT_EQ(4, c1.node_count());
+    TASK_UTIL_EXPECT_EQ(1, c1.link_count());
+
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("virtual-router"), 2);
+    TASK_UTIL_EXPECT_EQ(c1.NodeKeyCount("global-system-config"), 2);
+    TASK_UTIL_EXPECT_EQ(c1.LinkKeyCount("virtual-router",
+                                        "global-system-config"), 1);
+
+    c1.PrintLinks();
+    c1.PrintNodes();
+}
+
 // Calculate the white list filter information based on the xsd.
 TEST_F(IFMapGraphWalkerTest, PopulateWhiteList) {
     // Populate 'filter_info' with information from the xsd

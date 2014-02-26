@@ -236,6 +236,7 @@ void IFMapServer::ClientUnregister(IFMapClient *client) {
 bool IFMapServer::ProcessClientWork(bool add, IFMapClient *client) {
     if (add) {
         ClientRegister(client);
+        ClientGraphDownload(client);
     } else {
         ClientGraphCleanup(client);
         RemoveSelfAddedLinksAndObjects(client);
