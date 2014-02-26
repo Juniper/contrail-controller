@@ -166,6 +166,8 @@ static void ValidateVgwInterface(Inet4UnicastRouteEntry *route,
     EXPECT_STREQ(intf->name().c_str(), name);
     EXPECT_TRUE(route->GetActivePath()->GetTunnelBmap() ==
                 TunnelType::GREType());
+    EXPECT_TRUE(static_cast<const InterfaceNH *>(nh)->GetVrf()->GetName() ==
+                inet_intf->vrf()->GetName());
 }
 
 // The route in public-vn vrf should point to interface-nh for vgw

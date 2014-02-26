@@ -87,7 +87,7 @@ InetInterfaceData::InetInterfaceData(InetInterface::SubType sub_type,
 /////////////////////////////////////////////////////////////////////////////
 void InetInterface::ActivateSimpleGateway() {
     // Create InterfaceNH before MPLS is created
-    InterfaceNH::CreateInetInterfaceNextHop(name());
+    InterfaceNH::CreateInetInterfaceNextHop(name(), vrf()->GetName());
 
     InterfaceTable *table = static_cast<InterfaceTable *>(get_table());
     Agent *agent = table->agent();

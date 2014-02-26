@@ -773,7 +773,8 @@ public:
     static void DeleteVmInterfaceNHReq(const uuid &intf_uuid);
     static void CreatePacketInterfaceNhReq(const string &ifname);
     static void DeleteHostPortReq(const string &ifname);
-    static void CreateInetInterfaceNextHop(const string &ifname);
+    static void CreateInetInterfaceNextHop(const string &ifname,
+                                           const string &vrf_name);
     static void DeleteInetInterfaceNextHop(const string &ifname);
 
 private:

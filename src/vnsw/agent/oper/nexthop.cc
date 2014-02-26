@@ -498,7 +498,8 @@ void InterfaceNH::DeleteVmInterfaceNHReq(const uuid &intf_uuid) {
     DeleteNH(intf_uuid, false, InterfaceNHFlags::MULTICAST);
 }
 
-void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
+void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname,
+                                             const string &vrf_name) {
     DBRequest req;
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
 
@@ -509,7 +510,7 @@ void InterfaceNH::CreateInetInterfaceNextHop(const string &ifname) {
     struct ether_addr mac;
     memset(&mac, 0, sizeof(mac));
     mac.ether_addr_octet[ETHER_ADDR_LEN-1] = 1;
-    InterfaceNHData *data = new InterfaceNHData(Agent::GetInstance()->GetDefaultVrf(), mac);
+    InterfaceNHData *data = new InterfaceNHData(vrf_name, mac);
     req.data.reset(data);
     NextHopTable::GetInstance()->Process(req);
 }
