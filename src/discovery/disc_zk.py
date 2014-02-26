@@ -30,7 +30,7 @@ class DiscoveryZkClient(object):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
         self._zk = kazoo.client.KazooClient(
-            hosts=','.join(zk_endpts), timeout=120,
+            hosts=','.join(zk_endpts),
             handler=kazoo.handlers.gevent.SequentialGeventHandler())
 
         # connect
