@@ -1890,6 +1890,11 @@ TEST_F(BitSetTest, NumberedString2) {
     bitset.reset(3);
     EXPECT_EQ("1-2", bitset.ToNumberedString());
     bitset.set(3);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
+    bitset.reset(1);
+    EXPECT_EQ("2-3", bitset.ToNumberedString());
+    bitset.set(1);
+    EXPECT_EQ("1-3", bitset.ToNumberedString());
     bitset.set(5);
     EXPECT_EQ("1-3,5", bitset.ToNumberedString());
     bitset.set(7);
