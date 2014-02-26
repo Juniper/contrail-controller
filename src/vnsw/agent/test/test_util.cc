@@ -1524,6 +1524,17 @@ void DelLinkLocalConfig() {
     ApplyXmlString(buf);
 }
 
+void DeleteGlobalVrouterConfig() {
+    char buf[4096];
+    int len = 0;
+    memset(buf, 0, 4096);
+    DelXmlHdr(buf, len);
+    DelNodeString(buf, len, "global-vrouter-config",
+                  "default-global-system-config:default-global-vrouter-config");
+    DelXmlTail(buf, len);
+    ApplyXmlString(buf);
+}
+
 void VxLanNetworkIdentifierMode(bool config) {
     std::stringstream str;
     if (config) {

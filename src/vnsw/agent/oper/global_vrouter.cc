@@ -192,7 +192,7 @@ public:
     void UpdateAllVns(const LinkLocalServiceKey &key, bool is_add);
 
 private:
-    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey &key,
+    bool VnUpdateWalk(DBEntryBase *entry, const LinkLocalServiceKey key,
                       bool is_add);
     void VnWalkDone();
     bool VnNotify(DBTablePartBase *partition, DBEntryBase *entry);
@@ -244,7 +244,7 @@ void GlobalVrouter::LinkLocalRouteManager::UpdateAllVns(
 // Vn Walk method
 // For each Vn, add or delete receive route for the specified linklocal service
 bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
-    DBEntryBase *entry, const LinkLocalServiceKey &key, bool is_add) {
+    DBEntryBase *entry, const LinkLocalServiceKey key, bool is_add) {
 
     VnEntry *vn_entry = static_cast<VnEntry *>(entry);
     if (vn_entry->IsDeleted()) {
@@ -372,7 +372,7 @@ void GlobalVrouter::GlobalVrouterConfig(IFMapNode *node) {
         }
         UpdateLinkLocalServiceConfig(cfg->linklocal_services());
     } else {
-        linklocal_services_map_.clear();
+        DeleteLinkLocalServiceConfig();
         TunnelType::DeletePriorityList();
         encap_changed = true;
     }
@@ -497,6 +497,15 @@ void GlobalVrouter::UpdateLinkLocalServiceConfig(
             dns_name_list.push_back(it->ip_fabric_DNS_service_name);
     }
 
+    linklocal_services_map_.swap(linklocal_services_map);
+    fabric_dns_resolver_->ResolveList(dns_name_list);
+    ChangeNotify(&linklocal_services_map, &linklocal_services_map_);
+}
+
+void GlobalVrouter::DeleteLinkLocalServiceConfig() {
+    std::vector<std::string> dns_name_list;
+    LinkLocalServicesMap linklocal_services_map;
+    
     linklocal_services_map_.swap(linklocal_services_map);
     fabric_dns_resolver_->ResolveList(dns_name_list);
     ChangeNotify(&linklocal_services_map, &linklocal_services_map_);
