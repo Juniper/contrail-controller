@@ -155,7 +155,7 @@ static int qed_main(int argc, char *argv[]) {
     string log_level = "SYS_DEBUG";
     string log_category = "";
     string log_file = "<stdout>";
-    string config_file = "/etc/contrail/qe.conf";
+    string config_file = "/etc/contrail/query-engine.conf";
     int max_slice = 100;
     int max_tasks = 16;
     uint64_t start_time = 0;
