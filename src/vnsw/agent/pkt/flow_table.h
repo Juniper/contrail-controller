@@ -220,7 +220,8 @@ class FlowEntry {
         ReverseFlow     = 1 << 4,
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
-        Trap            = 1 << 7
+        Trap            = 1 << 7,
+        Multicast       = 1 << 8
     };
     FlowEntry(const FlowKey &k);
     virtual ~FlowEntry() {
