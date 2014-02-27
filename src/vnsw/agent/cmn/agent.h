@@ -318,9 +318,10 @@ public:
     IcmpProto *GetIcmpProto() { return icmp_proto_; }
     FlowProto *GetFlowProto() { return flow_proto_; }
 
-    const Peer *GetLocalPeer() {return local_peer_;};
-    const Peer *GetLocalVmPeer() {return local_vm_peer_;};
-    const Peer *GetLinkLocalPeer() {return linklocal_peer_;};
+    const Peer *local_peer() const {return local_peer_.get();}
+    const Peer *local_vm_peer() const {return local_vm_peer_.get();}
+    const Peer *link_local_peer() const {return linklocal_peer_.get();}
+
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode() const {
         return vxlan_network_identifier_mode_;
     }
@@ -468,18 +469,6 @@ public:
     void SetDnsProto(DnsProto *proto) { dns_proto_ = proto; }
     void SetIcmpProto(IcmpProto *proto) { icmp_proto_ = proto; }
     void SetFlowProto(FlowProto *proto) { flow_proto_ = proto; }
-
-    void SetLocalPeer(Peer *peer) {
-        local_peer_ = peer;
-    };
-
-    void SetLocalVmPeer(Peer *peer) {
-        local_vm_peer_ = peer;
-    };
-
-    void SetLinkLocalPeer(Peer *peer) {
-        linklocal_peer_ = peer;
-    };
 
     void SetRouterIdConfigured(bool value) {
         router_id_configured_ = value;
@@ -635,9 +624,10 @@ private:
     IcmpProto *icmp_proto_;
     FlowProto *flow_proto_;
 
-    Peer *local_peer_;
-    Peer *local_vm_peer_;
-    Peer *linklocal_peer_;
+    std::auto_ptr<Peer> local_peer_;
+    std::auto_ptr<Peer> local_vm_peer_;
+    std::auto_ptr<Peer> linklocal_peer_;
+
     IFMapAgentParser *ifmap_parser_;
     bool router_id_configured_;
 

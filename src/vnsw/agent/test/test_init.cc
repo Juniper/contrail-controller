@@ -92,7 +92,7 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
             (Ip4Address::from_string("10.1.1.1", ec));
         //Add a receive router
         agent->GetDefaultInet4UnicastRouteTable()->AddVHostRecvRoute
-            (Agent::GetInstance()->GetLocalPeer(),
+            (Agent::GetInstance()->local_peer(),
              Agent::GetInstance()->GetDefaultVrf(), "vhost0",
              Agent::GetInstance()->GetRouterId(), 32, "", false);
     }

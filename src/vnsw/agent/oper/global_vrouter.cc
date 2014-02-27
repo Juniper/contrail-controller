@@ -268,7 +268,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
 
     if (is_add) {
         if (vn_entry->Ipv4Forwarding()) {
-            rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
+            rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         key.linklocal_service_ip, 32,
@@ -276,7 +276,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnUpdateWalk(
                                         true);
         }
     } else {
-        rt_table->DeleteReq(agent->GetLinkLocalPeer(), vrf_entry->GetName(),
+        rt_table->DeleteReq(agent->link_local_peer(), vrf_entry->GetName(),
                             key.linklocal_service_ip, 32);
     }
     return true;
@@ -303,7 +303,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
-            rt_table->DeleteReq(agent->GetLinkLocalPeer(),
+            rt_table->DeleteReq(agent->link_local_peer(),
                                 state->vrf_->GetName(),
                                 it->first.linklocal_service_ip, 32);
         }
@@ -330,7 +330,7 @@ bool GlobalVrouter::LinkLocalRouteManager::VnNotify(DBTablePartBase *partition,
                    global_vrouter_->linklocal_services_map();
         for (GlobalVrouter::LinkLocalServicesMap::const_iterator it =
              services.begin(); it != services.end(); ++it) {
-            rt_table->AddVHostRecvRoute(agent->GetLinkLocalPeer(),
+            rt_table->AddVHostRecvRoute(agent->link_local_peer(),
                                         vrf_entry->GetName(),
                                         agent->vhost_interface_name(),
                                         it->first.linklocal_service_ip, 32,

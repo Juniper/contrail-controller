@@ -410,7 +410,7 @@ void AgentXmppChannel::AddRemoteEvpnRoute(string vrf_name,
     if (encap == (1 << TunnelType::VXLAN)) {
         VrfEntry *vrf = 
             Agent::GetInstance()->GetVrfTable()->FindVrfFromName(vrf_name);
-        Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), 
+        Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), 
                            vrf_name, mac);
         if (vrf != NULL) {
             Layer2RouteEntry *route = 

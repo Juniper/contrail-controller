@@ -122,13 +122,13 @@ public:
     void AddRemoteVmRoute(TunnelType::TypeBmap l3_bmap, 
                           TunnelType::TypeBmap l2_bmap) {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            AddRemoteVmRouteReq(Agent::GetInstance()->GetLocalPeer(), 
+            AddRemoteVmRouteReq(Agent::GetInstance()->local_peer(), 
                                 vrf_name_, remote_vm_ip_, 32, server1_ip_,
                                 l3_bmap, 1000, vrf_name_);
         client->WaitForIdle();
 
         Layer2AgentRouteTable::AddRemoteVmRouteReq(
-            Agent::GetInstance()->GetLocalPeer(), vrf_name_,
+            Agent::GetInstance()->local_peer(), vrf_name_,
             l2_bmap, server1_ip_, 2000, *remote_vm_mac_, remote_vm_ip_, 32);
         client->WaitForIdle();
 
@@ -151,10 +151,10 @@ public:
 
     void DeleteRemoteVmRoute() {
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
-            DeleteReq(Agent::GetInstance()->GetLocalPeer(), vrf_name_,
+            DeleteReq(Agent::GetInstance()->local_peer(), vrf_name_,
                       remote_vm_ip_, 32);
         client->WaitForIdle();
-        Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalPeer(), 
+        Layer2AgentRouteTable::DeleteReq(Agent::GetInstance()->local_peer(), 
                                          vrf_name_,
                                          *remote_vm_mac_);
         client->WaitForIdle();

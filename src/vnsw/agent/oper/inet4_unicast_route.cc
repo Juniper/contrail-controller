@@ -152,7 +152,7 @@ DBEntryBase::KeyPtr Inet4UnicastRouteEntry::GetDBRequestKey() const {
     Agent *agent = 
         (static_cast<Inet4UnicastAgentRouteTable *>(get_table()))->agent();
     Inet4UnicastRouteKey *key = 
-        new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+        new Inet4UnicastRouteKey(agent->local_peer(),
                                  vrf()->GetName(), addr_, plen_);
     return DBEntryBase::KeyPtr(key);
 }
@@ -381,7 +381,7 @@ Inet4UnicastAgentRouteTable::AddHostRoute(const string &vrf_name,
                                           const std::string &dest_vn_name) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vrf_name,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vrf_name,
                                            addr, plen));
 
     PacketInterfaceKey intf_key(nil_uuid(), agent->GetHostInterfaceName());
@@ -608,7 +608,7 @@ Inet4UnicastAgentRouteTable::AddArpReq(const string &vrf_name,
     agent->GetNextHopTable()->Enqueue(&nh_req);
 
     DBRequest  rt_req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    rt_req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+    rt_req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(),
                                               vrf_name, ip, 32));
     rt_req.data.reset(new Inet4UnicastArpRoute(vrf_name, ip));
     UnicastTableEnqueue(agent, vrf_name, &rt_req);
@@ -632,7 +632,7 @@ Inet4UnicastAgentRouteTable::ArpRoute(DBRequest::DBOperation op,
 
     DBRequest  rt_req(op);
     Inet4UnicastRouteKey *rt_key = 
-        new Inet4UnicastRouteKey(agent->GetLocalPeer(),
+        new Inet4UnicastRouteKey(agent->local_peer(),
                                  vrf_name, ip, plen);
     Inet4UnicastArpRoute *data = NULL;
 
@@ -688,7 +688,7 @@ void Inet4UnicastAgentRouteTable::AddResolveRoute(const string &vrf_name,
                                                   const uint8_t plen) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vrf_name, ip,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vrf_name, ip,
                                            plen));
     req.data.reset(new ResolveRoute());
     UnicastTableEnqueue(agent, vrf_name, &req);
@@ -770,7 +770,7 @@ void Inet4UnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
                                                uint8_t plen) {
     Agent *agent = Agent::GetInstance();
     DBRequest req(DBRequest::DB_ENTRY_ADD_CHANGE);
-    req.key.reset(new Inet4UnicastRouteKey(agent->GetLocalPeer(), vm_vrf,
+    req.key.reset(new Inet4UnicastRouteKey(agent->local_peer(), vm_vrf,
                                            GetIp4SubnetAddress(addr, plen),
                                            plen));
     req.data.reset(new DropRoute());
@@ -780,7 +780,7 @@ void Inet4UnicastAgentRouteTable::AddDropRoute(const string &vm_vrf,
 void Inet4UnicastAgentRouteTable::DelVHostSubnetRecvRoute(const string &vm_vrf,
                                                           const Ip4Address &addr,
                                                           uint8_t plen) {
-    DeleteReq(Agent::GetInstance()->GetLocalPeer(), vm_vrf,
+    DeleteReq(Agent::GetInstance()->local_peer(), vm_vrf,
               GetIp4SubnetAddress(addr, plen), 32);
 }
 
@@ -789,7 +789,7 @@ static void AddGatewayRouteInternal(DBRequest *req, const string &vrf_name,
                                     const Ip4Address &gw_ip,
                                     const string &vn_name) {
     req->oper = DBRequest::DB_ENTRY_ADD_CHANGE;
-    req->key.reset(new Inet4UnicastRouteKey(Agent::GetInstance()->GetLocalPeer(),
+    req->key.reset(new Inet4UnicastRouteKey(Agent::GetInstance()->local_peer(),
                                             vrf_name, dst_addr, plen));
     req->data.reset(new Inet4UnicastGatewayRoute(gw_ip, vrf_name));
 }

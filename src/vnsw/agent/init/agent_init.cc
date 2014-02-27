@@ -81,7 +81,7 @@ void AgentInit::DeleteRoutes() {
     Inet4UnicastAgentRouteTable *uc_rt_table =
         agent_->GetDefaultInet4UnicastRouteTable();
 
-    uc_rt_table->DeleteReq(agent_->GetLocalPeer(), agent_->GetDefaultVrf(),
+    uc_rt_table->DeleteReq(agent_->local_peer(), agent_->GetDefaultVrf(),
                            agent_->GetGatewayId(), 32);
 }
 

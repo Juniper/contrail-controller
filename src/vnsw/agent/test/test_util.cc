@@ -1008,7 +1008,7 @@ bool L2RouteFind(const string &vrf_name, const struct ether_addr &mac) {
     if (vrf == NULL)
         return false;
 
-    Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, mac);
+    Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), vrf_name, mac);
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
@@ -1060,7 +1060,7 @@ Layer2RouteEntry *L2RouteGet(const string &vrf_name,
     if (vrf == NULL)
         return NULL;
 
-    Layer2RouteKey key(Agent::GetInstance()->GetLocalVmPeer(), vrf_name, mac);
+    Layer2RouteKey key(Agent::GetInstance()->local_vm_peer(), vrf_name, mac);
     Layer2RouteEntry *route = 
         static_cast<Layer2RouteEntry *>
         (static_cast<Layer2AgentRouteTable *>(vrf->
