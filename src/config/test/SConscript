@@ -75,19 +75,19 @@ def clean_coverage(env, target, source):
     shutil.rmtree('htmlcov', ignore_errors = True)
     cdir = Dir(env['TOP']).abspath + '/config'
     import os
-    lcov_clean = '(cd %s; coverage erase)' % cdir
+    lcov_clean = '(cd %s && coverage erase)' % cdir
     os.system(lcov_clean)
 
 def run_coverage(env, target, source):
     import os
     cdir = Dir(env['TOP']).abspath + '/config'
-    lcov_run = '(cd %s; coverage combine)' % cdir
+    lcov_run = '(cd %s && coverage combine)' % cdir
     os.system(lcov_run)
     
-    gen_cmd = '(cd %s; coverage report)' % cdir
+    gen_cmd = '(cd %s && coverage report)' % cdir
     os.system(gen_cmd)
 
-    genhtml_cmd = '(cd %s; coverage html)' % cdir
+    genhtml_cmd = '(cd %s && coverage html)' % cdir
     os.system(genhtml_cmd)
  
 env['env_venv'] = venv

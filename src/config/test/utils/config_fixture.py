@@ -126,6 +126,10 @@ class ApiServer(object):
                 '--source=%s,%s' % \
                 (bdir + '/config/api-server/vnc_cfg_api_server/',
                  bdir + '/config_test/lib/python2.7/site-packages/cfgm_common/'),
+                '--omit=%s,%s,%s' % \
+                (bdir + '/config/api-server/vnc_cfg_api_server/gen/*',
+                 bdir + '/config_test/lib/python2.7/site-packages/cfgm_common/uve/*',
+                 bdir + '/config/api-server/vnc_cfg_api_server/bottle*'),
                 bdir + '/config/api-server/vnc_cfg_api_server/vnc_cfg_api_server.py',
                 '--redis_server_port', str(self._config_fixture.redis_cfg.port),
                 '--http_server_port', str(self._http_port),

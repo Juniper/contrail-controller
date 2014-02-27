@@ -645,7 +645,7 @@ class VncApiServer(VncApiServerGen):
     # end sigchld_handler
 
     def sigterm_handler(self):
-        cleanup()
+        self.cleanup()
         exit()
 
     def _load_extensions(self):
