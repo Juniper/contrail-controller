@@ -28,8 +28,8 @@ struct IFMapTypenameWhiteList : public DBGraph::VisitorFilter {
                             const DBGraphVertex *target,
                             const DBGraphEdge *edge) const;
 
-    std::vector<std::string> include_vertex;
-    std::vector<std::string> include_edge;
+    std::set<std::string> include_vertex;
+    std::set<std::string> include_edge;
 };
 
 #endif

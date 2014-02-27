@@ -22,6 +22,9 @@ import argparse
 import ConfigParser
 from pprint import pformat
 
+import logging
+logger = logging.getLogger(__name__)
+
 """
 Following is needed to silence warnings on every request when keystone\
     auth_token middleware + Sandesh is used. Keystone or Sandesh alone\
@@ -144,6 +147,9 @@ class VncApiServer(VncApiServerGen):
         if not args_str:
             args_str = ' '.join(sys.argv[1:])
         self._parse_args(args_str)
+
+        # set python logging level from logging_level cmdline arg
+        logging.basicConfig(level = getattr(logging, self._args.logging_level))
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -463,6 +469,7 @@ class VncApiServer(VncApiServerGen):
                                          --listen_port 8082
                                          --log_local
                                          --log_level SYS_DEBUG
+                                         --logging_level DEBUG
                                          --log_category test
                                          --log_file <stdout>
                                          --disc_server_ip 127.0.0.1
@@ -496,6 +503,7 @@ class VncApiServer(VncApiServerGen):
             'log_level': SandeshLevel.SYS_DEBUG,
             'log_category': '',
             'log_file': Sandesh._DEFAULT_LOG_FILE,
+            'logging_level': 'WARN',
             'multi_tenancy': False,
             'disc_server_ip': None,
             'disc_server_port': None,
@@ -602,6 +610,10 @@ class VncApiServer(VncApiServerGen):
             "--log_level",
             help="Severity level for local logging of sandesh messages")
         parser.add_argument(
+            "--logging_level",
+            help=("Log level for python logging: DEBUG, INFO, WARN, ERROR default: %s"
+                  % defaults['logging_level']))
+        parser.add_argument(
             "--log_category",
             help="Category filter for local logging of sandesh messages")
         parser.add_argument(
@@ -631,6 +643,10 @@ class VncApiServer(VncApiServerGen):
         self._db_connect(reset_config=False)
         self._db_init_entries()
     # end sigchld_handler
+
+    def sigterm_handler(self):
+        cleanup()
+        exit()
 
     def _load_extensions(self):
         try:
@@ -1122,12 +1138,19 @@ def main(args_str=None):
     token sends SIG_CHLD signal to API server.
     """
     #hub.signal(signal.SIGCHLD, vnc_api_server.sigchld_handler)
+    hub.signal(signal.SIGTERM, vnc_api_server.sigterm_handler)
 
     try:
         bottle.run(app=pipe_start_app, host=server_ip, port=server_port,
                    server='gevent')
-    except Exception as e:
-        # cleanup gracefully
+    except KeyboardInterrupt:
+        # quietly handle Ctrl-C
+        pass
+    except:
+        # dump stack on all other exceptions
+        raise
+    finally:
+        # always cleanup gracefully
         vnc_api_server.cleanup()
 
 # end main

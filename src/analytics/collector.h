@@ -35,7 +35,7 @@ class Collector : public SandeshServer {
 public:
     const static std::string kDbTask;
 
-    typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool, DbHandler *)> VizCallback;
+    typedef boost::function<bool(const VizMsg*, bool, DbHandler *)> VizCallback;
 
     Collector(EventManager *evm, short server_port,
               DbHandler *db_handler, Ruleeng *ruleeng,
@@ -47,8 +47,7 @@ public:
     virtual bool ReceiveResourceUpdate(SandeshSession *session,
             bool rsc);
     virtual bool ReceiveSandeshMsg(SandeshSession *session,
-                           const std::string &cmsg, const std::string &message_type,
-                           const SandeshHeader& header, uint32_t xml_offset, bool rsc);
+            const SandeshMessage *msg, bool rsc);
     virtual bool ReceiveSandeshCtrlMsg(SandeshStateMachine *state_machine,
             SandeshSession *session, const Sandesh *sandesh);
 
@@ -78,6 +77,13 @@ public:
     int db_task_id();
     const CollectorStats &GetStats() const { return stats_; }
 
+    static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
+        ds_client_ = ds;
+    }
+
+    static DiscoveryServiceClient *GetCollectorDiscoveryServiceClient() {
+        return ds_client_;
+    }
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
@@ -124,6 +130,8 @@ private:
     static bool task_policy_set_;
     static const std::vector<DbHandler::DbQueueWaterMarkInfo> kDbQueueWaterMarkInfo;
     static const int kDefaultSessionBufferSize = 16 * 1024;
+
+    static DiscoveryServiceClient *ds_client_;
 
     DISALLOW_COPY_AND_ASSIGN(Collector);
 };

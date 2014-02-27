@@ -36,6 +36,7 @@
 
 KSyncSockTypeMap *KSyncSockTypeMap::singleton_; 
 vr_flow_entry *KSyncSockTypeMap::flow_table_;
+int KSyncSockTypeMap::error_code_;
 using namespace boost::asio;
 
 //store ops data
@@ -521,14 +522,14 @@ void KSyncSockTypeMap::AsyncSendTo(IoContext *ioc, mutable_buffers_1 buf,
 }
 
 //send or store in map
-size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf) {
-    KSyncUserSockContext ctx(true, 0);
+size_t KSyncSockTypeMap::SendTo(const_buffers_1 buf, uint32_t seq_no) {
+    KSyncUserSockContext ctx(true, seq_no);
     //parse and store info in map [done in Process() callbacks]
     ProcessSandesh(buffer_cast<const uint8_t *>(buf), buffer_size(buf), &ctx);
 
     if (ctx.IsResponseReqd()) {
         //simulate ok response with the same seq
-        SimulateResponse(0, 0, 0); 
+        SimulateResponse(seq_no, 0, 0); 
     }
     return 0;
 }
@@ -1009,6 +1010,10 @@ void MockDumpHandlerBase::SendDumpResponse(uint32_t seq_num, Sandesh *from_req) 
     int count = 0;
     unsigned int resp_code = 0;
 
+    if (KSyncSockTypeMap::error_code()) {
+        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0);
+        return;
+    } 
     Sandesh *req = GetFirst(from_req);
     if (req != NULL) {
         nl_init_generic_client_req(&cl, KSyncSock::GetNetlinkFamilyId());
@@ -1076,6 +1081,13 @@ void MockDumpHandlerBase::SendGetResponse(uint32_t seq_num, int idx) {
     uint32_t buf_len = 0, encode_len = 0;
     struct nlmsghdr *nlh;
 
+    /* To simulate error code return the test code has to call 
+     * KSyncSockTypeMap::set_error_code() with required error code and 
+     * invoke get request */
+    if (KSyncSockTypeMap::error_code()) {
+        KSyncSockTypeMap::SimulateResponse(seq_num, -KSyncSockTypeMap::error_code(), 0); 
+        return;
+    }
     Sandesh *req = Get(idx);
     if (req == NULL) {
         KSyncSockTypeMap::SimulateResponse(seq_num, -ENOENT, 0); 

@@ -58,128 +58,147 @@ public:
         VRouterStatsCollectorTask *task = new VRouterStatsCollectorTask(count);
         scheduler->Enqueue(task);
     }
+    bool BandwidthMatch(const vector<AgentIfBandwidth> &list, int in, int out) {
+        if (0 == list.size()) {
+            if ((in == 0) && (out == 0)) {
+                return true;
+            }
+            return false;
+        }
+        EXPECT_EQ(1U, list.size());
+        vector<AgentIfBandwidth>::const_iterator it = list.begin();
+        AgentIfBandwidth band = *it;
+        EXPECT_EQ(in, band.get_in_bandwidth_usage());
+        EXPECT_EQ(out, band.get_out_bandwidth_usage());
+        if ((in == band.get_in_bandwidth_usage()) &&
+            (out == band.get_out_bandwidth_usage())) {
+            return true;
+        }
+        return false;
+    }
+
     bool DropStatsEqual(const AgentDropStats &d1, const vr_drop_stats_req &d2) const {
-        if (d1.get_ds_discard() != d2.get_vds_discard()) {
+        if (d1.get_ds_discard() != (uint64_t)d2.get_vds_discard()) {
             return false;
         }
-        if (d1.get_ds_pull() != d2.get_vds_pull()) {
+        if (d1.get_ds_pull() != (uint64_t)d2.get_vds_pull()) {
             return false;
         }
-        if (d1.get_ds_invalid_if() != d2.get_vds_invalid_if()) {
+        if (d1.get_ds_invalid_if() != (uint64_t)d2.get_vds_invalid_if()) {
             return false;
         }
-        if (d1.get_ds_arp_not_me() != d2.get_vds_arp_not_me()) {
+        if (d1.get_ds_arp_not_me() != (uint64_t)d2.get_vds_arp_not_me()) {
             return false;
         }
-        if (d1.get_ds_garp_from_vm() != d2.get_vds_garp_from_vm()) {
+        if (d1.get_ds_garp_from_vm() != (uint64_t)d2.get_vds_garp_from_vm()) {
             return false;
         }
-        if (d1.get_ds_invalid_arp() != d2.get_vds_invalid_arp()) {
+        if (d1.get_ds_invalid_arp() != (uint64_t)d2.get_vds_invalid_arp()) {
             return false;
         }
-        if (d1.get_ds_trap_no_if() != d2.get_vds_trap_no_if()) {
+        if (d1.get_ds_trap_no_if() != (uint64_t)d2.get_vds_trap_no_if()) {
             return false;
         }
-        if (d1.get_ds_nowhere_to_go() != d2.get_vds_nowhere_to_go()) {
+        if (d1.get_ds_nowhere_to_go() != (uint64_t)d2.get_vds_nowhere_to_go()) {
             return false;
         }
-        if (d1.get_ds_flow_queue_limit_exceeded() != d2.get_vds_flow_queue_limit_exceeded()) {
+        if (d1.get_ds_flow_queue_limit_exceeded() != (uint64_t)d2.get_vds_flow_queue_limit_exceeded()) {
             return false;
         }
-        if (d1.get_ds_flow_no_memory() != d2.get_vds_flow_no_memory()) {
+        if (d1.get_ds_flow_no_memory() != (uint64_t)d2.get_vds_flow_no_memory()) {
             return false;
         }
-        if (d1.get_ds_flow_invalid_protocol() != d2.get_vds_flow_invalid_protocol()) {
+        if (d1.get_ds_flow_invalid_protocol() != (uint64_t)d2.get_vds_flow_invalid_protocol()) {
             return false;
         }
-        if (d1.get_ds_flow_nat_no_rflow() != d2.get_vds_flow_nat_no_rflow()) {
+        if (d1.get_ds_flow_nat_no_rflow() != (uint64_t)d2.get_vds_flow_nat_no_rflow()) {
             return false;
         }
-        if (d1.get_ds_flow_action_drop() != d2.get_vds_flow_action_drop()) {
+        if (d1.get_ds_flow_action_drop() != (uint64_t)d2.get_vds_flow_action_drop()) {
             return false;
         }
-        if (d1.get_ds_flow_action_invalid() != d2.get_vds_flow_action_invalid()) {
+        if (d1.get_ds_flow_action_invalid() != (uint64_t)d2.get_vds_flow_action_invalid()) {
             return false;
         }
-        if (d1.get_ds_flow_unusable() != d2.get_vds_flow_unusable()) {
+        if (d1.get_ds_flow_unusable() != (uint64_t)d2.get_vds_flow_unusable()) {
             return false;
         }
-        if (d1.get_ds_flow_table_full() != d2.get_vds_flow_table_full()) {
+        if (d1.get_ds_flow_table_full() != (uint64_t)d2.get_vds_flow_table_full()) {
             return false;
         }
-        if (d1.get_ds_interface_tx_discard() != d2.get_vds_interface_tx_discard()) {
+        if (d1.get_ds_interface_tx_discard() != (uint64_t)d2.get_vds_interface_tx_discard()) {
             return false;
         }
-        if (d1.get_ds_interface_drop() != d2.get_vds_interface_drop()) {
+        if (d1.get_ds_interface_drop() != (uint64_t)d2.get_vds_interface_drop()) {
             return false;
         }
-        if (d1.get_ds_duplicated() != d2.get_vds_duplicated()) {
+        if (d1.get_ds_duplicated() != (uint64_t)d2.get_vds_duplicated()) {
             return false;
         }
-        if (d1.get_ds_push() != d2.get_vds_push()) {
+        if (d1.get_ds_push() != (uint64_t)d2.get_vds_push()) {
             return false;
         }
-        if (d1.get_ds_ttl_exceeded() != d2.get_vds_ttl_exceeded()) {
+        if (d1.get_ds_ttl_exceeded() != (uint64_t)d2.get_vds_ttl_exceeded()) {
             return false;
         }
-        if (d1.get_ds_invalid_nh() != d2.get_vds_invalid_nh()) {
+        if (d1.get_ds_invalid_nh() != (uint64_t)d2.get_vds_invalid_nh()) {
             return false;
         }
-        if (d1.get_ds_invalid_label() != d2.get_vds_invalid_label()) {
+        if (d1.get_ds_invalid_label() != (uint64_t)d2.get_vds_invalid_label()) {
             return false;
         }
-        if (d1.get_ds_invalid_protocol() != d2.get_vds_invalid_protocol()) {
+        if (d1.get_ds_invalid_protocol() != (uint64_t)d2.get_vds_invalid_protocol()) {
             return false;
         }
-        if (d1.get_ds_interface_rx_discard() != d2.get_vds_interface_rx_discard()) {
+        if (d1.get_ds_interface_rx_discard() != (uint64_t)d2.get_vds_interface_rx_discard()) {
             return false;
         }
-        if (d1.get_ds_invalid_mcast_source() != d2.get_vds_invalid_mcast_source()) {
+        if (d1.get_ds_invalid_mcast_source() != (uint64_t)d2.get_vds_invalid_mcast_source()) {
             return false;
         }
-        if (d1.get_ds_head_alloc_fail() != d2.get_vds_head_alloc_fail()) {
+        if (d1.get_ds_head_alloc_fail() != (uint64_t)d2.get_vds_head_alloc_fail()) {
             return false;
         }
-        if (d1.get_ds_head_space_reserve_fail() != d2.get_vds_head_space_reserve_fail()) {
+        if (d1.get_ds_head_space_reserve_fail() != (uint64_t)d2.get_vds_head_space_reserve_fail()) {
             return false;
         }
-        if (d1.get_ds_pcow_fail() != d2.get_vds_pcow_fail()) {
+        if (d1.get_ds_pcow_fail() != (uint64_t)d2.get_vds_pcow_fail()) {
             return false;
         }
-        if (d1.get_ds_flood() != d2.get_vds_flood()) {
+        if (d1.get_ds_flood() != (uint64_t)d2.get_vds_flood()) {
             return false;
         }
-        if (d1.get_ds_mcast_clone_fail() != d2.get_vds_mcast_clone_fail()) {
+        if (d1.get_ds_mcast_clone_fail() != (uint64_t)d2.get_vds_mcast_clone_fail()) {
             return false;
         }
-        if (d1.get_ds_composite_invalid_interface() != d2.get_vds_composite_invalid_interface()) {
+        if (d1.get_ds_composite_invalid_interface() != (uint64_t)d2.get_vds_composite_invalid_interface()) {
             return false;
         }
-        if (d1.get_ds_rewrite_fail() != d2.get_vds_rewrite_fail()) {
+        if (d1.get_ds_rewrite_fail() != (uint64_t)d2.get_vds_rewrite_fail()) {
             return false;
         }
-        if (d1.get_ds_misc() != d2.get_vds_misc()) {
+        if (d1.get_ds_misc() != (uint64_t)d2.get_vds_misc()) {
             return false;
         }
-        if (d1.get_ds_invalid_packet() != d2.get_vds_invalid_packet()) {
+        if (d1.get_ds_invalid_packet() != (uint64_t)d2.get_vds_invalid_packet()) {
             return false;
         }
-        if (d1.get_ds_cksum_err() != d2.get_vds_cksum_err()) {
+        if (d1.get_ds_cksum_err() != (uint64_t)d2.get_vds_cksum_err()) {
             return false;
         }
-        if (d1.get_ds_clone_fail() != d2.get_vds_clone_fail()) {
+        if (d1.get_ds_clone_fail() != (uint64_t)d2.get_vds_clone_fail()) {
             return false;
         }
-        if (d1.get_ds_no_fmd() != d2.get_vds_no_fmd()) {
+        if (d1.get_ds_no_fmd() != (uint64_t)d2.get_vds_no_fmd()) {
             return false;
         }
-        if (d1.get_ds_cloned_original() != d2.get_vds_cloned_original()) {
+        if (d1.get_ds_cloned_original() != (uint64_t)d2.get_vds_cloned_original()) {
             return false;
         }
-        if (d1.get_ds_invalid_vnid() != d2.get_vds_invalid_vnid()) {
+        if (d1.get_ds_invalid_vnid() != (uint64_t)d2.get_vds_invalid_vnid()) {
             return false;
         }
-        if (d1.get_ds_frag_err() != d2.get_vds_frag_err()) {
+        if (d1.get_ds_frag_err() != (uint64_t)d2.get_vds_frag_err()) {
             return false;
         }
         return true;
@@ -329,6 +348,236 @@ TEST_F(UveVrouterUveTest, DropStatsAddChange) {
     const VrouterStatsAgent &uve3 = vr->last_sent_stats();
     const AgentDropStats ds4 = uve3.get_drop_stats();
     EXPECT_TRUE(DropStatsEqual(ds4, ds2));
+}
+
+TEST_F(UveVrouterUveTest, BandwidthTest_1) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE((intf != NULL));
+
+    //Fetch interface stats
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+
+    //Fetch the stats object from agent_stats_collector
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    EXPECT_TRUE((stats != NULL));
+
+    //Update the stats object
+    stats->speed = 1;
+    stats->in_bytes = 1 * 1024 * 1024;
+    stats->out_bytes = (60 * 1024 * 1024)/8; //60 Mbps = 60 MBps/8
+    stats->prev_in_bytes = 0;
+    stats->prev_out_bytes = 0;
+
+    //Run Vrouter stats collector to update bandwidth
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    const VrouterStatsAgent &uve = vr->prev_stats();
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 0, 0));
+
+    //Run Vrouter stats collector to update bandwidth
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_1min_usage(), 13, 100));
+}
+
+TEST_F(UveVrouterUveTest, BandwidthTest_2) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    VrouterStatsAgent &uve = vr->prev_stats();
+
+    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE((intf != NULL));
+
+    //Fetch interface stats
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+
+    //Fetch the stats object from agent_stats_collector
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    EXPECT_TRUE((stats != NULL));
+
+    //Update the stats object
+    stats->speed = 1;
+    stats->in_bytes = 1 * 1024 * 1024;
+    stats->out_bytes = (5 * 60 * 1024 * 1024)/8; //60 Mbps = 60 MBps/8
+    stats->prev_in_bytes = 0;
+    stats->prev_out_bytes = 0;
+    stats->prev_5min_in_bytes = 0;
+    stats->prev_5min_out_bytes = 0;
+
+    //Reset bandwidth counter which controls when bandwidth is updated
+    vr->set_bandwidth_count(0);
+    vector<AgentIfBandwidth> empty_list;
+    uve.set_phy_if_5min_usage(empty_list);
+
+    //Run Vrouter stats collector to update bandwidth
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(9);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 9));
+
+    //Verify the 5-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 0, 0));
+
+    //Run Vrouter stats collector again
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify the 5-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 2, 100));
+
+    //Run Vrouter stats collector
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(9);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 9));
+
+    //Verify the 5-min bandwidth usage has not changed
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 2, 100));
+
+    //Run Vrouter stats collector again
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify the 5-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_5min_usage(), 0, 0));
+}
+
+TEST_F(UveVrouterUveTest, BandwidthTest_3) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+    VrouterStatsAgent &uve = vr->prev_stats();
+
+    PhysicalInterfaceKey key(Agent::GetInstance()->params()->eth_port());
+    Interface *intf = static_cast<Interface *>
+        (Agent::GetInstance()->GetInterfaceTable()->FindActiveEntry(&key));
+    EXPECT_TRUE((intf != NULL));
+
+    //Fetch interface stats
+    AgentStatsCollectorTest *collector = static_cast<AgentStatsCollectorTest *>
+        (Agent::GetInstance()->uve()->agent_stats_collector());
+    collector->interface_stats_responses_ = 0;
+    Agent::GetInstance()->uve()->agent_stats_collector()->Run();
+    client->WaitForIdle();
+    WAIT_FOR(100, 1000, (collector->interface_stats_responses_ >= 1));
+
+    //Fetch the stats object from agent_stats_collector
+    AgentStatsCollector::InterfaceStats* stats = Agent::GetInstance()->uve()->agent_stats_collector()->GetInterfaceStats(intf);
+    EXPECT_TRUE((stats != NULL));
+
+    //Update the stats object
+    stats->speed = 1;
+    stats->in_bytes = 10 * 1024 * 1024;
+    stats->out_bytes = (10 * 60 * 1024 * 1024)/8; //60 Mbps = 60 MBps/8
+    stats->prev_in_bytes = 0;
+    stats->prev_out_bytes = 0;
+    stats->prev_10min_in_bytes = 0;
+    stats->prev_10min_out_bytes = 0;
+
+    //Reset bandwidth counter which controls when bandwidth is updated
+    vr->set_bandwidth_count(0);
+    vector<AgentIfBandwidth> empty_list;
+    uve.set_phy_if_10min_usage(empty_list);
+
+    //Run Vrouter stats collector to update bandwidth
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(19);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 19));
+
+    //Verify the 10-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
+
+    //Run Vrouter stats collector again
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify the 10-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
+
+    //Run Vrouter stats collector
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(19);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 19));
+
+    //Verify the 10-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 13, 100));
+
+    //Run Vrouter stats collector again
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify the 10-min bandwidth usage
+    EXPECT_TRUE(BandwidthMatch(uve.get_phy_if_10min_usage(), 0, 0));
+}
+
+TEST_F(UveVrouterUveTest, ExceptionPktsChange) {
+    VrouterUveEntryTest *vr = static_cast<VrouterUveEntryTest *>
+        (Agent::GetInstance()->uve()->vrouter_uve_entry());
+    vr->clear_count();
+
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    const VrouterStatsAgent &uve = vr->prev_stats();
+    //Verify exception stats in UVE
+    EXPECT_EQ(0U, uve.get_exception_packets());
+    EXPECT_EQ(0U, uve.get_exception_packets_dropped());
+    EXPECT_EQ(0U, uve.get_exception_packets_allowed());
+
+    //Update exception stats 
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+    Agent::GetInstance()->stats()->incr_pkt_exceptions();
+
+    Agent::GetInstance()->stats()->incr_pkt_dropped();
+
+    //Run vrouter_stats_collector to update the UVE with updated exception stats
+    Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ = 0;
+    EnqueueVRouterStatsCollectorTask(1);
+    client->WaitForIdle();
+    WAIT_FOR(10000, 500, (Agent::GetInstance()->uve()->vrouter_stats_collector()->run_counter_ >= 1));
+
+    //Verify exception stats in UVE
+    EXPECT_EQ(3U, uve.get_exception_packets());
+    EXPECT_EQ(1U, uve.get_exception_packets_dropped());
+    EXPECT_EQ(2U, uve.get_exception_packets_allowed());
 }
 
 int main(int argc, char **argv) {

@@ -260,18 +260,15 @@ TEST_F(IntfTest, index_reuse) {
 
     sock->SetBlockMsgProcessing(true);
     DeleteVmportEnv(input1, 1, true);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == false));
     client->Reset();
 
     CreateVmportEnv(input2, 1);
-    client->WaitForIdle();
-    EXPECT_TRUE(VmPortFind(9));
+    WAIT_FOR(1000, 1000, (VmPortFind(9) == true));
     EXPECT_NE(VmPortGetId(9), intf_idx);
     client->Reset();
     DeleteVmportEnv(input2, 1, true);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(9));
+    WAIT_FOR(1000, 1000, (VmPortFind(9) == false));
     sock->SetBlockMsgProcessing(false);
     client->WaitForIdle();
     usleep(2000);
@@ -305,13 +302,11 @@ TEST_F(IntfTest, entry_reuse) {
 
     sock->SetBlockMsgProcessing(true);
     DeleteVmportEnv(input1, 1, false);
-    client->WaitForIdle();
-    EXPECT_FALSE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == false));
     client->Reset();
 
     CreateVmportEnv(input1, 1);
-    client->WaitForIdle();
-    EXPECT_TRUE(VmPortFind(8));
+    WAIT_FOR(1000, 1000, (VmPortFind(8) == true));
     EXPECT_EQ(VmPortGetId(8), intf_idx);
     client->Reset();
     sock->SetBlockMsgProcessing(false);

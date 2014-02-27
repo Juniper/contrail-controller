@@ -86,6 +86,7 @@ class CpuInfo(object):
 
                 if (self._new_ip != self._curr_ip):
                     self._new_ip = self.get_config_node_ip()
+                    self._ip_change = 1
 
                 # Retrieve build_info from package/rpm and cache it
                 if self._curr_build_info is None:
@@ -94,8 +95,8 @@ class CpuInfo(object):
                         command + " awk '{print $2}'").read()
                     build_num = os.popen(command + " awk '{print $3}'").read()
                     self._new_build_info = build_info + '"build-id" : "' + \
-                        rpm_version + '", "build-number" : "' + \
-                        build_num + '"}]}'
+                        rpm_version.rstrip('\n') + '", "build-number" : "' + \
+                        build_num.rstrip('\n') + '"}]}'
                 if (self._new_build_info != self._curr_build_info):
                     self._curr_build_info = self._new_build_info
                     self._build_change = 1

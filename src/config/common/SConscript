@@ -80,8 +80,18 @@ sdist_depends.extend(sandesh_sources_rules)
 sdist_depends.extend(sandesh_init_rules)
 sdist_depends.extend(sandesh_base_sources_rules)
 sdist_depends.extend(build_info_rules)
+
+# TODO: deprecate
 sdist_gen = env.Command('dist', 'setup.py', 'python setup.py sdist', chdir=1)
 
 env.Depends(sdist_gen, sdist_depends)
 env.Default(sdist_gen)
+
+if 'install' in BUILD_TARGETS:
+    install_cmd = env.Command(None, 'setup.py',
+                              'python setup.py install %s' %
+                              env['PYTHON_INSTALL_OPT'],
+                              chdir = 1)
+    env.Depends(install_cmd, sdist_depends)
+    env.Alias('install', install_cmd)
 

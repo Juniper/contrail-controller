@@ -19,6 +19,7 @@
 #include <io/event_manager.h>
 #include <base/misc_utils.h>
 #include "discovery_client.h"
+#include <sandesh/sandesh_trace.h>
 
 class EventManager;
 class DnsManager;
@@ -26,6 +27,7 @@ class DnsConfigManager;
 class XmppServer;
 class DiscoveryCfgXmppChannel;
 class DnsAgentXmppChannelManager;
+class DiscoveryServiceClient;
 
 class Dns {
 public:
@@ -74,6 +76,13 @@ public:
     
     static void ShutdownDiscoveryClient(DiscoveryServiceClient *);
 
+    static void SetDiscoveryServiceClient(DiscoveryServiceClient *ds) {
+        ds_client_ = ds;
+    }
+    static DiscoveryServiceClient *GetDnsDiscoveryServiceClient() {
+        return ds_client_;
+    }
+
 private:
     static void SetTaskSchedulingPolicy();
 
@@ -89,6 +98,7 @@ private:
     static std::string collector_;
     static uint32_t http_port_;
     static DnsAgentXmppChannelManager *agent_xmpp_channel_mgr_;
+    static DiscoveryServiceClient *ds_client_;
 };
 
 #endif // __DNS_CMN_H_

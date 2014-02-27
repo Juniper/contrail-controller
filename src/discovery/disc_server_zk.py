@@ -54,26 +54,32 @@ def obj_to_json(obj):
 
 class DiscoveryServer():
 
-    def __init__(self, args_str=None):
+    def __init__(self, args):
         self._homepage_links = []
-        self._args = None
+        self._args = args
+        self.service_config = args.service_config
         self._debug = {
             'hb_stray': 0,
             'msg_pubs': 0,
             'msg_subs': 0,
             'msg_query': 0,
-            'heartbeats': 0,
+            'msg_hbt': 0,
             'ttl_short': 0,
             'policy_rr': 0,
             'policy_lb': 0,
             'policy_fi': 0,
+            'db_upd_hb': 0,
+            'max_pend_pb':0,
+            'max_pend_sb':0,
+            'max_pend_hb':0,
+            'cur_pend_pb':0,
+            'cur_pend_sb':0,
+            'cur_pend_hb':0,
+            'throttle_subs':0,
         }
         self._ts_use = 1
         self.short_ttl_map = {}
         self._sem = BoundedSemaphore(1)
-        if not args_str:
-            args_str = ' '.join(sys.argv[1:])
-        self._parse_args(args_str)
 
         self._base_url = "http://%s:%s" % (self._args.listen_ip_addr,
                                            self._args.listen_port)
@@ -81,12 +87,16 @@ class DiscoveryServer():
 
         bottle.route('/', 'GET', self.homepage_http_get)
 
+        # heartbeat
+        bottle.route('/heartbeat', 'POST', self.api_heartbeat)
+
         # publish service
         bottle.route('/publish', 'POST', self.api_publish)
         self._homepage_links.append(
             LinkObject(
                 'action',
                 self._base_url , '/publish', 'publish service'))
+        bottle.route('/publish/<end_point>', 'POST', self.api_publish)
 
         # subscribe service
         bottle.route('/subscribe',  'POST', self.api_subscribe)
@@ -183,10 +193,17 @@ class DiscoveryServer():
         # DB interface initialization
         self._db_connect(self._args.reset_config)
 
-        # build in-memory publisher data
-        self._pub_data = {}
+        # update services database (old db didn't keep HB)
         for entry in self._db_conn.service_entries():
-            self.create_pub_data(entry['service_id'], entry['service_type'])
+            update = False
+            if 'heartbeat' not in entry:
+                entry['heartbeat'] = int(time.time())
+                self._debug['db_upd_hb'] += 1
+                update = True
+
+            if update:
+                self._db_conn.update_service(
+                    entry['service_type'], entry['service_id'], entry)
 
         # build in-memory subscriber data
         self._sub_data = {}
@@ -196,17 +213,6 @@ class DiscoveryServer():
         # must be done after we have built in-memory publisher data from db.
         self._db_conn.start_background_tasks()
     # end __init__
-
-    def create_pub_data(self, service_id, service_type):
-        self._pub_data[service_id] = {
-            'service_type': service_type,
-            'hbcount': 0,
-            'heartbeat': int(time.time()),
-        }
-
-    def delete_pub_data(self, id):
-        del self._pub_data[id]
-    #end
 
     def create_sub_data(self, client_id, service_type):
         if not client_id in self._sub_data:
@@ -228,14 +234,10 @@ class DiscoveryServer():
                 del self._sub_data[client_id]
     # end
 
-    def get_pub_data(self, id):
-        return self._pub_data.get(id, None)
-    # end
-
     def get_sub_data(self, id, service_type):
-        if id in self._sub_data:
-            return self._sub_data[id].get(service_type, None)
-        return None
+        if id in self._sub_data and service_type in self._sub_data[id]:
+            return self._sub_data[id][service_type]
+        return self.create_sub_data(id, service_type)
     # end
 
     # Public Methods
@@ -269,132 +271,6 @@ class DiscoveryServer():
         return json_body
     # end homepage_http_get
 
-    # Private Methods
-    def _parse_args(self, args_str):
-        '''
-        Eg. python discovery.py
-
-                     --zk_server_ip 10.1.2.3
-                     --zk_server_port 9160
-                     --listen_ip_addr 127.0.0.1
-                     --listen_port 5998
-                     --worker_id 1
-        '''
-
-        # Source any specified config/ini file
-        # Turn off help, so we print all options in response to -h
-        conf_parser = argparse.ArgumentParser(add_help=False)
-
-        conf_parser.add_argument("-c", "--conf_file",
-                                 help="Specify config file", metavar="FILE")
-        args, remaining_argv = conf_parser.parse_known_args(args_str.split())
-
-        defaults = {
-            'reset_config': False,
-            'listen_ip_addr': disc_consts._WEB_HOST,
-            'listen_port': disc_consts._WEB_PORT,
-            'zk_server_ip': disc_consts._ZK_HOST,
-            'zk_server_port': disc_consts._ZK_PORT,
-            'ttl_min': disc_consts._TTL_MIN,
-            'ttl_max': disc_consts._TTL_MAX,
-            'ttl_short': 0,
-            'hc_interval': disc_consts.HC_INTERVAL,
-            'hc_max_miss': disc_consts.HC_MAX_MISS,
-            'collectors': '127.0.0.1:8086',
-            'http_server_port': '5997',
-            'log_local': False,
-            'log_level': SandeshLevel.SYS_DEBUG,
-            'log_category': '',
-            'log_file': Sandesh._DEFAULT_LOG_FILE,
-            'worker_id': INSTANCE_ID_DEFAULT,
-        }
-
-        # per service options
-        self.default_service_opts = {
-            'policy': None,
-        }
-        self.service_config = {}
-
-        if args.conf_file:
-            config = ConfigParser.SafeConfigParser()
-            config.read([args.conf_file])
-            defaults.update(dict(config.items("DEFAULTS")))
-            for section in config.sections():
-                if section == "DEFAULTS":
-                    continue
-                self.service_config[
-                    section.lower()] = self.default_service_opts.copy()
-                self.service_config[section.lower()].update(
-                    dict(config.items(section)))
-
-        # Override with CLI options
-        # Don't surpress add_help here so it will handle -h
-        parser = argparse.ArgumentParser(
-            # Inherit options from config_parser
-            parents=[conf_parser],
-            # print script description with -h/--help
-            description=__doc__,
-            # Don't mess with format of description
-            formatter_class=argparse.RawDescriptionHelpFormatter,
-        )
-        parser.set_defaults(**defaults)
-
-        parser.add_argument("--zk_server_ip",
-                            help="IP address of zk server")
-        parser.add_argument("--zk_server_port", type=int,
-                            help="Port of zk server")
-        parser.add_argument(
-            "--reset_config", action="store_true",
-            help="Warning! Destroy previous configuration and start clean")
-        parser.add_argument(
-            "--listen_ip_addr",
-            help="IP address to provide service on, default %s"
-            % (disc_consts._WEB_HOST))
-        parser.add_argument(
-            "--listen_port", type=int,
-            help="Port to provide service on, default %s"
-            % (disc_consts._WEB_PORT))
-        parser.add_argument(
-            "--ttl_min", type=int,
-            help="Minimum time to cache service information, default %d"
-            % (disc_consts._TTL_MIN))
-        parser.add_argument(
-            "--ttl_max", type=int,
-            help="Maximum time to cache service information, default %d"
-            % (disc_consts._TTL_MAX))
-        parser.add_argument(
-            "--ttl_short", type=int,
-            help="Short TTL for agressively subscription schedule")
-        parser.add_argument(
-            "--hc_interval", type=int,
-            help="Heartbeat interval, default %d seconds"
-            % (disc_consts.HC_INTERVAL))
-        parser.add_argument(
-            "--hc_max_miss", type=int,
-            help="Maximum heartbeats to miss before declaring out-of-service, "
-            "default %d" % (disc_consts.HC_MAX_MISS))
-        parser.add_argument("--collectors",
-                            help="List of VNC collectors in ip:port format",
-                            nargs="+")
-        parser.add_argument("--http_server_port",
-                            help="Port of local HTTP server")
-        parser.add_argument(
-            "--log_local", action="store_true",
-            help="Enable local logging of sandesh messages")
-        parser.add_argument(
-            "--log_level",
-            help="Severity level for local logging of sandesh messages")
-        parser.add_argument(
-            "--log_category",
-            help="Category filter for local logging of sandesh messages")
-        parser.add_argument("--log_file",
-                            help="Filename for the logs to be written to")
-        parser.add_argument("--worker_id", help="Worker Id")
-        self._args = parser.parse_args(remaining_argv)
-        self._args.conf_file = args.conf_file
-        if type(self._args.collectors) is str:
-            self._args.collectors = self._args.collectors.split()
-    # end _parse_args
 
     def get_service_config(self, service_type, item):
         service = service_type.lower()
@@ -439,12 +315,8 @@ class DiscoveryServer():
 
     # check if service expired (return color along)
     def service_expired(self, entry, include_color=False, include_down=True):
-        pdata = self.get_pub_data(entry['service_id'])
-        if pdata:
-            timedelta = datetime.timedelta(
-                seconds=(int(time.time()) - pdata['heartbeat']))
-        else:
-            timedelta = -1
+        timedelta = datetime.timedelta(
+                seconds=(int(time.time()) - entry['heartbeat']))
 
         if self._args.hc_interval <= 0:
             # health check has been disabled
@@ -471,44 +343,64 @@ class DiscoveryServer():
             return expired
     # end service_expired
 
+    # 404 forces republish
     def heartbeat(self, sig):
-        self._debug['heartbeats'] += 1
-        pdata = self.get_pub_data(sig)
-        if not pdata:
-            self.syslog('Received stray hearbeat with cookie %s' % (sig))
-            self._debug['hb_stray'] += 1
-            # resource not found
-            return '404 Not Found'
+        # self.syslog('heartbeat from "%s"' % sig)
+        self._debug['msg_hbt'] += 1
+        info = sig.split(':')
+        if len(info) != 2:
+            self.syslog('Unable to parse heartbeat cookie %s' % sig)
+            bottle.abort(404, 'Unable to parse heartbeat')
 
-        pdata['hbcount'] += 1
-        pdata['heartbeat'] = int(time.time())
+        service_type = info[1]
+        service_id = info[0]
+        entry = self._db_conn.lookup_service(service_type, service_id)
+        if not entry:
+            self.syslog('Received stray heartbeat with cookie %s' % (sig))
+            self._debug['hb_stray'] += 1
+            bottle.abort(404, 'Publisher %s not found' % sig)
+
+        # update heartbeat timestamp in database
+        entry['heartbeat'] = int(time.time())
+
+        # insert entry if timed out by background task
+        if entry['sequence'] == -1:
+            self._db_conn.insert_service(
+                service_type, entry['service_id'], entry)
+        self._db_conn.update_service(
+                service_type, entry['service_id'], entry)
 
         m = sandesh.dsHeartBeat(
-            publisher_id=sig, service_type=pdata['service_type'],
+            publisher_id=sig, service_type=service_type,
             sandesh=self._sandesh)
         m.trace_msg(name='dsHeartBeatTraceBuf', sandesh=self._sandesh)
         return '200 OK'
-        # print 'heartbeat service "%s", sid=%s' %(entry['service_type'], sig)
     # end heartbeat
 
-    def handle_heartbeat(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((self.get_ip_addr(), self.get_port()))
-        while True:
-            data, addr = sock.recvfrom(1024)
-            """
-            print ''
-            print 'addr = ', addr
-            print 'data = ', data
-            """
-            data = xmltodict.parse(data)
-            status = self.heartbeat(data['cookie'])
+    def api_heartbeat(self):
+        self._debug['cur_pend_hb'] += 1
+        if self._debug['cur_pend_hb'] > self._debug['max_pend_hb']:
+            self._debug['max_pend_hb'] = self._debug['cur_pend_hb']
+        ctype = bottle.request.headers['content-type']
+        json_req = {}
+        try:
+            if ctype == 'application/xml':
+                data = xmltodict.parse(bottle.request.body.read())
+            else:
+                data = bottle.request.json
+        except Exception as e:
+            self.syslog('Unable to parse heartbeat')
+            self.syslog(bottle.request.body.buf)
+            bottle.abort(400, 'Unable to parse heartbeat')
+            
+        status = self.heartbeat(data['cookie'])
+        self._debug['cur_pend_hb'] -= 1
+        return status
 
-            # send status back to publisher
-            sock.sendto(status, addr)
-    # end start
-
-    def api_publish(self):
+    def api_publish(self, end_point = None):
+        self._debug['cur_pend_pb'] += 1
+        if self._debug['cur_pend_pb'] > self._debug['max_pend_pb']:
+            self._debug['max_pend_pb'] = self._debug['cur_pend_pb']
         self._debug['msg_pubs'] += 1
         ctype = bottle.request.headers['content-type']
         json_req = {}
@@ -525,8 +417,8 @@ class DiscoveryServer():
         else:
             bottle.abort(400, e)
 
-        sig = publisher_id(
-            bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
+        sig = end_point or publisher_id(
+                bottle.request.environ['REMOTE_ADDR'], json.dumps(json_req))
 
         # Rx {'name': u'ifmap-server', 'info': {u'ip_addr': u'10.84.7.1',
         # u'port': u'8443'}}
@@ -541,20 +433,20 @@ class DiscoveryServer():
                 'in_use': 0,
                 'ts_use': 0,
                 'ts_created': int(time.time()),
+                'heartbeat': int(time.time()),
                 'prov_state': 'new',
                 'remote': bottle.request.environ.get('REMOTE_ADDR'),
-                'info': info,
             }
-            self.create_pub_data(sig, service_type)
 
-        # update TS in case publisher has rebooted and hasn't sent heartbeat yet
-        pdata = self.get_pub_data(sig)
-        pdata['heartbeat'] = int(time.time())
-
+        entry['info'] = info
         entry['admin_state'] = 'up'
-        self._db_conn.insert_service(service_type, sig, entry)
 
-        response = {'cookie': sig}
+        # insert entry if new or timed out
+        if 'sequence' not in entry or entry['sequence'] == -1:
+            self._db_conn.insert_service(service_type, sig, entry)
+        self._db_conn.update_service(service_type, sig, entry)
+
+        response = {'cookie': sig + ':' + service_type}
         if ctype != 'application/json':
             response = xmltodict.unparse({'response': response})
 
@@ -563,8 +455,9 @@ class DiscoveryServer():
 
         if not service_type.lower() in self.service_config:
             self.service_config[
-                service_type.lower()] = self.default_service_opts
+                service_type.lower()] = self._args.default_service_opts
 
+        self._debug['cur_pend_pb'] -= 1
         return response
     # end api_publish
 
@@ -620,12 +513,21 @@ class DiscoveryServer():
         count = reqcnt = int(json_req['instances'])
         client_type = json_req.get('client-type', '')
 
+        # throttle subscribe requests to prevent overload
+        if self._debug['cur_pend_sb'] > 100:
+            self._debug['throttle_subs'] += 1
+            response = {'ttl': 120, service_type: []}
+            if ctype == 'application/xml':
+                response = xmltodict.unparse({'response': response})
+            return response
+
+        self._debug['cur_pend_sb'] += 1
+        if self._debug['cur_pend_sb'] > self._debug['max_pend_sb']:
+            self._debug['max_pend_sb'] = self._debug['cur_pend_sb']
+
         assigned_sid = set()
         r = []
         ttl = randint(self._args.ttl_min, self._args.ttl_max)
-
-        # acquire lock to update use count and TS
-        self._db_conn.sem_acquire()
 
         cl_entry = self._db_conn.lookup_client(service_type, client_id)
         if not cl_entry:
@@ -662,6 +564,10 @@ class DiscoveryServer():
             for service_id, result in subs:
                 entry = self._db_conn.lookup_service(
                     service_type, service_id=service_id)
+                # previously published service is gone
+                if entry is None:
+                    continue
+                # or just not reachable
                 if self.service_expired(entry):
                     continue
                 self._db_conn.insert_client(
@@ -673,7 +579,7 @@ class DiscoveryServer():
                     response = {'ttl': ttl, service_type: r}
                     if ctype == 'application/xml':
                         response = xmltodict.unparse({'response': response})
-                    self._db_conn.sem_release()
+                    self._debug['cur_pend_sb'] -= 1
                     return response
 
 
@@ -681,7 +587,7 @@ class DiscoveryServer():
         pubs = self.service_list(service_type, pubs_active)
 
         # prepare response - send all if count 0
-        for index in range(min(count, len(pubs)) if count else len(pubs)):
+        for index in range(len(pubs)):
             entry = pubs[index]
 
             # skip duplicates - could happen if some publishers have quit and
@@ -696,25 +602,24 @@ class DiscoveryServer():
             self.syslog(' assign service=%s, info=%s' %
                         (entry['service_id'], json.dumps(result)))
 
-            # don't update pubsub data if we are sending entire list
-            if count == 0:
-                continue
-
             # create client entry
             self._db_conn.insert_client(
                 service_type, entry['service_id'], client_id, result, ttl)
 
             # update publisher entry
-            entry['in_use'] += 1
             entry['ts_use'] = self._ts_use
             self._ts_use += 1
             self._db_conn.update_service(
                 service_type, entry['service_id'], entry)
 
-        self._db_conn.sem_release()
+            count -= 1
+            if count == 0:
+                break
+
         response = {'ttl': ttl, service_type: r}
         if ctype == 'application/xml':
             response = xmltodict.unparse({'response': response})
+        self._debug['cur_pend_sb'] -= 1
         return response
     # end api_subscribe
 
@@ -781,7 +686,6 @@ class DiscoveryServer():
         rsp += '        <td>Provision State</td>\n'
         rsp += '        <td>Admin State</td>\n'
         rsp += '        <td>In Use</td>\n'
-        rsp += '        <td>Heartbeats</td>\n'
         rsp += '        <td>Time since last Heartbeat</td>\n'
         rsp += '    </tr>\n'
 
@@ -796,7 +700,6 @@ class DiscoveryServer():
 
         for pub in pubs:
             info = pub['info']
-            pdata = self.get_pub_data(pub['service_id'])
             rsp += '    <tr>\n'
             if service_type:
                 rsp += '        <td>' + pub['service_type'] + '</td>\n'
@@ -805,14 +708,12 @@ class DiscoveryServer():
                                    (pub['service_type']), pub['service_type'])
                 rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + pub['remote'] + '</td>\n'
-            link = do_html_url("/service/%s/brief" %
-                               (pub['service_id']), pub['service_id'])
+            sig = pub['service_id'] + ':' + pub['service_type']
+            link = do_html_url("/service/%s/brief" % sig, sig)
             rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + pub['prov_state'] + '</td>\n'
             rsp += '        <td>' + pub['admin_state'] + '</td>\n'
             rsp += '        <td>' + str(pub['in_use']) + '</td>\n'
-            if pdata:
-                rsp += '        <td>' + str(pdata['hbcount']) + '</td>\n'
             (expired, color, timedelta) = self.service_expired(
                 pub, include_color=True)
             #status = "down" if expired else "up"
@@ -838,10 +739,10 @@ class DiscoveryServer():
 
         for pub in pubs:
             entry = pub.copy()
-            pdata = self.get_pub_data(pub['service_id'])
-            entry['hbcount'] = pdata['hbcount']
             entry['status'] = "down" if self.service_expired(entry) else "up"
-            entry['heartbeat'] = pdata['heartbeat']
+            entry['hbcount'] = 0
+            # send unique service ID (hash or service endpoint + type)
+            entry['service_id'] = str(entry['service_id'] + ':' + entry['service_type'])
             rsp.append(entry)
         return {'services': rsp}
     # end services_json
@@ -870,49 +771,56 @@ class DiscoveryServer():
     # end service_http_put
 
     def service_http_delete(self, id):
-        self.syslog('Delete service %s' % (id))
-        pdata = self.get_pub_data(id)
-        entry = self._db_conn.lookup_service(pdata['service_type'], id)
+        info = id.split(':')
+        service_type = info[1]
+        service_id = info[0]
+        self.syslog('Delete service %s:%s' % (service_id, service_type))
+        entry = self._db_conn.lookup_service(service_type, service_id)
         if not entry:
             bottle.abort(405, 'Unknown service')
-        service_type = entry['service_type']
 
         entry['admin_state'] = 'down'
-        self._db_conn.update_service(service_type, id, entry)
+        self._db_conn.update_service(service_type, service_id, entry)
 
         self.syslog('delete service=%s, sid=%s, info=%s'
-                    % (service_type, id, entry))
+                    % (service_type, service_id, entry))
 
         return {}
-    # end service_http_put
+    # end service_http_delete
 
     # return service info - meta as well as published data
     def service_http_get(self, id):
-        entry = {}
-        pdata = self.get_pub_data(id)
-        pub = self._db_conn.lookup_service(pdata['service_type'], id)
+        info = id.split(':')
+        service_type = info[1]
+        service_id = info[0]
+        pub = self._db_conn.lookup_service(service_type, service_id)
         if pub:
             entry = pub.copy()
-            entry['hbcount'] = pdata['hbcount']
+            entry['hbcount'] = 0
             entry['status'] = "down" if self.service_expired(entry) else "up"
-            entry['heartbeat'] = pdata['heartbeat']
 
         return entry
     # end service_http_get
 
     # return service info - only published data
     def service_brief_http_get(self, id):
-        pdata = self.get_pub_data(id)
-        entry = self._db_conn.lookup_service(pdata['service_type'], id)
-        return entry['info']
-    # end service_http_get
+        info = id.split(':')
+        service_type = info[1]
+        service_id = info[0]
+        entry = self._db_conn.lookup_service(service_type, service_id)
+        if entry:
+            return entry['info']
+        else:
+            return 'Unknown service %s' % id
+    # end service_brief_http_get
 
     # purge expired publishers
     def cleanup_http_get(self):
         pubs = self._db_conn.get_all_services()
         for entry in pubs:
             if self.service_expired(entry):
-                self._db_conn.delete_service(entry['service_type'], entry['service_id'])
+                self._db_conn.delete_service(entry['service_type'], entry['service_id'],
+                    recursive = True)
         return self.show_all_services()
     #end 
 
@@ -953,7 +861,8 @@ class DiscoveryServer():
             rsp += '        <td>' + client_type + '</td>\n'
             rsp += '        <td>' + client_id + '</td>\n'
             rsp += '        <td>' + service_type + '</td>\n'
-            link = do_html_url("service/%s/brief" % (service_id), service_id)
+            sig = service_id + ':' + service_type
+            link = do_html_url("service/%s/brief" % (sig), sig)
             rsp += '        <td>' + link + '</td>\n'
             rsp += '        <td>' + str(ttl) + '</td>\n'
             remaining = ttl - int(time.time() - mtime)
@@ -984,9 +893,10 @@ class DiscoveryServer():
             entry = cl_entry.copy()
             entry.update(sdata)
 
-            entry['client_id'] = client_id
-            entry['service_type'] = service_type
-            entry['service_id'] = service_id
+            entry['client_id'] = str(client_id)
+            entry['service_type'] = str(service_type)
+            # send unique service ID (hash or service endpoint + type)
+            entry['service_id'] = str(service_id + ':' + service_type)
             entry['ttl'] = ttl
             rsp.append(entry)
 
@@ -1029,30 +939,150 @@ class DiscoveryServer():
 
         rsp = output.display_user_menu()
         rsp += ' <table border="1" cellpadding="1" cellspacing="0">\n'
-        rsp += '    <tr>\n'
-        rsp += '        <td>Publishers</td>\n'
-        rsp += '        <td>%s</td>\n' % len(self._pub_data)
-        rsp += '    </tr>\n'
-        rsp += '    <tr>\n'
-        rsp += '        <td>Subscribers</td>\n'
-        rsp += '        <td>%s</td>\n' % len(self._sub_data)
-        rsp += '    </tr>\n'
-        for k, v in stats.items():
+        for k in sorted(stats.iterkeys()):
             rsp += '    <tr>\n'
             rsp += '        <td>%s</td>\n' % (k)
-            rsp += '        <td>%s</td>\n' % (v)
+            rsp += '        <td>%s</td>\n' % (stats[k])
             rsp += '    </tr>\n'
         return rsp
     # end config_http_get
 
 # end class DiscoveryServer
 
+def parse_args(args_str):
+    '''
+    Eg. python discovery.py
 
-def main(args_str=None):
-    server = DiscoveryServer(args_str)
+                 --zk_server_ip 10.1.2.3
+                 --zk_server_port 9160
+                 --listen_ip_addr 127.0.0.1
+                 --listen_port 5998
+                 --worker_id 1
+    '''
+
+    # Source any specified config/ini file
+    # Turn off help, so we print all options in response to -h
+    conf_parser = argparse.ArgumentParser(add_help=False)
+    conf_parser.add_argument("-c", "--conf_file",
+                             help="Specify config file", metavar="FILE")
+    args, remaining_argv = conf_parser.parse_known_args(args_str.split())
+
+    # Override with CLI options
+    # Don't surpress add_help here so it will handle -h
+    parser = argparse.ArgumentParser(
+        # Inherit options from config_parser
+        parents=[conf_parser],
+        # print script description with -h/--help
+        description=__doc__,
+        # Don't mess with format of description
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    defaults = {
+        'reset_config': False,
+        'listen_ip_addr': disc_consts._WEB_HOST,
+        'listen_port': disc_consts._WEB_PORT,
+        'zk_server_ip': disc_consts._ZK_HOST,
+        'zk_server_port': disc_consts._ZK_PORT,
+        'ttl_min': disc_consts._TTL_MIN,
+        'ttl_max': disc_consts._TTL_MAX,
+        'ttl_short': 0,
+        'hc_interval': disc_consts.HC_INTERVAL,
+        'hc_max_miss': disc_consts.HC_MAX_MISS,
+        'collectors': '127.0.0.1:8086',
+        'http_server_port': '5997',
+        'log_local': False,
+        'log_level': SandeshLevel.SYS_DEBUG,
+        'log_category': '',
+        'log_file': Sandesh._DEFAULT_LOG_FILE,
+        'worker_id': '0',
+    }
+
+    # per service options
+    default_service_opts = {
+        'policy': None,
+    }
+    service_config = {}
+
+    if args.conf_file:
+        config = ConfigParser.SafeConfigParser()
+        config.read([args.conf_file])
+        defaults.update(dict(config.items("DEFAULTS")))
+        for section in config.sections():
+            if section == "DEFAULTS":
+                continue
+            service_config[
+                section.lower()] = default_service_opts.copy()
+            service_config[section.lower()].update(
+                dict(config.items(section)))
+
+    parser.set_defaults(**defaults)
+
+    parser.add_argument("--zk_server_ip",
+        help="IP address of zk server")
+    parser.add_argument("--zk_server_port", type=int,
+        help="Port of zk server")
+    parser.add_argument(
+        "--reset_config", action="store_true",
+        help="Warning! Destroy previous configuration and start clean")
+    parser.add_argument(
+        "--listen_ip_addr",
+        help="IP address to provide service on, default %s"
+        % (disc_consts._WEB_HOST))
+    parser.add_argument(
+        "--listen_port", type=int,
+        help="Port to provide service on, default %s"
+        % (disc_consts._WEB_PORT))
+    parser.add_argument(
+        "--ttl_min", type=int,
+        help="Minimum time to cache service information, default %d"
+        % (disc_consts._TTL_MIN))
+    parser.add_argument(
+        "--ttl_max", type=int,
+        help="Maximum time to cache service information, default %d"
+        % (disc_consts._TTL_MAX))
+    parser.add_argument(
+        "--ttl_short", type=int,
+        help="Short TTL for agressively subscription schedule")
+    parser.add_argument(
+        "--hc_interval", type=int,
+        help="Heartbeat interval, default %d seconds"
+        % (disc_consts.HC_INTERVAL))
+    parser.add_argument(
+        "--hc_max_miss", type=int,
+        help="Maximum heartbeats to miss before declaring out-of-service, "
+        "default %d" % (disc_consts.HC_MAX_MISS))
+    parser.add_argument("--collectors",
+        help="List of VNC collectors in ip:port format",
+        nargs="+")
+    parser.add_argument("--http_server_port",
+        help="Port of local HTTP server")
+    parser.add_argument(
+        "--log_local", action="store_true",
+        help="Enable local logging of sandesh messages")
+    parser.add_argument(
+        "--log_level",
+        help="Severity level for local logging of sandesh messages")
+    parser.add_argument(
+        "--log_category",
+        help="Category filter for local logging of sandesh messages")
+    parser.add_argument("--log_file",
+        help="Filename for the logs to be written to")
+    parser.add_argument(
+        "--worker_id",
+        help="Worker Id")
+    args = parser.parse_args(remaining_argv)
+    args.conf_file = args.conf_file
+    args.service_config = service_config
+    args.default_service_opts = default_service_opts
+    if type(args.collectors) is str:
+        args.collectors = args.collectors.split()
+    return args
+# end parse_args
+
+def run_discovery_server(args):
+    server = DiscoveryServer(args)
     pipe_start_app = server.get_pipe_start_app()
-
-    gevent.spawn(server.handle_heartbeat)
 
     try:
         bottle.run(app=pipe_start_app, host=server.get_ip_addr(),
@@ -1060,7 +1090,16 @@ def main(args_str=None):
     except Exception as e:
         # cleanup gracefully
         server.cleanup()
+#end run_discovery_server
 
+def main(args_str=None):
+    if not args_str:
+        args_str = ' '.join(sys.argv[1:])
+    args = parse_args(args_str)
+    zk = DiscoveryZkClient(None, args.zk_server_ip, args.zk_server_port, 
+        args.reset_config)
+    zk.master_election("/discovery-server", os.getpid(),
+                                  run_discovery_server, args)
 # end main
 
 if __name__ == "__main__":

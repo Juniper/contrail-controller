@@ -114,6 +114,10 @@ extern void RouterIdDepInit();
 
 class Agent {
 public:
+    static const uint32_t kDefaultMaxLinkLocalOpenFds = 2048;
+    // max open files in the agent, excluding the linklocal bind ports
+    static const uint32_t kMaxOtherOpenFds = 64;
+
     enum VxLanNetworkIdentifierMode {
         AUTOMATIC,
         CONFIGURED
@@ -504,6 +508,10 @@ public:
         test_mode_ = true;
     }
 
+    void set_ksync_sync_mode(bool sync_mode) {
+        ksync_sync_mode_ = sync_mode;
+    }
+
     bool isXenMode();
 
     static Agent *GetInstance() {return singleton_;}
@@ -522,6 +530,7 @@ public:
     void CreateDBTables();
     void CreateDBClients();
     void CreateVrf();
+    void CreateNextHops();
     void CreateInterfaces();
     void InitModules();
     void InitDone();
@@ -635,6 +644,7 @@ private:
     uint16_t mirror_src_udp_port_;
     LifetimeManager *lifetime_manager_;
     bool test_mode_;
+    bool ksync_sync_mode_;
     std::string mgmt_ip_;
     static Agent *singleton_;
     VxLanNetworkIdentifierMode vxlan_network_identifier_mode_;

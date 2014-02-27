@@ -71,7 +71,33 @@ public:
         impl->PrintDoc(ss);
         msg = ss.str(); 
     }
-    
+
+    void BuildHeartBeatResponseMessage(std::string serviceNameTag, 
+                                       std::string &msg) {
+        stringstream ss;
+        ss << "200 OK";
+        msg = ss.str(); 
+    }
+
+    /* 503, Service Unavailable error is seen when proxy is not
+     * able to contact the Discovery Server, the error is in the 
+     * body of the message */
+    void BuildHeartBeat503ResponseMessage(std::string serviceNameTag,
+                                       std::string &msg) {
+
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        impl->LoadDoc("");
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+
+        pugi->AddChildNode("html", "");
+        pugi->AddChildNode("body", "");
+        pugi->AddChildNode("h1", "503 Service Unavailable");
+
+        stringstream ss;
+        impl->PrintDoc(ss);
+        msg = ss.str(); 
+    }
+
     void BuildNullServiceResponseMessage(std::string serviceNameTag, 
                                          std::string &msg) {
 
@@ -109,6 +135,19 @@ public:
         pugi->AddChildNode("response", "");
         pugi->AddChildNode(serviceNameTag.c_str(), "");
         pugi->AddChildNode("cookie", "952012c31dd56951b9177930af75c73e");
+
+        stringstream ss;
+        impl->PrintDoc(ss);
+        msg = ss.str(); 
+    }
+
+    void BuildPublishResponseMessageNocookie(std::string serviceNameTag, 
+                                             std::string &msg) {
+        auto_ptr<XmlBase> impl(XmppXmlImplFactory::Instance()->GetXmlImpl());
+        impl->LoadDoc("");
+        XmlPugi *pugi = reinterpret_cast<XmlPugi *>(impl.get());
+
+        pugi->AddChildNode("h1", "503 Service Unavailable");
 
         stringstream ss;
         impl->PrintDoc(ss);
@@ -181,6 +220,7 @@ TEST_F(DiscoveryServiceClientTest, DSS_no_publish_cb) {
     task_util::WaitForIdle(); 
 }
 
+
 // Test with real DSS daemon
 // Send publish message and wait for publish callback
 // which deletes the http client connection and session
@@ -197,6 +237,9 @@ TEST_F(DiscoveryServiceClientTest, DSS_with_publish_cb) {
     std::string msg;
     dsc_publish->BuildPublishMessage("ifmap-server-test", msg); 
     dsc_publish->Publish("ifmap-server-test", msg);
+
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
 
     //Wait for connection to be closed
     task_util::WaitForIdle(); 
@@ -623,6 +666,129 @@ TEST_F(DiscoveryServiceClientTest, Subscribe_1_Service_badresponse) {
     dsc->Shutdown(); // No more listening socket, clear sessions
     task_util::WaitForIdle(); 
     delete dsc;
+    task_util::WaitForIdle(); 
+}
+
+TEST_F(DiscoveryServiceClientTest, Publish_No_Cookie_Response) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_publish = 
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test1"));
+    dsc_publish->Init();
+
+    //publish a service
+    std::string msg;
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
+
+    // send publish response with no cookie
+    std::string msg2;
+    dsc_publish->BuildPublishResponseMessageNocookie("xmpp-server-test", msg2);
+    boost::system::error_code ec; 
+    dsc_publish->PublishResponseHandler(msg2, ec, "xmpp-server-test", NULL);
+
+    DSPublishResponse *resp = dsc_publish->GetPublishResponse("xmpp-server-test");
+    if (resp) {
+        EXPECT_TRUE(resp->pub_fail_ == 1);
+    }
+
+    EvmShutdown();
+
+    //withdraw publish service
+    dsc_publish->WithdrawPublish("xmpp-server-test");
+    task_util::WaitForIdle(); 
+    
+    dsc_publish->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle(); 
+    delete dsc_publish;
+    task_util::WaitForIdle(); 
+}
+
+TEST_F(DiscoveryServiceClientTest, HeartBeat) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_publish = 
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test1"));
+    dsc_publish->Init();
+
+    //publish a service
+    std::string msg;
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
+
+    // send publish response 
+    std::string msg2;
+    dsc_publish->BuildPublishResponseMessage("xmpp-server-test", msg2);
+    boost::system::error_code ec; 
+    dsc_publish->PublishResponseHandler(msg2, ec, "xmpp-server-test", NULL);
+
+    // send heart-beat response
+    std::string msg3;
+    dsc_publish->BuildHeartBeatResponseMessage("xmpp-server-test", msg3);
+    dsc_publish->HeartBeatResponseHandler(msg3, ec, "xmpp-server-test", NULL);
+
+    // ensure heart-beat parsed
+    DSPublishResponse *resp = dsc_publish->GetPublishResponse("xmpp-server-test");
+    if (resp) {
+        EXPECT_TRUE(resp->pub_hb_rcvd_ == 1);
+    }
+
+    EvmShutdown();
+
+    //withdraw publish service
+    dsc_publish->WithdrawPublish("xmpp-server-test");
+    task_util::WaitForIdle(); 
+    
+    dsc_publish->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle(); 
+    delete dsc_publish;
+    task_util::WaitForIdle(); 
+}
+
+TEST_F(DiscoveryServiceClientTest, HeartBeat_503_Response) {
+
+    ip::tcp::endpoint dss_ep;
+    dss_ep.address(ip::address::from_string("127.0.0.1"));
+    dss_ep.port(5998);
+    DiscoveryServiceClientMock *dsc_publish = 
+        (new DiscoveryServiceClientMock(evm_.get(), dss_ep, "DS-Test1"));
+    dsc_publish->Init();
+
+    //publish a service
+    std::string msg;
+    dsc_publish->BuildPublishMessage("xmpp-server-test", msg); 
+    dsc_publish->Publish("xmpp-server-test", msg);
+
+    // send publish response 
+    std::string msg2;
+    dsc_publish->BuildPublishResponseMessage("xmpp-server-test", msg2);
+    boost::system::error_code ec; 
+    dsc_publish->PublishResponseHandler(msg2, ec, "xmpp-server-test", NULL);
+
+    // send heart-beat response
+    std::string msg3;
+    dsc_publish->BuildHeartBeat503ResponseMessage("xmpp-server-test", msg3);
+    dsc_publish->HeartBeatResponseHandler(msg3, ec, "xmpp-server-test", NULL);
+
+    // ensure heart-beat parsed
+    DSPublishResponse *resp = dsc_publish->GetPublishResponse("xmpp-server-test");
+    if (resp) {
+        EXPECT_TRUE(resp->pub_hb_fail_ == 1);
+    }
+
+    EvmShutdown();
+
+    //withdraw publish service
+    dsc_publish->WithdrawPublish("xmpp-server-test");
+    task_util::WaitForIdle(); 
+    
+    dsc_publish->Shutdown(); // No more listening socket, clear sessions
+    task_util::WaitForIdle(); 
+    delete dsc_publish;
     task_util::WaitForIdle(); 
 }
 

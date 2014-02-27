@@ -276,6 +276,8 @@ class AddrMgmt(object):
                     subnet = ipam_subnet['subnet']
                     subnet_name = subnet['ip_prefix'] + '/' + str(
                         subnet['ip_prefix_len'])
+                    ip_net = IPNetwork(subnet_name);
+                    subnet['ip_prefix'] = u'' + str(ip_net.ip);
                     gateway_ip = ipam_subnet.get('default_gateway', None)
                     if not self._vninfo_subnet_is_present(vn_fq_name_str,
                                                           subnet_name):

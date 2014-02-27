@@ -33,11 +33,13 @@ void UDPServer::SetName (udp::endpoint ep)
     name_ = s.str();
 }
 
-UDPServer::~UDPServer ()
+UDPServer::~UDPServer()
 {
-    if (pbuf_)
-        delete[] pbuf_;
-    Reset ();
+    while (!pbuf_.empty()) {
+        delete[] pbuf_.back();
+        pbuf_.pop_back();
+    }
+    Reset();
 }
 
 void UDPServer::Reset ()
@@ -115,8 +117,9 @@ udp::endpoint UDPServer::GetLocalEndPoint ()
 
 mutable_buffer UDPServer::AllocateBuffer (std::size_t s)
 {
-    pbuf_ = new u_int8_t[s];
-    return mutable_buffer (pbuf_, s);
+    u_int8_t *p = new u_int8_t[s];
+    pbuf_.push_back (p);
+    return mutable_buffer (p, s);
 }
 
 mutable_buffer UDPServer::AllocateBuffer ()
@@ -126,35 +129,22 @@ mutable_buffer UDPServer::AllocateBuffer ()
 
 void UDPServer::DeallocateBuffer (boost::asio::const_buffer &buffer)
 {
-    delete[] buffer_cast<const uint8_t *>(buffer);
-}
-
-udp::endpoint *UDPServer::AllocateEndPoint (std::string ipaddress, short port)
-{
-    boost::system::error_code ec;
-    boost::asio::ip::address ip = boost::asio::ip::address::from_string(
-                ipaddress, ec);
-    if (ec)
-        return 0;
-    return new udp::endpoint(ip, port);
-}
-
-udp::endpoint *UDPServer::AllocateEndPoint ()
-{
-    return new udp::endpoint();
-}
-
-void UDPServer::DeallocateEndPoint (udp::endpoint *ep)
-{
-    delete ep;
+    const u_int8_t *p = buffer_cast<const uint8_t *>(buffer);
+    std::vector<u_int8_t *>::iterator f = std::find(pbuf_.begin(),
+        pbuf_.end(), p);
+    if (f != pbuf_.end())
+        pbuf_.erase(f);
+    delete[] p;
 }
 
 void UDPServer::StartSend(udp::endpoint &ep, std::size_t bytes_to_send,
     mutable_buffer buffer)
 {
     if (state_ == OK) {
+        boost::asio::const_buffer  b(buffer_cast<const uint8_t*>(buffer),
+                                        buffer_size(buffer));
         socket_.async_send_to (mutable_buffers_1 (buffer), ep,
-            boost::bind(&UDPServer::HandleSend, this, buffer, ep,
+            boost::bind(&UDPServer::HandleSend, this, b, ep,
               boost::asio::placeholders::bytes_transferred,
               boost::asio::placeholders::error));
     } else {
@@ -172,8 +162,7 @@ void UDPServer::StartReceive()
         
         socket_.async_receive_from(mutable_buffers_1 (b),
             remote_endpoint_, boost::bind(&UDPServer::HandleReceiveInternal,
-            this, buffer, remote_endpoint_,
-            boost::asio::placeholders::bytes_transferred,
+            this, buffer, boost::asio::placeholders::bytes_transferred,
             boost::asio::placeholders::error));
     } else {
         TCP_SERVER_LOG_ERROR(this, TCP_DIR_NA,
@@ -182,11 +171,9 @@ void UDPServer::StartReceive()
 }
 
 void UDPServer::HandleReceiveInternal (boost::asio::const_buffer recv_buffer,
-    udp::endpoint remote_endpoint, std::size_t bytes_transferred,
-    const boost::system::error_code& error)
+    std::size_t bytes_transferred, const boost::system::error_code& error)
 {
-    BufferRelease ();
-    HandleReceive (recv_buffer, remote_endpoint, bytes_transferred, error);
+    HandleReceive (recv_buffer, remote_endpoint_, bytes_transferred, error);
     StartReceive();
 }
 
@@ -194,7 +181,6 @@ void UDPServer::HandleReceive (boost::asio::const_buffer recv_buffer,
     udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error)
 {
-    BufferRelease ();
     if (!error || error == boost::asio::error::message_size)
     {
         // handle error == boost::asio::error::message_size
@@ -207,7 +193,7 @@ void UDPServer::HandleReceive (boost::asio::const_buffer recv_buffer,
     DeallocateBuffer (recv_buffer);
 }
 
-void UDPServer::HandleSend (mutable_buffer send_buffer,
+void UDPServer::HandleSend (boost::asio::const_buffer send_buffer,
     udp::endpoint remote_endpoint, std::size_t bytes_transferred,
     const boost::system::error_code& error)
 {

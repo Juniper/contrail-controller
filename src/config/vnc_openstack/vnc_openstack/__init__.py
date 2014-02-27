@@ -110,6 +110,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 if old_project_ids == new_project_ids:
                     # no change, go back to poll
                     gevent.sleep(self._resync_interval_secs)
+                    continue
 
                 for old_proj_id in old_project_ids - new_project_ids:
                     if old_proj_id in del_proj_list:
@@ -146,6 +147,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 old_project_ids = new_project_ids
 
             except Exception as e:
+                self._kc = None
                 cgitb.Hook(
                     format="text",
                     file=open(self._tmp_file_name,

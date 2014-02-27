@@ -22,6 +22,9 @@
 #include <sandesh/sandesh_connection.h>
 #include <sandesh/sandesh_state_machine.h>
 #include <sandesh/request_pipeline.h>
+#include <sandesh/sandesh_message_builder.h>
+#include <discovery/client/discovery_client.h>
+#include <discovery_client_stats_types.h>
 
 #include "collector.h"
 #include "viz_collector.h"
@@ -36,6 +39,7 @@ using namespace boost::assign;
 
 std::string Collector::prog_name_;
 std::string Collector::self_ip_;
+DiscoveryServiceClient *Collector::ds_client_;
 
 bool Collector::task_policy_set_ = false;
 const std::string Collector::kDbTask = "analytics::DbHandler";
@@ -143,16 +147,12 @@ bool Collector::ReceiveResourceUpdate(SandeshSession *session,
 }
 
 bool Collector::ReceiveSandeshMsg(SandeshSession *session,
-                                  const std::string& cmsg, const std::string& message_type,
-                                  const SandeshHeader& header, uint32_t xml_offset, bool rsc) {
-    std::string xml_message(cmsg.c_str() + xml_offset,
-                            cmsg.size() - xml_offset);
-
+                                  const SandeshMessage *msg, bool rsc) {
     rand_mutex_.lock();
     boost::uuids::uuid unm(umn_gen_());
     rand_mutex_.unlock();
 
-    boost::shared_ptr<VizMsg> vmsgp(new VizMsg(header, message_type, xml_message, unm));
+    VizMsg vmsg(msg, unm);
 
     VizSession *vsession = dynamic_cast<VizSession *>(session);
     if (!vsession) {
@@ -161,10 +161,10 @@ bool Collector::ReceiveSandeshMsg(SandeshSession *session,
         return false;
     }
     if (vsession->gen_) {
-        return vsession->gen_->ReceiveSandeshMsg(vmsgp, rsc);
+        return vsession->gen_->ReceiveSandeshMsg(&vmsg, rsc);
     } else {
         increment_no_generator_error();
-        LOG(ERROR, __func__ << ": Sandesh message " << message_type <<
+        LOG(ERROR, __func__ << ": Sandesh message " << msg->GetMessageType() <<
                 ": SandeshGenerator NOT PRESENT: Session: " << vsession->ToString());
         return false;
     }
@@ -550,4 +550,31 @@ void DbQueueParamsStatus::HandleRequest() const {
         return;
     }
     SendDbQueueParamsResponse(vsc->Analytics()->GetCollector(), context());
+}
+
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const { 
+
+    DiscoveryClientSubscriberStatsResponse *resp = 
+        new DiscoveryClientSubscriberStatsResponse(); 
+    resp->set_context(context());
+
+    resp->set_more(false); 
+    resp->Response(); 
+}
+
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {  
+
+    DiscoveryClientPublisherStatsResponse *resp = 
+        new DiscoveryClientPublisherStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientPublisherStats> stats_list;
+    DiscoveryServiceClient *ds = Collector::GetCollectorDiscoveryServiceClient();
+    if (ds) {   
+        ds->FillDiscoveryServicePublisherStats(stats_list);  
+    }
+
+    resp->set_publisher(stats_list);
+    resp->set_more(false);
+    resp->Response();
 }

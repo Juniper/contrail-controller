@@ -86,8 +86,9 @@ void AgentInit::DeleteRoutes() {
 }
 
 void AgentInit::DeleteNextHops() {
-    agent_->GetNextHopTable()->Delete(new DiscardNHKey());
-    agent_->GetNextHopTable()->Delete(new ResolveNHKey());
+    agent_->nexthop_table()->Delete(new DiscardNHKey());
+    agent_->nexthop_table()->Delete(new ResolveNHKey());
+    agent_->nexthop_table()->set_discard_nh(NULL);
 
     NextHopKey *key = new InterfaceNHKey
         (new PacketInterfaceKey(nil_uuid(), agent_->GetHostInterfaceName()),
@@ -182,8 +183,6 @@ void AgentInit::OnVrfCreate(DBEntryBase *entry) {
         agent_->SetDefaultInet4MulticastRouteTable
             (vrf->GetInet4MulticastRouteTable());
         agent_->SetDefaultLayer2RouteTable(vrf->GetLayer2RouteTable());
-        DiscardNH::CreateReq();
-        ResolveNH::CreateReq();
 
         // The notification is not needed after fabric vrf is created.
         // Unregister client to VRF table (in DB Task contex)
@@ -209,7 +208,16 @@ void AgentInit::CreateDefaultVrf() {
         vrf_table->CreateStaticVrf(agent_->GetLinkLocalVrfName());
     }
     vrf_table->CreateStaticVrf(agent_->GetDefaultVrf());
+}
 
+void AgentInit::CreateDefaultNextHops() {
+    DiscardNH::Create();
+    ResolveNH::Create();
+
+    DiscardNHKey key;
+    NextHop *nh = static_cast<NextHop *>
+                (agent_->nexthop_table()->FindActiveEntry(&key));
+    agent_->nexthop_table()->set_discard_nh(nh);
 }
 
 void AgentInit::CreateInterfaces(DB *db) {
@@ -261,6 +269,11 @@ bool AgentInit::Run() {
 
     case CREATE_VRF :
         agent_->CreateVrf();
+        state_ = CREATE_NEXTHOP;
+        // FALLTHRU;
+
+    case CREATE_NEXTHOP :
+        agent_->CreateNextHops();
         state_ = CREATE_INTERFACE;
         break;
 

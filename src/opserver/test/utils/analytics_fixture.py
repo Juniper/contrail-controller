@@ -79,7 +79,7 @@ class Collector(object):
             args.append('--dup')
         self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
                                           stderr=subprocess.PIPE)
-        self._logger.info('Setting up Vizd: 127.0.0.1:%d' % (self.listen_port)) 
+        self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
     # end start
 
     def stop(self):
@@ -405,6 +405,23 @@ class AnalyticsFixture(fixtures.Fixture):
             return False
         return True
 
+    @retry(delay=1, tries=10)
+    def verify_generator_uve_list(self, exp_gen_list):
+        self.logger.info('verify_generator_uve_list')
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        # get generator list
+        gen_list = vns.uve_query('generators?cfilt=ModuleClientState:client_info')
+        try:
+            actual_gen_list = [gen['name'] for gen in gen_list]
+            self.logger.info('generators: %s' % str(actual_gen_list))
+            for gen in exp_gen_list:
+                if gen not in actual_gen_list:
+                    return False
+        except Exception as e:
+            self.logger.error('Exception: %s' % e)
+        return True
+    # end verify_generator_uve_list
+
     @retry(delay=1, tries=6)
     def verify_message_table_messagetype(self):
         self.logger.info("verify_message_table_messagetype")
@@ -639,11 +656,21 @@ class AnalyticsFixture(fixtures.Fixture):
         res = vns.post_query('FlowSeriesTable',
                              start_time=str(generator_obj.flow_start_time),
                              end_time=str(generator_obj.flow_end_time),
-                             select_fields=['T'], where_clause='')
+                             select_fields=['T'], dir=1, where_clause='')
         self.logger.info(str(res))
-        if len(res) == generator_obj.num_flow_samples:
-            return True
-        return False
+        if len(res) != generator_obj.num_flow_samples:
+            return False
+        
+        vns = VerificationOpsSrv('127.0.0.1', self.opserver_port)
+        result = vns.post_query('FlowSeriesTable',
+                             start_time=str(generator_obj.egress_flow_start_time),
+                             end_time=str(generator_obj.egress_flow_end_time),
+                             select_fields=['T'], dir=0, where_clause='')
+        self.logger.info(str(result))
+        if len(result) != generator_obj.egress_num_flow_samples:
+            return False
+        
+        return True
     # end verify_flow_samples
 
     def verify_flow_table(self, generator_obj):
@@ -1028,6 +1055,112 @@ class AnalyticsFixture(fixtures.Fixture):
                 assert(False)
             assert(r['sum(bytes)'] == stats['sum(bytes)'])
             assert(r['sum(packets)'] == stats['sum(packets)'])
+        
+        # 6. direction_ing + stats
+        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == 1)
+        exp_sum_pkts = exp_sum_bytes = 0
+        for f in generator_obj.flows:
+            exp_sum_pkts += f.packets
+            exp_sum_bytes += f.bytes
+        direction_ing = generator_obj.flows[0].direction_ing
+        assert(res[0]['sum(packets)'] == exp_sum_pkts)
+        assert(res[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(res[0]['flow_count'] == generator_obj.flow_cnt)
+        assert(res[0]['direction_ing'] == direction_ing)
+        
+        self.logger.info('Flowseries: [direction_ing, sum(bytes), sum(packets), flow_count]')
+        result = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.egress_flow_start_time),
+            end_time=str(generator_obj.egress_flow_end_time),
+            select_fields=['direction_ing', 'sum(bytes)', 'sum(packets)', 'flow_count'],
+            where_clause='', dir=0)
+        self.logger.info(str(result))
+        assert(len(result) == 1)
+        exp_sum_pkts = exp_sum_bytes = 0
+        for f in generator_obj.egress_flows:
+            exp_sum_pkts += f.packets
+            exp_sum_bytes += f.bytes
+        direction_ing = generator_obj.egress_flows[0].direction_ing
+        assert(result[0]['sum(packets)'] == exp_sum_pkts)
+        assert(result[0]['sum(bytes)'] == exp_sum_bytes)
+        assert(result[0]['flow_count'] == generator_obj.flow_cnt)
+        assert(result[0]['direction_ing'] == direction_ing)
+        
+        # 7. T=<granularity> + tuples
+        self.logger.info(
+            'Flowseries: [T=<x>, sourcevn, destvn, sport, dport, protocol]')
+        st = str(generator_obj.flow_start_time)
+        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
+        granularity = 5
+        gms = 5 * 1000 * 1000
+        res = vns.post_query(
+            'FlowSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity), 'protocol', 'sourcevn', 'destvn',
+                           'sport', 'dport'],
+            where_clause='sourcevn=domain1:admin:vn1' +
+            'AND destvn=domain1:admin:vn2')
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        ts = [generator_obj.flow_start_time + (x * gms) \
+              for x in range(num_ts)]
+        exp_result = {}
+        
+        exp_result_cnt=0
+        for i in generator_obj.flows:
+            exp_result[exp_result_cnt] = {'T':ts[0], 'sourcevn':i.sourcevn, 
+                                  'destvn':i.destvn, 'sport':i.sport,  
+                                  'dport':i.dport, 'protocol':i.protocol,}
+            exp_result_cnt +=1
+
+        records = generator_obj.flow_cnt-1
+        for i in range(0,records):
+            exp_result[exp_result_cnt] = {'T':ts[1], 'sourcevn':generator_obj.flows[i].sourcevn,
+                                  'destvn':generator_obj.flows[i].destvn,
+                                  'sport':generator_obj.flows[i].sport,
+                                  'dport':generator_obj.flows[i].dport,
+                                  'protocol':generator_obj.flows[i].protocol,}
+            exp_result_cnt +=1
+
+        assert(exp_result_cnt == len(res))
+        count = 0
+        for r in res:
+             assert(r['T'] == exp_result[count]['T'])
+             assert(r['sourcevn'] == exp_result[count]['sourcevn'])
+             assert(r['destvn'] == exp_result[count]['destvn'])
+             assert(r['sport'] == exp_result[count]['sport'])
+             assert(r['dport'] == exp_result[count]['dport'])
+             assert(r['protocol'] == exp_result[count]['protocol'])
+             count +=1
+
+        # 8. Timestamp + stats
+        self.logger.info('Flowseries: [T, bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'bytes', 'packets'],
+            where_clause='')
+        self.logger.info(str(res))
+
+        for flow in generator_obj.flows:
+            for f in flow.samples:
+                found = 0
+                for r in res:
+                    if r['T'] == f._timestamp:
+                         assert(r['packets'] == f.flowdata.diff_packets)
+                         assert(r['bytes'] == f.flowdata.diff_bytes)
+                         found = 1
+                         break
+                assert(found)
 
         return True
     # end verify_flow_series_aggregation_binning
@@ -1060,17 +1193,30 @@ class AnalyticsFixture(fixtures.Fixture):
         return True
 
     @retry(delay=2, tries=5)
-    def verify_collector_redis_uve_connection(self, collector): 
+    def verify_collector_redis_uve_connection(self, collector, connected=True):
+        self.logger.info('verify_collector_redis_uve_connection')
         vcl = VerificationCollector('127.0.0.1', collector.http_port)
         try:
             redis_uve = vcl.get_redis_uve_info()['RedisUveInfo']
-            if redis_uve['status'] != 'Connected':
-                return False
+            if redis_uve['status'] == 'Connected':
+                return connected
         except Exception as err:
             self.logger.error('Exception: %s' % err)
-            return False
-        return True
+        return not connected
     # end verify_collector_redis_uve_connection 
+
+    @retry(delay=2, tries=5)
+    def verify_opserver_redis_uve_connection(self, opserver, connected=True):
+        self.logger.info('verify_opserver_redis_uve_connection')
+        vops = VerificationOpsSrv('127.0.0.1', opserver.http_port)
+        try:
+            redis_uve = vops.get_redis_uve_info()['RedisUveInfo']
+            if redis_uve['status'] == 'Connected':
+                return connected
+        except Exception as err:
+            self.logger.error('Exception: %s' % err)
+        return not connected
+    # end verify_opserver_redis_uve_connection
 
     @retry(delay=2, tries=5)
     def verify_tracebuffer_in_analytics_db(self, src, mod, tracebuf):

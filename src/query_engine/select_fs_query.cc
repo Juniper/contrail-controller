@@ -71,23 +71,23 @@ void SelectQuery::get_flow_class(const flow_tuple& tuple, flow_tuple& flowclass)
     for (it = select_column_fields.begin(); 
          it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_VROUTER)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER]) {
             flowclass.vrouter = tuple.vrouter;
-        }  else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second) {
+        }  else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]) {
             flowclass.source_vn = tuple.source_vn;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]) {
             flowclass.source_ip = tuple.source_ip;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]) {
             flowclass.dest_vn = tuple.dest_vn;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]) {
             flowclass.dest_ip = tuple.dest_ip;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]) {
             flowclass.protocol = tuple.protocol;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]) {
             flowclass.source_port = tuple.source_port;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT]) {
             flowclass.dest_port = tuple.dest_port;
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             flowclass.direction = tuple.direction;
         }
     }
@@ -107,24 +107,24 @@ void SelectQuery::fs_write_final_result_row(const uint64_t *t,
     for (std::vector<std::string>::const_iterator it = 
          select_column_fields.begin(); it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_VROUTER)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_VROUTER]) {
             cmap.insert(std::make_pair(*it, tuple->vrouter));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEVN]) {
             cmap.insert(std::make_pair(*it, tuple->source_vn));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SOURCEIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SOURCEIP]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->source_ip)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTVN)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTVN]) {
             cmap.insert(std::make_pair(*it, tuple->dest_vn));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DESTIP)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DESTIP]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->dest_ip)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_PROTOCOL)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_PROTOCOL]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->protocol)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_SPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_SPORT]) {
             cmap.insert(std::make_pair(*it, 
                         integerToString(tuple->source_port)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DPORT)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DPORT]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->dest_port)));
-        } else if (qstring == g_viz_constants.FlowRecordNames.find(FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        } else if (qstring == g_viz_constants.FlowRecordNames[FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             cmap.insert(std::make_pair(*it, integerToString(tuple->direction)));
         } else if (qstring == SELECT_FLOW_CLASS_ID) {
             insert_flow_class_id = true;

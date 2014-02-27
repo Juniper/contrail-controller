@@ -272,7 +272,6 @@ int InterfaceKSyncEntry::Encode(sandesh_op::type op, char *buf, int buf_len) {
         std::vector<int8_t> intf_mac(mac(), mac() + ETHER_ADDR_LEN);
         encoder.set_vifr_mac(intf_mac);
         flags |= VIF_FLAG_L3_ENABLED;
-        // flags |= VIF_FLAG_POLICY_ENABLED;
         break;
     }
 

@@ -34,8 +34,13 @@
             <subnet>1.1.1.1/24</subnet>
         </gateway>
 
-	<metadata-proxy>
+        <metadata-proxy>
             <shared-secret>contrail</shared-secret>
         </metadata-proxy>
+
+        <linklocal-flows>
+            <max-system-flows>1024</max-system-flows>
+            <max-vm-flows>512</max-vm-flows>
+        </linklocal-flows>
     </agent>
 </config>

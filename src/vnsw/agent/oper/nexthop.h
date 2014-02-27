@@ -243,19 +243,37 @@ public:
     bool IsLess(const TunnelType &rhs) const {
         return type_ < rhs.type_;
     }
-    const char *ToString() const {
-        switch (type_) {
-        case MPLS_GRE:
-            return "MPLSoGRE";
-        case MPLS_UDP:
-            return "MPLSoUDP";
-        case VXLAN:
-            return "VXLAN";    
-        default:
-            break;
+
+   std::string ToString() const {
+       switch (type_) {
+       case MPLS_GRE:
+           return "MPLSoGRE";
+       case MPLS_UDP:
+           return "MPLSoUDP";
+       case VXLAN:
+           return "VXLAN";
+       default:
+           break;
+       }
+       return "UNKNOWN";
+   }
+
+    static std::string GetString(uint32_t type) {
+        std::ostringstream tunnel_type;
+        if (type & (1 << MPLS_GRE)) {
+            tunnel_type << "MPLSoGRE ";
         }
-        return "UNKNOWN";
+
+        if (type & (1 << MPLS_UDP)) {
+            tunnel_type << "MPLSoUDP ";
+        }
+
+        if (type & ( 1 << VXLAN)) {
+            tunnel_type << "VxLAN";
+        }
+        return tunnel_type.str();
     }
+
     Type GetType() const {return type_;}
     void SetType(TunnelType::Type type) {type_ = type;}
 
@@ -267,6 +285,8 @@ public:
     static TypeBmap MplsType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP));};
     static TypeBmap AllType() {return ((1 << MPLS_GRE) | (1 << MPLS_UDP) | 
                                        (1 << VXLAN));}
+    static TypeBmap GREType() {return (1 << MPLS_GRE);}
+    static TypeBmap UDPType() {return (1 << MPLS_UDP);}
     static bool EncapPrioritySync(const std::vector<std::string> &cfg_list);
     static void DeletePriorityList();
 
@@ -416,7 +436,7 @@ public:
         return DBEntryBase::KeyPtr(new DiscardNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 
 private:
     DISALLOW_COPY_AND_ASSIGN(DiscardNH);
@@ -528,7 +548,7 @@ public:
         return DBEntryBase::KeyPtr(new ResolveNHKey());
     };
 
-    static void CreateReq();
+    static void Create();
 private:
     DISALLOW_COPY_AND_ASSIGN(ResolveNH);
 };
@@ -1260,10 +1280,15 @@ public:
     static DBTableBase *CreateTable(DB *db, const std::string &name);
     static NextHopTable *GetInstance() {return nexthop_table_;};
 
+    void set_discard_nh(NextHop *nh) { discard_nh_ = nh; }
+    NextHop *discard_nh() const {return discard_nh_;}
+
 private:
-    static NextHopTable *nexthop_table_;
     NextHop *AllocWithKey(const DBRequestKey *k) const;
     virtual std::auto_ptr<DBEntry> GetEntry(const DBRequestKey *key) const;
+
+    NextHop *discard_nh_;
+    static NextHopTable *nexthop_table_;
     DISALLOW_COPY_AND_ASSIGN(NextHopTable);
 };
 #endif // vnsw_agent_nexthop_hpp

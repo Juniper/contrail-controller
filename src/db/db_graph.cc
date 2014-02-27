@@ -111,7 +111,8 @@ typedef std::map<DBGraph::Vertex, default_color_type> ColorMap;
 
 void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
                     EdgeVisitor edge_visit_fn, VertexFinish vertex_finish_fn) {
-    BFSVisitor<graph_t> vis(vertex_visit_fn, edge_visit_fn, vertex_finish_fn);
+    const BFSVisitor<graph_t> vis(vertex_visit_fn, edge_visit_fn,
+                                  vertex_finish_fn);
     ColorMap color_map;
     breadth_first_search(graph_, start->vertex(),
         visitor(vis).color_map(make_assoc_property_map(color_map)));
@@ -119,7 +120,7 @@ void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
 
 void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
                     EdgeVisitor edge_visit_fn) {
-    BFSVisitor<graph_t> vis(vertex_visit_fn, edge_visit_fn);
+    const BFSVisitor<graph_t> vis(vertex_visit_fn, edge_visit_fn);
     ColorMap color_map;
     breadth_first_search(graph_, start->vertex(),
         visitor(vis).color_map(make_assoc_property_map(color_map)));
@@ -173,7 +174,7 @@ void DBGraph::Visit(DBGraphVertex *start, VertexVisitor vertex_visit_fn,
     VertexPredicate vertex_test(this, filter);
     filtered_graph_t gfiltered(graph_, edge_test, vertex_test);
 
-    BFSVisitor<filtered_graph_t> vis(vertex_visit_fn, edge_visit_fn);
+    const BFSVisitor<filtered_graph_t> vis(vertex_visit_fn, edge_visit_fn);
     ColorMap color_map;
     breadth_first_search(gfiltered, start->vertex(),
             visitor(vis).color_map(make_assoc_property_map(color_map)));

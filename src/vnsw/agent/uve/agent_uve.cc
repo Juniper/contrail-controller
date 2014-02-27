@@ -25,10 +25,10 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl)
     : vn_uve_table_(new VnUveTable(agent)), 
       vm_uve_table_(new VmUveTable(agent)), 
       vrouter_uve_entry_(new VrouterUveEntry(agent)),
-      agent_(agent), bandwidth_intvl_(intvl),
       agent_stats_collector_(new AgentStatsCollector(
                                  *(agent->GetEventManager()->io_service()),
                                  agent)),
+      agent_(agent), bandwidth_intvl_(intvl),
       vrouter_stats_collector_(new VrouterStatsCollector(
                                    *(agent->GetEventManager()->io_service()), 
                                    this)),
