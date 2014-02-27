@@ -6,6 +6,7 @@
 #include "base/util.h"
 
 #include <cassert>
+#include <sstream>
 #include <string>
 #include <string.h>
 
@@ -581,16 +582,34 @@ void BitSet::FromString(string str) {
         set(0);
 }
 
+//
+// Returns numbered string representation of the bitset. The numbers are the
+// bit positions that are set in the bitset.  Consecutive bit positions are
+// represented as x-y and a comma is used as a separator for non-consecutive
+// positions.
+//
 string BitSet::ToNumberedString() const {
-    string str;
-    if (count()) {
-        size_t number = find_first();
-        str = integerToString(number);
-        for (size_t i = 1; i < count(); ++i) {
-            number = find_next(number);
-            str += "," + integerToString(number);
+    ostringstream oss;
+
+    bool range = false;
+    size_t last_pos = BitSet::npos;
+    for (size_t pos = find_first(); pos != BitSet::npos;
+         last_pos = pos, pos = find_next(pos)) {
+        if (last_pos == BitSet::npos) {
+            oss << integerToString(pos);
+        } else if (pos == last_pos + 1) {
+            range = true;
+        } else if (range) {
+            oss << "-" << integerToString(last_pos);
+            oss << "," << integerToString(pos);
+            range = false;
+        } else {
+            oss << "," << integerToString(pos);
         }
     }
-    return str;
-}
 
+    if (range)
+       oss << "-" << integerToString(last_pos);
+
+    return oss.str();
+}
