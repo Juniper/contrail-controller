@@ -82,6 +82,7 @@ private:
     typedef std::vector<autogen::LinklocalServiceEntryType> LinkLocalServiceList;
 
     void UpdateLinkLocalServiceConfig(const LinkLocalServiceList &linklocal_list);
+    void DeleteLinkLocalServiceConfig();
     bool ChangeNotify(LinkLocalServicesMap *old_value,
                       LinkLocalServicesMap *new_value);
     void AddLinkLocalService(const LinkLocalServicesMap::iterator &it);
