@@ -126,7 +126,7 @@ std::string XmppConnection::ToString() const {
 
 std::string XmppConnection::ToUVEKey() const {
     std::ostringstream out;
-    out << ToString() << ":" << endpoint().address().to_string();
+    out << FromString() << ":" << endpoint().address().to_string();
     return out.str();
 }
 
