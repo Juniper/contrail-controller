@@ -48,6 +48,9 @@ vnc_cfg_env.Prepend(LIBS = ['ifmap_vnc', 'ifmap_server', 'ifmap_common'])
 env.Alias('src/schema:id_perms_test',
           vnc_cfg_env.UnitTest('id_perms_test', ['id_perms_test.cc']))
 
+env.Alias('src/schema:display_name_test',
+	vnc_cfg_env.UnitTest('display_name_test', ['display_name_test.cc']))
+
 #vnc_cfg_env.Append(LIBPATH = '#/build/lib')
 #vnc_cfg_env.Append(LIBS = ['ifmapio', 'ifmapclient', 'curl', 'libxml2'])
 #vnc_cfg_test = vnc_cfg_env.Program('vnc_cfg_test', ['vnc_cfg_test.cc'])
