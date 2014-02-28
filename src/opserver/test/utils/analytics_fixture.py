@@ -1143,23 +1143,151 @@ class AnalyticsFixture(fixtures.Fixture):
 
         # 8. Timestamp + stats
         self.logger.info('Flowseries: [T, bytes, packets]')
+        # testing for flows at index 1 in generator_obj.flows
+        flow = generator_obj.flows[1]
         res = vns.post_query(
             'FlowSeriesTable',
             start_time=str(generator_obj.flow_start_time),
             end_time=str(generator_obj.flow_end_time),
             select_fields=['T', 'bytes', 'packets'],
+            where_clause='sourcevn=%s' %(flow.sourcevn) +
+            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+        self.logger.info(str(res))
+        
+        assert(len(res) == len(flow.samples))
+        for f in flow.samples:
+            found = 0
+            for r in res:
+                if r['T'] == f._timestamp:
+                      assert(r['packets'] == f.flowdata.diff_packets)
+                      assert(r['bytes'] == f.flowdata.diff_bytes)
+                      found = 1
+                      break
+            assert(found)
+
+        # 9. Raw bytes and packets
+        self.logger.info('Flowseries: [bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['bytes', 'packets'],
             where_clause='')
         self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        sorted_res = sorted(res, key=itemgetter('packets', 'bytes'))
+        flow = []
+        for f in generator_obj.flows:
+            for s in f.samples:
+                flow.append({'packets':s.flowdata.diff_packets,
+                            'bytes':s.flowdata.diff_bytes})
+        sorted_flow = sorted(flow, key=itemgetter('packets', 'bytes'))
+        assert(sorted_res == sorted_flow)
 
+        # 10. Timestamp
+        self.logger.info('Flowseries: [T]')
+        # testing for flows at index 1 in generator_obj.flows
+        flow = generator_obj.flows[1]
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T'],
+            where_clause='sourcevn=%s' %(flow.sourcevn) +
+            'AND destvn=%s AND sport= %d' %(flow.destvn, flow.sport) +
+            'AND dport=%d AND protocol=%d' %(flow.dport, flow.protocol))
+        self.logger.info(str(res))
+        assert(len(res) == len(flow.samples))
+        sorted_res = sorted(res, key=itemgetter('T'))
+        
+        cnt = 0
+        for f in flow.samples:
+            assert(sorted_res[cnt]['T'] == f._timestamp)
+            cnt+= 1
+
+        # 11. T=<granularity>
+        self.logger.info('Flowseries: [T=<x>]')
+        st = str(generator_obj.flow_start_time)
+        et = str(generator_obj.flow_start_time + (10 * 1000 * 1000))
+        granularity = 5
+        gms = 5 * 1000 * 1000
+        res = vns.post_query(
+            'FlowSeriesTable', start_time=st, end_time=et,
+            select_fields=['T=%s' % (granularity)],
+            where_clause='sourcevn=domain1:admin:vn1' +
+            'AND destvn=domain1:admin:vn2')
+        diff_t = int(et) - int(st)
+        num_ts = (diff_t/gms) + bool(diff_t%gms)
+        ts = []
+        for x in range(num_ts):
+            ts.append({'T':generator_obj.flow_start_time + (x * gms)})
+        self.logger.info(str(res))
+        assert(res == ts)
+
+        # 12. Flow tuple
+        self.logger.info('Flowseries: [protocol, sport, dport]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['protocol', 'sport', 'dport'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
         for flow in generator_obj.flows:
-            for f in flow.samples:
+            found = 0
+            for r in res:
+                if flow.sport == r['sport']:
+                    assert(r['dport'] == flow.dport)
+                    assert(r['protocol'] == flow.protocol)
+                    found = 1
+            assert(found)
+
+        # 13. T + flow tuple
+        self.logger.info('Flowseries: [T, protocol, sport, dport]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'protocol', 'sport', 'dport'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        for flow in generator_obj.flows:
+            sport = flow.sport
+            for sample in flow.samples:
                 found = 0
                 for r in res:
-                    if r['T'] == f._timestamp:
-                         assert(r['packets'] == f.flowdata.diff_packets)
-                         assert(r['bytes'] == f.flowdata.diff_bytes)
-                         found = 1
-                         break
+                    if r['T'] == sample._timestamp and r['sport'] == sport:
+                        assert(r['protocol'] == flow.protocol)
+                        assert(r['dport'] == flow.dport)
+                        found = 1
+                        break
+                assert(found) 
+
+        # 14. T + flow tuple + stats
+        self.logger.info('Flowseries: [T, protocol, sport, dport, bytes, packets]')
+        res = vns.post_query(
+            'FlowSeriesTable',
+            start_time=str(generator_obj.flow_start_time),
+            end_time=str(generator_obj.flow_end_time),
+            select_fields=['T', 'protocol', 'sport', 'dport', 'bytes', 'packets'],
+            where_clause='')
+        self.logger.info(str(res))
+        assert(len(res) == generator_obj.num_flow_samples)
+        for flow in generator_obj.flows:
+            sport = flow.sport
+            for sample in flow.samples:
+                found = 0
+                for r in res:
+                    if r['T'] == sample._timestamp and r['sport'] == sport:
+                        assert(r['protocol'] == flow.protocol)
+                        assert(r['dport'] == flow.dport)
+                        assert(r['bytes'] == sample.flowdata.diff_bytes)
+                        assert(r['packets'] == sample.flowdata.diff_packets)
+                        found = 1
+                        break
                 assert(found)
 
         return True
