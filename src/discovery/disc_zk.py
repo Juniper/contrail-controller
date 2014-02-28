@@ -57,7 +57,12 @@ class DiscoveryZkClient(object):
     def connect(self, restart = False):
         while True:
             try:
-                self._zk.restart() if restart else self._zk.start()
+                if restart:
+                    self._zk.stop() 
+                    self._zk.cancel() 
+                    self._zk.start() 
+                else:
+                    self._zk.start()
                 break
             except gevent.event.Timeout as e:
                 self.syslog(
