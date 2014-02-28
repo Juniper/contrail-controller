@@ -184,4 +184,5 @@ if AnalyticsEnv.get('OPT') == 'coverage':
     test_coverage = AnalyticsEnv.Command(Dir('test_coverage'), '', code_coverage)
     AnalyticsEnv.AlwaysBuild(test_coverage)
     AnalyticsEnv.Alias('src/analytics:test_coverage', test_coverage)
+    AnalyticsEnv.Depends(test_coverage, 'src/analytics:test')
 

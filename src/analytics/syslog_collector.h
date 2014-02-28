@@ -10,7 +10,6 @@
 #include "io/io_log.h"
 #include "viz_message.h"
 #include "db_handler.h"
-#include "ruleeng.h"
 
 typedef boost::function<bool(const boost::shared_ptr<VizMsg>, bool,
     DbHandler *)> VizCallback;
@@ -67,10 +66,10 @@ class SyslogListeners : public SyslogUDPListener,
 {
     public:
       static const int kDefaultSyslogPort = 514;
-      SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+      SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, std::string ipaddress,
         int port=kDefaultSyslogPort);
-      SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+      SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, int port=kDefaultSyslogPort);
       virtual void Start ();
       virtual void Shutdown ();
