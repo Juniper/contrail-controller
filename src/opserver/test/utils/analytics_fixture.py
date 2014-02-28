@@ -236,7 +236,8 @@ class QueryEngine(object):
 # end class QueryEngine
 
 class Redis(object):
-    def __init__(self):
+    def __init__(self,builddir):
+        self.builddir = builddir
         self.port = AnalyticsFixture.get_free_port()
         self.running = False
     # end __init__
@@ -244,7 +245,7 @@ class Redis(object):
     def start(self):
         assert(self.running == False)
         self.running = True
-        mockredis.start_redis(self.port) 
+        mockredis.start_redis(self.port,self.builddir+'/testroot/bin/redis-server') 
     # end start
 
     def stop(self):
@@ -268,9 +269,9 @@ class AnalyticsFixture(fixtures.Fixture):
     def setUp(self):
         super(AnalyticsFixture, self).setUp()
 
-        self.redis_uves = [Redis()]
+        self.redis_uves = [Redis(self.builddir)]
         self.redis_uves[0].start()
-        self.redis_query = Redis()
+        self.redis_query = Redis(self.builddir)
         self.redis_query.start()
 
         self.collectors = [Collector(self, self.redis_uves[0], self.logger)] 
@@ -281,7 +282,7 @@ class AnalyticsFixture(fixtures.Fixture):
             primary_collector = self.collectors[0].get_addr()
             secondary_collector = None
             if self.collector_ha_test:
-                self.redis_uves.append(Redis())
+                self.redis_uves.append(Redis(self.builddir))
                 self.redis_uves[1].start()
                 self.collectors.append(Collector(self, self.redis_uves[1],
                                                  self.logger, True))
