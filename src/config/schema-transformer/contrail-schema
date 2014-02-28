@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import cgitb
+import sys
+import schema_transformer
+
+from schema_transformer.to_bgp import main
+
+if __name__ == "__main__":
+   cgitb.enable(format='text')
+   main()
