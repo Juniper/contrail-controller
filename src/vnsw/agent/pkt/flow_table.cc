@@ -255,8 +255,9 @@ done:
 }
 
 void FlowEntry::GetSgList(const Interface *intf) {
-    // Dont apply network-policy for linklocal flow
-    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
+    // Dont apply network-policy for linklocal and subnet broadcast flow
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::Multicast)) {
         return;
     }
 
@@ -348,8 +349,9 @@ void FlowEntry::GetPolicy(const VnEntry *vn) {
         data_.match_p.m_mirror_acl_l.push_back(acl);
     }
 
-    // Dont apply network-policy for linklocal flow
-    if (is_flags_set(FlowEntry::LinkLocalFlow)) {
+    // Dont apply network-policy for linklocal and subnet broadcast flow
+    if (is_flags_set(FlowEntry::LinkLocalFlow) ||
+        is_flags_set(FlowEntry::Multicast)) {
         return;
     }
 
@@ -528,6 +530,9 @@ void FlowTable::UpdateReverseFlow(FlowEntry *flow, FlowEntry *rflow) {
         if (flow->is_flags_set(FlowEntry::ShortFlow) ||
             rflow->is_flags_set(FlowEntry::ShortFlow)) {
             flow->MakeShortFlow();
+        }
+        if (flow->is_flags_set(FlowEntry::Multicast)) {
+            rflow->set_flags(FlowEntry::Multicast);
         }
     }
 }
@@ -876,6 +881,12 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     reset_flags(FlowEntry::Trap);
     data_.source_plen = info->source_plen;
     data_.dest_plen = info->dest_plen;
+    if (ctrl->rt_ && ctrl->rt_->is_multicast()) {
+        set_flags(FlowEntry::Multicast);
+    }
+    if (rev_ctrl->rt_ && rev_ctrl->rt_->is_multicast()) {
+        set_flags(FlowEntry::Multicast);
+    }
 }
 
 void FlowEntry::InitRevFlow(const PktFlowInfo *info,

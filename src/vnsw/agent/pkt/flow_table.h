@@ -235,7 +235,8 @@ class FlowEntry {
         EcmpFlow        = 1 << 5,
         IngressDir      = 1 << 6,
         Trap            = 1 << 7,
-        LinkLocalBindLocalSrcPort = 1 << 8 // a local port bind is done (used as
+        Multicast       = 1 << 8,
+        LinkLocalBindLocalSrcPort = 1 << 9 // a local port bind is done (used as
                                            // src port for linklocal nat)
     };
     FlowEntry(const FlowKey &k);
