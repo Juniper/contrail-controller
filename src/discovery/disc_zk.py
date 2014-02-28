@@ -59,7 +59,7 @@ class DiscoveryZkClient(object):
             try:
                 if restart:
                     self._zk.stop() 
-                    self._zk.cancel() 
+                    self._zk.close() 
                     self._zk.start() 
                 else:
                     self._zk.start()
