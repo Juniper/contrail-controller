@@ -123,7 +123,9 @@ class DiscoveryService(object):
         while True:
             try:
                 if restart:
-                    self._zk_client.restart()
+                    self._zk_client.stop()
+                    self._zk_client.close()
+                    self._zk_client.start()
                 else:
                     self._zk_client.start()
                 break
