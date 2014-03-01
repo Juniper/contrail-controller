@@ -788,7 +788,7 @@ class VncKombuClient(object):
     def _init_server_conn(self):
         while True:
             try:
-                self._conn = kombu.Connection('amqp://guest:guest@localhost:5673//')
+                self._conn = kombu.Connection('amqp://guest:guest@localhost:5672//')
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
 
                 old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
