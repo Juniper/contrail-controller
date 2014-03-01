@@ -37,7 +37,7 @@ from cfgm_common.ifmap.util import attr, link_ids
 from cfgm_common.ifmap.response import Response, newSessionResult
 from cfgm_common.ifmap.metadata import Metadata
 from cfgm_common import obj_to_json
-from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
 
 import copy
 import json
@@ -45,12 +45,12 @@ import uuid
 import datetime
 import pycassa
 import pycassa.util
+import pycassa.cassandra.ttypes
 from pycassa.system_manager import *
 from datetime import datetime
 from pycassa.util import *
 
-import redis
-import redis.exceptions
+import kombu
 
 #from cfgm_common import vnc_type_conv
 from provision_defaults import *
@@ -425,29 +425,43 @@ class VncCassandraClient(VncCassandraClientGen):
             useragent_ks_name, server_list, max_overflow=-1,
             pool_timeout=300, max_retries=100, timeout=300)
 
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         self._obj_uuid_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._OBJ_UUID_CF_NAME)
+            uuid_pool, VncCassandraClient._OBJ_UUID_CF_NAME,
+            read_consistency_level = rd_consistency,
+            write_consistency_level = wr_consistency)
         self._obj_fq_name_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._OBJ_FQ_NAME_CF_NAME)
+            uuid_pool, VncCassandraClient._OBJ_FQ_NAME_CF_NAME,
+            read_consistency_level = rd_consistency,
+            write_consistency_level = wr_consistency)
 
         self._useragent_kv_cf = pycassa.ColumnFamily(
-            useragent_pool, VncCassandraClient._USERAGENT_KV_CF_NAME)
+            useragent_pool, VncCassandraClient._USERAGENT_KV_CF_NAME,
+            read_consistency_level = rd_consistency,
+            write_consistency_level = wr_consistency)
         self._subnet_cf = pycassa.ColumnFamily(
-            uuid_pool, VncCassandraClient._SUBNET_CF_NAME)
+            uuid_pool, VncCassandraClient._SUBNET_CF_NAME,
+            read_consistency_level = rd_consistency,
+            write_consistency_level = wr_consistency)
 
     # end _cassandra_init
 
     def _cassandra_ensure_keyspace(self, server_list,
                                    keyspace_name, cf_info_list):
         # Retry till cassandra is up
+        server_idx = 0
+        num_dbnodes = len(server_list)
         connected = False
         while not connected:
             try:
-                sys_mgr = SystemManager(server_list[0])
+                cass_server = server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
                 connected = True
             except Exception as e:
                 # TODO do only for
                 # thrift.transport.TTransport.TTransportException
+                server_idx = (server_idx + 1) % num_dbnodes
                 time.sleep(3)
 
         if self._reset_config:
@@ -458,9 +472,8 @@ class VncCassandraClient(VncCassandraClientGen):
                 print "Warning! " + str(e)
 
         try:
-            # TODO replication_factor adjust?
             sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
-                                    {'replication_factor': '1'})
+                                    {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
             print "Warning! " + str(e)
@@ -774,54 +787,85 @@ class VncCassandraClient(VncCassandraClientGen):
 # end class VncCassandraClient
 
 
-class VncRedisClient(object):
-    def __init__(self, db_client_mgr, redis_srv_ip, redis_srv_port, ifmap_db):
+class VncKombuClient(object):
+    def _init_server_conn(self):
+        while True:
+            try:
+                self._conn = kombu.Connection('amqp://guest:guest@localhost:5672//')
+                self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
+
+                old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
+                self._dbe_oper_subscribe_greenlet = gevent.spawn(self._dbe_oper_subscribe)
+                if old_subscribe_greenlet:
+                    old_subscribe_greenlet.kill()
+
+                break
+            except Exception as e:
+                print "Exception in _init_server_conn: %s" %(str(e))
+                time.sleep(2)
+    # end _init_server_conn
+
+    def __init__(self, db_client_mgr, ifmap_db):
         self._db_client_mgr = db_client_mgr
-        self._redis_srv_ip = redis_srv_ip
-        self._redis_srv_port = redis_srv_port
         self._ifmap_db = ifmap_db
-        self._connect()
-    #end __init__
 
-    def _reconnect(self, greenlet):
-        print "_dbe_oper_subscribe exited"
-        try:
-            self._async_conn.close()
-            #self._sync_conn.close()
-        except Exception:
-            pass
-        time.sleep(1)
-        self._connect()
+        obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
+                                          durable=False)
 
-    def _connect(self):
-        self._sync_conn = redis.StrictRedis(host=self._redis_srv_ip,
-                                            port=int(self._redis_srv_port))
-        self._async_conn = self._sync_conn.pubsub()
-        g = gevent.spawn(self._dbe_oper_subscribe)
-        g.link(self._reconnect)
-    # end _connect
+        listen_port = self._db_client_mgr.get_server_port()
+        q_name = 'vnc_config.%s-%s' %(socket.gethostname(), listen_port)
+        self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
 
-    def dbe_create(self, obj_ids, val):
-        self._sync_conn.set(obj_ids['uuid'], json.dumps(val))
-    #end dbe_create
+        self._dbe_oper_subscribe_greenlet = None
+        self._init_server_conn()
+    # end __init__
 
-    def dbe_read(self, obj_ids):
-        val = self._sync_conn.get(obj_ids['uuid'])
-        if val:
-            return (True, json.loads(val))
-        else:
-            return (False, None)
-    #end dbe_read
+    def _obj_update_q_put(self, *args, **kwargs):
+        while True:
+            try:
+                self._obj_update_q.put(*args, **kwargs)
+                break
+            except socket.error as e:
+                time.sleep(1)
+                self._init_server_conn()
+    # end _obj_update_q_put
 
-    def dbe_invalidate(self, obj_ids):
-        self._sync_conn.delete([obj_ids['uuid']])
-    #end dbe_invalidate
+    def _dbe_oper_subscribe(self):
+        self._db_client_mgr.wait_for_resync_done()
+        obj_upd_exchange = kombu.Exchange('object-update-xchg', 'fanout',
+                                          durable=False)
+
+        with self._conn.SimpleQueue(self._update_queue_obj) as queue:
+            while True:
+                try:
+                    message = queue.get()
+                except socket.error as e:
+                    self._init_server_conn()
+                    # never reached
+                    continue
+
+                try:
+                    oper_info = message.payload
+                    print "\nNotification Message: %s\n" %(pformat(oper_info))
+
+                    if oper_info['oper'] == 'CREATE':
+                        self._dbe_create_notification(oper_info)
+                    if oper_info['oper'] == 'UPDATE':
+                        self._dbe_update_notification(oper_info)
+                    elif oper_info['oper'] == 'DELETE':
+                        self._dbe_delete_notification(oper_info)
+                except Exception as e:
+                    print "Exception in _dbe_oper_subscribe: " + str(e)
+                finally:
+                    message.ack()
+
+    #end _dbe_oper_subscribe
 
     def dbe_create_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'CREATE', 'type': obj_type, 'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
-    #end dbe_create_publish
+        self._obj_update_q_put(oper_info, serializer='json')
+    # end dbe_create_publish
 
     def _dbe_create_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
@@ -840,8 +884,8 @@ class VncRedisClient(object):
     def dbe_update_publish(self, obj_type, obj_ids):
         oper_info = {'oper': 'UPDATE', 'type': obj_type}
         oper_info.update(obj_ids)
-        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
-    #end dbe_update_publish
+        self._obj_update_q_put(oper_info, serializer='json')
+    # end dbe_update_publish
 
     def _dbe_update_notification(self, obj_info):
         r_class = self._db_client_mgr.get_resource_class(obj_info['type'])
@@ -866,8 +910,8 @@ class VncRedisClient(object):
     def dbe_delete_publish(self, obj_type, obj_ids, obj_dict):
         oper_info = {'oper': 'DELETE', 'type': obj_type, 'obj_dict': obj_dict}
         oper_info.update(obj_ids)
-        self._sync_conn.publish('dbe_oper_chan', json.dumps(oper_info))
-    #end dbe_delete_publish
+        self._obj_update_q_put(oper_info, serializer='json')
+    # end dbe_delete_publish
 
     def _dbe_delete_notification(self, obj_info):
         obj_dict = obj_info['obj_dict']
@@ -883,64 +927,7 @@ class VncRedisClient(object):
             raise Exception(ifmap_result)
     #end _dbe_delete_notification
 
-    def _dbe_oper_subscribe(self):
-        # subscribe early but wait for resync to finish. this ensures that
-        # we capture all updates on objects (since we've subscribed it lies in
-        # channel till read) while resync (essentially a walk) is happening.
-        # if we don't subscribe early, walk might miss updates on already
-        # visited objects
-        self._async_conn.subscribe('dbe_oper_chan')
-        self._db_client_mgr.wait_for_resync_done()
-
-        for msg in self._async_conn.listen():
-            try:
-                if msg['type'] != 'message':
-                    continue
-
-                oper_info = json.loads(msg['data'])
-                if oper_info['oper'] == 'CREATE':
-                    self._dbe_create_notification(oper_info)
-                if oper_info['oper'] == 'UPDATE':
-                    self._dbe_update_notification(oper_info)
-                elif oper_info['oper'] == 'DELETE':
-                    self._dbe_delete_notification(oper_info)
-            except Exception as e:
-                print "Exception in _dbe_oper_subscribe: " + str(e)
-    #end _dbe_oper_subscribe
-
-    def key_test_set(self, key, val):
-        return self._sync_conn.setnx(key, val)
-    #end key_test_set
-
-    def key_release(self, key):
-        return self._sync_conn.delete(key)
-    #end key_release
-
-    def hkey_is_present(self, key, hkey):
-        return self._sync_conn.hexists(key, hkey)
-    #end hkey_is_present
-
-    def hkey_set(self, key, hkey, val):
-        self._sync_conn.hset(key, hkey, json.dumps(val, default=obj_to_json))
-    #end hkey_set
-
-    def hkey_get(self, key, hkey):
-        json_val = self._sync_conn.hget(key, hkey)
-        if json_val:
-            return json.loads(json_val)
-        else:
-            return None
-    #end hkey_get
-
-    def hkey_getall(self, key):
-        return self._sync_conn.hgetall(key)
-    #end hkey_getall
-
-    def hkey_delete(self, key, hkey):
-        return self._sync_conn.hdel(key, hkey)
-    #end hkey_delete
-
-#end class VncRedisClient
+# end class VncKombuClient
 
 
 class VncZkClient(object):
@@ -958,17 +945,23 @@ class VncZkClient(object):
     # end __init__
 
     def create_subnet_allocator(self, subnet, first, last):
+        # TODO handle subnet resizing change, ignore for now
         if subnet not in self._subnet_allocators:
             self._subnet_allocators[subnet] = IndexAllocator(
                 self._zk_client, self._SUBNET_PATH+subnet+'/',
                 size=last-first, start_idx=first, reverse=True)
     # end create_subnet_allocator
 
+    def delete_subnet_allocator(self, subnet):
+        IndexAllocator.delete_all(self._zk_client,
+                                  self._SUBNET_PATH+subnet+'/')
+    # end delete_subnet_allocator
+
     def _get_subnet_allocator(self, subnet):
         return self._subnet_allocators.get(subnet)
     # end _get_subnet_allocator
 
-    def subnet_alloc(self, subnet, addr=None):
+    def subnet_alloc_req(self, subnet, addr=None):
         allocator = self._get_subnet_allocator(subnet)
         try:
             if addr is not None:
@@ -980,21 +973,43 @@ class VncZkClient(object):
                 return allocator.alloc('')
         except ResourceExhaustionError:
             return None
-    # end subnet_alloc
+    # end subnet_alloc_req
 
-    def subnet_free(self, subnet, addr):
+    def subnet_free_req(self, subnet, addr):
         allocator = self._get_subnet_allocator(subnet)
         if allocator:
             allocator.delete(addr)
-    # end subnet_free
+    # end subnet_free_req
+
+    def create_fq_name_to_uuid_mapping(self, obj_type, fq_name, id):
+        fq_name_str = ':'.join(fq_name)
+        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+                                             fq_name_str)
+        self._zk_client.create_node(zk_path, id)
+    # end create_fq_name_to_uuid_mapping
+
+    def fq_name_to_uuid(self, obj_type, fq_name):
+        fq_name_str = ':'.join(fq_name)
+        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+                                             fq_name_str)
+
+        return self._zk_client.read_node(zk_path)
+    # end fq_name_to_uuid
+
+    def delete_fq_name_to_uuid_mapping(self, obj_type, fq_name):
+        fq_name_str = ':'.join(fq_name)
+        zk_path = '/fq-name-to-uuid/%s:%s' %(obj_type.replace('-', '_'),
+                                             fq_name_str)
+        self._zk_client.delete_node(zk_path)
+    # end delete_fq_name_to_uuid_mapping
 
 # end VncZkClient
 
 
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, redis_srv_ip, redis_srv_port, cass_srv_list,
-                 reset_config=False, ifmap_srv_loc=None, zk_server_ip=None):
+                 passwd, cass_srv_list, reset_config=False, ifmap_srv_loc=None,
+                 zk_server_ip=None):
 
         self._api_svr_mgr = api_svr_mgr
 
@@ -1022,13 +1037,7 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
-        logger.info("connecting to redis on %s:%s" % (redis_srv_ip, redis_srv_port))
-
-        self._redis_db = VncRedisClient(self, redis_srv_ip, redis_srv_port,
-                                        self._ifmap_db)
-
-        logger.info("connecting to zookeeper on %s" % (zk_server_ip,))
-
+        self._msgbus = VncKombuClient(self, self._ifmap_db)
         self._zk_db = VncZkClient(zk_server_ip)
     # end __init__
 
@@ -1055,30 +1064,44 @@ class VncDbClient(object):
         return read_results
     # end db_check
 
-    def set_uuid(self, obj_dict, id):
-        # set uuid in the perms meta
+    def _uuid_to_longs(self, id):
         msb_id = id.int >> 64
         lsb_id = id.int & ((1 << 64) - 1)
+        return msb_id, lsb_id
+    # end _uuid_to_longs
+
+    def set_uuid(self, obj_type, obj_dict, id, persist=True):
+        if persist:
+            # set the mapping from name to uuid in zk to ensure single creator
+            fq_name = obj_dict['fq_name']
+            self._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(id))
+
+        # set uuid in the perms meta
+        mslong, lslong = self._uuid_to_longs(id)
         obj_dict['id_perms']['uuid'] = {}
-        obj_dict['id_perms']['uuid']['uuid_mslong'] = msb_id
-        obj_dict['id_perms']['uuid']['uuid_lslong'] = lsb_id
+        obj_dict['id_perms']['uuid']['uuid_mslong'] = mslong
+        obj_dict['id_perms']['uuid']['uuid_lslong'] = lslong
 
         obj_dict['uuid'] = str(id)
 
         return True
     # end set_uuid
 
-    def _alloc_set_uuid(self, obj_dict):
+    def _alloc_set_uuid(self, obj_type, obj_dict):
         id = uuid.uuid4()
-        ok = self.set_uuid(obj_dict, id)
+        ok = self.set_uuid(obj_type, obj_dict, id)
 
         return (ok, obj_dict['uuid'])
     # end _alloc_set_uuid
 
     def match_uuid(self, obj_dict, obj_uuid):
-        new_dict = {'id_perms': {}}
-        self.set_uuid(new_dict, uuid.UUID(obj_uuid))
-        return new_dict['id_perms']['uuid'] == obj_dict['id_perms']['uuid']
+        new_mslong, new_lslong = self._uuid_to_longs(uuid.UUID(obj_uuid))
+        old_mslong = obj_dict['id_perms']['uuid']['uuid_mslong']
+        old_lslong = obj_dict['id_perms']['uuid']['uuid_lslong']
+        if new_mslong == old_mslong and new_lslong == old_lslong:
+            return True
+
+        return False
     # end
 
     def _dbe_resync(self, obj_uuid, obj_cols):
@@ -1088,6 +1111,14 @@ class VncDbClient(object):
             method = getattr(self._cassandra_db,
                              "_cassandra_%s_read" % (obj_type))
             (ok, obj_dict) = method(obj_uuid)
+
+            # TODO remove backward compat create mapping in zk
+            try:
+                self._zk_db.create_fq_name_to_uuid_mapping(obj_type,
+                                      obj_dict['fq_name'], obj_uuid)
+            except ResourceExistsError:
+                pass
+
         except Exception as e:
             self.config_object_error(
                 obj_uuid, None, obj_type, 'dbe_resync:cassandra_read', str(e))
@@ -1142,10 +1173,14 @@ class VncDbClient(object):
     # Public Methods
     # Returns created ifmap_id
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
-        if uuid_requested:
-            ok = self.set_uuid(obj_dict, uuid.UUID(uuid_requested))
-        else:
-            (ok, obj_uuid) = self._alloc_set_uuid(obj_dict)
+        try:
+            if uuid_requested:
+                ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested))
+            else:
+                (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
+        except ResourceExistsError:
+            return (409, '' + pformat(obj_dict['fq_name']) +
+                ' already exists with uuid: ' + obj_uuid)
 
         parent_type = obj_dict.get('parent_type', None)
         method_name = obj_type.replace('-', '_')
@@ -1169,24 +1204,19 @@ class VncDbClient(object):
             self._cassandra_db, "_cassandra_%s_create" % (method_name))
         (ok, result) = method(obj_ids, obj_dict)
 
-        # publish to ifmap via redis
-        self._redis_db.dbe_create_publish(obj_type, obj_ids, obj_dict)
+        # publish to ifmap via msgbus
+        self._msgbus.dbe_create_publish(obj_type, obj_ids, obj_dict)
 
         return (ok, result)
     # end dbe_create
 
     # input id is ifmap-id + uuid
     def dbe_read(self, obj_type, obj_ids, obj_fields=None):
-        #(found, redis_result) = self._redis_db.dbe_read(obj_ids)
-        #if found:
-        #    return (True, redis_result)
-
         method_name = obj_type.replace('-', '_')
         method = getattr(
             self._cassandra_db, "_cassandra_%s_read" % (method_name))
         try:
             (ok, cassandra_result) = method(obj_ids['uuid'], obj_fields)
-            self._redis_db.dbe_create(obj_ids, cassandra_result)
         except NoIdError as e:
             return (False, str(e))
 
@@ -1207,11 +1237,8 @@ class VncDbClient(object):
                          "_cassandra_%s_update" % (method_name))
         (ok, cassandra_result) = method(obj_ids['uuid'], new_obj_dict)
 
-        # nuke cached value
-        self._redis_db.dbe_invalidate(obj_ids)
-
         # publish to ifmap via redis
-        self._redis_db.dbe_update_publish(obj_type, obj_ids)
+        self._msgbus.dbe_update_publish(obj_type, obj_ids)
 
         return (ok, cassandra_result)
     # end dbe_update
@@ -1231,17 +1258,18 @@ class VncDbClient(object):
             self._cassandra_db, "_cassandra_%s_delete" % (method_name))
         (ok, cassandra_result) = method(obj_ids['uuid'])
 
-        # nuke cached value
-        self._redis_db.dbe_invalidate(obj_ids)
-
         # publish to ifmap via redis
-        self._redis_db.dbe_delete_publish(obj_type, obj_ids, obj_dict)
+        self._msgbus.dbe_delete_publish(obj_type, obj_ids, obj_dict)
+
+        # finally remove mapping in zk
+        fq_name = cfgm_common.imid.get_fq_name_from_ifmap_id(obj_ids['imid'])
+        self._zk_db.delete_fq_name_to_uuid_mapping(obj_type, fq_name)
 
         return ok, cassandra_result
     # end dbe_delete
 
     def dbe_cache_invalidate(self, obj_ids):
-        self._redis_db.dbe_invalidate(obj_ids)
+        pass
     # end dbe_cache_invalidate
 
     def useragent_kv_store(self, key, value):
@@ -1256,33 +1284,21 @@ class VncDbClient(object):
         return self._cassandra_db.useragent_kv_delete(key)
     # end useragent_kv_delete
 
-    def subnet_add_cols(self, subnet_fq_name, col_dict):
-        self._cassandra_db.subnet_add_cols(subnet_fq_name, col_dict)
-    # end subnet_add_cols
+    def subnet_alloc_req(self, subnet, addr=None):
+        return self._zk_db.subnet_alloc_req(subnet, addr)
+    # end subnet_alloc_req
 
-    def subnet_delete_cols(self, subnet_fq_name, col_names):
-        self._cassandra_db.subnet_delete_cols(subnet_fq_name, col_names)
-    # end subnet_delete_cols
-
-    def subnet_retrieve(self, key):
-        return self._cassandra_db.subnet_retrieve(key)
-    # end subnet_retrieve
-
-    def subnet_delete(self, key):
-        self._cassandra_db.subnet_delete(key)
-    # end subnet_delete
-
-    def subnet_alloc(self, subnet, addr=None):
-        return self._zk_db.subnet_alloc(subnet, addr)
-    # end subnet_alloc
-
-    def subnet_free(self, subnet, addr):
-        self._zk_db.subnet_free(subnet, addr)
-    # end subnet_free
+    def subnet_free_req(self, subnet, addr):
+        self._zk_db.subnet_free_req(subnet, addr)
+    # end subnet_free_req
 
     def subnet_create_allocator(self, subnet, first, last):
         self._zk_db.create_subnet_allocator(subnet, first, last)
     # end subnet_create_allocator
+
+    def subnet_delete_allocator(self, subnet):
+        self._zk_db.delete_subnet_allocator(subnet)
+    # end subnet_delete_allocator
 
     def uuid_vnlist(self):
         return self._cassandra_db.uuid_vnlist()
@@ -1294,7 +1310,11 @@ class VncDbClient(object):
     # end uuid_to_ifmap_id
 
     def fq_name_to_uuid(self, obj_type, fq_name):
-        return self._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+        obj_uuid = self._zk_db.fq_name_to_uuid(obj_type, fq_name)
+        if not obj_uuid:
+            raise NoIdError('%s %s' % (obj_type, fq_name))
+
+        return obj_uuid
     # end fq_name_to_uuid
 
     def uuid_to_fq_name(self, obj_uuid):
@@ -1321,36 +1341,6 @@ class VncDbClient(object):
         return self._cassandra_db.uuid_to_obj_perms(obj_uuid)
     # end uuid_to_obj_perms
 
-    # helper routines for redis service
-    def key_test_set(self, key, val=None):
-        # return true if atomically set'd
-        return self._redis_db.key_test_set(key, val)
-    # end key_test_set
-
-    def key_release(self, key):
-        return self._redis_db.key_release(key)
-    # end key_release
-
-    def hkey_is_present(self, key, hkey):
-        return self._redis_db.hkey_is_present(key, hkey)
-    # end hkey_is_present
-
-    def hkey_set(self, key, hkey, val):
-        self._redis_db.hkey_set(key, hkey, val)
-    # end hkey_set
-
-    def hkey_get(self, key, hkey):
-        return self._redis_db.hkey_get(key, hkey)
-    # end hkey_get
-
-    def hkey_getall(self, key):
-        return self._redis_db.hkey_getall(key)
-    # end hkey_getall
-
-    def hkey_delete(self, key, hkey):
-        return self._redis_db.hkey_delete(key, hkey)
-    # end hkey_delete
-
     def get_resource_class(self, resource_type):
         return self._api_svr_mgr.get_resource_class(resource_type)
     # end get_resource_class
@@ -1365,5 +1355,9 @@ class VncDbClient(object):
         self._api_svr_mgr.config_object_error(
             id, fq_name_str, obj_type, operation, err_str)
     # end config_object_error
+
+    def get_server_port(self):
+        return self._api_svr_mgr.get_server_port()
+    # end get_server_port
 
 # end class VncDbClient

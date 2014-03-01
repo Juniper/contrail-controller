@@ -675,8 +675,8 @@ class VncApiServer(VncApiServerGen):
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
 
+
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              redis_server_ip, redis_server_port,
                               cass_server_list, reset_config, ifmap_loc,
                               zk_server)
         self._db_conn = db_conn
@@ -845,7 +845,9 @@ class VncApiServer(VncApiServerGen):
                            request.environ['HTTP_USER_AGENT'])
                     self.config_object_error(
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
-                    self._db_conn.set_uuid(obj_dict, uuid.UUID(obj_uuid))
+                    self._db_conn.set_uuid(obj_type, obj_dict,
+                                           uuid.UUID(obj_uuid),
+                                           persist=False)
 
             apiConfig = VncApiCommon()
             apiConfig.operation = 'put'

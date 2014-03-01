@@ -24,7 +24,7 @@ class FloatingIpServer(FloatingIpServerGen):
         vn_fq_name = obj_dict['fq_name'][:-2]
         req_ip = obj_dict.get("floating_ip_address", None)
         try:
-            fip_addr = cls.addr_mgmt.ip_alloc(
+            fip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (503, str(e)))
@@ -40,15 +40,22 @@ class FloatingIpServer(FloatingIpServerGen):
         vn_fq_name = obj_dict['fq_name'][:-2]
         fip_addr = obj_dict['floating_ip_address']
         print 'AddrMgmt: free FIP %s for vn=%s' % (fip_addr, vn_fq_name)
-        cls.addr_mgmt.ip_free(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(fip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        fip_addr = obj_dict['floating_ip_address']
+        vn_fq_name = obj_dict['fq_name'][:-2]
+        cls.addr_mgmt.ip_alloc_notify(fip_addr, vn_fq_name)
+    # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         fip_addr = obj_dict['floating_ip_address']
         vn_fq_name = obj_dict['fq_name'][:-2]
-        cls.addr_mgmt.ip_free(fip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(fip_addr, vn_fq_name)
     # end dbe_delete_notification
 
 # end class FloatingIpServer
@@ -67,7 +74,7 @@ class InstanceIpServer(InstanceIpServerGen):
 
         req_ip = obj_dict.get("instance_ip_address", None)
         try:
-            ip_addr = cls.addr_mgmt.ip_alloc(
+            ip_addr = cls.addr_mgmt.ip_alloc_req(
                 vn_fq_name, asked_ip_addr=req_ip)
         except Exception as e:
             return (False, (503, str(e)))
@@ -88,15 +95,22 @@ class InstanceIpServer(InstanceIpServerGen):
 
         ip_addr = obj_dict['instance_ip_address']
         print 'AddrMgmt: free IP %s, vn=%s' % (ip_addr, vn_fq_name)
-        cls.addr_mgmt.ip_free(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name)
         return True, ""
     # end http_delete
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        ip_addr = obj_dict['instance_ip_address']
+        vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
+        cls.addr_mgmt.ip_alloc_notify(ip_addr, vn_fq_name)
+    # end dbe_create_notification
 
     @classmethod
     def dbe_delete_notification(cls, obj_ids, obj_dict):
         ip_addr = obj_dict['instance_ip_address']
         vn_fq_name = obj_dict['virtual_network_refs'][0]['to']
-        cls.addr_mgmt.ip_free(ip_addr, vn_fq_name)
+        cls.addr_mgmt.ip_free_notify(ip_addr, vn_fq_name)
     # end dbe_delete_notification
 
 # end class InstanceIpServer
@@ -125,7 +139,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
 
     @classmethod
     def http_post_collection(cls, tenant_name, obj_dict, db_conn):
-        cls.addr_mgmt.net_create(obj_dict)
+        cls.addr_mgmt.net_create_req(obj_dict)
         return True, ""
     # end http_post_collection
 
@@ -134,6 +148,11 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         if ((fq_name == cfgm_common.IP_FABRIC_VN_FQ_NAME) or
                 (fq_name == cfgm_common.LINK_LOCAL_VN_FQ_NAME)):
             # Ignore ip-fabric subnet updates
+            return True,  ""
+
+        ipam_refs = obj_dict.get('network_ipam_refs', None)
+        if ipam_refs == None:
+            # NOP for addr-mgmt module
             return True,  ""
 
         vn_id = {'uuid': id}
@@ -148,20 +167,21 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
                                                              obj_dict)
         if not ok:
             return (ok, (409, result))
-        cls.addr_mgmt.net_create(obj_dict, id)
+
+        cls.addr_mgmt.net_update_req(read_result, obj_dict, id)
 
         return True, ""
     # end http_put
 
     @classmethod
     def http_delete(cls, id, obj_dict, db_conn):
-        cls.addr_mgmt.net_delete(obj_dict)
+        cls.addr_mgmt.net_delete_req(obj_dict)
         return True, ""
     # end http_delete
 
     @classmethod
     def ip_alloc(cls, vn_fq_name, subnet_name, count):
-        ip_list = [cls.addr_mgmt.ip_alloc(vn_fq_name, subnet_name)
+        ip_list = [cls.addr_mgmt.ip_alloc_req(vn_fq_name, subnet_name)
                    for i in range(count)]
         print 'AddrMgmt: reserve %d IP for vn=%s, subnet=%s - %s' \
             % (count, vn_fq_name, subnet_name if subnet_name else '', ip_list)
@@ -173,7 +193,7 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         print 'AddrMgmt: release IP %s for vn=%s, subnet=%s' \
             % (ip_list, vn_fq_name, subnet_name if subnet_name else '')
         for ip_addr in ip_list:
-            cls.addr_mgmt.ip_free(ip_addr, vn_fq_name, subnet_name)
+            cls.addr_mgmt.ip_free_req(ip_addr, vn_fq_name, subnet_name)
     # end ip_free
 
     @classmethod
@@ -182,7 +202,22 @@ class VirtualNetworkServer(VirtualNetworkServerGen):
         for item in subnet_list:
             ip_count_list.append(cls.addr_mgmt.ip_count(obj_dict, item))
         return {'ip_count_list': ip_count_list}
-    # end ip_count
+    # end subnet_ip_count
+
+    @classmethod
+    def dbe_create_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.net_create_notify(obj_ids, obj_dict)
+    # end dbe_create_notification
+
+    @classmethod
+    def dbe_update_notification(cls, obj_ids):
+        cls.addr_mgmt.net_update_notify(obj_ids)
+    # end dbe_update_notification
+
+    @classmethod
+    def dbe_delete_notification(cls, obj_ids, obj_dict):
+        cls.addr_mgmt.net_delete_notify(obj_ids, obj_dict)
+    # end dbe_update_notification
 
 # end class VirtualNetworkServer
 
