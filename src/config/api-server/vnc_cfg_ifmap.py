@@ -450,14 +450,18 @@ class VncCassandraClient(VncCassandraClientGen):
     def _cassandra_ensure_keyspace(self, server_list,
                                    keyspace_name, cf_info_list):
         # Retry till cassandra is up
+        server_idx = 0
+        num_dbnodes = len(server_list)
         connected = False
         while not connected:
             try:
-                sys_mgr = SystemManager(server_list[0])
+                cass_server = server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
                 connected = True
             except Exception as e:
                 # TODO do only for
                 # thrift.transport.TTransport.TTransportException
+                server_idx = (server_idx + 1) % num_dbnodes
                 time.sleep(3)
 
         if self._reset_config:
@@ -468,7 +472,6 @@ class VncCassandraClient(VncCassandraClientGen):
                 print "Warning! " + str(e)
 
         try:
-            num_dbnodes = len(server_list)
             sys_mgr.create_keyspace(keyspace_name, SIMPLE_STRATEGY,
                                     {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
