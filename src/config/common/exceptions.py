@@ -21,6 +21,19 @@ class NoIdError(VncError):
 # end class NoIdError
 
 
+class ResourceExistsError(VncError):
+    def __init__(self, eexists_fq_name, eexists_id):
+        self._eexists_fq_name = eexists_fq_name
+        self._eexists_id = eexists_id
+    # end __init__
+
+    def __str__(self):
+        return 'FQ Name: %s exists already with ID: %s' \
+            % (self._eexists_fq_name, self._eexists_id)
+    # end __str__
+# end class ResourceExistsError
+
+
 class PermissionDenied(VncError):
     pass
 # end class PermissionDenied

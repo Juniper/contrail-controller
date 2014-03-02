@@ -935,7 +935,17 @@ class SvcMonitor(object):
     # end _create_svc_vn
 
     def _cassandra_init(self):
-        sys_mgr = SystemManager(self._args.cassandra_server_list[0])
+        server_idx = 0
+        num_dbnodes = len(self._args.cassandra_server_list)
+        connected = False
+        while not connected:
+            try:
+                cass_server = self._args.cassandra_server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
+                connected = True
+            except Exception as e:
+                server_idx = (server_idx + 1) % num_dbnodes
+                time.sleep(3)
 
         if self._args.reset_config:
             try:
@@ -945,7 +955,7 @@ class SvcMonitor(object):
 
         try:
             sys_mgr.create_keyspace(SvcMonitor._KEYSPACE, SIMPLE_STRATEGY,
-                                    {'replication_factor': '1'})
+                                    {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             print "Warning! " + str(e)
 
@@ -960,10 +970,19 @@ class SvcMonitor(object):
 
         conn_pool = pycassa.ConnectionPool(SvcMonitor._KEYSPACE,
                                            self._args.cassandra_server_list)
-        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF)
-        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF)
+
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        self._svc_vm_cf = pycassa.ColumnFamily(conn_pool, self._SVC_VM_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
+        self._svc_si_cf = pycassa.ColumnFamily(conn_pool, self._SVC_SI_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
         self._cleanup_cf = pycassa.ColumnFamily(conn_pool,
-                                                self._SVC_CLEANUP_CF)
+                                  self._SVC_CLEANUP_CF,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
     # end _cassandra_init
 
 # end class svc_monitor

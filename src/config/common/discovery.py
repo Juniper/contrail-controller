@@ -7,7 +7,8 @@ import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 from bitarray import bitarray
-from cfgm_common.exceptions import ResourceExhaustionError
+from cfgm_common.exceptions import ResourceExhaustionError, ResourceExistsError
+
 
 
 class IndexAllocator(object):
@@ -80,6 +81,7 @@ class IndexAllocator(object):
             self._set_in_use(self._get_bit_from_zk_index(idx))
             return idx
         except kazoo.exceptions.NodeExistsError:
+            self._set_in_use(self._get_bit_from_zk_index(idx))
             return None
     # end reserve
 
@@ -96,13 +98,25 @@ class IndexAllocator(object):
 
     def read(self, idx):
         id_str = "%(#)010d" % {'#': idx}
-        return self._disc_service.read_node(self._path + id_str)
+        id_val = self._disc_service.read_node(self._path+id_str)
+        if id_val is not None:
+            self._set_in_use(self._get_bit_from_zk_index(idx))
+        return id_val
     # end read
 
     def empty(self):
         return not self._in_use.any()
     # end empty
-# end class IndexAllocator
+
+    @classmethod
+    def delete_all(cls, disc_service, path):
+        try:
+            disc_service.delete_node(path, recursive=True)
+        except kazoo.exceptions.NoNodeError:
+            pass
+    # end delete_all
+
+#end class IndexAllocator
 
 
 class DiscoveryService(object):
@@ -162,11 +176,13 @@ class DiscoveryService(object):
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
             return self.create_node(path, value)
+        except kazoo.exceptions.NodeExistsError:
+            raise ResourceExistsError(path, str(value))
     # end create_node
 
-    def delete_node(self, path):
+    def delete_node(self, path, recursive=False):
         try:
-            self._zk_client.delete(path)
+            self._zk_client.delete(path, recursive)
         except (kazoo.exceptions.SessionExpiredError,
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
