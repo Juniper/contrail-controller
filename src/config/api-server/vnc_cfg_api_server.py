@@ -675,8 +675,8 @@ class VncApiServer(VncApiServerGen):
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
 
+
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              redis_server_ip, redis_server_port,
                               cass_server_list, reset_config, ifmap_loc,
                               zk_server)
         self._db_conn = db_conn
@@ -742,6 +742,22 @@ class VncApiServer(VncApiServerGen):
         obj_type = s_obj.get_type()
         method_name = obj_type.replace('-', '_')
         fq_name = s_obj.get_fq_name()
+
+        # TODO remove backward compat create mapping in zk
+        # for singleton START
+        try:
+            cass_uuid = self._db_conn._cassandra_db.fq_name_to_uuid(obj_type, fq_name)
+            try:
+                zk_uuid = self._db_conn.fq_name_to_uuid(obj_type, fq_name)
+            except NoIdError:
+                # doesn't exist in zookeeper but does so in cassandra,
+                # migrate this info to zookeeper
+                self._db_conn._zk_db.create_fq_name_to_uuid_mapping(obj_type, fq_name, str(cass_uuid))
+        except NoIdError:
+            # doesn't exist in cassandra as well as zookeeper, proceed normal
+            pass
+        # TODO backward compat END
+
 
         # create if it doesn't exist yet
         try:
@@ -845,7 +861,9 @@ class VncApiServer(VncApiServerGen):
                            request.environ['HTTP_USER_AGENT'])
                     self.config_object_error(
                         obj_uuid, fq_name_str, obj_type, 'put', log_msg)
-                    self._db_conn.set_uuid(obj_dict, uuid.UUID(obj_uuid))
+                    self._db_conn.set_uuid(obj_type, obj_dict,
+                                           uuid.UUID(obj_uuid),
+                                           persist=False)
 
             apiConfig = VncApiCommon()
             apiConfig.operation = 'put'

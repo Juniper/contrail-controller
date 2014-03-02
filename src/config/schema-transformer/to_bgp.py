@@ -2841,7 +2841,19 @@ class SchemaTransformer(object):
 
     def _cassandra_init(self):
         result_dict = {}
-        sys_mgr = SystemManager(self._args.cassandra_server_list[0])
+
+        server_idx = 0
+        num_dbnodes = len(self._args.cassandra_server_list)
+        connected = False
+        while not connected:
+            try:
+                cass_server = self._args.cassandra_server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
+                connected = True
+            except Exception as e:
+                server_idx = (server_idx + 1) % num_dbnodes
+                time.sleep(3)
+
         if self._args.reset_config:
             try:
                 sys_mgr.drop_keyspace(SchemaTransformer._KEYSPACE)
@@ -2850,10 +2862,9 @@ class SchemaTransformer(object):
                 print "Warning! " + str(e)
 
         try:
-            # TODO replication_factor adjust?
             sys_mgr.create_keyspace(
                 SchemaTransformer._KEYSPACE, SIMPLE_STRATEGY,
-                {'replication_factor': '1'})
+                {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
             print "Warning! " + str(e)
@@ -2862,13 +2873,19 @@ class SchemaTransformer(object):
         conn_pool = pycassa.ConnectionPool(
             SchemaTransformer._KEYSPACE,
             server_list=self._args.cassandra_server_list)
+
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         for cf in column_families:
             try:
                 sys_mgr.create_column_family(SchemaTransformer._KEYSPACE, cf)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
-            result_dict[cf] = pycassa.ColumnFamily(conn_pool, cf)
+            result_dict[cf] = pycassa.ColumnFamily(conn_pool, cf,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
+
         VirtualNetworkST._rt_cf = result_dict[self._RT_CF]
         VirtualNetworkST._sc_ip_cf = result_dict[self._SC_IP_CF]
         VirtualNetworkST._service_chain_cf = result_dict[
