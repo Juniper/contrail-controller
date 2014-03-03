@@ -808,6 +808,7 @@ class VncKombuClient(object):
     def __init__(self, db_client_mgr, rabbit_ip, ifmap_db):
         self._db_client_mgr = db_client_mgr
         self._ifmap_db = ifmap_db
+        self._rabbit_ip = rabbit_ip
 
         obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
                                           durable=False)
@@ -817,7 +818,7 @@ class VncKombuClient(object):
         self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
 
         self._dbe_oper_subscribe_greenlet = None
-        self._init_server_conn(rabbit_ip)
+        self._init_server_conn(self._rabbit_ip)
     # end __init__
 
     def _obj_update_q_put(self, *args, **kwargs):
@@ -827,7 +828,7 @@ class VncKombuClient(object):
                 break
             except socket.error as e:
                 time.sleep(1)
-                self._init_server_conn()
+                self._init_server_conn(self._rabbit_ip)
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
@@ -840,7 +841,7 @@ class VncKombuClient(object):
                 try:
                     message = queue.get()
                 except socket.error as e:
-                    self._init_server_conn()
+                    self._init_server_conn(self._rabbit_ip)
                     # never reached
                     continue
 
