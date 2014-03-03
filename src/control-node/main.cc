@@ -365,10 +365,10 @@ void ControlNodeShutdown() {
 }
 
 int main(int argc, char *argv[]) {
-    Options options(evm);
+    Options options;
 
     // Process options from command-line and configuration file.
-    if (!options.Parse(argc, argv)) {
+    if (!options.Parse(evm, argc, argv)) {
         exit(-1);
     }
 

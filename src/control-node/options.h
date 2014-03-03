@@ -8,8 +8,8 @@
 // Process command line/configuration file options for control-node.
 class Options {
 public:
-    Options(EventManager &evm);
-    bool Parse(int argc, char **argv);
+    Options();
+    bool Parse(EventManager &evm, int argc, char **argv);
 
     const std::string bgp_config_file() const { return bgp_config_file_; }
     const uint16_t bgp_port() const { return bgp_port_; }
@@ -39,7 +39,7 @@ private:
 
     template <typename ValueType>
     void GetOptValue(const boost::program_options::variables_map &var_map,
-                     ValueType &var, std::string val, ValueType emptyValue);
+                     ValueType &var, std::string val);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
     void Initialize(boost::program_options::options_description &);

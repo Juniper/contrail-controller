@@ -18,18 +18,12 @@ using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
-Options::Options(EventManager &evm) :
-       log_disable_(false),
-       log_local_(false),
-       test_mode_(false) {
-    boost::system::error_code error;
-    hostname_ = host_name(error);
-    host_ip_ = GetHostIp(evm.io_service(), hostname_);
+Options::Options() {
 }
 
-bool Options::Parse(int argc, char *argv[]) {
+bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     opt::options_description cmdline_options("Allowed options");
-    Initialize(cmdline_options);
+    Initialize(evm, cmdline_options);
 
     try {
         Process(argc, argv, cmdline_options);
@@ -45,7 +39,11 @@ bool Options::Parse(int argc, char *argv[]) {
     return false;
 }
 
-void Options::Initialize(opt::options_description &cmdline_options) {
+void Options::Initialize(EventManager &evm,
+                         opt::options_description &cmdline_options) {
+    boost::system::error_code error;
+    string hostname = host_name(error);
+    string host_ip = GetHostIp(evm.io_service(), hostname);
 
     opt::options_description generic("Generic options");
 
@@ -75,8 +73,9 @@ void Options::Initialize(opt::options_description &cmdline_options) {
              opt::value<uint16_t>()->default_value(ContrailPorts::ControlBgp),
              "BGP listener port")
 
-        ("DEFAULT.hostip", opt::value<string>(), "IP address of control-node")
-        ("DEFAULT.hostname", opt::value<string>()->default_value(hostname_),
+        ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
+             "IP address of control-node")
+        ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
              "Hostname of control-node")
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(
@@ -132,7 +131,7 @@ void Options::Initialize(opt::options_description &cmdline_options) {
 
 template <typename ValueType>
 void Options::GetOptValue(const boost::program_options::variables_map &var_map,
-                          ValueType &var, std::string val, ValueType emptyValue) {
+                          ValueType &var, std::string val) {
 
     // Check if the value is present.
     if (var_map.count(val)) {
@@ -147,7 +146,7 @@ void Options::Process(int argc, char *argv[],
     opt::store(opt::parse_command_line(argc, argv, cmdline_options), var_map);
 
     // Process options off configuration file.
-    GetOptValue<string>(var_map, config_file_, "conf_file", "");
+    GetOptValue<string>(var_map, config_file_, "conf_file");
     ifstream config_file_in;
     config_file_in.open(config_file_.c_str());
     if (config_file_in.good()) {
@@ -170,31 +169,30 @@ void Options::Process(int argc, char *argv[],
         exit(0);
     }
 
-    GetOptValue<string>(var_map,
-            bgp_config_file_, "DEFAULT.bgp_config_file", "");
-    GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port", 0);
-    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port", 0);
-    GetOptValue<string>(var_map, collector_server_, "COLLECTOR.server", "");
+    GetOptValue<string>(var_map, bgp_config_file_, "DEFAULT.bgp_config_file");
+    GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port");
+    GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
+    GetOptValue<string>(var_map, collector_server_, "COLLECTOR.server");
 
-    GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip", "");
-    GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname", "");
+    GetOptValue<string>(var_map, host_ip_, "DEFAULT.hostip");
+    GetOptValue<string>(var_map, hostname_, "DEFAULT.hostname");
 
     GetOptValue<uint16_t>(var_map, http_server_port_,
-            "DEFAULT.http_server_port", 0);
+                          "DEFAULT.http_server_port");
 
-    GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category", "");
-    GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file", "");
-    GetOptValue<int>(var_map, log_file_index_, "DEFAULT.log_file_index", 0);
-    GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size", 0);
-    GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level", "");
-    GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port", 0);
+    GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
+    GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
+    GetOptValue<int>(var_map, log_file_index_, "DEFAULT.log_file_index");
+    GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
+    GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
+    GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
 
-    GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port", 0);
-    GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server", "");
+    GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
+    GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
 
 
-    GetOptValue<string>(var_map, ifmap_password_, "IFMAP.password", "");
-    GetOptValue<string>(var_map, ifmap_server_url_, "IFMAP.server_url", "");
-    GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user", "");
-    GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store", "");
+    GetOptValue<string>(var_map, ifmap_password_, "IFMAP.password");
+    GetOptValue<string>(var_map, ifmap_server_url_, "IFMAP.server_url");
+    GetOptValue<string>(var_map, ifmap_user_, "IFMAP.user");
+    GetOptValue<string>(var_map, ifmap_certs_store_, "IFMAP.certs_store");
 }
