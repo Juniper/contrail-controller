@@ -195,61 +195,117 @@ static void ShutdownServers(VizCollector *viz_collector,
     VizCollector::WaitForIdle();
 }
 
+// Check whether a string is empty, used as std::remove_if predicate.
+struct IsEmpty {
+    bool operator()(const std::string &s) { return s.empty(); }
+};
+
 // This is to force vizd to wait for a gdbattach
 // before proceeding.
 // It will make it easier to debug vizd during systest
 volatile int gdbhelper = 1;
 
-int main(int argc, char *argv[])
-{
-    const string default_log_file = "<stdout>";
+static int analytics_main(int argc, char *argv[]) {
+    boost::system::error_code error;
+
+    vector<string> cassandra_server_list;
+    cassandra_server_list.push_back("127.0.0.1:9160");
+    int analytics_data_ttl = g_viz_constants.AnalyticsTTL;
+    string discovery_server;
+    uint16_t discovery_port = ContrailPorts::DiscoveryServerPort;
+    string redis_ip = "127.0.0.1";
+    uint16_t redis_port = ContrailPorts::RedisUvePort;
+    uint16_t listen_port = ContrailPorts::CollectorPort;
+    uint16_t syslog_port = ContrailPorts::SyslogPort;
+    string hostname(host_name(error));
+    string hostip = GetHostIp(evm.io_service(), hostname);
+    uint16_t http_server_port = ContrailPorts::HttpPortCollector;
+    bool dup = false;
+    bool log_local = true;
+    string log_level = "SYS_DEBUG";
+    string log_category = "";
+    string log_file = "<stdout>";
+    string config_file = "/etc/contrail/collector.conf";
+
     while (gdbhelper==0) {
         usleep(1000);
     }
-    opt::options_description desc("Command line options");
-    desc.add_options()
+
+    // Command line only options.
+    opt::options_description generic("Generic options");
+    generic.add_options()
+        ("conf-file", opt::value<string>()->default_value(config_file),
+             "Configuration file")
         ("help", "help message")
-        ("cassandra-server-list",
-         opt::value<vector<string> >()->default_value(
-                 std::vector<std::string>(), "127.0.0.1:9160"),
-         "cassandra server list")
-        ("analytics-data-ttl", opt::value<int>()->default_value(g_viz_constants.AnalyticsTTL),
-            "global TTL(hours) for analytics data")
-        ("discovery-server", opt::value<string>(),
-         "IP address of Discovery Server")
-        ("discovery-port",
-         opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
-         "Port of Discovery Server")
-        ("redis-uve-port",
-         opt::value<int>()->default_value(ContrailPorts::RedisUvePort),
-         "redis-uve server port")
-        ("listen-port",
-         opt::value<int>()->default_value(ContrailPorts::CollectorPort),
-         "vizd listener port")
-        ("syslog-port",
-         opt::value<int>()->default_value(-1),
-         "Syslog listener port")
-        ("host-ip", opt::value<string>(),
-         "IP address of Analytics Node")
-        ("http-server-port",
-            opt::value<int>()->default_value(ContrailPorts::HttpPortCollector),
-            "Sandesh HTTP listener port")
-        ("dup", "Internal use")
-        ("log-local", "Enable local logging of sandesh messages")
-        ("log-level", opt::value<string>()->default_value("SYS_DEBUG"),
-            "Severity level for local logging of sandesh messages")
-        ("log-category", opt::value<string>()->default_value(""),
-            "Category filter for local logging of sandesh messages")
-        ("log-file", opt::value<string>()->default_value(default_log_file),
-         "Filename for the logs to be written to")
         ("version", "Display version information")
-        ;
+    ;
+
+    // Command line and config file options.
+    opt::options_description config("Configuration options");
+    config.add_options()
+        ("DEFAULTS.analytics-data-ttl",
+           opt::value<int>()->default_value(analytics_data_ttl),
+           "global TTL(days) for analytics data")
+        ("DEFAULTS.cassandra-server",
+           opt::value<vector<string> >()->default_value(cassandra_server_list,
+               "127.0.0.1:9160"),
+           "cassandra server list")
+        ("DEFAULTS.dup", opt::bool_switch(&dup), "Internal use")
+        ("DEFAULTS.hostip", opt::value<string>()->default_value(hostip),
+           "IP address of Analytics Node")
+        ("DEFAULTS.listen-port", opt::value<uint16_t>()->default_value(listen_port),
+           "Collector listener port")
+        ("DEFAULTS.http-server-port",
+            opt::value<uint16_t>()->default_value(http_server_port),
+            "Sandesh HTTP listener port")
+
+        ("DISCOVERY.server",
+           opt::value<string>()->default_value(discovery_server),
+           "IP address of Discovery Server")
+        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(discovery_port),
+           "Port of Discovery Server")
+
+        ("REDIS.ip", opt::value<string>()->default_value(redis_ip),
+           "redis server ip")
+        ("REDIS.port", opt::value<uint16_t>()->default_value(redis_port),
+           "redis server port")
+
+        ("LOG.category", opt::value<string>()->default_value(log_category),
+             "Category filter for local logging of sandesh messages")
+        ("LOG.file", opt::value<string>()->default_value(log_file),
+            "Filename for the logs to be written to")
+        ("LOG.level", opt::value<string>()->default_value(log_level),
+            "Severity level for local logging of sandesh messages")
+        ("LOG.local", opt::bool_switch(&log_local),
+             "Enable local logging of sandesh messages")
+        ("LOG.listen-port", opt::value<uint16_t>()->default_value(syslog_port),
+           "Syslog listener port")
+         ;
+
+    opt::options_description config_file_options;
+    config_file_options.add(config);
+
+    opt::options_description cmdline_options("Allowed options");
+    cmdline_options.add(generic).add(config);
+
     opt::variables_map var_map;
-    opt::store(opt::parse_command_line(argc, argv, desc), var_map);
+ 
+    // Process options off command line first.
+    opt::store(opt::parse_command_line(argc, argv, cmdline_options), var_map);
+    GetOptValue<string>(var_map, config_file, "conf-file", "");
+ 
+    ifstream config_file_in;
+    config_file_in.open(config_file.c_str());
+    if (config_file_in.good()) {
+        opt::store(opt::parse_config_file(config_file_in, config_file_options),
+                   var_map);
+    }
+    config_file_in.close();
+ 
     opt::notify(var_map);
 
     if (var_map.count("help")) {
-        cout << desc << endl;
+        cout << cmdline_options << endl;
         exit(0);
     }
 
@@ -260,21 +316,42 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    Collector::SetProgramName(argv[0]);
-    if (var_map["log-file"].as<string>() == default_log_file) {
-        LoggingInit();
-    } else {
-        LoggingInit(var_map["log-file"].as<string>());
+    GetOptValue<string>(var_map, hostip, "DEFAULTS.hostip", "");
+    GetOptValue<uint16_t>(var_map, http_server_port, "DEFAULTS.http-server-port", 0);
+    GetOptValue<uint16_t>(var_map, discovery_port, "DISCOVERY.port", 0);
+    GetOptValue<string>(var_map, discovery_server, "DISCOVERY.server", "");
+    GetOptValue<string>(var_map, log_category, "LOG.category", "");
+    GetOptValue<string>(var_map, log_file, "LOG.file", "");
+    GetOptValue<string>(var_map, log_level, "LOG.level", "");
+    GetOptValue<uint16_t>(var_map, syslog_port, "LOG.listen-port", 0);
+    GetOptValue<int>(var_map, analytics_data_ttl, "DEFAULTS.analytics-data-ttl", 0);
+    GetOptValue<string>(var_map, redis_ip, "REDIS.ip", "");
+    GetOptValue<uint16_t>(var_map, redis_port, "REDIS.port", 0);
+    GetOptValue<uint16_t>(var_map, listen_port, "DEFAULTS.listen-port", 0);
+
+    // Retrieve cassandra server list. Remove empty strings from it.
+    if (var_map.count("DEFAULTS.cassandra-server")) {
+        cassandra_server_list =
+            var_map["DEFAULTS.cassandra-server"].as< vector<string> >();
+        cassandra_server_list.erase(std::remove_if(
+            cassandra_server_list.begin(), cassandra_server_list.end(),
+                IsEmpty()),
+            cassandra_server_list.end());
+
+        if (cassandra_server_list.empty()) {
+            cassandra_server_list.push_back("127.0.0.1:9160");
+        }
     }
 
-    vector<string> cassandra_server_list(
-            var_map["cassandra-server-list"].as<vector<string> >());
-    string cassandra_server;
-    if (cassandra_server_list.empty()) {
-        cassandra_server = "127.0.0.1:9160";
+    Collector::SetProgramName(argv[0]);
+    if (log_file == "<stdout>") {
+        LoggingInit();
     } else {
-        cassandra_server = cassandra_server_list[0];
+        LoggingInit(log_file);
     }
+
+    string cassandra_server = cassandra_server_list[0];
+
     typedef boost::tokenizer<boost::char_separator<char> > tokenizer;
     boost::char_separator<char> sep(":");
     tokenizer tokens(cassandra_server, sep);
@@ -285,25 +362,22 @@ int main(int argc, char *argv[])
     int cassandra_port;
     stringToInteger(port, cassandra_port);
 
-    bool dup = false;
-    if (var_map.count("dup")) {
-        dup = true;
-    }
-
-    LOG(INFO, "COLLECTOR LISTEN PORT: " << var_map["listen-port"].as<int>());
-    LOG(INFO, "COLLECTOR REDIS UVE PORT: " << var_map["redis-uve-port"].as<int>());
+    LOG(INFO, "COLLECTOR LISTEN PORT: " << listen_port);
+    LOG(INFO, "COLLECTOR REDIS SERVER: " << redis_ip);
+    LOG(INFO, "COLLECTOR REDIS PORT: " << redis_port);
+    LOG(INFO, "COLLECTOR LOG LISTEN PORT: " << syslog_port);
     LOG(INFO, "COLLECTOR CASSANDRA SERVER: " << cassandra_ip);
     LOG(INFO, "COLLECTOR CASSANDRA PORT: " << cassandra_port);
 
     VizCollector analytics(&evm,
-            var_map["listen-port"].as<int>(),
+            listen_port,
             cassandra_ip,
             cassandra_port,
-            string("127.0.0.1"),
-            var_map["redis-uve-port"].as<int>(),
-            var_map["syslog-port"].as<int>(),
+            redis_ip,
+            redis_port,
+            syslog_port,
             dup,
-            var_map["analytics-data-ttl"].as<int>());
+            analytics_data_ttl);
 
 #if 0
     // initialize python/c++ API
@@ -328,20 +402,18 @@ int main(int argc, char *argv[])
             analytics.name(),
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             g_vns_constants.INSTANCE_ID_DEFAULT, 
-            &evm, "127.0.0.1", var_map["listen-port"].as<int>(),
-            var_map["http-server-port"].as<int>(), &vsc);
-    Sandesh::SetLoggingParams(var_map.count("log"),
-            var_map["log-category"].as<string>(),
-            var_map["log-level"].as<string>());
+            &evm, "127.0.0.1",
+            listen_port,
+            http_server_port,
+            &vsc);
+    Sandesh::SetLoggingParams(log_local, log_category, log_level);
 
     //Publish services to Discovery Service Servee
     DiscoveryServiceClient *ds_client = NULL;
-    if (var_map.count("discovery-server")) {
+    if (!discovery_server.empty()) {
         tcp::endpoint dss_ep;
-        boost::system::error_code error;
-        dss_ep.address(address::from_string(var_map["discovery-server"].as<string>(),
-                       error));
-        dss_ep.port(var_map["discovery-port"].as<int>());
+        dss_ep.address(address::from_string(discovery_server, error));
+        dss_ep.port(discovery_port);
         string sname = 
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
@@ -349,19 +421,10 @@ int main(int argc, char *argv[])
         Collector::SetDiscoveryServiceClient(ds_client);
 
         // Get local ip address
-        string self_ip; 
-        if (var_map.count("host-ip")) { 
-            self_ip = var_map["host-ip"].as<string>();
-        } else {
-            tcp::resolver resolver(*evm.io_service());
-            tcp::resolver::query query(boost::asio::ip::host_name(), "");
-            tcp::resolver::iterator iter = resolver.resolve(query);
-            self_ip = iter->endpoint().address().to_string();
-        }
-        Collector::SetSelfIp(self_ip);
+        Collector::SetSelfIp(hostip);
         stringstream pub_ss;
-        pub_ss << "<" << sname << "><ip-address>" << self_ip <<
-                  "</ip-address><port>" << var_map["listen-port"].as<int>() <<
+        pub_ss << "<" << sname << "><ip-address>" << hostip <<
+                  "</ip-address><port>" << listen_port <<
                   "</port></" << sname << ">";
         std::string pub_msg;
         pub_msg = pub_ss.str();
@@ -381,4 +444,18 @@ int main(int argc, char *argv[])
     ShutdownServers(&analytics, ds_client);
 
     return 0;
+}
+
+int main(int argc, char *argv[]) {
+    try {
+        return analytics_main(argc, argv);
+    } catch (boost::program_options::error &e) {
+        LOG(ERROR, "Error " << e.what());
+        cout << "Error " << e.what() << endl;
+    } catch (...) {
+        LOG(ERROR, "Options Parser: Caught fatal unknown exception");
+        cout << "Options Parser: Caught fatal unknown exception" << endl;
+    }
+
+    return(-1);
 }

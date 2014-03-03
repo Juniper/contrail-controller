@@ -7,6 +7,7 @@
 
 class ContrailPorts {
 public:
+    static const short ControlBgp = 179;
     static const short ControlXmpp = 5269;
     static const short DiscoveryServerPort = 5998;
     static const short RedisQueryPort = 6380;
@@ -30,6 +31,8 @@ public:
     static const short DnsRndc = 8094;
     static const short ApiServerOpen = 8095;
     static const short AnalyzerUdpPort = 8099;
+    static const short SyslogPort = 514;
+    static const short IfmapServerPort = 8443;
 
     // following ports are reserved for supervisord usage
     static const short supervisord_analytics = 9002;
