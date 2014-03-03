@@ -521,6 +521,7 @@ class VncApiServer(VncApiServerGen):
         # keystone options
         ksopts = {
             'auth_host': '127.0.0.1',
+            'auth_port': '35357',
             'auth_protocol': 'http',
             'admin_user': '',
             'admin_password': '',
