@@ -377,7 +377,7 @@ int main(int argc, char *argv[]) {
         LoggingInit();
     } else {
         LoggingInit(options.log_file(), options.log_file_size(),
-                    options.log_file_index());
+                    options.log_files_count());
     }
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();

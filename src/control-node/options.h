@@ -24,7 +24,7 @@ public:
     const std::string log_category() const { return log_category_; }
     const bool log_disable() const { return log_disable_; }
     const std::string log_file() const { return log_file_; }
-    const int log_file_index() const { return log_file_index_; }
+    const int log_files_count() const { return log_files_count_; }
     const long log_file_size() const { return log_file_size_; }
     const std::string log_level() const { return log_level_; }
     const bool log_local() const { return log_local_; }
@@ -58,7 +58,7 @@ private:
     std::string log_category_;
     bool log_disable_;
     std::string log_file_;
-    int log_file_index_;
+    int log_files_count_;
     long log_file_size_;
     std::string log_level_;
     bool log_local_;

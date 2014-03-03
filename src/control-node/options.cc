@@ -29,10 +29,8 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
         Process(argc, argv, cmdline_options);
         return true;
     } catch (boost::program_options::error &e) {
-        LOG(ERROR, "Error " << e.what());
         cout << "Error " << e.what() << endl;
     } catch (...) {
-        LOG(ERROR, "Options Parser: Caught fatal unknown exception");
         cout << "Options Parser: Caught fatal unknown exception" << endl;
     }
 
@@ -94,7 +92,7 @@ void Options::Initialize(EventManager &evm,
              "Disable sandesh logging")
         ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
              "Filename for the logs to be written to")
-        ("DEFAULT.log_file_index",
+        ("DEFAULT.log_files_count",
              opt::value<int>()->default_value(10),
              "Maximum log file roll over index")
         ("DEFAULT.log_file_size",
@@ -186,7 +184,7 @@ void Options::Process(int argc, char *argv[],
 
     GetOptValue<string>(var_map, log_category_, "DEFAULT.log_category");
     GetOptValue<string>(var_map, log_file_, "DEFAULT.log_file");
-    GetOptValue<int>(var_map, log_file_index_, "DEFAULT.log_file_index");
+    GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
     GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
