@@ -224,12 +224,13 @@ if sys.platform != 'darwin':
 env.GenerateBuildInfoCode(
 	target = ['buildinfo.h', 'buildinfo.cc'],
 	source = ControlNodeSandeshGenSrcs + buildinfo_dep_libs +
-		['main.cc', 'sandesh/control_node_sandesh.cc'],
+		['main.cc', 'options.cc', 'sandesh/control_node_sandesh.cc'],
 	path = Dir('.').path)
 
 ctrlnode = env.Program(target = 'control-node',
                        source = ['buildinfo.cc',
                                  'main.cc',
+                                 'options.cc',
                                  'sandesh/control_node_sandesh.cc'] +
                                  control_node_sandesh_files_)
 
