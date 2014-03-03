@@ -56,11 +56,17 @@ void Options::Initialize(EventManager &evm,
         ("version", "Display version information")
     ;
 
+    uint16_t default_bgp_port = ContrailPorts::ControlBgp;
+    uint16_t default_collector_port = ContrailPorts::CollectorPort;
+    uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
+    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
+    uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
+
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
         ("COLLECTOR.port", opt::value<uint16_t>()->default_value(
-                                                ContrailPorts::CollectorPort),
+                                                default_collector_port),
              "Port of sandesh collector")
         ("COLLECTOR.server",
              opt::value<string>()->default_value(collector_server_),
@@ -70,7 +76,7 @@ void Options::Initialize(EventManager &evm,
              opt::value<string>()->default_value("bgp_config.xml"),
              "BGP Configuration file")
         ("DEFAULT.bgp_port",
-             opt::value<uint16_t>()->default_value(ContrailPorts::ControlBgp),
+             opt::value<uint16_t>()->default_value(default_bgp_port),
              "BGP listener port")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
@@ -78,8 +84,7 @@ void Options::Initialize(EventManager &evm,
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
              "Hostname of control-node")
         ("DEFAULT.http_server_port",
-             opt::value<uint16_t>()->default_value(
-                                         ContrailPorts::HttpPortControl),
+             opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
 
         ("DEFAULT.log_category",
@@ -99,21 +104,20 @@ void Options::Initialize(EventManager &evm,
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
-        ("DEFAULT.test-mode", opt::bool_switch(&test_mode_),
+        ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
              "Enable control-node to run in test-mode")
 
         ("DEFAULT.xmpp_server_port",
-             opt::value<uint16_t>()->default_value(ContrailPorts::ControlXmpp),
+             opt::value<uint16_t>()->default_value(default_xmpp_port),
              "XMPP listener port")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
-                                            ContrailPorts::DiscoveryServerPort),
+                                                       default_discovery_port),
              "Port of Discovery Server")
-        ("DISCOVERY.server",
-             opt::value<string>()->default_value(discovery_server_),
+        ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
 
-        ("IFMAP.certs_store", opt::value<string>()->default_value(""),
+        ("IFMAP.certs_store",
              "Certificates store to use for communication with IFMAP server")
         ("IFMAP.password", opt::value<string>()->default_value(
                                                      "control_user_passwd"),

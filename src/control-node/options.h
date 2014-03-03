@@ -42,7 +42,8 @@ private:
                      ValueType &var, std::string val);
     void Process(int argc, char *argv[],
             boost::program_options::options_description &cmdline_options);
-    void Initialize(boost::program_options::options_description &);
+    void Initialize(EventManager &evm,
+                    boost::program_options::options_description &options);
 
     std::string bgp_config_file_;
     uint16_t bgp_port_;
