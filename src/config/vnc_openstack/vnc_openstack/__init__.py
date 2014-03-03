@@ -32,11 +32,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._config_sections = conf_sections
         self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        self._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_url = "%s://%s:35357/v2.0" % (auth_proto, self._auth_host)
+        auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
         self._auth_url = auth_url
         self._resync_interval_secs = 2
         self._kc = None

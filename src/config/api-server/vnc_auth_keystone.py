@@ -88,6 +88,7 @@ class AuthServiceKeystone(object):
     def __init__(self, server_mgr, args):
         self._conf_info = {
             'auth_host': args.auth_host,
+            'auth_port': args.auth_port,
             'auth_protocol': args.auth_protocol,
             'admin_user': args.admin_user,
             'admin_password': args.admin_password,
