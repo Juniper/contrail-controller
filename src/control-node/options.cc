@@ -19,22 +19,8 @@ using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
 Options::Options(EventManager &evm) :
-       bgp_config_file_("bgp_config.xml"),
-       bgp_port_(ContrailPorts::ControlBgp),
-       collector_port_(ContrailPorts::CollectorPort),
-       config_file_("/etc/contrail/control-node.conf"),
-       discovery_port_(ContrailPorts::DiscoveryServerPort),
-       http_server_port_(ContrailPorts::HttpPortControl),
        log_disable_(false),
-       log_file_("<stdout>"),
-       log_file_index_(10),
-       log_file_size_(10*1024*1024), // 10MB
-       log_level_("SYS_NOTICE"),
        log_local_(false),
-       ifmap_password_("control_user_passwd"),
-       ifmap_user_("control_user"),
-       ifmap_certs_store_(""),
-       xmpp_port_(ContrailPorts::ControlXmpp),
        test_mode_(false) {
     boost::system::error_code error;
     hostname_ = host_name(error);
@@ -65,7 +51,8 @@ void Options::Initialize(opt::options_description &cmdline_options) {
 
     // Command line only options.
     generic.add_options()
-        ("conf_file", opt::value<string>()->default_value(config_file_),
+        ("conf_file", opt::value<string>()->default_value(
+                                            "/etc/contrail/control-node.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
@@ -74,24 +61,26 @@ void Options::Initialize(opt::options_description &cmdline_options) {
     // Command line and config file options.
     opt::options_description config("Configuration options");
     config.add_options()
-        ("COLLECTOR.port",
-             opt::value<uint16_t>()->default_value(collector_port_),
+        ("COLLECTOR.port", opt::value<uint16_t>()->default_value(
+                                                ContrailPorts::CollectorPort),
              "Port of sandesh collector")
         ("COLLECTOR.server",
              opt::value<string>()->default_value(collector_server_),
              "IP address of sandesh collector")
 
         ("DEFAULT.bgp_config_file",
-             opt::value<string>()->default_value(bgp_config_file_),
+             opt::value<string>()->default_value("bgp_config.xml"),
              "BGP Configuration file")
-        ("DEFAULT.bgp_port", opt::value<uint16_t>()->default_value(bgp_port_),
+        ("DEFAULT.bgp_port",
+             opt::value<uint16_t>()->default_value(ContrailPorts::ControlBgp),
              "BGP listener port")
 
         ("DEFAULT.hostip", opt::value<string>(), "IP address of control-node")
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname_),
              "Hostname of control-node")
         ("DEFAULT.http_server_port",
-             opt::value<uint16_t>()->default_value(http_server_port_),
+             opt::value<uint16_t>()->default_value(
+                                         ContrailPorts::HttpPortControl),
              "Sandesh HTTP listener port")
 
         ("DEFAULT.log_category",
@@ -99,39 +88,41 @@ void Options::Initialize(opt::options_description &cmdline_options) {
              "Category filter for local logging of sandesh messages")
         ("DEFAULT.log_disable", opt::bool_switch(&log_disable_),
              "Disable sandesh logging")
-        ("DEFAULT.log_file", opt::value<string>()->default_value(log_file_),
+        ("DEFAULT.log_file", opt::value<string>()->default_value("<stdout>"),
              "Filename for the logs to be written to")
         ("DEFAULT.log_file_index",
-             opt::value<int>()->default_value(log_file_index_),
+             opt::value<int>()->default_value(10),
              "Maximum log file roll over index")
         ("DEFAULT.log_file_size",
-             opt::value<long>()->default_value(log_file_size_),
+             opt::value<long>()->default_value(10*1024*1024),
              "Maximum size of the log file")
-        ("DEFAULT.log_level", opt::value<string>()->default_value(log_level_),
+        ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_NOTICE"),
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
+        ("DEFAULT.test-mode", opt::bool_switch(&test_mode_),
+             "Enable control-node to run in test-mode")
 
         ("DEFAULT.xmpp_server_port",
-             opt::value<uint16_t>()->default_value(xmpp_port_),
+             opt::value<uint16_t>()->default_value(ContrailPorts::ControlXmpp),
              "XMPP listener port")
 
-        ("DISCOVERY.port",
-             opt::value<uint16_t>()->default_value(discovery_port_),
+        ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
+                                            ContrailPorts::DiscoveryServerPort),
              "Port of Discovery Server")
         ("DISCOVERY.server",
              opt::value<string>()->default_value(discovery_server_),
              "IP address of Discovery Server")
 
-        ("IFMAP.certs_store",
-             opt::value<string>()->default_value(ifmap_certs_store_),
+        ("IFMAP.certs_store", opt::value<string>()->default_value(""),
              "Certificates store to use for communication with IFMAP server")
-        ("IFMAP.password", opt::value<string>()->default_value(ifmap_password_),
+        ("IFMAP.password", opt::value<string>()->default_value(
+                                                     "control_user_passwd"),
              "IFMAP server password")
         ("IFMAP.server_url",
              opt::value<string>()->default_value(ifmap_server_url_),
              "IFMAP server URL")
-        ("IFMAP.user", opt::value<string>()->default_value(ifmap_user_),
+        ("IFMAP.user", opt::value<string>()->default_value("control_user"),
              "IFMAP server username")
         ;
 
