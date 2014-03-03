@@ -18,6 +18,7 @@ using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
+// Process command line options for control-node.
 Options::Options() {
 }
 
@@ -37,6 +38,9 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     return false;
 }
 
+// Initialize control-node's command line option tags with appropriate default
+// values. Options can from a config file as well. By default, we read
+// options from /etc/contrail/control-node.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -141,6 +145,8 @@ void Options::GetOptValue(const boost::program_options::variables_map &var_map,
     }
 }
 
+// Process command line options. They can come from a conf file as well. Options
+// from command line always overrides those that come from the config file.
 void Options::Process(int argc, char *argv[],
         opt::options_description &cmdline_options) {
     // Process options off command line first.
@@ -171,6 +177,7 @@ void Options::Process(int argc, char *argv[],
         exit(0);
     }
 
+    // Retrieve the options.
     GetOptValue<string>(var_map, bgp_config_file_, "DEFAULT.bgp_config_file");
     GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port");
     GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
