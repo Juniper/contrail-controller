@@ -6,6 +6,9 @@
 #define __UTIL_H__
 
 #include <boost/algorithm/string.hpp>
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/ip/host_name.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/function.hpp>
@@ -38,7 +41,6 @@
         assert(Cond);           \
     } while (0)
 #endif
-
 
 template <typename IntType>
 bool BitIsSet(IntType value, size_t bit) {
@@ -197,6 +199,18 @@ static inline boost::asio::ip::address_v4 GetIp4SubnetBroadcastAddress(
     boost::asio::ip::address_v4 subnet(ip_prefix.to_ulong() | 
                                        ~(0xFFFFFFFF << (32 - plen)));
     return subnet;
+}
+
+static inline std::string GetHostIp(boost::asio::io_service *io_service,
+                                    std::string hostname) {
+    boost::asio::ip::tcp::resolver::iterator iter;
+    boost::system::error_code error;
+    boost::asio::ip::tcp::resolver resolver(*io_service);
+    boost::asio::ip::tcp::resolver::query query(hostname, "");
+
+    iter = resolver.resolve(query, error);
+
+    return iter->endpoint().address().to_string();
 }
 
 // Writes a number into a string
