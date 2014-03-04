@@ -86,11 +86,8 @@ class IndexAllocator(object):
     # end reserve
 
     def delete(self, idx):
-        try:
-            id_str = "%(#)010d" % {'#': idx}
-            self._disc_service.delete_node(self._path + id_str)
-        except kazoo.exceptions.NoNodeError:
-            pass
+        id_str = "%(#)010d" % {'#': idx}
+        self._disc_service.delete_node(self._path + id_str)
         bit_idx = self._get_bit_from_zk_index(idx)
         if bit_idx < self._in_use.length():
             self._in_use[bit_idx] = 0
@@ -110,10 +107,7 @@ class IndexAllocator(object):
 
     @classmethod
     def delete_all(cls, disc_service, path):
-        try:
-            disc_service.delete_node(path, recursive=True)
-        except kazoo.exceptions.NoNodeError:
-            pass
+        disc_service.delete_node(path, recursive=True)
     # end delete_all
 
 #end class IndexAllocator
@@ -187,6 +181,8 @@ class DiscoveryService(object):
                 kazoo.exceptions.ConnectionLoss):
             self.reconnect()
             self.delete_node(path)
+        except kazoo.exceptions.NoNodeError:
+            pass
     # end delete_node
 
     def read_node(self, path):

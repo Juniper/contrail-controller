@@ -1188,6 +1188,7 @@ class VncDbClient(object):
         method = getattr(self._ifmap_db, "_ifmap_%s_alloc" % (method_name))
         (ok, result) = method(parent_type, obj_dict['fq_name'])
         if not ok:
+            self.dbe_release(obj_type, obj_dict['fq_name'])
             return False, result
 
         (my_imid, parent_imid) = result
@@ -1264,10 +1265,14 @@ class VncDbClient(object):
 
         # finally remove mapping in zk
         fq_name = cfgm_common.imid.get_fq_name_from_ifmap_id(obj_ids['imid'])
-        self._zk_db.delete_fq_name_to_uuid_mapping(obj_type, fq_name)
+        self.dbe_release(obj_type, fq_name)
 
         return ok, cassandra_result
     # end dbe_delete
+
+    def dbe_release(self, obj_type, obj_fq_name):
+        self._zk_db.delete_fq_name_to_uuid_mapping(obj_type, obj_fq_name)
+    # end dbe_release
 
     def dbe_cache_invalidate(self, obj_ids):
         pass
