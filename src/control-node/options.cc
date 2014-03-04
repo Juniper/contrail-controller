@@ -119,7 +119,7 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
 
-        ("IFMAP.certs_store",
+        ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
         ("IFMAP.password", opt::value<string>()->default_value(
                                                      "control_user_passwd"),

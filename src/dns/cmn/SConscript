@@ -23,12 +23,12 @@ buildinfo_dep_libs = ['../../dns/cfg/libdns_cfg.a', '../../dns/mgr/libmgr.a', '.
 if sys.platform != 'darwin':
     buildinfo_dep_libs += [ '../../../lib/libtbb_debug.so.2' ]
 
-cmn_sources = ['dns.cc']
+cmn_sources = ['dns.cc', 'dns_options.cc']
 
 env.GenerateBuildInfoCode(
     target = ['buildinfo.h', 'buildinfo.cc'],
     source = buildinfo_dep_libs +  cmn_sources +
-                 ['../main.cc', '../dns_options.cc'],
+                 ['../main.cc'],
     path = Dir('.').path)
 
 env.Depends('dns.o', 'buildinfo.cc')

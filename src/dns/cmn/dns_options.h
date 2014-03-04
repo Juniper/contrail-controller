@@ -9,7 +9,7 @@
 class Options {
 public:
     Options();
-    bool Parse(EventManager &evm, int argc, char **argv);
+    bool Parse(EventManager &evm, int argc, char *argv[]);
 
     const std::string dns_config_file() const { return dns_config_file_; }
     const std::string collector_server() const { return collector_server_; }

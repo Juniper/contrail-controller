@@ -28,7 +28,7 @@
 #include <cfg/dns_config_parser.h>
 #include <agent/agent_xmpp_init.h>
 #include "bgp/bgp_sandesh.h"
-#include "dns/dns_options.h"
+#include "cmn/dns_options.h"
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <uve/uve.h>
@@ -78,11 +78,27 @@ void Dns::ShutdownDiscoveryClient(DiscoveryServiceClient *ds_client) {
     }
 }
 
+static bool OptionsParse(Options &options, int argc, char *argv[]) {
+    try {
+        options.Parse(*Dns::GetEventManager(), argc, argv);
+        return true;
+    } catch (boost::program_options::error &e) {
+        cout << "Error " << e.what() << endl;
+    } catch (...) {
+        cout << "Options Parser: Caught fatal unknown exception" << endl;
+    }
+
+    return false;
+}
+
 int main(int argc, char *argv[]) {
+    // Create DB table and event manager
+    Dns::Init();
+
     Options options;
 
     // Process options from command-line and configuration file.
-    if (!options.Parse(evm, argc, argv)) {
+    if (!OptionsParse(options, argc, argv)) {
         exit(-1);
     }
 
@@ -97,8 +113,6 @@ int main(int argc, char *argv[]) {
     string build_info_str;
     Dns::GetVersion(build_info_str);
     MiscUtils::LogVersionInfo(build_info_str, Category::DNSAGENT);
-    // Create DB table and event manager
-    Dns::Init();
 
     if (!options.collector_server().empty()) {
         Dns::SetCollector(options.collector_server());
@@ -134,7 +148,7 @@ int main(int argc, char *argv[]) {
         SetLoggingDisabled(true);
     }
 
-    DNS::SetTestMode(options.test_mode());
+    // DNS::SetTestMode(options.test_mode());
 
     DB config_db;
     DBGraph config_graph;
@@ -164,6 +178,7 @@ int main(int argc, char *argv[]) {
     DiscoveryServiceClient *ds_client = NULL;
     if (!options.discovery_server().empty()) {
         tcp::endpoint dss_ep;
+        boost::system::error_code error;
         dss_ep.address(address::from_string(options.discovery_server(), error));
         dss_ep.port(options.discovery_port());
         ds_client = new DiscoveryServiceClient(Dns::GetEventManager(), dss_ep,

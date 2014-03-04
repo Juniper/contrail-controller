@@ -9,7 +9,7 @@
 #include "base/util.h"
 #include "base/logging.h"
 #include "base/test/task_test_util.h"
-#include "dns/dns_options.h"
+#include "cmn/dns_options.h"
 #include "io/event_manager.h"
 
 using namespace std;
@@ -38,7 +38,7 @@ protected:
 TEST_F(OptionsTest, NoArguments) {
     int argc = 1;
     char *argv[argc];
-    char argv_0[] = "options_test";
+    char argv_0[] = "dns_options_test";
     argv[0] = argv_0;
 
     options_.Parse(evm_, argc, argv);
@@ -56,7 +56,7 @@ TEST_F(OptionsTest, NoArguments) {
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "<stdout>");
     EXPECT_EQ(options_.log_files_count(), 10);
-    EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
+    EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "");
@@ -69,7 +69,7 @@ TEST_F(OptionsTest, NoArguments) {
 TEST_F(OptionsTest, DefaultConfFile) {
     int argc = 2;
     char *argv[argc];
-    char argv_0[] = "options_test";
+    char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
@@ -90,7 +90,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "<stdout>");
     EXPECT_EQ(options_.log_files_count(), 10);
-    EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
+    EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "");
@@ -103,7 +103,7 @@ TEST_F(OptionsTest, DefaultConfFile) {
 TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     int argc = 3;
     char *argv[argc];
-    char argv_0[] = "options_test";
+    char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
     char argv_2[] = "--DEFAULT.log_file=test.log";
     argv[0] = argv_0;
@@ -126,7 +126,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "test.log"); // Overridden from cmd line.
     EXPECT_EQ(options_.log_files_count(), 10);
-    EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
+    EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "");
@@ -139,7 +139,7 @@ TEST_F(OptionsTest, OverrideStringFromCommandLine) {
 TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     int argc = 3;
     char *argv[argc];
-    char argv_0[] = "options_test";
+    char argv_0[] = "dns_options_test";
     char argv_1[] = "--conf_file=controller/src/dns/dns.conf";
     char argv_2[] = "--DEFAULT.test_mode";
     argv[0] = argv_0;
@@ -162,7 +162,7 @@ TEST_F(OptionsTest, OverrideBooleanFromCommandLine) {
     EXPECT_EQ(options_.log_disable(), false);
     EXPECT_EQ(options_.log_file(), "<stdout>");
     EXPECT_EQ(options_.log_files_count(), 10);
-    EXPECT_EQ(options_.log_file_size(), 10*1024*1024);
+    EXPECT_EQ(options_.log_file_size(), 1024*1024);
     EXPECT_EQ(options_.log_level(), "SYS_NOTICE");
     EXPECT_EQ(options_.log_local(), false);
     EXPECT_EQ(options_.ifmap_server_url(), "");
@@ -203,14 +203,14 @@ TEST_F(OptionsTest, CustomConfigFile) {
         "user=test-user\n";
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("/tmp/dns_options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 2;
     char *argv[argc];
-    char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_0[] = "dns_options_test";
+    char argv_1[] = "--conf_file=/tmp/dns_options_test_config_file.conf";
     argv[0] = argv_0;
     argv[1] = argv_1;
 
@@ -220,7 +220,7 @@ TEST_F(OptionsTest, CustomConfigFile) {
     EXPECT_EQ(options_.collector_server(), "3.4.5.6");
     EXPECT_EQ(options_.collector_port(), 100);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_config_file.conf");
+              "/tmp/dns_options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");
@@ -271,14 +271,14 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
         "user=test-user\n";
 
     ofstream config_file;
-    config_file.open("/tmp/options_test_config_file.conf");
+    config_file.open("/tmp/dns_options_test_config_file.conf");
     config_file << config;
     config_file.close();
 
     int argc = 5;
     char *argv[argc];
-    char argv_0[] = "options_test";
-    char argv_1[] = "--conf_file=/tmp/options_test_config_file.conf";
+    char argv_0[] = "dns_options_test";
+    char argv_1[] = "--conf_file=/tmp/dns_options_test_config_file.conf";
     char argv_2[] = "--DEFAULT.log_file=new_test.log";
     char argv_3[] = "--DEFAULT.log_local";
     char argv_4[] = "--COLLECTOR.port=1000";
@@ -294,7 +294,7 @@ TEST_F(OptionsTest, CustomConfigFileAndOverrideFromCommandLine) {
     EXPECT_EQ(options_.collector_server(), "3.4.5.6");
     EXPECT_EQ(options_.collector_port(), 1000);
     EXPECT_EQ(options_.config_file(),
-              "/tmp/options_test_config_file.conf");
+              "/tmp/dns_options_test_config_file.conf");
     EXPECT_EQ(options_.discovery_server(), "1.0.0.1");
     EXPECT_EQ(options_.discovery_port(), 100);
     EXPECT_EQ(options_.hostname(), "test");

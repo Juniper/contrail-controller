@@ -10,8 +10,8 @@
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
-#include "dns/cmn/buildinfo.h"
-#include "dns/dns_options.h"
+#include "cmn/buildinfo.h"
+#include "cmn/dns_options.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -25,16 +25,8 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     opt::options_description cmdline_options("Allowed options");
     Initialize(evm, cmdline_options);
 
-    try {
-        Process(argc, argv, cmdline_options);
-        return true;
-    } catch (boost::program_options::error &e) {
-        cout << "Error " << e.what() << endl;
-    } catch (...) {
-        cout << "Options Parser: Caught fatal unknown exception" << endl;
-    }
-
-    return false;
+    Process(argc, argv, cmdline_options);
+    return true;
 }
 
 // Initialize dns's command line option tags with appropriate default
@@ -109,7 +101,7 @@ void Options::Initialize(EventManager &evm,
         ("DISCOVERY.server", opt::value<string>(),
              "IP address of Discovery Server")
 
-        ("IFMAP.certs_store",
+        ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
         ("IFMAP.password", opt::value<string>()->default_value(
                                                      "dns_user_passwd"),

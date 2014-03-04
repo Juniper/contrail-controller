@@ -44,7 +44,7 @@ if sys.platform != 'darwin':
                       '-lifmap_server', '-rdynamic',
                       '-Wl,--no-whole-archive'])
 
-dnsd = env.Program(target = 'dnsd', source = ['main.cc', 'dns_options.cc'])
+dnsd = env.Program(target = 'dnsd', source = ['main.cc'])
 env.Alias('src/dns:dnsd', dnsd)
 env.Default(dnsd)
 

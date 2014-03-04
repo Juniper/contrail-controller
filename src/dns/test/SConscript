@@ -48,8 +48,7 @@ env.Alias('src/dns:dns_config_test', dns_config_test)
 dns_bind_test = env.UnitTest('dns_bind_test', ['dns_bind_test.cc'])
 env.Alias('src/dns:dns_bind_test', dns_bind_test)
 
-dns_options_test = env.UnitTest('dns_options_test', ['../dns_options.cc',
-                                                     'dns_options_test.cc'])
+dns_options_test = env.UnitTest('dns_options_test', ['dns_options_test.cc'])
 env.Alias('src/dns:dns_options_test', dns_options_test)
 
 #dns_mgr_test = env.UnitTest('dns_mgr_test', ['dns_mgr_test.cc'])
