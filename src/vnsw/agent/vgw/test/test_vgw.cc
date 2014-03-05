@@ -34,45 +34,45 @@ TEST_F(VgwTest, conf_file_1) {
     VirtualGatewayConfigTable *table = 
         Agent::GetInstance()->params()->vgw_config_table();
     VirtualGatewayConfigTable::Table::iterator it = 
-        table->table().find(VirtualGatewayConfig("vgw"));
+        table->table().find("vgw");
     EXPECT_TRUE(it != table->table().end());
 
     if (it == table->table().end())
         return;
 
-    EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public:public");
-    EXPECT_STREQ(it->interface().c_str(), "vgw");
+    EXPECT_STREQ(it->second.vrf().c_str(), "default-domain:admin:public:public");
+    EXPECT_STREQ(it->second.interface().c_str(), "vgw");
 
-    VirtualGatewayConfig::Subnet subnet = it->subnets()[0];
+    VirtualGatewayConfig::Subnet subnet = it->second.subnets()[0];
     EXPECT_STREQ(subnet.ip_.to_string().c_str(), "1.1.1.1");
     EXPECT_EQ(subnet.plen_, 24);
 
-    it = table->table().find(VirtualGatewayConfig("vgw1"));
+    it = table->table().find("vgw1");
     EXPECT_TRUE(it != table->table().end());
 
     if (it == table->table().end())
         return;
 
-    EXPECT_STREQ(it->vrf().c_str(), "default-domain:admin:public1:public1");
-    EXPECT_STREQ(it->interface().c_str(), "vgw1");
-    EXPECT_EQ(it->subnets().size(), 2);
-    if (it->routes().size() == 2) {
-        subnet = it->subnets()[0];
+    EXPECT_STREQ(it->second.vrf().c_str(), "default-domain:admin:public1:public1");
+    EXPECT_STREQ(it->second.interface().c_str(), "vgw1");
+    EXPECT_EQ(it->second.subnets().size(), 2);
+    if (it->second.routes().size() == 2) {
+        subnet = it->second.subnets()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.1.0");
         EXPECT_EQ(subnet.plen_, 24);
 
-        subnet = it->subnets()[1];
+        subnet = it->second.subnets()[1];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.2.0");
         EXPECT_EQ(subnet.plen_, 24);
     }
 
-    EXPECT_EQ(it->routes().size(), 2);
-    if (it->routes().size() == 2) {
-        subnet = it->routes()[0];
+    EXPECT_EQ(it->second.routes().size(), 2);
+    if (it->second.routes().size() == 2) {
+        subnet = it->second.routes()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");
         EXPECT_EQ(subnet.plen_, 24);
 
-        subnet = it->routes()[1];
+        subnet = it->second.routes()[1];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "0.0.0.0");
         EXPECT_EQ(subnet.plen_, 0);
     }
@@ -237,7 +237,7 @@ TEST_F(VgwTest, RouteResync) {
 int main(int argc, char **argv) {
     GETUSERARGS();
 
-    client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.xml",
+    client = VGwInit( "controller/src/vnsw/agent/vgw/test/cfg.ini",
                       ksync_init);
     int ret = RUN_ALL_TESTS();
     TestShutdown();

@@ -301,14 +301,12 @@ void AgentInit::TriggerInit() {
     trigger_list_.push_back(t);
 }
 
-void AgentInit::Init(AgentParam *param, Agent *agent, bool disable_vhost,
-                     bool disable_ksync, bool disable_services,
-                     bool disable_packet_services) {
+void AgentInit::Init(AgentParam *param, Agent *agent) {
 
-    create_vhost_ = !disable_vhost;
-    ksync_enable_ = !disable_ksync;
-    services_enable_ = !disable_services;
-    packet_enable_ = !disable_packet_services;
+    create_vhost_ = !param->disable_vhost();
+    ksync_enable_ = !param->disable_ksync();
+    services_enable_ = !param->disable_services();
+    packet_enable_ = !param->disable_packet_services();
     params_ = param;
     agent_ = agent;
 }

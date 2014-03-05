@@ -6,6 +6,8 @@
 #define vnsw_agent_param_hpp
 
 #include <boost/program_options.hpp>
+#include <net/address.h>
+
 class VirtualGatewayConfigTable;
 
 // Class handling agent configuration parameters from config file and 
@@ -78,6 +80,15 @@ public:
     uint16_t collector_port() const {return collector_port_; }
     uint16_t http_server_port() const { return http_server_port_; }
     const std::string &host_name() const { return host_name_; }
+    bool disable_vhost() const { return disable_vhost_; }
+    bool disable_ksync() const { return disable_ksync_; }
+    bool disable_services() const { return disable_services_; }
+    bool disable_packet_services() const { return disable_packet_services_; }
+
+    void set_disable_vhost(bool value) { disable_vhost_ = value; }
+    void set_disable_ksync(bool value) { disable_ksync_ = value; }
+    void set_disable_services(bool value) { disable_services_ = value; }
+    void set_disable_packet_services(bool value) { disable_packet_services_ = value; }
     int agent_stats_interval() const { return agent_stats_interval_; }
     int flow_stats_interval() const { return flow_stats_interval_; }
     void set_agent_stats_interval(int val) { agent_stats_interval_ = val; }
@@ -94,19 +105,19 @@ public:
     bool isKvmMode() const { return mode_ == MODE_KVM; }
     bool isVmwareMode() const { return mode_ == MODE_VMWARE; }
 
-    void Init(const std::string &config_file,
-              const std::string &program_name,
-              const boost::program_options::variables_map &var_map,
-              bool log_local = false);
+    void Init(int argc, char *argv[]);
 
 private:
     void ValidateLinkLocalFlows();
     void Validate();
     void InitFromSystem();
-    void InitFromConfig();
-    void InitFromArguments(const boost::program_options::variables_map &var_map,
-                           bool log_local = false);
+    void InitFromCmdLineAndConfig();
     void LogConfig() const;
+    void Parse(int argc, char *argv[]);
+    bool GetIpAddress(const std::string &str, Ip4Address *addr);
+    bool ConfigToIpAddress(const std::string &key, Ip4Address *addr);
+    template <typename ValueType>
+    void GetOptValue(ValueType &var, std::string val);
 
     PortInfo vhost_;
     std::string eth_port_;
@@ -135,11 +146,18 @@ private:
     uint16_t collector_port_;
     uint16_t http_server_port_;
     std::string host_name_;
+    bool disable_vhost_;
+    bool disable_ksync_;
+    bool disable_services_; 
+    bool disable_packet_services_; 
     int agent_stats_interval_;
     int flow_stats_interval_;
     std::string vmware_physical_port_;
 
     std::auto_ptr<VirtualGatewayConfigTable> vgw_config_table_;
+    boost::program_options::options_description cmdline_options_;
+    boost::program_options::options_description config_file_options_;
+    boost::program_options::variables_map var_map_;
 
     DISALLOW_COPY_AND_ASSIGN(AgentParam);
 };

@@ -37,6 +37,12 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                      bool services_init, bool uve_init,
                      int agent_stats_interval, int flow_stats_interval,
                      bool asio, bool ksync_sync_mode) {
+    int argc = 3;
+    char *argv[] = {
+        (char *) "Test",
+        (char *) "--conf-file", (char *)init_file
+    };
+
     TestClient *client = new TestClient();
     agent_init = new AgentTestInit(client);
 
@@ -45,8 +51,11 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
     AgentParam *param = agent_init->param();
     AgentInit *init = agent_init->init();
 
-    opt::variables_map var_map;
-    param->Init(init_file, "test", var_map);
+    param->Init(argc, argv);
+    param->set_disable_vhost(true);
+    param->set_disable_ksync(!ksync_init);
+    param->set_disable_services(!services_init);
+    param->set_disable_packet_services(false);
     param->set_agent_stats_interval(agent_stats_interval);
     param->set_flow_stats_interval(flow_stats_interval);
 
@@ -57,10 +66,6 @@ TestClient *TestInit(const char *init_file, bool ksync_init, bool pkt_init,
                                sandesh_port, NULL);
 
     init->Init(param, agent);
-    init->set_ksync_enable(ksync_init);
-    init->set_packet_enable(true);
-    init->set_services_enable(services_init);
-    init->set_create_vhost(false);
     init->set_uve_enable(uve_init);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
@@ -107,9 +112,18 @@ TestClient *StatsTestInit() {
     AgentParam *param = agent_init->param();
     AgentInit *init = agent_init->init();
 
+    int argc = 3;
+    char *argv[] = {
+        (char *) "test",
+        (char *) "--conf-file", (char *)"controller/src/vnsw/agent/test/vnswa_cfg.xml"
+    };
+
     // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    param->Init("controller/src/vnsw/agent/test/vnswa_cfg.xml", "test", var_map);
+    param->Init(argc, argv);
+    param->set_disable_vhost(true);
+    param->set_disable_ksync(false);
+    param->set_disable_services(false);
+    param->set_disable_packet_services(false);
 
     // Initialize the agent-init control class
     int sandesh_port = 0;
@@ -118,10 +132,6 @@ TestClient *StatsTestInit() {
                                sandesh_port, NULL);
 
     init->Init(param, agent);
-    init->set_ksync_enable(true);
-    init->set_packet_enable(true);
-    init->set_services_enable(true);
-    init->set_create_vhost(false);
     init->set_uve_enable(false);
     init->set_vgw_enable(false);
     init->set_router_id_dep_enable(false);
@@ -154,10 +164,27 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
     Agent *agent = agent_init->agent();
     AgentParam *param = agent_init->param();
     AgentInit *init = agent_init->init();
+    int argc = 3;
+    char *argv[] = {
+        (char *) "test",
+        (char *) "--conf-file", (char *)init_file.c_str()
+    };
 
     // Read agent parameters from config file and arguments
-    opt::variables_map var_map;
-    param->Init(init_file, "test", var_map);
+    param->Init(argc, argv);
+    param->set_disable_vhost(true);
+    param->set_disable_ksync(!ksync_init);
+    param->set_disable_services(false);
+    param->set_disable_packet_services(false);
+
+    // Initialize the agent-init control class
+    int sandesh_port = 0;
+    Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
+                               Agent::GetInstance()->GetEventManager(),
+                               sandesh_port, NULL);
+
+    init->Init(param, agent);
+    //init->
 
     // Initialize the agent-init control class
     Sandesh::InitGeneratorTest("VNSWAgent", "Agent", "Test", "Test",
@@ -165,10 +192,6 @@ TestClient *VGwInit(const string &init_file, bool ksync_init) {
                                0, NULL);
 
     init->Init(param, agent);
-    init->set_ksync_enable(ksync_init);
-    init->set_packet_enable(true);
-    init->set_services_enable(true);
-    init->set_create_vhost(false);
     init->set_uve_enable(true);
     init->set_vgw_enable(true);
     init->set_router_id_dep_enable(false);
