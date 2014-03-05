@@ -148,10 +148,6 @@ void CdbIf::Db_SetInitDone(bool init_done) {
 }
 
 bool CdbIf::Db_Init(std::string task_id, int task_instance) {
-    /*
-     * we can leave the queue contents as is so they can be replayed after the
-     * connection to db is established
-     */
     {
         tbb::mutex::scoped_lock lock(cdbq_mutex_);
 
@@ -163,6 +159,8 @@ bool CdbIf::Db_Init(std::string task_id, int task_instance) {
             boost::bind(&CdbIf::Db_AsyncAddColumn, this, _1)));
         cdbq_->SetStartRunnerFunc(
             boost::bind(&CdbIf::Db_IsInitDone, this));
+        cdbq_->SetExitCallback(boost::bind(&CdbIf::Db_BatchAddColumn,
+            this, _1));
 
         if (cleanup_) {
             TaskScheduler *scheduler = TaskScheduler::GetInstance();
@@ -688,107 +686,119 @@ bool CdbIf::NewDb_AddColumnfamily(const GenDb::NewCf& cf) {
  * called by the WorkQueue mechanism
  */
 bool CdbIf::Db_AsyncAddColumn(CdbIfColList &cl) {
-    bool ret_value = true;
-    uint64_t ts(UTCTimestampUsec());
     GenDb::ColList *new_colp(cl.gendb_cl);
-
-    if (new_colp) {
-        std::map<std::string, std::map<std::string, std::vector<cassandra::Mutation> > > mutation_map;
-        std::vector<cassandra::Mutation> mutations;
-        mutations.reserve(new_colp->columns_.size());
-        GenDb::NewCf::ColumnFamilyType cftype = GenDb::NewCf::COLUMN_FAMILY_INVALID;
-
-        for (GenDb::NewColVec::iterator it = new_colp->columns_.begin();
-             it != new_colp->columns_.end(); it++) {
-                cassandra::Mutation mutation;
-                cassandra::ColumnOrSuperColumn c_or_sc;
-                cassandra::Column c;
-
-                if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
-                    CDBIF_CONDCHECK_LOG_RETF((it->name.size() == 1) && (it->value.size() == 1));
-                    CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
-                    cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
-                    
-                    std::string col_name;
-                    try {
-                        col_name = boost::get<std::string>(it->name.at(0));
-                    } catch (boost::bad_get& ex) {
-                        CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
-                    }
-                    c.__set_name(col_name);
-                    std::string col_value;
-                    DbDataValueToStringNonComposite(col_value, it->value.at(0));
-                    c.__set_value(col_value);
-                    c.__set_timestamp(ts);
-                    if (it->ttl == -1) {
-                        if (cassandra_ttl_)
-                            c.__set_ttl(cassandra_ttl_);
-                    } else if (it->ttl) {
-                        c.__set_ttl(it->ttl);
-                    }
-
-                    c_or_sc.__set_column(c);
-                    mutation.__set_column_or_supercolumn(c_or_sc);
-                    mutations.push_back(mutation);
-                } else if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
-                    CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_SQL);
-                    cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
-
-                    std::string col_name;
-                    DbDataValueVecToString(col_name, it->name.size() != 1,
-                                           it->name);
-                    c.__set_name(col_name);
-
-                    std::string col_value;
-                    DbDataValueVecToString(col_value, it->value.size() != 1,
-                                           it->value);
-                    c.__set_value(col_value);
-
-                    c.__set_timestamp(ts);
-                    if (it->ttl == -1) {
-                        if (cassandra_ttl_)
-                            c.__set_ttl(cassandra_ttl_);
-                    } else if (it->ttl) {
-                        c.__set_ttl(it->ttl);
-                    }
-
-                    c_or_sc.__set_column(c);
-                    mutation.__set_column_or_supercolumn(c_or_sc);
-                    mutations.push_back(mutation);
-                } else {
-                    CDBIF_CONDCHECK_LOG_RETF(0);
-                }
-        }
-        std::map<std::string, std::vector<cassandra::Mutation> > cf_map;
-        cf_map.insert(std::make_pair(new_colp->cfname_, mutations));
-        std::string key_value;
-        DbDataValueVecToString(key_value, new_colp->rowkey_.size() != 1, new_colp->rowkey_);
-        mutation_map.insert(std::make_pair(key_value, cf_map));
-        try {
-            client_->batch_mutate(mutation_map, org::apache::cassandra::ConsistencyLevel::ONE);
-        } catch (InvalidRequestException& ire) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": InvalidRequestException: " << ire.why << "for cf: " << new_colp->cfname_);
-        } catch (UnavailableException& ue) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << "UnavailableException: " << ue.what() << "for cf: " << new_colp->cfname_);
-        } catch (TimedOutException& te) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << "TimedOutException: " << te.what() << "for cf: " << new_colp->cfname_);
-        } catch (TTransportException& te) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << te.what());
-            errhandler_();
-            ret_value = false;
-        } catch (TException& tx) {
-            CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << tx.what() << new_colp->cfname_);
-        }
-    } else {
+    if (new_colp == NULL) {
         CDBIF_HANDLE_EXCEPTION(__func__ << ": No column info passed");
+        return true;
     }
+    uint64_t ts(UTCTimestampUsec());
+    std::string cfname(new_colp->cfname_);
+    // Does the row key exist in the Cassandra mutation map ?
+    std::string key_value;
+    DbDataValueVecToString(key_value, new_colp->rowkey_.size() != 1,
+                           new_colp->rowkey_);
+    CassandraMutationMap::iterator cmm_it = mutation_map_.find(key_value);
+    if (cmm_it == mutation_map_.end()) {
+        CFMutationMap ecfmm;
+        cmm_it = mutation_map_.insert(
+            std::pair<std::string, CFMutationMap>(key_value,
+                CFMutationMap())).first;
+    } 
+    CFMutationMap &cf_mutation_map(cmm_it->second);
+    // Does the column family exist in the column family mutation map ?
+    CFMutationMap::iterator cfmm_it = cf_mutation_map.find(cfname);
+    if (cfmm_it == cf_mutation_map.end()) {
+        cfmm_it = cf_mutation_map.insert(
+            std::pair<std::string, MutationList>(cfname, MutationList())).first;
+    }
+    MutationList &mutations(cfmm_it->second);
+    mutations.reserve(mutations.size() + new_colp->columns_.size());
 
-    /* allocated when enqueued, free it after processing */
-    if (new_colp) {
-        delete new_colp;
-        cl.gendb_cl = NULL;
+    GenDb::NewCf::ColumnFamilyType cftype = GenDb::NewCf::COLUMN_FAMILY_INVALID;
+    for (GenDb::NewColVec::iterator it = new_colp->columns_.begin();
+         it != new_colp->columns_.end(); it++) {
+        cassandra::Mutation mutation;
+        cassandra::ColumnOrSuperColumn c_or_sc;
+        cassandra::Column c;
+
+        if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_SQL) {
+            CDBIF_CONDCHECK_LOG_RETF((it->name.size() == 1) && (it->value.size() == 1));
+            CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_NOSQL);
+            cftype = GenDb::NewCf::COLUMN_FAMILY_SQL;
+            // Column Name
+            std::string col_name;
+            try {
+                col_name = boost::get<std::string>(it->name.at(0));
+            } catch (boost::bad_get& ex) {
+                CDBIF_HANDLE_EXCEPTION(__func__ << "Exception for boost::get, what=" << ex.what());
+            }
+            c.__set_name(col_name);
+            // Column Value
+            std::string col_value;
+            DbDataValueToStringNonComposite(col_value, it->value.at(0));
+            c.__set_value(col_value);
+            // Timestamp and TTL
+            c.__set_timestamp(ts);
+            if (it->ttl == -1) {
+                if (cassandra_ttl_) {
+                    c.__set_ttl(cassandra_ttl_);
+                }
+            } else if (it->ttl) {
+                c.__set_ttl(it->ttl);
+            }
+            c_or_sc.__set_column(c);
+            mutation.__set_column_or_supercolumn(c_or_sc);
+            mutations.push_back(mutation);
+        } else if (it->cftype_ == GenDb::NewCf::COLUMN_FAMILY_NOSQL) {
+            CDBIF_CONDCHECK_LOG_RETF(cftype != GenDb::NewCf::COLUMN_FAMILY_SQL);
+            cftype = GenDb::NewCf::COLUMN_FAMILY_NOSQL;
+            // Column Name
+            std::string col_name;
+            DbDataValueVecToString(col_name, it->name.size() != 1, it->name);
+            c.__set_name(col_name);
+            // Column Value
+            std::string col_value;
+            DbDataValueVecToString(col_value, it->value.size() != 1,
+                                   it->value);
+            c.__set_value(col_value);
+            // Timestamp and TTL
+            c.__set_timestamp(ts);
+            if (it->ttl == -1) {
+                if (cassandra_ttl_) {
+                    c.__set_ttl(cassandra_ttl_);
+                }
+            } else if (it->ttl) {
+                c.__set_ttl(it->ttl);
+            }
+            c_or_sc.__set_column(c);
+            mutation.__set_column_or_supercolumn(c_or_sc);
+            mutations.push_back(mutation);
+        } else {
+            CDBIF_CONDCHECK_LOG_RETF(0);
+        }
     }
-    return ret_value;
+    // Allocated when enqueued, free it after processing
+    delete new_colp;
+    cl.gendb_cl = NULL;
+    return true;
+}
+
+void CdbIf::Db_BatchAddColumn(bool done) {
+    try {
+        client_->batch_mutate(mutation_map_, org::apache::cassandra::ConsistencyLevel::ONE);
+    } catch (InvalidRequestException& ire) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": InvalidRequestException: " << ire.why);
+    } catch (UnavailableException& ue) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "UnavailableException: " << ue.what());
+    } catch (TimedOutException& te) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << "TimedOutException: " << te.what());
+    } catch (TTransportException& te) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": TTransportException what: " << te.what());
+        errhandler_();
+    } catch (TException& tx) {
+        CDBIF_HANDLE_EXCEPTION(__func__ << ": TException what: " << tx.what());
+    }
+    mutation_map_.clear();
 }
 
 bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
@@ -802,7 +812,12 @@ bool CdbIf::NewDb_AddColumn(std::auto_ptr<GenDb::ColList> cl) {
 bool CdbIf::AddColumnSync(std::auto_ptr<GenDb::ColList> cl) {
     CdbIfColList qentry;
     qentry.gendb_cl = cl.release();
-    return (Db_AsyncAddColumn(qentry));
+    bool success = Db_AsyncAddColumn(qentry);
+    if (!success) {
+        return success;
+    }
+    Db_BatchAddColumn(true);
+    return true;
 }
 
 bool CdbIf::ColListFromColumnOrSuper(GenDb::ColList& ret,
