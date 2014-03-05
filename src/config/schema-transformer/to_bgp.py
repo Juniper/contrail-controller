@@ -918,11 +918,6 @@ class VirtualNetworkST(DictST):
                                         service_list[0])
                                     action.assign_routing_instance = \
                                         self.name + ':' + service_ri
-                            if (service_list and svn in [self.name, 'any']):
-                                    service_ri = self.get_service_name(dvn,
-                                        service_list[0])
-                                    action.assign_routing_instance = \
-                                        self.name + ':' + service_ri
                         else:
                             return result_acl_rule_list
 
