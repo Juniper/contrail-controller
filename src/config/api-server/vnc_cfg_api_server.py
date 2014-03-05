@@ -510,7 +510,6 @@ class VncApiServer(VncApiServerGen):
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
             'rabbit_user': 'contrail',
-            'rabbit_password': 'c0ntrail123',
             'rabbit_vhost': 'contrail',
         }
         # ssl options
