@@ -9,9 +9,12 @@
 #include <linux/rtnetlink.h>
 #include <linux/genetlink.h>
 #include <linux/if_ether.h>
+#include <netinet/ether.h>
+#elif defined(__FreeBSD__)
+#include <sys/socket.h>
+#include <sys/ioctl.h>
 
 #include <net/if.h>
-#include <netinet/ether.h>
 
 #include <io/event_manager.h>
 #include <db/db_entry.h>
@@ -34,6 +37,7 @@
 #include "vhost.h"
 #include "vr_message.h"
 #include "vnswif_listener.h"
+
 
 #define	VNSW_GENETLINK_FAMILY_NAME  "vnsw"
 
@@ -159,6 +163,17 @@ void KSync::CreateVhostIntf() {
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr = { 0 };
+
+    int s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+    assert(s > 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+        sizeof(ifr.ifr_name));
+
+    assert(ioctl(s, SIOCIFCREATE, &ifr) != -1);
+    close(s);
 }
 
 void KSync::UpdateVhostMac() {
@@ -183,6 +198,20 @@ void KSync::UpdateVhostMac() {
     assert((resp = nl_parse_reply(cl)) != NULL);
     assert(resp->nl_type == NL_MSG_TYPE_ERROR);
     nl_free_client(cl);
+#elif defined(__FreeBSD__)
+    struct ifreq ifr = { 0 };
+
+    int s = socket(AF_LOCAL, SOCK_DGRAM, 0);
+    assert(s >= 0);
+
+    strncpy(ifr.ifr_name, agent_->vhost_interface_name().c_str(),
+            sizeof(ifr.ifr_name));
+    GetPhyMac(agent_->GetIpFabricItfName().c_str(),
+        (char *)ifr.ifr_addr.sa_data);
+    ifr.ifr_addr.sa_len = ETHER_ADDR_LEN;
+    assert(ioctl(s, SIOCSIFLLADDR, &ifr) != -1);
+
+    close(s);
 }
 
 void KSync::Shutdown() {
