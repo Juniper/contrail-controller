@@ -693,8 +693,9 @@ class VncApiServer(VncApiServerGen):
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, reset_config, ifmap_loc,
-                              zk_server, rabbit_user, rabbit_password, rabbit_vhost)
+                              cass_server_list, rabbit_user, rabbit_password, 
+                              rabbit_vhost, reset_config, ifmap_loc,
+                              zk_server)
         self._db_conn = db_conn
     # end _db_connect
 
