@@ -1131,6 +1131,7 @@ public:
             ShowBgpInstanceConfig inst;
             inst.set_name(loc->second->name());
             inst.set_virtual_network(loc->second->virtual_network());
+            inst.set_virtual_network_index(loc->second->virtual_network_index());
 
             std::vector<std::string> import_list;
             BOOST_FOREACH(std::string rt, loc->second->import_list()) {
