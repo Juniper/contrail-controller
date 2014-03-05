@@ -977,14 +977,14 @@ QueryEngine::QueryEngine(EventManager *evm,
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;
                     try {
-                        col_name = boost::get<std::string>(it->name[0]);
+                        col_name = boost::get<std::string>(it->name->at(0));
                     } catch (boost::bad_get& ex) {
                         QE_LOG_NOQID(ERROR, __func__ << ": Exception on col_name get");
                     }
 
                     if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
                         try {
-                            stime = boost::get<uint64_t>(it->value.at(0));
+                            stime = boost::get<uint64_t>(it->value->at(0));
                             init_done = true;
                         } catch (boost::bad_get& ex) {
                             QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());

@@ -81,8 +81,7 @@ public:
     bool GetStats(uint64_t &queue_count, uint64_t &enqueues,
         std::string &drop_level, uint64_t &msg_dropped) const;
 
-    typedef boost::tuple<size_t, SandeshLevel::type, bool> DbQueueWaterMarkInfo;
-    void SetDbQueueWaterMarkInfo(DbQueueWaterMarkInfo &wm);
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
 
 private:
