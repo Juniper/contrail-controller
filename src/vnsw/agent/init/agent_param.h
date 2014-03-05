@@ -34,7 +34,7 @@ public:
     };
 
     AgentParam();
-    virtual ~AgentParam() {}
+    virtual ~AgentParam();
 
     bool IsVHostConfigured() {
         return vhost_.addr_.to_ulong() != 0? true : false;
