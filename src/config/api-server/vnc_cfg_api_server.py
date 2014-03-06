@@ -509,7 +509,8 @@ class VncApiServer(VncApiServerGen):
             'disc_server_port': None,
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
-            'rabbit_user': 'contrail',
+            'rabbit_user': 'guest',
+            'rabbit_password': 'guest',
             'rabbit_vhost': 'contrail',
         }
         # ssl options
