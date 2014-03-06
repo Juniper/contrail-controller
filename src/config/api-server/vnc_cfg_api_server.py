@@ -631,7 +631,7 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--zk_server_ip",
             help="Ip address:port of zookeeper server")
-                parser.add_argument(
+        parser.add_argument(
             "--rabbit_user",
             help="Username for rabbit")
         parser.add_argument(
