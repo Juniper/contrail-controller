@@ -42,7 +42,7 @@ dpkg -l contrail-vrouter  2> /dev/null 1> /dev/null && agent='agent'
 dpkg -l contrail-config  2> /dev/null 1> /dev/null && capi='capi'
 dpkg -l openstack-quantum-contrail 2> /dev/null 1> /dev/null && cquantum='cquantum'
 dpkg -l contrail-webui  2> /dev/null 1> /dev/null && cwebui='cwebui'
-dpkg -l contrail-database 2> /dev/null 1> /dev/null  && database='database'
+dpkg -l contrail-openstack-database 2> /dev/null 1> /dev/null  && database='database'
 lsmod | grep vrouter 2> /dev/null 1> /dev/null && vr='vr'
 
 declare -a failedlist
