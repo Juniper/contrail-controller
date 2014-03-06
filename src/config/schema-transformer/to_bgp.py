@@ -1540,7 +1540,7 @@ class ServiceChain(DictST):
     def delete(self):
         del self._dict[self.name]
         try:
-            self._sevice_chain_uuid_cf.remove(self.name)
+            self._service_chain_uuid_cf.remove(self.name)
         except pycassa.NotFoundException:
             pass
     # end delete
