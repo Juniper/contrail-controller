@@ -541,20 +541,11 @@ void PktFlowInfo::FloatingIpSNat(const PktInfo *pkt, PktControlInfo *in,
             continue;
         }
 
-        if (out->rt_ != NULL) {
-            // route was avialable search for more specific floating-IP route.
-            const Inet4UnicastRouteEntry *rt_match = ftable->GetUcRoute(it->vrf_.get(),
-                    Ip4Address(pkt->ip_daddr));
-            if (rt_match != NULL &&
-                    0 == RouteToVn(rt_match)->compare(it->vn_->GetName())) {
-                out->rt_ = rt_match;
-                break;
-            }
-        } else {
-            out->rt_ = ftable->GetUcRoute(it->vrf_.get(), Ip4Address(pkt->ip_daddr));
-            if (out->rt_ != NULL) {
-                break;
-            }
+        const Inet4UnicastRouteEntry *rt_match = ftable->GetUcRoute(it->vrf_.get(),
+                Ip4Address(pkt->ip_daddr));
+        if (rt_match != NULL) {
+            out->rt_ = rt_match;
+            break;
         }
     }
 
