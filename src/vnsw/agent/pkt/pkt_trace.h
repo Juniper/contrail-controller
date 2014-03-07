@@ -6,11 +6,11 @@
 #define vnsw_agent_pkt_trace_hpp
 
 #include <tbb/mutex.h>
-#include <boost/circular_buffer.hpp>
+#include <boost/scoped_array.hpp>
 
 class PktTrace {
 public:
-    static const std::size_t kPktTraceSize = 512;  // number of bytes stored
+    static const std::size_t kPktMaxTraceSize = 512;  // number of bytes stored
     static const std::size_t kPktNumBuffers = 16;  // number of buffers stored
 
     enum Direction {
@@ -21,39 +21,60 @@ public:
     struct Pkt {
         Direction dir;
         std::size_t len;
-        uint8_t pkt[kPktTraceSize];
+        uint8_t pkt[kPktMaxTraceSize];
 
-        Pkt(Direction d, std::size_t l, uint8_t *msg) : dir(d), len(l) {
-            memset(pkt, 0, kPktTraceSize);
-            memcpy(pkt, msg, std::min(l, kPktTraceSize));
+        void Copy(Direction d, std::size_t l, uint8_t *msg, std::size_t pkt_trace_size) {
+            dir = d;
+            len = l;
+            memcpy(pkt, msg, std::min(l, pkt_trace_size));
         }
     };
 
     typedef boost::function<void(PktTrace::Pkt &)> Cb;
 
-    PktTrace() : pkt_trace_(kPktNumBuffers) {};
-    virtual ~PktTrace() { pkt_trace_.clear(); };
+    PktTrace() : pkt_buffer_(new Pkt[kPktNumBuffers]), start_(0), end_(0),
+                 count_(0), max_pkt_trace_size_(kPktMaxTraceSize) {}
+    virtual ~PktTrace() {}
 
     void AddPktTrace(Direction dir, std::size_t len, uint8_t *msg) {
-        Pkt pkt(dir, len, msg);
         tbb::mutex::scoped_lock lock(mutex_);
-        pkt_trace_.push_back(pkt);
+        if (!count_) {
+            pkt_buffer_[0].Copy(dir, len, msg, max_pkt_trace_size_);
+            start_ = end_ = 0;
+            count_ = 1;
+            return;
+        }
+        end_ = (end_ + 1) % kPktNumBuffers;
+        if (end_ == start_)
+            start_ = (start_ + 1) % kPktNumBuffers;
+        pkt_buffer_[end_].Copy(dir, len, msg, max_pkt_trace_size_);
+        count_ = std::min((count_ + 1), (uint32_t) kPktNumBuffers);
     }
 
-    void Clear() { pkt_trace_.clear(); }
+    void Clear() {
+        tbb::mutex::scoped_lock lock(mutex_);
+        count_ = 0;
+    }
 
     void Iterate(Cb cb) {
         if (cb) {
             tbb::mutex::scoped_lock lock(mutex_);
-            for (boost::circular_buffer<Pkt>::iterator it = pkt_trace_.begin();
-                 it != pkt_trace_.end(); ++it)
-                cb(*it);
+            for (uint32_t i = 0; i < count_; i++)
+                cb(pkt_buffer_[(start_ + i) % kPktNumBuffers]);
         }
+    }
+
+    void set_max_pkt_trace_size(std::size_t size) {
+        max_pkt_trace_size_ = std::min(size, kPktMaxTraceSize);
     }
 
 private:
     tbb::mutex mutex_;
-    boost::circular_buffer<Pkt> pkt_trace_;
+    boost::scoped_array<Pkt> pkt_buffer_;
+    uint32_t start_;
+    uint32_t end_;
+    uint32_t count_;
+    std::size_t max_pkt_trace_size_;
 };
 
 #endif
