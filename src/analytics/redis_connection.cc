@@ -57,7 +57,7 @@ RedisAsyncConnection::~RedisAsyncConnection() {
         assert(it != fns_map.end());
         fns_map.erase(it);
       }
-      redisAsyncDisconnect(context_);
+      redisAsyncFree(context_);
     }    
     reconnect_timer_.cancel(ec);
 }
