@@ -176,7 +176,7 @@ static bool InterfaceExists(std::string if_name) {
 void TapInterface::SetupTap() {
     if (name_ == agent_->pkt_interface_name()) {
         // Create a socket for the TAP device
-        int socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        int socket_fd = socket(AF_LOCAL, SOCK_DGRAM, 0);
         if (socket_fd < 0) {
             LOG(ERROR, "Error creating socket for a TAP device, errno: " <<
                 errno << ": " << strerror(errno));
