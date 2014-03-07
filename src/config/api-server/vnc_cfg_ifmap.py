@@ -1176,6 +1176,7 @@ class VncDbClient(object):
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
         try:
             if uuid_requested:
+                obj_uuid = uuid_requested
                 ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested))
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)
