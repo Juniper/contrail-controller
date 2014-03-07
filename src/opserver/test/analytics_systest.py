@@ -486,6 +486,38 @@ class AnalyticsTest(testtools.TestCase, fixtures.TestWithFixtures):
         # verify that UVEs are resynced with redis-uve
         assert vizd_obj.verify_generator_uve_list(gen_list)
     # end test_10_redis_uve_restart
+   
+    #@unittest.skip(' where queries with different conditions')
+    def test_11_where_clause_query(self):
+        '''
+        This test is used to check the working of integer 
+        fields in the where query 
+        '''
+        logging.info("*** test_11_where_clause_query ***")
+
+        if AnalyticsTest._check_skip_test() is True:
+            return True
+
+        start_time = UTCTimestampUsec() - 3600 * 1000 * 1000
+        self._update_analytics_start_time(start_time)
+        vizd_obj = self.useFixture(
+            AnalyticsFixture(logging,
+                             builddir,
+                             self.__class__.cassandra_port))
+        assert vizd_obj.verify_on_setup()
+        assert vizd_obj.verify_where_query()
+        #Query the flowseriestable with different where options
+        assert vizd_obj.verify_collector_obj_count()
+        collectors = [vizd_obj.get_collector()]
+        generator_obj = self.useFixture(
+            GeneratorFixture("VRouterAgent", collectors,
+                             logging, vizd_obj.get_opserver_port(),
+                             start_time))
+        assert generator_obj.verify_on_setup()
+        generator_obj.generate_flow_samples()
+	assert vizd_obj.verify_where_query_prefix(generator_obj)
+        return True;
+    #end test_11_where_clause_query
 
     @staticmethod
     def get_free_port():
