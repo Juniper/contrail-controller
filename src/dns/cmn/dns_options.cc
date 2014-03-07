@@ -2,23 +2,22 @@
  * Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
  */
 
+#include <boost/asio/ip/host_name.hpp>
 #include <fstream>
 #include <iostream>
-#include <boost/asio/ip/host_name.hpp>
 
-#include "control-node/buildinfo.h"
 #include "base/contrail_ports.h"
 #include "base/logging.h"
 #include "base/misc_utils.h"
 #include "base/util.h"
-
-#include "options.h"
+#include "cmn/buildinfo.h"
+#include "cmn/dns_options.h"
 
 using namespace std;
 using namespace boost::asio::ip;
 namespace opt = boost::program_options;
 
-// Process command line options for control-node.
+// Process command line options for dns.
 Options::Options() {
 }
 
@@ -26,21 +25,13 @@ bool Options::Parse(EventManager &evm, int argc, char *argv[]) {
     opt::options_description cmdline_options("Allowed options");
     Initialize(evm, cmdline_options);
 
-    try {
-        Process(argc, argv, cmdline_options);
-        return true;
-    } catch (boost::program_options::error &e) {
-        cout << "Error " << e.what() << endl;
-    } catch (...) {
-        cout << "Options Parser: Caught fatal unknown exception" << endl;
-    }
-
-    return false;
+    Process(argc, argv, cmdline_options);
+    return true;
 }
 
-// Initialize control-node's command line option tags with appropriate default
+// Initialize dns's command line option tags with appropriate default
 // values. Options can from a config file as well. By default, we read
-// options from /etc/contrail/control-node.conf
+// options from /etc/contrail/dns.conf
 void Options::Initialize(EventManager &evm,
                          opt::options_description &cmdline_options) {
     boost::system::error_code error;
@@ -52,16 +43,14 @@ void Options::Initialize(EventManager &evm,
     // Command line only options.
     generic.add_options()
         ("conf_file", opt::value<string>()->default_value(
-                                            "/etc/contrail/control-node.conf"),
+                                                    "/etc/contrail/dns.conf"),
              "Configuration file")
          ("help", "help message")
         ("version", "Display version information")
     ;
 
-    uint16_t default_bgp_port = ContrailPorts::ControlBgp;
     uint16_t default_collector_port = ContrailPorts::CollectorPort;
-    uint16_t default_http_server_port = ContrailPorts::HttpPortControl;
-    uint16_t default_xmpp_port = ContrailPorts::ControlXmpp;
+    uint16_t default_http_server_port = ContrailPorts::HttpPortDns;
     uint16_t default_discovery_port = ContrailPorts::DiscoveryServerPort;
 
     // Command line and config file options.
@@ -74,17 +63,14 @@ void Options::Initialize(EventManager &evm,
              opt::value<string>()->default_value(collector_server_),
              "IP address of sandesh collector")
 
-        ("DEFAULT.bgp_config_file",
-             opt::value<string>()->default_value("bgp_config.xml"),
-             "BGP Configuration file")
-        ("DEFAULT.bgp_port",
-             opt::value<uint16_t>()->default_value(default_bgp_port),
-             "BGP listener port")
+        ("DEFAULT.dns_config_file",
+             opt::value<string>()->default_value("dns_config.xml"),
+             "DNS Configuration file")
 
         ("DEFAULT.hostip", opt::value<string>()->default_value(host_ip),
-             "IP address of control-node")
+             "IP address of DNS Server")
         ("DEFAULT.hostname", opt::value<string>()->default_value(hostname),
-             "Hostname of control-node")
+             "Hostname of DNS Server")
         ("DEFAULT.http_server_port",
              opt::value<uint16_t>()->default_value(default_http_server_port),
              "Sandesh HTTP listener port")
@@ -100,18 +86,14 @@ void Options::Initialize(EventManager &evm,
              opt::value<int>()->default_value(10),
              "Maximum log file roll over index")
         ("DEFAULT.log_file_size",
-             opt::value<long>()->default_value(10*1024*1024),
+             opt::value<long>()->default_value(1024*1024),
              "Maximum size of the log file")
         ("DEFAULT.log_level", opt::value<string>()->default_value("SYS_NOTICE"),
              "Severity level for local logging of sandesh messages")
         ("DEFAULT.log_local", opt::bool_switch(&log_local_),
              "Enable local logging of sandesh messages")
         ("DEFAULT.test_mode", opt::bool_switch(&test_mode_),
-             "Enable control-node to run in test-mode")
-
-        ("DEFAULT.xmpp_server_port",
-             opt::value<uint16_t>()->default_value(default_xmpp_port),
-             "XMPP listener port")
+             "Enable dns to run in test-mode")
 
         ("DISCOVERY.port", opt::value<uint16_t>()->default_value(
                                                        default_discovery_port),
@@ -122,12 +104,12 @@ void Options::Initialize(EventManager &evm,
         ("IFMAP.certs_store",  opt::value<string>(),
              "Certificates store to use for communication with IFMAP server")
         ("IFMAP.password", opt::value<string>()->default_value(
-                                                     "control_user_passwd"),
+                                                     "dns_user_passwd"),
              "IFMAP server password")
         ("IFMAP.server_url",
              opt::value<string>()->default_value(ifmap_server_url_),
              "IFMAP server URL")
-        ("IFMAP.user", opt::value<string>()->default_value("control_user"),
+        ("IFMAP.user", opt::value<string>()->default_value("dns_user"),
              "IFMAP server username")
         ;
 
@@ -172,14 +154,13 @@ void Options::Process(int argc, char *argv[],
 
     if (var_map.count("version")) {
         string build_info;
-        cout << MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo,
+        cout << MiscUtils::GetBuildInfo(MiscUtils::Dns, BuildInfo,
                                         build_info) << endl;
         exit(0);
     }
 
     // Retrieve the options.
-    GetOptValue<string>(var_map, bgp_config_file_, "DEFAULT.bgp_config_file");
-    GetOptValue<uint16_t>(var_map, bgp_port_, "DEFAULT.bgp_port");
+    GetOptValue<string>(var_map, dns_config_file_, "DEFAULT.dns_config_file");
     GetOptValue<uint16_t>(var_map, collector_port_, "COLLECTOR.port");
     GetOptValue<string>(var_map, collector_server_, "COLLECTOR.server");
 
@@ -194,7 +175,6 @@ void Options::Process(int argc, char *argv[],
     GetOptValue<int>(var_map, log_files_count_, "DEFAULT.log_files_count");
     GetOptValue<long>(var_map, log_file_size_, "DEFAULT.log_file_size");
     GetOptValue<string>(var_map, log_level_, "DEFAULT.log_level");
-    GetOptValue<uint16_t>(var_map, xmpp_port_, "DEFAULT.xmpp_server_port");
 
     GetOptValue<uint16_t>(var_map, discovery_port_, "DISCOVERY.port");
     GetOptValue<string>(var_map, discovery_server_, "DISCOVERY.server");
