@@ -4,6 +4,7 @@
 
 #ifndef __DH_HANDLER_MOCK_H__
 #define __DH_HANDLER_MOCK_H__
+#include "sandesh/sandesh.h"
 #include "db_handler.h"
 #include <boost/bind.hpp>
 
@@ -17,11 +18,6 @@ class DbHandlerMock : public DbHandler {
     void StartDbifReinit() {
         UnInit(-1);
     }
-    MOCK_METHOD4(MessageIndexTableInsert, bool(const std::string& cfname,
-            const SandeshHeader& header, const std::string& message_type,
-            const boost::uuids::uuid& unm));
-    MOCK_METHOD1(MessageTableInsert, void(boost::shared_ptr<VizMsg> vmsgp));
-
-    boost::shared_ptr<VizMsg> vmsg;
+    MOCK_METHOD1(MessageTableInsert, void(const VizMsg *vmsgp));
 };
 #endif//__DH_HANDLER_MOCK_H__

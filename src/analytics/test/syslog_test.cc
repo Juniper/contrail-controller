@@ -108,8 +108,8 @@ class SyslogMsgGen : public UDPServer
 class SyslogCollectorTest : public ::testing::Test
 {
     public:
-    void AssertVizMsg(boost::shared_ptr<VizMsg> vmsgp) {
-        EXPECT_STREQ(vmsgp->messagetype.c_str(), "SYSLOG");
+    void AssertVizMsg(const VizMsg *vmsgp) {
+        EXPECT_STREQ(vmsgp->msg->GetMessageType().c_str(), "Syslog");
     }
     protected:
     static const int ktestSyslogPort = 10514;
@@ -131,8 +131,8 @@ class SyslogCollectorTest : public ::testing::Test
         thread_->Start();
     }
 
-    bool myTestCb(const boost::shared_ptr<VizMsg> v, bool b, DbHandler *d) {
-        EXPECT_STREQ(v->messagetype.c_str(), "SYSLOG");
+    bool myTestCb(const VizMsg *v, bool b, DbHandler *d) {
+        EXPECT_STREQ(v->msg->GetMessageType().c_str(), "Syslog");
         return true;
     }
 
