@@ -75,7 +75,7 @@ public:
         return CmpInterface(rhs);
     }
 
-    uint32_t GetVrfId() const;
+    uint32_t vrf_id() const;
     uint32_t GetRefCount() const {
         return AgentRefCount<Interface>::GetRefCount();
     }
@@ -227,9 +227,10 @@ public:
     Interface *FindInterfaceFromMetadataIp(const Ip4Address &ip);
 
     // Metadata address management routines
-    bool FindVmUuidFromMetadataIp(const Ip4Address &ip, std::string *vm_ip,
-                                  std::string *vm_uuid,
-                                  std::string *vm_project_uuid);
+    virtual bool FindVmUuidFromMetadataIp(const Ip4Address &ip,
+                                          std::string *vm_ip,
+                                          std::string *vm_uuid,
+                                          std::string *vm_project_uuid);
     void VmPortToMetaDataIp(uint16_t ifindex, uint32_t vrfid, Ip4Address *addr);
 
     // TODO : to remove this

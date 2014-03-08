@@ -179,7 +179,7 @@ InstanceServiceAsyncHandler::RouteEntryAdd(const std::string& ip_address,
     const std::string vn = " ";
     sscanf(label.c_str(), "%u", &mpls_label);
     Inet4UnicastAgentRouteTable::AddRemoteVmRouteReq(
-                                     Agent::GetInstance()->GetLocalPeer(),
+                                     Agent::GetInstance()->local_peer(),
                                      vrf, ipv4, 32, gwv4,
                                      TunnelType::AllType(),
                                      mpls_label, vn);
@@ -250,7 +250,8 @@ InstanceServiceAsyncHandler::AddLocalVmRoute(const std::string& ip_address,
 
     Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
         AddLocalVmRouteReq(novaPeer_, vrf, ip.to_v4(), 32, intf_uuid, 
-                           "instance-service", mpls_label);
+                           "instance-service", mpls_label, SecurityGroupList(),
+                           false);
     return true;
 }
 

@@ -496,7 +496,7 @@ protected:
 	EXPECT_TRUE(VmPortActive(input, 0));
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	Inet4UnicastRouteEntry *rt = RouteGet("vrf1", addr, 32);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.1/32", 
@@ -510,8 +510,8 @@ protected:
 	EXPECT_TRUE(RouteFind("vrf1", addr, 32));
 	rt = RouteGet("vrf1", addr, 32);
         WAIT_FOR(100, 10000, (rt->GetActivePath() != NULL));
-        WAIT_FOR(100, 10000, rt->GetDestVnName().size() > 0);
-	EXPECT_STREQ(rt->GetDestVnName().c_str(), "vn1");
+        WAIT_FOR(100, 10000, rt->dest_vn_name().size() > 0);
+	EXPECT_STREQ(rt->dest_vn_name().c_str(), "vn1");
 
 	// Send route, back to vrf1
 	SendRouteMessage(mock_peer.get(), "vrf1", "1.1.1.2/32", 
@@ -543,7 +543,7 @@ protected:
     MulticastGroupObject *obj;
     ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -555,7 +555,7 @@ protected:
     CompositeNH::ComponentNHList::const_iterator fabric_component_nh_it =
         fabric_cnh->begin();
     ComponentNH *fabric_component = *fabric_component_nh_it;
-    ASSERT_TRUE(fabric_component->GetLabel() == (uint32_t) alloc_label+10);
+    ASSERT_TRUE(fabric_component->label() == (uint32_t) alloc_label+10);
 
 	//Verify mpls table
 	MplsLabel *mpls = 
@@ -584,7 +584,7 @@ protected:
 	ASSERT_TRUE(nh != NULL);
 	ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
 	cnh = static_cast<CompositeNH *>(nh);
-	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+	obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 			cnh->GetGrpAddr());
 	ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -669,7 +669,7 @@ protected:
         ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
         CompositeNH *cnh = static_cast<CompositeNH *>(nh);
         MulticastGroupObject *obj = 
-            MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+            MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                                                                cnh->GetGrpAddr());
         ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
         ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1014,7 +1014,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Test_SessionDownUp) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() > 0);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
@@ -1090,7 +1090,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == 0);
 
@@ -1102,7 +1102,7 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_MultipleRetracts) {
     ASSERT_TRUE(nh != NULL);
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
 		    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == 0);
 
@@ -1137,7 +1137,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1177,7 +1177,7 @@ TEST_F(AgentXmppUnitTest, Test_Update_Olist_Src_Label) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3);
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
     //Verify mpls table
@@ -1235,7 +1235,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1297,7 +1297,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
 
@@ -1378,7 +1378,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     CompositeNH *cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
     MulticastGroupObject *obj;
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
 
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label));
@@ -1440,7 +1440,7 @@ TEST_F(AgentXmppUnitTest, Test_Olist_change_with_same_label) {
     ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
     cnh = static_cast<CompositeNH *>(nh);
     ASSERT_TRUE(cnh->ComponentNHCount() == 3); //2 local VMs + tunnel-nh
-    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->GetVrfName(),
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
                		                    cnh->GetGrpAddr());
     ASSERT_TRUE(obj->GetSourceMPLSLabel() == static_cast<uint>(alloc_label+1));
 
@@ -1582,6 +1582,123 @@ TEST_F(AgentXmppUnitTest, SubnetBcast_Retract_from_non_mcast_tree_builder) {
     client->WaitForIdle();
     Agent::GetInstance()->SetXmppServer("", 1);
     Agent::GetInstance()->SetAgentXmppChannel(NULL, 1);
+}
+
+// Let subnet ipam go off. Bring down peer. Dont delete interface in sequence.
+TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_ipam_del) {
+
+    client->Reset();
+    client->WaitForIdle();
+ 
+    XmppConnectionSetUp(true);
+
+    EXPECT_TRUE(Agent::GetInstance()->GetControlNodeMulticastBuilder() != NULL);
+    EXPECT_STREQ(Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+                 GetXmppServer().c_str(), "127.0.0.1");
+
+	IpamInfo ipam_info[] = {
+	    {"1.1.1.0", 24, "1.1.1.200"}
+	};
+	
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    Ip4Address addr = Ip4Address::from_string("1.1.1.255");
+    ASSERT_TRUE(RouteFind("vrf1", addr, 32));
+    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+        (RouteGet("vrf1", addr, 32));
+    NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    ASSERT_TRUE(nh != NULL);
+    ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    CompositeNH *cnh = static_cast<CompositeNH *>(nh);
+    MulticastGroupObject *obj;
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
+		    cnh->GetGrpAddr());
+    EXPECT_TRUE(obj != NULL);
+
+    //Delete IPAM 
+    DelIPAM("vn1");
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", addr, 32) == false));
+
+    //bring-down the channel
+    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer.get());
+    bgp_peer.get()->HandleXmppChannelEvent(xmps::NOT_READY);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind("vrf1", addr, 32) == false);
+    obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
+    EXPECT_TRUE(obj != NULL);
+    CompositeNHKey *key = new CompositeNHKey(obj->vrf_name(), 
+                                             obj->GetGroupAddress(),
+                                             obj->GetSourceAddress(), false,
+                                             Composite::L3COMP); 
+    cnh = static_cast<CompositeNH *>(Agent::GetInstance()->
+                                     GetNextHopTable()->FindActiveEntry(key));
+    ASSERT_TRUE(cnh == NULL);
+
+    XmppSubnetTearDown();
+
+    xc->ConfigUpdate(new XmppConfigData());
+    WAIT_FOR(1000, 1000, (VrfGet("vrf1") == NULL));
+    client->WaitForIdle(5);
+}
+
+TEST_F(AgentXmppUnitTest, SubnetBcast_Test_sessiondown_after_vn_vrf_link_del) {
+
+    client->Reset();
+    client->WaitForIdle();
+ 
+    XmppConnectionSetUp(true);
+
+    EXPECT_TRUE(Agent::GetInstance()->GetControlNodeMulticastBuilder() != NULL);
+    EXPECT_STREQ(Agent::GetInstance()->GetControlNodeMulticastBuilder()->
+                 GetXmppServer().c_str(), "127.0.0.1");
+
+	IpamInfo ipam_info[] = {
+	    {"1.1.1.0", 24, "1.1.1.200"}
+	};
+	
+    AddIPAM("vn1", ipam_info, 1);
+    client->WaitForIdle();
+
+    Ip4Address addr = Ip4Address::from_string("1.1.1.255");
+    ASSERT_TRUE(RouteFind("vrf1", addr, 32));
+    Inet4UnicastRouteEntry *rt = static_cast<Inet4UnicastRouteEntry *>
+        (RouteGet("vrf1", addr, 32));
+    NextHop *nh = const_cast<NextHop *>(rt->GetActiveNextHop());
+    ASSERT_TRUE(nh != NULL);
+    ASSERT_TRUE(nh->GetType() == NextHop::COMPOSITE);
+    CompositeNH *cnh = static_cast<CompositeNH *>(nh);
+    MulticastGroupObject *obj;
+    obj = MulticastHandler::GetInstance()->FindGroupObject(cnh->vrf_name(),
+		    cnh->GetGrpAddr());
+    EXPECT_TRUE(obj != NULL);
+
+    //Delete VRF VN link
+    DelLink("virtual-network", "vn1", "routing-instance", "vrf1");
+    WAIT_FOR(1000, 1000, (RouteFind("vrf1", addr, 32) == false));
+
+    //bring-down the channel
+    AgentXmppChannel *ch = static_cast<AgentXmppChannel *>(bgp_peer.get());
+    bgp_peer.get()->HandleXmppChannelEvent(xmps::NOT_READY);
+    client->WaitForIdle();
+
+    EXPECT_TRUE(RouteFind("vrf1", addr, 32) == false);
+    obj = MulticastHandler::GetInstance()->FindGroupObject("vrf1", addr);
+    EXPECT_TRUE(obj != NULL);
+    CompositeNHKey *key = new CompositeNHKey(obj->vrf_name(), 
+                                             obj->GetGroupAddress(),
+                                             obj->GetSourceAddress(), false,
+                                             Composite::L3COMP); 
+    cnh = static_cast<CompositeNH *>(Agent::GetInstance()->
+                                     GetNextHopTable()->FindActiveEntry(key));
+    ASSERT_TRUE(cnh == NULL);
+
+    XmppSubnetTearDown();
+
+    xc->ConfigUpdate(new XmppConfigData());
+    WAIT_FOR(1000, 1000, (VrfGet("vrf1") == NULL));
+    client->WaitForIdle(5);
 }
 
 }

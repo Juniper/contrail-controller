@@ -25,6 +25,10 @@ public:
     const VrouterAgent &last_sent_vrouter() const {
         return last_sent_vrouter_;
     }
+    VrouterStatsAgent &prev_stats() {
+        return prev_stats_;
+    }
+    void set_bandwidth_count(uint8_t ctr) { bandwidth_count_ = ctr; }
     void clear_count();
     void DispatchVrouterMsg(const VrouterAgent &uve);
     void DispatchVrouterStatsMsg(const VrouterStatsAgent &uve);

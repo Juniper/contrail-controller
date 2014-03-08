@@ -34,7 +34,7 @@ public:
     };
 
     AgentParam();
-    virtual ~AgentParam() {}
+    virtual ~AgentParam();
 
     bool IsVHostConfigured() {
         return vhost_.addr_.to_ulong() != 0? true : false;
@@ -65,6 +65,8 @@ public:
     const int xmpp_instance_count() const { return xmpp_instance_count_; }
     const std::string &tunnel_type() const { return tunnel_type_; }
     const std::string &metadata_shared_secret() const { return metadata_shared_secret_; }
+    uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
+    uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -97,6 +99,7 @@ public:
               const boost::program_options::variables_map &var_map);
 
 private:
+    void ValidateLinkLocalFlows();
     void Validate();
     void InitFromSystem();
     void InitFromConfig();
@@ -117,6 +120,8 @@ private:
     PortInfo xen_ll_;
     std::string tunnel_type_;
     std::string metadata_shared_secret_;
+    uint32_t linklocal_system_flows_;
+    uint32_t linklocal_vm_flows_;
 
     // Parameters configured from command linke arguments only (for now)
     std::string config_file_;

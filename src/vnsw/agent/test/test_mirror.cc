@@ -82,7 +82,7 @@ protected:
     void DelAllArpEntry() {
         for (int i = 0; i < count_; i++) {
             Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->DeleteReq(
-                                                         Agent::GetInstance()->GetLocalPeer(),
+                                                         Agent::GetInstance()->local_peer(),
                                                          Agent::GetInstance()->GetDefaultVrf(),
                                                          dip_[i], 32);
         }

@@ -20,7 +20,6 @@ void InterfaceStatsIoContext::Handler() {
     AgentStatsSandeshContext *ctx = static_cast<AgentStatsSandeshContext *>
                                                                         (ctx_);
     AgentStatsCollector *collector = ctx->collector();
-    collector->run_counter_++;
     collector->SendStats();
     /* Reset the marker for query during next timer interval, if there is
      * no additional records for the current query */

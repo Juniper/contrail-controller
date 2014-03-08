@@ -19,6 +19,7 @@
 #include <sandesh/common/vns_types.h>
 #include <sandesh/common/vns_constants.h>
 #include <sandesh/sandesh_uve_types.h>
+#include <sandesh/sandesh_message_builder.h>
 
 #include "viz_types.h"
 #include "generator.h"
@@ -47,26 +48,29 @@ using std::map;
         }                                                                      \
     } while (false)
 
-void Generator::UpdateMessageTypeStats(VizMsg *vmsg) {
+void Generator::UpdateMessageTypeStats(const VizMsg *vmsg) {
+    std::string messagetype(vmsg->msg->GetMessageType());
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     tbb::mutex::scoped_lock lock(smutex_);
     MessageTypeStatsMap::iterator stats_it =
-            stats_map_.find(vmsg->messagetype);
+            stats_map_.find(messagetype);
     if (stats_it == stats_map_.end()) {
-        stats_it = (stats_map_.insert(vmsg->messagetype,
+        stats_it = (stats_map_.insert(messagetype,
                 new Stats)).first;
     }
     Stats *sandesh_stats = stats_it->second;
     sandesh_stats->messages_++;
-    sandesh_stats->bytes_ += vmsg->xmlmessage.size();
-    sandesh_stats->last_msg_timestamp_ = vmsg->hdr.get_Timestamp();
+    sandesh_stats->bytes_ += vmsg->msg->GetSize();
+    sandesh_stats->last_msg_timestamp_ = header.get_Timestamp();
 }
 
-void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
+void Generator::UpdateLogLevelStats(const VizMsg *vmsg) {
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     tbb::mutex::scoped_lock lock(smutex_);
     // For system log, update the log level stats
-    if (vmsg->hdr.get_Type() == SandeshType::SYSTEM) {
+    if (header.get_Type() == SandeshType::SYSTEM) {
         SandeshLevel::type level =
-                static_cast<SandeshLevel::type>(vmsg->hdr.get_Level());
+                static_cast<SandeshLevel::type>(header.get_Level());
         LogLevelStatsMap::iterator level_stats_it;
         if (level < SandeshLevel::INVALID) {
             std::string level_str(
@@ -78,9 +82,9 @@ void Generator::UpdateLogLevelStats(VizMsg *vmsg) {
             }
             LogLevelStats *level_stats = level_stats_it->second;
             level_stats->messages_++;
-            level_stats->bytes_ += vmsg->xmlmessage.size();
+            level_stats->bytes_ += vmsg->msg->GetSize();
             level_stats->last_msg_timestamp_ =
-                    vmsg->hdr.get_Timestamp();
+                    header.get_Timestamp();
         }
     }
 }
@@ -113,42 +117,40 @@ void Generator::GetLogLevelStats(vector<SandeshLogLevelStats> &lsv) const {
     }
 }
 
-bool Generator::ReceiveSandeshMsg(boost::shared_ptr<VizMsg> &vmsg, bool rsc) {
-    // This is a message from the application on the generator side.
-    // It will be processed by the rule engine callback after we
-    // update statistics
-    GetDbHandler()->MessageTableInsert(vmsg);
-
-    UpdateMessageTypeStats(vmsg.get());
-    UpdateLogLevelStats(vmsg.get());
-    UpdateMessageStats(vmsg.get());
-    return ProcessRules(vmsg, rsc);
-}
-
-void Generator::UpdateMessageStats(VizMsg *vmsg) {
+void Generator::UpdateMessageStats(const VizMsg *vmsg) {
+    const SandeshHeader &header(vmsg->msg->GetHeader());
     //update the MessageStatsMap
     //Get the loglevel string from the message
-    SandeshLevel::type level =
-                            static_cast<SandeshLevel::type>(vmsg->hdr.get_Level());
+    SandeshLevel::type level(static_cast<SandeshLevel::type>(
+        header.get_Level()));
     LogLevelStatsMap::iterator level_stats_it;
     if (level <= SandeshLevel::INVALID) {
-        std::string level_str(
-        Sandesh::LevelToString(level));
+        std::string level_str(Sandesh::LevelToString(level));
+        std::string messagetype(vmsg->msg->GetMessageType());
         //Lookup based on the pair(Messagetype,loglevel)
-        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(make_pair(vmsg->messagetype,level_str));
+        MessageStatsMap::iterator stats_it = sandesh_stats_map_.find(
+            make_pair(messagetype, level_str));
         if (stats_it == sandesh_stats_map_.end()) {
             //New messagetype,loglevel combination
-            std::pair<std::string,std::string> key(vmsg->messagetype,level_str);
+            std::pair<std::string,std::string> key(messagetype, level_str);
             tbb::mutex::scoped_lock lock(smutex_);
-            stats_it = (sandesh_stats_map_.insert(key,new MessageStats)).first;
-         }
-    MessageStats *message_stats = stats_it->second;
-    message_stats->messages_++;
-    message_stats->bytes_ += vmsg->xmlmessage.size();
+            stats_it = (sandesh_stats_map_.insert(key, new MessageStats)).first;
+        }
+        MessageStats *message_stats = stats_it->second;
+        message_stats->messages_++;
+        message_stats->bytes_ += vmsg->msg->GetSize();
     } 
 } 
     
+bool Generator::ReceiveSandeshMsg(const VizMsg *vmsg, bool rsc) {
+    GetDbHandler()->MessageTableInsert(vmsg);
+    UpdateMessageTypeStats(vmsg);
+    UpdateLogLevelStats(vmsg);
+    UpdateMessageStats(vmsg);
+    return ProcessRules(vmsg, rsc);
+}
 
+// SandeshGenerator
 SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *session,
         SandeshStateMachine *state_machine, const string &source,
         const string &module, const string &instance_id,
@@ -162,6 +164,7 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
         source_(source),
         module_(module),
         name_(source + ":" + node_type_ + ":" + module + ":" + instance_id_),
+        instance_(session->GetSessionInstance()),
         db_connect_timer_(TimerManager::CreateTimer(
             *collector->event_manager()->io_service(),
             "SandeshGenerator db connect timer" + source + module,
@@ -183,11 +186,16 @@ SandeshGenerator::SandeshGenerator(Collector * const collector, VizSession *sess
 SandeshGenerator::~SandeshGenerator() {
     TimerManager::DeleteTimer(db_connect_timer_);
     db_connect_timer_ = NULL;
-    GetDbHandler()->UnInit(true);
+    GetDbHandler()->UnInit(instance_);
+}
+
+void SandeshGenerator::set_session(VizSession *session) {
+    viz_session_ = session;
+    instance_ = session->GetSessionInstance();
 }
 
 void SandeshGenerator::StartDbifReinit() {
-    GetDbHandler()->UnInit(false);
+    GetDbHandler()->UnInit(instance_);
     Start_Db_Connect_Timer();
 }
 
@@ -213,16 +221,17 @@ void SandeshGenerator::Stop_Db_Connect_Timer() {
 
 void SandeshGenerator::Db_Connection_Uninit() {
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
-    GetDbHandler()->UnInit(false);
+    GetDbHandler()->UnInit(instance_);
     Stop_Db_Connect_Timer();
 }
 
 bool SandeshGenerator::Db_Connection_Init() {
-    if (!GetDbHandler()->Init(false, viz_session_->GetSessionInstance())) {
+    if (!GetDbHandler()->Init(false, instance_)) {
         GENERATOR_LOG(ERROR, ": Database setup FAILED");
         return false;
     }
-    std::vector<DbHandler::DbQueueWaterMarkInfo> wm_info;
+    // Setup DB watermarks
+    std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
     collector_->GetDbQueueWaterMarkInfo(wm_info);
     for (size_t i = 0; i < wm_info.size(); i++) {
         GetDbHandler()->SetDbQueueWaterMarkInfo(wm_info[i]);
@@ -239,7 +248,13 @@ void SandeshGenerator::ReceiveSandeshCtrlMsg(uint32_t connects) {
     ModuleServerState ginfo;
     GetGeneratorInfo(ginfo);
     SandeshModuleServerTrace::Send(ginfo);
-
+    // Setup state machine watermarks
+    std::vector<Sandesh::QueueWaterMarkInfo> wm_info;
+    collector_->GetSmQueueWaterMarkInfo(wm_info);
+    for (size_t i = 0; i < wm_info.size(); i++) {
+        state_machine_->SetQueueWaterMarkInfo(wm_info[i]);
+    }
+    // Initialize DB connection
     if (!Db_Connection_Init()) {
         Start_Db_Connect_Timer();
     }
@@ -254,6 +269,7 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
         uint32_t tmp = gen_attr_.get_resets();
         gen_attr_.set_resets(tmp+1);
         gen_attr_.set_reset_time(UTCTimestampUsec());
+        state_machine_->ResetQueueWaterMarkInfo();
         viz_session_ = NULL;
         state_machine_ = NULL;
         collector_->GetOSP()->DeleteUVEs(source_, module_, 
@@ -268,17 +284,26 @@ void SandeshGenerator::DisconnectSession(VizSession *vsession) {
     Db_Connection_Uninit();
 }
 
-bool SandeshGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
-        bool rsc)
-{
-    return (collector_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
+bool SandeshGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
+    return collector_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
 }
 
-bool SandeshGenerator::GetSandeshStateMachineQueueCount(uint64_t &queue_count) const {
+bool SandeshGenerator::GetSandeshStateMachineQueueCount(
+    uint64_t &queue_count) const {
+    if (!state_machine_) {
+        // Return 0 so that last stale value is not displayed
+        queue_count = 0;
+        return true;
+    }
+    return state_machine_->GetQueueCount(queue_count);
+}
+
+bool SandeshGenerator::GetSandeshStateMachineDropLevel(
+    std::string &drop_level) const {
     if (!state_machine_) {
         return false;
     }
-    return state_machine_->GetQueueCount(queue_count);
+    return state_machine_->GetMessageDropLevel(drop_level);
 }
 
 bool SandeshGenerator::GetSandeshStateMachineStats(
@@ -344,7 +369,8 @@ const std::string SandeshGenerator::State() const {
     return "Disconnected";
 }
 
-void SandeshGenerator::ConnectSession(VizSession *session, SandeshStateMachine *state_machine) {
+void SandeshGenerator::ConnectSession(VizSession *session,
+    SandeshStateMachine *state_machine) {
     set_session(session);
     set_state_machine(state_machine);
     disconnected_ = false;
@@ -353,7 +379,8 @@ void SandeshGenerator::ConnectSession(VizSession *session, SandeshStateMachine *
     gen_attr_.set_connect_time(UTCTimestampUsec());
 }
 
-void SandeshGenerator::SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm) {
+void SandeshGenerator::SetDbQueueWaterMarkInfo(
+    Sandesh::QueueWaterMarkInfo &wm) {
     GetDbHandler()->SetDbQueueWaterMarkInfo(wm);
 }
 
@@ -361,6 +388,20 @@ void SandeshGenerator::ResetDbQueueWaterMarkInfo() {
     GetDbHandler()->ResetDbQueueWaterMarkInfo();
 }
 
+void SandeshGenerator::SetSmQueueWaterMarkInfo(
+    Sandesh::QueueWaterMarkInfo &wm) {
+    if (state_machine_) {
+        state_machine_->SetQueueWaterMarkInfo(wm);
+    }
+}
+
+void SandeshGenerator::ResetSmQueueWaterMarkInfo() {
+    if (state_machine_) {
+        state_machine_->ResetQueueWaterMarkInfo();
+    }
+}
+
+// SyslogGenerator
 SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
         const string &source, const string &module) :
           Generator(),
@@ -368,13 +409,9 @@ SyslogGenerator::SyslogGenerator(SyslogListeners *const listeners,
           source_(source),
           module_(module),
           name_(source + ":" + module),
-          db_handler_(listeners->GetDbHandler())
-{
+          db_handler_(listeners->GetDbHandler()) {
 }
 
-bool SyslogGenerator::ProcessRules(boost::shared_ptr<VizMsg> &vmsg,
-        bool rsc)
-{
-    return (syslog_->ProcessSandeshMsgCb())(vmsg, rsc, GetDbHandler());
+bool SyslogGenerator::ProcessRules(const VizMsg *vmsg, bool rsc) {
+    return syslog_->ProcessSandeshMsgCb()(vmsg, rsc, GetDbHandler());
 }
-

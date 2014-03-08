@@ -42,7 +42,7 @@ from sandesh_common.vns.ttypes import Module, NodeType
 from sandesh_common.vns.constants import ModuleNames, Module2NodeType, NodeTypeNames, INSTANCE_ID_DEFAULT
 from schema_transformer.sandesh.st_introspect import ttypes as sandesh
 from ncclient import manager
-import discovery.client as client
+import discoveryclient.client as client
 from collections import OrderedDict
 
 _BGP_RTGT_MAX_ID = 1 << 20
@@ -983,6 +983,8 @@ class NetworkPolicyST(DictST):
         self.obj = NetworkPolicy(name)
         self.networks_back_ref = set()
         self.internal = False
+        self.rules = []
+        self.analyzer_vn_set = set()
     # end __init__
 
     @classmethod
@@ -990,6 +992,26 @@ class NetworkPolicyST(DictST):
         if name in cls._dict:
             del cls._dict[name]
     # end delete
+    
+    def add_rules(self, entries):
+        network_set = self.networks_back_ref | self.analyzer_vn_set
+        if entries is None:
+            self.rules = []
+        self.rules = entries.policy_rule
+        
+        self.analyzer_vn_set = set()
+        for prule in self.rules:
+            if (prule.action_list and prule.action_list.mirror_to and
+                    prule.action_list.mirror_to.analyzer_name):
+                (vn, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
+                    prule.action_list.mirror_to.analyzer_name)
+                if vn:
+                    self.analyzer_vn_set.add(vn)
+        # end for prule
+        
+        network_set |= self.analyzer_vn_set
+        return network_set
+    #end add_rules
 # end class NetworkPolicyST
 
 
@@ -2090,13 +2112,16 @@ class VirtualMachineInterfaceST(DictST):
             return network_set
         si_name = si_obj.get_fq_name_str()
         for policy in NetworkPolicyST.values():
-            policy_rule_entries = policy.obj.get_network_policy_entries()
-            if policy_rule_entries is None: continue
-            for prule in policy_rule_entries.policy_rule:
-                if (prule.action_list is not None and
-                    (si_name in prule.action_list.apply_service or
-                     (prule.action_list.mirror_to and 
-                      si_name == prule.action_list.mirror_to.analyzer_name))):
+            for prule in policy.rules:
+                if prule.action_list is not None:
+                    if si_name in prule.action_list.apply_service:
+                        network_set |= policy.networks_back_ref
+                    elif (prule.action_list.mirror_to and 
+                          si_name == prule.action_list.mirror_to.analyzer_name):
+                        (vn, _) = VirtualNetworkST.get_analyzer_vn_and_ip(
+                            si_name)
+                        if vn:
+                            policy.analyzer_vn_set.add(vn)
                         network_set |= policy.networks_back_ref
             #end for prule
         #end for policy
@@ -2202,6 +2227,7 @@ class SchemaTransformer(object):
         if virtual_network:
             del virtual_network.policies[policy_name]
             self.current_network_set.add(network_name)
+        self.current_network_set |= policy.analyzer_vn_set
     # end delete_virtual_network_network_policy
 
     def delete_project_virtual_network(self, idents, meta):
@@ -2279,7 +2305,7 @@ class SchemaTransformer(object):
         entries = PolicyEntriesType()
         entries.build(meta)
         policy.obj.set_network_policy_entries(entries)
-        self.current_network_set |= policy.networks_back_ref
+        self.current_network_set |= policy.add_rules(entries)
     # end add_network_policy_entries
 
     def add_virtual_network_network_policy(self, idents, meta):
@@ -2640,10 +2666,7 @@ class SchemaTransformer(object):
                 policy = NetworkPolicyST.get(policy_name)
                 if policy is None:
                     continue
-                policy_rule_entries = policy.obj.get_network_policy_entries()
-                if policy_rule_entries is None:
-                    continue
-                for prule in policy_rule_entries.policy_rule:
+                for prule in policy.rules:
                     acl_rule_list = virtual_network.policy_to_acl_rule(
                         prule, dynamic)
                     acl_rule_list.update_acl_entries(acl_entries)
@@ -2818,7 +2841,19 @@ class SchemaTransformer(object):
 
     def _cassandra_init(self):
         result_dict = {}
-        sys_mgr = SystemManager(self._args.cassandra_server_list[0])
+
+        server_idx = 0
+        num_dbnodes = len(self._args.cassandra_server_list)
+        connected = False
+        while not connected:
+            try:
+                cass_server = self._args.cassandra_server_list[server_idx]
+                sys_mgr = SystemManager(cass_server)
+                connected = True
+            except Exception as e:
+                server_idx = (server_idx + 1) % num_dbnodes
+                time.sleep(3)
+
         if self._args.reset_config:
             try:
                 sys_mgr.drop_keyspace(SchemaTransformer._KEYSPACE)
@@ -2827,10 +2862,9 @@ class SchemaTransformer(object):
                 print "Warning! " + str(e)
 
         try:
-            # TODO replication_factor adjust?
             sys_mgr.create_keyspace(
                 SchemaTransformer._KEYSPACE, SIMPLE_STRATEGY,
-                {'replication_factor': '1'})
+                {'replication_factor': str(num_dbnodes)})
         except pycassa.cassandra.ttypes.InvalidRequestException as e:
             # TODO verify only EEXISTS
             print "Warning! " + str(e)
@@ -2839,13 +2873,19 @@ class SchemaTransformer(object):
         conn_pool = pycassa.ConnectionPool(
             SchemaTransformer._KEYSPACE,
             server_list=self._args.cassandra_server_list)
+
+        rd_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
+        wr_consistency = pycassa.cassandra.ttypes.ConsistencyLevel.QUORUM
         for cf in column_families:
             try:
                 sys_mgr.create_column_family(SchemaTransformer._KEYSPACE, cf)
             except pycassa.cassandra.ttypes.InvalidRequestException as e:
                 # TODO verify only EEXISTS
                 print "Warning! " + str(e)
-            result_dict[cf] = pycassa.ColumnFamily(conn_pool, cf)
+            result_dict[cf] = pycassa.ColumnFamily(conn_pool, cf,
+                                  read_consistency_level=rd_consistency,
+                                  write_consistency_level=wr_consistency)
+
         VirtualNetworkST._rt_cf = result_dict[self._RT_CF]
         VirtualNetworkST._sc_ip_cf = result_dict[self._SC_IP_CF]
         VirtualNetworkST._service_chain_cf = result_dict[

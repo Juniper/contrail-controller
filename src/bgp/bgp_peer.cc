@@ -937,11 +937,11 @@ bool BgpPeer::KeepaliveTimerExpired() {
 }
 
 void BgpPeer::StartKeepaliveTimerUnlocked() {
-    int holdtime = state_machine_->hold_time();
-    if (holdtime <= 0)
+    int holdtime_msecs = state_machine_->hold_time_msecs();
+    if (holdtime_msecs <= 0)
         return;
 
-    keepalive_timer_->Start((holdtime/3) * 1000,
+    keepalive_timer_->Start((holdtime_msecs/3),
         boost::bind(&BgpPeer::KeepaliveTimerExpired, this),
         boost::bind(&BgpPeer::KeepaliveTimerErrorHandler, this, _1, _2));
 }

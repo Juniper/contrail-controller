@@ -279,7 +279,7 @@ void MplsLabel::SendObjectLog(AgentLogEvent::type event) const {
         break;
     }
     info.set_event(str);
-    const NextHop *nh = GetNextHop();
+    const NextHop *nh = nexthop();
     const Interface *intf = NULL;
     /* Mpls is not expected to have any other nexthop apart from Interface 
        or Vlan */

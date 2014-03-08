@@ -29,8 +29,8 @@ void DBTablePartBase::Notify(DBEntryBase *entry) {
 }
 
 // concurrency: called from DBPartition task.
-void DBTablePartBase::RunNotify() {
-    while (!change_list_.empty()) {
+bool DBTablePartBase::RunNotify() {
+    for (int i = 0; ((i < kMaxIterations) && !change_list_.empty()); ++i) {
         DBEntryBase *entry = &change_list_.front();
         change_list_.pop_front();
 
@@ -46,6 +46,13 @@ void DBTablePartBase::RunNotify() {
             entry->clear_onlist();
         }
     }
+    if (!change_list_.empty()) {
+        DB *db = parent()->database();
+        DBPartition *partition = db->GetPartition(index_);
+        partition->OnTableChange(this);
+        return false;
+    }
+    return true;
 }
 
 void DBTablePartBase::Delete(DBEntryBase *entry) {

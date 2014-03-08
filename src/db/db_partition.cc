@@ -175,7 +175,10 @@ public:
             if (tpart == NULL) {
                 break;
             }
-            tpart->RunNotify();
+            bool done = tpart->RunNotify();
+            if (!done) {
+                return false;
+            }
         }
 
         // Running is done only if queue_ is empty. It's possible that more

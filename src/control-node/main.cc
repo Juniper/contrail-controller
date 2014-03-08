@@ -40,11 +40,10 @@
 #include "xmpp/xmpp_server.h"
 #include "xmpp/sandesh/xmpp_peer_info_types.h"
 #include "bgp/bgp_sandesh.h"
-#include "base/contrail_ports.h"
 #include "base/misc_utils.h"
+#include "control-node/options.h"
 #include "control-node/sandesh/control_node_types.h"
 #include <control-node/buildinfo.h>
-#include "discovery_client.h"
 
 using namespace std;
 using namespace boost::asio::ip;
@@ -81,7 +80,7 @@ static void WaitForIdle() {
             break;
         }
         usleep(1000);
-    }    
+    }
 }
 
 static void ShutdownDiscoveryClient(DiscoveryServiceClient *client) {
@@ -142,28 +141,29 @@ bool ControlNodeInfoLogTimer() {
 }
 
 bool ControlNodeVersion(string &build_info_str) {
-    return MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo, build_info_str);
+    return MiscUtils::GetBuildInfo(MiscUtils::ControlNode, BuildInfo,
+                                   build_info_str);
 }
 
-static void FillProtoStats(IPeerDebugStats::ProtoStats &stats, 
+static void FillProtoStats(IPeerDebugStats::ProtoStats &stats,
                            PeerProtoStats &proto_stats) {
     proto_stats.open = stats.open;
     proto_stats.keepalive = stats.keepalive;
     proto_stats.close = stats.close;
     proto_stats.update = stats.update;
     proto_stats.notification = stats.notification;
-    proto_stats.total = stats.open + stats.keepalive + stats.close + 
+    proto_stats.total = stats.open + stats.keepalive + stats.close +
         stats.update + stats.notification;
 }
 
-static void FillRouteUpdateStats(IPeerDebugStats::UpdateStats &stats, 
+static void FillRouteUpdateStats(IPeerDebugStats::UpdateStats &stats,
                                  PeerUpdateStats &rt_stats) {
     rt_stats.total = stats.total;
     rt_stats.reach = stats.reach;
     rt_stats.unreach = stats.unreach;
 }
 
-static void FillPeerDebugStats(IPeerDebugStats *peer_state, 
+static void FillPeerDebugStats(IPeerDebugStats *peer_state,
                           PeerStatsInfo &stats) {
     PeerProtoStats proto_stats_tx;
     PeerProtoStats proto_stats_rx;
@@ -212,9 +212,9 @@ void FillBgpPeerStats(BgpServer *server, BgpPeer *peer) {
     BGPPeerInfo::Send(peer_info);
 }
 
-void LogControlNodePeerStats(BgpServer *server, 
+void LogControlNodePeerStats(BgpServer *server,
                              BgpXmppChannelManager *xmpp_channel_mgr) {
-    xmpp_channel_mgr->VisitChannels(boost::bind(FillXmppPeerStats, 
+    xmpp_channel_mgr->VisitChannels(boost::bind(FillXmppPeerStats,
                                                 server, _1));
     server->VisitBgpPeers(boost::bind(FillBgpPeerStats, server, _1));
 }
@@ -256,10 +256,12 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
 
     if (cpu_load_info != prev_state.get_cpu_info() || first) {
         state.set_cpu_info(cpu_load_info);
-        if (cpu_load_info.get_cpu_share() != prev_state.get_cpu_info().get_cpu_share()) {
+        if (cpu_load_info.get_cpu_share() != 
+                prev_state.get_cpu_info().get_cpu_share()) {
             state.set_cpu_share(cpu_load_info.get_cpu_share());
         }
-        if (prev_state.get_cpu_info().get_meminfo() != cpu_load_info.get_meminfo()) {
+        if (prev_state.get_cpu_info().get_meminfo() != 
+                cpu_load_info.get_meminfo()) {
             state.set_virt_mem(cpu_load_info.get_meminfo().get_virt());
         }
         prev_state.set_cpu_info(cpu_load_info);
@@ -314,11 +316,19 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
-    IFMapPeerServerInfoUI server_info;
-    ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(server_info);
-    if (server_info != prev_state.get_ifmap_info() || first) {
-        state.set_ifmap_info(server_info);
-        prev_state.set_ifmap_info(server_info);
+    IFMapPeerServerInfoUI peer_server_info;
+    ctx.ifmap_server->get_ifmap_manager()->GetPeerServerInfo(peer_server_info);
+    if (peer_server_info != prev_state.get_ifmap_info() || first) {
+        state.set_ifmap_info(peer_server_info);
+        prev_state.set_ifmap_info(peer_server_info);
+        change = true;
+    }
+
+    IFMapServerInfoUI server_info;
+    ctx.ifmap_server->GetUIInfo(&server_info);
+    if (server_info != prev_state.get_ifmap_server_info() || first) {
+        state.set_ifmap_server_info(server_info);
+        prev_state.set_ifmap_server_info(server_info);
         change = true;
     }
 
@@ -329,7 +339,7 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
         change = true;
     }
 
-    if (change) 
+    if (change)
         BGPRouterInfo::Send(state);
 
     if (first) first = false;
@@ -342,8 +352,8 @@ bool ControlNodeInfoLogger(BgpSandeshContext &ctx) {
 
 // Trigger graceful shutdown of control-node process.
 //
-// IO (evm) is shutdown first. Afterwards, main() resumes, shutting down rest of the
-// objects, and eventually exit()s.
+// IO (evm) is shutdown first. Afterwards, main() resumes, shutting down rest
+// of the objects, and eventually exit()s.
 void ControlNodeShutdown() {
     static bool shutdown_;
 
@@ -354,182 +364,52 @@ void ControlNodeShutdown() {
     evm.Shutdown();
 }
 
-// Read command line options from a file for ease of use. These options read
-// from file are appended to those specified in the command line.
-int ReadCommandLineOptionsFromFile(int argc, char **argv,
-                                   std::vector<string> &tokens, string &line,
-                                   char **p_argv, size_t p_argv_size) {
-    int p_argc = argc;
-
-    // Copy command line options
-    for (int i = 0; i < argc; i++) {
-        p_argv[i] = argv[i];
-    }
-
-    for (int j = 0; j < argc; j++) {
-
-        // Check for --options-file option
-        if (!boost::iequals("--options-file", argv[j])) continue;
-
-        // Make sure there is a file name specified.
-        if ((j + 1) >= argc) break;
-
-        // Read text from the file and split into different tokens.
-        line = FileRead(argv[j + 1]);
-        boost::split(tokens, line, boost::is_any_of(" \n\t"));
-        for (size_t k = 0; k < tokens.size(); k++) {
-
-            // Ignore empty strings.
-            if (tokens[k].empty()) continue;
-
-            // Make sure that there is enough room in the output vector.
-            assert((size_t) p_argc < p_argv_size);
-
-            // Retrieve char * token into output vector.
-            p_argv[p_argc++] = const_cast<char *>(tokens[k].c_str());
-        }
-        break;
-    }
-
-    // Return the updated number of command line options to use.
-    return p_argc;
-}
-
 int main(int argc, char *argv[]) {
-    bool enable_local_logging = false;
-    bool disable_logging = false;
-    boost::system::error_code error;
-    string hostname(host_name(error));
-    const string default_log_file = "<stdout>";
-    const unsigned long default_log_file_size = 10*1024*1024; // 10MB
-    const unsigned int default_log_file_index = 10;
-    opt::options_description desc("Command line options");
-    desc.add_options()
-        ("bgp-port",
-         opt::value<int>()->default_value(BgpConfigManager::kDefaultPort),
-         "BGP listener port")
-        ("collector", opt::value<string>(),
-            "IP address of sandesh collector")
-        ("collector-port", opt::value<int>(),
-            "Port of sandesh collector")
-        ("config-file", opt::value<string>()->default_value("bgp_config.xml"),
-            "Configuration file")
-        ("discovery-server", opt::value<string>(),
-            "IP address of Discovery Server")
-        ("discovery-port", 
-            opt::value<int>()->default_value(ContrailPorts::DiscoveryServerPort),
-            "Port of Discovery Server")
-        ("help", "help message")
-        ("hostname", opt::value<string>()->default_value(hostname),
-            "Hostname of control-node")
-        ("host-ip", opt::value<string>(), "IP address of control-node")
-        ("http-server-port",
-            opt::value<int>()->default_value(ContrailPorts::HttpPortControl),
-            "Sandesh HTTP listener port")
-        ("log-category", opt::value<string>()->default_value(""),
-            "Category filter for local logging of sandesh messages")
-        ("log-disable", opt::bool_switch(&disable_logging),
-             "Disable sandesh logging")
-        ("log-file", opt::value<string>()->default_value(default_log_file),
-             "Filename for the logs to be written to")
-        ("log-file-index",
-             opt::value<unsigned int>()->default_value(default_log_file_index),
-             "Maximum log file roll over index")
-        ("log-file-size",
-             opt::value<unsigned long>()->default_value(default_log_file_size),
-             "Maximum size of the log file")
-        ("log-level", opt::value<string>()->default_value("SYS_NOTICE"),
-            "Severity level for local logging of sandesh messages")
-        ("log-local", opt::bool_switch(&enable_local_logging),
-             "Enable local logging of sandesh messages")
-        ("map-password", opt::value<string>(), "MAP server password")
-        ("map-server-url", opt::value<string>(), "MAP server URL")
-        ("map-user", opt::value<string>(), "MAP server username")
-        ("options-file", opt::value<string>(), "Command line options file")
-        ("use-certs", opt::value<string>(),
-            "Certificates store to use for communication with MAP server")
-        ("xmpp-port",
-            opt::value<int>()->default_value(ContrailPorts::ControlXmpp),
-            "XMPP listener port")
-        ("version", "Display version information")
-        ("use-certs", opt::value<string>(),
-            "Use certificates to communicate with MAP server; Specify certificate store")
-        ;
+    Options options;
 
-    std::vector<string> tokens;
-    string line;
-    char *p_argv[argc + 128];
-    int p_argc;
-
-    // Optionally, retrieve command line options from a file.
-    p_argc = ReadCommandLineOptionsFromFile(argc, argv, tokens, line, p_argv,
-                                            sizeof(p_argv)/sizeof(p_argv[0]));
-
-    // Process collective options those specified in the command line and those
-    // in the file (optionl).
-    opt::variables_map var_map;
-    opt::store(opt::parse_command_line(p_argc, p_argv, desc), var_map);
-    opt::notify(var_map);
-
-    if (var_map.count("help")) {
-        cout << desc << endl;
-        exit(0);
-    }
-
-    if (var_map.count("version")) {
-        string build_info;
-        ControlNodeVersion(build_info);
-        cout << build_info << endl;
-        exit(0);
+    // Process options from command-line and configuration file.
+    if (!options.Parse(evm, argc, argv)) {
+        exit(-1);
     }
 
     ControlNode::SetProgramName(argv[0]);
-    unsigned long log_file_size = default_log_file_size;
-    unsigned long log_file_index = default_log_file_index;
-    if (var_map.count("log-file-size")) {
-        log_file_size = var_map["log-file-size"].as<unsigned long>();
-    }
-    if (var_map.count("log-file-index")) {
-        log_file_index = var_map["log-file-index"].as<unsigned int>();
-    }
-    if (var_map["log-file"].as<string>() == default_log_file) {
+    if (options.log_file() == "<stdout>") {
         LoggingInit();
     } else {
-        LoggingInit(var_map["log-file"].as<string>(), log_file_size,
-                    log_file_index);
+        LoggingInit(options.log_file(), options.log_file_size(),
+                    options.log_files_count());
     }
     TaskScheduler::Initialize();
     ControlNode::SetDefaultSchedulingPolicy();
     BgpSandeshContext sandesh_context;
 
-    if (!var_map.count("discovery-server")) {
+    if (options.discovery_server().empty()) {
         Module::type module = Module::CONTROL_NODE;
         NodeType::type node_type = 
             g_vns_constants.Module2NodeType.find(module)->second; 
         Sandesh::InitGenerator(
             g_vns_constants.ModuleNames.find(module)->second,
-            hostname, 
+            options.hostname(), 
             g_vns_constants.NodeTypeNames.find(node_type)->second,
             g_vns_constants.INSTANCE_ID_DEFAULT, 
             &evm,
-            var_map["http-server-port"].as<int>(), &sandesh_context);
+            options.http_server_port(),
+            &sandesh_context);
     }
 
-    if (var_map.count("collector-port") && var_map.count("collector")) {
-        int collector_port = var_map["collector-port"].as<int>();
-        std::string collector_server = var_map["collector"].as<string>();
-        Sandesh::ConnectToCollector(collector_server, collector_port);
+    if (!options.collector_server().empty()) {
+        Sandesh::ConnectToCollector(options.collector_server(),
+                                    options.collector_port());
     }
-    Sandesh::SetLoggingParams(enable_local_logging,
-                              var_map["log-category"].as<string>(),
-                              var_map["log-level"].as<string>());
+    Sandesh::SetLoggingParams(options.log_local(), options.log_category(),
+                              options.log_level());
 
-    //
     // XXX Disable logging -- for test purposes only
-    //
-    if (disable_logging) {
+    if (options.log_disable()) {
         SetLoggingDisabled(true);
     }
+
+    ControlNode::SetTestMode(options.test_mode());
 
     boost::scoped_ptr<BgpServer> bgp_server(new BgpServer(&evm));
     sandesh_context.bgp_server = bgp_server.get();
@@ -540,27 +420,25 @@ int main(int argc, char *argv[]) {
     sandesh_context.ifmap_server = &ifmap_server;
     IFMap_Initialize(&ifmap_server);
 
-    bgp_server->config_manager()->Initialize(&config_db, &config_graph,
-                                        var_map["hostname"].as<string>());
-    ControlNode::SetHostname(var_map["hostname"].as<string>());
+    bgp_server->config_manager()->Initialize(&config_db,
+            &config_graph, options.hostname());
+    ControlNode::SetHostname(options.hostname());
     BgpConfigParser parser(&config_db);
-    parser.Parse(FileRead(var_map["config-file"].as<string>().c_str()));
+    parser.Parse(FileRead(options.bgp_config_file().c_str()));
 
     // TODO:  Initialize throws an exception (via boost) in case the
     // user does not have permissions to bind to the port.
 
-    int bgp_port = var_map["bgp-port"].as<int>();
+    LOG(DEBUG, "Starting Bgp Server at port " << options.bgp_port());
+    bgp_server->session_manager()->Initialize(options.bgp_port());
 
-    LOG(DEBUG, "Starting Bgp Server at port " << bgp_port);
-    bgp_server->session_manager()->Initialize(bgp_port);
-
-    XmppServer *xmpp_server = new XmppServer(&evm, hostname);
+    XmppServer *xmpp_server = new XmppServer(&evm, options.hostname());
     XmppInit init;
     XmppChannelConfig xmpp_cfg(false);
-    xmpp_cfg.endpoint.port(var_map["xmpp-port"].as<int>());
+    xmpp_cfg.endpoint.port(options.xmpp_port());
     xmpp_cfg.FromAddr = XmppInit::kControlNodeJID;
     init.AddXmppChannelConfig(&xmpp_cfg);
-    init.InitServer(xmpp_server, var_map["xmpp-port"].as<int>(), true);
+    init.InitServer(xmpp_server, options.xmpp_port(), true);
 
     // Register XMPP channel peers 
     boost::scoped_ptr<BgpXmppChannelManager> bgp_peer_manager(
@@ -571,48 +449,31 @@ int main(int argc, char *argv[]) {
 
     //Register services with Discovery Service Server
     DiscoveryServiceClient *ds_client = NULL; 
-    if (var_map.count("discovery-server")) { 
+    if (!options.discovery_server().empty()) {
         tcp::endpoint dss_ep;
-        dss_ep.address(
-            address::from_string(var_map["discovery-server"].as<string>(), 
-            error));
-        dss_ep.port(var_map["discovery-port"].as<int>()); 
+        boost::system::error_code error;
+        dss_ep.address(address::from_string(options.discovery_server(), error));
+        dss_ep.port(options.discovery_port());
         string subscriber_name = 
             g_vns_constants.ModuleNames.find(Module::CONTROL_NODE)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, subscriber_name); 
         ds_client->Init();
+        ControlNode::SetDiscoveryServiceClient(ds_client); 
   
         // publish xmpp-server service
-        std::string self_ip;
-        if (var_map.count("host-ip")) {
-            self_ip = var_map["host-ip"].as<string>(); 
-        } else {
-            tcp::resolver resolver(*evm.io_service());
-            tcp::resolver::query query(boost::asio::ip::host_name(), "");
-            tcp::resolver::iterator iter = resolver.resolve(query);
-            self_ip = iter->endpoint().address().to_string();
-        }
-
-        // verify string is a valid ip before publishing
-        boost::asio::ip::address::from_string(self_ip, error);
-        if (error) {
-            self_ip.clear();
-        } else { 
-            ControlNode::SetSelfIp(self_ip);
-        }
-
-        if (!self_ip.empty()) {
+        ControlNode::SetSelfIp(options.host_ip());
+        if (!options.host_ip().empty()) {
             stringstream pub_ss;
-            pub_ss << "<xmpp-server><ip-address>" << self_ip <<
-                      "</ip-address><port>" << var_map["xmpp-port"].as<int>() <<
+            pub_ss << "<xmpp-server><ip-address>" << options.host_ip() <<
+                      "</ip-address><port>" << options.xmpp_port() <<
                       "</port></xmpp-server>";
-            std::string pub_msg;
+            string pub_msg;
             pub_msg = pub_ss.str();
             ds_client->Publish(DiscoveryServiceClient::XmppService, pub_msg);
         }
 
-        //subscribe to collector service if not configured
-        if (!var_map.count("collector")) {
+        // subscribe to collector service if not configured
+        if (options.collector_server().empty()) {
             Module::type module = Module::CONTROL_NODE;
             NodeType::type node_type = 
                 g_vns_constants.Module2NodeType.find(module)->second;
@@ -626,28 +487,22 @@ int main(int argc, char *argv[]) {
             vector<string> list;
             list.clear();
             Sandesh::InitGenerator(subscriber_name,
-                                   hostname,
+                                   options.hostname(),
                                    node_type_name,
                                    g_vns_constants.INSTANCE_ID_DEFAULT, 
                                    &evm,
-                                   var_map["http-server-port"].as<int>(),
+                                   options.http_server_port(),
                                    csf,
                                    list,
                                    &sandesh_context);
         }
     }
 
-    std::string certstore = var_map.count("use-certs") ? 
-                            var_map["use-certs"].as<string>() : string("");
-    std::string map_server_url;
-    if (var_map.count("map-server-url")) {
-        map_server_url = var_map["map-server-url"].as<string>();
-    }
     IFMapServerParser *ifmap_parser = IFMapServerParser::GetInstance("vnc_cfg");
 
-    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server, map_server_url,
-                var_map["map-user"].as<string>(),
-                var_map["map-password"].as<string>(), certstore,
+    IFMapManager *ifmapmgr = new IFMapManager(&ifmap_server,
+                options.ifmap_server_url(), options.ifmap_user(),
+                options.ifmap_password(), options.ifmap_certs_store(),
                 boost::bind(&IFMapServerParser::Receive, ifmap_parser,
                             &config_db, _1, _2, _3), evm.io_service(),
                 ds_client);

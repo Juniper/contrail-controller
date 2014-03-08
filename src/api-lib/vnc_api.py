@@ -296,53 +296,56 @@ class VncApi(VncApiClientGen):
     #end _read_args_to_id
 
     def _request_server(self, op, url, data=None, retry_on_error=True):
-        try:
-            if (op == rest.OP_GET):
-                (status, content) = self._http_get(url, headers=self._headers,
-                                                   query_params=data)
-            elif (op == rest.OP_POST):
-                (status, content) = self._http_post(url, body=data,
-                                                    headers=self._headers)
-            elif (op == rest.OP_DELETE):
-                (status, content) = self._http_delete(url, body=data,
-                                                      headers=self._headers)
-            elif (op == rest.OP_PUT):
-                (status, content) = self._http_put(url, body=data,
-                                                   headers=self._headers)
-            else:
-                raise ValueError
-        except ConnectionError:
-            if not retry_on_error:
-                raise ConnectionError
-
-            time.sleep(1)
-            self._create_api_server_session()
-            return self._request_server(op, url, data)
-
-        if status == 200:
-            return content
-
-        # Exception Response, see if it can be resolved
-        if ((status == 401) and (not self._retry_after_authn)):
-            self._headers = self._authenticate(content, self._headers)
-
-            # Recursive call after authentication (max 1 level)
-            self._retry_after_authn = True
-            content = self._request_server(op, url, data=data)
-            self._retry_after_authn = False
-
-            return content
-        elif status == 404:
-            raise NoIdError('Error: oper %s url %s body %s response %s'
-                            % (op, url, data, content))
-        elif status == 403:
-            raise PermissionDenied(content)
-        elif status == 409:
-            raise RefsExistError(content)
-        elif status == 503:
-            raise ResourceExhaustionError(content)
-        else:  # Unknown Error
-            raise HttpError(status, content)
+        while True:
+            try:
+                if (op == rest.OP_GET):
+                    (status, content) = self._http_get(url, headers=self._headers,
+                                                       query_params=data)
+                elif (op == rest.OP_POST):
+                    (status, content) = self._http_post(url, body=data,
+                                                        headers=self._headers)
+                elif (op == rest.OP_DELETE):
+                    (status, content) = self._http_delete(url, body=data,
+                                                          headers=self._headers)
+                elif (op == rest.OP_PUT):
+                    (status, content) = self._http_put(url, body=data,
+                                                       headers=self._headers)
+                else:
+                    raise ValueError
+            except ConnectionError:
+                if not retry_on_error:
+                    raise ConnectionError
+     
+                time.sleep(1)
+                self._create_api_server_session()
+                continue
+     
+            if status == 200:
+                return content
+     
+            # Exception Response, see if it can be resolved
+            if ((status == 401) and (not self._retry_after_authn)):
+                self._headers = self._authenticate(content, self._headers)
+     
+                # Recursive call after authentication (max 1 level)
+                self._retry_after_authn = True
+                content = self._request_server(op, url, data=data)
+                self._retry_after_authn = False
+     
+                return content
+            elif status == 404:
+                raise NoIdError('Error: oper %s url %s body %s response %s'
+                                % (op, url, data, content))
+            elif status == 403:
+                raise PermissionDenied(content)
+            elif status == 409:
+                raise RefsExistError(content)
+            elif status == 503 or status == 504:
+                time.sleep(1)
+                continue
+            else:  # Unknown Error
+                raise HttpError(status, content)
+        # end while True
 
     #end _request_server
 

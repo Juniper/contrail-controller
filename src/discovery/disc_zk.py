@@ -7,6 +7,7 @@ import gevent
 import kazoo.client
 import kazoo.exceptions
 import kazoo.handlers.gevent
+import kazoo.recipe.election
 
 import json
 import time
@@ -29,28 +30,16 @@ class DiscoveryZkClient(object):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
         self._zk = kazoo.client.KazooClient(
-            hosts=','.join(zk_endpts), timeout=120,
+            hosts=','.join(zk_endpts),
             handler=kazoo.handlers.gevent.SequentialGeventHandler())
 
         # connect
-        while True:
-            try:
-                self._zk.start()
-                break
-            except gevent.event.Timeout as e:
-                self.syslog(
-                    'Failed to connect with Zookeeper -will retry in a second')
-                gevent.sleep(1)
-            # Zookeeper is also throwing exception due to delay in master election
-            except Exception as e:
-                self.syslog('%s -will retry in a second' % (str(e)))
-                gevent.sleep(1)
-        self.syslog('Connected to ZooKeeper!')
+        self.connect()
 
         if reset_config:
-            self._zk.delete("/services", recursive=True)
-            self._zk.delete("/clients", recursive=True)
-            self._zk.delete("/election", recursive=True)
+            self.delete_node("/services", recursive=True)
+            self.delete_node("/clients", recursive=True)
+            self.delete_node("/election", recursive=True)
 
         # create default paths
         self.create_node("/services")
@@ -64,6 +53,28 @@ class DiscoveryZkClient(object):
         }
     # end __init__
 
+    # start or restart
+    def connect(self, restart = False):
+        while True:
+            try:
+                if restart:
+                    self._zk.stop() 
+                    self._zk.close() 
+                    self._zk.start() 
+                else:
+                    self._zk.start()
+                break
+            except gevent.event.Timeout as e:
+                self.syslog(
+                    'Failed to connect with Zookeeper -will retry in a second')
+                gevent.sleep(1)
+            # Zookeeper is also throwing exception due to delay in master election
+            except Exception as e:
+                self.syslog('%s -will retry in a second' % (str(e)))
+                gevent.sleep(1)
+        self.syslog('Connected to ZooKeeper!')
+    # end
+
     def start_background_tasks(self):
         # spawn loop to expire subscriptions
         gevent.Greenlet.spawn(self.inuse_loop)
@@ -73,6 +84,8 @@ class DiscoveryZkClient(object):
     # end
 
     def syslog(self, log_msg):
+        if self._ds is None:
+            return
         self._ds.syslog(log_msg)
     # end
 
@@ -80,38 +93,84 @@ class DiscoveryZkClient(object):
         return self._debug
     # end
 
-    def sem_acquire(self):
-        self._zk_sem.acquire()
-    # end
+    def master_election(self, path, identifier, func, *args, **kwargs):
+        election = self._zk.Election(path, identifier)
+        election.run(func, *args, **kwargs)
+    # end master_election
 
-    def sem_release(self):
-        self._zk_sem.release()
-    # end
-
-    def create_node(self, path, value='', makepath=False):
-        if self._zk.exists(path):
+    def create_node(self, path, value='', makepath=False, sequence=False):
+        value = str(value)
+        try:
             self._zk.set(path, value)
-        else:
-            self._zk.create(path, value, makepath=makepath)
+        except kazoo.exceptions.NoNodeException:
             self.syslog('create %s' % (path))
+            return self._zk.create(path, value, makepath=makepath, sequence=sequence)
+        except (kazoo.exceptions.SessionExpiredError,
+                kazoo.exceptions.ConnectionLoss):
+            self.connect(restart = True)
+            return self.create_node(path, value, makepath, sequence)
     # end create_node
 
+    def get_children(self, path):
+        try:
+            return self._zk.get_children(path)
+        except (kazoo.exceptions.SessionExpiredError,
+                kazoo.exceptions.ConnectionLoss):
+            self.connect(restart = True)
+            return self.get_children(path)
+        except Exception:
+            return []
+    # end get_children
+
+    def read_node(self, path):
+        try:
+            data, stat = self._zk.get(path)
+            return data,stat
+        except (kazoo.exceptions.SessionExpiredError,
+                kazoo.exceptions.ConnectionLoss):
+            self.connect(restart = True)
+            return self.read_node(path)
+        except kazoo.exceptions.NoNodeException:
+            self.syslog('exc read: node %s does not exist' % path)
+            return (None, None)
+    # end read_node
+
+    def delete_node(self, path, recursive=False):
+        try:
+            self._zk.delete(path, recursive=recursive)
+        except (kazoo.exceptions.SessionExpiredError,
+                kazoo.exceptions.ConnectionLoss):
+            self.connect(restart = True)
+            self.delete_node(path, recursive=recursive)
+        except kazoo.exceptions.NoNodeException:
+            self.syslog('exc delete: node %s does not exist' % path)
+    # end delete_node
+
+    def exists_node(self, path):
+        try:
+            return self._zk.exists(path)
+        except (kazoo.exceptions.SessionExpiredError,
+                kazoo.exceptions.ConnectionLoss):
+            self.connect(restart = True)
+            return self.exists_node(path)
+    # end exists_node
+
     def service_entries(self):
-        service_types = self._zk.get_children('/services')
+        service_types = self.get_children('/services')
         for service_type in service_types:
-            services = self._zk.get_children('/services/%s' % (service_type))
+            services = self.get_children('/services/%s' % (service_type))
             for service_id in services:
-                data, stat = self._zk.get(
+                data, stat = self.read_node(
                     '/services/%s/%s' % (service_type, service_id))
                 entry = json.loads(data)
                 yield(entry)
 
     def subscriber_entries(self):
-        service_types = self._zk.get_children('/clients')
+        service_types = self.get_children('/clients')
         for service_type in service_types:
-            subscribers = self._zk.get_children('/clients/%s' % (service_type))
+            subscribers = self.get_children('/clients/%s' % (service_type))
             for client_id in subscribers:
-                data, stat = self._zk.get(
+                data, stat = self.read_node(
                     '/clients/%s/%s' % (service_type, client_id))
                 cl_entry = json.loads(data)
                 yield((client_id, service_type))
@@ -132,16 +191,16 @@ class DiscoveryZkClient(object):
         sid_set = set()
 
         # prevent background task from deleting node under our nose
-        self._zk_sem.acquire()
-        seq_list = self._zk.get_children(path)
+        seq_list = self.get_children(path)
+        # data for election node is service ID
         for sequence in seq_list:
-            sid, stat = self._zk.get(
+            sid, stat = self.read_node(
                 '/election/%s/%s' % (service_type, sequence))
-            sid_set.add(sid)
-        self._zk_sem.release()
+            if sid is not None:
+                sid_set.add(sid)
         if not service_id in sid_set:
             path = '/election/%s/node-' % (service_type)
-            pp = self._zk.create(
+            pp = self.create_node(
                 path, service_id, makepath=True, sequence=True)
             pat = path + "(?P<id>.*$)"
             mch = re.match(pat, pp)
@@ -149,40 +208,38 @@ class DiscoveryZkClient(object):
             data['sequence'] = seq
             self.syslog('ST %s, SID %s not found! Added with sequence %s' %
                         (service_type, service_id, seq))
-
-        self.update_service(service_type, service_id, data)
     # end insert_service
 
-    def delete_service(self, service_type, service_id):
-        if self.lookup_subscribers(service_type, service_id):
-            return
+    # forget service and subscribers
+    def delete_service(self, service_type, service_id, recursive = False):
+        #if self.lookup_subscribers(service_type, service_id):
+        #    return
 
         path = '/services/%s/%s' %(service_type, service_id)
-        self._zk.delete(path)
-
-        # purge in-memory cache - ideally we are not supposed to know about this
-        self._ds.delete_pub_data(service_id)
+        self.delete_node(path, recursive = recursive)
 
         # delete service node if all services gone
         path = '/services/%s' %(service_type)
-        if self._zk.get_children(path):
+        if self.get_children(path):
             return
-        self._zk.delete(path)
+        self.delete_node(path)
      #end delete_service
 
     def lookup_service(self, service_type, service_id=None):
-        if not self._zk.exists('/services/%s' % (service_type)):
+        if not self.exists_node('/services/%s' % (service_type)):
             return None
         if service_id:
-            try:
-                data, stat = self._zk.get(
-                    '/services/%s/%s' % (service_type, service_id))
-                return json.loads(data)
-            except kazoo.exceptions.NoNodeException:
-                return None
+            data = None
+            path = '/services/%s/%s' % (service_type, service_id)
+            datastr, stat = self.read_node(path)
+            if datastr:
+                data = json.loads(datastr)
+                clients = self.get_children(path)
+                data['in_use'] = len(clients)
+            return data
         else:
             r = []
-            services = self._zk.get_children('/services/%s' % (service_type))
+            services = self.get_children('/services/%s' % (service_type))
             for service_id in services:
                 entry = self.lookup_service(service_type, service_id)
                 r.append(entry)
@@ -191,14 +248,14 @@ class DiscoveryZkClient(object):
 
     def query_service(self, service_type):
         path = '/election/%s' % (service_type)
-        if not self._zk.exists(path):
+        if not self.exists_node(path):
             return None
-        seq_list = self._zk.get_children(path)
+        seq_list = self.get_children(path)
         seq_list = sorted(seq_list)
 
         r = []
         for sequence in seq_list:
-            service_id, stat = self._zk.get(
+            service_id, stat = self.read_node(
                 '/election/%s/%s' % (service_type, sequence))
             entry = self.lookup_service(service_type, service_id)
             r.append(entry)
@@ -209,7 +266,7 @@ class DiscoveryZkClient(object):
     # tree structure /services/<service-type>/<service-id>
     def get_all_services(self):
         r = []
-        service_types = self._zk.get_children('/services')
+        service_types = self.get_children('/services')
         for service_type in service_types:
             services = self.lookup_service(service_type)
             r.extend(services)
@@ -228,19 +285,17 @@ class DiscoveryZkClient(object):
 
     def lookup_subscribers(self, service_type, service_id):
         path = '/services/%s/%s' % (service_type, service_id)
-        if not self._zk.exists(path):
+        if not self.exists_node(path):
             return None
-        clients = self._zk.get_children(path)
+        clients = self.get_children(path)
         return clients
     # end lookup_subscribers
 
     def lookup_client(self, service_type, client_id):
         try:
-            datastr, stat = self._zk.get(
+            datastr, stat = self.read_node(
                 '/clients/%s/%s' % (service_type, client_id))
-            data = json.loads(datastr)
-        except kazoo.exceptions.NoNodeException:
-            data = None
+            data = json.loads(datastr) if datastr else None
         except ValueError:
             self.syslog('raise ValueError st=%s, cid=%s' %(service_type, client_id))
             data = None
@@ -254,11 +309,11 @@ class DiscoveryZkClient(object):
 
     def lookup_subscription(self, service_type, client_id=None,
                             service_id=None, include_meta=False):
-        if not self._zk.exists('/clients/%s' % (service_type)):
+        if not self.exists_node('/clients/%s' % (service_type)):
             return None
         if client_id and service_id:
             try:
-                datastr, stat = self._zk.get(
+                datastr, stat = self.read_node(
                     '/clients/%s/%s/%s'
                     % (service_type, client_id, service_id))
                 data = json.loads(datastr)
@@ -272,16 +327,17 @@ class DiscoveryZkClient(object):
         elif client_id:
             # our version of Kazoo doesn't support include_data :-(
             try:
-                services = self._zk.get_children(
+                services = self.get_children(
                     '/clients/%s/%s' % (service_type, client_id))
                 r = []
                 for service_id in services:
-                    datastr, stat = self._zk.get(
+                    datastr, stat = self.read_node(
                         '/clients/%s/%s/%s'
                         % (service_type, client_id, service_id))
-                    data = json.loads(datastr)
-                    blob = data['blob']
-                    r.append((service_id, blob, stat))
+                    if datastr:
+                        data = json.loads(datastr)
+                        blob = data['blob']
+                        r.append((service_id, blob, stat))
                 # sort services in the order of assignment to this client
                 # (based on modification time)
                 rr = sorted(r, key=lambda entry: entry[2].last_modified)
@@ -289,20 +345,23 @@ class DiscoveryZkClient(object):
             except kazoo.exceptions.NoNodeException:
                 return None
         else:
-            clients = self._zk.get_children('/clients/%s' % (service_type))
+            clients = self.get_children('/clients/%s' % (service_type))
             return clients
     # end lookup_subscription
 
     # delete client subscription. Cleanup path if possible
     def delete_subscription(self, service_type, client_id, service_id):
         path = '/clients/%s/%s/%s' % (service_type, client_id, service_id)
-        self._zk.delete(path)
+        self.delete_node(path)
+
+        path = '/services/%s/%s/%s' % (service_type, service_id, client_id)
+        self.delete_node(path)
 
         # delete client node if all subscriptions gone
         path = '/clients/%s/%s' % (service_type, client_id)
-        if self._zk.get_children(path):
+        if self.get_children(path):
             return
-        self._zk.delete(path)
+        self.delete_node(path)
 
         # purge in-memory cache - ideally we are not supposed to know about
         # this
@@ -310,12 +369,9 @@ class DiscoveryZkClient(object):
 
         # delete service node if all clients gone
         path = '/clients/%s' % (service_type)
-        if self._zk.get_children(path):
+        if self.get_children(path):
             return
-        self._zk.delete(path)
-
-        path = '/services/%s/%s/%s' % (service_type, service_id, client_id)
-        self._zk.delete(path)
+        self.delete_node(path)
     # end
 
     # TODO use include_data available in new versions of kazoo
@@ -323,11 +379,11 @@ class DiscoveryZkClient(object):
     # return tuple (service_type, client_id, service_id)
     def get_all_clients(self):
         r = []
-        service_types = self._zk.get_children('/clients')
+        service_types = self.get_children('/clients')
         for service_type in service_types:
-            clients = self._zk.get_children('/clients/%s' % (service_type))
+            clients = self.get_children('/clients/%s' % (service_type))
             for client_id in clients:
-                services = self._zk.get_children(
+                services = self.get_children(
                     '/clients/%s/%s' % (service_type, client_id))
                 rr = []
                 for service_id in services:
@@ -344,34 +400,26 @@ class DiscoveryZkClient(object):
     # reset in-use count of clients for each service
     def inuse_loop(self):
         while True:
-            service_types = self._zk.get_children('/clients')
+            service_types = self.get_children('/clients')
             for service_type in service_types:
-                clients = self._zk.get_children('/clients/%s' % (service_type))
+                clients = self.get_children('/clients/%s' % (service_type))
                 for client_id in clients:
-                    services = self._zk.get_children(
+                    services = self.get_children(
                         '/clients/%s/%s' % (service_type, client_id))
                     for service_id in services:
                         path = '/clients/%s/%s/%s' % (
                             service_type, client_id, service_id)
-                        datastr, stat = self._zk.get(path)
+                        datastr, stat = self.read_node(path)
                         data = json.loads(datastr)
                         now = time.time()
                         exp_t = stat.last_modified + data['ttl'] +\
                             disc_consts.TTL_EXPIRY_DELTA
                         if now > exp_t:
-                            self._zk_sem.acquire()
                             self.delete_subscription(
                                 service_type, client_id, service_id)
-                            svc_info = self.lookup_service(
-                                service_type, service_id)
                             self.syslog(
-                                'Expiring st:%s sid:%s cid:%s inuse:%d blob:%s'
-                                % (service_type, service_id, client_id,
-                                   svc_info['in_use'], data['blob']))
-                            svc_info['in_use'] -= 1
-                            self.update_service(
-                                service_type, service_id, svc_info)
-                            self._zk_sem.release()
+                                'Expiring st:%s sid:%s cid:%s'
+                                % (service_type, service_id, client_id))
                             self._debug['subscription_expires'] += 1
             gevent.sleep(10)
 
@@ -387,13 +435,13 @@ class DiscoveryZkClient(object):
                 service_id   = entry['service_id']
                 path = '/election/%s/node-%s' % (
                     service_type, entry['sequence'])
-                if not self._zk.exists(path):
+                if not self.exists_node(path):
                     continue
                 self.syslog('Deleting sequence node %s for service %s:%s' %
                         (path, service_type, service_id))
-                self._zk_sem.acquire()
-                self._zk.delete(path)
-                self._zk_sem.release()
+                self.delete_node(path)
+                entry['sequence'] = -1
+                self.update_service(service_type, service_id, entry)
                 self._debug['oos_delete'] += 1
             gevent.sleep(self._ds._args.hc_interval)
     # end

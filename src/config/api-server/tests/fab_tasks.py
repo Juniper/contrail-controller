@@ -30,7 +30,7 @@ def setup_venv(build_top = "../../../../../build"):
                 "%s/debug/sandesh/common/dist/sandesh-common-0.1dev.tar.gz" % build_top)
             local(
                 "pip install --upgrade "
-                "%s/debug/discovery/dist/discovery-0.1dev.tar.gz" % build_top)
+                "%s/debug/discovery/client/dist/discoveryclient-0.1dev.tar.gz" % build_top)
             local("pip install redis==2.7.1")
             local("pip install stevedore==0.11")
             local("pip install netifaces==0.8")

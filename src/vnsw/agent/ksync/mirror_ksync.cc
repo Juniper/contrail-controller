@@ -26,7 +26,7 @@ MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
 MirrorKSyncEntry::MirrorKSyncEntry(MirrorKSyncObject *obj,
                                    const MirrorEntry *mirror_entry) :
     KSyncNetlinkDBEntry(kInvalidIndex), ksync_obj_(obj), 
-    vrf_id_(mirror_entry->GetVrfId()), sip_(*mirror_entry->GetSip()), 
+    vrf_id_(mirror_entry->vrf_id()), sip_(*mirror_entry->GetSip()), 
     sport_(mirror_entry->GetSPort()), dip_(*mirror_entry->GetDip()), 
     dport_(mirror_entry->GetDPort()), nh_(NULL),
     analyzer_name_(mirror_entry->GetAnalyzerName()) {

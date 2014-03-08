@@ -30,7 +30,7 @@ import gen.vnc_api_test_gen
 from gen.resource_test import *
 from gen.resource_client import *
 from gen.resource_xsd import *
-import discovery.client as disc_client
+import discoveryclient.client as disc_client
 
 import test_common
 

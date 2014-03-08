@@ -54,7 +54,7 @@ void NotifyXMPPofRecipientChange(const std::string &vrf_name,
     if (!IS_BCAST_MCAST(dip)) { 
         MCTRACE(Log, "notify subnet route chg", vrf_name, dip.to_string(), 0);
         Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                     Agent::GetInstance()->GetLocalVmPeer(), 
+                                     Agent::GetInstance()->local_vm_peer(), 
                                      vrf_name,
                                      IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                      dip, vn_name);
@@ -149,7 +149,7 @@ void MulticastHandler::AddSubnetRoute(const std::string &vrf_name,
 
     MCTRACE(Log, "subnet route ", vrf_name, addr.to_string(), 0);
     Inet4UnicastAgentRouteTable::AddSubnetBroadcastRoute(
-                                 Agent::GetInstance()->GetLocalVmPeer(), 
+                                 Agent::GetInstance()->local_vm_peer(), 
                                  vrf_name,
                                  IpAddress::from_string("0.0.0.0", ec).to_v4(),
                                  addr, vn_name);
@@ -164,7 +164,7 @@ void MulticastHandler::DeleteSubnetRoute(const std::string &vrf_name,
                                          const Ip4Address &addr)
 {
     MCTRACE(Log, "delete subnet route ", vrf_name, addr.to_string(), 0);
-    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
+    Inet4UnicastAgentRouteTable::DeleteReq(Agent::GetInstance()->local_vm_peer(), 
                                            vrf_name, addr, 32);
     MulticastGroupObject *subnet_broadcast = 
         this->FindGroupObject(vrf_name, addr);
@@ -205,7 +205,7 @@ void MulticastHandler::DeleteVnIPAM(const VnEntry *vn)
                           broadcast_addr);
 
         /*
-        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->GetLocalVmPeer(), 
+        Inet4UcRouteTable::DeleteReq(Agent::GetInstance()->local_vm_peer(), 
                                      GetAssociatedVrfForVn(vn->GetUuid()), 
                                      broadcast_addr, 32);
                                      */
@@ -283,7 +283,7 @@ void MulticastHandler::HandleIPAMChange(const VnEntry *vn,
         this->VisitUnresolvedVMList(vn);
     }
     //Store the vrf name for this VN
-    this->SetVrfNameForVn(vn->GetUuid(), vn->GetVrf()->GetName());
+    this->set_vrf_nameForVn(vn->GetUuid(), vn->GetVrf()->GetName());
 }
 
 /*
@@ -374,20 +374,20 @@ void MulticastHandler::HandleFamilyConfig(const VnEntry *vn)
         if (!(new_layer2_forwarding) && (*it)->layer2_forwarding()) {
             (*it)->SetLayer2Forwarding(new_layer2_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
-                Layer2AgentRouteTable::DeleteBroadcastReq((*it)->GetVrfName());
+                Layer2AgentRouteTable::DeleteBroadcastReq((*it)->vrf_name());
             } 
         }
         if (!(new_ipv4_forwarding) && (*it)->Ipv4Forwarding()) {
             (*it)->SetIpv4Forwarding(new_ipv4_forwarding);
             if (IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
                 Inet4MulticastAgentRouteTable::DeleteMulticastRoute(
-                                           (*it)->GetVrfName(), 
+                                           (*it)->vrf_name(), 
                                            (*it)->GetSourceAddress(), 
                                            (*it)->GetGroupAddress());
             } else {
                 Inet4UnicastAgentRouteTable::DeleteReq(
-                                        Agent::GetInstance()->GetLocalVmPeer(), 
-                                        (*it)->GetVrfName(), 
+                                        Agent::GetInstance()->local_vm_peer(), 
+                                        (*it)->vrf_name(), 
                                         (*it)->GetGroupAddress(), 32);
             }
         }
@@ -487,14 +487,14 @@ void MulticastHandler::DeleteRouteandMPLS(MulticastGroupObject *obj)
 {
     //delete mcast routes, subnet bcast gets deleted via vn delete
     if (IS_BCAST_MCAST(obj->GetGroupAddress())) { 
-        Inet4MulticastAgentRouteTable::DeleteMulticastRoute(obj->GetVrfName(), 
+        Inet4MulticastAgentRouteTable::DeleteMulticastRoute(obj->vrf_name(), 
                                                   obj->GetSourceAddress(), 
                                                   obj->GetGroupAddress());
-        Layer2AgentRouteTable::DeleteBroadcastReq(obj->GetVrfName());
+        Layer2AgentRouteTable::DeleteBroadcastReq(obj->vrf_name());
     }
     /* delete the MPLS label route */
     obj->SetSourceMPLSLabel(0);
-    MCTRACE(Log, "delete route mpls ", obj->GetVrfName(),
+    MCTRACE(Log, "delete route mpls ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(),
             obj->GetSourceMPLSLabel());
 }
@@ -522,7 +522,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             ((*it)->IsDeleted() == false) &&
             ((*it)->GetLocalListSize() != 0)) {
             this->TriggerCompositeNHChange(*it);
-            MCTRACE(Log, "trigger cnh  ", (*it)->GetVrfName(),
+            MCTRACE(Log, "trigger cnh  ", (*it)->vrf_name(),
                     (*it)->GetGroupAddress().to_string(),
                     (*it)->GetSourceMPLSLabel());
         }
@@ -534,7 +534,7 @@ void MulticastHandler::DeleteVmInterface(const Interface *intf)
             //Update comp nh
             if ((*it)->IsDeleted() == false) {
                 this->TriggerCompositeNHChange(*it);
-                NotifyXMPPofRecipientChange((*it)->GetVrfName(),
+                NotifyXMPPofRecipientChange((*it)->vrf_name(),
                                             (*it)->GetGroupAddress(),
                                             (*it)->GetVnName());
             }
@@ -560,7 +560,7 @@ void MulticastHandler::DeleteMulticastObject(const std::string &vrf_name,
     for(std::set<MulticastGroupObject *>::iterator it =
         this->GetMulticastObjList().begin(); 
         it != this->GetMulticastObjList().end(); it++) {
-        if (((*it)->GetVrfName() == vrf_name) &&
+        if (((*it)->vrf_name() == vrf_name) &&
             ((*it)->GetGroupAddress() == grp_addr)) {
             delete (*it);
             this->GetMulticastObjList().erase(it++);
@@ -582,7 +582,7 @@ MulticastGroupObject *MulticastHandler::FindGroupObject(const std::string &vrf_n
     for(std::set<MulticastGroupObject *>::iterator it =
         this->GetMulticastObjList().begin(); 
         it != this->GetMulticastObjList().end(); it++) {
-        if (((*it)->GetVrfName() == vrf_name) &&
+        if (((*it)->vrf_name() == vrf_name) &&
             ((*it)->GetGroupAddress() == dip)) {
             return (*it);
         }
@@ -601,21 +601,21 @@ void MulticastHandler::AddChangeMultiProtocolCompositeNH(
     CompositeNHData *cnh_data;
 
     if (obj->Ipv4Forwarding()) {
-        ComponentNHData l3_data(obj->GetVrfName(), obj->GetGroupAddress(),
+        ComponentNHData l3_data(obj->vrf_name(), obj->GetGroupAddress(),
                                 obj->GetSourceAddress(), false,
                                 Composite::L3COMP);
         data.push_back(l3_data);
     }
     if (obj->layer2_forwarding()) {
-        ComponentNHData l2_data(obj->GetVrfName(), obj->GetGroupAddress(),
+        ComponentNHData l2_data(obj->vrf_name(), obj->GetGroupAddress(),
                                 obj->GetSourceAddress(), false,
                                 Composite::L2COMP);
         data.push_back(l2_data);
     }
 
-    MCTRACE(Log, "enqueue multiproto comp ", obj->GetVrfName(),
+    MCTRACE(Log, "enqueue multiproto comp ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->GetVrfName(), obj->GetGroupAddress(),
+    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
                              obj->GetSourceAddress(), false,
                              Composite::MULTIPROTO); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -640,9 +640,9 @@ void MulticastHandler::AddChangeFabricCompositeNH(MulticastGroupObject *obj)
         data.push_back(nh_data);
     }
 
-    MCTRACE(Log, "enqueue fabric comp ", obj->GetVrfName(),
+    MCTRACE(Log, "enqueue fabric comp ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->GetVrfName(), obj->GetGroupAddress(),
+    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
                              obj->GetSourceAddress(), false,
                              Composite::FABRIC); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -662,7 +662,7 @@ void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
     //Add fabric Comp NH
     AddChangeFabricCompositeNH(obj);
 
-    ComponentNHData fabric_nh_data(obj->GetVrfName(), 
+    ComponentNHData fabric_nh_data(obj->vrf_name(), 
                                    obj->GetGroupAddress(),
                                    obj->GetSourceAddress(), false,
                                    Composite::FABRIC);
@@ -673,9 +673,9 @@ void MulticastHandler::TriggerL2CompositeNHChange(MulticastGroupObject *obj)
         ComponentNHData nh_data(0, (*it), InterfaceNHFlags::LAYER2);
         data.push_back(nh_data);
     }
-    MCTRACE(Log, "enqueue l2 comp ", obj->GetVrfName(),
+    MCTRACE(Log, "enqueue l2 comp ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->GetVrfName(), obj->GetGroupAddress(),
+    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
                              obj->GetSourceAddress(), false,
                              Composite::L2COMP); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -708,7 +708,7 @@ void MulticastHandler::TriggerL3CompositeNHChange(MulticastGroupObject *obj)
     //Add fabric Comp NH
     AddChangeFabricCompositeNH(obj);
 
-    ComponentNHData fabric_nh_data(obj->GetVrfName(), obj->GetGroupAddress(),
+    ComponentNHData fabric_nh_data(obj->vrf_name(), obj->GetGroupAddress(),
                                    obj->GetSourceAddress(), false,
                                    Composite::FABRIC);
 
@@ -719,9 +719,9 @@ void MulticastHandler::TriggerL3CompositeNHChange(MulticastGroupObject *obj)
         data.push_back(nh_data);
     }
 
-    MCTRACE(Log, "enqueue l3 comp ", obj->GetVrfName(),
+    MCTRACE(Log, "enqueue l3 comp ", obj->vrf_name(),
             obj->GetGroupAddress().to_string(), data.size());
-    key = new CompositeNHKey(obj->GetVrfName(), obj->GetGroupAddress(),
+    key = new CompositeNHKey(obj->vrf_name(), obj->GetGroupAddress(),
                              obj->GetSourceAddress(), false,
                              Composite::L3COMP); 
     req.oper = DBRequest::DB_ENTRY_ADD_CHANGE;
@@ -905,7 +905,11 @@ void MulticastHandler::HandlePeerDown() {
         //Empty the tunnel OLIST
         (*it)->FlushAllFabricOlist();
         //Update comp NH
-        MulticastHandler::GetInstance()->TriggerCompositeNHChange(*it);
+        //Ignore modification of comp NH if route is not present i.e. multicast
+        //object is marked for deletion.
+        if ((*it)->IsDeleted() == false) {
+            MulticastHandler::GetInstance()->TriggerCompositeNHChange(*it);
+        }
     }
 }
 
@@ -934,11 +938,11 @@ void MulticastGroupObject::SetSourceMPLSLabel(uint32_t label) {
                 AddChangeMultiProtocolCompositeNH(this);
             comp_type = Composite::MULTIPROTO;
         }
-        MplsLabel::CreateMcastLabelReq(GetVrfName(), GetGroupAddress(),
+        MplsLabel::CreateMcastLabelReq(vrf_name(), GetGroupAddress(),
                                        GetSourceAddress(), label, comp_type); 
     }
     //Delete old_label
-    MplsLabel::DeleteMcastLabelReq(GetVrfName(), GetGroupAddress(),
+    MplsLabel::DeleteMcastLabelReq(vrf_name(), GetGroupAddress(),
                                    GetSourceAddress(), src_mpls_label_);
     src_mpls_label_ = label; 
 }
@@ -959,7 +963,7 @@ void MulticastHandler::Shutdown() {
         MulticastHandler::GetInstance()->DeleteRouteandMPLS(*it);
         if (!IS_BCAST_MCAST((*it)->GetGroupAddress())) { 
             MulticastHandler::GetInstance()->DeleteSubnetRoute(
-                                                   (*it)->GetVrfName(), 
+                                                   (*it)->vrf_name(), 
                                                    (*it)->GetGroupAddress());
         }
         //Delete the multicast object

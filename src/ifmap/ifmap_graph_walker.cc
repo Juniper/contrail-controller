@@ -209,109 +209,109 @@ void IFMapGraphWalker::WorkBatchEnd(bool done) {
 // IFMapGraphTraversalFilterCalculator::CreateNodeBlackList() are mutually 
 // exclusive
 void IFMapGraphWalker::AddNodesToWhitelist() {
-    traversal_white_list_->include_vertex.push_back("virtual-router");
-    traversal_white_list_->include_vertex.push_back("virtual-machine");
-    traversal_white_list_->include_vertex.push_back("bgp-router");
-    traversal_white_list_->include_vertex.push_back("global-system-config");
-    traversal_white_list_->include_vertex.push_back("provider-attachment");
-    traversal_white_list_->include_vertex.push_back("service-instance");
-    traversal_white_list_->include_vertex.push_back("global-vrouter-config");
-    traversal_white_list_->include_vertex.push_back(
+    traversal_white_list_->include_vertex.insert("virtual-router");
+    traversal_white_list_->include_vertex.insert("virtual-machine");
+    traversal_white_list_->include_vertex.insert("bgp-router");
+    traversal_white_list_->include_vertex.insert("global-system-config");
+    traversal_white_list_->include_vertex.insert("provider-attachment");
+    traversal_white_list_->include_vertex.insert("service-instance");
+    traversal_white_list_->include_vertex.insert("global-vrouter-config");
+    traversal_white_list_->include_vertex.insert(
         "virtual-machine-interface");
-    traversal_white_list_->include_vertex.push_back("security-group");
-    traversal_white_list_->include_vertex.push_back("physical-router");
-    traversal_white_list_->include_vertex.push_back("service-template");
-    traversal_white_list_->include_vertex.push_back("instance-ip");
-    traversal_white_list_->include_vertex.push_back("virtual-network");
-    traversal_white_list_->include_vertex.push_back("floating-ip");
-    traversal_white_list_->include_vertex.push_back("customer-attachment");
-    traversal_white_list_->include_vertex.push_back(
+    traversal_white_list_->include_vertex.insert("security-group");
+    traversal_white_list_->include_vertex.insert("physical-router");
+    traversal_white_list_->include_vertex.insert("service-template");
+    traversal_white_list_->include_vertex.insert("instance-ip");
+    traversal_white_list_->include_vertex.insert("virtual-network");
+    traversal_white_list_->include_vertex.insert("floating-ip");
+    traversal_white_list_->include_vertex.insert("customer-attachment");
+    traversal_white_list_->include_vertex.insert(
         "virtual-machine-interface-routing-instance");
-    traversal_white_list_->include_vertex.push_back("physical-interface");
-    traversal_white_list_->include_vertex.push_back("domain");
-    traversal_white_list_->include_vertex.push_back("floating-ip-pool");
-    traversal_white_list_->include_vertex.push_back("logical-interface");
-    traversal_white_list_->include_vertex.push_back(
+    traversal_white_list_->include_vertex.insert("physical-interface");
+    traversal_white_list_->include_vertex.insert("domain");
+    traversal_white_list_->include_vertex.insert("floating-ip-pool");
+    traversal_white_list_->include_vertex.insert("logical-interface");
+    traversal_white_list_->include_vertex.insert(
         "virtual-network-network-ipam");
-    traversal_white_list_->include_vertex.push_back("access-control-list");
-    traversal_white_list_->include_vertex.push_back("routing-instance");
-    traversal_white_list_->include_vertex.push_back("namespace");
-    traversal_white_list_->include_vertex.push_back("virtual-DNS");
-    traversal_white_list_->include_vertex.push_back("network-ipam");
-    traversal_white_list_->include_vertex.push_back("virtual-DNS-record");
-    traversal_white_list_->include_vertex.push_back("interface-route-table");
+    traversal_white_list_->include_vertex.insert("access-control-list");
+    traversal_white_list_->include_vertex.insert("routing-instance");
+    traversal_white_list_->include_vertex.insert("namespace");
+    traversal_white_list_->include_vertex.insert("virtual-DNS");
+    traversal_white_list_->include_vertex.insert("network-ipam");
+    traversal_white_list_->include_vertex.insert("virtual-DNS-record");
+    traversal_white_list_->include_vertex.insert("interface-route-table");
 }
 
 void IFMapGraphWalker::AddLinksToWhitelist() {
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-router,target=virtual-machine");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-router,target=bgp-router");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-router,target=global-system-config");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-router,target=provider-attachment");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine,target=service-instance");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine,target=virtual-machine-interface");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=bgp-router,target=physical-router");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=service-instance,target=service-template");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=global-system-config,target=global-vrouter-config");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=instance-ip");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=virtual-network");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=security-group");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=floating-ip");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=customer-attachment");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=virtual-machine-interface-routing-instance");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface,target=interface-route-table");       
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=physical-router,target=physical-interface");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=service-template,target=domain");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=floating-ip-pool");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=logical-interface");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=virtual-network-network-ipam");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=access-control-list");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network,target=routing-instance");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=domain,target=namespace");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=domain,target=virtual-DNS");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-network-network-ipam,target=network-ipam");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-DNS,target=virtual-DNS-record");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=security-group,target=access-control-list");
 
     // Manually add required links not picked by the
     // IFMapGraphTraversalFilterCalculator
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=floating-ip,target=floating-ip-pool");
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=virtual-machine-interface-routing-instance,target=routing-instance");
     // VDNS needs dns/dhcp info from IPAM and FQN from Domain.
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=network-ipam,target=virtual-DNS");
     // Need this to get from floating-ip-pool to the virtual-network we are
     // getting the pool from. EG: public-network (might not have any VMs)
-    traversal_white_list_->include_edge.push_back(
+    traversal_white_list_->include_edge.insert(
         "source=floating-ip-pool,target=virtual-network");
 }
 

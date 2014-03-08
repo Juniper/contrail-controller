@@ -346,6 +346,7 @@ int main(int argc, char *argv[])
             g_vns_constants.ModuleNames.find(Module::COLLECTOR)->second;
         ds_client = new DiscoveryServiceClient(&evm, dss_ep, sname);
         ds_client->Init();
+        Collector::SetDiscoveryServiceClient(ds_client);
 
         // Get local ip address
         string self_ip; 
@@ -372,7 +373,8 @@ int main(int argc, char *argv[])
         new TaskTrigger(boost::bind(&CollectorInfoLogger, vsc),
                     TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer = TimerManager::CreateTimer(*evm.io_service(),
-                                                    "Collector Info log timer");
+        "Collector Info log timer",
+        TaskScheduler::GetInstance()->GetTaskId("vizd::Stats"), 0);
     collector_info_log_timer->Start(5*1000, boost::bind(&CollectorInfoLogTimer), NULL);
     signal(SIGTERM, terminate);
     evm.Run();

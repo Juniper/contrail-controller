@@ -109,7 +109,7 @@ int XmppSession::MatchRegex(const boost::regex &patt) {
 }
 
 bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
-    const XmppConnection *connection = this->Channel();
+    const XmppConnection *connection = this->Connection();
 
     if (connection == NULL) {
         return true;
@@ -166,7 +166,7 @@ bool XmppSession::Match(Buffer buffer, int *result, bool NewBuf) {
 // The buffer is copied to local string for regex match. 
 // TODO Code need to change st Match() is done on buffer itself.
 void XmppSession::OnRead(Buffer buffer) {
-    if (this->Channel() == NULL || !connection_) {
+    if (this->Connection() == NULL || !connection_) {
         // Connection is deleted. Session is being deleted as well
         // Drop the packet.
         ReleaseBuffer(buffer);

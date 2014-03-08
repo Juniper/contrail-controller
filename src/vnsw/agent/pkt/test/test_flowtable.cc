@@ -89,7 +89,8 @@ public:
         Ip4Address addr = Ip4Address::from_string(ip);
         Agent::GetInstance()->GetDefaultInet4UnicastRouteTable()->
             AddLocalVmRouteReq(NULL, vrf, addr, 32, intf->GetUuid(),
-                               intf->vn()->GetName(), label); 
+                               intf->vn()->GetName(), label,
+                               SecurityGroupList(), false); 
         client->WaitForIdle();
         EXPECT_TRUE(RouteFind(vrf, addr, 32));
     }
@@ -231,7 +232,7 @@ public:
         FlowEntry *flow = Agent::GetInstance()->pkt()->flow_table()->Allocate(key);
 
         boost::shared_ptr<PktInfo> pkt_info(new PktInfo());
-        PktFlowInfo info(pkt_info);
+        PktFlowInfo info(pkt_info, Agent::GetInstance()->pkt()->flow_table());
         PktInfo *pkt = pkt_info.get();
         info.source_vn = t->svn_;
         info.dest_vn = t->dvn_;
@@ -398,7 +399,8 @@ TEST_F(FlowTableTest, FlowAdd_non_local_1) {
 int main(int argc, char *argv[]) {
     GETUSERARGS();
 
-    client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10));
+    client = TestInit(init_file, ksync_init, true, true, true, (1000000 * 60 * 10),
+            FlowStatsCollector::FlowStatsInterval, true, false);
     if (vm.count("config")) {
         FlowTableTest::eth_itf = Agent::GetInstance()->GetIpFabricItfName();
     } else {

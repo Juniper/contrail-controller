@@ -340,9 +340,9 @@ bool VrfEntry::DBEntrySandesh(Sandesh *sresp, std::string &name) const {
     if (GetName().find(name) != std::string::npos) {
         VrfSandeshData data;
         data.set_name(GetName());
-        data.set_ucindex(GetVrfId());
-        data.set_mcindex(GetVrfId());
-        data.set_l2index(GetVrfId());
+        data.set_ucindex(vrf_id());
+        data.set_mcindex(vrf_id());
+        data.set_l2index(vrf_id());
 
         std::vector<VrfSandeshData> &list = 
                 const_cast<std::vector<VrfSandeshData>&>(resp->get_vrf_list());
@@ -521,6 +521,7 @@ void VrfTable::OnZeroRefcount(AgentDBEntry *e) {
         for (table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; table_type++) {
             database()->RemoveTable(vrf->GetRouteTable(table_type));
             dbtree_[table_type].erase(vrf->GetName());
+            delete vrf->GetRouteTable(table_type);
         }
 
         name_tree_.erase(vrf->GetName());

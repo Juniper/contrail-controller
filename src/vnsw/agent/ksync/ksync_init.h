@@ -33,7 +33,7 @@ public:
     int Encode(Sandesh &encoder, uint8_t *buf, int buf_len);
 
     void RegisterDBClientsTest(DB *db);
-    void NetlinkInitTest();
+    void NetlinkInitTest(bool sync_mode);
     void NetlinkShutdownTest();
     void UpdateVhostMac();
     Agent *agent() const  { return agent_; }

@@ -352,7 +352,7 @@ void RouteExpectProcess (xml_node &parent, bool expect) {
         return;
     }
 
-    TestRouteTable   table(vrf_entry->GetVrfId());
+    TestRouteTable   table(vrf_entry->vrf_id());
     TestNhTable      nh_table;
 
     for (xml_node node = parent.first_child(); node;

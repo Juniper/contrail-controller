@@ -32,11 +32,12 @@ class OpenstackDriver(vnc_plugin_base.Resync):
 
         self._config_sections = conf_sections
         self._auth_host = conf_sections.get('KEYSTONE', 'auth_host')
+        self._auth_port = conf_sections.get('KEYSTONE', 'auth_port')
         self._auth_user = conf_sections.get('KEYSTONE', 'admin_user')
         self._auth_passwd = conf_sections.get('KEYSTONE', 'admin_password')
         self._auth_tenant = conf_sections.get('KEYSTONE', 'admin_tenant_name')
         auth_proto = conf_sections.get('KEYSTONE', 'auth_protocol')
-        auth_url = "%s://%s:35357/v2.0" % (auth_proto, self._auth_host)
+        auth_url = "%s://%s:%s/v2.0" % (auth_proto, self._auth_host, self._auth_port)
         self._auth_url = auth_url
         self._resync_interval_secs = 2
         self._kc = None
@@ -110,6 +111,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 if old_project_ids == new_project_ids:
                     # no change, go back to poll
                     gevent.sleep(self._resync_interval_secs)
+                    continue
 
                 for old_proj_id in old_project_ids - new_project_ids:
                     if old_proj_id in del_proj_list:
@@ -146,6 +148,7 @@ class OpenstackDriver(vnc_plugin_base.Resync):
                 old_project_ids = new_project_ids
 
             except Exception as e:
+                self._kc = None
                 cgitb.Hook(
                     format="text",
                     file=open(self._tmp_file_name,

@@ -29,6 +29,7 @@ public:
     size_t count() const;
     size_t find_first() const;
     size_t find_next(size_t pos) const;
+    size_t find_last() const;
     size_t find_first_clear() const;
     size_t find_next_clear(size_t pos) const;
 

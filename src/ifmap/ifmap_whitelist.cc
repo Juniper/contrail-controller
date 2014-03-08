@@ -30,7 +30,7 @@ void IFMapGTFVisitor::VertexVisitor(DBGraphVertex *v) {
 void IFMapGTFVisitor::VertexFinish(DBGraphVertex *v) {
     IFMapGTFNode *node = static_cast<IFMapGTFNode *>(v);
     // Add the node to the white list and mark it finished
-    white_list_->include_vertex.push_back(node->name());
+    white_list_->include_vertex.insert(node->name());
     finished_list_.push_back(node);
     // Pop the next node from the unfinished list so that we can use it as the
     // 'left' in the filter string
@@ -82,7 +82,7 @@ void IFMapGTFVisitor::EdgeVisitor(DBGraphEdge *e) {
         // EG: "source=virtual-network,target=virtual-machine-interface");
         std::string edge = 
             "source=" + left->name() + ",target=" + right->name();
-        white_list_->include_edge.push_back(edge);
+        white_list_->include_edge.insert(edge);
         // Color the neighbor to indicate it was visited
         visited_node_map_.insert(make_pair(right->name(), right));
         InsertIntoUnfinished(right);

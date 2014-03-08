@@ -957,7 +957,7 @@ QueryEngine::QueryEngine(EventManager *evm,
             std::stringstream ss;
             ss << "initialization of database failed. retrying " << retries++ << " time";
             Q_E_LOG_LOG("QeInit", SandeshLevel::SYS_WARN, ss.str());
-            db_if->Db_Uninit(false);
+            db_if->Db_Uninit("qe::DbHandler", -1);
             sleep(5);
         }
     }
@@ -973,18 +973,18 @@ QueryEngine::QueryEngine(EventManager *evm,
             key.push_back(g_viz_constants.SYSTEM_OBJECT_ANALYTICS);
 
             if (dbif_->Db_GetRow(col_list, cfname, key)) {
-                for (std::vector<GenDb::NewCol>::iterator it = col_list.columns_.begin();
+                for (GenDb::NewColVec::iterator it = col_list.columns_.begin();
                         it != col_list.columns_.end(); it++) {
                     std::string col_name;
                     try {
-                        col_name = boost::get<std::string>(it->name[0]);
+                        col_name = boost::get<std::string>(it->name->at(0));
                     } catch (boost::bad_get& ex) {
                         QE_LOG_NOQID(ERROR, __func__ << ": Exception on col_name get");
                     }
 
                     if (col_name == g_viz_constants.SYSTEM_OBJECT_START_TIME) {
                         try {
-                            stime = boost::get<uint64_t>(it->value.at(0));
+                            stime = boost::get<uint64_t>(it->value->at(0));
                             init_done = true;
                         } catch (boost::bad_get& ex) {
                             QE_LOG_NOQID(ERROR, __func__ << "Exception for boost::get, what=" << ex.what());
@@ -1190,6 +1190,7 @@ int AnalyticsQuery::stat_table_index() {
         if (nm == this->table) 
             return i;
     }
+    assert(!is_stat_table_query());
     return -1;
 }
 

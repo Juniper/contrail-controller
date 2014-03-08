@@ -13,6 +13,8 @@
 #include "cmn/agent_cmn.h"
 #include "cfg/cfg_init.h"
 
+#include <discovery/client/discovery_client_stats_types.h>
+
 using namespace boost::asio;
 
 void DiscoveryAgentClient::Init(AgentParam *param) {
@@ -138,4 +140,35 @@ void DiscoveryAgentClient::Shutdown() {
         //unsubscribe to services 
         ds_client->Shutdown();
     }
+}
+
+// sandesh discovery subscriber stats
+void DiscoveryClientSubscriberStatsReq::HandleRequest() const {
+
+    DiscoveryClientSubscriberStatsResponse *resp =
+        new DiscoveryClientSubscriberStatsResponse();
+    resp->set_context(context());
+
+    std::vector<DiscoveryClientSubscriberStats> stats_list;
+    DiscoveryServiceClient *ds = 
+        Agent::GetInstance()->GetDiscoveryServiceClient();
+        //DiscoveryAgentClient::GetAgentDiscoveryServiceClient();
+    if (ds) {
+        ds->FillDiscoveryServiceSubscriberStats(stats_list);
+    }
+
+    resp->set_subscriber(stats_list);
+    resp->set_more(false);
+    resp->Response();
+}
+
+// sandesh discovery publisher stats
+void DiscoveryClientPublisherStatsReq::HandleRequest() const {
+
+    DiscoveryClientPublisherStatsResponse *resp =
+        new DiscoveryClientPublisherStatsResponse();
+    resp->set_context(context());
+
+    resp->set_more(false);
+    resp->Response();
 }

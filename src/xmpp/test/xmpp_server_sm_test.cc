@@ -87,9 +87,9 @@ protected:
             EXPECT_TRUE(!OpenTimerRunning());
             EXPECT_TRUE(!HoldTimerRunning());
             EXPECT_TRUE(sm_->session() == NULL);
-            //TODO: Cases like HoldTimerExpiry,TcpClose need to cleanup 
-            //      connection_ on server side.
-            //EXPECT_TRUE(connection_->session() == NULL);
+            // Cases like HoldTimerExpiry,TcpClose need to cleanup 
+            // connection_ on server side.
+            EXPECT_TRUE(connection_->session() == NULL);
             break;
         case xmsm::ACTIVE:
             if (sm_->IsActiveChannel()) {
@@ -127,6 +127,9 @@ protected:
     void EvStart() {
         sm_->Initialize();
     }
+    void EvStop() {
+        sm_->Clear();
+    }
     void EvConnectTimerExpired() {
         boost::system::error_code error;
         FireConnectTimer();
@@ -154,7 +157,7 @@ protected:
         session_ = static_cast<XmppSession *>(server_->CreateSession());
         session_->socket()->non_blocking(true, ec);
         // Do not generate PassiveOpen Event
-        session_->SetChannel(connection_);
+        session_->SetConnection(connection_);
         sm_->set_session(session_);
     }
 
@@ -227,10 +230,6 @@ TEST_F(XmppStateMachineTest, OpenTimerExpired) {
 
     EvOpenTimerExpired();
     VerifyState(xmsm::IDLE);
-   
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
 
 // OldState :Active
@@ -246,10 +245,35 @@ TEST_F(XmppStateMachineTest, Active_EvTcpClose) {
 
     EvTcpClose();
     VerifyState(xmsm::IDLE);
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
+
+// OldState :Active
+// Event    :EvStop
+// NewState :Idle
+TEST_F(XmppStateMachineTest, Active_EvStop) {
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvStop();
+    VerifyState(xmsm::IDLE);
+}
+
+// OldState :Active
+// Event    :EvStop
+// NewState :Idle
+TEST_F(XmppStateMachineTest, Active_EvPassive_EvStop) {
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvStop();
+    VerifyState(xmsm::IDLE);
+}
+
 
 // Old State : OpenConfirm 
 // Event     : EvTcpClose
@@ -267,10 +291,6 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvTcpClose) {
 
     EvTcpClose();
     VerifyState(xmsm::IDLE);
-    
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
 
 // Old State : OpenConfirm 
@@ -289,10 +309,6 @@ TEST_F(XmppStateMachineTest, DISABLED_OpenConfirm_EvHoldTimerExpired) {
 
     EvHoldTimerExpired();
     VerifyState(xmsm::IDLE);
-    
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
 
 //EvXmppOpen & EvXmppKeepalive
@@ -340,10 +356,6 @@ TEST_F(XmppStateMachineTest, Established_EvHoldTimerExpired) {
 
     EvHoldTimerExpired();
     VerifyState(xmsm::IDLE);
-
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
 
 // Old State : Established 
@@ -363,11 +375,27 @@ TEST_F(XmppStateMachineTest, Established_EvTcpClose) {
 
     EvTcpClose();
     VerifyState(xmsm::IDLE);
-
-    // TODO production code, to enqueue event from
-    // state-machine task to config-task to cleanup
-    // connection,sm
 }
+
+// Old State : Established 
+// Event     : EvStop
+// New State : Idle
+TEST_F(XmppStateMachineTest, Established_EvStop) {
+
+    EvStart();
+    VerifyState(xmsm::ACTIVE);
+
+    EvTcpPassiveOpenFake();
+    VerifyState(xmsm::ACTIVE);
+
+    EvXmppOpen();
+
+    VerifyState(xmsm::ESTABLISHED);
+
+    EvStop();
+    VerifyState(xmsm::IDLE);
+}
+
 
 // Old State : Established 
 // Event     : EvXmppMessageReceive

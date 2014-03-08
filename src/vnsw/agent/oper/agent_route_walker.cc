@@ -37,7 +37,7 @@ void AgentRouteWalker::CancelVrfWalk() {
  */
 void AgentRouteWalker::CancelRouteWalk(const VrfEntry *vrf) {
     DBTableWalker *walker = agent_->GetDB()->GetWalker();
-    uint32_t vrf_id = vrf->GetVrfId();
+    uint32_t vrf_id = vrf->vrf_id();
 
     //Cancel Route table walks
     for (uint8_t table_type = 0; table_type < Agent::ROUTE_TABLE_MAX; 
@@ -84,7 +84,7 @@ void AgentRouteWalker::StartVrfWalk()
 void AgentRouteWalker::StartRouteWalk(const VrfEntry *vrf) {
     DBTableWalker *walker = agent_->GetDB()->GetWalker();
     DBTableWalker::WalkId walkid;
-    uint32_t vrf_id = vrf->GetVrfId();
+    uint32_t vrf_id = vrf->vrf_id();
     AgentRouteTable *table = NULL;
 
     //Cancel any walk started previously for this VRF
@@ -153,14 +153,14 @@ bool AgentRouteWalker::RouteWalkNotify(DBTablePartBase *partition,
 
 void AgentRouteWalker::RouteWalkDone(DBTableBase *part) {
     AgentRouteTable *table = static_cast<AgentRouteTable *>(part);
-    uint32_t vrf_id = table->GetVrfId();
+    uint32_t vrf_id = table->vrf_id();
     uint8_t table_type = table->GetTableType();
 
     VrfRouteWalkerIdMapIterator iter = route_walkid_[table_type].find(vrf_id);
     if (iter != route_walkid_[table_type].end()) {
         AGENT_LOG(AgentRouteWalkerLog, iter->second, 
                   walk_type_, "Route table walk done for vrf ", 
-                  table->GetVrfName(), table_type);
+                  table->vrf_name(), table_type);
         route_walkid_[table_type].erase(vrf_id);
     }
 }

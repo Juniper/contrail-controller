@@ -143,24 +143,24 @@ bool SelectQuery::is_flow_tuple_specified() {
     for (std::vector<std::string>::const_iterator it = 
          select_column_fields.begin(); it != select_column_fields.end(); ++it) {
         std::string qstring(get_query_string(*it));
-        if (qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_VROUTER)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SOURCEVN)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SOURCEIP)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DESTVN)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DESTIP)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_PROTOCOL)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_SPORT)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DPORT)->second ||
-            qstring == g_viz_constants.FlowRecordNames.find(
-                        FlowRecordFields::FLOWREC_DIRECTION_ING)->second) {
+        if (qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_VROUTER] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SOURCEVN] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SOURCEIP] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DESTVN] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DESTIP] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_PROTOCOL] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_SPORT] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DPORT] ||
+            qstring == g_viz_constants.FlowRecordNames[
+                        FlowRecordFields::FLOWREC_DIRECTION_ING]) {
             return true;
         }
     }
@@ -263,7 +263,7 @@ query_status_t SelectQuery::process_query() {
             uuid_list.insert(u);
         }
 
-        std::vector<GenDb::ColList> mget_res;
+        GenDb::ColListVec mget_res;
         if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.FLOW_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
@@ -278,7 +278,7 @@ query_status_t SelectQuery::process_query() {
         const GenDb::NewCf::SqlColumnMap& sql_cols = fit->cfcolumns_;
         GenDb::NewCf::SqlColumnMap::const_iterator col_type_it;
 
-        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+        for (GenDb::ColListVec::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
             boost::uuids::uuid u;
             assert(it->rowkey_.size() > 0);
@@ -297,18 +297,18 @@ query_status_t SelectQuery::process_query() {
                 QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
             }
 
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
-                QE_ASSERT(jt->name.size() == 1 &&
-                        jt->value.size() == 1);
+                QE_ASSERT(jt->name->size() == 1 &&
+                        jt->value->size() == 1);
                 std::string col_name;
                 try {
-                    col_name = boost::get<std::string>(jt->name[0]);
+                    col_name = boost::get<std::string>(jt->name->at(0));
                 } catch (boost::bad_get& ex) {
                     QE_ASSERT(0);
                 }
 
-                col_res_map.insert(std::make_pair(col_name, jt->value[0]));
+                col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
             }
             if (!col_res_map.size()) {
                 QE_LOG(ERROR, "No entry for uuid: " << UuidToString(u) <<
@@ -321,8 +321,8 @@ query_status_t SelectQuery::process_query() {
                     jt != select_column_fields.end(); jt++) {
 
                 if (*jt == "agg-packets") {
-                    std::string pkts(g_viz_constants.FlowRecordNames.find(
-                                    FlowRecordFields::FLOWREC_PACKETS)->second);
+                    std::string pkts(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_PACKETS]);
                     std::map<std::string, GenDb::DbDataValue>::const_iterator pt = 
                         col_res_map.find(pkts);
                     QE_ASSERT(pt != col_res_map.end());
@@ -331,8 +331,8 @@ query_status_t SelectQuery::process_query() {
                     continue;
                 }
                 if (*jt == "agg-bytes") {
-                    std::string bytes(g_viz_constants.FlowRecordNames.find(
-                                    FlowRecordFields::FLOWREC_BYTES)->second);
+                    std::string bytes(g_viz_constants.FlowRecordNames[
+                                    FlowRecordFields::FLOWREC_BYTES]);
                     std::map<std::string, GenDb::DbDataValue>::const_iterator bt = 
                         col_res_map.find(bytes);
                     QE_ASSERT(bt != col_res_map.end());
@@ -517,25 +517,25 @@ query_status_t SelectQuery::process_query() {
             keys.push_back(a_key);
         }
 
-        std::vector<GenDb::ColList> mget_res;
+        GenDb::ColListVec mget_res;
         if (!m_query->dbif->Db_GetMultiRow(mget_res, g_viz_constants.OBJECT_VALUE_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
 
         std::set<std::string> unique_values;
 
-        std::vector<GenDb::ColList>::iterator first_it = mget_res.begin();
-        std::vector<GenDb::ColList>::iterator last_it = mget_res.begin();
+        GenDb::ColListVec::iterator first_it = mget_res.begin();
+        GenDb::ColListVec::iterator last_it = mget_res.begin();
         if (mget_res.size() > 0)
             std::advance(last_it, mget_res.size()-1);
-        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+        for (GenDb::ColListVec::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
                 if (it == first_it) {
                     uint32_t t1;
                     try {
-                        t1 = boost::get<uint32_t>(jt->name.at(0));
+                        t1 = boost::get<uint32_t>(jt->name->at(0));
                     } catch (boost::bad_get& ex) {
                         assert(0);
                     }
@@ -545,7 +545,7 @@ query_status_t SelectQuery::process_query() {
                 if (it == last_it) {
                     uint32_t t1;
                     try {
-                        t1 = boost::get<uint32_t>(jt->name.at(0));
+                        t1 = boost::get<uint32_t>(jt->name->at(0));
                     } catch (boost::bad_get& ex) {
                         assert(0);
                     }
@@ -554,7 +554,7 @@ query_status_t SelectQuery::process_query() {
                 }
                 std::string value;
                 try {
-                    value = boost::get<std::string>(jt->value.at(0));
+                    value = boost::get<std::string>(jt->value->at(0));
                 } catch (boost::bad_get& ex) {
                     assert(0);
                 }
@@ -590,24 +590,24 @@ query_status_t SelectQuery::process_query() {
             keys.push_back(a_key);
         }
 
-        std::vector<GenDb::ColList> mget_res;
+        GenDb::ColListVec mget_res;
         if (!m_query->dbif->Db_GetMultiRow(mget_res, 
                     g_viz_constants.COLLECTOR_GLOBAL_TABLE, keys)) {
             QE_IO_ERROR_RETURN(0, QUERY_FAILURE);
         }
-        for (std::vector<GenDb::ColList>::iterator it = mget_res.begin();
+        for (GenDb::ColListVec::iterator it = mget_res.begin();
                 it != mget_res.end(); it++) {
             std::map<std::string, GenDb::DbDataValue> col_res_map;
-            for (std::vector<GenDb::NewCol>::iterator jt = it->columns_.begin();
+            for (GenDb::NewColVec::iterator jt = it->columns_.begin();
                     jt != it->columns_.end(); jt++) {
                 std::string col_name;
                 try {
-                    col_name = boost::get<std::string>(jt->name[0]);
+                    col_name = boost::get<std::string>(jt->name->at(0));
                 } catch (boost::bad_get& ex) {
                     QE_ASSERT(0);
                 }
 
-                col_res_map.insert(std::make_pair(col_name, jt->value[0]));
+                col_res_map.insert(std::make_pair(col_name, jt->value->at(0)));
             }
             if (!col_res_map.size()) {
                 boost::uuids::uuid u;
