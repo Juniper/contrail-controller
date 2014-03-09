@@ -209,10 +209,8 @@ TEST_F(SyslogCollectorTest, End2End)
     EXPECT_CALL(*db_handler_.get(), MessageTableInsert(_))
             .WillRepeatedly(Invoke(this, &SyslogCollectorTest::AssertVizMsg));
     SendLog("<84>Feb 25 13:44:21 a3s45 sudo: pam_limits(sudo:session): invalid line 'cassandra - memlock unlimited' - skipped]");
-    //EXPECT_CALL(*db_handler_.get(), MessageTableInsert(Pointee(Field(
-    //        &VizMsg::messagetype, StrEq("SYSLOG")))));
+    sleep(1);
     task_util::WaitForIdle();
-    //sleep(2);
 }
 
 int
