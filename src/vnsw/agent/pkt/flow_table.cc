@@ -149,6 +149,11 @@ uint32_t FlowEntry::MatchAcl(const PacketHeader &hdr,
     return action;
 }
 
+void FlowEntry::ResetStats() {
+    stats_.bytes = 0;
+    stats_.packets = 0;
+}
+
 // Recompute FlowEntry action
 bool FlowEntry::ActionRecompute() {
     uint32_t action = 0;
@@ -997,6 +1002,7 @@ void FlowTable::DeleteInternal(FlowEntryMap::iterator &it)
 
     fe->stats_.teardown_time = UTCTimestampUsec();
     fec->FlowExport(fe, diff_bytes, diff_packets);
+    fe->ResetStats();
 
     // Unlink the reverse flow, if one exists
     FlowEntry *rflow = fe->reverse_flow_entry();
