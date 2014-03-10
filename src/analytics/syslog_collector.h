@@ -78,6 +78,8 @@ class SyslogListeners : public SyslogUDPListener,
       VizCallback ProcessSandeshMsgCb() const { return cb_; }
       DbHandler *GetDbHandler () { return db_handler_; }
       SandeshMessageBuilder *GetBuilder () const { return builder_; }
+      int GetTcpPort();
+      int GetUdpPort();
     protected:
       virtual void Parse (SyslogQueueEntry *sqe);
     private:

@@ -603,6 +603,18 @@ void SyslogListeners::Shutdown ()
     inited_ = false;
 }
 
+int
+SyslogListeners::GetTcpPort()
+{
+    return SyslogTcpListener::GetPort();
+}
+
+int
+SyslogListeners::GetUdpPort()
+{
+    return SyslogUDPListener::GetLocalEndpointPort();
+}
+
 void
 TCPSyslogQueueEntry::free () {
     session_->server()->DeleteSession (session_.get());
@@ -632,24 +644,3 @@ SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
     Parse (sqe);
 }
 
-
-#if 0
-int main()
-{
-    boost::system::error_code e;
-    SyslogListeners          *s;
-    std::auto_ptr<EventManager>    evm;
-    std::auto_ptr<ServerThread>    thread;
-
-    evm.reset(new EventManager());
-    s = new SyslogListeners (evm.get());
-    thread.reset(new ServerThread(evm.get()));
-    thread->Start();
-    s->Start ();
-
-    // io_service.run()
-    return 0;
-
-}
-#endif
-//#undef  BOOST_NO_UNREACHABLE_RETURN_DETECTION

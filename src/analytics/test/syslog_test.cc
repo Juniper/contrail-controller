@@ -112,22 +112,19 @@ class SyslogCollectorTest : public ::testing::Test
         EXPECT_STREQ(vmsgp->msg->GetMessageType().c_str(), "Syslog");
     }
     protected:
-    static const int ktestSyslogPort = 10514;
     virtual void SetUp() {
         evm_.reset(new EventManager());
         db_handler_.reset(new DbHandlerMock(evm_.get()));
-        gen_ = new SyslogMsgGen(*evm_.get()->io_service(),
-            ktestSyslogPort);
         listener_ = new SyslogListeners(evm_.get(),
-            //boost::bind(testCb, this),
             boost::bind(&SyslogCollectorTest::myTestCb, this, _1, _2, _3),
-            db_handler_.get(), ktestSyslogPort);
+            db_handler_.get(), 0);
+        gen_ = new SyslogMsgGen(*evm_.get()->io_service(),
+            listener_->GetUdpPort());
         gen_->Initialize(0);
         listener_->Start();
         thread_.reset(new ServerThread(evm_.get()));
         Sandesh::InitGenerator("SyslogTest", "127.0.0.1", "Test", "Test",
                 evm_.get(), 8080, NULL);
-        Sandesh::ConnectToCollector("127.0.0.1", ContrailPorts::CollectorPort);
         thread_->Start();
     }
 
