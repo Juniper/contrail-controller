@@ -62,7 +62,7 @@ public:
     bool MessageIndexTableInsert(const std::string& cfname,
         const SandeshHeader& header, const std::string& message_type,
         const boost::uuids::uuid& unm);
-    void MessageTableInsert(const VizMsg *vmsgp);
+    virtual void MessageTableInsert(const VizMsg *vmsgp);
     void MessageTableOnlyInsert(const VizMsg *vmsgp);
 
     void GetRuleMap(RuleMap& rulemap);
