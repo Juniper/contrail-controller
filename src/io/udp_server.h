@@ -47,6 +47,10 @@ public:
 
     // state
     ServerState GetServerState () { return state_; }
+    udp::endpoint GetLocalEndpoint(boost::system::error_code &error);
+    std::string GetLocalEndpointAddress();
+    int GetLocalEndpointPort();
+
 
     //buffers
     mutable_buffer AllocateBuffer();
