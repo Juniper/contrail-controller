@@ -831,7 +831,7 @@ class VncKombuClient(object):
                 break
             except socket.error as e:
                 time.sleep(1)
-                self._init_server_conn(self._rabbit_ip)
+                self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
@@ -844,7 +844,7 @@ class VncKombuClient(object):
                 try:
                     message = queue.get()
                 except socket.error as e:
-                    self._init_server_conn(self._rabbit_ip)
+                    self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
 
