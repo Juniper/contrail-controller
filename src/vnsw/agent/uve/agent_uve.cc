@@ -34,7 +34,8 @@ AgentUve::AgentUve(Agent *agent, uint64_t intvl)
                                    this)),
       flow_stats_collector_(new FlowStatsCollector(
                                  *(agent->GetEventManager()->io_service()),
-                                 agent->params()->flow_stats_interval(), 
+                                 agent->params()->flow_stats_interval(),
+                                 agent->params()->flow_cache_timeout(), 
                                  this)) {
     singleton_ = this;
 }
