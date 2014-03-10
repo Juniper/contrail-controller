@@ -284,6 +284,7 @@ class FlowEntry {
                       std::list<MatchAclParams> &acl, bool add_implicit_deny,
                       bool add_implicit_allow);
     void ResetPolicy();
+    void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;
