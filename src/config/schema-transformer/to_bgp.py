@@ -1076,6 +1076,7 @@ class SecurityGroupST(DictST):
                     id=acl['uuid'])
             else:
                 _vnc_lib.access_control_list_delete(id=acl['uuid'])
+        self.update_policy_entries(self.obj.get_security_group_entries())
         for sg in self._dict.values():
             sg.update_acl(from_value=name,
                           to_value=self.obj.get_security_group_id())
@@ -1099,11 +1100,32 @@ class SecurityGroupST(DictST):
     def update_policy_entries(self, policy_rule_entries):
         ingress_acl_entries = AclEntriesType()
         egress_acl_entries = AclEntriesType()
-        for prule in policy_rule_entries.get_policy_rule() or []:
+
+        # Create implicit rules
+        if self.obj.name == 'default':
+            local = [AddressType(security_group='local')]
+            sg = [AddressType(security_group=self.name)]
+            prules = [PolicyRuleType(direction='>', protocol='any',
+                                    src_addresses=sg,
+                                    src_ports=[PortType(0, 65535)],
+                                    dst_addresses=local,
+                                    dst_ports=[PortType(0, 65535)]),
+                      PolicyRuleType(direction='>', protocol='any',
+                                    src_addresses=local,
+                                    src_ports=[PortType(0, 65535)],
+                                    dst_addresses=sg,
+                                    dst_ports=[PortType(0, 65535)])]
+        else:
+            prules = []
+
+        if policy_rule_entries:
+            prules += policy_rule_entries.get_policy_rule() or []
+        for prule in prules:
             (ingress_list, egress_list) = self.policy_to_acl_rule(prule)
             ingress_acl_entries.acl_rule.extend(ingress_list)
             egress_acl_entries.acl_rule.extend(egress_list)
         # end for prule
+
         self.ingress_acl = _access_control_list_update(
             self.ingress_acl, "ingress-access-control-list", self.obj,
             ingress_acl_entries)
@@ -1115,7 +1137,7 @@ class SecurityGroupST(DictST):
     def _convert_security_group_name_to_id(self, addr):
         if addr.security_group is None:
             return
-        if addr.security_group == 'local':
+        if addr.security_group in ['local', self.name]:
             addr.security_group = self.obj.get_security_group_id()
         elif addr.security_group == 'any':
             addr.security_group = -1
