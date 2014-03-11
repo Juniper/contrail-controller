@@ -1450,6 +1450,98 @@ TEST_F(CfgTest, LinkJumbleTest) {
     ltable->DestroyDefLink();
 }
 
+TEST_F(CfgTest, LinkSeqTest) {
+    char buff[1500];
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    IFMapTable *ftable = IFMapTable::FindTable(&db_, "foo");
+    ASSERT_TRUE(ftable!=NULL);
+
+    IFMapTable *ttable = IFMapTable::FindTable(&db_, "test");
+    ASSERT_TRUE(ttable!=NULL);
+
+    pugi::xml_parse_result result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 0);
+    WaitForIdle();
+
+    //Ensure that both nodes are added fine along with attribute
+    IFMapNode *TestFoo = ftable->FindNode("testfoo");
+    ASSERT_TRUE(TestFoo !=NULL);
+    EXPECT_EQ("testfoo", TestFoo->name());
+
+
+    IFMapNode *TestTest = ttable->FindNode("testtest");
+    ASSERT_TRUE(TestTest !=NULL);
+    EXPECT_EQ("testtest", TestTest->name());
+
+    //Add the link between the nodes with an advanced sequence number
+    sprintf(buff,
+        "<update>\n"
+        "   <link>\n"
+        "       <node type=\"foo\">\n"
+        "           <name>testfoo</name>\n"
+        "       </node>\n"
+        "       <node type=\"test\">\n"
+        "           <name>testtest</name>\n"
+        "       </node>\n"
+        "   </link>\n"
+        "</update>\n");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 1);
+    WaitForIdle();
+
+    //Ensure that there is no link from Test to Foo
+    int link_count = 0;
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestTest->end(&graph_); ++iter) {
+        link_count++;
+    }
+    EXPECT_EQ(link_count, 0);
+
+    for (DBGraphVertex::adjacency_iterator iter = TestFoo->begin(&graph_);
+         iter != TestFoo->end(&graph_); ++iter) {
+        link_count++;
+    }
+    EXPECT_EQ(link_count, 0);
+
+
+    //Add the Test and Foo with required seq number and verify that link
+    //exists
+    sprintf(buff,
+        "<update>\n"
+        "   <node type=\"foo\">\n"
+        "       <name>testfoo</name>\n"
+        "   </node>\n"
+        "   <node type=\"test\">\n"
+        "       <name>testtest</name>\n"
+        "   </node>\n"
+        "</update>");
+
+    result = xdoc_.load(buff);
+    EXPECT_TRUE(result);
+    parser_->ConfigParse(xdoc_, 1);
+    WaitForIdle();
+
+    for (DBGraphVertex::adjacency_iterator iter = TestTest->begin(&graph_);
+         iter != TestTest->end(&graph_); ++iter) {
+        TestFoo = static_cast<IFMapNode *>(iter.operator->());
+        EXPECT_EQ("testfoo", TestFoo->name());
+        link_count++;
+    }
+    EXPECT_EQ(link_count, 1);
+}
+
 int main(int argc, char **argv) {
     LoggingInit();
     ::testing::InitGoogleTest(&argc, argv);
