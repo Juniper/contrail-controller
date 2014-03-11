@@ -283,7 +283,8 @@ class FlowEntry {
     void GetSgList(const Interface *intf);
     bool DoPolicy(const PacketHeader &hdr, bool ingress);
     uint32_t MatchAcl(const PacketHeader &hdr,
-                      std::list<MatchAclParams> &acl, bool add_implicit_deny);
+                      std::list<MatchAclParams> &acl, bool add_implicit_deny,
+                      bool add_implicit_allow);
     void ResetPolicy();
     void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
