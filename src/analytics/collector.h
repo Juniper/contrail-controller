@@ -56,10 +56,23 @@ public:
     void GetGeneratorSandeshStatsInfo(std::vector<ModuleServerState> &genlist);
     bool SendRemote(const std::string& destination,
             const std::string &dec_sandesh);
-    void SetDbQueueWaterMarkInfo(DbHandler::DbQueueWaterMarkInfo &wm);
+
+    struct QueueType {
+        enum type {
+            Db,
+            Sm,
+        };
+    };
+    void SetDbQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
     void ResetDbQueueWaterMarkInfo();
     void GetDbQueueWaterMarkInfo(
-        std::vector<DbHandler::DbQueueWaterMarkInfo> &wm_info) const;
+        std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
+    void SetSmQueueWaterMarkInfo(Sandesh::QueueWaterMarkInfo &wm);
+    void ResetSmQueueWaterMarkInfo();
+    void GetSmQueueWaterMarkInfo(
+        std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
+    void GetQueueWaterMarkInfo(QueueType::type type,
+        std::vector<Sandesh::QueueWaterMarkInfo> &wm_info) const;
 
     OpServerProxy * GetOSP() const { return osp_; }
     EventManager * event_manager() const { return evm_; }
@@ -84,11 +97,16 @@ public:
     static DiscoveryServiceClient *GetCollectorDiscoveryServiceClient() {
         return ds_client_;
     }
+
 protected:
     virtual TcpSession *AllocSession(Socket *socket);
     virtual void DisconnectSession(SandeshSession *session);
 
 private:
+    void SetQueueWaterMarkInfo(QueueType::type type,
+        Sandesh::QueueWaterMarkInfo &wm);
+    void ResetQueueWaterMarkInfo(QueueType::type type);
+
     void inline increment_no_session_error() {
         stats_.no_session_error++;
     }
@@ -124,11 +142,13 @@ private:
     tbb::mutex rand_mutex_;
     boost::uuids::random_generator umn_gen_;
     CollectorStats stats_;
-    std::vector<DbHandler::DbQueueWaterMarkInfo> db_queue_wm_info_;
+    std::vector<Sandesh::QueueWaterMarkInfo> db_queue_wm_info_;
+    std::vector<Sandesh::QueueWaterMarkInfo> sm_queue_wm_info_;
     static std::string prog_name_;
     static std::string self_ip_;
     static bool task_policy_set_;
-    static const std::vector<DbHandler::DbQueueWaterMarkInfo> kDbQueueWaterMarkInfo;
+    static const std::vector<Sandesh::QueueWaterMarkInfo> kDbQueueWaterMarkInfo;
+    static const std::vector<Sandesh::QueueWaterMarkInfo> kSmQueueWaterMarkInfo;
     static const int kDefaultSessionBufferSize = 16 * 1024;
 
     static DiscoveryServiceClient *ds_client_;

@@ -788,10 +788,10 @@ class VncCassandraClient(VncCassandraClientGen):
 
 
 class VncKombuClient(object):
-    def _init_server_conn(self, rabbit_ip):
+    def _init_server_conn(self, rabbit_ip, rabbit_user, rabbit_password, rabbit_vhost):
         while True:
             try:
-                self._conn = kombu.Connection('amqp://guest:guest@%s:5672//' %(rabbit_ip))
+                self._conn = kombu.Connection('amqp://%s:%s@%s:5672//' % (rabbit_user, rabbit_password, rabbit_ip))
                 self._obj_update_q = self._conn.SimpleQueue(self._update_queue_obj)
 
                 old_subscribe_greenlet = self._dbe_oper_subscribe_greenlet
@@ -805,10 +805,13 @@ class VncKombuClient(object):
                 time.sleep(2)
     # end _init_server_conn
 
-    def __init__(self, db_client_mgr, rabbit_ip, ifmap_db):
+    def __init__(self, db_client_mgr, rabbit_ip, ifmap_db, rabbit_user, rabbit_password, rabbit_vhost):
         self._db_client_mgr = db_client_mgr
         self._ifmap_db = ifmap_db
         self._rabbit_ip = rabbit_ip
+        self._rabbit_user = rabbit_user
+        self._rabbit_password = rabbit_password
+        self._rabbit_vhost = rabbit_vhost
 
         obj_upd_exchange = kombu.Exchange('vnc_config.object-update', 'fanout',
                                           durable=False)
@@ -818,7 +821,7 @@ class VncKombuClient(object):
         self._update_queue_obj = kombu.Queue(q_name, obj_upd_exchange)
 
         self._dbe_oper_subscribe_greenlet = None
-        self._init_server_conn(self._rabbit_ip)
+        self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end __init__
 
     def _obj_update_q_put(self, *args, **kwargs):
@@ -828,7 +831,7 @@ class VncKombuClient(object):
                 break
             except socket.error as e:
                 time.sleep(1)
-                self._init_server_conn(self._rabbit_ip)
+                self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
     # end _obj_update_q_put
 
     def _dbe_oper_subscribe(self):
@@ -841,7 +844,7 @@ class VncKombuClient(object):
                 try:
                     message = queue.get()
                 except socket.error as e:
-                    self._init_server_conn(self._rabbit_ip)
+                    self._init_server_conn(self._rabbit_ip, self._rabbit_user, self._rabbit_password, self._rabbit_vhost)
                     # never reached
                     continue
 
@@ -1009,7 +1012,8 @@ class VncZkClient(object):
 
 class VncDbClient(object):
     def __init__(self, api_svr_mgr, ifmap_srv_ip, ifmap_srv_port, uname,
-                 passwd, cass_srv_list, reset_config=False, ifmap_srv_loc=None,
+                 passwd, cass_srv_list, rabbit_user, rabbit_password, rabbit_vhost, 
+                 reset_config=False, ifmap_srv_loc=None,
                  zk_server_ip=None):
 
         self._api_svr_mgr = api_svr_mgr
@@ -1038,7 +1042,8 @@ class VncDbClient(object):
         self._cassandra_db = VncCassandraClient(
             self, cass_srv_list, reset_config)
 
-        self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db)
+        self._msgbus = VncKombuClient(self, ifmap_srv_ip, self._ifmap_db, rabbit_user,
+        rabbit_password, rabbit_vhost)
         self._zk_db = VncZkClient(zk_server_ip)
     # end __init__
 
@@ -1176,6 +1181,7 @@ class VncDbClient(object):
     def dbe_alloc(self, obj_type, obj_dict, uuid_requested=None):
         try:
             if uuid_requested:
+                obj_uuid = uuid_requested
                 ok = self.set_uuid(obj_type, obj_dict, uuid.UUID(uuid_requested))
             else:
                 (ok, obj_uuid) = self._alloc_set_uuid(obj_type, obj_dict)

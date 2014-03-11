@@ -15,7 +15,7 @@ import os
 import subprocess
 import logging
 import socket
-
+import platform
 logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)s %(message)s')
 
@@ -94,6 +94,7 @@ def start_cassandra(cport, sport_arg=None):
     js.close()
     cqls.close()
 
+
     output,_ = call_command_(cassbase + basefile + "/bin/cassandra -p " + cassbase + "pid")
 
     return cassbase, basefile
@@ -129,7 +130,14 @@ def replace_string_(filePath, findreplace):
     os.rename(tempName,filePath)
 
 def call_command_(command):
-    process = subprocess.Popen(command.split(' '),
+
+    distribution = platform.dist()[0]
+    if distribution == "debian":
+        jenv = { "JAVA_HOME" : "/usr/local/java/jre1.6.0_43" }
+    else:
+        jenv = None
+
+    process = subprocess.Popen(command.split(' '), env = jenv,
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
     return process.communicate()

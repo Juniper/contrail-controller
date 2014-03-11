@@ -131,8 +131,20 @@ class SyslogParser
             work_queue_.Shutdown ();
             LOG(DEBUG, __func__ << " Syslog parser shutdown done");
         }
-    private:
+    protected:
 
+        SyslogParser ():
+             work_queue_(TaskScheduler::GetInstance()->GetTaskId(
+                         "vizd::syslog"), 0, boost::bind(
+                             &SyslogParser::ClientParse, this, _1)),
+            syslog_(0)
+        {
+            facilitynames_ = boost::assign::list_of ("auth") ("authpriv")
+                ("cron") ("daemon") ("ftp") ("kern") ("lpr") ("mail") ("mark")
+                ("news") ("security") ("syslog") ("user") ("uucp") ("local0")
+                ("local1") ("local2") ("local3") ("local4") ("local5")
+                ("local6") ("local7");
+        }
         void WaitForIdle (int max_wait)
         {
             int i;
@@ -162,6 +174,19 @@ class SyslogParser
             Holder (std::string k, int64_t v):
                 key(k), type(int_type), i_val(v)
             { }
+
+            std::string repr()
+            {
+                std::ostringstream s;
+                s << "{ \"" << key << "\": ";
+                if (type == int_type)
+                    s << i_val << "}";
+                else if (type == str_type)
+                    s << "\"" << s_val << "\"}";
+                else
+                    s << "**bad type**}";
+                return s.str();
+            }
 
             void print ()
             {
@@ -193,6 +218,7 @@ class SyslogParser
             qi::rule<Iterator, std::string(), ascii::space_type> word = lexeme[ +(char_ - ' ') ] ;
             qi::rule<Iterator, std::string(), ascii::space_type> word2 = lexeme[ +(char_ - ':' - ' ') ] ;
             qi::rule<Iterator, std::string(), ascii::space_type> word3 = lexeme[ +(char_ - '[' - ' ' - ':') ] ;
+            qi::rule<Iterator, std::string(), ascii::space_type> word4 = lexeme[ +(char_ - '[' - ' ' - ':') >> " " ] ;
             qi::rule<Iterator, std::string(), ascii::space_type> body = lexeme[ *char_ ] ;
             qi::int_parser<int, 10, 1, 3> int3_p;
             qi::int_parser<int, 10, 1, 2> int2_p;
@@ -245,7 +271,7 @@ class SyslogParser
                 phx::construct<std::pair<std::string, Holder> >("sec",
                                   phx::construct<Holder>("sec", _1)))]
                                        //hostname
-                       >> word         [insert(phx::ref(v),
+                       >> -word4       [insert(phx::ref(v),
             phx::construct<std::pair<std::string, Holder> >("hostname",
                                   phx::construct<Holder>("hostname", _1)))]
                                        //tag body
@@ -385,18 +411,30 @@ class SyslogParser
             return EscapeXmlTags (GetMapVals (v, "body", ""));
         }
 
-        void MakeSandesh (syslog_m_t v) {
-            SandeshHeader hdr;
-            std::string   ip(GetMapVals (v, "ip"));
+        std::string GetModule(syslog_m_t v) {
+            return GetMapVals(v, "prog", "UNKNOWN");
+        }
 
-            hdr.set_Timestamp(GetMapVal (v, "timestamp"));
-            hdr.set_Module(GetMapVals (v, "prog", "UNKNOWN"));
-            hdr.set_Source(GetMapVals (v, "hostname", GetMapVals (v, "ip")));
+        std::string GetFacility(syslog_m_t v) {
+            return GetSyslogFacilityName(GetMapVal(v, "facility"));
+        }
+
+        int GetPID(syslog_m_t v) {
+            return GetMapVal (v, "pid", -1);
+        }
+
+        virtual void MakeSandesh (syslog_m_t v) {
+            SandeshHeader hdr;
+            std::string   ip(GetMapVals(v, "ip"));
+
+            hdr.set_Timestamp(GetMapVal(v, "timestamp"));
+            hdr.set_Module(GetModule(v));
+            hdr.set_Source(GetMapVals(v, "hostname", ip));
             hdr.set_Type(SandeshType::SYSLOG);
-            hdr.set_Level (GetMapVal (v, "severity"));
-            hdr.set_Category (GetSyslogFacilityName(GetMapVal(v, "facility")));
-            hdr.set_IPAddress (ip);
-            hdr.set_Pid (GetMapVal (v, "pid", -1));
+            hdr.set_Level(GetMapVal(v, "severity"));
+            hdr.set_Category(GetFacility(v));
+            hdr.set_IPAddress(ip);
+            hdr.set_Pid(GetPID(v));
 
             std::string xmsg("<Syslog>" + GetMsgBody (v) + "</Syslog>");
             SandeshMessage *xmessage = syslog_->GetBuilder()->Create(
@@ -427,7 +465,7 @@ class SyslogParser
           syslog_m_t v;
           bool r = parse_syslog (p, p + sqe->length, v);
 #ifdef SYSLOG_DEBUG
-          LOG(DEBUG, "parsed " << r << "." << std::endl;
+          LOG(DEBUG, "parsed " << r << ".");
 #endif
 
           v.insert(std::pair<std::string, Holder>("ip",
@@ -442,10 +480,8 @@ class SyslogParser
 
           int i = 0;
           while (!v.empty()) {
-              LOG(DEBUG, i++ << ": ";
               Holder d = v.begin()->second;
-              d.print ();
-              LOG(DEBUG, std::endl;
+              LOG(DEBUG, i++ << ": " << d.repr());
               v.erase(v.begin());
           }
 #else
@@ -458,6 +494,7 @@ class SyslogParser
 **/
           return r;
         }
+    private:
         WorkQueue<SyslogQueueEntry*>                 work_queue_;
         boost::uuids::random_generator               umn_gen_;
         boost::ptr_map<std::string, SyslogGenerator> genarators_;
@@ -520,25 +557,22 @@ void SyslogUDPListener::HandleReceive (
 }
 
 
-SyslogListeners::SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
             DbHandler *db_handler, std::string ipaddress, int port):
               SyslogUDPListener(evm), SyslogTcpListener(evm),
               parser_(new SyslogParser (this)), port_(port),
-              ipaddress_(ipaddress), inited_(false),
-              cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
+              ipaddress_(ipaddress), inited_(false), cb_(cb),
               db_handler_ (db_handler),
               builder_ (SandeshMessageBuilder::GetInstance(
                   SandeshMessageBuilder::SYSLOG))
 {
 }
 
-SyslogListeners::SyslogListeners (EventManager *evm, Ruleeng *ruleeng,
+SyslogListeners::SyslogListeners (EventManager *evm, VizCallback cb,
         DbHandler *db_handler, int port):
           SyslogUDPListener(evm), SyslogTcpListener(evm),
           parser_(new SyslogParser (this)), port_(port), ipaddress_(),
-          inited_(false),
-          cb_(boost::bind(&Ruleeng::rule_execute, ruleeng, _1, _2, _3)),
-          db_handler_ (db_handler),
+          inited_(false), cb_(cb), db_handler_ (db_handler),
           builder_ (SandeshMessageBuilder::GetInstance(
               SandeshMessageBuilder::SYSLOG))
 {
@@ -567,6 +601,18 @@ void SyslogListeners::Shutdown ()
     SyslogUDPListener::Shutdown ();
     parser_->Shutdown ();
     inited_ = false;
+}
+
+int
+SyslogListeners::GetTcpPort()
+{
+    return SyslogTcpListener::GetPort();
+}
+
+int
+SyslogListeners::GetUdpPort()
+{
+    return SyslogUDPListener::GetLocalEndpointPort();
 }
 
 void
@@ -598,24 +644,3 @@ SyslogTcpSession::OnRead (boost::asio::const_buffer buf)
     Parse (sqe);
 }
 
-
-#if 0
-int main()
-{
-    boost::system::error_code e;
-    SyslogListeners          *s;
-    std::auto_ptr<EventManager>    evm;
-    std::auto_ptr<ServerThread>    thread;
-
-    evm.reset(new EventManager());
-    s = new SyslogListeners (evm.get());
-    thread.reset(new ServerThread(evm.get()));
-    thread->Start();
-    s->Start ();
-
-    // io_service.run()
-    return 0;
-
-}
-#endif
-//#undef  BOOST_NO_UNREACHABLE_RETURN_DETECTION

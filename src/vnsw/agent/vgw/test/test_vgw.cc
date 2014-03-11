@@ -55,7 +55,7 @@ TEST_F(VgwTest, conf_file_1) {
 
     EXPECT_STREQ(it->second.vrf().c_str(), "default-domain:admin:public1:public1");
     EXPECT_STREQ(it->second.interface().c_str(), "vgw1");
-    EXPECT_EQ(it->second.subnets().size(), 2);
+    EXPECT_EQ(it->second.subnets().size(), (unsigned int) 2);
     if (it->second.routes().size() == 2) {
         subnet = it->second.subnets()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "2.2.1.0");
@@ -66,7 +66,7 @@ TEST_F(VgwTest, conf_file_1) {
         EXPECT_EQ(subnet.plen_, 24);
     }
 
-    EXPECT_EQ(it->second.routes().size(), 2);
+    EXPECT_EQ(it->second.routes().size(), (unsigned int) 2);
     if (it->second.routes().size() == 2) {
         subnet = it->second.routes()[0];
         EXPECT_STREQ(subnet.ip_.to_string().c_str(), "10.10.10.1");

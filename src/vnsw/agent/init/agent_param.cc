@@ -68,6 +68,25 @@ bool AgentParam::ConfigToIpAddress(const string &key, Ip4Address *addr) {
     return GetIpAddress(ip_str, addr);
 }
 
+#if 0
+static void ParseFlowTimeout(const ptree &node,
+                             const string &config_file,
+                             uint32_t *flow_cache_timeout) {
+    try {
+        optional<unsigned int> opt_str;
+        if (opt_str = node.get_optional<unsigned int>
+                      ("config.agent.flow-cache.timeout")) {
+            *flow_cache_timeout = opt_str.get();
+        } else {
+            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
+        }
+    } catch (exception &e) {
+        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
+            << config_file << ">. Error <" << e.what() << ">");
+    }
+}
+#endif
+
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -94,8 +113,9 @@ void AgentParam::InitFromCmdLineAndConfig() {
     ConfigToIpAddress("VHOST.ip", &vhost_.addr_);
     GetOptValue<int>(vhost_.plen_, "VHOST.ip-prefix");
     ConfigToIpAddress("VHOST.gateway", &vhost_.gw_);
-
     GetOptValue<string>(eth_port_, "PHYSICAL.name");
+
+    //ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
 
     ConfigToIpAddress("DISCOVERY-SERVER.ip", &dss_server_);
     GetOptValue<int>(xmpp_instance_count_, 
@@ -113,6 +133,7 @@ void AgentParam::InitFromCmdLineAndConfig() {
     }
     GetOptValue<string>(metadata_shared_secret_, 
                         "DEFAULT.metadata-proxy-secret");
+    GetOptValue<uint16_t>(flow_cache_timeout_, "DEFAULT.flow-cache-timeout");
 
     GetOptValue<string>(log_category_, "DEFAULT.log_category");
     GetOptValue<string>(log_file_, "DEFAULT.log_file");
@@ -157,7 +178,8 @@ void AgentParam::InitFromCmdLineAndConfig() {
     } else {
         mode_ = AgentParam::MODE_KVM;
     }
-
+    LOG(DEBUG, "Config file <" << config_file_ << "> read successfully.");
+    return;
 }
 
 // Update linklocal max flows if they are greater than the max allowed for the
@@ -261,6 +283,7 @@ void AgentParam::LogConfig() const {
     LOG(DEBUG, "Metadata-Proxy Shared Secret: " << metadata_shared_secret_);
     LOG(DEBUG, "Linklocal Max System Flows  : " << linklocal_system_flows_);
     LOG(DEBUG, "Linklocal Max Vm Flows      : " << linklocal_vm_flows_);
+    LOG(DEBUG, "Flow cache timeout          : " << flow_cache_timeout_);
     if (mode_ == MODE_KVM) {
     LOG(DEBUG, "Hypervisor mode             : kvm");
         return;
@@ -284,12 +307,13 @@ AgentParam::AgentParam() :
         xmpp_server_2_(), dns_server_1_(), dns_server_2_(), dss_server_(),
         mgmt_ip_(), mode_(MODE_KVM), xen_ll_(), tunnel_type_(),
         metadata_shared_secret_(), linklocal_system_flows_(),
-        linklocal_vm_flows_(), config_file_(Agent::DefaultConfigFile()), 
-        program_name_(), log_file_(), log_local_(false), log_level_(), 
-        log_category_(), collector_(), collector_port_(), http_server_port_(), 
-        host_name_(), disable_vhost_(false), disable_ksync_(false), 
-        disable_services_(false), disable_packet_services_(false),
-        agent_stats_interval_(AgentStatsCollector::AgentStatsInterval),
+        linklocal_vm_flows_(), flow_cache_timeout_(), 
+        config_file_(Agent::DefaultConfigFile()), program_name_(),
+        log_file_(), log_local_(false), log_level_(), log_category_(),
+        collector_(), collector_port_(), http_server_port_(), host_name_(),
+        disable_vhost_(false), disable_ksync_(false), disable_services_(false),
+        disable_packet_services_(false),
+        agent_stats_interval_(AgentStatsCollector::AgentStatsInterval), 
         flow_stats_interval_(FlowStatsCollector::FlowStatsInterval),
         vmware_physical_port_(""), cmdline_options_("Allowed options"), 
         config_file_options_() {
@@ -333,6 +357,9 @@ AgentParam::AgentParam() :
             "Tunnel type for encapsulation")
        ("DEFAULT.metadata-proxy-secret", opt::value<string>()->default_value(""),
             "Metadata Proxy Shared secret")
+       ("DEFAULT.flow-cache-timeout",
+            opt::value<uint16_t>()->default_value(Agent::kDefaultFlowCacheTimeout),
+            "Flow Age time in seconds")
 
        ("DEFAULT.log_category", opt::value<string>()->default_value(""),
            "Category filter for local logging of sandesh messages")
@@ -441,3 +468,6 @@ void AgentParam::Parse(int argc, char *argv[]) {
     opt::notify(var_map_);
 }
 
+AgentParam::~AgentParam()
+{
+}

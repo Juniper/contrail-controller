@@ -276,6 +276,8 @@ class FlowEntry {
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo();
     void GetPolicyInfo(const VnEntry *vn);
+    void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
+    void SetMirrorVrfFromAction();
 
     void GetPolicy(const VnEntry *vn);
     void GetSgList(const Interface *intf);
@@ -283,6 +285,7 @@ class FlowEntry {
     uint32_t MatchAcl(const PacketHeader &hdr,
                       std::list<MatchAclParams> &acl, bool add_implicit_deny);
     void ResetPolicy();
+    void ResetStats();
     void set_deleted(bool deleted) { deleted_ = deleted; }
     bool deleted() { return deleted_; }
     bool FlowSrcMatch(const RouteFlowKey &rkey) const;

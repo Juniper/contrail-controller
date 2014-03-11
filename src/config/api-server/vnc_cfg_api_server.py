@@ -509,6 +509,9 @@ class VncApiServer(VncApiServerGen):
             'disc_server_port': None,
             'zk_server_ip': '127.0.0.1:2181',
             'worker_id': '0',
+            'rabbit_user': 'guest',
+            'rabbit_password': 'guest',
+            'rabbit_vhost': 'contrail',
         }
         # ssl options
         secopts = {
@@ -629,6 +632,15 @@ class VncApiServer(VncApiServerGen):
         parser.add_argument(
             "--zk_server_ip",
             help="Ip address:port of zookeeper server")
+        parser.add_argument(
+            "--rabbit_user",
+            help="Username for rabbit")
+        parser.add_argument(
+            "--rabbit_vhost",
+            help="vhost for rabbit")
+        parser.add_argument(
+            "--rabbit_password",
+            help="password for rabbit")
         self._args = parser.parse_args(remaining_argv)
         self._args.config_sections = config
         if type(self._args.cassandra_server_list) is str:
@@ -675,10 +687,14 @@ class VncApiServer(VncApiServerGen):
         redis_server_port = self._args.redis_server_port
         ifmap_loc = self._args.ifmap_server_loc
         zk_server = self._args.zk_server_ip
+        rabbit_user = self._args.rabbit_user
+        rabbit_password = self._args.rabbit_password
+        rabbit_vhost = self._args.rabbit_vhost
 
 
         db_conn = VncDbClient(self, ifmap_ip, ifmap_port, user, passwd,
-                              cass_server_list, reset_config, ifmap_loc,
+                              cass_server_list, rabbit_user, rabbit_password, 
+                              rabbit_vhost, reset_config, ifmap_loc,
                               zk_server)
         self._db_conn = db_conn
     # end _db_connect

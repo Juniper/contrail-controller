@@ -42,5 +42,9 @@
             <max-system-flows>1024</max-system-flows>
             <max-vm-flows>512</max-vm-flows>
         </linklocal-flows>
+
+        <flow-cache>
+	    <timeout>30</timeout>
+        </flow-cache>
     </agent>
 </config>

@@ -11,7 +11,7 @@ include = [ third_party_path, hiredis_path, hiredis_path + '/adapters',
         '#/build/include', '#/third_party/tbb40_20111130oss/include' ]
 
 env.Append(CPPPATH = include)
-#env.Append(CCFLAGS = ['-g'])
+env.Append(CCFLAGS = ['-g'])
 
 env.VariantDir('#/' + Dir('.').path + '/src', hiredis_path)
 hiredis_buildpath = Dir('.').abspath + '/src'

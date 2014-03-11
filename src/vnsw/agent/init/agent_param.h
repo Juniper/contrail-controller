@@ -36,7 +36,7 @@ public:
     };
 
     AgentParam();
-    virtual ~AgentParam() {}
+    virtual ~AgentParam();
 
     bool IsVHostConfigured() {
         return vhost_.addr_.to_ulong() != 0? true : false;
@@ -69,6 +69,7 @@ public:
     const std::string &metadata_shared_secret() const { return metadata_shared_secret_; }
     uint32_t linklocal_system_flows() const { return linklocal_system_flows_; }
     uint32_t linklocal_vm_flows() const { return linklocal_vm_flows_; }
+    uint32_t flow_cache_timeout() const {return flow_cache_timeout_;}
 
     const std::string &config_file() const { return config_file_; }
     const std::string &program_name() const { return program_name_;}
@@ -134,6 +135,7 @@ private:
     std::string metadata_shared_secret_;
     uint32_t linklocal_system_flows_;
     uint32_t linklocal_vm_flows_;
+    uint16_t flow_cache_timeout_;
 
     // Parameters configured from command linke arguments only (for now)
     std::string config_file_;
