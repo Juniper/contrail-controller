@@ -28,9 +28,6 @@
 using namespace std;
 using namespace boost::assign;
 
-#define MAX_VNET 2
-int test_fd[MAX_VNET];
-
 void RouterIdDepInit() {
 }
 
@@ -112,16 +109,10 @@ TEST_F(CfgTest, TunnelType_test) {
 int main(int argc, char **argv) {
     GETUSERARGS();
 
-    if (ksync_init) {
-        CreateTapInterfaces("vnet", MAX_VNET, test_fd);
-    }
     client = TestInit(init_file, ksync_init);
     int ret = RUN_ALL_TESTS();
     client->WaitForIdle();
     TestShutdown();
     delete client;
-    if (ksync_init) {
-        DeleteTapIntf(test_fd, MAX_VNET);
-    }
     return ret;
 }
