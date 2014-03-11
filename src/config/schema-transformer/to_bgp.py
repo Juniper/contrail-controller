@@ -1040,6 +1040,22 @@ class SecurityGroupST(DictST):
     _dict = {}
     _sg_id_allocator = None
 
+    def update_acl(self, from_value, to_value):
+        for acl in [self.ingress_acl, self.egress_acl]:
+            if acl is None:
+                continue
+            acl_entries = acl.get_access_control_list_entries()
+            update = False
+            for acl_rule in acl_entries.get_acl_rule() or []:
+                if (acl_rule.match_condition.src_address.security_group ==
+                        from_value):
+                    acl_rule.match_condition.src_address.security_group =\
+                        to_value
+                    update = True
+            if update:
+                _vnc_lib.access_control_list_update(acl)
+    # end update_acl
+                
     def __init__(self, name):
         self.name = name
         self.obj = _vnc_lib.security_group_read(fq_name_str=name)
@@ -1048,21 +1064,21 @@ class SecurityGroupST(DictST):
             sg_id_num = self._sg_id_allocator.alloc(name)
             self.obj.set_security_group_id(sg_id_num)
             _vnc_lib.security_group_update(self.obj)
-        acl = self.obj.get_access_control_lists()
-        self.acl = _vnc_lib.access_control_list_read(
-            id=acl[0]['uuid']) if acl else None
+        self.ingress_acl = None
+        self.egress_acl = None
+        acls = self.obj.get_access_control_lists()
+        for acl in acls or []:
+            if acl['to'][-1] == 'egress-access-control-list':
+                self.egress_acl = _vnc_lib.access_control_list_read(
+                    id=acl['uuid'])
+            elif acl['to'][-1] == 'ingress-access-control-list':
+                self.igress_acl = _vnc_lib.access_control_list_read(
+                    id=acl['uuid'])
+            else:
+                _vnc_lib.access_control_list_delete(id=acl['uuid'])
         for sg in self._dict.values():
-            if sg.acl is None:
-                continue
-            acl_entries = sg.acl.get_access_control_list_entries()
-            update = False
-            for acl_rule in acl_entries.get_acl_rule() or []:
-                if acl_rule.match_condition.src_address.security_group == name:
-                    acl_rule.match_condition.src_address.security_group =\
-                        self.obj.get_security_group_id()
-                    update = True
-            if update:
-                _vnc_lib.access_control_list_update(sg.acl)
+            sg.update_acl(from_value=name,
+                          to_value=self.obj.get_security_group_id())
         # end for sg
     # end __init__
 
@@ -1076,28 +1092,24 @@ class SecurityGroupST(DictST):
             cls._sg_id_allocator.delete(sg.obj.get_security_group_id())
         del cls._dict[name]
         for sg in cls._dict.values():
-            if sg.acl is None:
-                continue
-            acl_entries = sg.acl.get_access_control_list_entries()
-            update = False
-            for acl_rule in acl_entries.get_acl_rule() or []:
-                if (acl_rule.match_condition.src_address.security_group ==
-                        sg_id):
-                    acl_rule.match_condition.src_address.security_group = name
-                    update = True
-            if update:
-                _vnc_lib.access_control_list_update(sg.acl)
+            sg.update_acl(from_value=sg_id, to_value=name)
         # end for sg
     # end delete
 
     def update_policy_entries(self, policy_rule_entries):
-        acl_entries = AclEntriesType()
+        ingress_acl_entries = AclEntriesType()
+        egress_acl_entries = AclEntriesType()
         for prule in policy_rule_entries.get_policy_rule() or []:
-            acl_rule_list = self.policy_to_acl_rule(prule)
-            acl_entries.acl_rule.extend(acl_rule_list)
+            (ingress_list, egress_list) = self.policy_to_acl_rule(prule)
+            ingress_acl_entries.acl_rule.extend(ingress_list)
+            egress_acl_entries.acl_rule.extend(egress_list)
         # end for prule
-        self.acl = _access_control_list_update(
-            self.acl, "default-access-control-list", self.obj, acl_entries)
+        self.ingress_acl = _access_control_list_update(
+            self.ingress_acl, "ingress-access-control-list", self.obj,
+            ingress_acl_entries)
+        self.egress_acl = _access_control_list_update(
+            self.egress_acl, "egress-access-control-list", self.obj,
+            egress_acl_entries)
     # end update_policy_entries
 
     def _convert_security_group_name_to_id(self, addr):
@@ -1113,7 +1125,8 @@ class SecurityGroupST(DictST):
     # end _convert_security_group_name_to_id
 
     def policy_to_acl_rule(self, prule):
-        result_acl_rule_list = []
+        ingress_acl_rule_list = []
+        egress_acl_rule_list = []
 
         # convert policy proto input(in str) to acl proto (num)
         if prule.protocol.isdigit():
@@ -1122,27 +1135,32 @@ class SecurityGroupST(DictST):
             arule_proto = _PROTO_STR_TO_NUM[prule.protocol.lower()]
         else:
             # TODO log unknown protocol
-            return result_acl_rule_list
+            return (ingress_acl_rule_list, egress_acl_rule_list)
 
+        acl_rule_list = None
         for saddr in prule.src_addresses:
             saddr_match = copy.deepcopy(saddr)
             self._convert_security_group_name_to_id(saddr_match)
+            if saddr.security_group == 'local':
+                acl_rule_list = egress_acl_rule_list
             for sp in prule.src_ports:
                 for daddr in prule.dst_addresses:
                     daddr_match = copy.deepcopy(daddr)
                     self._convert_security_group_name_to_id(daddr_match)
+                    if daddr.security_group == 'local':
+                        acl_rule_list = ingress_acl_rule_list
                     for dp in prule.dst_ports:
                         action = ActionListType(simple_action='pass')
                         match = MatchConditionType(arule_proto,
                                                    saddr_match, sp,
                                                    daddr_match, dp)
                         acl = AclRuleType(match, action)
-                        result_acl_rule_list.append(acl)
+                        acl_rule_list.append(acl)
                     # end for dp
                 # end for daddr
             # end for sp
         # end for saddr
-        return result_acl_rule_list
+        return (ingress_acl_rule_list, egress_acl_rule_list)
     # end policy_to_acl_rule
 # end class SecurityGroupST
 
