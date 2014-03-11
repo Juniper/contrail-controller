@@ -254,9 +254,36 @@ bool FlowEntry::DoPolicy(const PacketHeader &hdr, bool ingress_flow) {
     }
 
 done:
+    // Set mirror vrf after evaluation of actions
+    SetMirrorVrfFromAction();
     // Summarize the actions based on lookups above
     ActionRecompute();
     return true;
+}
+
+// SetMirrorVrfFromAction
+// For this flow check for mirror action from dynamic ACLs or policy mirroring
+// assign the vrf from its Virtual Nework that ACL is used
+// If it is a local flow and out mirror action or policy is set
+// assign the vrf of the reverse flow, since ACL came from the reverse flow
+void FlowEntry::SetMirrorVrfFromAction() {
+    if (data_.match_p.mirror_action & (1 << TrafficAction::MIRROR) ||
+        data_.match_p.policy_action & (1 << TrafficAction::MIRROR)) {
+        const VnEntry *vn = vn_entry();
+        if (vn && vn->GetVrf()) {
+            SetMirrorVrf(vn->GetVrf()->vrf_id());
+        }
+    }
+    if (data_.match_p.out_mirror_action & (1 << TrafficAction::MIRROR) ||
+        data_.match_p.out_policy_action & (1 << TrafficAction::MIRROR)) {
+        FlowEntry *rflow = reverse_flow_entry_.get();
+        if (rflow) {
+            const VnEntry *rvn = rflow->vn_entry();
+            if (rvn && rvn->GetVrf()) {
+                SetMirrorVrf(rvn->GetVrf()->vrf_id());
+            }
+        }
+    }
 }
 
 void FlowEntry::GetSgList(const Interface *intf) {
@@ -873,9 +900,6 @@ void FlowEntry::InitFwdFlow(const PktFlowInfo *info, const PktInfo *pkt,
     data_.flow_source_vrf = info->flow_source_vrf;
     data_.flow_dest_vrf = info->flow_dest_vrf;
     data_.dest_vrf = info->dest_vrf;
-    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
-    }
 
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
@@ -926,9 +950,6 @@ void FlowEntry::InitRevFlow(const PktFlowInfo *info,
     data_.flow_source_vrf = info->flow_dest_vrf;
     data_.flow_dest_vrf = info->flow_source_vrf;
     data_.dest_vrf = info->nat_dest_vrf;
-    if (data_.vn_entry && data_.vn_entry->GetVrf()) {
-        data_.mirror_vrf = data_.vn_entry->GetVrf()->vrf_id();
-    }
     if (info->ecmp) {
         set_flags(FlowEntry::EcmpFlow);
     } else {
