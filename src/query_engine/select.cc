@@ -26,14 +26,14 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
 
     // initialize Cassandra related fields
     if (
-            (m_query->table == g_viz_constants.COLLECTOR_GLOBAL_TABLE) ||
+            (m_query->table() == g_viz_constants.COLLECTOR_GLOBAL_TABLE) ||
             (m_query->is_object_table_query())
        )
     {
         cfname = g_viz_constants.COLLECTOR_GLOBAL_TABLE;
-    } else if ((m_query->table == (g_viz_constants.FLOW_TABLE)) ||
-            (m_query->table == (g_viz_constants.OBJECT_VALUE_TABLE))) {
-        cfname = m_query->table;
+    } else if ((m_query->table() == (g_viz_constants.FLOW_TABLE)) ||
+            (m_query->table() == (g_viz_constants.OBJECT_VALUE_TABLE))) {
+        cfname = m_query->table();
     } else {
         // this is a flow series query or stats query
     }
@@ -90,7 +90,7 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             granularity = granularity * kMicrosecInSec;
             select_column_fields.push_back(TIMESTAMP_GRANULARITY);
             QE_INVALIDARG_ERROR(
-                m_query->table == g_viz_constants.FLOW_SERIES_TABLE ||
+                m_query->table() == g_viz_constants.FLOW_SERIES_TABLE ||
                 m_query->is_stat_table_query());
         } 
         else if (json_select_fields[i].GetString() ==
@@ -110,14 +110,14 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
             agg_stats_t agg_stats_entry = {SUM, PKT_STATS};
             agg_stats.push_back(agg_stats_entry);
             QE_INVALIDARG_ERROR(
-                m_query->table == g_viz_constants.FLOW_SERIES_TABLE);
+                m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }
         else if (json_select_fields[i].GetString() ==
                 std::string(SELECT_SUM_BYTES)) {
             agg_stats_t agg_stats_entry = {SUM, BYTE_STATS};
             agg_stats.push_back(agg_stats_entry);
             QE_INVALIDARG_ERROR(
-                m_query->table == g_viz_constants.FLOW_SERIES_TABLE);
+                m_query->table() == g_viz_constants.FLOW_SERIES_TABLE);
         }      
         // processing other select fields
         else {
@@ -130,11 +130,11 @@ SelectQuery::SelectQuery(QueryUnit *main_query,
         }
     }
 
-    if (m_query->table == g_viz_constants.FLOW_SERIES_TABLE) {
+    if (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         evaluate_fs_query_type();
     }
 
-    if ((m_query->table == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
+    if ((m_query->table() == g_viz_constants.FLOW_TABLE) && !uuid_key_selected) {
         select_column_fields.push_back(g_viz_constants.UUID_KEY);
     }
 }
@@ -229,7 +229,7 @@ query_status_t SelectQuery::process_query() {
         m_query->wherequery_->query_result;
     boost::shared_ptr<QueryResultMetaData> nullmetadata;
 
-    if (m_query->table == g_viz_constants.FLOW_SERIES_TABLE) {
+    if (m_query->table() == g_viz_constants.FLOW_SERIES_TABLE) {
         QE_TRACE(DEBUG, "Flow Series query type: " << fs_query_type_);
         process_fs_query_cb_map_t::const_iterator query_cb_it = 
             process_fs_query_cb_map_.find(fs_query_type_);
@@ -238,7 +238,7 @@ query_status_t SelectQuery::process_query() {
             populate_fs_result_cb_map_.find(fs_query_type_);
         QE_ASSERT(result_cb_it != populate_fs_result_cb_map_.end());
         process_fs_query(query_cb_it->second, result_cb_it->second);
-    } else if (m_query->table == (g_viz_constants.FLOW_TABLE)) {
+    } else if (m_query->table() == (g_viz_constants.FLOW_TABLE)) {
 
         std::vector<GenDb::DbDataValueVec> keys;
         std::set<boost::uuids::uuid> uuid_list;
@@ -503,11 +503,11 @@ query_status_t SelectQuery::process_query() {
         //QE_TRACE(DEBUG, "Select ProcTime - Entries : " << query_result.size() <<
         //        " json : " << jsont << " parse : " << parset << " load : " << loadt);
 
-    } else if (m_query->table == (g_viz_constants.OBJECT_VALUE_TABLE)) {
-        uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
-        uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
-        uint32_t t1_start = m_query->from_time & g_viz_constants.RowTimeInMask;
-        uint32_t t1_end = m_query->end_time & g_viz_constants.RowTimeInMask;
+    } else if (m_query->table() == (g_viz_constants.OBJECT_VALUE_TABLE)) {
+        uint32_t t2_start = m_query->from_time() >> g_viz_constants.RowTimeInBits;
+        uint32_t t2_end = m_query->end_time() >> g_viz_constants.RowTimeInBits;
+        uint32_t t1_start = m_query->from_time() & g_viz_constants.RowTimeInMask;
+        uint32_t t1_end = m_query->end_time() & g_viz_constants.RowTimeInMask;
 
         std::vector<GenDb::DbDataValueVec> keys;
         for (uint32_t t2 = t2_start; t2 < t2_end; t2++) {
