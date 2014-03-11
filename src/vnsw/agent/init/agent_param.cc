@@ -68,25 +68,6 @@ bool AgentParam::ConfigToIpAddress(const string &key, Ip4Address *addr) {
     return GetIpAddress(ip_str, addr);
 }
 
-#if 0
-static void ParseFlowTimeout(const ptree &node,
-                             const string &config_file,
-                             uint32_t *flow_cache_timeout) {
-    try {
-        optional<unsigned int> opt_str;
-        if (opt_str = node.get_optional<unsigned int>
-                      ("config.agent.flow-cache.timeout")) {
-            *flow_cache_timeout = opt_str.get();
-        } else {
-            *flow_cache_timeout = Agent::kDefaultFlowCacheTimeout;
-        }
-    } catch (exception &e) {
-        LOG(ERROR, "Error reading \"flow-cache\" node in config file <"
-            << config_file << ">. Error <" << e.what() << ">");
-    }
-}
-#endif
-
 // Initialize hypervisor mode based on system information
 // If "/proc/xen" exists it means we are running in Xen dom0
 void AgentParam::InitFromSystem() {
@@ -114,8 +95,6 @@ void AgentParam::InitFromCmdLineAndConfig() {
     GetOptValue<int>(vhost_.plen_, "VHOST.ip-prefix");
     ConfigToIpAddress("VHOST.gateway", &vhost_.gw_);
     GetOptValue<string>(eth_port_, "PHYSICAL.name");
-
-    //ParseFlowTimeout(tree, config_file_, &flow_cache_timeout_);
 
     ConfigToIpAddress("DISCOVERY-SERVER.ip", &dss_server_);
     GetOptValue<int>(xmpp_instance_count_, 
