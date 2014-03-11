@@ -394,7 +394,8 @@ class SvcMonitor(object):
             vmi_obj.set_interface_route_table(rt_obj)
 
         # remove security groups and update vmi
-        vmi_obj.set_security_group_list([])
+        if st_props.service_mode not in ['in-network', 'in-network-nat'] or st_props.service_type == 'analyzer':
+            vmi_obj.set_security_group_list([])
         self._vnc_lib.virtual_machine_interface_update(vmi_obj)
     # end _set_svc_vm_if_properties
 

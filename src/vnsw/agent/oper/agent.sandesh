@@ -92,6 +92,8 @@ struct SgSandeshData {
     2: i32 sg_id;
     3: string sg_uuid;
     4: string acl_uuid (link="AclReq");
+    5: string egress_acl_uuid (link="AclReq");
+    6: string ingress_acl_uuid (link="AclReq");
 }
 
 struct VmSgUuid {
@@ -229,6 +231,8 @@ struct SgObjectLogInfo {
     3: u32 id;
     4: string acl_uuid;
     5: u32 ref_count;
+    6: string egress_acl_uuid;
+    7: string ingress_acl_uuid;
 }
 
 objectlog sandesh SgObjectLog {
