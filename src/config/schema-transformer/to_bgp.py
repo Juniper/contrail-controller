@@ -121,39 +121,44 @@ class DictST(object):
 
 
 def _access_control_list_update(acl_obj, name, obj, entries):
-    if entries.get_acl_rule() != []:
-        if acl_obj is None:
+    if acl_obj is None:
+        try:
+            # Check if there is any stale object. If there is, delete it
+            acl_name = copy.deepcopy(obj.get_fq_name())
+            acl_name.append(name)
+            _vnc_lib.access_control_list_delete(fq_name=acl_name)
+        except NoIdError:
+            pass
+
+        if entries is None:
+            return None
+        acl_obj = AccessControlList(name, obj, entries)
+        try:
+            _vnc_lib.access_control_list_create(acl_obj)
+            return acl_obj
+        except HttpError as he:
+            _sandesh._logger.debug(
+                "HTTP error while creating acl %s for %s: %d, %s",
+                name, obj.get_fq_name_str(), he.status_code, he.content)
+        return None
+    else:
+        if entries is None:
             try:
-                # Check if there is any stale object. If there is, delete it
-                acl_name = copy.deepcopy(obj.get_fq_name())
-                acl_name.append(name)
-                _vnc_lib.access_control_list_delete(fq_name=acl_name)
+                _vnc_lib.access_control_list_delete(id=acl_obj.uuid)
             except NoIdError:
                 pass
-
-            acl_obj = AccessControlList(name, obj, entries)
-            try:
-                _vnc_lib.access_control_list_create(acl_obj)
-                return acl_obj
-            except HttpError as he:
-                _sandesh._logger.debug(
-                    "HTTP error while creating acl %s for %s: %d, %s",
-                    name, obj.get_fq_name_str(), he.status_code, he.content)
             return None
-        else:
-            # Set new value of entries on the ACL
-            acl_obj.set_access_control_list_entries(entries)
-            try:
-                _vnc_lib.access_control_list_update(acl_obj)
-            except HttpError as he:
-                _sandesh._logger.debug(
-                    "HTTP error while updating acl %s for %s: %d, %s",
-                    name, obj.get_fq_name_str(), he.status_code, he.content)
-            return acl_obj
-    elif acl_obj is not None:
-        _vnc_lib.access_control_list_delete(id=acl_obj.uuid)
-    return None
-# end _access_control_list_create
+
+        # Set new value of entries on the ACL
+        acl_obj.set_access_control_list_entries(entries)
+        try:
+            _vnc_lib.access_control_list_update(acl_obj)
+        except HttpError as he:
+            _sandesh._logger.debug(
+                "HTTP error while updating acl %s for %s: %d, %s",
+                name, obj.get_fq_name_str(), he.status_code, he.content)
+    return acl_obj
+# end _access_control_list_update
 
 # a struct to store attributes related to Virtual Networks needed by
 # schema transformer
@@ -2693,14 +2698,18 @@ class SchemaTransformer(object):
             virtual_network.connections = set()
             virtual_network.service_chains = {}
 
-            static_acl_entries = AclEntriesType(dynamic="false")
-            dynamic_acl_entries = AclEntriesType(dynamic="true")
+            static_acl_entries = None
+            dynamic_acl_entries = None
             for policy_name in virtual_network.policies:
                 timer = virtual_network.policies[policy_name].get_timer()
                 if timer is None:
+                    if static_acl_entries is None:
+                        static_acl_entries = AclEntriesType(dynamic="false")
                     acl_entries = static_acl_entries
                     dynamic = False
                 else:
+                    if dynamic_acl_entries is None:
+                        dynamic_acl_entries = AclEntriesType(dynamic="true")
                     acl_entries = dynamic_acl_entries
                     dynamic = True
                 policy = NetworkPolicyST.get(policy_name)
@@ -2738,7 +2747,7 @@ class SchemaTransformer(object):
                 # end for policy_rule_entries.policy_rule
             # end for virtual_network.policies
 
-            if static_acl_entries.get_acl_rule() != []:
+            if static_acl_entries is not None:
                 # if a static acl is created, then for each rule, we need to
                 # add a deny rule and add a my-vn to any allow rule in the end
                 acl_list = AclRuleListST()
