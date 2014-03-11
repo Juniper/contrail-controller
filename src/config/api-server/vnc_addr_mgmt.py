@@ -233,6 +233,7 @@ class AddrMgmt(object):
     # end _create_subnet_objs
 
     def net_create_req(self, obj_dict):
+        self._get_db_conn()
         vn_fq_name_str = ':'.join(obj_dict['fq_name'])
 
         self._create_subnet_objs(vn_fq_name_str, obj_dict)
