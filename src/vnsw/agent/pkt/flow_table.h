@@ -313,6 +313,8 @@ class FlowEntry {
     void FillFlowInfo(FlowInfo &info);
     void GetPolicyInfo();
     void GetPolicyInfo(const VnEntry *vn);
+    void SetMirrorVrf(const uint32_t id) {data_.mirror_vrf = id;}
+    void SetMirrorVrfFromAction();
 
     void GetPolicy(const VnEntry *vn);
     void GetSgList(const Interface *intf);
