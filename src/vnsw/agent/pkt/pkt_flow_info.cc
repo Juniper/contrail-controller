@@ -633,8 +633,8 @@ void PktFlowInfo::IngressProcess(const PktInfo *pkt, PktControlInfo *in,
 
     // If no route for DA or route points to a different VN
     // and floating-ip configured try floating-ip SNAT
-    if (out->rt_ == NULL || (in->vn_ != NULL &&
-                0 != RouteToVn(out->rt_)->compare(in->vn_->GetName()))) {
+    if (out->rt_ == NULL ||
+        (in->vn_ != NULL && *RouteToVn(out->rt_) != in->vn_->GetName())) {
         if (IntfHasFloatingIp(in->intf_)) {
             FloatingIpSNat(pkt, in, out);
         }
