@@ -609,7 +609,11 @@ class VirtualNetworkST(DictST):
 
     def expand_connections(self):
         if '*' in self.connections:
-            return self.connections - set(['*']) | self.get_vns_in_project()
+            conn = self.connections - set(['*']) | self.get_vns_in_project()
+            for vn in self._dict.values():
+                if self.name in vn.connections:
+                    conn.add(vn.name)
+            return conn
         return self.connections
     # end expand_connections
 
