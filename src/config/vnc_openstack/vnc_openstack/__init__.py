@@ -199,37 +199,10 @@ class ResourceApiDriver(vnc_plugin_base.ResourceApi):
     #end __call__
 
     def _create_default_security_group(self, proj_dict):
-        sgr_uuid = str(uuid.uuid4())
-        ingress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                      protocol='any',
-                                      src_addresses=[
-                                          AddressType(
-                                              subnet=SubnetType(
-                                                  '0.0.0.0', 0))],
-                                      src_ports=[PortType(0, 65535)],
-                                      dst_addresses=[
-                                          AddressType(security_group='local')],
-                                      dst_ports=[PortType(0, 65535)])
-        sg_rules = PolicyEntriesType([ingress_rule])
-
-        sgr_uuid = str(uuid.uuid4())
-        egress_rule = PolicyRuleType(rule_uuid=sgr_uuid, direction='>',
-                                     protocol='any',
-                                     src_addresses=[
-                                         AddressType(security_group='local')],
-                                     src_ports=[PortType(0, 65535)],
-                                     dst_addresses=[
-                                         AddressType(
-                                             subnet=SubnetType('0.0.0.0', 0))],
-                                     dst_ports=[PortType(0, 65535)])
-        sg_rules.add_policy_rule(egress_rule)
-
         proj_obj = vnc_api.Project.from_dict(**proj_dict)
 
         # create security group
-        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj,
-                                       security_group_entries=sg_rules)
-
+        sg_obj = vnc_api.SecurityGroup(name='default', parent_obj=proj_obj)
         self._vnc_lib.security_group_create(sg_obj)
     # end _create_default_security_group
 
