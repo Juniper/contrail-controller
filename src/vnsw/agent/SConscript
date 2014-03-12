@@ -86,7 +86,7 @@ if sys.platform != 'darwin':
         'agentuve',
         ])
 
-env.Prepend(LIBS=['vnswctrl', 'vnswcmn', 'vnswinit', 'cfg', 'filter'])
+env.Prepend(LIBS=['vnswoperdb', 'vnswctrl', 'vnswcmn', 'vnswinit', 'cfg', 'filter'])
 
 if sys.platform == 'darwin':
     kstate_lib =  Dir('./kstate').path + '/libkstate.a'

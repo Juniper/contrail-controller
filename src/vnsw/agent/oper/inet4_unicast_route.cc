@@ -168,6 +168,166 @@ void Inet4UnicastRouteEntry::SetKey(const DBRequestKey *key) {
     set_plen(k->plen());
 }
 
+AgentPath *Inet4UnicastRouteEntry::AllocateEcmpPath(Agent *agent,
+                                                    const AgentPath *path1,
+                                                    const AgentPath *path2) {
+    AgentPath *path = new AgentPath(agent->ecmp_peer(), NULL);
+    InsertPath(path);
+
+    // Allocate a new label for the ECMP path
+    uint32_t label = agent->GetMplsTable()->AllocLabel();
+
+    DBEntryBase::KeyPtr key1 = path1->nexthop(agent)->GetDBRequestKey();
+    NextHopKey *nh_key1 = static_cast<NextHopKey *>(key1.get());
+    nh_key1->SetPolicy(false);
+    ComponentNHData component_nh_data1(path1->label(), nh_key1);
+
+    DBEntryBase::KeyPtr key2 = path2->nexthop(agent)->GetDBRequestKey();
+    NextHopKey *nh_key2 = static_cast<NextHopKey *>(key2.get());
+    nh_key2->SetPolicy(false);
+    ComponentNHData component_nh_data2(path2->label(), nh_key2);
+
+    std::vector<ComponentNHData> component_nh_list;
+    component_nh_list.push_back(component_nh_data1);
+    component_nh_list.push_back(component_nh_data2);
+
+    // Form the request for Inet4UnicastEcmpRoute and invoke AddChangePath
+    DBRequest nh_req(DBRequest::DB_ENTRY_ADD_CHANGE);
+    nh_req.key.reset(new CompositeNHKey(vrf()->GetName(), addr_, plen_, true));
+    nh_req.data.reset(new CompositeNHData(component_nh_list,
+                                          CompositeNHData::REPLACE));
+
+    Inet4UnicastEcmpRoute data(addr_, plen_, path2->dest_vn_name(),
+                               label, true, vrf()->GetName(), path2->sg_list(),
+                               nh_req);
+
+    data.AddChangePath(agent, path);
+    //Make MPLS label point to composite NH
+    MplsLabel::CreateEcmpLabel(label, vrf()->GetName(), addr_, plen_);
+
+    RouteInfo rt_info;
+    FillTrace(rt_info, AgentRoute::CHANGE_PATH, path);
+    OPER_TRACE(Route, rt_info);
+    AGENT_ROUTE_LOG("Path change", ToString(), vrf()->GetName(),
+                    agent->ecmp_peer());
+
+    return path;
+}
+
+bool Inet4UnicastRouteEntry::EcmpDeletePath(AgentPath *path) {
+    if (path->peer() == NULL) {
+        return false;
+    }
+
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+        return false;
+    }
+
+    Agent *agent = 
+        (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
+
+    int count = 0;
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *it_path =
+            static_cast<const AgentPath *>(it.operator->());
+
+        if (it_path->peer() &&
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER)
+            count++;
+    }
+
+    AgentPath *ecmp = NULL;
+    // Sanity check. When more than one LOCAL_VM_PORT_PEER, ECMP must be present
+    if (count >= 1) {
+        ecmp = FindPath(agent->ecmp_peer());
+        assert(ecmp != NULL);
+    }
+
+    if (count == 1 && ecmp) {
+        remove(ecmp);
+        //Enqueue MPLS label delete request
+        MplsLabel::Delete(ecmp->label());
+        delete ecmp;
+    } else if (count > 1) {
+        DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->SetPolicy(false);
+        // TODO: This is inefficient. Need to fix.
+        ComponentNHData component_nh_data(path->label(), nh_key);
+
+        CompositeNH::DeleteComponentNH(vrf()->GetName(), addr_, plen_, false,
+                                       component_nh_data);
+        CompositeNH::DeleteComponentNH(vrf()->GetName(), addr_, plen_, true,
+                                       component_nh_data);
+    }
+
+    return true;
+}
+
+bool Inet4UnicastRouteEntry::EcmpAddPath(AgentPath *path) {
+
+    if (path->peer() == NULL) {
+        return false;
+    }
+
+    if (path->peer()->GetType() != Peer::LOCAL_VM_PORT_PEER) {
+        return false;
+    }
+
+    Agent *agent = 
+        (static_cast<Inet4UnicastAgentRouteTable *> (get_table()))->agent();
+
+    const AgentPath *ecmp = NULL;
+    const AgentPath *vm_port_path = NULL;
+    int count = 0;
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *it_path = 
+            static_cast<const AgentPath *>(it.operator->());
+
+        if (it_path->peer() == agent->ecmp_peer())
+            ecmp = it_path;
+
+        if (it_path->peer() &&
+            it_path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            count++;
+            if (it_path != path)
+                vm_port_path = it_path;
+        }
+    }
+
+    if (count == 0) {
+        return false;
+    }
+
+    // Sanity check. When more than one LOCAL_VM_PORT_PEER, ECMP must be present
+    if (count > 2) {
+        assert(ecmp != NULL);
+    }
+
+    if (count == 1) {
+        assert(ecmp == NULL);
+    }
+
+    if (count == 2 && ecmp == NULL) {
+        AllocateEcmpPath(agent, vm_port_path, path);
+    } else if (count > 2) {
+        DBEntryBase::KeyPtr key = path->nexthop(agent)->GetDBRequestKey();
+        NextHopKey *nh_key = static_cast<NextHopKey *>(key.get());
+        nh_key->SetPolicy(false);
+        ComponentNHData component_nh_data(path->label(), nh_key);
+
+        //Update composite NH pointed by MPLS label
+        CompositeNH::AppendComponentNH(vrf()->GetName(), addr_, plen_, true,
+                                       component_nh_data);
+        //Update new interface to route pointed composite NH
+        CompositeNH::AppendComponentNH(vrf()->GetName(), addr_, plen_, false, 
+                                       component_nh_data);
+    }
+    return true;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // AgentRouteData virtual functions
 /////////////////////////////////////////////////////////////////////////////

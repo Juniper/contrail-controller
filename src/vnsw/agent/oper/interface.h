@@ -61,7 +61,8 @@ public:
 
     // virtual functions for specific interface types
     virtual bool CmpInterface(const DBEntry &rhs) const = 0;
-    virtual void Delete() { };
+    virtual void Delete() { }
+    virtual void Add() { }
     virtual void SendTrace(Trace event) const;
     virtual void GetOsParams();
 

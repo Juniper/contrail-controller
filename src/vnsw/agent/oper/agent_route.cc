@@ -366,6 +366,10 @@ void AgentRouteTable::Input(DBTablePartition *part, DBClient *client,
                 EvaluateUnresolvedRoutes();
                 EvaluateUnresolvedNH();
             }
+
+            if (rt->EcmpAddPath(path)) {
+                notify = true;
+            }
         } else {
             assert(0);
         }
@@ -570,9 +574,22 @@ void AgentRoute::RemovePath(AgentPath *path) {
     const Path *prev_front = front();
     remove(path);
     path->clear_sg_list();
+    EcmpDeletePath(path);
     Sort(&AgentRouteTable::PathSelection, prev_front);
     delete path;
     return;
+}
+
+AgentPath *AgentRoute::FindLocalVmPortPath() const {
+    for(Route::PathList::const_iterator it = GetPathList().begin(); 
+        it != GetPathList().end(); it++) {
+        const AgentPath *path = static_cast<const AgentPath *>(it.operator->());
+        if (path->peer()->GetType() == Peer::ECMP_PEER ||
+            path->peer()->GetType() == Peer::LOCAL_VM_PORT_PEER) {
+            return const_cast<AgentPath *>(path);
+        }
+    }
+    return NULL;
 }
 
 AgentPath *AgentRoute::FindPath(const Peer *peer) const {

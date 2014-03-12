@@ -16,7 +16,9 @@ public:
         tunnel_type_(TunnelType::ComputeType(TunnelType::AllType())),
         vrf_name_(""), gw_ip_(0), unresolved_(true), dependant_rt_(rt) {
     }
-    virtual ~AgentPath() { }
+    virtual ~AgentPath() { 
+        clear_sg_list();
+    }
 
     const Peer *peer() const {return peer_;}
     const NextHop *nexthop(Agent *agent) const; 

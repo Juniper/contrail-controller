@@ -48,6 +48,11 @@ public:
     virtual Agent::RouteTableType GetTableType() const {
         return Agent::INET4_UNICAST;
     }
+    virtual bool EcmpAddPath(AgentPath *path);
+    virtual bool EcmpDeletePath(AgentPath *path);
+
+    AgentPath *AllocateEcmpPath(Agent *agent, const AgentPath *path1,
+                                const AgentPath *path2);
 
     const Ip4Address &addr() const { return addr_; }
     void set_addr(Ip4Address addr) { addr_ = addr; };

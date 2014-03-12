@@ -133,10 +133,10 @@ class EcmpTest : public ::testing::Test {
                 remote_vm_ip3_, 32);
 
         client->WaitForIdle();
-        EXPECT_FALSE(VrfFind("vrf1"));
-        EXPECT_FALSE(VrfFind("vrf2"));
-        EXPECT_FALSE(VrfFind("vn3:vn3"));
-        EXPECT_FALSE(VrfFind("vn4:vn4"));
+        EXPECT_FALSE(VrfFind("vrf1", true));
+        EXPECT_FALSE(VrfFind("vrf2", true));
+        EXPECT_FALSE(VrfFind("vn3:vn3", true));
+        EXPECT_FALSE(VrfFind("vn4:vn4", true));
     }
 
 public:
@@ -962,7 +962,7 @@ TEST_F(EcmpTest, ServiceVlanTest_4) {
             "virtual-machine-interface", "vnet12");
     DeleteVmportEnv(input2, 2, true);
     DelVrf("service-vrf1");
-    client->WaitForIdle(); 
+    client->WaitForIdle(2); 
     EXPECT_TRUE(Agent::GetInstance()->pkt()->flow_table()->Size() == 0);
 
     DeleteVmportEnv(input1, 1, true);

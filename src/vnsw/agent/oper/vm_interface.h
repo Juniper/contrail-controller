@@ -292,6 +292,7 @@ public:
     void Activate();
     void DeActivate();
     void Delete();
+    void Add();
     bool OnResyncServiceVlan(VmInterfaceConfigData *data);
     void UpdateAllRoutes();
 
@@ -419,6 +420,9 @@ private:
     FloatingIpList floating_ip_list_;
     ServiceVlanList service_vlan_list_;
     StaticRouteList static_route_list_;
+
+    // Peer for interface routes
+    std::auto_ptr<LocalVmPortPeer> peer_;
     DISALLOW_COPY_AND_ASSIGN(VmInterface);
 };
 
