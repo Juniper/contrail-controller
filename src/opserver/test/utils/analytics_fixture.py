@@ -2,6 +2,7 @@
 # Copyright (c) 2013 Juniper Networks, Inc. All rights reserved.
 #
 
+import resource
 import socket
 import fixtures
 import subprocess
@@ -78,7 +79,8 @@ class Collector(object):
         if self._is_dup is True:
             args.append('--dup')
         self._instance = subprocess.Popen(args, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
+                             stderr=subprocess.PIPE,
+                             preexec_fn = AnalyticsFixture.enable_core)
         self._logger.info('Setting up Vizd: %s' % (' '.join(args))) 
     # end start
 
@@ -212,8 +214,9 @@ class QueryEngine(object):
         if analytics_start_time is not None:
             args += ['--start-time', str(analytics_start_time)]
         self._instance = subprocess.Popen(args,
-                                          stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             preexec_fn = AnalyticsFixture.enable_core)
         self._logger.info('Setting up QueryEngine: %s' % ' '.join(args))
     # end start
 
@@ -1406,3 +1409,10 @@ class AnalyticsFixture(fixtures.Fixture):
         cport = cs.getsockname()[1]
         cs.close()
         return cport
+
+    @staticmethod
+    def enable_core():
+        try:
+	    resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
+        except:
+            pass
