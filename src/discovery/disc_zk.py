@@ -9,6 +9,7 @@ import kazoo.exceptions
 import kazoo.handlers.gevent
 import kazoo.recipe.election
 
+import logging
 import json
 import time
 import disc_consts
@@ -29,9 +30,18 @@ class DiscoveryZkClient(object):
         for ip in zk_srv_ip.split(','):
             zk_endpts.append('%s:%s' %(ip, zk_srv_port))
 
+        # logging
+        logger = logging.getLogger('discovery-service')
+        logger.setLevel(logging.INFO)
+        handler = logging.handlers.RotatingFileHandler('/var/log/contrail/discovery_zk.log', maxBytes=1024*1024, backupCount=10)
+        log_format = logging.Formatter('%(asctime)s [%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        handler.setFormatter(log_format)
+        logger.addHandler(handler)
+
         self._zk = kazoo.client.KazooClient(
             hosts=','.join(zk_endpts),
-            handler=kazoo.handlers.gevent.SequentialGeventHandler())
+            handler=kazoo.handlers.gevent.SequentialGeventHandler(),
+            logger=logger)
 
         # connect
         self.connect()
