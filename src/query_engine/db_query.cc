@@ -7,8 +7,8 @@
 query_status_t DbQueryUnit::process_query()
 {
     AnalyticsQuery *m_query = (AnalyticsQuery *)main_query;
-    uint32_t t2_start = m_query->from_time >> g_viz_constants.RowTimeInBits;
-    uint32_t t2_end = m_query->end_time >> g_viz_constants.RowTimeInBits;
+    uint32_t t2_start = m_query->from_time() >> g_viz_constants.RowTimeInBits;
+    uint32_t t2_end = m_query->end_time() >> g_viz_constants.RowTimeInBits;
 
     QE_TRACE(DEBUG,  " Database query for " << 
             (t2_end - t2_start + 1) << " rows");
@@ -93,8 +93,8 @@ query_status_t DbQueryUnit::process_query()
                     result_unit.timestamp = TIMESTAMP_FROM_T2T1(t2, t1);
 
                     if 
-                    ((result_unit.timestamp < m_query->from_time) ||
-                     (result_unit.timestamp > m_query->end_time))
+                    ((result_unit.timestamp < m_query->from_time()) ||
+                     (result_unit.timestamp > m_query->end_time()))
                     {
                         //QE_TRACE(DEBUG, "Discarding timestamp "
                         //        << result_unit.timestamp);
